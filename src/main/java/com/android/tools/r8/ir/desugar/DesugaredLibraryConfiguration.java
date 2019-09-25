@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.desugar.PrefixRewritingMapper.DesugarPrefixRewritingMapper;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.Pair;
 import com.google.common.collect.ImmutableList;
@@ -22,11 +23,13 @@ import java.util.Map;
 public class DesugaredLibraryConfiguration {
 
   // TODO(b/134732760): should use DexString, DexType, DexMethod or so on when possible.
+  private final AndroidApiLevel requiredCompilationAPILevel;
   private final boolean libraryCompilation;
   private final Map<String, String> rewritePrefix;
   private final Map<DexType, DexType> emulateLibraryInterface;
   private final Map<DexString, Map<DexType, DexType>> retargetCoreLibMember;
   private final Map<DexType, DexType> backportCoreLibraryMember;
+  private final Map<DexType, DexType> customConversions;
   private final List<Pair<DexType, DexString>> dontRewriteInvocation;
 
   public static Builder builder(DexItemFactory dexItemFactory) {
@@ -35,7 +38,9 @@ public class DesugaredLibraryConfiguration {
 
   public static DesugaredLibraryConfiguration empty() {
     return new DesugaredLibraryConfiguration(
+        AndroidApiLevel.B,
         false,
+        ImmutableMap.of(),
         ImmutableMap.of(),
         ImmutableMap.of(),
         ImmutableMap.of(),
@@ -44,17 +49,21 @@ public class DesugaredLibraryConfiguration {
   }
 
   public DesugaredLibraryConfiguration(
+      AndroidApiLevel requiredCompilationAPILevel,
       boolean libraryCompilation,
       Map<String, String> rewritePrefix,
       Map<DexType, DexType> emulateLibraryInterface,
       Map<DexString, Map<DexType, DexType>> retargetCoreLibMember,
       Map<DexType, DexType> backportCoreLibraryMember,
+      Map<DexType, DexType> customConversions,
       List<Pair<DexType, DexString>> dontRewriteInvocation) {
+    this.requiredCompilationAPILevel = requiredCompilationAPILevel;
     this.libraryCompilation = libraryCompilation;
     this.rewritePrefix = rewritePrefix;
     this.emulateLibraryInterface = emulateLibraryInterface;
     this.retargetCoreLibMember = retargetCoreLibMember;
     this.backportCoreLibraryMember = backportCoreLibraryMember;
+    this.customConversions = customConversions;
     this.dontRewriteInvocation = dontRewriteInvocation;
   }
 
@@ -62,6 +71,10 @@ public class DesugaredLibraryConfiguration {
     return rewritePrefix.isEmpty()
         ? PrefixRewritingMapper.empty()
         : new DesugarPrefixRewritingMapper(rewritePrefix, factory);
+  }
+
+  public AndroidApiLevel getRequiredCompilationApiLevel() {
+    return requiredCompilationAPILevel;
   }
 
   public boolean isLibraryCompilation() {
@@ -84,6 +97,10 @@ public class DesugaredLibraryConfiguration {
     return backportCoreLibraryMember;
   }
 
+  public Map<DexType, DexType> getCustomConversions() {
+    return customConversions;
+  }
+
   public List<Pair<DexType, DexString>> getDontRewriteInvocation() {
     return dontRewriteInvocation;
   }
@@ -92,15 +109,22 @@ public class DesugaredLibraryConfiguration {
 
     private final DexItemFactory factory;
 
+    private AndroidApiLevel requiredCompilationAPILevel;
     private boolean libraryCompilation = false;
     private Map<String, String> rewritePrefix = new HashMap<>();
     private Map<DexType, DexType> emulateLibraryInterface = new HashMap<>();
     private Map<DexString, Map<DexType, DexType>> retargetCoreLibMember = new IdentityHashMap<>();
     private Map<DexType, DexType> backportCoreLibraryMember = new HashMap<>();
+    private Map<DexType, DexType> customConversions = new HashMap<>();
     private List<Pair<DexType, DexString>> dontRewriteInvocation = new ArrayList<>();
 
     public Builder(DexItemFactory dexItemFactory) {
       this.factory = dexItemFactory;
+    }
+
+    public Builder setRequiredCompilationAPILevel(AndroidApiLevel requiredCompilationAPILevel) {
+      this.requiredCompilationAPILevel = requiredCompilationAPILevel;
+      return this;
     }
 
     public Builder setProgramCompilation() {
@@ -123,6 +147,13 @@ public class DesugaredLibraryConfiguration {
       DexType interfaceType = stringClassToDexType(emulateLibraryItf);
       DexType rewrittenType = stringClassToDexType(rewrittenEmulateLibraryItf);
       emulateLibraryInterface.put(interfaceType, rewrittenType);
+      return this;
+    }
+
+    public Builder putCustomConversion(String type, String conversionHolder) {
+      DexType dexType = stringClassToDexType(type);
+      DexType conversionType = stringClassToDexType(conversionHolder);
+      customConversions.put(dexType, conversionType);
       return this;
     }
 
@@ -169,11 +200,13 @@ public class DesugaredLibraryConfiguration {
 
     public DesugaredLibraryConfiguration build() {
       return new DesugaredLibraryConfiguration(
+          requiredCompilationAPILevel,
           libraryCompilation,
           ImmutableMap.copyOf(rewritePrefix),
           ImmutableMap.copyOf(emulateLibraryInterface),
           ImmutableMap.copyOf(retargetCoreLibMember),
           ImmutableMap.copyOf(backportCoreLibraryMember),
+          ImmutableMap.copyOf(customConversions),
           ImmutableList.copyOf(dontRewriteInvocation));
     }
   }

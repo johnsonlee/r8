@@ -161,6 +161,8 @@ public class DexItemFactory {
   public final DexString toStringMethodName = createString("toString");
   public final DexString internMethodName = createString("intern");
 
+  public final DexString convertMethodName = createString("convert");
+
   public final DexString getClassMethodName = createString("getClass");
   public final DexString finalizeMethodName = createString("finalize");
   public final DexString ordinalMethodName = createString("ordinal");
@@ -214,6 +216,10 @@ public class DexItemFactory {
   public final DexString proxyDescriptor = createString("Ljava/lang/reflect/Proxy;");
   public final DexString serviceLoaderDescriptor = createString("Ljava/util/ServiceLoader;");
   public final DexString listDescriptor = createString("Ljava/util/List;");
+  public final DexString setDescriptor = createString("Ljava/util/Set;");
+  public final DexString mapDescriptor = createString("Ljava/util/Map;");
+  public final DexString mapEntryDescriptor = createString("Ljava/util/Map$Entry;");
+  public final DexString collectionDescriptor = createString("Ljava/util/Collection;");
   public final DexString comparatorDescriptor = createString("Ljava/util/Comparator;");
   public final DexString callableDescriptor = createString("Ljava/util/concurrent/Callable;");
   public final DexString supplierDescriptor = createString("Ljava/util/function/Supplier;");
@@ -302,6 +308,10 @@ public class DexItemFactory {
   public final DexType proxyType = createType(proxyDescriptor);
   public final DexType serviceLoaderType = createType(serviceLoaderDescriptor);
   public final DexType listType = createType(listDescriptor);
+  public final DexType setType = createType(setDescriptor);
+  public final DexType mapType = createType(mapDescriptor);
+  public final DexType mapEntryType = createType(mapEntryDescriptor);
+  public final DexType collectionType = createType(collectionDescriptor);
   public final DexType comparatorType = createType(comparatorDescriptor);
   public final DexType callableType = createType(callableDescriptor);
   public final DexType supplierType = createType(supplierDescriptor);

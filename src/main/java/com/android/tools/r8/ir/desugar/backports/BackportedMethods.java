@@ -47,8 +47,7 @@ import com.google.common.collect.ImmutableList;
 
 public final class BackportedMethods {
 
-  public static CfCode BooleanMethods_compare(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode BooleanMethods_compare(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -79,8 +78,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode BooleanMethods_hashCode(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode BooleanMethods_hashCode(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -104,7 +102,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ByteMethods_compare(InternalOptions options, DexMethod method, String name) {
+  public static CfCode ByteMethods_compare(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -122,8 +120,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ByteMethods_compareUnsigned(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ByteMethods_compareUnsigned(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -145,8 +142,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ByteMethods_toUnsignedInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ByteMethods_toUnsignedInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -164,8 +160,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ByteMethods_toUnsignedLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ByteMethods_toUnsignedLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -184,8 +179,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode CharacterMethods_compare(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode CharacterMethods_compare(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -204,7 +198,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode CharacterMethods_toStringCodepoint(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -239,7 +233,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode CloseResourceMethod_closeResourceImpl(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -518,8 +512,400 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
+  public static CfCode CollectionMethods_listOfArray(InternalOptions options, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        3,
+        6,
+        ImmutableList.of(
+            label0,
+            new CfNew(options.itemFactory.createType("Ljava/util/ArrayList;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfArrayLength(),
+            new CfInvoke(
+                183,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/ArrayList;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("V"), options.itemFactory.createType("I")),
+                    options.itemFactory.createString("<init>")),
+                false),
+            new CfStore(ValueType.OBJECT, 1),
+            label1,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfStore(ValueType.OBJECT, 2),
+            new CfLoad(ValueType.OBJECT, 2),
+            new CfArrayLength(),
+            new CfStore(ValueType.INT, 3),
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 4),
+            label2,
+            new CfLoad(ValueType.INT, 4),
+            new CfLoad(ValueType.INT, 3),
+            new CfIfCmp(If.Type.GE, ValueType.INT, label5),
+            new CfLoad(ValueType.OBJECT, 2),
+            new CfLoad(ValueType.INT, 4),
+            new CfArrayLoad(MemberType.OBJECT),
+            new CfStore(ValueType.OBJECT, 5),
+            label3,
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfLoad(ValueType.OBJECT, 5),
+            new CfInvoke(
+                184,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/Objects;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/Object;"),
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("requireNonNull")),
+                false),
+            new CfInvoke(
+                182,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/ArrayList;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Z"),
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("add")),
+                false),
+            new CfStackInstruction(CfStackInstruction.Opcode.Pop),
+            label4,
+            new CfIinc(4, 1),
+            new CfGoto(label2),
+            label5,
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfInvoke(
+                184,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/Collections;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/util/List;"),
+                        options.itemFactory.createType("Ljava/util/List;")),
+                    options.itemFactory.createString("unmodifiableList")),
+                false),
+            new CfReturn(ValueType.OBJECT),
+            label6),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode CollectionMethods_mapOfEntries(InternalOptions options, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    CfLabel label8 = new CfLabel();
+    CfLabel label9 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        4,
+        8,
+        ImmutableList.of(
+            label0,
+            new CfNew(options.itemFactory.createType("Ljava/util/HashMap;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfArrayLength(),
+            new CfInvoke(
+                183,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/HashMap;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("V"), options.itemFactory.createType("I")),
+                    options.itemFactory.createString("<init>")),
+                false),
+            new CfStore(ValueType.OBJECT, 1),
+            label1,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfStore(ValueType.OBJECT, 2),
+            new CfLoad(ValueType.OBJECT, 2),
+            new CfArrayLength(),
+            new CfStore(ValueType.INT, 3),
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 4),
+            label2,
+            new CfLoad(ValueType.INT, 4),
+            new CfLoad(ValueType.INT, 3),
+            new CfIfCmp(If.Type.GE, ValueType.INT, label8),
+            new CfLoad(ValueType.OBJECT, 2),
+            new CfLoad(ValueType.INT, 4),
+            new CfArrayLoad(MemberType.OBJECT),
+            new CfStore(ValueType.OBJECT, 5),
+            label3,
+            new CfLoad(ValueType.OBJECT, 5),
+            new CfInvoke(
+                185,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/Map$Entry;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("getKey")),
+                true),
+            new CfInvoke(
+                184,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/Objects;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/Object;"),
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("requireNonNull")),
+                false),
+            new CfStore(ValueType.OBJECT, 6),
+            label4,
+            new CfLoad(ValueType.OBJECT, 5),
+            new CfInvoke(
+                185,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/Map$Entry;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("getValue")),
+                true),
+            new CfInvoke(
+                184,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/Objects;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/Object;"),
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("requireNonNull")),
+                false),
+            new CfStore(ValueType.OBJECT, 7),
+            label5,
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfLoad(ValueType.OBJECT, 6),
+            new CfLoad(ValueType.OBJECT, 7),
+            new CfInvoke(
+                182,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/HashMap;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/Object;"),
+                        options.itemFactory.createType("Ljava/lang/Object;"),
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("put")),
+                false),
+            new CfIf(If.Type.EQ, ValueType.OBJECT, label7),
+            label6,
+            new CfNew(options.itemFactory.createType("Ljava/lang/IllegalArgumentException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfNew(options.itemFactory.createType("Ljava/lang/StringBuilder;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                    options.itemFactory.createProto(options.itemFactory.createType("V")),
+                    options.itemFactory.createString("<init>")),
+                false),
+            new CfConstString(options.itemFactory.createString("duplicate key: ")),
+            new CfInvoke(
+                182,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                        options.itemFactory.createType("Ljava/lang/String;")),
+                    options.itemFactory.createString("append")),
+                false),
+            new CfLoad(ValueType.OBJECT, 6),
+            new CfInvoke(
+                182,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("append")),
+                false),
+            new CfInvoke(
+                182,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/String;")),
+                    options.itemFactory.createString("toString")),
+                false),
+            new CfInvoke(
+                183,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/lang/IllegalArgumentException;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("V"),
+                        options.itemFactory.createType("Ljava/lang/String;")),
+                    options.itemFactory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label7,
+            new CfIinc(4, 1),
+            new CfGoto(label2),
+            label8,
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfInvoke(
+                184,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/Collections;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/util/Map;"),
+                        options.itemFactory.createType("Ljava/util/Map;")),
+                    options.itemFactory.createString("unmodifiableMap")),
+                false),
+            new CfReturn(ValueType.OBJECT),
+            label9),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode CollectionMethods_setOfArray(InternalOptions options, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        4,
+        6,
+        ImmutableList.of(
+            label0,
+            new CfNew(options.itemFactory.createType("Ljava/util/HashSet;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfArrayLength(),
+            new CfInvoke(
+                183,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/HashSet;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("V"), options.itemFactory.createType("I")),
+                    options.itemFactory.createString("<init>")),
+                false),
+            new CfStore(ValueType.OBJECT, 1),
+            label1,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfStore(ValueType.OBJECT, 2),
+            new CfLoad(ValueType.OBJECT, 2),
+            new CfArrayLength(),
+            new CfStore(ValueType.INT, 3),
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 4),
+            label2,
+            new CfLoad(ValueType.INT, 4),
+            new CfLoad(ValueType.INT, 3),
+            new CfIfCmp(If.Type.GE, ValueType.INT, label6),
+            new CfLoad(ValueType.OBJECT, 2),
+            new CfLoad(ValueType.INT, 4),
+            new CfArrayLoad(MemberType.OBJECT),
+            new CfStore(ValueType.OBJECT, 5),
+            label3,
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfLoad(ValueType.OBJECT, 5),
+            new CfInvoke(
+                184,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/Objects;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/Object;"),
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("requireNonNull")),
+                false),
+            new CfInvoke(
+                182,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/HashSet;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Z"),
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("add")),
+                false),
+            new CfIf(If.Type.NE, ValueType.INT, label5),
+            label4,
+            new CfNew(options.itemFactory.createType("Ljava/lang/IllegalArgumentException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfNew(options.itemFactory.createType("Ljava/lang/StringBuilder;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                    options.itemFactory.createProto(options.itemFactory.createType("V")),
+                    options.itemFactory.createString("<init>")),
+                false),
+            new CfConstString(options.itemFactory.createString("duplicate element: ")),
+            new CfInvoke(
+                182,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                        options.itemFactory.createType("Ljava/lang/String;")),
+                    options.itemFactory.createString("append")),
+                false),
+            new CfLoad(ValueType.OBJECT, 5),
+            new CfInvoke(
+                182,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                        options.itemFactory.createType("Ljava/lang/Object;")),
+                    options.itemFactory.createString("append")),
+                false),
+            new CfInvoke(
+                182,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/lang/StringBuilder;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/lang/String;")),
+                    options.itemFactory.createString("toString")),
+                false),
+            new CfInvoke(
+                183,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/lang/IllegalArgumentException;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("V"),
+                        options.itemFactory.createType("Ljava/lang/String;")),
+                    options.itemFactory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label5,
+            new CfIinc(4, 1),
+            new CfGoto(label2),
+            label6,
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfInvoke(
+                184,
+                options.itemFactory.createMethod(
+                    options.itemFactory.createType("Ljava/util/Collections;"),
+                    options.itemFactory.createProto(
+                        options.itemFactory.createType("Ljava/util/Set;"),
+                        options.itemFactory.createType("Ljava/util/Set;")),
+                    options.itemFactory.createString("unmodifiableSet")),
+                false),
+            new CfReturn(ValueType.OBJECT),
+            label7),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
   public static CfCode CollectionsMethods_emptyEnumeration(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     return new CfCode(
         method.holder,
@@ -549,8 +935,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode CollectionsMethods_emptyIterator(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode CollectionsMethods_emptyIterator(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     return new CfCode(
         method.holder,
@@ -580,7 +965,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode CollectionsMethods_emptyListIterator(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     return new CfCode(
         method.holder,
@@ -609,8 +994,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode DoubleMethods_hashCode(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode DoubleMethods_hashCode(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -643,8 +1027,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode DoubleMethods_isFinite(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode DoubleMethods_isFinite(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -686,8 +1069,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode FloatMethods_isFinite(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode FloatMethods_isFinite(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -729,8 +1111,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode IntegerMethods_compare(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode IntegerMethods_compare(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -762,8 +1143,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode IntegerMethods_compareUnsigned(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode IntegerMethods_compareUnsigned(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -802,8 +1182,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode IntegerMethods_divideUnsigned(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode IntegerMethods_divideUnsigned(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -816,13 +1195,13 @@ public final class BackportedMethods {
             label0,
             new CfLoad(ValueType.INT, 0),
             new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfConstNumber(4294967295l, ValueType.LONG),
+            new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfStore(ValueType.LONG, 2),
             label1,
             new CfLoad(ValueType.INT, 1),
             new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfConstNumber(4294967295l, ValueType.LONG),
+            new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfStore(ValueType.LONG, 4),
             label2,
@@ -836,8 +1215,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode IntegerMethods_parseUnsignedInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode IntegerMethods_parseUnsignedInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -865,7 +1243,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode IntegerMethods_parseUnsignedIntWithRadix(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -930,7 +1308,7 @@ public final class BackportedMethods {
             new CfStore(ValueType.LONG, 2),
             label3,
             new CfLoad(ValueType.LONG, 2),
-            new CfConstNumber(4294967295l, ValueType.LONG),
+            new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfLoad(ValueType.LONG, 2),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
@@ -1025,8 +1403,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode IntegerMethods_remainderUnsigned(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode IntegerMethods_remainderUnsigned(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -1039,13 +1416,13 @@ public final class BackportedMethods {
             label0,
             new CfLoad(ValueType.INT, 0),
             new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfConstNumber(4294967295l, ValueType.LONG),
+            new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfStore(ValueType.LONG, 2),
             label1,
             new CfLoad(ValueType.INT, 1),
             new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfConstNumber(4294967295l, ValueType.LONG),
+            new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfStore(ValueType.LONG, 4),
             label2,
@@ -1059,8 +1436,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode IntegerMethods_toUnsignedLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode IntegerMethods_toUnsignedLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -1071,7 +1447,7 @@ public final class BackportedMethods {
             label0,
             new CfLoad(ValueType.INT, 0),
             new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfConstNumber(4294967295l, ValueType.LONG),
+            new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfReturn(ValueType.LONG),
             label1),
@@ -1079,8 +1455,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode IntegerMethods_toUnsignedString(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode IntegerMethods_toUnsignedString(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -1108,7 +1483,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode IntegerMethods_toUnsignedStringWithRadix(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -1120,7 +1495,7 @@ public final class BackportedMethods {
             label0,
             new CfLoad(ValueType.INT, 0),
             new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfConstNumber(4294967295l, ValueType.LONG),
+            new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfStore(ValueType.LONG, 2),
             label1,
@@ -1142,93 +1517,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ListMethods_ofArray(InternalOptions options, DexMethod method, String name) {
-    CfLabel label0 = new CfLabel();
-    CfLabel label1 = new CfLabel();
-    CfLabel label2 = new CfLabel();
-    CfLabel label3 = new CfLabel();
-    CfLabel label4 = new CfLabel();
-    CfLabel label5 = new CfLabel();
-    CfLabel label6 = new CfLabel();
-    return new CfCode(
-        method.holder,
-        3,
-        6,
-        ImmutableList.of(
-            label0,
-            new CfNew(options.itemFactory.createType("Ljava/util/ArrayList;")),
-            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
-            new CfLoad(ValueType.OBJECT, 0),
-            new CfArrayLength(),
-            new CfInvoke(
-                183,
-                options.itemFactory.createMethod(
-                    options.itemFactory.createType("Ljava/util/ArrayList;"),
-                    options.itemFactory.createProto(
-                        options.itemFactory.createType("V"), options.itemFactory.createType("I")),
-                    options.itemFactory.createString("<init>")),
-                false),
-            new CfStore(ValueType.OBJECT, 1),
-            label1,
-            new CfLoad(ValueType.OBJECT, 0),
-            new CfStore(ValueType.OBJECT, 2),
-            new CfLoad(ValueType.OBJECT, 2),
-            new CfArrayLength(),
-            new CfStore(ValueType.INT, 3),
-            new CfConstNumber(0, ValueType.INT),
-            new CfStore(ValueType.INT, 4),
-            label2,
-            new CfLoad(ValueType.INT, 4),
-            new CfLoad(ValueType.INT, 3),
-            new CfIfCmp(If.Type.GE, ValueType.INT, label5),
-            new CfLoad(ValueType.OBJECT, 2),
-            new CfLoad(ValueType.INT, 4),
-            new CfArrayLoad(MemberType.OBJECT),
-            new CfStore(ValueType.OBJECT, 5),
-            label3,
-            new CfLoad(ValueType.OBJECT, 1),
-            new CfLoad(ValueType.OBJECT, 5),
-            new CfInvoke(
-                184,
-                options.itemFactory.createMethod(
-                    options.itemFactory.createType("Ljava/util/Objects;"),
-                    options.itemFactory.createProto(
-                        options.itemFactory.createType("Ljava/lang/Object;"),
-                        options.itemFactory.createType("Ljava/lang/Object;")),
-                    options.itemFactory.createString("requireNonNull")),
-                false),
-            new CfInvoke(
-                182,
-                options.itemFactory.createMethod(
-                    options.itemFactory.createType("Ljava/util/ArrayList;"),
-                    options.itemFactory.createProto(
-                        options.itemFactory.createType("Z"),
-                        options.itemFactory.createType("Ljava/lang/Object;")),
-                    options.itemFactory.createString("add")),
-                false),
-            new CfStackInstruction(CfStackInstruction.Opcode.Pop),
-            label4,
-            new CfIinc(4, 1),
-            new CfGoto(label2),
-            label5,
-            new CfLoad(ValueType.OBJECT, 1),
-            new CfInvoke(
-                184,
-                options.itemFactory.createMethod(
-                    options.itemFactory.createType("Ljava/util/Collections;"),
-                    options.itemFactory.createProto(
-                        options.itemFactory.createType("Ljava/util/List;"),
-                        options.itemFactory.createType("Ljava/util/List;")),
-                    options.itemFactory.createString("unmodifiableList")),
-                false),
-            new CfReturn(ValueType.OBJECT),
-            label6),
-        ImmutableList.of(),
-        ImmutableList.of());
-  }
-
-  public static CfCode LongMethods_compareUnsigned(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode LongMethods_compareUnsigned(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -1240,12 +1529,12 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.LONG, 0),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfStore(ValueType.LONG, 4),
             label1,
             new CfLoad(ValueType.LONG, 2),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfStore(ValueType.LONG, 6),
             label2,
@@ -1267,8 +1556,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode LongMethods_divideUnsigned(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode LongMethods_divideUnsigned(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -1297,12 +1585,12 @@ public final class BackportedMethods {
             new CfIf(If.Type.GE, ValueType.INT, label6),
             label1,
             new CfLoad(ValueType.LONG, 0),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfStore(ValueType.LONG, 4),
             label2,
             new CfLoad(ValueType.LONG, 2),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfStore(ValueType.LONG, 6),
             label3,
@@ -1344,12 +1632,12 @@ public final class BackportedMethods {
             new CfStore(ValueType.LONG, 6),
             label10,
             new CfLoad(ValueType.LONG, 6),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfStore(ValueType.LONG, 8),
             label11,
             new CfLoad(ValueType.LONG, 2),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfStore(ValueType.LONG, 10),
             label12,
@@ -1371,8 +1659,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode LongMethods_hashCode(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode LongMethods_hashCode(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -1393,8 +1680,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode LongMethods_parseUnsignedLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode LongMethods_parseUnsignedLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -1422,7 +1708,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode LongMethods_parseUnsignedLongWithRadix(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -1679,8 +1965,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode LongMethods_remainderUnsigned(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode LongMethods_remainderUnsigned(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -1709,12 +1994,12 @@ public final class BackportedMethods {
             new CfIf(If.Type.GE, ValueType.INT, label6),
             label1,
             new CfLoad(ValueType.LONG, 0),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfStore(ValueType.LONG, 4),
             label2,
             new CfLoad(ValueType.LONG, 2),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfStore(ValueType.LONG, 6),
             label3,
@@ -1758,12 +2043,12 @@ public final class BackportedMethods {
             new CfStore(ValueType.LONG, 6),
             label10,
             new CfLoad(ValueType.LONG, 6),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfStore(ValueType.LONG, 8),
             label11,
             new CfLoad(ValueType.LONG, 2),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfStore(ValueType.LONG, 10),
             label12,
@@ -1784,8 +2069,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode LongMethods_toUnsignedString(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode LongMethods_toUnsignedString(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -1813,7 +2097,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode LongMethods_toUnsignedStringWithRadix(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2066,8 +2350,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_addExactInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_addExactInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2115,8 +2398,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_addExactLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_addExactLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2180,8 +2462,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_decrementExactInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_decrementExactInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2216,8 +2497,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_decrementExactLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_decrementExactLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2229,7 +2509,7 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.LONG, 0),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
             new CfIf(If.Type.NE, ValueType.INT, label2),
             label1,
@@ -2253,8 +2533,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_floorDivInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_floorDivInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2312,8 +2591,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_floorDivLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_floorDivLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2375,8 +2653,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_floorDivLongInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_floorDivLongInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -2404,8 +2681,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_floorModInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_floorModInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2455,8 +2731,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_floorModLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_floorModLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2510,8 +2785,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_floorModLongInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_floorModLongInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -2540,8 +2814,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_incrementExactInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_incrementExactInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2576,8 +2849,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_incrementExactLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_incrementExactLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2589,7 +2861,7 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.LONG, 0),
-            new CfConstNumber(9223372036854775807l, ValueType.LONG),
+            new CfConstNumber(9223372036854775807L, ValueType.LONG),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
             new CfIf(If.Type.NE, ValueType.INT, label2),
             label1,
@@ -2613,8 +2885,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_multiplyExactInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_multiplyExactInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2662,8 +2933,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_multiplyExactLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_multiplyExactLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2758,7 +3028,7 @@ public final class BackportedMethods {
             new CfConstNumber(0, ValueType.INT),
             label9,
             new CfLoad(ValueType.LONG, 2),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
             new CfIf(If.Type.EQ, ValueType.INT, label10),
             new CfConstNumber(1, ValueType.INT),
@@ -2803,8 +3073,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_multiplyExactLongInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_multiplyExactLongInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -2832,8 +3101,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_negateExactInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_negateExactInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2867,8 +3135,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_negateExactLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_negateExactLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -2880,7 +3147,7 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.LONG, 0),
-            new CfConstNumber(-9223372036854775808l, ValueType.LONG),
+            new CfConstNumber(-9223372036854775808L, ValueType.LONG),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
             new CfIf(If.Type.NE, ValueType.INT, label2),
             label1,
@@ -2903,8 +3170,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_nextDownDouble(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_nextDownDouble(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -2930,8 +3196,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_nextDownFloat(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_nextDownFloat(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -2957,8 +3222,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_subtractExactInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_subtractExactInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3006,8 +3270,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_subtractExactLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_subtractExactLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3071,8 +3334,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_toIntExact(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode MathMethods_toIntExact(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3113,7 +3375,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode ObjectsMethods_checkFromIndexSize(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3253,8 +3515,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ObjectsMethods_checkFromToIndex(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ObjectsMethods_checkFromToIndex(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3371,8 +3632,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ObjectsMethods_checkIndex(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ObjectsMethods_checkIndex(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3466,8 +3726,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ObjectsMethods_compare(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ObjectsMethods_compare(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3504,8 +3763,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ObjectsMethods_deepEquals(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ObjectsMethods_deepEquals(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3841,8 +4099,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ObjectsMethods_equals(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ObjectsMethods_equals(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3883,8 +4140,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ObjectsMethods_hashCode(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ObjectsMethods_hashCode(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3915,8 +4171,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ObjectsMethods_isNull(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ObjectsMethods_isNull(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3940,8 +4195,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ObjectsMethods_nonNull(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ObjectsMethods_nonNull(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -3966,7 +4220,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode ObjectsMethods_requireNonNullElse(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4000,7 +4254,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode ObjectsMethods_requireNonNullElseGet(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4058,7 +4312,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode ObjectsMethods_requireNonNullMessage(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4093,8 +4347,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ObjectsMethods_toString(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ObjectsMethods_toString(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -4121,8 +4374,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ObjectsMethods_toStringDefault(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ObjectsMethods_toStringDefault(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4154,8 +4406,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode OptionalMethods_ifPresentOrElse(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode OptionalMethods_ifPresentOrElse(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4214,7 +4465,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode OptionalMethods_ifPresentOrElseDouble(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4271,7 +4522,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode OptionalMethods_ifPresentOrElseInt(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4328,7 +4579,7 @@ public final class BackportedMethods {
   }
 
   public static CfCode OptionalMethods_ifPresentOrElseLong(
-      InternalOptions options, DexMethod method, String name) {
+      InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4384,7 +4635,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode OptionalMethods_or(InternalOptions options, DexMethod method, String name) {
+  public static CfCode OptionalMethods_or(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4451,8 +4702,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode OptionalMethods_stream(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode OptionalMethods_stream(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4507,8 +4757,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ShortMethods_compare(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ShortMethods_compare(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -4526,8 +4775,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ShortMethods_compareUnsigned(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ShortMethods_compareUnsigned(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -4549,8 +4797,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ShortMethods_toUnsignedInt(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ShortMethods_toUnsignedInt(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -4568,8 +4815,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode ShortMethods_toUnsignedLong(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode ShortMethods_toUnsignedLong(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     return new CfCode(
@@ -4588,8 +4834,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode StringMethods_joinArray(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode StringMethods_joinArray(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -4707,8 +4952,7 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode StringMethods_joinIterable(
-      InternalOptions options, DexMethod method, String name) {
+  public static CfCode StringMethods_joinIterable(InternalOptions options, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();

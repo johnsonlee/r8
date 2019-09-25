@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.analysis.InitializedClassesOnNormalExitAnalysis;
 import com.android.tools.r8.ir.analysis.TypeChecker;
 import com.android.tools.r8.ir.analysis.constant.SparseConditionalConstantPropagation;
 import com.android.tools.r8.ir.analysis.fieldaccess.FieldBitAccessAnalysis;
+import com.android.tools.r8.ir.analysis.fieldvalueanalysis.FieldValueAnalysis;
 import com.android.tools.r8.ir.analysis.sideeffect.ClassInitializerSideEffectAnalysis;
 import com.android.tools.r8.ir.analysis.sideeffect.ClassInitializerSideEffectAnalysis.ClassInitializerSideEffect;
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
@@ -1110,8 +1111,7 @@ public class IRConverter {
     }
 
     if (memberValuePropagation != null) {
-      memberValuePropagation.rewriteWithConstantValues(
-          code, method.method.holder, isProcessedConcurrently);
+      memberValuePropagation.rewriteWithConstantValues(code, method.method.holder);
     }
     if (options.enableEnumValueOptimization) {
       assert appView.enableWholeProgramOptimizations();
@@ -1217,7 +1217,7 @@ public class IRConverter {
     codeRewriter.rewriteThrowNullPointerException(code);
 
     if (classInitializerDefaultsOptimization != null && !isDebugMode) {
-      classInitializerDefaultsOptimization.optimize(method, code, feedback);
+      classInitializerDefaultsOptimization.optimize(method, code);
     }
 
     if (Log.ENABLED) {
@@ -1246,26 +1246,6 @@ public class IRConverter {
       assert code.isConsistentSSA();
     }
     previous = printMethod(code, "IR after lambda desugaring (SSA)", previous);
-
-    assert code.verifyTypes(appView);
-
-    if (nonNullTracker != null) {
-      // TODO(b/139246447): Once we extend this optimization to, e.g., constants of primitive args,
-      //   this may not be the right place to collect call site optimization info.
-      // Collecting call-site optimization info depends on the existence of non-null IRs.
-      // Arguments can be changed during the debug mode.
-      if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
-        appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code);
-      }
-      // Computation of non-null parameters on normal exits rely on the existence of non-null IRs.
-      nonNullTracker.computeNonNullParamOnNormalExits(feedback, code);
-    }
-    if (aliasIntroducer != null || nonNullTracker != null || dynamicTypeOptimization != null) {
-      codeRewriter.removeAssumeInstructions(code);
-      assert code.isConsistentSSA();
-    }
-    // Assert that we do not have unremoved non-sense code in the output, e.g., v <- non-null NULL.
-    assert code.verifyNoNullabilityBottomTypes();
 
     assert code.verifyTypes(appView);
 
@@ -1337,6 +1317,26 @@ public class IRConverter {
       assert code.isConsistentSSA();
     }
 
+    if (nonNullTracker != null) {
+      // TODO(b/139246447): Once we extend this optimization to, e.g., constants of primitive args,
+      //   this may not be the right place to collect call site optimization info.
+      // Collecting call-site optimization info depends on the existence of non-null IRs.
+      // Arguments can be changed during the debug mode.
+      if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
+        appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code);
+      }
+      // Computation of non-null parameters on normal exits rely on the existence of non-null IRs.
+      nonNullTracker.computeNonNullParamOnNormalExits(feedback, code);
+    }
+    if (aliasIntroducer != null || nonNullTracker != null || dynamicTypeOptimization != null) {
+      codeRewriter.removeAssumeInstructions(code);
+      assert code.isConsistentSSA();
+    }
+    // Assert that we do not have unremoved non-sense code in the output, e.g., v <- non-null NULL.
+    assert code.verifyNoNullabilityBottomTypes();
+
+    assert code.verifyTypes(appView);
+
     previous = printMethod(code, "IR after outline handler (SSA)", previous);
 
     // TODO(mkroghj) Test if shorten live ranges is worth it.
@@ -1384,6 +1384,7 @@ public class IRConverter {
         }
 
         computeDynamicReturnType(feedback, method, code);
+        FieldValueAnalysis.run(appView, code, feedback, method);
         computeInitializedClassesOnNormalExit(feedback, method, code);
         computeMayHaveSideEffects(feedback, method, code);
         computeReturnValueOnlyDependsOnArguments(feedback, method, code);

@@ -262,7 +262,6 @@ public class IRCode {
   }
 
   public boolean controlFlowMayDependOnEnvironment(AppView<?> appView) {
-    DexType context = method.method.holder;
     for (BasicBlock block : blocks) {
       if (block.hasCatchHandlers()) {
         // Whether an instruction throws may generally depend on the environment.
@@ -1009,14 +1008,22 @@ public class IRCode {
   }
 
   public void removeAllTrivialPhis() {
-    removeAllTrivialPhis(null);
+    removeAllTrivialPhis(null, null);
   }
 
   public void removeAllTrivialPhis(IRBuilder builder) {
+    removeAllTrivialPhis(builder, null);
+  }
+
+  public void removeAllTrivialPhis(Set<Value> affectedValues) {
+    removeAllTrivialPhis(null, affectedValues);
+  }
+
+  public void removeAllTrivialPhis(IRBuilder builder, Set<Value> affectedValues) {
     for (BasicBlock block : blocks) {
       List<Phi> phis = new ArrayList<>(block.getPhis());
       for (Phi phi : phis) {
-        phi.removeTrivialPhi(builder);
+        phi.removeTrivialPhi(builder, affectedValues);
       }
     }
   }

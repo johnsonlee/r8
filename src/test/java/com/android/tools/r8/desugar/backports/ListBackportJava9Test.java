@@ -11,6 +11,7 @@ import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -22,6 +23,7 @@ public class ListBackportJava9Test extends AbstractBackportTest {
     return getTestParameters()
         .withCfRuntimesStartingFromIncluding(CfVm.JDK9)
         .withDexRuntimes()
+        .withAllApiLevels()
         .build();
   }
 
@@ -29,7 +31,13 @@ public class ListBackportJava9Test extends AbstractBackportTest {
       Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR).resolve("backport" + JAR_EXTENSION);
 
   public ListBackportJava9Test(TestParameters parameters) {
-    super(parameters, Byte.class, TEST_JAR, "backport.ListBackportJava9Main");
-    // TODO Once shipped in an actual API level, migrate to ByteBackportTest
+    super(parameters, List.class, TEST_JAR, "backport.ListBackportJava9Main");
+    // TODO Once shipped in an actual API level, migrate to ListBackportTest
+
+    // Available since API 1 and used to test created lists.
+    ignoreInvokes("add");
+    ignoreInvokes("get");
+    ignoreInvokes("set");
+    ignoreInvokes("size");
   }
 }

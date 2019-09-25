@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.desugar;
 
 import com.android.tools.r8.StringResource;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.gson.JsonArray;
@@ -57,6 +58,10 @@ public class DesugaredLibraryConfigurationParser {
               "Unsupported desugared library configuration version, please upgrade the D8/R8"
                   + " compiler."));
     }
+    int required_compilation_api_level =
+        jsonConfig.get("required_compilation_api_level").getAsInt();
+    configurationBuilder.setRequiredCompilationAPILevel(
+        AndroidApiLevel.getAndroidApiLevel(required_compilation_api_level));
     JsonArray jsonFlags =
         libraryCompilation
             ? jsonConfig.getAsJsonArray("library_flags")
@@ -98,6 +103,13 @@ public class DesugaredLibraryConfigurationParser {
       for (Map.Entry<String, JsonElement> itf :
           jsonFlagSet.get("emulate_interface").getAsJsonObject().entrySet()) {
         configurationBuilder.putEmulateLibraryInterface(itf.getKey(), itf.getValue().getAsString());
+      }
+    }
+    if (jsonFlagSet.has("custom_conversion")) {
+      for (Map.Entry<String, JsonElement> conversion :
+          jsonFlagSet.get("custom_conversion").getAsJsonObject().entrySet()) {
+        configurationBuilder.putCustomConversion(
+            conversion.getKey(), conversion.getValue().getAsString());
       }
     }
     if (jsonFlagSet.has("dont_rewrite")) {

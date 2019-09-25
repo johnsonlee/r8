@@ -1,11 +1,12 @@
 {
   "configuration_format_version": 1,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "required_compilation_api_level": 26,
   "library_flags": [
     {
       "api_level_below_or_equal": 25,
       "rewrite_prefix": {
+        "j$.time.": "java.time.",
         "java.time.": "j$.time.",
         "java.util.Desugar": "j$.util.Desugar"
       },
@@ -71,6 +72,14 @@
         "java.util.Date#toInstant": "java.util.DesugarDate",
         "java.util.GregorianCalendar#from": "java.util.DesugarGregorianCalendar",
         "java.util.GregorianCalendar#toZonedDateTime": "java.util.DesugarGregorianCalendar"
+      },
+      "custom_conversion": {
+        "java.time.ZonedDateTime": "j$.time.TimeConversions",
+        "java.time.LocalDate": "j$.time.TimeConversions",
+        "java.time.Duration": "j$.time.TimeConversions",
+        "java.time.ZoneId": "j$.time.TimeConversions",
+        "java.time.MonthDay": "j$.time.TimeConversions",
+        "java.time.Instant": "j$.time.TimeConversions"
       }
     },
     {
