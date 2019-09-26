@@ -4,7 +4,9 @@
 package com.android.tools.r8.dexsplitter;
 
 import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.assertNotEquals;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DexIndexedConsumer;
@@ -18,10 +20,13 @@ import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -45,7 +50,7 @@ public class R8FeatureSplitTest extends SplitterTestBase {
 
   private static FeatureSplit emptySplitProvider(FeatureSplit.Builder builder) {
     builder
-        .addProgramResourceProvider(() -> ImmutableList.of())
+        .addProgramResourceProvider(ImmutableList::of)
         .setProgramConsumer(DexIndexedConsumer.emptyConsumer());
     return builder.build();
   }
@@ -111,6 +116,74 @@ public class R8FeatureSplitTest extends SplitterTestBase {
     assertEquals(markers.iterator().next(), feature2Markers.iterator().next());
   }
 
+  @Test
+  public void testNonJavaPassThrough() throws IOException, CompilationFailedException {
+    Path basePath = temp.newFile("base.zip").toPath();
+    Path feature1Path = temp.newFile("feature1.zip").toPath();
+    Path feature2Path = temp.newFile("feature2.zip").toPath();
+    Collection<String> nonJavaFiles = ImmutableList.of("foobar", "barfoo");
+
+    testForR8(parameters.getBackend())
+        .addProgramClasses(BaseClass.class, RunInterface.class, SplitRunner.class)
+        .setMinApi(parameters.getRuntime())
+        .addFeatureSplit(
+            builder ->
+                splitWithNonJavaFile(
+                    builder, feature1Path, temp, nonJavaFiles, true, FeatureClass.class))
+        .addFeatureSplit(
+            builder ->
+                splitWithNonJavaFile(
+                    builder, feature2Path, temp, nonJavaFiles, true, FeatureClass2.class))
+        .addKeepAllClassesRule()
+        .compile()
+        .writeToZip(basePath);
+    for (Path feature : ImmutableList.of(feature1Path, feature2Path)) {
+      ZipFile zipFile = new ZipFile(feature.toFile());
+      for (String nonJavaFile : nonJavaFiles) {
+        ZipEntry entry = zipFile.getEntry(nonJavaFile);
+        assertNotNull(entry);
+        String content = new String(ByteStreams.toByteArray(zipFile.getInputStream(entry)));
+        assertEquals(content, nonJavaFile);
+      }
+    }
+  }
+
+  @Test
+  public void testAdaptResourceContentInSplits() throws IOException, CompilationFailedException {
+    Path basePath = temp.newFile("base.zip").toPath();
+    Path feature1Path = temp.newFile("feature1.zip").toPath();
+    Path feature2Path = temp.newFile("feature2.zip").toPath();
+    // Make the content of the data resource be class names
+    Collection<String> nonJavaFiles =
+        ImmutableList.of(FeatureClass.class.getName(), FeatureClass2.class.getName());
+
+    testForR8(parameters.getBackend())
+        .addProgramClasses(BaseClass.class, RunInterface.class, SplitRunner.class)
+        .setMinApi(parameters.getRuntime())
+        .addFeatureSplit(
+            builder ->
+                splitWithNonJavaFile(
+                    builder, feature1Path, temp, nonJavaFiles, false, FeatureClass.class))
+        .addFeatureSplit(
+            builder ->
+                splitWithNonJavaFile(
+                    builder, feature2Path, temp, nonJavaFiles, false, FeatureClass2.class))
+        .addKeepClassRulesWithAllowObfuscation(
+            BaseClass.class, FeatureClass.class, FeatureClass2.class)
+        .addKeepRules("-adaptresourcefilecontents")
+        .compile()
+        .writeToZip(basePath);
+    for (Path feature : ImmutableList.of(feature1Path, feature2Path)) {
+      ZipFile zipFile = new ZipFile(feature.toFile());
+      for (String nonJavaFile : nonJavaFiles) {
+        ZipEntry entry = zipFile.getEntry(nonJavaFile);
+        assertNotNull(entry);
+        String content = new String(ByteStreams.toByteArray(zipFile.getInputStream(entry)));
+        assertNotEquals(content, nonJavaFile);
+      }
+    }
+  }
+
   public static class HelloWorld {
     public static void main(String[] args) {
       System.out.println("Hello world");
@@ -168,6 +241,7 @@ public class R8FeatureSplitTest extends SplitterTestBase {
     public Path getFeature2Path() {
       return feature2Path;
     }
+
 
     public CompiledWithFeature invoke() throws IOException, CompilationFailedException {
       basePath = temp.newFile("base.zip").toPath();
