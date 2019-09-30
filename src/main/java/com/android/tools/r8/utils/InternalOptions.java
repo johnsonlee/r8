@@ -197,9 +197,6 @@ public class InternalOptions {
   public boolean enableNonNullTracking = true;
   public boolean enableInlining =
       !Version.isDev() || System.getProperty("com.android.tools.r8.disableinlining") == null;
-  public boolean enableInliningOfInvokesWithDefinitelyNullReceivers =
-      System.getProperty("com.android.tools.r8.disableInliningOfInvokesWithDefinitelyNullReceivers")
-          == null;
   public boolean enableInliningOfInvokesWithNullableReceivers = true;
   public boolean disableInliningOfLibraryMethodOverrides = true;
   public boolean enableClassInlining = true;
@@ -616,7 +613,6 @@ public class InternalOptions {
   // code objects needed for correct desugaring needs to be provided to the consumer.
   public DesugarGraphConsumer desugarGraphConsumer = null;
 
-  public Path proguardCompatibilityRulesOutput = null;
   public Consumer<List<ProguardConfigurationRule>> syntheticProguardRulesConsumer = null;
 
   public static boolean assertionsEnabled() {

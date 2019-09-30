@@ -273,7 +273,7 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> implements Resolut
 
   public boolean isDefaultMethod() {
     // Assumes holder is an interface
-    return !isAbstract() && !isPrivateMethod() && !isInstanceInitializer();
+    return !isStatic() && !isAbstract() && !isPrivateMethod() && !isInstanceInitializer();
   }
 
   /**
@@ -600,11 +600,6 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> implements Resolut
     return this;
   }
 
-  public IRCode buildEmptyThrowingIRCode(AppView<?> appView, Origin origin) {
-    DexCode emptyThrowingDexCode = buildEmptyThrowingDexCode();
-    return emptyThrowingDexCode.buildIR(this, appView, origin);
-  }
-
   /**
    * Generates a {@link DexCode} object for the given instructions.
    */
@@ -887,7 +882,7 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> implements Resolut
       List<Pair<DexType, DexMethod>> extraDispatchCases,
       AppView<?> appView) {
     // TODO(134732760): Deal with overrides for correct dispatch to implementations of Interfaces
-    assert isDefaultMethod();
+    assert isDefaultMethod() || isStatic();
     DexEncodedMethod.Builder builder = DexEncodedMethod.builder(this);
     builder.setMethod(newMethod);
     builder.accessFlags.setSynthetic();

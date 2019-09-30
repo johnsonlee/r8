@@ -13,6 +13,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -150,7 +151,8 @@ public final class L8Command extends BaseCompilerCommand {
   @Keep
   public static class Builder extends BaseCompilerCommand.Builder<L8Command, Builder> {
 
-    private final List<Pair<List<String>, Origin>> proguardConfigs = new ArrayList<>();
+    private final List<Pair<List<String>, Origin>> proguardConfigStrings = new ArrayList<>();
+    private final List<Path> proguardConfigFiles = new ArrayList<>();
 
     private Builder() {
       this(new DefaultL8DiagnosticsHandler());
@@ -161,8 +163,15 @@ public final class L8Command extends BaseCompilerCommand {
     }
 
     public boolean isShrinking() {
+      // TODO(b/139273544): Re-enable shrinking once fixed.
+      getReporter()
+          .warning(
+              new StringDiagnostic(
+                  "Shrinking of desugared library has been temporarily disabled due to known bugs"
+                      + " being fixed."));
+      return false;
       // Answers true if keep rules, even empty, are provided.
-      return !proguardConfigs.isEmpty();
+      // return !proguardConfigStrings.isEmpty() || !proguardConfigFiles.isEmpty();
     }
 
     @Override
@@ -175,16 +184,28 @@ public final class L8Command extends BaseCompilerCommand {
       return CompilationMode.DEBUG;
     }
 
+    /** Add proguard configuration-file resources. */
+    public Builder addProguardConfigurationFiles(Path... paths) {
+      Collections.addAll(proguardConfigFiles, paths);
+      return self();
+    }
+
+    /** Add proguard configuration-file resources. */
+    public Builder addProguardConfigurationFiles(List<Path> paths) {
+      proguardConfigFiles.addAll(paths);
+      return self();
+    }
+
     /** Add proguard configuration. */
     public Builder addProguardConfiguration(List<String> lines, Origin origin) {
-      proguardConfigs.add(new Pair<>(lines, origin));
-      return this;
+      proguardConfigStrings.add(new Pair<>(lines, origin));
+      return self();
     }
 
     @Override
     void validate() {
       Reporter reporter = getReporter();
-      if (!hasDesugaredLibraryConfiguration()){
+      if (!hasDesugaredLibraryConfiguration()) {
         reporter.error("L8 requires a desugared library configuration");
       }
       if (getProgramConsumer() instanceof ClassFileConsumer) {
@@ -238,9 +259,10 @@ public final class L8Command extends BaseCompilerCommand {
             inputs.getLibraryResourceProviders()) {
           r8Builder.addLibraryResourceProvider(libraryResourceProvider);
         }
-        for (Pair<List<String>, Origin> proguardConfig : proguardConfigs) {
+        for (Pair<List<String>, Origin> proguardConfig : proguardConfigStrings) {
           r8Builder.addProguardConfiguration(proguardConfig.getFirst(), proguardConfig.getSecond());
         }
+        r8Builder.addProguardConfigurationFiles(proguardConfigFiles);
         r8Command = r8Builder.makeCommand();
       } else {
         D8Command.Builder d8Builder =

@@ -153,6 +153,10 @@ public class Assume<An extends Assumption> extends Instruction {
     return self;
   }
 
+  public boolean mayAffectStaticType() {
+    return isAssumeNonNull();
+  }
+
   @Override
   public boolean couldIntroduceAnAlias(AppView<?> appView, Value root) {
     assert root != null && root.getTypeLattice().isReference();
@@ -237,7 +241,7 @@ public class Assume<An extends Assumption> extends Instruction {
     }
     if (assumption.isAssumeNonNull()) {
       assert src().getTypeLattice().isReference();
-      return src().getTypeLattice().asReferenceTypeLatticeElement().asNotNull();
+      return src().getTypeLattice().asReferenceTypeLatticeElement().asMeetWithNotNull();
     }
     throw new Unimplemented();
   }
@@ -276,7 +280,7 @@ public class Assume<An extends Assumption> extends Instruction {
       assert isAssumeNonNull() : this;
       assert inType.isReference() : inType;
       assert inType.isNullType()
-          || outType.equals(inType.asReferenceTypeLatticeElement().asNotNull())
+          || outType.equals(inType.asReferenceTypeLatticeElement().asMeetWithNotNull())
               : "At " + this + System.lineSeparator() + outType + " != " + inType;
     }
     return true;
@@ -284,16 +288,20 @@ public class Assume<An extends Assumption> extends Instruction {
 
   @Override
   public String toString() {
-    String originString = "(origin: `" + origin.toString() + "`)";
-    if (isAssumeNone()) {
-      return super.toString() + "; nothing " + originString;
+    // During branch simplification, the origin `if` could be simplified.
+    // It means the assumption became "truth."
+    assert origin.hasBlock() || isAssumeNonNull();
+    String originString =
+        origin.hasBlock() ? " (origin: `" + origin.toString() + "`)" : " (origin simplified)";
+    if (isAssumeNone() || isAssumeNonNull()) {
+      return super.toString() + originString;
     }
     if (isAssumeDynamicType()) {
+      DynamicTypeAssumption assumption = asAssumeDynamicType().getAssumption();
       return super.toString()
-          + "; type: " + asAssumeDynamicType().getAssumption().type + originString;
-    }
-    if (isAssumeNonNull()) {
-      return super.toString() + "; not null " + originString;
+          + "; upper bound: " + assumption.type
+          + (assumption.lowerBoundType != null ? "; lower bound: " + assumption.lowerBoundType : "")
+          + originString;
     }
     return super.toString();
   }
