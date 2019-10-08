@@ -1,7 +1,6 @@
 // Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.desugar.corelib.conversionTests;
 
 import static org.hamcrest.CoreMatchers.endsWith;
@@ -50,24 +49,25 @@ public class APIConversionTest extends CoreLibDesugarTestBase {
         .assertNoWarningMessageThatMatches(endsWith("is a desugared type)."))
         .run(parameters.getRuntime(), Executor.class)
         .assertSuccessWithOutput(
-            StringUtils.lines("[5, 6, 7]", "java.util.stream.IntPipeline$Head"));
+            StringUtils.lines(
+                "[5, 6, 7]", "java.util.stream.IntPipeline$Head", "IntSummaryStatistics"));
   }
 
   @Test
   public void testAPIConversionDesugaring() throws Exception {
-    // TODO(b/): Make library API work when library desugaring is on.
     testForD8()
         .addInnerClasses(APIConversionTest.class)
         .setMinApi(parameters.getApiLevel())
         .enableCoreLibraryDesugaring(parameters.getApiLevel())
         .compile()
-        .assertWarningMessageThatMatches(containsString("java.util.Arrays#setAll"))
-        .assertWarningMessageThatMatches(containsString("java.util.Random#ints"))
-        .assertWarningMessageThatMatches(endsWith("is a desugared type)."))
         .addDesugaredCoreLibraryRunClassPath(this::buildDesugaredLibrary, parameters.getApiLevel())
         .run(parameters.getRuntime(), Executor.class)
-        .assertFailureWithErrorThatMatches(
-            containsString("NoSuchMethodError: No static method setAll"));
+        .assertSuccessWithOutput(
+            StringUtils.lines(
+                "[5, 6, 7]",
+                "j$.util.stream.IntStream$-V-WRP",
+                "Unsupported conversion for java.util.IntSummaryStatistics. See compilation time"
+                    + " warnings for more infos."));
   }
 
   static class Executor {
@@ -78,6 +78,29 @@ public class APIConversionTest extends CoreLibDesugarTestBase {
       System.out.println(Arrays.toString(ints));
       IntStream intStream = new Random().ints();
       System.out.println(intStream.getClass().getName());
+      CharSequence charSequence =
+          new CharSequence() {
+            @Override
+            public int length() {
+              return 1;
+            }
+
+            @Override
+            public char charAt(int index) {
+              return 42;
+            }
+
+            @Override
+            public CharSequence subSequence(int start, int end) {
+              return null;
+            }
+          };
+      IntStream fixedSizedIntStream = charSequence.codePoints();
+      try {
+        System.out.println(fixedSizedIntStream.summaryStatistics().getClass().getSimpleName());
+      } catch (RuntimeException e) {
+        System.out.println(e.getMessage());
+      }
     }
   }
 

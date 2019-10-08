@@ -44,7 +44,6 @@ public class WithStaticizerTest extends TestBase {
         .addKeepMainRule(MAIN)
         .enableInliningAnnotations()
         .enableClassInliningAnnotations()
-        .noMinification()
         .setMinApi(parameters.getRuntime())
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines("Input")

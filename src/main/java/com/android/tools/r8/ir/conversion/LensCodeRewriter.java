@@ -31,7 +31,6 @@ import com.android.tools.r8.graph.GraphLense.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.GraphLense.RewrittenPrototypeDescription.RemovedArgumentsInfo;
 import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
 import com.android.tools.r8.ir.analysis.type.DestructivePhiTypeUpdater;
-import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CatchHandlers;
@@ -118,24 +117,8 @@ public class LensCodeRewriter {
         if (current.isInvokeCustom()) {
           InvokeCustom invokeCustom = current.asInvokeCustom();
           DexCallSite callSite = invokeCustom.getCallSite();
-          DexProto newMethodProto =
-              factory.applyClassMappingToProto(
-                  callSite.methodProto, graphLense::lookupType, protoFixupCache);
-          DexMethodHandle newBootstrapMethod = rewriteDexMethodHandle(
-              callSite.bootstrapMethod, method, NOT_ARGUMENT_TO_LAMBDA_METAFACTORY);
-          boolean isLambdaMetaFactory =
-              factory.isLambdaMetafactoryMethod(callSite.bootstrapMethod.asMethod());
-          MethodHandleUse methodHandleUse = isLambdaMetaFactory
-              ? ARGUMENT_TO_LAMBDA_METAFACTORY
-              : NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
-          List<DexValue> newArgs =
-              rewriteBootstrapArgs(callSite.bootstrapArgs, method, methodHandleUse);
-          if (!newMethodProto.equals(callSite.methodProto)
-              || newBootstrapMethod != callSite.bootstrapMethod
-              || !newArgs.equals(callSite.bootstrapArgs)) {
-            DexCallSite newCallSite =
-                factory.createCallSite(
-                    callSite.methodName, newMethodProto, newBootstrapMethod, newArgs);
+          DexCallSite newCallSite = rewriteCallSite(callSite, method);
+          if (newCallSite != callSite) {
             Value newOutValue = makeOutValue(invokeCustom, code);
             InvokeCustom newInvokeCustom =
                 new InvokeCustom(newCallSite, newOutValue, invokeCustom.inValues());
@@ -242,8 +225,6 @@ public class LensCodeRewriter {
                   newInValues.add(invoke.inValues().get(i));
                 }
               }
-              assert newInValues.size()
-                  == actualTarget.proto.parameters.size() + (actualInvokeType == STATIC ? 0 : 1);
             } else {
               newInValues = invoke.inValues();
             }
@@ -254,6 +235,9 @@ public class LensCodeRewriter {
               iterator.next();
               newInValues.add(extraNullValue);
             }
+
+            assert newInValues.size()
+                == actualTarget.proto.parameters.size() + (actualInvokeType == STATIC ? 0 : 1);
 
             Invoke newInvoke =
                 Invoke.create(actualInvokeType, actualTarget, null, newOutValue, newInValues);
@@ -414,12 +398,33 @@ public class LensCodeRewriter {
       code.removeUnreachableBlocks();
     }
     if (!affectedPhis.isEmpty()) {
-      new DestructivePhiTypeUpdater(appView).recomputeTypes(code, affectedPhis);
-      new TypeAnalysis(appView).narrowing(affectedPhis);
+      new DestructivePhiTypeUpdater(appView).recomputeAndPropagateTypes(code, affectedPhis);
       assert code.verifyTypes(appView);
     }
     assert code.isConsistentSSA();
     assert code.hasNoVerticallyMergedClasses(appView);
+  }
+
+  public DexCallSite rewriteCallSite(DexCallSite callSite, DexEncodedMethod context) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    DexProto newMethodProto =
+        dexItemFactory.applyClassMappingToProto(
+            callSite.methodProto, appView.graphLense()::lookupType, protoFixupCache);
+    DexMethodHandle newBootstrapMethod =
+        rewriteDexMethodHandle(
+            callSite.bootstrapMethod, context, NOT_ARGUMENT_TO_LAMBDA_METAFACTORY);
+    boolean isLambdaMetaFactory =
+        dexItemFactory.isLambdaMetafactoryMethod(callSite.bootstrapMethod.asMethod());
+    MethodHandleUse methodHandleUse =
+        isLambdaMetaFactory ? ARGUMENT_TO_LAMBDA_METAFACTORY : NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
+    List<DexValue> newArgs = rewriteBootstrapArgs(callSite.bootstrapArgs, context, methodHandleUse);
+    if (!newMethodProto.equals(callSite.methodProto)
+        || newBootstrapMethod != callSite.bootstrapMethod
+        || !newArgs.equals(callSite.bootstrapArgs)) {
+      return dexItemFactory.createCallSite(
+          callSite.methodName, newMethodProto, newBootstrapMethod, newArgs);
+    }
+    return callSite;
   }
 
   // If the given invoke is on the form "invoke-direct A.<init>, v0, ..." and the definition of

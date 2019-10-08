@@ -162,6 +162,8 @@ public class DexItemFactory {
   public final DexString internMethodName = createString("intern");
 
   public final DexString convertMethodName = createString("convert");
+  public final DexString wrapperFieldName = createString("wrappedValue");
+  public final DexString initMethodName = createString("<init>");
 
   public final DexString getClassMethodName = createString("getClass");
   public final DexString finalizeMethodName = createString("finalize");
@@ -183,6 +185,7 @@ public class DexItemFactory {
   public final DexString invokeMethodName = createString("invoke");
   public final DexString invokeExactMethodName = createString("invokeExact");
 
+  public final DexString runtimeExceptionDescriptor = createString("Ljava/lang/RuntimeException;");
   public final DexString assertionErrorDescriptor = createString("Ljava/lang/AssertionError;");
   public final DexString charSequenceDescriptor = createString("Ljava/lang/CharSequence;");
   public final DexString charSequenceArrayDescriptor = createString("[Ljava/lang/CharSequence;");
@@ -215,6 +218,8 @@ public class DexItemFactory {
       createString("Ljava/lang/reflect/InvocationHandler;");
   public final DexString proxyDescriptor = createString("Ljava/lang/reflect/Proxy;");
   public final DexString serviceLoaderDescriptor = createString("Ljava/util/ServiceLoader;");
+  public final DexString serviceLoaderConfigurationErrorDescriptor =
+      createString("Ljava/util/ServiceConfigurationError;");
   public final DexString listDescriptor = createString("Ljava/util/List;");
   public final DexString setDescriptor = createString("Ljava/util/Set;");
   public final DexString mapDescriptor = createString("Ljava/util/Map;");
@@ -307,6 +312,8 @@ public class DexItemFactory {
   public final DexType invocationHandlerType = createType(invocationHandlerDescriptor);
   public final DexType proxyType = createType(proxyDescriptor);
   public final DexType serviceLoaderType = createType(serviceLoaderDescriptor);
+  public final DexType serviceLoaderConfigurationErrorType =
+      createType(serviceLoaderConfigurationErrorDescriptor);
   public final DexType listType = createType(listDescriptor);
   public final DexType setType = createType(setDescriptor);
   public final DexType mapType = createType(mapDescriptor);
@@ -319,6 +326,7 @@ public class DexItemFactory {
   public final DexType runnableType = createType(runnableDescriptor);
   public final DexType optionalType = createType(optionalDescriptor);
 
+  public final DexType runtimeExceptionType = createType(runtimeExceptionDescriptor);
   public final DexType throwableType = createType(throwableDescriptor);
   public final DexType illegalAccessErrorType = createType(illegalAccessErrorDescriptor);
   public final DexType icceType = createType(icceDescriptor);
@@ -584,6 +592,7 @@ public class DexItemFactory {
   public class ThrowableMethods {
 
     public final DexMethod addSuppressed;
+    public final DexMethod getMessage;
     public final DexMethod getSuppressed;
     public final DexMethod initCause;
 
@@ -594,6 +603,12 @@ public class DexItemFactory {
           createString("getSuppressed"), throwableArrayDescriptor, DexString.EMPTY_ARRAY);
       initCause = createMethod(throwableDescriptor, createString("initCause"), throwableDescriptor,
           new DexString[] { throwableDescriptor });
+      getMessage =
+          createMethod(
+              throwableDescriptor,
+              createString("getMessage"),
+              stringDescriptor,
+              DexString.EMPTY_ARRAY);
     }
   }
 

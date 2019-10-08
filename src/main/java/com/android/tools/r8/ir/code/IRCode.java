@@ -791,11 +791,9 @@ public class IRCode {
             seenThrowing = true;
             continue;
           }
-          // After the throwing instruction only debug instructions and the final jump
-          // instruction is allowed.
-          if (seenThrowing) {
-            assert instruction.isDebugInstruction() || instruction.isGoto();
-          }
+          // After the throwing instruction only debug instructions and the final jump instruction
+          // is allowed.
+          assert !seenThrowing || instruction.isAllowedAfterThrowingInstruction();
         }
       }
     }
@@ -1169,7 +1167,7 @@ public class IRCode {
    * <p>Note: It is the responsibility of the caller to return the marking color.
    */
   public void markTransitivePredecessors(BasicBlock subject, int color) {
-    assert isMarkingColorInUse(color) && !anyBlocksMarkedWithColor(color);
+    assert isMarkingColorInUse(color);
     Queue<BasicBlock> worklist = new ArrayDeque<>();
     worklist.add(subject);
     while (!worklist.isEmpty()) {

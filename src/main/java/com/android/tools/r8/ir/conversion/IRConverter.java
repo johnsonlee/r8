@@ -162,6 +162,7 @@ public class IRConverter {
   private final UninstantiatedTypeOptimization uninstantiatedTypeOptimization;
   private final TypeChecker typeChecker;
   private final DesugaredLibraryAPIConverter desugaredLibraryAPIConverter;
+  private final ServiceLoaderRewriter serviceLoaderRewriter;
 
   // Assumers that will insert Assume instructions.
   private final AliasIntroducer aliasIntroducer;
@@ -244,6 +245,7 @@ public class IRConverter {
       this.d8NestBasedAccessDesugaring = null;
       this.stringSwitchRemover = null;
       this.desugaredLibraryAPIConverter = null;
+      this.serviceLoaderRewriter = null;
       return;
     }
     this.lambdaRewriter = options.enableDesugaring ? new LambdaRewriter(appView, this) : null;
@@ -310,6 +312,10 @@ public class IRConverter {
               : null;
       this.typeChecker = new TypeChecker(appView.withLiveness());
       this.d8NestBasedAccessDesugaring = null;
+      this.serviceLoaderRewriter =
+          options.enableServiceLoaderRewriting
+              ? new ServiceLoaderRewriter(appView.withLiveness())
+              : null;
     } else {
       this.classInliner = null;
       this.classStaticizer = null;
@@ -327,6 +333,7 @@ public class IRConverter {
       this.typeChecker = null;
       this.d8NestBasedAccessDesugaring =
           options.shouldDesugarNests() ? new D8NestBasedAccessDesugaring(appView) : null;
+      this.serviceLoaderRewriter = null;
     }
     this.stringSwitchRemover =
         options.isStringSwitchConversionEnabled()
@@ -454,6 +461,7 @@ public class IRConverter {
     synthesizeTwrCloseResourceUtilityClass(builder, executor);
     synthesizeJava8UtilityClass(builder, executor);
     processCovariantReturnTypeAnnotations(builder);
+    generateDesugaredLibraryAPIWrappers(builder, executor);
 
     handleSynthesizedClassMapping(builder);
     timing.end();
@@ -718,6 +726,15 @@ public class IRConverter {
     printPhase("Lambda merging finalization");
     finalizeLambdaMerging(application, feedback, builder, executorService);
 
+    printPhase("Desugared library API Conversion finalization");
+    generateDesugaredLibraryAPIWrappers(builder, executorService);
+
+    if (serviceLoaderRewriter != null && serviceLoaderRewriter.getSynthesizedClass() != null) {
+      forEachSynthesizedServiceLoaderMethod(
+          executorService, serviceLoaderRewriter.getSynthesizedClass());
+      builder.addSynthesizedClass(serviceLoaderRewriter.getSynthesizedClass(), true);
+    }
+
     if (outliner != null) {
       printPhase("Outlining");
       timing.begin("IR conversion phase 3");
@@ -784,8 +801,12 @@ public class IRConverter {
     return builder.build();
   }
 
-  private void waveStart() {
+  private void waveStart(Collection<DexEncodedMethod> wave) {
     onWaveDoneActions = Collections.synchronizedList(new ArrayList<>());
+
+    if (lambdaRewriter != null) {
+      wave.forEach(method -> lambdaRewriter.synthesizeLambdaClassesFor(method, lensCodeRewriter));
+    }
   }
 
   private void waveDone() {
@@ -843,6 +864,24 @@ public class IRConverter {
     ThreadUtils.awaitFutures(futures);
   }
 
+  private void forEachSynthesizedServiceLoaderMethod(
+      ExecutorService executorService, DexClass synthesizedClass) throws ExecutionException {
+    List<Future<?>> futures = new ArrayList<>();
+    for (DexEncodedMethod method : synthesizedClass.methods()) {
+      futures.add(
+          executorService.submit(
+              () -> {
+                IRCode code =
+                    method.buildIR(appView, appView.appInfo().originFor(method.method.holder));
+                assert code != null;
+                codeRewriter.rewriteMoveResult(code);
+                finalizeIR(method, code, OptimizationFeedbackIgnore.getInstance());
+                return null;
+              }));
+    }
+    ThreadUtils.awaitFutures(futures);
+  }
+
   private void collectLambdaMergingCandidates(DexApplication application) {
     if (lambdaMerger != null) {
       lambdaMerger.collectGroupCandidates(application, appView.withLiveness());
@@ -858,6 +897,14 @@ public class IRConverter {
     if (lambdaMerger != null) {
       lambdaMerger.applyLambdaClassMapping(
           application, this, feedback, builder, executorService);
+    }
+  }
+
+  private void generateDesugaredLibraryAPIWrappers(
+      DexApplication.Builder<?> builder, ExecutorService executorService)
+      throws ExecutionException {
+    if (desugaredLibraryAPIConverter != null) {
+      desugaredLibraryAPIConverter.generateWrappers(builder, this, executorService);
     }
   }
 
@@ -1093,9 +1140,9 @@ public class IRConverter {
     // we will return with finalizeEmptyThrowingCode() above.
     assert code.verifyTypes(appView);
 
-    if (appView.enableWholeProgramOptimizations() && options.enableServiceLoaderRewriting) {
+    if (serviceLoaderRewriter != null) {
       assert appView.appInfo().hasLiveness();
-      ServiceLoaderRewriter.rewrite(code, appView.withLiveness());
+      serviceLoaderRewriter.rewrite(code);
     }
 
     if (classStaticizer != null) {
@@ -1304,24 +1351,6 @@ public class IRConverter {
       twrCloseResourceRewriter.rewriteMethodCode(code);
     }
 
-    if (nonNullTracker != null) {
-      // TODO(b/139246447): Once we extend this optimization to, e.g., constants of primitive args,
-      //   this may not be the right place to collect call site optimization info.
-      // Collecting call-site optimization info depends on the existence of non-null IRs.
-      // Arguments can be changed during the debug mode.
-      if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
-        appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code);
-      }
-      // Computation of non-null parameters on normal exits rely on the existence of non-null IRs.
-      nonNullTracker.computeNonNullParamOnNormalExits(feedback, code);
-    }
-    if (aliasIntroducer != null || nonNullTracker != null || dynamicTypeOptimization != null) {
-      codeRewriter.removeAssumeInstructions(code);
-      assert code.isConsistentSSA();
-    }
-    // Assert that we do not have unremoved non-sense code in the output, e.g., v <- non-null NULL.
-    assert code.verifyNoNullabilityBottomTypes();
-
     assert code.verifyTypes(appView);
 
     previous = printMethod(code, "IR after twr close resource rewriter (SSA)", previous);
@@ -1337,6 +1366,8 @@ public class IRConverter {
       outlineHandler.accept(code, method);
       assert code.isConsistentSSA();
     }
+
+    assert code.verifyTypes(appView);
 
     previous = printMethod(code, "IR after outline handler (SSA)", previous);
 
@@ -1362,6 +1393,26 @@ public class IRConverter {
     if (classStaticizer != null) {
       classStaticizer.examineMethodCode(method, code);
     }
+
+    if (nonNullTracker != null) {
+      // TODO(b/139246447): Once we extend this optimization to, e.g., constants of primitive args,
+      //   this may not be the right place to collect call site optimization info.
+      // Collecting call-site optimization info depends on the existence of non-null IRs.
+      // Arguments can be changed during the debug mode.
+      if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
+        appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code);
+      }
+      // Computation of non-null parameters on normal exits rely on the existence of non-null IRs.
+      nonNullTracker.computeNonNullParamOnNormalExits(feedback, code);
+    }
+    if (aliasIntroducer != null || nonNullTracker != null || dynamicTypeOptimization != null) {
+      codeRewriter.removeAssumeInstructions(code);
+      assert code.isConsistentSSA();
+    }
+    // Assert that we do not have unremoved non-sense code in the output, e.g., v <- non-null NULL.
+    assert code.verifyNoNullabilityBottomTypes();
+
+    assert code.verifyTypes(appView);
 
     if (appView.enableWholeProgramOptimizations()) {
       if (libraryMethodOverrideAnalysis != null) {

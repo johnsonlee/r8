@@ -34,7 +34,8 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
   private static final Set<DexType> NO_DIRECT_SUBTYPE = ImmutableSet.of();
 
   private static class TypeInfo {
-    final DexType type;
+
+    private final DexType type;
 
     int hierarchyLevel = UNKNOWN_LEVEL;
     /**
@@ -87,7 +88,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
       setLevel(ROOT_LEVEL);
     }
 
-    void tagAsInteface() {
+    void tagAsInterface() {
       setLevel(INTERFACE_LEVEL);
     }
 
@@ -122,6 +123,11 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
 
   // Map from types to their subtyping information.
   private final Map<DexType, TypeInfo> typeInfo;
+
+  // Caches which static types that may store an object that has a non-default finalize() method.
+  // E.g., `java.lang.Object -> TRUE` if there is a subtype of Object that overrides finalize().
+  private final Map<DexType, Boolean> mayHaveFinalizeMethodDirectlyOrIndirectlyCache =
+      new ConcurrentHashMap<>();
 
   public AppInfoWithSubtyping(DexApplication application) {
     super(application);
@@ -225,7 +231,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
         getTypeInfo(inter).addInterfaceSubtype(holder);
       }
       if (holderClass.isInterface()) {
-        getTypeInfo(holder).tagAsInteface();
+        getTypeInfo(holder).tagAsInterface();
       }
     } else {
       if (baseClass.isProgramClass() || baseClass.isClasspathClass()) {
@@ -707,5 +713,46 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
 
   public boolean inDifferentHierarchy(DexType type1, DexType type2) {
     return !isSubtype(type1, type2) && !isSubtype(type2, type1);
+  }
+
+  public boolean mayHaveFinalizeMethodDirectlyOrIndirectly(DexType type) {
+    return computeMayHaveFinalizeMethodDirectlyOrIndirectlyIfAbsent(type, true);
+  }
+
+  private boolean computeMayHaveFinalizeMethodDirectlyOrIndirectlyIfAbsent(
+      DexType type, boolean lookUpwards) {
+    assert type.isClassType();
+    Boolean cache = mayHaveFinalizeMethodDirectlyOrIndirectlyCache.get(type);
+    if (cache != null) {
+      return cache;
+    }
+    DexClass clazz = definitionFor(type);
+    if (clazz == null) {
+      mayHaveFinalizeMethodDirectlyOrIndirectlyCache.put(type, true);
+      return true;
+    }
+    if (clazz.isProgramClass()) {
+      if (lookUpwards) {
+        DexEncodedMethod resolutionResult =
+            resolveMethod(type, dexItemFactory().objectMethods.finalize).asSingleTarget();
+        if (resolutionResult != null && resolutionResult.isProgramMethod(this)) {
+          mayHaveFinalizeMethodDirectlyOrIndirectlyCache.put(type, true);
+          return true;
+        }
+      } else {
+        if (clazz.lookupVirtualMethod(dexItemFactory().objectMethods.finalize) != null) {
+          mayHaveFinalizeMethodDirectlyOrIndirectlyCache.put(type, true);
+          return true;
+        }
+      }
+    }
+    for (DexType subtype : allImmediateSubtypes(type)) {
+      if (computeMayHaveFinalizeMethodDirectlyOrIndirectlyIfAbsent(subtype, false)) {
+        mayHaveFinalizeMethodDirectlyOrIndirectlyCache.put(type, true);
+        return true;
+      }
+    }
+    mayHaveFinalizeMethodDirectlyOrIndirectlyCache.put(type, false);
+    return false;
   }
 }

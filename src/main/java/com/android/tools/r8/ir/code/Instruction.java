@@ -509,6 +509,10 @@ public abstract class Instruction implements InstructionOrPhi {
     return true;
   }
 
+  public boolean isAllowedAfterThrowingInstruction() {
+    return false;
+  }
+
   /**
    * Returns true if this instruction may throw an exception.
    */
@@ -1110,6 +1114,10 @@ public abstract class Instruction implements InstructionOrPhi {
 
   public DebugLocalWrite asDebugLocalWrite() {
     return null;
+  }
+
+  public boolean isInvokeMethodWithDynamicDispatch() {
+    return isInvokeInterface() || isInvokeVirtual();
   }
 
   public boolean isInvokeMethod() {

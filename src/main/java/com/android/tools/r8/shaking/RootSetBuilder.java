@@ -72,6 +72,7 @@ public class RootSetBuilder {
   private final Set<DexMethod> alwaysInline = Sets.newIdentityHashSet();
   private final Set<DexMethod> forceInline = Sets.newIdentityHashSet();
   private final Set<DexMethod> neverInline = Sets.newIdentityHashSet();
+  private final Set<DexMethod> whyAreYouNotInlining = Sets.newIdentityHashSet();
   private final Set<DexMethod> keepParametersWithConstantValue = Sets.newIdentityHashSet();
   private final Set<DexMethod> keepUnusedArguments = Sets.newIdentityHashSet();
   private final Set<DexType> neverClassInline = Sets.newIdentityHashSet();
@@ -203,7 +204,8 @@ public class RootSetBuilder {
         }
       } else if (rule instanceof InlineRule
           || rule instanceof ConstantArgumentRule
-          || rule instanceof UnusedArgumentRule) {
+          || rule instanceof UnusedArgumentRule
+          || rule instanceof WhyAreYouNotInliningRule) {
         markMatchingMethods(clazz, memberKeepRules, rule, null, ifRule);
       } else if (rule instanceof ClassInlineRule) {
         if (allRulesSatisfied(memberKeepRules, clazz)) {
@@ -277,6 +279,9 @@ public class RootSetBuilder {
       BottomUpClassHierarchyTraversal.forAllClasses(appView)
           .visit(appView.appInfo().classes(), this::propagateAssumeRules);
     }
+    assert Sets.intersection(neverInline, alwaysInline).isEmpty()
+            && Sets.intersection(neverInline, forceInline).isEmpty()
+        : "A method cannot be marked as both -neverinline and -forceinline/-alwaysinline.";
     return new RootSet(
         noShrinking,
         noOptimization,
@@ -286,6 +291,7 @@ public class RootSetBuilder {
         alwaysInline,
         forceInline,
         neverInline,
+        whyAreYouNotInlining,
         keepParametersWithConstantValue,
         keepUnusedArguments,
         neverClassInline,
@@ -948,6 +954,12 @@ public class RootSetBuilder {
         }
         context.markAsUsed();
       }
+    } else if (context instanceof WhyAreYouNotInliningRule) {
+      if (!item.isDexEncodedMethod()) {
+        throw new Unreachable();
+      }
+      whyAreYouNotInlining.add(item.asDexEncodedMethod().method);
+      context.markAsUsed();
     } else if (context instanceof ClassInlineRule) {
       switch (((ClassInlineRule) context).getType()) {
         case NEVER:
@@ -1025,6 +1037,7 @@ public class RootSetBuilder {
     public final Set<DexMethod> alwaysInline;
     public final Set<DexMethod> forceInline;
     public final Set<DexMethod> neverInline;
+    public final Set<DexMethod> whyAreYouNotInlining;
     public final Set<DexMethod> keepConstantArguments;
     public final Set<DexMethod> keepUnusedArguments;
     public final Set<DexType> neverClassInline;
@@ -1048,6 +1061,7 @@ public class RootSetBuilder {
         Set<DexMethod> alwaysInline,
         Set<DexMethod> forceInline,
         Set<DexMethod> neverInline,
+        Set<DexMethod> whyAreYouNotInlining,
         Set<DexMethod> keepConstantArguments,
         Set<DexMethod> keepUnusedArguments,
         Set<DexType> neverClassInline,
@@ -1068,6 +1082,7 @@ public class RootSetBuilder {
       this.alwaysInline = Collections.unmodifiableSet(alwaysInline);
       this.forceInline = Collections.unmodifiableSet(forceInline);
       this.neverInline = neverInline;
+      this.whyAreYouNotInlining = whyAreYouNotInlining;
       this.keepConstantArguments = keepConstantArguments;
       this.keepUnusedArguments = keepUnusedArguments;
       this.neverClassInline = neverClassInline;

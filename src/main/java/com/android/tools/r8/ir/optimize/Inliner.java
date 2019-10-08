@@ -3,14 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.ClassHierarchy;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
@@ -36,11 +34,15 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriter;
 import com.android.tools.r8.ir.desugar.TwrCloseResourceRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
+import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
+import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
+import com.android.tools.r8.kotlin.Kotlin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.MainDexClasses;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,6 +58,8 @@ import java.util.function.Predicate;
 public class Inliner {
 
   protected final AppView<AppInfoWithLiveness> appView;
+  private final Set<DexMethod> blackList;
+  private final LensCodeRewriter lensCodeRewriter;
   final MainDexClasses mainDexClasses;
 
   // State for inlining methods which are known to be called twice.
@@ -64,29 +68,46 @@ public class Inliner {
   private final Set<DexEncodedMethod> doubleInlineSelectedTargets = Sets.newIdentityHashSet();
   private final Map<DexEncodedMethod, DexEncodedMethod> doubleInlineeCandidates = new HashMap<>();
 
-  private final Set<DexMethod> blackList = Sets.newIdentityHashSet();
-  private final LensCodeRewriter lensCodeRewriter;
-
   public Inliner(
       AppView<AppInfoWithLiveness> appView,
       MainDexClasses mainDexClasses,
       LensCodeRewriter lensCodeRewriter) {
+    Kotlin.Intrinsics intrinsics = appView.dexItemFactory().kotlin.intrinsics;
     this.appView = appView;
-    this.mainDexClasses = mainDexClasses;
+    this.blackList = ImmutableSet.of(intrinsics.throwNpe, intrinsics.throwParameterIsNullException);
     this.lensCodeRewriter = lensCodeRewriter;
-    fillInBlackList();
+    this.mainDexClasses = mainDexClasses;
   }
 
-  private void fillInBlackList() {
-    blackList.add(appView.dexItemFactory().kotlin.intrinsics.throwParameterIsNullException);
-    blackList.add(appView.dexItemFactory().kotlin.intrinsics.throwNpe);
-  }
+  boolean isBlackListed(
+      DexEncodedMethod encodedMethod, WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
+    DexMethod method = encodedMethod.method;
+    if (encodedMethod.getOptimizationInfo().forceInline()
+        && appView.appInfo().neverInline.contains(method)) {
+      throw new Unreachable();
+    }
 
-  public boolean isBlackListed(DexMethod method) {
-    return blackList.contains(appView.graphLense().getOriginalMethodSignature(method))
-        || appView.appInfo().isPinned(method)
-        || appView.appInfo().neverInline.contains(method)
-        || TwrCloseResourceRewriter.isSynthesizedCloseResourceMethod(method, appView);
+    if (appView.appInfo().isPinned(method)) {
+      whyAreYouNotInliningReporter.reportUnknownReason();
+      return true;
+    }
+
+    if (blackList.contains(appView.graphLense().getOriginalMethodSignature(method))) {
+      whyAreYouNotInliningReporter.reportUnknownReason();
+      return true;
+    }
+
+    if (appView.appInfo().neverInline.contains(method)) {
+      whyAreYouNotInliningReporter.reportUnknownReason();
+      return true;
+    }
+
+    if (TwrCloseResourceRewriter.isSynthesizedCloseResourceMethod(method, appView)) {
+      whyAreYouNotInliningReporter.reportUnknownReason();
+      return true;
+    }
+
+    return false;
   }
 
   private ConstraintWithTarget instructionAllowedForInlining(
@@ -530,7 +551,7 @@ public class Inliner {
     }
   }
 
-  static public class InlineAction {
+  public static class InlineAction {
 
     public final DexEncodedMethod target;
     public final Invoke invoke;
@@ -548,7 +569,7 @@ public class Inliner {
       shouldSynthesizeNullCheckForReceiver = true;
     }
 
-    public InlineeWithReason buildInliningIR(
+    InlineeWithReason buildInliningIR(
         DexEncodedMethod context,
         ValueNumberGenerator generator,
         AppView<? extends AppInfoWithSubtyping> appView,
@@ -603,7 +624,7 @@ public class Inliner {
     }
   }
 
-  public static class InlineeWithReason {
+  static class InlineeWithReason {
 
     final Reason reason;
     final IRCode code;
@@ -650,84 +671,6 @@ public class Inliner {
     return numberOfInstructions;
   }
 
-  boolean legalConstructorInline(
-      DexEncodedMethod method, InvokeMethod invoke, IRCode code, ClassHierarchy hierarchy) {
-
-    // In the Java VM Specification section "4.10.2.4. Instance Initialization Methods and
-    // Newly Created Objects" it says:
-    //
-    // Before that method invokes another instance initialization method of myClass or its direct
-    // superclass on this, the only operation the method can perform on this is assigning fields
-    // declared within myClass.
-
-    // Allow inlining a constructor into a constructor of the same class, as the constructor code
-    // is expected to adhere to the VM specification.
-    DexType callerMethodHolder = method.method.holder;
-    boolean callerMethodIsConstructor = method.isInstanceInitializer();
-    DexType calleeMethodHolder = invoke.asInvokeMethod().getInvokedMethod().holder;
-    // Calling a constructor on the same class from a constructor can always be inlined.
-    if (callerMethodIsConstructor && callerMethodHolder == calleeMethodHolder) {
-      return true;
-    }
-
-    // We cannot invoke <init> on other values than |this| on Dalvik 4.4.4. Compute whether
-    // the receiver to the call was the this value at the call-site.
-    boolean receiverOfInnerCallIsThisOfOuter = invoke.asInvokeDirect().getReceiver().isThis();
-
-    // Don't allow inlining a constructor into a non-constructor if the first use of the
-    // un-initialized object is not an argument of an invoke of <init>.
-    // Also, we cannot inline a constructor if it initializes final fields, as such is only allowed
-    // from within a constructor of the corresponding class.
-    // Lastly, we can only inline a constructor, if its own <init> call is on the method's class. If
-    // we inline into a constructor, calls to super.<init> are also OK if the receiver of the
-    // super.<init> call is the this argument.
-    InstructionIterator iterator = code.instructionIterator();
-    Instruction instruction = iterator.next();
-    // A constructor always has the un-initialized object as the first argument.
-    assert instruction.isArgument();
-    Value unInitializedObject = instruction.outValue();
-    boolean seenSuperInvoke = false;
-    while (iterator.hasNext()) {
-      instruction = iterator.next();
-      if (instruction.inValues().contains(unInitializedObject)) {
-        if (instruction.isInvokeDirect() && !seenSuperInvoke) {
-          DexMethod target = instruction.asInvokeDirect().getInvokedMethod();
-          seenSuperInvoke = appView.dexItemFactory().isConstructor(target);
-          boolean callOnConstructorThatCallsConstructorSameClass =
-              calleeMethodHolder == target.holder;
-          boolean callOnSupertypeOfThisInConstructor =
-              hierarchy.isDirectSubtype(callerMethodHolder, target.holder)
-                  && instruction.asInvokeDirect().getReceiver() == unInitializedObject
-                  && receiverOfInnerCallIsThisOfOuter
-                  && callerMethodIsConstructor;
-          if (seenSuperInvoke
-              // Calls to init on same class than the called constructor are OK.
-              && !callOnConstructorThatCallsConstructorSameClass
-              // If we are inlining into a constructor, calls to superclass init are only OK on the
-              // |this| value in the outer context.
-              && !callOnSupertypeOfThisInConstructor) {
-            return false;
-          }
-        }
-        if (!seenSuperInvoke) {
-          return false;
-        }
-      }
-      if (instruction.isInstancePut()) {
-        // Fields may not be initialized outside of a constructor.
-        if (!callerMethodIsConstructor) {
-          return false;
-        }
-        DexField field = instruction.asInstancePut().getField();
-        DexEncodedField target = appView.appInfo().lookupInstanceTarget(field.holder, field);
-        if (target != null && target.accessFlags.isFinal()) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
   public static class InliningInfo {
     public final DexEncodedMethod target;
     public final DexType receiverType; // null, if unknown
@@ -743,7 +686,7 @@ public class Inliner {
       IRCode code,
       Map<InvokeMethod, InliningInfo> invokesToInline) {
 
-    ForcedInliningOracle oracle = new ForcedInliningOracle(method, invokesToInline);
+    ForcedInliningOracle oracle = new ForcedInliningOracle(appView, method, invokesToInline);
     performInliningImpl(oracle, oracle, method, code, OptimizationFeedbackIgnore.getInstance());
   }
 
@@ -804,74 +747,91 @@ public class Inliner {
         Instruction current = iterator.next();
         if (current.isInvokeMethod()) {
           InvokeMethod invoke = current.asInvokeMethod();
-          InlineAction result =
-              invoke.computeInlining(oracle, context.method, classInitializationAnalysis);
-          if (result != null) {
-            if (!(strategy.stillHasBudget() || result.reason.mustBeInlined())) {
-              continue;
-            }
-            DexEncodedMethod target = result.target;
-            Position invokePosition = invoke.getPosition();
-            if (invokePosition.method == null) {
-              assert invokePosition.isNone();
-              invokePosition = Position.noneWithMethod(context.method, null);
-            }
-            assert invokePosition.callerPosition == null
-                || invokePosition.getOutermostCaller().method
-                    == appView.graphLense().getOriginalMethodSignature(context.method);
-
-            InlineeWithReason inlinee =
-                result.buildInliningIR(
-                    context, code.valueNumberGenerator, appView, invokePosition, lensCodeRewriter);
-            if (inlinee != null) {
-              if (strategy.willExceedBudget(inlinee, block)) {
-                continue;
-              }
-
-              // If this code did not go through the full pipeline, apply inlining to make sure
-              // that force inline targets get processed.
-              strategy.ensureMethodProcessed(target, inlinee.code, feedback);
-
-              // Make sure constructor inlining is legal.
-              assert !target.isClassInitializer();
-              if (!strategy.isValidTarget(invoke, target, inlinee.code, appView.appInfo())) {
-                continue;
-              }
-
-              // Mark AssumeDynamicType instruction for the out-value for removal, if any.
-              Value outValue = invoke.outValue();
-              if (outValue != null) {
-                assumeDynamicTypeRemover.markUsersForRemoval(outValue);
-              }
-
-              // Inline the inlinee code in place of the invoke instruction
-              // Back up before the invoke instruction.
-              iterator.previous();
-              strategy.markInlined(inlinee);
-              iterator.inlineInvoke(
-                  appView,
-                  code,
-                  inlinee.code,
-                  blockIterator,
-                  blocksToRemove,
-                  getDowncastTypeIfNeeded(strategy, invoke, target));
-
-              if (inlinee.reason == Reason.SINGLE_CALLER) {
-                feedback.markInlinedIntoSingleCallSite(target);
-              }
-
-              classInitializationAnalysis.notifyCodeHasChanged();
-              strategy.updateTypeInformationIfNeeded(inlinee.code, blockIterator, block);
-
-              // If we inlined the invoke from a bridge method, it is no longer a bridge method.
-              if (context.accessFlags.isBridge()) {
-                context.accessFlags.unsetSynthetic();
-                context.accessFlags.unsetBridge();
-              }
-
-              context.copyMetadata(target);
-            }
+          // TODO(b/142116551): This should be equivalent to invoke.lookupSingleTarget()!
+          DexEncodedMethod singleTarget = oracle.lookupSingleTarget(invoke, context.method.holder);
+          if (singleTarget == null) {
+            WhyAreYouNotInliningReporter.handleInvokeWithUnknownTarget(invoke, appView, context);
+            continue;
           }
+
+          WhyAreYouNotInliningReporter whyAreYouNotInliningReporter =
+              oracle.isForcedInliningOracle()
+                  ? NopWhyAreYouNotInliningReporter.getInstance()
+                  : WhyAreYouNotInliningReporter.createFor(singleTarget, appView, context);
+          InlineAction action =
+              invoke.computeInlining(
+                  singleTarget,
+                  oracle,
+                  context.method,
+                  classInitializationAnalysis,
+                  whyAreYouNotInliningReporter);
+          if (action == null) {
+            assert whyAreYouNotInliningReporter.verifyReasonHasBeenReported();
+            continue;
+          }
+
+          if (!strategy.stillHasBudget(action, whyAreYouNotInliningReporter)) {
+            assert whyAreYouNotInliningReporter.verifyReasonHasBeenReported();
+            continue;
+          }
+
+          InlineeWithReason inlinee =
+              action.buildInliningIR(
+                  context,
+                  code.valueNumberGenerator,
+                  appView,
+                  getPositionForInlining(invoke, context),
+                  lensCodeRewriter);
+          if (strategy.willExceedBudget(inlinee, block, whyAreYouNotInliningReporter)) {
+            assert whyAreYouNotInliningReporter.verifyReasonHasBeenReported();
+            continue;
+          }
+
+          // If this code did not go through the full pipeline, apply inlining to make sure
+          // that force inline targets get processed.
+          strategy.ensureMethodProcessed(singleTarget, inlinee.code, feedback);
+
+          // Make sure constructor inlining is legal.
+          assert !singleTarget.isClassInitializer();
+          if (singleTarget.isInstanceInitializer()
+              && !strategy.canInlineInstanceInitializer(
+                  inlinee.code, whyAreYouNotInliningReporter)) {
+            assert whyAreYouNotInliningReporter.verifyReasonHasBeenReported();
+            continue;
+          }
+
+          // Mark AssumeDynamicType instruction for the out-value for removal, if any.
+          Value outValue = invoke.outValue();
+          if (outValue != null) {
+            assumeDynamicTypeRemover.markUsersForRemoval(outValue);
+          }
+
+          // Inline the inlinee code in place of the invoke instruction
+          // Back up before the invoke instruction.
+          iterator.previous();
+          strategy.markInlined(inlinee);
+          iterator.inlineInvoke(
+              appView,
+              code,
+              inlinee.code,
+              blockIterator,
+              blocksToRemove,
+              getDowncastTypeIfNeeded(strategy, invoke, singleTarget));
+
+          if (inlinee.reason == Reason.SINGLE_CALLER) {
+            feedback.markInlinedIntoSingleCallSite(singleTarget);
+          }
+
+          classInitializationAnalysis.notifyCodeHasChanged();
+          strategy.updateTypeInformationIfNeeded(inlinee.code, blockIterator, block);
+
+          // If we inlined the invoke from a bridge method, it is no longer a bridge method.
+          if (context.accessFlags.isBridge()) {
+            context.accessFlags.unsetSynthetic();
+            context.accessFlags.unsetBridge();
+          }
+
+          context.copyMetadata(singleTarget);
         } else if (current.isAssumeDynamicType()) {
           assumeDynamicTypeRemover.removeIfMarked(current.asAssumeDynamicType(), iterator);
         }
@@ -880,10 +840,21 @@ public class Inliner {
     assumeDynamicTypeRemover.removeMarkedInstructions(blocksToRemove);
     assumeDynamicTypeRemover.finish();
     classInitializationAnalysis.finish();
-    oracle.finish();
     code.removeBlocks(blocksToRemove);
     code.removeAllTrivialPhis();
     assert code.isConsistentSSA();
+  }
+
+  private Position getPositionForInlining(InvokeMethod invoke, DexEncodedMethod context) {
+    Position position = invoke.getPosition();
+    if (position.method == null) {
+      assert position.isNone();
+      position = Position.noneWithMethod(context.method, null);
+    }
+    assert position.callerPosition == null
+        || position.getOutermostCaller().method
+            == appView.graphLense().getOriginalMethodSignature(context.method);
+    return position;
   }
 
   private boolean useReflectiveOperationExceptionOrUnknownClassInCatch(IRCode code) {
