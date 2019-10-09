@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
@@ -31,9 +32,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -59,7 +63,7 @@ public class DesugaredLibraryAPIConverter {
   private final AppView<?> appView;
   private final DexItemFactory factory;
   private final DesugaredLibraryWrapperSynthesizer wrapperSynthesizor;
-  private final Map<DexClass, List<DexEncodedMethod>> callBackMethods = new HashMap<>();
+  private final Map<DexClass, Set<DexEncodedMethod>> callBackMethods = new HashMap<>();
 
   public DesugaredLibraryAPIConverter(AppView<?> appView) {
     this.appView = appView;
@@ -75,27 +79,31 @@ public class DesugaredLibraryAPIConverter {
 
     generateCallBackIfNeeded(code);
 
-    InstructionListIterator iterator = code.instructionListIterator();
-    while (iterator.hasNext()) {
-      Instruction instruction = iterator.next();
-      if (!instruction.isInvokeMethod()) {
-        continue;
-      }
-      InvokeMethod invokeMethod = instruction.asInvokeMethod();
-      DexMethod invokedMethod = invokeMethod.getInvokedMethod();
-      // Rewritting is required only on calls to library methods which are not desugared.
-      if (appView.rewritePrefix.hasRewrittenType(invokedMethod.holder)
-          || invokedMethod.holder.isArrayType()) {
-        continue;
-      }
-      DexClass dexClass = appView.definitionFor(invokedMethod.holder);
-      if (dexClass == null || !dexClass.isLibraryClass()) {
-        continue;
-      }
-      // Library methods do not understand desugared types, hence desugared types have to be
-      // converted around non desugared library calls for the invoke to resolve.
-      if (appView.rewritePrefix.hasRewrittenTypeInSignature(invokedMethod.proto)) {
-        rewriteLibraryInvoke(code, invokeMethod, iterator);
+    ListIterator<BasicBlock> blockIterator = code.listIterator();
+    while (blockIterator.hasNext()) {
+      BasicBlock block = blockIterator.next();
+      InstructionListIterator iterator = block.listIterator(code);
+      while (iterator.hasNext()) {
+        Instruction instruction = iterator.next();
+        if (!instruction.isInvokeMethod()) {
+          continue;
+        }
+        InvokeMethod invokeMethod = instruction.asInvokeMethod();
+        DexMethod invokedMethod = invokeMethod.getInvokedMethod();
+        // Rewriting is required only on calls to library methods which are not desugared.
+        if (appView.rewritePrefix.hasRewrittenType(invokedMethod.holder)
+            || invokedMethod.holder.isArrayType()) {
+          continue;
+        }
+        DexClass dexClass = appView.definitionFor(invokedMethod.holder);
+        if (dexClass == null || !dexClass.isLibraryClass()) {
+          continue;
+        }
+        // Library methods do not understand desugared types, hence desugared types have to be
+        // converted around non desugared library calls for the invoke to resolve.
+        if (appView.rewritePrefix.hasRewrittenTypeInSignature(invokedMethod.proto)) {
+          rewriteLibraryInvoke(code, invokeMethod, iterator, blockIterator);
+        }
       }
     }
   }
@@ -158,7 +166,7 @@ public class DesugaredLibraryAPIConverter {
 
   private synchronized void generateCallBack(DexClass dexClass, DexEncodedMethod originalMethod) {
     DexMethod methodToInstall =
-        methodWithVivifiedTypeInSignature(originalMethod.method, dexClass.type);
+        methodWithVivifiedTypeInSignature(originalMethod.method, dexClass.type, appView);
     CfCode cfCode =
         new APIConverterWrapperCfCodeProvider(
                 appView, originalMethod.method, null, this, dexClass.isInterface())
@@ -170,27 +178,27 @@ public class DesugaredLibraryAPIConverter {
   }
 
   private synchronized void addCallBackSignature(DexClass dexClass, DexEncodedMethod method) {
-    callBackMethods.putIfAbsent(dexClass, new ArrayList<>());
-    List<DexEncodedMethod> dexEncodedMethods = callBackMethods.get(dexClass);
-    dexEncodedMethods.add(method);
+    callBackMethods.putIfAbsent(dexClass, new HashSet<>());
+    callBackMethods.get(dexClass).add(method);
   }
 
-  DexMethod methodWithVivifiedTypeInSignature(DexMethod originalMethod, DexType holder) {
+  public static DexMethod methodWithVivifiedTypeInSignature(
+      DexMethod originalMethod, DexType holder, AppView<?> appView) {
     DexType[] newParameters = originalMethod.proto.parameters.values.clone();
     int index = 0;
     for (DexType param : originalMethod.proto.parameters.values) {
       if (appView.rewritePrefix.hasRewrittenType(param)) {
-        newParameters[index] = this.vivifiedTypeFor(param);
+        newParameters[index] = vivifiedTypeFor(param, appView);
       }
       index++;
     }
     DexType returnType = originalMethod.proto.returnType;
     DexType newReturnType =
         appView.rewritePrefix.hasRewrittenType(returnType)
-            ? this.vivifiedTypeFor(returnType)
+            ? vivifiedTypeFor(returnType, appView)
             : returnType;
-    DexProto newProto = factory.createProto(newReturnType, newParameters);
-    return factory.createMethod(holder, newProto, originalMethod.name);
+    DexProto newProto = appView.dexItemFactory().createProto(newReturnType, newParameters);
+    return appView.dexItemFactory().createMethod(holder, newProto, originalMethod.name);
   }
 
   public void generateWrappers(
@@ -198,8 +206,7 @@ public class DesugaredLibraryAPIConverter {
       throws ExecutionException {
     wrapperSynthesizor.finalizeWrappers(builder, irConverter, executorService);
     for (DexClass dexClass : callBackMethods.keySet()) {
-      // TODO(b/134732760): add the methods in the root set.
-      List<DexEncodedMethod> dexEncodedMethods = callBackMethods.get(dexClass);
+      Set<DexEncodedMethod> dexEncodedMethods = callBackMethods.get(dexClass);
       dexClass.appendVirtualMethods(dexEncodedMethods);
       irConverter.optimizeSynthesizedMethodsConcurrently(dexEncodedMethods, executorService);
     }
@@ -223,15 +230,20 @@ public class DesugaredLibraryAPIConverter {
                     + " is a desugared type)."));
   }
 
-  public DexType vivifiedTypeFor(DexType type) {
+  public static DexType vivifiedTypeFor(DexType type, AppView<?> appView) {
     DexType vivifiedType =
-        factory.createType(DescriptorUtils.javaTypeToDescriptor(VIVIFIED_PREFIX + type.toString()));
+        appView
+            .dexItemFactory()
+            .createType(DescriptorUtils.javaTypeToDescriptor(VIVIFIED_PREFIX + type.toString()));
     appView.rewritePrefix.rewriteType(vivifiedType, type);
     return vivifiedType;
   }
 
   private void rewriteLibraryInvoke(
-      IRCode code, InvokeMethod invokeMethod, InstructionListIterator iterator) {
+      IRCode code,
+      InvokeMethod invokeMethod,
+      InstructionListIterator iterator,
+      ListIterator<BasicBlock> blockIterator) {
     DexMethod invokedMethod = invokeMethod.getInvokedMethod();
 
     // Create return conversion if required.
@@ -240,7 +252,7 @@ public class DesugaredLibraryAPIConverter {
     DexType returnType = invokedMethod.proto.returnType;
     if (appView.rewritePrefix.hasRewrittenType(returnType)) {
       if (canConvert(returnType)) {
-        newReturnType = vivifiedTypeFor(returnType);
+        newReturnType = vivifiedTypeFor(returnType, appView);
         // Return conversion added only if return value is used.
         if (invokeMethod.outValue() != null
             && invokeMethod.outValue().numberOfUsers() + invokeMethod.outValue().numberOfPhiUsers()
@@ -270,7 +282,7 @@ public class DesugaredLibraryAPIConverter {
       DexType argType = parameters[i];
       if (appView.rewritePrefix.hasRewrittenType(argType)) {
         if (canConvert(argType)) {
-          DexType argVivifiedType = vivifiedTypeFor(argType);
+          DexType argVivifiedType = vivifiedTypeFor(argType, appView);
           Value inValue = invokeMethod.inValues().get(i + receiverShift);
           newParameters[i] = argVivifiedType;
           parameterConversions.add(
@@ -296,6 +308,8 @@ public class DesugaredLibraryAPIConverter {
             newDexMethod.proto,
             invokeMethod.outValue(),
             newInValues);
+    assert newDexMethod
+        == methodWithVivifiedTypeInSignature(invokedMethod, invokedMethod.holder, appView);
 
     // Insert and reschedule all instructions.
     iterator.previous();
@@ -309,6 +323,41 @@ public class DesugaredLibraryAPIConverter {
     if (returnConversion != null) {
       returnConversion.setPosition(invokeMethod.getPosition());
       iterator.add(returnConversion);
+    }
+
+    // If the invoke is in a try-catch, since all conversions can throw, the basic block needs
+    // to be split in between each invoke...
+    if (newInvokeMethod.getBlock().hasCatchHandlers()) {
+      splitIfCatchHandlers(code, newInvokeMethod.getBlock(), blockIterator);
+    }
+  }
+
+  private void splitIfCatchHandlers(
+      IRCode code,
+      BasicBlock blockWithIncorrectThrowingInstructions,
+      ListIterator<BasicBlock> blockIterator) {
+    InstructionListIterator instructionsIterator =
+        blockWithIncorrectThrowingInstructions.listIterator(code);
+    BasicBlock currentBlock = blockWithIncorrectThrowingInstructions;
+    while (currentBlock != null && instructionsIterator.hasNext()) {
+      Instruction throwingInstruction =
+          instructionsIterator.nextUntil(Instruction::instructionTypeCanThrow);
+      BasicBlock nextBlock;
+      if (throwingInstruction != null) {
+        nextBlock = instructionsIterator.split(code, blockIterator);
+        // Back up to before the split before inserting catch handlers.
+        blockIterator.previous();
+        nextBlock.copyCatchHandlers(code, blockIterator, currentBlock, appView.options());
+        BasicBlock b = blockIterator.next();
+        assert b == nextBlock;
+        // Switch iteration to the split block.
+        instructionsIterator = nextBlock.listIterator(code);
+        currentBlock = nextBlock;
+      } else {
+        assert !instructionsIterator.hasNext();
+        instructionsIterator = null;
+        currentBlock = null;
+      }
     }
   }
 

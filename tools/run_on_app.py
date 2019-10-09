@@ -21,9 +21,10 @@ import utils
 import youtube_data
 import chrome_data
 import r8_data
+import iosched_data
 
 TYPES = ['dex', 'deploy', 'proguarded']
-APPS = ['gmscore', 'nest', 'youtube', 'gmail', 'chrome', 'r8']
+APPS = ['gmscore', 'nest', 'youtube', 'gmail', 'chrome', 'r8', 'iosched']
 COMPILERS = ['d8', 'r8']
 COMPILER_BUILDS = ['full', 'lib']
 
@@ -32,6 +33,10 @@ OOM_EXIT_CODE = 42
 # According to Popen.returncode doc:
 # A negative value -N indicates that the child was terminated by signal N.
 TIMEOUT_KILL_CODE = -9
+
+# Log file names
+FIND_MIN_XMX_FILE = 'find_min_xmx_results'
+FIND_MIN_XMX_DIR = 'find_min_xmx'
 
 def ParseOptions(argv):
   result = optparse.OptionParser()
@@ -49,6 +54,10 @@ def ParseOptions(argv):
                     help='Compile all possible combinations',
                     default=False,
                     action='store_true')
+  result.add_option('--expect-oom',
+                    help='Expect that compilation will fail with an OOM',
+                    default=False,
+                    action='store_true')
   result.add_option('--type',
                     help='Default for R8: deploy, for D8: proguarded',
                     choices=TYPES)
@@ -59,6 +68,9 @@ def ParseOptions(argv):
                     help='Run without building first',
                     default=False,
                     action='store_true')
+  result.add_option('--max-memory',
+                    help='The maximum memory in MB to run with',
+                    type='int')
   result.add_option('--find-min-xmx',
                     help='Find the minimum amount of memory we can run in',
                     default=False,
@@ -73,8 +85,12 @@ def ParseOptions(argv):
                     help='Setting the size of the acceptable memory range',
                     type='int',
                     default=32)
+  result.add_option('--find-min-xmx-archive',
+                    help='Archive find-min-xmx results on GCS',
+                    default=False,
+                    action='store_true')
   result.add_option('--timeout',
-                    type=int,
+                    type='int',
                     default=0,
                     help='Set timeout instead of waiting for OOM.')
   result.add_option('--golem',
@@ -132,6 +148,7 @@ def ParseOptions(argv):
                     metavar='BENCHMARKNAME',
                     help='Print the sizes of individual dex segments as ' +
                         '\'<BENCHMARKNAME>-<segment>(CodeSize): <bytes>\'')
+
   return result.parse_args(argv)
 
 # Most apps have -printmapping, -printseeds, -printusage and
@@ -162,7 +179,8 @@ def get_permutations():
       'youtube': youtube_data,
       'chrome': chrome_data,
       'gmail': gmail_data,
-      'r8': r8_data
+      'r8': r8_data,
+      'iosched': iosched_data,
   }
   # Check to ensure that we add all variants here.
   assert len(APPS) == len(data_providers)
@@ -234,16 +252,73 @@ def find_min_xmx(options, args):
       not_working = next_candidate
 
   assert working - not_working <= range
-  print('Found range: %s - %s' % (not_working, working))
+  found_range = 'Found range: %s - %s' % (not_working, working)
+  print(found_range)
+
+  if options.find_min_xmx_archive:
+    sha = utils.get_HEAD_sha1()
+    (version, _) = get_version_and_data(options)
+    destination = os.path.join(
+        utils.R8_TEST_RESULTS_BUCKET,
+        FIND_MIN_XMX_DIR,
+        sha,
+        options.compiler,
+        options.compiler_build,
+        options.app,
+        version,
+        get_type(options))
+    gs_destination = 'gs://%s' % destination
+    utils.archive_value(FIND_MIN_XMX_FILE, gs_destination, found_range + '\n')
+
   return 0
 
 def main(argv):
   (options, args) = ParseOptions(argv)
+  if options.expect_oom and not options.max_memory:
+    raise Exception(
+        'You should only use --expect-oom if also specifying --max-memory')
+  if options.expect_oom and options.timeout:
+    raise Exception(
+        'You should not use --timeout when also specifying --expect-oom')
   if options.run_all:
     return run_all(options, args)
   if options.find_min_xmx:
     return find_min_xmx(options, args)
-  return run_with_options(options, args)
+  exit_code = run_with_options(options, args)
+  if options.expect_oom:
+    exit_code = 0 if exit_code == OOM_EXIT_CODE else 1
+  return exit_code
+
+def get_version_and_data(options):
+  if options.app == 'gmscore':
+    version = options.version or 'v9'
+    data = gmscore_data
+  elif options.app == 'nest':
+    version = options.version or '20180926'
+    data = nest_data
+  elif options.app == 'youtube':
+    version = options.version or '12.22'
+    data = youtube_data
+  elif options.app == 'chrome':
+    version = options.version or '180917'
+    data = chrome_data
+  elif options.app == 'gmail':
+    version = options.version or '170604.16'
+    data = gmail_data
+  elif options.app == 'r8':
+    version = options.version or 'cf'
+    data = r8_data
+  elif options.app == 'iosched':
+    version = options.version or '2019'
+    data = iosched_data
+  else:
+    raise Exception("You need to specify '--app={}'".format('|'.join(APPS)))
+  return version, data
+
+def get_type(options):
+  if not options.type:
+    return 'deploy' if options.compiler == 'r8' else 'proguarded'
+  return options.type
 
 def run_with_options(options, args, extra_args=None):
   if extra_args is None:
@@ -251,7 +326,10 @@ def run_with_options(options, args, extra_args=None):
   app_provided_pg_conf = False;
   # todo(121018500): remove when memory is under control
   if not any('-Xmx' in arg for arg in extra_args):
-    extra_args.append('-Xmx8G')
+    if options.max_memory:
+      extra_args.append('-Xmx%sM' % options.max_memory)
+    else:
+      extra_args.append('-Xmx8G')
   if options.golem:
     golem.link_third_party()
     options.out = os.getcwd()
@@ -259,27 +337,7 @@ def run_with_options(options, args, extra_args=None):
     utils.check_java_version()
 
   outdir = options.out
-  data = None
-  if options.app == 'gmscore':
-    options.version = options.version or 'v9'
-    data = gmscore_data
-  elif options.app == 'nest':
-    options.version = options.version or '20180926'
-    data = nest_data
-  elif options.app == 'youtube':
-    options.version = options.version or '12.22'
-    data = youtube_data
-  elif options.app == 'chrome':
-    options.version = options.version or '180917'
-    data = chrome_data
-  elif options.app == 'gmail':
-    options.version = options.version or '170604.16'
-    data = gmail_data
-  elif options.app == 'r8':
-    options.version = options.version or 'cf'
-    data = r8_data
-  else:
-    raise Exception("You need to specify '--app={}'".format('|'.join(APPS)))
+  (version_id, data) = get_version_and_data(options)
 
   if options.compiler not in COMPILERS:
     raise Exception("You need to specify '--compiler={}'"
@@ -289,32 +347,31 @@ def run_with_options(options, args, extra_args=None):
     raise Exception("You need to specify '--compiler-build={}'"
         .format('|'.join(COMPILER_BUILDS)))
 
-  if not options.version in data.VERSIONS.keys():
+  if not version_id in data.VERSIONS.keys():
     print('No version {} for application {}'
-        .format(options.version, options.app))
+        .format(version_id, options.app))
     print('Valid versions are {}'.format(data.VERSIONS.keys()))
     return 1
 
-  version = data.VERSIONS[options.version]
+  version = data.VERSIONS[version_id]
 
-  if not options.type:
-    options.type = 'deploy' if options.compiler == 'r8' \
-        else 'proguarded'
+  type = get_type(options)
 
-  if options.type not in version:
-    print('No type {} for version {}'.format(options.type, options.version))
+  if type not in version:
+    print('No type {} for version {}'.format(type, version))
     print('Valid types are {}'.format(version.keys()))
     return 1
-  values = version[options.type]
+  values = version[type]
   inputs = None
   # For R8 'deploy' the JAR is located using the Proguard configuration
   # -injars option. For chrome and nest we don't have the injars in the
   # proguard files.
   if 'inputs' in values and (options.compiler != 'r8'
-                             or options.type != 'deploy'
+                             or type != 'deploy'
                              or options.app == 'chrome'
                              or options.app == 'nest'
-                             or options.app == 'r8'):
+                             or options.app == 'r8'
+                             or options.app == 'iosched'):
     inputs = values['inputs']
 
   args.extend(['--output', outdir])

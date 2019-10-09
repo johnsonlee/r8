@@ -65,9 +65,9 @@ public class APIConversionTest extends CoreLibDesugarTestBase {
         .assertSuccessWithOutput(
             StringUtils.lines(
                 "[5, 6, 7]",
-                "j$.util.stream.IntStream$-V-WRP",
+                "$r8$wrapper$java$util$stream$IntStream$-V-WRP",
                 "Unsupported conversion for java.util.IntSummaryStatistics. See compilation time"
-                    + " warnings for more infos."));
+                    + " infos for more details."));
   }
 
   static class Executor {

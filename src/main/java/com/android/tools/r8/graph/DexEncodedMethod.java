@@ -363,11 +363,6 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> implements Resolut
       AppInfoWithSubtyping appInfo,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
     checkIfObsolete();
-    if (isClassInitializer()) {
-      // This will probably never happen but never inline a class initializer.
-      whyAreYouNotInliningReporter.reportUnknownReason();
-      return false;
-    }
 
     if (inliningReason == Reason.FORCE) {
       // Make sure we would be able to inline this normally.
@@ -389,33 +384,36 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> implements Resolut
         if (appInfo.isSubtype(containerType, method.holder)) {
           return true;
         }
-        whyAreYouNotInliningReporter.reportUnknownReason();
+        whyAreYouNotInliningReporter.reportCallerNotSubtype();
         return false;
 
       case PROCESSED_INLINING_CANDIDATE_SAME_PACKAGE:
         if (containerType.isSamePackage(method.holder)) {
           return true;
         }
-        whyAreYouNotInliningReporter.reportUnknownReason();
+        whyAreYouNotInliningReporter.reportCallerNotSamePackage();
         return false;
 
       case PROCESSED_INLINING_CANDIDATE_SAME_NEST:
         if (NestUtils.sameNest(containerType, method.holder, appInfo)) {
           return true;
         }
-        whyAreYouNotInliningReporter.reportUnknownReason();
+        whyAreYouNotInliningReporter.reportCallerNotSameNest();
         return false;
 
       case PROCESSED_INLINING_CANDIDATE_SAME_CLASS:
         if (containerType == method.holder) {
           return true;
         }
-        whyAreYouNotInliningReporter.reportUnknownReason();
+        whyAreYouNotInliningReporter.reportCallerNotSameClass();
         return false;
 
       case PROCESSED_NOT_INLINING_CANDIDATE:
+        whyAreYouNotInliningReporter.reportInlineeNotInliningCandidate();
+        return false;
+
       case NOT_PROCESSED:
-        whyAreYouNotInliningReporter.reportUnknownReason();
+        whyAreYouNotInliningReporter.reportInlineeNotProcessed();
         return false;
 
       default:

@@ -94,10 +94,24 @@ OPENSOURCE_APPS_SHA_FILE = os.path.join(
 OPENSOURCE_APPS_FOLDER = os.path.join(THIRD_PARTY, 'opensource_apps')
 BAZEL_SHA_FILE = os.path.join(THIRD_PARTY, 'bazel.tar.gz.sha1')
 BAZEL_TOOL = os.path.join(THIRD_PARTY, 'bazel')
+JAVA8_SHA_FILE = os.path.join(THIRD_PARTY, 'openjdk', 'jdk8', 'linux-x86.tar.gz.sha1')
 
 ANDROID_HOME_ENVIROMENT_NAME = "ANDROID_HOME"
 ANDROID_TOOLS_VERSION_ENVIRONMENT_NAME = "ANDROID_TOOLS_VERSION"
 USER_HOME = os.path.expanduser('~')
+
+R8_TEST_RESULTS_BUCKET = 'r8-test-results'
+
+def archive_file(name, gs_dir, src_file):
+  gs_file = '%s/%s' % (gs_dir, name)
+  upload_file_to_cloud_storage(src_file, gs_file, public_read=False)
+
+def archive_value(name, gs_dir, value):
+  with TempDir() as temp:
+    tempfile = os.path.join(temp, name);
+    with open(tempfile, 'w') as f:
+      f.write(str(value))
+    archive_file(name, gs_dir, tempfile)
 
 def getAndroidHome():
   return os.environ.get(

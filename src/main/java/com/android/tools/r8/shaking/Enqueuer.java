@@ -12,17 +12,8 @@ import static com.google.common.base.Predicates.not;
 
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.dex.IndexedItemCollection;
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
-import com.android.tools.r8.experimental.graphinfo.AnnotationGraphNode;
-import com.android.tools.r8.experimental.graphinfo.ClassGraphNode;
-import com.android.tools.r8.experimental.graphinfo.FieldGraphNode;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
-import com.android.tools.r8.experimental.graphinfo.GraphEdgeInfo;
-import com.android.tools.r8.experimental.graphinfo.GraphEdgeInfo.EdgeKind;
-import com.android.tools.r8.experimental.graphinfo.GraphNode;
-import com.android.tools.r8.experimental.graphinfo.KeepRuleGraphNode;
-import com.android.tools.r8.experimental.graphinfo.MethodGraphNode;
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Descriptor;
@@ -58,24 +49,20 @@ import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Value;
-import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter;
+import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.shaking.EnqueuerWorklist.Action;
+import com.android.tools.r8.shaking.GraphReporter.KeepReasonWitness;
 import com.android.tools.r8.shaking.RootSetBuilder.ConsequentRootSet;
 import com.android.tools.r8.shaking.RootSetBuilder.RootSet;
 import com.android.tools.r8.shaking.ScopedDexMethodSet.AddMethodIfMoreVisibleResult;
-import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.base.Equivalence.Wrapper;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -84,7 +71,6 @@ import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import java.lang.reflect.InvocationHandler;
 import java.util.ArrayDeque;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -164,14 +150,6 @@ public class Enqueuer {
 
   private final Set<DexReference> identifierNameStrings = Sets.newIdentityHashSet();
 
-  // Canonicalization of external graph-nodes and edge info.
-  private final Map<DexItem, AnnotationGraphNode> annotationNodes = new IdentityHashMap<>();
-  private final Map<DexType, ClassGraphNode> classNodes = new IdentityHashMap<>();
-  private final Map<DexMethod, MethodGraphNode> methodNodes = new IdentityHashMap<>();
-  private final Map<DexField, FieldGraphNode> fieldNodes = new IdentityHashMap<>();
-  private final Map<ProguardKeepRuleBase, KeepRuleGraphNode> ruleNodes = new IdentityHashMap<>();
-  private final Map<EdgeKind, GraphEdgeInfo> reasonInfo = new IdentityHashMap<>();
-
   /**
    * Set of method signatures used in invoke-super instructions that either cannot be resolved or
    * resolve to a private method (leading to an IllegalAccessError).
@@ -199,7 +177,7 @@ public class Enqueuer {
    * Set of types that are mentioned in the program. We at least need an empty abstract class item
    * for these.
    */
-  private final SetWithReason<DexProgramClass> liveTypes = new SetWithReason<>(this::registerClass);
+  private final SetWithReportedReason<DexProgramClass> liveTypes;
 
   /** Set of live types defined in the library and classpath. Used to avoid duplicate tracing. */
   private final Set<DexClass> liveNonProgramTypes = Sets.newIdentityHashSet();
@@ -213,12 +191,10 @@ public class Enqueuer {
   private final Set<DexType> skippedProtoExtensionTypes = Sets.newIdentityHashSet();
 
   /** Set of annotation types that are instantiated. */
-  private final SetWithReason<DexAnnotation> liveAnnotations =
-      new SetWithReason<>(this::registerAnnotation);
+  private final SetWithReason<DexAnnotation> liveAnnotations;
 
   /** Set of types that are actually instantiated. These cannot be abstract. */
-  private final SetWithReason<DexProgramClass> instantiatedTypes =
-      new SetWithReason<>(this::registerClass);
+  private final SetWithReason<DexProgramClass> instantiatedTypes;
 
   /** Set of all types that are instantiated, directly or indirectly, thus may be abstract. */
   private final Set<DexProgramClass> directAndIndirectlyInstantiatedTypes =
@@ -229,8 +205,7 @@ public class Enqueuer {
    * are required so that invokes can find the method. If a method is only a target but not live,
    * its implementation may be removed and it may be marked abstract.
    */
-  private final SetWithReason<DexEncodedMethod> targetedMethods =
-      new SetWithReason<>(this::registerMethod);
+  private final SetWithReason<DexEncodedMethod> targetedMethods;
   /**
    * Set of program methods that are used as the bootstrap method for an invoke-dynamic instruction.
    */
@@ -245,20 +220,18 @@ public class Enqueuer {
   private final Set<DexMethod> lambdaMethodsTargetedByInvokeDynamic = Sets.newIdentityHashSet();
   /**
    * Set of virtual methods that are the immediate target of an invoke-direct.
-   * */
+   */
   private final Set<DexMethod> virtualMethodsTargetedByInvokeDirect = Sets.newIdentityHashSet();
   /**
    * Set of methods that belong to live classes and can be reached by invokes. These need to be
    * kept.
    */
-  private final SetWithReason<DexEncodedMethod> liveMethods =
-      new SetWithReason<>(this::registerMethod);
+  private final SetWithReason<DexEncodedMethod> liveMethods;
 
   /**
    * Set of fields that belong to live classes and can be reached by invokes. These need to be kept.
    */
-  private final SetWithReason<DexEncodedField> liveFields =
-      new SetWithReason<>(this::registerField);
+  private final SetWithReason<DexEncodedField> liveFields;
 
   /**
    * Set of service types (from META-INF/services/) that may have been instantiated reflectively via
@@ -270,8 +243,7 @@ public class Enqueuer {
    * Set of interface types for which there may be instantiations, such as lambda expressions or
    * explicit keep rules.
    */
-  private final SetWithReason<DexProgramClass> instantiatedInterfaceTypes =
-      new SetWithReason<>(this::registerInterface);
+  private final SetWithReason<DexProgramClass> instantiatedInterfaceTypes;
 
   /** A queue of items that need processing. Different items trigger different actions. */
   private final EnqueuerWorklist workList;
@@ -314,8 +286,6 @@ public class Enqueuer {
       new IdentityHashMap<>();
 
   private final GraphReporter graphReporter;
-  private final GraphConsumer keptGraphConsumer;
-  private CollectingGraphConsumer verificationGraphConsumer = null;
 
   Enqueuer(
       AppView<? extends AppInfoWithSubtyping> appView,
@@ -326,8 +296,7 @@ public class Enqueuer {
     this.appInfo = appView.appInfo();
     this.appView = appView;
     this.forceProguardCompatibility = options.forceProguardCompatibility;
-    this.graphReporter = new GraphReporter();
-    this.keptGraphConsumer = recordKeptGraph(options, keptGraphConsumer);
+    this.graphReporter = new GraphReporter(appView, keptGraphConsumer);
     this.mode = mode;
     this.options = options;
     this.workList = EnqueuerWorklist.createWorklist(appView);
@@ -335,10 +304,22 @@ public class Enqueuer {
     if (options.enableGeneratedMessageLiteShrinking && mode.isInitialOrFinalTreeShaking()) {
       registerAnalysis(new ProtoEnqueuerExtension(appView));
     }
+
+    liveTypes = new SetWithReportedReason<>();
+    liveAnnotations = new SetWithReason<>(graphReporter::registerAnnotation);
+    instantiatedTypes = new SetWithReason<>(graphReporter::registerClass);
+    targetedMethods = new SetWithReason<>(graphReporter::registerMethod);
+    liveMethods = new SetWithReason<>(graphReporter::registerMethod);
+    liveFields = new SetWithReason<>(graphReporter::registerField);
+    instantiatedInterfaceTypes = new SetWithReason<>(graphReporter::registerInterface);
   }
 
   public Mode getMode() {
     return mode;
+  }
+
+  public GraphReporter getGraphReporter() {
+    return graphReporter;
   }
 
   public Enqueuer registerAnalysis(EnqueuerAnalysis analysis) {
@@ -444,7 +425,7 @@ public class Enqueuer {
       if (clazz.isInterface() && !clazz.accessFlags.isAnnotation()) {
         markInterfaceAsInstantiated(clazz, witness);
       } else {
-        workList.enqueueMarkInstantiatedAction(clazz, witness);
+        workList.enqueueMarkInstantiatedAction(clazz, null, witness);
         if (clazz.hasDefaultInitializer()) {
           DexEncodedMethod defaultInitializer = clazz.getDefaultInitializer();
           if (forceProguardCompatibility) {
@@ -471,14 +452,14 @@ public class Enqueuer {
     pinnedItems.add(item.toReference());
   }
 
-  private void markInterfaceAsInstantiated(DexProgramClass clazz, KeepReason reason) {
+  private void markInterfaceAsInstantiated(DexProgramClass clazz, KeepReasonWitness witness) {
     assert clazz.isInterface() && !clazz.accessFlags.isAnnotation();
 
-    if (!instantiatedInterfaceTypes.add(clazz, reason)) {
+    if (!instantiatedInterfaceTypes.add(clazz, witness)) {
       return;
     }
     populateInstantiatedTypesCache(clazz);
-    markTypeAsLive(clazz, reason);
+    markTypeAsLive(clazz, witness);
   }
 
   private void enqueueFirstNonSerializableClassInitializer(
@@ -787,16 +768,17 @@ public class Enqueuer {
 
     @Override
     public boolean registerNewInstance(DexType type) {
-      return registerNewInstance(type, KeepReason.instantiatedIn(currentMethod));
+      return registerNewInstance(type, currentMethod, KeepReason.instantiatedIn(currentMethod));
     }
 
-    public boolean registerNewInstance(DexType type, KeepReason keepReason) {
+    public boolean registerNewInstance(
+        DexType type, DexEncodedMethod context, KeepReason keepReason) {
       DexProgramClass clazz = getProgramClassOrNull(type);
       if (clazz != null) {
         if (clazz.isInterface()) {
-          markTypeAsLive(clazz, keepReason);
+          markTypeAsLive(clazz, graphReporter.registerClass(clazz, keepReason));
         } else {
-          markInstantiated(clazz, keepReason);
+          markInstantiated(clazz, context, keepReason);
         }
       }
       return true;
@@ -931,9 +913,9 @@ public class Enqueuer {
         if (clazz != null) {
           KeepReason reason = KeepReason.methodHandleReferencedIn(currentMethod);
           if (clazz.isInterface() && !clazz.accessFlags.isAnnotation()) {
-            markInterfaceAsInstantiated(clazz, reason);
+            markInterfaceAsInstantiated(clazz, graphReporter.registerClass(clazz, reason));
           } else {
-            markInstantiated(clazz, reason);
+            markInstantiated(clazz, null, reason);
           }
         }
       }
@@ -1001,7 +983,8 @@ public class Enqueuer {
           registerInvokeDirect(method, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
           break;
         case INVOKE_CONSTRUCTOR:
-          registerNewInstance(method.holder, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
+          registerNewInstance(
+              method.holder, null, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
           break;
         default:
           throw new Unreachable();
@@ -1103,10 +1086,10 @@ public class Enqueuer {
     markTypeAsLive(
         holder,
         scopedMethodsForLiveTypes.computeIfAbsent(type, ignore -> new ScopedDexMethodSet()),
-        reason);
+        graphReporter.registerClass(holder, reason));
   }
 
-  private void markTypeAsLive(DexType type, Function<DexProgramClass, KeepReason> reason) {
+  private void markTypeAsLive(DexType type, Function<DexProgramClass, KeepReasonWitness> reason) {
     if (type.isArrayType()) {
       markTypeAsLive(type.toBaseType(appView.dexItemFactory()), reason);
       return;
@@ -1125,16 +1108,16 @@ public class Enqueuer {
         reason.apply(holder));
   }
 
-  private void markTypeAsLive(DexProgramClass clazz, KeepReason reason) {
+  private void markTypeAsLive(DexProgramClass clazz, KeepReasonWitness witness) {
     markTypeAsLive(
         clazz,
         scopedMethodsForLiveTypes.computeIfAbsent(clazz.type, ignore -> new ScopedDexMethodSet()),
-        reason);
+        witness);
   }
 
   private void markTypeAsLive(
-      DexProgramClass holder, ScopedDexMethodSet seen, KeepReason reasonForType) {
-    if (!liveTypes.add(holder, reasonForType)) {
+      DexProgramClass holder, ScopedDexMethodSet seen, KeepReasonWitness witness) {
+    if (!liveTypes.add(holder, witness)) {
       return;
     }
 
@@ -1155,7 +1138,6 @@ public class Enqueuer {
       seen.setParent(seenForSuper);
       markTypeAsLive(holder.superType, reason);
     }
-
 
     // We cannot remove virtual methods defined earlier in the type hierarchy if it is widening
     // access and is defined in an interface:
@@ -1197,7 +1179,7 @@ public class Enqueuer {
       assert holder.accessFlags.isAnnotation();
       assert annotations.stream().allMatch(a -> a.annotation.type == holder.type);
       annotations.forEach(annotation -> handleAnnotation(holder, annotation));
-      }
+    }
 
     rootSet.forEachDependentStaticMember(holder, appView, this::enqueueDependentItem);
     compatEnqueueHolderIfDependentNonStaticMember(
@@ -1315,11 +1297,12 @@ public class Enqueuer {
 
   private void registerClassInitializer(DexProgramClass definition, KeepReason reason) {
     if (definition.hasClassInitializer()) {
-      registerMethod(definition.getClassInitializer(), reason);
+      graphReporter.registerMethod(definition.getClassInitializer(), reason);
     }
   }
 
-  private void markNonStaticDirectMethodAsReachable(DexMethod method, KeepReason reason) {
+  // Package protected due to entry point from worklist.
+  void markNonStaticDirectMethodAsReachable(DexMethod method, KeepReason reason) {
     handleInvokeOfDirectTarget(method, reason);
   }
 
@@ -1434,13 +1417,15 @@ public class Enqueuer {
    * Adds the class to the set of instantiated classes and marks its fields and methods live
    * depending on the currently seen invokes and field reads.
    */
-  private void processNewlyInstantiatedClass(DexProgramClass clazz, KeepReason reason) {
+  // Package protected due to entry point from worklist.
+  void processNewlyInstantiatedClass(
+      DexProgramClass clazz, DexEncodedMethod context, KeepReason reason) {
     assert !clazz.isInterface() || clazz.accessFlags.isAnnotation();
     // Notify analyses. This is done even if `clazz` has already been marked as instantiated,
     // because each analysis may depend on seeing all the (clazz, reason) pairs. Thus, not doing so
     // could lead to nondeterminism.
     analyses.forEach(
-        analysis -> analysis.processNewlyInstantiatedClass(clazz.asProgramClass(), reason));
+        analysis -> analysis.processNewlyInstantiatedClass(clazz.asProgramClass(), context));
 
     if (!instantiatedTypes.add(clazz, reason)) {
       return;
@@ -1452,7 +1437,7 @@ public class Enqueuer {
       Log.verbose(getClass(), "Class `%s` is instantiated, processing...", clazz);
     }
     // This class becomes live, so it and all its supertypes become live types.
-    markTypeAsLive(clazz, reason);
+    markTypeAsLive(clazz, graphReporter.registerClass(clazz, reason));
     // For all methods of the class, if we have seen a call, mark the method live.
     // We only do this for virtual calls, as the other ones will be done directly.
     transitionMethodsForInstantiatedClass(clazz);
@@ -1566,26 +1551,45 @@ public class Enqueuer {
     for (DexEncodedMethod method : libraryClass.virtualMethods()) {
       // Note: it may be worthwhile to add a resolution cache here. If so, it must till ensure
       // that all library override edges are reported to the kept-graph consumer.
-      ResolutionResult resolution =
+      ResolutionResult firstResolution =
           appView.appInfo().resolveMethod(instantiatedClass, method.method);
-      if (resolution.isValidVirtualTarget(options)) {
-        resolution.forEachTarget(
-            target -> {
-              if (!target.isAbstract()) {
-                DexClass targetHolder = appView.definitionFor(target.method.holder);
-                if (targetHolder != null && targetHolder.isProgramClass()) {
-                  DexProgramClass programClass = targetHolder.asProgramClass();
-                  if (shouldMarkLibraryMethodOverrideAsReachable(programClass, target)) {
-                    target.setLibraryMethodOverride();
-                    markVirtualMethodAsLive(
-                        programClass,
-                        target,
-                        KeepReason.isLibraryMethod(programClass, libraryClass.type));
-                  }
+      markResolutionAsLive(libraryClass, firstResolution);
+
+      // Due to API conversion, some overrides can be hidden since they will be rewritten. See
+      // class comment of DesugaredLibraryAPIConverter and vivifiedType logic.
+      // In the first enqueuer phase, the signature has not been desugared, so firstResolution
+      // maintains the library override. In the second enqueuer phase, the signature has been
+      // desugared, and the second resolution maintains the the library override.
+      if (appView.rewritePrefix.hasRewrittenTypeInSignature(method.method.proto)) {
+        DexMethod methodToResolve =
+            DesugaredLibraryAPIConverter.methodWithVivifiedTypeInSignature(
+                method.method, method.method.holder, appView);
+        assert methodToResolve != method.method;
+        ResolutionResult secondResolution =
+            appView.appInfo().resolveMethod(instantiatedClass, methodToResolve);
+        markResolutionAsLive(libraryClass, secondResolution);
+      }
+    }
+  }
+
+  private void markResolutionAsLive(DexClass libraryClass, ResolutionResult resolution) {
+    if (resolution.isValidVirtualTarget(options)) {
+      resolution.forEachTarget(
+          target -> {
+            if (!target.isAbstract()) {
+              DexClass targetHolder = appView.definitionFor(target.method.holder);
+              if (targetHolder != null && targetHolder.isProgramClass()) {
+                DexProgramClass programClass = targetHolder.asProgramClass();
+                if (shouldMarkLibraryMethodOverrideAsReachable(programClass, target)) {
+                  target.setLibraryMethodOverride();
+                  markVirtualMethodAsLive(
+                      programClass,
+                      target,
+                      KeepReason.isLibraryMethod(programClass, libraryClass.type));
                 }
               }
-            });
-      }
+            }
+          });
     }
   }
 
@@ -1709,11 +1713,12 @@ public class Enqueuer {
     analyses.forEach(analysis -> analysis.processNewlyLiveField(field));
   }
 
-  private void markInstantiated(DexProgramClass clazz, KeepReason reason) {
+  private void markInstantiated(
+      DexProgramClass clazz, DexEncodedMethod context, KeepReason reason) {
     if (Log.ENABLED) {
       Log.verbose(getClass(), "Register new instantiation of `%s`.", clazz);
     }
-    workList.enqueueMarkInstantiatedAction(clazz, reason);
+    workList.enqueueMarkInstantiatedAction(clazz, context, reason);
   }
 
   private void markLambdaInstantiated(DexType itf, DexEncodedMethod method) {
@@ -1785,7 +1790,8 @@ public class Enqueuer {
     return directAndIndirectlyInstantiatedTypes.contains(clazz);
   }
 
-  private void markInstanceFieldAsReachable(DexEncodedField encodedField, KeepReason reason) {
+  // Package protected due to entry point from worklist.
+  void markInstanceFieldAsReachable(DexEncodedField encodedField, KeepReason reason) {
     DexField field = encodedField.field;
     if (Log.ENABLED) {
       Log.verbose(getClass(), "Marking instance field `%s` as reachable.", field);
@@ -1819,8 +1825,8 @@ public class Enqueuer {
     }
   }
 
-  private void markVirtualMethodAsReachable(
-      DexMethod method, boolean interfaceInvoke, KeepReason reason) {
+  // Package protected due to entry point from worklist.
+  void markVirtualMethodAsReachable(DexMethod method, boolean interfaceInvoke, KeepReason reason) {
     markVirtualMethodAsReachable(method, interfaceInvoke, reason, (x, y) -> true);
   }
 
@@ -1850,7 +1856,7 @@ public class Enqueuer {
     MarkedResolutionTarget resolution = virtualTargetsMarkedAsReachable.get(method);
     if (resolution != null) {
       if (!resolution.isUnresolved()) {
-        registerMethod(resolution.method, reason);
+        graphReporter.registerMethod(resolution.method, reason);
       }
       return;
     }
@@ -2044,7 +2050,8 @@ public class Enqueuer {
     }
   }
 
-  private void markSuperMethodAsReachable(DexMethod method, DexEncodedMethod from) {
+  // Package protected due to entry point from worklist.
+  void markSuperMethodAsReachable(DexMethod method, DexEncodedMethod from) {
     // We have to mark the immediate target of the descriptor as targeted, as otherwise
     // the invoke super will fail in the resolution step with a NSM error.
     // See <a
@@ -2126,44 +2133,12 @@ public class Enqueuer {
     return createAppInfo(appInfo);
   }
 
-  private GraphConsumer recordKeptGraph(InternalOptions options, GraphConsumer consumer) {
-    if (options.testing.verifyKeptGraphInfo) {
-      verificationGraphConsumer = new CollectingGraphConsumer(consumer);
-      return verificationGraphConsumer;
-    }
-    return consumer;
-  }
-
-  private boolean verifyKeptGraph() {
-    if (options.testing.verifyKeptGraphInfo) {
-      assert verificationGraphConsumer != null;
-      for (DexProgramClass liveType : liveTypes.items) {
-        assert verifyRootedPath(liveType, verificationGraphConsumer);
+  public boolean verifyKeptGraph() {
+    if (appView.options().testing.verifyKeptGraphInfo) {
+      for (DexProgramClass liveType : liveTypes.getItems()) {
+        assert graphReporter.verifyRootedPath(liveType);
       }
     }
-    return true;
-  }
-
-  private boolean verifyRootedPath(DexProgramClass liveType, CollectingGraphConsumer graph) {
-    ClassGraphNode node = getClassGraphNode(liveType.type);
-    Set<GraphNode> seen = Sets.newIdentityHashSet();
-    Deque<GraphNode> targets = DequeUtils.newArrayDeque(node);
-    while (!targets.isEmpty()) {
-      GraphNode item = targets.pop();
-      if (item instanceof KeepRuleGraphNode) {
-        KeepRuleGraphNode rule = (KeepRuleGraphNode) item;
-        if (rule.getPreconditions().isEmpty()) {
-          return true;
-        }
-      }
-      if (seen.add(item)) {
-        Map<GraphNode, Set<GraphEdgeInfo>> sources = graph.getSourcesTargeting(item);
-        assert sources != null : "No sources set for " + item;
-        assert !sources.isEmpty() : "Empty sources set for " + item;
-        targets.addAll(sources.keySet());
-      }
-    }
-    assert false : "No rooted path to " + liveType.type;
     return true;
   }
 
@@ -2258,38 +2233,7 @@ public class Enqueuer {
         numOfLiveItems += (long) liveFields.items.size();
         while (!workList.isEmpty()) {
           Action action = workList.poll();
-          switch (action.kind) {
-            case MARK_INSTANTIATED:
-              processNewlyInstantiatedClass((DexProgramClass) action.target, action.reason);
-              break;
-            case MARK_REACHABLE_FIELD:
-              markInstanceFieldAsReachable((DexEncodedField) action.target, action.reason);
-              break;
-            case MARK_REACHABLE_DIRECT:
-              markNonStaticDirectMethodAsReachable((DexMethod) action.target, action.reason);
-              break;
-            case MARK_REACHABLE_VIRTUAL:
-              markVirtualMethodAsReachable((DexMethod) action.target, false, action.reason);
-              break;
-            case MARK_REACHABLE_INTERFACE:
-              markVirtualMethodAsReachable((DexMethod) action.target, true, action.reason);
-              break;
-            case MARK_REACHABLE_SUPER:
-              markSuperMethodAsReachable((DexMethod) action.target,
-                  (DexEncodedMethod) action.context);
-              break;
-            case MARK_METHOD_KEPT:
-              markMethodAsKept((DexEncodedMethod) action.target, action.reason);
-              break;
-            case MARK_FIELD_KEPT:
-              markFieldAsKept((DexEncodedField) action.target, action.reason);
-              break;
-            case MARK_METHOD_LIVE:
-              markMethodAsLive(((DexEncodedMethod) action.target), action.reason);
-              break;
-            default:
-              throw new IllegalArgumentException("" + action.kind);
-          }
+          action.run(this);
         }
 
         // Continue fix-point processing if -if rules are enabled by items that newly became live.
@@ -2393,7 +2337,8 @@ public class Enqueuer {
     lambdaMethodsTargetedByInvokeDynamic.clear();
   }
 
-  private void markMethodAsKept(DexEncodedMethod target, KeepReason reason) {
+  // Package protected due to entry point from worklist.
+  void markMethodAsKept(DexEncodedMethod target, KeepReason reason) {
     DexMethod method = target.method;
     DexProgramClass holder = getProgramClassOrNull(method.holder);
     if (holder == null) {
@@ -2432,7 +2377,8 @@ public class Enqueuer {
     }
   }
 
-  private void markFieldAsKept(DexEncodedField target, KeepReason reason) {
+  // Package protected due to entry point from worklist.
+  void markFieldAsKept(DexEncodedField target, KeepReason reason) {
     DexProgramClass clazz = getProgramClassOrNull(target.field.holder);
     if (clazz == null) {
       return;
@@ -2485,7 +2431,8 @@ public class Enqueuer {
     return false;
   }
 
-  private void markMethodAsLive(DexEncodedMethod method, KeepReason reason) {
+  // Package protected due to entry point from worklist.
+  void markMethodAsLive(DexEncodedMethod method, KeepReason reason) {
     assert liveMethods.contains(method);
 
     DexProgramClass clazz = getProgramClassOrNull(method.method.holder);
@@ -2535,18 +2482,19 @@ public class Enqueuer {
   }
 
   private void markClassAsInstantiatedWithReason(DexProgramClass clazz, KeepReason reason) {
-    workList.enqueueMarkInstantiatedAction(clazz, reason);
+    workList.enqueueMarkInstantiatedAction(clazz, null, reason);
     if (clazz.hasDefaultInitializer()) {
       workList.enqueueMarkReachableDirectAction(clazz.getDefaultInitializer().method, reason);
     }
   }
 
-  private void markClassAsInstantiatedWithCompatRule(DexProgramClass clazz, KeepReason reason) {
+  private void markClassAsInstantiatedWithCompatRule(
+      DexProgramClass clazz, KeepReasonWitness witness) {
     if (clazz.isInterface() && !clazz.accessFlags.isAnnotation()) {
-      markInterfaceAsInstantiated(clazz, reason);
+      markInterfaceAsInstantiated(clazz, witness);
       return;
     }
-    workList.enqueueMarkInstantiatedAction(clazz, reason);
+    workList.enqueueMarkInstantiatedAction(clazz, null, witness);
     if (clazz.hasDefaultInitializer()) {
       DexEncodedMethod defaultInitializer = clazz.getDefaultInitializer();
       workList.enqueueMarkReachableDirectAction(
@@ -2610,7 +2558,7 @@ public class Enqueuer {
         return;
       }
       if (!clazz.isInterface()) {
-        markInstantiated(clazz, KeepReason.reflectiveUseIn(method));
+        markInstantiated(clazz, null, KeepReason.reflectiveUseIn(method));
         if (clazz.hasDefaultInitializer()) {
           DexEncodedMethod initializer = clazz.getDefaultInitializer();
           KeepReason reason = KeepReason.reflectiveUseIn(method);
@@ -2637,7 +2585,7 @@ public class Enqueuer {
           !encodedField.accessFlags.isStatic()
               && dexItemFactory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod);
       if (keepClass) {
-        markInstantiated(clazz, KeepReason.reflectiveUseIn(method));
+        markInstantiated(clazz, null, KeepReason.reflectiveUseIn(method));
       }
       markFieldAsKept(encodedField, KeepReason.reflectiveUseIn(method));
       // Fields accessed by reflection is marked as both read and written.
@@ -2897,6 +2845,24 @@ public class Enqueuer {
     }
   }
 
+  private static class SetWithReportedReason<T> {
+
+    private final Set<T> items = Sets.newIdentityHashSet();
+
+    boolean add(T item, KeepReasonWitness witness) {
+      assert witness != null;
+      return items.add(item);
+    }
+
+    boolean contains(T item) {
+      return items.contains(item);
+    }
+
+    Set<T> getItems() {
+      return Collections.unmodifiableSet(items);
+    }
+  }
+
   private static class SetWithReason<T> {
 
     private final Set<T> items = Sets.newIdentityHashSet();
@@ -2921,7 +2887,7 @@ public class Enqueuer {
     }
   }
 
-  private static class MarkedResolutionTarget {
+  public static class MarkedResolutionTarget {
 
     private static final MarkedResolutionTarget UNRESOLVED = new MarkedResolutionTarget(null, null);
 
@@ -2957,6 +2923,7 @@ public class Enqueuer {
   }
 
   private static class ReachableVirtualMethodsSet {
+
     private final Map<DexEncodedMethod, Set<MarkedResolutionTarget>> methods =
         Maps.newIdentityHashMap();
 
@@ -3120,402 +3087,4 @@ public class Enqueuer {
     }
   }
 
-  class GraphReporter {
-
-    private EdgeKind reportPrecondition(KeepRuleGraphNode keepRuleGraphNode) {
-      if (keepRuleGraphNode.getPreconditions().isEmpty()) {
-        return EdgeKind.KeepRule;
-      }
-      for (GraphNode precondition : keepRuleGraphNode.getPreconditions()) {
-        reportEdge(precondition, keepRuleGraphNode, EdgeKind.KeepRulePrecondition);
-      }
-      return EdgeKind.ConditionalKeepRule;
-    }
-
-    KeepReasonWitness reportKeepClass(
-        DexDefinition precondition, ProguardKeepRuleBase rule, DexProgramClass clazz) {
-      if (keptGraphConsumer == null) {
-        return KeepReasonWitness.INSTANCE;
-      }
-      KeepRuleGraphNode ruleNode = getKeepRuleGraphNode(precondition, rule);
-      EdgeKind edgeKind = reportPrecondition(ruleNode);
-      return reportEdge(ruleNode, getClassGraphNode(clazz.type), edgeKind);
-    }
-
-    KeepReasonWitness reportKeepClass(
-        DexDefinition precondition, Collection<ProguardKeepRuleBase> rules, DexProgramClass clazz) {
-      assert !rules.isEmpty();
-      if (keptGraphConsumer != null) {
-        for (ProguardKeepRuleBase rule : rules) {
-          reportKeepClass(precondition, rule, clazz);
-        }
-      }
-      return KeepReasonWitness.INSTANCE;
-    }
-
-    KeepReasonWitness reportKeepMethod(
-        DexDefinition precondition, ProguardKeepRuleBase rule, DexEncodedMethod method) {
-      if (keptGraphConsumer == null) {
-        return KeepReasonWitness.INSTANCE;
-      }
-      KeepRuleGraphNode ruleNode = getKeepRuleGraphNode(precondition, rule);
-      EdgeKind edgeKind = reportPrecondition(ruleNode);
-      return reportEdge(ruleNode, getMethodGraphNode(method.method), edgeKind);
-    }
-
-    KeepReasonWitness reportKeepMethod(
-        DexDefinition precondition,
-        Collection<ProguardKeepRuleBase> rules,
-        DexEncodedMethod method) {
-      assert !rules.isEmpty();
-      if (keptGraphConsumer != null) {
-        for (ProguardKeepRuleBase rule : rules) {
-          reportKeepMethod(precondition, rule, method);
-        }
-      }
-      return KeepReasonWitness.INSTANCE;
-    }
-
-    KeepReasonWitness reportKeepField(
-        DexDefinition precondition, ProguardKeepRuleBase rule, DexEncodedField field) {
-      if (keptGraphConsumer == null) {
-        return KeepReasonWitness.INSTANCE;
-      }
-      KeepRuleGraphNode ruleNode = getKeepRuleGraphNode(precondition, rule);
-      EdgeKind edgeKind = reportPrecondition(ruleNode);
-      return reportEdge(ruleNode, getFieldGraphNode(field.field), edgeKind);
-    }
-
-    KeepReasonWitness reportKeepField(
-        DexDefinition precondition, Collection<ProguardKeepRuleBase> rules, DexEncodedField field) {
-      assert !rules.isEmpty();
-      if (keptGraphConsumer != null) {
-        for (ProguardKeepRuleBase rule : rules) {
-          reportKeepField(precondition, rule, field);
-        }
-      }
-      return KeepReasonWitness.INSTANCE;
-    }
-
-    public KeepReasonWitness reportCompatKeepDefaultInitializer(
-        DexProgramClass holder, DexEncodedMethod defaultInitializer) {
-      assert holder.type == defaultInitializer.method.holder;
-      assert holder.getDefaultInitializer() == defaultInitializer;
-      if (keptGraphConsumer != null) {
-        reportEdge(
-            getClassGraphNode(holder.type),
-            getMethodGraphNode(defaultInitializer.method),
-            EdgeKind.CompatibilityRule);
-      }
-      return KeepReasonWitness.COMPAT_INSTANCE;
-    }
-
-    public KeepReasonWitness reportCompatKeepMethod(
-        DexProgramClass holder, DexEncodedMethod method) {
-      assert holder.type == method.method.holder;
-      // TODO(b/141729349): This compat rule is from the method to itself and has not edge. Fix it.
-      // The rule is stating that if the method is targeted it is live. Since such an edge does
-      // not contribute to additional information in the kept graph as it stands (no distinction
-      // of targeted vs live edges), there is little point in emitting it.
-      return KeepReasonWitness.COMPAT_INSTANCE;
-    }
-
-    public KeepReason reportCompatInstantiated(
-        DexProgramClass instantiated, DexEncodedMethod method) {
-      if (keptGraphConsumer != null) {
-        reportEdge(
-            getMethodGraphNode(method.method),
-            getClassGraphNode(instantiated.type),
-            EdgeKind.CompatibilityRule);
-      }
-      return KeepReasonWitness.COMPAT_INSTANCE;
-    }
-
-    public KeepReasonWitness reportClassReferencedFrom(
-        DexProgramClass clazz, DexEncodedMethod method) {
-      if (keptGraphConsumer != null) {
-        MethodGraphNode source = getMethodGraphNode(method.method);
-        ClassGraphNode target = getClassGraphNode(clazz.type);
-        return reportEdge(source, target, EdgeKind.ReferencedFrom);
-      }
-      return KeepReasonWitness.INSTANCE;
-    }
-
-    public KeepReasonWitness reportClassReferencedFrom(
-        DexProgramClass clazz, DexEncodedField field) {
-      if (keptGraphConsumer != null) {
-        FieldGraphNode source = getFieldGraphNode(field.field);
-        ClassGraphNode target = getClassGraphNode(clazz.type);
-        return reportEdge(source, target, EdgeKind.ReferencedFrom);
-      }
-      return KeepReasonWitness.INSTANCE;
-    }
-
-    public KeepReasonWitness reportReachableMethodAsLive(
-        DexEncodedMethod encodedMethod, MarkedResolutionTarget reason) {
-      if (keptGraphConsumer != null) {
-        return reportEdge(
-            getMethodGraphNode(reason.method.method),
-            getMethodGraphNode(encodedMethod.method),
-            EdgeKind.OverridingMethod);
-      }
-      return KeepReasonWitness.INSTANCE;
-    }
-
-    public KeepReasonWitness reportReachableMethodAsLive(
-        DexEncodedMethod encodedMethod, Set<MarkedResolutionTarget> reasons) {
-      assert !reasons.isEmpty();
-      if (keptGraphConsumer != null) {
-        MethodGraphNode target = getMethodGraphNode(encodedMethod.method);
-        for (MarkedResolutionTarget reason : reasons) {
-          reportEdge(getMethodGraphNode(reason.method.method), target, EdgeKind.OverridingMethod);
-        }
-      }
-      return KeepReasonWitness.INSTANCE;
-    }
-
-    private KeepReason reportCompanionClass(DexProgramClass iface, DexProgramClass companion) {
-      assert iface.isInterface();
-      assert InterfaceMethodRewriter.isCompanionClassType(companion.type);
-      if (keptGraphConsumer == null) {
-        return KeepReasonWitness.INSTANCE;
-      }
-      return reportEdge(
-          getClassGraphNode(iface.type),
-          getClassGraphNode(companion.type),
-          EdgeKind.CompanionClass);
-    }
-
-    private KeepReason reportCompanionMethod(
-        DexEncodedMethod definition, DexEncodedMethod implementation) {
-      assert InterfaceMethodRewriter.isCompanionClassType(implementation.method.holder);
-      if (keptGraphConsumer == null) {
-        return KeepReasonWitness.INSTANCE;
-      }
-      return reportEdge(
-          getMethodGraphNode(definition.method),
-          getMethodGraphNode(implementation.method),
-          EdgeKind.CompanionMethod);
-    }
-
-    private KeepReasonWitness reportEdge(
-        GraphNode source, GraphNode target, GraphEdgeInfo.EdgeKind kind) {
-      assert keptGraphConsumer != null;
-      keptGraphConsumer.acceptEdge(source, target, getEdgeInfo(kind));
-      return KeepReasonWitness.INSTANCE;
-    }
-
-  }
-
-  /**
-   * Sentinel value indicating that a keep reason has been reported.
-   *
-   * <p>Should only ever be returned by the register* function below.
-   */
-  private static class KeepReasonWitness extends KeepReason {
-
-    private static KeepReasonWitness INSTANCE = new KeepReasonWitness();
-    private static KeepReasonWitness COMPAT_INSTANCE =
-        new KeepReasonWitness() {
-          @Override
-          public boolean isDueToProguardCompatibility() {
-            return true;
-          }
-        };
-
-    @Override
-    public EdgeKind edgeKind() {
-      throw new Unreachable();
-    }
-
-    @Override
-    public GraphNode getSourceNode(Enqueuer enqueuer) {
-      throw new Unreachable();
-    }
-  }
-
-  private boolean skipReporting(KeepReason reason) {
-    assert reason != null;
-    if (reason == KeepReasonWitness.INSTANCE || reason == KeepReasonWitness.COMPAT_INSTANCE) {
-      return true;
-    }
-    assert getSourceNode(reason) != null;
-    return keptGraphConsumer == null;
-  }
-
-  private KeepReasonWitness registerType(DexType type, KeepReason reason) {
-    if (skipReporting(reason)) {
-      return KeepReasonWitness.INSTANCE;
-    }
-    return registerEdge(getClassGraphNode(type), reason);
-  }
-
-  private KeepReasonWitness registerInterface(DexProgramClass iface, KeepReason reason) {
-    assert iface.isInterface();
-    if (skipReporting(reason)) {
-      return KeepReasonWitness.INSTANCE;
-    }
-    return registerEdge(getClassGraphNode(iface.type), reason);
-  }
-
-  private KeepReasonWitness registerClass(DexProgramClass clazz, KeepReason reason) {
-    if (skipReporting(reason)) {
-      return KeepReasonWitness.INSTANCE;
-    }
-    return registerEdge(getClassGraphNode(clazz.type), reason);
-  }
-
-  private KeepReasonWitness registerAnnotation(DexAnnotation annotation, KeepReason reason) {
-    if (skipReporting(reason)) {
-      return KeepReasonWitness.INSTANCE;
-    }
-    return registerEdge(getAnnotationGraphNode(annotation.annotation.type), reason);
-  }
-
-  private KeepReasonWitness registerMethod(DexEncodedMethod method, KeepReason reason) {
-    if (skipReporting(reason)) {
-      return KeepReasonWitness.INSTANCE;
-    }
-    if (reason.edgeKind() == EdgeKind.IsLibraryMethod && isNonProgramClass(method.method.holder)) {
-      // Don't report edges to actual library methods.
-      // TODO(b/120959039): This should be dead code once no library classes are ever enqueued.
-      return KeepReasonWitness.INSTANCE;
-    }
-    return registerEdge(getMethodGraphNode(method.method), reason);
-  }
-
-  private KeepReasonWitness registerField(DexEncodedField field, KeepReason reason) {
-    if (skipReporting(reason)) {
-      return KeepReasonWitness.INSTANCE;
-    }
-    return registerEdge(getFieldGraphNode(field.field), reason);
-  }
-
-  private KeepReasonWitness registerEdge(GraphNode target, KeepReason reason) {
-    assert !skipReporting(reason);
-    GraphNode sourceNode = getSourceNode(reason);
-    // TODO(b/120959039): Make sure we do have edges to nodes deriving library nodes!
-    if (!sourceNode.isLibraryNode()) {
-      GraphEdgeInfo edgeInfo = getEdgeInfo(reason);
-      keptGraphConsumer.acceptEdge(sourceNode, target, edgeInfo);
-    }
-    return KeepReasonWitness.INSTANCE;
-  }
-
-  private boolean isNonProgramClass(DexType type) {
-    DexClass clazz = appView.definitionFor(type);
-    return clazz == null || clazz.isNotProgramClass();
-  }
-
-  private GraphNode getSourceNode(KeepReason reason) {
-    return reason.getSourceNode(this);
-  }
-
-  public GraphNode getGraphNode(DexReference reference) {
-    if (reference.isDexType()) {
-      return getClassGraphNode(reference.asDexType());
-    }
-    if (reference.isDexMethod()) {
-      return getMethodGraphNode(reference.asDexMethod());
-    }
-    if (reference.isDexField()) {
-      return getFieldGraphNode(reference.asDexField());
-    }
-    throw new Unreachable();
-  }
-
-  GraphEdgeInfo getEdgeInfo(KeepReason reason) {
-    return getEdgeInfo(reason.edgeKind());
-  }
-
-  GraphEdgeInfo getEdgeInfo(GraphEdgeInfo.EdgeKind kind) {
-    return reasonInfo.computeIfAbsent(kind, k -> new GraphEdgeInfo(k));
-  }
-
-  AnnotationGraphNode getAnnotationGraphNode(DexItem type) {
-    return annotationNodes.computeIfAbsent(type, t -> {
-      if (t instanceof DexType) {
-        return new AnnotationGraphNode(getClassGraphNode(((DexType) t)));
-      }
-      throw new Unimplemented("Incomplete support for annotation node on item: " + type.getClass());
-    });
-  }
-
-  ClassGraphNode getClassGraphNode(DexType type) {
-    return classNodes.computeIfAbsent(
-        type,
-        t -> {
-          DexClass definition = appView.definitionFor(t);
-          return new ClassGraphNode(
-              definition != null && definition.isNotProgramClass(),
-              Reference.classFromDescriptor(t.toDescriptorString()));
-        });
-  }
-
-  MethodGraphNode getMethodGraphNode(DexMethod context) {
-    return methodNodes.computeIfAbsent(
-        context,
-        m -> {
-          DexClass holderDefinition = appView.definitionFor(context.holder);
-          Builder<TypeReference> builder = ImmutableList.builder();
-          for (DexType param : m.proto.parameters.values) {
-            builder.add(Reference.typeFromDescriptor(param.toDescriptorString()));
-          }
-          return new MethodGraphNode(
-              holderDefinition != null && holderDefinition.isNotProgramClass(),
-              Reference.method(
-                  Reference.classFromDescriptor(m.holder.toDescriptorString()),
-                  m.name.toString(),
-                  builder.build(),
-                  m.proto.returnType.isVoidType()
-                      ? null
-                      : Reference.typeFromDescriptor(m.proto.returnType.toDescriptorString())));
-        });
-  }
-
-  FieldGraphNode getFieldGraphNode(DexField context) {
-    return fieldNodes.computeIfAbsent(
-        context,
-        f -> {
-          DexClass holderDefinition = appView.definitionFor(context.holder);
-          return new FieldGraphNode(
-              holderDefinition != null && holderDefinition.isNotProgramClass(),
-              Reference.field(
-                  Reference.classFromDescriptor(f.holder.toDescriptorString()),
-                  f.name.toString(),
-                  Reference.typeFromDescriptor(f.type.toDescriptorString())));
-        });
-  }
-
-  // Due to the combined encoding of dependent rules, ala keepclassmembers and conditional keep
-  // rules the conversion to a keep-rule graph node can be one of three forms:
-  // 1. A non-dependent keep rule. In this case precondtion == null and the rule is not an if-rule.
-  // 2. A dependent keep rule. In this case precondtion != null and rule is not an if-rule.
-  // 3. A conditional keep rule. In this case rule is an if-rule, but precondition may or may not be
-  //    null. In the non-null case, the precondition is the type the consequent may depend on,
-  //    say T for the consequent "-keep T { f; }". It is *not* the precondition of the conditional
-  //    rule.
-  KeepRuleGraphNode getKeepRuleGraphNode(DexDefinition precondition, ProguardKeepRuleBase rule) {
-    if (rule instanceof ProguardKeepRule) {
-      Set<GraphNode> preconditions =
-          precondition != null
-              ? Collections.singleton(getGraphNode(precondition.toReference()))
-              : Collections.emptySet();
-      return ruleNodes.computeIfAbsent(rule, key -> new KeepRuleGraphNode(rule, preconditions));
-    }
-    if (rule instanceof ProguardIfRule) {
-      ProguardIfRule ifRule = (ProguardIfRule) rule;
-      assert !ifRule.getPreconditions().isEmpty();
-      return ruleNodes.computeIfAbsent(
-          ifRule,
-          key -> {
-            Set<GraphNode> preconditions = new HashSet<>(ifRule.getPreconditions().size());
-            for (DexReference condition : ifRule.getPreconditions()) {
-              preconditions.add(getGraphNode(condition));
-            }
-            return new KeepRuleGraphNode(ifRule, preconditions);
-          });
-    }
-    throw new Unreachable("Unexpected type of keep rule: " + rule);
-  }
 }
