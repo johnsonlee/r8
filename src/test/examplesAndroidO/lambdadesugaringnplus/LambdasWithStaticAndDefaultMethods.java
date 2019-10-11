@@ -327,7 +327,10 @@ public class LambdasWithStaticAndDefaultMethods {
 
       @SomeAnnotation(4)
       static void annotatedStaticMethod() {
-        synchronized (AnnotatedInterface.class) { } // Do not inline
+        // Bogus body to be included into the root set: if interface desugaring is on, root set
+        // builder will skip marking methods without code.
+        synchronized (AnnotatedInterface.class) {
+        }
       }
     }
 

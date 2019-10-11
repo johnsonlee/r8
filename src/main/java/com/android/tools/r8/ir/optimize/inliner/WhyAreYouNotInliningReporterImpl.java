@@ -210,11 +210,6 @@ class WhyAreYouNotInliningReporterImpl extends WhyAreYouNotInliningReporter {
   }
 
   @Override
-  public void reportSynchronizedMethod() {
-    print("synchronized methods are not inlined.");
-  }
-
-  @Override
   public void reportUnknownTarget() {
     print("could not find a single target.");
   }
@@ -248,6 +243,16 @@ class WhyAreYouNotInliningReporterImpl extends WhyAreYouNotInliningReporter {
         "would exceed the caller's instruction budget",
         "number of instructions in inlinee",
         numberOfInstructions,
+        threshold);
+  }
+
+  @Override
+  public void reportWillExceedMonitorEnterValuesBudget(
+      int numberOfMonitorEnterValuesAfterInlining, int threshold) {
+    printWithExceededThreshold(
+        "could negatively impact register allocation due to the number of monitor instructions",
+        "estimated number of locks after inlining",
+        numberOfMonitorEnterValuesAfterInlining,
         threshold);
   }
 

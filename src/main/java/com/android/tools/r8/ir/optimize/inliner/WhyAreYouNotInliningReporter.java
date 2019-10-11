@@ -101,8 +101,6 @@ public abstract class WhyAreYouNotInliningReporter {
 
   public abstract void reportRecursiveMethod();
 
-  public abstract void reportSynchronizedMethod();
-
   abstract void reportUnknownTarget();
 
   public abstract void reportUnsafeConstructorInliningDueToFinalFieldAssignment(
@@ -114,6 +112,9 @@ public abstract class WhyAreYouNotInliningReporter {
   public abstract void reportUnsafeConstructorInliningDueToUninitializedObjectUse(Instruction user);
 
   public abstract void reportWillExceedInstructionBudget(int numberOfInstructions, int threshold);
+
+  public abstract void reportWillExceedMonitorEnterValuesBudget(
+      int numberOfMonitorEnterValuesAfterInlining, int threshold);
 
   public abstract boolean verifyReasonHasBeenReported();
 }

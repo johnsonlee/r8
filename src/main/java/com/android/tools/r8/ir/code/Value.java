@@ -239,6 +239,10 @@ public class Value {
     return definition;
   }
 
+  public boolean hasAliasedValue() {
+    return getAliasedValue() != this;
+  }
+
   /**
    * If this value is defined by an instruction that defines an alias of another value, such as the
    * {@link Assume} instruction, then the incoming value to the {@link Assume} instruction is
@@ -989,11 +993,6 @@ public class Value {
         || typeLattice.nullability().isDefinitelyNotNull();
   }
 
-  public boolean canBeNull() {
-    assert typeLattice.isReference();
-    return typeLattice.isNullable();
-  }
-
   public void markAsArgument() {
     assert !isArgument;
     assert !isThis;
@@ -1004,6 +1003,20 @@ public class Value {
     return isArgument;
   }
 
+  public int computeArgumentPosition(IRCode code) {
+    assert isArgument;
+    int position = 0;
+    InstructionIterator instructionIterator = code.entryBlock().iterator();
+    while (instructionIterator.hasNext()) {
+      Instruction instruction = instructionIterator.next();
+      assert instruction.isArgument();
+      if (instruction.outValue() == this) {
+        return position;
+      }
+      position++;
+    }
+    throw new Unreachable();
+  }
 
   public boolean knownToBeBoolean() {
     return knownToBeBoolean(null);
@@ -1199,10 +1212,20 @@ public class Value {
       lattice = aliasedValue.definition.asAssumeDynamicType().getAssumption().getType();
 
       // For precision, verify that the dynamic type is at least as precise as the static type.
-      assert lattice.lessThanOrEqualUpToNullability(getTypeLattice(), appView);
+      assert lattice.lessThanOrEqualUpToNullability(typeLattice, appView)
+          : typeLattice + " < " + lattice;
     } else {
       // Otherwise, simply use the static type.
-      lattice = getTypeLattice();
+      lattice = typeLattice;
+    }
+
+    // Account for nullability, which could be flown from non-null assumption in between dynamic
+    // type assumption or simply from array/object creation.
+    if (typeLattice.isDefinitelyNotNull() && lattice.isNullable()) {
+      // Having non-null assumption means it is a reference type.
+      assert lattice.isReference();
+      // Then, we can return the non-null variant of dynamic type if both assumptions are aliased.
+      return lattice.asReferenceTypeLatticeElement().asMeetWithNotNull();
     }
     return lattice;
   }
@@ -1226,7 +1249,11 @@ public class Value {
     // Assume<DynamicTypeAssumption>.
     Value aliasedValue = getSpecificAliasedValue(value -> value.definition.isAssumeDynamicType());
     if (aliasedValue != null) {
-      return aliasedValue.definition.asAssumeDynamicType().getAssumption().getLowerBoundType();
+      ClassTypeLatticeElement lattice =
+          aliasedValue.definition.asAssumeDynamicType().getAssumption().getLowerBoundType();
+      return lattice != null && typeLattice.isDefinitelyNotNull() && lattice.isNullable()
+          ? lattice.asMeetWithNotNull().asClassTypeLatticeElement()
+          : lattice;
     }
     return null;
   }

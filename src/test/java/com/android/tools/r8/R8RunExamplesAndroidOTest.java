@@ -44,10 +44,8 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
           "-keepclasseswithmembers public class * {",
           "    public static void main(java.lang.String[]);",
           "}",
-          "-keepclasseswithmembers interface lambdadesugaringnplus."
-              + "LambdasWithStaticAndDefaultMethods$B38302860$AnnotatedInterface{",
-          "    *;",
-          "}",
+          "-keepclasseswithmembers interface **$AnnotatedInterface { <methods>; }",
+          "-neverinline interface **$AnnotatedInterface { static void annotatedStaticMethod(); }",
           "-keepattributes *Annotation*",
           "-dontobfuscate",
           "-allowaccessmodification");
@@ -197,6 +195,7 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
         .withMinApiLevel(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K))
         .withInterfaceMethodDesugaring(OffOrAuto.Auto)
         .withOptionConsumer(opts -> opts.enableClassInlining = false)
+        .withBuilderTransformation(ToolHelper::allowTestProguardOptions)
         .withBuilderTransformation(
             b -> b.addProguardConfiguration(PROGUARD_OPTIONS_N_PLUS, Origin.unknown()))
         .withDexCheck(inspector -> checkLambdaCount(inspector, 40, "lambdadesugaringnplus"))
@@ -206,6 +205,7 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
         .withMinApiLevel(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K))
         .withInterfaceMethodDesugaring(OffOrAuto.Auto)
         .withOptionConsumer(opts -> opts.enableClassInlining = true)
+        .withBuilderTransformation(ToolHelper::allowTestProguardOptions)
         .withBuilderTransformation(
             b -> b.addProguardConfiguration(PROGUARD_OPTIONS_N_PLUS, Origin.unknown()))
         // TODO(b/120814598): Should be 5. Some lambdas are not class inlined because parameter
@@ -221,6 +221,7 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
         .withMinApiLevel(AndroidApiLevel.N)
         .withInterfaceMethodDesugaring(OffOrAuto.Auto)
         .withOptionConsumer(opts -> opts.enableClassInlining = false)
+        .withBuilderTransformation(ToolHelper::allowTestProguardOptions)
         .withBuilderTransformation(
             b -> b.addProguardConfiguration(PROGUARD_OPTIONS_N_PLUS, Origin.unknown()))
         .withDexCheck(inspector -> checkLambdaCount(inspector, 40, "lambdadesugaringnplus"))
@@ -230,6 +231,7 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
         .withMinApiLevel(AndroidApiLevel.N)
         .withInterfaceMethodDesugaring(OffOrAuto.Auto)
         .withOptionConsumer(opts -> opts.enableClassInlining = true)
+        .withBuilderTransformation(ToolHelper::allowTestProguardOptions)
         .withBuilderTransformation(
             b -> b.addProguardConfiguration(PROGUARD_OPTIONS_N_PLUS, Origin.unknown()))
         // TODO(b/120814598): Should be 5. Some lambdas are not class inlined because parameter

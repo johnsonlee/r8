@@ -104,9 +104,6 @@ public class NopWhyAreYouNotInliningReporter extends WhyAreYouNotInliningReporte
   public void reportRecursiveMethod() {}
 
   @Override
-  public void reportSynchronizedMethod() {}
-
-  @Override
   public void reportUnknownTarget() {}
 
   @Override
@@ -120,6 +117,10 @@ public class NopWhyAreYouNotInliningReporter extends WhyAreYouNotInliningReporte
 
   @Override
   public void reportWillExceedInstructionBudget(int numberOfInstructions, int threshold) {}
+
+  @Override
+  public void reportWillExceedMonitorEnterValuesBudget(
+      int numberOfMonitorEnterValuesAfterInlining, int threshold) {}
 
   @Override
   public boolean verifyReasonHasBeenReported() {
