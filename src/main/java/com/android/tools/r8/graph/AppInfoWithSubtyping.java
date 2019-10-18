@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -119,7 +120,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
 
   public AppInfoWithSubtyping(DexApplication application) {
     super(application);
-    typeInfo = Collections.synchronizedMap(new IdentityHashMap<>());
+    typeInfo = new ConcurrentHashMap<>();
     // Recompute subtype map if we have modified the graph.
     populateSubtypeMap(application.asDirect(), application.dexItemFactory);
   }
@@ -128,7 +129,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
     super(previous);
     missingClasses.addAll(previous.missingClasses);
     subtypeMap.putAll(previous.subtypeMap);
-    typeInfo = Collections.synchronizedMap(new IdentityHashMap<>(previous.typeInfo));
+    typeInfo = new ConcurrentHashMap<>(previous.typeInfo);
     assert app() instanceof DirectMappedDexApplication;
   }
 
@@ -166,6 +167,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
   }
 
   private TypeInfo getTypeInfo(DexType type) {
+    assert type != null;
     return typeInfo.computeIfAbsent(type, TypeInfo::new);
   }
 
@@ -229,11 +231,11 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
       }
       assert !seenTypes.contains(next);
       seenTypes.add(next);
-      TypeInfo superInfo = getTypeInfo(superType);
       TypeInfo nextInfo = getTypeInfo(next);
       if (superType == null) {
         assert nextInfo.hierarchyLevel == ROOT_LEVEL;
       } else {
+        TypeInfo superInfo = getTypeInfo(superType);
         assert superInfo.hierarchyLevel == nextInfo.hierarchyLevel - 1
             || (superInfo.hierarchyLevel == ROOT_LEVEL
                 && nextInfo.hierarchyLevel == INTERFACE_LEVEL);
