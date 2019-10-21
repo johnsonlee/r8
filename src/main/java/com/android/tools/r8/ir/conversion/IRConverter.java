@@ -205,7 +205,6 @@ public class IRConverter {
             .map(prefix -> "L" + DescriptorUtils.getPackageBinaryNameFromJavaType(prefix))
             .map(options.itemFactory::createString)
             .collect(Collectors.toList());
-    this.methodOptimizationInfoCollector = new MethodOptimizationInfoCollector(appView);
     if (options.isDesugaredLibraryCompilation()) {
       // Specific L8 Settings.
       // BackportedMethodRewriter is needed for retarget core library members and backports.
@@ -241,6 +240,7 @@ public class IRConverter {
       this.stringSwitchRemover = null;
       this.desugaredLibraryAPIConverter = null;
       this.serviceLoaderRewriter = null;
+      this.methodOptimizationInfoCollector = null;
       return;
     }
     this.lambdaRewriter = options.enableDesugaring ? new LambdaRewriter(appView, this) : null;
@@ -287,13 +287,16 @@ public class IRConverter {
           options.enableTreeShakingOfLibraryMethodOverrides
               ? new LibraryMethodOverrideAnalysis(appViewWithLiveness)
               : null;
-      this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness, lambdaRewriter);
-      this.inliner = new Inliner(appViewWithLiveness, mainDexClasses, lensCodeRewriter);
       this.lambdaMerger =
           options.enableLambdaMerging ? new LambdaMerger(appViewWithLiveness) : null;
+      this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness, lambdaRewriter);
+      this.inliner =
+          new Inliner(appViewWithLiveness, mainDexClasses, lambdaMerger, lensCodeRewriter);
       this.outliner = new Outliner(appViewWithLiveness, this);
       this.memberValuePropagation =
           options.enableValuePropagation ? new MemberValuePropagation(appViewWithLiveness) : null;
+      this.methodOptimizationInfoCollector =
+          new MethodOptimizationInfoCollector(appViewWithLiveness);
       if (options.isMinifying()) {
         this.identifierNameStringMarker = new IdentifierNameStringMarker(appViewWithLiveness);
       } else {
@@ -329,6 +332,7 @@ public class IRConverter {
       this.d8NestBasedAccessDesugaring =
           options.shouldDesugarNests() ? new D8NestBasedAccessDesugaring(appView) : null;
       this.serviceLoaderRewriter = null;
+      this.methodOptimizationInfoCollector = null;
     }
     this.stringSwitchRemover =
         options.isStringSwitchConversionEnabled()
@@ -429,7 +433,7 @@ public class IRConverter {
   private void synthesizeJava8UtilityClass(
       Builder<?> builder, ExecutorService executorService) throws ExecutionException {
     if (backportedMethodRewriter != null) {
-      backportedMethodRewriter.synthesizeUtilityClass(builder, executorService, options);
+      backportedMethodRewriter.synthesizeUtilityClasses(builder, executorService);
     }
   }
 
@@ -685,6 +689,7 @@ public class IRConverter {
                   CallSiteInformation.empty(),
                   Outliner::noProcessing),
           executorService);
+      feedback.updateVisibleOptimizationInfo();
       timing.end();
     }
 
@@ -852,6 +857,7 @@ public class IRConverter {
                 // unused out-values.
                 codeRewriter.rewriteMoveResult(code);
                 deadCodeRemover.run(code);
+                codeRewriter.removeAssumeInstructions(code);
                 consumer.accept(code, method);
                 return null;
               }));
@@ -879,7 +885,7 @@ public class IRConverter {
 
   private void collectLambdaMergingCandidates(DexApplication application) {
     if (lambdaMerger != null) {
-      lambdaMerger.collectGroupCandidates(application, appView.withLiveness());
+      lambdaMerger.collectGroupCandidates(application);
     }
   }
 
@@ -1116,6 +1122,11 @@ public class IRConverter {
       }
     }
 
+    if (lambdaMerger != null) {
+      lambdaMerger.rewriteCode(method, code);
+      assert code.isConsistentSSA();
+    }
+
     if (typeChecker != null && !typeChecker.check(code)) {
       assert appView.enableWholeProgramOptimizations();
       assert options.testing.allowTypeErrors;
@@ -1242,9 +1253,10 @@ public class IRConverter {
     if (stringSwitchRemover != null) {
       stringSwitchRemover.run(method, code);
     }
-    codeRewriter.rewriteSwitch(code);
     codeRewriter.processMethodsNeverReturningNormally(code);
-    codeRewriter.simplifyIf(code);
+    if (codeRewriter.simplifyControlFlow(code)) {
+      codeRewriter.removeTrivialCheckCastAndInstanceOfInstructions(code);
+    }
     if (options.enableRedundantConstNumberOptimization) {
       codeRewriter.redundantConstNumberRemoval(code);
     }
@@ -1351,7 +1363,7 @@ public class IRConverter {
     previous = printMethod(code, "IR after twr close resource rewriter (SSA)", previous);
 
     if (lambdaMerger != null) {
-      lambdaMerger.processMethodCode(method, code);
+      lambdaMerger.analyzeCode(method, code);
       assert code.isConsistentSSA();
     }
 
@@ -1389,24 +1401,6 @@ public class IRConverter {
       classStaticizer.examineMethodCode(method, code);
     }
 
-    if (nonNullTracker != null) {
-      // TODO(b/139246447): Once we extend this optimization to, e.g., constants of primitive args,
-      //   this may not be the right place to collect call site optimization info.
-      // Collecting call-site optimization info depends on the existence of non-null IRs.
-      // Arguments can be changed during the debug mode.
-      if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
-        appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code);
-      }
-      // Computation of non-null parameters on normal exits rely on the existence of non-null IRs.
-      methodOptimizationInfoCollector.computeNonNullParamOnNormalExits(feedback, code);
-    }
-    if (aliasIntroducer != null || nonNullTracker != null || dynamicTypeOptimization != null) {
-      codeRewriter.removeAssumeInstructions(code);
-      assert code.isConsistentSSA();
-    }
-    // Assert that we do not have unremoved non-sense code in the output, e.g., v <- non-null NULL.
-    assert code.verifyNoNullabilityBottomTypes();
-
     assert code.verifyTypes(appView);
 
     if (appView.enableWholeProgramOptimizations()) {
@@ -1418,30 +1412,29 @@ public class IRConverter {
         fieldBitAccessAnalysis.recordFieldAccesses(code, feedback);
       }
 
+      // Arguments can be changed during the debug mode.
+      if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
+        appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code);
+      }
+
       // Compute optimization info summary for the current method unless it is pinned
       // (in that case we should not be making any assumptions about the behavior of the method).
       if (!appView.appInfo().withLiveness().isPinned(method.method)) {
-        methodOptimizationInfoCollector.identifyClassInlinerEligibility(method, code, feedback);
-        methodOptimizationInfoCollector.identifyParameterUsages(method, code, feedback);
-        methodOptimizationInfoCollector.identifyReturnsArgument(method, code, feedback);
-        methodOptimizationInfoCollector.identifyTrivialInitializer(method, code, feedback);
-
-        if (options.enableInlining && inliner != null) {
-          methodOptimizationInfoCollector
-              .identifyInvokeSemanticsForInlining(method, code, appView, feedback);
-        }
-
         methodOptimizationInfoCollector
-            .computeDynamicReturnType(dynamicTypeOptimization, feedback, method, code);
+            .collectMethodOptimizationInfo(method, code, feedback, dynamicTypeOptimization);
         FieldValueAnalysis.run(appView, code, feedback, method);
-        methodOptimizationInfoCollector
-            .computeInitializedClassesOnNormalExit(feedback, method, code);
-        methodOptimizationInfoCollector.computeMayHaveSideEffects(feedback, method, code);
-        methodOptimizationInfoCollector
-            .computeReturnValueOnlyDependsOnArguments(feedback, method, code);
-        methodOptimizationInfoCollector.computeNonNullParamOrThrow(feedback, method, code);
       }
     }
+
+    if (aliasIntroducer != null || nonNullTracker != null || dynamicTypeOptimization != null) {
+      codeRewriter.removeAssumeInstructions(code);
+      assert code.isConsistentSSA();
+    }
+
+    // Assert that we do not have unremoved non-sense code in the output, e.g., v <- non-null NULL.
+    assert code.verifyNoNullabilityBottomTypes();
+
+    assert code.verifyTypes(appView);
 
     previous =
         printMethod(code, "IR after computation of optimization info summary (SSA)", previous);

@@ -4,6 +4,7 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.SetUtils;
@@ -131,7 +132,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
 
   public AppInfoWithSubtyping(DexApplication application) {
     super(application);
-    typeInfo = Collections.synchronizedMap(new IdentityHashMap<>());
+    typeInfo = new ConcurrentHashMap<>();
     // Recompute subtype map if we have modified the graph.
     populateSubtypeMap(application.asDirect(), application.dexItemFactory);
   }
@@ -140,7 +141,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
     super(previous);
     missingClasses.addAll(previous.missingClasses);
     subtypeMap.putAll(previous.subtypeMap);
-    typeInfo = Collections.synchronizedMap(new IdentityHashMap<>(previous.typeInfo));
+    typeInfo = new ConcurrentHashMap<>(previous.typeInfo);
     assert app() instanceof DirectMappedDexApplication;
   }
 
@@ -211,6 +212,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
   }
 
   private TypeInfo getTypeInfo(DexType type) {
+    assert type != null;
     return typeInfo.computeIfAbsent(type, TypeInfo::new);
   }
 
@@ -274,11 +276,11 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
       }
       assert !seenTypes.contains(next);
       seenTypes.add(next);
-      TypeInfo superInfo = getTypeInfo(superType);
       TypeInfo nextInfo = getTypeInfo(next);
       if (superType == null) {
         assert nextInfo.hierarchyLevel == ROOT_LEVEL;
       } else {
+        TypeInfo superInfo = getTypeInfo(superType);
         assert superInfo.hierarchyLevel == nextInfo.hierarchyLevel - 1
             || (superInfo.hierarchyLevel == ROOT_LEVEL
                 && nextInfo.hierarchyLevel == INTERFACE_LEVEL);
@@ -714,8 +716,17 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
     return !isSubtype(type1, type2) && !isSubtype(type2, type1);
   }
 
-  public boolean mayHaveFinalizeMethodDirectlyOrIndirectly(DexType type) {
-    return computeMayHaveFinalizeMethodDirectlyOrIndirectlyIfAbsent(type, true);
+  public boolean mayHaveFinalizeMethodDirectlyOrIndirectly(ClassTypeLatticeElement type) {
+    Set<DexType> interfaces = type.getInterfaces();
+    if (!interfaces.isEmpty()) {
+      for (DexType interfaceType : interfaces) {
+        if (computeMayHaveFinalizeMethodDirectlyOrIndirectlyIfAbsent(interfaceType, false)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return computeMayHaveFinalizeMethodDirectlyOrIndirectlyIfAbsent(type.getClassType(), true);
   }
 
   private boolean computeMayHaveFinalizeMethodDirectlyOrIndirectlyIfAbsent(
@@ -727,8 +738,10 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
     }
     DexClass clazz = definitionFor(type);
     if (clazz == null) {
-      mayHaveFinalizeMethodDirectlyOrIndirectlyCache.put(type, true);
-      return true;
+      // This is strictly not conservative but is needed to avoid that we treat Object as having
+      // a subtype that has a non-default finalize() implementation.
+      mayHaveFinalizeMethodDirectlyOrIndirectlyCache.put(type, false);
+      return false;
     }
     if (clazz.isProgramClass()) {
       if (lookUpwards) {

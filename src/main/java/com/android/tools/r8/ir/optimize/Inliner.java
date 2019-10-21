@@ -46,16 +46,20 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
+import com.android.tools.r8.ir.optimize.lambda.LambdaMerger;
 import com.android.tools.r8.kotlin.Kotlin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.MainDexClasses;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
@@ -70,6 +74,7 @@ public class Inliner {
 
   protected final AppView<AppInfoWithLiveness> appView;
   private final Set<DexMethod> blacklist;
+  private final LambdaMerger lambdaMerger;
   private final LensCodeRewriter lensCodeRewriter;
   final MainDexClasses mainDexClasses;
 
@@ -82,10 +87,12 @@ public class Inliner {
   public Inliner(
       AppView<AppInfoWithLiveness> appView,
       MainDexClasses mainDexClasses,
+      LambdaMerger lambdaMerger,
       LensCodeRewriter lensCodeRewriter) {
     Kotlin.Intrinsics intrinsics = appView.dexItemFactory().kotlin.intrinsics;
     this.appView = appView;
     this.blacklist = ImmutableSet.of(intrinsics.throwNpe, intrinsics.throwParameterIsNullException);
+    this.lambdaMerger = lambdaMerger;
     this.lensCodeRewriter = lensCodeRewriter;
     this.mainDexClasses = mainDexClasses;
   }
@@ -585,6 +592,7 @@ public class Inliner {
         ValueNumberGenerator generator,
         AppView<? extends AppInfoWithSubtyping> appView,
         Position callerPosition,
+        LambdaMerger lambdaMerger,
         LensCodeRewriter lensCodeRewriter) {
       DexItemFactory dexItemFactory = appView.dexItemFactory();
       InternalOptions options = appView.options();
@@ -752,6 +760,9 @@ public class Inliner {
       if (!target.isProcessed()) {
         lensCodeRewriter.rewrite(code, target);
       }
+      if (lambdaMerger != null) {
+        lambdaMerger.rewriteCodeForInlining(target, code, context);
+      }
       assert code.isConsistentSSA();
       return new InlineeWithReason(code, reason);
     }
@@ -870,8 +881,13 @@ public class Inliner {
     ListIterator<BasicBlock> blockIterator = code.listIterator();
     ClassInitializationAnalysis classInitializationAnalysis =
         new ClassInitializationAnalysis(appView, code);
+    Deque<BasicBlock> inlineeStack = new ArrayDeque<>();
+    InternalOptions options = appView.options();
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
+      if (!inlineeStack.isEmpty() && inlineeStack.peekFirst() == block) {
+        inlineeStack.pop();
+      }
       if (blocksToRemove.contains(block)) {
         continue;
       }
@@ -895,12 +911,19 @@ public class Inliner {
               oracle.computeInlining(
                   invoke, singleTarget, classInitializationAnalysis, whyAreYouNotInliningReporter);
           if (action == null) {
-            assert whyAreYouNotInliningReporter.verifyReasonHasBeenReported();
+            assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
+            continue;
+          }
+
+          if (!inlineeStack.isEmpty()
+              && !strategy.allowInliningOfInvokeInInlinee(
+                  action, inlineeStack.size(), whyAreYouNotInliningReporter)) {
+            assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
             continue;
           }
 
           if (!strategy.stillHasBudget(action, whyAreYouNotInliningReporter)) {
-            assert whyAreYouNotInliningReporter.verifyReasonHasBeenReported();
+            assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
             continue;
           }
 
@@ -910,10 +933,11 @@ public class Inliner {
                   code.valueNumberGenerator,
                   appView,
                   getPositionForInlining(invoke, context),
+                  lambdaMerger,
                   lensCodeRewriter);
           if (strategy.willExceedBudget(
               code, invoke, inlinee, block, whyAreYouNotInliningReporter)) {
-            assert whyAreYouNotInliningReporter.verifyReasonHasBeenReported();
+            assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
             continue;
           }
 
@@ -926,7 +950,7 @@ public class Inliner {
           if (singleTarget.isInstanceInitializer()
               && !strategy.canInlineInstanceInitializer(
                   inlinee.code, whyAreYouNotInliningReporter)) {
-            assert whyAreYouNotInliningReporter.verifyReasonHasBeenReported();
+            assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
             continue;
           }
 
@@ -935,6 +959,8 @@ public class Inliner {
           if (outValue != null) {
             assumeDynamicTypeRemover.markUsersForRemoval(outValue);
           }
+
+          boolean inlineeMayHaveInvokeMethod = inlinee.code.metadata().mayHaveInvokeMethod();
 
           // Inline the inlinee code in place of the invoke instruction
           // Back up before the invoke instruction.
@@ -962,11 +988,26 @@ public class Inliner {
           }
 
           context.copyMetadata(singleTarget);
+
+          if (inlineeMayHaveInvokeMethod && options.applyInliningToInlinee) {
+            if (inlineeStack.size() + 1 > options.applyInliningToInlineeMaxDepth
+                && appView.appInfo().alwaysInline.isEmpty()
+                && appView.appInfo().forceInline.isEmpty()) {
+              continue;
+            }
+            // Record that we will be inside the inlinee until the next block.
+            BasicBlock inlineeEnd = IteratorUtils.peekNext(blockIterator);
+            inlineeStack.push(inlineeEnd);
+            // Move the cursor back to where the first inlinee block was added.
+            IteratorUtils.previousUntil(blockIterator, previous -> previous == block);
+            blockIterator.next();
+          }
         } else if (current.isAssumeDynamicType()) {
           assumeDynamicTypeRemover.removeIfMarked(current.asAssumeDynamicType(), iterator);
         }
       }
     }
+    assert inlineeStack.isEmpty();
     assumeDynamicTypeRemover.removeMarkedInstructions(blocksToRemove);
     assumeDynamicTypeRemover.finish();
     classInitializationAnalysis.finish();

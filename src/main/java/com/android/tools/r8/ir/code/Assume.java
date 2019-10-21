@@ -16,6 +16,7 @@ import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
+import java.util.Objects;
 import java.util.Set;
 
 public class Assume<An extends Assumption> extends Instruction {
@@ -46,14 +47,18 @@ public class Assume<An extends Assumption> extends Instruction {
   }
 
   public static Assume<DynamicTypeAssumption> createAssumeDynamicTypeInstruction(
-      TypeLatticeElement type,
-      ClassTypeLatticeElement lowerBoundType,
+      TypeLatticeElement dynamicUpperBoundType,
+      ClassTypeLatticeElement dynamicLowerBoundType,
       Value dest,
       Value src,
       Instruction origin,
       AppView<?> appView) {
     return new Assume<>(
-        new DynamicTypeAssumption(type, lowerBoundType), dest, src, origin, appView);
+        new DynamicTypeAssumption(dynamicUpperBoundType, dynamicLowerBoundType),
+        dest,
+        src,
+        origin,
+        appView);
   }
 
   @Override
@@ -170,7 +175,7 @@ public class Assume<An extends Assumption> extends Instruction {
       return true;
     }
     if (assumption.isAssumeDynamicType()) {
-      outType = asAssumeDynamicType().assumption.getType();
+      outType = asAssumeDynamicType().assumption.getDynamicUpperBoundType();
     }
     if (appView.appInfo().hasSubtyping()) {
       if (outType.isClassType()
@@ -288,19 +293,24 @@ public class Assume<An extends Assumption> extends Instruction {
 
   @Override
   public String toString() {
-    // During branch simplification, the origin `if` could be simplified.
-    // It means the assumption became "truth."
-    assert origin.hasBlock() || isAssumeNonNull();
+    // `origin` could become obsolete:
+    //   1) during branch simplification, the origin `if` could be simplified, which means the
+    //     assumption became "truth."
+    //   2) invoke-interface could be devirtualized, while its dynamic type and/or non-null receiver
+    //     are still valid.
     String originString =
-        origin.hasBlock() ? " (origin: `" + origin.toString() + "`)" : " (origin simplified)";
+        origin.hasBlock() ? " (origin: `" + origin.toString() + "`)" : " (obsolete origin)";
     if (isAssumeNone() || isAssumeNonNull()) {
       return super.toString() + originString;
     }
     if (isAssumeDynamicType()) {
       DynamicTypeAssumption assumption = asAssumeDynamicType().getAssumption();
       return super.toString()
-          + "; upper bound: " + assumption.type
-          + (assumption.lowerBoundType != null ? "; lower bound: " + assumption.lowerBoundType : "")
+          + "; upper bound: "
+          + assumption.dynamicUpperBoundType
+          + (assumption.dynamicLowerBoundType != null
+              ? "; lower bound: " + assumption.dynamicLowerBoundType
+              : "")
           + originString;
     }
     return super.toString();
@@ -348,20 +358,21 @@ public class Assume<An extends Assumption> extends Instruction {
 
   public static class DynamicTypeAssumption extends Assumption {
 
-    private final TypeLatticeElement type;
-    private final ClassTypeLatticeElement lowerBoundType;
+    private final TypeLatticeElement dynamicUpperBoundType;
+    private final ClassTypeLatticeElement dynamicLowerBoundType;
 
-    private DynamicTypeAssumption(TypeLatticeElement type, ClassTypeLatticeElement lowerBoundType) {
-      this.type = type;
-      this.lowerBoundType = lowerBoundType;
+    private DynamicTypeAssumption(
+        TypeLatticeElement dynamicUpperBoundType, ClassTypeLatticeElement dynamicLowerBoundType) {
+      this.dynamicUpperBoundType = dynamicUpperBoundType;
+      this.dynamicLowerBoundType = dynamicLowerBoundType;
     }
 
-    public TypeLatticeElement getType() {
-      return type;
+    public TypeLatticeElement getDynamicUpperBoundType() {
+      return dynamicUpperBoundType;
     }
 
-    public ClassTypeLatticeElement getLowerBoundType() {
-      return lowerBoundType;
+    public ClassTypeLatticeElement getDynamicLowerBoundType() {
+      return dynamicLowerBoundType;
     }
 
     @Override
@@ -371,7 +382,7 @@ public class Assume<An extends Assumption> extends Instruction {
 
     @Override
     public boolean verifyCorrectnessOfValues(Value dest, Value src, AppView<?> appView) {
-      assert type.lessThanOrEqualUpToNullability(src.getTypeLattice(), appView);
+      assert dynamicUpperBoundType.lessThanOrEqualUpToNullability(src.getTypeLattice(), appView);
       return true;
     }
 
@@ -384,12 +395,13 @@ public class Assume<An extends Assumption> extends Instruction {
         return false;
       }
       DynamicTypeAssumption assumption = (DynamicTypeAssumption) other;
-      return type == assumption.type;
+      return dynamicUpperBoundType == assumption.dynamicUpperBoundType
+          && dynamicLowerBoundType == assumption.dynamicLowerBoundType;
     }
 
     @Override
     public int hashCode() {
-      return type.hashCode();
+      return Objects.hash(dynamicUpperBoundType, dynamicLowerBoundType);
     }
   }
 

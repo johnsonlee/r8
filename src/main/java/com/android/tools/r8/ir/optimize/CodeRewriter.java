@@ -14,6 +14,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -82,12 +83,14 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.AssertionProcessing;
 import com.android.tools.r8.utils.InternalOutputMode;
 import com.android.tools.r8.utils.LongInterval;
+import com.android.tools.r8.utils.SetUtils;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
@@ -839,9 +842,9 @@ public class CodeRewriter {
     return outliersAsIfSize;
   }
 
-  public void rewriteSwitch(IRCode code) {
+  private boolean rewriteSwitch(IRCode code) {
     if (!code.metadata().mayHaveIntSwitch()) {
-      return;
+      return false;
     }
 
     boolean needToRemoveUnreachableBlocks = false;
@@ -985,15 +988,18 @@ public class CodeRewriter {
       }
     }
 
-    if (needToRemoveUnreachableBlocks) {
-      code.removeUnreachableBlocks();
-    }
-
     // Rewriting of switches introduces new branching structure. It relies on critical edges
     // being split on the way in but does not maintain this property. We therefore split
     // critical edges at exit.
     code.splitCriticalEdges();
+
+    Set<Value> affectedValues =
+        needToRemoveUnreachableBlocks ? code.removeUnreachableBlocks() : ImmutableSet.of();
+    if (!affectedValues.isEmpty()) {
+      new TypeAnalysis(appView).narrowing(affectedValues);
+    }
     assert code.isConsistentSSA();
+    return !affectedValues.isEmpty();
   }
 
   private SwitchCaseEliminator removeUnnecessarySwitchCases(
@@ -1247,10 +1253,10 @@ public class CodeRewriter {
     assumeDynamicTypeRemover.finish();
     if (!blocksToBeRemoved.isEmpty()) {
       code.removeBlocks(blocksToBeRemoved);
-      code.removeAllTrivialPhis();
+      code.removeAllTrivialPhis(affectedValues);
       assert code.getUnreachableBlocks().isEmpty();
     } else if (mayHaveRemovedTrivialPhi || assumeDynamicTypeRemover.mayHaveIntroducedTrivialPhi()) {
-      code.removeAllTrivialPhis();
+      code.removeAllTrivialPhis(affectedValues);
     }
     if (!affectedValues.isEmpty()) {
       new TypeAnalysis(appView).narrowing(affectedValues);
@@ -1407,7 +1413,10 @@ public class CodeRewriter {
     // Removing check-cast may result in a trivial phi:
     // v3 <- phi(v1, v1)
     if (needToRemoveTrivialPhis) {
-      code.removeAllTrivialPhis();
+      code.removeAllTrivialPhis(affectedValues);
+      if (!affectedValues.isEmpty()) {
+        typeAnalysis.narrowing(affectedValues);
+      }
     }
     assert code.isConsistentSSA();
   }
@@ -1524,7 +1533,11 @@ public class CodeRewriter {
                 value -> !value.isPhi() && value.definition.isAssumeDynamicType());
         if (aliasedValue != null) {
           TypeLatticeElement dynamicType =
-              aliasedValue.definition.asAssumeDynamicType().getAssumption().getType();
+              aliasedValue
+                  .definition
+                  .asAssumeDynamicType()
+                  .getAssumption()
+                  .getDynamicUpperBoundType();
           if (dynamicType.isDefinitelyNull()) {
             result = InstanceOfResult.FALSE;
           } else if (dynamicType.lessThanOrEqual(instanceOfType, appView)
@@ -2378,7 +2391,13 @@ public class CodeRewriter {
     assert code.isConsistentSSA();
   }
 
-  public void simplifyIf(IRCode code) {
+  public boolean simplifyControlFlow(IRCode code) {
+    boolean anyAffectedValues = rewriteSwitch(code);
+    anyAffectedValues |= simplifyIf(code);
+    return anyAffectedValues;
+  }
+
+  private boolean simplifyIf(IRCode code) {
     for (BasicBlock block : code.blocks) {
       // Skip removed (= unreachable) blocks.
       if (block.getNumber() != 0 && block.getPredecessors().isEmpty()) {
@@ -2394,27 +2413,26 @@ public class CodeRewriter {
 
         // Simplify if conditions when possible.
         If theIf = block.exit().asIf();
-        List<Value> inValues = theIf.inValues();
+        Value lhs = theIf.lhs();
+        Value rhs = theIf.isZeroTest() ? null : theIf.rhs();
 
-        if (inValues.get(0).isConstNumber()
-            && (theIf.isZeroTest() || inValues.get(1).isConstNumber())) {
+        if (lhs.isConstNumber() && (theIf.isZeroTest() || rhs.isConstNumber())) {
           // Zero test with a constant of comparison between between two constants.
           if (theIf.isZeroTest()) {
-            ConstNumber cond = inValues.get(0).getConstInstruction().asConstNumber();
+            ConstNumber cond = lhs.getConstInstruction().asConstNumber();
             BasicBlock target = theIf.targetFromCondition(cond);
             simplifyIfWithKnownCondition(code, block, theIf, target);
           } else {
-            ConstNumber left = inValues.get(0).getConstInstruction().asConstNumber();
-            ConstNumber right = inValues.get(1).getConstInstruction().asConstNumber();
+            ConstNumber left = lhs.getConstInstruction().asConstNumber();
+            ConstNumber right = rhs.getConstInstruction().asConstNumber();
             BasicBlock target = theIf.targetFromCondition(left, right);
             simplifyIfWithKnownCondition(code, block, theIf, target);
           }
-        } else if (inValues.get(0).hasValueRange()
-            && (theIf.isZeroTest() || inValues.get(1).hasValueRange())) {
+        } else if (lhs.hasValueRange() && (theIf.isZeroTest() || rhs.hasValueRange())) {
           // Zero test with a value range, or comparison between between two values,
           // each with a value ranges.
           if (theIf.isZeroTest()) {
-            LongInterval interval = inValues.get(0).getValueRange();
+            LongInterval interval = lhs.getValueRange();
             if (!interval.containsValue(0)) {
               // Interval doesn't contain zero at all.
               int sign = Long.signum(interval.getMin());
@@ -2448,8 +2466,8 @@ public class CodeRewriter {
               }
             }
           } else {
-            LongInterval leftRange = inValues.get(0).getValueRange();
-            LongInterval rightRange = inValues.get(1).getValueRange();
+            LongInterval leftRange = lhs.getValueRange();
+            LongInterval rightRange = rhs.getValueRange();
             // Two overlapping ranges. Check for single point overlap.
             if (!leftRange.overlapsWith(rightRange)) {
               // No overlap.
@@ -2483,14 +2501,27 @@ public class CodeRewriter {
               }
             }
           }
-        } else if (theIf.isZeroTest() && !inValues.get(0).isConstNumber()
-            && (theIf.getType() == Type.EQ || theIf.getType() == Type.NE)) {
-          TypeLatticeElement l = inValues.get(0).getTypeLattice();
-          if (l.isReference() && inValues.get(0).isNeverNull()) {
-            simplifyIfWithKnownCondition(code, block, theIf, 1);
+        } else if (theIf.getType() == Type.EQ || theIf.getType() == Type.NE) {
+          if (theIf.isZeroTest()) {
+            if (!lhs.isConstNumber()) {
+              TypeLatticeElement l = lhs.getTypeLattice();
+              if (l.isReference() && lhs.isNeverNull()) {
+                simplifyIfWithKnownCondition(code, block, theIf, 1);
+              } else {
+                if (!l.isPrimitive() && !l.isNullable()) {
+                  simplifyIfWithKnownCondition(code, block, theIf, 1);
+                }
+              }
+            }
           } else {
-            if (!l.isPrimitive() && !l.isNullable()) {
-              simplifyIfWithKnownCondition(code, block, theIf, 1);
+            DexEncodedField enumField = lhs.getEnumField(appView);
+            if (enumField != null) {
+              DexEncodedField otherEnumField = rhs.getEnumField(appView);
+              if (enumField == otherEnumField) {
+                simplifyIfWithKnownCondition(code, block, theIf, 0);
+              } else if (otherEnumField != null) {
+                simplifyIfWithKnownCondition(code, block, theIf, 1);
+              }
             }
           }
         }
@@ -2501,6 +2532,7 @@ public class CodeRewriter {
       new TypeAnalysis(appView).narrowing(affectedValues);
     }
     assert code.isConsistentSSA();
+    return !affectedValues.isEmpty();
   }
 
   private void simplifyIfWithKnownCondition(
@@ -3500,8 +3532,8 @@ public class CodeRewriter {
   }
 
   private static NewInstance findNewInstance(Phi phi) {
-    Set<Phi> seen = new HashSet<>();
-    Set<Value> values = new HashSet<>();
+    Set<Phi> seen = Sets.newIdentityHashSet();
+    Set<Value> values = Sets.newIdentityHashSet();
     recursiveAddOperands(phi, seen, values);
     if (values.size() != 1) {
       throw new CompilationError("Failed to identify unique new-instance for <init>");
@@ -3539,7 +3571,7 @@ public class CodeRewriter {
       if (component.size() == 1 && component.iterator().next() == newInstanceValue) {
         continue;
       }
-      Set<Phi> trivialPhis = new HashSet<>();
+      Set<Phi> trivialPhis = Sets.newIdentityHashSet();
       for (Value value : component) {
         boolean isTrivial = true;
         Phi p = value.asPhi();
@@ -3569,7 +3601,7 @@ public class CodeRewriter {
 
     private int currentTime = 0;
     private final Reference2IntMap<Value> discoverTime = new Reference2IntOpenHashMap<>();
-    private final Set<Value> unassignedSet = new HashSet<>();
+    private final Set<Value> unassignedSet = Sets.newIdentityHashSet();
     private final Deque<Value> unassignedStack = new ArrayDeque<>();
     private final Deque<Value> preorderStack = new ArrayDeque<>();
     private final List<Set<Value>> components = new ArrayList<>();
@@ -3603,7 +3635,7 @@ public class CodeRewriter {
         // If the current element is the top of the preorder stack, then we are at entry to a
         // strongly-connected component consisting of this element and every element above this
         // element on the stack.
-        Set<Value> component = new HashSet<>(unassignedStack.size());
+        Set<Value> component = SetUtils.newIdentityHashSet(unassignedStack.size());
         while (true) {
           Value member = unassignedStack.pop();
           unassignedSet.remove(member);

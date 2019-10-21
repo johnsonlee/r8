@@ -34,8 +34,8 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.StringUtils.BraceType;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -46,7 +46,7 @@ public abstract class Instruction implements InstructionOrPhi {
   protected final List<Value> inValues = new ArrayList<>();
   private BasicBlock block = null;
   private int number = -1;
-  private Set<Value> debugValues = null;
+  private LinkedHashSet<Value> debugValues = null;
   private Position position = null;
 
   protected Instruction(Value outValue) {
@@ -141,7 +141,7 @@ public abstract class Instruction implements InstructionOrPhi {
   public void addDebugValue(Value value) {
     assert value.hasLocalInfo();
     if (debugValues == null) {
-      debugValues = new HashSet<>();
+      debugValues = new LinkedHashSet<>();
     }
     if (debugValues.add(value)) {
       value.addDebugUser(this);

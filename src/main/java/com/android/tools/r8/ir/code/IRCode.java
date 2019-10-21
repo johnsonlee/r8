@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.TypeChecker;
+import com.android.tools.r8.ir.analysis.ValueMayDependOnEnvironmentAnalysis;
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
@@ -35,6 +36,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
@@ -152,8 +154,9 @@ public class IRCode {
     worklist.addAll(sorted.reverse());
     while (!worklist.isEmpty()) {
       BasicBlock block = worklist.poll();
-      Set<Value> live = new HashSet<>();
-      Set<Value> liveLocals = new HashSet<>();
+      // Note that the iteration order of live values matters when inserting spill/restore moves.
+      Set<Value> live = new LinkedHashSet<>();
+      Set<Value> liveLocals = Sets.newIdentityHashSet();
       Deque<Value> liveStack = new ArrayDeque<>();
       Set<BasicBlock> exceptionalSuccessors = block.getCatchHandlers().getUniqueTargets();
       for (BasicBlock succ : block.getSuccessors()) {
@@ -259,7 +262,8 @@ public class IRCode {
     return liveAtEntrySets;
   }
 
-  public boolean controlFlowMayDependOnEnvironment(AppView<?> appView) {
+  public boolean controlFlowMayDependOnEnvironment(
+      ValueMayDependOnEnvironmentAnalysis environmentAnalysis) {
     for (BasicBlock block : blocks) {
       if (block.hasCatchHandlers()) {
         // Whether an instruction throws may generally depend on the environment.
@@ -267,16 +271,16 @@ public class IRCode {
       }
       if (block.exit().isIf()) {
         If ifInstruction = block.exit().asIf();
-        if (ifInstruction.lhs().mayDependOnEnvironment(appView, this)) {
+        if (environmentAnalysis.valueMayDependOnEnvironment(ifInstruction.lhs())) {
           return true;
         }
         if (!ifInstruction.isZeroTest()
-            && ifInstruction.rhs().mayDependOnEnvironment(appView, this)) {
+            && environmentAnalysis.valueMayDependOnEnvironment(ifInstruction.rhs())) {
           return true;
         }
       } else if (block.exit().isSwitch()) {
         Switch switchInstruction = block.exit().asSwitch();
-        if (switchInstruction.value().mayDependOnEnvironment(appView, this)) {
+        if (environmentAnalysis.valueMayDependOnEnvironment(switchInstruction.value())) {
           return true;
         }
       }
@@ -631,7 +635,7 @@ public class IRCode {
   }
 
   private boolean consistentDefUseChains() {
-    Set<Value> values = new HashSet<>();
+    Set<Value> values = Sets.newIdentityHashSet();
 
     for (BasicBlock block : blocks) {
       int predecessorCount = block.getPredecessors().size();

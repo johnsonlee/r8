@@ -6,8 +6,7 @@ package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.ir.conversion.CallGraphBuilder.CycleEliminator;
-import com.android.tools.r8.ir.conversion.CallGraphBuilder.CycleEliminator.CycleEliminationResult;
+import com.android.tools.r8.ir.conversion.CallGraphBuilderBase.CycleEliminator.CycleEliminationResult;
 import com.android.tools.r8.ir.conversion.CallSiteInformation.CallGraphBasedCallSiteInformation;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Timing;
@@ -76,7 +75,14 @@ public class CallGraph {
       caller.callees.remove(this);
     }
 
-    public void cleanForRemoval() {
+    public void cleanCalleesForRemoval() {
+      assert callers.isEmpty();
+      for (Node callee : callees) {
+        callee.callers.remove(this);
+      }
+    }
+
+    public void cleanCallersForRemoval() {
       assert callees.isEmpty();
       for (Node caller : callers) {
         caller.callees.remove(this);
@@ -103,6 +109,10 @@ public class CallGraph {
       return callers.contains(method);
     }
 
+    public boolean isRoot() {
+      return callers.isEmpty();
+    }
+
     public boolean isLeaf() {
       return callees.isEmpty();
     }
@@ -123,21 +133,24 @@ public class CallGraph {
       builder.append(callers.size());
       builder.append(" callers");
       builder.append(", invoke count ").append(numberOfCallSites);
-      builder.append(").\n");
+      builder.append(").");
+      builder.append(System.lineSeparator());
       if (callees.size() > 0) {
-        builder.append("Callees:\n");
+        builder.append("Callees:");
+        builder.append(System.lineSeparator());
         for (Node call : callees) {
           builder.append("  ");
           builder.append(call.method.toSourceString());
-          builder.append("\n");
+          builder.append(System.lineSeparator());
         }
       }
       if (callers.size() > 0) {
-        builder.append("Callers:\n");
+        builder.append("Callers:");
+        builder.append(System.lineSeparator());
         for (Node caller : callers) {
           builder.append("  ");
           builder.append(caller.method.toSourceString());
-          builder.append("\n");
+          builder.append(System.lineSeparator());
         }
       }
       return builder.toString();
@@ -156,14 +169,6 @@ public class CallGraph {
     return new CallGraphBuilder(appView);
   }
 
-  /**
-   * Extract the next set of leaves (nodes with an call (outgoing) degree of 0) if any.
-   *
-   * <p>All nodes in the graph are extracted if called repeatedly until null is returned. Please
-   * note that there are no cycles in this graph (see {@link CycleEliminator#breakCycles}).
-   *
-   * <p>
-   */
   static MethodProcessor createMethodProcessor(
       AppView<AppInfoWithLiveness> appView, ExecutorService executorService, Timing timing)
       throws ExecutionException {

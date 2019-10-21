@@ -198,6 +198,9 @@ public class InternalOptions {
   public boolean enableNonNullTracking = true;
   public boolean enableInlining =
       !Version.isDev() || System.getProperty("com.android.tools.r8.disableinlining") == null;
+  // TODO(b/141451716): Evaluate the effect of allowing inlining in the inlinee.
+  public boolean applyInliningToInlinee = false;
+  public int applyInliningToInlineeMaxDepth = 0;
   public boolean enableInliningOfInvokesWithNullableReceivers = true;
   public boolean disableInliningOfLibraryMethodOverrides = true;
   public boolean enableClassInlining = true;
@@ -970,6 +973,8 @@ public class InternalOptions {
     public boolean dontReportFailingCheckDiscarded = false;
     public boolean deterministicSortingBasedOnDexType = true;
     public PrintStream whyAreYouNotInliningConsumer = System.out;
+    public boolean trackDesugaredAPIConversions =
+        System.getProperty("com.android.tools.r8.trackDesugaredAPIConversions") != null;
 
     // Flag to turn on/off JDK11+ nest-access control even when not required (Cf backend)
     public boolean enableForceNestBasedAccessDesugaringForTest = false;

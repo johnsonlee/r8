@@ -77,7 +77,7 @@ BENCHMARK_APPS = [
         'find-xmx-min': 800,
         'find-xmx-max': 1200,
         'find-xmx-range': 32,
-        'oom-threshold': 1000,
+        'oom-threshold': 1037,
     },
     {
         'app': 'iosched',
@@ -90,6 +90,8 @@ BENCHMARK_APPS = [
 ]
 
 def find_min_xmx_command(record):
+  assert record['find-xmx-min'] < record['find-xmx-max']
+  assert record['find-xmx-range'] < record['find-xmx-max'] - record['find-xmx-min']
   return [
       'tools/run_on_app.py',
       '--compiler=r8',
