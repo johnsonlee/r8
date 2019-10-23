@@ -203,7 +203,11 @@ public class MethodOptimizationInfoCollector {
         usages.add(usage);
       }
     }
-    feedback.setParameterUsages(method, usages.isEmpty() ? null : new ParameterUsagesInfo(usages));
+    feedback.setParameterUsages(
+        method,
+        usages.isEmpty()
+            ? DefaultMethodOptimizationInfo.UNKNOWN_PARAMETER_USAGE_INFO
+            : new ParameterUsagesInfo(usages));
   }
 
   private ParameterUsage collectParameterUsages(int i, Value value) {
@@ -372,6 +376,8 @@ public class MethodOptimizationInfoCollector {
 
   // This method defines trivial instance initializer as follows:
   //
+  // ** The holder class must not define a finalize method.
+  //
   // ** The initializer may call the initializer of the base class, which
   //    itself must be trivial.
   //
@@ -385,6 +391,10 @@ public class MethodOptimizationInfoCollector {
   // (Note that this initializer does not have to have zero arguments.)
   private TrivialInitializer computeInstanceInitializerInfo(
       IRCode code, DexClass clazz, Function<DexType, DexClass> typeToClass) {
+    if (clazz.definesFinalizer(options.itemFactory)) {
+      // Defining a finalize method can observe the side-effect of Object.<init> GC registration.
+      return null;
+    }
     Value receiver = code.getThis();
     for (Instruction insn : code.instructions()) {
       if (insn.isReturn()) {

@@ -36,13 +36,36 @@ public final class ParameterUsagesInfo {
         parametersUsages.stream().map(usage -> usage.index).collect(Collectors.toSet()).size();
   }
 
-  ParameterUsage getParameterUsage(int parameter) {
+  ParameterUsage getParameterUsage(int index) {
     for (ParameterUsage usage : parametersUsages) {
-      if (usage.index == parameter) {
+      if (usage.index == index) {
         return usage;
       }
     }
     return null;
+  }
+
+  ParameterUsagesInfo remove(int index) {
+    assert parametersUsages.size() > 0;
+    assert 0 <= index && index <= ListUtils.last(parametersUsages).index;
+    ImmutableList.Builder<ParameterUsage> builder = ImmutableList.builder();
+    for (ParameterUsage usage : parametersUsages) {
+      // Once we remove or pass the designated index, copy-n-shift the remaining usages.
+      if (index < usage.index) {
+        builder.add(ParameterUsage.copyAndShift(usage, 1));
+      } else if (index == usage.index) {
+        // Do not add the parameter usage with the matched index.
+      } else {
+        // Until we meet the `parameter` of interest, keep copying.
+        assert usage.index < index;
+        builder.add(usage);
+      }
+    }
+    ImmutableList<ParameterUsage> adjustedUsages = builder.build();
+    if (adjustedUsages.isEmpty()) {
+      return DefaultMethodOptimizationInfo.UNKNOWN_PARAMETER_USAGE_INFO;
+    }
+    return new ParameterUsagesInfo(adjustedUsages);
   }
 
   public final static class ParameterUsage {
@@ -82,6 +105,18 @@ public final class ParameterUsagesInfo {
       this.isReturned = isReturned;
     }
 
+    static ParameterUsage copyAndShift(ParameterUsage original, int shift) {
+      assert original.index >= shift;
+      return new ParameterUsage(
+          original.index - shift,
+          original.ifZeroTest,
+          original.callsReceiver,
+          original.hasFieldAssignment,
+          original.hasFieldRead,
+          original.isAssignedToField,
+          original.isReturned);
+    }
+
     public boolean notUsed() {
       return ifZeroTest == null
           && callsReceiver == null
@@ -104,7 +139,7 @@ public final class ParameterUsagesInfo {
     private boolean isAssignedToField = false;
     private boolean isReturned = false;
 
-    public ParameterUsageBuilder(Value arg, int index) {
+    ParameterUsageBuilder(Value arg, int index) {
       this.arg = arg;
       this.index = index;
     }
