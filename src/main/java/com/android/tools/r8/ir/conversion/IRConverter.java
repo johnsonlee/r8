@@ -706,6 +706,7 @@ public class IRConverter {
     if (!options.isGeneratingClassFiles()) {
       printPhase("Class staticizer post processing");
       staticizeClasses(feedback, executorService);
+      feedback.updateVisibleOptimizationInfo();
     }
 
     // Build a new application with jumbo string info.
@@ -735,6 +736,9 @@ public class IRConverter {
       builder.addSynthesizedClass(serviceLoaderRewriter.getSynthesizedClass(), true);
     }
 
+    // Update optimization info for all synthesized methods at once.
+    feedback.updateVisibleOptimizationInfo();
+
     if (outliner != null) {
       printPhase("Outlining");
       timing.begin("IR conversion phase 3");
@@ -755,6 +759,7 @@ public class IRConverter {
               printMethod(code, "IR after outlining (SSA)", null);
               finalizeIR(method, code, OptimizationFeedbackIgnore.getInstance());
             });
+        feedback.updateVisibleOptimizationInfo();
         assert outliner.checkAllOutlineSitesFoundAgain();
         builder.addSynthesizedClass(outlineClass, true);
         clearDexMethodCompilationState(outlineClass);
@@ -788,6 +793,8 @@ public class IRConverter {
         stringBuilderOptimizer.logResults();
       }
     }
+
+    assert feedback.noUpdatesLeft();
 
     // Check if what we've added to the application builder as synthesized classes are same as
     // what we've added and used through AppInfo.

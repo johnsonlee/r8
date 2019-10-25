@@ -49,6 +49,7 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -130,6 +131,7 @@ public class VerticalClassMerger {
     ALWAYS_INLINE,
     CONFLICT,
     ILLEGAL_ACCESS,
+    MAIN_DEX_ROOT_OUTSIDE_REFERENCE,
     MERGE_ACROSS_NESTS,
     NATIVE_METHOD,
     NO_SIDE_EFFECTS,
@@ -137,8 +139,8 @@ public class VerticalClassMerger {
     RESOLUTION_FOR_FIELDS_MAY_CHANGE,
     RESOLUTION_FOR_METHODS_MAY_CHANGE,
     SERVICE_LOADER,
+    SOURCE_AND_TARGET_LOCK_CANDIDATES,
     STATIC_INITIALIZERS,
-    STATIC_SYNCHRONIZED_METHODS,
     UNHANDLED_INVOKE_DIRECT,
     UNHANDLED_INVOKE_SUPER,
     UNSAFE_INLINING,
@@ -163,6 +165,9 @@ public class VerticalClassMerger {
         case ILLEGAL_ACCESS:
           message = "it could lead to illegal accesses";
           break;
+        case MAIN_DEX_ROOT_OUTSIDE_REFERENCE:
+          message = "contains a constructor with a reference outside the main dex classes";
+          break;
         case MERGE_ACROSS_NESTS:
           message = "cannot merge across nests, or from nest to non-nest";
           break;
@@ -184,6 +189,9 @@ public class VerticalClassMerger {
         case SERVICE_LOADER:
           message = "it is used by a service loader";
           break;
+        case SOURCE_AND_TARGET_LOCK_CANDIDATES:
+          message = "source and target are both lock-candidates";
+          break;
         case STATIC_INITIALIZERS:
           message = "merging of static initializers are not supported";
           break;
@@ -198,9 +206,6 @@ public class VerticalClassMerger {
           break;
         case UNSUPPORTED_ATTRIBUTES:
           message = "since inner-class attributes are not supported";
-          break;
-        case STATIC_SYNCHRONIZED_METHODS:
-          message = "since it has static synchronized methods which can lead to unwanted behavior";
           break;
         default:
           assert false;
@@ -378,6 +383,11 @@ public class VerticalClassMerger {
         || appInfo.neverMerge.contains(clazz.type)) {
       return false;
     }
+
+    assert Streams.stream(Iterables.concat(clazz.fields(), clazz.methods()))
+        .map(KeyedDexItem::getKey)
+        .noneMatch(appInfo::isPinned);
+
     if (appView.options().featureSplitConfiguration != null &&
         appView.options().featureSplitConfiguration.isInFeature(clazz)) {
       // TODO(b/141452765): Allow class merging between classes in features.
@@ -410,21 +420,18 @@ public class VerticalClassMerger {
       //     * Have access to the no-arg constructor of its first non-serializable superclass
       return false;
     }
-    for (DexEncodedField field : clazz.fields()) {
-      if (appInfo.isPinned(field.field)) {
-        return false;
-      }
-    }
-    for (DexEncodedMethod method : clazz.methods()) {
-      if (appInfo.isPinned(method.method)) {
-        return false;
-      }
-      if (method.isInstanceInitializer() && disallowInlining(method, singleSubtype)) {
-        // Cannot guarantee that markForceInline() will work.
-        if (Log.ENABLED) {
-          AbortReason.UNSAFE_INLINING.printLogMessageForClass(clazz);
+    for (DexEncodedMethod method : clazz.directMethods()) {
+      // We rename constructors to private methods and mark them to be forced-inlined, so we have to
+      // check if we can force-inline all constructors.
+      if (method.isInstanceInitializer()) {
+        AbortReason reason = disallowInlining(method, singleSubtype);
+        if (reason != null) {
+          // Cannot guarantee that markForceInline() will work.
+          if (Log.ENABLED) {
+            reason.printLogMessageForClass(clazz);
+          }
+          return false;
         }
-        return false;
       }
     }
     if (clazz.getEnclosingMethod() != null || !clazz.getInnerClasses().isEmpty()) {
@@ -470,6 +477,17 @@ public class VerticalClassMerger {
       // TODO(herhut): Handle class initializers.
       if (Log.ENABLED) {
         AbortReason.STATIC_INITIALIZERS.printLogMessageForClass(clazz);
+      }
+      return false;
+    }
+    boolean sourceCanBeSynchronizedOn =
+        appView.appInfo().isLockCandidate(clazz.type) || clazz.hasStaticSynchronizedMethods();
+    boolean targetCanBeSynchronizedOn =
+        appView.appInfo().isLockCandidate(targetClass.type)
+            || targetClass.hasStaticSynchronizedMethods();
+    if (sourceCanBeSynchronizedOn && targetCanBeSynchronizedOn) {
+      if (Log.ENABLED) {
+        AbortReason.SOURCE_AND_TARGET_LOCK_CANDIDATES.printLogMessageForClass(clazz);
       }
       return false;
     }
@@ -808,14 +826,6 @@ public class VerticalClassMerger {
       }
     } else {
       assert isStillMergeCandidate(clazz);
-    }
-
-    // Check for static synchronized methods on source
-    if (clazz.hasStaticSynchronizedMethods()) {
-      if (Log.ENABLED) {
-        AbortReason.STATIC_SYNCHRONIZED_METHODS.printLogMessageForClass(clazz);
-      }
-      return;
     }
 
     // Guard against the case where we have two methods that may get the same signature
@@ -1665,7 +1675,7 @@ public class VerticalClassMerger {
     }
   }
 
-  private boolean disallowInlining(DexEncodedMethod method, DexType invocationContext) {
+  private AbortReason disallowInlining(DexEncodedMethod method, DexType invocationContext) {
     if (appView.options().enableInlining) {
       if (method.getCode().isCfCode()) {
         CfCode code = method.getCode().asCfCode();
@@ -1675,11 +1685,21 @@ public class VerticalClassMerger {
                 appView,
                 new SingleTypeMapperGraphLense(method.method.holder, invocationContext),
                 invocationContext);
-        return constraint == ConstraintWithTarget.NEVER;
+        if (constraint == ConstraintWithTarget.NEVER) {
+          return AbortReason.UNSAFE_INLINING;
+        }
+        // Constructors can have references beyond the root main dex classes. This can increase the
+        // size of the main dex dependent classes and we should bail out.
+        if (mainDexClasses.getRoots().contains(invocationContext)
+            && MainDexDirectReferenceTracer.hasReferencesOutsideFromCode(
+                appView.appInfo(), method, mainDexClasses.getRoots())) {
+          return AbortReason.MAIN_DEX_ROOT_OUTSIDE_REFERENCE;
+        }
+        return null;
       }
       // For non-jar/cf code we currently cannot guarantee that markForceInline() will succeed.
     }
-    return true;
+    return AbortReason.UNSAFE_INLINING;
   }
 
   private class SingleTypeMapperGraphLense extends GraphLense {
