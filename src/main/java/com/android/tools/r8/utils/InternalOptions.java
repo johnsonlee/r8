@@ -213,7 +213,7 @@ public class InternalOptions {
   public boolean enableNameReflectionOptimization = true;
   public boolean enableStringConcatenationOptimization = true;
   public boolean enableTreeShakingOfLibraryMethodOverrides = false;
-  public boolean enableCallSiteOptimizationInfoPropagation = true;
+  public boolean enableCallSiteOptimizationInfoPropagation = false;
   public boolean encodeChecksums = false;
   public BiPredicate<String, Long> dexClassChecksumFilter = (name, checksum) -> true;
 
