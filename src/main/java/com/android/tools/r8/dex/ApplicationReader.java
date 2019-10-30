@@ -10,6 +10,7 @@ import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException
 
 import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.DataResourceProvider;
+import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.ProgramResourceProvider;
@@ -42,6 +43,7 @@ import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -59,7 +61,6 @@ public class ApplicationReader {
   private final DexItemFactory itemFactory;
   private final Timing timing;
   private final AndroidApp inputApp;
-  private final ClassesChecksum checksums = new ClassesChecksum();
 
   public interface ProgramClassConflictResolver {
     DexProgramClass resolveClassConflict(DexProgramClass a, DexProgramClass b);
@@ -107,6 +108,10 @@ public class ApplicationReader {
       ProgramClassConflictResolver resolver)
       throws IOException, ExecutionException {
     assert verifyMainDexOptionsCompatible(inputApp, options);
+    if (options.dumpInputToFile != null) {
+      inputApp.writeToZip(Paths.get(options.dumpInputToFile), OutputMode.ClassFile);
+      throw options.reporter.fatalError("Dumped compilation inputs to: " + options.dumpInputToFile);
+    }
     timing.begin("DexApplication.read");
     final LazyLoadedDexApplication.Builder builder =
         DexApplication.builder(options, timing, resolver);
@@ -124,10 +129,6 @@ public class ApplicationReader {
       ClassReader classReader = new ClassReader(executorService, futures);
       JarClassFileReader jcf = classReader.readSources();
       ThreadUtils.awaitFutures(futures);
-      // Merge all the checksum gathered from the class file's CRC as well as the marker
-      // implanted into the dex file.
-      builder.mergeChecksums(jcf.getChecksums());
-      builder.mergeChecksums(classReader.application.options.itemFactory.extractChecksum());
       classReader.initializeLazyClassCollection(builder);
       for (ProgramResourceProvider provider : inputApp.getProgramResourceProviders()) {
         DataResourceProvider dataResourceProvider = provider.getDataResourceProvider();

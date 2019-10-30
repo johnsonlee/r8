@@ -6,18 +6,22 @@ package com.android.tools.r8.desugar.corelib;
 
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertTrue;
+import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.R8;
+import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.ToolHelper.ProcessResult;
+import com.android.tools.r8.desugar.corelib.conversionTests.APIConversionTestBase;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import java.io.IOException;
@@ -31,7 +35,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class HelloWorldCompiledOnArtTest extends CoreLibDesugarTestBase {
+public class HelloWorldCompiledOnArtTest extends APIConversionTestBase {
 
   // TODO(b/142621961): Create an abstraction to easily run tests on External DexR8.
   // Manage pathMock in the abstraction.
@@ -124,11 +128,20 @@ public class HelloWorldCompiledOnArtTest extends CoreLibDesugarTestBase {
     if (parameters.getApiLevel().getLevel() < AndroidApiLevel.O.getLevel()) {
       d8TestBuilder.addProgramFiles(getPathBackport());
     }
-    return d8TestBuilder
-        .setMinApi(parameters.getApiLevel())
-        .enableCoreLibraryDesugaring(parameters.getApiLevel())
-        .compile()
-        .addDesugaredCoreLibraryRunClassPath(this::buildDesugaredLibrary, parameters.getApiLevel())
+    D8TestCompileResult compile =
+        d8TestBuilder
+            .setMinApi(parameters.getApiLevel())
+            .enableCoreLibraryDesugaring(parameters.getApiLevel())
+            .addOptionsModification(opt -> opt.testing.trackDesugaredAPIConversions = true)
+            .compile();
+    TestDiagnosticMessages diagnosticMessages = compile.getDiagnosticMessages();
+    assertTrue(
+        diagnosticMessages.getWarnings().isEmpty()
+            || diagnosticMessages.getWarnings().stream()
+                .noneMatch(x -> x.getDiagnosticMessage().contains("andThen")));
+    return compile
+        .addDesugaredCoreLibraryRunClassPath(
+            this::buildDesugaredLibraryWithConversionExtension, parameters.getApiLevel())
         .withArt6Plus64BitsLib()
         .withArtFrameworks();
   }

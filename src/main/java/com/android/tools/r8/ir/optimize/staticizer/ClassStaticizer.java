@@ -21,6 +21,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
+import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.StaticPut;
@@ -31,6 +32,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -43,21 +45,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
 public final class ClassStaticizer {
 
-  final AppView<AppInfoWithLiveness> appView;
-  final DexItemFactory factory;
-  final IRConverter converter;
-
-  private enum Phase {
-    None, Examine, Fixup
-  }
-
-  private Phase phase = Phase.None;
-  private BiConsumer<DexEncodedMethod, IRCode> fixupStrategy = null;
+  private final AppView<AppInfoWithLiveness> appView;
+  private final DexItemFactory factory;
+  private final IRConverter converter;
 
   // Represents a staticizing candidate with all information
   // needed for staticizing.
@@ -71,6 +65,7 @@ public final class ClassStaticizer {
     final AtomicInteger instancesCreated = new AtomicInteger();
     final Set<DexEncodedMethod> referencedFrom = Sets.newConcurrentHashSet();
     final AtomicReference<DexEncodedMethod> constructor = new AtomicReference<>();
+    final AtomicReference<DexEncodedMethod> getter = new AtomicReference<>();
 
     CandidateInfo(DexProgramClass candidate, DexEncodedField singletonField) {
       assert candidate != null;
@@ -139,11 +134,9 @@ public final class ClassStaticizer {
                 notEligible.add(field.field.type);
               }
 
-              // Let's also assume no methods should take or return a
-              // value of this type.
+              // Don't allow methods that take a value of this type.
               for (DexEncodedMethod method : cls.methods()) {
                 DexProto proto = method.method.proto;
-                notEligible.add(proto.returnType);
                 notEligible.addAll(Arrays.asList(proto.parameters.values));
               }
 
@@ -179,9 +172,6 @@ public final class ClassStaticizer {
         }
       }
     });
-
-    // Next phase -- examine code for candidate usages
-    phase = Phase.Examine;
   }
 
   private boolean isPinned(DexClass clazz, DexEncodedField singletonField) {
@@ -220,28 +210,50 @@ public final class ClassStaticizer {
   //
   // NOTE: can be called concurrently.
   public final void examineMethodCode(DexEncodedMethod method, IRCode code) {
-    if (phase != Phase.Examine) {
-      return;
-    }
-
     Set<Instruction> alreadyProcessed = Sets.newIdentityHashSet();
 
     CandidateInfo receiverClassCandidateInfo = candidates.get(method.method.holder);
     Value receiverValue = code.getThis(); // NOTE: is null for static methods.
-    if (receiverClassCandidateInfo != null && receiverValue != null) {
-      // We are inside an instance method of candidate class (not an instance initializer
-      // which we will check later), check if all the references to 'this' are valid
-      // (the call will invalidate the candidate if some of them are not valid).
-      analyzeAllValueUsers(
-          receiverClassCandidateInfo, receiverValue, factory.isConstructor(method.method));
+    if (receiverClassCandidateInfo != null) {
+      if (receiverValue != null) {
+        // We are inside an instance method of candidate class (not an instance initializer
+        // which we will check later), check if all the references to 'this' are valid
+        // (the call will invalidate the candidate if some of them are not valid).
+        analyzeAllValueUsers(
+            receiverClassCandidateInfo, receiverValue, factory.isConstructor(method.method));
 
-      // If the candidate is still valid, ignore all instructions
-      // we treat as valid usages on receiver.
-      if (candidates.get(method.method.holder) != null) {
-        alreadyProcessed.addAll(receiverValue.uniqueUsers());
+        // If the candidate is still valid, ignore all instructions
+        // we treat as valid usages on receiver.
+        if (candidates.get(method.method.holder) != null) {
+          alreadyProcessed.addAll(receiverValue.uniqueUsers());
+        }
+      } else {
+        // We are inside a static method of candidate class.
+        // Check if this is a valid getter of the singleton field.
+        if (method.method.proto.returnType == method.method.holder) {
+          List<Instruction> examined = isValidGetter(receiverClassCandidateInfo, code);
+          if (examined != null) {
+            DexEncodedMethod getter = receiverClassCandidateInfo.getter.get();
+            if (getter == null) {
+              receiverClassCandidateInfo.getter.set(method);
+              // Except for static-get and return, iterate other remaining instructions if any.
+              alreadyProcessed.addAll(examined);
+            } else {
+              assert getter != method;
+              // Not sure how to deal with many getters.
+              receiverClassCandidateInfo.invalidate();
+            }
+          } else {
+            // Invalidate the candidate if it has a static method whose return type is a candidate
+            // type but doesn't return the singleton field (in a trivial way).
+            receiverClassCandidateInfo.invalidate();
+          }
+        }
       }
     }
 
+    // TODO(b/143375203): if fully implemented, the following iterator could be:
+    //   InstructionListIterator iterator = code.instructionListIterator();
     ListIterator<Instruction> iterator =
         Lists.newArrayList(code.instructionIterator()).listIterator();
     while (iterator.hasNext()) {
@@ -288,7 +300,21 @@ public final class ClassStaticizer {
         CandidateInfo info = processStaticFieldRead(instruction.asStaticGet());
         if (info != null) {
           info.referencedFrom.add(method);
-          // If the candidate still valid, ignore all usages in further analysis.
+          // If the candidate is still valid, ignore all usages in further analysis.
+          Value value = instruction.outValue();
+          if (value != null) {
+            alreadyProcessed.addAll(value.aliasedUsers());
+          }
+        }
+        continue;
+      }
+
+      if (instruction.isInvokeStatic()) {
+        // Check if it is a static singleton getter.
+        CandidateInfo info = processInvokeStatic(instruction.asInvokeStatic());
+        if (info != null) {
+          info.referencedFrom.add(method);
+          // If the candidate is still valid, ignore all usages in further analysis.
           Value value = instruction.outValue();
           if (value != null) {
             alreadyProcessed.addAll(value.aliasedUsers());
@@ -465,6 +491,41 @@ public final class ClassStaticizer {
     return fieldAccessed == info.singletonField;
   }
 
+  // Only allow a very trivial pattern: load the singleton field and return it, which looks like:
+  //
+  //   v <- static-get singleton-field
+  //   <assume instructions on v> // (optional)
+  //   return v // or aliased value
+  //
+  // Returns a list of instructions that are examined (as long as the method is a trivial getter).
+  private List<Instruction> isValidGetter(CandidateInfo info, IRCode code) {
+    List<Instruction> instructions = new ArrayList<>();
+    StaticGet staticGet = null;
+    for (Instruction instr : code.instructions()) {
+      if (instr.isStaticGet()) {
+        staticGet = instr.asStaticGet();
+        DexEncodedField fieldAccessed =
+            appView.appInfo().lookupStaticTarget(staticGet.getField().holder, staticGet.getField());
+        if (fieldAccessed != info.singletonField) {
+          return null;
+        }
+        instructions.add(instr);
+        continue;
+      }
+      if (instr.isAssume() || instr.isReturn()) {
+        Value v = instr.inValues().get(0).getAliasedValue();
+        if (v.isPhi() || v.definition != staticGet) {
+          return null;
+        }
+        instructions.add(instr);
+        continue;
+      }
+      // All other instructions are not allowed.
+      return null;
+    }
+    return instructions;
+  }
+
   // Static field get: can be a valid singleton field for a
   // candidate in which case we should check if all the usages of the
   // value read are eligible.
@@ -482,6 +543,23 @@ public final class ClassStaticizer {
     Value singletonValue = staticGet.dest();
     if (singletonValue != null) {
       candidateInfo = analyzeAllValueUsers(candidateInfo, singletonValue, false);
+    }
+    return candidateInfo;
+  }
+
+  // Static getter: if this invokes a registered getter, treat it as static field get.
+  // That is, we should check if all the usages of the out value are eligible.
+  private CandidateInfo processInvokeStatic(InvokeStatic invoke) {
+    DexType candidateType = invoke.getInvokedMethod().proto.returnType;
+    CandidateInfo candidateInfo = candidates.get(candidateType);
+    if (candidateInfo == null) {
+      return null;
+    }
+
+    if (invoke.hasOutValue()
+        && candidateInfo.getter.get() != null
+        && candidateInfo.getter.get().method == invoke.getInvokedMethod()) {
+      candidateInfo = analyzeAllValueUsers(candidateInfo, invoke.outValue(), false);
     }
     return candidateInfo;
   }
@@ -556,29 +634,7 @@ public final class ClassStaticizer {
   //
   public final void staticizeCandidates(
       OptimizationFeedback feedback, ExecutorService executorService) throws ExecutionException {
-    phase = Phase.None; // We are done with processing/examining methods.
-    new StaticizingProcessor(appView, this, executorService).run(feedback);
-  }
-
-  public final void fixupMethodCode(DexEncodedMethod method, IRCode code) {
-    if (phase == Phase.Fixup) {
-      assert fixupStrategy != null;
-      fixupStrategy.accept(method, code);
-    }
-  }
-
-  void setFixupStrategy(BiConsumer<DexEncodedMethod, IRCode> strategy) {
-    assert phase == Phase.None;
-    assert strategy != null;
-    phase = Phase.Fixup;
-    fixupStrategy = strategy;
-  }
-
-  void cleanFixupStrategy() {
-    assert phase == Phase.Fixup;
-    assert fixupStrategy != null;
-    phase = Phase.None;
-    fixupStrategy = null;
+    new StaticizingProcessor(appView, this, converter).run(feedback, executorService);
   }
 
   private class CallSiteReferencesInvalidator extends UseRegistry {
