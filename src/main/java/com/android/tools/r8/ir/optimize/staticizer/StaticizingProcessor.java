@@ -176,7 +176,7 @@ final class StaticizingProcessor {
         trivialPhis.clear();
         boolean onlyHasTrivialPhis = testAndCollectPhisComposedOfThis(
             visited, thisValue.uniquePhiUsers(), thisValue, trivialPhis);
-        if (thisValue.numberOfPhiUsers() != 0 && !onlyHasTrivialPhis) {
+        if (thisValue.hasPhiUsers() && !onlyHasTrivialPhis) {
           fixableThisPointer = false;
           break;
         }
@@ -204,7 +204,7 @@ final class StaticizingProcessor {
           trivialPhis.clear();
           boolean onlyHasTrivialPhis = testAndCollectPhisComposedOfSameFieldRead(
               visited, dest.uniquePhiUsers(), read.getField(), trivialPhis);
-          if (dest.numberOfPhiUsers() != 0 && !onlyHasTrivialPhis) {
+          if (dest.hasPhiUsers() && !onlyHasTrivialPhis) {
             fixableFieldReadsPerUsage = false;
             break;
           }
@@ -289,6 +289,7 @@ final class StaticizingProcessor {
     Origin origin = appView.appInfo().originFor(method.method.holder);
     IRCode code = method.buildIR(appView, origin);
     codeOptimizations.forEach(codeOptimization -> codeOptimization.accept(code));
+    CodeRewriter.insertAssumeInstructions(code, converter.assumers);
     converter.collectOptimizationInfo(code, feedback);
     CodeRewriter.removeAssumeInstructions(appView, code);
     converter.finalizeIR(method, code, feedback);
@@ -387,7 +388,7 @@ final class StaticizingProcessor {
     Set<Phi> trivialPhis = Sets.newIdentityHashSet();
     boolean onlyHasTrivialPhis = testAndCollectPhisComposedOfThis(
         Sets.newIdentityHashSet(), thisValue.uniquePhiUsers(), thisValue, trivialPhis);
-    assert thisValue.numberOfPhiUsers() == 0 || onlyHasTrivialPhis;
+    assert !thisValue.hasPhiUsers() || onlyHasTrivialPhis;
     assert trivialPhis.isEmpty() || onlyHasTrivialPhis;
 
     Set<Instruction> users = SetUtils.newIdentityHashSet(thisValue.aliasedUsers());
@@ -402,7 +403,7 @@ final class StaticizingProcessor {
     trivialPhis.forEach(Phi::removeDeadPhi);
 
     // No matter what, number of phi users should be zero too.
-    assert thisValue.numberOfUsers() == 0 && thisValue.numberOfPhiUsers() == 0;
+    assert !thisValue.hasUsers() && !thisValue.hasPhiUsers();
   }
 
   // Re-processing finalized code may create slightly different IR code than what the examining
@@ -478,7 +479,7 @@ final class StaticizingProcessor {
     Set<Phi> trivialPhis = Sets.newIdentityHashSet();
     boolean onlyHasTrivialPhis = testAndCollectPhisComposedOfSameFieldRead(
         Sets.newIdentityHashSet(), dest.uniquePhiUsers(), field, trivialPhis);
-    assert dest.numberOfPhiUsers() == 0 || onlyHasTrivialPhis;
+    assert !dest.hasPhiUsers() || onlyHasTrivialPhis;
     assert trivialPhis.isEmpty() || onlyHasTrivialPhis;
 
     Set<Instruction> users = SetUtils.newIdentityHashSet(dest.aliasedUsers());
@@ -493,7 +494,7 @@ final class StaticizingProcessor {
     trivialPhis.forEach(Phi::removeDeadPhi);
 
     // No matter what, number of phi users should be zero too.
-    assert dest.numberOfUsers() == 0 && dest.numberOfPhiUsers() == 0;
+    assert !dest.hasUsers() && !dest.hasPhiUsers();
   }
 
   private void fixupStaticizedValueUsers(IRCode code, Set<Instruction> users) {
@@ -681,8 +682,12 @@ final class StaticizingProcessor {
         DexEncodedMethod newMethod = method.toTypeSubstitutedMethod(
             factory().createMethod(hostType, method.method.proto, method.method.name));
         newMethods.add(newMethod);
-        staticizedMethods.add(newMethod);
-        staticizedMethods.remove(method);
+        // If the old method from the candidate class has been staticized,
+        if (staticizedMethods.remove(method)) {
+          // Properly update staticized methods to reprocess, i.e., add the corresponding one that
+          // has just been migrated to the host class.
+          staticizedMethods.add(newMethod);
+        }
         DexMethod originalMethod = methodMapping.inverse().get(method.method);
         if (originalMethod == null) {
           methodMapping.put(method.method, newMethod.method);

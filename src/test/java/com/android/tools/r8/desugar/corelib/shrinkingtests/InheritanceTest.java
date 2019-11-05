@@ -2,15 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.corelib;
+package com.android.tools.r8.desugar.corelib.shrinkingtests;
 
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.desugar.corelib.CoreLibDesugarTestBase;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
-import java.time.DayOfWeek;
-import java.time.chrono.IsoEra;
-import java.time.chrono.MinguoEra;
-import java.util.EnumSet;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -18,7 +18,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class EnumSetTest extends CoreLibDesugarTestBase {
+public class InheritanceTest extends CoreLibDesugarTestBase {
 
   private final TestParameters parameters;
   private final boolean shrinkDesugaredLibrary;
@@ -29,16 +29,16 @@ public class EnumSetTest extends CoreLibDesugarTestBase {
         BooleanUtils.values(), getTestParameters().withDexRuntimes().withAllApiLevels().build());
   }
 
-  public EnumSetTest(boolean shrinkDesugaredLibrary, TestParameters parameters) {
+  public InheritanceTest(boolean shrinkDesugaredLibrary, TestParameters parameters) {
     this.shrinkDesugaredLibrary = shrinkDesugaredLibrary;
     this.parameters = parameters;
   }
 
   @Test
-  public void testEnum() throws Exception {
+  public void testInheritance() throws Exception {
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForD8()
-        .addProgramClasses(EnumSetUser.class)
+        .addProgramClasses(Impl.class)
         .setMinApi(parameters.getApiLevel())
         .enableCoreLibraryDesugaring(parameters.getApiLevel(), keepRuleConsumer)
         .compile()
@@ -47,19 +47,30 @@ public class EnumSetTest extends CoreLibDesugarTestBase {
             parameters.getApiLevel(),
             keepRuleConsumer.get(),
             shrinkDesugaredLibrary)
-        .run(parameters.getRuntime(), EnumSetUser.class)
-        .assertSuccessWithOutput(StringUtils.lines("2", "0", "1"));
+        .run(parameters.getRuntime(), Impl.class)
+        .assertSuccessWithOutput(StringUtils.lines("123456"));
   }
 
-  static class EnumSetUser {
+  static class Impl extends Clock {
 
     public static void main(String[] args) {
-      EnumSet<IsoEra> isoEras = EnumSet.allOf(IsoEra.class);
-      System.out.println(isoEras.size());
-      EnumSet<DayOfWeek> dayOfWeeks = EnumSet.noneOf(DayOfWeek.class);
-      System.out.println(dayOfWeeks.size());
-      EnumSet<MinguoEra> minguoEras = EnumSet.of(MinguoEra.BEFORE_ROC);
-      System.out.println(minguoEras.size());
+      Impl impl = new Impl();
+      System.out.println(impl.millis());
+    }
+
+    @Override
+    public ZoneId getZone() {
+      return null;
+    }
+
+    @Override
+    public Clock withZone(ZoneId zone) {
+      return null;
+    }
+
+    @Override
+    public Instant instant() {
+      return Instant.ofEpochMilli(123456);
     }
   }
 }

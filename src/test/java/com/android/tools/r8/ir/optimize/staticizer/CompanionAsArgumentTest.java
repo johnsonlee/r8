@@ -27,7 +27,7 @@ public class CompanionAsArgumentTest extends TestBase {
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
     // TODO(b/112831361): support for class staticizer in CF backend.
-    return getTestParameters().withDexRuntimes().build();
+    return getTestParameters().withDexRuntimes().withAllApiLevels().build();
   }
 
   private final TestParameters parameters;
@@ -43,7 +43,7 @@ public class CompanionAsArgumentTest extends TestBase {
         .addKeepMainRule(MAIN)
         .enableInliningAnnotations()
         .enableClassInliningAnnotations()
-        .setMinApi(parameters.getRuntime())
+        .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines("Companion#foo(true)")
         .inspect(this::inspect);
@@ -55,9 +55,10 @@ public class CompanionAsArgumentTest extends TestBase {
     assertThat(companion, isPresent());
     MethodSubject foo = companion.uniqueMethodWithName("foo");
     assertThat(foo, isPresent());
-    assertTrue(foo.streamInstructions().anyMatch(
-        i -> i.isInvokeVirtual()
-            && i.getMethod().toSourceString().contains("PrintStream.println")));
+    assertTrue(
+        foo.streamInstructions().anyMatch(
+            i -> i.isInvokeVirtual()
+                && i.getMethod().toSourceString().contains("PrintStream.println")));
 
     // Nothing migrated from Companion to Host.
     ClassSubject host = inspector.clazz(Host.class);

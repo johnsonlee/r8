@@ -10,12 +10,13 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
-import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.ir.regalloc.LiveIntervals;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.MethodPosition;
@@ -466,6 +467,22 @@ public class Value implements Comparable<Value> {
     return debugData == null ? null : Collections.unmodifiableSet(debugData.users.keySet());
   }
 
+  public boolean hasAnyUsers() {
+    return hasUsers() || hasPhiUsers() || hasDebugUsers();
+  }
+
+  public boolean hasDebugUsers() {
+    return debugData != null && !debugData.users.isEmpty();
+  }
+
+  public boolean hasPhiUsers() {
+    return !phiUsers.isEmpty();
+  }
+
+  public boolean hasUsers() {
+    return !users.isEmpty();
+  }
+
   public int numberOfUsers() {
     int size = users.size();
     if (size <= 1) {
@@ -830,33 +847,25 @@ public class Value implements Comparable<Value> {
     return definition.isOutConstant() && !hasLocalInfo();
   }
 
-  public DexEncodedField getEnumField(AppView<?> appView) {
+  public AbstractValue getAbstractValue(AppView<?> appView) {
     if (!appView.enableWholeProgramOptimizations()) {
-      return null;
+      return UnknownValue.getInstance();
     }
 
     Value root = getAliasedValue();
-    if (root.isPhi() || !root.definition.isStaticGet()) {
-      return null;
+    if (root.isPhi()) {
+      return UnknownValue.getInstance();
     }
 
-    StaticGet staticGet = root.definition.asStaticGet();
-    DexField field = staticGet.getField();
-    if (field.type != field.holder) {
-      return null;
+    if (root.definition.isFieldGet()) {
+      FieldInstruction fieldGet = root.definition.asFieldInstruction();
+      DexEncodedField field = appView.appInfo().resolveField(fieldGet.getField());
+      if (field != null) {
+        return field.getOptimizationInfo().getAbstractValue();
+      }
     }
 
-    DexEncodedField encodedField = appView.definitionFor(field);
-    if (encodedField == null) {
-      return null;
-    }
-
-    DexClass clazz = appView.definitionFor(encodedField.field.holder);
-    if (clazz == null || !clazz.isEnum()) {
-      return null;
-    }
-
-    return encodedField;
+    return UnknownValue.getInstance();
   }
 
   public boolean isPhi() {
@@ -1007,7 +1016,7 @@ public class Value implements Comparable<Value> {
 
     // If the value has debug users we cannot eliminate it since it represents a value in a local
     // variable that should be visible in the debugger.
-    if (numberOfDebugUsers() != 0) {
+    if (hasDebugUsers()) {
       return false;
     }
     // This is a candidate for a dead value. Guard against looping by adding it to the set of

@@ -14,7 +14,6 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -27,6 +26,7 @@ import com.android.tools.r8.ir.analysis.equivalence.BasicBlockBehavioralSubsumpt
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.AlwaysMaterializingNop;
 import com.android.tools.r8.ir.code.ArrayLength;
 import com.android.tools.r8.ir.code.ArrayPut;
@@ -157,6 +157,13 @@ public class CodeRewriter {
     this.converter = converter;
     this.options = appView.options();
     this.dexItemFactory = appView.dexItemFactory();
+  }
+
+  public static void insertAssumeInstructions(IRCode code, Collection<Assumer> assumers) {
+    for (Assumer assumer : assumers) {
+      assumer.insertAssumeInstructions(code);
+      assert code.isConsistentSSA();
+    }
   }
 
   public static void removeAssumeInstructions(AppView<?> appView, IRCode code) {
@@ -1086,12 +1093,12 @@ public class CodeRewriter {
           // If the original input to the switch is now unused, remove it too. It is not dead
           // as it might have side-effects but we ignore these here.
           Instruction arrayGet = info.arrayGet;
-          if (arrayGet.outValue().numberOfUsers() == 0) {
+          if (!arrayGet.outValue().hasUsers()) {
             arrayGet.inValues().forEach(v -> v.removeUser(arrayGet));
             arrayGet.getBlock().removeInstruction(arrayGet);
           }
           Instruction staticGet = info.staticGet;
-          if (staticGet.outValue().numberOfUsers() == 0) {
+          if (!staticGet.outValue().hasUsers()) {
             assert staticGet.inValues().isEmpty();
             staticGet.getBlock().removeInstruction(staticGet);
           }
@@ -1392,7 +1399,7 @@ public class CodeRewriter {
     while (it.hasNext()) {
       Instruction current = it.next();
       if (current.isCheckCast()) {
-        boolean hasPhiUsers = current.outValue().numberOfPhiUsers() != 0;
+        boolean hasPhiUsers = current.outValue().hasPhiUsers();
         RemoveCheckCastInstructionIfTrivialResult removeResult =
             removeCheckCastInstructionIfTrivial(current.asCheckCast(), it, code, affectedValues);
         if (removeResult != RemoveCheckCastInstructionIfTrivialResult.NO_REMOVALS) {
@@ -1402,7 +1409,7 @@ public class CodeRewriter {
           affectedValues.clear();
         }
       } else if (current.isInstanceOf()) {
-        boolean hasPhiUsers = current.outValue().numberOfPhiUsers() != 0;
+        boolean hasPhiUsers = current.outValue().hasPhiUsers();
         if (removeInstanceOfInstructionIfTrivial(current.asInstanceOf(), it, code)) {
           needToRemoveTrivialPhis |= hasPhiUsers;
         }
@@ -1749,8 +1756,8 @@ public class CodeRewriter {
             dominatorTreeMemoization,
             addConstantInBlock,
             insn ->
-                (insn.isConstNumber() && insn.outValue().numberOfAllUsers() != 0)
-                    || (insn.isConstString() && insn.outValue().numberOfAllUsers() != 0));
+                (insn.isConstNumber() && insn.outValue().hasAnyUsers())
+                    || (insn.isConstString() && insn.outValue().hasAnyUsers()));
       } else {
         // For all following blocks only process ConstString with just one use.
         shortenLiveRangesInsideBlock(
@@ -1778,12 +1785,12 @@ public class CodeRewriter {
         // except if they are used by phi instructions or they are a string constants.
         assert constants instanceof LinkedHashMap;
         for (Instruction constantInstruction : constants.values()) {
-          if (constantInstruction.outValue().numberOfPhiUsers() == 0
+          if (!constantInstruction.outValue().hasPhiUsers()
               && !constantInstruction.isConstString()) {
             assert constantInstruction.isConstNumber();
             ConstNumber constNumber = constantInstruction.asConstNumber();
             Value constantValue = constantInstruction.outValue();
-            assert constantValue.numberOfUsers() != 0;
+            assert constantValue.hasUsers();
             assert constantValue.numberOfUsers() == constantValue.numberOfAllUsers();
             for (Instruction user : constantValue.uniqueUsers()) {
               ConstNumber newCstNum = ConstNumber.copyOf(code, constNumber);
@@ -2532,12 +2539,12 @@ public class CodeRewriter {
               }
             }
           } else {
-            DexEncodedField enumField = lhs.getEnumField(appView);
-            if (enumField != null) {
-              DexEncodedField otherEnumField = rhs.getEnumField(appView);
-              if (enumField == otherEnumField) {
+            AbstractValue abstractValue = lhs.getAbstractValue(appView);
+            if (abstractValue.isSingleEnumValue()) {
+              AbstractValue otherAbstractValue = rhs.getAbstractValue(appView);
+              if (abstractValue == otherAbstractValue) {
                 simplifyIfWithKnownCondition(code, block, theIf, 0);
-              } else if (otherEnumField != null) {
+              } else if (otherAbstractValue.isSingleEnumValue()) {
                 simplifyIfWithKnownCondition(code, block, theIf, 1);
               }
             }

@@ -141,6 +141,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
     super(previous);
     missingClasses.addAll(previous.missingClasses);
     subtypeMap.putAll(previous.subtypeMap);
+    supertypesForSynthesizedClasses.putAll(previous.supertypesForSynthesizedClasses);
     typeInfo = new ConcurrentHashMap<>(previous.typeInfo);
     assert app() instanceof DirectMappedDexApplication;
   }
@@ -746,7 +747,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
     if (clazz.isProgramClass()) {
       if (lookUpwards) {
         DexEncodedMethod resolutionResult =
-            resolveMethod(type, dexItemFactory().objectMethods.finalize).asSingleTarget();
+            resolveMethod(type, dexItemFactory().objectMethods.finalize).getSingleTarget();
         if (resolutionResult != null && resolutionResult.isProgramMethod(this)) {
           mayHaveFinalizeMethodDirectlyOrIndirectlyCache.put(type, true);
           return true;

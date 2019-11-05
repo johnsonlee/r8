@@ -7,10 +7,12 @@ package com.android.tools.r8;
 import static org.junit.Assert.assertNotNull;
 
 import com.android.tools.r8.ToolHelper.ProcessResult;
+import com.android.tools.r8.naming.retrace.StackTrace;
 import com.android.tools.r8.retrace.Retrace;
 import com.android.tools.r8.retrace.RetraceCommand;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.graphinspector.GraphInspector;
 import java.io.IOException;
@@ -29,10 +31,11 @@ public class R8TestRunResult extends TestRunResult<R8TestRunResult> {
 
   public R8TestRunResult(
       AndroidApp app,
+      TestRuntime runtime,
       ProcessResult result,
       String proguardMap,
       GraphInspectorSupplier graphInspector) {
-    super(app, result);
+    super(app, runtime, result);
     this.proguardMap = proguardMap;
     this.graphInspector = graphInspector;
   }
@@ -43,11 +46,26 @@ public class R8TestRunResult extends TestRunResult<R8TestRunResult> {
   }
 
   @Override
+  public StackTrace getStackTrace() {
+    return super.getStackTrace().retrace(proguardMap);
+  }
+
+  public StackTrace getOriginalStackTrace() {
+    return super.getStackTrace();
+  }
+
+  @Override
   public CodeInspector inspector() throws IOException, ExecutionException {
     // See comment in base class.
     assertSuccess();
     assertNotNull(app);
     return new CodeInspector(app, proguardMap);
+  }
+
+  public <E extends Throwable> R8TestRunResult inspectOriginalStackTrace(
+      ThrowingConsumer<StackTrace, E> consumer) throws E {
+    consumer.accept(getOriginalStackTrace());
+    return self();
   }
 
   public GraphInspector graphInspector() throws IOException, ExecutionException {

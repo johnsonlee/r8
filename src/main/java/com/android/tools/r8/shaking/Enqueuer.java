@@ -39,6 +39,7 @@ import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.KeyedDexItem;
 import com.android.tools.r8.graph.PresortedComparable;
 import com.android.tools.r8.graph.ResolutionResult;
+import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoEnqueuerExtension;
 import com.android.tools.r8.ir.code.ArrayPut;
@@ -1305,7 +1306,7 @@ public class Enqueuer {
       reportMissingMethod(method);
       return;
     }
-    DexEncodedMethod encodedMethod = resolutionResult.asSingleTarget();
+    DexEncodedMethod encodedMethod = resolutionResult.getSingleTarget();
     if (encodedMethod == null) {
       // Note: should this be reported too? Or is this unreachable?
       return;
@@ -1927,7 +1928,8 @@ public class Enqueuer {
     // Otherwise, the resolution target is marked and cached, and all possible targets identified.
     resolution = findAndMarkResolutionTarget(method, interfaceInvoke, reason);
     virtualTargetsMarkedAsReachable.put(method, resolution);
-    if (resolution.isUnresolved() || !resolution.method.isValidVirtualTarget(options)) {
+    if (resolution.isUnresolved()
+        || !SingleResolutionResult.isValidVirtualTarget(options, resolution.method)) {
       // There is no valid resolution, so any call will lead to a runtime exception.
       return;
     }
@@ -1940,7 +1942,9 @@ public class Enqueuer {
 
     assert interfaceInvoke == holder.isInterface();
     Set<DexEncodedMethod> possibleTargets =
-        resolution.method.lookupVirtualDispatchTargets(interfaceInvoke, appInfo);
+        // TODO(b/140214802): Call on the resolution once proper resolution and lookup is resolved.
+        new SingleResolutionResult(resolution.method)
+            .lookupVirtualDispatchTargets(interfaceInvoke, appInfo);
     if (possibleTargets == null || possibleTargets.isEmpty()) {
       return;
     }
@@ -2036,53 +2040,8 @@ public class Enqueuer {
     // invoke. This also ensures preserving the errors detailed below.
     if (resolutionTargetClass.isProgramClass()) {
       markMethodAsTargeted(resolutionTargetClass.asProgramClass(), resolutionTarget, reason);
-
-      // If the method of an invoke-virtual instruction resolves to a private or static method, then
-      // the invoke fails with an IllegalAccessError or IncompatibleClassChangeError, respectively.
-      //
-      // Unfortunately the above is not always the case:
-      // Some Art VMs do not fail with an IllegalAccessError or IncompatibleClassChangeError if the
-      // method of an invoke-virtual instruction resolves to a private or static method, but instead
-      // ignores private and static methods during resolution (see also NonVirtualOverrideTest).
-      // Therefore, we need to continue resolution from the super type until we find a virtual
-      // method.
-      if (resolutionTarget.isPrivateMethod() || resolutionTarget.isStatic()) {
-        assert !interfaceInvoke || resolutionTargetClass.isInterface();
-        MarkedResolutionTarget possiblyValidTarget =
-            markPossiblyValidTarget(
-                method, reason, resolutionTarget, resolutionTargetClass.asProgramClass());
-        if (!possiblyValidTarget.isUnresolved()) {
-          // Since some Art runtimes may actually end up targeting this method, it is returned as
-          // the basis of lookup for the enqueuing of virtual dispatches. Not doing so may cause it
-          // to be marked abstract, thus leading to an AbstractMethodError on said Art runtimes.
-          return possiblyValidTarget;
-        }
-      }
     }
 
-    return new MarkedResolutionTarget(resolutionTargetClass, resolutionTarget);
-  }
-
-  private MarkedResolutionTarget markPossiblyValidTarget(
-      DexMethod method,
-      KeepReason reason,
-      DexEncodedMethod resolutionTarget,
-      DexProgramClass resolutionTargetClass) {
-    while (resolutionTarget.isPrivateMethod() || resolutionTarget.isStatic()) {
-      resolutionTarget =
-          appInfo
-              .resolveMethod(
-                  resolutionTargetClass.superType, method, resolutionTargetClass.isInterface())
-              .asResultOfResolve();
-      if (resolutionTarget == null) {
-        return MarkedResolutionTarget.unresolved();
-      }
-      resolutionTargetClass = getProgramClassOrNull(resolutionTarget.method.holder);
-      if (resolutionTargetClass == null) {
-        return MarkedResolutionTarget.unresolved();
-      }
-    }
-    markMethodAsTargeted(resolutionTargetClass, resolutionTarget, reason);
     return new MarkedResolutionTarget(resolutionTargetClass, resolutionTarget);
   }
 
@@ -2644,11 +2603,9 @@ public class Enqueuer {
       if (keepClass) {
         markInstantiated(clazz, null, KeepReason.reflectiveUseIn(method));
       }
-      markFieldAsKept(clazz, encodedField, KeepReason.reflectiveUseIn(method));
-      // Fields accessed by reflection is marked as both read and written.
-      registerFieldRead(encodedField.field, method);
-      registerFieldWrite(encodedField.field, method);
-
+      if (pinnedItems.add(encodedField.field)) {
+        markFieldAsKept(clazz, encodedField, KeepReason.reflectiveUseIn(method));
+      }
     } else {
       assert identifierItem.isDexMethod();
       DexMethod targetedMethod = identifierItem.asDexMethod();

@@ -48,6 +48,7 @@ import com.android.tools.r8.ir.desugar.LambdaRewriter;
 import com.android.tools.r8.ir.desugar.StringConcatRewriter;
 import com.android.tools.r8.ir.desugar.TwrCloseResourceRewriter;
 import com.android.tools.r8.ir.optimize.AliasIntroducer;
+import com.android.tools.r8.ir.optimize.Assumer;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization;
 import com.android.tools.r8.ir.optimize.CodeRewriter;
 import com.android.tools.r8.ir.optimize.ConstantCanonicalizer;
@@ -93,9 +94,9 @@ import com.android.tools.r8.utils.InternalOptions.OutlineOptions;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
-import com.google.common.base.Predicates;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -109,9 +110,8 @@ import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -156,13 +156,12 @@ public class IRConverter {
   private final ServiceLoaderRewriter serviceLoaderRewriter;
 
   // Assumers that will insert Assume instructions.
-  private final AliasIntroducer aliasIntroducer;
+  public final Collection<Assumer> assumers = new ArrayList<>();
   private final DynamicTypeOptimization dynamicTypeOptimization;
-  private final NonNullTracker nonNullTracker;
 
   final DeadCodeRemover deadCodeRemover;
 
-  final MethodOptimizationInfoCollector methodOptimizationInfoCollector;
+  private final MethodOptimizationInfoCollector methodOptimizationInfoCollector;
 
   private final OptimizationFeedbackDelayed delayedOptimizationFeedback =
       new OptimizationFeedbackDelayed();
@@ -210,7 +209,7 @@ public class IRConverter {
       // InterfaceMethodRewriter is needed for emulated interfaces.
       // LambdaRewriter is needed because if it is missing there are invoke custom on
       // default/static interface methods, and this is not supported by the compiler.
-      // The rest is nulled out. In addition the rewriting logic fails without lambda rewritting.
+      // The rest is nulled out. In addition the rewriting logic fails without lambda rewriting.
       this.backportedMethodRewriter = new BackportedMethodRewriter(appView, this);
       this.interfaceMethodRewriter =
           options.desugaredLibraryConfiguration.getEmulateLibraryInterface().isEmpty()
@@ -220,8 +219,6 @@ public class IRConverter {
       this.twrCloseResourceRewriter = null;
       this.lambdaMerger = null;
       this.covariantReturnTypeAnnotationTransformer = null;
-      this.aliasIntroducer = null;
-      this.nonNullTracker = null;
       this.dynamicTypeOptimization = null;
       this.classInliner = null;
       this.classStaticizer = null;
@@ -259,9 +256,12 @@ public class IRConverter {
         options.processCovariantReturnTypeAnnotations
             ? new CovariantReturnTypeAnnotationTransformer(this, appView.dexItemFactory())
             : null;
-    this.aliasIntroducer =
-        options.testing.forceAssumeNoneInsertion ? new AliasIntroducer(appView) : null;
-    this.nonNullTracker = options.enableNonNullTracking ? new NonNullTracker(appView) : null;
+    if (options.testing.forceAssumeNoneInsertion) {
+      assumers.add(new AliasIntroducer(appView));
+    }
+    if (options.enableNonNullTracking) {
+      assumers.add(new NonNullTracker(appView));
+    }
     this.desugaredLibraryAPIConverter =
         appView.rewritePrefix.isRewriting() ? new DesugaredLibraryAPIConverter(appView) : null;
     if (appView.enableWholeProgramOptimizations()) {
@@ -278,6 +278,9 @@ public class IRConverter {
           options.enableDynamicTypeOptimization
               ? new DynamicTypeOptimization(appViewWithLiveness)
               : null;
+      if (dynamicTypeOptimization != null) {
+        assumers.add(dynamicTypeOptimization);
+      }
       this.fieldBitAccessAnalysis =
           options.enableFieldBitAccessAnalysis
               ? new FieldBitAccessAnalysis(appViewWithLiveness)
@@ -291,7 +294,7 @@ public class IRConverter {
       this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness, lambdaRewriter);
       this.inliner =
           new Inliner(appViewWithLiveness, mainDexClasses, lambdaMerger, lensCodeRewriter);
-      this.outliner = new Outliner(appViewWithLiveness, this);
+      this.outliner = new Outliner(appViewWithLiveness);
       this.memberValuePropagation =
           options.enableValuePropagation ? new MemberValuePropagation(appViewWithLiveness) : null;
       this.methodOptimizationInfoCollector =
@@ -590,8 +593,10 @@ public class IRConverter {
         if (options.isGeneratingClassFiles()
             || !(options.passthroughDexCode && method.getCode().isDexCode())) {
           // We do not process in call graph order, so anything could be a leaf.
-          rewriteCode(method, simpleOptimizationFeedback, x -> true, CallSiteInformation.empty(),
-              Outliner::noProcessing);
+          rewriteCode(
+              method,
+              simpleOptimizationFeedback,
+              OneTimeMethodProcessor.getInstance(ImmutableList.of(method)));
         } else {
           assert method.getCode().isDexCode();
         }
@@ -630,29 +635,26 @@ public class IRConverter {
     //    reprocessing IR code of methods, e.g., outlining, double-inlining, class staticizer, etc.
     //    - a side effect is candidates for those optimizations are identified.
     // 2) Revisit DexEncodedMethods for the collected candidates.
-    // TODO(b/127694949): unified framework to reprocess methods only once.
 
     printPhase("Primary optimization pass");
 
     // Process the application identifying outlining candidates.
     GraphLense graphLenseForIR = appView.graphLense();
     OptimizationFeedbackDelayed feedback = delayedOptimizationFeedback;
+    PostMethodProcessor.Builder postMethodProcessorBuilder =
+        new PostMethodProcessor.Builder(getOptimizationsForPostIRProcessing());
     {
       timing.begin("Build call graph");
-      MethodProcessor methodProcessor =
-          CallGraph.createMethodProcessor(appView.withLiveness(), executorService, timing);
+      PrimaryMethodProcessor primaryMethodProcessor =
+          PrimaryMethodProcessor.create(
+              appView.withLiveness(), postMethodProcessorBuilder, executorService, timing);
       timing.end();
       timing.begin("IR conversion phase 1");
-      BiConsumer<IRCode, DexEncodedMethod> outlineHandler =
-          outliner == null ? Outliner::noProcessing : outliner.identifyCandidateMethods();
-      methodProcessor.forEachMethod(
-          (method, isProcessedConcurrently) ->
-              processMethod(
-                  method,
-                  feedback,
-                  isProcessedConcurrently,
-                  methodProcessor.getCallSiteInformation(),
-                  outlineHandler),
+      if (outliner != null) {
+        outliner.createOutlineMethodIdentifierGenerator();
+      }
+      primaryMethodProcessor.forEachMethod(
+          method -> processMethod(method, feedback, primaryMethodProcessor),
           this::waveStart,
           this::waveDone,
           executorService);
@@ -666,27 +668,31 @@ public class IRConverter {
       libraryMethodOverrideAnalysis.finish();
     }
 
-    // Second pass for methods whose collected call site information become more precise.
+    // Post processing:
+    //   1) Second pass for methods whose collected call site information become more precise.
+    //   2) Second inlining pass for dealing with double inline callers.
+    printPhase("Post optimization pass");
     if (appView.callSiteOptimizationInfoPropagator() != null) {
-      printPhase("2nd round of method processing after inter-procedural analysis.");
-      timing.begin("IR conversion phase 2");
-      appView.callSiteOptimizationInfoPropagator().revisitMethods(this, executorService);
-      feedback.updateVisibleOptimizationInfo();
-      timing.end();
+      postMethodProcessorBuilder.put(appView.callSiteOptimizationInfoPropagator());
     }
-
-    // Second inlining pass for dealing with double inline callers.
     if (inliner != null) {
-      printPhase("Double caller inlining");
-      assert graphLenseForIR == appView.graphLense();
-      inliner.processDoubleInlineCallers(this, executorService);
+      postMethodProcessorBuilder.put(inliner);
+    }
+    timing.begin("IR conversion phase 2");
+    assert graphLenseForIR == appView.graphLense();
+    PostMethodProcessor postMethodProcessor =
+        postMethodProcessorBuilder.build(appView.withLiveness(), executorService, timing);
+    if (postMethodProcessor != null) {
+      postMethodProcessor.forEachWave(feedback, executorService);
       feedback.updateVisibleOptimizationInfo();
       assert graphLenseForIR == appView.graphLense();
     }
+    timing.end();
 
     // TODO(b/112831361): Implement support for staticizeClasses in CF backend.
     if (!options.isGeneratingClassFiles()) {
       printPhase("Class staticizer post processing");
+      // TODO(b/127694949): Adapt to PostOptimization.
       staticizeClasses(feedback, executorService);
       feedback.updateVisibleOptimizationInfo();
     }
@@ -707,6 +713,7 @@ public class IRConverter {
     handleSynthesizedClassMapping(builder);
 
     printPhase("Lambda merging finalization");
+    // TODO(b/127694949): Adapt to PostOptimization.
     finalizeLambdaMerging(application, feedback, builder, executorService);
 
     printPhase("Desugared library API Conversion finalization");
@@ -721,24 +728,25 @@ public class IRConverter {
     // Update optimization info for all synthesized methods at once.
     feedback.updateVisibleOptimizationInfo();
 
+    // TODO(b/127694949): Adapt to PostOptimization.
     if (outliner != null) {
       printPhase("Outlining");
       timing.begin("IR conversion phase 3");
       if (outliner.selectMethodsForOutlining()) {
         forEachSelectedOutliningMethod(
-            (code, method) -> {
+            code -> {
               printMethod(code, "IR before outlining (SSA)", null);
-              outliner.identifyOutlineSites(code, method);
+              outliner.identifyOutlineSites(code);
             },
             executorService);
         DexProgramClass outlineClass = outliner.buildOutlinerClass(computeOutlineClassType());
         appView.appInfo().addSynthesizedClass(outlineClass);
         optimizeSynthesizedClass(outlineClass, executorService);
         forEachSelectedOutliningMethod(
-            (code, method) -> {
-              outliner.applyOutliningCandidate(code, method);
+            code -> {
+              outliner.applyOutliningCandidate(code);
               printMethod(code, "IR after outlining (SSA)", null);
-              finalizeIR(method, code, OptimizationFeedbackIgnore.getInstance());
+              finalizeIR(code.method, code, OptimizationFeedbackIgnore.getInstance());
             },
             executorService);
         feedback.updateVisibleOptimizationInfo();
@@ -827,7 +835,7 @@ public class IRConverter {
   }
 
   private void forEachSelectedOutliningMethod(
-      BiConsumer<IRCode, DexEncodedMethod> consumer, ExecutorService executorService)
+      Consumer<IRCode> consumer, ExecutorService executorService)
       throws ExecutionException {
     assert !options.skipIR;
     Set<DexEncodedMethod> methods = outliner.getMethodsSelectedForOutlining();
@@ -844,7 +852,7 @@ public class IRConverter {
           codeRewriter.rewriteMoveResult(code);
           deadCodeRemover.run(code);
           CodeRewriter.removeAssumeInstructions(appView, code);
-          consumer.accept(code, method);
+          consumer.accept(code);
         },
         executorService);
   }
@@ -962,40 +970,41 @@ public class IRConverter {
       processMethod(
           method,
           delayedOptimizationFeedback,
-          Predicates.alwaysFalse(),
-          CallSiteInformation.empty(),
-          Outliner::noProcessing);
+          OneTimeMethodProcessor.getInstance());
     }
   }
 
   public void processMethodsConcurrently(
       Collection<DexEncodedMethod> methods, ExecutorService executorService)
       throws ExecutionException {
-    ThreadUtils.processItems(
-        methods,
-        method -> processMethod(
-            method,
-            delayedOptimizationFeedback,
-            methods::contains,
-            CallSiteInformation.empty(),
-            Outliner::noProcessing),
-        executorService);
+    OneTimeMethodProcessor processor = OneTimeMethodProcessor.getInstance(methods);
+    processor.forEachWave(
+        method -> processMethod(method, delayedOptimizationFeedback, processor), executorService);
   }
 
   private String logCode(InternalOptions options, DexEncodedMethod method) {
     return options.useSmaliSyntax ? method.toSmaliString(null) : method.codeToString();
   }
 
+  List<CodeOptimization> getOptimizationsForPrimaryIRProcessing() {
+    // TODO(b/140766440): Remove unnecessary steps once all sub steps are converted.
+    return ImmutableList.of(this::optimize);
+  }
+
+  List<CodeOptimization> getOptimizationsForPostIRProcessing() {
+    // TODO(b/140766440): Remove unnecessary steps once all sub steps are converted.
+    return ImmutableList.of(this::optimize);
+  }
+
+  // TODO(b/140766440): Make this receive a list of CodeOptimizations to conduct.
   public void processMethod(
       DexEncodedMethod method,
       OptimizationFeedback feedback,
-      Predicate<DexEncodedMethod> isProcessedConcurrently,
-      CallSiteInformation callSiteInformation,
-      BiConsumer<IRCode, DexEncodedMethod> outlineHandler) {
+      MethodProcessor methodProcessor) {
     Code code = method.getCode();
     boolean matchesMethodFilter = options.methodMatchesFilter(method);
     if (code != null && matchesMethodFilter) {
-      rewriteCode(method, feedback, isProcessedConcurrently, callSiteInformation, outlineHandler);
+      rewriteCode(method, feedback, methodProcessor);
     } else {
       // Mark abstract methods as processed as well.
       method.markProcessed(ConstraintWithTarget.NEVER);
@@ -1011,15 +1020,10 @@ public class IRConverter {
   }
 
   private void rewriteCode(
-      DexEncodedMethod method,
-      OptimizationFeedback feedback,
-      Predicate<DexEncodedMethod> isProcessedConcurrently,
-      CallSiteInformation callSiteInformation,
-      BiConsumer<IRCode, DexEncodedMethod> outlineHandler) {
+      DexEncodedMethod method, OptimizationFeedback feedback, MethodProcessor methodProcessor) {
     Origin origin = appView.appInfo().originFor(method.method.holder);
     try {
-      rewriteCodeInternal(
-          method, feedback, isProcessedConcurrently, callSiteInformation, outlineHandler, origin);
+      rewriteCodeInternal(method, feedback, methodProcessor, origin);
     } catch (CompilationError e) {
       // If rewriting throws a compilation error, attach the origin and method if missing.
       throw e.withAdditionalOriginAndPositionInfo(origin, new MethodPosition(method.method));
@@ -1035,9 +1039,7 @@ public class IRConverter {
   private void rewriteCodeInternal(
       DexEncodedMethod method,
       OptimizationFeedback feedback,
-      Predicate<DexEncodedMethod> isProcessedConcurrently,
-      CallSiteInformation callSiteInformation,
-      BiConsumer<IRCode, DexEncodedMethod> outlineHandler,
+      MethodProcessor methodProcessor,
       Origin origin) {
 
     if (options.verbose) {
@@ -1057,6 +1059,17 @@ public class IRConverter {
       feedback.markProcessed(method, ConstraintWithTarget.NEVER);
       return;
     }
+    optimize(appView, code, feedback, methodProcessor);
+  }
+
+  // TODO(b/140766440): Convert all sub steps an implementer of CodeOptimization
+  private void optimize(
+      AppView<?> appView,
+      IRCode code,
+      OptimizationFeedback feedback,
+      MethodProcessor methodProcessor) {
+    DexEncodedMethod method = code.method;
+
     if (Log.ENABLED) {
       Log.debug(getClass(), "Initial (SSA) flow graph for %s:\n%s", method.toSourceString(), code);
     }
@@ -1137,28 +1150,16 @@ public class IRConverter {
 
     previous = printMethod(code, "IR after disable assertions (SSA)", previous);
 
-    if (aliasIntroducer != null) {
-      aliasIntroducer.insertAssumeInstructions(code);
-      assert code.isConsistentSSA();
-    }
+    CodeRewriter.insertAssumeInstructions(code, assumers);
 
-    if (nonNullTracker != null) {
-      nonNullTracker.insertAssumeInstructions(code);
-      assert code.isConsistentSSA();
-    }
-
-    if (dynamicTypeOptimization != null) {
-      assert appView.enableWholeProgramOptimizations();
-      dynamicTypeOptimization.insertAssumeInstructions(code);
-      assert code.isConsistentSSA();
-    }
+    previous = printMethod(code, "IR after inserting assume instructions (SSA)", previous);
 
     appView.withGeneratedMessageLiteShrinker(shrinker -> shrinker.run(method, code));
 
-    previous = printMethod(code, "IR after null tracking (SSA)", previous);
+    previous = printMethod(code, "IR after generated message lite shrinking (SSA)", previous);
 
     if (!isDebugMode && options.enableInlining && inliner != null) {
-      inliner.performInlining(method, code, feedback, isProcessedConcurrently, callSiteInformation);
+      inliner.performInlining(method, code, feedback, methodProcessor);
       assert code.verifyTypes(appView);
     }
 
@@ -1276,15 +1277,14 @@ public class IRConverter {
           stringOptimizer,
           method,
           code,
-          isProcessedConcurrently,
+          methodProcessor::isProcessedConcurrently,
           inliner,
           Suppliers.memoize(
               () ->
                   inliner.createDefaultOracle(
                       method,
                       code,
-                      isProcessedConcurrently,
-                      callSiteInformation,
+                      methodProcessor,
                       options.classInliningInstructionLimit,
                       // Inlining instruction allowance is not needed for the class inliner since it
                       // always uses a force inlining oracle for inlining.
@@ -1332,8 +1332,10 @@ public class IRConverter {
 
     previous = printMethod(code, "IR after lambda merger (SSA)", previous);
 
-    if (options.outline.enabled) {
-      outlineHandler.accept(code, method);
+    // TODO(b/140766440): an ideal solution would be puttting CodeOptimization for this into
+    //  the list for primary processing only.
+    if (options.outline.enabled && outliner != null && methodProcessor.isPrimary()) {
+      outliner.getOutlineMethodIdentifierGenerator().accept(code);
       assert code.isConsistentSSA();
     }
 
@@ -1383,7 +1385,7 @@ public class IRConverter {
       collectOptimizationInfo(code, feedback);
     }
 
-    if (aliasIntroducer != null || nonNullTracker != null || dynamicTypeOptimization != null) {
+    if (!assumers.isEmpty()) {
       CodeRewriter.removeAssumeInstructions(appView, code);
       assert code.isConsistentSSA();
     }
