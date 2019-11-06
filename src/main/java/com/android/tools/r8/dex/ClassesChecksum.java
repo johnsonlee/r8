@@ -18,7 +18,7 @@ public class ClassesChecksum {
   private static final char PREFIX_CHAR1 = '~';
   private static final char PREFIX_CHAR2 = '~';
 
-  private Object2LongMap<String> dictionary = null;
+  private final Object2LongMap<String> dictionary = new Object2LongOpenHashMap<>();
 
   public ClassesChecksum() {
     assert PREFIX.length() == 3;
@@ -27,14 +27,7 @@ public class ClassesChecksum {
     assert PREFIX.charAt(2) == PREFIX_CHAR2;
   }
 
-  private void ensureMap() {
-    if (dictionary == null) {
-      dictionary = new Object2LongOpenHashMap<>();
-    }
-  }
-
   private void append(JsonObject json) {
-    ensureMap();
     json.entrySet()
         .forEach(
             entry ->
@@ -42,7 +35,6 @@ public class ClassesChecksum {
   }
 
   public void addChecksum(String classDescriptor, long crc) {
-    ensureMap();
     dictionary.put(classDescriptor, crc);
   }
 
@@ -86,14 +78,15 @@ public class ClassesChecksum {
    * @param string String to check if definitely preceded the checksum marker.
    * @return If the string passed definitely preceded the checksum marker
    */
-  public static boolean definitelyPreceedChecksumMarker(DexString string) {
+  public static boolean definitelyPrecedesChecksumMarker(DexString string) {
     try {
       assert PREFIX.length() == 3;
-      char[] prefix = string.decodePrefix(3);
-      return prefix.length == 0
-          || (prefix.length == 1 && prefix[0] <= PREFIX_CHAR0)
-          || (prefix.length == 2 && prefix[0] == PREFIX_CHAR0 && prefix[1] <= PREFIX_CHAR1)
-          || (prefix.length == 3
+      char[] prefix = new char[PREFIX.length()];
+      int prefixLength = string.decodePrefix(prefix);
+      return prefixLength == 0
+          || (prefixLength == 1 && prefix[0] <= PREFIX_CHAR0)
+          || (prefixLength == 2 && prefix[0] == PREFIX_CHAR0 && prefix[1] <= PREFIX_CHAR1)
+          || (prefixLength == 3
               && prefix[0] == PREFIX_CHAR0
               && prefix[1] == PREFIX_CHAR1
               && prefix[2] < PREFIX_CHAR2);

@@ -18,6 +18,7 @@ import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.analysis.ProtoApplicationStats;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.Test;
@@ -59,7 +60,7 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
     return buildParameters(
         BooleanUtils.values(),
         BooleanUtils.values(),
-        getTestParameters().withAllRuntimes().build());
+        getTestParameters().withAllRuntimesAndApiLevels().build());
   }
 
   public Proto2ShrinkingTest(
@@ -78,12 +79,6 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
             .addKeepMainRule("proto2.TestClass")
             .addKeepRuleFiles(PROTOBUF_LITE_PROGUARD_RULES)
             .addKeepRules(alwaysInlineNewSingularGeneratedExtensionRule())
-            // TODO(b/112437944): Attempt to prove that DEFAULT_INSTANCE is non-null, such that the
-            //  following "assumenotnull" rule can be omitted.
-            .addKeepRules(
-                "-assumenosideeffects class " + EXT_C + " {",
-                "  private static final " + EXT_C + " DEFAULT_INSTANCE return 1..42;",
-                "}")
             .addOptionsModification(
                 options -> {
                   options.enableFieldBitAccessAnalysis = true;
@@ -94,7 +89,7 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
             .allowAccessModification(allowAccessModification)
             .allowUnusedProguardConfigurationRules()
             .minification(enableMinification)
-            .setMinApi(parameters.getRuntime())
+            .setMinApi(parameters.getApiLevel())
             .compile()
             .inspect(
                 outputInspector -> {
@@ -133,11 +128,16 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
                 "10",
                 "10");
 
+    DexItemFactory dexItemFactory = new DexItemFactory();
+    ProtoApplicationStats original = new ProtoApplicationStats(dexItemFactory, inputInspector);
+    ProtoApplicationStats actual =
+        new ProtoApplicationStats(dexItemFactory, result.inspector(), original);
+
+    assertEquals(
+        ImmutableSet.of(),
+        actual.getGeneratedExtensionRegistryStats().getSpuriouslyRetainedExtensionFields());
+
     if (ToolHelper.isLocalDevelopment()) {
-      DexItemFactory dexItemFactory = new DexItemFactory();
-      ProtoApplicationStats original = new ProtoApplicationStats(dexItemFactory, inputInspector);
-      ProtoApplicationStats actual =
-          new ProtoApplicationStats(dexItemFactory, result.inspector(), original);
       System.out.println(actual.getStats());
     }
   }
@@ -245,8 +245,8 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
           ImmutableList.of(FLAGGED_OFF_EXTENSION, HAS_NO_USED_EXTENSIONS, EXT_B, EXT_C);
       for (String unusedExtensionName : unusedExtensionNames) {
         assertThat(inputInspector.clazz(unusedExtensionName), isPresent());
-        // TODO(b/143588134): Re-enable this assertion.
-        // assertThat(outputInspector.clazz(unusedExtensionName), not(isPresent()));
+        assertThat(
+            unusedExtensionName, outputInspector.clazz(unusedExtensionName), not(isPresent()));
       }
     }
   }
@@ -362,7 +362,7 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
         .allowAccessModification(allowAccessModification)
         .allowUnusedProguardConfigurationRules()
         .minification(enableMinification)
-        .setMinApi(parameters.getRuntime())
+        .setMinApi(parameters.getApiLevel())
         .compile()
         .inspect(
             inspector ->

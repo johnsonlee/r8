@@ -14,19 +14,29 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldAccessInfo;
 import com.android.tools.r8.graph.FieldAccessInfoCollection;
+import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.IRCodeUtils;
+import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.OneTimeMethodProcessor;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.DefaultTreePrunerConfiguration;
+import com.android.tools.r8.shaking.Enqueuer;
+import com.android.tools.r8.shaking.TreePrunerConfiguration;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -66,6 +76,7 @@ public class GeneratedExtensionRegistryShrinker {
   private final AppView<AppInfoWithLiveness> appView;
   private final ProtoReferences references;
 
+  private final Set<DexType> classesWithRemovedExtensionFields = Sets.newIdentityHashSet();
   private final Set<DexField> removedExtensionFields = Sets.newIdentityHashSet();
 
   GeneratedExtensionRegistryShrinker(
@@ -79,9 +90,63 @@ public class GeneratedExtensionRegistryShrinker {
    * Will be run after tree shaking. This populates the set {@link #removedExtensionFields}. This
    * set is used by the member value propagation, which rewrites all reads of these fields by
    * const-null.
+   *
+   * <p>For the second round of tree pruning, this method will return a non-default {@link
+   * TreePrunerConfiguration} that specifies that all fields that are only referenced from a {@code
+   * findLiteExtensionByNumber()} method should be removed. This is safe because we will revisit all
+   * of these methods and replace the reads of these fields by null.
    */
-  public void run() {
-    forEachDeadProtoExtensionField(removedExtensionFields::add);
+  public TreePrunerConfiguration run(Enqueuer.Mode mode) {
+    forEachDeadProtoExtensionField(this::recordDeadProtoExtensionField);
+    return createTreePrunerConfiguration(mode);
+  }
+
+  private void recordDeadProtoExtensionField(DexField field) {
+    classesWithRemovedExtensionFields.add(field.holder);
+    removedExtensionFields.add(field);
+  }
+
+  private TreePrunerConfiguration createTreePrunerConfiguration(Enqueuer.Mode mode) {
+    if (mode.isFinalTreeShaking()) {
+      return new DefaultTreePrunerConfiguration() {
+
+        @Override
+        public boolean isReachableOrReferencedField(
+            AppInfoWithLiveness appInfo, DexEncodedField field) {
+          return !wasRemoved(field.field) && super.isReachableOrReferencedField(appInfo, field);
+        }
+      };
+    }
+    return DefaultTreePrunerConfiguration.getInstance();
+  }
+
+  /**
+   * If {@param method} is a class initializer that initializes a dead proto extension field, then
+   * forcefully remove the field assignment and all the code that contributes to the initialization
+   * of the value of the field assignment.
+   */
+  public void rewriteCode(DexEncodedMethod method, IRCode code) {
+    if (method.isClassInitializer()
+        && classesWithRemovedExtensionFields.contains(method.method.holder)
+        && code.metadata().mayHaveStaticPut()) {
+      rewriteClassInitializer(code);
+    }
+  }
+
+  private void rewriteClassInitializer(IRCode code) {
+    List<StaticPut> toBeRemoved = new ArrayList<>();
+    for (StaticPut staticPut : code.<StaticPut>instructions(Instruction::isStaticPut)) {
+      if (removedExtensionFields.contains(staticPut.getField())) {
+        toBeRemoved.add(staticPut);
+      }
+    }
+    for (StaticPut instruction : toBeRemoved) {
+      if (!instruction.hasBlock()) {
+        // Already removed.
+        continue;
+      }
+      IRCodeUtils.removeInstructionAndTransitiveInputsIfNotUsed(code, instruction);
+    }
   }
 
   public boolean wasRemoved(DexField field) {

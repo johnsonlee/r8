@@ -177,6 +177,8 @@ public class InternalOptions {
   public boolean printMemory = System.getProperty("com.android.tools.r8.printmemory") != null;
 
   public String dumpInputToFile = System.getProperty("com.android.tools.r8.dumpinputtofile");
+  public String dumpInputToDirectory =
+      System.getProperty("com.android.tools.r8.dumpinputtodirectory");
 
   // Flag to toggle if DEX code objects should pass-through without IR processing.
   public boolean passthroughDexCode = false;
@@ -218,11 +220,6 @@ public class InternalOptions {
   public boolean encodeChecksums = false;
   public BiPredicate<String, Long> dexClassChecksumFilter = (name, checksum) -> true;
 
-  // This defines the max depth threshold for the cycle eliminator. If the length of a call chain
-  // exceeds the threshold, we treat it as if we have found a cycle. This ensures that we won't run
-  // into stack overflows when the call graph contains large call chains. This should have a
-  // negligible impact on code size as long as the threshold is large enough.
-  public int callGraphCycleEliminatorMaxDepthThreshold = 256;
   public int callGraphLikelySpuriousCallEdgeThreshold = 50;
 
   // TODO(b/141719453): The inlining limit at least should be consistent with normal inlining.
@@ -984,6 +981,10 @@ public class InternalOptions {
     // Flag to turn on/off JDK11+ nest-access control even when not required (Cf backend)
     public boolean enableForceNestBasedAccessDesugaringForTest = false;
     public boolean verifyKeptGraphInfo = false;
+
+    // Force each call of application read to dump its inputs to a file, which is subsequently
+    // deleted. Useful to check that our dump functionality does not cause compilation failure.
+    public boolean dumpAll = false;
 
     public boolean desugarLambdasThroughLensCodeRewriter() {
       return enableStatefulLambdaCreateInstanceMethod;

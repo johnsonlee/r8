@@ -939,8 +939,6 @@ public class IRConverter {
       count++;
       result = appView.dexItemFactory().createType(DescriptorUtils.javaTypeToDescriptor(name));
     } while (appView.definitionFor(result) != null);
-    // Register the newly generated type in the subtyping hierarchy, if we have one.
-    appView.appInfo().registerNewType(result, appView.dexItemFactory().objectType);
     return result;
   }
 
@@ -1153,6 +1151,10 @@ public class IRConverter {
     CodeRewriter.insertAssumeInstructions(code, assumers);
 
     previous = printMethod(code, "IR after inserting assume instructions (SSA)", previous);
+
+    appView.withGeneratedExtensionRegistryShrinker(shrinker -> shrinker.rewriteCode(method, code));
+
+    previous = printMethod(code, "IR after generated extension registry shrinking (SSA)", previous);
 
     appView.withGeneratedMessageLiteShrinker(shrinker -> shrinker.run(method, code));
 

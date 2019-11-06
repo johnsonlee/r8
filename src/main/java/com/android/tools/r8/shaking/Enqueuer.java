@@ -40,6 +40,7 @@ import com.android.tools.r8.graph.KeyedDexItem;
 import com.android.tools.r8.graph.PresortedComparable;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
+import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoEnqueuerExtension;
 import com.android.tools.r8.ir.code.ArrayPut;
@@ -581,488 +582,497 @@ public class Enqueuer {
     return isRead ? info.recordRead(field, context) : info.recordWrite(field, context);
   }
 
-  private class UseRegistry extends com.android.tools.r8.graph.UseRegistry {
+  void traceCallSite(DexCallSite callSite, DexEncodedMethod currentMethod) {
+    callSites.add(callSite);
 
-    private final DexProgramClass currentHolder;
-    private final DexEncodedMethod currentMethod;
-
-    private UseRegistry(DexItemFactory factory, DexProgramClass holder, DexEncodedMethod method) {
-      super(factory);
-      assert holder.type == method.method.holder;
-      this.currentHolder = holder;
-      this.currentMethod = method;
-    }
-
-    private KeepReasonWitness reportClassReferenced(DexProgramClass referencedClass) {
-      return graphReporter.reportClassReferencedFrom(referencedClass, currentMethod);
-    }
-
-    @Override
-    public boolean registerInvokeVirtual(DexMethod method) {
-      return registerInvokeVirtual(method, KeepReason.invokedFrom(currentHolder, currentMethod));
-    }
-
-    boolean registerInvokeVirtual(DexMethod method, KeepReason keepReason) {
-      if (method == appView.dexItemFactory().classMethods.newInstance
-          || method == appView.dexItemFactory().constructorMethods.newInstance) {
-        pendingReflectiveUses.add(currentMethod);
-      } else if (appView.dexItemFactory().classMethods.isReflectiveMemberLookup(method)) {
-        // Implicitly add -identifiernamestring rule for the Java reflection in use.
-        identifierNameStrings.add(method);
-        // Revisit the current method to implicitly add -keep rule for items with reflective access.
-        pendingReflectiveUses.add(currentMethod);
+    List<DexType> directInterfaces = LambdaDescriptor.getInterfaces(callSite, appInfo);
+    if (directInterfaces != null) {
+      for (DexType lambdaInstantiatedInterface : directInterfaces) {
+        markLambdaInstantiated(lambdaInstantiatedInterface, currentMethod);
       }
-      if (!registerMethodWithTargetAndContext(virtualInvokes, method, currentMethod)) {
-        return false;
-      }
-      if (Log.ENABLED) {
-        Log.verbose(getClass(), "Register invokeVirtual `%s`.", method);
-      }
-      workList.enqueueMarkReachableVirtualAction(method, keepReason);
-      return true;
-    }
-
-    @Override
-    public boolean registerInvokeDirect(DexMethod method) {
-      return registerInvokeDirect(method, KeepReason.invokedFrom(currentHolder, currentMethod));
-    }
-
-    boolean registerInvokeDirect(DexMethod method, KeepReason keepReason) {
-      if (!registerMethodWithTargetAndContext(directInvokes, method, currentMethod)) {
-        return false;
-      }
-      if (Log.ENABLED) {
-        Log.verbose(getClass(), "Register invokeDirect `%s`.", method);
-      }
-      handleInvokeOfDirectTarget(method, keepReason);
-      return true;
-    }
-
-    @Override
-    public boolean registerInvokeStatic(DexMethod method) {
-      return registerInvokeStatic(method, KeepReason.invokedFrom(currentHolder, currentMethod));
-    }
-
-    boolean registerInvokeStatic(DexMethod method, KeepReason keepReason) {
-      DexItemFactory dexItemFactory = appView.dexItemFactory();
-      if (dexItemFactory.classMethods.isReflectiveClassLookup(method)
-          || dexItemFactory.atomicFieldUpdaterMethods.isFieldUpdater(method)) {
-        // Implicitly add -identifiernamestring rule for the Java reflection in use.
-        identifierNameStrings.add(method);
-        // Revisit the current method to implicitly add -keep rule for items with reflective access.
-        pendingReflectiveUses.add(currentMethod);
-      }
-      // See comment in handleJavaLangEnumValueOf.
-      if (method == dexItemFactory.enumMethods.valueOf) {
-        pendingReflectiveUses.add(currentMethod);
-      }
-      // Handling of application services.
-      if (dexItemFactory.serviceLoaderMethods.isLoadMethod(method)) {
-        pendingReflectiveUses.add(currentMethod);
-      }
-      if (method == dexItemFactory.proxyMethods.newProxyInstance) {
-        pendingReflectiveUses.add(currentMethod);
-      }
-      if (!registerMethodWithTargetAndContext(staticInvokes, method, currentMethod)) {
-        return false;
-      }
-      if (Log.ENABLED) {
-        Log.verbose(getClass(), "Register invokeStatic `%s`.", method);
-      }
-      handleInvokeOfStaticTarget(method, keepReason);
-      return true;
-    }
-
-    @Override
-    public boolean registerInvokeInterface(DexMethod method) {
-      return registerInvokeInterface(method, KeepReason.invokedFrom(currentHolder, currentMethod));
-    }
-
-    boolean registerInvokeInterface(DexMethod method, KeepReason keepReason) {
-      if (!registerMethodWithTargetAndContext(interfaceInvokes, method, currentMethod)) {
-        return false;
-      }
-      if (Log.ENABLED) {
-        Log.verbose(getClass(), "Register invokeInterface `%s`.", method);
-      }
-      workList.enqueueMarkReachableInterfaceAction(method, keepReason);
-      return true;
-    }
-
-    @Override
-    public boolean registerInvokeSuper(DexMethod method) {
-      // We have to revisit super invokes based on the context they are found in. The same
-      // method descriptor will hit different targets, depending on the context it is used in.
-      DexMethod actualTarget = getInvokeSuperTarget(method, currentMethod);
-      if (!registerMethodWithTargetAndContext(superInvokes, method, currentMethod)) {
-        return false;
-      }
-      if (Log.ENABLED) {
-        Log.verbose(getClass(), "Register invokeSuper `%s`.", actualTarget);
-      }
-      workList.enqueueMarkReachableSuperAction(method, currentMethod);
-      return true;
-    }
-
-    @Override
-    public boolean registerInstanceFieldWrite(DexField field) {
-      if (!registerFieldWrite(field, currentMethod)) {
-        return false;
-      }
-
-      // Must mark the field as targeted even if it does not exist.
-      markFieldAsTargeted(field, currentMethod);
-
-      DexEncodedField encodedField = appInfo.resolveField(field);
-      if (encodedField == null) {
-        reportMissingField(field);
-        return false;
-      }
-
-      DexProgramClass clazz = getProgramClassOrNull(encodedField.field.holder);
-      if (clazz == null) {
-        return false;
-      }
-
-      if (Log.ENABLED) {
-        Log.verbose(getClass(), "Register Iput `%s`.", field);
-      }
-
-      // If it is written outside of the <init>s of its enclosing class, record it.
-      boolean isWrittenOutsideEnclosingInstanceInitializers =
-          currentMethod.method.holder != encodedField.field.holder
-              || !currentMethod.isInstanceInitializer();
-      if (isWrittenOutsideEnclosingInstanceInitializers) {
-        instanceFieldsWrittenOutsideEnclosingInstanceInitializers.add(encodedField.field);
-      }
-
-      // If unused interface removal is enabled, then we won't necessarily mark the actual holder of
-      // the field as live, if the holder is an interface.
-      if (appView.options().enableUnusedInterfaceRemoval) {
-        if (encodedField.field != field) {
-          markTypeAsLive(clazz, reportClassReferenced(clazz));
-          markTypeAsLive(encodedField.field.type, this::reportClassReferenced);
+    } else {
+      if (!appInfo.isStringConcat(callSite.bootstrapMethod)) {
+        if (options.reporter != null) {
+          Diagnostic message =
+              new StringDiagnostic(
+                  "Unknown bootstrap method " + callSite.bootstrapMethod,
+                  appInfo.originFor(currentMethod.method.holder));
+          options.reporter.warning(message);
         }
       }
+    }
 
-      KeepReason reason = KeepReason.fieldReferencedIn(currentMethod);
-      workList.enqueueMarkReachableFieldAction(clazz, encodedField, reason);
+    DexProgramClass bootstrapClass =
+        getProgramClassOrNull(callSite.bootstrapMethod.asMethod().holder);
+    if (bootstrapClass != null) {
+      bootstrapMethods.add(callSite.bootstrapMethod.asMethod());
+    }
+
+    LambdaDescriptor descriptor = LambdaDescriptor.tryInfer(callSite, appInfo);
+    if (descriptor == null) {
+      return;
+    }
+
+    // For call sites representing a lambda, we link the targeted method
+    // or field as if it were referenced from the current method.
+
+    DexMethodHandle implHandle = descriptor.implHandle;
+    assert implHandle != null;
+
+    DexMethod method = implHandle.asMethod();
+    if (descriptor.delegatesToLambdaImplMethod()) {
+      lambdaMethodsTargetedByInvokeDynamic.add(method);
+    }
+
+    if (!methodsTargetedByInvokeDynamic.add(method)) {
+      return;
+    }
+
+    switch (implHandle.type) {
+      case INVOKE_STATIC:
+        traceInvokeStaticFromLambda(method, currentMethod);
+        break;
+      case INVOKE_INTERFACE:
+        traceInvokeInterfaceFromLambda(method, currentMethod);
+        break;
+      case INVOKE_INSTANCE:
+        traceInvokeVirtualFromLambda(method, currentMethod);
+        break;
+      case INVOKE_DIRECT:
+        traceInvokeDirectFromLambda(method, currentMethod);
+        break;
+      case INVOKE_CONSTRUCTOR:
+        traceNewInstanceFromLambda(method.holder, currentMethod);
+        break;
+      default:
+        throw new Unreachable();
+    }
+
+    // In similar way as what transitionMethodsForInstantiatedClass does for existing
+    // classes we need to process classes dynamically created by runtime for lambdas.
+    // We make an assumption that such classes are inherited directly from java.lang.Object
+    // and implement all lambda interfaces.
+
+    if (directInterfaces == null) {
+      return;
+    }
+
+    // The set now contains all virtual methods on the type and its supertype that are reachable.
+    // In a second step, we now look at interfaces. We have to do this in this order due to JVM
+    // semantics for default methods. A default method is only reachable if it is not overridden
+    // in any superclass. Also, it is not defined which default method is chosen if multiple
+    // interfaces define the same default method. Hence, for every interface (direct or indirect),
+    // we have to look at the interface chain and mark default methods as reachable, not taking
+    // the shadowing of other interface chains into account.
+    // See https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-5.html#jvms-5.4.3.3
+    ScopedDexMethodSet seen = new ScopedDexMethodSet();
+    for (DexType iface : directInterfaces) {
+      DexProgramClass ifaceClazz = getProgramClassOrNull(iface);
+      if (ifaceClazz != null) {
+        transitionDefaultMethodsForInstantiatedClass(iface, seen);
+      }
+    }
+  }
+
+  boolean traceCheckCast(DexType type, DexEncodedMethod currentMethod) {
+    return traceConstClassOrCheckCast(type, currentMethod);
+  }
+
+  boolean traceConstClass(DexType type, DexEncodedMethod currentMethod) {
+    // We conservatively group T.class and T[].class to ensure that we do not merge T with S if
+    // potential locks on T[].class and S[].class exists.
+    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    if (baseType.isClassType()) {
+      DexProgramClass baseClass = getProgramClassOrNull(baseType);
+      if (baseClass != null) {
+        constClassReferences.add(baseType);
+      }
+    }
+    return traceConstClassOrCheckCast(type, currentMethod);
+  }
+
+  private boolean traceConstClassOrCheckCast(DexType type, DexEncodedMethod currentMethod) {
+    if (!forceProguardCompatibility) {
+      return traceTypeReference(type, currentMethod);
+    }
+    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    if (baseType.isClassType()) {
+      DexProgramClass baseClass = getProgramClassOrNull(baseType);
+      if (baseClass != null) {
+        // Don't require any constructor, see b/112386012.
+        markClassAsInstantiatedWithCompatRule(
+            baseClass, graphReporter.reportCompatInstantiated(baseClass, currentMethod));
+      }
       return true;
     }
+    return false;
+  }
 
-    @Override
-    public boolean registerInstanceFieldRead(DexField field) {
-      if (!registerFieldRead(field, currentMethod)) {
-        return false;
-      }
-
-      // Must mark the field as targeted even if it does not exist.
-      markFieldAsTargeted(field, currentMethod);
-
-      DexEncodedField encodedField = appInfo.resolveField(field);
-      if (encodedField == null) {
-        reportMissingField(field);
-        return false;
-      }
-
-      DexProgramClass clazz = getProgramClassOrNull(encodedField.field.holder);
-      if (clazz == null) {
-        return false;
-      }
-
-      if (Log.ENABLED) {
-        Log.verbose(getClass(), "Register Iget `%s`.", field);
-      }
-
-      // If unused interface removal is enabled, then we won't necessarily mark the actual holder of
-      // the field as live, if the holder is an interface.
-      if (appView.options().enableUnusedInterfaceRemoval) {
-        if (encodedField.field != field) {
-          markTypeAsLive(clazz, reportClassReferenced(clazz));
-          markTypeAsLive(encodedField.field.type, this::reportClassReferenced);
-        }
-      }
-
-      workList.enqueueMarkReachableFieldAction(
-          clazz, encodedField, KeepReason.fieldReferencedIn(currentMethod));
-      return true;
-    }
-
-    @Override
-    public boolean registerNewInstance(DexType type) {
-      return registerNewInstance(type, currentMethod, KeepReason.instantiatedIn(currentMethod));
-    }
-
-    public boolean registerNewInstance(
-        DexType type, DexEncodedMethod context, KeepReason keepReason) {
+  void traceMethodHandle(
+      DexMethodHandle methodHandle, MethodHandleUse use, DexEncodedMethod currentMethod) {
+    // If a method handle is not an argument to a lambda metafactory it could flow to a
+    // MethodHandle.invokeExact invocation. For that to work, the receiver type cannot have
+    // changed and therefore we cannot perform member rebinding. For these handles, we maintain
+    // the receiver for the method handle. Therefore, we have to make sure that the receiver
+    // stays in the output (and is not class merged). To ensure that we treat the receiver
+    // as instantiated.
+    if (methodHandle.isMethodHandle() && use != MethodHandleUse.ARGUMENT_TO_LAMBDA_METAFACTORY) {
+      DexType type = methodHandle.asMethod().holder;
       DexProgramClass clazz = getProgramClassOrNull(type);
       if (clazz != null) {
-        if (clazz.isInterface()) {
-          markTypeAsLive(clazz, graphReporter.registerClass(clazz, keepReason));
+        KeepReason reason = KeepReason.methodHandleReferencedIn(currentMethod);
+        if (clazz.isInterface() && !clazz.accessFlags.isAnnotation()) {
+          markInterfaceAsInstantiated(clazz, graphReporter.registerClass(clazz, reason));
         } else {
-          markInstantiated(clazz, context, keepReason);
-        }
-      }
-      return true;
-    }
-
-    @Override
-    public boolean registerStaticFieldRead(DexField field) {
-      if (!registerFieldRead(field, currentMethod)) {
-        return false;
-      }
-
-      DexEncodedField encodedField = appInfo.resolveField(field);
-      if (encodedField == null) {
-        // Must mark the field as targeted even if it does not exist.
-        markFieldAsTargeted(field, currentMethod);
-        reportMissingField(field);
-        return false;
-      }
-
-      if (!isProgramClass(encodedField.field.holder)) {
-        // No need to trace into the non-program code.
-        return false;
-      }
-
-      if (Log.ENABLED) {
-        Log.verbose(getClass(), "Register Sget `%s`.", field);
-      }
-
-      if (appView.options().enableGeneratedExtensionRegistryShrinking) {
-        // If it is a dead proto extension field, don't trace onwards.
-        boolean skipTracing =
-            appView.withGeneratedExtensionRegistryShrinker(
-                shrinker ->
-                    shrinker.isDeadProtoExtensionField(encodedField, fieldAccessInfoCollection),
-                false);
-        if (skipTracing) {
-          return false;
-        }
-      }
-
-      if (encodedField.field != field) {
-        // Mark the non-rebound field access as targeted. Note that this should only be done if the
-        // field is not a dead proto field (in which case we bail-out above).
-        markFieldAsTargeted(field, currentMethod);
-      }
-
-      markStaticFieldAsLive(encodedField, KeepReason.fieldReferencedIn(currentMethod));
-      return true;
-    }
-
-    @Override
-    public boolean registerStaticFieldWrite(DexField field) {
-      if (!registerFieldWrite(field, currentMethod)) {
-        return false;
-      }
-
-      DexEncodedField encodedField = appInfo.resolveField(field);
-      if (encodedField == null) {
-        // Must mark the field as targeted even if it does not exist.
-        markFieldAsTargeted(field, currentMethod);
-        reportMissingField(field);
-        return false;
-      }
-
-      if (!isProgramClass(encodedField.field.holder)) {
-        // No need to trace into the non-program code.
-        return false;
-      }
-
-      if (Log.ENABLED) {
-        Log.verbose(getClass(), "Register Sput `%s`.", field);
-      }
-
-      if (appView.options().enableGeneratedExtensionRegistryShrinking) {
-        // If it is a dead proto extension field, don't trace onwards.
-        boolean skipTracing =
-            appView.withGeneratedExtensionRegistryShrinker(
-                shrinker ->
-                    shrinker.isDeadProtoExtensionField(encodedField, fieldAccessInfoCollection),
-                false);
-        if (skipTracing) {
-          return false;
-        }
-      }
-
-      // If it is written outside of the <clinit> of its enclosing class, record it.
-      boolean isWrittenOutsideEnclosingStaticInitializer =
-          currentMethod.method.holder != encodedField.field.holder
-              || !currentMethod.isClassInitializer();
-      if (isWrittenOutsideEnclosingStaticInitializer) {
-        staticFieldsWrittenOutsideEnclosingStaticInitializer.add(encodedField.field);
-      }
-
-      if (encodedField.field != field) {
-        // Mark the non-rebound field access as targeted. Note that this should only be done if the
-        // field is not a dead proto field (in which case we bail-out above).
-        markFieldAsTargeted(field, currentMethod);
-      }
-
-      markStaticFieldAsLive(encodedField, KeepReason.fieldReferencedIn(currentMethod));
-      return true;
-    }
-
-    @Override
-    public boolean registerConstClass(DexType type) {
-      // We conservatively group T.class and T[].class to ensure that we do not merge T with S if
-      // potential locks on T[].class and S[].class exists.
-      DexType baseType = type.toBaseType(appView.dexItemFactory());
-      if (baseType.isClassType()) {
-        DexProgramClass baseClass = getProgramClassOrNull(baseType);
-        if (baseClass != null) {
-          constClassReferences.add(baseType);
-        }
-      }
-      return registerConstClassOrCheckCast(type);
-    }
-
-    @Override
-    public boolean registerCheckCast(DexType type) {
-      return registerConstClassOrCheckCast(type);
-    }
-
-    @Override
-    public boolean registerTypeReference(DexType type) {
-      markTypeAsLive(type, this::reportClassReferenced);
-      return true;
-    }
-
-    @Override
-    public void registerMethodHandle(DexMethodHandle methodHandle, MethodHandleUse use) {
-      super.registerMethodHandle(methodHandle, use);
-      // If a method handle is not an argument to a lambda metafactory it could flow to a
-      // MethodHandle.invokeExact invocation. For that to work, the receiver type cannot have
-      // changed and therefore we cannot perform member rebinding. For these handles, we maintain
-      // the receiver for the method handle. Therefore, we have to make sure that the receiver
-      // stays in the output (and is not class merged). To ensure that we treat the receiver
-      // as instantiated.
-      if (methodHandle.isMethodHandle() && use != MethodHandleUse.ARGUMENT_TO_LAMBDA_METAFACTORY) {
-        DexType type = methodHandle.asMethod().holder;
-        DexProgramClass clazz = getProgramClassOrNull(type);
-        if (clazz != null) {
-          KeepReason reason = KeepReason.methodHandleReferencedIn(currentMethod);
-          if (clazz.isInterface() && !clazz.accessFlags.isAnnotation()) {
-            markInterfaceAsInstantiated(clazz, graphReporter.registerClass(clazz, reason));
-          } else {
-            markInstantiated(clazz, null, reason);
-          }
+          markInstantiated(clazz, null, reason);
         }
       }
     }
+  }
 
-    @Override
-    public void registerCallSite(DexCallSite callSite) {
-      callSites.add(callSite);
-      super.registerCallSite(callSite);
+  boolean traceTypeReference(DexType type, DexEncodedMethod currentMethod) {
+    markTypeAsLive(type, classReferencedFromReporter(currentMethod));
+    return true;
+  }
 
-      List<DexType> directInterfaces = LambdaDescriptor.getInterfaces(callSite, appInfo);
-      if (directInterfaces != null) {
-        for (DexType lambdaInstantiatedInterface : directInterfaces) {
-          markLambdaInstantiated(lambdaInstantiatedInterface, currentMethod);
-        }
-      } else {
-        if (!appInfo.isStringConcat(callSite.bootstrapMethod)) {
-          if (options.reporter != null) {
-            Diagnostic message =
-                new StringDiagnostic(
-                    "Unknown bootstrap method " + callSite.bootstrapMethod,
-                    appInfo.originFor(currentMethod.method.holder));
-            options.reporter.warning(message);
-          }
-        }
-      }
+  boolean traceInvokeDirect(
+      DexMethod invokedMethod, DexProgramClass currentHolder, DexEncodedMethod currentMethod) {
+    return traceInvokeDirect(
+        invokedMethod, currentMethod, KeepReason.invokedFrom(currentHolder, currentMethod));
+  }
 
-      DexProgramClass bootstrapClass =
-          getProgramClassOrNull(callSite.bootstrapMethod.asMethod().holder);
-      if (bootstrapClass != null) {
-        bootstrapMethods.add(callSite.bootstrapMethod.asMethod());
-      }
+  boolean traceInvokeDirectFromLambda(DexMethod invokedMethod, DexEncodedMethod currentMethod) {
+    return traceInvokeDirect(
+        invokedMethod, currentMethod, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
+  }
 
-      LambdaDescriptor descriptor = LambdaDescriptor.tryInfer(callSite, appInfo);
-      if (descriptor == null) {
-        return;
-      }
-
-      // For call sites representing a lambda, we link the targeted method
-      // or field as if it were referenced from the current method.
-
-      DexMethodHandle implHandle = descriptor.implHandle;
-      assert implHandle != null;
-
-      DexMethod method = implHandle.asMethod();
-      if (descriptor.delegatesToLambdaImplMethod()) {
-        lambdaMethodsTargetedByInvokeDynamic.add(method);
-      }
-
-      if (!methodsTargetedByInvokeDynamic.add(method)) {
-        return;
-      }
-
-      switch (implHandle.type) {
-        case INVOKE_STATIC:
-          registerInvokeStatic(method, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
-          break;
-        case INVOKE_INTERFACE:
-          registerInvokeInterface(method, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
-          break;
-        case INVOKE_INSTANCE:
-          registerInvokeVirtual(method, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
-          break;
-        case INVOKE_DIRECT:
-          registerInvokeDirect(method, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
-          break;
-        case INVOKE_CONSTRUCTOR:
-          registerNewInstance(
-              method.holder, null, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
-          break;
-        default:
-          throw new Unreachable();
-      }
-
-      // In similar way as what transitionMethodsForInstantiatedClass does for existing
-      // classes we need to process classes dynamically created by runtime for lambdas.
-      // We make an assumption that such classes are inherited directly from java.lang.Object
-      // and implement all lambda interfaces.
-
-      if (directInterfaces == null) {
-        return;
-      }
-
-      // The set now contains all virtual methods on the type and its supertype that are reachable.
-      // In a second step, we now look at interfaces. We have to do this in this order due to JVM
-      // semantics for default methods. A default method is only reachable if it is not overridden
-      // in any superclass. Also, it is not defined which default method is chosen if multiple
-      // interfaces define the same default method. Hence, for every interface (direct or indirect),
-      // we have to look at the interface chain and mark default methods as reachable, not taking
-      // the shadowing of other interface chains into account.
-      // See https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-5.html#jvms-5.4.3.3
-      ScopedDexMethodSet seen = new ScopedDexMethodSet();
-      for (DexType iface : directInterfaces) {
-        DexProgramClass ifaceClazz = getProgramClassOrNull(iface);
-        if (ifaceClazz != null) {
-          transitionDefaultMethodsForInstantiatedClass(iface, seen);
-        }
-      }
-    }
-
-    private boolean registerConstClassOrCheckCast(DexType type) {
-      if (!forceProguardCompatibility) {
-        return registerTypeReference(type);
-      }
-      DexType baseType = type.toBaseType(appView.dexItemFactory());
-      if (baseType.isClassType()) {
-        DexProgramClass baseClass = getProgramClassOrNull(baseType);
-        if (baseClass != null) {
-          // Don't require any constructor, see b/112386012.
-          markClassAsInstantiatedWithCompatRule(
-              baseClass, graphReporter.reportCompatInstantiated(baseClass, currentMethod));
-        }
-        return true;
-      }
+  private boolean traceInvokeDirect(
+      DexMethod invokedMethod, DexEncodedMethod currentMethod, KeepReason reason) {
+    if (!registerMethodWithTargetAndContext(directInvokes, invokedMethod, currentMethod)) {
       return false;
     }
+    if (Log.ENABLED) {
+      Log.verbose(getClass(), "Register invokeDirect `%s`.", invokedMethod);
+    }
+    handleInvokeOfDirectTarget(invokedMethod, reason);
+    return true;
+  }
+
+  boolean traceInvokeInterface(
+      DexMethod invokedMethod, DexProgramClass currentHolder, DexEncodedMethod currentMethod) {
+    return traceInvokeInterface(
+        invokedMethod, currentMethod, KeepReason.invokedFrom(currentHolder, currentMethod));
+  }
+
+  boolean traceInvokeInterfaceFromLambda(DexMethod invokedMethod, DexEncodedMethod currentMethod) {
+    return traceInvokeInterface(
+        invokedMethod, currentMethod, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
+  }
+
+  private boolean traceInvokeInterface(
+      DexMethod method, DexEncodedMethod currentMethod, KeepReason keepReason) {
+    if (!registerMethodWithTargetAndContext(interfaceInvokes, method, currentMethod)) {
+      return false;
+    }
+    if (Log.ENABLED) {
+      Log.verbose(getClass(), "Register invokeInterface `%s`.", method);
+    }
+    workList.enqueueMarkReachableInterfaceAction(method, keepReason);
+    return true;
+  }
+
+  boolean traceInvokeStatic(
+      DexMethod invokedMethod, DexProgramClass currentHolder, DexEncodedMethod currentMethod) {
+    return traceInvokeStatic(
+        invokedMethod, currentMethod, KeepReason.invokedFrom(currentHolder, currentMethod));
+  }
+
+  boolean traceInvokeStaticFromLambda(DexMethod invokedMethod, DexEncodedMethod currentMethod) {
+    return traceInvokeStatic(
+        invokedMethod, currentMethod, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
+  }
+
+  private boolean traceInvokeStatic(
+      DexMethod invokedMethod, DexEncodedMethod currentMethod, KeepReason reason) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    if (dexItemFactory.classMethods.isReflectiveClassLookup(invokedMethod)
+        || dexItemFactory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod)) {
+      // Implicitly add -identifiernamestring rule for the Java reflection in use.
+      identifierNameStrings.add(invokedMethod);
+      // Revisit the current method to implicitly add -keep rule for items with reflective access.
+      pendingReflectiveUses.add(currentMethod);
+    }
+    // See comment in handleJavaLangEnumValueOf.
+    if (invokedMethod == dexItemFactory.enumMethods.valueOf) {
+      pendingReflectiveUses.add(currentMethod);
+    }
+    // Handling of application services.
+    if (dexItemFactory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
+      pendingReflectiveUses.add(currentMethod);
+    }
+    if (invokedMethod == dexItemFactory.proxyMethods.newProxyInstance) {
+      pendingReflectiveUses.add(currentMethod);
+    }
+    if (!registerMethodWithTargetAndContext(staticInvokes, invokedMethod, currentMethod)) {
+      return false;
+    }
+    if (Log.ENABLED) {
+      Log.verbose(getClass(), "Register invokeStatic `%s`.", invokedMethod);
+    }
+    handleInvokeOfStaticTarget(invokedMethod, reason);
+    return true;
+  }
+
+  boolean traceInvokeSuper(
+      DexMethod invokedMethod, DexProgramClass currentHolder, DexEncodedMethod currentMethod) {
+    // We have to revisit super invokes based on the context they are found in. The same
+    // method descriptor will hit different targets, depending on the context it is used in.
+    DexMethod actualTarget = getInvokeSuperTarget(invokedMethod, currentMethod);
+    if (!registerMethodWithTargetAndContext(superInvokes, invokedMethod, currentMethod)) {
+      return false;
+    }
+    if (Log.ENABLED) {
+      Log.verbose(getClass(), "Register invokeSuper `%s`.", actualTarget);
+    }
+    workList.enqueueMarkReachableSuperAction(invokedMethod, currentMethod);
+    return true;
+  }
+
+  boolean traceInvokeVirtual(
+      DexMethod invokedMethod, DexProgramClass currentHolder, DexEncodedMethod currentMethod) {
+    return traceInvokeVirtual(
+        invokedMethod, currentMethod, KeepReason.invokedFrom(currentHolder, currentMethod));
+  }
+
+  boolean traceInvokeVirtualFromLambda(DexMethod invokedMethod, DexEncodedMethod currentMethod) {
+    return traceInvokeVirtual(
+        invokedMethod, currentMethod, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
+  }
+
+  private boolean traceInvokeVirtual(
+      DexMethod invokedMethod, DexEncodedMethod currentMethod, KeepReason reason) {
+    if (invokedMethod == appView.dexItemFactory().classMethods.newInstance
+        || invokedMethod == appView.dexItemFactory().constructorMethods.newInstance) {
+      pendingReflectiveUses.add(currentMethod);
+    } else if (appView.dexItemFactory().classMethods.isReflectiveMemberLookup(invokedMethod)) {
+      // Implicitly add -identifiernamestring rule for the Java reflection in use.
+      identifierNameStrings.add(invokedMethod);
+      // Revisit the current method to implicitly add -keep rule for items with reflective access.
+      pendingReflectiveUses.add(currentMethod);
+    }
+    if (!registerMethodWithTargetAndContext(virtualInvokes, invokedMethod, currentMethod)) {
+      return false;
+    }
+    if (Log.ENABLED) {
+      Log.verbose(getClass(), "Register invokeVirtual `%s`.", invokedMethod);
+    }
+    workList.enqueueMarkReachableVirtualAction(invokedMethod, reason);
+    return true;
+  }
+
+  boolean traceNewInstance(DexType type, DexEncodedMethod currentMethod) {
+    return traceNewInstance(type, currentMethod, KeepReason.instantiatedIn(currentMethod));
+  }
+
+  boolean traceNewInstanceFromLambda(DexType type, DexEncodedMethod currentMethod) {
+    return traceNewInstance(
+        type, currentMethod, KeepReason.invokedFromLambdaCreatedIn(currentMethod));
+  }
+
+  private boolean traceNewInstance(
+      DexType type, DexEncodedMethod currentMethod, KeepReason keepReason) {
+    DexProgramClass clazz = getProgramClassOrNull(type);
+    if (clazz != null) {
+      if (clazz.isInterface()) {
+        markTypeAsLive(clazz, graphReporter.registerClass(clazz, keepReason));
+      } else {
+        markInstantiated(clazz, currentMethod, keepReason);
+      }
+    }
+    return true;
+  }
+
+  boolean traceInstanceFieldRead(DexField field, DexEncodedMethod currentMethod) {
+    if (!registerFieldRead(field, currentMethod)) {
+      return false;
+    }
+
+    // Must mark the field as targeted even if it does not exist.
+    markFieldAsTargeted(field, currentMethod);
+
+    DexEncodedField encodedField = appInfo.resolveField(field);
+    if (encodedField == null) {
+      reportMissingField(field);
+      return false;
+    }
+
+    DexProgramClass clazz = getProgramClassOrNull(encodedField.field.holder);
+    if (clazz == null) {
+      return false;
+    }
+
+    if (Log.ENABLED) {
+      Log.verbose(getClass(), "Register Iget `%s`.", field);
+    }
+
+    // If unused interface removal is enabled, then we won't necessarily mark the actual holder of
+    // the field as live, if the holder is an interface.
+    if (appView.options().enableUnusedInterfaceRemoval) {
+      if (encodedField.field != field) {
+        markTypeAsLive(clazz, graphReporter.reportClassReferencedFrom(clazz, currentMethod));
+        markTypeAsLive(encodedField.field.type, classReferencedFromReporter(currentMethod));
+      }
+    }
+
+    workList.enqueueMarkReachableFieldAction(
+        clazz, encodedField, KeepReason.fieldReferencedIn(currentMethod));
+    return true;
+  }
+
+  boolean traceInstanceFieldWrite(DexField field, DexEncodedMethod currentMethod) {
+    if (!registerFieldWrite(field, currentMethod)) {
+      return false;
+    }
+
+    // Must mark the field as targeted even if it does not exist.
+    markFieldAsTargeted(field, currentMethod);
+
+    DexEncodedField encodedField = appInfo.resolveField(field);
+    if (encodedField == null) {
+      reportMissingField(field);
+      return false;
+    }
+
+    DexProgramClass clazz = getProgramClassOrNull(encodedField.field.holder);
+    if (clazz == null) {
+      return false;
+    }
+
+    if (Log.ENABLED) {
+      Log.verbose(getClass(), "Register Iput `%s`.", field);
+    }
+
+    // If it is written outside of the <init>s of its enclosing class, record it.
+    boolean isWrittenOutsideEnclosingInstanceInitializers =
+        currentMethod.method.holder != encodedField.field.holder
+            || !currentMethod.isInstanceInitializer();
+    if (isWrittenOutsideEnclosingInstanceInitializers) {
+      instanceFieldsWrittenOutsideEnclosingInstanceInitializers.add(encodedField.field);
+    }
+
+    // If unused interface removal is enabled, then we won't necessarily mark the actual holder of
+    // the field as live, if the holder is an interface.
+    if (appView.options().enableUnusedInterfaceRemoval) {
+      if (encodedField.field != field) {
+        markTypeAsLive(clazz, graphReporter.reportClassReferencedFrom(clazz, currentMethod));
+        markTypeAsLive(encodedField.field.type, classReferencedFromReporter(currentMethod));
+      }
+    }
+
+    KeepReason reason = KeepReason.fieldReferencedIn(currentMethod);
+    workList.enqueueMarkReachableFieldAction(clazz, encodedField, reason);
+    return true;
+  }
+
+  boolean traceStaticFieldRead(DexField field, DexEncodedMethod currentMethod) {
+    if (!registerFieldRead(field, currentMethod)) {
+      return false;
+    }
+
+    DexEncodedField encodedField = appInfo.resolveField(field);
+    if (encodedField == null) {
+      // Must mark the field as targeted even if it does not exist.
+      markFieldAsTargeted(field, currentMethod);
+      reportMissingField(field);
+      return false;
+    }
+
+    if (!isProgramClass(encodedField.field.holder)) {
+      // No need to trace into the non-program code.
+      return false;
+    }
+
+    if (Log.ENABLED) {
+      Log.verbose(getClass(), "Register Sget `%s`.", field);
+    }
+
+    if (appView.options().enableGeneratedExtensionRegistryShrinking) {
+      // If it is a dead proto extension field, don't trace onwards.
+      boolean skipTracing =
+          appView.withGeneratedExtensionRegistryShrinker(
+              shrinker ->
+                  shrinker.isDeadProtoExtensionField(encodedField, fieldAccessInfoCollection),
+              false);
+      if (skipTracing) {
+        return false;
+      }
+    }
+
+    if (encodedField.field != field) {
+      // Mark the non-rebound field access as targeted. Note that this should only be done if the
+      // field is not a dead proto field (in which case we bail-out above).
+      markFieldAsTargeted(field, currentMethod);
+    }
+
+    markStaticFieldAsLive(encodedField, KeepReason.fieldReferencedIn(currentMethod));
+    return true;
+  }
+
+  boolean traceStaticFieldWrite(DexField field, DexEncodedMethod currentMethod) {
+    if (!registerFieldWrite(field, currentMethod)) {
+      return false;
+    }
+
+    DexEncodedField encodedField = appInfo.resolveField(field);
+    if (encodedField == null) {
+      // Must mark the field as targeted even if it does not exist.
+      markFieldAsTargeted(field, currentMethod);
+      reportMissingField(field);
+      return false;
+    }
+
+    if (!isProgramClass(encodedField.field.holder)) {
+      // No need to trace into the non-program code.
+      return false;
+    }
+
+    if (Log.ENABLED) {
+      Log.verbose(getClass(), "Register Sput `%s`.", field);
+    }
+
+    if (appView.options().enableGeneratedExtensionRegistryShrinking) {
+      // If it is a dead proto extension field, don't trace onwards.
+      boolean skipTracing =
+          appView.withGeneratedExtensionRegistryShrinker(
+              shrinker ->
+                  shrinker.isDeadProtoExtensionField(encodedField, fieldAccessInfoCollection),
+              false);
+      if (skipTracing) {
+        return false;
+      }
+    }
+
+    // If it is written outside of the <clinit> of its enclosing class, record it.
+    boolean isWrittenOutsideEnclosingStaticInitializer =
+        currentMethod.method.holder != encodedField.field.holder
+            || !currentMethod.isClassInitializer();
+    if (isWrittenOutsideEnclosingStaticInitializer) {
+      staticFieldsWrittenOutsideEnclosingStaticInitializer.add(encodedField.field);
+    }
+
+    if (encodedField.field != field) {
+      // Mark the non-rebound field access as targeted. Note that this should only be done if the
+      // field is not a dead proto field (in which case we bail-out above).
+      markFieldAsTargeted(field, currentMethod);
+    }
+
+    markStaticFieldAsLive(encodedField, KeepReason.fieldReferencedIn(currentMethod));
+    return true;
+  }
+
+  private Function<DexProgramClass, KeepReasonWitness> classReferencedFromReporter(
+      DexEncodedMethod currentMethod) {
+    return clazz -> graphReporter.reportClassReferencedFrom(clazz, currentMethod);
   }
 
   private void transitionReachableVirtualMethods(DexProgramClass clazz, ScopedDexMethodSet seen) {
@@ -2472,7 +2482,7 @@ public class Enqueuer {
     processAnnotations(method, method.annotations.annotations);
     method.parameterAnnotationsList.forEachAnnotation(
         annotation -> processAnnotation(method, annotation));
-    method.registerCodeReferences(new UseRegistry(options.itemFactory, clazz, method));
+    method.registerCodeReferences(new EnqueuerUseRegistry(appView, clazz, method, this));
 
     // Add all dependent members to the workqueue.
     enqueueRootItems(rootSet.getDependentItems(method));
