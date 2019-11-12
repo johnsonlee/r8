@@ -4,7 +4,6 @@
 package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.graph.GraphLense.rewriteReferenceKeys;
-import static com.google.common.base.Predicates.not;
 
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.DexApplication;
@@ -35,6 +34,7 @@ import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.ImmutableSortedSet.Builder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
@@ -81,6 +81,8 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
    * removed.
    */
   final SortedSet<DexMethod> targetedMethods;
+
+  final Set<DexMethod> targetedMethodsThatMustRemainNonAbstract;
   /**
    * Set of program methods that are used as the bootstrap method for an invoke-dynamic instruction.
    */
@@ -100,16 +102,6 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
    * each field. The latter is used, for example, during member rebinding.
    */
   private final FieldAccessInfoCollectionImpl fieldAccessInfoCollection;
-  /**
-   * Set of all instance fields that are only written inside the <init>() methods of their enclosing
-   * class.
-   */
-  private Set<DexField> instanceFieldsWrittenOnlyInEnclosingInstanceInitializers;
-  /**
-   * Set of all static fields that are only written inside the <clinit>() method of their enclosing
-   * class.
-   */
-  private Set<DexField> staticFieldsWrittenOnlyInEnclosingStaticInitializer;
   /** Set of all methods referenced in virtual invokes, along with calling context. */
   public final SortedMap<DexMethod, Set<DexEncodedMethod>> virtualInvokes;
   /** Set of all methods referenced in interface invokes, along with calling context. */
@@ -195,13 +187,12 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
       Set<DexType> instantiatedAppServices,
       Set<DexType> instantiatedTypes,
       SortedSet<DexMethod> targetedMethods,
+      Set<DexMethod> targetedMethodsThatMustRemainNonAbstract,
       SortedSet<DexMethod> bootstrapMethods,
       SortedSet<DexMethod> methodsTargetedByInvokeDynamic,
       SortedSet<DexMethod> virtualMethodsTargetedByInvokeDirect,
       SortedSet<DexMethod> liveMethods,
       FieldAccessInfoCollectionImpl fieldAccessInfoCollection,
-      Set<DexField> instanceFieldsWrittenOnlyInEnclosingInstanceInitializers,
-      Set<DexField> staticFieldsWrittenOnlyInEnclosingStaticInitializer,
       SortedMap<DexMethod, Set<DexEncodedMethod>> virtualInvokes,
       SortedMap<DexMethod, Set<DexEncodedMethod>> interfaceInvokes,
       SortedMap<DexMethod, Set<DexEncodedMethod>> superInvokes,
@@ -234,15 +225,12 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     this.instantiatedAppServices = instantiatedAppServices;
     this.instantiatedTypes = instantiatedTypes;
     this.targetedMethods = targetedMethods;
+    this.targetedMethodsThatMustRemainNonAbstract = targetedMethodsThatMustRemainNonAbstract;
     this.bootstrapMethods = bootstrapMethods;
     this.methodsTargetedByInvokeDynamic = methodsTargetedByInvokeDynamic;
     this.virtualMethodsTargetedByInvokeDirect = virtualMethodsTargetedByInvokeDirect;
     this.liveMethods = liveMethods;
     this.fieldAccessInfoCollection = fieldAccessInfoCollection;
-    this.instanceFieldsWrittenOnlyInEnclosingInstanceInitializers =
-        instanceFieldsWrittenOnlyInEnclosingInstanceInitializers;
-    this.staticFieldsWrittenOnlyInEnclosingStaticInitializer =
-        staticFieldsWrittenOnlyInEnclosingStaticInitializer;
     this.pinnedItems = pinnedItems;
     this.mayHaveSideEffects = mayHaveSideEffects;
     this.noSideEffects = noSideEffects;
@@ -278,13 +266,12 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
       Set<DexType> instantiatedAppServices,
       Set<DexType> instantiatedTypes,
       SortedSet<DexMethod> targetedMethods,
+      Set<DexMethod> targetedMethodsThatMustRemainNonAbstract,
       SortedSet<DexMethod> bootstrapMethods,
       SortedSet<DexMethod> methodsTargetedByInvokeDynamic,
       SortedSet<DexMethod> virtualMethodsTargetedByInvokeDirect,
       SortedSet<DexMethod> liveMethods,
       FieldAccessInfoCollectionImpl fieldAccessInfoCollection,
-      Set<DexField> instanceFieldsWrittenOnlyInEnclosingInstanceInitializers,
-      Set<DexField> staticFieldsWrittenOnlyInEnclosingStaticInitializer,
       SortedMap<DexMethod, Set<DexEncodedMethod>> virtualInvokes,
       SortedMap<DexMethod, Set<DexEncodedMethod>> interfaceInvokes,
       SortedMap<DexMethod, Set<DexEncodedMethod>> superInvokes,
@@ -317,15 +304,12 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     this.instantiatedAppServices = instantiatedAppServices;
     this.instantiatedTypes = instantiatedTypes;
     this.targetedMethods = targetedMethods;
+    this.targetedMethodsThatMustRemainNonAbstract = targetedMethodsThatMustRemainNonAbstract;
     this.bootstrapMethods = bootstrapMethods;
     this.methodsTargetedByInvokeDynamic = methodsTargetedByInvokeDynamic;
     this.virtualMethodsTargetedByInvokeDirect = virtualMethodsTargetedByInvokeDirect;
     this.liveMethods = liveMethods;
     this.fieldAccessInfoCollection = fieldAccessInfoCollection;
-    this.instanceFieldsWrittenOnlyInEnclosingInstanceInitializers =
-        instanceFieldsWrittenOnlyInEnclosingInstanceInitializers;
-    this.staticFieldsWrittenOnlyInEnclosingStaticInitializer =
-        staticFieldsWrittenOnlyInEnclosingStaticInitializer;
     this.pinnedItems = pinnedItems;
     this.mayHaveSideEffects = mayHaveSideEffects;
     this.noSideEffects = noSideEffects;
@@ -362,13 +346,12 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
         previous.instantiatedAppServices,
         previous.instantiatedTypes,
         previous.targetedMethods,
+        previous.targetedMethodsThatMustRemainNonAbstract,
         previous.bootstrapMethods,
         previous.methodsTargetedByInvokeDynamic,
         previous.virtualMethodsTargetedByInvokeDirect,
         previous.liveMethods,
         previous.fieldAccessInfoCollection,
-        previous.instanceFieldsWrittenOnlyInEnclosingInstanceInitializers,
-        previous.staticFieldsWrittenOnlyInEnclosingStaticInitializer,
         previous.virtualInvokes,
         previous.interfaceInvokes,
         previous.superInvokes,
@@ -410,13 +393,12 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
         previous.instantiatedAppServices,
         previous.instantiatedTypes,
         previous.targetedMethods,
+        previous.targetedMethodsThatMustRemainNonAbstract,
         previous.bootstrapMethods,
         previous.methodsTargetedByInvokeDynamic,
         previous.virtualMethodsTargetedByInvokeDirect,
         previous.liveMethods,
         previous.fieldAccessInfoCollection,
-        previous.instanceFieldsWrittenOnlyInEnclosingInstanceInitializers,
-        previous.staticFieldsWrittenOnlyInEnclosingStaticInitializer,
         previous.virtualInvokes,
         previous.interfaceInvokes,
         previous.superInvokes,
@@ -462,19 +444,16 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     this.instantiatedTypes = rewriteItems(previous.instantiatedTypes, lense::lookupType);
     this.instantiatedLambdas = rewriteItems(previous.instantiatedLambdas, lense::lookupType);
     this.targetedMethods = lense.rewriteMethodsConservatively(previous.targetedMethods);
+    this.targetedMethodsThatMustRemainNonAbstract =
+        lense.rewriteMethodsConservatively(previous.targetedMethodsThatMustRemainNonAbstract);
     this.bootstrapMethods = lense.rewriteMethodsConservatively(previous.bootstrapMethods);
     this.methodsTargetedByInvokeDynamic =
         lense.rewriteMethodsConservatively(previous.methodsTargetedByInvokeDynamic);
     this.virtualMethodsTargetedByInvokeDirect =
         lense.rewriteMethodsConservatively(previous.virtualMethodsTargetedByInvokeDirect);
     this.liveMethods = lense.rewriteMethodsConservatively(previous.liveMethods);
-    this.fieldAccessInfoCollection = previous.fieldAccessInfoCollection.rewrittenWithLens(lense);
-    this.instanceFieldsWrittenOnlyInEnclosingInstanceInitializers =
-        rewriteItems(
-            previous.instanceFieldsWrittenOnlyInEnclosingInstanceInitializers, lense::lookupField);
-    this.staticFieldsWrittenOnlyInEnclosingStaticInitializer =
-        rewriteItems(
-            previous.staticFieldsWrittenOnlyInEnclosingStaticInitializer, lense::lookupField);
+    this.fieldAccessInfoCollection =
+        previous.fieldAccessInfoCollection.rewrittenWithLens(application, lense);
     this.pinnedItems = lense.rewriteReferencesConservatively(previous.pinnedItems);
     this.virtualInvokes =
         rewriteKeysConservativelyWhileMergingValues(
@@ -547,15 +526,13 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     this.instantiatedTypes = previous.instantiatedTypes;
     this.instantiatedLambdas = previous.instantiatedLambdas;
     this.targetedMethods = previous.targetedMethods;
+    this.targetedMethodsThatMustRemainNonAbstract =
+        previous.targetedMethodsThatMustRemainNonAbstract;
     this.bootstrapMethods = previous.bootstrapMethods;
     this.methodsTargetedByInvokeDynamic = previous.methodsTargetedByInvokeDynamic;
     this.virtualMethodsTargetedByInvokeDirect = previous.virtualMethodsTargetedByInvokeDirect;
     this.liveMethods = previous.liveMethods;
     this.fieldAccessInfoCollection = previous.fieldAccessInfoCollection;
-    this.instanceFieldsWrittenOnlyInEnclosingInstanceInitializers =
-        previous.instanceFieldsWrittenOnlyInEnclosingInstanceInitializers;
-    this.staticFieldsWrittenOnlyInEnclosingStaticInitializer =
-        previous.staticFieldsWrittenOnlyInEnclosingStaticInitializer;
     this.pinnedItems = previous.pinnedItems;
     this.mayHaveSideEffects = previous.mayHaveSideEffects;
     this.noSideEffects = previous.noSideEffects;
@@ -668,10 +645,6 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
             info.clearWrites();
           }
         });
-    result.staticFieldsWrittenOnlyInEnclosingStaticInitializer =
-        filter(
-            staticFieldsWrittenOnlyInEnclosingStaticInitializer,
-            not(noLongerWrittenFields::contains));
     return result;
   }
 
@@ -785,16 +758,20 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     return false;
   }
 
-  public boolean isInstanceFieldWrittenOnlyInEnclosingInstanceInitializers(DexEncodedField field) {
-    assert checkIfObsolete();
-    assert isFieldWritten(field) : "Expected field `" + field.toSourceString() + "` to be written";
-    return instanceFieldsWrittenOnlyInEnclosingInstanceInitializers.contains(field.field);
-  }
-
   public boolean isStaticFieldWrittenOnlyInEnclosingStaticInitializer(DexEncodedField field) {
     assert checkIfObsolete();
     assert isFieldWritten(field) : "Expected field `" + field.toSourceString() + "` to be written";
-    return staticFieldsWrittenOnlyInEnclosingStaticInitializer.contains(field.field);
+    if (!isPinned(field.field)) {
+      DexEncodedMethod staticInitializer =
+          definitionFor(field.field.holder).asProgramClass().getClassInitializer();
+      if (staticInitializer != null) {
+        FieldAccessInfo fieldAccessInfo = fieldAccessInfoCollection.get(field.field);
+        return fieldAccessInfo != null
+            && fieldAccessInfo.isWritten()
+            && !fieldAccessInfo.isWrittenOutside(staticInitializer);
+      }
+    }
+    return false;
   }
 
   public boolean mayPropagateValueFor(DexReference reference) {
@@ -809,8 +786,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
 
   private static <T extends PresortedComparable<T>> ImmutableSortedSet<T> rewriteItems(
       Set<T> original, Function<T, T> rewrite) {
-    ImmutableSortedSet.Builder<T> builder =
-        new ImmutableSortedSet.Builder<>(PresortedComparable::slowCompare);
+    Builder<T> builder = new Builder<>(PresortedComparable::slowCompare);
     for (T item : original) {
       builder.add(rewrite.apply(item));
     }

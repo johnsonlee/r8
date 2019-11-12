@@ -8,7 +8,6 @@ import static com.android.tools.r8.naming.IdentifierNameStringUtils.identifyIden
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflectionMethod;
 import static com.android.tools.r8.shaking.AnnotationRemover.shouldKeepAnnotation;
 import static com.android.tools.r8.shaking.EnqueuerUtils.toImmutableSortedMap;
-import static com.google.common.base.Predicates.not;
 
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.dex.IndexedItemCollection;
@@ -146,10 +145,6 @@ public class Enqueuer {
   private final Map<DexMethod, Set<DexEncodedMethod>> staticInvokes = new IdentityHashMap<>();
   private final FieldAccessInfoCollectionImpl fieldAccessInfoCollection =
       new FieldAccessInfoCollectionImpl();
-  private final Set<DexField> instanceFieldsWrittenOutsideEnclosingInstanceInitializers =
-      Sets.newIdentityHashSet();
-  private final Set<DexField> staticFieldsWrittenOutsideEnclosingStaticInitializer =
-      Sets.newIdentityHashSet();
   private final Set<DexCallSite> callSites = Sets.newIdentityHashSet();
 
   private final Set<DexReference> identifierNameStrings = Sets.newIdentityHashSet();
@@ -206,6 +201,10 @@ public class Enqueuer {
    * its implementation may be removed and it may be marked abstract.
    */
   private final SetWithReason<DexEncodedMethod> targetedMethods;
+
+  /** Subset of 'targetedMethods' for which the method must not be marked abstract. */
+  private final Set<DexEncodedMethod> targetedMethodsThatMustRemainNonAbstract;
+
   /**
    * Set of program methods that are used as the bootstrap method for an invoke-dynamic instruction.
    */
@@ -317,6 +316,10 @@ public class Enqueuer {
     liveAnnotations = new SetWithReason<>(graphReporter::registerAnnotation);
     instantiatedTypes = new SetWithReason<>(graphReporter::registerClass);
     targetedMethods = new SetWithReason<>(graphReporter::registerMethod);
+    // This set is only populated in edge cases due to multiple default interface methods.
+    // The set is generally expected to be empty and in the unlikely chance it is not, it will
+    // likely contain two methods. Thus the default capacity of 2.
+    targetedMethodsThatMustRemainNonAbstract = SetUtils.newIdentityHashSet(2);
     liveMethods = new LiveMethodsSet(graphReporter::registerMethod);
     liveFields = new SetWithReason<>(graphReporter::registerField);
     instantiatedInterfaceTypes = new SetWithReason<>(graphReporter::registerInterface);
@@ -373,18 +376,6 @@ public class Enqueuer {
     for (DexType iface : clazz.interfaces.values) {
       ensureFromLibraryOrThrow(iface, clazz);
     }
-  }
-
-  private Set<DexField> instanceFieldsWrittenOnlyInEnclosingInstanceInitializers() {
-    Set<DexField> result = getNonPinnedWrittenFields(not(DexEncodedField::isStatic));
-    result.removeAll(instanceFieldsWrittenOutsideEnclosingInstanceInitializers);
-    return result;
-  }
-
-  private Set<DexField> staticFieldsWrittenOnlyInEnclosingStaticInitializer() {
-    Set<DexField> result = getNonPinnedWrittenFields(DexEncodedField::isStatic);
-    result.removeAll(staticFieldsWrittenOutsideEnclosingStaticInitializer);
-    return result;
   }
 
   private Set<DexField> getNonPinnedWrittenFields(Predicate<DexEncodedField> predicate) {
@@ -960,14 +951,6 @@ public class Enqueuer {
       Log.verbose(getClass(), "Register Iput `%s`.", field);
     }
 
-    // If it is written outside of the <init>s of its enclosing class, record it.
-    boolean isWrittenOutsideEnclosingInstanceInitializers =
-        currentMethod.method.holder != encodedField.field.holder
-            || !currentMethod.isInstanceInitializer();
-    if (isWrittenOutsideEnclosingInstanceInitializers) {
-      instanceFieldsWrittenOutsideEnclosingInstanceInitializers.add(encodedField.field);
-    }
-
     // If unused interface removal is enabled, then we won't necessarily mark the actual holder of
     // the field as live, if the holder is an interface.
     if (appView.options().enableUnusedInterfaceRemoval) {
@@ -1060,14 +1043,6 @@ public class Enqueuer {
       if (skipTracing) {
         return false;
       }
-    }
-
-    // If it is written outside of the <clinit> of its enclosing class, record it.
-    boolean isWrittenOutsideEnclosingStaticInitializer =
-        currentMethod.method.holder != encodedField.field.holder
-            || !currentMethod.isClassInitializer();
-    if (isWrittenOutsideEnclosingStaticInitializer) {
-      staticFieldsWrittenOutsideEnclosingStaticInitializer.add(encodedField.field);
     }
 
     if (encodedField.field != field) {
@@ -2037,13 +2012,15 @@ public class Enqueuer {
 
   private MarkedResolutionTarget findAndMarkResolutionTarget(
       DexMethod method, boolean interfaceInvoke, KeepReason reason) {
-    DexEncodedMethod resolutionTarget =
-        appInfo.resolveMethod(method.holder, method, interfaceInvoke).asResultOfResolve();
-    if (resolutionTarget == null) {
-      reportMissingMethod(method);
+    ResolutionResult resolutionResult =
+        appInfo.resolveMethod(method.holder, method, interfaceInvoke);
+    if (!resolutionResult.hasSingleTarget()) {
+      // If the resolution fails, mark each dependency causing a failure.
+      markFailedResolutionTargets(resolutionResult, reason);
       return MarkedResolutionTarget.unresolved();
     }
 
+    DexEncodedMethod resolutionTarget = resolutionResult.getSingleTarget();
     DexClass resolutionTargetClass = appInfo.definitionFor(resolutionTarget.method.holder);
     if (resolutionTargetClass == null) {
       reportMissingClass(resolutionTarget.method.holder);
@@ -2063,6 +2040,17 @@ public class Enqueuer {
     }
 
     return new MarkedResolutionTarget(resolutionTargetClass, resolutionTarget);
+  }
+
+  private void markFailedResolutionTargets(ResolutionResult failedResolution, KeepReason reason) {
+    failedResolution.forEachTarget(
+        method -> {
+          DexProgramClass clazz = getProgramClassOrNull(method.method.holder);
+          if (clazz != null) {
+            targetedMethodsThatMustRemainNonAbstract.add(method);
+            markMethodAsTargeted(clazz, method, reason);
+          }
+        });
   }
 
   private DexMethod generatedEnumValuesMethod(DexClass enumClass) {
@@ -2200,6 +2188,8 @@ public class Enqueuer {
             Collections.unmodifiableSet(instantiatedAppServices),
             SetUtils.mapIdentityHashSet(instantiatedTypes.getItems(), DexProgramClass::getType),
             Enqueuer.toSortedDescriptorSet(targetedMethods.getItems()),
+            SetUtils.mapIdentityHashSet(
+                targetedMethodsThatMustRemainNonAbstract, DexEncodedMethod::getKey),
             ImmutableSortedSet.copyOf(DexMethod::slowCompareTo, bootstrapMethods),
             ImmutableSortedSet.copyOf(DexMethod::slowCompareTo, methodsTargetedByInvokeDynamic),
             ImmutableSortedSet.copyOf(
@@ -2207,8 +2197,6 @@ public class Enqueuer {
             toSortedDescriptorSet(liveMethods.getItems()),
             // Filter out library fields and pinned fields, because these are read by default.
             fieldAccessInfoCollection,
-            instanceFieldsWrittenOnlyInEnclosingInstanceInitializers(),
-            staticFieldsWrittenOnlyInEnclosingStaticInitializer(),
             // TODO(b/132593519): Do we require these sets to be sorted for determinism?
             toImmutableSortedMap(virtualInvokes, PresortedComparable::slowCompare),
             toImmutableSortedMap(interfaceInvokes, PresortedComparable::slowCompare),

@@ -5,14 +5,16 @@ package com.android.tools.r8.resolution.interfacediamonds;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.TestRuntime;
+import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ResolutionResult;
@@ -21,10 +23,8 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import org.hamcrest.Matcher;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -34,10 +34,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.util.ASMifier;
 
 @RunWith(Parameterized.class)
-public class DefaultTopAbstractRightTest extends TestBase {
-
-  public static Collection<Class<?>> CLASSES =
-      ImmutableList.of(T.class, L.class, R.class, Main.class);
+public class TwoDefaultMethodsWithoutTopTest extends TestBase {
 
   private final TestParameters parameters;
 
@@ -46,9 +43,12 @@ public class DefaultTopAbstractRightTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public DefaultTopAbstractRightTest(TestParameters parameters) {
+  public TwoDefaultMethodsWithoutTopTest(TestParameters parameters) {
     this.parameters = parameters;
   }
+
+  private static final List<Class<?>> CLASSES =
+      ImmutableList.of(I.class, J.class, A.class, Main.class);
 
   @Test
   public void testResolution() throws Exception {
@@ -63,8 +63,13 @@ public class DefaultTopAbstractRightTest extends TestBase {
     DexMethod method = SingleTargetLookupTest.buildMethod(B.class, "f", appInfo);
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
     List<DexEncodedMethod> resolutionTargets = resolutionResult.asListOfTargets();
-    assertEquals(1, resolutionTargets.size());
-    assertEquals(R.class.getTypeName(), resolutionTargets.get(0).method.holder.toSourceString());
+    assertEquals(2, resolutionTargets.size());
+    assertTrue(
+        resolutionTargets.stream()
+            .anyMatch(m -> m.method.holder.toSourceString().equals(I.class.getTypeName())));
+    assertTrue(
+        resolutionTargets.stream()
+            .anyMatch(m -> m.method.holder.toSourceString().equals(J.class.getTypeName())));
   }
 
   @Test
@@ -73,7 +78,7 @@ public class DefaultTopAbstractRightTest extends TestBase {
         .addProgramClasses(CLASSES)
         .addProgramClassFileData(DumpB.dump())
         .run(parameters.getRuntime(), Main.class)
-        .assertFailureWithErrorThatMatches(getExpectedErrorMatcher(false));
+        .apply(r -> checkResult(r, false));
   }
 
   @Test
@@ -84,43 +89,44 @@ public class DefaultTopAbstractRightTest extends TestBase {
         .addKeepMainRule(Main.class)
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), Main.class)
-        .assertFailureWithErrorThatMatches(getExpectedErrorMatcher(true));
+        .apply(r -> checkResult(r, true));
   }
 
-  private Matcher<String> getExpectedErrorMatcher(boolean isR8) {
+  private void checkResult(TestRunResult<?> runResult, boolean isR8) {
+    // TODO(b/144085169): JDK 11 execution produces a different error condition on the R8 output?
     if (isR8
-        && (parameters.isCfRuntime() || parameters.getApiLevel().isLessThan(AndroidApiLevel.L))) {
-      // TODO(b/144085169): R8 replaces the entire main method by 'throw null', why?
-      return containsString("NullPointerException");
+        && parameters.getRuntime().isCf()
+        && parameters.getRuntime().asCf().getVm() == CfVm.JDK11) {
+      runResult.assertFailureWithErrorThatMatches(containsString("AbstractMethodError"));
+    } else if (parameters.isDexRuntime()
+        && parameters.getApiLevel().isLessThan(AndroidApiLevel.N)) {
+      if (isR8) {
+        // TODO(b/144085169): Maybe R8 introduces another error due to removal of targets?
+        runResult.assertFailureWithErrorThatMatches(containsString("AbstractMethodError"));
+      } else {
+        // TODO(b/72208584): Desugare changes error result.
+        runResult.assertSuccessWithOutputLines("I::f");
+      }
+    } else {
+      runResult.assertFailureWithErrorThatMatches(containsString("IncompatibleClassChangeError"));
     }
-    if (parameters.isDexRuntime()
-        && parameters
-            .getRuntime()
-            .asDex()
-            .getVm()
-            .getVersion()
-            .isOlderThanOrEqual(Version.V4_4_4)) {
-      return containsString("VerifyError");
-    }
-    return containsString("AbstractMethodError");
   }
 
-  public interface T {
+  public interface I {
     default void f() {
-      System.out.println("T::f");
+      System.out.println("I::f");
     }
   }
 
-  public interface L extends T {
-    // Intentionally empty.
+  public interface J {
+    default void f() {
+      System.out.println("J::f");
+    }
   }
 
-  public interface R extends T {
-    @Override
-    void f(); // This causes T::f to not be maximally specific and so it must not be resolved to.
-  }
+  public static class A implements I {}
 
-  public static class B implements L /*, R via ASM */ {
+  public static class B extends A /* implements J via ASM */ {
     // Intentionally empty.
   }
 
@@ -130,7 +136,7 @@ public class DefaultTopAbstractRightTest extends TestBase {
     }
   }
 
-  static class DumpB implements Opcodes {
+  private static class DumpB implements Opcodes {
 
     public static void main(String[] args) throws Exception {
       ASMifier.main(
@@ -147,18 +153,22 @@ public class DefaultTopAbstractRightTest extends TestBase {
           ACC_PUBLIC | ACC_SUPER,
           DescriptorUtils.getBinaryNameFromJavaType(B.class.getTypeName()),
           null,
-          "java/lang/Object",
+          DescriptorUtils.getBinaryNameFromJavaType(A.class.getTypeName()),
           new String[] {
-            DescriptorUtils.getBinaryNameFromJavaType(L.class.getTypeName()),
-            // Manually added 'implements R'.
-            DescriptorUtils.getBinaryNameFromJavaType(R.class.getTypeName())
+            // Manually added 'implements J'.
+            DescriptorUtils.getBinaryNameFromJavaType(J.class.getTypeName()),
           });
 
       {
         methodVisitor = classWriter.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
         methodVisitor.visitCode();
         methodVisitor.visitVarInsn(ALOAD, 0);
-        methodVisitor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        methodVisitor.visitMethodInsn(
+            INVOKESPECIAL,
+            DescriptorUtils.getBinaryNameFromJavaType(A.class.getTypeName()),
+            "<init>",
+            "()V",
+            false);
         methodVisitor.visitInsn(RETURN);
         methodVisitor.visitMaxs(1, 1);
         methodVisitor.visitEnd();
