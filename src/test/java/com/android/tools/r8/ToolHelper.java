@@ -1266,53 +1266,6 @@ public class ToolHelper {
     return runJava(runtime, ImmutableList.of(), classpath, args);
   }
 
-  public static ProcessResult runJavac(
-      CfVm runtime, List<Path> classPath, Path directoryToCompileInto, Path... classesToCompile)
-      throws IOException {
-    return runJavac(runtime, classPath, directoryToCompileInto, null, classesToCompile);
-  }
-
-  public static ProcessResult runJavac(
-      CfVm runtime,
-      List<Path> classPath,
-      Path directoryToCompileInto,
-      List<String> extraOptions,
-      Path... classesToCompile)
-      throws IOException {
-    String[] strings = Arrays.stream(classesToCompile).map(Path::toString).toArray(String[]::new);
-    List<String> cp = classPath == null ? null : classPath.stream().map(Path::toString).collect(
-        Collectors.toList());
-    return runJavac(runtime, cp, directoryToCompileInto.toString(), extraOptions, strings);
-  }
-
-  public static ProcessResult runJavac(
-      CfVm runtime,
-      List<String> classPath,
-      String directoryToCompileInto,
-      List<String> extraOptions,
-      String... classesToCompile)
-      throws IOException {
-    List<String> cmdline =
-        new ArrayList<>(
-            Collections.singletonList(TestRuntime.getCheckInJDKPathFor(runtime).toString() + "c"));
-    if (extraOptions != null) {
-      cmdline.addAll(extraOptions);
-    }
-    if (classPath != null) {
-      cmdline.add("-cp");
-      if (isWindows()) {
-        cmdline.add(String.join(";", classPath));
-      } else {
-        cmdline.add(String.join(":", classPath));
-      }
-    }
-    cmdline.add("-d");
-    cmdline.add(directoryToCompileInto);
-    Collections.addAll(cmdline, classesToCompile);
-    ProcessBuilder builder = new ProcessBuilder(cmdline);
-    return ToolHelper.runProcess(builder);
-  }
-
   public static ProcessResult runKotlinc(
       CfVm runtime,
       List<Path> classPaths,
@@ -1320,8 +1273,7 @@ public class ToolHelper {
       List<String> extraOptions,
       Path... filesToCompile)
       throws IOException {
-    String jvm = runtime == null ? getSystemJavaExecutable() : getJavaExecutable(runtime);
-    List<String> cmdline = new ArrayList<String>(Arrays.asList(jvm));
+    List<String> cmdline = new ArrayList<>(Arrays.asList(getJavaExecutable(runtime)));
     cmdline.add("-jar");
     cmdline.add(KT_PRELOADER);
     cmdline.add("org.jetbrains.kotlin.preloading.Preloader");
@@ -1466,12 +1418,16 @@ public class ToolHelper {
 
   public static String getJavaExecutable(CfVm runtime) {
     if (TestRuntime.isCheckedInJDK(runtime)) {
-      return TestRuntime.getCheckInJDKPathFor(runtime).toString();
+      return TestRuntime.getCheckedInJDKPathFor(runtime).toString();
     } else {
       // TODO(b/127785410): Always assume a non-null runtime.
       assert runtime == null || TestParametersBuilder.isSystemJdk(runtime);
       return getSystemJavaExecutable();
     }
+  }
+
+  public static Path getJavaHome(CfVm runtime) {
+    return TestRuntime.getCheckedInJDKHome(runtime);
   }
 
   public static ProcessResult runArtRaw(ArtCommandBuilder builder) throws IOException {

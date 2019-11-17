@@ -11,6 +11,8 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.DataResourceProvider.Visitor;
+import com.android.tools.r8.TestRuntime.CfRuntime;
+import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.ArtCommandBuilder;
 import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.ToolHelper.ProcessResult;
@@ -26,6 +28,7 @@ import com.android.tools.r8.graph.SmaliWriter;
 import com.android.tools.r8.jasmin.JasminBuilder;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.serviceloader.ServiceLoaderMultipleTest.Greeter;
+import com.android.tools.r8.transformers.ClassFileTransformer;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.AndroidAppConsumers;
@@ -111,10 +114,6 @@ public class TestBase {
     return JvmTestBuilder.create(new TestState(temp));
   }
 
-  public static KotlinCompilerTestBuilder testForKotlin(TemporaryFolder temp) {
-    return KotlinCompilerTestBuilder.create(new TestState(temp));
-  }
-
   public static ProguardTestBuilder testForProguard(TemporaryFolder temp) {
     return ProguardTestBuilder.create(new TestState(temp));
   }
@@ -151,10 +150,6 @@ public class TestBase {
     return testForJvm(temp);
   }
 
-  public KotlinCompilerTestBuilder testForKotlin() {
-    return testForKotlin(temp);
-  }
-
   public TestBuilder<? extends TestRunResult<?>, ?> testForRuntime(
       TestRuntime runtime, AndroidApiLevel apiLevel) {
     if (runtime.isCf()) {
@@ -177,6 +172,26 @@ public class TestBase {
 
   public GenerateMainDexListTestBuilder testForMainDexListGenerator() {
     return testForMainDexListGenerator(temp);
+  }
+
+  public JavaCompilerTool javac(CfRuntime jdk) {
+    return JavaCompilerTool.create(jdk.getVm(), temp);
+  }
+
+  public static JavaCompilerTool javac(CfVm jdk, TemporaryFolder temp) {
+    return JavaCompilerTool.create(jdk, temp);
+  }
+
+  public KotlinCompilerTool kotlinc(CfRuntime jdk) {
+    return KotlinCompilerTool.create(jdk, temp);
+  }
+
+  public static KotlinCompilerTool kotlinc(CfRuntime jdk, TemporaryFolder temp) {
+    return KotlinCompilerTool.create(jdk, temp);
+  }
+
+  public static ClassFileTransformer transformer(Class<?> clazz) throws IOException {
+    return ClassFileTransformer.create(clazz);
   }
 
   // Actually running Proguard should only be during development.
@@ -1192,6 +1207,7 @@ public class TestBase {
     }
   }
 
+  @Deprecated
   public static Path runtimeJar(Backend backend) {
     if (backend == Backend.DEX) {
       return ToolHelper.getDefaultAndroidJar();

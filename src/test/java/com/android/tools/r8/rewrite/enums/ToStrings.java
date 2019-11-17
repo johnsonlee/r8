@@ -94,11 +94,13 @@ class ToStrings {
     return TimeUnit.SECONDS.toString();
   }
 
+  @AssumeMayHaveSideEffects
   @NeverInline
-  private static String wrongTypeStaticField() {
+  private static String differentTypeStaticField() {
     return NoToString.DOWN.toString();
   }
 
+  @AssumeMayHaveSideEffects
   @NeverInline
   private static String nonValueStaticField() {
     return NoToString.DEFAULT.toString();
@@ -128,7 +130,7 @@ class ToStrings {
     System.out.println(multipleUsages());
     System.out.println(inlined());
     System.out.println(libraryType());
-    System.out.println(wrongTypeStaticField());
+    System.out.println(differentTypeStaticField());
     System.out.println(nonValueStaticField());
     System.out.println(phi(true));
     System.out.println(nonStaticGet());

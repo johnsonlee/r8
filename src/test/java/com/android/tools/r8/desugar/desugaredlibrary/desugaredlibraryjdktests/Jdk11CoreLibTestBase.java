@@ -72,27 +72,46 @@ public class Jdk11CoreLibTestBase extends CoreLibDesugarTestBase {
 
   @BeforeClass
   public static void compileJavaBaseExtensions() throws Exception {
-    if (!new File(JDK_11_JAVA_BASE_EXTENSION_CLASSES_DIR.toString()).exists()) {
-      List<String> options =
-          Arrays.asList(
-              "--add-reads",
-              "java.base=ALL-UNNAMED",
-              "--patch-module",
-              "java.base=" + JDK_11_JAVA_BASE_EXTENSION_FILES_DIR);
-      ToolHelper.runJavac(
-          CfVm.JDK11,
-          Collections.singletonList(Paths.get(JDK_TESTS_BUILD_DIR + "testng-6.10.jar")),
-          JDK_11_JAVA_BASE_EXTENSION_CLASSES_DIR,
-          options,
-          getJavaBaseExtensionsFiles());
-    }
+    File extensionClassesDir = new File(JDK_11_JAVA_BASE_EXTENSION_CLASSES_DIR.toString());
+    assert extensionClassesDir.exists() || extensionClassesDir.mkdirs();
+    List<String> options =
+        Arrays.asList(
+            "--add-reads",
+            "java.base=ALL-UNNAMED",
+            "--patch-module",
+            "java.base=" + JDK_11_JAVA_BASE_EXTENSION_FILES_DIR);
+    javac(CfVm.JDK11, getStaticTemp())
+        .addOptions(options)
+        .addClasspathFiles(
+            Collections.singletonList(Paths.get(JDK_TESTS_BUILD_DIR + "testng-6.10.jar")))
+        .addSourceFiles(getJavaBaseExtensionsFiles())
+        .setOutputPath(JDK_11_JAVA_BASE_EXTENSION_CLASSES_DIR)
+        .compile();
     JDK_11_JAVA_BASE_EXTENSION_COMPILED_FILES =
         getAllFilesWithSuffixInDirectory(JDK_11_JAVA_BASE_EXTENSION_CLASSES_DIR, CLASS_EXTENSION);
     assert JDK_11_JAVA_BASE_EXTENSION_COMPILED_FILES.length > 0;
   }
 
-  protected Path buildDesugaredLibraryWithJavaBaseExtension(AndroidApiLevel apiLevel) {
+  private String getTestNGKeepRules() {
+    // Keep data providers and their annotations.
+    return "-keepclasseswithmembers class * {\n"
+        + "    @org.testng.annotations.DataProvider <methods>;\n"
+        + "}\n"
+        + "-keepattributes *Annotation*\n"
+        // Do not even attempt to shrink testNG (unrelated to desugared lib shrinking goal).
+        + "-keep class org.testng.** { *; }\n"
+        // There are missing classes in testNG.
+        + "-dontwarn";
+  }
+
+  protected Path buildDesugaredLibraryWithJavaBaseExtension(
+      AndroidApiLevel apiLevel, String keepRules, boolean shrink) {
+    // there are missing classes from testNG.
+    keepRules = getTestNGKeepRules() + keepRules;
     return buildDesugaredLibrary(
-        apiLevel, "", false, ImmutableList.copyOf(JDK_11_JAVA_BASE_EXTENSION_COMPILED_FILES));
+        apiLevel,
+        keepRules,
+        shrink,
+        ImmutableList.copyOf(JDK_11_JAVA_BASE_EXTENSION_COMPILED_FILES));
   }
 }

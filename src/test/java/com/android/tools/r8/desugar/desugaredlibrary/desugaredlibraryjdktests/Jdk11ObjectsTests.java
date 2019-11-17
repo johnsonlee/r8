@@ -13,6 +13,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm;
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.Assume;
@@ -52,11 +53,12 @@ public class Jdk11ObjectsTests extends TestBase {
 
   @BeforeClass
   public static void compileObjectsClass() throws Exception {
-    ToolHelper.runJavac(
-        CfVm.JDK11,
-        null,
-        JDK_11_OBJECTS_TESTS_DIR,
-        JDK_11_OBJECTS_JAVA_DIR.resolve(BASIC_OBJECTS_TEST + JAVA_EXTENSION));
+    File objectsDir = new File(JDK_11_OBJECTS_TESTS_DIR.toString());
+    assert objectsDir.exists() || objectsDir.mkdirs();
+    javac(CfVm.JDK11, getStaticTemp())
+        .addSourceFiles(JDK_11_OBJECTS_JAVA_DIR.resolve(BASIC_OBJECTS_TEST + JAVA_EXTENSION))
+        .setOutputPath(JDK_11_OBJECTS_TESTS_DIR)
+        .compile();
   }
 
   @Test

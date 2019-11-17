@@ -22,6 +22,7 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -73,27 +74,35 @@ public class Jdk11ConcurrentMapTests extends Jdk11CoreLibTestBase {
   }
 
   @BeforeClass
-  public static void compileAtomicClasses() throws Exception {
-    ToolHelper.runJavac(
-        CfVm.JDK11,
-        Collections.singletonList(Paths.get(JDK_TESTS_BUILD_DIR + "testng-6.10.jar")),
-        CONCURRENT_COMPILED_TESTS_FOLDER,
-        getAllFilesWithSuffixInDirectory(CONCURRENT_TESTS_FOLDER, JAVA_EXTENSION));
-    List<Path> concHashFilesAndDependencies = new ArrayList<>();
-    Collections.addAll(
-        concHashFilesAndDependencies,
-        getAllFilesWithSuffixInDirectory(CONCURRENT_HASH_TESTS_FOLDER, JAVA_EXTENSION));
-    Collections.addAll(concHashFilesAndDependencies, SUPPORT_LIBS);
-    ToolHelper.runJavac(
-        CfVm.JDK11,
-        Collections.singletonList(Paths.get(JDK_TESTS_BUILD_DIR + "testng-6.10.jar")),
-        CONCURRENT_HASH_COMPILED_TESTS_FOLDER,
-        concHashFilesAndDependencies.toArray(new Path[0]));
+  public static void compileConcurrentClasses() throws Exception {
+    File concurrentClassesDir = new File(CONCURRENT_COMPILED_TESTS_FOLDER.toString());
+    assert concurrentClassesDir.exists() || concurrentClassesDir.mkdirs();
+    javac(CfVm.JDK11, getStaticTemp())
+        .addClasspathFiles(
+            Collections.singletonList(Paths.get(JDK_TESTS_BUILD_DIR + "testng-6.10.jar")))
+        .addSourceFiles(getAllFilesWithSuffixInDirectory(CONCURRENT_TESTS_FOLDER, JAVA_EXTENSION))
+        .setOutputPath(CONCURRENT_COMPILED_TESTS_FOLDER)
+        .compile();
     CONCURRENT_COMPILED_TESTS_FILES =
         getAllFilesWithSuffixInDirectory(CONCURRENT_COMPILED_TESTS_FOLDER, CLASS_EXTENSION);
+    assert CONCURRENT_COMPILED_TESTS_FILES.length > 0;
+
+    List<Path> concurrentHashFilesAndDependencies = new ArrayList<>();
+    Collections.addAll(
+        concurrentHashFilesAndDependencies,
+        getAllFilesWithSuffixInDirectory(CONCURRENT_HASH_TESTS_FOLDER, JAVA_EXTENSION));
+    Collections.addAll(concurrentHashFilesAndDependencies, SUPPORT_LIBS);
+    Path[] classesToCompile = concurrentHashFilesAndDependencies.toArray(new Path[0]);
+    File concurrentHashClassesDir = new File(CONCURRENT_HASH_COMPILED_TESTS_FOLDER.toString());
+    assert concurrentHashClassesDir.exists() || concurrentHashClassesDir.mkdirs();
+    javac(CfVm.JDK11, getStaticTemp())
+        .addClasspathFiles(
+            Collections.singletonList(Paths.get(JDK_TESTS_BUILD_DIR + "testng-6.10.jar")))
+        .addSourceFiles(classesToCompile)
+        .setOutputPath(CONCURRENT_HASH_COMPILED_TESTS_FOLDER)
+        .compile();
     CONCURRENT_HASH_COMPILED_TESTS_FILES =
         getAllFilesWithSuffixInDirectory(CONCURRENT_HASH_COMPILED_TESTS_FOLDER, CLASS_EXTENSION);
-    assert CONCURRENT_COMPILED_TESTS_FILES.length > 0;
     assert CONCURRENT_HASH_COMPILED_TESTS_FILES.length > 0;
   }
 

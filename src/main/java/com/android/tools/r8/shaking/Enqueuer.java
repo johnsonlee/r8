@@ -11,6 +11,7 @@ import static com.android.tools.r8.shaking.EnqueuerUtils.toImmutableSortedMap;
 
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.dex.IndexedItemCollection;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
@@ -38,6 +39,7 @@ import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.KeyedDexItem;
 import com.android.tools.r8.graph.PresortedComparable;
 import com.android.tools.r8.graph.ResolutionResult;
+import com.android.tools.r8.graph.ResolutionResult.FailedResolutionResult;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
@@ -60,6 +62,7 @@ import com.android.tools.r8.shaking.GraphReporter.KeepReasonWitness;
 import com.android.tools.r8.shaking.RootSetBuilder.ConsequentRootSet;
 import com.android.tools.r8.shaking.RootSetBuilder.RootSet;
 import com.android.tools.r8.shaking.ScopedDexMethodSet.AddMethodIfMoreVisibleResult;
+import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
@@ -177,6 +180,9 @@ public class Enqueuer {
    * for these.
    */
   private final SetWithReportedReason<DexProgramClass> liveTypes;
+
+  /** Set of types whose class initializer may execute. */
+  private final SetWithReportedReason<DexProgramClass> initializedTypes;
 
   /** Set of live types defined in the library and classpath. Used to avoid duplicate tracing. */
   private final Set<DexClass> liveNonProgramTypes = Sets.newIdentityHashSet();
@@ -314,6 +320,7 @@ public class Enqueuer {
 
     liveTypes = new SetWithReportedReason<>();
     liveAnnotations = new SetWithReason<>(graphReporter::registerAnnotation);
+    initializedTypes = new SetWithReportedReason<>();
     instantiatedTypes = new SetWithReason<>(graphReporter::registerClass);
     targetedMethods = new SetWithReason<>(graphReporter::registerMethod);
     // This set is only populated in edge cases due to multiple default interface methods.
@@ -1186,16 +1193,6 @@ public class Enqueuer {
     // CF libraries can be used by Android apps. See b/136698023 for more information.
     ensureMethodsContinueToWidenAccess(holder, seen, reason);
 
-    // We also need to add the corresponding <clinit> to the set of live methods, as otherwise
-    // static field initialization (and other class-load-time sideeffects) will not happen.
-    if (holder.hasClassInitializer()) {
-      DexEncodedMethod clinit = holder.getClassInitializer();
-      if (clinit != null && clinit.getOptimizationInfo().mayHaveSideEffects()) {
-        assert clinit.method.holder == holder.type;
-        markDirectStaticOrConstructorMethodAsLive(holder, clinit, reason);
-      }
-    }
-
     if (holder.isSerializable(appView)) {
       enqueueFirstNonSerializableClassInitializer(holder, reason);
     }
@@ -1317,15 +1314,43 @@ public class Enqueuer {
 
     // Only mark methods for which invocation will succeed at runtime live.
     if (encodedMethod.isStatic()) {
-      registerClassInitializer(clazz, reason);
+      markDirectAndIndirectClassInitializersAsLive(clazz);
       markDirectStaticOrConstructorMethodAsLive(clazz, encodedMethod, reason);
     }
   }
 
-  private void registerClassInitializer(DexProgramClass definition, KeepReason reason) {
-    if (definition.hasClassInitializer()) {
-      graphReporter.registerMethod(definition.getClassInitializer(), reason);
+  private void markDirectAndIndirectClassInitializersAsLive(DexProgramClass clazz) {
+    Deque<DexProgramClass> worklist = DequeUtils.newArrayDeque(clazz);
+    Set<DexProgramClass> visited = SetUtils.newIdentityHashSet(clazz);
+    while (!worklist.isEmpty()) {
+      DexProgramClass current = worklist.removeFirst();
+      assert visited.contains(current);
+
+      if (!markDirectClassInitializerAsLive(current)) {
+        continue;
+      }
+
+      // Mark all class initializers in all super types as live.
+      for (DexType superType : clazz.allImmediateSupertypes()) {
+        DexProgramClass superClass = getProgramClassOrNull(superType);
+        if (superClass != null && visited.add(superClass)) {
+          worklist.add(superClass);
+        }
+      }
     }
+  }
+
+  /** Returns true if the class initializer became live for the first time. */
+  private boolean markDirectClassInitializerAsLive(DexProgramClass clazz) {
+    DexEncodedMethod clinit = clazz.getClassInitializer();
+    KeepReasonWitness witness = graphReporter.reportReachableClassInitializer(clazz, clinit);
+    if (!initializedTypes.add(clazz, witness)) {
+      return false;
+    }
+    if (clinit != null && clinit.getOptimizationInfo().mayHaveSideEffects()) {
+      markDirectStaticOrConstructorMethodAsLive(clazz, clinit, witness);
+    }
+    return true;
   }
 
   // Package protected due to entry point from worklist.
@@ -1463,6 +1488,8 @@ public class Enqueuer {
     }
     // This class becomes live, so it and all its supertypes become live types.
     markTypeAsLive(clazz, graphReporter.registerClass(clazz, reason));
+    // Instantiation triggers class initialization.
+    markDirectAndIndirectClassInitializersAsLive(clazz);
     // For all methods of the class, if we have seen a call, mark the method live.
     // We only do this for virtual calls, as the other ones will be done directly.
     transitionMethodsForInstantiatedClass(clazz);
@@ -1708,7 +1735,7 @@ public class Enqueuer {
       return;
     }
 
-    registerClassInitializer(clazz, reason);
+    markDirectAndIndirectClassInitializersAsLive(clazz);
 
     // This field might be an instance field reachable from a static context, e.g. a getStatic that
     // resolves to an instance field. We have to keep the instance field nonetheless, as otherwise
@@ -2014,13 +2041,18 @@ public class Enqueuer {
       DexMethod method, boolean interfaceInvoke, KeepReason reason) {
     ResolutionResult resolutionResult =
         appInfo.resolveMethod(method.holder, method, interfaceInvoke);
-    if (!resolutionResult.hasSingleTarget()) {
+    if (resolutionResult.isFailedResolution()) {
       // If the resolution fails, mark each dependency causing a failure.
-      markFailedResolutionTargets(resolutionResult, reason);
+      markFailedResolutionTargets(resolutionResult.asFailedResolution(), reason);
       return MarkedResolutionTarget.unresolved();
     }
 
     DexEncodedMethod resolutionTarget = resolutionResult.getSingleTarget();
+    if (resolutionTarget == null) {
+      reportMissingMethod(method);
+      return MarkedResolutionTarget.unresolved();
+    }
+
     DexClass resolutionTargetClass = appInfo.definitionFor(resolutionTarget.method.holder);
     if (resolutionTargetClass == null) {
       reportMissingClass(resolutionTarget.method.holder);
@@ -2042,8 +2074,12 @@ public class Enqueuer {
     return new MarkedResolutionTarget(resolutionTargetClass, resolutionTarget);
   }
 
-  private void markFailedResolutionTargets(ResolutionResult failedResolution, KeepReason reason) {
-    failedResolution.forEachTarget(
+  private void markFailedResolutionTargets(
+      FailedResolutionResult failedResolution, KeepReason reason) {
+    failedResolution.forEachFailureDependency(
+        clazz -> {
+          throw new Unimplemented();
+        },
         method -> {
           DexProgramClass clazz = getProgramClassOrNull(method.method.holder);
           if (clazz != null) {
@@ -2458,6 +2494,10 @@ public class Enqueuer {
     DexProgramClass clazz = getProgramClassOrNull(method.method.holder);
     if (clazz == null) {
       return;
+    }
+
+    if (method.isStatic()) {
+      markDirectAndIndirectClassInitializersAsLive(clazz);
     }
 
     Set<DexEncodedMethod> superCallTargets = superInvokeDependencies.get(method);

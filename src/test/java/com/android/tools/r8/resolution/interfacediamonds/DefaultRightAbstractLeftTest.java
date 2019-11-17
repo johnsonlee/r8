@@ -10,24 +10,17 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime;
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.resolution.SingleTargetLookupTest;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.util.ASMifier;
 
 @RunWith(Parameterized.class)
 public class DefaultRightAbstractLeftTest extends TestBase {
@@ -53,21 +46,20 @@ public class DefaultRightAbstractLeftTest extends TestBase {
     AppInfoWithLiveness appInfo =
         SingleTargetLookupTest.createAppInfoWithLiveness(
             buildClasses(CLASSES, Collections.emptyList())
-                .addClassProgramData(Collections.singletonList(DumpB.dump()))
+                .addClassProgramData(Collections.singletonList(transformB()))
                 .build(),
             Main.class);
     DexMethod method = SingleTargetLookupTest.buildMethod(B.class, "f", appInfo);
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
-    List<DexEncodedMethod> resolutionTargets = resolutionResult.asListOfTargets();
-    assertEquals(1, resolutionTargets.size());
-    assertEquals(R.class.getTypeName(), resolutionTargets.get(0).method.holder.toSourceString());
+    DexEncodedMethod resolutionTarget = resolutionResult.getSingleTarget();
+    assertEquals(R.class.getTypeName(), resolutionTarget.method.holder.toSourceString());
   }
 
   @Test
   public void testReference() throws Exception {
     testForRuntime(parameters.getRuntime(), parameters.getApiLevel())
         .addProgramClasses(CLASSES)
-        .addProgramClassFileData(DumpB.dump())
+        .addProgramClassFileData(transformB())
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("R::f");
   }
@@ -76,7 +68,7 @@ public class DefaultRightAbstractLeftTest extends TestBase {
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramClasses(CLASSES)
-        .addProgramClassFileData(DumpB.dump())
+        .addProgramClassFileData(transformB())
         .addKeepMainRule(Main.class)
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), Main.class)
@@ -109,42 +101,7 @@ public class DefaultRightAbstractLeftTest extends TestBase {
     }
   }
 
-  static class DumpB implements Opcodes {
-
-    public static void main(String[] args) throws Exception {
-      ASMifier.main(
-          new String[] {"-debug", ToolHelper.getClassFileForTestClass(B.class).toString()});
-    }
-
-    public static byte[] dump() throws Exception {
-
-      ClassWriter classWriter = new ClassWriter(0);
-      MethodVisitor methodVisitor;
-
-      classWriter.visit(
-          V1_8,
-          ACC_PUBLIC | ACC_SUPER,
-          DescriptorUtils.getBinaryNameFromJavaType(B.class.getTypeName()),
-          null,
-          "java/lang/Object",
-          new String[] {
-            // Manually added 'implements L'.
-            DescriptorUtils.getBinaryNameFromJavaType(L.class.getTypeName()),
-            DescriptorUtils.getBinaryNameFromJavaType(R.class.getTypeName())
-          });
-
-      {
-        methodVisitor = classWriter.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
-        methodVisitor.visitCode();
-        methodVisitor.visitVarInsn(ALOAD, 0);
-        methodVisitor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
-        methodVisitor.visitInsn(RETURN);
-        methodVisitor.visitMaxs(1, 1);
-        methodVisitor.visitEnd();
-      }
-      classWriter.visitEnd();
-
-      return classWriter.toByteArray();
-    }
+  private static byte[] transformB() throws Exception {
+    return transformer(B.class).setImplements(L.class, R.class).transform();
   }
 }

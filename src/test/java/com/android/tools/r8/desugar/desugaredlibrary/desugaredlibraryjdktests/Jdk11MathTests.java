@@ -12,6 +12,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.Assume;
@@ -65,9 +66,19 @@ public class Jdk11MathTests extends TestBase {
 
   @BeforeClass
   public static void compileMathClasses() throws Exception {
-    ToolHelper.runJavac(CfVm.JDK11, null, JDK_11_MATH_TESTS_DIR, JDK_11_MATH_JAVA_FILES);
-    ToolHelper.runJavac(
-        CfVm.JDK11, null, JDK_11_STRICT_MATH_TESTS_DIR, JDK_11_STRICT_MATH_JAVA_FILES);
+    File mathClassesDir = new File(JDK_11_MATH_TESTS_DIR.toString());
+    assert mathClassesDir.exists() || mathClassesDir.mkdirs();
+    javac(CfVm.JDK11, getStaticTemp())
+        .addSourceFiles(JDK_11_MATH_JAVA_FILES)
+        .setOutputPath(JDK_11_MATH_TESTS_DIR)
+        .compile();
+
+    File strictMathClassesDir = new File(JDK_11_STRICT_MATH_TESTS_DIR.toString());
+    assert strictMathClassesDir.exists() || strictMathClassesDir.mkdirs();
+    javac(CfVm.JDK11, getStaticTemp())
+        .addSourceFiles(JDK_11_STRICT_MATH_JAVA_FILES)
+        .setOutputPath(JDK_11_STRICT_MATH_TESTS_DIR)
+        .compile();
   }
 
   @Test

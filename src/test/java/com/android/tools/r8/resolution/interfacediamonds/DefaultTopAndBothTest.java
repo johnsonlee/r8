@@ -5,34 +5,26 @@ package com.android.tools.r8.resolution.interfacediamonds;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime;
-import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.resolution.SingleTargetLookupTest;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
-import org.hamcrest.Matcher;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.util.ASMifier;
 
 @RunWith(Parameterized.class)
 public class DefaultTopAndBothTest extends TestBase {
@@ -57,69 +49,38 @@ public class DefaultTopAndBothTest extends TestBase {
     AppInfoWithLiveness appInfo =
         SingleTargetLookupTest.createAppInfoWithLiveness(
             buildClasses(CLASSES, Collections.emptyList())
-                .addClassProgramData(Collections.singletonList(DumpB.dump()))
+                .addClassProgramData(Collections.singletonList(transformB()))
                 .build(),
             Main.class);
     DexMethod method = SingleTargetLookupTest.buildMethod(B.class, "f", appInfo);
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
-    List<DexEncodedMethod> resolutionTargets = resolutionResult.asListOfTargets();
-    assertEquals(2, resolutionTargets.size());
-    assertTrue(
-        resolutionTargets.stream()
-            .anyMatch(m -> m.method.holder.toSourceString().equals(L.class.getTypeName())));
-    assertTrue(
-        resolutionTargets.stream()
-            .anyMatch(m -> m.method.holder.toSourceString().equals(R.class.getTypeName())));
+    Set<String> holders = new HashSet<>();
+    resolutionResult
+        .asFailedResolution()
+        .forEachFailureDependency(
+            clazz -> fail("Unexpected class dependency"),
+            target -> holders.add(target.method.holder.toSourceString()));
+    assertEquals(ImmutableSet.of(L.class.getTypeName(), R.class.getTypeName()), holders);
   }
 
   @Test
   public void testReference() throws Exception {
     testForRuntime(parameters)
         .addProgramClasses(CLASSES)
-        .addProgramClassFileData(DumpB.dump())
+        .addProgramClassFileData(transformB())
         .run(parameters.getRuntime(), Main.class)
-        .assertFailureWithErrorThatMatches(getExpectedError(false));
+        .assertFailureWithErrorThatMatches(containsString("IncompatibleClassChangeError"));
   }
 
   @Test
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramClasses(CLASSES)
-        .addProgramClassFileData(DumpB.dump())
+        .addProgramClassFileData(transformB())
         .addKeepMainRule(Main.class)
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), Main.class)
-        .assertFailureWithErrorThatMatches(getExpectedError(true));
-  }
-
-  private boolean isDesugaringDefaultInterfaceMethods() {
-    return parameters.getApiLevel() != null
-        && parameters.getApiLevel().getLevel() < AndroidApiLevel.N.getLevel();
-  }
-
-  private Matcher<String> getExpectedError(boolean isR8) {
-    // TODO(b/144085169): JDK 11 execution produces a different error condition on the R8 output?
-    if (isR8
-        && parameters.getRuntime().isCf()
-        && parameters.getRuntime().asCf().getVm() == CfVm.JDK11) {
-      return containsString("AbstractMethodError");
-    }
-    // TODO(b/72208584): Default interface method desugaring changes error behavior.
-    if (isDesugaringDefaultInterfaceMethods()) {
-      if (isR8) {
-        // TODO(b/144085169): Maybe R8 introduces another error due to removal of targets?
-        return containsString("AbstractMethodError");
-      }
-      // Dalvik fails with a verify error instead of the runtime failure (unless R8 removed the
-      // methods as indicated by the above.
-      if (parameters.getRuntime().asDex().getVm().getVersion().isOlderThanOrEqual(Version.V4_4_4)) {
-        return containsString("VerifyError");
-      }
-      return containsString("AbstractMethodError");
-    }
-    // Reference result should be an incompatible class change error due to the two non-abstract
-    // methods in the maximally specific set.
-    return containsString("IncompatibleClassChangeError");
+        .assertFailureWithErrorThatMatches(containsString("IncompatibleClassChangeError"));
   }
 
   public interface T {
@@ -154,42 +115,7 @@ public class DefaultTopAndBothTest extends TestBase {
     }
   }
 
-  static class DumpB implements Opcodes {
-
-    public static void main(String[] args) throws Exception {
-      ASMifier.main(
-          new String[] {"-debug", ToolHelper.getClassFileForTestClass(B.class).toString()});
-    }
-
-    public static byte[] dump() {
-
-      ClassWriter classWriter = new ClassWriter(0);
-      MethodVisitor methodVisitor;
-
-      classWriter.visit(
-          V1_8,
-          ACC_PUBLIC | ACC_SUPER,
-          DescriptorUtils.getBinaryNameFromJavaType(B.class.getTypeName()),
-          null,
-          "java/lang/Object",
-          new String[] {
-            DescriptorUtils.getBinaryNameFromJavaType(L.class.getTypeName()),
-            // Manually added 'implements R'.
-            DescriptorUtils.getBinaryNameFromJavaType(R.class.getTypeName())
-          });
-
-      {
-        methodVisitor = classWriter.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
-        methodVisitor.visitCode();
-        methodVisitor.visitVarInsn(ALOAD, 0);
-        methodVisitor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
-        methodVisitor.visitInsn(RETURN);
-        methodVisitor.visitMaxs(1, 1);
-        methodVisitor.visitEnd();
-      }
-      classWriter.visitEnd();
-
-      return classWriter.toByteArray();
-    }
+  public static byte[] transformB() throws Exception {
+    return transformer(B.class).setImplements(L.class, R.class).transform();
   }
 }
