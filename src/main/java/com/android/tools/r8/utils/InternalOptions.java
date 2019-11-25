@@ -444,6 +444,8 @@ public class InternalOptions {
   public boolean debug = false;
 
   private final ProtoShrinkingOptions protoShrinking = new ProtoShrinkingOptions();
+  private final KotlinOptimizationOptions kotlinOptimizationOptions =
+      new KotlinOptimizationOptions();
   public final TestingOptions testing = new TestingOptions();
 
   public List<ProguardConfigurationRule> mainDexKeepRules = ImmutableList.of();
@@ -461,6 +463,10 @@ public class InternalOptions {
 
   public ProtoShrinkingOptions protoShrinking() {
     return protoShrinking;
+  }
+
+  public KotlinOptimizationOptions kotlinOptimizationOptions() {
+    return kotlinOptimizationOptions;
   }
 
   public static boolean shouldEnableKeepRuleSynthesisForRecompilation() {
@@ -925,6 +931,11 @@ public class InternalOptions {
     public int threshold = 20;
   }
 
+  public static class KotlinOptimizationOptions {
+    public boolean disableKotlinSpecificOptimizations =
+        System.getProperty("com.android.tools.r8.disableKotlinSpecificOptimizations") != null;
+  }
+
   public static class ProtoShrinkingOptions {
 
     public boolean enableGeneratedExtensionRegistryShrinking =
@@ -933,11 +944,16 @@ public class InternalOptions {
     public boolean enableGeneratedMessageLiteShrinking =
         System.getProperty("com.android.tools.r8.generatedMessageLiteShrinking") != null;
 
+    public boolean enableGeneratedMessageLiteBuilderShrinking =
+        System.getProperty("com.android.tools.r8.generatedMessageLiteBuilderShrinking") != null;
+
     public boolean traverseOneOfAndRepeatedProtoFields =
         System.getProperty("com.android.tools.r8.traverseOneOfAndRepeatedProtoFields") == null;
 
     public boolean isProtoShrinkingEnabled() {
-      return enableGeneratedExtensionRegistryShrinking || enableGeneratedMessageLiteShrinking;
+      return enableGeneratedExtensionRegistryShrinking
+          || enableGeneratedMessageLiteShrinking
+          || enableGeneratedMessageLiteBuilderShrinking;
     }
   }
 
@@ -970,6 +986,7 @@ public class InternalOptions {
 
     public boolean allowTypeErrors =
         !Version.isDev() || System.getProperty("com.android.tools.r8.allowTypeErrors") != null;
+    public boolean allowInvokeErrors = false;
     public boolean disableL8AnnotationRemoval = false;
     public boolean allowUnusedProguardConfigurationRules = true;
     public boolean reportUnusedProguardConfigurationRules = false;
@@ -998,7 +1015,9 @@ public class InternalOptions {
     public PrintStream whyAreYouNotInliningConsumer = System.out;
     public boolean trackDesugaredAPIConversions =
         System.getProperty("com.android.tools.r8.trackDesugaredAPIConversions") != null;
-    public boolean keepInheritedInterfaceMethods = false;
+
+    // TODO(b/144781417): This is disabled by default as some test apps appear to have such classes.
+    public boolean allowNonAbstractClassesWithAbstractMethods = true;
 
     // Flag to turn on/off JDK11+ nest-access control even when not required (Cf backend)
     public boolean enableForceNestBasedAccessDesugaringForTest = false;

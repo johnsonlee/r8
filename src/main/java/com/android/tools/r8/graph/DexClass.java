@@ -3,13 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.OptionalBool;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.kotlin.KotlinInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.PredicateUtils;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicates;
@@ -579,6 +579,38 @@ public abstract class DexClass extends DexDefinition {
   public DexEncodedMethod lookupMethod(DexMethod method) {
     DexEncodedMethod result = lookupDirectMethod(method);
     return result == null ? lookupVirtualMethod(method) : result;
+  }
+
+  public DexEncodedMethod lookupSignaturePolymorphicMethod(
+      DexString methodName, DexItemFactory factory) {
+    if (type != factory.methodHandleType && type != factory.varHandleType) {
+      return null;
+    }
+    DexEncodedMethod matchingName = null;
+    DexEncodedMethod signaturePolymorphicMethod = null;
+    for (DexEncodedMethod method : virtualMethods) {
+      if (method.method.name == methodName) {
+        if (matchingName != null) {
+          // The jvm spec, section 5.4.3.3 details that there must be exactly one method with the
+          // given name only.
+          return null;
+        }
+        matchingName = method;
+        if (isSignaturePolymorphicMethod(method, factory)) {
+          signaturePolymorphicMethod = method;
+        }
+      }
+    }
+    return signaturePolymorphicMethod;
+  }
+
+  private boolean isSignaturePolymorphicMethod(DexEncodedMethod method, DexItemFactory factory) {
+    assert method.method.holder == factory.methodHandleType
+        || method.method.holder == factory.varHandleType;
+    return method.accessFlags.isVarargs()
+        && method.accessFlags.isNative()
+        && method.method.proto.parameters.size() == 1
+        && method.method.proto.parameters.values[0] != factory.objectArrayType;
   }
 
   private <T extends DexItem, S extends Descriptor<T, S>> T lookupTarget(T[] items, S descriptor) {

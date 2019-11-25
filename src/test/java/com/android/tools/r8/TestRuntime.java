@@ -6,31 +6,20 @@ package com.android.tools.r8;
 
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.ToolHelper.DexVm;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.google.common.collect.ImmutableMap;
+import com.android.tools.r8.utils.ListUtils;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
 // Base class for the runtime structure in the test parameters.
-public class TestRuntime {
-
-  public static TestRuntime fromName(String name) {
-    if (NoneRuntime.NAME.equals(name)) {
-      return NoneRuntime.getInstance();
-    }
-    CfVm cfVm = CfVm.fromName(name);
-    if (cfVm != null) {
-      return new CfRuntime(cfVm);
-    }
-    if (name.startsWith("dex-")) {
-      DexVm dexVm = DexVm.fromShortName(name.substring(4) + "_host");
-      if (dexVm != null) {
-        return new DexRuntime(dexVm);
-      }
-    }
-    return null;
-  }
+public abstract class TestRuntime {
 
   // Enum describing the possible/supported CF runtimes.
   public enum CfVm {
@@ -79,51 +68,99 @@ public class TestRuntime {
     }
   }
 
-  // Values are the path in third_party/openjdk to the repository with bin
-  public static ImmutableMap<CfVm, Path> CHECKED_IN_JDKS = initializeCheckedInJDKs();
+  private static final Path JDK8_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk8");
+  private static final Path JDK9_PATH =
+      Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "openjdk-9.0.4");
+  private static final Path JDK11_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-11");
 
-  public static ImmutableMap<CfVm, Path> initializeCheckedInJDKs() {
+  public static CfRuntime getCheckedInJdk8() {
+    Path home;
     if (ToolHelper.isLinux()) {
-      return ImmutableMap.of(
-          CfVm.JDK8,
-          Paths.get("jdk8", "linux-x86"),
-          CfVm.JDK9,
-          Paths.get("openjdk-9.0.4", "linux"),
-          CfVm.JDK11,
-          Paths.get("jdk-11", "Linux"));
+      home = JDK8_PATH.resolve("linux-x86");
+    } else if (ToolHelper.isMac()) {
+      home = JDK8_PATH.resolve("darwin-x86");
+    } else {
+      assert ToolHelper.isWindows();
+      return null;
     }
-    if (ToolHelper.isMac()) {
-      return ImmutableMap.of(
-          CfVm.JDK8,
-          Paths.get("jdk8", "darwin-x86"),
-          CfVm.JDK9,
-          Paths.get("openjdk-9.0.4", "osx"),
-          CfVm.JDK11,
-          Paths.get("jdk-11", "Mac", "Contents", "Home"));
+    return new CfRuntime(CfVm.JDK8, home);
+  }
+
+  public static CfRuntime getCheckedInJdk9() {
+    Path home;
+    if (ToolHelper.isLinux()) {
+      home = JDK9_PATH.resolve("linux");
+    } else if (ToolHelper.isMac()) {
+      home = JDK9_PATH.resolve("osx");
+    } else {
+      assert ToolHelper.isWindows();
+      home = JDK9_PATH.resolve("windows");
     }
-    assert ToolHelper.isWindows();
-    return ImmutableMap.of(
-        CfVm.JDK9,
-        Paths.get("openjdk-9.0.4", "windows"),
-        CfVm.JDK11,
-        Paths.get("jdk-11", "Windows"));
+    return new CfRuntime(CfVm.JDK9, home);
   }
 
-  public static boolean isCheckedInJDK(CfVm jdk) {
-    return CHECKED_IN_JDKS.containsKey(jdk);
+  public static CfRuntime getCheckedInJdk11() {
+    Path home;
+    if (ToolHelper.isLinux()) {
+      home = JDK11_PATH.resolve("Linux");
+    } else if (ToolHelper.isMac()) {
+      home = Paths.get(JDK11_PATH.toString(), "Mac", "Contents", "Home");
+    } else {
+      assert ToolHelper.isWindows();
+      home = JDK11_PATH.resolve("Windows");
+    }
+    return new CfRuntime(CfVm.JDK11, home);
   }
 
-  public static Path getCheckedInJDKHome(CfVm jdk) {
-    return Paths.get("third_party", "openjdk").resolve(CHECKED_IN_JDKS.get(jdk));
+  public static List<CfRuntime> getCheckedInCfRuntimes() {
+    CfRuntime[] jdks =
+        new CfRuntime[] {getCheckedInJdk8(), getCheckedInJdk9(), getCheckedInJdk11()};
+    Builder<CfRuntime> builder = ImmutableList.builder();
+    for (CfRuntime jdk : jdks) {
+      if (jdk != null) {
+        builder.add(jdk);
+      }
+    }
+    return builder.build();
   }
 
-  public static Path getCheckedInJDKPathFor(CfVm jdk) {
-    return getCheckedInJDKHome(jdk).resolve(Paths.get("bin", "java"));
+  private static List<DexRuntime> getCheckedInDexRuntimes() {
+    if (ToolHelper.isLinux()) {
+      return ListUtils.map(Arrays.asList(DexVm.Version.values()), DexRuntime::new);
+    }
+    assert ToolHelper.isMac() || ToolHelper.isWindows();
+    return ImmutableList.of();
   }
 
+  // For compatibility with old tests not specifying a Java runtime
+  @Deprecated
   public static TestRuntime getDefaultJavaRuntime() {
-    // For compatibility with old tests not specifying a Java runtime
-    return new CfRuntime(CfVm.JDK9);
+    return getCheckedInJdk9();
+  }
+
+  public static List<TestRuntime> getCheckedInRuntimes() {
+    return ImmutableList.<TestRuntime>builder()
+        .addAll(getCheckedInCfRuntimes())
+        .addAll(getCheckedInDexRuntimes())
+        .build();
+  }
+
+  public static TestRuntime getSystemRuntime() {
+    String version = System.getProperty("java.version");
+    String home = System.getProperty("java.home");
+    if (version == null || version.isEmpty() || home == null || home.isEmpty()) {
+      throw new Unimplemented("Unable to create a system runtime");
+    }
+    if (version.startsWith("1.8.")) {
+      return new CfRuntime(CfVm.JDK8, Paths.get(home));
+    }
+    if (version.startsWith("9.")) {
+      return new CfRuntime(CfVm.JDK9, Paths.get(home));
+    }
+    if (version.startsWith("11.")) {
+      return new CfRuntime(CfVm.JDK11, Paths.get(home));
+    }
+    throw new Unimplemented("No support for JDK version: " + version);
   }
 
   public static class NoneRuntime extends TestRuntime {
@@ -138,8 +175,23 @@ public class TestRuntime {
     }
 
     @Override
+    public String name() {
+      return NAME;
+    }
+
+    @Override
     public String toString() {
       return NAME;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return this == other;
+    }
+
+    @Override
+    public int hashCode() {
+      return System.identityHashCode(this);
     }
   }
 
@@ -158,6 +210,11 @@ public class TestRuntime {
     }
 
     @Override
+    public String name() {
+      return "dex-" + vm.getVersion().toString();
+    }
+
+    @Override
     public boolean isDex() {
       return true;
     }
@@ -172,6 +229,20 @@ public class TestRuntime {
     }
 
     @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof DexRuntime)) {
+        return false;
+      }
+      DexRuntime dexRuntime = (DexRuntime) other;
+      return vm == dexRuntime.vm;
+    }
+
+    @Override
+    public int hashCode() {
+      return vm.hashCode();
+    }
+
+    @Override
     public String toString() {
       return "dex-" + vm.getVersion().toString();
     }
@@ -183,12 +254,26 @@ public class TestRuntime {
 
   // Wrapper for the CF runtimes.
   public static class CfRuntime extends TestRuntime {
-
     private final CfVm vm;
+    private final Path home;
 
-    public CfRuntime(CfVm vm) {
+    public CfRuntime(CfVm vm, Path home) {
       assert vm != null;
       this.vm = vm;
+      this.home = home.toAbsolutePath();
+    }
+
+    @Override
+    public String name() {
+      return vm.name().toLowerCase();
+    }
+
+    public Path getJavaHome() {
+      return home;
+    }
+
+    public Path getJavaExecutable() {
+      return home.resolve("bin").resolve("java");
     }
 
     @Override
@@ -212,7 +297,24 @@ public class TestRuntime {
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof CfRuntime && ((CfRuntime) obj).vm.equals(vm);
+      if (!(obj instanceof CfRuntime)) {
+        return false;
+      }
+      CfRuntime cfRuntime = (CfRuntime) obj;
+      return vm == cfRuntime.vm && home.equals(cfRuntime.home);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(vm, home);
+    }
+
+    public boolean isNewerThan(CfVm version) {
+      return !vm.lessThanOrEqual(version);
+    }
+
+    public boolean isNewerThanOrEqual(CfVm version) {
+      return vm == version || !vm.lessThanOrEqual(version);
     }
   }
 
@@ -241,4 +343,12 @@ public class TestRuntime {
     }
     throw new Unreachable("Unexpected runtime without backend: " + this);
   }
+
+  @Override
+  public abstract boolean equals(Object other);
+
+  @Override
+  public abstract int hashCode();
+
+  public abstract String name();
 }

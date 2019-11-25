@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.OptionalBool;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis.InitializedClassesInInstanceMethods;
 import com.android.tools.r8.ir.analysis.proto.GeneratedExtensionRegistryShrinker;
+import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteBuilderShrinker;
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteShrinker;
 import com.android.tools.r8.ir.analysis.proto.ProtoShrinker;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
@@ -16,6 +16,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.RootSetBuilder.RootSet;
 import com.android.tools.r8.shaking.VerticalClassMerger.VerticallyMergedClasses;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.OptionalBool;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import java.util.Set;
@@ -236,6 +237,14 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier {
       Function<GeneratedMessageLiteShrinker, U> fn, U defaultValue) {
     if (protoShrinker != null && protoShrinker.generatedMessageLiteShrinker != null) {
       return fn.apply(protoShrinker.generatedMessageLiteShrinker);
+    }
+    return defaultValue;
+  }
+
+  public <U> U withGeneratedMessageLiteBuilderShrinker(
+      Function<GeneratedMessageLiteBuilderShrinker, U> fn, U defaultValue) {
+    if (protoShrinker != null && protoShrinker.generatedMessageLiteBuilderShrinker != null) {
+      return fn.apply(protoShrinker.generatedMessageLiteBuilderShrinker);
     }
     return defaultValue;
   }

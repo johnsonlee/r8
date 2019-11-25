@@ -18,6 +18,7 @@ import time
 import utils
 import zipfile
 from xml.dom import minidom
+from datetime import datetime
 
 import as_utils
 import update_prebuilds_in_android
@@ -681,7 +682,8 @@ def BuildAppWithSelectedShrinkers(
 def BuildAppWithShrinker(
     app, repo, shrinker, checkout_dir, out_dir, temp_dir, options,
     keepRuleSynthesisForRecompilation=False):
-  print('Building {} with {}{}'.format(
+  print('[{}] Building {} with {}{}'.format(
+      datetime.now().strftime("%H:%M:%S"),
       app.name,
       shrinker,
       ' for recompilation' if keepRuleSynthesisForRecompilation else ''))
@@ -1293,7 +1295,13 @@ def main(argv):
 
   with utils.TempDir() as temp_dir:
     if not (options.no_build or options.golem):
-      gradle.RunGradle(['r8', 'r8lib', '-Pno_internal'])
+      gradle.RunGradle(['r8', '-Pno_internal'])
+      build_r8lib = False
+      for shrinker in options.shrinker:
+        if IsMinifiedR8(shrinker):
+          build_r8lib = True
+      if build_r8lib:
+        gradle.RunGradle(['r8lib', '-Pno_internal'])
 
     if options.hash:
       # Download r8-<hash>.jar from

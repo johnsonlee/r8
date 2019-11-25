@@ -180,6 +180,10 @@ public class AppInfo implements DexDefinitionSupplier {
     return existing != null ? existing : typeDefinitions;
   }
 
+  public void invalidateTypeCacheFor(DexType type) {
+    definitions.remove(type);
+  }
+
   /**
    * Lookup static method following the super chain from the holder of {@code method}.
    * <p>
@@ -365,25 +369,15 @@ public class AppInfo implements DexDefinitionSupplier {
    * Section 5.4.3.3 of the JVM Spec</a>.
    */
   private DexEncodedMethod resolveMethodOnClassStep2(DexClass clazz, DexMethod method) {
-    // Pt. 1: Signature polymorphic method check. Those are only allowed on
-    //        java.lang.invoke.MethodHandle, so we only need to look for it if we are looking at
-    //        that type.
+    // Pt. 1: Signature polymorphic method check.
     // See also <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-2.html#jvms-2.9">
     // Section 2.9 of the JVM Spec</a>.
-    if (clazz.type == dexItemFactory.methodHandleType) {
-      DexMethod signaturePolymorphic = dexItemFactory.createMethod(clazz.type,
-          dexItemFactory.createProto(
-              dexItemFactory.objectType, dexItemFactory.objectArrayType),
-          method.name);
-      DexEncodedMethod result = clazz.lookupMethod(signaturePolymorphic);
-      // Check we found a result and that it has the required access flags for signature polymorphic
-      // functions.
-      if (result != null && result.accessFlags.isNative() && result.accessFlags.isVarargs()) {
-        return result;
-      }
+    DexEncodedMethod result = clazz.lookupSignaturePolymorphicMethod(method.name, dexItemFactory);
+    if (result != null) {
+      return result;
     }
     // Pt 2: Find a method that matches the descriptor.
-    DexEncodedMethod result = clazz.lookupMethod(method);
+    result = clazz.lookupMethod(method);
     if (result != null) {
       return result;
     }
@@ -566,34 +560,6 @@ public class AppInfo implements DexDefinitionSupplier {
     return null;
   }
 
-  /**
-   * Implements the dispatch logic for a static invoke operation.
-   * <p>
-   * The only requirement is that the method is indeed static.
-   */
-  public DexEncodedMethod dispatchStaticInvoke(ResolutionResult resolvedMethod) {
-    assert checkIfObsolete();
-    DexEncodedMethod target = resolvedMethod.getSingleTarget();
-    if (target != null && target.accessFlags.isStatic()) {
-      return target;
-    }
-    return null;
-  }
-
-  /**
-   * Implements the dispatch logic for the direct parts of a invokespecial instruction.
-   * <p>
-   * The only requirement is that the method is not static.
-   */
-  public DexEncodedMethod dispatchDirectInvoke(ResolutionResult resolvedMethod) {
-    assert checkIfObsolete();
-    DexEncodedMethod target = resolvedMethod.getSingleTarget();
-    if (target != null && !target.accessFlags.isStatic()) {
-      return target;
-    }
-    return null;
-  }
-
   public boolean hasSubtyping() {
     assert checkIfObsolete();
     return false;
@@ -670,7 +636,7 @@ public class AppInfo implements DexDefinitionSupplier {
         return NoSuchMethodResult.INSTANCE;
       }
       // Fast path in the common case of a single method.
-      if (false && maximallySpecificMethods.size() == 1) {
+      if (maximallySpecificMethods.size() == 1) {
         return new SingleResolutionResult(maximallySpecificMethods.values().iterator().next());
       }
       DexEncodedMethod firstMaximallySpecificMethod = null;
@@ -696,7 +662,7 @@ public class AppInfo implements DexDefinitionSupplier {
       if (nonAbstractMethods.size() == 1) {
         return new SingleResolutionResult(nonAbstractMethods.get(0));
       }
-      return new IncompatibleClassResult(Collections.emptyList(), nonAbstractMethods);
+      return IncompatibleClassResult.create(nonAbstractMethods);
     }
   }
 

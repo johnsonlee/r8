@@ -670,6 +670,9 @@ public class MethodOptimizationInfoCollector {
   // declare a method called checkParameterIsNotNull(parameter, message) or
   // throwParameterIsNullException(parameterName) in a package that starts with "kotlin".
   private static boolean isKotlinNullCheck(Instruction instr, Value value, AppView<?> appView) {
+    if (appView.options().kotlinOptimizationOptions().disableKotlinSpecificOptimizations) {
+      return false;
+    }
     if (!instr.isInvokeStatic()) {
       return false;
     }
@@ -814,11 +817,12 @@ public class MethodOptimizationInfoCollector {
             appView
                 .appInfo()
                 .resolveMethodOnClass(clazz, appView.dexItemFactory().objectMethods.finalize);
-        for (DexEncodedMethod target : resolutionResult.asListOfTargets()) {
-          if (target.method != dexItemFactory.enumMethods.finalize
-              && target.method != dexItemFactory.objectMethods.finalize) {
+
+        DexEncodedMethod target = resolutionResult.getSingleTarget();
+        if (target != null
+            && target.method != dexItemFactory.enumMethods.finalize
+            && target.method != dexItemFactory.objectMethods.finalize) {
             return true;
-          }
         }
         return false;
       } else {

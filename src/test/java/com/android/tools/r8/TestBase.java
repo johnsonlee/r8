@@ -12,7 +12,6 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.DataResourceProvider.Visitor;
 import com.android.tools.r8.TestRuntime.CfRuntime;
-import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.ArtCommandBuilder;
 import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.ToolHelper.ProcessResult;
@@ -98,8 +97,9 @@ public class TestBase {
     return R8CompatTestBuilder.create(new TestState(temp), backend, forceProguardCompatibility);
   }
 
-  public static ExternalR8TestBuilder testForExternalR8(TemporaryFolder temp, Backend backend) {
-    return ExternalR8TestBuilder.create(new TestState(temp), backend);
+  public static ExternalR8TestBuilder testForExternalR8(
+      TemporaryFolder temp, Backend backend, TestRuntime runtime) {
+    return ExternalR8TestBuilder.create(new TestState(temp), backend, runtime);
   }
 
   public static D8TestBuilder testForD8(TemporaryFolder temp) {
@@ -134,8 +134,8 @@ public class TestBase {
     return testForR8Compat(temp, backend, forceProguardCompatibility);
   }
 
-  public ExternalR8TestBuilder testForExternalR8(Backend backend) {
-    return testForExternalR8(temp, backend);
+  public ExternalR8TestBuilder testForExternalR8(Backend backend, TestRuntime runtime) {
+    return testForExternalR8(temp, backend, runtime);
   }
 
   public D8TestBuilder testForD8() {
@@ -175,15 +175,19 @@ public class TestBase {
   }
 
   public JavaCompilerTool javac(CfRuntime jdk) {
-    return JavaCompilerTool.create(jdk.getVm(), temp);
+    return JavaCompilerTool.create(jdk, temp);
   }
 
-  public static JavaCompilerTool javac(CfVm jdk, TemporaryFolder temp) {
+  public static JavaCompilerTool javac(CfRuntime jdk, TemporaryFolder temp) {
     return JavaCompilerTool.create(jdk, temp);
   }
 
   public KotlinCompilerTool kotlinc(CfRuntime jdk) {
     return KotlinCompilerTool.create(jdk, temp);
+  }
+
+  public KotlinCompilerTool kotlinc(CfRuntime jdk, Path kotlincJar) {
+    return KotlinCompilerTool.create(jdk, temp, kotlincJar);
   }
 
   public static KotlinCompilerTool kotlinc(CfRuntime jdk, TemporaryFolder temp) {
@@ -1198,6 +1202,7 @@ public class TestBase {
     }
   }
 
+  @Deprecated
   public static Path runtimeJar(TestParameters parameters) {
     if (parameters.isDexRuntime()) {
       return ToolHelper.getAndroidJar(parameters.getRuntime().asDex().getMinApiLevel());
@@ -1207,7 +1212,6 @@ public class TestBase {
     }
   }
 
-  @Deprecated
   public static Path runtimeJar(Backend backend) {
     if (backend == Backend.DEX) {
       return ToolHelper.getDefaultAndroidJar();

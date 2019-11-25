@@ -7,27 +7,23 @@ package com.android.tools.r8.desugar.desugaredlibrary.desugaredlibraryjdktests;
 import static com.android.tools.r8.ToolHelper.JDK_TESTS_BUILD_DIR;
 import static com.android.tools.r8.utils.FileUtils.CLASS_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.JAVA_EXTENSION;
-import static junit.framework.TestCase.assertTrue;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.endsWith;
-import static org.hamcrest.CoreMatchers.not;
 
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestRuntime.CfVm;
+import com.android.tools.r8.TestRuntime;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.ir.desugar.DesugaredLibraryWrapperSynthesizer;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -77,7 +73,7 @@ public class Jdk11ConcurrentMapTests extends Jdk11CoreLibTestBase {
   public static void compileConcurrentClasses() throws Exception {
     File concurrentClassesDir = new File(CONCURRENT_COMPILED_TESTS_FOLDER.toString());
     assert concurrentClassesDir.exists() || concurrentClassesDir.mkdirs();
-    javac(CfVm.JDK11, getStaticTemp())
+    javac(TestRuntime.getCheckedInJdk11(), getStaticTemp())
         .addClasspathFiles(
             Collections.singletonList(Paths.get(JDK_TESTS_BUILD_DIR + "testng-6.10.jar")))
         .addSourceFiles(getAllFilesWithSuffixInDirectory(CONCURRENT_TESTS_FOLDER, JAVA_EXTENSION))
@@ -95,7 +91,7 @@ public class Jdk11ConcurrentMapTests extends Jdk11CoreLibTestBase {
     Path[] classesToCompile = concurrentHashFilesAndDependencies.toArray(new Path[0]);
     File concurrentHashClassesDir = new File(CONCURRENT_HASH_COMPILED_TESTS_FOLDER.toString());
     assert concurrentHashClassesDir.exists() || concurrentHashClassesDir.mkdirs();
-    javac(CfVm.JDK11, getStaticTemp())
+    javac(TestRuntime.getCheckedInJdk11(), getStaticTemp())
         .addClasspathFiles(
             Collections.singletonList(Paths.get(JDK_TESTS_BUILD_DIR + "testng-6.10.jar")))
         .addSourceFiles(classesToCompile)
@@ -110,6 +106,8 @@ public class Jdk11ConcurrentMapTests extends Jdk11CoreLibTestBase {
   public void testD8Concurrent() throws Exception {
     // TODO(b/134732760): Support Java 9+ libraries.
     // We skip the ConcurrentRemoveIf test because of the  non desugared class CompletableFuture.
+    Assume.assumeFalse("b/144975341",
+        parameters.getRuntime().asDex().getVm().getVersion() == Version.V10_0_0);
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     String verbosity = "2";
     testForD8()
@@ -120,7 +118,6 @@ public class Jdk11ConcurrentMapTests extends Jdk11CoreLibTestBase {
         .enableCoreLibraryDesugaring(parameters.getApiLevel(), keepRuleConsumer)
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
         .compile()
-        .inspect(this::assertNoConversions)
         .withArt6Plus64BitsLib()
         .addDesugaredCoreLibraryRunClassPath(
             this::buildDesugaredLibrary,
@@ -130,15 +127,6 @@ public class Jdk11ConcurrentMapTests extends Jdk11CoreLibTestBase {
         .run(parameters.getRuntime(), "TestNGMainRunner", verbosity, "ConcurrentModification")
         .assertSuccessWithOutputThatMatches(
             endsWith(StringUtils.lines("ConcurrentModification: SUCCESS")));
-  }
-
-  private void assertNoConversions(CodeInspector inspector) {
-    assertTrue(
-        inspector.allClasses().stream()
-            .noneMatch(
-                cl ->
-                    cl.getOriginalName()
-                        .startsWith(DesugaredLibraryWrapperSynthesizer.WRAPPER_PREFIX)));
   }
 
   private Path[] concurrentHashTestToCompile() {
@@ -175,6 +163,8 @@ public class Jdk11ConcurrentMapTests extends Jdk11CoreLibTestBase {
 
   @Test
   public void testD8ConcurrentHash() throws Exception {
+    Assume.assumeFalse("b/144975341",
+        parameters.getRuntime().asDex().getVm().getVersion() == Version.V10_0_0);
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     String verbosity = "2";
     D8TestCompileResult d8TestCompileResult =
@@ -191,7 +181,6 @@ public class Jdk11ConcurrentMapTests extends Jdk11CoreLibTestBase {
                 parameters.getApiLevel(),
                 keepRuleConsumer.get(),
                 shrinkDesugaredLibrary);
-    System.out.println(keepRuleConsumer.get());
     for (String className : concurrentHashTestNGTestsToRun()) {
       d8TestCompileResult
           .run(parameters.getRuntime(), "TestNGMainRunner", verbosity, className)
@@ -202,9 +191,7 @@ public class Jdk11ConcurrentMapTests extends Jdk11CoreLibTestBase {
       // Failure implies a runtime exception.
       // We ensure that everything could be resolved (no missing method or class)
       // with the assertion on stderr.
-      d8TestCompileResult
-          .run(parameters.getRuntime(), className).assertSuccess()
-          .assertStderrMatches(not(containsString("Could not")));
+      d8TestCompileResult.run(parameters.getRuntime(), className).assertSuccess();
     }
   }
 }

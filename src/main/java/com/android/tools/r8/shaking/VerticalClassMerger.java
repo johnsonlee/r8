@@ -327,6 +327,11 @@ public class VerticalClassMerger {
     for (DexMethod signature : appInfo.virtualMethodsTargetedByInvokeDirect) {
       markTypeAsPinned(signature.holder, AbortReason.UNHANDLED_INVOKE_DIRECT);
     }
+
+    // The set of targets that must remain for proper resolution error cases should not be merged.
+    for (DexMethod method : appInfo.targetedMethodsThatMustRemainNonAbstract) {
+      markTypeAsPinned(method.holder, AbortReason.RESOLUTION_FOR_METHODS_MAY_CHANGE);
+    }
   }
 
   private <T extends DexReference> void extractPinnedItems(Iterable<T> items, AbortReason reason) {
@@ -989,15 +994,15 @@ public class VerticalClassMerger {
           // Non-abstract methods are handled below (they cannot simply be moved to the subclass as
           // a virtual method, because they might be the target of an invoke-super instruction).
           if (virtualMethod.accessFlags.isAbstract()) {
+            // Abort if target is non-abstract and does not override the abstract method.
+            if (!target.isAbstract()) {
+              assert appView.options().testing.allowNonAbstractClassesWithAbstractMethods;
+              abortMerge = true;
+              return false;
+            }
             // Update the holder of [virtualMethod] using renameMethod().
             DexEncodedMethod resultingVirtualMethod =
                 renameMethod(virtualMethod, availableMethodSignatures, Rename.NEVER);
-            if (appView.options().canHaveDalvikAbstractMethodOnNonAbstractClassVerificationBug()
-                && !target.isAbstract()) {
-              resultingVirtualMethod.accessFlags.unsetAbstract();
-              resultingVirtualMethod =
-                  resultingVirtualMethod.toEmptyThrowingMethod(appView.options());
-            }
             deferredRenamings.map(virtualMethod.method, resultingVirtualMethod.method);
             deferredRenamings.recordMove(virtualMethod.method, resultingVirtualMethod.method);
             add(virtualMethods, resultingVirtualMethod, MethodSignatureEquivalence.get());

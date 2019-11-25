@@ -39,21 +39,25 @@ import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.ParameterUsagesInfo.ParameterUsage;
 import com.android.tools.r8.ir.optimize.info.initializer.ClassInitializerInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfo;
+import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.kotlin.KotlinInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Pair;
+import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -75,14 +79,19 @@ final class InlineCandidateProcessor {
   private DexClass eligibleClassDefinition;
   private boolean isDesugaredLambda;
 
-  private final Map<InvokeMethod, InliningInfo> methodCallsOnInstance
-      = new IdentityHashMap<>();
+  private final Map<InvokeMethodWithReceiver, InliningInfo> methodCallsOnInstance =
+      new IdentityHashMap<>();
   private final Map<InvokeMethod, InliningInfo> extraMethodCalls
       = new IdentityHashMap<>();
   private final List<Pair<InvokeMethod, Integer>> unusedArguments
       = new ArrayList<>();
 
   private int estimatedCombinedSizeForInlining = 0;
+
+  // Set of values that may be an alias of the "root" instance (including the root instance itself).
+  // TODO(b/144825216): Distinguish the "may-aliases" from the "must-aliases" such that the cost
+  //  analysis is not optimistic.
+  private final Set<Value> receivers;
 
   InlineCandidateProcessor(
       AppView<AppInfoWithLiveness> appView,
@@ -99,10 +108,15 @@ final class InlineCandidateProcessor {
     this.method = method;
     this.root = root;
     this.isProcessedConcurrently = isProcessedConcurrently;
+    this.receivers = SetUtils.newIdentityHashSet(root.outValue());
   }
 
   int getEstimatedCombinedSizeForInlining() {
     return estimatedCombinedSizeForInlining;
+  }
+
+  Set<Value> getReceivers() {
+    return receivers;
   }
 
   // Checks if the root instruction defines eligible value, i.e. the value
@@ -258,7 +272,7 @@ final class InlineCandidateProcessor {
    */
   InstructionOrPhi areInstanceUsersEligible(Supplier<InliningOracle> defaultOracle) {
     // No Phi users.
-    if (eligibleInstance.numberOfPhiUsers() > 0) {
+    if (eligibleInstance.hasPhiUsers()) {
       return eligibleInstance.firstPhiUser(); // Not eligible.
     }
 
@@ -267,10 +281,12 @@ final class InlineCandidateProcessor {
       Set<Instruction> indirectUsers = Sets.newIdentityHashSet();
       for (Instruction user : currentUsers) {
         if (user.isAssume()) {
-          if (user.outValue().numberOfPhiUsers() > 0) {
-            return user.outValue().firstPhiUser(); // Not eligible.
+          Value alias = user.outValue();
+          if (alias.hasPhiUsers()) {
+            return alias.firstPhiUser(); // Not eligible.
           }
-          indirectUsers.addAll(user.outValue().uniqueUsers());
+          receivers.add(alias);
+          indirectUsers.addAll(alias.uniqueUsers());
           continue;
         }
         // Field read/write.
@@ -303,9 +319,9 @@ final class InlineCandidateProcessor {
                       && root.outValue() == invoke.getReceiver();
               if (isCorrespondingConstructorCall) {
                 InliningInfo inliningInfo =
-                    isEligibleConstructorCall(user.asInvokeDirect(), singleTarget, defaultOracle);
+                    isEligibleConstructorCall(invoke, singleTarget, defaultOracle);
                 if (inliningInfo != null) {
-                  methodCallsOnInstance.put(user.asInvokeDirect(), inliningInfo);
+                  methodCallsOnInstance.put(invoke, inliningInfo);
                   continue;
                 }
               }
@@ -365,12 +381,13 @@ final class InlineCandidateProcessor {
   //  * remove root instruction
   //
   // Returns `true` if at least one method was inlined.
-  boolean processInlining(IRCode code, Supplier<InliningOracle> defaultOracle) {
+  boolean processInlining(
+      IRCode code, Supplier<InliningOracle> defaultOracle, InliningIRProvider inliningIRProvider) {
     // Verify that `eligibleInstance` is not aliased.
     assert eligibleInstance == eligibleInstance.getAliasedValue();
     replaceUsagesAsUnusedArgument(code);
 
-    boolean anyInlinedMethods = forceInlineExtraMethodInvocations(code);
+    boolean anyInlinedMethods = forceInlineExtraMethodInvocations(code, inliningIRProvider);
     if (anyInlinedMethods) {
       // Reset the collections.
       methodCallsOnInstance.clear();
@@ -396,7 +413,7 @@ final class InlineCandidateProcessor {
           : "Remaining unused arg: " + StringUtils.join(unusedArguments, ", ");
     }
 
-    anyInlinedMethods |= forceInlineDirectMethodInvocations(code);
+    anyInlinedMethods |= forceInlineDirectMethodInvocations(code, inliningIRProvider);
     removeAssumeInstructionsLinkedToEligibleInstance();
     removeMiscUsages(code);
     removeFieldReads(code);
@@ -421,20 +438,25 @@ final class InlineCandidateProcessor {
     unusedArguments.clear();
   }
 
-  private boolean forceInlineExtraMethodInvocations(IRCode code) {
+  private boolean forceInlineExtraMethodInvocations(
+      IRCode code, InliningIRProvider inliningIRProvider) {
     if (extraMethodCalls.isEmpty()) {
       return false;
     }
     // Inline extra methods.
-    inliner.performForcedInlining(method, code, extraMethodCalls);
+    inliner.performForcedInlining(method, code, extraMethodCalls, inliningIRProvider);
     return true;
   }
 
-  private boolean forceInlineDirectMethodInvocations(IRCode code) {
+  private boolean forceInlineDirectMethodInvocations(
+      IRCode code, InliningIRProvider inliningIRProvider) {
     if (methodCallsOnInstance.isEmpty()) {
       return false;
     }
-    inliner.performForcedInlining(method, code, methodCallsOnInstance);
+    assert methodCallsOnInstance.keySet().stream()
+        .map(InvokeMethodWithReceiver::getReceiver)
+        .allMatch(receivers::contains);
+    inliner.performForcedInlining(method, code, methodCallsOnInstance, inliningIRProvider);
     return true;
   }
 
@@ -446,6 +468,7 @@ final class InlineCandidateProcessor {
       Assume<?> assumeInstruction = user.asAssume();
       Value src = assumeInstruction.src();
       Value dest = assumeInstruction.outValue();
+      assert receivers.contains(dest);
       assert !dest.hasPhiUsers();
       dest.replaceUsers(src);
       removeInstruction(user);
@@ -515,17 +538,21 @@ final class InlineCandidateProcessor {
 
   // Replace field reads with appropriate values, insert phis when needed.
   private void removeFieldReads(IRCode code) {
-    Map<DexField, FieldValueHelper> fieldHelpers = new IdentityHashMap<>();
+    TreeSet<InstanceGet> uniqueInstanceGetUsersWithDeterministicOrder =
+        new TreeSet<>(Comparator.comparingInt(x -> x.outValue().getNumber()));
     for (Instruction user : eligibleInstance.uniqueUsers()) {
       if (user.isInstanceGet()) {
-        // Replace a field read with appropriate value.
-        replaceFieldRead(code, user.asInstanceGet(), fieldHelpers);
+        if (user.outValue().hasAnyUsers()) {
+          uniqueInstanceGetUsersWithDeterministicOrder.add(user.asInstanceGet());
+        } else {
+          removeInstruction(user);
+        }
         continue;
       }
 
       if (user.isInstancePut()) {
-        // Skip in this iteration since these instructions are needed to
-        // properly calculate what value should field reads be replaced with.
+        // Skip in this iteration since these instructions are needed to properly calculate what
+        // value should field reads be replaced with.
         continue;
       }
 
@@ -534,6 +561,12 @@ final class InlineCandidateProcessor {
               + method.method.toSourceString()
               + "` after inlining: "
               + user);
+    }
+
+    Map<DexField, FieldValueHelper> fieldHelpers = new IdentityHashMap<>();
+    for (InstanceGet user : uniqueInstanceGetUsersWithDeterministicOrder) {
+      // Replace a field read with appropriate value.
+      replaceFieldRead(code, user, fieldHelpers);
     }
   }
 
@@ -647,7 +680,7 @@ final class InlineCandidateProcessor {
   // - if it is a regular chaining pattern where the only users of the out value are receivers to
   //   other invocations. In that case, we should add all indirect users of the out value to ensure
   //   they can also be inlined.
-  private static boolean isEligibleInvokeWithAllUsersAsReceivers(
+  private boolean isEligibleInvokeWithAllUsersAsReceivers(
       ClassInlinerEligibility eligibility,
       InvokeMethodWithReceiver invoke,
       Set<Instruction> indirectUsers) {
@@ -667,6 +700,10 @@ final class InlineCandidateProcessor {
       return false;
     }
 
+    // Since the invoke-instruction may return the receiver, the out-value may be an alias of the
+    // receiver.
+    receivers.add(outValue);
+
     Set<Instruction> currentUsers = outValue.uniqueUsers();
     while (!currentUsers.isEmpty()) {
       Set<Instruction> indirectOutValueUsers = Sets.newIdentityHashSet();
@@ -676,6 +713,7 @@ final class InlineCandidateProcessor {
           if (outValueAlias.hasPhiUsers() || outValueAlias.hasDebugUsers()) {
             return false;
           }
+          receivers.add(outValueAlias);
           indirectOutValueUsers.addAll(outValueAlias.uniqueUsers());
           continue;
         }

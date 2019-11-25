@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.conversiontests;
 
+import com.android.tools.r8.TestRuntime;
 import com.android.tools.r8.TestRuntime.CfRuntime;
-import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.CoreLibDesugarTestBase;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -26,7 +26,7 @@ public class APIConversionTestBase extends CoreLibDesugarTestBase {
             + " windows",
         !ToolHelper.isWindows());
 
-    CfRuntime runtime = new CfRuntime(CfVm.JDK8);
+    CfRuntime runtime = TestRuntime.getCheckedInJdk8();
     Path conversionFolder = temp.newFolder("conversions").toPath();
 
     // Compile the stubs to be able to compile the conversions.
@@ -51,6 +51,10 @@ public class APIConversionTestBase extends CoreLibDesugarTestBase {
   }
 
   protected Path buildDesugaredLibraryWithConversionExtension(AndroidApiLevel apiLevel) {
+    return buildDesugaredLibraryWithConversionExtension(apiLevel, "", false);
+  }
+
+  protected Path buildDesugaredLibraryWithConversionExtension(AndroidApiLevel apiLevel,String keepRules, boolean shrink) {
     Path[] timeConversionClasses;
     try {
       timeConversionClasses = getConversionClasses();
@@ -59,6 +63,6 @@ public class APIConversionTestBase extends CoreLibDesugarTestBase {
     }
     ArrayList<Path> paths = new ArrayList<>();
     Collections.addAll(paths, timeConversionClasses);
-    return buildDesugaredLibrary(apiLevel, "", false, paths);
+    return buildDesugaredLibrary(apiLevel, keepRules, shrink, paths);
   }
 }

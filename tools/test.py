@@ -22,6 +22,7 @@ import utils
 
 ALL_ART_VMS = [
     "default",
+    "10.0.0",
     "9.0.0",
     "8.1.0",
     "7.0.0",
@@ -155,6 +156,11 @@ def archive_failures():
 
 def Main():
   (options, args) = ParseOptions()
+  # See b/144966342
+  if options.dex_vm == '10.0.0':
+    print 'Running on 10.0.0 is temporarily disabled, see b/144966342'
+    return 0
+
   if utils.is_bot():
     gradle.RunGradle(['--no-daemon', 'clean'])
 
@@ -433,7 +439,6 @@ def compute_failed_tests(args):
         test = href.replace('.html','').replace('#', '.').replace('.classMethod', '')
         failing.add(test)
   return list(failing)
-
 if __name__ == '__main__':
   return_code = Main()
   if return_code != 0:

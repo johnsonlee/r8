@@ -10,11 +10,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
+import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import org.junit.Test;
@@ -50,26 +50,29 @@ public class AbstractInterfaceMethodsTest extends TestBase {
         .addKeepMethodRules(J.class, "void foo()")
         .addKeepRules("-dontwarn")
         .compile()
-        .inspect(AbstractInterfaceMethodsTest::inspectBaseInterfaceRemove);
+        .inspect(
+            inspector -> {
+              ClassSubject clazz = inspector.clazz(J.class);
+              assertThat(clazz, isPresent());
+              assertThat(clazz.uniqueMethodWithName("foo"), not(isPresent()));
+              assertThat(inspector.clazz(I.class), not(isPresent()));
+            });
   }
 
   @Test
   public void testSingleInheritanceR8()
       throws CompilationFailedException, IOException, ExecutionException {
-    // TODO(b/143590191): Fix expectation when resolved.
-    testForR8(parameters.getBackend())
-        .addProgramClasses(I.class, J.class)
-        .setMinApi(parameters.getApiLevel())
-        .addKeepMethodRules(J.class, "void foo()")
-        .compile()
-        .inspect(AbstractInterfaceMethodsTest::inspectBaseInterfaceRemove);
-  }
-
-  private static void inspectBaseInterfaceRemove(CodeInspector inspector) {
-    ClassSubject clazz = inspector.clazz(J.class);
-    assertThat(clazz, isPresent());
-    assertThat(clazz.uniqueMethodWithName("foo"), not(isPresent()));
-    assertThat(inspector.clazz(I.class), not(isPresent()));
+    R8TestCompileResult compileResult =
+        testForR8(parameters.getBackend())
+            .addProgramClasses(I.class, J.class)
+            .setMinApi(parameters.getApiLevel())
+            .addKeepMethodRules(J.class, "void foo()")
+            .compile();
+    testForRuntime(parameters)
+        .addProgramClasses(A.class, Main.class)
+        .addRunClasspathFiles(compileResult.writeToZip())
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("Hello World!");
   }
 
   public interface I {
@@ -77,4 +80,19 @@ public class AbstractInterfaceMethodsTest extends TestBase {
   }
 
   public interface J extends I {}
+
+  public static class A implements J {
+
+    @Override
+    public void foo() {
+      System.out.println("Hello World!");
+    }
+  }
+
+  public static class Main {
+
+    public static void main(String[] args) {
+      ((J) new A()).foo();
+    }
+  }
 }

@@ -37,8 +37,6 @@ import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Throw;
 import com.android.tools.r8.ir.code.Value;
-import com.android.tools.r8.ir.code.ValueNumberGenerator;
-import com.android.tools.r8.ir.conversion.CallSiteInformation;
 import com.android.tools.r8.ir.conversion.CodeOptimization;
 import com.android.tools.r8.ir.conversion.LensCodeRewriter;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
@@ -46,11 +44,11 @@ import com.android.tools.r8.ir.conversion.PostOptimization;
 import com.android.tools.r8.ir.desugar.TwrCloseResourceRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
+import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.optimize.lambda.LambdaMerger;
 import com.android.tools.r8.kotlin.Kotlin;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.MainDexClasses;
 import com.android.tools.r8.utils.InternalOptions;
@@ -89,7 +87,10 @@ public class Inliner implements PostOptimization {
       LensCodeRewriter lensCodeRewriter) {
     Kotlin.Intrinsics intrinsics = appView.dexItemFactory().kotlin.intrinsics;
     this.appView = appView;
-    this.blacklist = ImmutableSet.of(intrinsics.throwNpe, intrinsics.throwParameterIsNullException);
+    this.blacklist =
+        appView.options().kotlinOptimizationOptions().disableKotlinSpecificOptimizations
+            ? ImmutableSet.of()
+            : ImmutableSet.of(intrinsics.throwNpe, intrinsics.throwParameterIsNullException);
     this.lambdaMerger = lambdaMerger;
     this.lensCodeRewriter = lensCodeRewriter;
     this.mainDexClasses = mainDexClasses;
@@ -202,10 +203,8 @@ public class Inliner implements PostOptimization {
     return target.isSamePackage(context);
   }
 
-  synchronized boolean isDoubleInliningTarget(
-      CallSiteInformation callSiteInformation, DexEncodedMethod candidate) {
-    return callSiteInformation.hasDoubleCallSite(candidate.method)
-        || doubleInlineSelectedTargets.contains(candidate);
+  public synchronized boolean isDoubleInlineSelectedTarget(DexEncodedMethod method) {
+    return doubleInlineSelectedTargets.contains(method);
   }
 
   synchronized boolean satisfiesRequirementsForDoubleInlining(
@@ -546,7 +545,8 @@ public class Inliner implements PostOptimization {
     ALWAYS,        // Inlinee is marked for inlining due to alwaysinline directive.
     SINGLE_CALLER, // Inlinee has precisely one caller.
     DUAL_CALLER,   // Inlinee has precisely two callers.
-    SIMPLE;        // Inlinee has simple code suitable for inlining.
+    SIMPLE,        // Inlinee has simple code suitable for inlining.
+    NEVER;         // Inlinee must not be inlined.
 
     public boolean mustBeInlined() {
       // TODO(118734615): Include SINGLE_CALLER and DUAL_CALLER here as well?
@@ -573,18 +573,17 @@ public class Inliner implements PostOptimization {
     }
 
     InlineeWithReason buildInliningIR(
-        DexEncodedMethod context,
-        ValueNumberGenerator generator,
         AppView<? extends AppInfoWithSubtyping> appView,
-        Position callerPosition,
+        InvokeMethod invoke,
+        DexEncodedMethod context,
+        InliningIRProvider inliningIRProvider,
         LambdaMerger lambdaMerger,
         LensCodeRewriter lensCodeRewriter) {
       DexItemFactory dexItemFactory = appView.dexItemFactory();
       InternalOptions options = appView.options();
-      Origin origin = appView.appInfo().originFor(target.method.holder);
 
       // Build the IR for a yet not processed method, and perform minimal IR processing.
-      IRCode code = target.buildInliningIR(context, appView, generator, callerPosition, origin);
+      IRCode code = inliningIRProvider.getInliningIR(invoke, target);
 
       // Insert a null check if this is needed to preserve the implicit null check for the receiver.
       // This is only needed if we do not also insert a monitor-enter instruction, since that will
@@ -813,10 +812,11 @@ public class Inliner implements PostOptimization {
   public void performForcedInlining(
       DexEncodedMethod method,
       IRCode code,
-      Map<InvokeMethod, InliningInfo> invokesToInline) {
-
+      Map<? extends InvokeMethod, InliningInfo> invokesToInline,
+      InliningIRProvider inliningIRProvider) {
     ForcedInliningOracle oracle = new ForcedInliningOracle(appView, method, invokesToInline);
-    performInliningImpl(oracle, oracle, method, code, OptimizationFeedbackIgnore.getInstance());
+    performInliningImpl(
+        oracle, oracle, method, code, OptimizationFeedbackIgnore.getInstance(), inliningIRProvider);
   }
 
   public void performInlining(
@@ -832,7 +832,9 @@ public class Inliner implements PostOptimization {
             methodProcessor,
             options.inliningInstructionLimit,
             options.inliningInstructionAllowance - numberOfInstructions(code));
-    performInliningImpl(oracle, oracle, method, code, feedback);
+    InliningIRProvider inliningIRProvider = new InliningIRProvider(appView, method, code);
+    assert inliningIRProvider.verifyIRCacheIsEmpty();
+    performInliningImpl(oracle, oracle, method, code, feedback, inliningIRProvider);
   }
 
   public DefaultInliningOracle createDefaultOracle(
@@ -856,7 +858,8 @@ public class Inliner implements PostOptimization {
       InliningOracle oracle,
       DexEncodedMethod context,
       IRCode code,
-      OptimizationFeedback feedback) {
+      OptimizationFeedback feedback,
+      InliningIRProvider inliningIRProvider) {
     AssumeDynamicTypeRemover assumeDynamicTypeRemover = new AssumeDynamicTypeRemover(appView, code);
     Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
     ListIterator<BasicBlock> blockIterator = code.listIterator();
@@ -910,12 +913,7 @@ public class Inliner implements PostOptimization {
 
           InlineeWithReason inlinee =
               action.buildInliningIR(
-                  context,
-                  code.valueNumberGenerator,
-                  appView,
-                  getPositionForInlining(invoke, context),
-                  lambdaMerger,
-                  lensCodeRewriter);
+                  appView, invoke, context, inliningIRProvider, lambdaMerger, lensCodeRewriter);
           if (strategy.willExceedBudget(
               code, invoke, inlinee, block, whyAreYouNotInliningReporter)) {
             assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
@@ -997,18 +995,6 @@ public class Inliner implements PostOptimization {
     assert code.isConsistentSSA();
   }
 
-  private Position getPositionForInlining(InvokeMethod invoke, DexEncodedMethod context) {
-    Position position = invoke.getPosition();
-    if (position.method == null) {
-      assert position.isNone();
-      position = Position.noneWithMethod(context.method, null);
-    }
-    assert position.callerPosition == null
-        || position.getOutermostCaller().method
-            == appView.graphLense().getOriginalMethodSignature(context.method);
-    return position;
-  }
-
   private boolean useReflectiveOperationExceptionOrUnknownClassInCatch(IRCode code) {
     for (BasicBlock block : code.blocks) {
       for (CatchHandler<BasicBlock> catchHandler : block.getCatchHandlers()) {
@@ -1023,18 +1009,18 @@ public class Inliner implements PostOptimization {
     return false;
   }
 
-  private static DexType getDowncastTypeIfNeeded(
+  private DexType getDowncastTypeIfNeeded(
       InliningStrategy strategy, InvokeMethod invoke, DexEncodedMethod target) {
     if (invoke.isInvokeMethodWithReceiver()) {
       // If the invoke has a receiver but the actual type of the receiver is different
       // from the computed target holder, inlining requires a downcast of the receiver.
-      DexType assumedReceiverType = strategy.getReceiverTypeIfKnown(invoke);
-      if (assumedReceiverType == null) {
+      DexType receiverType = strategy.getReceiverTypeIfKnown(invoke);
+      if (receiverType == null) {
         // In case we don't know exact type of the receiver we use declared
         // method holder as a fallback.
-        assumedReceiverType = invoke.getInvokedMethod().holder;
+        receiverType = invoke.getInvokedMethod().holder;
       }
-      if (assumedReceiverType != target.method.holder) {
+      if (!appView.appInfo().isSubtype(receiverType, target.method.holder)) {
         return target.method.holder;
       }
     }

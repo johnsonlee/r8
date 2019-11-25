@@ -5,12 +5,10 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.ToolHelper.CLASSPATH_SEPARATOR;
-import static com.android.tools.r8.ToolHelper.getJavaExecutable;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.TestBase.Backend;
-import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.utils.AndroidApp;
@@ -53,35 +51,27 @@ public class ExternalR8TestBuilder
   private List<Path> proguardConfigFiles = new ArrayList<>();
 
   // External JDK to use to run R8
-  private CfVm externalJDK = null;
+  private final TestRuntime runtime;
 
   private boolean addR8ExternalDeps = false;
 
   private List<String> jvmFlags = new ArrayList<>();
 
-  private ExternalR8TestBuilder(TestState state, Builder builder, Backend backend) {
+  private ExternalR8TestBuilder(
+      TestState state, Builder builder, Backend backend, TestRuntime runtime) {
     super(state, builder, backend);
+    assert runtime != null;
+    this.runtime = runtime;
   }
 
-  public static ExternalR8TestBuilder create(TestState state, Backend backend) {
-    return new ExternalR8TestBuilder(state, R8Command.builder(), backend);
+  public static ExternalR8TestBuilder create(
+      TestState state, Backend backend, TestRuntime runtime) {
+    return new ExternalR8TestBuilder(state, R8Command.builder(), backend, runtime);
   }
 
   @Override
   ExternalR8TestBuilder self() {
     return this;
-  }
-
-  public ExternalR8TestBuilder useExternalJDK(CfVm externalJDK) {
-    this.externalJDK = externalJDK;
-    return self();
-  }
-
-  private String getJDKToRun() {
-    if (externalJDK == null) {
-      return getJavaExecutable();
-    }
-    return getJavaExecutable(externalJDK);
   }
 
   public ExternalR8TestBuilder addJvmFlag(String flag) {
@@ -106,7 +96,10 @@ public class ExternalR8TestBuilder
               : r8jar.toAbsolutePath().toString();
 
       List<String> command = new ArrayList<>();
-      Collections.addAll(command, getJDKToRun());
+      if (runtime.isDex()) {
+        throw new Unimplemented();
+      }
+      Collections.addAll(command, runtime.asCf().getJavaExecutable().toString());
 
       command.addAll(jvmFlags);
 
