@@ -118,8 +118,8 @@ public final class ParameterUsagesInfo {
     }
 
     public boolean notUsed() {
-      return ifZeroTest == null
-          && callsReceiver == null
+      return (ifZeroTest == null || ifZeroTest.isEmpty())
+          && (callsReceiver == null || callsReceiver.isEmpty())
           && !hasFieldAssignment
           && !hasFieldRead
           && !isAssignedToField
@@ -147,8 +147,9 @@ public final class ParameterUsagesInfo {
     // Returns false if the instruction is not supported.
     public boolean note(Instruction instruction) {
       if (instruction.isAssume()) {
-        // Keep examining other users, but the param usage builder should consider aliased users.
-        return true;
+        // Keep examining other users if there are no phi users, but the param usage builder should
+        // consider aliased users.
+        return !instruction.outValue().hasPhiUsers();
       }
       if (instruction.isIf()) {
         return note(instruction.asIf());

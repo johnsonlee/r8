@@ -34,7 +34,8 @@ public class DexType extends DexReference implements PresortedComparable<DexType
   private String toStringCache = null;
 
   DexType(DexString descriptor) {
-    assert !descriptor.toString().contains(".");
+    assert !descriptor.toString().contains(".")
+        : "Malformed descriptor: " + descriptor.toString();
     this.descriptor = descriptor;
   }
 
@@ -180,12 +181,7 @@ public class DexType extends DexReference implements PresortedComparable<DexType
   }
 
   public boolean isPrimitiveType() {
-    return isPrimitiveType((char) descriptor.content[0]);
-  }
-
-  private boolean isPrimitiveType(char c) {
-    return c == 'Z' || c == 'B' || c == 'S' || c == 'C' || c == 'I' || c == 'F' || c == 'J'
-        || c == 'D';
+    return DescriptorUtils.isPrimitiveType((char) descriptor.content[0]);
   }
 
   public boolean isVoidType() {
@@ -244,7 +240,7 @@ public class DexType extends DexReference implements PresortedComparable<DexType
     if (!isArrayType()) {
       return false;
     }
-    return isPrimitiveType((char) descriptor.content[1]);
+    return DescriptorUtils.isPrimitiveType((char) descriptor.content[1]);
   }
 
   public boolean isWideType() {

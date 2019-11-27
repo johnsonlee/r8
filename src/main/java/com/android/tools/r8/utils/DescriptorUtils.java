@@ -96,6 +96,23 @@ public class DescriptorUtils {
   }
 
   /**
+   * Produces an array descriptor having the number of dimensions specified and the
+   * baseTypeDescriptor as base.
+   *
+   * @param dimensions number of dimensions
+   * @param baseTypeDescriptor the base type
+   * @return the descriptor string
+   */
+  public static String toArrayDescriptor(int dimensions, String baseTypeDescriptor) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < dimensions; i++) {
+      sb.append('[');
+    }
+    sb.append(baseTypeDescriptor);
+    return sb.toString();
+  }
+
+  /**
    * Determine the given {@param typeName} is a valid jvms binary name or not (jvms 4.2.1).
    *
    * @param typeName the jvms binary name
@@ -177,11 +194,38 @@ public class DescriptorUtils {
             classNameMapper == null ? clazz : classNameMapper.deobfuscateClassName(clazz);
         return originalName;
       case '[':
-        return descriptorToJavaType(descriptor.substring(1, descriptor.length()), classNameMapper)
-            + "[]";
+        return descriptorToJavaType(descriptor.substring(1), classNameMapper) + "[]";
       default:
         return primitiveDescriptorToJavaType(c);
     }
+  }
+
+  public static boolean isPrimitiveDescriptor(String descriptor) {
+    if (descriptor.length() != 1) {
+      return false;
+    }
+    return isPrimitiveType(descriptor.charAt(0));
+  }
+
+  public static boolean isPrimitiveType(char c) {
+    return c == 'Z' || c == 'B' || c == 'S' || c == 'C' || c == 'I' || c == 'F' || c == 'J'
+        || c == 'D';
+  }
+
+  public static boolean isArrayDescriptor(String descriptor) {
+    if (descriptor.length() < 2) {
+      return false;
+    }
+    if (descriptor.charAt(0) == '[') {
+      return isDescriptor(descriptor.substring(1));
+    }
+    return false;
+  }
+
+  public static boolean isDescriptor(String descriptor) {
+    return isClassDescriptor(descriptor)
+        || isPrimitiveDescriptor(descriptor)
+        || isArrayDescriptor(descriptor);
   }
 
   public static String primitiveDescriptorToJavaType(char primitive) {
@@ -297,6 +341,17 @@ public class DescriptorUtils {
   public static String getDescriptorFromClassBinaryName(String typeBinaryName) {
     assert typeBinaryName != null;
     return ('L' + typeBinaryName + ';');
+  }
+
+  /**
+   * Convert a fully qualified name of a classifier in Kotlin metadata to a descriptor.
+   * @param className "org/foo/bar/Baz.Nested"
+   * @return a class descriptor like "Lorg/foo/bar/Baz$Nested;"
+   */
+  public static String getDescriptorFromKotlinClassifier(String className) {
+    assert className != null;
+    assert !className.contains("[") : className;
+    return 'L' + className.replace(JAVA_PACKAGE_SEPARATOR, INNER_CLASS_SEPARATOR) + ';';
   }
 
   /**

@@ -4,11 +4,12 @@
 
 package com.android.tools.r8.ir.optimize.classinliner;
 
+
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexEncodedMethod.ClassInlinerEligibility;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
@@ -21,6 +22,7 @@ import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.InstanceGet;
+import com.android.tools.r8.ir.code.InstancePut;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionOrPhi;
 import com.android.tools.r8.ir.code.Invoke.Type;
@@ -43,9 +45,7 @@ import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.kotlin.KotlinInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Pair;
-import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -63,6 +63,12 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 final class InlineCandidateProcessor {
+
+  enum AliasKind {
+    DEFINITE,
+    MAYBE
+  }
+
   private static final ImmutableSet<If.Type> ALLOWED_ZERO_TEST_TYPES =
       ImmutableSet.of(If.Type.EQ, If.Type.NE);
 
@@ -86,12 +92,12 @@ final class InlineCandidateProcessor {
   private final List<Pair<InvokeMethod, Integer>> unusedArguments
       = new ArrayList<>();
 
-  private int estimatedCombinedSizeForInlining = 0;
+  private final Map<InvokeMethod, DexEncodedMethod> directInlinees = new IdentityHashMap<>();
+  private final List<DexEncodedMethod> indirectInlinees = new ArrayList<>();
 
-  // Set of values that may be an alias of the "root" instance (including the root instance itself).
-  // TODO(b/144825216): Distinguish the "may-aliases" from the "must-aliases" such that the cost
-  //  analysis is not optimistic.
-  private final Set<Value> receivers;
+  // Sets of values that must/may be an alias of the "root" instance (including the root instance
+  // itself).
+  private final ClassInlinerReceiverSet receivers;
 
   InlineCandidateProcessor(
       AppView<AppInfoWithLiveness> appView,
@@ -108,14 +114,18 @@ final class InlineCandidateProcessor {
     this.method = method;
     this.root = root;
     this.isProcessedConcurrently = isProcessedConcurrently;
-    this.receivers = SetUtils.newIdentityHashSet(root.outValue());
+    this.receivers = new ClassInlinerReceiverSet(root.outValue());
   }
 
-  int getEstimatedCombinedSizeForInlining() {
-    return estimatedCombinedSizeForInlining;
+  Map<InvokeMethod, DexEncodedMethod> getDirectInlinees() {
+    return directInlinees;
   }
 
-  Set<Value> getReceivers() {
+  List<DexEncodedMethod> getIndirectInlinees() {
+    return indirectInlinees;
+  }
+
+  ClassInlinerReceiverSet getReceivers() {
     return receivers;
   }
 
@@ -282,24 +292,28 @@ final class InlineCandidateProcessor {
       for (Instruction user : currentUsers) {
         if (user.isAssume()) {
           Value alias = user.outValue();
+          if (receivers.isReceiverAlias(alias)) {
+            continue; // Already processed.
+          }
           if (alias.hasPhiUsers()) {
             return alias.firstPhiUser(); // Not eligible.
           }
-          receivers.add(alias);
+          if (!receivers.addReceiverAlias(alias, AliasKind.DEFINITE)) {
+            return user; // Not eligible.
+          }
           indirectUsers.addAll(alias.uniqueUsers());
           continue;
         }
         // Field read/write.
         if (user.isInstanceGet()
-            || (user.isInstancePut() && user.asInstancePut().value() != eligibleInstance)) {
-          DexField field = user.asFieldInstruction().getField();
-          if (field.holder == eligibleClass
-              && eligibleClassDefinition.lookupInstanceField(field) != null) {
-            // Since class inliner currently only supports classes directly extending
-            // java.lang.Object, we don't need to worry about fields defined in superclasses.
-            continue;
+            || (user.isInstancePut()
+                && receivers.addIllegalReceiverAlias(user.asInstancePut().value()))) {
+          DexEncodedField field =
+              appView.appInfo().resolveField(user.asFieldInstruction().getField());
+          if (field == null || field.isStatic()) {
+            return user; // Not eligible.
           }
-          return user; // Not eligible.
+          continue;
         }
 
         if (user.isInvokeMethod()) {
@@ -393,7 +407,7 @@ final class InlineCandidateProcessor {
       methodCallsOnInstance.clear();
       extraMethodCalls.clear();
       unusedArguments.clear();
-      estimatedCombinedSizeForInlining = 0;
+      receivers.reset();
 
       // Repeat user analysis
       InstructionOrPhi ineligibleUser = areInstanceUsersEligible(defaultOracle);
@@ -405,6 +419,7 @@ final class InlineCandidateProcessor {
         // methods (which is bad for memory), or we would need to analyze the called methods before
         // inlining them. The latter could be good solution, since we are going to build IR for the
         // methods that need to be inlined anyway.
+        assert appView.options().testing.allowClassInlinerGracefulExit;
         return true;
       }
       assert extraMethodCalls.isEmpty()
@@ -432,7 +447,7 @@ final class InlineCandidateProcessor {
       block.listIterator(code, invoke).add(nullValue);
       assert nullValue.getBlock() == block;
 
-      int argIndex = unusedArgument.getSecond() + (invoke.isInvokeMethodWithReceiver() ? 1 : 0);
+      int argIndex = unusedArgument.getSecond();
       invoke.replaceValue(argIndex, nullValue.outValue());
     }
     unusedArguments.clear();
@@ -453,10 +468,44 @@ final class InlineCandidateProcessor {
     if (methodCallsOnInstance.isEmpty()) {
       return false;
     }
+
     assert methodCallsOnInstance.keySet().stream()
         .map(InvokeMethodWithReceiver::getReceiver)
-        .allMatch(receivers::contains);
+        .allMatch(receivers::isReceiverAlias);
+
     inliner.performForcedInlining(method, code, methodCallsOnInstance, inliningIRProvider);
+
+    // In case we are class inlining an object allocation that does not inherit directly from
+    // java.lang.Object, we need keep force inlining the constructor until we reach
+    // java.lang.Object.<init>().
+    if (root.isNewInstance()) {
+      do {
+        methodCallsOnInstance.clear();
+        for (Instruction instruction : eligibleInstance.uniqueUsers()) {
+          if (instruction.isInvokeDirect()) {
+            InvokeDirect invoke = instruction.asInvokeDirect();
+            Value receiver = invoke.getReceiver();
+            if (receiver == eligibleInstance) {
+              DexMethod invokedMethod = invoke.getInvokedMethod();
+              if (appView.dexItemFactory().isConstructor(invokedMethod)
+                  && invokedMethod != appView.dexItemFactory().objectMethods.constructor) {
+                methodCallsOnInstance.put(
+                    invoke,
+                    new InliningInfo(
+                        appView.definitionFor(invokedMethod), root.asNewInstance().clazz));
+                break;
+              }
+            } else {
+              assert receiver.getAliasedValue() != eligibleInstance;
+            }
+          }
+        }
+        if (!methodCallsOnInstance.isEmpty()) {
+          inliner.performForcedInlining(method, code, methodCallsOnInstance, inliningIRProvider);
+        }
+      } while (!methodCallsOnInstance.isEmpty());
+    }
+
     return true;
   }
 
@@ -468,7 +517,7 @@ final class InlineCandidateProcessor {
       Assume<?> assumeInstruction = user.asAssume();
       Value src = assumeInstruction.src();
       Value dest = assumeInstruction.outValue();
-      assert receivers.contains(dest);
+      assert receivers.isReceiverAlias(dest);
       assert !dest.hasPhiUsers();
       dest.replaceUsers(src);
       removeInstruction(user);
@@ -481,13 +530,14 @@ final class InlineCandidateProcessor {
   private void removeMiscUsages(IRCode code) {
     boolean needToRemoveUnreachableBlocks = false;
     for (Instruction user : eligibleInstance.uniqueUsers()) {
-      // Remove the call to superclass constructor.
-      if (root.isNewInstance()
-          && user.isInvokeDirect()
-          && appView.dexItemFactory().isConstructor(user.asInvokeDirect().getInvokedMethod())
-          && user.asInvokeDirect().getInvokedMethod().holder == eligibleClassDefinition.superType) {
-        removeInstruction(user);
-        continue;
+      // Remove the call to java.lang.Object.<init>().
+      if (user.isInvokeDirect()) {
+        InvokeDirect invoke = user.asInvokeDirect();
+        if (root.isNewInstance()
+            && invoke.getInvokedMethod() == appView.dexItemFactory().objectMethods.constructor) {
+          removeInstruction(invoke);
+          continue;
+        }
       }
 
       if (user.isIf()) {
@@ -601,7 +651,10 @@ final class InlineCandidateProcessor {
                 + "` after field reads removed: "
                 + user);
       }
-      if (user.asInstancePut().getField().holder != eligibleClass) {
+      InstancePut instancePut = user.asInstancePut();
+      DexEncodedField field =
+          appView.appInfo().resolveFieldOn(eligibleClassDefinition, instancePut.getField());
+      if (field == null) {
         throw new Unreachable(
             "Unexpected field write left in method `"
                 + method.method.toSourceString()
@@ -618,9 +671,16 @@ final class InlineCandidateProcessor {
     assert isEligibleSingleTarget(singleTarget);
 
     // Must be a constructor called on the receiver.
-    if (ListUtils.lastIndexMatching(
-        invoke.inValues(), v -> v.getAliasedValue() == eligibleInstance) != 0) {
+    if (!receivers.isDefiniteReceiverAlias(invoke.getReceiver())) {
       return null;
+    }
+
+    // None of the subsequent arguments may be an alias of the receiver.
+    List<Value> inValues = invoke.inValues();
+    for (int i = 1; i < inValues.size(); i++) {
+      if (!receivers.addIllegalReceiverAlias(inValues.get(i))) {
+        return null;
+      }
     }
 
     // Must be a constructor of the exact same class.
@@ -639,7 +699,7 @@ final class InlineCandidateProcessor {
 
     if (isDesugaredLambda) {
       // Lambda desugaring synthesizes eligible constructors.
-      markSizeForInlining(singleTarget);
+      markSizeForInlining(invoke, singleTarget);
       return new InliningInfo(singleTarget, eligibleClass);
     }
 
@@ -681,10 +741,10 @@ final class InlineCandidateProcessor {
   //   other invocations. In that case, we should add all indirect users of the out value to ensure
   //   they can also be inlined.
   private boolean isEligibleInvokeWithAllUsersAsReceivers(
-      ClassInlinerEligibility eligibility,
+      ClassInlinerEligibilityInfo eligibility,
       InvokeMethodWithReceiver invoke,
       Set<Instruction> indirectUsers) {
-    if (!eligibility.returnsReceiver) {
+    if (eligibility.returnsReceiver.isFalse()) {
       return true;
     }
 
@@ -700,9 +760,13 @@ final class InlineCandidateProcessor {
       return false;
     }
 
-    // Since the invoke-instruction may return the receiver, the out-value may be an alias of the
-    // receiver.
-    receivers.add(outValue);
+    // Add the out-value as a definite-alias if the invoke instruction is guaranteed to return the
+    // receiver. Otherwise, the out-value may be an alias of the receiver, and it is added to the
+    // may-alias set.
+    AliasKind kind = eligibility.returnsReceiver.isTrue() ? AliasKind.DEFINITE : AliasKind.MAYBE;
+    if (!receivers.addReceiverAlias(outValue, kind)) {
+      return false;
+    }
 
     Set<Instruction> currentUsers = outValue.uniqueUsers();
     while (!currentUsers.isEmpty()) {
@@ -713,24 +777,29 @@ final class InlineCandidateProcessor {
           if (outValueAlias.hasPhiUsers() || outValueAlias.hasDebugUsers()) {
             return false;
           }
-          receivers.add(outValueAlias);
+          if (!receivers.addReceiverAlias(outValueAlias, kind)) {
+            return false;
+          }
           indirectOutValueUsers.addAll(outValueAlias.uniqueUsers());
           continue;
         }
-        if (!instruction.isInvokeMethodWithReceiver()) {
-          return false;
-        }
-        InvokeMethodWithReceiver user = instruction.asInvokeMethodWithReceiver();
-        if (user.getReceiver().getAliasedValue() != outValue) {
-          return false;
-        }
-        for (int i = 1; i < user.inValues().size(); i++) {
-          if (user.inValues().get(i).getAliasedValue() == outValue) {
+
+        if (instruction.isInvokeMethodWithReceiver()) {
+          InvokeMethodWithReceiver user = instruction.asInvokeMethodWithReceiver();
+          if (user.getReceiver().getAliasedValue() != outValue) {
             return false;
           }
+          for (int i = 1; i < user.inValues().size(); i++) {
+            if (user.inValues().get(i).getAliasedValue() == outValue) {
+              return false;
+            }
+          }
+          indirectUsers.add(user);
+          continue;
         }
+
+        return false;
       }
-      indirectUsers.addAll(currentUsers);
       currentUsers = indirectOutValueUsers;
     }
 
@@ -743,10 +812,15 @@ final class InlineCandidateProcessor {
       Set<Instruction> indirectUsers,
       Supplier<InliningOracle> defaultOracle) {
     assert isEligibleSingleTarget(singleTarget);
-    if (ListUtils.lastIndexMatching(
-        invoke.inValues(), v -> v.getAliasedValue() == eligibleInstance) > 0) {
-      return null; // Instance passed as an argument.
+
+    // None of the none-receiver arguments may be an alias of the receiver.
+    List<Value> inValues = invoke.inValues();
+    for (int i = 1; i < inValues.size(); i++) {
+      if (!receivers.addIllegalReceiverAlias(inValues.get(i))) {
+        return null;
+      }
     }
+
     // TODO(b/141719453): Should not constrain library overrides if all instantiations are inlined.
     if (singleTarget.isLibraryMethodOverride().isTrue()) {
       InliningOracle inliningOracle = defaultOracle.get();
@@ -756,7 +830,7 @@ final class InlineCandidateProcessor {
       }
     }
     return isEligibleVirtualMethodCall(
-        !invoke.getBlock().hasCatchHandlers(),
+        invoke,
         invoke.getInvokedMethod(),
         singleTarget,
         eligibility -> isEligibleInvokeWithAllUsersAsReceivers(eligibility, invoke, indirectUsers));
@@ -766,16 +840,16 @@ final class InlineCandidateProcessor {
     DexEncodedMethod singleTarget = eligibleClassDefinition.lookupVirtualMethod(callee);
     if (isEligibleSingleTarget(singleTarget)) {
       return isEligibleVirtualMethodCall(
-          false, callee, singleTarget, eligibility -> !eligibility.returnsReceiver);
+          null, callee, singleTarget, eligibility -> eligibility.returnsReceiver.isFalse());
     }
     return null;
   }
 
   private InliningInfo isEligibleVirtualMethodCall(
-      boolean allowMethodsWithoutNormalReturns,
+      InvokeMethodWithReceiver invoke,
       DexMethod callee,
       DexEncodedMethod singleTarget,
-      Predicate<ClassInlinerEligibility> eligibilityAcceptanceCheck) {
+      Predicate<ClassInlinerEligibilityInfo> eligibilityAcceptanceCheck) {
     assert isEligibleSingleTarget(singleTarget);
 
     // We should not inline a method if the invocation has type interface or virtual and the
@@ -794,13 +868,13 @@ final class InlineCandidateProcessor {
     }
 
     if (isDesugaredLambda && !singleTarget.accessFlags.isBridge()) {
-      markSizeForInlining(singleTarget);
+      markSizeForInlining(invoke, singleTarget);
       return new InliningInfo(singleTarget, eligibleClass);
     }
 
     MethodOptimizationInfo optimizationInfo = singleTarget.getOptimizationInfo();
 
-    ClassInlinerEligibility eligibility = optimizationInfo.getClassInlinerEligibility();
+    ClassInlinerEligibilityInfo eligibility = optimizationInfo.getClassInlinerEligibility();
     if (eligibility == null) {
       return null;
     }
@@ -811,7 +885,7 @@ final class InlineCandidateProcessor {
       return null;
     }
 
-    markSizeForInlining(singleTarget);
+    markSizeForInlining(invoke, singleTarget);
     return new InliningInfo(singleTarget, eligibleClass);
   }
 
@@ -820,10 +894,11 @@ final class InlineCandidateProcessor {
         && appView.dexItemFactory().isConstructor(invoke.getInvokedMethod())) {
       return false;
     }
-    if (invoke.isInvokeMethodWithReceiver()
-        && invoke.asInvokeMethodWithReceiver().getReceiver().getAliasedValue()
-            == eligibleInstance) {
-      return false;
+    if (invoke.isInvokeMethodWithReceiver()) {
+      Value receiver = invoke.asInvokeMethodWithReceiver().getReceiver();
+      if (!receivers.addIllegalReceiverAlias(receiver)) {
+        return false;
+      }
     }
     if (invoke.isInvokeSuper()) {
       return false;
@@ -863,13 +938,13 @@ final class InlineCandidateProcessor {
 
     // If we got here with invocation on receiver the user is ineligible.
     if (invoke.isInvokeMethodWithReceiver()) {
-      if (arguments.get(0).getAliasedValue() == eligibleInstance) {
+      InvokeMethodWithReceiver invokeMethodWithReceiver = invoke.asInvokeMethodWithReceiver();
+      Value receiver = invokeMethodWithReceiver.getReceiver();
+      if (!receivers.addIllegalReceiverAlias(receiver)) {
         return false;
       }
 
       // TODO(b/124842076) Extend this check to use checksNullReceiverBeforeAnySideEffect.
-      InvokeMethodWithReceiver invokeMethodWithReceiver = invoke.asInvokeMethodWithReceiver();
-      Value receiver = invokeMethodWithReceiver.getReceiver();
       if (receiver.getTypeLattice().isNullable()) {
         return false;
       }
@@ -883,8 +958,11 @@ final class InlineCandidateProcessor {
     }
 
     for (int argIndex = 0; argIndex < arguments.size(); argIndex++) {
-      Value argument = arguments.get(argIndex);
-      if (argument == eligibleInstance && optimizationInfo.getParameterUsages(argIndex).notUsed()) {
+      Value argument = arguments.get(argIndex).getAliasedValue();
+      ParameterUsage parameterUsage = optimizationInfo.getParameterUsages(argIndex);
+      if (receivers.isDefiniteReceiverAlias(argument)
+          && parameterUsage != null
+          && parameterUsage.notUsed()) {
         // Reference can be removed since it's not used.
         unusedArguments.add(new Pair<>(invoke, argIndex));
       }
@@ -893,7 +971,7 @@ final class InlineCandidateProcessor {
     extraMethodCalls.put(invoke, new InliningInfo(singleTarget, null));
 
     // Looks good.
-    markSizeForInlining(singleTarget);
+    markSizeForInlining(invoke, singleTarget);
     return true;
   }
 
@@ -904,16 +982,19 @@ final class InlineCandidateProcessor {
       Supplier<InliningOracle> defaultOracle) {
     // Go through all arguments, see if all usages of eligibleInstance are good.
     for (int argIndex = 0; argIndex < arguments.size(); argIndex++) {
-      Value argument = arguments.get(argIndex).getAliasedValue();
-      if (argument != eligibleInstance) {
-        continue; // Nothing to worry about.
-      }
-
-      // Have parameter usage info?
       MethodOptimizationInfo optimizationInfo = singleTarget.getOptimizationInfo();
       ParameterUsage parameterUsage = optimizationInfo.getParameterUsages(argIndex);
-      if (!isEligibleParameterUsage(parameterUsage, invoke, defaultOracle)) {
-        return false;
+
+      Value argument = arguments.get(argIndex);
+      if (receivers.isReceiverAlias(argument)) {
+        // Have parameter usage info?
+        if (!isEligibleParameterUsage(parameterUsage, invoke, defaultOracle)) {
+          return false;
+        }
+      } else {
+        // Nothing to worry about, unless `argument` becomes an alias of the receiver later.
+        receivers.addDeferredAliasValidityCheck(
+            argument, () -> isEligibleParameterUsage(parameterUsage, invoke, defaultOracle));
       }
     }
     return true;
@@ -1015,9 +1096,14 @@ final class InlineCandidateProcessor {
         kotlinInfo.asSyntheticClass().isLambda();
   }
 
-  private void markSizeForInlining(DexEncodedMethod inlinee) {
+  private void markSizeForInlining(InvokeMethod invoke, DexEncodedMethod inlinee) {
+    assert !isProcessedConcurrently.test(inlinee);
     if (!exemptFromInstructionLimit(inlinee)) {
-      estimatedCombinedSizeForInlining += inlinee.getCode().estimatedSizeForInlining();
+      if (invoke != null) {
+        directInlinees.put(invoke, inlinee);
+      } else {
+        indirectInlinees.add(inlinee);
+      }
     }
   }
 

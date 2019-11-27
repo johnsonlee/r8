@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
 import com.android.tools.r8.ir.analysis.TypeChecker;
 import com.android.tools.r8.ir.analysis.ValueMayDependOnEnvironmentAnalysis;
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
@@ -17,7 +18,6 @@ import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.code.Phi.RegisterReadType;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.shaking.VerticalClassMerger.VerticallyMergedClasses;
 import com.android.tools.r8.utils.CfgPrinter;
 import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -956,6 +956,25 @@ public class IRCode {
       nextInstructionNumber = block.numberInstructions(nextInstructionNumber);
     }
     return blocks;
+  }
+
+  public void numberInstructionsPerBlock() {
+    for (BasicBlock block : blocks) {
+      block.numberInstructions(0, 1);
+    }
+  }
+
+  public void clearInstructionNumbers() {
+    for (BasicBlock block : blocks) {
+      block.clearInstructionNumbers();
+    }
+  }
+
+  public boolean hasNoInstructionNumbers() {
+    for (BasicBlock block : blocks) {
+      assert block.hasNoInstructionNumbers();
+    }
+    return true;
   }
 
   public int numberRemainingInstructions() {

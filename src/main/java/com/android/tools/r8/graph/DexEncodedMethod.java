@@ -1092,15 +1092,6 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
     return m1.method.slowCompareTo(m2.method);
   }
 
-  public static class ClassInlinerEligibility {
-
-    public final boolean returnsReceiver;
-
-    public ClassInlinerEligibility(boolean returnsReceiver) {
-      this.returnsReceiver = returnsReceiver;
-    }
-  }
-
   public MethodOptimizationInfo getOptimizationInfo() {
     checkIfObsolete();
     return optimizationInfo;
