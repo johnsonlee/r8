@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.code;
 
+import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
+
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
@@ -12,13 +14,13 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
-import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.ir.regalloc.LiveIntervals;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.MethodPosition;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.LongInterval;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SetUtils;
@@ -1114,21 +1116,22 @@ public class Value implements Comparable<Value> {
     return lattice;
   }
 
-  public ClassTypeLatticeElement getDynamicLowerBoundType(
-      AppView<? extends AppInfoWithSubtyping> appView) {
+  public ClassTypeLatticeElement getDynamicLowerBoundType(AppView<AppInfoWithLiveness> appView) {
     Value root = getAliasedValue();
     if (root.isPhi()) {
       return null;
     }
+
     Instruction definition = root.definition;
     if (definition.isNewInstance()) {
       DexType type = definition.asNewInstance().clazz;
       DexClass clazz = appView.definitionFor(type);
       if (clazz != null && !clazz.isInterface()) {
-        return ClassTypeLatticeElement.create(type, Nullability.definitelyNotNull(), appView);
+        return ClassTypeLatticeElement.create(type, definitelyNotNull(), appView);
       }
       return null;
     }
+
     // Try to find an alias of the receiver, which is defined by an instruction of the type
     // Assume<DynamicTypeAssumption>.
     Value aliasedValue = getSpecificAliasedValue(value -> value.definition.isAssumeDynamicType());
@@ -1136,9 +1139,20 @@ public class Value implements Comparable<Value> {
       ClassTypeLatticeElement lattice =
           aliasedValue.definition.asAssumeDynamicType().getAssumption().getDynamicLowerBoundType();
       return lattice != null && typeLattice.isDefinitelyNotNull() && lattice.isNullable()
-          ? lattice.asMeetWithNotNull().asClassTypeLatticeElement()
+          ? lattice.asMeetWithNotNull()
           : lattice;
     }
+
+    // If it is a final or effectively-final class type, then we know the lower bound.
+    if (getTypeLattice().isClassType()) {
+      ClassTypeLatticeElement classType = getTypeLattice().asClassTypeLatticeElement();
+      DexType type = classType.getClassType();
+      DexClass clazz = appView.definitionFor(type);
+      if (clazz != null && clazz.isEffectivelyFinal(appView)) {
+        return classType;
+      }
+    }
+
     return null;
   }
 }
