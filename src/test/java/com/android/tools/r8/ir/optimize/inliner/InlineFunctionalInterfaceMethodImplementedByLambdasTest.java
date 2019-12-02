@@ -2,21 +2,23 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.classmerging;
+package com.android.tools.r8.ir.optimize.inliner;
+
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
-import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.StringUtils;
-import java.lang.reflect.Proxy;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class InterfaceWithProxyTest extends TestBase {
+public class InlineFunctionalInterfaceMethodImplementedByLambdasTest extends TestBase {
 
   private final TestParameters parameters;
 
@@ -25,52 +27,53 @@ public class InterfaceWithProxyTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public InterfaceWithProxyTest(TestParameters parameters) {
+  public InlineFunctionalInterfaceMethodImplementedByLambdasTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
   @Test
   public void test() throws Exception {
-    String expectedOutput = StringUtils.lines("Hello world!");
     testForR8(parameters.getBackend())
-        .addInnerClasses(InterfaceWithProxyTest.class)
+        .addInnerClasses(InlineFunctionalInterfaceMethodImplementedByLambdasTest.class)
         .addKeepMainRule(TestClass.class)
         .enableClassInliningAnnotations()
-        .enableInliningAnnotations()
         .setMinApi(parameters.getApiLevel())
+        .compile()
+        .inspect(this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(expectedOutput);
+        .assertSuccessWithOutputLines("Hello world!");
+  }
+
+  private void inspect(CodeInspector inspector) {
+    if (parameters.isDexRuntime()) {
+      assertThat(inspector.clazz(I.class), not(isPresent()));
+    } else {
+      // Used by the invoke-custom instruction.
+      assertThat(inspector.clazz(I.class), isPresent());
+    }
+
+    assertThat(inspector.clazz(A.class), not(isPresent()));
   }
 
   static class TestClass {
 
     public static void main(String[] args) {
-      I obj =
-          (I)
-              Proxy.newProxyInstance(
-                  TestClass.class.getClassLoader(),
-                  new Class<?>[] {I.class},
-                  (proxy, method, args1) -> {
-                    System.out.print("Hello");
-                    return null;
-                  });
-      obj.greet();
-      new A().greet();
+      ((I) new A()).m();
+      ((I) () -> System.out.println(" world!")).m();
     }
   }
 
   interface I {
 
-    void greet();
+    void m();
   }
 
   @NeverClassInline
   static class A implements I {
 
-    @NeverInline
     @Override
-    public void greet() {
-      System.out.println(" world!");
+    public void m() {
+      System.out.print("Hello");
     }
   }
 }
