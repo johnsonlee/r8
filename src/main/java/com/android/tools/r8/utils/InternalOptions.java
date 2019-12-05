@@ -183,9 +183,9 @@ public class InternalOptions {
 
   // Flag to toggle if DEX code objects should pass-through without IR processing.
   public boolean passthroughDexCode = false;
-  // TODO(b/134705306): Currently allow merging dex files resulting from Java 8 library
-  //  desugaring until all D8 users are complient.
-  public boolean enableNeverMergePrefixes = false;
+
+  // Flag to toggle if the prefix based merge restriction should be enforced.
+  public boolean enableNeverMergePrefixes = true;
   public Set<String> neverMergePrefixes = ImmutableSet.of("j$.");
 
   public boolean libraryInterfacesMayHaveStaticInitialization = false;
@@ -246,6 +246,8 @@ public class InternalOptions {
   public boolean enableInitializedClassesInInstanceMethodsAnalysis = true;
   public boolean enableRedundantFieldLoadElimination = true;
   public boolean enableValuePropagation = true;
+  // TODO(b/125282093): Enable member value propagation for instance fields.
+  public boolean enableValuePropagationForInstanceFields = false;
   public boolean enableUninstantiatedTypeOptimization = true;
   // TODO(b/138917494): Disable until we have numbers on potential performance penalties.
   public boolean enableRedundantConstNumberOptimization = false;
@@ -391,6 +393,8 @@ public class InternalOptions {
   public boolean readCompileTimeAnnotations = true;
   public List<String> logArgumentsFilter = ImmutableList.of();
 
+  // Flag to turn on/offLoad/store optimization in the Cf back-end.
+  public boolean enableLoadStoreOptimization = true;
   // Flag to turn on/off lambda class merging in R8.
   public boolean enableLambdaMerging = false;
   // Flag to turn on/off desugaring in D8/R8.
@@ -1007,7 +1011,6 @@ public class InternalOptions {
     public Set<Inliner.Reason> validInliningReasons = null;
     public boolean noLocalsTableOnInput = false;
     public boolean forceNameReflectionOptimization = false;
-    public boolean disallowLoadStoreOptimization = false;
     public boolean enableNarrowingChecksInD8 = false;
     public Consumer<IRCode> irModifier = null;
     // TODO(b/129458850) When fixed, remove this and change all usages to "true".

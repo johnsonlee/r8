@@ -24,10 +24,11 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class CoreLibDesugarTestBase extends TestBase {
+public class DesugaredLibraryTestBase extends TestBase {
 
   protected boolean requiresEmulatedInterfaceCoreLibDesugaring(TestParameters parameters) {
     return parameters.getApiLevel().getLevel() < AndroidApiLevel.N.getLevel();
@@ -37,37 +38,39 @@ public class CoreLibDesugarTestBase extends TestBase {
     return parameters.getApiLevel().getLevel() < AndroidApiLevel.O.getLevel();
   }
 
-  protected Path buildDesugaredLibrary(AndroidApiLevel apiLevel) throws RuntimeException {
+  protected Path buildDesugaredLibrary(AndroidApiLevel apiLevel) {
     return buildDesugaredLibrary(apiLevel, "", false);
   }
 
-  protected Path buildDesugaredLibrary(AndroidApiLevel apiLevel, String keepRules)
-      throws RuntimeException {
+  protected Path buildDesugaredLibrary(AndroidApiLevel apiLevel, String keepRules) {
     return buildDesugaredLibrary(apiLevel, keepRules, true);
   }
 
-  protected Path buildDesugaredLibrary(AndroidApiLevel apiLevel, String keepRules, boolean shrink)
-      throws RuntimeException {
+  protected Path buildDesugaredLibrary(AndroidApiLevel apiLevel, String keepRules, boolean shrink) {
     return buildDesugaredLibrary(apiLevel, keepRules, shrink, ImmutableList.of());
   }
 
   protected Path buildDesugaredLibrary(
-      AndroidApiLevel apiLevel, String keepRules, boolean shrink, List<Path> additionalProgramFiles)
-      throws RuntimeException {
+      AndroidApiLevel apiLevel,
+      String keepRules,
+      boolean shrink,
+      List<Path> additionalProgramFiles) {
     // We wrap exceptions in a RuntimeException to call this from a lambda.
     try {
       // If we compile extended library here, it means we use TestNG.
       // TestNG requires annotations, hence we disable AnnotationRemoval.
       // This implies that extra warning are generated if this is set.
       boolean disableL8AnnotationRemovalForTesting = !additionalProgramFiles.isEmpty();
+      ArrayList<Path> extraPaths = new ArrayList<>(additionalProgramFiles);
       TestDiagnosticMessagesImpl diagnosticsHandler = new TestDiagnosticMessagesImpl();
       Path desugaredLib = temp.newFolder().toPath().resolve("desugar_jdk_libs_dex.zip");
       L8Command.Builder l8Builder =
           L8Command.builder(diagnosticsHandler)
               .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
               .addProgramFiles(ToolHelper.getDesugarJDKLibs())
+              .addProgramFiles(ToolHelper.DESUGAR_LIB_CONVERSIONS)
               .setMode(shrink ? CompilationMode.RELEASE : CompilationMode.DEBUG)
-              .addProgramFiles(additionalProgramFiles)
+              .addProgramFiles(extraPaths)
               .addDesugaredLibraryConfiguration(
                   StringResource.fromFile(ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING))
               .setMinApiLevel(apiLevel.getLevel())
@@ -95,6 +98,10 @@ public class CoreLibDesugarTestBase extends TestBase {
       }
       return desugaredLib;
     } catch (Exception e) {
+      // Don't wrap assumption violation so junit can catch it.
+      if (e instanceof RuntimeException) {
+        throw ((RuntimeException) e);
+      }
       throw new RuntimeException(e);
     }
   }

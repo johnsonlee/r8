@@ -12,6 +12,6 @@ class ProgramClass : Impl() {
   }
 }
 
-fun main(args: Array<String>) {
+fun main() {
   ProgramClass().foo()
 }

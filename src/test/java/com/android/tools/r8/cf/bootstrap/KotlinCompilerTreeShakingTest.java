@@ -3,12 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.cf.bootstrap;
 
+import static com.android.tools.r8.KotlinCompilerTool.KOTLINC;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.internal.CompilationTestBase;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -50,7 +53,7 @@ public class KotlinCompilerTreeShakingTest extends CompilationTestBase {
   public void testForRuntime() throws Exception {
     // Compile Hello.kt and make sure it works as expected.
     Path classPathBefore =
-        kotlinc(parameters.getRuntime().asCf())
+        kotlinc(parameters.getRuntime().asCf(), KOTLINC, KotlinTargetVersion.JAVA_8)
             .addSourceFiles(HELLO_KT)
             .setOutputPath(temp.newFolder().toPath())
             .compile();
@@ -63,7 +66,6 @@ public class KotlinCompilerTreeShakingTest extends CompilationTestBase {
 
   @Ignore(
       "b/136457753: assertion error in static class merger; "
-          + "b/144861881: force-inlining of non-inlineable constructors in vertical class merger; "
           + "b/144877828: assertion error in method naming state during interface method renaming; "
           + "b/144859533: umbrella"
   )
@@ -101,8 +103,6 @@ public class KotlinCompilerTreeShakingTest extends CompilationTestBase {
               o.ignoreMissingClasses = true;
               // b/144861100: invoke-static on interface is allowed up to JDK 8.
               o.testing.allowInvokeErrors = true;
-              // TODO(b/144861881): force-inlining of non-inlineable constructors.
-              o.enableVerticalClassMerging = false;
             })
             .compile()
             .writeToZip();
@@ -117,7 +117,10 @@ public class KotlinCompilerTreeShakingTest extends CompilationTestBase {
     // TODO(b/144859533): passing `dir` as -kotlin-home.
     // Compile Hello.kt again with r8-processed kotlin-compiler.jar
     Path classPathAfter =
-        kotlinc(parameters.getRuntime().asCf(), r8ProcessedKotlinc)
+        kotlinc(
+                parameters.getRuntime().asCf(),
+                new KotlinCompiler("r8ProcessedKotlinc", r8ProcessedKotlinc),
+                KotlinTargetVersion.JAVA_8)
             .addSourceFiles(HELLO_KT)
             .setOutputPath(temp.newFolder().toPath())
             .compile();

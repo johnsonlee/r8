@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.kotlin.metadata;
 
+import static com.android.tools.r8.KotlinCompilerTool.KOTLINC;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isRenamed;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -18,6 +19,7 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.graph.DexAnnotation;
+import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.nio.file.Path;
 import java.util.Collection;
@@ -70,7 +72,7 @@ public class MetadataRenameInExtensionTest extends KotlinMetadataTestBase {
             // Keep the BKt extension method which requires metadata
             // to be called with Kotlin syntax from other kotlin code.
             .addKeepRules("-keep class **.BKt { <methods>; }")
-            .addKeepAttributes("*Annotation*")
+            .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
             .compile();
     String pkg = getClass().getPackage().getName();
     final String superClassName = pkg + ".extension_lib.Super";
@@ -93,7 +95,7 @@ public class MetadataRenameInExtensionTest extends KotlinMetadataTestBase {
 
     String appFolder = PKG_PREFIX + "/extension_app";
     ProcessResult kotlinTestCompileResult =
-        kotlinc(parameters.getRuntime().asCf())
+        kotlinc(parameters.getRuntime().asCf(), KOTLINC, KotlinTargetVersion.JAVA_8)
             .addClasspathFiles(r8ProcessedLibZip)
             .addSourceFiles(getKotlinFileInTest(appFolder, "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -117,7 +119,7 @@ public class MetadataRenameInExtensionTest extends KotlinMetadataTestBase {
             // Keep the BKt extension method which requires metadata
             // to be called with Kotlin syntax from other kotlin code.
             .addKeepRules("-keep class **.BKt { <methods>; }")
-            .addKeepAttributes("*Annotation*")
+            .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
             .compile();
     String pkg = getClass().getPackage().getName();
     final String superClassName = pkg + ".extension_lib.Super";
@@ -136,19 +138,19 @@ public class MetadataRenameInExtensionTest extends KotlinMetadataTestBase {
       assertThat(metadata.toString(), not(containsString("Super")));
     });
 
-    Path r8ProcessedLibZip = temp.newFile("r8-lib.zip").toPath();
-    compileResult.writeToZip(r8ProcessedLibZip);
+    Path libJar = temp.newFile("lib.jar").toPath();
+    compileResult.writeToZip(libJar);
 
     String appFolder = PKG_PREFIX + "/extension_app";
     Path output =
-        kotlinc(parameters.getRuntime().asCf())
-            .addClasspathFiles(r8ProcessedLibZip)
+        kotlinc(parameters.getRuntime().asCf(), KOTLINC, KotlinTargetVersion.JAVA_8)
+            .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(appFolder, "main"))
             .setOutputPath(temp.newFolder().toPath())
             .compile();
 
     testForJvm()
-        .addRunClasspathFiles(ToolHelper.getKotlinStdlibJar(), r8ProcessedLibZip)
+        .addRunClasspathFiles(ToolHelper.getKotlinStdlibJar(), libJar)
         .addClasspath(output)
         .run(parameters.getRuntime(), pkg + ".extension_app.MainKt")
         .assertSuccessWithOutputLines("do stuff", "do stuff");

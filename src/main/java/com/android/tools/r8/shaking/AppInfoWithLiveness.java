@@ -761,20 +761,24 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     return false;
   }
 
-  public boolean isStaticFieldWrittenOnlyInEnclosingStaticInitializer(DexEncodedField field) {
+  public boolean isFieldOnlyWrittenInMethod(DexEncodedField field, DexEncodedMethod method) {
     assert checkIfObsolete();
     assert isFieldWritten(field) : "Expected field `" + field.toSourceString() + "` to be written";
     if (!isPinned(field.field)) {
-      DexEncodedMethod staticInitializer =
-          definitionFor(field.field.holder).asProgramClass().getClassInitializer();
-      if (staticInitializer != null) {
-        FieldAccessInfo fieldAccessInfo = fieldAccessInfoCollection.get(field.field);
-        return fieldAccessInfo != null
-            && fieldAccessInfo.isWritten()
-            && !fieldAccessInfo.isWrittenOutside(staticInitializer);
-      }
+      FieldAccessInfo fieldAccessInfo = fieldAccessInfoCollection.get(field.field);
+      return fieldAccessInfo != null
+          && fieldAccessInfo.isWritten()
+          && !fieldAccessInfo.isWrittenOutside(method);
     }
     return false;
+  }
+
+  public boolean isStaticFieldWrittenOnlyInEnclosingStaticInitializer(DexEncodedField field) {
+    assert checkIfObsolete();
+    assert isFieldWritten(field) : "Expected field `" + field.toSourceString() + "` to be written";
+    DexEncodedMethod staticInitializer =
+        definitionFor(field.field.holder).asProgramClass().getClassInitializer();
+    return staticInitializer != null && isFieldOnlyWrittenInMethod(field, staticInitializer);
   }
 
   public boolean mayPropagateValueFor(DexReference reference) {
@@ -1022,7 +1026,9 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     DexProgramClass refinedHolder =
         (refinedReceiverIsStrictSubType ? definitionFor(refinedReceiverType) : holder)
             .asProgramClass();
-    assert refinedHolder != null;
+    if (refinedHolder == null) {
+      return null;
+    }
     assert !refinedHolder.isInterface();
     if (method.isSingleVirtualMethodCached(refinedReceiverType)) {
       return method.getSingleVirtualMethodCache(refinedReceiverType);
