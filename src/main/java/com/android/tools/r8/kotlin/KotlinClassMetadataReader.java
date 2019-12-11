@@ -7,6 +7,7 @@ import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationElement;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexEncodedAnnotation;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.DexValue.DexValueArray;
@@ -30,7 +31,7 @@ final class KotlinClassMetadataReader {
     DexAnnotation meta = clazz.annotations.getFirstMatching(kotlin.metadata.kotlinMetadataType);
     if (meta != null) {
       try {
-        return createKotlinInfo(kotlin, clazz, meta);
+        return createKotlinInfo(kotlin, clazz, meta.annotation);
       } catch (ClassCastException | InconsistentKotlinMetadataException | MetadataError e) {
         reporter.info(
             new StringDiagnostic("Class " + clazz.type.toSourceString()
@@ -44,12 +45,10 @@ final class KotlinClassMetadataReader {
     return null;
   }
 
-  private static KotlinInfo createKotlinInfo(
-      Kotlin kotlin,
-      DexClass clazz,
-      DexAnnotation meta) {
+  private static KotlinClassMetadata toKotlinClassMetadata(
+      Kotlin kotlin, DexEncodedAnnotation metadataAnnotation) {
     Map<DexString, DexAnnotationElement> elementMap = new IdentityHashMap<>();
-    for (DexAnnotationElement element : meta.annotation.elements) {
+    for (DexAnnotationElement element : metadataAnnotation.elements) {
       elementMap.put(element.name, element);
     }
 
@@ -74,20 +73,25 @@ final class KotlinClassMetadataReader {
     Integer xi = extraInt == null ? null : (Integer) extraInt.value.getBoxedValue();
 
     KotlinClassHeader header = new KotlinClassHeader(k, mv, bv, d1, d2, xs, pn, xi);
-    KotlinClassMetadata kMetadata = KotlinClassMetadata.read(header);
+    return KotlinClassMetadata.read(header);
+  }
+
+  private static KotlinInfo createKotlinInfo(
+      Kotlin kotlin, DexClass clazz, DexEncodedAnnotation metadataAnnotation) {
+    KotlinClassMetadata kMetadata = toKotlinClassMetadata(kotlin, metadataAnnotation);
 
     if (kMetadata instanceof KotlinClassMetadata.Class) {
       return KotlinClass.fromKotlinClassMetadata(kMetadata, clazz);
     } else if (kMetadata instanceof KotlinClassMetadata.FileFacade) {
       return KotlinFile.fromKotlinClassMetadata(kMetadata, clazz);
     } else if (kMetadata instanceof KotlinClassMetadata.MultiFileClassFacade) {
-      return KotlinClassFacade.fromKotlinClassMetadata(kMetadata);
+      return KotlinClassFacade.fromKotlinClassMetadata(kMetadata, clazz);
     } else if (kMetadata instanceof KotlinClassMetadata.MultiFileClassPart) {
-      return KotlinClassPart.fromKotlinClassMetadata(kMetadata);
+      return KotlinClassPart.fromKotlinClassMetadata(kMetadata, clazz);
     } else if (kMetadata instanceof KotlinClassMetadata.SyntheticClass) {
       return KotlinSyntheticClass.fromKotlinClassMetadata(kMetadata, kotlin, clazz);
     } else {
-      throw new MetadataError("unsupported 'k' value: " + k);
+      throw new MetadataError("unsupported 'k' value: " + kMetadata.getHeader().getKind());
     }
   }
 
@@ -129,5 +133,4 @@ final class KotlinClassMetadataReader {
       super(cause);
     }
   }
-
 }

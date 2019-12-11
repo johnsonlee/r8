@@ -11,10 +11,12 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
+import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.code.Assume;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -29,6 +31,7 @@ import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
+import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.desugar.LambdaRewriter;
 import com.android.tools.r8.ir.optimize.Inliner;
@@ -37,9 +40,9 @@ import com.android.tools.r8.ir.optimize.Inliner.InliningInfo;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.ir.optimize.InliningOracle;
 import com.android.tools.r8.ir.optimize.classinliner.ClassInliner.EligibilityStatus;
+import com.android.tools.r8.ir.optimize.info.FieldOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.ParameterUsagesInfo.ParameterUsage;
-import com.android.tools.r8.ir.optimize.info.initializer.ClassInitializerInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfo;
 import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
@@ -136,9 +139,23 @@ final class InlineCandidateProcessor {
     if (eligibleInstance == null) {
       return EligibilityStatus.UNUSED_INSTANCE;
     }
-
-    eligibleClass =
-        root.isNewInstance() ? root.asNewInstance().clazz : root.asStaticGet().getField().type;
+    if (root.isNewInstance()) {
+      eligibleClass = root.asNewInstance().clazz;
+    } else {
+      assert root.isStaticGet();
+      StaticGet staticGet = root.asStaticGet();
+      if (staticGet.instructionMayHaveSideEffects(appView, method.method.holder)) {
+        return EligibilityStatus.RETRIEVAL_MAY_HAVE_SIDE_EFFECTS;
+      }
+      DexEncodedField field = appView.appInfo().resolveField(staticGet.getField());
+      FieldOptimizationInfo optimizationInfo = field.getOptimizationInfo();
+      ClassTypeLatticeElement dynamicLowerBoundType = optimizationInfo.getDynamicLowerBoundType();
+      if (dynamicLowerBoundType == null
+          || !dynamicLowerBoundType.equals(optimizationInfo.getDynamicUpperBoundType())) {
+        return EligibilityStatus.NOT_A_SINGLETON_FIELD;
+      }
+      eligibleClass = dynamicLowerBoundType.getClassType();
+    }
     if (!eligibleClass.isClassType()) {
       return EligibilityStatus.NON_CLASS_TYPE;
     }
@@ -180,11 +197,13 @@ final class InlineCandidateProcessor {
       // TrivialInstanceInitializer. This will be checked in areInstanceUsersEligible(...).
 
       // There must be no static initializer on the class itself.
-      if (eligibleClassDefinition.hasClassInitializer()) {
+      if (eligibleClassDefinition.classInitializationMayHaveSideEffects(
+          appView,
+          // Types that are a super type of the current context are guaranteed to be initialized.
+          type -> appView.isSubtype(method.method.holder, type).isTrue())) {
         return EligibilityStatus.HAS_CLINIT;
-      } else {
-        return EligibilityStatus.ELIGIBLE;
       }
+      return EligibilityStatus.ELIGIBLE;
     }
 
     assert root.isStaticGet();
@@ -244,34 +263,10 @@ final class InlineCandidateProcessor {
     //      of class inlining
     //
 
-    if (eligibleClassDefinition.instanceFields().size() > 0) {
+    if (!eligibleClassDefinition.instanceFields().isEmpty()) {
       return EligibilityStatus.HAS_INSTANCE_FIELDS;
     }
-    if (appView.appInfo().hasSubtypes(eligibleClassDefinition.type)) {
-      assert !eligibleClassDefinition.accessFlags.isFinal();
-      return EligibilityStatus.NON_FINAL_TYPE;
-    }
-
-    // Singleton instance must be initialized in class constructor.
-    DexEncodedMethod classInitializer = eligibleClassDefinition.getClassInitializer();
-    if (classInitializer == null || isProcessedConcurrently.test(classInitializer)) {
-      return EligibilityStatus.NOT_INITIALIZED_AT_INIT;
-    }
-
-    ClassInitializerInfo initializerInfo =
-        classInitializer.getOptimizationInfo().getClassInitializerInfo();
-    DexField instanceField = root.asStaticGet().getField();
-    // Singleton instance field must NOT be pinned.
-    AppInfoWithLiveness appInfo = appView.appInfo();
-    boolean notPinned =
-        initializerInfo != null
-            && initializerInfo.field == instanceField
-            && !appInfo.isPinned(eligibleClassDefinition.lookupStaticField(instanceField).field);
-    if (notPinned) {
-      return EligibilityStatus.ELIGIBLE;
-    } else {
-      return EligibilityStatus.PINNED_FIELD;
-    }
+    return EligibilityStatus.ELIGIBLE;
   }
 
   /**
@@ -340,6 +335,8 @@ final class InlineCandidateProcessor {
                   continue;
                 }
               }
+              assert !isExtraMethodCall(invoke);
+              return user; // Not eligible.
             }
           }
 
@@ -397,7 +394,8 @@ final class InlineCandidateProcessor {
   //
   // Returns `true` if at least one method was inlined.
   boolean processInlining(
-      IRCode code, Supplier<InliningOracle> defaultOracle, InliningIRProvider inliningIRProvider) {
+      IRCode code, Supplier<InliningOracle> defaultOracle, InliningIRProvider inliningIRProvider)
+      throws IllegalClassInlinerStateException {
     // Verify that `eligibleInstance` is not aliased.
     assert eligibleInstance == eligibleInstance.getAliasedValue();
     replaceUsagesAsUnusedArgument(code);
@@ -413,15 +411,7 @@ final class InlineCandidateProcessor {
       // Repeat user analysis
       InstructionOrPhi ineligibleUser = areInstanceUsersEligible(defaultOracle);
       if (ineligibleUser != null) {
-        // We introduced a user that we cannot handle in the class inliner as a result of force
-        // inlining. Abort gracefully from class inlining without removing the instance.
-        //
-        // Alternatively we would need to collect additional information about the behavior of
-        // methods (which is bad for memory), or we would need to analyze the called methods before
-        // inlining them. The latter could be good solution, since we are going to build IR for the
-        // methods that need to be inlined anyway.
-        assert appView.options().testing.allowClassInlinerGracefulExit;
-        return true;
+        throw new IllegalClassInlinerStateException();
       }
       assert extraMethodCalls.isEmpty()
           : "Remaining extra method calls: " + StringUtils.join(extraMethodCalls.entrySet(), ", ");
@@ -465,7 +455,7 @@ final class InlineCandidateProcessor {
   }
 
   private boolean forceInlineDirectMethodInvocations(
-      IRCode code, InliningIRProvider inliningIRProvider) {
+      IRCode code, InliningIRProvider inliningIRProvider) throws IllegalClassInlinerStateException {
     if (methodCallsOnInstance.isEmpty()) {
       return false;
     }
@@ -485,20 +475,33 @@ final class InlineCandidateProcessor {
         for (Instruction instruction : eligibleInstance.uniqueUsers()) {
           if (instruction.isInvokeDirect()) {
             InvokeDirect invoke = instruction.asInvokeDirect();
-            Value receiver = invoke.getReceiver();
-            if (receiver == eligibleInstance) {
-              DexMethod invokedMethod = invoke.getInvokedMethod();
-              if (appView.dexItemFactory().isConstructor(invokedMethod)
-                  && invokedMethod != appView.dexItemFactory().objectMethods.constructor) {
-                methodCallsOnInstance.put(
-                    invoke,
-                    new InliningInfo(
-                        appView.definitionFor(invokedMethod), root.asNewInstance().clazz));
-                break;
-              }
-            } else {
-              assert receiver.getAliasedValue() != eligibleInstance;
+            Value receiver = invoke.getReceiver().getAliasedValue();
+            if (receiver != eligibleInstance) {
+              continue;
             }
+
+            DexMethod invokedMethod = invoke.getInvokedMethod();
+            if (invokedMethod == appView.dexItemFactory().objectMethods.constructor) {
+              continue;
+            }
+
+            if (!appView.dexItemFactory().isConstructor(invokedMethod)) {
+              throw new IllegalClassInlinerStateException();
+            }
+
+            DexEncodedMethod singleTarget = appView.definitionFor(invokedMethod);
+            if (singleTarget == null
+                || !singleTarget.isInliningCandidate(
+                    method,
+                    Reason.SIMPLE,
+                    appView.appInfo(),
+                    NopWhyAreYouNotInliningReporter.getInstance())) {
+              throw new IllegalClassInlinerStateException();
+            }
+
+            methodCallsOnInstance.put(
+                invoke, new InliningInfo(singleTarget, root.asNewInstance().clazz));
+            break;
           }
         }
         if (!methodCallsOnInstance.isEmpty()) {
@@ -704,29 +707,25 @@ final class InlineCandidateProcessor {
       return new InliningInfo(singleTarget, eligibleClass);
     }
 
-    // If the superclass of the initializer is NOT java.lang.Object, the super class initializer
-    // being called must be classified as TrivialInstanceInitializer.
-    //
-    // NOTE: since we already classified the class as eligible, it does not have
-    //       any class initializers in superclass chain or in superinterfaces, see
-    //       details in ClassInliner::computeClassEligible(...).
-    if (eligibleClassDefinition.superType != appView.dexItemFactory().objectType) {
-      DexClass superClass = appView.definitionFor(eligibleClassDefinition.superType);
-      if (superClass == null || !superClass.isProgramClass()) {
+    // Check that the entire constructor chain can be inlined into the current context.
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    DexMethod parent = singleTarget.getOptimizationInfo().getInstanceInitializerInfo().getParent();
+    while (parent != dexItemFactory.objectMethods.constructor) {
+      if (parent == null) {
         return null;
       }
-
-      // At this point, we don't know which constructor in the super type that is invoked from the
-      // method. Therefore, we just check if all of the constructors in the super type are trivial.
-      for (DexEncodedMethod method : superClass.directMethods()) {
-        if (method.isInstanceInitializer()) {
-          InstanceInitializerInfo initializerInfo =
-              method.getOptimizationInfo().getInstanceInitializerInfo();
-          if (initializerInfo.receiverMayEscapeOutsideConstructorChain()) {
-            return null;
-          }
-        }
+      DexEncodedMethod encodedParent = appView.definitionFor(parent);
+      if (encodedParent == null) {
+        return null;
       }
+      if (!encodedParent.isInliningCandidate(
+          method,
+          Reason.SIMPLE,
+          appView.appInfo(),
+          NopWhyAreYouNotInliningReporter.getInstance())) {
+        return null;
+      }
+      parent = encodedParent.getOptimizationInfo().getInstanceInitializerInfo().getParent();
     }
 
     return singleTarget.getOptimizationInfo().getClassInlinerEligibility() != null
@@ -857,7 +856,7 @@ final class InlineCandidateProcessor {
     // We should not inline a method if the invocation has type interface or virtual and the
     // signature of the invocation resolves to a private or static method.
     ResolutionResult resolutionResult = appView.appInfo().resolveMethod(callee.holder, callee);
-    if (resolutionResult.hasSingleTarget()
+    if (resolutionResult.isSingleResolution()
         && !resolutionResult.getSingleTarget().isVirtualMethod()) {
       return null;
     }
@@ -869,13 +868,7 @@ final class InlineCandidateProcessor {
       return null; // Don't inline itself.
     }
 
-    if (isDesugaredLambda && !singleTarget.accessFlags.isBridge()) {
-      markSizeForInlining(invoke, singleTarget);
-      return new InliningInfo(singleTarget, eligibleClass);
-    }
-
     MethodOptimizationInfo optimizationInfo = singleTarget.getOptimizationInfo();
-
     ClassInlinerEligibilityInfo eligibility = optimizationInfo.getClassInlinerEligibility();
     if (eligibility == null) {
       return null;
@@ -1146,4 +1139,6 @@ final class InlineCandidateProcessor {
     instruction.inValues().forEach(v -> v.removeUser(instruction));
     instruction.getBlock().removeInstruction(instruction);
   }
+
+  static class IllegalClassInlinerStateException extends Exception {}
 }

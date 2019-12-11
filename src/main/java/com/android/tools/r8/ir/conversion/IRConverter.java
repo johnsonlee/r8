@@ -296,7 +296,7 @@ public class IRConverter {
               : null;
       this.lambdaMerger =
           options.enableLambdaMerging ? new LambdaMerger(appViewWithLiveness) : null;
-      this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness, lambdaRewriter);
+      this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness);
       this.inliner =
           new Inliner(appViewWithLiveness, mainDexClasses, lambdaMerger, lensCodeRewriter);
       this.outliner = new Outliner(appViewWithLiveness);
@@ -807,11 +807,13 @@ public class IRConverter {
     return builder.build();
   }
 
-  private void waveStart(Collection<DexEncodedMethod> wave) {
+  private void waveStart(Collection<DexEncodedMethod> wave, ExecutorService executorService)
+      throws ExecutionException {
     onWaveDoneActions = Collections.synchronizedList(new ArrayList<>());
 
     if (lambdaRewriter != null) {
-      wave.forEach(method -> lambdaRewriter.synthesizeLambdaClassesFor(method, lensCodeRewriter));
+      lambdaRewriter.synthesizeLambdaClassesForWave(
+          wave, executorService, delayedOptimizationFeedback, lensCodeRewriter);
     }
   }
 
@@ -975,8 +977,23 @@ public class IRConverter {
     for (DexProgramClass clazz : classes) {
       clazz.forEachMethod(methods::add);
     }
-    // Process the generated class, but don't apply any outlining.
     processMethodsConcurrently(methods, executorService);
+  }
+
+  public void optimizeSynthesizedLambdaClasses(
+      Collection<DexProgramClass> classes, ExecutorService executorService)
+      throws ExecutionException {
+    assert appView.enableWholeProgramOptimizations();
+    Set<DexEncodedMethod> methods = Sets.newIdentityHashSet();
+    for (DexProgramClass clazz : classes) {
+      clazz.forEachMethod(methods::add);
+    }
+    LambdaMethodProcessor processor =
+        new LambdaMethodProcessor(appView.withLiveness(), methods, executorService, timing);
+    processor.forEachMethod(
+        method -> processMethod(method, delayedOptimizationFeedback, processor),
+        delayedOptimizationFeedback::updateVisibleOptimizationInfo,
+        executorService);
   }
 
   public void optimizeSynthesizedMethod(DexEncodedMethod method) {
@@ -1111,10 +1128,11 @@ public class IRConverter {
         lensCodeRewriter.rewrite(code, method);
       } else {
         assert appView.graphLense().isIdentityLense();
-        if (lambdaRewriter != null && options.testing.desugarLambdasThroughLensCodeRewriter()) {
-          lambdaRewriter.desugarLambdas(method, code);
-          assert code.isConsistentSSA();
-        }
+      }
+
+      if (lambdaRewriter != null) {
+        lambdaRewriter.desugarLambdas(method, code);
+        assert code.isConsistentSSA();
       }
     }
 
@@ -1277,12 +1295,6 @@ public class IRConverter {
 
     stringConcatRewriter.desugarStringConcats(method.method, code);
 
-    if (options.testing.desugarLambdasThroughLensCodeRewriter()) {
-      assert !options.enableDesugaring || lambdaRewriter.verifyNoLambdasToDesugar(code);
-    } else if (lambdaRewriter != null) {
-      lambdaRewriter.desugarLambdas(method, code);
-      assert code.isConsistentSSA();
-    }
     previous = printMethod(code, "IR after lambda desugaring (SSA)", previous);
 
     assert code.verifyTypes(appView);

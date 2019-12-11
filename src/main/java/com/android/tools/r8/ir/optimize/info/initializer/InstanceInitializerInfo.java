@@ -4,9 +4,12 @@
 
 package com.android.tools.r8.ir.optimize.info.initializer;
 
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.AbstractFieldSet;
 
-public abstract class InstanceInitializerInfo extends InitializerInfo {
+public abstract class InstanceInitializerInfo {
+
+  public abstract DexMethod getParent();
 
   /**
    * Returns an abstraction of the set of fields that may be as a result of executing this
@@ -49,10 +52,5 @@ public abstract class InstanceInitializerInfo extends InitializerInfo {
 
   public boolean isDefaultInfo() {
     return false;
-  }
-
-  @Override
-  public InstanceInitializerInfo asInstanceInitializerInfo() {
-    return this;
   }
 }

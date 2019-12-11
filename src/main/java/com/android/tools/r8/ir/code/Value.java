@@ -4,6 +4,13 @@
 package com.android.tools.r8.ir.code;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
+import static com.android.tools.r8.ir.code.Opcodes.ARGUMENT;
+import static com.android.tools.r8.ir.code.Opcodes.CHECK_CAST;
+import static com.android.tools.r8.ir.code.Opcodes.CONST_CLASS;
+import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
+import static com.android.tools.r8.ir.code.Opcodes.CONST_STRING;
+import static com.android.tools.r8.ir.code.Opcodes.DEX_ITEM_BASED_CONST_STRING;
+import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_OF;
 
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
@@ -888,6 +895,27 @@ public class Value implements Comparable<Value> {
     return isArgument;
   }
 
+  public boolean onlyDependsOnArgument() {
+    if (isPhi()) {
+      return false;
+    }
+    switch (definition.opcode()) {
+      case ARGUMENT:
+      case CONST_CLASS:
+      case CONST_NUMBER:
+      case CONST_STRING:
+      case DEX_ITEM_BASED_CONST_STRING:
+        // Constants don't depend on anything.
+        return true;
+      case CHECK_CAST:
+        return definition.asCheckCast().object().onlyDependsOnArgument();
+      case INSTANCE_OF:
+        return definition.asInstanceOf().value().onlyDependsOnArgument();
+      default:
+        return false;
+    }
+  }
+
   public int computeArgumentPosition(IRCode code) {
     assert isArgument;
     int position = 0;
@@ -1086,6 +1114,14 @@ public class Value implements Comparable<Value> {
 
   public TypeLatticeElement getDynamicUpperBoundType(
       AppView<? extends AppInfoWithSubtyping> appView) {
+    Value root = getAliasedValue();
+    if (root.isPhi()) {
+      assert getSpecificAliasedValue(
+              value -> !value.isPhi() && value.definition.isAssumeDynamicType())
+          == null;
+      return root.getDynamicUpperBoundType(appView);
+    }
+
     // Try to find an alias of the receiver, which is defined by an instruction of the type
     // Assume<DynamicTypeAssumption>.
     Value aliasedValue =

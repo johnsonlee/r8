@@ -29,7 +29,6 @@ import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.code.Invoke.Type;
-import com.android.tools.r8.ir.optimize.NestUtils;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.ImmutableList;
@@ -630,6 +629,28 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     return constClassReferences.contains(type);
   }
 
+  public AppInfoWithLiveness withStaticFieldWrites(
+      Map<DexEncodedField, Set<DexEncodedMethod>> writesWithContexts) {
+    assert checkIfObsolete();
+    if (writesWithContexts.isEmpty()) {
+      return this;
+    }
+    AppInfoWithLiveness result = new AppInfoWithLiveness(this);
+    writesWithContexts.forEach(
+        (encodedField, contexts) -> {
+          DexField field = encodedField.field;
+          FieldAccessInfoImpl fieldAccessInfo = result.fieldAccessInfoCollection.get(field);
+          if (fieldAccessInfo == null) {
+            fieldAccessInfo = new FieldAccessInfoImpl(field);
+            result.fieldAccessInfoCollection.extend(field, fieldAccessInfo);
+          }
+          for (DexEncodedMethod context : contexts) {
+            fieldAccessInfo.recordWrite(field, context);
+          }
+        });
+    return result;
+  }
+
   public AppInfoWithLiveness withoutStaticFieldsWrites(Set<DexField> noLongerWrittenFields) {
     assert checkIfObsolete();
     if (noLongerWrittenFields.isEmpty()) {
@@ -838,6 +859,19 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     return pinnedItems.contains(reference);
   }
 
+  public boolean hasPinnedInstanceInitializer(DexType type) {
+    assert type.isClassType();
+    DexProgramClass clazz = asProgramClassOrNull(definitionFor(type));
+    if (clazz != null) {
+      for (DexEncodedMethod method : clazz.directMethods()) {
+        if (method.isInstanceInitializer() && isPinned(method.method)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   private boolean canVirtualMethodBeImplementedInExtraSubclass(
       DexProgramClass clazz, DexMethod method) {
     // For functional interfaces that are instantiated by lambdas, we may not have synthesized all
@@ -853,7 +887,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     // overrides the kept method.
     if (isPinned(clazz.type)) {
       ResolutionResult resolutionResult = resolveMethod(clazz, method);
-      if (resolutionResult.hasSingleTarget()) {
+      if (resolutionResult.isSingleResolution()) {
         DexEncodedMethod resolutionTarget = resolutionResult.getSingleTarget();
         return !resolutionTarget.isProgramMethod(this)
             || resolutionTarget.isLibraryMethodOverride().isPossiblyTrue()
@@ -982,9 +1016,24 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
       DexType refinedReceiverType,
       ClassTypeLatticeElement receiverLowerBoundType) {
     assert checkIfObsolete();
-    DexEncodedMethod directResult = nestAccessLookup(method, invocationContext);
-    if (directResult != null) {
-      return directResult;
+    // TODO: replace invocationContext by a DexProgramClass typed formal.
+    DexProgramClass invocationClass = asProgramClassOrNull(definitionFor(invocationContext));
+    assert invocationClass != null;
+
+    ResolutionResult resolutionResult = resolveMethodOnClass(method.holder, method);
+    if (!resolutionResult.isAccessibleForVirtualDispatchFrom(invocationClass, this)) {
+      return null;
+    }
+
+    DexEncodedMethod topTarget = resolutionResult.getSingleTarget();
+    if (topTarget == null) {
+      // A null target represents a valid target without a known defintion, ie, array clone().
+      return null;
+    }
+
+    // If the target is a private method, then the invocation is a direct access to a nest member.
+    if (topTarget.isPrivateMethod()) {
+      return topTarget;
     }
 
     // If the lower-bound on the receiver type is the same as the upper-bound, then we have exact
@@ -992,11 +1041,10 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     // from the runtime type of the receiver.
     if (receiverLowerBoundType != null) {
       if (receiverLowerBoundType.getClassType() == refinedReceiverType) {
-        ResolutionResult resolutionResult = resolveMethod(method.holder, method, false);
-        if (resolutionResult.hasSingleTarget()
+        if (resolutionResult.isSingleResolution()
             && resolutionResult.isValidVirtualTargetForDynamicDispatch()) {
           ResolutionResult refinedResolutionResult = resolveMethod(refinedReceiverType, method);
-          if (refinedResolutionResult.hasSingleTarget()
+          if (refinedResolutionResult.isSingleResolution()
               && refinedResolutionResult.isValidVirtualTargetForDynamicDispatch()) {
             return validateSingleVirtualTarget(
                 refinedResolutionResult.getSingleTarget(), resolutionResult.getSingleTarget());
@@ -1014,14 +1062,13 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     assert method != null;
     assert isSubtype(refinedReceiverType, method.holder);
     if (method.holder.isArrayType()) {
-      // For javac output this will only be clone(), but in general the methods from Object can
-      // be invoked with an array type holder.
       return null;
     }
     DexClass holder = definitionFor(method.holder);
-    if (holder == null || holder.isNotProgramClass() || holder.isInterface()) {
+    if (holder == null || holder.isNotProgramClass()) {
       return null;
     }
+    assert !holder.isInterface();
     boolean refinedReceiverIsStrictSubType = refinedReceiverType != method.holder;
     DexProgramClass refinedHolder =
         (refinedReceiverIsStrictSubType ? definitionFor(refinedReceiverType) : holder)
@@ -1036,7 +1083,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     // First get the target for the holder type.
     ResolutionResult topMethod = resolveMethodOnClass(holder, method);
     // We might hit none or multiple targets. Both make this fail at runtime.
-    if (!topMethod.hasSingleTarget() || !topMethod.isValidVirtualTarget(options())) {
+    if (!topMethod.isSingleResolution() || !topMethod.isValidVirtualTarget(options())) {
       method.setSingleVirtualMethodCache(refinedReceiverType, null);
       return null;
     }
@@ -1061,21 +1108,6 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     assert result != DexEncodedMethod.SENTINEL;
     method.setSingleVirtualMethodCache(refinedReceiverType, result);
     return result;
-  }
-
-  private DexEncodedMethod nestAccessLookup(DexMethod method, DexType invocationContext) {
-    if (method.holder == invocationContext || !definitionFor(invocationContext).isInANest()) {
-      return null;
-    }
-    DexEncodedMethod directTarget = lookupDirectTarget(method);
-    assert directTarget == null || directTarget.method.holder == method.holder;
-    if (directTarget != null
-        && directTarget.isPrivateMethod()
-        && NestUtils.sameNest(method.holder, invocationContext, this)) {
-      return directTarget;
-    }
-
-    return null;
   }
 
   /**
@@ -1183,10 +1215,9 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
       DexType refinedReceiverType,
       ClassTypeLatticeElement receiverLowerBoundType) {
     assert checkIfObsolete();
-    DexEncodedMethod directResult = nestAccessLookup(method, invocationContext);
-    if (directResult != null) {
-      return directResult;
-    }
+    // Replace DexType invocationContext by DexProgramClass throughout.
+    DexProgramClass invocationClass = asProgramClassOrNull(definitionFor(invocationContext));
+    assert invocationClass != null;
 
     // If the lower-bound on the receiver type is the same as the upper-bound, then we have exact
     // runtime type information. In this case, the invoke will dispatch to the resolution result
@@ -1194,10 +1225,10 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     if (receiverLowerBoundType != null) {
       if (receiverLowerBoundType.getClassType() == refinedReceiverType) {
         ResolutionResult resolutionResult = resolveMethod(method.holder, method, true);
-        if (resolutionResult.hasSingleTarget()
+        if (resolutionResult.isSingleResolution()
             && resolutionResult.isValidVirtualTargetForDynamicDispatch()) {
           ResolutionResult refinedResolutionResult = resolveMethod(refinedReceiverType, method);
-          if (refinedResolutionResult.hasSingleTarget()
+          if (refinedResolutionResult.isSingleResolution()
               && refinedResolutionResult.isValidVirtualTargetForDynamicDispatch()) {
             return validateSingleVirtualTarget(
                 refinedResolutionResult.getSingleTarget(), resolutionResult.getSingleTarget());
@@ -1214,11 +1245,22 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     if (holder == null || !holder.accessFlags.isInterface()) {
       return null;
     }
-    // First check that there is a target for this invoke-interface to hit. If there is none,
-    // this will fail at runtime.
-    DexEncodedMethod topTarget = resolveMethodOnInterface(holder, method).getSingleTarget();
-    if (topTarget == null || !SingleResolutionResult.isValidVirtualTarget(options(), topTarget)) {
+    // First check that there is a visible and valid target for this invoke-interface to hit.
+    // If there is none, this will fail at runtime.
+    ResolutionResult topResolution = resolveMethodOnInterface(holder, method);
+    if (!topResolution.isAccessibleForVirtualDispatchFrom(invocationClass, this)) {
       return null;
+    }
+
+    DexEncodedMethod topTarget = topResolution.getSingleTarget();
+    if (topTarget == null) {
+      // An null target represents a valid target with no known defintion, eg, array clone().
+      return null;
+    }
+
+    // If the target is a private method, then the invocation is a direct access to a nest member.
+    if (topTarget.isPrivateMethod()) {
+      return topTarget;
     }
 
     // If the invoke could target a method in a class that is not visible to R8, then give up.

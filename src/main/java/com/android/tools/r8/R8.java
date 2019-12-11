@@ -20,6 +20,7 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinition;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
@@ -29,6 +30,7 @@ import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnal
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedExtensionRegistryShrinker;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.SourceDebugExtensionRewriter;
 import com.android.tools.r8.ir.desugar.R8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.optimize.EnumInfoMapCollector;
 import com.android.tools.r8.ir.optimize.MethodPoolCollection;
@@ -318,6 +320,13 @@ public class R8 {
         assert appView.rootSet().verifyKeptTypesAreLive(appViewWithLiveness.appInfo());
 
         appView.rootSet().checkAllRulesAreUsed(options);
+
+        if (appView.options().enableSourceDebugExtensionRewriter) {
+          appView.setSourceDebugExtensionRewriter(
+              new SourceDebugExtensionRewriter(appView)
+                  .analyze(appView.withLiveness().appInfo()::isLiveProgramClass));
+        }
+
         if (options.proguardSeedsConsumer != null) {
           ByteArrayOutputStream bytes = new ByteArrayOutputStream();
           PrintStream out = new PrintStream(bytes);
@@ -363,7 +372,7 @@ public class R8 {
       }
 
       assert appView.appInfo().hasLiveness();
-
+      assert verifyNoJarApplicationReaders(application.classes());
       // Build conservative main dex content after first round of tree shaking. This is used
       // by certain optimizations to avoid introducing additional class references into main dex
       // classes, as that can cause the final number of main dex methods to grow.
@@ -881,6 +890,17 @@ public class R8 {
     for (DexProgramClass programClass : application.classes()) {
       programClass.setKotlinInfo(kotlin.getKotlinInfo(programClass, reporter));
     }
+  }
+
+  private static boolean verifyNoJarApplicationReaders(List<DexProgramClass> classes) {
+    for (DexProgramClass clazz : classes) {
+      for (DexEncodedMethod method : clazz.methods()) {
+        if (method.getCode() != null) {
+          assert method.getCode().verifyNoInputReaders();
+        }
+      }
+    }
+    return true;
   }
 
   private static void run(String[] args) throws CompilationFailedException {

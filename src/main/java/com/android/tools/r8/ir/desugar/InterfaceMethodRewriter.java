@@ -27,6 +27,7 @@ import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
+import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
@@ -60,6 +61,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
 //
 // Default and static interface method desugaring rewriter (note that lambda
@@ -103,8 +105,6 @@ public final class InterfaceMethodRewriter {
   private final Map<DexType, DexType> emulatedInterfaces = new IdentityHashMap<>();
   // The emulatedMethod set is there to avoid doing the emulated look-up too often.
   private final Set<DexString> emulatedMethods = Sets.newIdentityHashSet();
-  private ConcurrentHashMap<DexMethod, DexType> nearestEmulatedInterfaceCache =
-      new ConcurrentHashMap<>();
 
   // All forwarding methods generated during desugaring. We don't synchronize access
   // to this collection since it is only filled in ClassProcessor running synchronously.
@@ -272,7 +272,7 @@ public final class InterfaceMethodRewriter {
                 new InvokeStatic(defaultAsMethodOfCompanionClass(amendedMethod),
                     invokeSuper.outValue(), invokeSuper.arguments()));
           } else {
-            DexType dexType = nearestEmulatedInterfaceOrNull(invokedMethod);
+            DexType dexType = maximallySpecificEmulatedInterfaceOrNull(invokedMethod);
             if (dexType != null) {
               // That invoke super may not resolve since the super method may not be present
               // since it's in the emulated interface. We need to force resolution. If it resolves
@@ -373,7 +373,7 @@ public final class InterfaceMethodRewriter {
         if (instruction.isInvokeVirtual() || instruction.isInvokeInterface()) {
           InvokeMethod invokeMethod = instruction.asInvokeMethod();
           DexMethod invokedMethod = invokeMethod.getInvokedMethod();
-          DexType dexType = nearestEmulatedInterfaceOrNull(invokedMethod);
+          DexType dexType = maximallySpecificEmulatedInterfaceOrNull(invokedMethod);
           if (dexType != null) {
             rewriteCurrentInstructionToEmulatedInterfaceCall(
                 dexType, invokedMethod, invokeMethod, instructions);
@@ -383,7 +383,7 @@ public final class InterfaceMethodRewriter {
     }
   }
 
-  private DexType nearestEmulatedInterfaceOrNull(DexMethod invokedMethod) {
+  private DexType maximallySpecificEmulatedInterfaceOrNull(DexMethod invokedMethod) {
     // Here we try to avoid doing the expensive look-up on all invokes.
     if (!emulatedMethods.contains(invokedMethod.name)) {
       return null;
@@ -393,20 +393,30 @@ public final class InterfaceMethodRewriter {
     if (dexClass == null) {
       return null;
     }
-    // TODO(b/120884788): Make sure program class are looked up before library class for
-    // CoreLib compilation or look again into all desugared library emulation.
-    // Outside of core libraries, only library classes are rewritten. In core libraries,
-    // some classes are present both as program and library class, and definitionFor
-    // answers the program class so this is not true.
+    // TODO(b/120884788): Make sure program class are looked up before library class.
+    // Since program classes are desugared, no need to rewrite invokes which can target only
+    // program types.
     if (!appView.options().isDesugaredLibraryCompilation() && !dexClass.isLibraryClass()) {
       return null;
     }
-    // We always rewrite interfaces, but classes are rewritten only if they are not already
-    // desugared (CoreLibrary classes efficient implementation).
-    if (!dexClass.isInterface() && isInDesugaredLibrary(dexClass)) {
+    // Since desugared library classes are desugared, no need to rewrite invokes which can target
+    // only such classes program types.
+    if (appView.rewritePrefix.hasRewrittenType(dexClass.type)) {
       return null;
     }
-    return nearestEmulatedInterfaceImplementingWithCache(invokedMethod);
+    ResolutionResult resolutionResult =
+        appView.appInfo().resolveMaximallySpecificMethods(dexClass, invokedMethod);
+    if (!resolutionResult.isSingleResolution()) {
+      // At this point we are in a library class. Failures can happen with NoSuchMethod if a
+      // library class implement a method with same signature but not related to emulated
+      // interfaces.
+      return null;
+    }
+    DexEncodedMethod singleTarget = resolutionResult.getSingleTarget();
+    if (!singleTarget.isAbstract() && isEmulatedInterface(singleTarget.method.holder)) {
+      return singleTarget.method.holder;
+    }
+    return null;
   }
 
   private void rewriteCurrentInstructionToEmulatedInterfaceCall(
@@ -425,137 +435,11 @@ public final class InterfaceMethodRewriter {
     }
   }
 
-  private DexType nearestEmulatedInterfaceImplementingWithCache(DexMethod method) {
-    DexType sentinel = DexItemFactory.nullValueType;
-    if (nearestEmulatedInterfaceCache.containsKey(method)) {
-      DexType dexType = nearestEmulatedInterfaceCache.get(method);
-      if (dexType == sentinel) {
-        return null;
-      }
-      return dexType;
-    } else {
-      DexType value = nearestEmulatedInterfaceImplementing(method);
-      DexType putValue = value == null ? sentinel : value;
-      nearestEmulatedInterfaceCache.put(method, putValue);
-      return value;
-    }
-  }
-
-  private DexType nearestEmulatedInterfaceImplementing(DexMethod method) {
-    // Find the nearest emulated interface implementing method in a non abstract way.
-    // Answers null if none.
-    if (!method.holder.isClassType()) {
-      return null;
-    }
-    // 1. Direct match against the interface for invokeInterface.
-    if (isMatchingEmulatedInterface(method.holder, method)) {
-      return method.holder;
-    }
-    List<DexType> foundInterfaces = new ArrayList<>();
-    Set<DexType> foundEmulatedInterfaces = Sets.newIdentityHashSet();
-    // 2. Walk superclass hierarchy to find implemented interfaces, pick the minimal of them.
-    DexType current = method.holder;
-    DexClass currentClass = appView.definitionFor(current);
-    while (currentClass != null) {
-      for (DexType itf : currentClass.interfaces.values) {
-        if (isMatchingEmulatedInterface(itf, method)) {
-          foundEmulatedInterfaces.add(itf);
-        } else if (foundEmulatedInterfaces.isEmpty()) {
-          foundInterfaces.add(itf);
-        }
-      }
-      current = currentClass.superType;
-      currentClass = current == null ? null : appView.definitionFor(current);
-    }
-    if (!foundEmulatedInterfaces.isEmpty()) {
-      return minimalInterfaceOf(foundEmulatedInterfaces);
-    }
-    // 3. Walk the interfaces hierachies to find implemented interfaces, pick the minimal of them.
-    LinkedList<DexType> workList = new LinkedList<>(foundInterfaces);
-    while (!workList.isEmpty()) {
-      currentClass = appView.definitionFor(workList.removeFirst());
-      if (currentClass != null) {
-        for (DexType itf : currentClass.interfaces.values) {
-          if (isMatchingEmulatedInterface(itf, method)) {
-            foundEmulatedInterfaces.add(itf);
-          } else if (!foundInterfaces.contains(itf)) {
-            foundInterfaces.add(itf);
-            workList.add(itf);
-          }
-        }
-      }
-    }
-    if (!foundEmulatedInterfaces.isEmpty()) {
-      return minimalInterfaceOf(foundEmulatedInterfaces);
-    }
-    return null;
-  }
-
-  private boolean isMatchingEmulatedInterface(DexType itf, DexMethod method) {
-    DexClass dexClass = appView.definitionFor(itf);
-    DexEncodedMethod encodedMethod = dexClass == null ? null : dexClass.lookupMethod(method);
-    return emulatedInterfaces.containsKey(itf)
-        && encodedMethod != null
-        && !encodedMethod.isAbstract();
-  }
-
-  private DexType minimalInterfaceOf(Set<DexType> interfaces) {
-    assert interfaces.size() > 0;
-    if (interfaces.size() == 1) {
-      return interfaces.iterator().next();
-    }
-    // We may have two classes which appears unrelated due to a missing interface in the list,
-    // i.e., A implements B implements C, but B is not implementing the method.
-    // We look up interface hierarchy here for all interfaces to determine interfaces with children.
-    // The unique interface without children is returned (nearest interface).
-    final ArrayList<DexType> hasChildren = new ArrayList<>();
-    for (DexType anInterface : interfaces) {
-      LinkedList<DexType> workList = new LinkedList<>();
-      workList.add(anInterface);
-      while (!workList.isEmpty()) {
-        DexType itf = workList.removeFirst();
-        DexClass itfClass = appView.definitionFor(itf);
-        if (itfClass == null) {
-          continue;
-        }
-        for (DexType superItf : itfClass.interfaces.values) {
-          if (interfaces.contains(superItf)) {
-            hasChildren.add(superItf);
-          } else {
-            workList.add(superItf);
-          }
-        }
-      }
-    }
-    DexType result = null;
-    for (DexType anInterface : interfaces) {
-      if (!hasChildren.contains(anInterface)) {
-        if (result != null) {
-          throw new CompilationError(
-              "Multiple emulated interfaces, non related to each other, "
-                  + "implementing the same default method ("
-                  + anInterface
-                  + ","
-                  + result
-                  + ")");
-        }
-        result = anInterface;
-      }
-    }
-    if (result == null) {
-      throw new CompilationError(
-          "All emulated interfaces "
-              + Arrays.toString(interfaces.toArray())
-              + " inherit from each other.");
-    }
-    return result;
-  }
-
-  boolean isNonDesugaredLibraryClass(DexClass clazz) {
+  private boolean isNonDesugaredLibraryClass(DexClass clazz) {
     return clazz.isLibraryClass() && !isInDesugaredLibrary(clazz);
   }
 
-  private boolean isInDesugaredLibrary(DexClass clazz) {
+  boolean isInDesugaredLibrary(DexClass clazz) {
     assert clazz.isLibraryClass() || options.isDesugaredLibraryCompilation();
     if (emulatedInterfaces.containsKey(clazz.type)) {
       return true;
@@ -563,7 +447,7 @@ public final class InterfaceMethodRewriter {
     return appView.rewritePrefix.hasRewrittenType(clazz.type);
   }
 
-  private boolean dontRewrite(DexMethod method) {
+  boolean dontRewrite(DexMethod method) {
     for (Pair<DexType, DexString> dontRewrite :
         options.desugaredLibraryConfiguration.getDontRewriteInvocation()) {
       if (method.holder == dontRewrite.getFirst() && method.name == dontRewrite.getSecond()) {
@@ -726,7 +610,8 @@ public final class InterfaceMethodRewriter {
           }
         }
         emulationMethods.add(
-            method.toEmulateInterfaceLibraryMethod(
+            DexEncodedMethod.toEmulateDispatchLibraryMethod(
+                method.method.holder,
                 emulateInterfaceLibraryMethod(method.method, method.method.holder, factory),
                 companionMethod,
                 libraryMethod,
@@ -1041,7 +926,7 @@ public final class InterfaceMethodRewriter {
 
     // Process all classes first. Add missing forwarding methods to
     // replace desugared default interface methods.
-    synthesizedMethods.addAll(processClasses(builder, flavour));
+    processClasses(builder, flavour, synthesizedMethods::add);
 
     // Process interfaces, create companion or dispatch class if needed, move static
     // methods to companion class, copy default interface methods to companion classes,
@@ -1095,14 +980,17 @@ public final class InterfaceMethodRewriter {
     return processor.syntheticClasses;
   }
 
-  private Set<DexEncodedMethod> processClasses(Builder<?> builder, Flavor flavour) {
-    ClassProcessor processor = new ClassProcessor(appView, this);
+  private void processClasses(
+      Builder<?> builder, Flavor flavour, Consumer<DexEncodedMethod> newSynthesizedMethodConsumer) {
+    ClassProcessor processor = new ClassProcessor(appView, this, newSynthesizedMethodConsumer);
+    // First we compute all desugaring *without* introducing forwarding methods.
     for (DexProgramClass clazz : builder.getProgramClasses()) {
       if (shouldProcess(clazz, flavour, false)) {
-        processor.process(clazz);
+        processor.processClass(clazz);
       }
     }
-    return processor.getForwardMethods();
+    // Then we introduce forwarding methods.
+    processor.addSyntheticMethods();
   }
 
   final boolean isDefaultMethod(DexEncodedMethod method) {
@@ -1125,6 +1013,37 @@ public final class InterfaceMethodRewriter {
     return true;
   }
 
+  public static boolean isEmulatedInterfaceDispatch(AppView<?> appView, DexEncodedMethod method) {
+    // Answers true if this method is already managed through emulated interface dispatch.
+    Map<DexType, DexType> emulateLibraryInterface =
+        appView.options().desugaredLibraryConfiguration.getEmulateLibraryInterface();
+    if (emulateLibraryInterface.isEmpty()) {
+      return false;
+    }
+    DexMethod methodToFind = method.method;
+
+    // Look-up all superclass and interfaces, if an emulated interface is found, and it implements
+    // the method, answers true.
+    LinkedList<DexType> workList = new LinkedList<>();
+    workList.add(methodToFind.holder);
+    while (!workList.isEmpty()) {
+      DexType dexType = workList.removeFirst();
+      DexClass dexClass = appView.definitionFor(dexType);
+      assert dexClass != null; // It is a library class, or we are doing L8 compilation.
+      if (dexClass.isInterface() && emulateLibraryInterface.containsKey(dexType)) {
+        DexEncodedMethod dexEncodedMethod = dexClass.lookupMethod(methodToFind);
+        if (dexEncodedMethod != null) {
+          return true;
+        }
+      }
+      Collections.addAll(workList, dexClass.interfaces.values);
+      if (dexClass.superType != appView.dexItemFactory().objectType) {
+        workList.add(dexClass.superType);
+      }
+    }
+    return false;
+  }
+
   public void warnMissingInterface(
       DexClass classToDesugar, DexClass implementing, DexType missing) {
     // We use contains() on non hashed collection, but we know it's a 8 cases collection.
@@ -1138,6 +1057,7 @@ public final class InterfaceMethodRewriter {
     // Companion/Emulated interface/Conversion classes for desugared library won't be missing,
     // they are in the desugared library.
     if (appView.rewritePrefix.hasRewrittenType(missing)
+        || DesugaredLibraryWrapperSynthesizer.isSynthesizedWrapper(missing)
         || appView
             .options()
             .desugaredLibraryConfiguration

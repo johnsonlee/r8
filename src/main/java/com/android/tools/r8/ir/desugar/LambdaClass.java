@@ -62,7 +62,6 @@ final class LambdaClass {
   final LambdaDescriptor descriptor;
   final DexMethod constructor;
   final DexMethod classConstructor;
-  final DexMethod createInstanceMethod;
   final DexField lambdaField;
   final Target target;
   final AtomicBoolean addToMainDexList = new AtomicBoolean(false);
@@ -98,13 +97,6 @@ final class LambdaClass {
         !stateless
             ? null
             : factory.createField(lambdaClassType, lambdaClassType, rewriter.instanceFieldName);
-    this.createInstanceMethod =
-        stateless
-            ? null
-            : factory.createMethod(
-                lambdaClassType,
-                factory.createProto(lambdaClassType, descriptor.captures.values),
-                rewriter.createInstanceMethodName);
   }
 
   // Generate unique lambda class type for lambda descriptor and instantiation point context.
@@ -137,11 +129,6 @@ final class LambdaClass {
     return lazyDexClass.get();
   }
 
-  DexMethod getCreateInstanceMethod() {
-    assert createInstanceMethod != null;
-    return createInstanceMethod;
-  }
-
   private DexProgramClass synthesizeLambdaClass() {
     DexMethod mainMethod =
         rewriter.factory.createMethod(type, descriptor.erasedProto, descriptor.name);
@@ -169,9 +156,7 @@ final class LambdaClass {
             synthesizeVirtualMethods(mainMethod),
             rewriter.factory.getSkipNameValidationForTesting(),
             LambdaClass::computeChecksumForSynthesizedClass);
-    // Optimize main method.
     rewriter.converter.appView.appInfo().addSynthesizedClass(clazz);
-    rewriter.converter.optimizeSynthesizedMethod(clazz.lookupVirtualMethod(mainMethod));
 
     // The method addSynthesizedFrom() may be called concurrently. To avoid a Concurrent-
     // ModificationException we must use synchronization.
@@ -232,9 +217,7 @@ final class LambdaClass {
                 Constants.ACC_PUBLIC | Constants.ACC_FINAL, false),
             DexAnnotationSet.empty(),
             ParameterAnnotationsList.empty(),
-            new SynthesizedCode(
-                callerPosition ->
-                    new LambdaMainMethodSourceCode(this, mainMethod, callerPosition)));
+            new LambdaMainMethodSynthesizedCode(this, mainMethod));
 
     // Synthesize bridge methods.
     for (DexProto bridgeProto : descriptor.bridges) {
@@ -250,10 +233,7 @@ final class LambdaClass {
                   false),
               DexAnnotationSet.empty(),
               ParameterAnnotationsList.empty(),
-              new SynthesizedCode(
-                  callerPosition ->
-                      new LambdaBridgeMethodSourceCode(
-                          this, mainMethod, bridgeMethod, callerPosition)));
+              new LambdaBridgeMethodSynthesizedCode(this, mainMethod, bridgeMethod));
     }
     return methods;
   }
@@ -261,10 +241,7 @@ final class LambdaClass {
   // Synthesize direct methods.
   private DexEncodedMethod[] synthesizeDirectMethods() {
     boolean stateless = isStateless();
-    boolean enableStatefulLambdaCreateInstanceMethod =
-        rewriter.converter.appView.options().testing.enableStatefulLambdaCreateInstanceMethod;
-    DexEncodedMethod[] methods =
-        new DexEncodedMethod[(stateless || enableStatefulLambdaCreateInstanceMethod) ? 2 : 1];
+    DexEncodedMethod[] methods = new DexEncodedMethod[stateless ? 2 : 1];
 
     // Constructor.
     methods[0] =
@@ -276,8 +253,7 @@ final class LambdaClass {
                 true),
             DexAnnotationSet.empty(),
             ParameterAnnotationsList.empty(),
-            new SynthesizedCode(
-                callerPosition -> new LambdaConstructorSourceCode(this, callerPosition)));
+            new LambdaConstructorSynthesizedCode(this));
 
     // Class constructor for stateless lambda classes.
     if (stateless) {
@@ -288,18 +264,7 @@ final class LambdaClass {
                   Constants.ACC_SYNTHETIC | Constants.ACC_STATIC, true),
               DexAnnotationSet.empty(),
               ParameterAnnotationsList.empty(),
-              new SynthesizedCode(
-                  callerPosition -> new LambdaClassConstructorSourceCode(this, callerPosition)));
-    } else if (enableStatefulLambdaCreateInstanceMethod) {
-      methods[1] =
-          new DexEncodedMethod(
-              createInstanceMethod,
-              MethodAccessFlags.fromSharedAccessFlags(
-                  Constants.ACC_SYNTHETIC | Constants.ACC_STATIC | Constants.ACC_PUBLIC, false),
-              DexAnnotationSet.empty(),
-              ParameterAnnotationsList.empty(),
-              new SynthesizedCode(
-                  callerPosition -> new LambdaCreateInstanceSourceCode(this, callerPosition)));
+              new LambdaClassConstructorSynthesizedCode(this));
     }
     return methods;
   }
@@ -312,7 +277,7 @@ final class LambdaClass {
     for (int i = 0; i < fieldCount; i++) {
       FieldAccessFlags accessFlags =
           FieldAccessFlags.fromSharedAccessFlags(
-              Constants.ACC_FINAL | Constants.ACC_SYNTHETIC | Constants.ACC_PRIVATE);
+              Constants.ACC_FINAL | Constants.ACC_SYNTHETIC | Constants.ACC_PUBLIC);
       fields[i] = new DexEncodedField(
           getCaptureField(i), accessFlags, DexAnnotationSet.empty(), null);
     }
@@ -518,7 +483,7 @@ final class LambdaClass {
     }
 
     // Ensure access of the referenced symbol(s).
-    abstract boolean ensureAccessibility();
+    abstract void ensureAccessibility();
 
     DexClass definitionFor(DexType type) {
       return rewriter.converter.appView.appInfo().app().definitionFor(type);
@@ -563,9 +528,7 @@ final class LambdaClass {
     }
 
     @Override
-    boolean ensureAccessibility() {
-      return true;
-    }
+    void ensureAccessibility() {}
   }
 
   // Used for static private lambda$ methods. Only needs access relaxation.
@@ -576,7 +539,7 @@ final class LambdaClass {
     }
 
     @Override
-    boolean ensureAccessibility() {
+    void ensureAccessibility() {
       // We already found the static method to be called, just relax its accessibility.
       assert descriptor.getAccessibility() != null;
       descriptor.getAccessibility().unsetPrivate();
@@ -584,7 +547,6 @@ final class LambdaClass {
       if (implMethodHolder.isInterface()) {
         descriptor.getAccessibility().setPublic();
       }
-      return true;
     }
   }
 
@@ -597,7 +559,7 @@ final class LambdaClass {
     }
 
     @Override
-    boolean ensureAccessibility() {
+    void ensureAccessibility() {
       // For all instantiation points for which the compiler creates lambda$
       // methods, it creates these methods in the same class/interface.
       DexMethod implMethod = descriptor.implHandle.asMethod();
@@ -628,12 +590,11 @@ final class LambdaClass {
           DexEncodedMethod.setDebugInfoWithFakeThisParameter(
               newMethod.getCode(), callTarget.getArity(), rewriter.converter.appView);
           implMethodHolder.setDirectMethod(i, newMethod);
-          return true;
+          return;
         }
       }
       assert false
           : "Unexpected failure to find direct lambda target for: " + implMethod.qualifiedName();
-      return false;
     }
   }
 
@@ -645,7 +606,7 @@ final class LambdaClass {
     }
 
     @Override
-    boolean ensureAccessibility() {
+    void ensureAccessibility() {
       // For all instantiation points for which the compiler creates lambda$
       // methods, it creates these methods in the same class/interface.
       DexMethod implMethod = descriptor.implHandle.asMethod();
@@ -672,10 +633,9 @@ final class LambdaClass {
           // Move the method from the direct methods to the virtual methods set.
           implMethodHolder.removeDirectMethod(i);
           implMethodHolder.appendVirtualMethod(newMethod);
-          return true;
+          return;
         }
       }
-      return false;
     }
   }
 
@@ -688,7 +648,7 @@ final class LambdaClass {
     }
 
     @Override
-    boolean ensureAccessibility() {
+    void ensureAccessibility() {
       // Create a static accessor with proper accessibility.
       DexProgramClass accessorClass = programDefinitionFor(callTarget.holder);
       assert accessorClass != null;
@@ -715,7 +675,6 @@ final class LambdaClass {
       }
 
       rewriter.converter.optimizeSynthesizedMethod(accessorEncodedMethod);
-      return true;
     }
   }
 }

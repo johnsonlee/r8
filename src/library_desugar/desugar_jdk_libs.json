@@ -1,6 +1,6 @@
 {
   "configuration_format_version": 3,
-  "version": "0.9.0",
+  "version": "0.11.0",
   "required_compilation_api_level": 26,
   "synthesized_library_classes_package_prefix": "j$.",
   "library_flags": [
@@ -16,6 +16,10 @@
         "java.lang.Integer8": "java.lang.Integer",
         "java.lang.Long8": "java.lang.Long",
         "java.lang.Math8": "java.lang.Math"
+      },
+      "retarget_lib_member": {
+        "java.util.Date#toInstant": "java.util.DesugarDate",
+        "java.util.GregorianCalendar#toZonedDateTime": "java.util.DesugarGregorianCalendar"
       }
     },
     {
@@ -52,6 +56,7 @@
         "java.util.Iterator#remove"
       ],
       "emulate_interface": {
+        "java.lang.Iterable": "j$.lang.Iterable",
         "java.util.Map$Entry": "j$.util.Map$Entry",
         "java.util.Collection": "j$.util.Collection",
         "java.util.Map": "j$.util.Map",
@@ -66,7 +71,10 @@
         "java.util.Optional": "j$.util.OptionalConversions",
         "java.util.OptionalDouble": "j$.util.OptionalConversions",
         "java.util.OptionalInt": "j$.util.OptionalConversions",
-        "java.util.OptionalLong": "j$.util.OptionalConversions"
+        "java.util.OptionalLong": "j$.util.OptionalConversions",
+        "java.util.LongSummaryStatistics": "j$.util.LongSummaryStatisticsConversions",
+        "java.util.IntSummaryStatistics": "j$.util.IntSummaryStatisticsConversions",
+        "java.util.DoubleSummaryStatistics": "j$.util.DoubleSummaryStatisticsConversions"
       }
     }
   ],
@@ -124,12 +132,15 @@
         "java.util.concurrent.atomic.AtomicReference#getAndUpdate": "java.util.concurrent.atomic.DesugarAtomicReference",
         "java.util.concurrent.atomic.AtomicReference#updateAndGet": "java.util.concurrent.atomic.DesugarAtomicReference",
         "java.util.concurrent.atomic.AtomicReference#getAndAccumulate": "java.util.concurrent.atomic.DesugarAtomicReference",
-        "java.util.concurrent.atomic.AtomicReference#accumulateAndGet": "java.util.concurrent.atomic.DesugarAtomicReference"
+        "java.util.concurrent.atomic.AtomicReference#accumulateAndGet": "java.util.concurrent.atomic.DesugarAtomicReference",
+        "java.util.Collections#synchronizedMap": "java.util.DesugarCollections",
+        "java.util.Collections#synchronizedSortedMap": "java.util.DesugarCollections"
       },
       "dont_rewrite": [
         "java.util.Iterator#remove"
       ],
       "emulate_interface": {
+        "java.lang.Iterable": "j$.lang.Iterable",
         "java.util.Map$Entry": "j$.util.Map$Entry",
         "java.util.Collection": "j$.util.Collection",
         "java.util.Map": "j$.util.Map",

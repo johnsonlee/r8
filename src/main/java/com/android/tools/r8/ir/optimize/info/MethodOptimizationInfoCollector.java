@@ -7,14 +7,24 @@ import static com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.Query
 import static com.android.tools.r8.ir.code.DominatorTree.Assumption.MAY_HAVE_UNREACHABLE_BLOCKS;
 import static com.android.tools.r8.ir.code.Opcodes.ARGUMENT;
 import static com.android.tools.r8.ir.code.Opcodes.ASSUME;
+import static com.android.tools.r8.ir.code.Opcodes.CHECK_CAST;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_CLASS;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.DEX_ITEM_BASED_CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.GOTO;
+import static com.android.tools.r8.ir.code.Opcodes.IF;
+import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_GET;
+import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_OF;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_PUT;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_DIRECT;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_INTERFACE;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_STATIC;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
+import static com.android.tools.r8.ir.code.Opcodes.NEW_INSTANCE;
 import static com.android.tools.r8.ir.code.Opcodes.RETURN;
+import static com.android.tools.r8.ir.code.Opcodes.STATIC_GET;
+import static com.android.tools.r8.ir.code.Opcodes.THROW;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -36,22 +46,23 @@ import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.DominatorTree;
+import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.InstancePut;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InvokeDirect;
+import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Return;
-import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.optimize.DynamicTypeOptimization;
 import com.android.tools.r8.ir.optimize.classinliner.ClassInlinerEligibilityInfo;
 import com.android.tools.r8.ir.optimize.classinliner.ClassInlinerReceiverAnalysis;
 import com.android.tools.r8.ir.optimize.info.ParameterUsagesInfo.ParameterUsage;
 import com.android.tools.r8.ir.optimize.info.ParameterUsagesInfo.ParameterUsageBuilder;
-import com.android.tools.r8.ir.optimize.info.initializer.ClassInitializerInfo;
+import com.android.tools.r8.ir.optimize.info.initializer.DefaultInstanceInitializerInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.NonTrivialInstanceInitializerInfo;
 import com.android.tools.r8.kotlin.Kotlin;
@@ -94,7 +105,7 @@ public class MethodOptimizationInfoCollector {
     }
     computeDynamicReturnType(dynamicTypeOptimization, feedback, method, code);
     computeInitializedClassesOnNormalExit(feedback, method, code);
-    computeInitializerInfo(method, code, feedback);
+    computeInstanceInitializerInfo(method, code, feedback);
     computeMayHaveSideEffects(feedback, method, code);
     computeReturnValueOnlyDependsOnArguments(feedback, method, code);
     computeNonNullParamOrThrow(feedback, method, code);
@@ -157,8 +168,8 @@ public class MethodOptimizationInfoCollector {
           }
         }
         DexField field = insn.asFieldInstruction().getField();
-        if (field.holder == clazz.type && clazz.lookupInstanceField(field) != null) {
-          // Require only accessing instance fields of the *current* class.
+        if (appView.appInfo().resolveFieldOn(clazz, field) != null) {
+          // Require only accessing direct or indirect instance fields of the current class.
           continue;
         }
         return;
@@ -274,11 +285,11 @@ public class MethodOptimizationInfoCollector {
     }
   }
 
-  private void computeInitializerInfo(
+  private void computeInstanceInitializerInfo(
       DexEncodedMethod method, IRCode code, OptimizationFeedback feedback) {
     assert !appView.appInfo().isPinned(method.method);
 
-    if (!method.isInitializer()) {
+    if (!method.isInstanceInitializer()) {
       return;
     }
 
@@ -296,90 +307,12 @@ public class MethodOptimizationInfoCollector {
       return;
     }
 
-    feedback.setInitializerInfo(
+    InstanceInitializerInfo instanceInitializerInfo = analyzeInstanceInitializer(code, clazz);
+    feedback.setInstanceInitializerInfo(
         method,
-        method.isInstanceInitializer()
-            ? computeInstanceInitializerInfo(code, clazz)
-            : computeClassInitializerInfo(code, clazz));
-  }
-
-  // This method defines trivial class initializer as follows:
-  //
-  // ** The initializer may only instantiate an instance of the same class,
-  //    initialize it with a call to a trivial constructor *without* arguments,
-  //    and assign this instance to a static final field of the same class.
-  //
-  private ClassInitializerInfo computeClassInitializerInfo(IRCode code, DexClass clazz) {
-    Value createdSingletonInstance = null;
-    DexField singletonField = null;
-    for (Instruction insn : code.instructions()) {
-      if (insn.isConstNumber()) {
-        continue;
-      }
-
-      if (insn.isConstString()) {
-        if (insn.instructionInstanceCanThrow()) {
-          return null;
-        }
-        continue;
-      }
-
-      if (insn.isReturn()) {
-        continue;
-      }
-
-      if (insn.isAssume()) {
-        continue;
-      }
-
-      if (insn.isNewInstance()) {
-        NewInstance newInstance = insn.asNewInstance();
-        if (createdSingletonInstance != null
-            || newInstance.clazz != clazz.type
-            || insn.outValue() == null) {
-          return null;
-        }
-        createdSingletonInstance = insn.outValue();
-        continue;
-      }
-
-      if (insn.isInvokeDirect()) {
-        InvokeDirect invokedDirect = insn.asInvokeDirect();
-        if (createdSingletonInstance == null
-            || invokedDirect.getReceiver() != createdSingletonInstance) {
-          return null;
-        }
-        DexEncodedMethod callTarget = clazz.lookupDirectMethod(invokedDirect.getInvokedMethod());
-        if (callTarget == null
-            || !callTarget.isInstanceInitializer()
-            || !callTarget.method.proto.parameters.isEmpty()
-            || callTarget.getOptimizationInfo().getInstanceInitializerInfo().isDefaultInfo()) {
-          return null;
-        }
-        continue;
-      }
-
-      if (insn.isStaticPut()) {
-        StaticPut staticPut = insn.asStaticPut();
-        if (singletonField != null
-            || createdSingletonInstance == null
-            || staticPut.value() != createdSingletonInstance) {
-          return null;
-        }
-        DexEncodedField field = clazz.lookupStaticField(staticPut.getField());
-        if (field == null
-            || !field.accessFlags.isStatic()
-            || !field.accessFlags.isFinal()) {
-          return null;
-        }
-        singletonField = field.field;
-        continue;
-      }
-
-      // Other instructions make the class initializer not eligible.
-      return null;
-    }
-    return singletonField == null ? null : new ClassInitializerInfo(singletonField);
+        instanceInitializerInfo != null
+            ? instanceInitializerInfo
+            : DefaultInstanceInitializerInfo.getInstance());
   }
 
   // This method defines trivial instance initializer as follows:
@@ -397,82 +330,190 @@ public class MethodOptimizationInfoCollector {
   // ** Assigns arguments or non-throwing constants to fields of this class.
   //
   // (Note that this initializer does not have to have zero arguments.)
-  private InstanceInitializerInfo computeInstanceInitializerInfo(IRCode code, DexClass clazz) {
+  private InstanceInitializerInfo analyzeInstanceInitializer(IRCode code, DexClass clazz) {
     if (clazz.definesFinalizer(options.itemFactory)) {
       // Defining a finalize method can observe the side-effect of Object.<init> GC registration.
       return null;
     }
+
     NonTrivialInstanceInitializerInfo.Builder builder = NonTrivialInstanceInitializerInfo.builder();
     Value receiver = code.getThis();
-    for (Instruction instruction : code.instructions()) {
-      switch (instruction.opcode()) {
-        case ARGUMENT:
-        case ASSUME:
-        case CONST_NUMBER:
-        case RETURN:
-          break;
+    boolean hasCatchHandler = false;
+    for (BasicBlock block : code.blocks) {
+      if (block.hasCatchHandlers()) {
+        hasCatchHandler = true;
+      }
 
-        case CONST_CLASS:
-        case CONST_STRING:
-        case DEX_ITEM_BASED_CONST_STRING:
-          if (instruction.instructionMayTriggerMethodInvocation(appView, clazz.type)) {
-            return null;
-          }
-          break;
+      for (Instruction instruction : block.getInstructions()) {
+        switch (instruction.opcode()) {
+          case ARGUMENT:
+          case ASSUME:
+          case CONST_NUMBER:
+          case GOTO:
+          case RETURN:
+            break;
 
-        case GOTO:
-          // Trivial goto to the next block.
-          if (!instruction.asGoto().isTrivialGotoToTheNextBlock(code)) {
-            return null;
-          }
-          break;
+          case IF:
+            builder.setInstanceFieldInitializationMayDependOnEnvironment();
+            break;
 
-        case INSTANCE_PUT:
-          {
-            InstancePut instancePut = instruction.asInstancePut();
-            DexEncodedField field = appView.appInfo().resolveFieldOn(clazz, instancePut.getField());
-            if (field == null
-                || instancePut.object() != receiver
-                || (instancePut.value() != receiver && !instancePut.value().isArgument())) {
-              return null;
+          case CHECK_CAST:
+          case CONST_CLASS:
+          case CONST_STRING:
+          case DEX_ITEM_BASED_CONST_STRING:
+          case INSTANCE_OF:
+          case THROW:
+            // These instructions types may raise an exception, which is a side effect. None of the
+            // instructions can trigger class initialization side effects, hence it is not necessary
+            // to mark all fields as potentially being read. Also, none of the instruction types
+            // can cause the receiver to escape.
+            if (instruction.instructionMayHaveSideEffects(appView, clazz.type)) {
+              builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
             }
-          }
-          break;
+            break;
 
-        case INVOKE_DIRECT:
-          {
-            InvokeDirect invoke = instruction.asInvokeDirect();
-            DexMethod invokedMethod = invoke.getInvokedMethod();
-            if (!dexItemFactory.isConstructor(invokedMethod)) {
-              return null;
-            }
-            if (invokedMethod.holder != clazz.superType) {
-              return null;
-            }
-            // java.lang.Enum.<init>() and java.lang.Object.<init>() are considered trivial.
-            if (invokedMethod == dexItemFactory.enumMethods.constructor
-                || invokedMethod == dexItemFactory.objectMethods.constructor) {
-              break;
-            }
-            DexEncodedMethod singleTarget = appView.definitionFor(invokedMethod);
-            if (singleTarget == null
-                || singleTarget.getOptimizationInfo().getInstanceInitializerInfo().isDefaultInfo()
-                || invoke.getReceiver() != receiver) {
-              return null;
-            }
-            for (Value value : invoke.inValues()) {
-              if (value != receiver && !(value.isConstant() || value.isArgument())) {
+          case INSTANCE_GET:
+          case STATIC_GET:
+            {
+              FieldInstruction fieldGet = instruction.asFieldInstruction();
+              DexEncodedField field = appView.appInfo().resolveField(fieldGet.getField());
+              if (field == null) {
                 return null;
               }
+              builder.markFieldAsRead(field);
+              if (fieldGet.instructionMayHaveSideEffects(appView, clazz.type)) {
+                builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
+                if (fieldGet.isStaticGet()) {
+                  // It could trigger a class initializer.
+                  builder.markAllFieldsAsRead();
+                }
+              }
             }
-          }
-          break;
+            break;
 
-        default:
-          // Other instructions make the instance initializer not eligible.
-          return null;
+          case INSTANCE_PUT:
+            {
+              InstancePut instancePut = instruction.asInstancePut();
+              DexEncodedField field = appView.appInfo().resolveField(instancePut.getField());
+              if (field == null) {
+                return null;
+              }
+              if (instancePut.object().getAliasedValue() != receiver
+                  || instancePut.instructionInstanceCanThrow(appView, clazz.type).isThrowing()) {
+                builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
+              }
+
+              Value value = instancePut.value().getAliasedValue();
+              // TODO(b/142762134): Replace the use of onlyDependsOnArgument() by
+              //  ValueMayDependOnEnvironmentAnalysis.
+              if (!value.onlyDependsOnArgument()) {
+                builder.setInstanceFieldInitializationMayDependOnEnvironment();
+              }
+              if (value == receiver) {
+                builder.setReceiverMayEscapeOutsideConstructorChain();
+              }
+            }
+            break;
+
+          case INVOKE_DIRECT:
+            {
+              InvokeDirect invoke = instruction.asInvokeDirect();
+              DexMethod invokedMethod = invoke.getInvokedMethod();
+              DexEncodedMethod singleTarget = appView.definitionFor(invokedMethod);
+              if (singleTarget == null) {
+                return null;
+              }
+              if (singleTarget.isInstanceInitializer() && invoke.getReceiver() == receiver) {
+                if (builder.hasParent()) {
+                  return null;
+                }
+                // java.lang.Enum.<init>() and java.lang.Object.<init>() are considered trivial.
+                if (invokedMethod == dexItemFactory.enumMethods.constructor
+                    || invokedMethod == dexItemFactory.objectMethods.constructor) {
+                  builder.setParent(invokedMethod);
+                  break;
+                }
+                builder.merge(singleTarget.getOptimizationInfo().getInstanceInitializerInfo());
+                for (int i = 1; i < invoke.arguments().size(); i++) {
+                  Value argument = invoke.arguments().get(i).getAliasedValue();
+                  if (argument == receiver) {
+                    // In the analysis of the parent constructor, we don't consider the non-receiver
+                    // arguments as being aliases of the receiver. Therefore, we explicitly mark
+                    // that the receiver escapes from this constructor.
+                    builder.setReceiverMayEscapeOutsideConstructorChain();
+                  }
+                  if (!argument.onlyDependsOnArgument()) {
+                    // If the parent constructor assigns this argument into a field, then the value
+                    // of the field may depend on the environment.
+                    builder.setInstanceFieldInitializationMayDependOnEnvironment();
+                  }
+                }
+                builder.setParent(invokedMethod);
+              } else {
+                builder
+                    .markAllFieldsAsRead()
+                    .setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
+                for (Value inValue : invoke.inValues()) {
+                  if (inValue.getAliasedValue() == receiver) {
+                    builder.setReceiverMayEscapeOutsideConstructorChain();
+                    break;
+                  }
+                }
+              }
+            }
+            break;
+
+          case INVOKE_INTERFACE:
+          case INVOKE_STATIC:
+          case INVOKE_VIRTUAL:
+            InvokeMethod invoke = instruction.asInvokeMethod();
+            builder.markAllFieldsAsRead().setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
+            for (Value inValue : invoke.inValues()) {
+              if (inValue.getAliasedValue() == receiver) {
+                builder.setReceiverMayEscapeOutsideConstructorChain();
+                break;
+              }
+            }
+            break;
+
+          case NEW_INSTANCE:
+            {
+              NewInstance newInstance = instruction.asNewInstance();
+              if (newInstance.instructionMayHaveSideEffects(appView, clazz.type)) {
+                // It could trigger a class initializer.
+                builder
+                    .markAllFieldsAsRead()
+                    .setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
+              }
+            }
+            break;
+
+          default:
+            builder
+                .markAllFieldsAsRead()
+                .setInstanceFieldInitializationMayDependOnEnvironment()
+                .setMayHaveOtherSideEffectsThanInstanceFieldAssignments()
+                .setReceiverMayEscapeOutsideConstructorChain();
+            break;
+        }
       }
     }
+
+    // In presence of exceptional control flow, the assignments to the instance fields could depend
+    // on the environment, if there is an instruction that could throw.
+    //
+    // Example:
+    //   void <init>() {
+    //     try {
+    //       throwIfTrue(Environment.STATIC_FIELD);
+    //     } catch (Exception e) {
+    //       this.f = 42;
+    //     }
+    //   }
+    if (hasCatchHandler && builder.mayHaveOtherSideEffectsThanInstanceFieldAssignments()) {
+      builder.setInstanceFieldInitializationMayDependOnEnvironment();
+    }
+
     return builder.build();
   }
 
@@ -780,7 +821,7 @@ public class MethodOptimizationInfoCollector {
     if (!options.enableSideEffectAnalysis) {
       return;
     }
-    if (appView.appInfo().withLiveness().mayHaveSideEffects.containsKey(method.method)) {
+    if (appView.appInfo().mayHaveSideEffects.containsKey(method.method)) {
       return;
     }
     DexType context = method.method.holder;
@@ -794,6 +835,11 @@ public class MethodOptimizationInfoCollector {
         feedback.classInitializerMayBePostponed(method);
       } else if (classInitializerSideEffect.canBePostponed()) {
         feedback.classInitializerMayBePostponed(method);
+      } else {
+        assert !context.isD8R8SynthesizedLambdaClassType()
+                || options.debug
+                || appView.appInfo().hasPinnedInstanceInitializer(context)
+            : "Unexpected observable side effects from lambda `" + context.toSourceString() + "`";
       }
       return;
     }
