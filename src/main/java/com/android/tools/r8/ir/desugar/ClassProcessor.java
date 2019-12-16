@@ -12,15 +12,12 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.ResolutionResult.IncompatibleClassResult;
-import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.synthetic.ExceptionThrowingSourceCode;
-import com.android.tools.r8.ir.synthetic.ForwardMethodSourceCode;
 import com.android.tools.r8.ir.synthetic.SynthesizedCode;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.google.common.base.Equivalence.Wrapper;
@@ -50,6 +47,7 @@ final class ClassProcessor {
 
   // Collection for method signatures that may cause forwarding methods to be created.
   private static class MethodSignatures {
+
     static final MethodSignatures EMPTY = new MethodSignatures(Collections.emptySet());
 
     static MethodSignatures create(Set<Wrapper<DexMethod>> signatures) {
@@ -125,6 +123,7 @@ final class ClassProcessor {
 
   // Helper to keep track of the direct active subclass and nearest program subclass for reporting.
   private static class ReportingContext {
+
     final DexClass directSubClass;
     final DexProgramClass closestProgramSubClass;
 
@@ -156,6 +155,7 @@ final class ClassProcessor {
 
   // Specialized context to disable reporting when traversing the library strucure.
   private static class LibraryReportingContext extends ReportingContext {
+
     static final LibraryReportingContext LIBRARY_CONTEXT = new LibraryReportingContext();
 
     LibraryReportingContext() {
@@ -340,13 +340,8 @@ final class ClassProcessor {
     if (method.isFinal()) {
       return false;
     }
-    Map<DexType, DexType> typeMap =
-        appView
-            .options()
-            .desugaredLibraryConfiguration
-            .getRetargetCoreLibMember()
-            .get(method.method.name);
-    return typeMap != null && typeMap.containsKey(holder.type);
+    return appView.options().desugaredLibraryConfiguration.retargetMethod(method.method, appView)
+        != null;
   }
 
   private boolean dontRewrite(DexClass clazz, DexEncodedMethod method) {
@@ -391,42 +386,11 @@ final class ClassProcessor {
     DexMethod forwardMethod =
         targetHolder.isInterface()
             ? rewriter.defaultAsMethodOfCompanionClass(method)
-            : retargetMethod(appView, method);
-    // New method will have the same name, proto, and also all the flags of the
-    // default method, including bridge flag.
-    DexMethod newMethod = dexItemFactory.createMethod(clazz.type, method.proto, method.name);
-    MethodAccessFlags newFlags = target.accessFlags.copy();
-    // Some debuggers (like IntelliJ) automatically skip synthetic methods on single step.
-    newFlags.setSynthetic();
-    ForwardMethodSourceCode.Builder forwardSourceCodeBuilder =
-        ForwardMethodSourceCode.builder(newMethod);
-    forwardSourceCodeBuilder
-        .setReceiver(clazz.type)
-        .setTarget(forwardMethod)
-        .setInvokeType(Invoke.Type.STATIC)
-        .setIsInterface(false); // Holder is companion class, not an interface.
-    DexEncodedMethod newEncodedMethod =
-        new DexEncodedMethod(
-            newMethod,
-            newFlags,
-            target.annotations,
-            target.parameterAnnotationsList,
-            new SynthesizedCode(forwardSourceCodeBuilder::build));
-    addSyntheticMethod(clazz.asProgramClass(), newEncodedMethod);
-  }
-
-  static DexMethod retargetMethod(AppView<?> appView, DexMethod method) {
-    Map<DexString, Map<DexType, DexType>> retargetCoreLibMember =
-        appView.options().desugaredLibraryConfiguration.getRetargetCoreLibMember();
-    Map<DexType, DexType> typeMap = retargetCoreLibMember.get(method.name);
-    assert typeMap != null;
-    assert typeMap.get(method.holder) != null;
-    return appView
-        .dexItemFactory()
-        .createMethod(
-            typeMap.get(method.holder),
-            appView.dexItemFactory().prependTypeToProto(method.holder, method.proto),
-            method.name);
+            : appView.options().desugaredLibraryConfiguration.retargetMethod(method, appView);
+    DexEncodedMethod desugaringForwardingMethod =
+        DexEncodedMethod.createDesugaringForwardingMethod(
+            target, clazz, forwardMethod, dexItemFactory);
+    addSyntheticMethod(clazz.asProgramClass(), desugaringForwardingMethod);
   }
 
   // Topological order traversal and its helpers.

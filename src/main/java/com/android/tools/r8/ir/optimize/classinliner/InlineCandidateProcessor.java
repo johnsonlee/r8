@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.optimize.classinliner;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
@@ -13,6 +14,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
@@ -85,7 +87,7 @@ final class InlineCandidateProcessor {
 
   private Value eligibleInstance;
   private DexType eligibleClass;
-  private DexClass eligibleClassDefinition;
+  private DexProgramClass eligibleClassDefinition;
   private boolean isDesugaredLambda;
 
   private final Map<InvokeMethodWithReceiver, InliningInfo> methodCallsOnInstance =
@@ -118,6 +120,10 @@ final class InlineCandidateProcessor {
     this.root = root;
     this.isProcessedConcurrently = isProcessedConcurrently;
     this.receivers = new ClassInlinerReceiverSet(root.outValue());
+  }
+
+  DexProgramClass getEligibleClass() {
+    return eligibleClassDefinition;
   }
 
   Map<InvokeMethod, DexEncodedMethod> getDirectInlinees() {
@@ -165,7 +171,7 @@ final class InlineCandidateProcessor {
       isDesugaredLambda = eligibleClassDefinition != null;
     }
     if (eligibleClassDefinition == null) {
-      eligibleClassDefinition = appView.definitionFor(eligibleClass);
+      eligibleClassDefinition = asProgramClassOrNull(appView.definitionFor(eligibleClass));
     }
     if (eligibleClassDefinition != null) {
       return EligibilityStatus.ELIGIBLE;
@@ -328,8 +334,7 @@ final class InlineCandidateProcessor {
                       && !invoke.inValues().isEmpty()
                       && root.outValue() == invoke.getReceiver();
               if (isCorrespondingConstructorCall) {
-                InliningInfo inliningInfo =
-                    isEligibleConstructorCall(invoke, singleTarget, defaultOracle);
+                InliningInfo inliningInfo = isEligibleConstructorCall(invoke, singleTarget);
                 if (inliningInfo != null) {
                   methodCallsOnInstance.put(invoke, inliningInfo);
                   continue;
@@ -670,7 +675,7 @@ final class InlineCandidateProcessor {
   }
 
   private InliningInfo isEligibleConstructorCall(
-      InvokeDirect invoke, DexEncodedMethod singleTarget, Supplier<InliningOracle> defaultOracle) {
+      InvokeDirect invoke, DexEncodedMethod singleTarget) {
     assert appView.dexItemFactory().isConstructor(invoke.getInvokedMethod());
     assert isEligibleSingleTarget(singleTarget);
 
@@ -696,8 +701,9 @@ final class InlineCandidateProcessor {
     }
 
     // Check that the `eligibleInstance` does not escape via the constructor.
-    ParameterUsage parameterUsage = singleTarget.getOptimizationInfo().getParameterUsages(0);
-    if (!isEligibleParameterUsage(parameterUsage, invoke, defaultOracle)) {
+    InstanceInitializerInfo instanceInitializerInfo =
+        singleTarget.getOptimizationInfo().getInstanceInitializerInfo();
+    if (instanceInitializerInfo.receiverMayEscapeOutsideConstructorChain()) {
       return null;
     }
 
@@ -709,7 +715,7 @@ final class InlineCandidateProcessor {
 
     // Check that the entire constructor chain can be inlined into the current context.
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    DexMethod parent = singleTarget.getOptimizationInfo().getInstanceInitializerInfo().getParent();
+    DexMethod parent = instanceInitializerInfo.getParent();
     while (parent != dexItemFactory.objectMethods.constructor) {
       if (parent == null) {
         return null;
@@ -728,9 +734,7 @@ final class InlineCandidateProcessor {
       parent = encodedParent.getOptimizationInfo().getInstanceInitializerInfo().getParent();
     }
 
-    return singleTarget.getOptimizationInfo().getClassInlinerEligibility() != null
-        ? new InliningInfo(singleTarget, eligibleClass)
-        : null;
+    return new InliningInfo(singleTarget, eligibleClass);
   }
 
   // An invoke is eligible for inlining in the following cases:
@@ -870,7 +874,7 @@ final class InlineCandidateProcessor {
 
     MethodOptimizationInfo optimizationInfo = singleTarget.getOptimizationInfo();
     ClassInlinerEligibilityInfo eligibility = optimizationInfo.getClassInlinerEligibility();
-    if (eligibility == null) {
+    if (eligibility == null || !eligibility.callsReceiver.isEmpty()) {
       return null;
     }
 

@@ -25,7 +25,6 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DexValue;
-import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -38,6 +37,7 @@ import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeSuper;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.DefaultMethodsHelper.Collection;
+import com.android.tools.r8.ir.desugar.InterfaceProcessor.InterfaceProcessorNestedGraphLense;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.SynthesizedOrigin;
 import com.android.tools.r8.position.MethodPosition;
@@ -288,11 +288,10 @@ public final class InterfaceMethodRewriter {
                   // Rewriting is required because the super invoke resolves into a missing
                   // method (method is on desugared library). Find out if it needs to be
                   // retarget or if it just calls a companion class method and rewrite.
-                  Map<DexString, Map<DexType, DexType>> retargetCoreLibMember =
-                      options.desugaredLibraryConfiguration.getRetargetCoreLibMember();
-                  Map<DexType, DexType> typeMap =
-                      retargetCoreLibMember.get(dexEncodedMethod.method.name);
-                  if (typeMap == null || !typeMap.containsKey(dexEncodedMethod.method.holder)) {
+                  DexMethod retargetMethod =
+                      options.desugaredLibraryConfiguration.retargetMethod(
+                          dexEncodedMethod.method, appView);
+                  if (retargetMethod == null) {
                     DexMethod originalCompanionMethod =
                         instanceAsMethodOfCompanionClass(
                             dexEncodedMethod.method, DEFAULT_METHOD_PREFIX, factory);
@@ -306,12 +305,6 @@ public final class InterfaceMethodRewriter {
                         new InvokeStatic(
                             companionMethod, invokeSuper.outValue(), invokeSuper.arguments()));
                   } else {
-                    DexMethod retargetMethod =
-                        factory.createMethod(
-                            typeMap.get(dexEncodedMethod.method.holder),
-                            factory.prependTypeToProto(
-                                dexEncodedMethod.method.holder, dexEncodedMethod.method.proto),
-                            dexEncodedMethod.method.name);
                     instructions.replaceCurrentInstruction(
                         new InvokeStatic(
                             retargetMethod, invokeSuper.outValue(), invokeSuper.arguments()));
@@ -964,7 +957,7 @@ public final class InterfaceMethodRewriter {
   }
 
   private Map<DexType, DexProgramClass> processInterfaces(Builder<?> builder, Flavor flavour) {
-    NestedGraphLense.Builder graphLensBuilder = GraphLense.builder();
+    NestedGraphLense.Builder graphLensBuilder = InterfaceProcessorNestedGraphLense.builder();
     InterfaceProcessor processor = new InterfaceProcessor(appView, this);
     for (DexProgramClass clazz : builder.getProgramClasses()) {
       if (shouldProcess(clazz, flavour, true)) {
@@ -1058,6 +1051,7 @@ public final class InterfaceMethodRewriter {
     // they are in the desugared library.
     if (appView.rewritePrefix.hasRewrittenType(missing)
         || DesugaredLibraryWrapperSynthesizer.isSynthesizedWrapper(missing)
+        || isCompanionClassType(missing)
         || appView
             .options()
             .desugaredLibraryConfiguration

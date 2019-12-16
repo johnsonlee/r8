@@ -32,7 +32,8 @@ public class ListBackportJava9Test extends AbstractBackportTest {
 
   public ListBackportJava9Test(TestParameters parameters) {
     super(parameters, List.class, TEST_JAR, "backport.ListBackportJava9Main");
-    // TODO Once shipped in an actual API level, migrate to ListBackportTest
+    // Note: None of the methods in this test exist in the latest android.jar. If/when they ship in
+    // an actual API level, migrate these tests to ListBackportTest.
 
     // Available since API 1 and used to test created lists.
     ignoreInvokes("add");

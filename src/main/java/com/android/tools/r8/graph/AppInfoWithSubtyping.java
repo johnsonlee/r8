@@ -354,7 +354,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
     assert potentialHolder.isInterface();
     for (DexEncodedMethod virtualMethod : potentialHolder.virtualMethods) {
       if (virtualMethod.method.hasSameProtoAndName(method.method)
-          && virtualMethod.accessFlags.isSameVisiblity(method.accessFlags)) {
+          && virtualMethod.accessFlags.isSameVisibility(method.accessFlags)) {
         return true;
       }
     }
@@ -466,6 +466,12 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
   @Override
   public boolean hasSubtypes(DexType type) {
     return !getTypeInfo(type).directSubtypes.isEmpty();
+  }
+
+  public boolean isRelatedBySubtyping(DexType type, DexType other) {
+    assert type.isClassType();
+    assert other.isClassType();
+    return isSubtype(type, other) || isSubtype(other, type);
   }
 
   @Override
