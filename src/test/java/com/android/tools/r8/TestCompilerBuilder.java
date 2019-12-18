@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public abstract class TestCompilerBuilder<
@@ -42,7 +43,7 @@ public abstract class TestCompilerBuilder<
 
   // Default initialized setup. Can be overwritten if needed.
   private boolean useDefaultRuntimeLibrary = true;
-  final List<Path> additionalRunClassPath = new ArrayList<>();
+  private final List<Path> additionalRunClassPath = new ArrayList<>();
   private ProgramConsumer programConsumer;
   private StringConsumer mainDexListConsumer;
   private AndroidApiLevel defaultMinApiLevel = ToolHelper.getMinApiLevelForDexVm();
@@ -279,12 +280,6 @@ public abstract class TestCompilerBuilder<
     return self();
   }
 
-  @Deprecated
-  public T enableCoreLibraryDesugaring() {
-    // TODO(b/134732760): Use the other API instead.
-    return enableCoreLibraryDesugaring(AndroidApiLevel.B);
-  }
-
   public T enableCoreLibraryDesugaring(AndroidApiLevel minAPILevel) {
     return enableCoreLibraryDesugaring(minAPILevel, null);
   }
@@ -297,6 +292,13 @@ public abstract class TestCompilerBuilder<
   @Override
   public T addRunClasspathFiles(Collection<Path> files) {
     additionalRunClassPath.addAll(files);
+    return self();
+  }
+
+  public T addAssertionsConfiguration(
+      Function<AssertionsConfiguration.Builder, AssertionsConfiguration>
+          assertionsConfigurationGenerator) {
+    builder.addAssertionsConfiguration(assertionsConfigurationGenerator);
     return self();
   }
 }
