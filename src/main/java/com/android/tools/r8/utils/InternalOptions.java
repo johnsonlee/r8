@@ -5,7 +5,7 @@ package com.android.tools.r8.utils;
 
 import static com.google.common.base.Predicates.not;
 
-import com.android.tools.r8.AssertionsConfiguration.AssertionTransformation;
+import com.android.tools.r8.AssertionsConfiguration;
 import com.android.tools.r8.ClassFileConsumer;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.DataResourceConsumer;
@@ -216,7 +216,6 @@ public class InternalOptions {
   public boolean enablePropagationOfConstantsAtCallSites = false;
   public boolean encodeChecksums = false;
   public BiPredicate<String, Long> dexClassChecksumFilter = (name, checksum) -> true;
-  public boolean enableSourceDebugExtensionRewriter = false;
   public boolean enableCfInterfaceMethodDesugaring = false;
 
   public int callGraphLikelySpuriousCallEdgeThreshold = 50;
@@ -435,7 +434,7 @@ public class InternalOptions {
   public boolean ignoreMissingClasses = false;
   // EXPERIMENTAL flag to get behaviour as close to Proguard as possible.
   public boolean forceProguardCompatibility = false;
-  public AssertionTransformation assertionTransformation = null;
+  public AssertionsConfiguration assertionsConfiguration = null;
   public boolean configurationDebugging = false;
 
   // Don't convert Code objects to IRCode.

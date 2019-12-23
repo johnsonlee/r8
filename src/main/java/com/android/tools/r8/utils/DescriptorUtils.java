@@ -16,6 +16,8 @@ import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.Map;
+import kotlinx.metadata.KmType;
+import kotlinx.metadata.KmTypeVisitor;
 
 public class DescriptorUtils {
 
@@ -355,6 +357,36 @@ public class DescriptorUtils {
   }
 
   /**
+   * Get a fully qualified name from a classifier in Kotlin metadata.
+   * @param kmType where classifier contains Kotlin internal name, like "org/foo/bar/Baz.Nested"
+   * @return a class descriptor like "Lorg/foo/bar/Baz$Nested;"
+   */
+  public static String getDescriptorFromKmType(KmType kmType) {
+    if (kmType == null) {
+      return null;
+    }
+    Box<String> descriptor = new Box<>(null);
+    kmType.accept(new KmTypeVisitor() {
+      @Override
+      public void visitClass(String name) {
+        // TODO(b/70169921): Remove this if metadata lib is resilient to namespace relocation.
+        //  See b/70169921#comment25 for more details.
+        String backwardRelocatedName = name.replace("com/android/tools/r8/jetbrains/", "");
+        descriptor.set(getDescriptorFromKotlinClassifier(backwardRelocatedName));
+      }
+
+      @Override
+      public void visitTypeAlias(String name) {
+        // TODO(b/70169921): Remove this if metadata lib is resilient to namespace relocation.
+        //  See b/70169921#comment25 for more details.
+        String backwardRelocatedName = name.replace("com/android/tools/r8/jetbrains/", "");
+        descriptor.set(getDescriptorFromKotlinClassifier(backwardRelocatedName));
+      }
+    });
+    return descriptor.get();
+  }
+
+  /**
    * Get unqualified class name from its binary name.
    *
    * @param classBinaryName a class binary name i.e. "java/lang/Object" or "a/b/C$Inner"
@@ -549,5 +581,77 @@ public class DescriptorUtils {
   public static String getClassFileName(String classDescriptor) {
     assert classDescriptor != null && isClassDescriptor(classDescriptor);
     return getClassBinaryNameFromDescriptor(classDescriptor) + CLASS_EXTENSION;
+  }
+
+  public static String getReturnTypeDescriptor(final String methodDescriptor) {
+    assert methodDescriptor.indexOf(')') != -1;
+    return methodDescriptor.substring(methodDescriptor.indexOf(')') + 1);
+  }
+
+  public static String getShortyDescriptor(String descriptor) {
+    if (descriptor.length() == 1) {
+      return descriptor;
+    }
+    assert descriptor.charAt(0) == 'L' || descriptor.charAt(0) == '[';
+    return "L";
+  }
+
+  public static String[] getArgumentTypeDescriptors(final String methodDescriptor) {
+    String[] argDescriptors = new String[getArgumentCount(methodDescriptor)];
+    int charIdx = 1;
+    char c;
+    int argIdx = 0;
+    int startType;
+    while ((c = methodDescriptor.charAt(charIdx)) != ')') {
+      switch (c) {
+        case 'V':
+          throw new Unreachable();
+        case 'Z':
+        case 'C':
+        case 'B':
+        case 'S':
+        case 'I':
+        case 'F':
+        case 'J':
+        case 'D':
+          argDescriptors[argIdx++] = Character.toString(c);
+          break;
+        case '[':
+          startType = charIdx;
+          while (methodDescriptor.charAt(++charIdx) == '[') {}
+          if (methodDescriptor.charAt(charIdx) == 'L') {
+            while (methodDescriptor.charAt(++charIdx) != ';')
+              ;
+          }
+          argDescriptors[argIdx++] = methodDescriptor.substring(startType, charIdx + 1);
+          break;
+        case 'L':
+          startType = charIdx;
+          while (methodDescriptor.charAt(++charIdx) != ';')
+            ;
+          argDescriptors[argIdx++] = methodDescriptor.substring(startType, charIdx + 1);
+          break;
+        default:
+          throw new Unreachable();
+      }
+      charIdx++;
+    }
+    return argDescriptors;
+  }
+
+  public static int getArgumentCount(final String methodDescriptor) {
+    int charIdx = 1;
+    char c;
+    int argCount = 0;
+    while ((c = methodDescriptor.charAt(charIdx++)) != ')') {
+      if (c == 'L') {
+        while (methodDescriptor.charAt(charIdx++) != ';')
+          ;
+        argCount++;
+      } else if (c != '[') {
+        argCount++;
+      }
+    }
+    return argCount;
   }
 }

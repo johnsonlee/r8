@@ -9,43 +9,40 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 
-import com.android.tools.r8.AsmTestBase;
-import com.android.tools.r8.R8Command;
-import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.R8TestCompileResult;
+import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.naming.applymapping.shared.NoMappingDumps.HasMappingDump;
 import com.android.tools.r8.naming.applymapping.shared.NoMappingDumps.NoMappingDump;
 import com.android.tools.r8.naming.applymapping.shared.NoMappingDumps.NoMappingMainDump;
 import com.android.tools.r8.naming.applymapping.shared.SwappingDump.ADump;
 import com.android.tools.r8.naming.applymapping.shared.SwappingDump.BDump;
 import com.android.tools.r8.naming.applymapping.shared.SwappingDump.MainDump;
-import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.utils.AndroidApp;
-import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class MemberResolutionAsmTest extends AsmTestBase {
-  private final Backend backend;
+public class MemberResolutionAsmTest extends TestBase {
+  private final TestParameters parameters;
 
-  @Parameterized.Parameters(name = "backend: {0}")
-  public static Backend[] data() {
-    return ToolHelper.getBackends();
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public MemberResolutionAsmTest(Backend backend) {
-    this.backend = backend;
+  public MemberResolutionAsmTest(TestParameters parameters) {
+    this.parameters = parameters;
   }
 
   //  class HasMapping { // : X
@@ -74,47 +71,47 @@ public class MemberResolutionAsmTest extends AsmTestBase {
   //      new NoMapping();
   //    }
   //  }
-  @Test
-  public void test_noMapping() throws Exception {
-    String main = "NoMappingMain";
-    AndroidApp input =
-        buildAndroidApp(HasMappingDump.dump(), NoMappingDump.dump(), NoMappingMainDump.dump());
+  private final String noMappingMain = "NoMappingMain";
+  private final String noMappingExpected = StringUtils.lines("HasMapping#foo", "NoMapping#foo");
 
-    Path mapPath = temp.newFile("test-mapping.txt").toPath();
-    List<String> pgMap =
-        ImmutableList.of(
+  private List<byte[]> noMappingInputs() throws Exception {
+    return ImmutableList.of(HasMappingDump.dump(), NoMappingDump.dump(), NoMappingMainDump.dump());
+  }
+
+  @Test
+  public void testNoMappingReference() throws Exception {
+    testForRuntime(parameters)
+        .addProgramClassFileData(noMappingInputs())
+        .run(parameters.getRuntime(), noMappingMain)
+        .assertSuccessWithOutput(noMappingExpected);
+  }
+
+  @Test
+  public void testNoMappingR8() throws Exception {
+    String pgMap =
+        StringUtils.joinLines(
+            "# Long comment to avoid reformatting of the lines below.",
             "HasMapping -> X:",
             "  void foo() -> a",
             "NoMapping -> Y:"
             // Intentionally missing a mapping for `private` foo().
             );
-    FileUtils.writeTextFile(mapPath, pgMap);
 
-    R8Command.Builder builder = ToolHelper.prepareR8CommandBuilder(input, emptyConsumer(backend));
-    builder
-        .addProguardConfiguration(
-            ImmutableList.of(
-                keepMainProguardConfiguration(main),
-                // Do not turn on -allowaccessmodification
-                "-applymapping " + mapPath),
-            Origin.unknown())
-        .addLibraryFiles(runtimeJar(backend));
-    AndroidApp processedApp =
-        ToolHelper.runR8(
-            builder.build(),
-            options -> {
-              options.enableInlining = false;
-              options.enableVerticalClassMerging = false;
-            });
+    CodeInspector codeInspector =
+        testForR8(parameters.getBackend())
+            .addProgramClassFileData(noMappingInputs())
+            .setMinApi(parameters.getApiLevel())
+            .addKeepMainRule(noMappingMain)
+            .addApplyMapping(pgMap)
+            .addOptionsModification(
+                options -> {
+                  options.enableInlining = false;
+                  options.enableVerticalClassMerging = false;
+                })
+            .run(parameters.getRuntime(), noMappingMain)
+            .assertSuccessWithOutput(noMappingExpected)
+            .inspector();
 
-    List<byte[]> classBytes =
-        ImmutableList.of(HasMappingDump.dump(), NoMappingDump.dump(), NoMappingMainDump.dump());
-    ProcessResult outputBefore = runOnJavaRaw(main, classBytes, ImmutableList.of());
-    assertEquals(0, outputBefore.exitCode);
-    String outputAfter = runOnVM(processedApp, main, backend);
-    assertEquals(outputBefore.stdout.trim(), outputAfter.trim());
-
-    CodeInspector codeInspector = new CodeInspector(processedApp, mapPath);
     ClassSubject base = codeInspector.clazz("HasMapping");
     assertThat(base, isPresent());
     assertThat(base, isRenamed());
@@ -156,63 +153,64 @@ public class MemberResolutionAsmTest extends AsmTestBase {
   //      new B().x(); // IllegalAccessError
   //    }
   //  }
-  @Test
-  public void test_swapping() throws Exception {
-    String main = "Main";
-    AndroidApp input = buildAndroidApp(ADump.dump(), BDump.dump(), MainDump.dump());
+  private final String swappingMain = "Main";
 
-    Path mapPath = temp.newFile("test-mapping.txt").toPath();
-    List<String> pgMap =
-        ImmutableList.of(
+  private List<byte[]> swappingInputs() throws Exception {
+    return ImmutableList.of(ADump.dump(), BDump.dump(), MainDump.dump());
+  }
+
+  private String getMethodSignature(String type, String method) {
+    if (parameters.isCfRuntime()) {
+      return type + "." + method + "()V";
+    }
+    assert parameters.isDexRuntime();
+    Version version = parameters.getRuntime().asDex().getVm().getVersion();
+    if (version.isOlderThanOrEqual(Version.V4_4_4)) {
+      return "L" + type + ";." + method + " ()V";
+    }
+    return "void " + type + "." + method + "()";
+  }
+
+  @Test
+  public void testSwappingReference() throws Exception {
+    testForRuntime(parameters)
+        .addProgramClassFileData(swappingInputs())
+        .run(parameters.getRuntime(), swappingMain)
+        .assertFailureWithErrorThatThrows(IllegalAccessError.class)
+        .assertFailureWithErrorThatMatches(containsString(getMethodSignature("A", "x")));
+  }
+
+  @Test
+  public void testSwappingR8() throws Exception {
+    String pgMap =
+        StringUtils.joinLines(
+            "# Long comment to avoid reformatting of the lines below.",
             "A -> X:",
             "  void x() -> y",
             "  void y() -> x",
             "B -> Y:"
             // Intentionally missing mappings for non-overridden members
             );
-    FileUtils.writeTextFile(mapPath, pgMap);
 
-    R8Command.Builder builder = ToolHelper.prepareR8CommandBuilder(input, emptyConsumer(backend));
-    builder
-        .addProguardConfiguration(
-            ImmutableList.of(
-                keepMainProguardConfiguration(main),
-                // Do not turn on -allowaccessmodification
-                "-applymapping " + mapPath),
-            Origin.unknown())
-        .addLibraryFiles(runtimeJar(backend));
-    AndroidApp processedApp =
-        ToolHelper.runR8(
-            builder.build(),
-            options -> {
-              options.enableInlining = false;
-              options.enableVerticalClassMerging = false;
-            });
+    R8TestCompileResult compileResult =
+        testForR8(parameters.getBackend())
+            .setMinApi(parameters.getApiLevel())
+            .addProgramClassFileData(swappingInputs())
+            .addKeepMainRule(swappingMain)
+            .addApplyMapping(pgMap)
+            .addOptionsModification(
+                options -> {
+                  options.enableInlining = false;
+                  options.enableVerticalClassMerging = false;
+                })
+            .compile();
 
-    List<byte[]> classBytes = ImmutableList.of(ADump.dump(), BDump.dump(), MainDump.dump());
-    ProcessResult outputBefore = runOnJavaRaw(main, classBytes, ImmutableList.of());
-    assertNotEquals(0, outputBefore.exitCode);
-    String expectedErrorMessage = "IllegalAccessError";
-    String expectedErrorSignature = "A.x()V";
-    assertThat(outputBefore.stderr, containsString(expectedErrorMessage));
-    assertThat(outputBefore.stderr, containsString(expectedErrorSignature));
-    ProcessResult outputAfter = runOnVMRaw(processedApp, main, backend);
-    assertNotEquals(0, outputAfter.exitCode);
-    expectedErrorSignature = "X.y()V";
-    if (backend == Backend.DEX) {
-      expectedErrorSignature = "void X.y()";
-      if (ToolHelper.getDexVm().getVersion().isOlderThanOrEqual(Version.V6_0_1)) {
-        expectedErrorMessage = "IncompatibleClassChangeError";
-      }
-      if (ToolHelper.getDexVm().getVersion().isOlderThanOrEqual(Version.V4_4_4)) {
-        expectedErrorMessage = "illegal method access";
-        expectedErrorSignature = "LX;.y ()V";
-      }
-    }
-    assertThat(outputAfter.stderr, containsString(expectedErrorMessage));
-    assertThat(outputAfter.stderr, containsString(expectedErrorSignature));
+    compileResult
+        .run(parameters.getRuntime(), swappingMain)
+        .assertFailureWithErrorThatThrows(IllegalAccessError.class)
+        .assertFailureWithErrorThatMatches(containsString(getMethodSignature("X", "y")));
 
-    CodeInspector codeInspector = new CodeInspector(processedApp, mapPath);
+    CodeInspector codeInspector = compileResult.inspector();
     ClassSubject base = codeInspector.clazz("A");
     assertThat(base, isPresent());
     assertThat(base, isRenamed());
