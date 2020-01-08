@@ -10,10 +10,12 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryConfiguration;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.AssertionConfigurationWithDefault;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,9 +26,11 @@ import java.util.List;
 @Keep
 public final class L8Command extends BaseCompilerCommand {
 
+  static final String USAGE_MESSAGE = R8CommandParser.USAGE_MESSAGE;
+
   private final D8Command d8Command;
   private final R8Command r8Command;
-  private final com.android.tools.r8.ir.desugar.DesugaredLibraryConfiguration libraryConfiguration;
+  private final DesugaredLibraryConfiguration libraryConfiguration;
   private final DexItemFactory factory;
 
   boolean isShrinking() {
@@ -39,6 +43,33 @@ public final class L8Command extends BaseCompilerCommand {
 
   R8Command getR8Command() {
     return r8Command;
+  }
+
+  /**
+   * Parse the L8 command-line.
+   *
+   * <p>Parsing will set the supplied options or their default value if they have any.
+   *
+   * @param args Command-line arguments array.
+   * @param origin Origin description of the command-line arguments.
+   * @return L8 command builder with state set up according to parsed command line.
+   */
+  public static Builder parse(String[] args, Origin origin) {
+    return L8CommandParser.parse(args, origin);
+  }
+
+  /**
+   * Parse the L8 command-line.
+   *
+   * <p>Parsing will set the supplied options or their default value if they have any.
+   *
+   * @param args Command-line arguments array.
+   * @param origin Origin description of the command-line arguments.
+   * @param handler Custom defined diagnostics handler.
+   * @return L8 command builder with state set up according to parsed command line.
+   */
+  public static Builder parse(String[] args, Origin origin, DiagnosticsHandler handler) {
+    return L8CommandParser.parse(args, origin, handler);
   }
 
   private L8Command(
@@ -63,7 +94,7 @@ public final class L8Command extends BaseCompilerCommand {
         false,
         false,
         (name, checksum) -> true,
-        AssertionsConfiguration.builder(null).build());
+        ImmutableList.of());
     this.d8Command = d8Command;
     this.r8Command = r8Command;
     this.libraryConfiguration = libraryConfiguration;
@@ -142,10 +173,11 @@ public final class L8Command extends BaseCompilerCommand {
     // TODO(134732760): This is still work in progress.
     internal.desugaredLibraryConfiguration = libraryConfiguration;
 
+    // Default is to remove all javac generated assertion code when generating dex.
     assert internal.assertionsConfiguration == null;
-    // Default, when no configuration is provided, is to remove all javac generated assertion
-    // code when generating dex.
-    internal.assertionsConfiguration = getAssertionsConfiguration(AssertionTransformation.DISABLE);
+    internal.assertionsConfiguration =
+        new AssertionConfigurationWithDefault(
+            AssertionTransformation.DISABLE, getAssertionsConfiguration());
 
     return internal;
   }

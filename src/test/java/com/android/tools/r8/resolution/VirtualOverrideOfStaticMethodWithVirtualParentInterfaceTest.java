@@ -122,7 +122,7 @@ public class VirtualOverrideOfStaticMethodWithVirtualParentInterfaceTest extends
         appInfo.resolveMethodOnInterface(methodOnB.holder, methodOnB);
     DexEncodedMethod resolved = resolutionResult.getSingleTarget();
     assertEquals(methodOnB, resolved.method);
-    assertFalse(resolutionResult.isValidVirtualTarget(appInfo.app().options));
+    assertFalse(resolutionResult.isVirtualTarget());
     DexEncodedMethod singleVirtualTarget =
         appInfo.lookupSingleInterfaceTarget(methodOnB, methodOnB.holder);
     Assert.assertNull(singleVirtualTarget);
@@ -133,7 +133,7 @@ public class VirtualOverrideOfStaticMethodWithVirtualParentInterfaceTest extends
     ResolutionResult resolutionResult = appInfo.resolveMethodOnInterface(methodOnB.holder, methodOnB);
     DexEncodedMethod resolved = resolutionResult.getSingleTarget();
     assertEquals(methodOnB, resolved.method);
-    assertFalse(resolutionResult.isValidVirtualTarget(appInfo.app().options));
+    assertFalse(resolutionResult.isVirtualTarget());
   }
 
   @Test
