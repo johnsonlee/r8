@@ -128,12 +128,14 @@ public final class BackportedMethodRewriter {
 
       // Due to emulated dispatch, we have to rewrite invoke-super differently or we end up in
       // infinite loops. We do direct resolution. This is a very uncommon case.
-      if (invoke.isInvokeSuper()) {
+      if (invoke.isInvokeSuper()
+          && rewritableMethods.matchesVirtualRewrite(invoke.getInvokedMethod())) {
         DexEncodedMethod dexEncodedMethod =
             appView
                 .appInfo()
                 .lookupSuperTarget(invoke.getInvokedMethod(), code.method.method.holder);
-        if (!dexEncodedMethod.isFinal()) { // Final methods can be rewritten as a normal invoke.
+        // Final methods can be rewritten as a normal invoke.
+        if (dexEncodedMethod != null && !dexEncodedMethod.isFinal()) {
           DexMethod retargetMethod =
               appView
                   .options()
@@ -212,7 +214,7 @@ public final class BackportedMethodRewriter {
       Code code = provider.generateTemplateMethod(appView.options(), method);
       DexEncodedMethod dexEncodedMethod =
           new DexEncodedMethod(
-              method, flags, DexAnnotationSet.empty(), ParameterAnnotationsList.empty(), code);
+              method, flags, DexAnnotationSet.empty(), ParameterAnnotationsList.empty(), code, true);
       boolean addToMainDexList =
           referencingClasses.stream()
               .anyMatch(clazz -> appView.appInfo().isInMainDexList(clazz.type));
@@ -390,7 +392,7 @@ public final class BackportedMethodRewriter {
         factory.createMethod(
             interfaceType, emulatedDispatchMethod.proto, emulatedDispatchMethod.name);
     return new DexEncodedMethod(
-        newMethod, flags, DexAnnotationSet.empty(), ParameterAnnotationsList.empty(), null);
+        newMethod, flags, DexAnnotationSet.empty(), ParameterAnnotationsList.empty(), null, true);
   }
 
   private DexEncodedMethod generateHolderDispatchMethod(
