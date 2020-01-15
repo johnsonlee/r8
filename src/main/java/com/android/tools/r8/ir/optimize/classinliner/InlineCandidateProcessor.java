@@ -879,6 +879,19 @@ final class InlineCandidateProcessor {
       return null;
     }
 
+    if (root.isStaticGet()) {
+      // If we are class inlining a singleton instance from a static-get, then we don't know the
+      // value of the fields.
+      ParameterUsage receiverUsage = optimizationInfo.getParameterUsages(0);
+      if (receiverUsage == null || receiverUsage.hasFieldRead) {
+        return null;
+      }
+      if (eligibility.hasMonitorOnReceiver) {
+        // We will not be able to remove the monitor instruction afterwards.
+        return null;
+      }
+    }
+
     // If the method returns receiver and the return value is actually
     // used in the code we need to make some additional checks.
     if (!eligibilityAcceptanceCheck.test(eligibility)) {
@@ -1019,6 +1032,10 @@ final class InlineCandidateProcessor {
         // Used as return value which is not ignored.
         return false;
       }
+    }
+
+    if (parameterUsage.isUsedInMonitor) {
+      return !root.isStaticGet();
     }
 
     if (!Sets.difference(parameterUsage.ifZeroTest, ALLOWED_ZERO_TEST_TYPES).isEmpty()) {
