@@ -1345,7 +1345,8 @@ public class IRConverter {
     previous = printMethod(code, "IR after interface method rewriting (SSA)", previous);
 
     // This pass has to be after interfaceMethodRewriter and BackportedMethodRewriter.
-    if (desugaredLibraryAPIConverter != null) {
+    if (desugaredLibraryAPIConverter != null
+        && (!appView.enableWholeProgramOptimizations() || methodProcessor.isPrimary())) {
       desugaredLibraryAPIConverter.desugar(code);
       assert code.isConsistentSSA();
     }
