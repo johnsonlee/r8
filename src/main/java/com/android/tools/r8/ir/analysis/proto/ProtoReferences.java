@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.code.Value;
 
 public class ProtoReferences {
 
@@ -20,12 +21,15 @@ public class ProtoReferences {
   public final DexType generatedExtensionType;
   public final DexType generatedMessageLiteType;
   public final DexType generatedMessageLiteBuilderType;
+  public final DexType generatedMessageLiteExtendableBuilderType;
   public final DexType rawMessageInfoType;
   public final DexType messageLiteType;
   public final DexType methodToInvokeType;
 
   public final GeneratedMessageLiteMethods generatedMessageLiteMethods;
   public final GeneratedMessageLiteBuilderMethods generatedMessageLiteBuilderMethods;
+  public final GeneratedMessageLiteExtendableBuilderMethods
+      generatedMessageLiteExtendableBuilderMethods;
   public final MethodToInvokeMembers methodToInvokeMembers;
 
   public final DexString dynamicMethodName;
@@ -53,6 +57,9 @@ public class ProtoReferences {
     generatedMessageLiteBuilderType =
         factory.createType(
             factory.createString("Lcom/google/protobuf/GeneratedMessageLite$Builder;"));
+    generatedMessageLiteExtendableBuilderType =
+        factory.createType(
+            factory.createString("Lcom/google/protobuf/GeneratedMessageLite$ExtendableBuilder;"));
     rawMessageInfoType =
         factory.createType(factory.createString("Lcom/google/protobuf/RawMessageInfo;"));
     messageLiteType = factory.createType(factory.createString("Lcom/google/protobuf/MessageLite;"));
@@ -88,7 +95,14 @@ public class ProtoReferences {
 
     generatedMessageLiteMethods = new GeneratedMessageLiteMethods(factory);
     generatedMessageLiteBuilderMethods = new GeneratedMessageLiteBuilderMethods(factory);
+    generatedMessageLiteExtendableBuilderMethods =
+        new GeneratedMessageLiteExtendableBuilderMethods(factory);
     methodToInvokeMembers = new MethodToInvokeMembers(factory);
+  }
+
+  public boolean isAbstractGeneratedMessageLiteBuilder(DexProgramClass clazz) {
+    return clazz.type == generatedMessageLiteBuilderType
+        || clazz.type == generatedMessageLiteExtendableBuilderType;
   }
 
   public boolean isDynamicMethod(DexMethod method) {
@@ -113,7 +127,9 @@ public class ProtoReferences {
   }
 
   public boolean isGeneratedMessageLiteBuilder(DexProgramClass clazz) {
-    return clazz.superType == generatedMessageLiteBuilderType;
+    return (clazz.superType == generatedMessageLiteBuilderType
+            || clazz.superType == generatedMessageLiteExtendableBuilderType)
+        && !isAbstractGeneratedMessageLiteBuilder(clazz);
   }
 
   public boolean isMessageInfoConstructionMethod(DexMethod method) {
@@ -164,6 +180,19 @@ public class ProtoReferences {
     }
   }
 
+  class GeneratedMessageLiteExtendableBuilderMethods {
+
+    public final DexMethod buildPartialMethod;
+
+    private GeneratedMessageLiteExtendableBuilderMethods(DexItemFactory dexItemFactory) {
+      buildPartialMethod =
+          dexItemFactory.createMethod(
+              generatedMessageLiteExtendableBuilderType,
+              dexItemFactory.createProto(extendableMessageType),
+              "buildPartial");
+    }
+  }
+
   public class MethodToInvokeMembers {
 
     public final DexField buildMessageInfoField;
@@ -193,6 +222,17 @@ public class ProtoReferences {
       setMemoizedIsInitializedField =
           dexItemFactory.createField(
               methodToInvokeType, methodToInvokeType, "SET_MEMOIZED_IS_INITIALIZED");
+    }
+
+    public boolean isNewMutableInstanceEnum(DexField field) {
+      return field == newMutableInstanceField;
+    }
+
+    public boolean isNewMutableInstanceEnum(Value value) {
+      Value root = value.getAliasedValue();
+      return !root.isPhi()
+          && root.definition.isStaticGet()
+          && isNewMutableInstanceEnum(root.definition.asStaticGet().getField());
     }
 
     public boolean isMethodToInvokeWithSimpleBody(DexField field) {

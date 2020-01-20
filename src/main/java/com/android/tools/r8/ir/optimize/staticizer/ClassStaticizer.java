@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.ir.optimize.staticizer;
 
-import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
@@ -16,6 +15,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
@@ -458,7 +458,7 @@ public final class ClassStaticizer {
     // Check constructor.
     InvokeDirect invoke = instruction.asInvokeDirect();
     DexEncodedMethod methodInvoked =
-        appView.appInfo().lookupDirectTarget(invoke.getInvokedMethod());
+        appView.appInfo().lookupDirectTarget(invoke.getInvokedMethod(), info.candidate);
     List<Value> values = invoke.inValues();
 
     if (ListUtils.lastIndexMatching(values, v -> v.getAliasedValue() == candidateValue) != 0
@@ -599,10 +599,13 @@ public final class ClassStaticizer {
             }
             return candidateInfo.invalidate();
           }
-          AppInfo appInfo = appView.appInfo();
-          DexEncodedMethod methodInvoked = user.isInvokeDirect()
-              ? appInfo.lookupDirectTarget(methodReferenced)
-              : appInfo.lookupVirtualTarget(methodReferenced.holder, methodReferenced);
+          AppInfoWithLiveness appInfo = appView.appInfo();
+          ResolutionResult resolutionResult =
+              appInfo.resolveMethod(methodReferenced.holder, methodReferenced);
+          DexEncodedMethod methodInvoked =
+              user.isInvokeDirect()
+                  ? resolutionResult.lookupInvokeDirectTarget(candidateInfo.candidate, appInfo)
+                  : resolutionResult.isVirtualTarget() ? resolutionResult.getSingleTarget() : null;
           if (ListUtils.lastIndexMatching(invoke.inValues(), isAliasedValue) == 0
               && methodInvoked != null
               && methodInvoked.method.holder == candidateInfo.candidate.type) {

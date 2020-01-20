@@ -4,7 +4,7 @@
 package com.android.tools.r8.kotlin.metadata;
 
 import static com.android.tools.r8.KotlinCompilerTool.KOTLINC;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isExtension;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isExtensionFunction;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isRenamed;
 import static org.hamcrest.CoreMatchers.not;
@@ -16,7 +16,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.KmClassSubject;
 import com.android.tools.r8.utils.codeinspector.KmFunctionSubject;
@@ -68,7 +67,6 @@ public class MetadataRenameInFunctionTest extends KotlinMetadataTestBase {
             // Keep the BKt method, which will be called from other kotlin code.
             .addKeepRules("-keep class **.BKt { <methods>; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-            .addOptionsModification(InternalOptions::enableKotlinMetadataRewriting)
             .compile();
     String pkg = getClass().getPackage().getName();
     final String superClassName = pkg + ".function_lib.Super";
@@ -96,7 +94,7 @@ public class MetadataRenameInFunctionTest extends KotlinMetadataTestBase {
 
       KmFunctionSubject kmFunction = kmPackage.kmFunctionWithUniqueName("fun");
       assertThat(kmFunction, isPresent());
-      assertThat(kmFunction, not(isExtension()));
+      assertThat(kmFunction, not(isExtensionFunction()));
     });
 
     Path libJar = compileResult.writeToZip();
@@ -129,7 +127,6 @@ public class MetadataRenameInFunctionTest extends KotlinMetadataTestBase {
             // Keep the BKt method, which will be called from other kotlin code.
             .addKeepRules("-keep class **.BKt { <methods>; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-            .addOptionsModification(InternalOptions::enableKotlinMetadataRewriting)
             .compile();
     String pkg = getClass().getPackage().getName();
     final String superClassName = pkg + ".function_lib.Super";
@@ -160,7 +157,7 @@ public class MetadataRenameInFunctionTest extends KotlinMetadataTestBase {
 
       KmFunctionSubject kmFunction = kmPackage.kmFunctionWithUniqueName("fun");
       assertThat(kmFunction, isPresent());
-      assertThat(kmFunction, not(isExtension()));
+      assertThat(kmFunction, not(isExtensionFunction()));
     });
 
     Path libJar = compileResult.writeToZip();

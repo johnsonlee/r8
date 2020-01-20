@@ -12,6 +12,7 @@ import static com.android.tools.r8.ir.code.Opcodes.STATIC_GET;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.ConstNumber;
@@ -29,8 +30,10 @@ import it.unimi.dsi.fastutil.Hash.Strategy;
 import it.unimi.dsi.fastutil.objects.Object2IntArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenCustomHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectSortedMap.FastSortedEntrySet;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -40,14 +43,17 @@ public class ConstantCanonicalizer {
   // Threshold to limit the number of constant canonicalization.
   private static final int MAX_CANONICALIZED_CONSTANT = 22;
 
+  private final CodeRewriter codeRewriter;
+
   private int numberOfConstNumberCanonicalization = 0;
   private int numberOfConstStringCanonicalization = 0;
   private int numberOfDexItemBasedConstStringCanonicalization = 0;
   private int numberOfConstClassCanonicalization = 0;
-  private int numberOfEnumCanonicalization = 0;
+  private int numberOfEffectivelyFinalFieldCanonicalization = 0;
   private final Object2IntMap<Long> histogramOfCanonicalizationCandidatesPerMethod;
 
-  public ConstantCanonicalizer() {
+  public ConstantCanonicalizer(CodeRewriter codeRewriter) {
+    this.codeRewriter = codeRewriter;
     if (Log.ENABLED) {
       histogramOfCanonicalizationCandidatesPerMethod = new Object2IntArrayMap<>();
     } else {
@@ -66,7 +72,10 @@ public class ConstantCanonicalizer {
         numberOfDexItemBasedConstStringCanonicalization);
     Log.info(getClass(),
         "# const-class canonicalization: %s", numberOfConstClassCanonicalization);
-    Log.info(getClass(), "# enum canonicalization: %s", numberOfEnumCanonicalization);
+    Log.info(
+        getClass(),
+        "# effectively final field canonicalization: %s",
+        numberOfEffectivelyFinalFieldCanonicalization);
     assert histogramOfCanonicalizationCandidatesPerMethod != null;
     Log.info(getClass(), "------ histogram of constant canonicalization candidates ------");
     histogramOfCanonicalizationCandidatesPerMethod.forEach((length, count) -> {
@@ -129,9 +138,11 @@ public class ConstantCanonicalizer {
           && code.metadata().mayHaveMonitorInstruction()) {
         continue;
       }
-      // Only canonicalize enum values. This is only OK if the instruction cannot have side effects.
+      // Canonicalize effectively final fields that are guaranteed to be written before they are
+      // read. This is only OK if the instruction cannot have side effects.
       if (current.isStaticGet()) {
-        if (!current.outValue().getAbstractValue(appView, context).isSingleEnumValue()) {
+        AbstractValue abstractValue = current.outValue().getAbstractValue(appView, context);
+        if (!abstractValue.isSingleFieldValue()) {
           continue;
         }
         if (current.instructionMayHaveSideEffects(appView, context)) {
@@ -174,59 +185,69 @@ public class ConstantCanonicalizer {
         histogramOfCanonicalizationCandidatesPerMethod.put(numOfCandidates, count + 1);
       }
     }
-    entries.stream()
-        .filter(a -> a.getValue().size() > 1)
-        .sorted((a, b) -> Integer.compare(b.getValue().size(), a.getValue().size()))
-        .limit(MAX_CANONICALIZED_CONSTANT)
-        .forEach(
-            (entry) -> {
-              Instruction canonicalizedConstant = entry.getKey();
-              assert canonicalizedConstant.instructionTypeCanBeCanonicalized();
-              Instruction newConst;
-              switch (canonicalizedConstant.opcode()) {
-                case CONST_CLASS:
-                  if (Log.ENABLED) {
-                    numberOfConstClassCanonicalization++;
-                  }
-                  newConst = ConstClass.copyOf(code, canonicalizedConstant.asConstClass());
-                  break;
-                case CONST_NUMBER:
-                  if (Log.ENABLED) {
-                    numberOfConstNumberCanonicalization++;
-                  }
-                  newConst = ConstNumber.copyOf(code, canonicalizedConstant.asConstNumber());
-                  break;
-                case CONST_STRING:
-                  if (Log.ENABLED) {
-                    numberOfConstStringCanonicalization++;
-                  }
-                  newConst = ConstString.copyOf(code, canonicalizedConstant.asConstString());
-                  break;
-                case DEX_ITEM_BASED_CONST_STRING:
-                  if (Log.ENABLED) {
-                    numberOfDexItemBasedConstStringCanonicalization++;
-                  }
-                  newConst =
-                      DexItemBasedConstString.copyOf(
-                          code, canonicalizedConstant.asDexItemBasedConstString());
-                  break;
-                case STATIC_GET:
-                  if (Log.ENABLED) {
-                    numberOfEnumCanonicalization++;
-                  }
-                  newConst = StaticGet.copyOf(code, canonicalizedConstant.asStaticGet());
-                  break;
-                default:
-                  throw new Unreachable();
-              }
-              newConst.setPosition(firstNonNonePosition);
-              insertCanonicalizedConstant(code, newConst);
-              for (Value outValue : entry.getValue()) {
-                outValue.replaceUsers(newConst.outValue());
-              }
-            });
 
-    code.removeAllTrivialPhis();
+    Iterator<Object2ObjectMap.Entry<Instruction, List<Value>>> iterator =
+        entries.stream()
+            .filter(a -> a.getValue().size() > 1)
+            .sorted((a, b) -> Integer.compare(b.getValue().size(), a.getValue().size()))
+            .limit(MAX_CANONICALIZED_CONSTANT)
+            .iterator();
+
+    if (!iterator.hasNext()) {
+      return;
+    }
+    do {
+      Object2ObjectMap.Entry<Instruction, List<Value>> entry = iterator.next();
+      Instruction canonicalizedConstant = entry.getKey();
+      assert canonicalizedConstant.instructionTypeCanBeCanonicalized();
+      Instruction newConst;
+      switch (canonicalizedConstant.opcode()) {
+        case CONST_CLASS:
+          if (Log.ENABLED) {
+            numberOfConstClassCanonicalization++;
+          }
+          newConst = ConstClass.copyOf(code, canonicalizedConstant.asConstClass());
+          break;
+        case CONST_NUMBER:
+          if (Log.ENABLED) {
+            numberOfConstNumberCanonicalization++;
+          }
+          newConst = ConstNumber.copyOf(code, canonicalizedConstant.asConstNumber());
+          break;
+        case CONST_STRING:
+          if (Log.ENABLED) {
+            numberOfConstStringCanonicalization++;
+          }
+          newConst = ConstString.copyOf(code, canonicalizedConstant.asConstString());
+          break;
+        case DEX_ITEM_BASED_CONST_STRING:
+          if (Log.ENABLED) {
+            numberOfDexItemBasedConstStringCanonicalization++;
+          }
+          newConst =
+              DexItemBasedConstString.copyOf(
+                  code, canonicalizedConstant.asDexItemBasedConstString());
+          break;
+        case STATIC_GET:
+          if (Log.ENABLED) {
+            numberOfEffectivelyFinalFieldCanonicalization++;
+          }
+          newConst = StaticGet.copyOf(code, canonicalizedConstant.asStaticGet());
+          break;
+        default:
+          throw new Unreachable();
+      }
+      newConst.setPosition(firstNonNonePosition);
+      insertCanonicalizedConstant(code, newConst);
+      for (Value outValue : entry.getValue()) {
+        outValue.replaceUsers(newConst.outValue());
+      }
+    } while (iterator.hasNext());
+
+    if (code.removeAllTrivialPhis()) {
+      codeRewriter.simplifyControlFlow(code);
+    }
+
     assert code.isConsistentSSA();
   }
 

@@ -4,6 +4,7 @@
 package com.android.tools.r8.kotlin.metadata;
 
 import static com.android.tools.r8.KotlinCompilerTool.KOTLINC;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isExtensionProperty;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isRenamed;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -17,10 +18,10 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.KmClassSubject;
 import com.android.tools.r8.utils.codeinspector.KmPackageSubject;
+import com.android.tools.r8.utils.codeinspector.KmPropertySubject;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -69,7 +70,6 @@ public class MetadataRenameInExtensionPropertyTest extends KotlinMetadataTestBas
             // to be called with Kotlin syntax from other kotlin code.
             .addKeepRules("-keep class **.BKt { <methods>; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-            .addOptionsModification(InternalOptions::enableKotlinMetadataRewriting)
             .compile();
     String pkg = getClass().getPackage().getName();
     final String superClassName = pkg + ".extension_property_lib.Super";
@@ -95,7 +95,8 @@ public class MetadataRenameInExtensionPropertyTest extends KotlinMetadataTestBas
       KmPackageSubject kmPackage = bKt.getKmPackage();
       assertThat(kmPackage, isPresent());
 
-      // TODO(b/70169921): test property details.
+      KmPropertySubject kmProperty = kmPackage.kmPropertyExtensionWithUniqueName("asI");
+      assertThat(kmProperty, isExtensionProperty());
     });
 
     Path libJar = compileResult.writeToZip();
@@ -126,7 +127,6 @@ public class MetadataRenameInExtensionPropertyTest extends KotlinMetadataTestBas
             // to be called with Kotlin syntax from other kotlin code.
             .addKeepRules("-keep class **.BKt { <methods>; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-            .addOptionsModification(InternalOptions::enableKotlinMetadataRewriting)
             .compile();
     String pkg = getClass().getPackage().getName();
     final String superClassName = pkg + ".extension_property_lib.Super";
@@ -156,7 +156,8 @@ public class MetadataRenameInExtensionPropertyTest extends KotlinMetadataTestBas
       KmPackageSubject kmPackage = bKt.getKmPackage();
       assertThat(kmPackage, isPresent());
 
-      // TODO(b/70169921): test property details.
+      KmPropertySubject kmProperty = kmPackage.kmPropertyExtensionWithUniqueName("asI");
+      assertThat(kmProperty, isExtensionProperty());
     });
 
     Path libJar = compileResult.writeToZip();

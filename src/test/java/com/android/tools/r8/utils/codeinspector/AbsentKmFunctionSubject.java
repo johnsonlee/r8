@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils.codeinspector;
 
+import kotlinx.metadata.jvm.JvmMethodSignature;
+
 public class AbsentKmFunctionSubject extends KmFunctionSubject {
 
   @Override
@@ -23,5 +25,10 @@ public class AbsentKmFunctionSubject extends KmFunctionSubject {
   @Override
   public boolean isExtension() {
     return false;
+  }
+
+  @Override
+  public JvmMethodSignature signature() {
+    return null;
   }
 }

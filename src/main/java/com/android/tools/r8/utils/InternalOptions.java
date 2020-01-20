@@ -76,6 +76,8 @@ public class InternalOptions {
 
   public enum DesugarState {
     OFF,
+    // This is for use when desugar has run before, and backports have still not been desugared.
+    ONLY_BACKPORT_STATICS,
     ON
   }
 
@@ -218,8 +220,7 @@ public class InternalOptions {
   public boolean enablePropagationOfDynamicTypesAtCallSites = true;
   // TODO(b/69963623): enable if everything is ready, including signature rewriting at call sites.
   public boolean enablePropagationOfConstantsAtCallSites = false;
-  // TODO(b/70169921): enable after branching.
-  public boolean enableKotlinMetadataRewriting = false;
+  public boolean enableKotlinMetadataRewriting = true;
   public boolean encodeChecksums = false;
   public BiPredicate<String, Long> dexClassChecksumFilter = (name, checksum) -> true;
   public boolean enableCfInterfaceMethodDesugaring = false;
@@ -246,8 +247,7 @@ public class InternalOptions {
   public boolean enableInitializedClassesInInstanceMethodsAnalysis = true;
   public boolean enableRedundantFieldLoadElimination = true;
   public boolean enableValuePropagation = true;
-  // TODO(b/125282093): Enable member value propagation for instance fields.
-  public boolean enableValuePropagationForInstanceFields = false;
+  public boolean enableValuePropagationForInstanceFields = true;
   public boolean enableUninstantiatedTypeOptimization = true;
   // Currently disabled, see b/146957343.
   public boolean enableUninstantiatedTypeOptimizationForInterfaces = false;
@@ -1081,13 +1081,6 @@ public class InternalOptions {
   public void enablePropagationOfConstantsAtCallSites() {
     assert !enablePropagationOfConstantsAtCallSites;
     enablePropagationOfConstantsAtCallSites = true;
-  }
-
-  // TODO(b/70169921): Remove this once enabled.
-  @VisibleForTesting
-  public void enableKotlinMetadataRewriting() {
-    assert !enableKotlinMetadataRewriting;
-    enableKotlinMetadataRewriting = true;
   }
 
   private boolean hasMinApi(AndroidApiLevel level) {

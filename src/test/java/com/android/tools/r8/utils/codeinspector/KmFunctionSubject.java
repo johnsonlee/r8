@@ -4,6 +4,7 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import kotlinx.metadata.KmFunction;
+import kotlinx.metadata.jvm.JvmMethodSignature;
 
 public abstract class KmFunctionSubject extends Subject {
   // TODO(b/145824437): This is a dup of KotlinMetadataSynthesizer#isExtension
@@ -12,4 +13,6 @@ public abstract class KmFunctionSubject extends Subject {
   }
 
   public abstract boolean isExtension();
+
+  public abstract JvmMethodSignature signature();
 }

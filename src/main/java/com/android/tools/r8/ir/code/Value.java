@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public class Value implements Comparable<Value> {
@@ -264,25 +265,31 @@ public class Value implements Comparable<Value> {
    * <p>This method is useful to find the "true" definition of a value inside the current method.
    */
   public Value getAliasedValue() {
-    return getAliasedValue(Predicates.alwaysFalse());
+    return getAliasedValue(
+        DefaultAliasedValueConfiguration.getInstance(), Predicates.alwaysFalse());
   }
 
-  public Value getAliasedValue(Predicate<Value> stoppingCriterion) {
+  public Value getAliasedValue(AliasedValueConfiguration configuration) {
+    return getAliasedValue(configuration, Predicates.alwaysFalse());
+  }
+
+  public Value getAliasedValue(
+      AliasedValueConfiguration configuration, Predicate<Value> stoppingCriterion) {
     assert stoppingCriterion != null;
     Set<Value> visited = Sets.newIdentityHashSet();
     Value lastAliasedValue;
     Value aliasedValue = this;
     do {
-      if (stoppingCriterion.test(aliasedValue)) {
-        return aliasedValue;
-      }
       lastAliasedValue = aliasedValue;
       if (aliasedValue.isPhi()) {
         return aliasedValue;
       }
+      if (stoppingCriterion.test(aliasedValue)) {
+        return aliasedValue;
+      }
       Instruction definitionOfAliasedValue = aliasedValue.definition;
-      if (definitionOfAliasedValue.isIntroducingAnAlias()) {
-        aliasedValue = definitionOfAliasedValue.getAliasForOutValue();
+      if (configuration.isIntroducingAnAlias(definitionOfAliasedValue)) {
+        aliasedValue = configuration.getAliasForOutValue(definitionOfAliasedValue);
 
         // There shouldn't be a cycle.
         assert visited.add(aliasedValue);
@@ -293,7 +300,8 @@ public class Value implements Comparable<Value> {
   }
 
   public Value getSpecificAliasedValue(Predicate<Value> stoppingCriterion) {
-    Value aliasedValue = getAliasedValue(stoppingCriterion);
+    Value aliasedValue =
+        getAliasedValue(DefaultAliasedValueConfiguration.getInstance(), stoppingCriterion);
     return stoppingCriterion.test(aliasedValue) ? aliasedValue : null;
   }
 
@@ -440,21 +448,29 @@ public class Value implements Comparable<Value> {
   }
 
   public Set<Instruction> aliasedUsers() {
+    return aliasedUsers(DefaultAliasedValueConfiguration.getInstance());
+  }
+
+  public Set<Instruction> aliasedUsers(AliasedValueConfiguration configuration) {
     Set<Instruction> users = SetUtils.newIdentityHashSet(uniqueUsers());
     Set<Instruction> visited = Sets.newIdentityHashSet();
-    collectAliasedUsersViaAssume(visited, uniqueUsers(), users);
+    collectAliasedUsersViaAssume(configuration, visited, uniqueUsers(), users);
     return users;
   }
 
   private static void collectAliasedUsersViaAssume(
-      Set<Instruction> visited, Set<Instruction> usersToTest, Set<Instruction> collectedUsers) {
+      AliasedValueConfiguration configuration,
+      Set<Instruction> visited,
+      Set<Instruction> usersToTest,
+      Set<Instruction> collectedUsers) {
     for (Instruction user : usersToTest) {
       if (!visited.add(user)) {
         continue;
       }
-      if (user.isAssume()) {
+      if (configuration.isIntroducingAnAlias(user)) {
         collectedUsers.addAll(user.outValue().uniqueUsers());
-        collectAliasedUsersViaAssume(visited, user.outValue().uniqueUsers(), collectedUsers);
+        collectAliasedUsersViaAssume(
+            configuration, visited, user.outValue().uniqueUsers(), collectedUsers);
       }
     }
   }
@@ -627,13 +643,21 @@ public class Value implements Comparable<Value> {
   // Returns the set of Value that are affected if the current value's type lattice is updated.
   public Set<Value> affectedValues() {
     ImmutableSet.Builder<Value> affectedValues = ImmutableSet.builder();
+    forEachAffectedValue(affectedValues::add);
+    return affectedValues.build();
+  }
+
+  public void addAffectedValuesTo(Set<Value> affectedValues) {
+    forEachAffectedValue(affectedValues::add);
+  }
+
+  public void forEachAffectedValue(Consumer<Value> consumer) {
     for (Instruction user : uniqueUsers()) {
-      if (user.outValue() != null) {
-        affectedValues.add(user.outValue());
+      if (user.hasOutValue()) {
+        consumer.accept(user.outValue());
       }
     }
-    affectedValues.addAll(uniquePhiUsers());
-    return affectedValues.build();
+    uniquePhiUsers().forEach(consumer::accept);
   }
 
   public void replaceUsers(Value newValue) {

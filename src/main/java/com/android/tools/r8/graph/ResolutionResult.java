@@ -71,9 +71,6 @@ public abstract class ResolutionResult {
   public abstract DexEncodedMethod lookupInvokeDirectTarget(
       DexProgramClass context, AppInfoWithClassHierarchy appInfo);
 
-  @Deprecated
-  public abstract DexEncodedMethod lookupInvokeSuperTarget(DexClass context, AppInfo appInfo);
-
   /** Lookup the single target of an invoke-static on this resolution result if possible. */
   public abstract DexEncodedMethod lookupInvokeStaticTarget(
       DexProgramClass context, AppInfoWithClassHierarchy appInfo);
@@ -186,10 +183,19 @@ public abstract class ResolutionResult {
     @Override
     public DexEncodedMethod lookupInvokeSuperTarget(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
+      // TODO(b/147848950): Investigate and remove the Compilation error. It could compile to
+      // throw IAE.
+      if (resolvedMethod.isInstanceInitializer()
+          || (appInfo.hasSubtyping()
+              && initialResolutionHolder != context
+              && !isSuperclass(initialResolutionHolder, context, appInfo.withSubtyping()))) {
+        throw new CompilationError(
+            "Illegal invoke-super to " + resolvedMethod.toSourceString(), context.getOrigin());
+      }
       if (!isAccessibleFrom(context, appInfo)) {
         return null;
       }
-      DexEncodedMethod target = lookupInvokeSuperTarget(context.asDexClass(), appInfo);
+      DexEncodedMethod target = internalInvokeSpecialOrSuper(context, appInfo, (sup, sub) -> true);
       if (target == null) {
         return null;
       }
@@ -244,21 +250,10 @@ public abstract class ResolutionResult {
       return null;
     }
 
-    @Override
-    public DexEncodedMethod lookupInvokeSuperTarget(DexClass context, AppInfo appInfo) {
-      assert context != null;
-      if (resolvedMethod.isInstanceInitializer()
-          || (appInfo.hasSubtyping()
-              && initialResolutionHolder != context
-              && !isSuperclass(initialResolutionHolder, context, appInfo.withSubtyping()))) {
-        throw new CompilationError(
-            "Illegal invoke-super to " + resolvedMethod.toSourceString(), context.getOrigin());
-      }
-      return internalInvokeSpecialOrSuper(context, appInfo, (sup, sub) -> true);
-    }
-
     private DexEncodedMethod internalInvokeSpecialOrSuper(
-        DexClass context, AppInfo appInfo, BiPredicate<DexClass, DexClass> isSuperclass) {
+        DexClass context,
+        AppInfoWithClassHierarchy appInfo,
+        BiPredicate<DexClass, DexClass> isSuperclass) {
 
       // Statics cannot be targeted by invoke-special/super.
       if (getResolvedMethod().isStatic()) {
@@ -451,11 +446,6 @@ public abstract class ResolutionResult {
     @Override
     public DexEncodedMethod lookupInvokeSuperTarget(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
-      return null;
-    }
-
-    @Override
-    public final DexEncodedMethod lookupInvokeSuperTarget(DexClass context, AppInfo appInfo) {
       return null;
     }
 

@@ -58,13 +58,13 @@ public class FieldValueAnalysis {
       OptimizationFeedback feedback,
       DexProgramClass clazz,
       DexEncodedMethod method) {
+    assert clazz != null;
     assert clazz.type == method.method.holder;
     this.appView = appView;
     this.clazz = clazz;
     this.code = code;
     this.feedback = feedback;
     this.method = method;
-    assert this.clazz != null;
   }
 
   public static void run(
@@ -261,9 +261,14 @@ public class FieldValueAnalysis {
         // Record that this block reads all fields.
         result.put(block, UnknownFieldSet.getInstance());
         changed = true;
-      } else if (knownReadSet.size() != oldSize) {
-        assert knownReadSet.size() > oldSize;
-        changed = true;
+      } else {
+        if (knownReadSet != readSet) {
+          result.put(block, knownReadSet.asConcreteFieldSet());
+        }
+        if (knownReadSet.size() != oldSize) {
+          assert knownReadSet.size() > oldSize;
+          changed = true;
+        }
       }
 
       if (changed) {
@@ -278,7 +283,12 @@ public class FieldValueAnalysis {
     // Abstract value.
     Value root = value.getAliasedValue();
     AbstractValue abstractValue = computeAbstractValue(root);
-    if (!abstractValue.isUnknown()) {
+    if (abstractValue.isUnknown()) {
+      if (field.isStatic()) {
+        feedback.recordFieldHasAbstractValue(
+            field, appView, appView.abstractValueFactory().createSingleFieldValue(field.field));
+      }
+    } else {
       feedback.recordFieldHasAbstractValue(field, appView, abstractValue);
     }
 

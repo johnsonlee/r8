@@ -7,6 +7,7 @@ package com.android.tools.r8.internal.proto;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
@@ -14,6 +15,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
@@ -27,7 +29,6 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
 
-  private static final String LITE_BUILDER = "com.google.protobuf.GeneratedMessageLite$Builder";
   private static final String METHOD_TO_INVOKE_ENUM =
       "com.google.protobuf.GeneratedMessageLite$MethodToInvoke";
 
@@ -46,12 +47,14 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
             ImmutableList.of("proto2.BuilderWithProtoBuilderSetterTestClass"),
             ImmutableList.of("proto2.BuilderWithProtoSetterTestClass"),
             ImmutableList.of("proto2.BuilderWithReusedSettersTestClass"),
+            ImmutableList.of("proto2.HasFlaggedOffExtensionBuilderTestClass"),
             ImmutableList.of(
                 "proto2.BuilderWithOneofSetterTestClass",
                 "proto2.BuilderWithPrimitiveSettersTestClass",
                 "proto2.BuilderWithProtoBuilderSetterTestClass",
                 "proto2.BuilderWithProtoSetterTestClass",
-                "proto2.BuilderWithReusedSettersTestClass")),
+                "proto2.BuilderWithReusedSettersTestClass",
+                "proto2.HasFlaggedOffExtensionBuilderTestClass")),
         getTestParameters().withAllRuntimesAndApiLevels().build());
   }
 
@@ -69,11 +72,22 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
             .addKeepRuleFiles(PROTOBUF_LITE_PROGUARD_RULES)
             .addOptionsModification(
                 options -> {
+                  assert !options.applyInliningToInlinee;
                   options.applyInliningToInlinee = true;
+
+                  assert !options.enableFieldBitAccessAnalysis;
                   options.enableFieldBitAccessAnalysis = true;
+
+                  assert !options.protoShrinking().enableGeneratedExtensionRegistryShrinking;
                   options.protoShrinking().enableGeneratedExtensionRegistryShrinking = true;
+
+                  assert !options.protoShrinking().enableGeneratedMessageLiteShrinking;
                   options.protoShrinking().enableGeneratedMessageLiteShrinking = true;
+
+                  assert !options.protoShrinking().enableGeneratedMessageLiteBuilderShrinking;
                   options.protoShrinking().enableGeneratedMessageLiteBuilderShrinking = true;
+
+                  assert !options.enableStringSwitchConversion;
                   options.enableStringSwitchConversion = true;
                 })
             .allowAccessModification()
@@ -153,6 +167,8 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
             "0",
             "true",
             "qux");
+      case "proto2.HasFlaggedOffExtensionBuilderTestClass":
+        return StringUtils.lines("4");
       default:
         throw new Unreachable();
     }
@@ -164,14 +180,15 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
   }
 
   private void verifyBuildersAreAbsent(CodeInspector outputInspector) {
-    boolean primitivesBuilderShouldBeLive =
-        mains.contains("proto2.BuilderWithReusedSettersTestClass");
     assertThat(
-        outputInspector.clazz(LITE_BUILDER),
-        primitivesBuilderShouldBeLive ? isPresent() : not(isPresent()));
+        outputInspector.clazz(
+            "com.android.tools.r8.proto2.Shrinking$HasFlaggedOffExtension$Builder"),
+        mains.equals(ImmutableList.of("proto2.HasFlaggedOffExtensionBuilderTestClass"))
+            ? isPresent()
+            : not(isPresent()));
     assertThat(
         outputInspector.clazz("com.android.tools.r8.proto2.TestProto$Primitives$Builder"),
-        primitivesBuilderShouldBeLive ? isPresent() : not(isPresent()));
+        not(isPresent()));
     assertThat(
         outputInspector.clazz("com.android.tools.r8.proto2.TestProto$OuterMessage$Builder"),
         not(isPresent()));
@@ -185,13 +202,14 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
     for (String main : mains) {
       MethodSubject mainMethodSubject = outputInspector.clazz(main).mainMethod();
       assertThat(mainMethodSubject, isPresent());
-      // TODO(christofferqa): Enable assertion.
-      // assertTrue(
-      //     mainMethodSubject
-      //         .streamInstructions()
-      //         .filter(InstructionSubject::isStaticGet)
-      //         .map(instruction -> instruction.getField().type)
-      //         .noneMatch(methodToInvokeType::equals));
+      assertTrue(
+          main,
+          mainMethodSubject
+              .streamInstructions()
+              .filter(InstructionSubject::isStaticGet)
+              .map(instruction -> instruction.getField().type)
+              .noneMatch(methodToInvokeType::equals));
+      assertTrue(mainMethodSubject.streamInstructions().noneMatch(InstructionSubject::isSwitch));
     }
   }
 }

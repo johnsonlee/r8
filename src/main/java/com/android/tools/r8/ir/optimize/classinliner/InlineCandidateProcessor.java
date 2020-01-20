@@ -20,8 +20,10 @@ import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
-import com.android.tools.r8.ir.code.Assume;
+import com.android.tools.r8.ir.code.AliasedValueConfiguration;
+import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
 import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
@@ -29,6 +31,7 @@ import com.android.tools.r8.ir.code.InstanceGet;
 import com.android.tools.r8.ir.code.InstancePut;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionOrPhi;
+import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
@@ -50,6 +53,7 @@ import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.kotlin.KotlinInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableSet;
@@ -76,6 +80,8 @@ final class InlineCandidateProcessor {
 
   private static final ImmutableSet<If.Type> ALLOWED_ZERO_TEST_TYPES =
       ImmutableSet.of(If.Type.EQ, If.Type.NE);
+  private static final AliasedValueConfiguration aliasesThroughAssumeAndCheckCasts =
+      AssumeAndCheckCastAliasedValueConfiguration.getInstance();
 
   private final AppView<AppInfoWithLiveness> appView;
   private final Inliner inliner;
@@ -89,6 +95,8 @@ final class InlineCandidateProcessor {
 
   private final Map<InvokeMethodWithReceiver, InliningInfo> methodCallsOnInstance =
       new IdentityHashMap<>();
+
+  private final Set<DexEncodedMethod> indirectMethodCallsOnInstance = Sets.newIdentityHashSet();
   private final Map<InvokeMethod, InliningInfo> extraMethodCalls
       = new IdentityHashMap<>();
   private final List<Pair<InvokeMethod, Integer>> unusedArguments
@@ -338,10 +346,7 @@ final class InlineCandidateProcessor {
     boolean anyInlinedMethods = forceInlineExtraMethodInvocations(code, inliningIRProvider);
     if (anyInlinedMethods) {
       // Reset the collections.
-      methodCallsOnInstance.clear();
-      extraMethodCalls.clear();
-      unusedArguments.clear();
-      receivers.reset();
+      clear();
 
       // Repeat user analysis
       InstructionOrPhi ineligibleUser = areInstanceUsersEligible(defaultOracle);
@@ -355,12 +360,21 @@ final class InlineCandidateProcessor {
     }
 
     anyInlinedMethods |= forceInlineDirectMethodInvocations(code, inliningIRProvider);
-    removeAssumeInstructionsLinkedToEligibleInstance();
+    anyInlinedMethods |= forceInlineIndirectMethodInvocations(code, inliningIRProvider);
+    removeAliasIntroducingInstructionsLinkedToEligibleInstance();
     removeMiscUsages(code);
     removeFieldReads(code);
     removeFieldWrites();
     removeInstruction(root);
     return anyInlinedMethods;
+  }
+
+  private void clear() {
+    methodCallsOnInstance.clear();
+    indirectMethodCallsOnInstance.clear();
+    extraMethodCalls.clear();
+    unusedArguments.clear();
+    receivers.reset();
   }
 
   private void replaceUsagesAsUnusedArgument(IRCode code) {
@@ -448,21 +462,73 @@ final class InlineCandidateProcessor {
     return true;
   }
 
-  private void removeAssumeInstructionsLinkedToEligibleInstance() {
-    for (Instruction user : eligibleInstance.aliasedUsers()) {
-      if (!user.isAssume()) {
-        continue;
-      }
-      Assume<?> assumeInstruction = user.asAssume();
-      Value src = assumeInstruction.src();
-      Value dest = assumeInstruction.outValue();
-      assert receivers.isReceiverAlias(dest);
-      assert !dest.hasPhiUsers();
-      dest.replaceUsers(src);
-      removeInstruction(user);
+  private boolean forceInlineIndirectMethodInvocations(
+      IRCode code, InliningIRProvider inliningIRProvider) throws IllegalClassInlinerStateException {
+    if (indirectMethodCallsOnInstance.isEmpty()) {
+      return false;
     }
-    // Verify that no more assume instructions are left as users.
+
+    Map<InvokeMethodWithReceiver, InliningInfo> methodCallsOnInstance = new IdentityHashMap<>();
+
+    Set<Instruction> currentUsers = eligibleInstance.uniqueUsers();
+    while (!currentUsers.isEmpty()) {
+      Set<Instruction> indirectOutValueUsers = Sets.newIdentityHashSet();
+      for (Instruction instruction : currentUsers) {
+        if (instruction.isAssume() || instruction.isCheckCast()) {
+          indirectOutValueUsers.addAll(instruction.outValue().uniqueUsers());
+          continue;
+        }
+
+        if (instruction.isInvokeMethodWithReceiver()) {
+          InvokeMethodWithReceiver invoke = instruction.asInvokeMethodWithReceiver();
+          DexMethod invokedMethod = invoke.getInvokedMethod();
+          if (invokedMethod == appView.dexItemFactory().objectMethods.constructor) {
+            continue;
+          }
+
+          Value receiver = invoke.getReceiver().getAliasedValue(aliasesThroughAssumeAndCheckCasts);
+          if (receiver != eligibleInstance) {
+            continue;
+          }
+
+          DexEncodedMethod singleTarget =
+              invoke.lookupSingleTarget(appView, code.method.method.holder);
+          if (singleTarget == null || !indirectMethodCallsOnInstance.contains(singleTarget)) {
+            throw new IllegalClassInlinerStateException();
+          }
+
+          methodCallsOnInstance.put(invoke, new InliningInfo(singleTarget, null));
+        }
+      }
+      currentUsers = indirectOutValueUsers;
+    }
+
+    assert !methodCallsOnInstance.isEmpty();
+
+    inliner.performForcedInlining(method, code, methodCallsOnInstance, inliningIRProvider);
+    return true;
+  }
+
+  private void removeAliasIntroducingInstructionsLinkedToEligibleInstance() {
+    Set<Instruction> currentUsers = eligibleInstance.uniqueUsers();
+    while (!currentUsers.isEmpty()) {
+      Set<Instruction> indirectOutValueUsers = Sets.newIdentityHashSet();
+      for (Instruction instruction : currentUsers) {
+        if (instruction.isAssume() || instruction.isCheckCast()) {
+          Value src = ListUtils.first(instruction.inValues());
+          Value dest = instruction.outValue();
+          indirectOutValueUsers.addAll(dest.uniqueUsers());
+          assert !dest.hasPhiUsers();
+          dest.replaceUsers(src);
+          removeInstruction(instruction);
+        }
+      }
+      currentUsers = indirectOutValueUsers;
+    }
+
+    // Verify that no more assume or check-cast instructions are left as users.
     assert eligibleInstance.aliasedUsers().stream().noneMatch(Instruction::isAssume);
+    assert eligibleInstance.aliasedUsers().stream().noneMatch(Instruction::isCheckCast);
   }
 
   // Remove miscellaneous users before handling field reads.
@@ -700,7 +766,13 @@ final class InlineCandidateProcessor {
     while (!currentUsers.isEmpty()) {
       Set<Instruction> indirectOutValueUsers = Sets.newIdentityHashSet();
       for (Instruction instruction : currentUsers) {
-        if (instruction.isAssume()) {
+        if (instruction.isAssume() || instruction.isCheckCast()) {
+          if (instruction.isCheckCast()) {
+            CheckCast checkCast = instruction.asCheckCast();
+            if (!appView.appInfo().isSubtype(eligibleClass.type, checkCast.getType())) {
+              return false; // Unsafe cast.
+            }
+          }
           Value outValueAlias = instruction.outValue();
           if (outValueAlias.hasPhiUsers() || outValueAlias.hasDebugUsers()) {
             return false;
@@ -714,11 +786,12 @@ final class InlineCandidateProcessor {
 
         if (instruction.isInvokeMethodWithReceiver()) {
           InvokeMethodWithReceiver user = instruction.asInvokeMethodWithReceiver();
-          if (user.getReceiver().getAliasedValue() != outValue) {
+          if (user.getReceiver().getAliasedValue(aliasesThroughAssumeAndCheckCasts) != outValue) {
             return false;
           }
           for (int i = 1; i < user.inValues().size(); i++) {
-            if (user.inValues().get(i).getAliasedValue() == outValue) {
+            Value inValue = user.inValues().get(i);
+            if (inValue.getAliasedValue(aliasesThroughAssumeAndCheckCasts) == outValue) {
               return false;
             }
           }
@@ -767,15 +840,45 @@ final class InlineCandidateProcessor {
       return null;
     }
 
+    ClassInlinerEligibilityInfo eligibility =
+        singleTarget.getOptimizationInfo().getClassInlinerEligibility();
+    if (eligibility.callsReceiver.size() > 1) {
+      return null;
+    }
+    if (!eligibility.callsReceiver.isEmpty()) {
+      assert eligibility.callsReceiver.get(0).getFirst() == Invoke.Type.VIRTUAL;
+      DexMethod indirectlyInvokedMethod = eligibility.callsReceiver.get(0).getSecond();
+      DexEncodedMethod indirectSingleTarget =
+          appView.appInfo().resolveMethod(eligibleClass, indirectlyInvokedMethod).getSingleTarget();
+      if (indirectSingleTarget == null) {
+        return null;
+      }
+      if (!isEligibleIndirectVirtualMethodCall(indirectlyInvokedMethod, indirectSingleTarget)) {
+        return null;
+      }
+      indirectMethodCallsOnInstance.add(indirectSingleTarget);
+    }
+
     return new InliningInfo(singleTarget, eligibleClass.type);
   }
 
-  private boolean isEligibleIndirectVirtualMethodCall(DexMethod callee) {
+  private boolean isEligibleIndirectVirtualMethodCall(DexMethod invokedMethod) {
     DexEncodedMethod singleTarget =
-        appView.appInfo().resolveMethod(eligibleClass, callee).getSingleTarget();
-    return isEligibleSingleTarget(singleTarget)
-        && isEligibleVirtualMethodCall(
-            null, callee, singleTarget, eligibility -> eligibility.returnsReceiver.isFalse());
+        appView.appInfo().resolveMethod(eligibleClass, invokedMethod).getSingleTarget();
+    return isEligibleIndirectVirtualMethodCall(invokedMethod, singleTarget);
+  }
+
+  private boolean isEligibleIndirectVirtualMethodCall(
+      DexMethod invokedMethod, DexEncodedMethod singleTarget) {
+    if (!isEligibleSingleTarget(singleTarget)) {
+      return false;
+    }
+    return isEligibleVirtualMethodCall(
+        null,
+        invokedMethod,
+        singleTarget,
+        eligibility ->
+            eligibility.callsReceiver.isEmpty() && eligibility.returnsReceiver.isFalse());
   }
 
   private boolean isEligibleVirtualMethodCall(
@@ -803,7 +906,7 @@ final class InlineCandidateProcessor {
 
     MethodOptimizationInfo optimizationInfo = singleTarget.getOptimizationInfo();
     ClassInlinerEligibilityInfo eligibility = optimizationInfo.getClassInlinerEligibility();
-    if (eligibility == null || !eligibility.callsReceiver.isEmpty()) {
+    if (eligibility == null) {
       return false;
     }
 
@@ -1009,6 +1112,7 @@ final class InlineCandidateProcessor {
           oracle.computeInlining(
               invoke,
               singleTarget,
+              method,
               ClassInitializationAnalysis.trivial(),
               NopWhyAreYouNotInliningReporter.getInstance());
       if (inlineAction == null) {

@@ -4,19 +4,22 @@
 package com.android.tools.r8.kotlin.metadata;
 
 import static com.android.tools.r8.KotlinCompilerTool.KOTLINC;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isExtensionProperty;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isRenamed;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.KmClassSubject;
+import com.android.tools.r8.utils.codeinspector.KmPropertySubject;
 import java.nio.file.Path;
 import java.util.Collection;
 import org.junit.BeforeClass;
@@ -61,7 +64,6 @@ public class MetadataRenameInPropertyTest extends KotlinMetadataTestBase {
             .addKeepRules("-keep class **.Person { <init>(...); }")
             .addKeepRules("-keepclassmembers class **.Person { *** get*(); }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-            .addOptionsModification(InternalOptions::enableKotlinMetadataRewriting)
             .compile();
     String pkg = getClass().getPackage().getName();
     final String personClassName = pkg + ".fragile_property_lib.Person";
@@ -69,10 +71,35 @@ public class MetadataRenameInPropertyTest extends KotlinMetadataTestBase {
       ClassSubject person = inspector.clazz(personClassName);
       assertThat(person, isPresent());
       assertThat(person, not(isRenamed()));
+
       // API entry is kept, hence the presence of Metadata.
       KmClassSubject kmClass = person.getKmClass();
       assertThat(kmClass, isPresent());
-      // TODO(b/70169921): test property details.
+
+      KmPropertySubject name = kmClass.kmPropertyWithUniqueName("name");
+      assertThat(name, isPresent());
+      assertThat(name, not(isExtensionProperty()));
+      assertNotNull(name.fieldSignature());
+      assertNotNull(name.getterSignature());
+      // TODO(b/70169921): Can remove setter.
+      assertNotNull(name.setterSignature());
+
+      KmPropertySubject familyName = kmClass.kmPropertyWithUniqueName("familyName");
+      assertThat(familyName, isPresent());
+      assertThat(familyName, not(isExtensionProperty()));
+      // No backing field for property `familyName`
+      assertNull(familyName.fieldSignature());
+      assertNotNull(familyName.getterSignature());
+      // No setter for property `familyName`
+      assertNull(familyName.setterSignature());
+
+      KmPropertySubject age = kmClass.kmPropertyWithUniqueName("age");
+      assertThat(age, isPresent());
+      assertThat(age, not(isExtensionProperty()));
+      assertNotNull(age.fieldSignature());
+      assertNotNull(age.getterSignature());
+      // TODO(b/70169921): Can remove setter.
+      assertNotNull(name.setterSignature());
     });
 
     Path libJar = compileResult.writeToZip();
@@ -105,7 +132,6 @@ public class MetadataRenameInPropertyTest extends KotlinMetadataTestBase {
             // Keep LibKt extension methods
             .addKeepRules("-keep class **.LibKt { <methods>; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-            .addOptionsModification(InternalOptions::enableKotlinMetadataRewriting)
             .compile();
     String pkg = getClass().getPackage().getName();
     final String personClassName = pkg + ".fragile_property_lib.Person";
@@ -116,7 +142,31 @@ public class MetadataRenameInPropertyTest extends KotlinMetadataTestBase {
       // API entry is kept, hence the presence of Metadata.
       KmClassSubject kmClass = person.getKmClass();
       assertThat(kmClass, isPresent());
-      // TODO(b/70169921): test property details.
+
+      KmPropertySubject name = kmClass.kmPropertyWithUniqueName("name");
+      assertThat(name, isPresent());
+      assertThat(name, not(isExtensionProperty()));
+      assertNotNull(name.fieldSignature());
+      // TODO(b/70169921): Either remove getter or rewrite renamed signature.
+      assertNotNull(name.getterSignature());
+      assertNotNull(name.setterSignature());
+
+      KmPropertySubject familyName = kmClass.kmPropertyWithUniqueName("familyName");
+      assertThat(familyName, isPresent());
+      assertThat(familyName, not(isExtensionProperty()));
+      // No backing field for property `familyName`
+      assertNull(familyName.fieldSignature());
+      assertNotNull(familyName.getterSignature());
+      // No setter for property `familyName`
+      assertNull(familyName.setterSignature());
+
+      KmPropertySubject age = kmClass.kmPropertyWithUniqueName("age");
+      assertThat(age, isPresent());
+      assertThat(age, not(isExtensionProperty()));
+      assertNotNull(age.fieldSignature());
+      // TODO(b/70169921): Either remove getter or rewrite renamed signature.
+      assertNotNull(age.getterSignature());
+      assertNotNull(name.setterSignature());
     });
 
     Path libJar = compileResult.writeToZip();

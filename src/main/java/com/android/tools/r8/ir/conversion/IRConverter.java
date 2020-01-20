@@ -193,7 +193,7 @@ public class IRConverter {
     this.printer = printer;
     this.mainDexClasses = mainDexClasses.getClasses();
     this.codeRewriter = new CodeRewriter(appView, this);
-    this.constantCanonicalizer = new ConstantCanonicalizer();
+    this.constantCanonicalizer = new ConstantCanonicalizer(codeRewriter);
     this.classInitializerDefaultsOptimization =
         options.debug ? null : new ClassInitializerDefaultsOptimization(appView, this);
     this.stringConcatRewriter = new StringConcatRewriter(appView);
@@ -255,10 +255,7 @@ public class IRConverter {
         ((options.desugarState == DesugarState.ON) && enableTwrCloseResourceDesugaring())
             ? new TwrCloseResourceRewriter(appView, this)
             : null;
-    this.backportedMethodRewriter =
-        options.desugarState == DesugarState.ON
-            ? new BackportedMethodRewriter(appView, this)
-            : null;
+    this.backportedMethodRewriter = new BackportedMethodRewriter(appView, this);
     this.covariantReturnTypeAnnotationTransformer =
         options.processCovariantReturnTypeAnnotations
             ? new CovariantReturnTypeAnnotationTransformer(this, appView.dexItemFactory())
@@ -444,9 +441,7 @@ public class IRConverter {
 
   private void synthesizeJava8UtilityClass(
       Builder<?> builder, ExecutorService executorService) throws ExecutionException {
-    if (backportedMethodRewriter != null) {
-      backportedMethodRewriter.synthesizeUtilityClasses(builder, executorService);
-    }
+    backportedMethodRewriter.synthesizeUtilityClasses(builder, executorService);
   }
 
   private void processCovariantReturnTypeAnnotations(Builder<?> builder) {
@@ -1295,9 +1290,7 @@ public class IRConverter {
     if (options.desugarState == DesugarState.ON && enableTryWithResourcesDesugaring()) {
       codeRewriter.rewriteThrowableAddAndGetSuppressed(code);
     }
-    if (backportedMethodRewriter != null) {
-      backportedMethodRewriter.desugar(code);
-    }
+    backportedMethodRewriter.desugar(code);
 
     stringConcatRewriter.desugarStringConcats(method.method, code);
 
@@ -1317,6 +1310,7 @@ public class IRConverter {
           stringOptimizer,
           method,
           code,
+          feedback,
           methodProcessor,
           inliner,
           Suppliers.memoize(
@@ -1350,7 +1344,8 @@ public class IRConverter {
     previous = printMethod(code, "IR after interface method rewriting (SSA)", previous);
 
     // This pass has to be after interfaceMethodRewriter and BackportedMethodRewriter.
-    if (desugaredLibraryAPIConverter != null) {
+    if (desugaredLibraryAPIConverter != null
+        && (!appView.enableWholeProgramOptimizations() || methodProcessor.isPrimary())) {
       desugaredLibraryAPIConverter.desugar(code);
       assert code.isConsistentSSA();
     }

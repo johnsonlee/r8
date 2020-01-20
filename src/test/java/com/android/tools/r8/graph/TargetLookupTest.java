@@ -5,6 +5,7 @@
 package com.android.tools.r8.graph;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
@@ -77,13 +78,17 @@ public class TargetLookupTest extends SmaliTestBase {
     );
 
     AndroidApp application = buildApplication(builder);
-    AppInfo appInfo = computeAppInfo(application);
+    AppInfoWithClassHierarchy appInfo = computeAppInfoWithClassHierarchy(application);
     CodeInspector inspector = new CodeInspector(appInfo.app());
     DexEncodedMethod method = getMethod(inspector, DEFAULT_CLASS_NAME, "int", "x",
         ImmutableList.of());
-    assertNull(appInfo.lookupVirtualTarget(method.method.holder, method.method));
-    assertNull(appInfo.lookupDirectTarget(method.method));
-    assertNotNull(appInfo.lookupStaticTarget(method.method));
+    assertFalse(
+        appInfo
+            .resolveMethod(method.method.holder, method.method)
+            .getSingleTarget()
+            .isVirtualMethod());
+    assertNull(appInfo.lookupDirectTarget(method.method, method.method.holder));
+    assertNotNull(appInfo.lookupStaticTarget(method.method, method.method.holder));
 
     if (ToolHelper.getDexVm().getVersion().isOlderThanOrEqual(DexVm.Version.V4_4_4)) {
       // Dalvik rejects at verification time instead of producing the
@@ -147,7 +152,7 @@ public class TargetLookupTest extends SmaliTestBase {
     );
 
     AndroidApp application = buildApplication(builder);
-    AppInfo appInfo = computeAppInfo(application);
+    AppInfoWithClassHierarchy appInfo = computeAppInfoWithClassHierarchy(application);
     CodeInspector inspector = new CodeInspector(appInfo.app());
 
     DexMethod methodXOnTestSuper =
@@ -162,16 +167,20 @@ public class TargetLookupTest extends SmaliTestBase {
     DexMethod methodXOnTest =
         appInfo.dexItemFactory().createMethod(classTest, methodXProto, methodXName);
 
-    assertNull(appInfo.lookupVirtualTarget(classTestSuper, methodXOnTestSuper));
-    assertNull(appInfo.lookupVirtualTarget(classTest, methodXOnTestSuper));
-    assertNull(appInfo.lookupVirtualTarget(classTest, methodXOnTest));
+    assertFalse(
+        appInfo
+            .resolveMethod(classTestSuper, methodXOnTestSuper)
+            .getSingleTarget()
+            .isVirtualMethod());
+    assertNull(appInfo.resolveMethod(classTest, methodXOnTestSuper).getSingleTarget());
+    assertNull(appInfo.resolveMethod(classTest, methodXOnTest).getSingleTarget());
 
-    assertNull(appInfo.lookupDirectTarget(methodXOnTestSuper));
-    assertNull(appInfo.lookupDirectTarget(methodXOnTest));
+    assertNull(appInfo.lookupDirectTarget(methodXOnTestSuper, methodXOnTestSuper.holder));
+    assertNull(appInfo.lookupDirectTarget(methodXOnTest, methodXOnTest.holder));
 
-    assertNotNull(appInfo.lookupStaticTarget(methodXOnTestSuper));
+    assertNotNull(appInfo.lookupStaticTarget(methodXOnTestSuper, methodXOnTestSuper.holder));
     // Accessing a private target on a different type will fail resolution outright.
-    assertNull(appInfo.lookupStaticTarget(methodXOnTest));
+    assertNull(appInfo.lookupStaticTarget(methodXOnTest, methodXOnTest.holder));
 
     assertEquals("OK", runArt(application));
   }
@@ -197,7 +206,7 @@ public class TargetLookupTest extends SmaliTestBase {
     );
 
     AndroidApp application = buildApplication(builder);
-    AppInfo appInfo = computeAppInfo(application);
+    AppInfoWithClassHierarchy appInfo = computeAppInfoWithClassHierarchy(application);
     DexItemFactory factory = appInfo.dexItemFactory();
 
     DexField aFieldOnSubClass = factory

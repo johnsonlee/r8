@@ -3,9 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.kotlin;
 
-import com.google.common.collect.ImmutableList;
-import java.util.Arrays;
-import java.util.List;
+import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexType;
 import kotlinx.metadata.KmConstructor;
 import kotlinx.metadata.KmConstructorExtensionVisitor;
 import kotlinx.metadata.KmConstructorVisitor;
@@ -24,57 +24,19 @@ import kotlinx.metadata.jvm.JvmPropertyExtensionVisitor;
 
 class KotlinMetadataJvmExtensionUtils {
 
-  private static boolean isValidJvmMethodSignature(String desc) {
-    return desc != null
-        && !desc.isEmpty()
-        && desc.charAt(0) == '('
-        && desc.lastIndexOf('(') == 0
-        && desc.indexOf(')') != -1
-        && desc.indexOf(')') == desc.lastIndexOf(')')
-        && desc.lastIndexOf(')') < desc.length();
+  static JvmFieldSignature toJvmFieldSignature(DexField field) {
+    return new JvmFieldSignature(field.name.toString(), field.type.toDescriptorString());
   }
 
-  /**
-   * Extract return type from {@link JvmMethodSignature}.
-   *
-   * Example of JVM signature is: `JvmMethodSignature("getX", "()Ljava/lang/Object;").`
-   * In this case, the return type is "Ljava/lang/Object;".
-   */
-  static String returnTypeFromJvmMethodSignature(JvmMethodSignature signature) {
-    if (signature == null) {
-      return null;
+  static JvmMethodSignature toJvmMethodSignature(DexMethod method) {
+    StringBuilder descBuilder = new StringBuilder();
+    descBuilder.append("(");
+    for (DexType argType : method.proto.parameters.values) {
+      descBuilder.append(argType.toDescriptorString());
     }
-    String desc = signature.getDesc();
-    if (!isValidJvmMethodSignature(desc)) {
-      return null;
-    }
-    int index = desc.lastIndexOf(')');
-    assert desc.charAt(0) == '(' && 0 < index && index < desc.length() : signature.asString();
-    return desc.substring(index + 1);
-  }
-
-  /**
-   * Extract parameters from {@link JvmMethodSignature}.
-   *
-   * Example of JVM signature is: `JvmMethodSignature("setX", "(Ljava/lang/Object;)V").`
-   * In this case, the parameter is the list with "Ljava/lang/Object;" as the first element.
-   */
-  static List<String> parameterTypesFromJvmMethodSignature(JvmMethodSignature signature) {
-    if (signature == null) {
-      return null;
-    }
-    String desc = signature.getDesc();
-    if (!isValidJvmMethodSignature(desc)) {
-      return null;
-    }
-    int index = desc.lastIndexOf(')');
-    assert desc.charAt(0) == '(' && 0 < index && index < desc.length() : signature.asString();
-    String params = desc.substring(1, index);
-    if (params.isEmpty()) {
-      return ImmutableList.of();
-    } else {
-      return Arrays.asList(params.split(","));
-    }
+    descBuilder.append(")");
+    descBuilder.append(method.proto.returnType.toDescriptorString());
+    return new JvmMethodSignature(method.name.toString(), descBuilder.toString());
   }
 
   static class KmConstructorProcessor {
