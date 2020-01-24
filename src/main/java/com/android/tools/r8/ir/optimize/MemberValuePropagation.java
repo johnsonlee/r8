@@ -161,9 +161,6 @@ public class MemberValuePropagation {
                 code.origin));
         return null;
       }
-      if (replacement.isDexItemBasedConstString()) {
-        code.method.getMutableOptimizationInfo().markUseIdentifierNameString();
-      }
       return replacement;
     }
 
@@ -348,9 +345,6 @@ public class MemberValuePropagation {
         }
       } else {
         iterator.replaceCurrentInstruction(replacement);
-      }
-      if (replacement.isDexItemBasedConstString()) {
-        code.method.getMutableOptimizationInfo().markUseIdentifierNameString();
       }
       feedback.markFieldAsPropagated(target);
     }
