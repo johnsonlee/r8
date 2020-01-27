@@ -33,6 +33,7 @@ import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.LensCodeRewriter;
+import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -250,13 +251,13 @@ public class LambdaRewriter {
   }
 
   /** Adjust accessibility of referenced application symbols or creates necessary accessors. */
-  public void adjustAccessibility(IRConverter converter) {
+  public void adjustAccessibility(IRConverter converter, OptimizationFeedback feedback) {
     // For each lambda class perform necessary adjustment of the
     // referenced symbols to make them accessible. This can result in
     // method access relaxation or creation of accessor method.
     for (LambdaClass lambdaClass : knownLambdaClasses.values()) {
       // This call may cause methodMapping to be updated.
-      lambdaClass.target.ensureAccessibility(converter);
+      lambdaClass.target.ensureAccessibility(converter, feedback);
     }
     if (getAppView().enableWholeProgramOptimizations() && !methodMapping.isEmpty()) {
       getAppView()

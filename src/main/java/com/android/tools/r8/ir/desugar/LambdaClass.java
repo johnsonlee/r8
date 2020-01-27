@@ -28,6 +28,7 @@ import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.synthetic.SynthesizedCode;
 import com.android.tools.r8.origin.SynthesizedOrigin;
 import com.android.tools.r8.utils.InternalOptions;
@@ -510,7 +511,7 @@ final class LambdaClass {
     }
 
     // Ensure access of the referenced symbol(s).
-    abstract void ensureAccessibility(IRConverter converter);
+    abstract void ensureAccessibility(IRConverter converter, OptimizationFeedback feedback);
 
     DexClass definitionFor(DexType type) {
       return rewriter.getAppInfo().app().definitionFor(type);
@@ -553,7 +554,7 @@ final class LambdaClass {
     }
 
     @Override
-    void ensureAccessibility(IRConverter converter) {}
+    void ensureAccessibility(IRConverter converter, OptimizationFeedback feedback) {}
   }
 
   // Used for static private lambda$ methods. Only needs access relaxation.
@@ -564,7 +565,7 @@ final class LambdaClass {
     }
 
     @Override
-    void ensureAccessibility(IRConverter converter) {
+    void ensureAccessibility(IRConverter converter, OptimizationFeedback feedback) {
       // We already found the static method to be called, just relax its accessibility.
       assert descriptor.getAccessibility() != null;
       descriptor.getAccessibility().unsetPrivate();
@@ -584,7 +585,7 @@ final class LambdaClass {
     }
 
     @Override
-    void ensureAccessibility(IRConverter converter) {
+    void ensureAccessibility(IRConverter converter, OptimizationFeedback feedback) {
       // For all instantiation points for which the compiler creates lambda$
       // methods, it creates these methods in the same class/interface.
       DexMethod implMethod = descriptor.implHandle.asMethod();
@@ -610,7 +611,7 @@ final class LambdaClass {
                   encodedMethod.parameterAnnotationsList,
                   encodedMethod.getCode(),
                   true);
-          newMethod.copyMetadata(encodedMethod);
+          newMethod.copyMetadata(encodedMethod, feedback);
           rewriter.methodMapping.put(encodedMethod.method, callTarget);
 
           DexEncodedMethod.setDebugInfoWithFakeThisParameter(
@@ -632,7 +633,7 @@ final class LambdaClass {
     }
 
     @Override
-    void ensureAccessibility(IRConverter converter) {
+    void ensureAccessibility(IRConverter converter, OptimizationFeedback feedback) {
       // For all instantiation points for which the compiler creates lambda$
       // methods, it creates these methods in the same class/interface.
       DexMethod implMethod = descriptor.implHandle.asMethod();
@@ -655,7 +656,7 @@ final class LambdaClass {
                   encodedMethod.parameterAnnotationsList,
                   encodedMethod.getCode(),
                   true);
-          newMethod.copyMetadata(encodedMethod);
+          newMethod.copyMetadata(encodedMethod, feedback);
           rewriter.methodMapping.put(encodedMethod.method, callTarget);
           // Move the method from the direct methods to the virtual methods set.
           implMethodHolder.removeDirectMethod(i);
@@ -675,7 +676,7 @@ final class LambdaClass {
     }
 
     @Override
-    void ensureAccessibility(IRConverter converter) {
+    void ensureAccessibility(IRConverter converter, OptimizationFeedback feedback) {
       // Create a static accessor with proper accessibility.
       DexProgramClass accessorClass = programDefinitionFor(callTarget.holder);
       assert accessorClass != null;

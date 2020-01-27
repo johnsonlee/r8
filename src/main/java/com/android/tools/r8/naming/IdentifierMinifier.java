@@ -157,7 +157,13 @@ class IdentifierMinifier {
           || (encodedMethod.getCode().isCfCode()
               && encodedMethod.getCode().asCfCode().instructions.stream()
                   .noneMatch(CfInstruction::isDexItemBasedConstString));
-      return;
+      // This return statement is commented out on the 2.0 branch. The change merged to fix
+      // b/147718617 (version 2.0.21) revealed that there could be other places where the
+      // identifier name string marker is not propagated. Due to changes to desugaring on the 2.1
+      // version line coverage of the propagation of this flag is unknown. Conservatively looking
+      // at all code for identifier name string instructions is safer.
+      //
+      // return;
     }
     Code code = encodedMethod.getCode();
     assert code != null;

@@ -400,10 +400,11 @@ public class IRConverter {
     }
   }
 
-  private void synthesizeLambdaClasses(Builder<?> builder, ExecutorService executorService)
+  private void synthesizeLambdaClasses(
+      Builder<?> builder, OptimizationFeedback feedback, ExecutorService executorService)
       throws ExecutionException {
     if (lambdaRewriter != null) {
-      lambdaRewriter.adjustAccessibility(this);
+      lambdaRewriter.adjustAccessibility(this, feedback);
       lambdaRewriter.synthesizeLambdaClasses(builder);
       lambdaRewriter.optimizeSynthesizedClasses(this, executorService);
     }
@@ -467,7 +468,7 @@ public class IRConverter {
     builder.setHighestSortingString(highestSortingString);
 
     desugarNestBasedAccess(builder, executor);
-    synthesizeLambdaClasses(builder, executor);
+    synthesizeLambdaClasses(builder, simpleOptimizationFeedback, executor);
     desugarInterfaceMethods(builder, simpleOptimizationFeedback, ExcludeDexResources, executor);
     synthesizeTwrCloseResourceUtilityClass(builder, executor);
     synthesizeJava8UtilityClass(builder, executor);
@@ -714,7 +715,7 @@ public class IRConverter {
     builder.setHighestSortingString(highestSortingString);
 
     printPhase("Lambda class synthesis");
-    synthesizeLambdaClasses(builder, executorService);
+    synthesizeLambdaClasses(builder, feedback, executorService);
 
     printPhase("Interface method desugaring");
     desugarInterfaceMethods(builder, feedback, IncludeAllResources, executorService);
