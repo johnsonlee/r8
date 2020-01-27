@@ -9,7 +9,6 @@ public interface MethodProcessor {
 
   enum Phase {
     ONE_TIME,
-    LAMBDA_PROCESSING,
     PRIMARY,
     POST
   }
@@ -18,6 +17,10 @@ public interface MethodProcessor {
 
   default boolean isPrimary() {
     return getPhase() == Phase.PRIMARY;
+  }
+
+  default boolean isPost() {
+    return getPhase() == Phase.POST;
   }
 
   default CallSiteInformation getCallSiteInformation() {

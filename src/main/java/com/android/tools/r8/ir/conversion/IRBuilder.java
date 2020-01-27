@@ -6,6 +6,14 @@ package com.android.tools.r8.ir.conversion;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
+import static com.android.tools.r8.ir.analysis.type.TypeLatticeElement.getBottom;
+import static com.android.tools.r8.ir.analysis.type.TypeLatticeElement.getDouble;
+import static com.android.tools.r8.ir.analysis.type.TypeLatticeElement.getFloat;
+import static com.android.tools.r8.ir.analysis.type.TypeLatticeElement.getInt;
+import static com.android.tools.r8.ir.analysis.type.TypeLatticeElement.getLong;
+import static com.android.tools.r8.ir.analysis.type.TypeLatticeElement.getNull;
+import static com.android.tools.r8.ir.analysis.type.TypeLatticeElement.getSingle;
+import static com.android.tools.r8.ir.analysis.type.TypeLatticeElement.getWide;
 
 import com.android.tools.r8.ApiLevelException;
 import com.android.tools.r8.errors.CompilationError;
@@ -139,12 +147,6 @@ import java.util.Set;
  */
 public class IRBuilder {
 
-  private static final TypeLatticeElement INT = TypeLatticeElement.INT;
-  private static final TypeLatticeElement FLOAT = TypeLatticeElement.FLOAT;
-  private static final TypeLatticeElement LONG = TypeLatticeElement.LONG;
-  private static final TypeLatticeElement DOUBLE = TypeLatticeElement.DOUBLE;
-  private static final TypeLatticeElement NULL = TypeLatticeElement.NULL;
-
   public static final int INITIAL_BLOCK_OFFSET = -1;
 
   private static TypeLatticeElement fromMemberType(MemberType type) {
@@ -153,20 +155,20 @@ public class IRBuilder {
       case CHAR:
       case SHORT:
       case INT:
-        return INT;
+        return getInt();
       case FLOAT:
-        return FLOAT;
+        return getFloat();
       case INT_OR_FLOAT:
-        return TypeLatticeElement.SINGLE;
+        return getSingle();
       case LONG:
-        return LONG;
+        return getLong();
       case DOUBLE:
-        return DOUBLE;
+        return getDouble();
       case LONG_OR_DOUBLE:
-        return TypeLatticeElement.WIDE;
+        return getWide();
       case OBJECT:
         // For object types, we delay the exact type computation until done building.
-        return TypeLatticeElement.BOTTOM;
+        return getBottom();
       default:
         throw new Unreachable("Unexpected member type: " + type);
     }
@@ -895,7 +897,7 @@ public class IRBuilder {
     RemovedArgumentInfo removedArgumentInfo = getRemovedArgumentInfo();
     if (removedArgumentInfo == null) {
       DebugLocalInfo local = getOutgoingLocal(register);
-      Value value = writeRegister(register, INT, ThrowingInfo.NO_THROW, local);
+      Value value = writeRegister(register, getInt(), ThrowingInfo.NO_THROW, local);
       addNonThisArgument(new Argument(value, true));
     } else {
       assert removedArgumentInfo.isNeverUsed();
@@ -922,7 +924,7 @@ public class IRBuilder {
         pendingArgumentInstructions = new ArrayList<>();
       }
       DebugLocalInfo local = getOutgoingLocal(register);
-      Value value = writeRegister(register, TypeLatticeElement.NULL, ThrowingInfo.NO_THROW, local);
+      Value value = writeRegister(register, getNull(), ThrowingInfo.NO_THROW, local);
       pendingArgumentInstructions.add(new ConstNumber(value, 0));
     } else {
       assert removedArgumentInfo.isNeverUsed();
@@ -982,6 +984,12 @@ public class IRBuilder {
         if (currentBlock.getInstructions().isEmpty()) {
           addInstruction(new DebugLocalRead());
         } else {
+          // We do not want to add the out value of an instructions as a debug value for
+          // the same instruction. Debug values are there to keep values alive until that
+          // instruction. Therefore, they make no sense on the instruction that defines
+          // the value. There should always be a DebugLocalRead in the IR for situations
+          // where an introduced local's scope ends immediately.
+          assert !debugLocalEnds.contains(currentBlock.getInstructions().getLast().outValue());
           attachLocalValues(currentBlock.getInstructions().getLast());
         }
       }
@@ -1043,7 +1051,7 @@ public class IRBuilder {
 
   public void addArrayLength(int dest, int array) {
     Value in = readRegister(array, ValueTypeConstraint.OBJECT);
-    Value out = writeRegister(dest, INT, ThrowingInfo.CAN_THROW);
+    Value out = writeRegister(dest, getInt(), ThrowingInfo.CAN_THROW);
     ArrayLength instruction = new ArrayLength(out, in);
     assert instruction.instructionTypeCanThrow();
     add(instruction);
@@ -1073,7 +1081,7 @@ public class IRBuilder {
   public void addCmp(NumericType type, Bias bias, int dest, int left, int right) {
     Value in1 = readNumericRegister(left, type);
     Value in2 = readNumericRegister(right, type);
-    Value out = writeRegister(dest, INT, ThrowingInfo.NO_THROW);
+    Value out = writeRegister(dest, getInt(), ThrowingInfo.NO_THROW);
     Cmp instruction = new Cmp(type, bias, out, in1, in2);
     assert !instruction.instructionTypeCanThrow();
     add(instruction);
@@ -1087,23 +1095,23 @@ public class IRBuilder {
   }
 
   public void addLongConst(int dest, long value) {
-    add(new ConstNumber(writeRegister(dest, LONG, ThrowingInfo.NO_THROW), value));
+    add(new ConstNumber(writeRegister(dest, getLong(), ThrowingInfo.NO_THROW), value));
   }
 
   public void addDoubleConst(int dest, long value) {
-    add(new ConstNumber(writeRegister(dest, DOUBLE, ThrowingInfo.NO_THROW), value));
+    add(new ConstNumber(writeRegister(dest, getDouble(), ThrowingInfo.NO_THROW), value));
   }
 
   public void addIntConst(int dest, long value) {
-    add(new ConstNumber(writeRegister(dest, INT, ThrowingInfo.NO_THROW), value));
+    add(new ConstNumber(writeRegister(dest, getInt(), ThrowingInfo.NO_THROW), value));
   }
 
   public void addFloatConst(int dest, long value) {
-    add(new ConstNumber(writeRegister(dest, FLOAT, ThrowingInfo.NO_THROW), value));
+    add(new ConstNumber(writeRegister(dest, getFloat(), ThrowingInfo.NO_THROW), value));
   }
 
   public void addNullConst(int dest) {
-    add(new ConstNumber(writeRegister(dest, NULL, ThrowingInfo.NO_THROW), 0L));
+    add(new ConstNumber(writeRegister(dest, getNull(), ThrowingInfo.NO_THROW), 0L));
   }
 
   public void addConstClass(int dest, DexType type) {
@@ -1160,7 +1168,6 @@ public class IRBuilder {
 
   public void addDexItemBasedConstString(
       int dest, DexReference item, NameComputationInfo<?> nameComputationInfo) {
-    assert method.getOptimizationInfo().useIdentifierNameString();
     TypeLatticeElement typeLattice =
         TypeLatticeElement.stringClassType(appView, definitelyNotNull());
     ThrowingInfo throwingInfo = throwingInfoForConstStrings();
@@ -1212,6 +1219,11 @@ public class IRBuilder {
         addInstruction(new DebugLocalWrite(out, in));
         return;
       }
+      // If this move ends locals, add a DebugLocalRead to make sure the end point
+      // is registered in the right place.
+      if (!debugLocalEnds.isEmpty()) {
+        addInstruction(new DebugLocalRead());
+      }
     }
     currentBlock.writeCurrentDefinition(dest, in, ThrowingInfo.NO_THROW);
   }
@@ -1233,6 +1245,15 @@ public class IRBuilder {
     Mul instruction = new Mul(type, out, in1, in2);
     assert !instruction.instructionTypeCanThrow();
     addInstruction(instruction);
+  }
+
+  public void addNop() {
+    // If locals end on a nop, insert a debug local read as the ending point.
+    // This avoids situations where the end of the local could be the instruction
+    // that introduced it when the local only spans a nop in the input.
+    if (!debugLocalEnds.isEmpty()) {
+      addInstruction(new DebugLocalRead());
+    }
   }
 
   public void addRem(NumericType type, int dest, int left, int right) {
@@ -1358,7 +1379,7 @@ public class IRBuilder {
 
   public void addInstanceOf(int dest, int value, DexType type) {
     Value in = readRegister(value, ValueTypeConstraint.OBJECT);
-    Value out = writeRegister(dest, INT, ThrowingInfo.CAN_THROW);
+    Value out = writeRegister(dest, getInt(), ThrowingInfo.CAN_THROW);
     InstanceOf instruction = new InstanceOf(out, in, type);
     assert instruction.instructionTypeCanThrow();
     addInstruction(instruction);
@@ -2098,9 +2119,7 @@ public class IRBuilder {
     // A debug initiated value must have a precise type constraint.
     assert typeConstraint.isPrecise();
     TypeLatticeElement type =
-        typeConstraint.isObject()
-            ? TypeLatticeElement.NULL
-            : typeConstraint.toPrimitiveTypeLattice();
+        typeConstraint.isObject() ? getNull() : typeConstraint.toPrimitiveTypeLattice();
     if (uninitializedDebugLocalValues == null) {
       uninitializedDebugLocalValues = new Int2ReferenceOpenHashMap<>();
     }
@@ -2137,14 +2156,14 @@ public class IRBuilder {
   }
 
   private Value readLongLiteral(long constant) {
-    Value value = new Value(valueNumberGenerator.next(), LONG, null);
+    Value value = new Value(valueNumberGenerator.next(), getLong(), null);
     ConstNumber number = new ConstNumber(value, constant);
     add(number);
     return number.outValue();
   }
 
   private Value readIntLiteral(long constant) {
-    Value value = new Value(valueNumberGenerator.next(), INT, null);
+    Value value = new Value(valueNumberGenerator.next(), getInt(), null);
     ConstNumber number = new ConstNumber(value, constant);
     add(number);
     return number.outValue();

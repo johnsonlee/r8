@@ -25,6 +25,7 @@ import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization.ClassInitializerDefaultsResult;
 import com.android.tools.r8.ir.optimize.CodeRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.staticizer.ClassStaticizer.CandidateInfo;
@@ -32,6 +33,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -298,7 +300,7 @@ final class StaticizingProcessor {
     IRCode code = method.buildIR(appView, origin);
     codeOptimizations.forEach(codeOptimization -> codeOptimization.accept(code));
     CodeRewriter.removeAssumeInstructions(appView, code);
-    converter.finalizeIR(method, code, feedback);
+    converter.finalizeIR(method, code, feedback, Timing.empty());
   }
 
   private void insertAssumeInstructions(IRCode code) {
@@ -306,7 +308,8 @@ final class StaticizingProcessor {
   }
 
   private Consumer<IRCode> collectOptimizationInfo(OptimizationFeedback feedback) {
-    return code -> converter.collectOptimizationInfo(code, feedback);
+    return code ->
+        converter.collectOptimizationInfo(code, ClassInitializerDefaultsResult.empty(), feedback);
   }
 
   private void removeCandidateInstantiation(IRCode code) {

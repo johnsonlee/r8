@@ -53,7 +53,9 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -202,6 +204,7 @@ public class InternalOptions {
   public boolean enableInlining =
       !Version.isDevelopmentVersion()
           || System.getProperty("com.android.tools.r8.disableinlining") == null;
+  public boolean enableEnumUnboxing = false;
   // TODO(b/141451716): Evaluate the effect of allowing inlining in the inlinee.
   public boolean applyInliningToInlinee =
       System.getProperty("com.android.tools.r8.applyInliningToInlinee") != null;
@@ -979,6 +982,8 @@ public class InternalOptions {
             ? NondeterministicIROrdering.getInstance()
             : IdentityIROrdering.getInstance();
 
+    public Consumer<Deque<Collection<DexEncodedMethod>>> waveModifier = waves -> {};
+
     /**
      * If this flag is enabled, we will also compute the set of possible targets for invoke-
      * interface and invoke-virtual instructions that target a library method, and add the
@@ -1006,6 +1011,7 @@ public class InternalOptions {
     public boolean enableCheckCastAndInstanceOfRemoval = true;
     public boolean enableDeadSwitchCaseElimination = true;
     public boolean enableSwitchToIfRewriting = true;
+    public boolean enableEnumUnboxingDebugLogs = false;
     public boolean forceRedundantConstNumberRemoval = false;
     public boolean forceAssumeNoneInsertion = false;
     public boolean invertConditionals = false;

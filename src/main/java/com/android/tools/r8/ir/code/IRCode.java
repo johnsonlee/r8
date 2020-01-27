@@ -949,6 +949,10 @@ public class IRCode {
     return true;
   }
 
+  public Iterable<BasicBlock> blocks(Predicate<BasicBlock> predicate) {
+    return () -> IteratorUtils.filter(listIterator(), predicate);
+  }
+
   public Iterable<Instruction> instructions() {
     return this::instructionIterator;
   }
@@ -1046,12 +1050,12 @@ public class IRCode {
   }
 
   public ConstNumber createDoubleConstant(double value, DebugLocalInfo local) {
-    Value out = createValue(TypeLatticeElement.DOUBLE, local);
+    Value out = createValue(TypeLatticeElement.getDouble(), local);
     return new ConstNumber(out, Double.doubleToLongBits(value));
   }
 
   public ConstNumber createFloatConstant(float value, DebugLocalInfo local) {
-    Value out = createValue(TypeLatticeElement.FLOAT, local);
+    Value out = createValue(TypeLatticeElement.getFloat(), local);
     return new ConstNumber(out, Float.floatToIntBits(value));
   }
 
@@ -1060,12 +1064,12 @@ public class IRCode {
   }
 
   public ConstNumber createIntConstant(int value, DebugLocalInfo local) {
-    Value out = createValue(TypeLatticeElement.INT, local);
+    Value out = createValue(TypeLatticeElement.getInt(), local);
     return new ConstNumber(out, value);
   }
 
   public ConstNumber createLongConstant(long value, DebugLocalInfo local) {
-    Value out = createValue(TypeLatticeElement.LONG, local);
+    Value out = createValue(TypeLatticeElement.getLong(), local);
     return new ConstNumber(out, value);
   }
 
@@ -1084,12 +1088,12 @@ public class IRCode {
   }
 
   public ConstNumber createConstNull() {
-    Value out = createValue(TypeLatticeElement.NULL);
+    Value out = createValue(TypeLatticeElement.getNull());
     return new ConstNumber(out, 0);
   }
 
   public ConstNumber createConstNull(DebugLocalInfo local) {
-    Value out = createValue(TypeLatticeElement.NULL, local);
+    Value out = createValue(TypeLatticeElement.getNull(), local);
     return new ConstNumber(out, 0);
   }
 

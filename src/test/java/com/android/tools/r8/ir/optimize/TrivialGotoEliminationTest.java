@@ -59,7 +59,7 @@ public class TrivialGotoEliminationTest {
     block2.setFilledForTesting();
     BasicBlock block1 = new BasicBlock();
     block1.setNumber(1);
-    Value value = new Value(0, TypeLatticeElement.INT, null);
+    Value value = new Value(0, TypeLatticeElement.getInt(), null);
     Instruction number = new ConstNumber(value, 0);
     number.setPosition(position);
     block1.add(number, metadata);
@@ -94,7 +94,7 @@ public class TrivialGotoEliminationTest {
   @Test
   public void trivialGotoLoopAsFallthrough() {
     InternalOptions options = new InternalOptions();
-    DexApplication app = DexApplication.builder(new InternalOptions(), new Timing("")).build();
+    DexApplication app = DexApplication.builder(new InternalOptions(), Timing.empty()).build();
     AppView<AppInfo> appView = AppView.createForD8(new AppInfo(app), options);
     // Setup block structure:
     // block0:

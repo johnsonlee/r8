@@ -12,9 +12,11 @@ import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.IROrdering;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
-import com.android.tools.r8.utils.ThrowingConsumer;
+import com.android.tools.r8.utils.ThrowingFunction;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.Timing.TimingMerger;
 import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -73,7 +75,8 @@ class PrimaryMethodProcessor implements MethodProcessor {
 
   private Deque<Collection<DexEncodedMethod>> createWaves(
       AppView<?> appView, CallGraph callGraph, CallSiteInformation callSiteInformation) {
-    IROrdering shuffle = appView.options().testing.irOrdering;
+    InternalOptions options = appView.options();
+    IROrdering shuffle = options.testing.irOrdering;
     Deque<Collection<DexEncodedMethod>> waves = new ArrayDeque<>();
 
     Set<Node> nodes = callGraph.nodes;
@@ -100,6 +103,7 @@ class PrimaryMethodProcessor implements MethodProcessor {
     if (!reprocessing.isEmpty()) {
       postMethodProcessorBuilder.put(reprocessing);
     }
+    options.testing.waveModifier.accept(waves);
     return waves;
   }
 
@@ -135,17 +139,29 @@ class PrimaryMethodProcessor implements MethodProcessor {
    * processed at the same time is passed. This can be used to avoid races in concurrent processing.
    */
   <E extends Exception> void forEachMethod(
-      ThrowingConsumer<DexEncodedMethod, E> consumer,
+      ThrowingFunction<DexEncodedMethod, Timing, E> consumer,
       WaveStartAction waveStartAction,
       Action waveDone,
+      Timing timing,
       ExecutorService executorService)
       throws ExecutionException {
+    TimingMerger merger =
+        timing.beginMerger("primary-processor", ThreadUtils.getNumberOfThreads(executorService));
     while (!waves.isEmpty()) {
       wave = waves.removeFirst();
       assert wave.size() > 0;
       waveStartAction.notifyWaveStart(wave, executorService);
-      ThreadUtils.processItems(wave, consumer, executorService);
+      merger.add(
+          ThreadUtils.processItemsWithResults(
+              wave,
+              method -> {
+                Timing time = consumer.apply(method);
+                time.end();
+                return time;
+              },
+              executorService));
       waveDone.execute();
     }
+    merger.end();
   }
 }

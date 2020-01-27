@@ -459,10 +459,6 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy {
     return getTypeInfo(type).isUnknown();
   }
 
-  public boolean isMarkedAsInterface(DexType type) {
-    return getTypeInfo(type).isInterface();
-  }
-
   public boolean hasSubtypes(DexType type) {
     return !getTypeInfo(type).directSubtypes.isEmpty();
   }
@@ -564,64 +560,6 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy {
     } else {
       return null;
     }
-  }
-
-  // TODO(b/130636783): inconsistent location
-  public DexType computeLeastUpperBoundOfClasses(DexType subtype, DexType other) {
-    if (subtype == other) {
-      return subtype;
-    }
-    DexType objectType = dexItemFactory().objectType;
-    TypeInfo subInfo = getTypeInfo(subtype);
-    TypeInfo superInfo = getTypeInfo(other);
-    // If we have no definition for either class, stop proceeding.
-    if (subInfo.hierarchyLevel == UNKNOWN_LEVEL || superInfo.hierarchyLevel == UNKNOWN_LEVEL) {
-      return objectType;
-    }
-    if (subtype == objectType || other == objectType) {
-      return objectType;
-    }
-    TypeInfo t1;
-    TypeInfo t2;
-    if (superInfo.hierarchyLevel < subInfo.hierarchyLevel) {
-      t1 = superInfo;
-      t2 = subInfo;
-    } else {
-      t1 = subInfo;
-      t2 = superInfo;
-    }
-    // From now on, t2.hierarchyLevel >= t1.hierarchyLevel
-    DexClass dexClass;
-    // Make both of other and this in the same level.
-    while (t2.hierarchyLevel > t1.hierarchyLevel) {
-      dexClass = definitionFor(t2.type);
-      if (dexClass == null || dexClass.superType == null) {
-        return objectType;
-      }
-      t2 = getTypeInfo(dexClass.superType);
-    }
-    // At this point, they are at the same level.
-    // lubType starts from t1, and will move up; t2 starts from itself, and will move up, too.
-    // They move up in their own hierarchy tree, and will repeat the process until they meet.
-    // (It will stop at anytime when either one's definition is not found.)
-    DexType lubType = t1.type;
-    DexType t2Type = t2.type;
-    while (t2Type != lubType) {
-      assert getTypeInfo(t2Type).hierarchyLevel == getTypeInfo(lubType).hierarchyLevel;
-      dexClass = definitionFor(t2Type);
-      if (dexClass == null) {
-        lubType = objectType;
-        break;
-      }
-      t2Type = dexClass.superType;
-      dexClass = definitionFor(lubType);
-      if (dexClass == null) {
-        lubType = objectType;
-        break;
-      }
-      lubType = dexClass.superType;
-    }
-    return lubType;
   }
 
   public boolean inDifferentHierarchy(DexType type1, DexType type2) {

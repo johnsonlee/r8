@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization.ClassInitializerDefaultsResult;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.DequeUtils;
@@ -68,7 +69,11 @@ public class FieldValueAnalysis {
   }
 
   public static void run(
-      AppView<?> appView, IRCode code, OptimizationFeedback feedback, DexEncodedMethod method) {
+      AppView<?> appView,
+      IRCode code,
+      ClassInitializerDefaultsResult classInitializerDefaultsResult,
+      OptimizationFeedback feedback,
+      DexEncodedMethod method) {
     if (!appView.enableWholeProgramOptimizations()) {
       return;
     }
@@ -91,7 +96,7 @@ public class FieldValueAnalysis {
     }
 
     new FieldValueAnalysis(appView.withLiveness(), code, feedback, clazz, method)
-        .computeFieldOptimizationInfo();
+        .computeFieldOptimizationInfo(classInitializerDefaultsResult);
   }
 
   private Map<BasicBlock, AbstractFieldSet> getOrCreateFieldsMaybeReadBeforeBlockInclusive() {
@@ -102,7 +107,8 @@ public class FieldValueAnalysis {
   }
 
   /** This method analyzes initializers with the purpose of computing field optimization info. */
-  private void computeFieldOptimizationInfo() {
+  private void computeFieldOptimizationInfo(
+      ClassInitializerDefaultsResult classInitializerDefaultsResult) {
     AppInfoWithLiveness appInfo = appView.appInfo();
     DominatorTree dominatorTree = null;
 
@@ -112,20 +118,21 @@ public class FieldValueAnalysis {
     // guaranteed to be assigned only in the current initializer.
     boolean isStraightLineCode = true;
     Map<DexEncodedField, LinkedList<FieldInstruction>> putsPerField = new IdentityHashMap<>();
-    for (Instruction instruction : code.instructions()) {
-      if (instruction.isFieldPut()) {
-        FieldInstruction fieldPut = instruction.asFieldInstruction();
-        DexField field = fieldPut.getField();
-        DexEncodedField encodedField = appInfo.resolveField(field);
-        if (encodedField != null
-            && encodedField.field.holder == context
-            && appInfo.isFieldOnlyWrittenInMethod(encodedField, method)) {
-          putsPerField.computeIfAbsent(encodedField, ignore -> new LinkedList<>()).add(fieldPut);
-        }
+    for (BasicBlock block : code.blocks) {
+      if (block.getSuccessors().size() >= 2) {
+        isStraightLineCode = false;
       }
-      if (instruction.isJumpInstruction()) {
-        if (!instruction.isGoto() && !instruction.isReturn()) {
-          isStraightLineCode = false;
+      for (Instruction instruction : block.getInstructions()) {
+        if (instruction.isFieldPut()) {
+          FieldInstruction fieldPut = instruction.asFieldInstruction();
+          DexField field = fieldPut.getField();
+          DexEncodedField encodedField = appInfo.resolveField(field);
+          if (encodedField != null
+              && encodedField.field.holder == context
+              && encodedField.isStatic() == method.isStatic()
+              && appInfo.isFieldOnlyWrittenInMethod(encodedField, method)) {
+            putsPerField.computeIfAbsent(encodedField, ignore -> new LinkedList<>()).add(fieldPut);
+          }
         }
       }
     }
@@ -146,7 +153,9 @@ public class FieldValueAnalysis {
           continue;
         }
       }
-      if (fieldMaybeReadBeforeInstruction(encodedField, fieldPut)) {
+      boolean priorReadsWillReadSameValue =
+          !classInitializerDefaultsResult.hasStaticValue(encodedField) && fieldPut.value().isZero();
+      if (!priorReadsWillReadSameValue && fieldMaybeReadBeforeInstruction(encodedField, fieldPut)) {
         continue;
       }
       updateFieldOptimizationInfo(encodedField, fieldPut.value());
@@ -239,20 +248,24 @@ public class FieldValueAnalysis {
 
       if (!blockOrPredecessorMaybeReadAnyField) {
         // Finally, we update the read set with the fields that are read by the instructions in the
-        // current block.
-        for (Instruction instruction : block.getInstructions()) {
-          AbstractFieldSet instructionReadSet = instruction.readSet(appView, context);
-          if (instructionReadSet.isBottom()) {
-            continue;
+        // current block. This can be skipped if the block has already been processed.
+        if (seenBefore) {
+          assert verifyFieldSetContainsAllFieldReadsInBlock(knownReadSet, block, context);
+        } else {
+          for (Instruction instruction : block.getInstructions()) {
+            AbstractFieldSet instructionReadSet = instruction.readSet(appView, context);
+            if (instructionReadSet.isBottom()) {
+              continue;
+            }
+            if (instructionReadSet.isTop()) {
+              blockOrPredecessorMaybeReadAnyField = true;
+              break;
+            }
+            if (!knownReadSet.isConcreteFieldSet()) {
+              knownReadSet = new ConcreteMutableFieldSet();
+            }
+            knownReadSet.asConcreteFieldSet().addAll(instructionReadSet.asConcreteFieldSet());
           }
-          if (instructionReadSet.isTop()) {
-            blockOrPredecessorMaybeReadAnyField = true;
-            break;
-          }
-          if (!knownReadSet.isConcreteFieldSet()) {
-            knownReadSet = new ConcreteMutableFieldSet();
-          }
-          knownReadSet.asConcreteFieldSet().addAll(instructionReadSet.asConcreteFieldSet());
         }
       }
 
@@ -277,6 +290,21 @@ public class FieldValueAnalysis {
       }
     }
     return result;
+  }
+
+  private boolean verifyFieldSetContainsAllFieldReadsInBlock(
+      KnownFieldSet readSet, BasicBlock block, DexType context) {
+    for (Instruction instruction : block.getInstructions()) {
+      AbstractFieldSet instructionReadSet = instruction.readSet(appView, context);
+      assert !instructionReadSet.isTop();
+      if (instructionReadSet.isBottom()) {
+        continue;
+      }
+      for (DexEncodedField field : instructionReadSet.asConcreteFieldSet().getFields()) {
+        assert readSet.contains(field);
+      }
+    }
+    return true;
   }
 
   private void updateFieldOptimizationInfo(DexEncodedField field, Value value) {

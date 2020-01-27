@@ -58,10 +58,10 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class TypeAnalysisTest extends SmaliTestBase {
   private static final InternalOptions TEST_OPTIONS = new InternalOptions();
-  private static final TypeLatticeElement NULL = TypeLatticeElement.NULL;
-  private static final TypeLatticeElement SINGLE = TypeLatticeElement.SINGLE;
-  private static final TypeLatticeElement INT = TypeLatticeElement.INT;
-  private static final TypeLatticeElement LONG = TypeLatticeElement.LONG;
+  private static final TypeLatticeElement NULL = TypeLatticeElement.getNull();
+  private static final TypeLatticeElement SINGLE = TypeLatticeElement.getSingle();
+  private static final TypeLatticeElement INT = TypeLatticeElement.getInt();
+  private static final TypeLatticeElement LONG = TypeLatticeElement.getLong();
 
   private final String dirName;
   private final String smaliFileName;
@@ -113,8 +113,7 @@ public class TypeAnalysisTest extends SmaliTestBase {
     byte[] content = Smali.compile(smaliStringBuilder.toString());
     AndroidApp app = AndroidApp.builder().addDexProgramData(content, Origin.unknown()).build();
     DexApplication dexApplication =
-        new ApplicationReader(app, TEST_OPTIONS, new Timing("TypeAnalysisTest.appReader"))
-            .read().toDirect();
+        new ApplicationReader(app, TEST_OPTIONS, Timing.empty()).read().toDirect();
     inspection.accept(
         AppView.createForD8(new AppInfo(dexApplication), TEST_OPTIONS),
         new CodeInspector(dexApplication));
