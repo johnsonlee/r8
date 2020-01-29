@@ -3,12 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.ir.code.ConstInstruction;
-import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Invoke.Type;
-import com.android.tools.r8.ir.code.Position;
-import com.android.tools.r8.utils.BooleanUtils;
-import com.android.tools.r8.utils.IteratorUtils;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -23,14 +18,11 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -70,270 +62,6 @@ public abstract class GraphLense {
 
     public Type getType() {
       return type;
-    }
-  }
-
-  public static class RewrittenPrototypeDescription {
-
-    public static class RemovedArgumentInfo {
-
-      public static class Builder {
-
-        private int argumentIndex = -1;
-        private boolean isAlwaysNull = false;
-        private DexType type = null;
-
-        public Builder setArgumentIndex(int argumentIndex) {
-          this.argumentIndex = argumentIndex;
-          return this;
-        }
-
-        public Builder setIsAlwaysNull() {
-          this.isAlwaysNull = true;
-          return this;
-        }
-
-        public Builder setType(DexType type) {
-          this.type = type;
-          return this;
-        }
-
-        public RemovedArgumentInfo build() {
-          assert argumentIndex >= 0;
-          assert type != null;
-          return new RemovedArgumentInfo(argumentIndex, isAlwaysNull, type);
-        }
-      }
-
-      private final int argumentIndex;
-      private final boolean isAlwaysNull;
-      private final DexType type;
-
-      private RemovedArgumentInfo(int argumentIndex, boolean isAlwaysNull, DexType type) {
-        this.argumentIndex = argumentIndex;
-        this.isAlwaysNull = isAlwaysNull;
-        this.type = type;
-      }
-
-      public static Builder builder() {
-        return new Builder();
-      }
-
-      public int getArgumentIndex() {
-        return argumentIndex;
-      }
-
-      public DexType getType() {
-        return type;
-      }
-
-      public boolean isAlwaysNull() {
-        return isAlwaysNull;
-      }
-
-      public boolean isNeverUsed() {
-        return !isAlwaysNull;
-      }
-
-      public RemovedArgumentInfo withArgumentIndex(int argumentIndex) {
-        return this.argumentIndex != argumentIndex
-            ? new RemovedArgumentInfo(argumentIndex, isAlwaysNull, type)
-            : this;
-      }
-    }
-
-    public static class RemovedArgumentsInfo {
-
-      private static final RemovedArgumentsInfo empty = new RemovedArgumentsInfo(null);
-
-      private final List<RemovedArgumentInfo> removedArguments;
-
-      public RemovedArgumentsInfo(List<RemovedArgumentInfo> removedArguments) {
-        assert verifyRemovedArguments(removedArguments);
-        this.removedArguments = removedArguments;
-      }
-
-      private static boolean verifyRemovedArguments(List<RemovedArgumentInfo> removedArguments) {
-        if (removedArguments != null && !removedArguments.isEmpty()) {
-          // Check that list is sorted by argument indices.
-          int lastArgumentIndex = removedArguments.get(0).getArgumentIndex();
-          for (int i = 1; i < removedArguments.size(); ++i) {
-            int currentArgumentIndex = removedArguments.get(i).getArgumentIndex();
-            assert lastArgumentIndex < currentArgumentIndex;
-            lastArgumentIndex = currentArgumentIndex;
-          }
-        }
-        return true;
-      }
-
-      public static RemovedArgumentsInfo empty() {
-        return empty;
-      }
-
-      public ListIterator<RemovedArgumentInfo> iterator() {
-        return removedArguments == null
-            ? Collections.emptyListIterator()
-            : removedArguments.listIterator();
-      }
-
-      public boolean hasRemovedArguments() {
-        return removedArguments != null && !removedArguments.isEmpty();
-      }
-
-      public boolean isArgumentRemoved(int argumentIndex) {
-        if (removedArguments != null) {
-          for (RemovedArgumentInfo info : removedArguments) {
-            if (info.getArgumentIndex() == argumentIndex) {
-              return true;
-            }
-          }
-        }
-        return false;
-      }
-
-      public int numberOfRemovedArguments() {
-        return removedArguments != null ? removedArguments.size() : 0;
-      }
-
-      public RemovedArgumentsInfo combine(RemovedArgumentsInfo info) {
-        assert info != null;
-        if (hasRemovedArguments()) {
-          if (!info.hasRemovedArguments()) {
-            return this;
-          }
-        } else {
-          return info;
-        }
-
-        List<RemovedArgumentInfo> newRemovedArguments = new LinkedList<>(removedArguments);
-        ListIterator<RemovedArgumentInfo> iterator = newRemovedArguments.listIterator();
-        int offset = 0;
-        for (RemovedArgumentInfo pending : info.removedArguments) {
-          RemovedArgumentInfo next = IteratorUtils.peekNext(iterator);
-          while (next != null && next.getArgumentIndex() <= pending.getArgumentIndex() + offset) {
-            iterator.next();
-            next = IteratorUtils.peekNext(iterator);
-            offset++;
-          }
-          iterator.add(pending.withArgumentIndex(pending.getArgumentIndex() + offset));
-        }
-        return new RemovedArgumentsInfo(newRemovedArguments);
-      }
-
-      public Consumer<DexEncodedMethod.Builder> createParameterAnnotationsRemover(
-          DexEncodedMethod method) {
-        if (numberOfRemovedArguments() > 0 && !method.parameterAnnotationsList.isEmpty()) {
-          return builder -> {
-            int firstArgumentIndex = BooleanUtils.intValue(!method.isStatic());
-            builder.removeParameterAnnotations(
-                oldIndex -> isArgumentRemoved(oldIndex + firstArgumentIndex));
-          };
-        }
-        return null;
-      }
-    }
-
-    private static final RewrittenPrototypeDescription none = new RewrittenPrototypeDescription();
-
-    private final boolean hasBeenChangedToReturnVoid;
-    private final boolean extraNullParameter;
-    private final RemovedArgumentsInfo removedArgumentsInfo;
-
-    private RewrittenPrototypeDescription() {
-      this(false, false, RemovedArgumentsInfo.empty());
-    }
-
-    public RewrittenPrototypeDescription(
-        boolean hasBeenChangedToReturnVoid,
-        boolean extraNullParameter,
-        RemovedArgumentsInfo removedArgumentsInfo) {
-      assert removedArgumentsInfo != null;
-      this.extraNullParameter = extraNullParameter;
-      this.hasBeenChangedToReturnVoid = hasBeenChangedToReturnVoid;
-      this.removedArgumentsInfo = removedArgumentsInfo;
-    }
-
-    public static RewrittenPrototypeDescription none() {
-      return none;
-    }
-
-    public boolean isEmpty() {
-      return !extraNullParameter
-          && !hasBeenChangedToReturnVoid
-          && !getRemovedArgumentsInfo().hasRemovedArguments();
-    }
-
-    public boolean hasExtraNullParameter() {
-      return extraNullParameter;
-    }
-
-    public boolean hasBeenChangedToReturnVoid() {
-      return hasBeenChangedToReturnVoid;
-    }
-
-    public RemovedArgumentsInfo getRemovedArgumentsInfo() {
-      return removedArgumentsInfo;
-    }
-
-    /**
-     * Returns the {@link ConstInstruction} that should be used to materialize the result of
-     * invocations to the method represented by this {@link RewrittenPrototypeDescription}.
-     *
-     * <p>This method should only be used for methods that return a constant value and whose return
-     * type has been changed to void.
-     *
-     * <p>Note that the current implementation always returns null at this point.
-     */
-    public ConstInstruction getConstantReturn(IRCode code, Position position) {
-      assert hasBeenChangedToReturnVoid;
-      ConstInstruction instruction = code.createConstNull();
-      instruction.setPosition(position);
-      return instruction;
-    }
-
-    public DexType rewriteReturnType(DexType returnType, DexItemFactory dexItemFactory) {
-      return hasBeenChangedToReturnVoid ? dexItemFactory.voidType : returnType;
-    }
-
-    public DexType[] rewriteParameters(DexType[] params) {
-      RemovedArgumentsInfo removedArgumentsInfo = getRemovedArgumentsInfo();
-      if (removedArgumentsInfo.hasRemovedArguments()) {
-        DexType[] newParams =
-            new DexType[params.length - removedArgumentsInfo.numberOfRemovedArguments()];
-        int newParamIndex = 0;
-        for (int oldParamIndex = 0; oldParamIndex < params.length; ++oldParamIndex) {
-          if (!removedArgumentsInfo.isArgumentRemoved(oldParamIndex)) {
-            newParams[newParamIndex] = params[oldParamIndex];
-            ++newParamIndex;
-          }
-        }
-        return newParams;
-      }
-      return params;
-    }
-
-    public DexProto rewriteProto(DexProto proto, DexItemFactory dexItemFactory) {
-      DexType newReturnType = rewriteReturnType(proto.returnType, dexItemFactory);
-      DexType[] newParameters = rewriteParameters(proto.parameters.values);
-      return dexItemFactory.createProto(newReturnType, newParameters);
-    }
-
-    public RewrittenPrototypeDescription withConstantReturn() {
-      return !hasBeenChangedToReturnVoid
-          ? new RewrittenPrototypeDescription(true, extraNullParameter, removedArgumentsInfo)
-          : this;
-    }
-
-    public RewrittenPrototypeDescription withRemovedArguments(RemovedArgumentsInfo other) {
-      return new RewrittenPrototypeDescription(
-          hasBeenChangedToReturnVoid, extraNullParameter, removedArgumentsInfo.combine(other));
-    }
-
-    public RewrittenPrototypeDescription withExtraNullParameter() {
-      return !extraNullParameter
-          ? new RewrittenPrototypeDescription(
-              hasBeenChangedToReturnVoid, true, removedArgumentsInfo)
-          : this;
     }
   }
 
@@ -594,7 +322,7 @@ public abstract class GraphLense {
         if (isContextFreeForMethod(method)) {
           result.put(lookupMethod(method), entry.getBooleanValue());
         } else {
-          for (DexMethod candidate: lookupMethodInAllContexts(method)) {
+          for (DexMethod candidate : lookupMethodInAllContexts(method)) {
             result.put(candidate, entry.getBooleanValue());
           }
         }

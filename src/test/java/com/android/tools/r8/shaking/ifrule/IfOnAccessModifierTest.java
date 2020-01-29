@@ -47,6 +47,10 @@ public class IfOnAccessModifierTest extends ProguardCompatibilityTestBase {
   }
 
   private TestShrinkerBuilder<?, ?, ?, ?, ?> getTestBuilder() {
+    return getTestBuilder(false);
+  }
+
+  private TestShrinkerBuilder<?, ?, ?, ?, ?> getTestBuilder(boolean allowDiagnosticInfoMessages) {
     switch (shrinker) {
       case PROGUARD6:
         assertTrue(parameters.isCfRuntime());
@@ -54,7 +58,7 @@ public class IfOnAccessModifierTest extends ProguardCompatibilityTestBase {
       case R8:
         return testForR8(parameters.getBackend())
             .addTestingAnnotationsAsProgramClasses()
-            .allowUnusedProguardConfigurationRules()
+            .allowUnusedProguardConfigurationRules(allowDiagnosticInfoMessages)
             .enableNeverClassInliningAnnotations()
             .enableInliningAnnotations();
       default:
@@ -66,7 +70,7 @@ public class IfOnAccessModifierTest extends ProguardCompatibilityTestBase {
   public void ifOnPublic_noPublicClassForIfRule() throws Exception {
     assumeFalse(shrinker.isProguard() && parameters.isDexRuntime());
 
-    getTestBuilder()
+    getTestBuilder(shrinker.isR8())
         .addProgramClasses(CLASSES)
         .addKeepRules(
             "-repackageclasses 'top'",

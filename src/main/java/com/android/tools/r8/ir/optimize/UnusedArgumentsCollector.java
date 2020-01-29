@@ -16,8 +16,9 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
-import com.android.tools.r8.graph.GraphLense.RewrittenPrototypeDescription.RemovedArgumentInfo;
-import com.android.tools.r8.graph.GraphLense.RewrittenPrototypeDescription.RemovedArgumentsInfo;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentsInfo;
 import com.android.tools.r8.ir.optimize.MemberPoolCollection.MemberPool;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
@@ -329,25 +330,8 @@ public class UnusedArgumentsCollector {
 
   private DexProto createProtoWithRemovedArguments(
       DexEncodedMethod encodedMethod, RemovedArgumentsInfo unused) {
-    DexMethod method = encodedMethod.method;
-
-    int firstArgumentIndex = encodedMethod.isStatic() ? 0 : 1;
-    int numberOfParameters = method.proto.parameters.size() - unused.numberOfRemovedArguments();
-    if (!encodedMethod.isStatic() && unused.isArgumentRemoved(0)) {
-      numberOfParameters++;
-    }
-
-    DexType[] parameters = new DexType[numberOfParameters];
-    if (numberOfParameters > 0) {
-      int newIndex = 0;
-      for (int oldIndex = 0; oldIndex < method.proto.parameters.size(); oldIndex++) {
-        if (!unused.isArgumentRemoved(oldIndex + firstArgumentIndex)) {
-          parameters[newIndex++] = method.proto.parameters.values[oldIndex];
-        }
-      }
-      assert newIndex == parameters.length;
-    }
-    return appView.dexItemFactory().createProto(method.proto.returnType, parameters);
+    DexType[] parameters = unused.rewriteParameters(encodedMethod);
+    return appView.dexItemFactory().createProto(encodedMethod.method.proto.returnType, parameters);
   }
 
   private static class CollectUsedArguments extends ArgumentUse {

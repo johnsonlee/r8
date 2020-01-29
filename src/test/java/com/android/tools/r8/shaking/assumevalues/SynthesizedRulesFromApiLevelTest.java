@@ -14,6 +14,7 @@ import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
@@ -274,11 +275,10 @@ public class SynthesizedRulesFromApiLevelTest extends TestBase {
         AndroidApiLevel.O_MR1,
         AndroidApiLevel.O_MR1,
         expectedResultForNative(AndroidApiLevel.O_MR1),
-        builder ->
-            builder.addOptionsModification(
-                options ->
-                    // android.os.Build$VERSION only exists in the Android runtime.
-                    options.testing.allowUnusedProguardConfigurationRules = backend == Backend.CF),
+        builder -> {
+          // android.os.Build$VERSION only exists in the Android runtime.
+          builder.allowUnusedProguardConfigurationRules(backend == Backend.CF);
+        },
         this::compatCodeNotPresent,
         ImmutableList.of(
             "-assumevalues class android.os.Build$VERSION { public static final int SDK_INT return "
@@ -307,9 +307,7 @@ public class SynthesizedRulesFromApiLevelTest extends TestBase {
           AndroidApiLevel.O_MR1,
           AndroidApiLevel.O_MR1,
           expectedResultForNative(AndroidApiLevel.O_MR1),
-          builder ->
-              builder.addOptionsModification(
-                  options -> options.testing.allowUnusedProguardConfigurationRules = true),
+          builder -> builder.allowUnusedProguardConfigurationRules(backend == Backend.CF),
           this::compatCodePresent,
           ImmutableList.of(rule),
           SynthesizedRule.NOT_PRESENT);
@@ -332,9 +330,7 @@ public class SynthesizedRulesFromApiLevelTest extends TestBase {
           AndroidApiLevel.O_MR1,
           AndroidApiLevel.O_MR1,
           expectedResultForNative(AndroidApiLevel.O_MR1),
-          builder ->
-              builder.addOptionsModification(
-                  options -> options.testing.allowUnusedProguardConfigurationRules = true),
+          R8TestBuilder::allowUnusedProguardConfigurationRules,
           this::compatCodeNotPresent,
           ImmutableList.of(rule),
           SynthesizedRule.PRESENT);

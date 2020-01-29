@@ -19,9 +19,9 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
-import com.android.tools.r8.graph.GraphLense.RewrittenPrototypeDescription;
-import com.android.tools.r8.graph.GraphLense.RewrittenPrototypeDescription.RemovedArgumentInfo;
-import com.android.tools.r8.graph.GraphLense.RewrittenPrototypeDescription.RemovedArgumentsInfo;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentsInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.ir.analysis.AbstractError;
 import com.android.tools.r8.ir.analysis.TypeChecker;
@@ -160,9 +160,8 @@ public class UninstantiatedTypeOptimization {
       // This achieved by faking that there is already a method with the given signature.
       for (DexEncodedMethod virtualMethod : clazz.virtualMethods()) {
         RewrittenPrototypeDescription prototypeChanges =
-            new RewrittenPrototypeDescription(
+            RewrittenPrototypeDescription.createForUninstantiatedTypes(
                 virtualMethod.method.proto.returnType.isAlwaysNull(appView),
-                false,
                 getRemovedArgumentsInfo(virtualMethod, ALLOW_ARGUMENT_REMOVAL));
         if (!prototypeChanges.isEmpty()) {
           DexMethod newMethod = getNewMethodSignature(virtualMethod, prototypeChanges);
@@ -296,9 +295,8 @@ public class UninstantiatedTypeOptimization {
         || appView.appInfo().keepConstantArguments.contains(encodedMethod.method)) {
       return RewrittenPrototypeDescription.none();
     }
-    return new RewrittenPrototypeDescription(
+    return RewrittenPrototypeDescription.createForUninstantiatedTypes(
         encodedMethod.method.proto.returnType.isAlwaysNull(appView),
-        false,
         getRemovedArgumentsInfo(encodedMethod, strategy));
   }
 
@@ -333,41 +331,10 @@ public class UninstantiatedTypeOptimization {
   private DexMethod getNewMethodSignature(
       DexEncodedMethod encodedMethod, RewrittenPrototypeDescription prototypeChanges) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-
     DexMethod method = encodedMethod.method;
-    RemovedArgumentsInfo removedArgumentsInfo = prototypeChanges.getRemovedArgumentsInfo();
+    DexProto newProto = prototypeChanges.rewriteProto(encodedMethod, dexItemFactory);
 
-    if (prototypeChanges.isEmpty()) {
-      return method;
-    }
-
-    DexType newReturnType =
-        prototypeChanges.hasBeenChangedToReturnVoid()
-            ? dexItemFactory.voidType
-            : method.proto.returnType;
-
-    DexType[] newParameters;
-    if (removedArgumentsInfo.hasRemovedArguments()) {
-      // Currently not allowed to remove the receiver of an instance method. This would involve
-      // changing invoke-direct/invoke-virtual into invoke-static.
-      assert encodedMethod.isStatic() || !removedArgumentsInfo.isArgumentRemoved(0);
-      newParameters =
-          new DexType
-              [method.proto.parameters.size() - removedArgumentsInfo.numberOfRemovedArguments()];
-      int offset = encodedMethod.isStatic() ? 0 : 1;
-      int newParametersIndex = 0;
-      for (int argumentIndex = 0; argumentIndex < method.proto.parameters.size(); ++argumentIndex) {
-        if (!removedArgumentsInfo.isArgumentRemoved(argumentIndex + offset)) {
-          newParameters[newParametersIndex] = method.proto.parameters.values[argumentIndex];
-          newParametersIndex++;
-        }
-      }
-    } else {
-      newParameters = method.proto.parameters.values;
-    }
-
-    return dexItemFactory.createMethod(
-        method.holder, dexItemFactory.createProto(newReturnType, newParameters), method.name);
+    return dexItemFactory.createMethod(method.holder, newProto, method.name);
   }
 
   public void rewrite(IRCode code) {

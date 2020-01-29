@@ -3,9 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import static org.hamcrest.CoreMatchers.containsString;
+
 import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase.KeepRuleConsumer;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.CollectingGraphConsumer;
@@ -26,14 +29,24 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.hamcrest.core.IsAnything;
 
 public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     extends TestShrinkerBuilder<R8Command, Builder, R8TestCompileResult, R8TestRunResult, T> {
+
+  enum AllowedDiagnosticMessages {
+    ALL,
+    INFO,
+    NONE,
+    WARNING
+  }
 
   R8TestBuilder(TestState state, Builder builder, Backend backend) {
     super(state, builder, backend);
   }
 
+  private AllowedDiagnosticMessages allowedDiagnosticMessages = AllowedDiagnosticMessages.NONE;
+  private boolean allowUnusedProguardConfigurationRules = false;
   private boolean enableInliningAnnotations = false;
   private boolean enableNeverClassInliningAnnotations = false;
   private boolean enableMergeAnnotations = false;
@@ -105,14 +118,47 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
         builder.build(),
         optionsConsumer.andThen(
             options -> box.proguardConfiguration = options.getProguardConfiguration()));
-    return new R8TestCompileResult(
-        getState(),
-        getOutputMode(),
-        app.get(),
-        box.proguardConfiguration,
-        box.syntheticProguardRules,
-        proguardMapBuilder.toString(),
-        graphConsumer);
+    R8TestCompileResult compileResult =
+        new R8TestCompileResult(
+            getState(),
+            getOutputMode(),
+            app.get(),
+            box.proguardConfiguration,
+            box.syntheticProguardRules,
+            proguardMapBuilder.toString(),
+            graphConsumer);
+    switch (allowedDiagnosticMessages) {
+      case ALL:
+        compileResult.assertDiagnosticMessageThatMatches(new IsAnything<>());
+        break;
+      case INFO:
+        compileResult.assertOnlyInfos();
+        break;
+      case NONE:
+        if (allowUnusedProguardConfigurationRules) {
+          compileResult
+              .assertAllInfoMessagesMatch(
+                  containsString("Proguard configuration rule does not match anything"))
+              .assertNoErrorMessages()
+              .assertNoWarningMessages();
+        } else {
+          compileResult.assertNoMessages();
+        }
+        break;
+      case WARNING:
+        compileResult.assertOnlyWarnings();
+        break;
+      default:
+        throw new Unreachable();
+    }
+    if (allowUnusedProguardConfigurationRules) {
+      compileResult.assertInfoMessageThatMatches(
+          containsString("Proguard configuration rule does not match anything"));
+    } else {
+      compileResult.assertNoInfoMessageThatMatches(
+          containsString("Proguard configuration rule does not match anything"));
+    }
+    return compileResult;
   }
 
   public Builder getBuilder() {
@@ -201,9 +247,45 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     return addOptionsModification(options -> options.testing.allowClassInlinerGracefulExit = true);
   }
 
+  public T allowDiagnosticMessages() {
+    assert allowedDiagnosticMessages == AllowedDiagnosticMessages.NONE;
+    allowedDiagnosticMessages = AllowedDiagnosticMessages.ALL;
+    return self();
+  }
+
+  public T allowDiagnosticInfoMessages() {
+    return allowDiagnosticInfoMessages(true);
+  }
+
+  public T allowDiagnosticInfoMessages(boolean condition) {
+    if (condition) {
+      assert allowedDiagnosticMessages == AllowedDiagnosticMessages.NONE;
+      allowedDiagnosticMessages = AllowedDiagnosticMessages.INFO;
+    }
+    return self();
+  }
+
+  public T allowDiagnosticWarningMessages() {
+    return allowDiagnosticWarningMessages(true);
+  }
+
+  public T allowDiagnosticWarningMessages(boolean condition) {
+    if (condition) {
+      assert allowedDiagnosticMessages == AllowedDiagnosticMessages.NONE;
+      allowedDiagnosticMessages = AllowedDiagnosticMessages.WARNING;
+    }
+    return self();
+  }
+
   public T allowUnusedProguardConfigurationRules() {
-    return addOptionsModification(
-        options -> options.testing.allowUnusedProguardConfigurationRules = true);
+    return allowUnusedProguardConfigurationRules(true);
+  }
+
+  public T allowUnusedProguardConfigurationRules(boolean condition) {
+    if (condition) {
+      allowUnusedProguardConfigurationRules = true;
+    }
+    return self();
   }
 
   public T enableAlwaysInliningAnnotations() {

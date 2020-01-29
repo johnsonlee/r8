@@ -56,6 +56,7 @@ import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public class ClassInitializerDefaultsOptimization {
@@ -75,6 +76,12 @@ public class ClassInitializerDefaultsOptimization {
       return EMPTY;
     }
 
+    public void forEachOptimizedField(BiConsumer<DexEncodedField, DexValue> consumer) {
+      if (fieldsWithStaticValues != null) {
+        fieldsWithStaticValues.forEach(consumer);
+      }
+    }
+
     public boolean hasStaticValue(DexEncodedField field) {
       if (field.isStatic()) {
         return (fieldsWithStaticValues != null && fieldsWithStaticValues.containsKey(field))
@@ -86,14 +93,14 @@ public class ClassInitializerDefaultsOptimization {
 
   private class WaveDoneAction implements Action {
 
-    private final Map<DexEncodedField, DexValue> fieldsWithStaticValues;
-    private final Set<DexField> noLongerWrittenFields;
+    private final Map<DexEncodedField, DexValue> fieldsWithStaticValues = new IdentityHashMap<>();
+    private final Set<DexField> noLongerWrittenFields = Sets.newIdentityHashSet();
 
     public WaveDoneAction(
         Map<DexEncodedField, DexValue> fieldsWithStaticValues,
         Set<DexField> noLongerWrittenFields) {
-      this.fieldsWithStaticValues = fieldsWithStaticValues;
-      this.noLongerWrittenFields = noLongerWrittenFields;
+      this.fieldsWithStaticValues.putAll(fieldsWithStaticValues);
+      this.noLongerWrittenFields.addAll(noLongerWrittenFields);
     }
 
     public synchronized void join(

@@ -15,25 +15,27 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.KmClassSubject;
 import com.android.tools.r8.utils.codeinspector.KmFunctionSubject;
 import com.android.tools.r8.utils.codeinspector.KmPackageSubject;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class MetadataRenameInSealedClassTest extends KotlinMetadataTestBase {
+public class MetadataRewriteInSealedClassTest extends KotlinMetadataTestBase {
 
   private final TestParameters parameters;
 
@@ -43,28 +45,31 @@ public class MetadataRenameInSealedClassTest extends KotlinMetadataTestBase {
         getTestParameters().withCfRuntimes().build(), KotlinTargetVersion.values());
   }
 
-  public MetadataRenameInSealedClassTest(
+  public MetadataRewriteInSealedClassTest(
       TestParameters parameters, KotlinTargetVersion targetVersion) {
     super(targetVersion);
     this.parameters = parameters;
   }
 
-  private static Path sealedLibJar;
+  private static final Map<KotlinTargetVersion, Path> sealedLibJarMap = new HashMap<>();
 
   @BeforeClass
   public static void createLibJar() throws Exception {
     String sealedLibFolder = PKG_PREFIX + "/sealed_lib";
-    sealedLibJar =
-        kotlinc(KOTLINC, KotlinTargetVersion.JAVA_8)
-            .addSourceFiles(getKotlinFileInTest(sealedLibFolder, "lib"))
-            .compile();
+    for (KotlinTargetVersion targetVersion : KotlinTargetVersion.values()) {
+      Path sealedLibJar =
+          kotlinc(KOTLINC, targetVersion)
+              .addSourceFiles(getKotlinFileInTest(sealedLibFolder, "lib"))
+              .compile();
+      sealedLibJarMap.put(targetVersion, sealedLibJar);
+    }
   }
 
   @Test
   public void testMetadataInSealedClass_valid() throws Exception {
-    R8TestCompileResult compileResult =
+    Path libJar =
         testForR8(parameters.getBackend())
-            .addProgramFiles(sealedLibJar)
+            .addProgramFiles(sealedLibJarMap.get(targetVersion))
             // Keep the Expr class
             .addKeepRules("-keep class **.Expr")
             // Keep the extension function
@@ -72,112 +77,112 @@ public class MetadataRenameInSealedClassTest extends KotlinMetadataTestBase {
             // Keep the factory object and utils
             .addKeepRules("-keep class **.ExprFactory { *; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-            .compile();
-    String pkg = getClass().getPackage().getName();
-    final String numClassName = pkg + ".sealed_lib.Num";
-    final String exprClassName = pkg + ".sealed_lib.Expr";
-    final String libClassName = pkg + ".sealed_lib.LibKt";
-    compileResult.inspect(inspector -> {
-      ClassSubject num = inspector.clazz(numClassName);
-      assertThat(num, isRenamed());
+            .compile()
+            .inspect(this::inspectValid)
+            .writeToZip();
 
-      ClassSubject expr = inspector.clazz(exprClassName);
-      assertThat(expr, isPresent());
-      assertThat(expr, not(isRenamed()));
-
-      KmClassSubject kmClass = expr.getKmClass();
-      assertThat(kmClass, isPresent());
-
-      kmClass.getSealedSubclassDescriptors().forEach(sealedSubclassDescriptor -> {
-        ClassSubject sealedSubclass =
-            inspector.clazz(descriptorToJavaType(sealedSubclassDescriptor));
-        assertThat(sealedSubclass, isRenamed());
-        assertEquals(sealedSubclassDescriptor, sealedSubclass.getFinalDescriptor());
-      });
-
-      ClassSubject libKt = inspector.clazz(libClassName);
-      assertThat(expr, isPresent());
-      assertThat(expr, not(isRenamed()));
-
-      KmPackageSubject kmPackage = libKt.getKmPackage();
-      assertThat(kmPackage, isPresent());
-
-      KmFunctionSubject eval = kmPackage.kmFunctionExtensionWithUniqueName("eval");
-      assertThat(eval, isPresent());
-      assertThat(eval, isExtensionFunction());
-    });
-
-    Path libJar = compileResult.writeToZip();
-
-    String appFolder = PKG_PREFIX + "/sealed_app";
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), KOTLINC, KotlinTargetVersion.JAVA_8)
+        kotlinc(parameters.getRuntime().asCf(), KOTLINC, targetVersion)
             .addClasspathFiles(libJar)
-            .addSourceFiles(getKotlinFileInTest(appFolder, "valid"))
+            .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/sealed_app", "valid"))
             .setOutputPath(temp.newFolder().toPath())
             .compile();
 
     testForJvm()
         .addRunClasspathFiles(ToolHelper.getKotlinStdlibJar(), libJar)
         .addClasspath(output)
-        .run(parameters.getRuntime(), pkg + ".sealed_app.ValidKt")
+        .run(parameters.getRuntime(), PKG + ".sealed_app.ValidKt")
         .assertSuccessWithOutputLines("6");
+  }
+
+  private void inspectValid(CodeInspector inspector) {
+    String numClassName = PKG + ".sealed_lib.Num";
+    String exprClassName = PKG + ".sealed_lib.Expr";
+    String libClassName = PKG + ".sealed_lib.LibKt";
+
+    ClassSubject num = inspector.clazz(numClassName);
+    assertThat(num, isRenamed());
+
+    ClassSubject expr = inspector.clazz(exprClassName);
+    assertThat(expr, isPresent());
+    assertThat(expr, not(isRenamed()));
+
+    KmClassSubject kmClass = expr.getKmClass();
+    assertThat(kmClass, isPresent());
+
+    kmClass.getSealedSubclassDescriptors().forEach(sealedSubclassDescriptor -> {
+      ClassSubject sealedSubclass =
+          inspector.clazz(descriptorToJavaType(sealedSubclassDescriptor));
+      assertThat(sealedSubclass, isRenamed());
+      assertEquals(sealedSubclassDescriptor, sealedSubclass.getFinalDescriptor());
+    });
+
+    ClassSubject libKt = inspector.clazz(libClassName);
+    assertThat(expr, isPresent());
+    assertThat(expr, not(isRenamed()));
+
+    KmPackageSubject kmPackage = libKt.getKmPackage();
+    assertThat(kmPackage, isPresent());
+
+    KmFunctionSubject eval = kmPackage.kmFunctionExtensionWithUniqueName("eval");
+    assertThat(eval, isPresent());
+    assertThat(eval, isExtensionFunction());
   }
 
   @Test
   public void testMetadataInSealedClass_invalid() throws Exception {
-    R8TestCompileResult compileResult =
+    Path libJar =
         testForR8(parameters.getBackend())
-            .addProgramFiles(sealedLibJar)
+            .addProgramFiles(sealedLibJarMap.get(targetVersion))
             // Keep the Expr class
             .addKeepRules("-keep class **.Expr")
             // Keep the extension function
             .addKeepRules("-keep class **.LibKt { <methods>; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-            .compile();
-    String pkg = getClass().getPackage().getName();
-    final String exprClassName = pkg + ".sealed_lib.Expr";
-    final String numClassName = pkg + ".sealed_lib.Num";
-    final String libClassName = pkg + ".sealed_lib.LibKt";
-    compileResult.inspect(inspector -> {
-      // Without any specific keep rule and no instantiation point, it's not necessary to keep
-      // sub classes of Expr.
-      ClassSubject num = inspector.clazz(numClassName);
-      assertThat(num, not(isPresent()));
+            .compile()
+            .inspect(this::inspectInvalid)
+            .writeToZip();
 
-      ClassSubject expr = inspector.clazz(exprClassName);
-      assertThat(expr, isPresent());
-      assertThat(expr, not(isRenamed()));
-
-      KmClassSubject kmClass = expr.getKmClass();
-      assertThat(kmClass, isPresent());
-
-      assertTrue(kmClass.getSealedSubclassDescriptors().isEmpty());
-
-      ClassSubject libKt = inspector.clazz(libClassName);
-      assertThat(expr, isPresent());
-      assertThat(expr, not(isRenamed()));
-
-      KmPackageSubject kmPackage = libKt.getKmPackage();
-      assertThat(kmPackage, isPresent());
-
-      KmFunctionSubject eval = kmPackage.kmFunctionExtensionWithUniqueName("eval");
-      assertThat(eval, isPresent());
-      assertThat(eval, isExtensionFunction());
-    });
-
-    Path libJar = compileResult.writeToZip();
-
-    String appFolder = PKG_PREFIX + "/sealed_app";
     ProcessResult kotlinTestCompileResult =
-        kotlinc(parameters.getRuntime().asCf(), KOTLINC, KotlinTargetVersion.JAVA_8)
+        kotlinc(parameters.getRuntime().asCf(), KOTLINC, targetVersion)
             .addClasspathFiles(libJar)
-            .addSourceFiles(getKotlinFileInTest(appFolder, "invalid"))
+            .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/sealed_app", "invalid"))
             .setOutputPath(temp.newFolder().toPath())
             .compileRaw();
 
     assertNotEquals(0, kotlinTestCompileResult.exitCode);
     assertThat(kotlinTestCompileResult.stderr, containsString("cannot access"));
     assertThat(kotlinTestCompileResult.stderr, containsString("private in 'Expr'"));
+  }
+
+  private void inspectInvalid(CodeInspector inspector) {
+    String exprClassName = PKG + ".sealed_lib.Expr";
+    String numClassName = PKG + ".sealed_lib.Num";
+    String libClassName = PKG + ".sealed_lib.LibKt";
+
+    // Without any specific keep rule and no instantiation point, it's not necessary to keep
+    // sub classes of Expr.
+    ClassSubject num = inspector.clazz(numClassName);
+    assertThat(num, not(isPresent()));
+
+    ClassSubject expr = inspector.clazz(exprClassName);
+    assertThat(expr, isPresent());
+    assertThat(expr, not(isRenamed()));
+
+    KmClassSubject kmClass = expr.getKmClass();
+    assertThat(kmClass, isPresent());
+
+    assertTrue(kmClass.getSealedSubclassDescriptors().isEmpty());
+
+    ClassSubject libKt = inspector.clazz(libClassName);
+    assertThat(expr, isPresent());
+    assertThat(expr, not(isRenamed()));
+
+    KmPackageSubject kmPackage = libKt.getKmPackage();
+    assertThat(kmPackage, isPresent());
+
+    KmFunctionSubject eval = kmPackage.kmFunctionExtensionWithUniqueName("eval");
+    assertThat(eval, isPresent());
+    assertThat(eval, isExtensionFunction());
   }
 }

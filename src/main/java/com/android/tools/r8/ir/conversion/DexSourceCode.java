@@ -40,8 +40,8 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.GraphLense.RewrittenPrototypeDescription.RemovedArgumentInfo;
-import com.android.tools.r8.graph.GraphLense.RewrittenPrototypeDescription.RemovedArgumentsInfo;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentsInfo;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.code.CanonicalPositions;
@@ -158,7 +158,8 @@ public class DexSourceCode implements SourceCode {
       int register,
       DexEncodedMethod method,
       BiConsumer<Integer, DexType> writeCallback) {
-    RemovedArgumentsInfo removedArgumentsInfo = builder.prototypeChanges.getRemovedArgumentsInfo();
+    RemovedArgumentsInfo removedArgumentsInfo =
+        builder.getPrototypeChanges().getRemovedArgumentsInfo();
     ListIterator<RemovedArgumentInfo> removedArgumentIterator = removedArgumentsInfo.iterator();
     RemovedArgumentInfo nextRemovedArgument =
         removedArgumentIterator.hasNext() ? removedArgumentIterator.next() : null;
@@ -186,7 +187,7 @@ public class DexSourceCode implements SourceCode {
         type =
             TypeLatticeElement.fromDexType(
                 nextRemovedArgument.getType(), Nullability.maybeNull(), builder.appView);
-        builder.addConstantOrUnusedArgument(register);
+        builder.addConstantOrUnusedArgument(register, nextRemovedArgument);
         nextRemovedArgument =
             removedArgumentIterator.hasNext() ? removedArgumentIterator.next() : null;
       } else {

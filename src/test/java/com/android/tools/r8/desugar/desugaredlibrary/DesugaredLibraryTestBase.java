@@ -16,7 +16,9 @@ import com.android.tools.r8.StringResource;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestDiagnosticMessagesImpl;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -29,6 +31,26 @@ import java.util.Arrays;
 import java.util.List;
 
 public class DesugaredLibraryTestBase extends TestBase {
+
+  // For conversions tests, we need DexRuntimes where classes to convert are present (DexRuntimes
+  // above N and O depending if Stream or Time APIs are used), but we need to compile the program
+  // with a minAPI below to force the use of conversions.
+  protected static TestParametersCollection getConversionParametersUpToExcluding(
+      AndroidApiLevel apiLevel) {
+    if (apiLevel == AndroidApiLevel.N) {
+      return getTestParameters()
+          .withDexRuntimesStartingFromIncluding(Version.V7_0_0)
+          .withApiLevelsEndingAtExcluding(AndroidApiLevel.N)
+          .build();
+    }
+    if (apiLevel == AndroidApiLevel.O) {
+      return getTestParameters()
+          .withDexRuntimesStartingFromIncluding(Version.V8_1_0)
+          .withApiLevelsEndingAtExcluding(AndroidApiLevel.O)
+          .build();
+    }
+    throw new Error("Unsupported conversion parameters");
+  }
 
   protected boolean requiresEmulatedInterfaceCoreLibDesugaring(TestParameters parameters) {
     return parameters.getApiLevel().getLevel() < AndroidApiLevel.N.getLevel();
