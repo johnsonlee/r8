@@ -88,6 +88,7 @@ import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.base.Equivalence.Wrapper;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -2083,10 +2084,7 @@ public class Enqueuer {
       return;
     }
 
-    // TODO(mkroghj): Remove pinnedItems check here.
-    if (instantiatedTypes.contains(clazz)
-        || instantiatedInterfaceTypes.contains(clazz)
-        || pinnedItems.contains(clazz.type)) {
+    if (instantiatedTypes.contains(clazz) || instantiatedInterfaceTypes.contains(clazz)) {
       markVirtualMethodAsLive(
           clazz,
           encodedPossibleTarget,
@@ -2250,7 +2248,23 @@ public class Enqueuer {
     this.rootSet = rootSet;
     this.dontWarnPatterns = dontWarnPatterns;
     // Translate the result of root-set computation into enqueuer actions.
-    enqueueRootItems(rootSet.noShrinking);
+    if (appView.options().isShrinking() || appView.options().getProguardConfiguration() == null) {
+      enqueueRootItems(rootSet.noShrinking);
+    } else {
+      // Add everything if we are not shrinking.
+      assert appView.options().getProguardConfiguration().getKeepAllRule() != null;
+      ImmutableSet<ProguardKeepRuleBase> keepAllSet =
+          ImmutableSet.of(appView.options().getProguardConfiguration().getKeepAllRule());
+      for (DexProgramClass dexProgramClass : appView.appInfo().classes()) {
+        for (DexEncodedMethod method : dexProgramClass.methods()) {
+          this.enqueueRootItem(method, keepAllSet);
+        }
+        for (DexEncodedField field : dexProgramClass.fields()) {
+          this.enqueueRootItem(field, keepAllSet);
+        }
+        this.enqueueRootItem(dexProgramClass, keepAllSet);
+      }
+    }
     trace(executorService, timing);
     options.reporter.failIfPendingErrors();
     finalizeLibraryMethodOverrideInformation();
@@ -2332,6 +2346,8 @@ public class Enqueuer {
             rootSet.whyAreYouNotInlining,
             rootSet.keepConstantArguments,
             rootSet.keepUnusedArguments,
+            rootSet.reprocess,
+            rootSet.neverReprocess,
             rootSet.alwaysClassInline,
             rootSet.neverClassInline,
             rootSet.neverMerge,

@@ -36,6 +36,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
 
   enum AllowedDiagnosticMessages {
     ALL,
+    ERROR,
     INFO,
     NONE,
     WARNING
@@ -47,13 +48,16 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
 
   private AllowedDiagnosticMessages allowedDiagnosticMessages = AllowedDiagnosticMessages.NONE;
   private boolean allowUnusedProguardConfigurationRules = false;
-  private boolean enableInliningAnnotations = false;
-  private boolean enableNeverClassInliningAnnotations = false;
-  private boolean enableMergeAnnotations = false;
-  private boolean enableMemberValuePropagationAnnotations = false;
   private boolean enableConstantArgumentAnnotations = false;
-  private boolean enableUnusedArgumentAnnotations = false;
+  private boolean enableInliningAnnotations = false;
+  private boolean enableMemberValuePropagationAnnotations = false;
+  private boolean enableMergeAnnotations = false;
+  private boolean enableNeverClassInliningAnnotations = false;
+  private boolean enableNeverReprocessMethodAnnotations = false;
+  private boolean enableReprocessClassInitializerAnnotations = false;
+  private boolean enableReprocessMethodAnnotations = false;
   private boolean enableSideEffectAnnotations = false;
+  private boolean enableUnusedArgumentAnnotations = false;
   private CollectingGraphConsumer graphConsumer = null;
   private List<String> keepRules = new ArrayList<>();
   private List<Path> mainDexRulesFiles = new ArrayList<>();
@@ -63,13 +67,16 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   R8TestCompileResult internalCompile(
       Builder builder, Consumer<InternalOptions> optionsConsumer, Supplier<AndroidApp> app)
       throws CompilationFailedException {
-    if (enableInliningAnnotations
-        || enableNeverClassInliningAnnotations
-        || enableMergeAnnotations
+    if (enableConstantArgumentAnnotations
+        || enableInliningAnnotations
         || enableMemberValuePropagationAnnotations
-        || enableConstantArgumentAnnotations
-        || enableUnusedArgumentAnnotations
-        || enableSideEffectAnnotations) {
+        || enableMergeAnnotations
+        || enableNeverClassInliningAnnotations
+        || enableNeverReprocessMethodAnnotations
+        || enableReprocessClassInitializerAnnotations
+        || enableReprocessMethodAnnotations
+        || enableSideEffectAnnotations
+        || enableUnusedArgumentAnnotations) {
       ToolHelper.allowTestProguardOptions(builder);
     }
     if (!keepRules.isEmpty()) {
@@ -130,6 +137,9 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     switch (allowedDiagnosticMessages) {
       case ALL:
         compileResult.assertDiagnosticMessageThatMatches(new IsAnything<>());
+        break;
+      case ERROR:
+        compileResult.assertOnlyErrors();
         break;
       case INFO:
         compileResult.assertOnlyInfos();
@@ -247,6 +257,12 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     return addOptionsModification(options -> options.testing.allowClassInlinerGracefulExit = true);
   }
 
+  /**
+   * Allow info, warning, and error diagnostics.
+   *
+   * <p>This should only be used if a test has any of these diagnostic messages. Therefore, it is a
+   * failure if no such diagnostics are reported.
+   */
   public T allowDiagnosticMessages() {
     assert allowedDiagnosticMessages == AllowedDiagnosticMessages.NONE;
     allowedDiagnosticMessages = AllowedDiagnosticMessages.ALL;
@@ -257,6 +273,12 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     return allowDiagnosticInfoMessages(true);
   }
 
+  /**
+   * Allow info diagnostics if {@param condition} is true.
+   *
+   * <p>This should only be used if a test has at least one diagnostic info message. Therefore, it
+   * is a failure if no such diagnostics are reported.
+   */
   public T allowDiagnosticInfoMessages(boolean condition) {
     if (condition) {
       assert allowedDiagnosticMessages == AllowedDiagnosticMessages.NONE;
@@ -269,10 +291,34 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     return allowDiagnosticWarningMessages(true);
   }
 
+  /**
+   * Allow warning diagnostics if {@param condition} is true.
+   *
+   * <p>This should only be used if a test has at least one diagnostic warning message. Therefore,
+   * it is a failure if no such diagnostics are reported.
+   */
   public T allowDiagnosticWarningMessages(boolean condition) {
     if (condition) {
       assert allowedDiagnosticMessages == AllowedDiagnosticMessages.NONE;
       allowedDiagnosticMessages = AllowedDiagnosticMessages.WARNING;
+    }
+    return self();
+  }
+
+  public T allowDiagnosticErrorMessages() {
+    return allowDiagnosticErrorMessages(true);
+  }
+
+  /**
+   * Allow error diagnostics if {@param condition} is true.
+   *
+   * <p>This should only be used if a test has at least one diagnostic error message. Therefore, it
+   * is a failure if no such diagnostics are reported.
+   */
+  public T allowDiagnosticErrorMessages(boolean condition) {
+    if (condition) {
+      assert allowedDiagnosticMessages == AllowedDiagnosticMessages.NONE;
+      allowedDiagnosticMessages = AllowedDiagnosticMessages.ERROR;
     }
     return self();
   }
@@ -348,6 +394,35 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
       enableMemberValuePropagationAnnotations = true;
       addInternalKeepRules(
           "-neverpropagatevalue class * { @com.android.tools.r8.NeverPropagateValue *; }");
+    }
+    return self();
+  }
+
+  public T enableReprocessClassInitializerAnnotations() {
+    if (!enableReprocessClassInitializerAnnotations) {
+      enableReprocessClassInitializerAnnotations = true;
+      addInternalKeepRules(
+          "-reprocessclassinitializer @com.android.tools.r8.ReprocessClassInitializer class *");
+    }
+    return self();
+  }
+
+  public T enableReprocessMethodAnnotations() {
+    if (!enableReprocessMethodAnnotations) {
+      enableReprocessMethodAnnotations = true;
+      addInternalKeepRules(
+          "-reprocessmethod class * {", "  @com.android.tools.r8.ReprocessMethod <methods>;", "}");
+    }
+    return self();
+  }
+
+  public T enableNeverReprocessMethodAnnotations() {
+    if (!enableNeverReprocessMethodAnnotations) {
+      enableNeverReprocessMethodAnnotations = true;
+      addInternalKeepRules(
+          "-neverreprocessmethod class * {",
+          "  @com.android.tools.r8.NeverReprocessMethod <methods>;",
+          "}");
     }
     return self();
   }

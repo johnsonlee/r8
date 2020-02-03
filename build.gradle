@@ -15,7 +15,7 @@ import utils.Utils
 buildscript {
     repositories {
         maven {
-            url 'http://storage.googleapis.com/r8-deps/maven_mirror/'
+            url 'https://storage.googleapis.com/r8-deps/maven_mirror/'
         }
         mavenCentral()
         gradlePluginPortal()
@@ -54,7 +54,7 @@ apply from: 'copyAdditionalJctfCommonFiles.gradle'
 
 repositories {
     maven {
-       url 'http://storage.googleapis.com/r8-deps/maven_mirror/'
+       url 'https://storage.googleapis.com/r8-deps/maven_mirror/'
     }
     google()
     mavenCentral()
@@ -1822,7 +1822,10 @@ def printStackTrace(TestResult result) {
         result.exception.printStackTrace(processIn)
         processIn.flush()
         processIn.close()
-        process.waitFor()
+        if (process.waitFor() != 0) {
+            out.append("ERROR DURING RETRACING\n")
+            out.append(err.toString())
+        }
         out.append("\n\n--------------------------------------\n")
         out.append("OBFUSCATED STACKTRACE\n")
         out.append("--------------------------------------\n")
