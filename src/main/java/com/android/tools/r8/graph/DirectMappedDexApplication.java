@@ -69,6 +69,10 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
     return libraryClasses;
   }
 
+  public Collection<DexClasspathClass> classpathClasses() {
+    return classpathClasses;
+  }
+
   @Override
   public DexDefinition definitionFor(DexReference reference) {
     if (reference.isDexType()) {
@@ -126,6 +130,11 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
   }
 
   @Override
+  public boolean isDirect() {
+    return true;
+  }
+
+  @Override
   public DirectMappedDexApplication asDirect() {
     return this;
   }
@@ -135,12 +144,22 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
     return "DexApplication (direct)";
   }
 
-  public DirectMappedDexApplication rewrittenWithLense(GraphLense graphLense) {
+  public DirectMappedDexApplication rewrittenWithLens(GraphLense lens) {
     // As a side effect, this will rebuild the program classes and library classes maps.
-    DirectMappedDexApplication rewrittenApplication = this.builder().build().asDirect();
-    assert rewrittenApplication.mappingIsValid(graphLense, allClasses.keySet());
+    DirectMappedDexApplication rewrittenApplication = builder().build().asDirect();
+    assert rewrittenApplication.mappingIsValid(lens, allClasses.keySet());
     assert rewrittenApplication.verifyCodeObjectsOwners();
     return rewrittenApplication;
+  }
+
+  public boolean verifyNothingToRewrite(AppView<?> appView, GraphLense lens) {
+    assert allClasses.keySet().stream()
+        .allMatch(
+            type ->
+                lens.lookupType(type) == type
+                    || appView.verticallyMergedClasses().hasBeenMergedIntoSubtype(type));
+    assert verifyCodeObjectsOwners();
+    return true;
   }
 
   private boolean mappingIsValid(GraphLense graphLense, Iterable<DexType> types) {
@@ -192,7 +211,7 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
   public static class Builder extends DexApplication.Builder<Builder> {
 
     private final ImmutableList<DexLibraryClass> libraryClasses;
-    private final ImmutableList<DexClasspathClass> classpathClasses;
+    private ImmutableList<DexClasspathClass> classpathClasses;
 
     Builder(LazyLoadedDexApplication application) {
       super(application);
@@ -214,8 +233,17 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
       return this;
     }
 
+    public Builder addClasspathClasses(List<DexClasspathClass> classes) {
+      classpathClasses =
+          ImmutableList.<DexClasspathClass>builder()
+              .addAll(classpathClasses)
+              .addAll(classes)
+              .build();
+      return self();
+    }
+
     @Override
-    public DexApplication build() {
+    public DirectMappedDexApplication build() {
       // Rebuild the map. This will fail if keys are not unique.
       // TODO(zerny): Consider not rebuilding the map if no program classes are added.
       Map<DexType, DexClass> allClasses =

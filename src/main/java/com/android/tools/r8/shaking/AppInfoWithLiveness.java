@@ -6,10 +6,11 @@ package com.android.tools.r8.shaking;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.GraphLense.rewriteReferenceKeys;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
-import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -24,11 +25,14 @@ import com.android.tools.r8.graph.FieldAccessInfoCollection;
 import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
 import com.android.tools.r8.graph.PresortedComparable;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.code.Invoke.Type;
+import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.utils.CollectionUtils;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.PredicateSet;
 import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.ImmutableList;
@@ -44,14 +48,15 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /** Encapsulates liveness and reachability information for an application. */
@@ -184,7 +189,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
 
   // TODO(zerny): Clean up the constructors so we have just one.
   AppInfoWithLiveness(
-      DexApplication application,
+      DirectMappedDexApplication application,
       Set<DexType> liveTypes,
       Set<DexType> instantiatedAnnotationTypes,
       Set<DexType> instantiatedAppServices,
@@ -396,7 +401,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
 
   private AppInfoWithLiveness(
       AppInfoWithLiveness previous,
-      DexApplication application,
+      DirectMappedDexApplication application,
       Collection<DexType> removedClasses,
       Collection<DexReference> additionalPinnedItems) {
     this(
@@ -446,90 +451,6 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
         previous.constClassReferences);
     copyMetadataFromPrevious(previous);
     assert removedClasses == null || assertNoItemRemoved(previous.pinnedItems, removedClasses);
-  }
-
-  private AppInfoWithLiveness(
-      AppInfoWithLiveness previous, DirectMappedDexApplication application, GraphLense lense) {
-    super(application);
-    this.liveTypes = rewriteItems(previous.liveTypes, lense::lookupType);
-    this.instantiatedAnnotationTypes =
-        rewriteItems(previous.instantiatedAnnotationTypes, lense::lookupType);
-    this.instantiatedAppServices =
-        rewriteItems(previous.instantiatedAppServices, lense::lookupType);
-    this.instantiatedTypes = rewriteItems(previous.instantiatedTypes, lense::lookupType);
-    this.instantiatedLambdas = rewriteItems(previous.instantiatedLambdas, lense::lookupType);
-    this.targetedMethods = lense.rewriteMethodsConservatively(previous.targetedMethods);
-    this.failedResolutionTargets =
-        lense.rewriteMethodsConservatively(previous.failedResolutionTargets);
-    this.bootstrapMethods = lense.rewriteMethodsConservatively(previous.bootstrapMethods);
-    this.methodsTargetedByInvokeDynamic =
-        lense.rewriteMethodsConservatively(previous.methodsTargetedByInvokeDynamic);
-    this.virtualMethodsTargetedByInvokeDirect =
-        lense.rewriteMethodsConservatively(previous.virtualMethodsTargetedByInvokeDirect);
-    this.liveMethods = lense.rewriteMethodsConservatively(previous.liveMethods);
-    this.fieldAccessInfoCollection =
-        previous.fieldAccessInfoCollection.rewrittenWithLens(application, lense);
-    this.pinnedItems = lense.rewriteReferencesConservatively(previous.pinnedItems);
-    this.virtualInvokes =
-        rewriteKeysConservativelyWhileMergingValues(
-            previous.virtualInvokes, lense::lookupMethodInAllContexts);
-    this.interfaceInvokes =
-        rewriteKeysConservativelyWhileMergingValues(
-            previous.interfaceInvokes, lense::lookupMethodInAllContexts);
-    this.superInvokes =
-        rewriteKeysConservativelyWhileMergingValues(
-            previous.superInvokes, lense::lookupMethodInAllContexts);
-    this.directInvokes =
-        rewriteKeysConservativelyWhileMergingValues(
-            previous.directInvokes, lense::lookupMethodInAllContexts);
-    this.staticInvokes =
-        rewriteKeysConservativelyWhileMergingValues(
-            previous.staticInvokes, lense::lookupMethodInAllContexts);
-    // TODO(sgjesse): Rewrite call sites as well? Right now they are only used by minification
-    // after second tree shaking.
-    this.callSites = previous.callSites;
-    // Don't rewrite pruned types - the removed types are identified by their original name.
-    this.prunedTypes = previous.prunedTypes;
-    this.mayHaveSideEffects =
-        rewriteReferenceKeys(previous.mayHaveSideEffects, lense::lookupReference);
-    this.noSideEffects = rewriteReferenceKeys(previous.noSideEffects, lense::lookupReference);
-    this.assumedValues = rewriteReferenceKeys(previous.assumedValues, lense::lookupReference);
-    assert lense.assertDefinitionsNotModified(
-        previous.alwaysInline.stream()
-            .map(this::definitionFor)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
-    this.alwaysInline = lense.rewriteMethodsWithRenamedSignature(previous.alwaysInline);
-    this.forceInline = lense.rewriteMethodsWithRenamedSignature(previous.forceInline);
-    this.neverInline = lense.rewriteMethodsWithRenamedSignature(previous.neverInline);
-    this.whyAreYouNotInlining =
-        lense.rewriteMethodsWithRenamedSignature(previous.whyAreYouNotInlining);
-    this.keepConstantArguments =
-        lense.rewriteMethodsWithRenamedSignature(previous.keepConstantArguments);
-    this.keepUnusedArguments =
-        lense.rewriteMethodsWithRenamedSignature(previous.keepUnusedArguments);
-    this.reprocess = lense.rewriteMethodsWithRenamedSignature(previous.reprocess);
-    this.neverReprocess = lense.rewriteMethodsWithRenamedSignature(previous.neverReprocess);
-    assert lense.assertDefinitionsNotModified(
-        previous.neverMerge.stream()
-            .map(this::definitionFor)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
-    this.alwaysClassInline = previous.alwaysClassInline.rewriteItems(lense::lookupType);
-    this.neverClassInline = rewriteItems(previous.neverClassInline, lense::lookupType);
-    this.neverMerge = rewriteItems(previous.neverMerge, lense::lookupType);
-    this.neverPropagateValue = lense.rewriteReferencesConservatively(previous.neverPropagateValue);
-    this.identifierNameStrings =
-        lense.rewriteReferencesConservatively(previous.identifierNameStrings);
-    // Switchmap classes should never be affected by renaming.
-    assert lense.assertDefinitionsNotModified(
-        previous.switchMaps.keySet().stream()
-            .map(this::definitionFor)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
-    this.switchMaps = rewriteReferenceKeys(previous.switchMaps, lense::lookupField);
-    this.enumValueInfoMaps = rewriteReferenceKeys(previous.enumValueInfoMaps, lense::lookupType);
-    this.constClassReferences = previous.constClassReferences;
   }
 
   public AppInfoWithLiveness(
@@ -632,6 +553,99 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
   }
 
   /**
+   * Resolve the methods implemented by the lambda expression that created the {@code callSite}.
+   *
+   * <p>If {@code callSite} was not created as a result of a lambda expression (i.e. the metafactory
+   * is not {@code LambdaMetafactory}), the empty set is returned.
+   *
+   * <p>If the metafactory is neither {@code LambdaMetafactory} nor {@code StringConcatFactory}, a
+   * warning is issued.
+   *
+   * <p>The returned set of methods all have {@code callSite.methodName} as the method name.
+   *
+   * @param callSite Call site to resolve.
+   * @return Methods implemented by the lambda expression that created the {@code callSite}.
+   */
+  public Set<DexEncodedMethod> lookupLambdaImplementedMethods(DexCallSite callSite) {
+    assert checkIfObsolete();
+    List<DexType> callSiteInterfaces = LambdaDescriptor.getInterfaces(callSite, this);
+    if (callSiteInterfaces == null || callSiteInterfaces.isEmpty()) {
+      return Collections.emptySet();
+    }
+    Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
+    Deque<DexType> worklist = new ArrayDeque<>(callSiteInterfaces);
+    Set<DexType> visited = Sets.newIdentityHashSet();
+    while (!worklist.isEmpty()) {
+      DexType iface = worklist.removeFirst();
+      if (!visited.add(iface)) {
+        // Already visited previously. May happen due to "diamond shapes" in the interface
+        // hierarchy.
+        continue;
+      }
+      DexClass clazz = definitionFor(iface);
+      if (clazz == null) {
+        // Skip this interface. If the lambda only implements missing library interfaces and not any
+        // program interfaces, then minification and tree shaking are not interested in this
+        // DexCallSite anyway, so skipping this interface is harmless. On the other hand, if
+        // minification is run on a program with a lambda interface that implements both a missing
+        // library interface and a present program interface, then we might minify the method name
+        // on the program interface even though it should be kept the same as the (missing) library
+        // interface method. That is a shame, but minification is not suited for incomplete programs
+        // anyway.
+        continue;
+      }
+      assert clazz.isInterface();
+      for (DexEncodedMethod method : clazz.virtualMethods()) {
+        if (method.method.name == callSite.methodName && method.accessFlags.isAbstract()) {
+          result.add(method);
+        }
+      }
+      Collections.addAll(worklist, clazz.interfaces.values);
+    }
+    return result;
+  }
+
+  // TODO(b/139464956): Reimplement using only reachable types.
+  public DexProgramClass getSingleDirectSubtype(DexProgramClass clazz) {
+    DexType subtype = super.getSingleSubtype_(clazz.type);
+    return subtype == null ? null : asProgramClassOrNull(definitionFor(subtype));
+  }
+
+  /**
+   * Apply the given function to all classes that directly extend this class.
+   *
+   * <p>If this class is an interface, then this method will visit all sub-interfaces. This deviates
+   * from the dex-file encoding, where subinterfaces "implement" their super interfaces. However, it
+   * is consistent with the source language.
+   */
+  // TODO(b/139464956): Reimplement using only reachable types.
+  public void forAllImmediateExtendsSubtypes(DexType type, Consumer<DexType> f) {
+    allImmediateExtendsSubtypes(type).forEach(f);
+  }
+
+  // TODO(b/139464956): Reimplement using only reachable types.
+  public Iterable<DexType> allImmediateExtendsSubtypes(DexType type) {
+    return super.allImmediateExtendsSubtypes_(type);
+  }
+
+  /**
+   * Apply the given function to all classes that directly implement this interface.
+   *
+   * <p>The implementation does not consider how the hierarchy is encoded in the dex file, where
+   * interfaces "implement" their super interfaces. Instead it takes the view of the source
+   * language, where interfaces "extend" their superinterface.
+   */
+  // TODO(b/139464956): Reimplement using only reachable types.
+  public void forAllImmediateImplementsSubtypes(DexType type, Consumer<DexType> f) {
+    allImmediateImplementsSubtypes(type).forEach(f);
+  }
+
+  // TODO(b/139464956): Reimplement using only reachable types.
+  public Iterable<DexType> allImmediateImplementsSubtypes(DexType type) {
+    return super.allImmediateImplementsSubtypes_(type);
+  }
+
+  /**
    * Const-classes is a conservative set of types that may be lock-candidates and cannot be merged.
    * When using synchronized blocks, we cannot ensure that const-class locks will not flow in. This
    * can potentially cause incorrect behavior when merging classes. A conservative choice is to not
@@ -639,28 +653,6 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
    */
   public boolean isLockCandidate(DexType type) {
     return constClassReferences.contains(type);
-  }
-
-  public AppInfoWithLiveness withStaticFieldWrites(
-      Map<DexEncodedField, Set<DexEncodedMethod>> writesWithContexts) {
-    assert checkIfObsolete();
-    if (writesWithContexts.isEmpty()) {
-      return this;
-    }
-    AppInfoWithLiveness result = new AppInfoWithLiveness(this);
-    writesWithContexts.forEach(
-        (encodedField, contexts) -> {
-          DexField field = encodedField.field;
-          FieldAccessInfoImpl fieldAccessInfo = result.fieldAccessInfoCollection.get(field);
-          if (fieldAccessInfo == null) {
-            fieldAccessInfo = new FieldAccessInfoImpl(field);
-            result.fieldAccessInfoCollection.extend(field, fieldAccessInfo);
-          }
-          for (DexEncodedMethod context : contexts) {
-            fieldAccessInfo.recordWrite(field, context);
-          }
-        });
-    return result;
   }
 
   public AppInfoWithLiveness withoutStaticFieldsWrites(Set<DexField> noLongerWrittenFields) {
@@ -680,13 +672,6 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
           }
         });
     return result;
-  }
-
-  private <T extends PresortedComparable<T>> SortedSet<T> filter(
-      Set<T> items, Predicate<T> predicate) {
-    return ImmutableSortedSet.copyOf(
-        PresortedComparable::slowCompareTo,
-        items.stream().filter(predicate).collect(Collectors.toList()));
   }
 
   public Map<DexField, EnumValueInfo> getEnumValueInfoMapFor(DexType enumClass) {
@@ -941,17 +926,90 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
    * DexApplication object.
    */
   public AppInfoWithLiveness prunedCopyFrom(
-      DexApplication application,
+      DirectMappedDexApplication application,
       Collection<DexType> removedClasses,
       Collection<DexReference> additionalPinnedItems) {
     assert checkIfObsolete();
     return new AppInfoWithLiveness(this, application, removedClasses, additionalPinnedItems);
   }
 
-  public AppInfoWithLiveness rewrittenWithLense(
-      DirectMappedDexApplication application, GraphLense lense) {
+  public AppInfoWithLiveness rewrittenWithLens(
+      DirectMappedDexApplication application, NestedGraphLense lens) {
     assert checkIfObsolete();
-    return new AppInfoWithLiveness(this, application, lense);
+    // The application has already been rewritten with all of lens' parent lenses. Therefore, we
+    // temporarily replace lens' parent lens with an identity lens to avoid the overhead of
+    // traversing the entire lens chain upon each lookup during the rewriting.
+    return lens.withAlternativeParentLens(
+        GraphLense.getIdentityLense(), () -> createRewrittenAppInfoWithLiveness(application, lens));
+  }
+
+  private AppInfoWithLiveness createRewrittenAppInfoWithLiveness(
+      DirectMappedDexApplication application, NestedGraphLense lens) {
+    // Switchmap classes should never be affected by renaming.
+    assert lens.assertDefinitionsNotModified(
+        switchMaps.keySet().stream()
+            .map(this::definitionFor)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList()));
+
+    assert lens.assertDefinitionsNotModified(
+        neverMerge.stream()
+            .map(this::definitionFor)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList()));
+
+    assert lens.assertDefinitionsNotModified(
+        alwaysInline.stream()
+            .map(this::definitionFor)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList()));
+
+    return new AppInfoWithLiveness(
+        application,
+        rewriteItems(liveTypes, lens::lookupType),
+        rewriteItems(instantiatedAnnotationTypes, lens::lookupType),
+        rewriteItems(instantiatedAppServices, lens::lookupType),
+        rewriteItems(instantiatedTypes, lens::lookupType),
+        lens.rewriteMethodsConservatively(targetedMethods),
+        lens.rewriteMethodsConservatively(failedResolutionTargets),
+        lens.rewriteMethodsConservatively(bootstrapMethods),
+        lens.rewriteMethodsConservatively(methodsTargetedByInvokeDynamic),
+        lens.rewriteMethodsConservatively(virtualMethodsTargetedByInvokeDirect),
+        lens.rewriteMethodsConservatively(liveMethods),
+        fieldAccessInfoCollection.rewrittenWithLens(application, lens),
+        rewriteKeysConservativelyWhileMergingValues(
+            virtualInvokes, lens::lookupMethodInAllContexts),
+        rewriteKeysConservativelyWhileMergingValues(
+            interfaceInvokes, lens::lookupMethodInAllContexts),
+        rewriteKeysConservativelyWhileMergingValues(superInvokes, lens::lookupMethodInAllContexts),
+        rewriteKeysConservativelyWhileMergingValues(directInvokes, lens::lookupMethodInAllContexts),
+        rewriteKeysConservativelyWhileMergingValues(staticInvokes, lens::lookupMethodInAllContexts),
+        // TODO(sgjesse): Rewrite call sites as well? Right now they are only used by minification
+        //   after second tree shaking.
+        callSites,
+        lens.rewriteReferencesConservatively(pinnedItems),
+        rewriteReferenceKeys(mayHaveSideEffects, lens::lookupReference),
+        rewriteReferenceKeys(noSideEffects, lens::lookupReference),
+        rewriteReferenceKeys(assumedValues, lens::lookupReference),
+        lens.rewriteMethodsWithRenamedSignature(alwaysInline),
+        lens.rewriteMethodsWithRenamedSignature(forceInline),
+        lens.rewriteMethodsWithRenamedSignature(neverInline),
+        lens.rewriteMethodsWithRenamedSignature(whyAreYouNotInlining),
+        lens.rewriteMethodsWithRenamedSignature(keepConstantArguments),
+        lens.rewriteMethodsWithRenamedSignature(keepUnusedArguments),
+        lens.rewriteMethodsWithRenamedSignature(reprocess),
+        lens.rewriteMethodsWithRenamedSignature(neverReprocess),
+        alwaysClassInline.rewriteItems(lens::lookupType),
+        rewriteItems(neverClassInline, lens::lookupType),
+        rewriteItems(neverMerge, lens::lookupType),
+        lens.rewriteReferencesConservatively(neverPropagateValue),
+        lens.rewriteReferencesConservatively(identifierNameStrings),
+        // Don't rewrite pruned types - the removed types are identified by their original name.
+        prunedTypes,
+        rewriteReferenceKeys(switchMaps, lens::lookupField),
+        rewriteReferenceKeys(enumValueInfoMaps, lens::lookupType),
+        rewriteItems(instantiatedLambdas, lens::lookupType),
+        constClassReferences);
   }
 
   /**
@@ -1342,5 +1400,79 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     assert checkIfObsolete();
     assert this.enumValueInfoMaps.isEmpty();
     return new AppInfoWithLiveness(this, switchMaps, enumValueInfoMaps);
+  }
+
+  public void forEachLiveProgramClass(Consumer<DexProgramClass> fn) {
+    for (DexType type : liveTypes) {
+      fn.accept(definitionFor(type).asProgramClass());
+    }
+  }
+
+  /**
+   * Visit all class definitions of classpath classes that are referenced in the compilation unit.
+   *
+   * <p>TODO(b/139464956): Only traverse the classpath types referenced from the live program.
+   * Conservatively traces all classpath classes for now.
+   */
+  public void forEachReferencedClasspathClass(Consumer<DexClasspathClass> fn) {
+    app().asDirect().classpathClasses().forEach(fn);
+  }
+
+  /**
+   * Visits all class definitions that are a live program type or a type above it in the hierarchy.
+   *
+   * <p>Any given definition will be visited at most once. No guarantees are places on the order.
+   */
+  public void forEachTypeInHierarchyOfLiveProgramClasses(Consumer<DexClass> fn) {
+    forEachTypeInHierarchyOfLiveProgramClasses(
+        fn, ListUtils.map(liveTypes, t -> definitionFor(t).asProgramClass()), callSites, this);
+  }
+
+  // Split in a static method so it can be used during construction.
+  static void forEachTypeInHierarchyOfLiveProgramClasses(
+      Consumer<DexClass> fn,
+      Collection<DexProgramClass> liveProgramClasses,
+      Set<DexCallSite> callSites,
+      AppInfoWithClassHierarchy appInfo) {
+    Set<DexType> seen = Sets.newIdentityHashSet();
+    Deque<DexType> worklist = new ArrayDeque<>();
+    liveProgramClasses.forEach(c -> seen.add(c.type));
+    for (DexProgramClass liveProgramClass : liveProgramClasses) {
+      fn.accept(liveProgramClass);
+      DexType superType = liveProgramClass.superType;
+      if (superType != null && seen.add(superType)) {
+        worklist.add(superType);
+      }
+      for (DexType iface : liveProgramClass.interfaces.values) {
+        if (seen.add(iface)) {
+          worklist.add(iface);
+        }
+      }
+    }
+    for (DexCallSite callSite : callSites) {
+      List<DexType> interfaces = LambdaDescriptor.getInterfaces(callSite, appInfo);
+      if (interfaces != null) {
+        for (DexType iface : interfaces) {
+          if (seen.add(iface)) {
+            worklist.add(iface);
+          }
+        }
+      }
+    }
+    while (!worklist.isEmpty()) {
+      DexType type = worklist.pop();
+      DexClass clazz = appInfo.definitionFor(type);
+      if (clazz != null) {
+        fn.accept(clazz);
+        if (clazz.superType != null && seen.add(clazz.superType)) {
+          worklist.add(clazz.superType);
+        }
+        for (DexType iface : clazz.interfaces.values) {
+          if (seen.add(iface)) {
+            worklist.add(iface);
+          }
+        }
+      }
+    }
   }
 }

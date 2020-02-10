@@ -8,9 +8,11 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
@@ -60,17 +62,27 @@ import java.util.concurrent.ExecutorService;
 public class DesugaredLibraryAPIConverter {
 
   static final String VIVIFIED_PREFIX = "$-vivified-$.";
+  private static final String DESCRIPTOR_VIVIFIED_PREFIX = "L$-vivified-$/";
 
   private final AppView<?> appView;
   private final DexItemFactory factory;
+  // For debugging only, allows to assert that synthesized code in R8 have been synthesized in the
+  // Enqueuer and not during IR processing.
+  private final Mode mode;
   private final DesugaredLibraryWrapperSynthesizer wrapperSynthesizor;
   private final Map<DexClass, Set<DexEncodedMethod>> callBackMethods = new HashMap<>();
   private final Set<DexMethod> trackedCallBackAPIs;
   private final Set<DexMethod> trackedAPIs;
 
-  public DesugaredLibraryAPIConverter(AppView<?> appView) {
+  public enum Mode {
+    GENERATE_CALLBACKS_AND_WRAPPERS,
+    ASSERT_CALLBACKS_AND_WRAPPERS_GENERATED;
+  }
+
+  public DesugaredLibraryAPIConverter(AppView<?> appView, Mode mode) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
+    this.mode = mode;
     this.wrapperSynthesizor = new DesugaredLibraryWrapperSynthesizer(appView, this);
     if (appView.options().testing.trackDesugaredAPIConversions) {
       trackedCallBackAPIs = Sets.newConcurrentHashSet();
@@ -81,13 +93,25 @@ public class DesugaredLibraryAPIConverter {
     }
   }
 
+  public static boolean isVivifiedType(DexType type) {
+    return type.descriptor.toString().startsWith(DESCRIPTOR_VIVIFIED_PREFIX);
+  }
+
+  boolean canGenerateWrappersAndCallbacks() {
+    return mode == Mode.GENERATE_CALLBACKS_AND_WRAPPERS;
+  }
+
   public void desugar(IRCode code) {
 
     if (wrapperSynthesizor.hasSynthesized(code.method.method.holder)) {
       return;
     }
 
-    generateCallBackIfNeeded(code);
+    if (!canGenerateWrappersAndCallbacks()) {
+      assert validateCallbackWasGeneratedInEnqueuer(code.method);
+    } else {
+      registerCallbackIfRequired(code.method);
+    }
 
     ListIterator<BasicBlock> blockIterator = code.listIterator();
     while (blockIterator.hasNext()) {
@@ -100,25 +124,47 @@ public class DesugaredLibraryAPIConverter {
         }
         InvokeMethod invokeMethod = instruction.asInvokeMethod();
         DexMethod invokedMethod = invokeMethod.getInvokedMethod();
-        // Rewriting is required only on calls to library methods which are not desugared.
-        if (appView.rewritePrefix.hasRewrittenType(invokedMethod.holder, appView)
-            || invokedMethod.holder.isArrayType()) {
-          continue;
-        }
-        DexClass dexClass = appView.definitionFor(invokedMethod.holder);
-        if (dexClass == null || !dexClass.isLibraryClass()) {
-          continue;
-        }
         // Library methods do not understand desugared types, hence desugared types have to be
         // converted around non desugared library calls for the invoke to resolve.
-        if (appView.rewritePrefix.hasRewrittenTypeInSignature(invokedMethod.proto, appView)) {
+        if (shouldRewriteInvoke(invokedMethod)) {
           rewriteLibraryInvoke(code, invokeMethod, iterator, blockIterator);
         }
       }
     }
   }
 
-  private void generateCallBackIfNeeded(IRCode code) {
+  private boolean validateCallbackWasGeneratedInEnqueuer(DexEncodedMethod encodedMethod) {
+    if (!shouldRegisterCallback(encodedMethod)) {
+      return true;
+    }
+    DexProgramClass holderClass = appView.definitionForProgramType(encodedMethod.method.holder);
+    DexMethod installedCallback =
+        methodWithVivifiedTypeInSignature(encodedMethod.method, holderClass.type, appView);
+    assert holderClass.lookupMethod(installedCallback) != null;
+    return true;
+  }
+
+  private boolean shouldRewriteInvoke(DexMethod invokedMethod) {
+    if (appView.rewritePrefix.hasRewrittenType(invokedMethod.holder, appView)
+        || invokedMethod.holder.isArrayType()) {
+      return false;
+    }
+    DexClass dexClass = appView.definitionFor(invokedMethod.holder);
+    if (dexClass == null || !dexClass.isLibraryClass()) {
+      return false;
+    }
+    return appView.rewritePrefix.hasRewrittenTypeInSignature(invokedMethod.proto, appView);
+  }
+
+  public void registerCallbackIfRequired(DexEncodedMethod encodedMethod) {
+    if (shouldRegisterCallback(encodedMethod)) {
+      DexClass dexClass = appView.definitionFor(encodedMethod.method.holder);
+      assert dexClass != null;
+      registerCallback(dexClass, encodedMethod);
+    }
+  }
+
+  private boolean shouldRegisterCallback(DexEncodedMethod encodedMethod) {
     // Any override of a library method can be called by the library.
     // We duplicate the method to have a vivified type version callable by the library and
     // a type version callable by the program. We need to add the vivified version to the rootset
@@ -126,10 +172,10 @@ public class DesugaredLibraryAPIConverter {
     // library type), but the enqueuer cannot see that.
     // To avoid too much computation we first look if the method would need to be rewritten if
     // it would override a library method, then check if it overrides a library method.
-    if (code.method.isPrivateMethod() || code.method.isStatic()) {
-      return;
+    if (encodedMethod.isPrivateMethod() || encodedMethod.isStatic()) {
+      return false;
     }
-    DexMethod method = code.method.method;
+    DexMethod method = encodedMethod.method;
     if (method.holder.isArrayType()
         || !appView.rewritePrefix.hasRewrittenTypeInSignature(method.proto, appView)
         || appView
@@ -137,16 +183,15 @@ public class DesugaredLibraryAPIConverter {
             .desugaredLibraryConfiguration
             .getEmulateLibraryInterface()
             .containsKey(method.holder)) {
-      return;
+      return false;
     }
     DexClass dexClass = appView.definitionFor(method.holder);
     if (dexClass == null) {
-      return;
+      return false;
     }
-    if (overridesLibraryMethod(dexClass, method)) {
-      generateCallBack(dexClass, code.method);
-    }
+    return overridesLibraryMethod(dexClass, method);
   }
+
 
   private boolean overridesLibraryMethod(DexClass theClass, DexMethod method) {
     // We look up everywhere to see if there is a supertype/interface implementing the method...
@@ -182,17 +227,19 @@ public class DesugaredLibraryAPIConverter {
     return foundOverrideToRewrite;
   }
 
-  private synchronized void generateCallBack(DexClass dexClass, DexEncodedMethod originalMethod) {
-    if (dexClass.isInterface()
-        && originalMethod.isDefaultMethod()
-        && (!appView.options().canUseDefaultAndStaticInterfaceMethods()
-            || appView.options().isDesugaredLibraryCompilation())) {
-      // Interface method desugaring has been performed before and all the call-backs will be
-      // generated in all implementors of the interface. R8 cannot introduce new
-      // default methods at this point, but R8 does not need to do anything (the interface
-      // already implements the vivified version through inheritance, and all implementors
-      // support the call-back correctly).
-      return;
+  private synchronized void registerCallback(DexClass dexClass, DexEncodedMethod originalMethod) {
+    // In R8 we should be in the enqueuer, therefore we can duplicate a default method and both
+    // methods will be desugared.
+    // In D8, this happens after interface method desugaring, we cannot introduce new default
+    // methods, but we do not need to since this is a library override (invokes will resolve) and
+    // all implementors have been enhanced with a forwarding method which will be duplicated.
+    if (!appView.enableWholeProgramOptimizations()) {
+      if (dexClass.isInterface()
+          && originalMethod.isDefaultMethod()
+          && (!appView.options().canUseDefaultAndStaticInterfaceMethods()
+              || appView.options().isDesugaredLibraryCompilation())) {
+        return;
+      }
     }
     if (trackedCallBackAPIs != null) {
       trackedCallBackAPIs.add(originalMethod.method);
@@ -225,25 +272,46 @@ public class DesugaredLibraryAPIConverter {
     return appView.dexItemFactory().createMethod(holder, newProto, originalMethod.name);
   }
 
-  public void generateWrappers(
+  public void finalizeWrappers(
       DexApplication.Builder<?> builder, IRConverter irConverter, ExecutorService executorService)
       throws ExecutionException {
+    // In D8, we generate the wrappers here. In R8, wrappers have already been generated in the
+    // enqueuer, so nothing needs to be done.
+    if (appView.enableWholeProgramOptimizations()) {
+      return;
+    }
+    List<DexEncodedMethod> callbacks = generateCallbackMethods();
+    irConverter.processMethodsConcurrently(callbacks, executorService);
+    wrapperSynthesizor.finalizeWrappersForD8(builder, irConverter, executorService);
+  }
+
+  public List<DexEncodedMethod> generateCallbackMethods() {
     if (appView.options().testing.trackDesugaredAPIConversions) {
       generateTrackDesugaredAPIWarnings(trackedAPIs, "");
       generateTrackDesugaredAPIWarnings(trackedCallBackAPIs, "callback ");
     }
+    List<DexEncodedMethod> result = new ArrayList<>();
     for (DexClass dexClass : callBackMethods.keySet()) {
-      Set<DexEncodedMethod> dexEncodedMethods =
+      List<DexEncodedMethod> dexEncodedMethods =
           generateCallbackMethods(callBackMethods.get(dexClass), dexClass);
       dexClass.appendVirtualMethods(dexEncodedMethods);
-      irConverter.processMethodsConcurrently(dexEncodedMethods, executorService);
+      result.addAll(dexEncodedMethods);
     }
-    wrapperSynthesizor.finalizeWrappers(builder, irConverter, executorService);
+    return result;
   }
 
-  private Set<DexEncodedMethod> generateCallbackMethods(
+  public Map<DexProgramClass, DexProgramClass> synthesizeWrappersAndMapToReverse() {
+    return wrapperSynthesizor.synthesizeWrappersAndMapToReverse();
+  }
+
+  public DexClasspathClass synthesizeClasspathMock(
+      DexClass classToMock, DexType mockType, boolean mockIsInterface) {
+    return wrapperSynthesizor.synthesizeClasspathMock(classToMock, mockType, mockIsInterface);
+  }
+
+  private List<DexEncodedMethod> generateCallbackMethods(
       Set<DexEncodedMethod> originalMethods, DexClass dexClass) {
-    Set<DexEncodedMethod> newDexEncodedMethods = new HashSet<>();
+    List<DexEncodedMethod> newDexEncodedMethods = new ArrayList<>();
     for (DexEncodedMethod originalMethod : originalMethods) {
       DexMethod methodToInstall =
           methodWithVivifiedTypeInSignature(originalMethod.method, dexClass.type, appView);
@@ -256,6 +324,7 @@ public class DesugaredLibraryAPIConverter {
       newDexEncodedMethod.setCode(cfCode, appView);
       newDexEncodedMethods.add(newDexEncodedMethod);
     }
+    assert Sets.newHashSet(newDexEncodedMethods).size() == newDexEncodedMethods.size();
     return newDexEncodedMethods;
   }
 
@@ -294,6 +363,24 @@ public class DesugaredLibraryAPIConverter {
             .createType(DescriptorUtils.javaTypeToDescriptor(VIVIFIED_PREFIX + type.toString()));
     appView.rewritePrefix.rewriteType(vivifiedType, type);
     return vivifiedType;
+  }
+
+  public void registerWrappersForLibraryInvokeIfRequired(DexMethod invokedMethod) {
+    if (!shouldRewriteInvoke(invokedMethod)) {
+      return;
+    }
+    if (trackedAPIs != null) {
+      trackedAPIs.add(invokedMethod);
+    }
+    DexType returnType = invokedMethod.proto.returnType;
+    if (appView.rewritePrefix.hasRewrittenType(returnType, appView) && canConvert(returnType)) {
+      registerConversionWrappers(returnType, vivifiedTypeFor(returnType, appView));
+    }
+    for (DexType argType : invokedMethod.proto.parameters.values) {
+      if (appView.rewritePrefix.hasRewrittenType(argType, appView) && canConvert(argType)) {
+        registerConversionWrappers(argType, argType);
+      }
+    }
   }
 
   private void rewriteLibraryInvoke(
@@ -434,9 +521,23 @@ public class DesugaredLibraryAPIConverter {
       IRCode code, InvokeMethod invokeMethod, DexType returnType, DexType returnVivifiedType) {
     DexMethod conversionMethod = createConversionMethod(returnType, returnVivifiedType, returnType);
     Value convertedValue = createConversionValue(code, Nullability.maybeNull(), returnType);
-    invokeMethod.outValue().replaceUsers(convertedValue);
-    return new InvokeStatic(
-        conversionMethod, convertedValue, Collections.singletonList(invokeMethod.outValue()));
+    Value outValue = invokeMethod.outValue();
+    outValue.replaceUsers(convertedValue);
+    // The only user of out value is now the new invoke static, so no type propagation is required.
+    outValue.setTypeLattice(
+        TypeLatticeElement.fromDexType(
+            returnVivifiedType, outValue.getTypeLattice().nullability(), appView));
+    return new InvokeStatic(conversionMethod, convertedValue, Collections.singletonList(outValue));
+  }
+
+  private void registerConversionWrappers(DexType type, DexType srcType) {
+    if (appView.options().desugaredLibraryConfiguration.getCustomConversions().get(type) == null) {
+      if (type == srcType) {
+        wrapperSynthesizor.getTypeWrapper(type);
+      } else {
+        wrapperSynthesizor.getVivifiedTypeWrapper(type);
+      }
+    }
   }
 
   public DexMethod createConversionMethod(DexType type, DexType srcType, DexType destType) {

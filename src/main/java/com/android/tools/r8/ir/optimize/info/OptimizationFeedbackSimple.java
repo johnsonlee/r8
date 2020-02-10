@@ -87,7 +87,7 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
 
   @Override
   public void methodReturnsArgument(DexEncodedMethod method, int argument) {
-    // Ignored.
+    method.getMutableOptimizationInfo().markReturnsArgument(argument);
   }
 
   @Override
@@ -120,7 +120,7 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
 
   @Override
   public void methodNeverReturnsNull(DexEncodedMethod method) {
-    // Ignored.
+    method.getMutableOptimizationInfo().neverReturnsNull();
   }
 
   @Override
@@ -162,7 +162,7 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
   }
 
   @Override
-  public void setInitializerEnablingJavaAssertions(DexEncodedMethod method) {
+  public void setInitializerEnablingJavaVmAssertions(DexEncodedMethod method) {
     method.getMutableOptimizationInfo().setInitializerEnablingJavaAssertions();
   }
 
@@ -173,12 +173,12 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
 
   @Override
   public void setNonNullParamOrThrow(DexEncodedMethod method, BitSet facts) {
-    // Ignored.
+    method.getMutableOptimizationInfo().setNonNullParamOrThrow(facts);
   }
 
   @Override
   public void setNonNullParamOnNormalExits(DexEncodedMethod method, BitSet facts) {
-    // Ignored.
+    method.getMutableOptimizationInfo().setNonNullParamOnNormalExits(facts);
   }
 
   @Override

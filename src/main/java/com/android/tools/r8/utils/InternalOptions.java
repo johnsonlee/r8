@@ -224,7 +224,11 @@ public class InternalOptions {
   public boolean enablePropagationOfDynamicTypesAtCallSites = true;
   // TODO(b/69963623): enable if everything is ready, including signature rewriting at call sites.
   public boolean enablePropagationOfConstantsAtCallSites = false;
-  public boolean enableKotlinMetadataRewriting = true;
+  // At 2.0, part of @Metadata up to this flag is rewritten, which is super-type hierarchy.
+  public boolean enableKotlinMetadataRewritingForMembers = true;
+  // Up to 2.0, Kotlin @Metadata is removed if the associated class is renamed.
+  // Under this flag, Kotlin @Metadata is generally kept and modified for all program classes.
+  public boolean enableKotlinMetadataRewritingForRenamedClasses = true;
   public boolean encodeChecksums = false;
   public BiPredicate<String, Long> dexClassChecksumFilter = (name, checksum) -> true;
   public boolean enableCfInterfaceMethodDesugaring = false;
@@ -257,6 +261,8 @@ public class InternalOptions {
   public boolean enableUninstantiatedTypeOptimizationForInterfaces = false;
   // TODO(b/138917494): Disable until we have numbers on potential performance penalties.
   public boolean enableRedundantConstNumberOptimization = false;
+
+  public boolean enablePcDebugInfoOutput = false;
 
   // Number of threads to use while processing the dex files.
   public int numberOfThreads = DETERMINISTIC_DEBUGGING ? 1 : ThreadUtils.NOT_SPECIFIED;
@@ -1018,7 +1024,6 @@ public class InternalOptions {
     public boolean placeExceptionalBlocksLast = false;
     public boolean dontCreateMarkerInD8 = false;
     public boolean forceJumboStringProcessing = false;
-    public boolean nondeterministicCycleElimination = false;
     public Set<Inliner.Reason> validInliningReasons = null;
     public boolean noLocalsTableOnInput = false;
     public boolean forceNameReflectionOptimization = false;
@@ -1143,6 +1148,11 @@ public class InternalOptions {
     enablePropagationOfDynamicTypesAtCallSites = false;
   }
 
+  public boolean canUseDexPcAsDebugInformation() {
+    // TODO(b/37830524): Enable for min-api 26 (OREO) and above.
+    return enablePcDebugInfoOutput;
+  }
+
   public boolean isInterfaceMethodDesugaringEnabled() {
     // This condition is to filter out tests that never set program consumer.
     if (!hasConsumer()) {
@@ -1160,6 +1170,10 @@ public class InternalOptions {
   public boolean canUseMultidex() {
     assert isGeneratingDex();
     return intermediate || hasMinApi(AndroidApiLevel.L);
+  }
+
+  public boolean canUseRequireNonNull() {
+    return isGeneratingClassFiles() || hasMinApi(AndroidApiLevel.K);
   }
 
   public boolean canUseSuppressedExceptions() {

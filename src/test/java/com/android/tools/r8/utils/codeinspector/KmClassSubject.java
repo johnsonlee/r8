@@ -7,11 +7,17 @@ import com.android.tools.r8.graph.DexClass;
 import java.util.List;
 
 public abstract class KmClassSubject extends Subject implements KmDeclarationContainerSubject {
+  public abstract String getName();
+
   public abstract DexClass getDexClass();
 
   public abstract List<String> getSuperTypeDescriptors();
 
   public abstract List<ClassSubject> getSuperTypes();
+
+  public abstract List<String> getNestedClassDescriptors();
+
+  public abstract List<ClassSubject> getNestedClasses();
 
   public abstract List<String> getSealedSubclassDescriptors();
 

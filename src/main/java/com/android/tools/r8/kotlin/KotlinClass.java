@@ -14,7 +14,9 @@ import static kotlinx.metadata.Flag.IS_SEALED;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.List;
@@ -48,6 +50,16 @@ public class KotlinClass extends KotlinInfo<KotlinClassMetadata.Class> {
 
   @Override
   void rewrite(AppView<AppInfoWithLiveness> appView, NamingLens lens) {
+    if (appView.options().enableKotlinMetadataRewritingForRenamedClasses
+        && lens.lookupType(clazz.type, appView.dexItemFactory()) != clazz.type) {
+      String renamedClassifier = toRenamedClassifier(clazz.type, appView, lens);
+      if (renamedClassifier != null) {
+        assert !kmClass.getName().equals(renamedClassifier);
+        kmClass.setName(renamedClassifier);
+      }
+    }
+
+    // Rewriting upward hierarchy.
     List<KmType> superTypes = kmClass.getSupertypes();
     superTypes.clear();
     for (DexType itfType : clazz.interfaces.values) {
@@ -66,7 +78,29 @@ public class KotlinClass extends KotlinInfo<KotlinClassMetadata.Class> {
       superTypes.add(toKmType(addKotlinPrefix("Any;")));
     }
 
-    if (!appView.options().enableKotlinMetadataRewriting) {
+    // Rewriting downward hierarchies: nested.
+    List<String> nestedClasses = kmClass.getNestedClasses();
+    nestedClasses.clear();
+    for (InnerClassAttribute innerClassAttribute : clazz.getInnerClasses()) {
+      DexString renamedInnerName = lens.lookupInnerName(innerClassAttribute, appView.options());
+      if (renamedInnerName != null) {
+        nestedClasses.add(renamedInnerName.toString());
+      }
+    }
+
+    // Rewriting downward hierarchies: sealed.
+    List<String> sealedSubclasses = kmClass.getSealedSubclasses();
+    sealedSubclasses.clear();
+    if (IS_SEALED.invoke(kmClass.getFlags())) {
+      for (DexType subtype : appView.appInfo().allImmediateSubtypes(clazz.type)) {
+        String classifier = toRenamedClassifier(subtype, appView, lens);
+        if (classifier != null) {
+          sealedSubclasses.add(classifier);
+        }
+      }
+    }
+
+    if (!appView.options().enableKotlinMetadataRewritingForMembers) {
       return;
     }
     List<KmConstructor> constructors = kmClass.getConstructors();
@@ -81,18 +115,9 @@ public class KotlinClass extends KotlinInfo<KotlinClassMetadata.Class> {
       }
     }
 
-    rewriteDeclarationContainer(kmClass, appView, lens);
+    // TODO(b/70169921): enum entries
 
-    List<String> sealedSubclasses = kmClass.getSealedSubclasses();
-    sealedSubclasses.clear();
-    if (IS_SEALED.invoke(kmClass.getFlags())) {
-      for (DexType subtype : appView.appInfo().allImmediateSubtypes(clazz.type)) {
-        String classifier = toRenamedClassifier(subtype, appView, lens);
-        if (classifier != null) {
-          sealedSubclasses.add(classifier);
-        }
-      }
-    }
+    rewriteDeclarationContainer(kmClass, appView, lens);
   }
 
   @Override

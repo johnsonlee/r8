@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.FileUtils.CLASS_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.MODULES_PREFIX;
 
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.errors.InvalidDescriptorException;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
@@ -370,6 +371,12 @@ public class DescriptorUtils {
     return 'L' + className.replace(JAVA_PACKAGE_SEPARATOR, INNER_CLASS_SEPARATOR) + ';';
   }
 
+  // Kotlin @Metadata deserialization has plain "kotlin", which will be relocated in r8lib.
+  // See b/70169921#comment25 for more details.
+  private static String backwardRelocatedName(String name) {
+    return name.replace("com/android/tools/r8/jetbrains/", "");
+  }
+
   /**
    * Get a fully qualified name from a classifier in Kotlin metadata.
    * @param kmType where classifier contains Kotlin internal name, like "org/foo/bar/Baz.Nested"
@@ -385,16 +392,16 @@ public class DescriptorUtils {
       public void visitClass(String name) {
         // TODO(b/70169921): Remove this if metadata lib is resilient to namespace relocation.
         //  See b/70169921#comment25 for more details.
-        String backwardRelocatedName = name.replace("com/android/tools/r8/jetbrains/", "");
-        descriptor.set(getDescriptorFromKotlinClassifier(backwardRelocatedName));
+        assert descriptor.get() == null : descriptor.get();
+        descriptor.set(getDescriptorFromKotlinClassifier(backwardRelocatedName(name)));
       }
 
       @Override
       public void visitTypeAlias(String name) {
         // TODO(b/70169921): Remove this if metadata lib is resilient to namespace relocation.
         //  See b/70169921#comment25 for more details.
-        String backwardRelocatedName = name.replace("com/android/tools/r8/jetbrains/", "");
-        descriptor.set(getDescriptorFromKotlinClassifier(backwardRelocatedName));
+        assert descriptor.get() == null : descriptor.get();
+        descriptor.set(getDescriptorFromKotlinClassifier(backwardRelocatedName(name)));
       }
     });
     return descriptor.get();
@@ -619,7 +626,7 @@ public class DescriptorUtils {
     while ((c = methodDescriptor.charAt(charIdx)) != ')') {
       switch (c) {
         case 'V':
-          throw new Unreachable();
+          throw new InvalidDescriptorException(methodDescriptor);
         case 'Z':
         case 'C':
         case 'B':
@@ -632,7 +639,8 @@ public class DescriptorUtils {
           break;
         case '[':
           startType = charIdx;
-          while (methodDescriptor.charAt(++charIdx) == '[') {}
+          while (methodDescriptor.charAt(++charIdx) == '[')
+            ;
           if (methodDescriptor.charAt(charIdx) == 'L') {
             while (methodDescriptor.charAt(++charIdx) != ';')
               ;
@@ -646,7 +654,7 @@ public class DescriptorUtils {
           argDescriptors[argIdx++] = methodDescriptor.substring(startType, charIdx + 1);
           break;
         default:
-          throw new Unreachable();
+          throw new InvalidDescriptorException(methodDescriptor);
       }
       charIdx++;
     }
@@ -654,17 +662,26 @@ public class DescriptorUtils {
   }
 
   public static int getArgumentCount(final String methodDescriptor) {
+    int length = methodDescriptor.length();
     int charIdx = 1;
     char c;
     int argCount = 0;
-    while ((c = methodDescriptor.charAt(charIdx++)) != ')') {
+    while (charIdx < length && (c = methodDescriptor.charAt(charIdx++)) != ')') {
       if (c == 'L') {
-        while (methodDescriptor.charAt(charIdx++) != ';')
+        while (charIdx < length && methodDescriptor.charAt(charIdx++) != ';')
           ;
+        // Check if the inner loop found ';' within the boundary.
+        if (charIdx >= length || methodDescriptor.charAt(charIdx - 1) != ';') {
+          throw new InvalidDescriptorException(methodDescriptor);
+        }
         argCount++;
       } else if (c != '[') {
         argCount++;
       }
+    }
+    // Check if the outer loop found ')' within the boundary.
+    if (charIdx >= length || methodDescriptor.charAt(charIdx - 1) != ')') {
+      throw new InvalidDescriptorException(methodDescriptor);
     }
     return argCount;
   }

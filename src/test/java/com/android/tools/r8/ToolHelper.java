@@ -19,6 +19,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AssemblyWriter;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
@@ -66,6 +67,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -780,6 +782,18 @@ public class ToolHelper {
     return path;
   }
 
+  public static Path getMostRecentAndroidJar() {
+    List<AndroidApiLevel> apiLevels = AndroidApiLevel.getAndroidApiLevelsSorted();
+    ListIterator<AndroidApiLevel> iterator = apiLevels.listIterator(apiLevels.size());
+    while (iterator.hasPrevious()) {
+      AndroidApiLevel apiLevel = iterator.previous();
+      if (hasAndroidJar(apiLevel)) {
+        return getAndroidJar(apiLevel);
+      }
+    }
+    throw new Unreachable("Unable to find a most recent android.jar");
+  }
+
   public static Path getKotlinStdlibJar() {
     Path path = Paths.get(KT_STDLIB);
     assert Files.exists(path) : "Expected kotlin stdlib jar";
@@ -910,7 +924,7 @@ public class ToolHelper {
       case V9_0_0:
         return AndroidApiLevel.P;
       case V8_1_0:
-        return AndroidApiLevel.O;
+        return AndroidApiLevel.O_MR1;
       case V7_0_0:
         return AndroidApiLevel.N;
       case V6_0_1:
@@ -1053,14 +1067,13 @@ public class ToolHelper {
     return String.join("/", parts);
   }
 
-  public static DexApplication buildApplication(List<String> fileNames)
+  public static DirectMappedDexApplication buildApplication(List<String> fileNames)
       throws IOException, ExecutionException {
     return buildApplicationWithAndroidJar(fileNames, getDefaultAndroidJar());
   }
 
-  public static DexApplication buildApplicationWithAndroidJar(
-      List<String> fileNames, Path androidJar)
-      throws IOException, ExecutionException {
+  public static DirectMappedDexApplication buildApplicationWithAndroidJar(
+      List<String> fileNames, Path androidJar) throws IOException, ExecutionException {
     AndroidApp input =
         AndroidApp.builder()
             .addProgramFiles(ListUtils.map(fileNames, Paths::get))
@@ -1244,6 +1257,15 @@ public class ToolHelper {
   }
 
   public static ProcessResult runDX(Path workingDirectory, String... args) throws IOException {
+    return runProcess(createProcessBuilderForRunningDx(workingDirectory, args));
+  }
+
+  public static ProcessBuilder createProcessBuilderForRunningDx(String... args) {
+    return createProcessBuilderForRunningDx(null, args);
+  }
+
+  public static ProcessBuilder createProcessBuilderForRunningDx(
+      Path workingDirectory, String... args) {
     Assume.assumeTrue(ToolHelper.artSupported());
     DXCommandBuilder builder = new DXCommandBuilder();
     for (String arg : args) {
@@ -1253,7 +1275,7 @@ public class ToolHelper {
     if (workingDirectory != null) {
       pb.directory(workingDirectory.toFile());
     }
-    return runProcess(pb);
+    return pb;
   }
 
   public static ProcessResult runJava(Class clazz) throws Exception {
@@ -1968,8 +1990,13 @@ public class ToolHelper {
   }
 
   public static ProcessResult runProcess(ProcessBuilder builder) throws IOException {
+    return runProcess(builder, System.out);
+  }
+
+  public static ProcessResult runProcess(ProcessBuilder builder, PrintStream out)
+      throws IOException {
     String command = String.join(" ", builder.command());
-    System.out.println(command);
+    out.println(command);
     return drainProcessOutputStreams(builder.start(), command);
   }
 

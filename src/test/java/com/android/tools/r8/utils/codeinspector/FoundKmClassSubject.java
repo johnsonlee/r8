@@ -24,6 +24,11 @@ public class FoundKmClassSubject extends KmClassSubject
   }
 
   @Override
+  public String getName() {
+    return kmClass.getName();
+  }
+
+  @Override
   public DexClass getDexClass() {
     return clazz;
   }
@@ -58,7 +63,7 @@ public class FoundKmClassSubject extends KmClassSubject
   @Override
   public List<String> getSuperTypeDescriptors() {
     return kmClass.getSupertypes().stream()
-        .map(this::getDescriptorFromKmType)
+        .map(KmTypeSubject::getDescriptorFromKmType)
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
   }
@@ -68,6 +73,26 @@ public class FoundKmClassSubject extends KmClassSubject
     return kmClass.getSupertypes().stream()
         .map(this::getClassSubjectFromKmType)
         .filter(ClassSubject::isPresent)
+        .collect(Collectors.toList());
+  }
+
+  private String nestClassDescriptor(String nestClassName) {
+    return DescriptorUtils.getDescriptorFromClassBinaryName(
+        kmClass.name + DescriptorUtils.INNER_CLASS_SEPARATOR + nestClassName);
+  }
+
+  @Override
+  public List<String> getNestedClassDescriptors() {
+    return kmClass.getNestedClasses().stream()
+        .map(this::nestClassDescriptor)
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public List<ClassSubject> getNestedClasses() {
+    return kmClass.getNestedClasses().stream()
+        .map(this::nestClassDescriptor)
+        .map(this::getClassSubjectFromDescriptor)
         .collect(Collectors.toList());
   }
 

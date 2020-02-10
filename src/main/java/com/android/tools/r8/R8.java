@@ -24,11 +24,14 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedExtensionRegistryShrinker;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.desugar.NestedPrivateMethodLense;
 import com.android.tools.r8.ir.desugar.R8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.EnumInfoMapCollector;
@@ -36,8 +39,11 @@ import com.android.tools.r8.ir.optimize.MethodPoolCollection;
 import com.android.tools.r8.ir.optimize.NestReducer;
 import com.android.tools.r8.ir.optimize.SwitchMapCollector;
 import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization;
+import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization.UninstantiatedTypeOptimizationGraphLense;
 import com.android.tools.r8.ir.optimize.UnusedArgumentsCollector;
+import com.android.tools.r8.ir.optimize.UnusedArgumentsCollector.UnusedArgumentsGraphLense;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
+import com.android.tools.r8.ir.optimize.library.LibraryOptimizationInfoInitializer;
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.kotlin.Kotlin;
 import com.android.tools.r8.kotlin.KotlinInfo;
@@ -75,6 +81,7 @@ import com.android.tools.r8.shaking.StaticClassMerger;
 import com.android.tools.r8.shaking.TreePruner;
 import com.android.tools.r8.shaking.TreePrunerConfiguration;
 import com.android.tools.r8.shaking.VerticalClassMerger;
+import com.android.tools.r8.shaking.VerticalClassMergerGraphLense;
 import com.android.tools.r8.shaking.WhyAreYouKeepingConsumer;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
@@ -253,7 +260,7 @@ public class R8 {
               "Running R8 version " + Version.LABEL + " with assertions enabled."));
     }
     try {
-      DexApplication application =
+      DirectMappedDexApplication application =
           new ApplicationReader(inputApp, options, timing).read(executorService).toDirect();
 
       // Now that the dex-application is fully loaded, close any internal archive providers.
@@ -314,12 +321,14 @@ public class R8 {
                 .run(executorService));
 
         AppView<AppInfoWithLiveness> appViewWithLiveness = runEnqueuer(executorService, appView);
-        application = appViewWithLiveness.appInfo().app();
+        application = appViewWithLiveness.appInfo().app().asDirect();
         assert appView.rootSet().verifyKeptFieldsAreAccessedAndLive(appViewWithLiveness.appInfo());
         assert appView.rootSet().verifyKeptMethodsAreTargetedAndLive(appViewWithLiveness.appInfo());
         assert appView.rootSet().verifyKeptTypesAreLive(appViewWithLiveness.appInfo());
 
         appView.rootSet().checkAllRulesAreUsed(options);
+
+        new LibraryOptimizationInfoInitializer(appView).run();
 
         if (options.proguardSeedsConsumer != null) {
           ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -407,13 +416,12 @@ public class R8 {
       if (options.shouldDesugarNests()) {
         timing.begin("NestBasedAccessDesugaring");
         R8NestBasedAccessDesugaring analyzer = new R8NestBasedAccessDesugaring(appViewWithLiveness);
-        boolean changed =
-            appView.setGraphLense(analyzer.run(executorService, application.builder()));
-        if (changed) {
+        NestedPrivateMethodLense lens = analyzer.run(executorService, application.builder());
+        if (lens != null) {
+          boolean changed = appView.setGraphLense(lens);
+          assert changed;
           appViewWithLiveness.setAppInfo(
-              appViewWithLiveness
-                  .appInfo()
-                  .rewrittenWithLense(application.asDirect(), appView.graphLense()));
+              appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
         }
         timing.end();
       } else {
@@ -429,12 +437,12 @@ public class R8 {
         timing.begin("HorizontalStaticClassMerger");
         StaticClassMerger staticClassMerger =
             new StaticClassMerger(appViewWithLiveness, options, mainDexClasses);
-        boolean changed = appView.setGraphLense(staticClassMerger.run());
-        if (changed) {
+        NestedGraphLense lens = staticClassMerger.run();
+        if (lens != null) {
+          boolean changed = appView.setGraphLense(lens);
+          assert changed;
           appViewWithLiveness.setAppInfo(
-              appViewWithLiveness
-                  .appInfo()
-                  .rewrittenWithLense(application.asDirect(), appView.graphLense()));
+              appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
         }
         timing.end();
       }
@@ -443,46 +451,46 @@ public class R8 {
         VerticalClassMerger verticalClassMerger =
             new VerticalClassMerger(
                 application, appViewWithLiveness, executorService, timing, mainDexClasses);
-        boolean changed = appView.setGraphLense(verticalClassMerger.run());
-        if (changed) {
+        VerticalClassMergerGraphLense lens = verticalClassMerger.run();
+        if (lens != null) {
+          boolean changed = appView.setGraphLense(lens);
+          assert changed;
           appView.setVerticallyMergedClasses(verticalClassMerger.getMergedClasses());
-          application = application.asDirect().rewrittenWithLense(appView.graphLense());
+          application = application.asDirect().rewrittenWithLens(lens);
+          lens.initializeCacheForLookupMethodInAllContexts();
           appViewWithLiveness.setAppInfo(
-              appViewWithLiveness
-                  .appInfo()
-                  .rewrittenWithLense(application.asDirect(), appView.graphLense()));
+              appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
+          lens.unsetCacheForLookupMethodInAllContexts();
         }
         timing.end();
       }
       if (options.enableArgumentRemoval) {
         if (options.enableUnusedArgumentRemoval) {
           timing.begin("UnusedArgumentRemoval");
-          boolean changed =
-              appView.setGraphLense(
-                  new UnusedArgumentsCollector(
-                          appViewWithLiveness, new MethodPoolCollection(appView))
-                      .run(executorService, timing));
-          if (changed) {
-            application = application.asDirect().rewrittenWithLense(appView.graphLense());
+          UnusedArgumentsGraphLense lens =
+              new UnusedArgumentsCollector(
+                      appViewWithLiveness, new MethodPoolCollection(appViewWithLiveness))
+                  .run(executorService, timing);
+          if (lens != null) {
+            boolean changed = appView.setGraphLense(lens);
+            assert changed;
+            assert application.asDirect().verifyNothingToRewrite(appView, lens);
             appViewWithLiveness.setAppInfo(
-                appViewWithLiveness
-                    .appInfo()
-                    .rewrittenWithLense(application.asDirect(), appView.graphLense()));
+                appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
           }
           timing.end();
         }
         if (options.enableUninstantiatedTypeOptimization) {
           timing.begin("UninstantiatedTypeOptimization");
-          boolean changed =
-              appView.setGraphLense(
-                  new UninstantiatedTypeOptimization(appViewWithLiveness)
-                      .run(new MethodPoolCollection(appView), executorService, timing));
-          if (changed) {
-            application = application.asDirect().rewrittenWithLense(appView.graphLense());
+          UninstantiatedTypeOptimizationGraphLense lens =
+              new UninstantiatedTypeOptimization(appViewWithLiveness)
+                  .run(new MethodPoolCollection(appViewWithLiveness), executorService, timing);
+          if (lens != null) {
+            boolean changed = appView.setGraphLense(lens);
+            assert changed;
+            assert application.asDirect().verifyNothingToRewrite(appView, lens);
             appViewWithLiveness.setAppInfo(
-                appViewWithLiveness
-                    .appInfo()
-                    .rewrittenWithLense(application.asDirect(), appView.graphLense()));
+                appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
           }
           timing.end();
         }
@@ -503,7 +511,7 @@ public class R8 {
       CfgPrinter printer = options.printCfg ? new CfgPrinter() : null;
       try {
         IRConverter converter = new IRConverter(appView, timing, printer, mainDexClasses);
-        application = converter.optimize(executorService);
+        application = converter.optimize(executorService).asDirect();
       } finally {
         timing.end();
       }
@@ -688,7 +696,8 @@ public class R8 {
 
       // Add automatic main dex classes to an eventual manual list of classes.
       if (!options.mainDexKeepRules.isEmpty()) {
-        application = application.builder().addToMainDexList(mainDexClasses.getClasses()).build();
+        application =
+            application.builder().addToMainDexList(mainDexClasses.getClasses()).build().asDirect();
       }
 
       // Perform minification.
@@ -878,7 +887,7 @@ public class R8 {
     for (DexProgramClass programClass : application.classes()) {
       KotlinInfo kotlinInfo = kotlin.getKotlinInfo(programClass, reporter);
       programClass.setKotlinInfo(kotlinInfo);
-      KotlinMemberInfo.markKotlinMemberInfo(programClass, kotlinInfo);
+      KotlinMemberInfo.markKotlinMemberInfo(programClass, kotlinInfo, reporter);
     }
   }
 

@@ -1177,11 +1177,13 @@ public class CodeRewriter {
   }
 
   // Replace result uses for methods where something is known about what is returned.
-  public void rewriteMoveResult(IRCode code) {
-    if (options.isGeneratingClassFiles()) {
-      return;
+  public boolean rewriteMoveResult(IRCode code) {
+    if (options.isGeneratingClassFiles() || !code.metadata().mayHaveInvokeMethod()) {
+      return false;
     }
+
     AssumeDynamicTypeRemover assumeDynamicTypeRemover = new AssumeDynamicTypeRemover(appView, code);
+    boolean changed = false;
     boolean mayHaveRemovedTrivialPhi = false;
     Set<Value> affectedValues = Sets.newIdentityHashSet();
     Set<BasicBlock> blocksToBeRemoved = Sets.newIdentityHashSet();
@@ -1191,74 +1193,39 @@ public class CodeRewriter {
       if (blocksToBeRemoved.contains(block)) {
         continue;
       }
+
       InstructionListIterator iterator = block.listIterator(code);
       while (iterator.hasNext()) {
-        Instruction current = iterator.next();
-        if (current.isInvokeMethod()) {
-          InvokeMethod invoke = current.asInvokeMethod();
-          Value outValue = invoke.outValue();
-          // TODO(b/124246610): extend to other variants that receive error messages or supplier.
-          if (invoke.getInvokedMethod() == dexItemFactory.objectsMethods.requireNonNull) {
-            Value obj = invoke.arguments().get(0);
-            if ((outValue == null && obj.hasLocalInfo())
-                || (outValue != null && !obj.hasSameOrNoLocal(outValue))) {
-              continue;
-            }
-            Nullability nullability = obj.getTypeLattice().nullability();
-            if (nullability.isDefinitelyNotNull()) {
-              if (outValue != null) {
-                affectedValues.addAll(outValue.affectedValues());
-                mayHaveRemovedTrivialPhi |= outValue.numberOfPhiUsers() > 0;
-                outValue.replaceUsers(obj);
-              }
-              iterator.removeOrReplaceByDebugLocalRead();
-            } else if (obj.isAlwaysNull(appView) && appView.appInfo().hasSubtyping()) {
-              iterator.replaceCurrentInstructionWithThrowNull(
-                  appView.withSubtyping(), code, blockIterator, blocksToBeRemoved, affectedValues);
-            }
-          } else if (outValue != null && !outValue.hasLocalInfo()) {
-            if (appView
-                .dexItemFactory()
-                .libraryMethodsReturningReceiver
-                .contains(invoke.getInvokedMethod())) {
-              if (checkArgumentType(invoke, 0)) {
-                affectedValues.addAll(outValue.affectedValues());
-                assumeDynamicTypeRemover.markUsersForRemoval(invoke.outValue());
-                mayHaveRemovedTrivialPhi |= outValue.numberOfPhiUsers() > 0;
-                outValue.replaceUsers(invoke.arguments().get(0));
-                invoke.setOutValue(null);
-              }
-            } else if (appView.appInfo().hasLiveness()) {
-              // Check if the invoked method is known to return one of its arguments.
-              DexEncodedMethod target =
-                  invoke.lookupSingleTarget(appView.withLiveness(), code.method.method.holder);
-              if (target != null && target.getOptimizationInfo().returnsArgument()) {
-                int argumentIndex = target.getOptimizationInfo().getReturnedArgument();
-                // Replace the out value of the invoke with the argument and ignore the out value.
-                if (argumentIndex >= 0 && checkArgumentType(invoke, argumentIndex)) {
-                  Value argument = invoke.arguments().get(argumentIndex);
-                  assert outValue.verifyCompatible(argument.outType());
-                  // Make sure that we are only narrowing information here. Note, in cases where
-                  // we cannot find the definition of types, computing lessThanOrEqual will
-                  // return false unless it is object.
-                  if (argument
-                      .getTypeLattice()
-                      .lessThanOrEqual(outValue.getTypeLattice(), appView)) {
-                    affectedValues.addAll(outValue.affectedValues());
-                    assumeDynamicTypeRemover.markUsersForRemoval(outValue);
-                    mayHaveRemovedTrivialPhi |= outValue.numberOfPhiUsers() > 0;
-                    outValue.replaceUsers(argument);
-                    invoke.setOutValue(null);
-                  }
-                }
-              }
+        InvokeMethod invoke = iterator.next().asInvokeMethod();
+        if (invoke == null || !invoke.hasOutValue() || invoke.outValue().hasLocalInfo()) {
+          continue;
+        }
+
+        // Check if the invoked method is known to return one of its arguments.
+        DexEncodedMethod target = invoke.lookupSingleTarget(appView, code.method.method.holder);
+        if (target != null && target.getOptimizationInfo().returnsArgument()) {
+          int argumentIndex = target.getOptimizationInfo().getReturnedArgument();
+          // Replace the out value of the invoke with the argument and ignore the out value.
+          if (argumentIndex >= 0 && checkArgumentType(invoke, argumentIndex)) {
+            Value argument = invoke.arguments().get(argumentIndex);
+            Value outValue = invoke.outValue();
+            assert outValue.verifyCompatible(argument.outType());
+            // Make sure that we are only narrowing information here. Note, in cases where
+            // we cannot find the definition of types, computing lessThanOrEqual will
+            // return false unless it is object.
+            if (argument.getTypeLattice().lessThanOrEqual(outValue.getTypeLattice(), appView)) {
+              affectedValues.addAll(outValue.affectedValues());
+              assumeDynamicTypeRemover.markUsersForRemoval(outValue);
+              mayHaveRemovedTrivialPhi |= outValue.numberOfPhiUsers() > 0;
+              outValue.replaceUsers(argument);
+              invoke.setOutValue(null);
+              changed = true;
             }
           }
         }
       }
     }
-    assumeDynamicTypeRemover.removeMarkedInstructions(blocksToBeRemoved);
-    assumeDynamicTypeRemover.finish();
+    assumeDynamicTypeRemover.removeMarkedInstructions(blocksToBeRemoved).finish();
     if (!blocksToBeRemoved.isEmpty()) {
       code.removeBlocks(blocksToBeRemoved);
       code.removeAllTrivialPhis(affectedValues);
@@ -1270,6 +1237,7 @@ public class CodeRewriter {
       new TypeAnalysis(appView).narrowing(affectedValues);
     }
     assert code.isConsistentSSA();
+    return changed;
   }
 
   enum RemoveCheckCastInstructionIfTrivialResult {
@@ -2160,15 +2128,6 @@ public class CodeRewriter {
 
   public void simplifyDebugLocals(IRCode code) {
     for (BasicBlock block : code.blocks) {
-      for (Phi phi : block.getPhis()) {
-        if (!phi.hasLocalInfo() && phi.numberOfUsers() == 1 && phi.numberOfAllUsers() == 1) {
-          Instruction instruction = phi.singleUniqueUser();
-          if (instruction.isDebugLocalWrite()) {
-            removeDebugWriteOfPhi(code, phi, instruction.asDebugLocalWrite());
-          }
-        }
-      }
-
       InstructionListIterator iterator = block.listIterator(code);
       while (iterator.hasNext()) {
         Instruction prevInstruction = iterator.peekPrevious();
@@ -2199,29 +2158,6 @@ public class CodeRewriter {
           }
         }
       }
-    }
-  }
-
-  private void removeDebugWriteOfPhi(IRCode code, Phi phi, DebugLocalWrite write) {
-    assert write.src() == phi;
-    InstructionListIterator iterator = phi.getBlock().listIterator(code);
-    while (iterator.hasNext()) {
-      Instruction next = iterator.next();
-      if (!next.isDebugLocalWrite()) {
-        // If the debug write is not in the block header bail out.
-        return;
-      }
-      if (next == write) {
-        // Associate the phi with the local.
-        phi.setLocalInfo(write.getLocalInfo());
-        // Replace uses of the write with the phi.
-        write.outValue().replaceUsers(phi);
-        // Safely remove the write.
-        // TODO(zerny): Once phis become instructions, move debug values there instead of a nop.
-        iterator.removeOrReplaceByDebugLocalRead();
-        return;
-      }
-      assert next.getLocalInfo().name != write.getLocalInfo().name;
     }
   }
 
@@ -2507,7 +2443,7 @@ public class CodeRewriter {
           } else {
             DexType context = code.method.method.holder;
             AbstractValue abstractValue = lhs.getAbstractValue(appView, context);
-            if (abstractValue.isSingleEnumValue()) {
+            if (abstractValue.isSingleConstClassValue() || abstractValue.isSingleFieldValue()) {
               AbstractValue otherAbstractValue = rhs.getAbstractValue(appView, context);
               if (abstractValue == otherAbstractValue) {
                 simplifyIfWithKnownCondition(code, block, theIf, 0);

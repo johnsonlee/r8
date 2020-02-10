@@ -42,6 +42,7 @@ import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
 import com.android.tools.r8.ir.desugar.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.ir.desugar.D8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
+import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter.Mode;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter.Flavor;
 import com.android.tools.r8.ir.desugar.LambdaRewriter;
@@ -224,7 +225,8 @@ public class IRConverter {
               ? null
               : new InterfaceMethodRewriter(appView, this);
       this.lambdaRewriter = new LambdaRewriter(appView);
-      this.desugaredLibraryAPIConverter = new DesugaredLibraryAPIConverter(appView);
+      this.desugaredLibraryAPIConverter =
+          new DesugaredLibraryAPIConverter(appView, Mode.GENERATE_CALLBACKS_AND_WRAPPERS);
       this.twrCloseResourceRewriter = null;
       this.lambdaMerger = null;
       this.covariantReturnTypeAnnotationTransformer = null;
@@ -266,14 +268,13 @@ public class IRConverter {
         options.processCovariantReturnTypeAnnotations
             ? new CovariantReturnTypeAnnotationTransformer(this, appView.dexItemFactory())
             : null;
+    this.libraryMethodOptimizer = new LibraryMethodOptimizer(appView);
     if (options.testing.forceAssumeNoneInsertion) {
       assumers.add(new AliasIntroducer(appView));
     }
     if (options.enableNonNullTracking) {
       assumers.add(new NonNullTracker(appView));
     }
-    this.desugaredLibraryAPIConverter =
-        appView.rewritePrefix.isRewriting() ? new DesugaredLibraryAPIConverter(appView) : null;
     if (appView.enableWholeProgramOptimizations()) {
       assert appView.appInfo().hasLiveness();
       assert appView.rootSet() != null;
@@ -291,7 +292,6 @@ public class IRConverter {
       }
       this.fieldAccessAnalysis =
           FieldAccessAnalysis.enable(options) ? new FieldAccessAnalysis(appViewWithLiveness) : null;
-      this.libraryMethodOptimizer = new LibraryMethodOptimizer(appViewWithLiveness);
       this.libraryMethodOverrideAnalysis =
           options.enableTreeShakingOfLibraryMethodOverrides
               ? new LibraryMethodOverrideAnalysis(appViewWithLiveness)
@@ -323,13 +323,17 @@ public class IRConverter {
           options.enableServiceLoaderRewriting
               ? new ServiceLoaderRewriter(appViewWithLiveness)
               : null;
+      this.desugaredLibraryAPIConverter =
+          appView.rewritePrefix.isRewriting()
+              ? new DesugaredLibraryAPIConverter(
+                  appView, Mode.ASSERT_CALLBACKS_AND_WRAPPERS_GENERATED)
+              : null;
       this.enumUnboxer = options.enableEnumUnboxing ? new EnumUnboxer(appViewWithLiveness) : null;
     } else {
       this.classInliner = null;
       this.classStaticizer = null;
       this.dynamicTypeOptimization = null;
       this.fieldAccessAnalysis = null;
-      this.libraryMethodOptimizer = null;
       this.libraryMethodOverrideAnalysis = null;
       this.inliner = null;
       this.lambdaMerger = null;
@@ -342,6 +346,10 @@ public class IRConverter {
       this.typeChecker = null;
       this.d8NestBasedAccessDesugaring =
           options.shouldDesugarNests() ? new D8NestBasedAccessDesugaring(appView) : null;
+      this.desugaredLibraryAPIConverter =
+          appView.rewritePrefix.isRewriting()
+              ? new DesugaredLibraryAPIConverter(appView, Mode.GENERATE_CALLBACKS_AND_WRAPPERS)
+              : null;
       this.serviceLoaderRewriter = null;
       this.methodOptimizationInfoCollector = null;
       this.enumUnboxer = null;
@@ -637,7 +645,7 @@ public class IRConverter {
     PostMethodProcessor.Builder postMethodProcessorBuilder =
         new PostMethodProcessor.Builder(getOptimizationsForPostIRProcessing());
     {
-      timing.begin("Build call graph");
+      timing.begin("Build primary method processor");
       PrimaryMethodProcessor primaryMethodProcessor =
           PrimaryMethodProcessor.create(
               appView.withLiveness(), postMethodProcessorBuilder, executorService, timing);
@@ -747,7 +755,7 @@ public class IRConverter {
             code -> {
               outliner.applyOutliningCandidate(code);
               printMethod(code, "IR after outlining (SSA)", null);
-              finalizeIR(
+              removeDeadCodeAndFinalizeIR(
                   code.method, code, OptimizationFeedbackIgnore.getInstance(), Timing.empty());
             },
             executorService);
@@ -852,7 +860,7 @@ public class IRConverter {
           // StringBuilder/StringBuffer method invocations, and removeDeadCode() to remove
           // unused out-values.
           codeRewriter.rewriteMoveResult(code);
-          deadCodeRemover.run(code);
+          deadCodeRemover.run(code, Timing.empty());
           CodeRewriter.removeAssumeInstructions(appView, code);
           consumer.accept(code);
         },
@@ -871,7 +879,8 @@ public class IRConverter {
     IRCode code = method.buildIR(appView, appView.appInfo().originFor(method.method.holder));
     assert code != null;
     codeRewriter.rewriteMoveResult(code);
-    finalizeIR(method, code, OptimizationFeedbackIgnore.getInstance(), Timing.empty());
+    removeDeadCodeAndFinalizeIR(
+        method, code, OptimizationFeedbackIgnore.getInstance(), Timing.empty());
   }
 
   private void collectLambdaMergingCandidates(DexApplication application) {
@@ -896,7 +905,7 @@ public class IRConverter {
       DexApplication.Builder<?> builder, ExecutorService executorService)
       throws ExecutionException {
     if (desugaredLibraryAPIConverter != null) {
-      desugaredLibraryAPIConverter.generateWrappers(builder, this, executorService);
+      desugaredLibraryAPIConverter.finalizeWrappers(builder, this, executorService);
     }
   }
 
@@ -922,8 +931,9 @@ public class IRConverter {
       Log.debug(getClass(), "Initial (SSA) flow graph for %s:\n%s", method.toSourceString(), code);
     }
     assert code.isConsistentSSA();
-    code.traceBlocks();
     Timing timing = Timing.empty();
+    deadCodeRemover.run(code, timing);
+    code.traceBlocks();
     RegisterAllocator registerAllocator = performRegisterAllocation(code, method, timing);
     method.setCode(code, registerAllocator, appView);
     if (Log.ENABLED) {
@@ -1328,9 +1338,7 @@ public class IRConverter {
     // Dead code removal. Performed after simplifications to remove code that becomes dead
     // as a result of those simplifications. The following optimizations could reveal more
     // dead code which is removed right before register allocation in performRegisterAllocation.
-    timing.begin("Remove dead code");
-    deadCodeRemover.run(code);
-    timing.end();
+    deadCodeRemover.run(code, timing);
     assert code.isConsistentSSA();
 
     if (options.desugarState == DesugarState.ON && enableTryWithResourcesDesugaring()) {
@@ -1487,31 +1495,12 @@ public class IRConverter {
 
     assert code.verifyTypes(appView);
 
+    deadCodeRemover.run(code, timing);
+
     if (appView.enableWholeProgramOptimizations()) {
-      if (libraryMethodOverrideAnalysis != null) {
-        timing.begin("Analyze library method overrides");
-        libraryMethodOverrideAnalysis.analyze(code);
-        timing.end();
-      }
-
-      if (fieldAccessAnalysis != null) {
-        timing.begin("Analyze field accesses");
-        fieldAccessAnalysis.recordFieldAccesses(code, feedback, methodProcessor);
-        if (classInitializerDefaultsResult != null) {
-          fieldAccessAnalysis.acceptClassInitializerDefaultsResult(classInitializerDefaultsResult);
-        }
-        timing.end();
-      }
-
-      // Arguments can be changed during the debug mode.
-      if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
-        timing.begin("Collect call-site info");
-        appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code);
-        timing.end();
-      }
-
       timing.begin("Collect optimization info");
-      collectOptimizationInfo(code, classInitializerDefaultsResult, feedback);
+      collectOptimizationInfo(
+          method, code, classInitializerDefaultsResult, feedback, methodProcessor, timing);
       timing.end();
     }
 
@@ -1546,15 +1535,48 @@ public class IRConverter {
   // Compute optimization info summary for the current method unless it is pinned
   // (in that case we should not be making any assumptions about the behavior of the method).
   public void collectOptimizationInfo(
+      DexEncodedMethod method,
       IRCode code,
       ClassInitializerDefaultsResult classInitializerDefaultsResult,
-      OptimizationFeedback feedback) {
+      OptimizationFeedback feedback,
+      MethodProcessor methodProcessor,
+      Timing timing) {
+    if (libraryMethodOverrideAnalysis != null) {
+      timing.begin("Analyze library method overrides");
+      libraryMethodOverrideAnalysis.analyze(code);
+      timing.end();
+    }
+
+    if (fieldAccessAnalysis != null) {
+      timing.begin("Analyze field accesses");
+      fieldAccessAnalysis.recordFieldAccesses(code, feedback, methodProcessor);
+      if (classInitializerDefaultsResult != null) {
+        fieldAccessAnalysis.acceptClassInitializerDefaultsResult(classInitializerDefaultsResult);
+      }
+      timing.end();
+    }
+
+    // Arguments can be changed during the debug mode.
+    boolean isDebugMode = options.debug || method.getOptimizationInfo().isReachabilitySensitive();
+    if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
+      timing.begin("Collect call-site info");
+      appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code);
+      timing.end();
+    }
+
     if (appView.appInfo().withLiveness().isPinned(code.method.method)) {
       return;
     }
+
     methodOptimizationInfoCollector
         .collectMethodOptimizationInfo(code.method, code, feedback, dynamicTypeOptimization);
     FieldValueAnalysis.run(appView, code, classInitializerDefaultsResult, feedback, code.method);
+  }
+
+  public void removeDeadCodeAndFinalizeIR(
+      DexEncodedMethod method, IRCode code, OptimizationFeedback feedback, Timing timing) {
+    deadCodeRemover.run(code, timing);
+    finalizeIR(method, code, feedback, timing);
   }
 
   public void finalizeIR(
@@ -1581,7 +1603,7 @@ public class IRConverter {
   private void finalizeToCf(DexEncodedMethod method, IRCode code, OptimizationFeedback feedback) {
     assert !method.getCode().isDexCode();
     CfBuilder builder = new CfBuilder(appView, method, code);
-    CfCode result = builder.build(codeRewriter);
+    CfCode result = builder.build(deadCodeRemover);
     method.setCode(result, appView);
     markProcessed(method, code, feedback);
   }
@@ -1633,9 +1655,7 @@ public class IRConverter {
       IRCode code, DexEncodedMethod method, Timing timing) {
     // Always perform dead code elimination before register allocation. The register allocator
     // does not allow dead code (to make sure that we do not waste registers for unneeded values).
-    timing.begin("Remove dead code");
-    deadCodeRemover.run(code);
-    timing.end();
+    assert deadCodeRemover.verifyNoDeadCode(code);
     materializeInstructionBeforeLongOperationsWorkaround(code);
     workaroundForwardingInitializerBug(code);
     timing.begin("Allocate registers");

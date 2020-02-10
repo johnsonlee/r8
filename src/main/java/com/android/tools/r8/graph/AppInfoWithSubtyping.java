@@ -6,7 +6,6 @@ package com.android.tools.r8.graph;
 import static com.android.tools.r8.ir.desugar.LambdaRewriter.LAMBDA_GROUP_CLASS_NAME_PREFIX;
 
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
-import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.utils.SetUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -14,19 +13,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
-public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy {
+public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy implements LiveSubTypeInfo {
 
   private static final int ROOT_LEVEL = 0;
   private static final int UNKNOWN_LEVEL = -1;
@@ -34,6 +32,19 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy {
   // Since most Java types has no sub-types, we can just share an empty immutable set until we need
   // to add to it.
   private static final Set<DexType> NO_DIRECT_SUBTYPE = ImmutableSet.of();
+
+  @Override
+  public LiveSubTypeResult getLiveSubTypes(DexType type) {
+    // TODO(b/139464956): Remove this when we start to have live type information in the enqueuer.
+    Set<DexProgramClass> programClasses = new HashSet<>();
+    for (DexType subtype : subtypes(type)) {
+      DexProgramClass subClass = definitionForProgramType(subtype);
+      if (subClass != null) {
+        programClasses.add(subClass);
+      }
+    }
+    return new LiveSubTypeResult(programClasses, null);
+  }
 
   private static class TypeInfo {
 
@@ -131,11 +142,16 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy {
   private final Map<DexType, Boolean> mayHaveFinalizeMethodDirectlyOrIndirectlyCache =
       new ConcurrentHashMap<>();
 
-  public AppInfoWithSubtyping(DexApplication application) {
+  public AppInfoWithSubtyping(DirectMappedDexApplication application) {
+    this(application, application.allClasses());
+  }
+
+  public AppInfoWithSubtyping(
+      DirectMappedDexApplication application, Collection<DexClass> classes) {
     super(application);
     typeInfo = new ConcurrentHashMap<>();
     // Recompute subtype map if we have modified the graph.
-    populateSubtypeMap(application.asDirect(), application.dexItemFactory);
+    populateSubtypeMap(classes, application::definitionFor, application.dexItemFactory);
   }
 
   protected AppInfoWithSubtyping(AppInfoWithSubtyping previous) {
@@ -273,16 +289,19 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy {
     }
   }
 
-  private void populateSubtypeMap(DirectMappedDexApplication app, DexItemFactory dexItemFactory) {
+  private void populateSubtypeMap(
+      Collection<DexClass> classes,
+      Function<DexType, DexClass> definitions,
+      DexItemFactory dexItemFactory) {
     getTypeInfo(dexItemFactory.objectType).tagAsSubtypeRoot();
     Map<DexType, Set<DexType>> map = new IdentityHashMap<>();
-    for (DexClass clazz : app.allClasses()) {
-      populateAllSuperTypes(map, clazz.type, clazz, app::definitionFor);
+    for (DexClass clazz : classes) {
+      populateAllSuperTypes(map, clazz.type, clazz, definitions);
     }
     for (Map.Entry<DexType, Set<DexType>> entry : map.entrySet()) {
       subtypeMap.put(entry.getKey(), ImmutableSet.copyOf(entry.getValue()));
     }
-    assert validateLevelsAreCorrect(app::definitionFor, dexItemFactory);
+    assert validateLevelsAreCorrect(definitions, dexItemFactory);
   }
 
   private boolean validateLevelsAreCorrect(
@@ -366,61 +385,6 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy {
     return false;
   }
 
-  /**
-   * Resolve the methods implemented by the lambda expression that created the {@code callSite}.
-   *
-   * <p>If {@code callSite} was not created as a result of a lambda expression (i.e. the metafactory
-   * is not {@code LambdaMetafactory}), the empty set is returned.
-   *
-   * <p>If the metafactory is neither {@code LambdaMetafactory} nor {@code StringConcatFactory}, a
-   * warning is issued.
-   *
-   * <p>The returned set of methods all have {@code callSite.methodName} as the method name.
-   *
-   * @param callSite Call site to resolve.
-   * @return Methods implemented by the lambda expression that created the {@code callSite}.
-   */
-  public Set<DexEncodedMethod> lookupLambdaImplementedMethods(DexCallSite callSite) {
-    assert checkIfObsolete();
-    List<DexType> callSiteInterfaces = LambdaDescriptor.getInterfaces(callSite, this);
-    if (callSiteInterfaces == null || callSiteInterfaces.isEmpty()) {
-      return Collections.emptySet();
-    }
-    Set<DexEncodedMethod> result = new HashSet<>();
-    Deque<DexType> worklist = new ArrayDeque<>(callSiteInterfaces);
-    Set<DexType> visited = Sets.newIdentityHashSet();
-    while (!worklist.isEmpty()) {
-      DexType iface = worklist.removeFirst();
-      if (getTypeInfo(iface).isUnknown()) {
-        // Skip this interface. If the lambda only implements missing library interfaces and not any
-        // program interfaces, then minification and tree shaking are not interested in this
-        // DexCallSite anyway, so skipping this interface is harmless. On the other hand, if
-        // minification is run on a program with a lambda interface that implements both a missing
-        // library interface and a present program interface, then we might minify the method name
-        // on the program interface even though it should be kept the same as the (missing) library
-        // interface method. That is a shame, but minification is not suited for incomplete programs
-        // anyway.
-        continue;
-      }
-      if (!visited.add(iface)) {
-        // Already visited previously. May happen due to "diamond shapes" in the interface
-        // hierarchy.
-        continue;
-      }
-      assert getTypeInfo(iface).isInterface();
-      DexClass clazz = definitionFor(iface);
-      if (clazz != null) {
-        for (DexEncodedMethod method : clazz.virtualMethods()) {
-          if (method.method.name == callSite.methodName && method.accessFlags.isAbstract()) {
-            result.add(method);
-          }
-        }
-        Collections.addAll(worklist, clazz.interfaces.values);
-      }
-    }
-    return result;
-  }
-
   public boolean isStringConcat(DexMethodHandle bootstrapMethod) {
     assert checkIfObsolete();
     return bootstrapMethod.type.isInvokeStatic()
@@ -463,18 +427,8 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy {
     return !getTypeInfo(type).directSubtypes.isEmpty();
   }
 
-  /**
-   * Apply the given function to all classes that directly extend this class.
-   *
-   * <p>If this class is an interface, then this method will visit all sub-interfaces. This deviates
-   * from the dex-file encoding, where subinterfaces "implement" their super interfaces. However, it
-   * is consistent with the source language.
-   */
-  public void forAllImmediateExtendsSubtypes(DexType type, Consumer<DexType> f) {
-    allImmediateExtendsSubtypes(type).forEach(f);
-  }
-
-  public Iterable<DexType> allImmediateExtendsSubtypes(DexType type) {
+  // TODO(b/139464956): Remove this method.
+  public Iterable<DexType> allImmediateExtendsSubtypes_(DexType type) {
     TypeInfo info = getTypeInfo(type);
     assert info.hierarchyLevel != UNKNOWN_LEVEL;
     if (info.hierarchyLevel == INTERFACE_LEVEL) {
@@ -487,18 +441,8 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy {
     }
   }
 
-  /**
-   * Apply the given function to all classes that directly implement this interface.
-   *
-   * <p>The implementation does not consider how the hierarchy is encoded in the dex file, where
-   * interfaces "implement" their super interfaces. Instead it takes the view of the source
-   * language, where interfaces "extend" their superinterface.
-   */
-  public void forAllImmediateImplementsSubtypes(DexType type, Consumer<DexType> f) {
-    allImmediateImplementsSubtypes(type).forEach(f);
-  }
-
-  public Iterable<DexType> allImmediateImplementsSubtypes(DexType type) {
+  // TODO(b/139464956): Remove this method.
+  public Iterable<DexType> allImmediateImplementsSubtypes_(DexType type) {
     TypeInfo info = getTypeInfo(type);
     if (info.hierarchyLevel == INTERFACE_LEVEL) {
       return Iterables.filter(info.directSubtypes, subtype -> !getTypeInfo(subtype).isInterface());
@@ -511,48 +455,8 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy {
     return clazz == null || clazz.hasMissingSuperType(this);
   }
 
-  public boolean isExternalizable(DexType type) {
-    return implementedInterfaces(type).contains(dexItemFactory().externalizableType);
-  }
-
-  public boolean isSerializable(DexType type) {
-    return implementedInterfaces(type).contains(dexItemFactory().serializableType);
-  }
-
-  /** Collect all interfaces that this type directly or indirectly implements. */
-  public Set<DexType> implementedInterfaces(DexType type) {
-    TypeInfo info = getTypeInfo(type);
-    if (info.implementedInterfaces != null) {
-      return info.implementedInterfaces;
-    }
-    synchronized (this) {
-      if (info.implementedInterfaces == null) {
-        Set<DexType> interfaces = Sets.newIdentityHashSet();
-        implementedInterfaces(type, interfaces);
-        info.implementedInterfaces = interfaces;
-      }
-    }
-    return info.implementedInterfaces;
-  }
-
-  private void implementedInterfaces(DexType type, Set<DexType> interfaces) {
-    DexClass dexClass = definitionFor(type);
-    // Loop to traverse the super type hierarchy of the current type.
-    while (dexClass != null) {
-      if (dexClass.isInterface()) {
-        interfaces.add(dexClass.type);
-      }
-      for (DexType itf : dexClass.interfaces.values) {
-        implementedInterfaces(itf, interfaces);
-      }
-      if (dexClass.superType == null) {
-        break;
-      }
-      dexClass = definitionFor(dexClass.superType);
-    }
-  }
-
-  public DexType getSingleSubtype(DexType type) {
+  // TODO(b/139464956): Remove this method.
+  public DexType getSingleSubtype_(DexType type) {
     TypeInfo info = getTypeInfo(type);
     assert info.hierarchyLevel != UNKNOWN_LEVEL;
     if (info.directSubtypes.size() == 1) {

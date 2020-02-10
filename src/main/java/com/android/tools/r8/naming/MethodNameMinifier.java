@@ -10,7 +10,6 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Timing;
@@ -276,14 +275,6 @@ class MethodNameMinifier {
         DexString reservedName = strategy.getReservedName(method, holder);
         if (reservedName != null) {
           state.reserveName(reservedName, method.method);
-          // This is reserving names which after prefix rewriting will actually override a library
-          // method.
-          if (appView.rewritePrefix.hasRewrittenTypeInSignature(method.method.proto, appView)) {
-            state.reserveName(
-                reservedName,
-                DesugaredLibraryAPIConverter.methodWithVivifiedTypeInSignature(
-                    method.method, method.method.holder, appView));
-          }
         }
       }
     }

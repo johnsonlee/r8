@@ -4,12 +4,18 @@
 
 package com.android.tools.r8.ir.desugar;
 
+import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException;
+
+import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfo;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ClassAccessFlags;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexAnnotationSet;
+import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexApplication.Builder;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -26,11 +32,13 @@ import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ResolutionResult;
+import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeStatic;
+import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.backports.BackportedMethods;
 import com.android.tools.r8.ir.desugar.backports.BooleanMethodRewrites;
@@ -43,11 +51,14 @@ import com.android.tools.r8.ir.desugar.backports.ObjectsMethodRewrites;
 import com.android.tools.r8.ir.desugar.backports.OptionalMethodRewrites;
 import com.android.tools.r8.origin.SynthesizedOrigin;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.DesugarState;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -92,15 +103,29 @@ public final class BackportedMethodRewriter {
             && appView.options().minApiLevel <= AndroidApiLevel.LATEST.getLevel();
   }
 
-  public static List<DexMethod> generateListOfBackportedMethods(AndroidApiLevel apiLevel) {
-    List<DexMethod> methods = new ArrayList<>();
-    InternalOptions options = new InternalOptions();
-    options.minApiLevel = apiLevel.getLevel();
-    AppView<?> appView = AppView.createForD8(null, options);
-    BackportedMethodRewriter.RewritableMethods rewritableMethods =
-        new BackportedMethodRewriter.RewritableMethods(options, appView);
-    rewritableMethods.visit(methods::add);
-    return methods;
+  public static List<DexMethod> generateListOfBackportedMethods(
+      AndroidApp androidApp, InternalOptions options, ExecutorService executor) throws IOException {
+    try {
+      List<DexMethod> methods = new ArrayList<>();
+      PrefixRewritingMapper rewritePrefix =
+          options.desugaredLibraryConfiguration.createPrefixRewritingMapper(options);
+      AppInfo appInfo = null;
+      if (androidApp != null) {
+        DexApplication app =
+            new ApplicationReader(androidApp, options, Timing.empty()).read(executor);
+        appInfo =
+            options.desugaredLibraryConfiguration.getRewritePrefix().isEmpty()
+                ? new AppInfo(app)
+                : new AppInfoWithClassHierarchy(app);
+      }
+      AppView<?> appView = AppView.createForD8(appInfo, options, rewritePrefix);
+      BackportedMethodRewriter.RewritableMethods rewritableMethods =
+          new BackportedMethodRewriter.RewritableMethods(options, appView);
+      rewritableMethods.visit(methods::add);
+      return methods;
+    } catch (ExecutionException e) {
+      throw unwrapExecutionException(e);
+    }
   }
 
   public void desugar(IRCode code) {
@@ -108,6 +133,7 @@ public final class BackportedMethodRewriter {
       return; // Nothing to do!
     }
 
+    Set<Value> affectedValues = Sets.newIdentityHashSet();
     InstructionListIterator iterator = code.instructionListIterator();
     while (iterator.hasNext()) {
       Instruction instruction = iterator.next();
@@ -165,13 +191,16 @@ public final class BackportedMethodRewriter {
         }
       }
 
-      provider.rewriteInvoke(invoke, iterator, code, appView);
+      provider.rewriteInvoke(invoke, iterator, code, appView, affectedValues);
 
       if (provider.requiresGenerationOfCode()) {
         DexMethod newMethod = provider.provideMethod(appView);
         methodProviders.putIfAbsent(newMethod, provider);
         holders.add(code.method.method.holder);
       }
+    }
+    if (!affectedValues.isEmpty()) {
+      new TypeAnalysis(appView).narrowing(affectedValues);
     }
   }
 
@@ -1441,6 +1470,17 @@ public final class BackportedMethodRewriter {
           new MethodGenerator(
               method, BackportedMethods::CharacterMethods_toStringCodepoint, "toStringCodepoint"));
 
+      // CharSequence
+      type = factory.charSequenceType;
+
+      // int CharSequence.compare(CharSequence, CharSequence)
+      name = factory.createString("compare");
+      proto =
+          factory.createProto(factory.intType, factory.charSequenceType, factory.charSequenceType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodGenerator(method, BackportedMethods::CharSequenceMethods_compare, "compare"));
+
       // String
       type = factory.stringType;
 
@@ -1574,10 +1614,10 @@ public final class BackportedMethodRewriter {
           };
       MethodInvokeRewriter[] rewriters =
           new MethodInvokeRewriter[] {
-              OptionalMethodRewrites::rewriteOrElseGet,
-              OptionalMethodRewrites::rewriteDoubleOrElseGet,
-              OptionalMethodRewrites::rewriteLongOrElseGet,
-              OptionalMethodRewrites::rewriteIntOrElseGet,
+            OptionalMethodRewrites::rewriteOrElseGet,
+            OptionalMethodRewrites::rewriteDoubleOrElseGet,
+            OptionalMethodRewrites::rewriteLongOrElseGet,
+            OptionalMethodRewrites::rewriteIntOrElseGet,
           };
       DexString name = factory.createString("orElseThrow");
       for (int i = 0; i < optionalTypes.length; i++) {
@@ -1714,8 +1754,12 @@ public final class BackportedMethodRewriter {
       this.method = method;
     }
 
-    public abstract void rewriteInvoke(InvokeMethod invoke, InstructionListIterator iterator,
-        IRCode code, AppView<?> appView);
+    public abstract void rewriteInvoke(
+        InvokeMethod invoke,
+        InstructionListIterator iterator,
+        IRCode code,
+        AppView<?> appView,
+        Set<Value> affectedValues);
 
     public abstract DexMethod provideMethod(AppView<?> appView);
 
@@ -1737,8 +1781,12 @@ public final class BackportedMethodRewriter {
     }
 
     @Override
-    public void rewriteInvoke(InvokeMethod invoke, InstructionListIterator iterator, IRCode code,
-        AppView<?> appView) {
+    public void rewriteInvoke(
+        InvokeMethod invoke,
+        InstructionListIterator iterator,
+        IRCode code,
+        AppView<?> appView,
+        Set<Value> affectedValues) {
       iterator.replaceCurrentInstruction(
           new InvokeStatic(provideMethod(appView), invoke.outValue(), invoke.inValues()));
     }
@@ -1777,8 +1825,12 @@ public final class BackportedMethodRewriter {
 
     @Override
     public void rewriteInvoke(
-        InvokeMethod invoke, InstructionListIterator iterator, IRCode code, AppView<?> appView) {
-      rewriter.rewrite(invoke, iterator, appView.dexItemFactory());
+        InvokeMethod invoke,
+        InstructionListIterator iterator,
+        IRCode code,
+        AppView<?> appView,
+        Set<Value> affectedValues) {
+      rewriter.rewrite(invoke, iterator, appView.dexItemFactory(), affectedValues);
       assert code.isConsistentSSA();
     }
 
@@ -1815,8 +1867,12 @@ public final class BackportedMethodRewriter {
     }
 
     @Override
-    public void rewriteInvoke(InvokeMethod invoke, InstructionListIterator iterator, IRCode code,
-        AppView<?> appView) {
+    public void rewriteInvoke(
+        InvokeMethod invoke,
+        InstructionListIterator iterator,
+        IRCode code,
+        AppView<?> appView,
+        Set<Value> affectedValues) {
       iterator.replaceCurrentInstruction(
           new InvokeStatic(provideMethod(appView), invoke.outValue(), invoke.inValues()));
     }
@@ -1895,6 +1951,10 @@ public final class BackportedMethodRewriter {
 
   private interface MethodInvokeRewriter {
 
-    void rewrite(InvokeMethod invoke, InstructionListIterator iterator, DexItemFactory factory);
+    void rewrite(
+        InvokeMethod invoke,
+        InstructionListIterator iterator,
+        DexItemFactory factory,
+        Set<Value> affectedValues);
   }
 }

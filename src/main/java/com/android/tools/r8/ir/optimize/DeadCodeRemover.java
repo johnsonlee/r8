@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -34,12 +35,15 @@ public class DeadCodeRemover {
     this.codeRewriter = codeRewriter;
   }
 
-  public void run(IRCode code) {
-    removeUnneededCatchHandlers(code);
+  public void run(IRCode code, Timing timing) {
+    timing.begin("Remove dead code");
+
+    codeRewriter.rewriteMoveResult(code);
+
+    // We may encounter unneeded catch handlers after each iteration, e.g., if a dead instruction
+    // is the only throwing instruction in a block. Removing unneeded catch handlers can lead to
+    // more dead instructions.
     Deque<BasicBlock> worklist = new ArrayDeque<>();
-    // We may encounter unneeded catch handlers again, e.g., if a dead instruction (due to
-    // const-string canonicalization for example) is the only throwing instruction in a block.
-    // Removing unneeded catch handlers can lead to more dead instructions.
     do {
       worklist.addAll(code.topologicallySortedBlocks());
       while (!worklist.isEmpty()) {
@@ -49,7 +53,26 @@ public class DeadCodeRemover {
       }
     } while (removeUnneededCatchHandlers(code));
     assert code.isConsistentSSA();
-    codeRewriter.rewriteMoveResult(code);
+
+    timing.end();
+  }
+
+  public boolean verifyNoDeadCode(IRCode code) {
+    assert !codeRewriter.rewriteMoveResult(code);
+    assert !removeUnneededCatchHandlers(code);
+    for (BasicBlock block : code.blocks) {
+      assert !block.hasDeadPhi(appView, code);
+      for (Instruction instruction : block.getInstructions()) {
+        // No unused move-result instructions.
+        assert !instruction.isInvoke()
+            || !instruction.hasOutValue()
+            || instruction.outValue().hasAnyUsers();
+        // No dead instructions.
+        assert !instruction.canBeDeadCode(appView, code)
+            || (instruction.hasOutValue() && !instruction.outValue().isDead(appView, code));
+      }
+    }
+    return true;
   }
 
   // Add the block from where the value originates to the worklist.
