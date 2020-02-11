@@ -10,7 +10,6 @@ import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ClassAccessFlags;
 import com.android.tools.r8.graph.Code;
@@ -95,15 +94,12 @@ public final class BackportedMethodRewriter {
     try {
       List<DexMethod> methods = new ArrayList<>();
       PrefixRewritingMapper rewritePrefix =
-          options.desugaredLibraryConfiguration.createPrefixRewritingMapper(options);
+          options.desugaredLibraryConfiguration.createPrefixRewritingMapper(options.itemFactory);
       AppInfo appInfo = null;
       if (androidApp != null) {
         DexApplication app =
-            new ApplicationReader(androidApp, options, Timing.empty()).read(executor);
-        appInfo =
-            options.desugaredLibraryConfiguration.getRewritePrefix().isEmpty()
-                ? new AppInfo(app)
-                : new AppInfoWithClassHierarchy(app);
+            new ApplicationReader(androidApp, options, new Timing()).read(executor);
+        appInfo = new AppInfo(app);
       }
       AppView<?> appView = AppView.createForD8(appInfo, options, rewritePrefix);
       BackportedMethodRewriter.RewritableMethods rewritableMethods =
