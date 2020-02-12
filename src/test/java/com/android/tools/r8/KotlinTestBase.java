@@ -6,6 +6,7 @@ package com.android.tools.r8;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -26,6 +27,12 @@ public abstract class KotlinTestBase extends TestBase {
 
   protected KotlinTestBase(KotlinTargetVersion targetVersion) {
     this.targetVersion = targetVersion;
+  }
+
+  protected static Path getKotlinFileInTestPackage(Package pkg, String fileName)
+      throws IOException {
+    String folder = DescriptorUtils.getBinaryNameFromJavaType(pkg.getName());
+    return getKotlinFileInTest(folder, fileName);
   }
 
   protected static Path getKotlinFileInTest(String folder, String fileName) {
