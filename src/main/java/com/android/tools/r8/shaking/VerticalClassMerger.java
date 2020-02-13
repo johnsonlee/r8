@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClass.FieldSetter;
 import com.android.tools.r8.graph.DexClass.MethodSetter;
 import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
@@ -26,7 +27,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.GraphLenseLookupResult;
-import com.android.tools.r8.graph.KeyedDexItem;
+import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.PresortedComparable;
@@ -325,7 +326,7 @@ public class VerticalClassMerger {
   // Returns true if [clazz] is a merge candidate. Note that the result of the checks in this
   // method do not change in response to any class merges.
   private boolean isMergeCandidate(DexProgramClass clazz, Set<DexType> pinnedTypes) {
-    if (appInfo.instantiatedTypes.contains(clazz.type)
+    if (appInfo.getObjectAllocationInfoCollection().isInstantiatedDirectly(clazz)
         || appInfo.instantiatedLambdas.contains(clazz.type)
         || appInfo.isPinned(clazz.type)
         || pinnedTypes.contains(clazz.type)
@@ -334,7 +335,7 @@ public class VerticalClassMerger {
     }
 
     assert Streams.stream(Iterables.concat(clazz.fields(), clazz.methods()))
-        .map(KeyedDexItem::getKey)
+        .map(DexEncodedMember::getKey)
         .noneMatch(appInfo::isPinned);
 
     if (appView.options().featureSplitConfiguration != null &&
@@ -734,11 +735,17 @@ public class VerticalClassMerger {
       //   }
       for (DexEncodedMethod method : defaultMethods) {
         // Conservatively find all possible targets for this method.
-        Set<DexEncodedMethod> interfaceTargets =
+        LookupResult lookupResult =
             appInfo
                 .resolveMethodOnInterface(method.method.holder, method.method)
-                .lookupVirtualDispatchTargets(appInfo);
-
+                .lookupVirtualDispatchTargets(appView, appInfo);
+        assert lookupResult.isLookupResultSuccess();
+        if (lookupResult.isLookupResultFailure()) {
+          return true;
+        }
+        assert lookupResult.isLookupResultSuccess();
+        Set<DexEncodedMethod> interfaceTargets =
+            lookupResult.asLookupResultSuccess().getMethodTargets();
         // If [method] is not even an interface-target, then we can safely merge it. Otherwise we
         // need to check for a conflict.
         if (interfaceTargets.remove(method)) {
@@ -1262,12 +1269,12 @@ public class VerticalClassMerger {
       return null;
     }
 
-    private <T extends KeyedDexItem<S>, S extends PresortedComparable<S>> void add(
+    private <T extends DexEncodedMember<S>, S extends PresortedComparable<S>> void add(
         Map<Wrapper<S>, T> map, T item, Equivalence<S> equivalence) {
       map.put(equivalence.wrap(item.getKey()), item);
     }
 
-    private <T extends KeyedDexItem<S>, S extends PresortedComparable<S>> void addAll(
+    private <T extends DexEncodedMember<S>, S extends PresortedComparable<S>> void addAll(
         Collection<Wrapper<S>> collection, Iterable<T> items, Equivalence<S> equivalence) {
       for (T item : items) {
         collection.add(equivalence.wrap(item.getKey()));

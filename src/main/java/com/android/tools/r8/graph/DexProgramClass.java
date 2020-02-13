@@ -148,9 +148,7 @@ public class DexProgramClass extends DexClass implements Supplier<DexProgramClas
       if (sourceFile != null) {
         sourceFile.collectIndexedItems(indexedItems, method, instructionOffset);
       }
-      if (annotations != null) {
-        annotations.collectIndexedItems(indexedItems, method, instructionOffset);
-      }
+      annotations().collectIndexedItems(indexedItems, method, instructionOffset);
       if (interfaces != null) {
         interfaces.collectIndexedItems(indexedItems, method, instructionOffset);
       }
@@ -203,13 +201,10 @@ public class DexProgramClass extends DexClass implements Supplier<DexProgramClas
       synchronizedCollectAll(collector, staticFields);
       synchronizedCollectAll(collector, instanceFields);
     }
-    if (annotations != null) {
-      annotations.collectMixedSectionItems(collector);
-    }
+    annotations().collectMixedSectionItems(collector);
     if (interfaces != null) {
       interfaces.collectMixedSectionItems(collector);
     }
-    annotations.collectMixedSectionItems(collector);
   }
 
   private static <T extends DexItem> void synchronizedCollectAll(MixedSectionCollection collection,
@@ -291,7 +286,7 @@ public class DexProgramClass extends DexClass implements Supplier<DexProgramClas
   }
 
   public boolean hasAnnotations() {
-    return !annotations.isEmpty()
+    return !annotations().isEmpty()
         || hasAnnotations(virtualMethods)
         || hasAnnotations(directMethods)
         || hasAnnotations(staticFields)
@@ -357,11 +352,11 @@ public class DexProgramClass extends DexClass implements Supplier<DexProgramClas
         && isSorted(instanceFields);
   }
 
-  private static <T extends KeyedDexItem<S>, S extends PresortedComparable<S>> boolean isSorted(
+  private static <T extends DexEncodedMember<S>, S extends PresortedComparable<S>> boolean isSorted(
       T[] items) {
     synchronized (items) {
       T[] sorted = items.clone();
-      Arrays.sort(sorted, Comparator.comparing(KeyedDexItem::getKey));
+      Arrays.sort(sorted, Comparator.comparing(DexEncodedMember::getKey));
       return Arrays.equals(items, sorted);
     }
   }
@@ -446,29 +441,8 @@ public class DexProgramClass extends DexClass implements Supplier<DexProgramClas
    * entire scope.
    */
   public boolean hasReachabilitySensitiveAnnotation(DexItemFactory factory) {
-    for (DexEncodedMethod directMethod : directMethods) {
-      for (DexAnnotation annotation : directMethod.annotations.annotations) {
-        if (annotation.annotation.type == factory.annotationReachabilitySensitive) {
-          return true;
-        }
-      }
-    }
-    for (DexEncodedMethod virtualMethod : virtualMethods) {
-      for (DexAnnotation annotation : virtualMethod.annotations.annotations) {
-        if (annotation.annotation.type == factory.annotationReachabilitySensitive) {
-          return true;
-        }
-      }
-    }
-    for (DexEncodedField staticField : staticFields) {
-      for (DexAnnotation annotation : staticField.annotations.annotations) {
-        if (annotation.annotation.type == factory.annotationReachabilitySensitive) {
-          return true;
-        }
-      }
-    }
-    for (DexEncodedField instanceField : instanceFields) {
-      for (DexAnnotation annotation : instanceField.annotations.annotations) {
+    for (DexEncodedMember<?> member : members()) {
+      for (DexAnnotation annotation : member.annotations().annotations) {
         if (annotation.annotation.type == factory.annotationReachabilitySensitive) {
           return true;
         }

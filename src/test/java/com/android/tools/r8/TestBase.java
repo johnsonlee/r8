@@ -716,6 +716,10 @@ public class TestBase {
     return dataResources;
   }
 
+  protected static Path getFileInTest(String folder, String fileName) {
+    return Paths.get(ToolHelper.TESTS_DIR, "java", folder, fileName);
+  }
+
   /**
    * Create a temporary JAR file containing all test classes in a package.
    */
@@ -1189,8 +1193,11 @@ public class TestBase {
     consumer.finished(null);
   }
 
-  protected static void writeClassFileDataToJar(Path output, Collection<byte[]> classes)
-      throws IOException {
+  protected static void writeClassesToJar(Path output, Class<?>... classes) throws IOException {
+    writeClassesToJar(output, Arrays.asList(classes));
+  }
+
+  protected static void writeClassFileDataToJar(Path output, Collection<byte[]> classes) {
     ClassFileConsumer consumer = new ArchiveConsumer(output);
     for (byte[] clazz : classes) {
       consumer.accept(ByteDataView.of(clazz), extractClassDescriptor(clazz), null);

@@ -134,17 +134,17 @@ public class FoundFieldSubject extends FieldSubject {
   @Override
   public String getOriginalSignatureAttribute() {
     return codeInspector.getOriginalSignatureAttribute(
-        dexField.annotations, GenericSignatureParser::parseFieldSignature);
+        dexField.annotations(), GenericSignatureParser::parseFieldSignature);
   }
 
   @Override
   public String getFinalSignatureAttribute() {
-    return codeInspector.getFinalSignatureAttribute(dexField.annotations);
+    return codeInspector.getFinalSignatureAttribute(dexField.annotations());
   }
 
   @Override
   public AnnotationSubject annotation(String name) {
-    DexAnnotation annotation = codeInspector.findAnnotation(name, dexField.annotations);
+    DexAnnotation annotation = codeInspector.findAnnotation(name, dexField.annotations());
     return annotation == null
         ? new AbsentAnnotationSubject()
         : new FoundAnnotationSubject(annotation);
@@ -153,5 +153,10 @@ public class FoundFieldSubject extends FieldSubject {
   @Override
   public String toString() {
     return dexField.toSourceString();
+  }
+
+  @Override
+  public String getJvmFieldSignatureAsString() {
+    return dexField.field.name.toString() + ":" + dexField.field.type.toDescriptorString();
   }
 }

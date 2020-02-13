@@ -27,7 +27,8 @@ import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.ir.analysis.TypeChecker;
 import com.android.tools.r8.ir.analysis.constant.SparseConditionalConstantPropagation;
 import com.android.tools.r8.ir.analysis.fieldaccess.FieldAccessAnalysis;
-import com.android.tools.r8.ir.analysis.fieldvalueanalysis.FieldValueAnalysis;
+import com.android.tools.r8.ir.analysis.fieldvalueanalysis.InstanceFieldValueAnalysis;
+import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValueAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.code.AlwaysMaterializingDefinition;
 import com.android.tools.r8.ir.code.AlwaysMaterializingUser;
@@ -77,7 +78,6 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.lambda.LambdaMerger;
-import com.android.tools.r8.ir.optimize.library.LibraryMethodOptimizer;
 import com.android.tools.r8.ir.optimize.staticizer.ClassStaticizer;
 import com.android.tools.r8.ir.optimize.string.StringBuilderOptimizer;
 import com.android.tools.r8.ir.optimize.string.StringOptimizer;
@@ -129,7 +129,6 @@ public class IRConverter {
   private final Outliner outliner;
   private final ClassInitializerDefaultsOptimization classInitializerDefaultsOptimization;
   private final FieldAccessAnalysis fieldAccessAnalysis;
-  private final LibraryMethodOptimizer libraryMethodOptimizer;
   private final LibraryMethodOverrideAnalysis libraryMethodOverrideAnalysis;
   private final StringConcatRewriter stringConcatRewriter;
   private final StringOptimizer stringOptimizer;
@@ -234,7 +233,6 @@ public class IRConverter {
       this.classInliner = null;
       this.classStaticizer = null;
       this.fieldAccessAnalysis = null;
-      this.libraryMethodOptimizer = null;
       this.libraryMethodOverrideAnalysis = null;
       this.inliner = null;
       this.outliner = null;
@@ -268,7 +266,6 @@ public class IRConverter {
         options.processCovariantReturnTypeAnnotations
             ? new CovariantReturnTypeAnnotationTransformer(this, appView.dexItemFactory())
             : null;
-    this.libraryMethodOptimizer = new LibraryMethodOptimizer(appView);
     if (options.testing.forceAssumeNoneInsertion) {
       assumers.add(new AliasIntroducer(appView));
     }
@@ -510,9 +507,9 @@ public class IRConverter {
   }
 
   private void clearSynthesizedClassMapping(Builder<?> builder) {
-    for (DexProgramClass programClass : builder.getProgramClasses()) {
-      programClass.annotations =
-          programClass.annotations.getWithout(builder.dexItemFactory.annotationSynthesizedClassMap);
+    for (DexProgramClass clazz : builder.getProgramClasses()) {
+      clazz.setAnnotations(
+          clazz.annotations().getWithout(builder.dexItemFactory.annotationSynthesizedClassMap));
     }
   }
 
@@ -542,7 +539,7 @@ public class IRConverter {
       DexAnnotation updatedAnnotation =
           DexAnnotation.createAnnotationSynthesizedClassMap(synthesized, builder.dexItemFactory);
 
-      original.annotations = original.annotations.getWithAddedOrReplaced(updatedAnnotation);
+      original.setAnnotations(original.annotations().getWithAddedOrReplaced(updatedAnnotation));
     }
   }
 
@@ -1230,11 +1227,9 @@ public class IRConverter {
       stringOptimizer.computeTrivialOperationsOnConstString(code);
       stringOptimizer.removeTrivialConversions(code);
       timing.end();
-      if (libraryMethodOptimizer != null) {
-        timing.begin("Optimize library methods");
-        libraryMethodOptimizer.optimize(code, feedback, methodProcessor);
-        timing.end();
-      }
+      timing.begin("Optimize library methods");
+      appView.libraryMethodOptimizer().optimize(code, feedback, methodProcessor);
+      timing.end();
       assert code.isConsistentSSA();
     }
 
@@ -1570,7 +1565,16 @@ public class IRConverter {
 
     methodOptimizationInfoCollector
         .collectMethodOptimizationInfo(code.method, code, feedback, dynamicTypeOptimization);
-    FieldValueAnalysis.run(appView, code, classInitializerDefaultsResult, feedback, code.method);
+
+    if (method.isInitializer()) {
+      if (method.isClassInitializer()) {
+        StaticFieldValueAnalysis.run(
+            appView, code, classInitializerDefaultsResult, feedback, code.method);
+      } else {
+        InstanceFieldValueAnalysis.run(
+            appView, code, classInitializerDefaultsResult, feedback, code.method);
+      }
+    }
   }
 
   public void removeDeadCodeAndFinalizeIR(

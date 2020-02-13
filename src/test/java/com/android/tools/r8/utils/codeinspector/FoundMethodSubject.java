@@ -24,6 +24,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.naming.MemberNaming;
 import com.android.tools.r8.naming.MemberNaming.MethodSignature;
@@ -32,6 +33,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.LocalVariableTable.LocalVariableTableEntry;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -177,7 +179,7 @@ public class FoundMethodSubject extends MethodSubject {
   @Override
   public String getOriginalSignatureAttribute() {
     return codeInspector.getOriginalSignatureAttribute(
-        dexMethod.annotations, GenericSignatureParser::parseMethodSignature);
+        dexMethod.annotations(), GenericSignatureParser::parseMethodSignature);
   }
 
   public DexMethod getOriginalDexMethod(DexItemFactory dexItemFactory) {
@@ -191,7 +193,7 @@ public class FoundMethodSubject extends MethodSubject {
 
   @Override
   public String getFinalSignatureAttribute() {
-    return codeInspector.getFinalSignatureAttribute(dexMethod.annotations);
+    return codeInspector.getFinalSignatureAttribute(dexMethod.annotations());
   }
 
   public Iterable<InstructionSubject> instructions() {
@@ -335,7 +337,7 @@ public class FoundMethodSubject extends MethodSubject {
 
   @Override
   public AnnotationSubject annotation(String name) {
-    DexAnnotation annotation = codeInspector.findAnnotation(name, dexMethod.annotations);
+    DexAnnotation annotation = codeInspector.findAnnotation(name, dexMethod.annotations());
     return annotation == null
         ? new AbsentAnnotationSubject()
         : new FoundAnnotationSubject(annotation);
@@ -355,5 +357,16 @@ public class FoundMethodSubject extends MethodSubject {
             .map(type -> Reference.typeFromDescriptor(type.toDescriptorString()))
             .collect(Collectors.toList()),
         Reference.returnTypeFromDescriptor(method.proto.returnType.toDescriptorString()));
+  }
+
+  @Override
+  public String getJvmMethodSignatureAsString() {
+    return dexMethod.method.name.toString()
+        + "("
+        + StringUtils.join(
+            Arrays.stream(dexMethod.method.proto.parameters.values)
+                .map(DexType::toDescriptorString).collect(Collectors.toList()), "")
+        + ")"
+        + dexMethod.method.proto.returnType.toDescriptorString();
   }
 }

@@ -234,7 +234,9 @@ public final class LambdaMerger {
                 cls.hasKotlinInfo()
                     && cls.getKotlinInfo().isSyntheticClass()
                     && cls.getKotlinInfo().asSyntheticClass().isLambda()
-                    && KotlinLambdaGroupIdFactory.hasValidAnnotations(kotlin, cls))
+                    && KotlinLambdaGroupIdFactory.hasValidAnnotations(kotlin, cls)
+                    && (appView.options().featureSplitConfiguration == null
+                        || !appView.options().featureSplitConfiguration.isInFeature(cls)))
         .sorted((a, b) -> a.type.slowCompareTo(b.type)) // Ensure stable ordering.
         .forEachOrdered(
             lambda -> {
@@ -358,7 +360,7 @@ public final class LambdaMerger {
 
     // Rewrite lambda class references into lambda group class
     // references inside methods from the processing queue.
-    rewriteLambdaReferences(converter, executorService, feedback);
+    rewriteLambdaReferences(converter, executorService);
     this.mode = null;
 
     appView.setHorizontallyMergedLambdaClasses(
@@ -423,8 +425,7 @@ public final class LambdaMerger {
     }
   }
 
-  private void rewriteLambdaReferences(
-      IRConverter converter, ExecutorService executorService, OptimizationFeedback feedback)
+  private void rewriteLambdaReferences(IRConverter converter, ExecutorService executorService)
       throws ExecutionException {
     if (methodsToReprocess.isEmpty()) {
       return;
@@ -440,27 +441,22 @@ public final class LambdaMerger {
   private void analyzeClass(DexProgramClass clazz) {
     lambdaInvalidator.accept(clazz.superType);
     lambdaInvalidator.accept(clazz.interfaces);
-    lambdaInvalidator.accept(clazz.annotations);
+    lambdaInvalidator.accept(clazz.annotations());
 
     for (DexEncodedField field : clazz.staticFields()) {
-      lambdaInvalidator.accept(field.annotations);
+      lambdaInvalidator.accept(field.annotations());
       if (field.field.type != clazz.type) {
         // Ignore static fields of the same type.
         lambdaInvalidator.accept(field.field, clazz.type);
       }
     }
     for (DexEncodedField field : clazz.instanceFields()) {
-      lambdaInvalidator.accept(field.annotations);
+      lambdaInvalidator.accept(field.annotations());
       lambdaInvalidator.accept(field.field, clazz.type);
     }
 
-    for (DexEncodedMethod method : clazz.directMethods()) {
-      lambdaInvalidator.accept(method.annotations);
-      lambdaInvalidator.accept(method.parameterAnnotationsList);
-      lambdaInvalidator.accept(method.method, clazz.type);
-    }
-    for (DexEncodedMethod method : clazz.virtualMethods()) {
-      lambdaInvalidator.accept(method.annotations);
+    for (DexEncodedMethod method : clazz.methods()) {
+      lambdaInvalidator.accept(method.annotations());
       lambdaInvalidator.accept(method.parameterAnnotationsList);
       lambdaInvalidator.accept(method.method, clazz.type);
     }

@@ -31,6 +31,7 @@ import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnal
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedExtensionRegistryShrinker;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
 import com.android.tools.r8.ir.desugar.NestedPrivateMethodLense;
 import com.android.tools.r8.ir.desugar.R8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
@@ -43,7 +44,6 @@ import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization.Uninstant
 import com.android.tools.r8.ir.optimize.UnusedArgumentsCollector;
 import com.android.tools.r8.ir.optimize.UnusedArgumentsCollector.UnusedArgumentsGraphLense;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
-import com.android.tools.r8.ir.optimize.library.LibraryOptimizationInfoInitializer;
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.kotlin.Kotlin;
 import com.android.tools.r8.kotlin.KotlinInfo;
@@ -270,6 +270,14 @@ public class R8 {
           AppView.createForR8(new AppInfoWithSubtyping(application), options);
       appView.setAppServices(AppServices.builder(appView).build());
 
+      // Up-front check for valid library setup.
+      if (!options.mainDexKeepRules.isEmpty()) {
+        MainDexListBuilder.checkForAssumedLibraryTypes(appView.appInfo());
+      }
+      if (!options.desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()) {
+        BackportedMethodRewriter.checkForAssumedLibraryTypes(appView);
+      }
+
       List<ProguardConfigurationRule> synthesizedProguardRules = new ArrayList<>();
       timing.begin("Strip unused code");
       Set<DexType> classesToRetainInnerClassAttributeFor = null;
@@ -327,8 +335,6 @@ public class R8 {
         assert appView.rootSet().verifyKeptTypesAreLive(appViewWithLiveness.appInfo());
 
         appView.rootSet().checkAllRulesAreUsed(options);
-
-        new LibraryOptimizationInfoInitializer(appView).run();
 
         if (options.proguardSeedsConsumer != null) {
           ByteArrayOutputStream bytes = new ByteArrayOutputStream();

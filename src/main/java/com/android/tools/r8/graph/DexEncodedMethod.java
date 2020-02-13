@@ -76,7 +76,7 @@ import java.util.function.Consumer;
 import java.util.function.IntPredicate;
 import org.objectweb.asm.Opcodes;
 
-public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
+public class DexEncodedMethod extends DexEncodedMember<DexMethod> {
 
   public static final String CONFIGURATION_DEBUGGING_PREFIX = "Shaking error: Missing method in ";
 
@@ -118,15 +118,16 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
 
   public static final DexEncodedMethod[] EMPTY_ARRAY = {};
   public static final DexEncodedMethod SENTINEL =
-      new DexEncodedMethod(null, null, null, ParameterAnnotationsList.empty(), null);
+      new DexEncodedMethod(
+          null, null, DexAnnotationSet.empty(), ParameterAnnotationsList.empty(), null);
   public static final DexEncodedMethod ANNOTATION_REFERENCE =
-      new DexEncodedMethod(null, null, null, ParameterAnnotationsList.empty(), null);
+      new DexEncodedMethod(
+          null, null, DexAnnotationSet.empty(), ParameterAnnotationsList.empty(), null);
   public static final Int2ReferenceMap<DebugLocalInfo> NO_PARAMETER_INFO =
       new Int2ReferenceArrayMap<>(0);
 
   public final DexMethod method;
   public final MethodAccessFlags accessFlags;
-  public DexAnnotationSet annotations;
   public ParameterAnnotationsList parameterAnnotationsList;
   private Code code;
   // TODO(b/128967328): towards finer-grained inlining constraints,
@@ -241,9 +242,9 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
       Code code,
       int classFileVersion,
       boolean d8R8Synthesized) {
+    super(annotations);
     this.method = method;
     this.accessFlags = accessFlags;
-    this.annotations = annotations;
     this.parameterAnnotationsList = parameterAnnotationsList;
     this.code = code;
     this.classFileVersion = classFileVersion;
@@ -605,7 +606,7 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
     if (code != null) {
       code.collectIndexedItems(indexedItems, this.method);
     }
-    annotations.collectIndexedItems(indexedItems);
+    annotations().collectIndexedItems(indexedItems);
     parameterAnnotationsList.collectIndexedItems(indexedItems);
   }
 
@@ -620,7 +621,7 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
     if (code != null) {
       code.collectMixedSectionItems(mixedItems);
     }
-    annotations.collectMixedSectionItems(mixedItems);
+    annotations().collectMixedSectionItems(mixedItems);
     parameterAnnotationsList.collectMixedSectionItems(mixedItems);
   }
 
@@ -821,8 +822,8 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
     DexProto proto = itemFactory.createProto(itemFactory.intType, args);
     DexMethod logMethod =
         itemFactory.createMethod(
-            itemFactory.createType("Landroid/util/Log;"), proto, itemFactory.createString("e"));
-    DexType exceptionType = itemFactory.createType("Ljava/lang/RuntimeException;");
+            itemFactory.androidUtilLogType, proto, itemFactory.createString("e"));
+    DexType exceptionType = itemFactory.runtimeExceptionType;
     DexMethod exceptionInitMethod =
         itemFactory.createMethod(
             exceptionType,
@@ -851,7 +852,7 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
         itemFactory.createString(
             CONFIGURATION_DEBUGGING_PREFIX + method.holder.toSourceString() + ": " + signature);
     DexString tag = itemFactory.createString("[R8]");
-    DexType logger = itemFactory.createType("Ljava/util/logging/Logger;");
+    DexType logger = itemFactory.javaUtilLoggingLoggerType;
     DexMethod getLogger =
         itemFactory.createMethod(
             logger,
@@ -862,7 +863,7 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
             logger,
             itemFactory.createProto(itemFactory.voidType, itemFactory.stringType),
             itemFactory.createString("severe"));
-    DexType exceptionType = itemFactory.createType("Ljava/lang/RuntimeException;");
+    DexType exceptionType = itemFactory.runtimeExceptionType;
     DexMethod exceptionInitMethod =
         itemFactory.createMethod(
             exceptionType,
@@ -1108,7 +1109,7 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
     return new DexEncodedMethod(
         newMethod,
         newFlags,
-        target.annotations,
+        target.annotations(),
         target.parameterAnnotationsList,
         new SynthesizedCode(forwardSourceCodeBuilder::build),
         true);
@@ -1188,7 +1189,7 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
 
   public boolean hasAnnotation() {
     checkIfObsolete();
-    return !annotations.isEmpty() || !parameterAnnotationsList.isEmpty();
+    return !annotations().isEmpty() || !parameterAnnotationsList.isEmpty();
   }
 
   public void registerCodeReferences(UseRegistry registry) {
@@ -1271,7 +1272,7 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
       // Copy all the mutable state of a DexEncodedMethod here.
       method = from.method;
       accessFlags = from.accessFlags.copy();
-      annotations = from.annotations;
+      annotations = from.annotations();
       code = from.code;
       compilationState = from.compilationState;
       optimizationInfo = from.optimizationInfo.mutableCopy();
