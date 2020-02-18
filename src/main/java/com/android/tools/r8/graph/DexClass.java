@@ -129,7 +129,7 @@ public abstract class DexClass extends DexDefinition {
         Iterables.filter(Arrays.asList(staticFields), predicate::test));
   }
 
-  public Iterable<DexEncodedMember<?>> members() {
+  public Iterable<DexEncodedMember<?, ?>> members() {
     return Iterables.concat(fields(), methods());
   }
 
@@ -611,8 +611,9 @@ public abstract class DexClass extends DexDefinition {
         && method.method.proto.parameters.values[0] != factory.objectArrayType;
   }
 
-  private <T extends DexItem, S extends Descriptor<T, S>> T lookupTarget(T[] items, S descriptor) {
-    for (T entry : items) {
+  private <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>> D lookupTarget(
+      D[] items, R descriptor) {
+    for (D entry : items) {
       if (descriptor.match(entry)) {
         return entry;
       }
@@ -773,11 +774,15 @@ public abstract class DexClass extends DexDefinition {
   }
 
   public boolean classInitializationMayHaveSideEffects(AppView<?> appView) {
-    return classInitializationMayHaveSideEffects(appView, Predicates.alwaysFalse());
+    return classInitializationMayHaveSideEffects(
+        appView, Predicates.alwaysFalse(), Sets.newIdentityHashSet());
   }
 
   public boolean classInitializationMayHaveSideEffects(
-      AppView<?> appView, Predicate<DexType> ignore) {
+      AppView<?> appView, Predicate<DexType> ignore, Set<DexType> seen) {
+    if (!seen.add(type)) {
+      return false;
+    }
     if (ignore.test(type)) {
       return false;
     }
@@ -795,7 +800,7 @@ public abstract class DexClass extends DexDefinition {
     if (defaultValuesForStaticFieldsMayTriggerAllocation()) {
       return true;
     }
-    return initializationOfParentTypesMayHaveSideEffects(appView, ignore);
+    return initializationOfParentTypesMayHaveSideEffects(appView, ignore, seen);
   }
 
   private boolean hasClassInitializerThatCannotBePostponed() {
@@ -820,17 +825,19 @@ public abstract class DexClass extends DexDefinition {
   }
 
   public boolean initializationOfParentTypesMayHaveSideEffects(AppView<?> appView) {
-    return initializationOfParentTypesMayHaveSideEffects(appView, Predicates.alwaysFalse());
+    return initializationOfParentTypesMayHaveSideEffects(
+        appView, Predicates.alwaysFalse(), Sets.newIdentityHashSet());
   }
 
   public boolean initializationOfParentTypesMayHaveSideEffects(
-      AppView<?> appView, Predicate<DexType> ignore) {
+      AppView<?> appView, Predicate<DexType> ignore, Set<DexType> seen) {
     for (DexType iface : interfaces.values) {
-      if (iface.classInitializationMayHaveSideEffects(appView, ignore)) {
+      if (iface.classInitializationMayHaveSideEffects(appView, ignore, seen)) {
         return true;
       }
     }
-    if (superType != null && superType.classInitializationMayHaveSideEffects(appView, ignore)) {
+    if (superType != null
+        && superType.classInitializationMayHaveSideEffects(appView, ignore, seen)) {
       return true;
     }
     return false;

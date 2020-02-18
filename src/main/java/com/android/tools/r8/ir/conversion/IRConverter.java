@@ -59,7 +59,6 @@ import com.android.tools.r8.ir.optimize.ConstantCanonicalizer;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.ir.optimize.Devirtualizer;
 import com.android.tools.r8.ir.optimize.DynamicTypeOptimization;
-import com.android.tools.r8.ir.optimize.EnumUnboxer;
 import com.android.tools.r8.ir.optimize.IdempotentFunctionCallCanonicalizer;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
@@ -72,11 +71,14 @@ import com.android.tools.r8.ir.optimize.ReflectionOptimizer;
 import com.android.tools.r8.ir.optimize.ServiceLoaderRewriter;
 import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization;
 import com.android.tools.r8.ir.optimize.classinliner.ClassInliner;
+import com.android.tools.r8.ir.optimize.enums.EnumUnboxer;
+import com.android.tools.r8.ir.optimize.enums.EnumValueOptimizer;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfoCollector;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
+import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoCollection;
 import com.android.tools.r8.ir.optimize.lambda.LambdaMerger;
 import com.android.tools.r8.ir.optimize.staticizer.ClassStaticizer;
 import com.android.tools.r8.ir.optimize.string.StringBuilderOptimizer;
@@ -157,6 +159,7 @@ public class IRConverter {
   private final TypeChecker typeChecker;
   private final DesugaredLibraryAPIConverter desugaredLibraryAPIConverter;
   private final ServiceLoaderRewriter serviceLoaderRewriter;
+  private final EnumValueOptimizer enumValueOptimizer;
   private final EnumUnboxer enumUnboxer;
 
   // Assumers that will insert Assume instructions.
@@ -246,6 +249,7 @@ public class IRConverter {
       this.stringSwitchRemover = null;
       this.serviceLoaderRewriter = null;
       this.methodOptimizationInfoCollector = null;
+      this.enumValueOptimizer = null;
       this.enumUnboxer = null;
       return;
     }
@@ -325,6 +329,8 @@ public class IRConverter {
               ? new DesugaredLibraryAPIConverter(
                   appView, Mode.ASSERT_CALLBACKS_AND_WRAPPERS_GENERATED)
               : null;
+      this.enumValueOptimizer =
+          options.enableEnumValueOptimization ? new EnumValueOptimizer(appViewWithLiveness) : null;
       this.enumUnboxer = options.enableEnumUnboxing ? new EnumUnboxer(appViewWithLiveness) : null;
     } else {
       this.classInliner = null;
@@ -349,6 +355,7 @@ public class IRConverter {
               : null;
       this.serviceLoaderRewriter = null;
       this.methodOptimizationInfoCollector = null;
+      this.enumValueOptimizer = null;
       this.enumUnboxer = null;
     }
     this.stringSwitchRemover =
@@ -664,6 +671,10 @@ public class IRConverter {
     // Assure that no more optimization feedback left after primary processing.
     assert feedback.noUpdatesLeft();
     appView.setAllCodeProcessed();
+    // All the code has been processed so the rewriting required by the lenses is done everywhere,
+    // we clear lens code rewriting so that the lens rewriter can be re-executed in phase 2 if new
+    // lenses with code rewriting are added.
+    graphLenseForIR = appView.clearCodeRewritings();
 
     if (libraryMethodOverrideAnalysis != null) {
       libraryMethodOverrideAnalysis.finish();
@@ -694,6 +705,11 @@ public class IRConverter {
     }
     timing.end();
 
+    // All the code that should be impacted by the lenses inserted between phase 1 and phase 2
+    // have now been processed and rewritten, we clear code lens rewriting so that the class
+    // staticizer and phase 3 does not perform again the rewriting.
+    appView.clearCodeRewritings();
+
     // TODO(b/112831361): Implement support for staticizeClasses in CF backend.
     if (!options.isGeneratingClassFiles()) {
       printPhase("Class staticizer post processing");
@@ -701,6 +717,10 @@ public class IRConverter {
       staticizeClasses(feedback, executorService);
       feedback.updateVisibleOptimizationInfo();
     }
+
+    // The class staticizer lens shall not be applied through lens code rewriting or it breaks
+    // the lambda merger.
+    appView.clearCodeRewritings();
 
     // Build a new application with jumbo string info.
     Builder<?> builder = application.builder();
@@ -814,6 +834,7 @@ public class IRConverter {
     if (options.enableFieldAssignmentTracker) {
       fieldAccessAnalysis.fieldAssignmentTracker().waveDone(wave, delayedOptimizationFeedback);
     }
+    delayedOptimizationFeedback.refineAppInfoWithLiveness(appView.appInfo().withLiveness());
     delayedOptimizationFeedback.updateVisibleOptimizationInfo();
     onWaveDoneActions.forEach(com.android.tools.r8.utils.Action::execute);
     onWaveDoneActions = null;
@@ -1105,18 +1126,17 @@ public class IRConverter {
       codeRewriter.simplifyDebugLocals(code);
     }
 
+    if (appView.graphLense().hasCodeRewritings()) {
+      assert lensCodeRewriter != null;
+      timing.begin("Lens rewrite");
+      lensCodeRewriter.rewrite(code, method);
+      timing.end();
+    }
+
     if (method.isProcessed()) {
       assert !appView.enableWholeProgramOptimizations()
           || !appView.appInfo().withLiveness().neverReprocess.contains(method.method);
     } else {
-      if (lensCodeRewriter != null) {
-        timing.begin("Lens rewrite");
-        lensCodeRewriter.rewrite(code, method);
-        timing.end();
-      } else {
-        assert appView.graphLense().isIdentityLense();
-      }
-
       if (lambdaRewriter != null) {
         timing.begin("Desugar lambdas");
         lambdaRewriter.desugarLambdas(method, code);
@@ -1173,10 +1193,10 @@ public class IRConverter {
       timing.end();
     }
 
-    if (options.enableEnumValueOptimization) {
+    if (enumValueOptimizer != null) {
       assert appView.enableWholeProgramOptimizations();
       timing.begin("Remove switch maps");
-      codeRewriter.removeSwitchMaps(code);
+      enumValueOptimizer.removeSwitchMaps(code);
       timing.end();
     }
 
@@ -1233,12 +1253,17 @@ public class IRConverter {
       assert code.isConsistentSSA();
     }
 
+    assert code.verifyTypes(appView);
+
     if (devirtualizer != null) {
       assert code.verifyTypes(appView);
       timing.begin("Devirtualize invoke interface");
       devirtualizer.devirtualizeInvokeInterface(code, method.method.holder);
       timing.end();
     }
+
+    assert code.verifyTypes(appView);
+
     if (uninstantiatedTypeOptimization != null) {
       timing.begin("Rewrite uninstantiated types");
       uninstantiatedTypeOptimization.rewrite(code);
@@ -1246,14 +1271,15 @@ public class IRConverter {
     }
 
     assert code.verifyTypes(appView);
+
     timing.begin("Remove trivial type checks/casts");
     codeRewriter.removeTrivialCheckCastAndInstanceOfInstructions(code);
     timing.end();
 
-    if (options.enableEnumValueOptimization) {
+    if (enumValueOptimizer != null) {
       assert appView.enableWholeProgramOptimizations();
       timing.begin("Rewrite constant enum methods");
-      codeRewriter.rewriteConstantEnumMethodCalls(code);
+      enumValueOptimizer.rewriteConstantEnumMethodCalls(code);
       timing.end();
     }
 
@@ -1323,7 +1349,7 @@ public class IRConverter {
 
     timing.begin("Optimize class initializers");
     ClassInitializerDefaultsResult classInitializerDefaultsResult =
-        classInitializerDefaultsOptimization.optimize(method, code);
+        classInitializerDefaultsOptimization.optimize(method, code, feedback);
     timing.end();
 
     if (Log.ENABLED) {
@@ -1364,6 +1390,7 @@ public class IRConverter {
           appView.withLiveness(),
           codeRewriter,
           stringOptimizer,
+          enumValueOptimizer,
           method,
           code,
           feedback,
@@ -1563,18 +1590,19 @@ public class IRConverter {
       return;
     }
 
-    methodOptimizationInfoCollector
-        .collectMethodOptimizationInfo(code.method, code, feedback, dynamicTypeOptimization);
-
+    InstanceFieldInitializationInfoCollection instanceFieldInitializationInfos = null;
     if (method.isInitializer()) {
       if (method.isClassInitializer()) {
         StaticFieldValueAnalysis.run(
             appView, code, classInitializerDefaultsResult, feedback, code.method);
       } else {
-        InstanceFieldValueAnalysis.run(
-            appView, code, classInitializerDefaultsResult, feedback, code.method);
+        instanceFieldInitializationInfos =
+            InstanceFieldValueAnalysis.run(
+                appView, code, classInitializerDefaultsResult, feedback, code.method);
       }
     }
+    methodOptimizationInfoCollector.collectMethodOptimizationInfo(
+        code.method, code, feedback, dynamicTypeOptimization, instanceFieldInitializationInfos);
   }
 
   public void removeDeadCodeAndFinalizeIR(

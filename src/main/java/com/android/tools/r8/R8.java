@@ -35,7 +35,6 @@ import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
 import com.android.tools.r8.ir.desugar.NestedPrivateMethodLense;
 import com.android.tools.r8.ir.desugar.R8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
-import com.android.tools.r8.ir.optimize.EnumInfoMapCollector;
 import com.android.tools.r8.ir.optimize.MethodPoolCollection;
 import com.android.tools.r8.ir.optimize.NestReducer;
 import com.android.tools.r8.ir.optimize.SwitchMapCollector;
@@ -43,6 +42,7 @@ import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization;
 import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization.UninstantiatedTypeOptimizationGraphLense;
 import com.android.tools.r8.ir.optimize.UnusedArgumentsCollector;
 import com.android.tools.r8.ir.optimize.UnusedArgumentsCollector.UnusedArgumentsGraphLense;
+import com.android.tools.r8.ir.optimize.enums.EnumInfoMapCollector;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.kotlin.Kotlin;
@@ -308,7 +308,7 @@ public class R8 {
 
         // Compute kotlin info before setting the roots and before
         // kotlin metadata annotation is removed.
-        computeKotlinInfoForProgramClasses(application, appView);
+        computeKotlinInfoForProgramClasses(application, appView, executorService);
 
         // Add synthesized -assumenosideeffects from min api if relevant.
         if (options.isGeneratingDex()) {
@@ -508,6 +508,8 @@ public class R8 {
       // Collect switch maps and ordinals maps.
       if (options.enableEnumValueOptimization) {
         appViewWithLiveness.setAppInfo(new SwitchMapCollector(appViewWithLiveness).run());
+      }
+      if (options.enableEnumValueOptimization || options.enableEnumUnboxing) {
         appViewWithLiveness.setAppInfo(new EnumInfoMapCollector(appViewWithLiveness).run());
       }
 
@@ -725,7 +727,8 @@ public class R8 {
         // Rewrite signature annotations for applications that are not minified.
         if (appView.appInfo().hasLiveness()) {
           // TODO(b/124726014): Rewrite signature annotations in lens rewriting instead of here?
-          new GenericSignatureRewriter(appView.withLiveness()).run(appView.appInfo().classes());
+          new GenericSignatureRewriter(appView.withLiveness())
+              .run(appView.appInfo().classes(), executorService);
         }
         namingLens = NamingLens.getIdentityLens();
       }
@@ -884,17 +887,23 @@ public class R8 {
     throw new CompilationError("Discard checks failed.");
   }
 
-  private void computeKotlinInfoForProgramClasses(DexApplication application, AppView<?> appView) {
+  private void computeKotlinInfoForProgramClasses(
+      DexApplication application, AppView<?> appView, ExecutorService executorService)
+      throws ExecutionException{
     if (appView.options().kotlinOptimizationOptions().disableKotlinSpecificOptimizations) {
       return;
     }
     Kotlin kotlin = appView.dexItemFactory().kotlin;
     Reporter reporter = options.reporter;
-    for (DexProgramClass programClass : application.classes()) {
-      KotlinInfo kotlinInfo = kotlin.getKotlinInfo(programClass, reporter);
-      programClass.setKotlinInfo(kotlinInfo);
-      KotlinMemberInfo.markKotlinMemberInfo(programClass, kotlinInfo, reporter);
-    }
+    ThreadUtils.processItems(
+        application.classes(),
+        programClass -> {
+          KotlinInfo kotlinInfo = kotlin.getKotlinInfo(programClass, reporter);
+          programClass.setKotlinInfo(kotlinInfo);
+          KotlinMemberInfo.markKotlinMemberInfo(programClass, kotlinInfo, reporter);
+        },
+        executorService
+    );
   }
 
   private static boolean verifyNoJarApplicationReaders(List<DexProgramClass> classes) {

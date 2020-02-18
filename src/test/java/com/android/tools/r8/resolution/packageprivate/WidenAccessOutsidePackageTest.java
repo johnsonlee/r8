@@ -5,7 +5,6 @@
 package com.android.tools.r8.resolution.packageprivate;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
@@ -17,6 +16,7 @@ import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.resolution.packageprivate.a.A;
@@ -57,18 +57,15 @@ public class WidenAccessOutsidePackageTest extends TestBase {
     AppInfoWithLiveness appInfo = appView.appInfo();
     DexMethod method = buildNullaryVoidMethod(A.class, "bar", appInfo.dexItemFactory());
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
-    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(appView);
-    assertTrue(lookupResult.isLookupResultSuccess());
+    DexProgramClass context =
+        appView.definitionForProgramType(buildType(A.class, appInfo.dexItemFactory()));
+    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appView);
     Set<String> targets =
         lookupResult.asLookupResultSuccess().getMethodTargets().stream()
             .map(DexEncodedMethod::qualifiedName)
             .collect(Collectors.toSet());
-    // TODO(b/149363086): Fix expectation.
     ImmutableSet<String> expected =
-        ImmutableSet.of(
-            A.class.getTypeName() + ".bar",
-            B.class.getTypeName() + ".bar",
-            C.class.getTypeName() + ".bar");
+        ImmutableSet.of(A.class.getTypeName() + ".bar", B.class.getTypeName() + ".bar");
     assertEquals(expected, targets);
   }
 

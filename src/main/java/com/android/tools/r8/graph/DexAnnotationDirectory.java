@@ -107,9 +107,9 @@ public class DexAnnotationDirectory extends DexItem {
     throw new Unreachable();
   }
 
-  private static <T extends PresortedComparable<T>> boolean isSorted(
-      List<? extends DexEncodedMember<T>> items) {
-    return isSorted(items, DexEncodedMember::getKey);
+  private static <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>> boolean isSorted(
+      List<D> items) {
+    return isSorted(items, DexEncodedMember::toReference);
   }
 
   private static <S, T extends Comparable<T>> boolean isSorted(

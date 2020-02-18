@@ -18,6 +18,7 @@ import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.resolution.packageprivate.PackagePrivateReentryTest.C;
@@ -60,18 +61,18 @@ public class PackagePrivateReentryWithNarrowingTest extends TestBase {
     AppInfoWithLiveness appInfo = appView.appInfo();
     DexMethod method = buildNullaryVoidMethod(A.class, "bar", appInfo.dexItemFactory());
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
-    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(appView);
+    DexProgramClass context =
+        appView.definitionForProgramType(buildType(A.class, appInfo.dexItemFactory()));
+    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appView);
     assertTrue(lookupResult.isLookupResultSuccess());
     Set<String> targets =
         lookupResult.asLookupResultSuccess().getMethodTargets().stream()
             .map(DexEncodedMethod::qualifiedName)
             .collect(Collectors.toSet());
-    // TODO(b/149363086): Fix expection, should not include C.bar().
     ImmutableSet<String> expected =
         ImmutableSet.of(
             A.class.getTypeName() + ".bar",
             B.class.getTypeName() + ".bar",
-            C.class.getTypeName() + ".bar",
             D.class.getTypeName() + ".bar");
     assertEquals(expected, targets);
   }
@@ -107,7 +108,7 @@ public class PackagePrivateReentryWithNarrowingTest extends TestBase {
 
   private byte[] getDWithPackagePrivateFoo() throws NoSuchMethodException, IOException {
     return transformer(D.class)
-        .setAccessFlags(D.class.getDeclaredMethod("bar", null), m -> m.unsetPublic())
+        .setAccessFlags(D.class.getDeclaredMethod("bar"), m -> m.unsetPublic())
         .transform();
   }
 

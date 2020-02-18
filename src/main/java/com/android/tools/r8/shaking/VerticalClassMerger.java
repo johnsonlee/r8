@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
@@ -30,7 +31,6 @@ import com.android.tools.r8.graph.GraphLense.GraphLenseLookupResult;
 import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
-import com.android.tools.r8.graph.PresortedComparable;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
@@ -335,7 +335,7 @@ public class VerticalClassMerger {
     }
 
     assert Streams.stream(Iterables.concat(clazz.fields(), clazz.methods()))
-        .map(DexEncodedMember::getKey)
+        .map(DexEncodedMember::toReference)
         .noneMatch(appInfo::isPinned);
 
     if (appView.options().featureSplitConfiguration != null &&
@@ -420,7 +420,8 @@ public class VerticalClassMerger {
     // We basically can't move the clinit, since it is not called when implementing classes have
     // their clinit called - except when the interface has a default method.
     if ((clazz.hasClassInitializer() && targetClass.hasClassInitializer())
-        || targetClass.classInitializationMayHaveSideEffects(appView, type -> type == clazz.type)
+        || targetClass.classInitializationMayHaveSideEffects(
+            appView, type -> type == clazz.type, Sets.newIdentityHashSet())
         || (clazz.isInterface() && clazz.classInitializationMayHaveSideEffects(appView))) {
       // TODO(herhut): Handle class initializers.
       if (Log.ENABLED) {
@@ -699,7 +700,7 @@ public class VerticalClassMerger {
     return true;
   }
 
-  private boolean methodResolutionMayChange(DexClass source, DexClass target) {
+  private boolean methodResolutionMayChange(DexProgramClass source, DexProgramClass target) {
     for (DexEncodedMethod virtualSourceMethod : source.virtualMethods()) {
       DexEncodedMethod directTargetMethod = target.lookupDirectMethod(virtualSourceMethod.method);
       if (directTargetMethod != null) {
@@ -738,7 +739,7 @@ public class VerticalClassMerger {
         LookupResult lookupResult =
             appInfo
                 .resolveMethodOnInterface(method.method.holder, method.method)
-                .lookupVirtualDispatchTargets(appView, appInfo);
+                .lookupVirtualDispatchTargets(target, appView);
         assert lookupResult.isLookupResultSuccess();
         if (lookupResult.isLookupResultFailure()) {
           return true;
@@ -917,10 +918,7 @@ public class VerticalClassMerger {
           add(directMethods, resultingDirectMethod, MethodSignatureEquivalence.get());
           deferredRenamings.map(directMethod.method, resultingDirectMethod.method);
           deferredRenamings.recordMove(directMethod.method, resultingDirectMethod.method);
-
-          if (!directMethod.isStatic()) {
-            blockRedirectionOfSuperCalls(resultingDirectMethod.method);
-          }
+          blockRedirectionOfSuperCalls(resultingDirectMethod.method);
         }
       }
 
@@ -1269,15 +1267,15 @@ public class VerticalClassMerger {
       return null;
     }
 
-    private <T extends DexEncodedMember<S>, S extends PresortedComparable<S>> void add(
-        Map<Wrapper<S>, T> map, T item, Equivalence<S> equivalence) {
-      map.put(equivalence.wrap(item.getKey()), item);
+    private <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>> void add(
+        Map<Wrapper<R>, D> map, D item, Equivalence<R> equivalence) {
+      map.put(equivalence.wrap(item.toReference()), item);
     }
 
-    private <T extends DexEncodedMember<S>, S extends PresortedComparable<S>> void addAll(
-        Collection<Wrapper<S>> collection, Iterable<T> items, Equivalence<S> equivalence) {
-      for (T item : items) {
-        collection.add(equivalence.wrap(item.getKey()));
+    private <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>> void addAll(
+        Collection<Wrapper<R>> collection, Iterable<D> items, Equivalence<R> equivalence) {
+      for (D item : items) {
+        collection.add(equivalence.wrap(item.toReference()));
       }
     }
 

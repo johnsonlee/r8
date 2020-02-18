@@ -20,7 +20,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
-import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentsInfo;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfoCollection;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.ir.analysis.AbstractError;
 import com.android.tools.r8.ir.analysis.TypeChecker;
@@ -43,7 +43,6 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -63,11 +62,11 @@ public class UninstantiatedTypeOptimization {
 
   public static class UninstantiatedTypeOptimizationGraphLense extends NestedGraphLense {
 
-    private final Map<DexMethod, RemovedArgumentsInfo> removedArgumentsInfoPerMethod;
+    private final Map<DexMethod, RemovedArgumentInfoCollection> removedArgumentsInfoPerMethod;
 
     UninstantiatedTypeOptimizationGraphLense(
         BiMap<DexMethod, DexMethod> methodMap,
-        Map<DexMethod, RemovedArgumentsInfo> removedArgumentsInfoPerMethod,
+        Map<DexMethod, RemovedArgumentInfoCollection> removedArgumentsInfoPerMethod,
         AppView<?> appView) {
       super(
           ImmutableMap.of(),
@@ -88,7 +87,8 @@ public class UninstantiatedTypeOptimization {
         if (method.proto.returnType.isVoidType() && !originalMethod.proto.returnType.isVoidType()) {
           result = result.withConstantReturn();
         }
-        RemovedArgumentsInfo removedArgumentsInfo = removedArgumentsInfoPerMethod.get(method);
+        RemovedArgumentInfoCollection removedArgumentsInfo =
+            removedArgumentsInfoPerMethod.get(method);
         if (removedArgumentsInfo != null) {
           result = result.withRemovedArguments(removedArgumentsInfo);
         }
@@ -125,7 +125,8 @@ public class UninstantiatedTypeOptimization {
 
     Map<Wrapper<DexMethod>, Set<DexType>> changedVirtualMethods = new HashMap<>();
     BiMap<DexMethod, DexMethod> methodMapping = HashBiMap.create();
-    Map<DexMethod, RemovedArgumentsInfo> removedArgumentsInfoPerMethod = new IdentityHashMap<>();
+    Map<DexMethod, RemovedArgumentInfoCollection> removedArgumentsInfoPerMethod =
+        new IdentityHashMap<>();
 
     TopDownClassHierarchyTraversal.forProgramClasses(appView)
         .visit(
@@ -150,7 +151,7 @@ public class UninstantiatedTypeOptimization {
       Map<Wrapper<DexMethod>, Set<DexType>> changedVirtualMethods,
       BiMap<DexMethod, DexMethod> methodMapping,
       MethodPoolCollection methodPoolCollection,
-      Map<DexMethod, RemovedArgumentsInfo> removedArgumentsInfoPerMethod) {
+      Map<DexMethod, RemovedArgumentInfoCollection> removedArgumentsInfoPerMethod) {
     MemberPool<DexMethod> methodPool = methodPoolCollection.get(clazz);
 
     if (clazz.isInterface()) {
@@ -198,7 +199,8 @@ public class UninstantiatedTypeOptimization {
       RewrittenPrototypeDescription prototypeChanges =
           prototypeChangesPerMethod.getOrDefault(
               encodedMethod, RewrittenPrototypeDescription.none());
-      RemovedArgumentsInfo removedArgumentsInfo = prototypeChanges.getRemovedArgumentsInfo();
+      RemovedArgumentInfoCollection removedArgumentsInfo =
+          prototypeChanges.getRemovedArgumentInfoCollection();
       DexMethod newMethod = getNewMethodSignature(encodedMethod, prototypeChanges);
       if (newMethod != method) {
         Wrapper<DexMethod> wrapper = equivalence.wrap(newMethod);
@@ -231,7 +233,8 @@ public class UninstantiatedTypeOptimization {
       DexMethod method = encodedMethod.method;
       RewrittenPrototypeDescription prototypeChanges =
           getPrototypeChanges(encodedMethod, DISALLOW_ARGUMENT_REMOVAL);
-      RemovedArgumentsInfo removedArgumentsInfo = prototypeChanges.getRemovedArgumentsInfo();
+      RemovedArgumentInfoCollection removedArgumentsInfo =
+          prototypeChanges.getRemovedArgumentInfoCollection();
       DexMethod newMethod = getNewMethodSignature(encodedMethod, prototypeChanges);
       if (newMethod != method) {
         Wrapper<DexMethod> wrapper = equivalence.wrap(newMethod);
@@ -259,7 +262,8 @@ public class UninstantiatedTypeOptimization {
       DexMethod method = encodedMethod.method;
       RewrittenPrototypeDescription prototypeChanges =
           getPrototypeChanges(encodedMethod, DISALLOW_ARGUMENT_REMOVAL);
-      RemovedArgumentsInfo removedArgumentsInfo = prototypeChanges.getRemovedArgumentsInfo();
+      RemovedArgumentInfoCollection removedArgumentsInfo =
+          prototypeChanges.getRemovedArgumentInfoCollection();
       DexMethod newMethod = getNewMethodSignature(encodedMethod, prototypeChanges);
       if (newMethod != method) {
         Wrapper<DexMethod> wrapper = equivalence.wrap(newMethod);
@@ -298,32 +302,24 @@ public class UninstantiatedTypeOptimization {
         getRemovedArgumentsInfo(encodedMethod, strategy));
   }
 
-  private RemovedArgumentsInfo getRemovedArgumentsInfo(
+  private RemovedArgumentInfoCollection getRemovedArgumentsInfo(
       DexEncodedMethod encodedMethod, Strategy strategy) {
     if (strategy == DISALLOW_ARGUMENT_REMOVAL) {
-      return RemovedArgumentsInfo.empty();
+      return RemovedArgumentInfoCollection.empty();
     }
 
-    List<RemovedArgumentInfo> removedArgumentsInfo = null;
+    RemovedArgumentInfoCollection.Builder argInfosBuilder = RemovedArgumentInfoCollection.builder();
     DexProto proto = encodedMethod.method.proto;
     int offset = encodedMethod.isStatic() ? 0 : 1;
     for (int i = 0; i < proto.parameters.size(); ++i) {
       DexType type = proto.parameters.values[i];
       if (type.isAlwaysNull(appView)) {
-        if (removedArgumentsInfo == null) {
-          removedArgumentsInfo = new ArrayList<>();
-        }
-        removedArgumentsInfo.add(
-            RemovedArgumentInfo.builder()
-                .setArgumentIndex(i + offset)
-                .setIsAlwaysNull()
-                .setType(type)
-                .build());
+        RemovedArgumentInfo removedArg =
+            RemovedArgumentInfo.builder().setIsAlwaysNull().setType(type).build();
+        argInfosBuilder.addRemovedArgument(i + offset, removedArg);
       }
     }
-    return removedArgumentsInfo != null
-        ? new RemovedArgumentsInfo(removedArgumentsInfo)
-        : RemovedArgumentsInfo.empty();
+    return argInfosBuilder.build();
   }
 
   private DexMethod getNewMethodSignature(
@@ -336,6 +332,7 @@ public class UninstantiatedTypeOptimization {
   }
 
   public void rewrite(IRCode code) {
+    AssumeDynamicTypeRemover assumeDynamicTypeRemover = new AssumeDynamicTypeRemover(appView, code);
     Set<BasicBlock> blocksToBeRemoved = Sets.newIdentityHashSet();
     ListIterator<BasicBlock> blockIterator = code.listIterator();
     Set<Value> valuesToNarrow = Sets.newIdentityHashSet();
@@ -375,6 +372,7 @@ public class UninstantiatedTypeOptimization {
               blockIterator,
               instructionIterator,
               code,
+              assumeDynamicTypeRemover,
               valuesToNarrow);
         } else if (instruction.isInvokeMethod()) {
           rewriteInvoke(
@@ -382,11 +380,13 @@ public class UninstantiatedTypeOptimization {
               blockIterator,
               instructionIterator,
               code,
+              assumeDynamicTypeRemover,
               blocksToBeRemoved,
               valuesToNarrow);
         }
       }
     }
+    assumeDynamicTypeRemover.removeMarkedInstructions(blocksToBeRemoved).finish();
     code.removeBlocks(blocksToBeRemoved);
     code.removeAllTrivialPhis(valuesToNarrow);
     code.removeUnreachableBlocks();
@@ -444,6 +444,7 @@ public class UninstantiatedTypeOptimization {
       ListIterator<BasicBlock> blockIterator,
       InstructionListIterator instructionIterator,
       IRCode code,
+      AssumeDynamicTypeRemover assumeDynamicTypeRemover,
       Set<Value> affectedValues) {
     DexType context = code.method.method.holder;
     DexField field = instruction.getField();
@@ -473,10 +474,12 @@ public class UninstantiatedTypeOptimization {
       } else {
         if (instructionCanBeRemoved) {
           // Replace the field read by the constant null.
+          assumeDynamicTypeRemover.markUsersForRemoval(instruction.outValue());
           affectedValues.addAll(instruction.outValue().affectedValues());
           instructionIterator.replaceCurrentInstruction(code.createConstNull());
         } else {
-          replaceOutValueByNull(instruction, instructionIterator, code, affectedValues);
+          replaceOutValueByNull(
+              instruction, instructionIterator, code, assumeDynamicTypeRemover, affectedValues);
         }
       }
 
@@ -496,6 +499,7 @@ public class UninstantiatedTypeOptimization {
       ListIterator<BasicBlock> blockIterator,
       InstructionListIterator instructionIterator,
       IRCode code,
+      AssumeDynamicTypeRemover assumeDynamicTypeRemover,
       Set<BasicBlock> blocksToBeRemoved,
       Set<Value> affectedValues) {
     DexEncodedMethod target = invoke.lookupSingleTarget(appView, code.method.method.holder);
@@ -518,7 +522,8 @@ public class UninstantiatedTypeOptimization {
 
     DexType returnType = target.method.proto.returnType;
     if (returnType.isAlwaysNull(appView)) {
-      replaceOutValueByNull(invoke, instructionIterator, code, affectedValues);
+      replaceOutValueByNull(
+          invoke, instructionIterator, code, assumeDynamicTypeRemover, affectedValues);
     }
   }
 
@@ -526,11 +531,13 @@ public class UninstantiatedTypeOptimization {
       Instruction instruction,
       InstructionListIterator instructionIterator,
       IRCode code,
+      AssumeDynamicTypeRemover assumeDynamicTypeRemover,
       Set<Value> affectedValues) {
     assert instructionIterator.peekPrevious() == instruction;
     if (instruction.hasOutValue()) {
       Value outValue = instruction.outValue();
       if (outValue.numberOfAllUsers() > 0) {
+        assumeDynamicTypeRemover.markUsersForRemoval(outValue);
         instructionIterator.previous();
         affectedValues.addAll(outValue.affectedValues());
         outValue.replaceUsers(

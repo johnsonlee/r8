@@ -3,26 +3,27 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.errors.Unreachable;
-
 /** Type representing a method definition in the programs compilation unit and its holder. */
-public class ProgramMethod {
-  public final DexProgramClass holder;
-  public final DexEncodedMethod method;
+public final class ProgramMethod extends DexClassAndMethod {
 
-  public ProgramMethod(DexProgramClass holder,  DexEncodedMethod method) {
-    assert holder.type == method.method.holder;
-    this.holder = holder;
-    this.method = method;
+  public ProgramMethod(DexProgramClass holder, DexEncodedMethod method) {
+    super(holder, method);
   }
 
   @Override
-  public boolean equals(Object obj) {
-    throw new Unreachable("Unsupported attempt at comparing ProgramMethod");
+  public boolean isProgramMethod() {
+    return true;
   }
 
   @Override
-  public int hashCode() {
-    throw new Unreachable("Unsupported attempt at computing the hashcode of ProgramMethod");
+  public ProgramMethod asProgramMethod() {
+    return this;
+  }
+
+  @Override
+  public DexProgramClass getHolder() {
+    DexClass holder = super.getHolder();
+    assert holder.isProgramClass();
+    return holder.asProgramClass();
   }
 }

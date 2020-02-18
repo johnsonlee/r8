@@ -18,6 +18,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -56,15 +57,15 @@ public class DefaultInterfaceMethodInSubInterfaceSubTypeTest extends TestBase {
     AppInfoWithLiveness appInfo = appView.appInfo();
     DexMethod method = buildNullaryVoidMethod(A.class, "foo", appInfo.dexItemFactory());
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
-    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(appView);
+    DexProgramClass context =
+        appView.definitionForProgramType(buildType(Main.class, appInfo.dexItemFactory()));
+    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appView);
     assertTrue(lookupResult.isLookupResultSuccess());
     Set<String> targets =
         lookupResult.asLookupResultSuccess().getMethodTargets().stream()
             .map(DexEncodedMethod::qualifiedName)
             .collect(Collectors.toSet());
-    // TODO(b/148591377): I.foo() should ideally not be included in the set.
-    ImmutableSet<String> expected =
-        ImmutableSet.of(I.class.getTypeName() + ".foo", J.class.getTypeName() + ".foo");
+    ImmutableSet<String> expected = ImmutableSet.of(J.class.getTypeName() + ".foo");
     assertEquals(expected, targets);
   }
 

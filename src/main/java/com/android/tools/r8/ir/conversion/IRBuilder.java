@@ -36,6 +36,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfoCollection;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.PrimitiveTypeLatticeElement;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
@@ -135,6 +136,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 /**
  * Builder object for constructing high-level IR from dex bytecode.
@@ -448,11 +450,12 @@ public class IRBuilder {
     } else {
       this.prototypeChanges = appView.graphLense().lookupPrototypeChanges(method.method);
 
-      if (Log.ENABLED && prototypeChanges.getRemovedArgumentsInfo().hasRemovedArguments()) {
+      if (Log.ENABLED
+          && prototypeChanges.getRemovedArgumentInfoCollection().hasRemovedArguments()) {
         Log.info(
             getClass(),
             "Removed "
-                + prototypeChanges.getRemovedArgumentsInfo().numberOfRemovedArguments()
+                + prototypeChanges.getRemovedArgumentInfoCollection().numberOfRemovedArguments()
                 + " arguments from "
                 + method.toSourceString());
       }
@@ -501,6 +504,53 @@ public class IRBuilder {
 
   private void setCurrentBlock(BasicBlock block) {
     currentBlock = block;
+  }
+
+  public void buildArgumentsWithUnusedArgumentStubs(
+      int register, DexEncodedMethod method, BiConsumer<Integer, DexType> writeCallback) {
+    RemovedArgumentInfoCollection removedArgumentsInfo =
+        prototypeChanges.getRemovedArgumentInfoCollection();
+
+    // Fill in the Argument instructions (incomingRegisterSize last registers) in the argument
+    // block.
+    int argumentIndex = 0;
+
+    if (!method.isStatic()) {
+      writeCallback.accept(register, method.method.holder);
+      addThisArgument(register);
+      argumentIndex++;
+      register++;
+    }
+
+    int numberOfArguments =
+        method.method.proto.parameters.values.length
+            + removedArgumentsInfo.numberOfRemovedArguments()
+            + (method.isStatic() ? 0 : 1);
+
+    int usedArgumentIndex = 0;
+    while (argumentIndex < numberOfArguments) {
+      TypeLatticeElement type;
+      if (removedArgumentsInfo.isArgumentRemoved(argumentIndex)) {
+        RemovedArgumentInfo argumentInfo = removedArgumentsInfo.getArgumentInfo(argumentIndex);
+        writeCallback.accept(register, argumentInfo.getType());
+        type =
+            TypeLatticeElement.fromDexType(
+                argumentInfo.getType(), Nullability.maybeNull(), appView);
+        addConstantOrUnusedArgument(register, argumentInfo);
+      } else {
+        DexType dexType = method.method.proto.parameters.values[usedArgumentIndex++];
+        writeCallback.accept(register, dexType);
+        type = TypeLatticeElement.fromDexType(dexType, Nullability.maybeNull(), appView);
+        if (dexType.isBooleanType()) {
+          addBooleanNonThisArgument(register);
+        } else {
+          addNonThisArgument(register, type);
+        }
+      }
+      register += type.requiredRegisters();
+      argumentIndex++;
+    }
+    flushArgumentInstructions();
   }
 
   /**
@@ -864,7 +914,7 @@ public class IRBuilder {
   public void addThisArgument(int register, TypeLatticeElement receiverType) {
     DebugLocalInfo local = getOutgoingLocal(register);
     Value value = writeRegister(register, receiverType, ThrowingInfo.NO_THROW, local);
-    addInstruction(new Argument(value, false));
+    addInstruction(new Argument(value, currentBlock.size(), false));
     receiverValue = value;
     value.markAsThis();
   }
@@ -872,13 +922,13 @@ public class IRBuilder {
   public void addNonThisArgument(int register, TypeLatticeElement typeLattice) {
       DebugLocalInfo local = getOutgoingLocal(register);
       Value value = writeRegister(register, typeLattice, ThrowingInfo.NO_THROW, local);
-      addNonThisArgument(new Argument(value, false));
+    addNonThisArgument(new Argument(value, currentBlock.size(), false));
   }
 
   public void addBooleanNonThisArgument(int register) {
       DebugLocalInfo local = getOutgoingLocal(register);
       Value value = writeRegister(register, getInt(), ThrowingInfo.NO_THROW, local);
-      addNonThisArgument(new Argument(value, true));
+    addNonThisArgument(new Argument(value, currentBlock.size(), true));
   }
 
   private void addNonThisArgument(Argument argument) {

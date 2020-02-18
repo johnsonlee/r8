@@ -84,6 +84,7 @@ import com.android.tools.r8.ir.optimize.classinliner.ClassInlinerEligibilityInfo
 import com.android.tools.r8.ir.optimize.classinliner.ClassInlinerReceiverAnalysis;
 import com.android.tools.r8.ir.optimize.info.ParameterUsagesInfo.ParameterUsage;
 import com.android.tools.r8.ir.optimize.info.ParameterUsagesInfo.ParameterUsageBuilder;
+import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoCollection;
 import com.android.tools.r8.ir.optimize.info.initializer.DefaultInstanceInitializerInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.NonTrivialInstanceInitializerInfo;
@@ -120,7 +121,8 @@ public class MethodOptimizationInfoCollector {
       DexEncodedMethod method,
       IRCode code,
       OptimizationFeedback feedback,
-      DynamicTypeOptimization dynamicTypeOptimization) {
+      DynamicTypeOptimization dynamicTypeOptimization,
+      InstanceFieldInitializationInfoCollection instanceFieldInitializationInfos) {
     identifyClassInlinerEligibility(method, code, feedback);
     identifyParameterUsages(method, code, feedback);
     identifyReturnsArgument(method, code, feedback);
@@ -129,7 +131,7 @@ public class MethodOptimizationInfoCollector {
     }
     computeDynamicReturnType(dynamicTypeOptimization, feedback, method, code);
     computeInitializedClassesOnNormalExit(feedback, method, code);
-    computeInstanceInitializerInfo(method, code, feedback);
+    computeInstanceInitializerInfo(method, code, feedback, instanceFieldInitializationInfos);
     computeMayHaveSideEffects(feedback, method, code);
     computeReturnValueOnlyDependsOnArguments(feedback, method, code);
     computeNonNullParamOrThrow(feedback, method, code);
@@ -336,10 +338,7 @@ public class MethodOptimizationInfoCollector {
       if (!aliasedValue.isPhi()) {
         Instruction definition = aliasedValue.definition;
         if (definition.isArgument()) {
-          // Find the argument number.
-          int index = aliasedValue.computeArgumentPosition(code);
-          assert index >= 0;
-          feedback.methodReturnsArgument(method, index);
+          feedback.methodReturnsArgument(method, definition.asArgument().getIndex());
         }
         DexType context = method.method.holder;
         AbstractValue abstractReturnValue = definition.getAbstractValue(appView, context);
@@ -354,12 +353,17 @@ public class MethodOptimizationInfoCollector {
   }
 
   private void computeInstanceInitializerInfo(
-      DexEncodedMethod method, IRCode code, OptimizationFeedback feedback) {
+      DexEncodedMethod method,
+      IRCode code,
+      OptimizationFeedback feedback,
+      InstanceFieldInitializationInfoCollection instanceFieldInitializationInfos) {
     assert !appView.appInfo().isPinned(method.method);
 
     if (!method.isInstanceInitializer()) {
       return;
     }
+
+    assert instanceFieldInitializationInfos != null;
 
     if (method.accessFlags.isNative()) {
       return;
@@ -375,7 +379,10 @@ public class MethodOptimizationInfoCollector {
       return;
     }
 
-    InstanceInitializerInfo instanceInitializerInfo = analyzeInstanceInitializer(code, clazz);
+    NonTrivialInstanceInitializerInfo.Builder builder =
+        NonTrivialInstanceInitializerInfo.builder(instanceFieldInitializationInfos);
+    InstanceInitializerInfo instanceInitializerInfo =
+        analyzeInstanceInitializer(code, clazz, builder);
     feedback.setInstanceInitializerInfo(
         method,
         instanceInitializerInfo != null
@@ -398,13 +405,13 @@ public class MethodOptimizationInfoCollector {
   // ** Assigns arguments or non-throwing constants to fields of this class.
   //
   // (Note that this initializer does not have to have zero arguments.)
-  private InstanceInitializerInfo analyzeInstanceInitializer(IRCode code, DexClass clazz) {
+  private InstanceInitializerInfo analyzeInstanceInitializer(
+      IRCode code, DexClass clazz, NonTrivialInstanceInitializerInfo.Builder builder) {
     if (clazz.definesFinalizer(options.itemFactory)) {
       // Defining a finalize method can observe the side-effect of Object.<init> GC registration.
       return null;
     }
 
-    NonTrivialInstanceInitializerInfo.Builder builder = NonTrivialInstanceInitializerInfo.builder();
     Value receiver = code.getThis();
     boolean hasCatchHandler = false;
     for (BasicBlock block : code.blocks) {

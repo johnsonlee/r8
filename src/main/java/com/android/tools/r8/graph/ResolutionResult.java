@@ -4,10 +4,8 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.graph.LiveSubTypeInfo.LiveSubTypeResult;
 import com.android.tools.r8.graph.LookupResult.LookupResultSuccess.LookupResultCollectionState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Collections;
@@ -79,11 +77,17 @@ public abstract class ResolutionResult {
       DexProgramClass context, AppInfoWithClassHierarchy appInfo);
 
   public abstract LookupResult lookupVirtualDispatchTargets(
-      AppView<?> appView, LiveSubTypeInfo liveSubTypes);
+      DexProgramClass context,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      InstantiatedSubTypeInfo instantiatedInfo);
 
-  public final LookupResult lookupVirtualDispatchTargets(AppView<AppInfoWithLiveness> appView) {
-    return lookupVirtualDispatchTargets(appView, appView.appInfo());
+  public final LookupResult lookupVirtualDispatchTargets(
+      DexProgramClass context, AppView<AppInfoWithLiveness> appView) {
+    return lookupVirtualDispatchTargets(context, appView, appView.appInfo());
   }
+
+  public abstract DexClassAndMethod lookupVirtualDispatchTarget(
+      DexProgramClass dynamicInstance, AppView<? extends AppInfoWithClassHierarchy> appView);
 
   /** Result for a resolution that succeeds with a known declaration/definition. */
   public static class SingleResolutionResult extends ResolutionResult {
@@ -102,6 +106,8 @@ public abstract class ResolutionResult {
       this.resolvedHolder = resolvedHolder;
       this.resolvedMethod = resolvedMethod;
       this.initialResolutionHolder = initialResolutionHolder;
+      assert !resolvedMethod.isPrivateMethod()
+          || initialResolutionHolder.type == resolvedMethod.method.holder;
     }
 
     public DexClass getResolvedHolder() {
@@ -331,132 +337,186 @@ public abstract class ResolutionResult {
 
     @Override
     public LookupResult lookupVirtualDispatchTargets(
-        AppView<?> appView, LiveSubTypeInfo liveSubTypeInfo) {
-      return initialResolutionHolder.isInterface()
-          ? lookupInterfaceTargets(appView, liveSubTypeInfo)
-          : lookupVirtualTargets(appView, liveSubTypeInfo);
-    }
-
-    // TODO(b/140204899): Leverage refined receiver type if available.
-    private LookupResult lookupVirtualTargets(AppView<?> appView, LiveSubTypeInfo liveSubTypeInfo) {
-      assert !initialResolutionHolder.isInterface();
+        DexProgramClass context,
+        AppView<? extends AppInfoWithClassHierarchy> appView,
+        InstantiatedSubTypeInfo instantiatedInfo) {
+      // Check that the initial resolution holder is accessible from the context.
+      if (context != null && !isAccessibleFrom(context, appView.appInfo())) {
+        return LookupResult.createFailedResult();
+      }
       if (resolvedMethod.isPrivateMethod()) {
         // If the resolved reference is private there is no dispatch.
         // This is assuming that the method is accessible, which implies self/nest access.
-        return LookupResult.createResult(
-            Collections.singleton(resolvedMethod), LookupResultCollectionState.Complete);
-      }
-      assert resolvedMethod.isNonPrivateVirtualMethod();
-      // First add the target for receiver type method.type.
-      Set<DexEncodedMethod> result = SetUtils.newIdentityHashSet(resolvedMethod);
-      // Add all matching targets from the subclass hierarchy.
-      DexMethod method = resolvedMethod.method;
-      // TODO(b/140204899): Instead of subtypes of holder, we could iterate subtypes of refined
-      //   receiver type if available.
-      for (DexProgramClass programClass :
-          liveSubTypeInfo.getLiveSubTypes(method.holder).getProgramClasses()) {
-        if (!programClass.isInterface()) {
-          ResolutionResult methods = appView.appInfo().resolveMethodOnClass(programClass, method);
-          DexEncodedMethod target = methods.getSingleTarget();
-          if (target != null && target.isNonPrivateVirtualMethod()) {
-            result.add(target);
-          }
-        }
-      }
-      return LookupResult.createResult(result, LookupResultCollectionState.Complete);
-    }
-
-    // TODO(b/140204899): Leverage refined receiver type if available.
-    private LookupResult lookupInterfaceTargets(
-        AppView<?> appView, LiveSubTypeInfo liveSubTypeInfo) {
-      assert initialResolutionHolder.isInterface();
-      if (resolvedMethod.isPrivateMethod()) {
-        // If the resolved reference is private there is no dispatch.
-        // This is assuming that the method is accessible, which implies self/nest access.
-        assert resolvedMethod.hasCode();
+        // Only include if the target has code or is native.
         return LookupResult.createResult(
             Collections.singleton(resolvedMethod), LookupResultCollectionState.Complete);
       }
       assert resolvedMethod.isNonPrivateVirtualMethod();
       Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
-      // Add default interface methods to the list of targets.
-      //
-      // This helps to make sure we take into account synthesized lambda classes
-      // that we are not aware of. Like in the following example, we know that all
-      // classes, XX in this case, override B::bar(), but there are also synthesized
-      // classes for lambda which don't, so we still need default method to be live.
-      //
-      //   public static void main(String[] args) {
-      //     X x = () -> {};
-      //     x.bar();
-      //   }
-      //
-      //   interface X {
-      //     void foo();
-      //     default void bar() { }
-      //   }
-      //
-      //   class XX implements X {
-      //     public void foo() { }
-      //     public void bar() { }
-      //   }
-      //
-      addIfDefaultMethodWithLambdaInstantiations(liveSubTypeInfo, resolvedMethod, result);
-
-      DexMethod method = resolvedMethod.method;
-      Consumer<DexEncodedMethod> addIfNotAbstract =
-          m -> {
-            if (!m.accessFlags.isAbstract()) {
-              result.add(m);
+      instantiatedInfo.forEachInstantiatedSubType(
+          resolvedHolder.type,
+          subClass -> {
+            DexClassAndMethod dexClassAndMethod = lookupVirtualDispatchTarget(subClass, appView);
+            if (dexClassAndMethod != null) {
+              addVirtualDispatchTarget(
+                  dexClassAndMethod.getMethod(), resolvedHolder.isInterface(), result);
             }
-          };
-      // Default methods are looked up when looking at a specific subtype that does not override
-      // them. Otherwise, we would look up default methods that are actually never used. However, we
-      // have to add bridge methods, otherwise we can remove a bridge that will be used.
-      Consumer<DexEncodedMethod> addIfNotAbstractAndBridge =
-          m -> {
-            if (!m.accessFlags.isAbstract() && m.accessFlags.isBridge()) {
-              result.add(m);
-            }
-          };
-
-      // TODO(b/140204899): Instead of subtypes of holder, we could iterate subtypes of refined
-      //   receiver type if available.
-      for (DexProgramClass clazz :
-          liveSubTypeInfo.getLiveSubTypes(method.holder).getProgramClasses()) {
-        if (clazz.isInterface()) {
-          ResolutionResult targetMethods =
-              appView.appInfo().resolveMethodOnInterface(clazz, method);
-          if (targetMethods.isSingleResolution()) {
-            // Sub-interfaces can have default implementations that override the resolved method.
-            // Therefore we have to add default methods in sub interfaces.
-            DexEncodedMethod singleTarget = targetMethods.getSingleTarget();
-            addIfDefaultMethodWithLambdaInstantiations(liveSubTypeInfo, singleTarget, result);
-            addIfNotAbstractAndBridge.accept(singleTarget);
-          }
-        } else {
-          ResolutionResult targetMethods = appView.appInfo().resolveMethodOnClass(clazz, method);
-          if (targetMethods.isSingleResolution()) {
-            addIfNotAbstract.accept(targetMethods.getSingleTarget());
-          }
-        }
-      }
+          },
+          dexCallSite -> {
+            // TODO(b/148769279): We need to look at the call site to see if it overrides
+            //   the resolved method or not.
+          });
       return LookupResult.createResult(result, LookupResultCollectionState.Complete);
     }
 
-    private void addIfDefaultMethodWithLambdaInstantiations(
-        LiveSubTypeInfo liveSubTypesInfo, DexEncodedMethod method, Set<DexEncodedMethod> result) {
-      if (method == null) {
-        return;
+    private static void addVirtualDispatchTarget(
+        DexEncodedMethod target, boolean holderIsInterface, Set<DexEncodedMethod> result) {
+      assert !target.isPrivateMethod();
+      if (holderIsInterface) {
+        // Add default interface methods to the list of targets.
+        //
+        // This helps to make sure we take into account synthesized lambda classes
+        // that we are not aware of. Like in the following example, we know that all
+        // classes, XX in this case, override B::bar(), but there are also synthesized
+        // classes for lambda which don't, so we still need default method to be live.
+        //
+        //   public static void main(String[] args) {
+        //     X x = () -> {};
+        //     x.bar();
+        //   }
+        //
+        //   interface X {
+        //     void foo();
+        //     default void bar() { }
+        //   }
+        //
+        //   class XX implements X {
+        //     public void foo() { }
+        //     public void bar() { }
+        //   }
+        //
+        if (target.isDefaultMethod()) {
+          result.add(target);
+        }
+        // Default methods are looked up when looking at a specific subtype that does not override
+        // them. Otherwise, we would look up default methods that are actually never used.
+        // However, we have to add bridge methods, otherwise we can remove a bridge that will be
+        // used.
+        if (!target.accessFlags.isAbstract() && target.accessFlags.isBridge()) {
+          result.add(target);
+        }
+      } else {
+        result.add(target);
       }
-      if (method.hasCode()) {
-        LiveSubTypeResult liveSubTypes = liveSubTypesInfo.getLiveSubTypes(method.method.holder);
-        // TODO(b/148769279): The below is basically if (true), but should be changed when we
-        //  have live sub type information.
-        if (liveSubTypes.getCallSites() == null || liveSubTypes.getCallSites() != null) {
-          result.add(method);
+    }
+
+    /**
+     * This implements the logic for the actual method selection for a virtual target, according to
+     * https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.invokevirtual where
+     * we have an object ref on the stack.
+     */
+    @Override
+    public DexClassAndMethod lookupVirtualDispatchTarget(
+        DexProgramClass dynamicInstance, AppView<? extends AppInfoWithClassHierarchy> appView) {
+      // TODO(b/148591377): Enable this assertion.
+      // The dynamic type cannot be an interface.
+      // assert !dynamicInstance.isInterface();
+      boolean allowPackageBlocked = resolvedMethod.accessFlags.isPackagePrivate();
+      DexClass current = dynamicInstance;
+      DexEncodedMethod overrideTarget = resolvedMethod;
+      while (current != null) {
+        DexEncodedMethod candidate = lookupOverrideCandidate(overrideTarget, current);
+        if (candidate == DexEncodedMethod.SENTINEL && allowPackageBlocked) {
+          overrideTarget = findWideningOverride(resolvedMethod, current, appView);
+          allowPackageBlocked = false;
+          continue;
+        }
+        if (candidate == null || candidate == DexEncodedMethod.SENTINEL) {
+          // We cannot find a target above the resolved method.
+          if (current.type == overrideTarget.method.holder) {
+            return null;
+          }
+          current = current.superType == null ? null : appView.definitionFor(current.superType);
+          continue;
+        }
+        return DexClassAndMethod.create(current, candidate);
+      }
+      // TODO(b/149557233): Enable assertion.
+      // assert resolvedHolder.isInterface();
+      DexEncodedMethod maximalSpecific =
+          lookupMaximallySpecificDispatchTarget(dynamicInstance, appView);
+      return maximalSpecific == null
+          ? null
+          : DexClassAndMethod.create(
+              appView.definitionFor(maximalSpecific.method.holder), maximalSpecific);
+    }
+
+    private DexEncodedMethod lookupMaximallySpecificDispatchTarget(
+        DexProgramClass dynamicInstance, AppView<? extends AppInfoWithClassHierarchy> appView) {
+      ResolutionResult maximallySpecificResult =
+          appView.appInfo().resolveMaximallySpecificMethods(dynamicInstance, resolvedMethod.method);
+      if (maximallySpecificResult.isSingleResolution()) {
+        return maximallySpecificResult.asSingleResolution().resolvedMethod;
+      }
+      return null;
+    }
+
+    /**
+     * C contains a declaration for an instance method m that overrides (§5.4.5) the resolved
+     * method, then m is the method to be invoked. If the candidate is not a valid override, we
+     * return sentinel to indicate that we have to search for a method that is widening access
+     * inside the package.
+     */
+    private static DexEncodedMethod lookupOverrideCandidate(
+        DexEncodedMethod method, DexClass clazz) {
+      DexEncodedMethod candidate = clazz.lookupVirtualMethod(method.method);
+      assert candidate == null || !candidate.isPrivateMethod();
+      if (candidate != null) {
+        return isOverriding(method, candidate) ? candidate : DexEncodedMethod.SENTINEL;
+      }
+      return null;
+    }
+
+    private static DexEncodedMethod findWideningOverride(
+        DexEncodedMethod resolvedMethod,
+        DexClass clazz,
+        AppView<? extends AppInfoWithClassHierarchy> appView) {
+      // Otherwise, lookup to first override that is distinct from resolvedMethod.
+      assert resolvedMethod.accessFlags.isPackagePrivate();
+      while (clazz.superType != null) {
+        clazz = appView.definitionFor(clazz.superType);
+        if (clazz == null) {
+          return resolvedMethod;
+        }
+        DexEncodedMethod otherOverride = clazz.lookupVirtualMethod(resolvedMethod.method);
+        if (otherOverride != null
+            && isOverriding(resolvedMethod, otherOverride)
+            && (otherOverride.accessFlags.isPublic() || otherOverride.accessFlags.isProtected())) {
+          assert resolvedMethod != otherOverride;
+          return otherOverride;
         }
       }
+      return resolvedMethod;
+    }
+
+    /**
+     * Implementation of method overriding according to the jvm specification
+     * https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-5.html#jvms-5.4.5
+     *
+     * <p>The implementation assumes that the holder of the candidate is a subtype of the holder of
+     * the resolved method. It also assumes that resolvedMethod is the actual method to find a
+     * lookup for (that is, it is either mA or m').
+     */
+    private static boolean isOverriding(
+        DexEncodedMethod resolvedMethod, DexEncodedMethod candidate) {
+      assert resolvedMethod.method.match(candidate.method);
+      assert !candidate.isPrivateMethod();
+      if (resolvedMethod.accessFlags.isPublic() || resolvedMethod.accessFlags.isProtected()) {
+        return true;
+      }
+      // For package private methods, a valid override has to be inside the package.
+      assert resolvedMethod.accessFlags.isPackagePrivate();
+      return resolvedMethod.method.holder.isSamePackage(candidate.method.holder);
     }
   }
 
@@ -488,8 +548,16 @@ public abstract class ResolutionResult {
 
     @Override
     public LookupResult lookupVirtualDispatchTargets(
-        AppView<?> appView, LiveSubTypeInfo liveSubTypeInfo) {
+        DexProgramClass context,
+        AppView<? extends AppInfoWithClassHierarchy> appView,
+        InstantiatedSubTypeInfo instantiatedInfo) {
       return LookupResult.getIncompleteEmptyResult();
+    }
+
+    @Override
+    public DexClassAndMethod lookupVirtualDispatchTarget(
+        DexProgramClass dynamicInstance, AppView<? extends AppInfoWithClassHierarchy> appView) {
+      return null;
     }
   }
 
