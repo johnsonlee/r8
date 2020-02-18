@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.optimize.info.DefaultFieldOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.FieldOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MutableFieldOptimizationInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.google.common.collect.Sets;
 
 public class DexEncodedField extends KeyedDexItem<DexField> {
   public static final DexEncodedField[] EMPTY_ARRAY = {};
@@ -208,7 +209,8 @@ public class DexEncodedField extends KeyedDexItem<DexField> {
         appView,
         // Types that are a super type of the current context are guaranteed to be initialized
         // already.
-        type -> appView.isSubtype(context, type).isTrue())) {
+        type -> appView.isSubtype(context, type).isTrue(),
+        Sets.newIdentityHashSet())) {
       // Ignore class initialization side-effects for dead proto extension fields to ensure that
       // we force replace these field reads by null.
       boolean ignore =

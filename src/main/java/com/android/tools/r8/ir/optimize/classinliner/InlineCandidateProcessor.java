@@ -206,7 +206,8 @@ final class InlineCandidateProcessor {
       if (eligibleClassDefinition.classInitializationMayHaveSideEffects(
           appView,
           // Types that are a super type of the current context are guaranteed to be initialized.
-          type -> appView.isSubtype(method.method.holder, type).isTrue())) {
+          type -> appView.isSubtype(method.method.holder, type).isTrue(),
+          Sets.newIdentityHashSet())) {
         return EligibilityStatus.HAS_CLINIT;
       }
       return EligibilityStatus.ELIGIBLE;
