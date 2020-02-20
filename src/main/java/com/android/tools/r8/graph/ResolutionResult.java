@@ -142,21 +142,11 @@ public abstract class ResolutionResult {
     public DexEncodedMethod lookupInvokeSpecialTarget(
         DexProgramClass context, AppInfoWithSubtyping appInfo) {
       // If the resolution is non-accessible then no target exists.
-      if (!isAccessibleFrom(context, appInfo)) {
-        return null;
+      if (isAccessibleFrom(context, appInfo)) {
+        return internalInvokeSpecialOrSuper(
+            context, appInfo, (sup, sub) -> isSuperclass(sup, sub, appInfo));
       }
-      DexEncodedMethod target =
-          internalInvokeSpecialOrSuper(
-              context, appInfo, (sup, sub) -> isSuperclass(sup, sub, appInfo));
-      if (target == null) {
-        return null;
-      }
-      // Should we check access control again?
-      DexClass holder = appInfo.definitionFor(target.method.holder);
-      if (!AccessControl.isMethodAccessible(target, holder, context, appInfo)) {
-        return null;
-      }
-      return target;
+      return null;
     }
 
     /**
@@ -177,19 +167,10 @@ public abstract class ResolutionResult {
     @Override
     public DexEncodedMethod lookupInvokeSuperTarget(
         DexProgramClass context, AppInfoWithSubtyping appInfo) {
-      if (!isAccessibleFrom(context, appInfo)) {
-        return null;
+      if (isAccessibleFrom(context, appInfo)) {
+        return lookupInvokeSuperTarget(context.asDexClass(), appInfo);
       }
-      DexEncodedMethod target = lookupInvokeSuperTarget(context.asDexClass(), appInfo);
-      if (target == null) {
-        return null;
-      }
-      // Should we check access control again?
-      DexClass holder = appInfo.definitionFor(target.method.holder);
-      if (!AccessControl.isMethodAccessible(target, holder, context, appInfo)) {
-        return null;
-      }
-      return target;
+      return null;
     }
 
     @Override
