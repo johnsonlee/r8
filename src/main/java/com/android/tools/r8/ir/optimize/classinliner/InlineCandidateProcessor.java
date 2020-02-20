@@ -306,10 +306,24 @@ final class InlineCandidateProcessor {
           indirectUsers.addAll(alias.uniqueUsers());
           continue;
         }
-        // Field read/write.
-        if (user.isInstanceGet()
-            || (user.isInstancePut()
-                && receivers.addIllegalReceiverAlias(user.asInstancePut().value()))) {
+
+        if (user.isInstanceGet()) {
+          if (root.isStaticGet()) {
+            // We don't have a replacement for this field read.
+            return user; // Not eligible.
+          }
+          DexEncodedField field =
+              appView.appInfo().resolveField(user.asFieldInstruction().getField());
+          if (field == null || field.isStatic()) {
+            return user; // Not eligible.
+          }
+          continue;
+        }
+
+        if (user.isInstancePut()) {
+          if (!receivers.addIllegalReceiverAlias(user.asInstancePut().value())) {
+            return user; // Not eligible.
+          }
           DexEncodedField field =
               appView.appInfo().resolveField(user.asFieldInstruction().getField());
           if (field == null || field.isStatic()) {
