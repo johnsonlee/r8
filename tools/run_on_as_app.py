@@ -1266,7 +1266,7 @@ def main(argv):
     options.no_logging = False
     # TODO(b/141081520): Remove logging filter once fixed.
     options.app_logging_filter = ['sqldelight']
-    options.shrinker = [shrinker for shrinker in SHRINKERS if shrinker != 'pg']
+    options.shrinker = ['r8', 'r8-full']
     print(options.shrinker)
 
   if options.golem:
