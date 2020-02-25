@@ -370,6 +370,8 @@ public class R8 {
 
         classesToRetainInnerClassAttributeFor =
             AnnotationRemover.computeClassesToRetainInnerClassAttributeFor(appView.withLiveness());
+        // TODO(b/149729626): Annotations should not be removed until after the second round of tree
+        //  shaking, since they are needed for interpretation of keep rules.
         new AnnotationRemover(appView.withLiveness(), classesToRetainInnerClassAttributeFor)
             .ensureValid()
             .run();
@@ -419,6 +421,8 @@ public class R8 {
 
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       appView.setGraphLense(new MemberRebindingAnalysis(appViewWithLiveness).run());
+      appView.appInfo().withLiveness().getFieldAccessInfoCollection().restrictToProgram(appView);
+
       if (options.shouldDesugarNests()) {
         timing.begin("NestBasedAccessDesugaring");
         R8NestBasedAccessDesugaring analyzer = new R8NestBasedAccessDesugaring(appViewWithLiveness);

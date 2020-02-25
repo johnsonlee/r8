@@ -447,7 +447,7 @@ public class TestBase {
       PreloadedClassFileProvider.Builder libraryBuilder = PreloadedClassFileProvider.builder();
       for (Class<?> clazz : libraryClasses) {
         Path file = ToolHelper.getClassFileForTestClass(clazz);
-        libraryBuilder.addResource(DescriptorUtils.javaTypeToDescriptor(clazz.getCanonicalName()),
+        libraryBuilder.addResource(DescriptorUtils.javaTypeToDescriptor(clazz.getTypeName()),
             Files.readAllBytes(file));
       }
       builder.addLibraryResourceProvider(libraryBuilder.build());
@@ -1431,5 +1431,17 @@ public class TestBase {
   public Collection<Path> buildOnDexRuntime(TestParameters parameters, Path... paths)
       throws IOException, CompilationFailedException {
     return buildOnDexRuntime(parameters, Arrays.asList(paths));
+  }
+
+  public static String binaryName(Class<?> clazz) {
+    return DescriptorUtils.getBinaryNameFromJavaType(typeName(clazz));
+  }
+
+  public static String descriptor(Class<?> clazz) {
+    return DescriptorUtils.javaTypeToDescriptor(typeName(clazz));
+  }
+
+  public static String typeName(Class<?> clazz) {
+    return clazz.getTypeName();
   }
 }

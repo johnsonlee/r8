@@ -37,6 +37,8 @@ import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.utils.IROrdering.IdentityIROrdering;
@@ -61,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import org.objectweb.asm.Opcodes;
@@ -311,6 +314,9 @@ public class InternalOptions {
     if (Version.isDevelopmentVersion()) {
       marker.setSha1(VersionProperties.INSTANCE.getSha());
     }
+    if (tool == Tool.R8) {
+      marker.setR8Mode(forceProguardCompatibility ? "compatibility" : "full");
+    }
     return marker;
   }
 
@@ -448,6 +454,11 @@ public class InternalOptions {
 
   public boolean isMinifying() {
     return enableMinification;
+  }
+
+  public boolean keepInnerClassStructure() {
+    return getProguardConfiguration().getKeepAttributes().signature
+        || getProguardConfiguration().getKeepAttributes().innerClasses;
   }
 
   public boolean printCfg = false;
@@ -989,6 +1000,8 @@ public class InternalOptions {
             ? NondeterministicIROrdering.getInstance()
             : IdentityIROrdering.getInstance();
 
+    public BiConsumer<AppInfoWithLiveness, Enqueuer.Mode> enqueuerInspector = null;
+
     public Consumer<Deque<Collection<DexEncodedMethod>>> waveModifier = waves -> {};
 
     /**
@@ -1094,6 +1107,15 @@ public class InternalOptions {
     enablePropagationOfConstantsAtCallSites = true;
   }
 
+  public boolean isCallSiteOptimizationEnabled() {
+    return enablePropagationOfConstantsAtCallSites || enablePropagationOfDynamicTypesAtCallSites;
+  }
+
+  public void disableCallSiteOptimization() {
+    enablePropagationOfConstantsAtCallSites = false;
+    enablePropagationOfDynamicTypesAtCallSites = false;
+  }
+
   private boolean hasMinApi(AndroidApiLevel level) {
     assert isGeneratingDex();
     return minApiLevel >= level.getLevel();
@@ -1137,15 +1159,6 @@ public class InternalOptions {
 
   public boolean canUsePrivateInterfaceMethods() {
     return isGeneratingClassFiles() || hasMinApi(AndroidApiLevel.N);
-  }
-
-  public boolean isCallSiteOptimizationEnabled() {
-    return enablePropagationOfConstantsAtCallSites || enablePropagationOfDynamicTypesAtCallSites;
-  }
-
-  public void disableCallSiteOptimization() {
-    enablePropagationOfConstantsAtCallSites = false;
-    enablePropagationOfDynamicTypesAtCallSites = false;
   }
 
   public boolean canUseDexPcAsDebugInformation() {

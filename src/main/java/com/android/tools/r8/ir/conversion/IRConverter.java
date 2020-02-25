@@ -716,11 +716,10 @@ public class IRConverter {
       // TODO(b/127694949): Adapt to PostOptimization.
       staticizeClasses(feedback, executorService);
       feedback.updateVisibleOptimizationInfo();
+      // The class staticizer lens shall not be applied through lens code rewriting or it breaks
+      // the lambda merger.
+      appView.clearCodeRewritings();
     }
-
-    // The class staticizer lens shall not be applied through lens code rewriting or it breaks
-    // the lambda merger.
-    appView.clearCodeRewritings();
 
     // Build a new application with jumbo string info.
     Builder<?> builder = application.builder();
@@ -831,11 +830,12 @@ public class IRConverter {
   }
 
   private void waveDone(Collection<DexEncodedMethod> wave) {
+    delayedOptimizationFeedback.refineAppInfoWithLiveness(appView.appInfo().withLiveness());
+    delayedOptimizationFeedback.updateVisibleOptimizationInfo();
     if (options.enableFieldAssignmentTracker) {
       fieldAccessAnalysis.fieldAssignmentTracker().waveDone(wave, delayedOptimizationFeedback);
     }
-    delayedOptimizationFeedback.refineAppInfoWithLiveness(appView.appInfo().withLiveness());
-    delayedOptimizationFeedback.updateVisibleOptimizationInfo();
+    assert delayedOptimizationFeedback.noUpdatesLeft();
     onWaveDoneActions.forEach(com.android.tools.r8.utils.Action::execute);
     onWaveDoneActions = null;
   }
@@ -1147,7 +1147,7 @@ public class IRConverter {
 
     if (lambdaMerger != null) {
       timing.begin("Merge lambdas");
-      lambdaMerger.rewriteCode(method, code, inliner);
+      lambdaMerger.rewriteCode(method, code, inliner, methodProcessor);
       timing.end();
       assert code.isConsistentSSA();
     }

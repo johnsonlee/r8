@@ -155,21 +155,11 @@ public abstract class ResolutionResult {
     public DexEncodedMethod lookupInvokeSpecialTarget(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
       // If the resolution is non-accessible then no target exists.
-      if (!isAccessibleFrom(context, appInfo)) {
-        return null;
+      if (isAccessibleFrom(context, appInfo)) {
+        return internalInvokeSpecialOrSuper(
+            context, appInfo, (sup, sub) -> isSuperclass(sup, sub, appInfo));
       }
-      DexEncodedMethod target =
-          internalInvokeSpecialOrSuper(
-              context, appInfo, (sup, sub) -> isSuperclass(sup, sub, appInfo));
-      if (target == null) {
-        return null;
-      }
-      // Should we check access control again?
-      DexClass holder = appInfo.definitionFor(target.method.holder);
-      if (!AccessControl.isMethodAccessible(target, holder, context, appInfo)) {
-        return null;
-      }
-      return target;
+      return null;
     }
 
     /**
@@ -191,7 +181,7 @@ public abstract class ResolutionResult {
     public DexEncodedMethod lookupInvokeSuperTarget(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
       // TODO(b/147848950): Investigate and remove the Compilation error. It could compile to
-      // throw IAE.
+      //  throw IAE.
       if (resolvedMethod.isInstanceInitializer()
           || (appInfo.hasSubtyping()
               && initialResolutionHolder != context
@@ -199,19 +189,10 @@ public abstract class ResolutionResult {
         throw new CompilationError(
             "Illegal invoke-super to " + resolvedMethod.toSourceString(), context.getOrigin());
       }
-      if (!isAccessibleFrom(context, appInfo)) {
-        return null;
+      if (isAccessibleFrom(context, appInfo)) {
+        return internalInvokeSpecialOrSuper(context, appInfo, (sup, sub) -> true);
       }
-      DexEncodedMethod target = internalInvokeSpecialOrSuper(context, appInfo, (sup, sub) -> true);
-      if (target == null) {
-        return null;
-      }
-      // Should we check access control again?
-      DexClass holder = appInfo.definitionFor(target.method.holder);
-      if (!AccessControl.isMethodAccessible(target, holder, context, appInfo)) {
-        return null;
-      }
-      return target;
+      return null;
     }
 
     /**
@@ -305,7 +286,10 @@ public abstract class ResolutionResult {
       }
       // 4. Otherwise, it is the single maximally specific method:
       if (target == null) {
-        target = appInfo.resolveMaximallySpecificMethods(initialType, method).getSingleTarget();
+        DexClassAndMethod result = appInfo.lookupMaximallySpecificMethod(initialType, method);
+        if (result != null) {
+          target = result.getMethod();
+        }
       }
       if (target == null) {
         return null;
@@ -341,6 +325,8 @@ public abstract class ResolutionResult {
         AppView<? extends AppInfoWithClassHierarchy> appView,
         InstantiatedSubTypeInfo instantiatedInfo) {
       // Check that the initial resolution holder is accessible from the context.
+      assert appView.isSubtype(initialResolutionHolder.type, resolvedHolder.type).isTrue()
+          : initialResolutionHolder.type + " is not a subtype of " + resolvedHolder.type;
       if (context != null && !isAccessibleFrom(context, appView.appInfo())) {
         return LookupResult.createFailedResult();
       }
@@ -356,7 +342,8 @@ public abstract class ResolutionResult {
       instantiatedInfo.forEachInstantiatedSubType(
           resolvedHolder.type,
           subClass -> {
-            DexClassAndMethod dexClassAndMethod = lookupVirtualDispatchTarget(subClass, appView);
+            DexClassAndMethod dexClassAndMethod =
+                lookupVirtualDispatchTarget(subClass, appView, resolvedHolder.type);
             if (dexClassAndMethod != null) {
               addVirtualDispatchTarget(
                   dexClassAndMethod.getMethod(), resolvedHolder.isInterface(), result);
@@ -418,6 +405,15 @@ public abstract class ResolutionResult {
     @Override
     public DexClassAndMethod lookupVirtualDispatchTarget(
         DexProgramClass dynamicInstance, AppView<? extends AppInfoWithClassHierarchy> appView) {
+      return lookupVirtualDispatchTarget(dynamicInstance, appView, initialResolutionHolder.type);
+    }
+
+    private DexClassAndMethod lookupVirtualDispatchTarget(
+        DexProgramClass dynamicInstance,
+        AppView<? extends AppInfoWithClassHierarchy> appView,
+        DexType resolutionHolder) {
+      assert appView.isSubtype(dynamicInstance.type, resolutionHolder).isTrue()
+          : dynamicInstance.type + " is not a subtype of " + resolutionHolder;
       // TODO(b/148591377): Enable this assertion.
       // The dynamic type cannot be an interface.
       // assert !dynamicInstance.isInterface();
@@ -441,24 +437,19 @@ public abstract class ResolutionResult {
         }
         return DexClassAndMethod.create(current, candidate);
       }
-      // TODO(b/149557233): Enable assertion.
-      // assert resolvedHolder.isInterface();
-      DexEncodedMethod maximalSpecific =
-          lookupMaximallySpecificDispatchTarget(dynamicInstance, appView);
-      return maximalSpecific == null
-          ? null
-          : DexClassAndMethod.create(
-              appView.definitionFor(maximalSpecific.method.holder), maximalSpecific);
+      // If we have not found a candidate and the holder is not an interface it must be because the
+      // class is missing.
+      if (!resolvedHolder.isInterface()) {
+        return null;
+      }
+      return lookupMaximallySpecificDispatchTarget(dynamicInstance, appView);
     }
 
-    private DexEncodedMethod lookupMaximallySpecificDispatchTarget(
+    private DexClassAndMethod lookupMaximallySpecificDispatchTarget(
         DexProgramClass dynamicInstance, AppView<? extends AppInfoWithClassHierarchy> appView) {
-      ResolutionResult maximallySpecificResult =
-          appView.appInfo().resolveMaximallySpecificMethods(dynamicInstance, resolvedMethod.method);
-      if (maximallySpecificResult.isSingleResolution()) {
-        return maximallySpecificResult.asSingleResolution().resolvedMethod;
-      }
-      return null;
+      return appView
+          .appInfo()
+          .lookupMaximallySpecificMethod(dynamicInstance, resolvedMethod.method);
     }
 
     /**

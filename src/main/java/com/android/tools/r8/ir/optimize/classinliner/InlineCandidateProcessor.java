@@ -248,6 +248,10 @@ final class InlineCandidateProcessor {
         }
 
         if (user.isInstancePut()) {
+          if (root.isStaticGet()) {
+            // We can't remove instructions that mutate the singleton instance.
+            return user; // Not eligible.
+          }
           if (!receivers.addIllegalReceiverAlias(user.asInstancePut().value())) {
             return user; // Not eligible.
           }
@@ -745,6 +749,9 @@ final class InlineCandidateProcessor {
       }
       DexEncodedMethod encodedParent = appView.definitionFor(parent);
       if (encodedParent == null) {
+        return null;
+      }
+      if (methodProcessor.isProcessedConcurrently(encodedParent)) {
         return null;
       }
       if (!encodedParent.isInliningCandidate(
