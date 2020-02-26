@@ -1236,4 +1236,34 @@ public class TestBase {
   public JarBuilder jarBuilder() throws IOException {
     return JarBuilder.builder(temp);
   }
+
+  public List<Path> buildOnDexRuntime(TestParameters parameters, List<Path> paths)
+      throws CompilationFailedException, IOException {
+    if (parameters.isCfRuntime()) {
+      return paths;
+    }
+    return Collections.singletonList(
+        testForD8()
+            .addProgramFiles(paths)
+            .setMinApi(parameters.getApiLevel())
+            .compile()
+            .writeToZip());
+  }
+
+  public List<Path> buildOnDexRuntime(TestParameters parameters, Path... paths)
+      throws IOException, CompilationFailedException {
+    return buildOnDexRuntime(parameters, Arrays.asList(paths));
+  }
+
+  public static String binaryName(Class<?> clazz) {
+    return DescriptorUtils.getBinaryNameFromJavaType(typeName(clazz));
+  }
+
+  public static String descriptor(Class<?> clazz) {
+    return DescriptorUtils.javaTypeToDescriptor(typeName(clazz));
+  }
+
+  public static String typeName(Class<?> clazz) {
+    return clazz.getTypeName();
+  }
 }
