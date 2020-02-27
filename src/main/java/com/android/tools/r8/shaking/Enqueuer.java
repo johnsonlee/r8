@@ -2584,7 +2584,9 @@ public class Enqueuer {
       if (clazz == null) {
         return;
       }
-      if (!clazz.isInterface()) {
+      if (clazz.isInterface()) {
+        markTypeAsLive(clazz.type, KeepReason.reflectiveUseIn(method));
+      } else {
         markInstantiated(clazz, KeepReason.reflectiveUseIn(method));
         if (clazz.hasDefaultInitializer()) {
           DexEncodedMethod initializer = clazz.getDefaultInitializer();
