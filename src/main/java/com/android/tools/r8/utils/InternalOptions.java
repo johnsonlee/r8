@@ -435,6 +435,11 @@ public class InternalOptions {
     return enableMinification;
   }
 
+  public boolean keepInnerClassStructure() {
+    return getProguardConfiguration().getKeepAttributes().signature
+        || getProguardConfiguration().getKeepAttributes().innerClasses;
+  }
+
   public boolean printCfg = false;
   public String printCfgFile;
   public boolean ignoreMissingClasses = false;

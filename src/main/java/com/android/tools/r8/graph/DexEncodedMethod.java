@@ -62,6 +62,8 @@ import com.android.tools.r8.naming.MemberNaming.MethodSignature;
 import com.android.tools.r8.naming.MemberNaming.Signature;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.shaking.AnnotationRemover;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Pair;
@@ -254,6 +256,16 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
 
     assert code == null || !shouldNotHaveCode();
     assert parameterAnnotationsList != null;
+  }
+
+  public DexAnnotationSet liveAnnotations(AppView<AppInfoWithLiveness> appView) {
+    return annotations.keepIf(
+        annotation -> AnnotationRemover.shouldKeepAnnotation(appView, this, annotation));
+  }
+
+  public ParameterAnnotationsList liveParameterAnnotations(AppView<AppInfoWithLiveness> appView) {
+    return parameterAnnotationsList.keepIf(
+        annotation -> AnnotationRemover.shouldKeepAnnotation(appView, this, annotation));
   }
 
   public OptionalBool isLibraryMethodOverride() {

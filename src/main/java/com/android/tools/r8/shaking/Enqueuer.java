@@ -144,6 +144,7 @@ public class Enqueuer {
   private RootSet rootSet;
   private ProguardClassFilter dontWarnPatterns;
   private final EnqueuerUseRegistryFactory useRegistryFactory;
+  private AnnotationRemover.Builder annotationRemoverBuilder;
 
   private final Map<DexMethod, Set<DexEncodedMethod>> virtualInvokes = new IdentityHashMap<>();
   private final Map<DexMethod, Set<DexEncodedMethod>> interfaceInvokes = new IdentityHashMap<>();
@@ -354,6 +355,10 @@ public class Enqueuer {
   public Enqueuer registerAnalysis(EnqueuerAnalysis analysis) {
     this.analyses.add(analysis);
     return this;
+  }
+
+  public void setAnnotationRemoverBuilder(AnnotationRemover.Builder annotationRemoverBuilder) {
+    this.annotationRemoverBuilder = annotationRemoverBuilder;
   }
 
   private boolean isProgramClass(DexType type) {
@@ -1319,7 +1324,7 @@ public class Enqueuer {
     DexClass clazz = appView.definitionFor(type);
     boolean annotationTypeIsLibraryClass = clazz == null || clazz.isNotProgramClass();
     boolean isLive = annotationTypeIsLibraryClass || liveTypes.contains(clazz.asProgramClass());
-    if (!shouldKeepAnnotation(holder, annotation, isLive, appView)) {
+    if (!shouldKeepAnnotation(appView, holder, annotation, isLive)) {
       // Remember this annotation for later.
       if (!annotationTypeIsLibraryClass) {
         deferredAnnotations.computeIfAbsent(type, ignore -> new HashSet<>()).add(annotation);
@@ -2395,7 +2400,8 @@ public class Enqueuer {
               activeIfRules.computeIfAbsent(wrap, ignore -> new LinkedHashSet<>()).add(ifRule);
             }
           }
-          RootSetBuilder consequentSetBuilder = new RootSetBuilder(appView);
+          ConsequentRootSetBuilder consequentSetBuilder =
+              new ConsequentRootSetBuilder(appView, this);
           IfRuleEvaluator ifRuleEvaluator =
               new IfRuleEvaluator(
                   appView, this, executorService, activeIfRules, consequentSetBuilder);
@@ -2522,6 +2528,13 @@ public class Enqueuer {
       rootSet.prune(method);
     }
     lambdaMethodsTargetedByInvokeDynamic.clear();
+  }
+
+  void retainAnnotationForFinalTreeShaking(DexAnnotation annotation) {
+    assert mode.isInitialTreeShaking();
+    if (annotationRemoverBuilder != null) {
+      annotationRemoverBuilder.retainAnnotation(annotation);
+    }
   }
 
   // Package protected due to entry point from worklist.

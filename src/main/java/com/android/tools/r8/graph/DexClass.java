@@ -8,6 +8,8 @@ import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.kotlin.KotlinInfo;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.shaking.AnnotationRemover;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.PredicateUtils;
@@ -399,6 +401,11 @@ public abstract class DexClass extends DexDefinition {
       newVirtualMethods[index++] = encodedMethod;
     }
     setVirtualMethods(newVirtualMethods);
+  }
+
+  public DexAnnotationSet liveAnnotations(AppView<AppInfoWithLiveness> appView) {
+    return annotations.keepIf(
+        annotation -> AnnotationRemover.shouldKeepAnnotation(appView, this, annotation));
   }
 
   /**
