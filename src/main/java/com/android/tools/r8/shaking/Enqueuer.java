@@ -1240,6 +1240,8 @@ public class Enqueuer {
       annotations.forEach(annotation -> handleAnnotation(holder, annotation));
     }
 
+    rootSet.forEachDependentInstanceConstructor(
+        holder, appView, this::enqueueHolderWithDependentInstanceConstructor);
     rootSet.forEachDependentStaticMember(holder, appView, this::enqueueDependentItem);
     compatEnqueueHolderIfDependentNonStaticMember(
         holder, rootSet.getDependentKeepClassCompatRule(holder.getType()));
@@ -1292,6 +1294,13 @@ public class Enqueuer {
   private void enqueueDependentItem(
       DexDefinition precondition, DexDefinition consequent, Set<ProguardKeepRuleBase> reasons) {
     internalEnqueueRootItem(consequent, reasons, precondition);
+  }
+
+  private void enqueueHolderWithDependentInstanceConstructor(
+      DexProgramClass clazz,
+      DexEncodedMethod instanceInitializer,
+      Set<ProguardKeepRuleBase> reasons) {
+    enqueueRootItem(clazz, reasons);
   }
 
   private void processAnnotations(DexDefinition holder, DexAnnotation[] annotations) {
@@ -1896,6 +1905,11 @@ public class Enqueuer {
     }
   }
 
+  public boolean isFieldReferenced(DexEncodedField field) {
+    FieldAccessInfoImpl info = fieldAccessInfoCollection.get(field.field);
+    return info != null;
+  }
+
   public boolean isFieldLive(DexEncodedField field) {
     return liveFields.contains(field);
   }
@@ -1925,6 +1939,18 @@ public class Enqueuer {
 
   private boolean isInstantiatedOrHasInstantiatedSubtype(DexProgramClass clazz) {
     return directAndIndirectlyInstantiatedTypes.contains(clazz);
+  }
+
+  public boolean isMethodLive(DexEncodedMethod method) {
+    return liveMethods.contains(method);
+  }
+
+  public boolean isMethodTargeted(DexEncodedMethod method) {
+    return targetedMethods.contains(method);
+  }
+
+  public boolean isTypeLive(DexProgramClass clazz) {
+    return liveTypes.contains(clazz);
   }
 
   // Package protected due to entry point from worklist.
@@ -2372,15 +2398,7 @@ public class Enqueuer {
           RootSetBuilder consequentSetBuilder = new RootSetBuilder(appView);
           IfRuleEvaluator ifRuleEvaluator =
               new IfRuleEvaluator(
-                  appView,
-                  executorService,
-                  activeIfRules,
-                  liveFields.getItems(),
-                  liveMethods.getItems(),
-                  liveTypes.getItems(),
-                  mode,
-                  consequentSetBuilder,
-                  targetedMethods.getItems());
+                  appView, this, executorService, activeIfRules, consequentSetBuilder);
           addConsequentRootSet(ifRuleEvaluator.run(), false);
           if (!workList.isEmpty()) {
             continue;

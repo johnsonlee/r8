@@ -13,7 +13,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.shaking.Enqueuer.Mode;
 import com.android.tools.r8.shaking.RootSetBuilder.ConsequentRootSet;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.google.common.base.Equivalence.Wrapper;
@@ -34,35 +33,23 @@ import java.util.stream.Collectors;
 public class IfRuleEvaluator {
 
   private final AppView<? extends AppInfoWithSubtyping> appView;
+  private final Enqueuer enqueuer;
   private final ExecutorService executorService;
   private final List<Future<?>> futures = new ArrayList<>();
   private final Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules;
-  private final Set<DexEncodedField> liveFields;
-  private final Set<DexEncodedMethod> liveMethods;
-  private final Set<DexProgramClass> liveTypes;
-  private final Mode mode;
   private final RootSetBuilder rootSetBuilder;
-  private final Set<DexEncodedMethod> targetedMethods;
 
   IfRuleEvaluator(
       AppView<? extends AppInfoWithSubtyping> appView,
+      Enqueuer enqueuer,
       ExecutorService executorService,
       Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
-      Set<DexEncodedField> liveFields,
-      Set<DexEncodedMethod> liveMethods,
-      Set<DexProgramClass> liveTypes,
-      Mode mode,
-      RootSetBuilder rootSetBuilder,
-      Set<DexEncodedMethod> targetedMethods) {
+      RootSetBuilder rootSetBuilder) {
     this.appView = appView;
+    this.enqueuer = enqueuer;
     this.executorService = executorService;
     this.ifRules = ifRules;
-    this.liveFields = liveFields;
-    this.liveMethods = liveMethods;
-    this.liveTypes = liveTypes;
-    this.mode = mode;
     this.rootSetBuilder = rootSetBuilder;
-    this.targetedMethods = targetedMethods;
   }
 
   public ConsequentRootSet run() throws ExecutionException {
@@ -188,7 +175,7 @@ public class IfRuleEvaluator {
     // A type is effectively live if (1) it is truly live, (2) the value of one of its fields has
     // been inlined by the member value propagation, or (3) the return value of one of its methods
     // has been forwarded by the member value propagation.
-    if (liveTypes.contains(clazz)) {
+    if (enqueuer.isTypeLive(clazz)) {
       return true;
     }
     for (DexEncodedField field : clazz.fields()) {
@@ -243,15 +230,15 @@ public class IfRuleEvaluator {
         filteredMembers,
         targetClass.fields(
             f ->
-                (liveFields.contains(f) || f.getOptimizationInfo().valueHasBeenPropagated())
+                (enqueuer.isFieldReferenced(f) || f.getOptimizationInfo().valueHasBeenPropagated())
                     && appView.graphLense().getOriginalFieldSignature(f.field).holder
                         == sourceClass.type));
     Iterables.addAll(
         filteredMembers,
         targetClass.methods(
             m ->
-                (liveMethods.contains(m)
-                        || targetedMethods.contains(m)
+                (enqueuer.isMethodLive(m)
+                        || enqueuer.isMethodTargeted(m)
                         || m.getOptimizationInfo().returnValueHasBeenPropagated())
                     && appView.graphLense().getOriginalMethodSignature(m.method).holder
                         == sourceClass.type));
@@ -294,7 +281,7 @@ public class IfRuleEvaluator {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     ProguardIfRule materializedRule = rule.materialize(dexItemFactory, preconditions);
 
-    if (mode.isInitialTreeShaking() && !rule.isUsed()) {
+    if (enqueuer.getMode().isInitialTreeShaking() && !rule.isUsed()) {
       // We need to abort class inlining of classes that could be matched by the condition of this
       // -if rule.
       ClassInlineRule neverClassInlineRuleForCondition =

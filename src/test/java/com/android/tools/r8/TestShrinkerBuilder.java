@@ -188,6 +188,10 @@ public abstract class TestShrinkerBuilder<
     return addKeepRules("-keepattributes " + String.join(",", attributes));
   }
 
+  public T addKeepRuntimeVisibleAnnotations() {
+    return addKeepAttributes("RuntimeVisibleAnnotations");
+  }
+
   public T addKeepAllAttributes() {
     return addKeepAttributes("*");
   }
