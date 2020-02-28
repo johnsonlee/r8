@@ -6,16 +6,21 @@ package com.android.tools.r8.transformers;
 import static org.objectweb.asm.Opcodes.ASM7;
 
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.naming.MemberNaming.MethodSignature;
+import com.android.tools.r8.graph.AccessFlags;
+import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.transformers.MethodTransformer.MethodContext;
 import com.android.tools.r8.utils.DescriptorUtils;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -157,6 +162,104 @@ public class ClassFileTransformer {
                 Arrays.stream(interfaces)
                     .map(clazz -> DescriptorUtils.getBinaryNameFromJavaType(clazz.getTypeName()))
                     .toArray(String[]::new));
+          }
+        });
+  }
+
+  public ClassFileTransformer setVersion(int newVersion) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public void visit(
+              int version,
+              int access,
+              String name,
+              String signature,
+              String superName,
+              String[] interfaces) {
+            super.visit(newVersion, access, name, signature, superName, interfaces);
+          }
+        });
+  }
+
+  public ClassFileTransformer setMinVersion(int minVersion) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public void visit(
+              int version,
+              int access,
+              String name,
+              String signature,
+              String superName,
+              String[] interfaces) {
+            super.visit(
+                Integer.max(version, minVersion), access, name, signature, superName, interfaces);
+          }
+        });
+  }
+
+  public ClassFileTransformer setPublic(Method method) {
+    return setAccessFlags(
+        method,
+        accessFlags -> {
+          accessFlags.unsetPrivate();
+          accessFlags.unsetProtected();
+          accessFlags.setPublic();
+        });
+  }
+
+  public ClassFileTransformer setPrivate(Method method) {
+    return setAccessFlags(
+        method,
+        accessFlags -> {
+          accessFlags.unsetPublic();
+          accessFlags.unsetProtected();
+          accessFlags.setPrivate();
+        });
+  }
+
+  public ClassFileTransformer setSynthetic(Method method) {
+    return setAccessFlags(method, AccessFlags::setSynthetic);
+  }
+
+  public ClassFileTransformer setAccessFlags(Method method, Consumer<MethodAccessFlags> setter) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          final MethodReference methodReference = Reference.methodFromMethod(method);
+
+          @Override
+          public MethodVisitor visitMethod(
+              int access, String name, String descriptor, String signature, String[] exceptions) {
+            boolean isConstructor =
+                name.equals(Constants.INSTANCE_INITIALIZER_NAME)
+                    || name.equals(Constants.CLASS_INITIALIZER_NAME);
+            MethodAccessFlags accessFlags =
+                MethodAccessFlags.fromCfAccessFlags(access, isConstructor);
+            if (name.equals(methodReference.getMethodName())
+                && descriptor.equals(methodReference.getMethodDescriptor())) {
+              setter.accept(accessFlags);
+            }
+            return super.visitMethod(
+                accessFlags.getAsCfAccessFlags(), name, descriptor, signature, exceptions);
+          }
+        });
+  }
+
+  @FunctionalInterface
+  public interface MethodPredicate {
+    boolean test(int access, String name, String descriptor, String signature, String[] exceptions);
+  }
+
+  public ClassFileTransformer removeMethods(MethodPredicate predicate) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public MethodVisitor visitMethod(
+              int access, String name, String descriptor, String signature, String[] exceptions) {
+            return predicate.test(access, name, descriptor, signature, exceptions)
+                ? null
+                : super.visitMethod(access, name, descriptor, signature, exceptions);
           }
         });
   }
