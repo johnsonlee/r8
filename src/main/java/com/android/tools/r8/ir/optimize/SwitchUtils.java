@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.ArrayGet;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.IntSwitch;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -59,8 +60,7 @@ public class SwitchUtils {
    * and {@link SwitchMapCollector} for details.
    */
   public static EnumSwitchInfo analyzeSwitchOverEnum(
-      Instruction switchInsn, AppView<AppInfoWithLiveness> appView) {
-    AppInfoWithLiveness appInfo = appView.appInfo();
+      IntSwitch switchInsn, AppView<AppInfoWithLiveness> appView) {
     Instruction input = switchInsn.inValues().get(0).definition;
     if (input == null || !input.isArrayGet()) {
       return null;
@@ -72,8 +72,8 @@ public class SwitchUtils {
     }
     InvokeVirtual ordinalInvoke = index.asInvokeVirtual();
     DexMethod ordinalMethod = ordinalInvoke.getInvokedMethod();
-    DexClass enumClass = appInfo.definitionFor(ordinalMethod.holder);
-    DexItemFactory dexItemFactory = appInfo.dexItemFactory();
+    DexClass enumClass = appView.definitionFor(ordinalMethod.holder);
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
     // After member rebinding, enumClass will be the actual java.lang.Enum class.
     if (enumClass == null
         || (!enumClass.accessFlags.isEnum() && enumClass.type != dexItemFactory.enumType)
@@ -87,14 +87,19 @@ public class SwitchUtils {
       return null;
     }
     StaticGet staticGet = array.asStaticGet();
-    Int2ReferenceMap<DexField> indexMap = appInfo.getSwitchMapFor(staticGet.getField());
+    Int2ReferenceMap<DexField> indexMap = appView.appInfo().getSwitchMapFor(staticGet.getField());
     if (indexMap == null || indexMap.isEmpty()) {
       return null;
+    }
+    for (int key : switchInsn.getKeys()) {
+      if (!indexMap.containsKey(key)) {
+        return null;
+      }
     }
     // Due to member rebinding, only the fields are certain to provide the actual enums
     // class.
     DexType enumType = indexMap.values().iterator().next().holder;
-    Map<DexField, EnumValueInfo> valueInfoMap = appInfo.getEnumValueInfoMapFor(enumType);
+    Map<DexField, EnumValueInfo> valueInfoMap = appView.appInfo().getEnumValueInfoMapFor(enumType);
     if (valueInfoMap == null) {
       return null;
     }
