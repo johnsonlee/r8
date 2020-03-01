@@ -1225,6 +1225,8 @@ public class Enqueuer {
       annotations.forEach(annotation -> handleAnnotation(holder, annotation));
       }
 
+    rootSet.forEachDependentInstanceConstructor(
+        holder, appView, this::enqueueHolderWithDependentInstanceConstructor);
     rootSet.forEachDependentStaticMember(holder, appView, this::enqueueDependentItem);
     compatEnqueueHolderIfDependentNonStaticMember(
         holder, rootSet.getDependentKeepClassCompatRule(holder.getType()));
@@ -1280,6 +1282,13 @@ public class Enqueuer {
   private void enqueueDependentItem(
       DexDefinition precondition, DexDefinition consequent, Set<ProguardKeepRuleBase> reasons) {
     internalEnqueueRootItem(consequent, reasons, precondition);
+  }
+
+  private void enqueueHolderWithDependentInstanceConstructor(
+      DexProgramClass clazz,
+      DexEncodedMethod instanceInitializer,
+      Set<ProguardKeepRuleBase> reasons) {
+    enqueueRootItem(clazz, reasons);
   }
 
   private void processAnnotations(DexDefinition holder, DexAnnotation[] annotations) {
