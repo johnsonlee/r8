@@ -147,11 +147,25 @@ public class LazyCfCode extends Code {
     return code;
   }
 
+  public static class DebugParsingOptions {
+    public final boolean lineInfo;
+    public final boolean localInfo;
+    public final int asmReaderOptions;
+
+    public DebugParsingOptions(boolean lineInfo, boolean localInfo, int asmReaderOptions) {
+      this.lineInfo = lineInfo;
+      this.localInfo = localInfo;
+      this.asmReaderOptions = asmReaderOptions;
+    }
+  }
+
   public void parseCode(ReparseContext context, boolean useJsrInliner) {
-    int parsingOptions = getParsingOptions(application, reachabilitySensitive);
+    DebugParsingOptions parsingOptions = getParsingOptions(application, reachabilitySensitive);
+
     ClassCodeVisitor classVisitor =
-        new ClassCodeVisitor(context.owner, createCodeLocator(context), application, useJsrInliner);
-    new ClassReader(context.classCache).accept(classVisitor, parsingOptions);
+        new ClassCodeVisitor(
+            context.owner, createCodeLocator(context), application, useJsrInliner, parsingOptions);
+    new ClassReader(context.classCache).accept(classVisitor, parsingOptions.asmReaderOptions);
   }
 
   private void setCode(CfCode code) {
@@ -251,17 +265,20 @@ public class LazyCfCode extends Code {
     private final BiFunction<String, String, LazyCfCode> codeLocator;
     private final JarApplicationReader application;
     private boolean usrJsrInliner;
+    private final DebugParsingOptions debugParsingOptions;
 
     ClassCodeVisitor(
         DexClass clazz,
         BiFunction<String, String, LazyCfCode> codeLocator,
         JarApplicationReader application,
-        boolean useJsrInliner) {
+        boolean useJsrInliner,
+        DebugParsingOptions debugParsingOptions) {
       super(InternalOptions.ASM_VERSION);
       this.clazz = clazz;
       this.codeLocator = codeLocator;
       this.application = application;
       this.usrJsrInliner = useJsrInliner;
+      this.debugParsingOptions = debugParsingOptions;
     }
 
     @Override
@@ -272,7 +289,8 @@ public class LazyCfCode extends Code {
         LazyCfCode code = codeLocator.apply(name, desc);
         if (code != null) {
           DexMethod method = application.getMethod(clazz.type, name, desc);
-          MethodCodeVisitor methodVisitor = new MethodCodeVisitor(application, method, code);
+          MethodCodeVisitor methodVisitor =
+              new MethodCodeVisitor(application, method, code, debugParsingOptions);
           if (!usrJsrInliner) {
             return methodVisitor;
           }
@@ -286,6 +304,7 @@ public class LazyCfCode extends Code {
   private static class MethodCodeVisitor extends MethodVisitor {
     private final JarApplicationReader application;
     private final DexItemFactory factory;
+    private final DebugParsingOptions debugParsingOptions;
     private int maxStack;
     private int maxLocals;
     private List<CfInstruction> instructions;
@@ -296,8 +315,13 @@ public class LazyCfCode extends Code {
     private final LazyCfCode code;
     private final DexMethod method;
 
-    MethodCodeVisitor(JarApplicationReader application, DexMethod method, LazyCfCode code) {
+    MethodCodeVisitor(
+        JarApplicationReader application,
+        DexMethod method,
+        LazyCfCode code,
+        DebugParsingOptions debugParsingOptions) {
       super(InternalOptions.ASM_VERSION);
+      this.debugParsingOptions = debugParsingOptions;
       assert code != null;
       this.application = application;
       this.factory = application.getFactory();
@@ -895,14 +919,16 @@ public class LazyCfCode extends Code {
     @Override
     public void visitLocalVariable(
         String name, String desc, String signature, Label start, Label end, int index) {
-      DebugLocalInfo debugLocalInfo =
-          canonicalize(
-              new DebugLocalInfo(
-                  factory.createString(name),
-                  factory.createType(desc),
-                  signature == null ? null : factory.createString(signature)));
-      localVariables.add(
-          new LocalVariableInfo(index, debugLocalInfo, getLabel(start), getLabel(end)));
+      if (debugParsingOptions.localInfo) {
+        DebugLocalInfo debugLocalInfo =
+            canonicalize(
+                new DebugLocalInfo(
+                    factory.createString(name),
+                    factory.createType(desc),
+                    signature == null ? null : factory.createString(signature)));
+        localVariables.add(
+            new LocalVariableInfo(index, debugLocalInfo, getLabel(start), getLabel(end)));
+      }
     }
 
     private DebugLocalInfo canonicalize(DebugLocalInfo debugLocalInfo) {
@@ -911,7 +937,9 @@ public class LazyCfCode extends Code {
 
     @Override
     public void visitLineNumber(int line, Label start) {
-      instructions.add(new CfPosition(getLabel(start), new Position(line, null, method, null)));
+      if (debugParsingOptions.lineInfo) {
+        instructions.add(new CfPosition(getLabel(start), new Position(line, null, method, null)));
+      }
     }
 
     @Override
@@ -923,7 +951,7 @@ public class LazyCfCode extends Code {
     }
   }
 
-  private static int getParsingOptions(
+  private static DebugParsingOptions getParsingOptions(
       JarApplicationReader application, boolean reachabilitySensitive) {
     int parsingOptions =
         application.options.testing.readInputStackMaps
@@ -931,18 +959,24 @@ public class LazyCfCode extends Code {
             : ClassReader.SKIP_FRAMES;
 
     ProguardConfiguration configuration = application.options.getProguardConfiguration();
-    if (configuration != null && !configuration.isKeepParameterNames()) {
-      ProguardKeepAttributes keep =
-          application.options.getProguardConfiguration().getKeepAttributes();
-      if (!application.options.getProguardConfiguration().isKeepParameterNames()
-          && !keep.localVariableTable
-          && !keep.localVariableTypeTable
-          && !keep.lineNumberTable
-          && !reachabilitySensitive) {
-        parsingOptions |= ClassReader.SKIP_DEBUG;
-      }
+    if (configuration == null) {
+      return new DebugParsingOptions(true, true, parsingOptions);
     }
-    return parsingOptions;
+    ProguardKeepAttributes keep =
+        application.options.getProguardConfiguration().getKeepAttributes();
+
+    boolean localsInfo =
+        configuration.isKeepParameterNames()
+            || keep.localVariableTable
+            || keep.localVariableTypeTable
+            || reachabilitySensitive;
+    boolean lineInfo = keep.lineNumberTable;
+
+    if (!localsInfo && !lineInfo) {
+      parsingOptions |= ClassReader.SKIP_DEBUG;
+    }
+
+    return new DebugParsingOptions(lineInfo, localsInfo, parsingOptions);
   }
 
   @Override
