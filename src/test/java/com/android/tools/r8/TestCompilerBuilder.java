@@ -84,6 +84,10 @@ public abstract class TestCompilerBuilder<
     return self();
   }
 
+  public T allowCheckDiscardedErrors() {
+    return addOptionsModification(options -> options.testing.allowCheckDiscardedErrors = true);
+  }
+
   public CR compile() throws CompilationFailedException {
     AndroidAppConsumers sink = new AndroidAppConsumers();
     builder.setProgramConsumer(sink.wrapProgramConsumer(programConsumer));
@@ -346,7 +350,7 @@ public abstract class TestCompilerBuilder<
   }
 
   public T allowStderrMessages() {
-    allowStdoutMessages = true;
+    allowStderrMessages = true;
     return self();
   }
 

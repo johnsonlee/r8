@@ -598,8 +598,23 @@ public class TestBase {
     return appView;
   }
 
+  protected static AppView<AppInfoWithLiveness> computeAppViewWithLiveness(AndroidApp app)
+      throws Exception {
+    return computeAppViewWithLiveness(
+        app, factory -> ImmutableList.of(ProguardKeepRule.defaultKeepAllRule(unused -> {})));
+  }
+
   protected static AppView<AppInfoWithLiveness> computeAppViewWithLiveness(
       AndroidApp app, Class<?> mainClass) throws Exception {
+    return computeAppViewWithLiveness(
+        app, factory -> buildKeepRuleForClassAndMethods(mainClass, factory));
+  }
+
+  protected static AppView<AppInfoWithLiveness> computeAppViewWithLiveness(
+      AndroidApp app,
+      Function<DexItemFactory, Collection<ProguardConfigurationRule>>
+          proguardConfigurationRulesGenerator)
+      throws Exception {
     AppView<AppInfoWithSubtyping> appView = computeAppViewWithSubtyping(app);
     // Run the tree shaker to compute an instance of AppInfoWithLiveness.
     ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -608,7 +623,7 @@ public class TestBase {
         new RootSetBuilder(
                 appView,
                 application,
-                buildKeepRuleForClassAndMethods(mainClass, application.dexItemFactory))
+                proguardConfigurationRulesGenerator.apply(appView.appInfo().dexItemFactory()))
             .run(executor);
     AppInfoWithLiveness appInfoWithLiveness =
         EnqueuerFactory.createForInitialTreeShaking(appView)
@@ -662,7 +677,7 @@ public class TestBase {
         ListUtils.map(formalTypes, type -> buildType(type, factory)));
   }
 
-  private static List<ProguardConfigurationRule> buildKeepRuleForClass(
+  protected static List<ProguardConfigurationRule> buildKeepRuleForClass(
       Class<?> clazz, DexItemFactory factory) {
     Builder keepRuleBuilder = ProguardKeepRule.builder();
     keepRuleBuilder.setSource("buildKeepRuleForClass " + clazz.getTypeName());
@@ -674,10 +689,10 @@ public class TestBase {
     return Collections.singletonList(keepRuleBuilder.build());
   }
 
-  private static List<ProguardConfigurationRule> buildKeepRuleForClassAndMethods(
+  protected static List<ProguardConfigurationRule> buildKeepRuleForClassAndMethods(
       Class<?> clazz, DexItemFactory factory) {
     Builder keepRuleBuilder = ProguardKeepRule.builder();
-    keepRuleBuilder.setSource("buildKeepRuleForClass " + clazz.getTypeName());
+    keepRuleBuilder.setSource("buildKeepRuleForClassAndMethods " + clazz.getTypeName());
     keepRuleBuilder.setType(ProguardKeepRuleType.KEEP);
     keepRuleBuilder.setClassNames(
         ProguardClassNameList.singletonList(
@@ -1415,7 +1430,7 @@ public class TestBase {
     return JarBuilder.builder(temp);
   }
 
-  public Collection<Path> buildOnDexRuntime(TestParameters parameters, Collection<Path> paths)
+  public List<Path> buildOnDexRuntime(TestParameters parameters, List<Path> paths)
       throws CompilationFailedException, IOException {
     if (parameters.isCfRuntime()) {
       return paths;
@@ -1428,7 +1443,7 @@ public class TestBase {
             .writeToZip());
   }
 
-  public Collection<Path> buildOnDexRuntime(TestParameters parameters, Path... paths)
+  public List<Path> buildOnDexRuntime(TestParameters parameters, Path... paths)
       throws IOException, CompilationFailedException {
     return buildOnDexRuntime(parameters, Arrays.asList(paths));
   }

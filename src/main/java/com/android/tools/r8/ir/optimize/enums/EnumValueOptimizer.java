@@ -11,6 +11,8 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfo;
+import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfoMap;
 import com.android.tools.r8.ir.code.ArrayGet;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlock.ThrowingInfo;
@@ -27,12 +29,10 @@ import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.optimize.SwitchMapCollector;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.AppInfoWithLiveness.EnumValueInfo;
 import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import java.util.Arrays;
-import java.util.Map;
 
 public class EnumValueOptimizer {
 
@@ -76,8 +76,8 @@ public class EnumValueOptimizer {
       }
       DexField enumField = definition.asStaticGet().getField();
 
-      Map<DexField, EnumValueInfo> valueInfoMap =
-          appView.appInfo().withLiveness().getEnumValueInfoMapFor(enumField.type);
+      EnumValueInfoMap valueInfoMap =
+          appView.appInfo().withLiveness().getEnumValueInfoMap(enumField.type);
       if (valueInfoMap == null) {
         continue;
       }
@@ -86,7 +86,7 @@ public class EnumValueOptimizer {
       // that it is a static-get to a field whose type is the same as the enclosing class (which
       // is known to be an enum type). An enum may still define a static field using the enum type
       // so ensure the field is present in the ordinal map for final validation.
-      EnumValueInfo valueInfo = valueInfoMap.get(enumField);
+      EnumValueInfo valueInfo = valueInfoMap.getEnumValueInfo(enumField);
       if (valueInfo == null) {
         continue;
       }
@@ -153,7 +153,8 @@ public class EnumValueOptimizer {
       Int2IntMap targetMap = new Int2IntArrayMap();
       for (int i = 0; i < switchInsn.numberOfKeys(); i++) {
         assert switchInsn.targetBlockIndices()[i] != switchInsn.getFallthroughBlockIndex();
-        EnumValueInfo valueInfo = info.valueInfoMap.get(info.indexMap.get(switchInsn.getKey(i)));
+        DexField field = info.indexMap.get(switchInsn.getKey(i));
+        EnumValueInfo valueInfo = info.valueInfoMap.getEnumValueInfo(field);
         targetMap.put(valueInfo.ordinal, switchInsn.targetBlockIndices()[i]);
       }
       int[] keys = targetMap.keySet().toIntArray();
@@ -190,7 +191,7 @@ public class EnumValueOptimizer {
     final Instruction arrayGet;
     public final Instruction staticGet;
     final Int2ReferenceMap<DexField> indexMap;
-    final Map<DexField, EnumValueInfo> valueInfoMap;
+    final EnumValueInfoMap valueInfoMap;
 
     private EnumSwitchInfo(
         DexType enumClass,
@@ -198,7 +199,7 @@ public class EnumValueOptimizer {
         Instruction arrayGet,
         Instruction staticGet,
         Int2ReferenceMap<DexField> indexMap,
-        Map<DexField, EnumValueInfo> valueInfoMap) {
+        EnumValueInfoMap valueInfoMap) {
       this.enumClass = enumClass;
       this.ordinalInvoke = ordinalInvoke;
       this.arrayGet = arrayGet;
@@ -221,11 +222,10 @@ public class EnumValueOptimizer {
    *
    * </blockquote>
    *
-   * and extracts the components and the index and ordinal maps. See {@link EnumInfoMapCollector}
-   * and {@link SwitchMapCollector} for details.
+   * and extracts the components and the index and ordinal maps. See {@link
+   * EnumValueInfoMapCollector} and {@link SwitchMapCollector} for details.
    */
-  private EnumSwitchInfo analyzeSwitchOverEnum(Instruction switchInsn) {
-    AppInfoWithLiveness appInfo = appView.appInfo();
+  private EnumSwitchInfo analyzeSwitchOverEnum(IntSwitch switchInsn) {
     Instruction input = switchInsn.inValues().get(0).definition;
     if (input == null || !input.isArrayGet()) {
       return null;
@@ -237,8 +237,8 @@ public class EnumValueOptimizer {
     }
     InvokeVirtual ordinalInvoke = index.asInvokeVirtual();
     DexMethod ordinalMethod = ordinalInvoke.getInvokedMethod();
-    DexClass enumClass = appInfo.definitionFor(ordinalMethod.holder);
-    DexItemFactory dexItemFactory = appInfo.dexItemFactory();
+    DexClass enumClass = appView.definitionFor(ordinalMethod.holder);
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
     // After member rebinding, enumClass will be the actual java.lang.Enum class.
     if (enumClass == null
         || (!enumClass.accessFlags.isEnum() && enumClass.type != dexItemFactory.enumType)
@@ -252,14 +252,18 @@ public class EnumValueOptimizer {
       return null;
     }
     StaticGet staticGet = array.asStaticGet();
-    Int2ReferenceMap<DexField> indexMap = appInfo.getSwitchMapFor(staticGet.getField());
+    Int2ReferenceMap<DexField> indexMap = appView.appInfo().getSwitchMap(staticGet.getField());
     if (indexMap == null || indexMap.isEmpty()) {
       return null;
     }
-    // Due to member rebinding, only the fields are certain to provide the actual enums
-    // class.
+    for (int key : switchInsn.getKeys()) {
+      if (!indexMap.containsKey(key)) {
+        return null;
+      }
+    }
+    // Due to member rebinding, only the fields are certain to provide the actual enums class.
     DexType enumType = indexMap.values().iterator().next().holder;
-    Map<DexField, EnumValueInfo> valueInfoMap = appInfo.getEnumValueInfoMapFor(enumType);
+    EnumValueInfoMap valueInfoMap = appView.appInfo().getEnumValueInfoMap(enumType);
     if (valueInfoMap == null) {
       return null;
     }

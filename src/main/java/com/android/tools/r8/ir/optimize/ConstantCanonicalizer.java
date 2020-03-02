@@ -206,6 +206,8 @@ public class ConstantCanonicalizer {
     if (!iterator.hasNext()) {
       return;
     }
+
+    boolean shouldSimplifyIfs = false;
     do {
       Object2ObjectMap.Entry<Instruction, List<Value>> entry = iterator.next();
       Instruction canonicalizedConstant = entry.getKey();
@@ -252,10 +254,13 @@ public class ConstantCanonicalizer {
       for (Value outValue : entry.getValue()) {
         outValue.replaceUsers(newConst.outValue());
       }
+      shouldSimplifyIfs |= newConst.outValue().hasUserThatMatches(Instruction::isIf);
     } while (iterator.hasNext());
 
-    if (code.removeAllTrivialPhis()) {
-      codeRewriter.simplifyControlFlow(code);
+    shouldSimplifyIfs |= code.removeAllTrivialPhis();
+
+    if (shouldSimplifyIfs) {
+      codeRewriter.simplifyIf(code);
     }
 
     assert code.isConsistentSSA();

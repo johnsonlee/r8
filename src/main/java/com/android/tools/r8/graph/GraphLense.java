@@ -322,10 +322,8 @@ public abstract class GraphLense {
 
   public static <T extends DexReference, S> ImmutableMap<T, S> rewriteReferenceKeys(
       Map<T, S> original, Function<T, T> rewrite) {
-    ImmutableMap.Builder<T, S> builder = new ImmutableMap.Builder<>();
-    for (T item : original.keySet()) {
-      builder.put(rewrite.apply(item), original.get(item));
-    }
+    ImmutableMap.Builder<T, S> builder = ImmutableMap.builder();
+    original.forEach((item, value) -> builder.put(rewrite.apply(item), value));
     return builder.build();
   }
 
@@ -476,6 +474,7 @@ public abstract class GraphLense {
   // This lens clears all code rewriting (lookup methods mimics identity lens behavior) but still
   // relies on the previous lens for names (getRenamed/Original methods).
   public static class ClearCodeRewritingGraphLens extends IdentityGraphLense {
+
     private final GraphLense previous;
 
     public ClearCodeRewritingGraphLens(GraphLense previous) {

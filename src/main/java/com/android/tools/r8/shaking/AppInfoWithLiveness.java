@@ -20,6 +20,8 @@ import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.graph.EnumValueInfoMapCollection;
+import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfoMap;
 import com.android.tools.r8.graph.FieldAccessInfo;
 import com.android.tools.r8.graph.FieldAccessInfoCollection;
 import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
@@ -174,18 +176,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
   /** A map from switchmap class types to their corresponding switchmaps. */
   final Map<DexField, Int2ReferenceMap<DexField>> switchMaps;
   /** A map from enum types to their value types and ordinals. */
-  final Map<DexType, Map<DexField, EnumValueInfo>> enumValueInfoMaps;
-
-  public static final class EnumValueInfo {
-    /** The anonymous subtype of this specific value or the enum type. */
-    public final DexType type;
-    public final int ordinal;
-
-    public EnumValueInfo(DexType type, int ordinal) {
-      this.type = type;
-      this.ordinal = ordinal;
-    }
-  }
+  final EnumValueInfoMapCollection enumValueInfoMaps;
 
   final Set<DexType> instantiatedLambdas;
 
@@ -228,7 +219,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
       Object2BooleanMap<DexReference> identifierNameStrings,
       Set<DexType> prunedTypes,
       Map<DexField, Int2ReferenceMap<DexField>> switchMaps,
-      Map<DexType, Map<DexField, EnumValueInfo>> enumValueInfoMaps,
+      EnumValueInfoMapCollection enumValueInfoMaps,
       Set<DexType> instantiatedLambdas,
       Set<DexType> constClassReferences) {
     super(application);
@@ -311,7 +302,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
       Object2BooleanMap<DexReference> identifierNameStrings,
       Set<DexType> prunedTypes,
       Map<DexField, Int2ReferenceMap<DexField>> switchMaps,
-      Map<DexType, Map<DexField, EnumValueInfo>> enumValueInfoMaps,
+      EnumValueInfoMapCollection enumValueInfoMaps,
       Set<DexType> instantiatedLambdas,
       Set<DexType> constClassReferences) {
     super(appInfoWithSubtyping);
@@ -458,7 +449,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
   public AppInfoWithLiveness(
       AppInfoWithLiveness previous,
       Map<DexField, Int2ReferenceMap<DexField>> switchMaps,
-      Map<DexType, Map<DexField, EnumValueInfo>> enumValueInfoMaps) {
+      EnumValueInfoMapCollection enumValueInfoMaps) {
     super(previous);
     this.missingTypes = previous.missingTypes;
     this.liveTypes = previous.liveTypes;
@@ -704,12 +695,12 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     return result;
   }
 
-  public Map<DexField, EnumValueInfo> getEnumValueInfoMapFor(DexType enumClass) {
+  public EnumValueInfoMap getEnumValueInfoMap(DexType enumType) {
     assert checkIfObsolete();
-    return enumValueInfoMaps.get(enumClass);
+    return enumValueInfoMaps.getEnumValueInfoMap(enumType);
   }
 
-  public Int2ReferenceMap<DexField> getSwitchMapFor(DexField field) {
+  public Int2ReferenceMap<DexField> getSwitchMap(DexField field) {
     assert checkIfObsolete();
     return switchMaps.get(field);
   }
@@ -1065,7 +1056,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
         // Don't rewrite pruned types - the removed types are identified by their original name.
         prunedTypes,
         rewriteReferenceKeys(switchMaps, lens::lookupField),
-        rewriteReferenceKeys(enumValueInfoMaps, lens::lookupType),
+        enumValueInfoMaps.rewrittenWithLens(lens),
         rewriteItems(instantiatedLambdas, lens::lookupType),
         constClassReferences);
   }
@@ -1447,14 +1438,13 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     return result == null || !result.isVirtualMethod() ? null : result;
   }
 
-  public AppInfoWithLiveness addSwitchMaps(Map<DexField, Int2ReferenceMap<DexField>> switchMaps) {
+  public AppInfoWithLiveness withSwitchMaps(Map<DexField, Int2ReferenceMap<DexField>> switchMaps) {
     assert checkIfObsolete();
     assert this.switchMaps.isEmpty();
     return new AppInfoWithLiveness(this, switchMaps, enumValueInfoMaps);
   }
 
-  public AppInfoWithLiveness addEnumValueInfoMaps(
-      Map<DexType, Map<DexField, EnumValueInfo>> enumValueInfoMaps) {
+  public AppInfoWithLiveness withEnumValueInfoMaps(EnumValueInfoMapCollection enumValueInfoMaps) {
     assert checkIfObsolete();
     assert this.enumValueInfoMaps.isEmpty();
     return new AppInfoWithLiveness(this, switchMaps, enumValueInfoMaps);

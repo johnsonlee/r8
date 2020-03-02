@@ -300,8 +300,10 @@ public class IRConverter {
       this.lambdaMerger =
           options.enableLambdaMerging ? new LambdaMerger(appViewWithLiveness) : null;
       this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness);
+      this.enumUnboxer = options.enableEnumUnboxing ? new EnumUnboxer(appViewWithLiveness) : null;
       this.inliner =
-          new Inliner(appViewWithLiveness, mainDexClasses, lambdaMerger, lensCodeRewriter);
+          new Inliner(
+              appViewWithLiveness, mainDexClasses, lambdaMerger, lensCodeRewriter, enumUnboxer);
       this.outliner = new Outliner(appViewWithLiveness);
       this.memberValuePropagation =
           options.enableValuePropagation ? new MemberValuePropagation(appViewWithLiveness) : null;
@@ -331,7 +333,6 @@ public class IRConverter {
               : null;
       this.enumValueOptimizer =
           options.enableEnumValueOptimization ? new EnumValueOptimizer(appViewWithLiveness) : null;
-      this.enumUnboxer = options.enableEnumUnboxing ? new EnumUnboxer(appViewWithLiveness) : null;
     } else {
       this.classInliner = null;
       this.classStaticizer = null;
@@ -449,6 +450,13 @@ public class IRConverter {
   private void synthesizeJava8UtilityClass(
       Builder<?> builder, ExecutorService executorService) throws ExecutionException {
     backportedMethodRewriter.synthesizeUtilityClasses(builder, executorService);
+  }
+
+  private void synthesizeEnumUnboxingUtilityClass(
+      Builder<?> builder, ExecutorService executorService) throws ExecutionException {
+    if (enumUnboxer != null) {
+      enumUnboxer.synthesizeUtilityClass(builder, this, executorService);
+    }
   }
 
   private void processCovariantReturnTypeAnnotations(Builder<?> builder) {
@@ -674,14 +682,10 @@ public class IRConverter {
     // All the code has been processed so the rewriting required by the lenses is done everywhere,
     // we clear lens code rewriting so that the lens rewriter can be re-executed in phase 2 if new
     // lenses with code rewriting are added.
-    graphLenseForIR = appView.clearCodeRewritings();
+    appView.clearCodeRewritings();
 
     if (libraryMethodOverrideAnalysis != null) {
       libraryMethodOverrideAnalysis.finish();
-    }
-
-    if (enumUnboxer != null) {
-      enumUnboxer.finishEnumAnalysis();
     }
 
     // Post processing:
@@ -694,8 +698,12 @@ public class IRConverter {
     if (inliner != null) {
       postMethodProcessorBuilder.put(inliner);
     }
+    if (enumUnboxer != null) {
+      enumUnboxer.finishAnalysis();
+      enumUnboxer.unboxEnums(postMethodProcessorBuilder);
+    }
     timing.begin("IR conversion phase 2");
-    assert graphLenseForIR == appView.graphLense();
+    graphLenseForIR = appView.graphLense();
     PostMethodProcessor postMethodProcessor =
         postMethodProcessorBuilder.build(appView.withLiveness(), executorService, timing);
     if (postMethodProcessor != null) {
@@ -732,10 +740,11 @@ public class IRConverter {
     desugarInterfaceMethods(builder, IncludeAllResources, executorService);
     feedback.updateVisibleOptimizationInfo();
 
-    printPhase("Twr close resource utility class synthesis");
+    printPhase("Utility classes synthesis");
     synthesizeTwrCloseResourceUtilityClass(builder, executorService);
     synthesizeJava8UtilityClass(builder, executorService);
     handleSynthesizedClassMapping(builder);
+    synthesizeEnumUnboxingUtilityClass(builder, executorService);
 
     printPhase("Lambda merging finalization");
     // TODO(b/127694949): Adapt to PostOptimization.
@@ -1133,6 +1142,10 @@ public class IRConverter {
       timing.end();
     }
 
+    if (enumUnboxer != null && methodProcessor.isPost()) {
+      enumUnboxer.rewriteCode(code);
+    }
+
     if (method.isProcessed()) {
       assert !appView.enableWholeProgramOptimizations()
           || !appView.appInfo().withLiveness().neverReprocess.contains(method.method);
@@ -1170,6 +1183,7 @@ public class IRConverter {
     // check. In the latter case, the type checker should be extended to detect the issue such that
     // we will return with finalizeEmptyThrowingCode() above.
     assert code.verifyTypes(appView);
+    assert code.isConsistentSSA();
 
     assertionsRewriter.run(method, code, timing);
 
@@ -1431,10 +1445,6 @@ public class IRConverter {
 
     previous = printMethod(code, "IR after interface method rewriting (SSA)", previous);
 
-    if (enumUnboxer != null && methodProcessor.isPost()) {
-      enumUnboxer.unboxEnums(code);
-    }
-
     // This pass has to be after interfaceMethodRewriter and BackportedMethodRewriter.
     if (desugaredLibraryAPIConverter != null
         && (!appView.enableWholeProgramOptimizations() || methodProcessor.isPrimary())) {
@@ -1490,6 +1500,7 @@ public class IRConverter {
       codeRewriter.shortenLiveRanges(code);
       timing.end();
     }
+
     timing.begin("Canonicalize idempotent calls");
     idempotentFunctionCallCanonicalizer.canonicalize(code);
     timing.end();
@@ -1665,6 +1676,7 @@ public class IRConverter {
     ConstraintWithTarget state;
     if (!options.enableInlining
         || inliner == null
+        || method.isClassInitializer()
         || method.getOptimizationInfo().isReachabilitySensitive()) {
       state = ConstraintWithTarget.NEVER;
     } else {

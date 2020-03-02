@@ -34,8 +34,10 @@ import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfo;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
-import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfoCollection;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RewrittenTypeInfo;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.PrimitiveTypeLatticeElement;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
@@ -192,6 +194,7 @@ public class IRBuilder {
   }
 
   private static class MoveExceptionWorklistItem extends WorklistItem {
+
     private final DexType guard;
     private final int sourceOffset;
     private final int targetOffset;
@@ -206,6 +209,7 @@ public class IRBuilder {
   }
 
   private static class SplitBlockWorklistItem extends WorklistItem {
+
     private final int sourceOffset;
     private final int targetOffset;
     private final Position position;
@@ -224,9 +228,8 @@ public class IRBuilder {
   }
 
   /**
-   * Representation of lists of values that can be used as keys in maps. A list of
-   * values is equal to another list of values if it contains exactly the same values
-   * in the same order.
+   * Representation of lists of values that can be used as keys in maps. A list of values is equal
+   * to another list of values if it contains exactly the same values in the same order.
    */
   private static class ValueList {
 
@@ -267,6 +270,7 @@ public class IRBuilder {
   }
 
   public static class BlockInfo {
+
     BasicBlock block = new BasicBlock();
     IntSet normalPredecessors = new IntArraySet();
     IntSet normalSuccessors = new IntArraySet();
@@ -423,11 +427,10 @@ public class IRBuilder {
   // then the IR does not necessarily contain a const-string instruction).
   private final IRMetadata metadata = new IRMetadata();
 
-  public static IRBuilder create(DexEncodedMethod method,
-      AppView<?> appView,
-      SourceCode source,
-      Origin origin) {
-    return new IRBuilder(method,
+  public static IRBuilder create(
+      DexEncodedMethod method, AppView<?> appView, SourceCode source, Origin origin) {
+    return new IRBuilder(
+        method,
         appView,
         source,
         origin,
@@ -435,33 +438,29 @@ public class IRBuilder {
         new ValueNumberGenerator());
   }
 
-  public static IRBuilder createForInlining(DexEncodedMethod method,
+  public static IRBuilder createForInlining(
+      DexEncodedMethod method,
       AppView<?> appView,
       SourceCode source,
       Origin origin,
       MethodProcessor processor,
       ValueNumberGenerator valueNumberGenerator) {
-    RewrittenPrototypeDescription protoChanges = processor.shouldApplyCodeRewritings(method) ?
-        lookupPrototypeChanges(appView, method.method) :
-        RewrittenPrototypeDescription.none();
-    return new IRBuilder(method,
-        appView,
-        source,
-        origin,
-        protoChanges,
-        valueNumberGenerator);
+    RewrittenPrototypeDescription protoChanges =
+        processor.shouldApplyCodeRewritings(method)
+            ? lookupPrototypeChanges(appView, method.method)
+            : RewrittenPrototypeDescription.none();
+    return new IRBuilder(method, appView, source, origin, protoChanges, valueNumberGenerator);
   }
 
-  private static RewrittenPrototypeDescription lookupPrototypeChanges(AppView<?> appView,
-      DexMethod method) {
-    RewrittenPrototypeDescription prototypeChanges = appView.graphLense()
-        .lookupPrototypeChanges(method);
-    if (Log.ENABLED
-        && prototypeChanges.getRemovedArgumentInfoCollection().hasRemovedArguments()) {
+  private static RewrittenPrototypeDescription lookupPrototypeChanges(
+      AppView<?> appView, DexMethod method) {
+    RewrittenPrototypeDescription prototypeChanges =
+        appView.graphLense().lookupPrototypeChanges(method);
+    if (Log.ENABLED && prototypeChanges.getArgumentInfoCollection().hasRemovedArguments()) {
       Log.info(
           IRBuilder.class,
           "Removed "
-              + prototypeChanges.getRemovedArgumentInfoCollection().numberOfRemovedArguments()
+              + prototypeChanges.getArgumentInfoCollection().numberOfRemovedArguments()
               + " arguments from "
               + method.toSourceString());
     }
@@ -521,10 +520,9 @@ public class IRBuilder {
     currentBlock = block;
   }
 
-  public void buildArgumentsWithUnusedArgumentStubs(
+  public void buildArgumentsWithRewrittenPrototypeChanges(
       int register, DexEncodedMethod method, BiConsumer<Integer, DexType> writeCallback) {
-    RemovedArgumentInfoCollection removedArgumentsInfo =
-        prototypeChanges.getRemovedArgumentInfoCollection();
+    ArgumentInfoCollection argumentsInfo = prototypeChanges.getArgumentInfoCollection();
 
     // Fill in the Argument instructions (incomingRegisterSize last registers) in the argument
     // block.
@@ -539,24 +537,37 @@ public class IRBuilder {
 
     int numberOfArguments =
         method.method.proto.parameters.values.length
-            + removedArgumentsInfo.numberOfRemovedArguments()
+            + argumentsInfo.numberOfRemovedArguments()
             + (method.isStatic() ? 0 : 1);
 
     int usedArgumentIndex = 0;
     while (argumentIndex < numberOfArguments) {
       TypeLatticeElement type;
-      if (removedArgumentsInfo.isArgumentRemoved(argumentIndex)) {
-        RemovedArgumentInfo argumentInfo = removedArgumentsInfo.getArgumentInfo(argumentIndex);
-        writeCallback.accept(register, argumentInfo.getType());
+      ArgumentInfo argumentInfo = argumentsInfo.getArgumentInfo(argumentIndex);
+      if (argumentInfo.isRemovedArgumentInfo()) {
+        RemovedArgumentInfo removedArgumentInfo = argumentInfo.asRemovedArgumentInfo();
+        writeCallback.accept(register, removedArgumentInfo.getType());
         type =
             TypeLatticeElement.fromDexType(
-                argumentInfo.getType(), Nullability.maybeNull(), appView);
-        addConstantOrUnusedArgument(register, argumentInfo);
+                removedArgumentInfo.getType(), Nullability.maybeNull(), appView);
+        addConstantOrUnusedArgument(register, removedArgumentInfo);
       } else {
-        DexType dexType = method.method.proto.parameters.values[usedArgumentIndex++];
-        writeCallback.accept(register, dexType);
-        type = TypeLatticeElement.fromDexType(dexType, Nullability.maybeNull(), appView);
-        if (dexType.isBooleanType()) {
+        DexType argType;
+        if (argumentInfo.isRewrittenTypeInfo()) {
+          RewrittenTypeInfo argumentRewrittenTypeInfo = argumentInfo.asRewrittenTypeInfo();
+          assert method.method.proto.parameters.values[usedArgumentIndex]
+              == argumentRewrittenTypeInfo.getNewType();
+          // The old type is used to prevent that a changed value from reference to primitive
+          // type breaks IR building. Rewriting from the old to the new type will be done in the
+          // IRConverter (typically through the lensCodeRewriter).
+          argType = argumentRewrittenTypeInfo.getOldType();
+        } else {
+          argType = method.method.proto.parameters.values[usedArgumentIndex];
+        }
+        usedArgumentIndex++;
+        writeCallback.accept(register, argType);
+        type = TypeLatticeElement.fromDexType(argType, Nullability.maybeNull(), appView);
+        if (argType.isBooleanType()) {
           addBooleanNonThisArgument(register);
         } else {
           addNonThisArgument(register, type);
@@ -572,7 +583,6 @@ public class IRBuilder {
    * Build the high-level IR in SSA form.
    *
    * @param context Under what context this IRCode is built. Either the current method or caller.
-   *
    * @return The list of basic blocks. First block is the main entry.
    */
   public IRCode build(DexEncodedMethod context) {
@@ -935,14 +945,14 @@ public class IRBuilder {
   }
 
   public void addNonThisArgument(int register, TypeLatticeElement typeLattice) {
-      DebugLocalInfo local = getOutgoingLocal(register);
-      Value value = writeRegister(register, typeLattice, ThrowingInfo.NO_THROW, local);
+    DebugLocalInfo local = getOutgoingLocal(register);
+    Value value = writeRegister(register, typeLattice, ThrowingInfo.NO_THROW, local);
     addNonThisArgument(new Argument(value, currentBlock.size(), false));
   }
 
   public void addBooleanNonThisArgument(int register) {
-      DebugLocalInfo local = getOutgoingLocal(register);
-      Value value = writeRegister(register, getInt(), ThrowingInfo.NO_THROW, local);
+    DebugLocalInfo local = getOutgoingLocal(register);
+    Value value = writeRegister(register, getInt(), ThrowingInfo.NO_THROW, local);
     addNonThisArgument(new Argument(value, currentBlock.size(), true));
   }
 
@@ -1761,11 +1771,14 @@ public class IRBuilder {
 
   public void addReturn(int value) {
     if (method.method.proto.returnType == appView.dexItemFactory().voidType) {
-      assert prototypeChanges.hasBeenChangedToReturnVoid();
+      assert prototypeChanges.hasBeenChangedToReturnVoid(appView);
       addReturn();
     } else {
       ValueTypeConstraint returnTypeConstraint =
-          ValueTypeConstraint.fromDexType(method.method.proto.returnType);
+          prototypeChanges.hasRewrittenReturnInfo()
+              ? ValueTypeConstraint.fromDexType(
+                  prototypeChanges.getRewrittenReturnInfo().getOldType())
+              : ValueTypeConstraint.fromDexType(method.method.proto.returnType);
       Value in = readRegister(value, returnTypeConstraint);
       addReturn(new Return(in));
     }
@@ -2567,10 +2580,10 @@ public class IRBuilder {
   }
 
   /**
-   * Change to control-flow graph to avoid repeated phi operands when all the same values
-   * flow in from multiple predecessors.
+   * Change to control-flow graph to avoid repeated phi operands when all the same values flow in
+   * from multiple predecessors.
    *
-   * <p> As an example:
+   * <p>As an example:
    *
    * <pre>
    *
@@ -2582,7 +2595,7 @@ public class IRBuilder {
    *                  v3 = phi(v1, v1, v2)
    * </pre>
    *
-   * <p> Is rewritten to:
+   * <p>Is rewritten to:
    *
    * <pre>
    *              b1          b2         b3

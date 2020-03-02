@@ -28,7 +28,9 @@ import com.android.tools.r8.graph.DexValue.DexValueType;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.GraphLenseLookupResult;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
-import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfoCollection;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfo;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RewrittenTypeInfo;
 import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
 import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
 import com.android.tools.r8.ir.analysis.type.DestructivePhiTypeUpdater;
@@ -170,11 +172,53 @@ public class LensCodeRewriter {
           if (actualTarget != invokedMethod || invoke.getType() != actualInvokeType) {
             RewrittenPrototypeDescription prototypeChanges =
                 graphLense.lookupPrototypeChanges(actualTarget);
-            RemovedArgumentInfoCollection removedArgumentsInfo =
-                prototypeChanges.getRemovedArgumentInfoCollection();
+
+            List<Value> newInValues;
+            ArgumentInfoCollection argumentInfoCollection =
+                prototypeChanges.getArgumentInfoCollection();
+            if (argumentInfoCollection.isEmpty()) {
+              newInValues = invoke.inValues();
+            } else {
+              if (argumentInfoCollection.hasRemovedArguments()) {
+                if (Log.ENABLED) {
+                  Log.info(
+                      getClass(),
+                      "Invoked method "
+                          + invokedMethod.toSourceString()
+                          + " with "
+                          + argumentInfoCollection.numberOfRemovedArguments()
+                          + " arguments removed");
+                }
+              }
+              newInValues = new ArrayList<>(actualTarget.proto.parameters.size());
+              for (int i = 0; i < invoke.inValues().size(); i++) {
+                ArgumentInfo argumentInfo = argumentInfoCollection.getArgumentInfo(i);
+                if (argumentInfo.isRewrittenTypeInfo()) {
+                  RewrittenTypeInfo argInfo = argumentInfo.asRewrittenTypeInfo();
+                  Value value = invoke.inValues().get(i);
+                  // When converting types the default value may change (for example default value
+                  // of a reference type is null while default value of int is 0).
+                  if (argInfo.defaultValueHasChanged()
+                      && value.isConstNumber()
+                      && value.definition.asConstNumber().isZero()) {
+                    iterator.previous();
+                    // TODO(b/150188380): Add API to insert a const instruction with a type lattice.
+                    Value rewrittenNull =
+                        iterator.insertConstIntInstruction(code, appView.options(), 0);
+                    iterator.next();
+                    rewrittenNull.setTypeLattice(argInfo.defaultValueLatticeElement(appView));
+                    newInValues.add(rewrittenNull);
+                  } else {
+                    newInValues.add(invoke.inValues().get(i));
+                  }
+                } else if (!argumentInfo.isRemovedArgumentInfo()) {
+                  newInValues.add(invoke.inValues().get(i));
+                }
+              }
+            }
 
             ConstInstruction constantReturnMaterializingInstruction = null;
-            if (prototypeChanges.hasBeenChangedToReturnVoid() && invoke.outValue() != null) {
+            if (prototypeChanges.hasBeenChangedToReturnVoid(appView) && invoke.outValue() != null) {
               constantReturnMaterializingInstruction =
                   prototypeChanges.getConstantReturn(code, invoke.getPosition());
               if (invoke.outValue().hasLocalInfo()) {
@@ -190,29 +234,9 @@ public class LensCodeRewriter {
             }
 
             Value newOutValue =
-                prototypeChanges.hasBeenChangedToReturnVoid() ? null : makeOutValue(invoke, code);
-
-            List<Value> newInValues;
-            if (removedArgumentsInfo.hasRemovedArguments()) {
-              if (Log.ENABLED) {
-                Log.info(
-                    getClass(),
-                    "Invoked method "
-                        + invokedMethod.toSourceString()
-                        + " with "
-                        + removedArgumentsInfo.numberOfRemovedArguments()
-                        + " arguments removed");
-              }
-              // Remove removed arguments from the invoke.
-              newInValues = new ArrayList<>(actualTarget.proto.parameters.size());
-              for (int i = 0; i < invoke.inValues().size(); i++) {
-                if (!removedArgumentsInfo.isArgumentRemoved(i)) {
-                  newInValues.add(invoke.inValues().get(i));
-                }
-              }
-            } else {
-              newInValues = invoke.inValues();
-            }
+                prototypeChanges.hasBeenChangedToReturnVoid(appView)
+                    ? null
+                    : makeOutValue(invoke, code);
 
             if (prototypeChanges.hasExtraNullParameter()) {
               iterator.previous();
@@ -288,7 +312,8 @@ public class LensCodeRewriter {
                 new InvokeStatic(replacementMethod, null, current.inValues()));
           } else if (actualField != field) {
             InstancePut newInstancePut =
-                new InstancePut(actualField, instancePut.object(), instancePut.value());
+                InstancePut.createPotentiallyInvalid(
+                    actualField, instancePut.object(), instancePut.value());
             iterator.replaceCurrentInstruction(newInstancePut);
           }
         } else if (current.isStaticGet()) {
@@ -384,9 +409,8 @@ public class LensCodeRewriter {
     }
     if (!affectedPhis.isEmpty()) {
       new DestructivePhiTypeUpdater(appView).recomputeAndPropagateTypes(code, affectedPhis);
-      assert code.verifyTypes(appView);
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSABeforeTypesAreCorrect();
     assert code.hasNoVerticallyMergedClasses(appView);
   }
 

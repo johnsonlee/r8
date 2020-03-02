@@ -25,7 +25,12 @@ public abstract class YouTubeCompilationBase extends CompilationTestBase {
   final String base;
 
   public YouTubeCompilationBase(int majorVersion, int minorVersion) {
-    this.base = "third_party/youtube/youtube.android_" + majorVersion + "." + minorVersion + "/";
+    this.base =
+        "third_party/youtube/youtube.android_"
+            + majorVersion
+            + "."
+            + String.format("%02d", minorVersion)
+            + "/";
   }
 
   protected List<Path> getKeepRuleFiles() {
@@ -36,6 +41,13 @@ public abstract class YouTubeCompilationBase extends CompilationTestBase {
 
   protected List<Path> getLibraryFiles() {
     return ImmutableList.of(Paths.get(base, "legacy_YouTubeRelease_combined_library_jars.jar"));
+  }
+
+  protected List<Path> getMainDexRuleFiles() {
+    return ImmutableList.of(
+        Paths.get(base).resolve("mainDexClasses.rules"),
+        Paths.get(base).resolve("main-dex-classes-release-optimized.pgcfg"),
+        Paths.get(base).resolve("main_dex_YouTubeRelease_proguard.cfg"));
   }
 
   protected List<Path> getProgramFiles() throws IOException {

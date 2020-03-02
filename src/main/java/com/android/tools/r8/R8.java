@@ -42,7 +42,7 @@ import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization;
 import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization.UninstantiatedTypeOptimizationGraphLense;
 import com.android.tools.r8.ir.optimize.UnusedArgumentsCollector;
 import com.android.tools.r8.ir.optimize.UnusedArgumentsCollector.UnusedArgumentsGraphLense;
-import com.android.tools.r8.ir.optimize.enums.EnumInfoMapCollector;
+import com.android.tools.r8.ir.optimize.enums.EnumValueInfoMapCollector;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.kotlin.Kotlin;
@@ -328,7 +328,10 @@ public class R8 {
                         options.getProguardConfiguration().getRules(), synthesizedProguardRules))
                 .run(executorService));
 
-        AppView<AppInfoWithLiveness> appViewWithLiveness = runEnqueuer(executorService, appView);
+        AnnotationRemover.Builder annotationRemoverBuilder =
+            options.isShrinking() ? AnnotationRemover.builder() : null;
+        AppView<AppInfoWithLiveness> appViewWithLiveness =
+            runEnqueuer(annotationRemoverBuilder, executorService, appView);
         application = appViewWithLiveness.appInfo().app().asDirect();
         assert appView.rootSet().verifyKeptFieldsAreAccessedAndLive(appViewWithLiveness.appInfo());
         assert appView.rootSet().verifyKeptMethodsAreTargetedAndLive(appViewWithLiveness.appInfo());
@@ -366,16 +369,15 @@ public class R8 {
                       pruner.getMethodsToKeepForConfigurationDebugging()));
           appView.setAppServices(appView.appServices().prunedCopy(pruner.getRemovedClasses()));
           new AbstractMethodRemover(appView.appInfo().withLiveness()).run();
+
+          AnnotationRemover annotationRemover =
+              annotationRemoverBuilder
+                  .computeClassesToRetainInnerClassAttributeFor(appViewWithLiveness)
+                  .build(appViewWithLiveness);
+          annotationRemover.ensureValid().run();
+          classesToRetainInnerClassAttributeFor =
+              annotationRemover.getClassesToRetainInnerClassAttributeFor();
         }
-
-        classesToRetainInnerClassAttributeFor =
-            AnnotationRemover.computeClassesToRetainInnerClassAttributeFor(appView.withLiveness());
-        // TODO(b/149729626): Annotations should not be removed until after the second round of tree
-        //  shaking, since they are needed for interpretation of keep rules.
-        new AnnotationRemover(appView.withLiveness(), classesToRetainInnerClassAttributeFor)
-            .ensureValid()
-            .run();
-
       } finally {
         timing.end();
       }
@@ -514,7 +516,7 @@ public class R8 {
         appViewWithLiveness.setAppInfo(new SwitchMapCollector(appViewWithLiveness).run());
       }
       if (options.enableEnumValueOptimization || options.enableEnumUnboxing) {
-        appViewWithLiveness.setAppInfo(new EnumInfoMapCollector(appViewWithLiveness).run());
+        appViewWithLiveness.setAppInfo(new EnumValueInfoMapCollector(appViewWithLiveness).run());
       }
 
       appView.setAppServices(appView.appServices().rewrittenWithLens(appView.graphLense()));
@@ -660,6 +662,7 @@ public class R8 {
             // assert Inliner.verifyNoMethodsInlinedDueToSingleCallSite(appView);
 
             assert appView.allMergedClasses().verifyAllSourcesPruned(appViewWithLiveness);
+            assert appView.validateUnboxedEnumsHaveBeenPruned();
 
             processWhyAreYouKeepingAndCheckDiscarded(
                 appView.rootSet(),
@@ -674,7 +677,9 @@ public class R8 {
 
             // Remove annotations that refer to types that no longer exist.
             assert classesToRetainInnerClassAttributeFor != null;
-            new AnnotationRemover(appView.withLiveness(), classesToRetainInnerClassAttributeFor)
+            AnnotationRemover.builder()
+                .setClassesToRetainInnerClassAttributeFor(classesToRetainInnerClassAttributeFor)
+                .build(appView.withLiveness())
                 .run();
             if (!mainDexClasses.isEmpty()) {
               // Remove types that no longer exists from the computed main dex list.
@@ -816,10 +821,13 @@ public class R8 {
     }
   }
 
-  private AppView<AppInfoWithLiveness> runEnqueuer(ExecutorService executorService,
-      AppView<AppInfoWithSubtyping> appView) throws ExecutionException {
+  private AppView<AppInfoWithLiveness> runEnqueuer(
+      AnnotationRemover.Builder annotationRemoverBuilder,
+      ExecutorService executorService,
+      AppView<AppInfoWithSubtyping> appView)
+      throws ExecutionException {
     Enqueuer enqueuer = EnqueuerFactory.createForInitialTreeShaking(appView);
-
+    enqueuer.setAnnotationRemoverBuilder(annotationRemoverBuilder);
     if (appView.options().enableInitializedClassesInInstanceMethodsAnalysis) {
       enqueuer.registerAnalysis(new InitializedClassesInInstanceMethodsAnalysis(appView));
     }
@@ -878,22 +886,22 @@ public class R8 {
       }
     }
     for (DexDefinition definition : failed) {
-      if (!failed.isEmpty()) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        whyAreYouKeepingConsumer.printWhyAreYouKeeping(
-            enqueuer.getGraphReporter().getGraphNode(definition.toReference()),
-            new PrintStream(baos));
-        options.reporter.info(
-            new StringDiagnostic(
-                "Item " + definition.toSourceString() + " was not discarded.\n" + baos.toString()));
-      }
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      whyAreYouKeepingConsumer.printWhyAreYouKeeping(
+          enqueuer.getGraphReporter().getGraphNode(definition.toReference()),
+          new PrintStream(baos));
+      options.reporter.info(
+          new StringDiagnostic(
+              "Item " + definition.toSourceString() + " was not discarded.\n" + baos.toString()));
     }
-    throw new CompilationError("Discard checks failed.");
+    if (!options.testing.allowCheckDiscardedErrors) {
+      throw new CompilationError("Discard checks failed.");
+    }
   }
 
   private void computeKotlinInfoForProgramClasses(
       DexApplication application, AppView<?> appView, ExecutorService executorService)
-      throws ExecutionException{
+      throws ExecutionException {
     if (appView.options().kotlinOptimizationOptions().disableKotlinSpecificOptimizations) {
       return;
     }
@@ -906,8 +914,7 @@ public class R8 {
           programClass.setKotlinInfo(kotlinInfo);
           KotlinMemberInfo.markKotlinMemberInfo(programClass, kotlinInfo, reporter);
         },
-        executorService
-    );
+        executorService);
   }
 
   private static boolean verifyNoJarApplicationReaders(List<DexProgramClass> classes) {
