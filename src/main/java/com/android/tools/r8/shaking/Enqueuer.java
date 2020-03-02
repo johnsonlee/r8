@@ -2296,10 +2296,13 @@ public class Enqueuer {
     assert fieldAccessInfoCollection.verifyMappingIsOneToOne();
 
     for (ProgramMethod bridge : syntheticInterfaceMethodBridges.values()) {
-      appView.appInfo().invalidateTypeCacheFor(bridge.holder.type);
-      bridge.holder.appendVirtualMethod(bridge.method);
-      targetedMethods.add(bridge.method, graphReporter.fakeReportShouldNotBeUsed());
-      liveMethods.add(bridge.holder, bridge.method, graphReporter.fakeReportShouldNotBeUsed());
+      DexProgramClass holder = bridge.holder;
+      DexEncodedMethod method = bridge.method;
+      appView.appInfo().invalidateTypeCacheFor(holder.type);
+      holder.appendVirtualMethod(method);
+      targetedMethods.add(method, graphReporter.fakeReportShouldNotBeUsed());
+      liveMethods.add(holder, method, graphReporter.fakeReportShouldNotBeUsed());
+      pinnedItems.add(method.method);
     }
 
     AppInfoWithLiveness appInfoWithLiveness =
