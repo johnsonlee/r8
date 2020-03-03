@@ -19,7 +19,6 @@ import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.optimize.Inliner.Constraint;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import java.util.Collection;
 
 // Computes the inlining constraint for a given instruction.
 public class InliningConstraints {
@@ -377,28 +376,7 @@ public class InliningConstraints {
     ConstraintWithTarget classConstraintWithTarget =
         ConstraintWithTarget.deriveConstraint(
             invocationContext, methodHolder, methodClass.accessFlags, appView);
-    ConstraintWithTarget result =
-        ConstraintWithTarget.meet(methodConstraintWithTarget, classConstraintWithTarget, appView);
-    if (result == ConstraintWithTarget.NEVER) {
-      return result;
-    }
-
-    // For each of the actual potential targets, derive constraints based on the accessibility
-    // of the method itself.
-    Collection<DexEncodedMethod> targets =
-        resolutionResult.lookupVirtualDispatchTargets(isInterface, appView.appInfo());
-    for (DexEncodedMethod target : targets) {
-      methodHolder = graphLense.lookupType(target.method.holder);
-      assert appView.definitionFor(methodHolder) != null;
-      methodConstraintWithTarget =
-          ConstraintWithTarget.deriveConstraint(
-              invocationContext, methodHolder, target.accessFlags, appView);
-      result = ConstraintWithTarget.meet(result, methodConstraintWithTarget, appView);
-      if (result == ConstraintWithTarget.NEVER) {
-        return result;
-      }
-    }
-
-    return result;
+    return ConstraintWithTarget.meet(
+        methodConstraintWithTarget, classConstraintWithTarget, appView);
   }
 }
