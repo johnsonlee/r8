@@ -246,7 +246,9 @@ public class ApplicationWriter {
       if (options.encodeChecksums) {
         encodeChecksums(virtualFiles);
       }
+      namingLens.setIsSortingBeforeWriting(true);
       application.dexItemFactory.sort(namingLens);
+      namingLens.setIsSortingBeforeWriting(false);
       assert markers == null
           || markers.isEmpty()
           || application.dexItemFactory.extractMarkers() != null;
