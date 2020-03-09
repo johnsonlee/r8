@@ -1070,8 +1070,9 @@ public class CodeRewriter {
           Int2IntMap targetMap = new Int2IntArrayMap();
           for (int i = 0; i < switchInsn.numberOfKeys(); i++) {
             assert switchInsn.targetBlockIndices()[i] != switchInsn.getFallthroughBlockIndex();
-            EnumValueInfo valueInfo =
-                info.valueInfoMap.get(info.indexMap.get(switchInsn.getKey(i)));
+            int key = switchInsn.getKey(i);
+            DexField field = info.indexMap.get(key);
+            EnumValueInfo valueInfo = info.valueInfoMap.get(field);
             targetMap.put(valueInfo.ordinal, switchInsn.targetBlockIndices()[i]);
           }
           int[] keys = targetMap.keySet().toIntArray();
