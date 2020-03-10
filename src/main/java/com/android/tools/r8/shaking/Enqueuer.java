@@ -55,6 +55,7 @@ import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
+import com.android.tools.r8.ir.desugar.DesugaredLibraryWrapperSynthesizer;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.origin.Origin;
@@ -1641,6 +1642,20 @@ public class Enqueuer {
         }
       }
     }
+    // If we are compiling with desugared library, then mark all instantiated wrapper methods
+    // as library override. This is a temporary hack for Android Studio 4.0. In subsequent
+    // releases of R8, wrapper synthesis is moved to the enqueuer and does not suffer from this
+    // problem.
+    if (!appView.options().desugaredLibraryConfiguration.getRewritePrefix().isEmpty()
+        && instantiatedClass.accessFlags.isSynthetic()
+        && DesugaredLibraryWrapperSynthesizer.isSynthesizedWrapper(instantiatedClass.type)) {
+      for (DexEncodedMethod method : instantiatedClass.methods()) {
+        ResolutionResult resolution =
+            appView.appInfo().resolveMethod(instantiatedClass, method.method);
+        markResolutionAsLive(instantiatedClass, resolution);
+        markOverridesAsLibraryMethodOverrides(method.method, instantiatedClass);
+      }
+    }
   }
 
   private void markLibraryAndClasspathMethodOverridesAsLive(
@@ -1653,6 +1668,7 @@ public class Enqueuer {
       ResolutionResult firstResolution =
           appView.appInfo().resolveMethod(instantiatedClass, method.method);
       markResolutionAsLive(libraryClass, firstResolution);
+      markOverridesAsLibraryMethodOverrides(method.method, instantiatedClass);
 
       // Due to API conversion, some overrides can be hidden since they will be rewritten. See
       // class comment of DesugaredLibraryAPIConverter and vivifiedType logic.
@@ -1667,9 +1683,9 @@ public class Enqueuer {
         ResolutionResult secondResolution =
             appView.appInfo().resolveMethod(instantiatedClass, methodToResolve);
         markResolutionAsLive(libraryClass, secondResolution);
+        markOverridesAsLibraryMethodOverrides(methodToResolve, instantiatedClass);
       }
 
-      markOverridesAsLibraryMethodOverrides(method, instantiatedClass);
     }
   }
 
@@ -1686,13 +1702,13 @@ public class Enqueuer {
   }
 
   private void markOverridesAsLibraryMethodOverrides(
-      DexEncodedMethod libraryMethod, DexProgramClass instantiatedClass) {
+      DexMethod libraryMethod, DexProgramClass instantiatedClass) {
     Set<DexProgramClass> visited = SetUtils.newIdentityHashSet(instantiatedClass);
     Deque<DexProgramClass> worklist = DequeUtils.newArrayDeque(instantiatedClass);
     while (!worklist.isEmpty()) {
       DexProgramClass clazz = worklist.removeFirst();
       assert visited.contains(clazz);
-      DexEncodedMethod libraryMethodOverride = clazz.lookupVirtualMethod(libraryMethod.method);
+      DexEncodedMethod libraryMethodOverride = clazz.lookupVirtualMethod(libraryMethod);
       if (libraryMethodOverride != null) {
         if (libraryMethodOverride.isLibraryMethodOverride().isTrue()) {
           continue;

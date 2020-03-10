@@ -4,16 +4,15 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.conversiontests;
 
-import static junit.framework.TestCase.assertEquals;
-
-import com.android.tools.r8.TestRuntime.DexRuntime;
-import com.android.tools.r8.ToolHelper.DexVm;
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
-import com.android.tools.r8.ir.desugar.DesugaredLibraryWrapperSynthesizer;
+import com.android.tools.r8.desugar.desugaredlibrary.conversiontests.FunctionConversionTest.Executor.Object1;
+import com.android.tools.r8.desugar.desugaredlibrary.conversiontests.FunctionConversionTest.Executor.Object2;
+import com.android.tools.r8.desugar.desugaredlibrary.conversiontests.FunctionConversionTest.Executor.Object3;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.BiFunction;
@@ -25,83 +24,93 @@ import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
-import java.util.stream.Collectors;
-import org.junit.Assert;
+import org.junit.Assume;
+import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
+@RunWith(Parameterized.class)
 public class FunctionConversionTest extends DesugaredLibraryTestBase {
 
-  @Test
-  public void testFunctionComposition() throws Exception {
-    Path customLib = testForD8().addProgramClasses(CustomLibClass.class).compile().writeToZip();
-    testForD8()
-        .setMinApi(AndroidApiLevel.B)
-        .addProgramClasses(
-            Executor.class, Executor.Object1.class, Executor.Object2.class, Executor.Object3.class)
-        .addLibraryClasses(CustomLibClass.class)
-        .enableCoreLibraryDesugaring(AndroidApiLevel.B)
-        .compile()
-        .inspect(this::assertSingleWrappers)
-        .addDesugaredCoreLibraryRunClassPath(this::buildDesugaredLibrary, AndroidApiLevel.B)
-        .addRunClasspathFiles(customLib)
-        .run(new DexRuntime(DexVm.ART_9_0_0_HOST), Executor.class)
-        .assertSuccessWithOutput(
-            StringUtils.lines("Object1 Object2 Object3", "2", "false", "3", "true", "5", "42.0"));
+  private final TestParameters parameters;
+  private final boolean shrinkDesugaredLibrary;
+  private static final AndroidApiLevel MIN_SUPPORTED = AndroidApiLevel.N;
+  private static final String EXPECTED_RESULT =
+      StringUtils.lines(" true true true", "2", "false", "3", "true", "5", "42.0");
+  private static Path CUSTOM_LIB;
+
+  @Parameters(name = "{0}, shrinkDesugaredLibrary: {1}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        getTestParameters()
+            .withDexRuntimesStartingFromIncluding(Version.V7_0_0)
+            .withApiLevelsEndingAtExcluding(AndroidApiLevel.M)
+            .build(),
+        BooleanUtils.values());
   }
 
-  private void assertSingleWrappers(CodeInspector i) {
-    List<FoundClassSubject> intSupplierWrapperClasses =
-        i.allClasses().stream()
-            .filter(c -> c.getOriginalName().contains("IntSupplier"))
-            .collect(Collectors.toList());
-    assertEquals(
-        "Expected 1 IntSupplier wrapper but got " + intSupplierWrapperClasses,
-        1,
-        intSupplierWrapperClasses.size());
+  public FunctionConversionTest(TestParameters parameters, boolean shrinkDesugaredLibrary) {
+    this.shrinkDesugaredLibrary = shrinkDesugaredLibrary;
+    this.parameters = parameters;
+  }
 
-    List<FoundClassSubject> doubleSupplierWrapperClasses =
-        i.allClasses().stream()
-            .filter(c -> c.getOriginalName().contains("DoubleSupplier"))
-            .collect(Collectors.toList());
-    assertEquals(
-        "Expected 1 DoubleSupplier wrapper but got " + doubleSupplierWrapperClasses,
-        1,
-        doubleSupplierWrapperClasses.size());
+  @BeforeClass
+  public static void compileCustomLib() throws Exception {
+    CUSTOM_LIB =
+        testForD8(getStaticTemp())
+            .addProgramClasses(CustomLibClass.class)
+            .setMinApi(MIN_SUPPORTED)
+            .compile()
+            .writeToZip();
   }
 
   @Test
-  public void testWrapperWithChecksum() throws Exception {
+  public void testFunctionCompositionD8() throws Exception {
+    KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForD8()
+        .setMinApi(parameters.getApiLevel())
         .addProgramClasses(
             Executor.class, Executor.Object1.class, Executor.Object2.class, Executor.Object3.class)
         .addLibraryClasses(CustomLibClass.class)
-        .setMinApi(AndroidApiLevel.B)
-        .enableCoreLibraryDesugaring(AndroidApiLevel.B)
-        .setIncludeClassesChecksum(true) // Compilation fails if some classes are missing checksum.
+        .enableCoreLibraryDesugaring(parameters.getApiLevel(), keepRuleConsumer)
         .compile()
-        .inspect(
-            inspector -> {
-              Assert.assertEquals(
-                  8,
-                  inspector.allClasses().stream()
-                      .filter(
-                          clazz ->
-                              clazz
-                                  .getFinalName()
-                                  .contains(DesugaredLibraryWrapperSynthesizer.TYPE_WRAPPER_SUFFIX))
-                      .count());
-              Assert.assertEquals(
-                  6,
-                  inspector.allClasses().stream()
-                      .filter(
-                          clazz ->
-                              clazz
-                                  .getFinalName()
-                                  .contains(
-                                      DesugaredLibraryWrapperSynthesizer
-                                          .VIVIFIED_TYPE_WRAPPER_SUFFIX))
-                      .count());
-            });
+        .addDesugaredCoreLibraryRunClassPath(
+            this::buildDesugaredLibrary,
+            parameters.getApiLevel(),
+            keepRuleConsumer.get(),
+            shrinkDesugaredLibrary)
+        .addRunClasspathFiles(CUSTOM_LIB)
+        .run(parameters.getRuntime(), Executor.class)
+        .assertSuccessWithOutput(EXPECTED_RESULT);
+  }
+
+  @Test
+  public void testFunctionCompositionR8() throws Exception {
+    // The test pass only if -ea is not set. This test has been backported due to a problem in R8
+    // 2.0. This problem has been fixed in R8 2.1 / Android Studio 4.1.
+    try {
+      assert false;
+    } catch (AssertionError e) {
+      Assume.assumeTrue(false);
+    }
+    KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
+    testForR8(parameters.getBackend())
+        .setMinApi(parameters.getApiLevel())
+        .addKeepMainRule(Executor.class)
+        .addProgramClasses(Executor.class, Object1.class, Object2.class, Object3.class)
+        .addLibraryClasses(CustomLibClass.class)
+        .enableCoreLibraryDesugaring(parameters.getApiLevel(), keepRuleConsumer)
+        .compile()
+        .addDesugaredCoreLibraryRunClassPath(
+            this::buildDesugaredLibrary,
+            parameters.getApiLevel(),
+            keepRuleConsumer.get(),
+            shrinkDesugaredLibrary)
+        .addRunClasspathFiles(CUSTOM_LIB)
+        .run(parameters.getRuntime(), Executor.class)
+        .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
   static class Executor {
@@ -145,11 +154,12 @@ public class FunctionConversionTest extends DesugaredLibraryTestBase {
 
       @Override
       public String toString() {
-        return field.field.getClass().getSimpleName()
+        return " "
+            + (field.field.getClass() == Object1.class)
             + " "
-            + field.getClass().getSimpleName()
+            + (field.getClass() == Object2.class)
             + " "
-            + getClass().getSimpleName();
+            + (getClass() == Object3.class);
       }
     }
   }
