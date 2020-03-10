@@ -18,7 +18,6 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.AnalysisAssumption;
@@ -31,7 +30,7 @@ import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Arrays;
 
-public class InstancePut extends FieldInstruction {
+public class InstancePut extends FieldInstruction implements InstanceFieldInstruction {
 
   public InstancePut(DexField field, Value object, Value value) {
     this(field, object, value, false);
@@ -63,6 +62,7 @@ public class InstancePut extends FieldInstruction {
     return visitor.visit(this);
   }
 
+  @Override
   public Value object() {
     return inValues.get(0);
   }
@@ -115,17 +115,24 @@ public class InstancePut extends FieldInstruction {
 
   @Override
   public boolean instructionMayHaveSideEffects(AppView<?> appView, DexType context) {
-    if (appView.appInfo().hasLiveness()) {
-      AppInfoWithLiveness appInfoWithLiveness = appView.appInfo().withLiveness();
+    return instructionMayHaveSideEffects(appView, context, Assumption.NONE);
+  }
 
-      if (instructionInstanceCanThrow(appView, context).isThrowing()) {
+  @Override
+  public boolean instructionMayHaveSideEffects(
+      AppView<?> appView, DexType context, Assumption assumption) {
+    if (appView.appInfo().hasLiveness()) {
+      AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+      AppInfoWithLiveness appInfoWithLiveness = appViewWithLiveness.appInfo();
+
+      if (instructionInstanceCanThrow(appView, context, assumption).isThrowing()) {
         return true;
       }
 
       DexEncodedField encodedField = appInfoWithLiveness.resolveField(getField());
       assert encodedField != null : "NoSuchFieldError (resolution failure) should be caught.";
       return appInfoWithLiveness.isFieldRead(encodedField)
-          || isStoringObjectWithFinalizer(appInfoWithLiveness);
+          || isStoringObjectWithFinalizer(appViewWithLiveness, encodedField);
     }
 
     // In D8, we always have to assume that the field can be read, and thus have side effects.
@@ -220,7 +227,7 @@ public class InstancePut extends FieldInstruction {
   }
 
   @Override
-  public boolean throwsNpeIfValueIsNull(Value value, DexItemFactory dexItemFactory) {
+  public boolean throwsNpeIfValueIsNull(Value value, AppView<?> appView, DexType context) {
     return object() == value;
   }
 

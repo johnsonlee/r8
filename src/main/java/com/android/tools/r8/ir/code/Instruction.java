@@ -9,7 +9,6 @@ import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.AbstractError;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.AnalysisAssumption;
@@ -533,6 +532,29 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
     return false;
   }
 
+  public boolean isBlockLocalInstructionWithoutSideEffects(AppView<?> appView, DexType context) {
+    return definesBlockLocalValue() && !instructionMayHaveSideEffects(appView, context);
+  }
+
+  private boolean definesBlockLocalValue() {
+    return !definesValueWithNonLocalUsages();
+  }
+
+  private boolean definesValueWithNonLocalUsages() {
+    if (hasOutValue()) {
+      Value outValue = outValue();
+      if (outValue.numberOfPhiUsers() > 0) {
+        return true;
+      }
+      for (Instruction user : outValue.uniqueUsers()) {
+        if (user.getBlock() != getBlock()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   public boolean instructionTypeCanBeCanonicalized() {
     return false;
   }
@@ -990,6 +1012,10 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
     return null;
   }
 
+  public boolean isStaticFieldInstruction() {
+    return false;
+  }
+
   public boolean isStaticGet() {
     return false;
   }
@@ -1372,11 +1398,12 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
    * given value is null at runtime execution.
    *
    * @param value the value representing an object that may be null at runtime execution.
-   * @param dexItemFactory where pre-defined descriptors are retrieved
+   * @param appView where pre-defined descriptors are retrieved
+   * @param context
    * @return true if the instruction throws NullPointerException if value is null at runtime, false
    *     otherwise.
    */
-  public boolean throwsNpeIfValueIsNull(Value value, DexItemFactory dexItemFactory) {
+  public boolean throwsNpeIfValueIsNull(Value value, AppView<?> appView, DexType context) {
     return false;
   }
 

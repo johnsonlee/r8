@@ -148,6 +148,18 @@ public class InternalOptions {
       disableAllOptimizations();
     }
     configurationDebugging = proguardConfiguration.isConfigurationDebugging();
+    if (proguardConfiguration.isProtoShrinkingEnabled()) {
+      enableProtoShrinking();
+    }
+  }
+
+  void enableProtoShrinking() {
+    applyInliningToInlinee = true;
+    enableFieldBitAccessAnalysis = true;
+    enableStringSwitchConversion = true;
+    protoShrinking.enableGeneratedMessageLiteShrinking = true;
+    protoShrinking.enableGeneratedMessageLiteBuilderShrinking = true;
+    protoShrinking.enableGeneratedExtensionRegistryShrinking = true;
   }
 
   void disableAllOptimizations() {
@@ -256,6 +268,7 @@ public class InternalOptions {
   public boolean enableStringSwitchConversion =
       System.getProperty("com.android.tools.r8.stringSwitchConversion") != null;
   public boolean enableEnumValueOptimization = true;
+  public boolean enableEnumSwitchMapRemoval = true;
   public final OutlineOptions outline = new OutlineOptions();
   public boolean enableInitializedClassesInInstanceMethodsAnalysis = true;
   public boolean enableRedundantFieldLoadElimination = true;
@@ -996,17 +1009,10 @@ public class InternalOptions {
 
   public static class ProtoShrinkingOptions {
 
-    public boolean enableGeneratedExtensionRegistryShrinking =
-        System.getProperty("com.android.tools.r8.generatedExtensionRegistryShrinking") != null;
-
-    public boolean enableGeneratedMessageLiteShrinking =
-        System.getProperty("com.android.tools.r8.generatedMessageLiteShrinking") != null;
-
-    public boolean enableGeneratedMessageLiteBuilderShrinking =
-        System.getProperty("com.android.tools.r8.generatedMessageLiteBuilderShrinking") != null;
-
-    public boolean traverseOneOfAndRepeatedProtoFields =
-        System.getProperty("com.android.tools.r8.traverseOneOfAndRepeatedProtoFields") == null;
+    public boolean enableGeneratedExtensionRegistryShrinking = false;
+    public boolean enableGeneratedMessageLiteShrinking = false;
+    public boolean enableGeneratedMessageLiteBuilderShrinking = false;
+    public boolean traverseOneOfAndRepeatedProtoFields = false;
 
     public boolean isProtoShrinkingEnabled() {
       return enableGeneratedExtensionRegistryShrinking

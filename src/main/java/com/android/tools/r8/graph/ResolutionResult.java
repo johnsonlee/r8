@@ -8,10 +8,13 @@ import com.android.tools.r8.graph.LookupResult.LookupResultSuccess.LookupResultC
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.InstantiatedObject;
-import com.google.common.collect.Sets;
+import com.android.tools.r8.utils.Box;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Set;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 
@@ -58,8 +61,6 @@ public abstract class ResolutionResult {
   public abstract boolean isAccessibleForVirtualDispatchFrom(
       DexProgramClass context, AppInfoWithClassHierarchy appInfo);
 
-  // TODO(b/145187573): Remove this and use proper access checks.
-  @Deprecated
   public abstract boolean isVirtualTarget();
 
   /** Lookup the single target of an invoke-special on this resolution result if possible. */
@@ -80,25 +81,30 @@ public abstract class ResolutionResult {
 
   public abstract LookupResult lookupVirtualDispatchTargets(
       DexProgramClass context,
-      AppView<? extends AppInfoWithClassHierarchy> appView,
+      AppInfoWithClassHierarchy appInfo,
       InstantiatedSubTypeInfo instantiatedInfo,
       PinnedPredicate pinnedPredicate);
 
   public final LookupResult lookupVirtualDispatchTargets(
-      DexProgramClass context, AppView<AppInfoWithLiveness> appView) {
-    AppInfoWithLiveness appInfoWithLiveness = appView.appInfo();
+      DexProgramClass context, AppInfoWithLiveness appInfo) {
     return lookupVirtualDispatchTargets(
-        context, appView, appInfoWithLiveness, appInfoWithLiveness::isPinned);
+        context, appInfo, appInfo, appInfo::isPinnedNotProgramOrLibraryOverride);
   }
 
-  public abstract DexClassAndMethod lookupVirtualDispatchTarget(
-      InstantiatedObject instance, AppView<? extends AppInfoWithClassHierarchy> appView);
+  public abstract LookupResult lookupVirtualDispatchTargets(
+      DexProgramClass context,
+      AppInfoWithLiveness appInfo,
+      DexProgramClass refinedReceiverUpperBound,
+      DexProgramClass refinedReceiverLowerBound);
+
+  public abstract LookupTarget lookupVirtualDispatchTarget(
+      InstantiatedObject instance, AppInfoWithClassHierarchy appInfo);
 
   public abstract DexClassAndMethod lookupVirtualDispatchTarget(
-      DexProgramClass dynamicInstance, AppView<? extends AppInfoWithClassHierarchy> appView);
+      DexProgramClass dynamicInstance, AppInfoWithClassHierarchy appInfo);
 
-  public abstract DexClassAndMethod lookupVirtualDispatchTarget(
-      LambdaDescriptor lambdaInstance, AppView<? extends AppInfoWithClassHierarchy> appView);
+  public abstract LookupTarget lookupVirtualDispatchTarget(
+      LambdaDescriptor lambdaInstance, AppInfoWithClassHierarchy appInfo);
 
   /** Result for a resolution that succeeds with a known declaration/definition. */
   public static class SingleResolutionResult extends ResolutionResult {
@@ -333,13 +339,13 @@ public abstract class ResolutionResult {
     @Override
     public LookupResult lookupVirtualDispatchTargets(
         DexProgramClass context,
-        AppView<? extends AppInfoWithClassHierarchy> appView,
+        AppInfoWithClassHierarchy appInfo,
         InstantiatedSubTypeInfo instantiatedInfo,
         PinnedPredicate pinnedPredicate) {
       // Check that the initial resolution holder is accessible from the context.
-      assert appView.isSubtype(initialResolutionHolder.type, resolvedHolder.type).isTrue()
+      assert appInfo.isSubtype(initialResolutionHolder.type, resolvedHolder.type)
           : initialResolutionHolder.type + " is not a subtype of " + resolvedHolder.type;
-      if (context != null && !isAccessibleFrom(context, appView.appInfo())) {
+      if (context != null && !isAccessibleFrom(context, appInfo)) {
         return LookupResult.createFailedResult();
       }
       if (resolvedMethod.isPrivateMethod()) {
@@ -350,37 +356,121 @@ public abstract class ResolutionResult {
             pinnedPredicate.isPinned(resolvedHolder.type)
                 && pinnedPredicate.isPinned(resolvedMethod.method);
         return LookupResult.createResult(
-            Collections.singleton(resolvedMethod),
+            Collections.singletonMap(
+                resolvedMethod, DexClassAndMethod.create(resolvedHolder, resolvedMethod)),
+            Collections.emptyList(),
             isIncomplete
                 ? LookupResultCollectionState.Incomplete
                 : LookupResultCollectionState.Complete);
       }
       assert resolvedMethod.isNonPrivateVirtualMethod();
-      Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
+      Map<DexEncodedMethod, DexClassAndMethod> methodTargets = new IdentityHashMap<>();
+      List<LookupLambdaTarget> lambdaTargets = new ArrayList<>();
       LookupCompletenessHelper incompleteness = new LookupCompletenessHelper(pinnedPredicate);
-      // TODO(b/150171154): Use instantiationHolder below.
       instantiatedInfo.forEachInstantiatedSubType(
-          resolvedHolder.type,
+          initialResolutionHolder.type,
           subClass -> {
             incompleteness.checkClass(subClass);
             DexClassAndMethod dexClassAndMethod =
-                lookupVirtualDispatchTarget(subClass, appView, resolvedHolder.type);
+                lookupVirtualDispatchTarget(subClass, appInfo, resolvedHolder.type);
             if (dexClassAndMethod != null) {
+              incompleteness.checkDexClassAndMethod(dexClassAndMethod);
               addVirtualDispatchTarget(
-                  dexClassAndMethod.getMethod(), resolvedHolder.isInterface(), result);
+                  dexClassAndMethod, resolvedHolder.isInterface(), methodTargets);
             }
           },
-          dexCallSite -> {
-            // TODO(b/148769279): We need to look at the call site to see if it overrides
-            //   the resolved method or not.
+          lambda -> {
+            assert resolvedHolder.isInterface();
+            LookupTarget target = lookupVirtualDispatchTarget(lambda, appInfo);
+            if (target != null) {
+              if (target.isLambdaTarget()) {
+                lambdaTargets.add(target.asLambdaTarget());
+              } else {
+                addVirtualDispatchTarget(
+                    target.asMethodTarget(), resolvedHolder.isInterface(), methodTargets);
+              }
+            }
           });
       return LookupResult.createResult(
-          result, incompleteness.computeCollectionState(resolvedMethod.method, appView));
+          methodTargets,
+          lambdaTargets,
+          incompleteness.computeCollectionState(resolvedMethod.method, appInfo));
+    }
+
+    @Override
+    public LookupResult lookupVirtualDispatchTargets(
+        DexProgramClass context,
+        AppInfoWithLiveness appInfo,
+        DexProgramClass refinedReceiverUpperBound,
+        DexProgramClass refinedReceiverLowerBound) {
+      assert refinedReceiverUpperBound != null;
+      assert appInfo.isSubtype(refinedReceiverUpperBound.type, initialResolutionHolder.type);
+      assert refinedReceiverLowerBound == null
+          || appInfo.isSubtype(refinedReceiverLowerBound.type, refinedReceiverUpperBound.type);
+      // TODO(b/148769279): Remove the check for hasInstantiatedLambdas.
+      Box<Boolean> hasInstantiatedLambdas = new Box<>(false);
+      InstantiatedSubTypeInfo instantiatedSubTypeInfo =
+          refinedReceiverLowerBound == null
+              ? instantiatedSubTypeInfoWithoutLowerBound(
+                  appInfo, refinedReceiverUpperBound, hasInstantiatedLambdas)
+              : instantiatedSubTypeInfoWithLowerBound(
+                  appInfo,
+                  refinedReceiverUpperBound,
+                  refinedReceiverLowerBound,
+                  hasInstantiatedLambdas);
+      LookupResult lookupResult =
+          lookupVirtualDispatchTargets(
+              context,
+              appInfo,
+              instantiatedSubTypeInfo,
+              appInfo::isPinnedNotProgramOrLibraryOverride);
+      if (hasInstantiatedLambdas.get() && lookupResult.isLookupResultSuccess()) {
+        lookupResult.asLookupResultSuccess().setIncomplete();
+      }
+      return lookupResult;
+    }
+
+    private InstantiatedSubTypeInfo instantiatedSubTypeInfoWithoutLowerBound(
+        AppInfoWithLiveness appInfo,
+        DexProgramClass refinedReceiverUpperBound,
+        Box<Boolean> hasInstantiatedLambdas) {
+      return (type, subTypeConsumer, callSiteConsumer) -> {
+        appInfo.forEachInstantiatedSubType(
+            refinedReceiverUpperBound.type,
+            subType -> {
+              if (appInfo.hasAnyInstantiatedLambdas(subType)) {
+                hasInstantiatedLambdas.set(true);
+              }
+              subTypeConsumer.accept(subType);
+            },
+            callSiteConsumer);
+      };
+    }
+
+    private InstantiatedSubTypeInfo instantiatedSubTypeInfoWithLowerBound(
+        AppInfoWithLiveness appInfo,
+        DexProgramClass refinedReceiverUpperBound,
+        DexProgramClass refinedReceiverLowerBound,
+        Box<Boolean> hasInstantiatedLambdas) {
+      return (type, subTypeConsumer, callSiteConsumer) -> {
+        List<DexProgramClass> subTypes =
+            appInfo.computeProgramClassRelationChain(
+                refinedReceiverLowerBound, refinedReceiverUpperBound);
+        for (DexProgramClass subType : subTypes) {
+          if (appInfo.hasAnyInstantiatedLambdas(subType)) {
+            hasInstantiatedLambdas.set(true);
+          }
+          subTypeConsumer.accept(subType);
+        }
+      };
     }
 
     private static void addVirtualDispatchTarget(
-        DexEncodedMethod target, boolean holderIsInterface, Set<DexEncodedMethod> result) {
-      assert !target.isPrivateMethod();
+        DexClassAndMethod target,
+        boolean holderIsInterface,
+        Map<DexEncodedMethod, DexClassAndMethod> result) {
+      DexEncodedMethod targetMethod = target.getMethod();
+      assert !targetMethod.isPrivateMethod();
       if (holderIsInterface) {
         // Add default interface methods to the list of targets.
         //
@@ -404,18 +494,18 @@ public abstract class ResolutionResult {
         //     public void bar() { }
         //   }
         //
-        if (target.isDefaultMethod()) {
-          result.add(target);
+        if (targetMethod.isDefaultMethod()) {
+          result.putIfAbsent(targetMethod, target);
         }
         // Default methods are looked up when looking at a specific subtype that does not override
         // them. Otherwise, we would look up default methods that are actually never used.
         // However, we have to add bridge methods, otherwise we can remove a bridge that will be
         // used.
-        if (!target.accessFlags.isAbstract() && target.accessFlags.isBridge()) {
-          result.add(target);
+        if (!targetMethod.accessFlags.isAbstract() && targetMethod.accessFlags.isBridge()) {
+          result.putIfAbsent(targetMethod, target);
         }
       } else {
-        result.add(target);
+        result.putIfAbsent(targetMethod, target);
       }
     }
 
@@ -425,55 +515,61 @@ public abstract class ResolutionResult {
      * we have an object ref on the stack.
      */
     @Override
-    public DexClassAndMethod lookupVirtualDispatchTarget(
-        InstantiatedObject instance, AppView<? extends AppInfoWithClassHierarchy> appView) {
+    public LookupTarget lookupVirtualDispatchTarget(
+        InstantiatedObject instance, AppInfoWithClassHierarchy appInfo) {
       return instance.isClass()
-          ? lookupVirtualDispatchTarget(instance.asClass(), appView)
-          : lookupVirtualDispatchTarget(instance.asLambda(), appView);
+          ? lookupVirtualDispatchTarget(instance.asClass(), appInfo)
+          : lookupVirtualDispatchTarget(instance.asLambda(), appInfo);
     }
 
     @Override
     public DexClassAndMethod lookupVirtualDispatchTarget(
-        DexProgramClass dynamicInstance, AppView<? extends AppInfoWithClassHierarchy> appView) {
-      return lookupVirtualDispatchTarget(dynamicInstance, appView, initialResolutionHolder.type);
+        DexProgramClass dynamicInstance, AppInfoWithClassHierarchy appInfo) {
+      return lookupVirtualDispatchTarget(dynamicInstance, appInfo, initialResolutionHolder.type);
     }
 
     @Override
-    public DexClassAndMethod lookupVirtualDispatchTarget(
-        LambdaDescriptor lambdaInstance, AppView<? extends AppInfoWithClassHierarchy> appView) {
+    public LookupTarget lookupVirtualDispatchTarget(
+        LambdaDescriptor lambdaInstance, AppInfoWithClassHierarchy appInfo) {
       if (lambdaInstance.getMainMethod().match(resolvedMethod)) {
         DexMethod method = lambdaInstance.implHandle.asMethod();
-        DexClass holder = appView.definitionFor(method.holder);
+        DexClass holder = appInfo.definitionFor(method.holder);
         if (holder == null) {
           assert false;
           return null;
         }
-        DexEncodedMethod encodedMethod = appView.definitionFor(method);
+        DexEncodedMethod encodedMethod = appInfo.definitionFor(method);
         if (encodedMethod == null) {
           // The targeted method might not exist, eg, Throwable.addSuppressed in an old library.
           return null;
         }
-        return DexClassAndMethod.create(holder, encodedMethod);
+        return new LookupLambdaTarget(
+            lambdaInstance, DexClassAndMethod.create(holder, encodedMethod));
       }
-      return lookupMaximallySpecificDispatchTarget(lambdaInstance, appView);
+      return lookupMaximallySpecificDispatchTarget(lambdaInstance, appInfo);
     }
 
     private DexClassAndMethod lookupVirtualDispatchTarget(
         DexProgramClass dynamicInstance,
-        AppView<? extends AppInfoWithClassHierarchy> appView,
+        AppInfoWithClassHierarchy appInfo,
         DexType resolutionHolder) {
-      assert appView.isSubtype(dynamicInstance.type, resolutionHolder).isTrue()
+      assert appInfo.isSubtype(dynamicInstance.type, resolutionHolder)
           : dynamicInstance.type + " is not a subtype of " + resolutionHolder;
       // TODO(b/148591377): Enable this assertion.
       // The dynamic type cannot be an interface.
       // assert !dynamicInstance.isInterface();
+      if (resolvedMethod.isPrivateMethod()) {
+        // If the resolved reference is private there is no dispatch.
+        // This is assuming that the method is accessible, which implies self/nest access.
+        return DexClassAndMethod.create(resolvedHolder, resolvedMethod);
+      }
       boolean allowPackageBlocked = resolvedMethod.accessFlags.isPackagePrivate();
       DexClass current = dynamicInstance;
       DexEncodedMethod overrideTarget = resolvedMethod;
       while (current != null) {
         DexEncodedMethod candidate = lookupOverrideCandidate(overrideTarget, current);
         if (candidate == DexEncodedMethod.SENTINEL && allowPackageBlocked) {
-          overrideTarget = findWideningOverride(resolvedMethod, current, appView);
+          overrideTarget = findWideningOverride(resolvedMethod, current, appInfo);
           allowPackageBlocked = false;
           continue;
         }
@@ -482,7 +578,7 @@ public abstract class ResolutionResult {
           if (current.type == overrideTarget.method.holder) {
             return null;
           }
-          current = current.superType == null ? null : appView.definitionFor(current.superType);
+          current = current.superType == null ? null : appInfo.definitionFor(current.superType);
           continue;
         }
         return DexClassAndMethod.create(current, candidate);
@@ -492,21 +588,17 @@ public abstract class ResolutionResult {
       if (!resolvedHolder.isInterface()) {
         return null;
       }
-      return lookupMaximallySpecificDispatchTarget(dynamicInstance, appView);
+      return lookupMaximallySpecificDispatchTarget(dynamicInstance, appInfo);
     }
 
     private DexClassAndMethod lookupMaximallySpecificDispatchTarget(
-        DexProgramClass dynamicInstance, AppView<? extends AppInfoWithClassHierarchy> appView) {
-      return appView
-          .appInfo()
-          .lookupMaximallySpecificMethod(dynamicInstance, resolvedMethod.method);
+        DexProgramClass dynamicInstance, AppInfoWithClassHierarchy appInfo) {
+      return appInfo.lookupMaximallySpecificMethod(dynamicInstance, resolvedMethod.method);
     }
 
     private DexClassAndMethod lookupMaximallySpecificDispatchTarget(
-        LambdaDescriptor lambdaDescriptor, AppView<? extends AppInfoWithClassHierarchy> appView) {
-      return appView
-          .appInfo()
-          .lookupMaximallySpecificMethod(lambdaDescriptor, resolvedMethod.method);
+        LambdaDescriptor lambdaDescriptor, AppInfoWithClassHierarchy appInfo) {
+      return appInfo.lookupMaximallySpecificMethod(lambdaDescriptor, resolvedMethod.method);
     }
 
     /**
@@ -526,9 +618,7 @@ public abstract class ResolutionResult {
     }
 
     private static DexEncodedMethod findWideningOverride(
-        DexEncodedMethod resolvedMethod,
-        DexClass clazz,
-        AppView<? extends AppInfoWithClassHierarchy> appView) {
+        DexEncodedMethod resolvedMethod, DexClass clazz, AppInfoWithClassHierarchy appView) {
       // Otherwise, lookup to first override that is distinct from resolvedMethod.
       assert resolvedMethod.accessFlags.isPackagePrivate();
       while (clazz.superType != null) {
@@ -555,7 +645,7 @@ public abstract class ResolutionResult {
      * the resolved method. It also assumes that resolvedMethod is the actual method to find a
      * lookup for (that is, it is either mA or m').
      */
-    private static boolean isOverriding(
+    public static boolean isOverriding(
         DexEncodedMethod resolvedMethod, DexEncodedMethod candidate) {
       assert resolvedMethod.method.match(candidate.method);
       assert !candidate.isPrivateMethod();
@@ -597,27 +687,36 @@ public abstract class ResolutionResult {
     @Override
     public LookupResult lookupVirtualDispatchTargets(
         DexProgramClass context,
-        AppView<? extends AppInfoWithClassHierarchy> appView,
+        AppInfoWithClassHierarchy appInfo,
         InstantiatedSubTypeInfo instantiatedInfo,
         PinnedPredicate pinnedPredicate) {
       return LookupResult.getIncompleteEmptyResult();
     }
 
     @Override
+    public LookupResult lookupVirtualDispatchTargets(
+        DexProgramClass context,
+        AppInfoWithLiveness appInfo,
+        DexProgramClass refinedReceiverUpperBound,
+        DexProgramClass refinedReceiverLowerBound) {
+      return LookupResult.getIncompleteEmptyResult();
+    }
+
+    @Override
     public DexClassAndMethod lookupVirtualDispatchTarget(
-        InstantiatedObject instance, AppView<? extends AppInfoWithClassHierarchy> appView) {
+        InstantiatedObject instance, AppInfoWithClassHierarchy appInfo) {
       return null;
     }
 
     @Override
     public DexClassAndMethod lookupVirtualDispatchTarget(
-        DexProgramClass dynamicInstance, AppView<? extends AppInfoWithClassHierarchy> appView) {
+        DexProgramClass dynamicInstance, AppInfoWithClassHierarchy appInfo) {
       return null;
     }
 
     @Override
     public DexClassAndMethod lookupVirtualDispatchTarget(
-        LambdaDescriptor lambdaInstance, AppView<? extends AppInfoWithClassHierarchy> appView) {
+        LambdaDescriptor lambdaInstance, AppInfoWithClassHierarchy appInfo) {
       return null;
     }
   }

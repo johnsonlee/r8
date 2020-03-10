@@ -25,6 +25,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.graph.EnumValueInfoMapCollection;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
@@ -336,6 +337,7 @@ public class R8 {
         assert appView.rootSet().verifyKeptFieldsAreAccessedAndLive(appViewWithLiveness.appInfo());
         assert appView.rootSet().verifyKeptMethodsAreTargetedAndLive(appViewWithLiveness.appInfo());
         assert appView.rootSet().verifyKeptTypesAreLive(appViewWithLiveness.appInfo());
+        assert appView.rootSet().verifyKeptItemsAreKept(appView.appInfo().app(), appView.appInfo());
 
         appView.rootSet().checkAllRulesAreUsed(options);
 
@@ -512,7 +514,7 @@ public class R8 {
       assert appView.dexItemFactory().verifyNoCachedTypeLatticeElements();
 
       // Collect switch maps and ordinals maps.
-      if (options.enableEnumValueOptimization) {
+      if (options.enableEnumSwitchMapRemoval) {
         appViewWithLiveness.setAppInfo(new SwitchMapCollector(appViewWithLiveness).run());
       }
       if (options.enableEnumValueOptimization || options.enableEnumUnboxing) {
@@ -559,6 +561,10 @@ public class R8 {
 
       // Collect the already pruned types before creating a new app info without liveness.
       Set<DexType> prunedTypes = appView.withLiveness().appInfo().getPrunedTypes();
+
+      // TODO: move to appview.
+      EnumValueInfoMapCollection enumValueInfoMapCollection =
+          appViewWithLiveness.appInfo().getEnumValueInfoMapCollection();
 
       if (!options.mainDexKeepRules.isEmpty()) {
         appView.setAppInfo(new AppInfoWithSubtyping(application));
@@ -624,11 +630,18 @@ public class R8 {
 
           Enqueuer enqueuer = EnqueuerFactory.createForFinalTreeShaking(appView, keptGraphConsumer);
           appView.setAppInfo(
-              enqueuer.traceApplication(
-                  appView.rootSet(),
-                  options.getProguardConfiguration().getDontWarnPatterns(),
-                  executorService,
-                  timing));
+              enqueuer
+                  .traceApplication(
+                      appView.rootSet(),
+                      options.getProguardConfiguration().getDontWarnPatterns(),
+                      executorService,
+                      timing)
+                  .withEnumValueInfoMaps(enumValueInfoMapCollection));
+
+          appView.withGeneratedMessageLiteBuilderShrinker(
+              shrinker ->
+                  shrinker.removeDeadBuilderReferencesFromDynamicMethods(
+                      appViewWithLiveness, executorService, timing));
 
           if (Log.ENABLED && Log.isLoggingEnabledFor(GeneratedExtensionRegistryShrinker.class)) {
             appView.withGeneratedExtensionRegistryShrinker(
@@ -645,6 +658,7 @@ public class R8 {
 
             TreePruner pruner = new TreePruner(appViewWithLiveness, treePrunerConfiguration);
             application = pruner.run(application);
+
             if (options.usageInformationConsumer != null) {
               ExceptionUtils.withFinishedResourceHandler(
                   options.reporter, options.usageInformationConsumer);

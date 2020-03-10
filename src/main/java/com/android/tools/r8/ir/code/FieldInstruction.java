@@ -19,6 +19,7 @@ import com.android.tools.r8.ir.analysis.fieldvalueanalysis.EmptyFieldSet;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.UnknownFieldSet;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.google.common.collect.Sets;
@@ -29,7 +30,12 @@ public abstract class FieldInstruction extends Instruction {
 
   public enum Assumption {
     NONE,
+    CLASS_ALREADY_INITIALIZED,
     RECEIVER_NOT_NULL;
+
+    boolean canAssumeClassIsAlreadyInitialized() {
+      return this == CLASS_ALREADY_INITIALIZED;
+    }
 
     boolean canAssumeReceiverIsNotNull() {
       return this == RECEIVER_NOT_NULL;
@@ -132,7 +138,8 @@ public abstract class FieldInstruction extends Instruction {
     if (!appView.enableWholeProgramOptimizations()) {
       return AbstractError.bottom();
     }
-    boolean mayTriggerClassInitialization = isStaticGet() || isStaticPut();
+    boolean mayTriggerClassInitialization =
+        isStaticFieldInstruction() && !assumption.canAssumeClassIsAlreadyInitialized();
     if (mayTriggerClassInitialization) {
       // Only check for <clinit> side effects if there is no -assumenosideeffects rule.
       if (appView.appInfo().hasLiveness()) {
@@ -192,34 +199,47 @@ public abstract class FieldInstruction extends Instruction {
    * default finalize() method in a field. In that case, it is not safe to remove this instruction,
    * since that could change the lifetime of the value.
    */
-  boolean isStoringObjectWithFinalizer(AppInfoWithLiveness appInfo) {
+  boolean isStoringObjectWithFinalizer(
+      AppView<AppInfoWithLiveness> appView, DexEncodedField field) {
     assert isFieldPut();
+
     TypeLatticeElement type = value().getTypeLattice();
     TypeLatticeElement baseType =
         type.isArrayType() ? type.asArrayTypeLatticeElement().getArrayBaseTypeLattice() : type;
-    if (baseType.isClassType()) {
-      Value root = value().getAliasedValue();
-      if (!root.isPhi() && root.definition.isNewInstance()) {
-        DexClass clazz = appInfo.definitionFor(root.definition.asNewInstance().clazz);
-        if (clazz == null) {
-          return true;
-        }
-        if (clazz.superType == null) {
-          return false;
-        }
-        DexItemFactory dexItemFactory = appInfo.dexItemFactory();
-        DexEncodedMethod resolutionResult =
-            appInfo
-                .resolveMethod(clazz.type, dexItemFactory.objectMethods.finalize)
-                .getSingleTarget();
-        return resolutionResult != null && resolutionResult.isProgramMethod(appInfo);
-      }
-
-      return appInfo.mayHaveFinalizeMethodDirectlyOrIndirectly(
-          baseType.asClassTypeLatticeElement());
+    if (!baseType.isClassType()) {
+      return false;
     }
 
-    return false;
+    AbstractValue abstractValue = field.getOptimizationInfo().getAbstractValue();
+    if (abstractValue.isSingleValue()) {
+      if (abstractValue.isZero()) {
+        return false;
+      }
+      if (abstractValue.isSingleFieldValue()) {
+        SingleFieldValue singleFieldValue = abstractValue.asSingleFieldValue();
+        return singleFieldValue.mayHaveFinalizeMethodDirectlyOrIndirectly(appView);
+      }
+    }
+
+    AppInfoWithLiveness appInfo = appView.appInfo();
+    Value root = value().getAliasedValue();
+    if (!root.isPhi() && root.definition.isNewInstance()) {
+      DexClass clazz = appView.definitionFor(root.definition.asNewInstance().clazz);
+      if (clazz == null) {
+        return true;
+      }
+      if (clazz.superType == null) {
+        return false;
+      }
+      DexItemFactory dexItemFactory = appView.dexItemFactory();
+      DexEncodedMethod resolutionResult =
+          appInfo
+              .resolveMethod(clazz.type, dexItemFactory.objectMembers.finalize)
+              .getSingleTarget();
+      return resolutionResult != null && resolutionResult.isProgramMethod(appView);
+    }
+
+    return appInfo.mayHaveFinalizeMethodDirectlyOrIndirectly(baseType.asClassTypeLatticeElement());
   }
 
   @Override

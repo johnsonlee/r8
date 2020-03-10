@@ -9,15 +9,19 @@ import static com.android.tools.r8.optimize.MemberRebindingAnalysis.isMemberVisi
 
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.TypeAndLocalInfoSupplier;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
 public class SingleFieldValue extends SingleValue {
 
@@ -30,6 +34,18 @@ public class SingleFieldValue extends SingleValue {
 
   public DexField getField() {
     return field;
+  }
+
+  public boolean mayHaveFinalizeMethodDirectlyOrIndirectly(AppView<AppInfoWithLiveness> appView) {
+    DexType fieldType = field.type;
+    if (fieldType.isClassType()) {
+      ClassTypeLatticeElement fieldClassType =
+          TypeLatticeElement.fromDexType(fieldType, maybeNull(), appView)
+              .asClassTypeLatticeElement();
+      return appView.appInfo().mayHaveFinalizeMethodDirectlyOrIndirectly(fieldClassType);
+    }
+    assert fieldType.isArrayType() || fieldType.isPrimitiveType();
+    return false;
   }
 
   @Override
@@ -71,5 +87,31 @@ public class SingleFieldValue extends SingleValue {
     DexEncodedField encodedField = appView.appInfo().resolveField(field);
     return isMemberVisibleFromOriginalContext(
         appView, context, encodedField.field.holder, encodedField.accessFlags);
+  }
+
+  @Override
+  public boolean isMaterializableInAllContexts(AppView<?> appView) {
+    DexEncodedField encodedField = appView.appInfo().resolveField(field);
+    if (encodedField == null) {
+      assert false;
+      return false;
+    }
+    if (!encodedField.isPublic()) {
+      return false;
+    }
+    DexClass holder = appView.definitionFor(encodedField.holder());
+    if (holder == null) {
+      assert false;
+      return false;
+    }
+    return holder.isPublic();
+  }
+
+  @Override
+  public SingleValue rewrittenWithLens(AppView<AppInfoWithLiveness> appView, GraphLense lens) {
+    DexField rewrittenField = lens.lookupField(field);
+    assert !appView.unboxedEnums().containsEnum(field.holder)
+        || !appView.definitionFor(rewrittenField).accessFlags.isEnum();
+    return appView.abstractValueFactory().createSingleFieldValue(rewrittenField);
   }
 }

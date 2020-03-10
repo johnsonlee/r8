@@ -686,6 +686,10 @@ public abstract class DexClass extends DexDefinition {
     return null;
   }
 
+  public boolean isPublic() {
+    return accessFlags.isPublic();
+  }
+
   @Override
   public boolean isStatic() {
     return accessFlags.isStatic();
@@ -859,7 +863,7 @@ public abstract class DexClass extends DexDefinition {
   }
 
   public boolean definesFinalizer(DexItemFactory factory) {
-    return lookupVirtualMethod(factory.objectMethods.finalize) != null;
+    return lookupVirtualMethod(factory.objectMembers.finalize) != null;
   }
 
   public boolean defaultValuesForStaticFieldsMayTriggerAllocation() {

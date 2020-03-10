@@ -18,7 +18,6 @@ import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.AnalysisAssumption;
@@ -31,7 +30,7 @@ import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import java.util.Set;
 
-public class InstanceGet extends FieldInstruction {
+public class InstanceGet extends FieldInstruction implements InstanceFieldInstruction {
 
   public InstanceGet(Value dest, Value object, DexField field) {
     super(field, dest, object);
@@ -56,6 +55,7 @@ public class InstanceGet extends FieldInstruction {
     return outValue;
   }
 
+  @Override
   public Value object() {
     assert inValues.size() == 1;
     return inValues.get(0);
@@ -119,6 +119,7 @@ public class InstanceGet extends FieldInstruction {
     return instructionMayHaveSideEffects(appView, context, Assumption.NONE);
   }
 
+  @Override
   public boolean instructionMayHaveSideEffects(
       AppView<?> appView, DexType context, Assumption assumption) {
     return instructionInstanceCanThrow(appView, context, assumption).isThrowing();
@@ -198,7 +199,7 @@ public class InstanceGet extends FieldInstruction {
   }
 
   @Override
-  public boolean throwsNpeIfValueIsNull(Value value, DexItemFactory dexItemFactory) {
+  public boolean throwsNpeIfValueIsNull(Value value, AppView<?> appView, DexType context) {
     return object() == value;
   }
 

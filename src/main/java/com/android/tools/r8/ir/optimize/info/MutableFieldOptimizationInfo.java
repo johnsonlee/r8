@@ -7,10 +7,12 @@ package com.android.tools.r8.ir.optimize.info;
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.function.Function;
 
 /**
@@ -22,10 +24,13 @@ import java.util.function.Function;
  */
 public class MutableFieldOptimizationInfo extends FieldOptimizationInfo {
 
+  private static final int FLAGS_CANNOT_BE_KEPT = 1 << 0;
+  private static final int FLAGS_IS_DEAD = 1 << 1;
+  private static final int FLAGS_VALUE_HAS_BEEN_PROPAGATED = 1 << 2;
+
   private AbstractValue abstractValue = UnknownValue.getInstance();
+  private int flags;
   private int readBits = 0;
-  private boolean cannotBeKept = false;
-  private boolean valueHasBeenPropagated = false;
   private ClassTypeLatticeElement dynamicLowerBoundType = null;
   private TypeLatticeElement dynamicUpperBoundType = null;
 
@@ -50,8 +55,7 @@ public class MutableFieldOptimizationInfo extends FieldOptimizationInfo {
   @Override
   public MutableFieldOptimizationInfo mutableCopy() {
     MutableFieldOptimizationInfo copy = new MutableFieldOptimizationInfo();
-    copy.cannotBeKept = cannotBeKept();
-    copy.valueHasBeenPropagated = valueHasBeenPropagated();
+    copy.flags = flags;
     return copy;
   }
 
@@ -60,8 +64,12 @@ public class MutableFieldOptimizationInfo extends FieldOptimizationInfo {
     return abstractValue;
   }
 
-  public void setAbstractValue(AbstractValue abstractValue) {
+  void setAbstractValue(AbstractValue abstractValue) {
     this.abstractValue = abstractValue;
+  }
+
+  public void fixupAbstractValue(AppView<AppInfoWithLiveness> appView, GraphLense lens) {
+    abstractValue = abstractValue.rewrittenWithLens(appView, lens);
   }
 
   @Override
@@ -75,11 +83,11 @@ public class MutableFieldOptimizationInfo extends FieldOptimizationInfo {
 
   @Override
   public boolean cannotBeKept() {
-    return cannotBeKept;
+    return (flags & FLAGS_CANNOT_BE_KEPT) != 0;
   }
 
   void markCannotBeKept() {
-    cannotBeKept = true;
+    flags |= FLAGS_CANNOT_BE_KEPT;
   }
 
   @Override
@@ -101,12 +109,21 @@ public class MutableFieldOptimizationInfo extends FieldOptimizationInfo {
   }
 
   @Override
+  public boolean isDead() {
+    return (flags & FLAGS_IS_DEAD) != 0;
+  }
+
+  void markAsDead() {
+    flags |= FLAGS_IS_DEAD;
+  }
+
+  @Override
   public boolean valueHasBeenPropagated() {
-    return valueHasBeenPropagated;
+    return (flags & FLAGS_VALUE_HAS_BEEN_PROPAGATED) != 0;
   }
 
   void markAsPropagated() {
-    valueHasBeenPropagated = true;
+    flags |= FLAGS_VALUE_HAS_BEEN_PROPAGATED;
   }
 
   @Override

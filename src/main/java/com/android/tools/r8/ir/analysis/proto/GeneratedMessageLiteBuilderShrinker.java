@@ -11,35 +11,50 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfo;
+import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfoMap;
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
+import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
+import com.android.tools.r8.ir.code.IntSwitch;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.CallGraph.Node;
+import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.optimize.CodeRewriter;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
+import com.android.tools.r8.ir.optimize.controlflow.SwitchCaseAnalyzer;
 import com.android.tools.r8.ir.optimize.enums.EnumValueOptimizer;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
+import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.inliner.FixedInliningReasonStrategy;
+import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.PredicateSet;
+import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BooleanSupplier;
 
-// TODO(b/112437944): Should remove the new Builder() instructions from each dynamicMethod() that
-//  references a dead proto builder.
 public class GeneratedMessageLiteBuilderShrinker {
 
   private final AppView<? extends AppInfoWithSubtyping> appView;
   private final ProtoReferences references;
+
+  private final Map<DexProgramClass, DexEncodedMethod> builders = new IdentityHashMap<>();
 
   GeneratedMessageLiteBuilderShrinker(
       AppView<? extends AppInfoWithSubtyping> appView, ProtoReferences references) {
@@ -51,9 +66,53 @@ public class GeneratedMessageLiteBuilderShrinker {
   public boolean deferDeadProtoBuilders(
       DexProgramClass clazz, DexEncodedMethod context, BooleanSupplier register) {
     if (references.isDynamicMethod(context) && references.isGeneratedMessageLiteBuilder(clazz)) {
-      return register.getAsBoolean();
+      if (register.getAsBoolean()) {
+        assert builders.getOrDefault(clazz, context) == context;
+        builders.put(clazz, context);
+        return true;
+      }
     }
     return false;
+  }
+
+  /**
+   * Reprocesses each dynamicMethod() that references a dead builder to remove the dead builder
+   * references.
+   */
+  public void removeDeadBuilderReferencesFromDynamicMethods(
+      AppView<AppInfoWithLiveness> appView, ExecutorService executorService, Timing timing)
+      throws ExecutionException {
+    timing.begin("Remove dead builder references");
+    AppInfoWithLiveness appInfo = appView.appInfo();
+    IRConverter converter = new IRConverter(appView, Timing.empty());
+    CodeRewriter codeRewriter = new CodeRewriter(appView, converter);
+    MethodToInvokeSwitchCaseAnalyzer switchCaseAnalyzer = new MethodToInvokeSwitchCaseAnalyzer();
+    if (switchCaseAnalyzer.isInitialized()) {
+      ThreadUtils.processItems(
+          builders.entrySet(),
+          entry -> {
+            if (!appInfo.isLiveProgramClass(entry.getKey())) {
+              removeDeadBuilderReferencesFromDynamicMethod(
+                  appView, entry.getValue(), converter, codeRewriter, switchCaseAnalyzer);
+            }
+          },
+          executorService);
+    }
+    builders.clear();
+    timing.end(); // Remove dead builder references
+  }
+
+  private void removeDeadBuilderReferencesFromDynamicMethod(
+      AppView<AppInfoWithLiveness> appView,
+      DexEncodedMethod dynamicMethod,
+      IRConverter converter,
+      CodeRewriter codeRewriter,
+      SwitchCaseAnalyzer switchCaseAnalyzer) {
+    Origin origin = appView.appInfo().originFor(dynamicMethod.holder());
+    IRCode code = dynamicMethod.buildIR(appView, origin);
+    codeRewriter.rewriteSwitch(code, switchCaseAnalyzer);
+    converter.removeDeadCodeAndFinalizeIR(
+        dynamicMethod, code, OptimizationFeedbackSimple.getInstance(), Timing.empty());
   }
 
   public static void addInliningHeuristicsForBuilderInlining(
@@ -61,14 +120,12 @@ public class GeneratedMessageLiteBuilderShrinker {
       PredicateSet<DexType> alwaysClassInline,
       Set<DexType> neverMerge,
       Set<DexMethod> alwaysInline,
-      Set<DexMethod> neverInline,
       Set<DexMethod> bypassClinitforInlining) {
     new RootSetExtension(
             appView,
             alwaysClassInline,
             neverMerge,
             alwaysInline,
-            neverInline,
             bypassClinitforInlining)
         .extend();
   }
@@ -177,6 +234,47 @@ public class GeneratedMessageLiteBuilderShrinker {
     }
   }
 
+  private class MethodToInvokeSwitchCaseAnalyzer extends SwitchCaseAnalyzer {
+
+    private final int newBuilderOrdinal;
+
+    private MethodToInvokeSwitchCaseAnalyzer() {
+      EnumValueInfoMap enumValueInfoMap =
+          appView.appInfo().withLiveness().getEnumValueInfoMap(references.methodToInvokeType);
+      if (enumValueInfoMap != null) {
+        EnumValueInfo newBuilderValueInfo =
+            enumValueInfoMap.getEnumValueInfo(references.methodToInvokeMembers.newBuilderField);
+        if (newBuilderValueInfo != null) {
+          newBuilderOrdinal = newBuilderValueInfo.ordinal;
+          return;
+        }
+      }
+      newBuilderOrdinal = -1;
+    }
+
+    public boolean isInitialized() {
+      return newBuilderOrdinal >= 0;
+    }
+
+    @Override
+    public boolean switchCaseIsUnreachable(IntSwitch theSwitch, int index) {
+      if (index != newBuilderOrdinal) {
+        return false;
+      }
+      Value switchValue = theSwitch.value();
+      if (!switchValue.isDefinedByInstructionSatisfying(Instruction::isInvokeVirtual)) {
+        return false;
+      }
+      InvokeVirtual definition = switchValue.definition.asInvokeVirtual();
+      if (definition.getInvokedMethod() != appView.dexItemFactory().enumMethods.ordinal) {
+        return false;
+      }
+      TypeLatticeElement enumType = definition.getReceiver().getTypeLattice();
+      return enumType.isClassType()
+          && enumType.asClassTypeLatticeElement().getClassType() == references.methodToInvokeType;
+    }
+  }
+
   private static class RootSetExtension {
 
     private final AppView<? extends AppInfoWithSubtyping> appView;
@@ -186,7 +284,6 @@ public class GeneratedMessageLiteBuilderShrinker {
     private final Set<DexType> neverMerge;
 
     private final Set<DexMethod> alwaysInline;
-    private final Set<DexMethod> neverInline;
     private final Set<DexMethod> bypassClinitforInlining;
 
     RootSetExtension(
@@ -194,14 +291,12 @@ public class GeneratedMessageLiteBuilderShrinker {
         PredicateSet<DexType> alwaysClassInline,
         Set<DexType> neverMerge,
         Set<DexMethod> alwaysInline,
-        Set<DexMethod> neverInline,
         Set<DexMethod> bypassClinitforInlining) {
       this.appView = appView;
       this.references = appView.protoShrinker().references;
       this.alwaysClassInline = alwaysClassInline;
       this.neverMerge = neverMerge;
       this.alwaysInline = alwaysInline;
-      this.neverInline = neverInline;
       this.bypassClinitforInlining = bypassClinitforInlining;
     }
 
@@ -210,7 +305,6 @@ public class GeneratedMessageLiteBuilderShrinker {
 
       // GeneratedMessageLite heuristics.
       alwaysInlineCreateBuilderFromGeneratedMessageLite();
-      neverInlineIsInitializedFromGeneratedMessageLite();
 
       // * extends GeneratedMessageLite heuristics.
       bypassClinitforInliningNewBuilderMethods();
@@ -256,14 +350,6 @@ public class GeneratedMessageLiteBuilderShrinker {
       // testing.
       neverMerge.add(references.generatedMessageLiteBuilderType);
       neverMerge.add(references.generatedMessageLiteExtendableBuilderType);
-    }
-
-    /**
-     * Without this rule, GeneratedMessageLite$Builder.build() becomes too big for class inlining.
-     * TODO(b/112437944): Maybe introduce a -neverinlineinto rule instead?
-     */
-    private void neverInlineIsInitializedFromGeneratedMessageLite() {
-      neverInline.add(references.generatedMessageLiteMethods.isInitializedMethod);
     }
   }
 }

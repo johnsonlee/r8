@@ -27,6 +27,7 @@ import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.ir.analysis.TypeChecker;
 import com.android.tools.r8.ir.analysis.constant.SparseConditionalConstantPropagation;
 import com.android.tools.r8.ir.analysis.fieldaccess.FieldAccessAnalysis;
+import com.android.tools.r8.ir.analysis.fieldaccess.TrivialFieldAccessReprocessor;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.InstanceFieldValueAnalysis;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValueAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
@@ -94,6 +95,7 @@ import com.android.tools.r8.shaking.LibraryMethodOverrideAnalysis;
 import com.android.tools.r8.shaking.MainDexClasses;
 import com.android.tools.r8.utils.CfgPrinter;
 import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.DesugarState;
 import com.android.tools.r8.utils.InternalOptions.OutlineOptions;
@@ -700,8 +702,11 @@ public class IRConverter {
     }
     if (enumUnboxer != null) {
       enumUnboxer.finishAnalysis();
-      enumUnboxer.unboxEnums(postMethodProcessorBuilder);
+      enumUnboxer.unboxEnums(postMethodProcessorBuilder, executorService, feedback);
     }
+    new TrivialFieldAccessReprocessor(appView.withLiveness(), postMethodProcessorBuilder)
+        .run(executorService, feedback, timing);
+
     timing.begin("IR conversion phase 2");
     graphLenseForIR = appView.graphLense();
     PostMethodProcessor postMethodProcessor =
@@ -754,6 +759,7 @@ public class IRConverter {
     generateDesugaredLibraryAPIWrappers(builder, executorService);
 
     if (serviceLoaderRewriter != null && serviceLoaderRewriter.getSynthesizedClass() != null) {
+      appView.appInfo().addSynthesizedClass(serviceLoaderRewriter.getSynthesizedClass());
       processSynthesizedServiceLoaderMethods(
           serviceLoaderRewriter.getSynthesizedClass(), executorService);
       builder.addSynthesizedClass(serviceLoaderRewriter.getSynthesizedClass(), true);
@@ -824,13 +830,8 @@ public class IRConverter {
 
     // Check if what we've added to the application builder as synthesized classes are same as
     // what we've added and used through AppInfo.
-    assert appView
-            .appInfo()
-            .getSynthesizedClassesForSanityCheck()
-            .containsAll(builder.getSynthesizedClasses())
-        && builder
-            .getSynthesizedClasses()
-            .containsAll(appView.appInfo().getSynthesizedClassesForSanityCheck());
+    assert appView.appInfo().synthesizedClasses().containsAll(builder.getSynthesizedClasses())
+        && builder.getSynthesizedClasses().containsAll(appView.appInfo().synthesizedClasses());
     return builder.build();
   }
 
@@ -1066,18 +1067,10 @@ public class IRConverter {
   private Timing rewriteCode(
       DexEncodedMethod method, OptimizationFeedback feedback, MethodProcessor methodProcessor) {
     Origin origin = appView.appInfo().originFor(method.method.holder);
-    try {
-      return rewriteCodeInternal(method, feedback, methodProcessor, origin);
-    } catch (CompilationError e) {
-      // If rewriting throws a compilation error, attach the origin and method if missing.
-      throw e.withAdditionalOriginAndPositionInfo(origin, new MethodPosition(method.method));
-    } catch (NullPointerException e) {
-      throw new CompilationError(
-          "NullPointerException during IR Conversion",
-          e,
-          origin,
-          new MethodPosition(method.method));
-    }
+    return ExceptionUtils.withOriginAttachmentHandler(
+        origin,
+        new MethodPosition(method.method),
+        () -> rewriteCodeInternal(method, feedback, methodProcessor, origin));
   }
 
   private Timing rewriteCodeInternal(
@@ -1357,9 +1350,11 @@ public class IRConverter {
       invertConditionalsForTesting(code);
     }
 
-    timing.begin("Rewrite throw NPE");
-    codeRewriter.rewriteThrowNullPointerException(code);
-    timing.end();
+    if (!isDebugMode) {
+      timing.begin("Rewrite throw NPE");
+      codeRewriter.rewriteThrowNullPointerException(code);
+      timing.end();
+    }
 
     timing.begin("Optimize class initializers");
     ClassInitializerDefaultsResult classInitializerDefaultsResult =
@@ -1673,16 +1668,25 @@ public class IRConverter {
 
   private void markProcessed(DexEncodedMethod method, IRCode code, OptimizationFeedback feedback) {
     // After all the optimizations have take place, we compute whether method should be inlined.
-    ConstraintWithTarget state;
-    if (!options.enableInlining
-        || inliner == null
-        || method.isClassInitializer()
-        || method.getOptimizationInfo().isReachabilitySensitive()) {
-      state = ConstraintWithTarget.NEVER;
-    } else {
-      state = inliner.computeInliningConstraint(code, method);
-    }
+    ConstraintWithTarget state =
+        shouldComputeInliningConstraint(method)
+            ? inliner.computeInliningConstraint(code, method)
+            : ConstraintWithTarget.NEVER;
     feedback.markProcessed(method, state);
+  }
+
+  private boolean shouldComputeInliningConstraint(DexEncodedMethod method) {
+    if (!options.enableInlining || inliner == null) {
+      return false;
+    }
+    if (method.isClassInitializer() || method.getOptimizationInfo().isReachabilitySensitive()) {
+      return false;
+    }
+    if (appView.appInfo().hasLiveness()
+        && appView.appInfo().withLiveness().isPinned(method.method)) {
+      return false;
+    }
+    return true;
   }
 
   private synchronized void updateHighestSortingStrings(DexEncodedMethod method) {

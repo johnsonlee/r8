@@ -76,6 +76,10 @@ public class EnumUnboxingRewriter {
             "$enumboxing$ordinal");
   }
 
+  public EnumValueInfoMapCollection getEnumsToUnbox() {
+    return enumsToUnbox;
+  }
+
   void rewriteCode(IRCode code) {
     // We should not process the enum methods, they will be removed and they may contain invalid
     // rewriting rules.
@@ -117,7 +121,7 @@ public class EnumUnboxingRewriter {
           EnumValueInfo enumValueInfo = enumValueInfoMap.getEnumValueInfo(staticGet.getField());
           assert enumValueInfo != null
               : "Invalid read to " + staticGet.getField().name + ", error during enum analysis";
-          instruction = new ConstNumber(staticGet.outValue(), enumValueInfo.ordinal + 1);
+          instruction = new ConstNumber(staticGet.outValue(), enumValueInfo.convertToInt());
           staticGet
               .outValue()
               .setTypeLattice(PrimitiveTypeLatticeElement.fromNumericType(NumericType.INT));

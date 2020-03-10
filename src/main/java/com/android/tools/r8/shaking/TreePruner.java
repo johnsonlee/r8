@@ -175,6 +175,7 @@ public class TreePruner {
     clazz.removeEnclosingMethod(this::isAttributeReferencingPrunedItem);
     rewriteNestAttributes(clazz);
     usagePrinter.visited();
+    assert verifyNoDeadFields(clazz);
   }
 
   private void rewriteNestAttributes(DexProgramClass clazz) {
@@ -354,5 +355,13 @@ public class TreePruner {
 
   public Collection<DexReference> getMethodsToKeepForConfigurationDebugging() {
     return Collections.unmodifiableCollection(methodsToKeepForConfigurationDebugging);
+  }
+
+  private boolean verifyNoDeadFields(DexProgramClass clazz) {
+    for (DexEncodedField field : clazz.fields()) {
+      assert !field.getOptimizationInfo().isDead()
+          : "Expected field `" + field.field.toSourceString() + "` to be absent";
+    }
+    return true;
   }
 }

@@ -23,9 +23,14 @@ def make_parser():
     help='Dump file to compile',
     default=None)
   parser.add_argument(
+    '--temp',
+    help='Temp directory to extract the dump to, allows you to rerun the command'
+      ' more easily in the terminal with changes',
+    default=None)
+  parser.add_argument(
     '-c',
     '--compiler',
-    help='Compiler to use (default read from version file)',
+    help='Compiler to use',
     default=None)
   parser.add_argument(
     '-v',
@@ -35,6 +40,10 @@ def make_parser():
       '  "master" to run from your own tree,'
       '  "X.Y.Z" to run a specific version, or'
       '  <hash> to run that hash from master.',
+    default=None)
+  parser.add_argument(
+    '--r8-jar',
+    help='Path to an R8 jar.',
     default=None)
   parser.add_argument(
     '--nolib',
@@ -103,9 +112,10 @@ def determine_version(args, dump):
   return args.version
 
 def determine_compiler(args, dump):
-  compilers = ('d8', 'r8', 'r8full')
+  compilers = ['d8', 'r8', 'r8full']
   if args.compiler not in compilers:
-    error("Unable to determine a compiler to use. Valid options: %s" % compilers.join(', '))
+    error("Unable to determine a compiler to use. Specified %s,"
+          " Valid options: %s" % (args.compiler, ', '.join(compilers)))
   return args.compiler
 
 def determine_output(args, temp):
@@ -137,11 +147,15 @@ def is_hash(version):
 
 def run(args, otherargs):
   with utils.TempDir() as temp:
+    if args.temp:
+      temp = args.temp
+      if not os.path.exists(temp):
+        os.makedirs(temp)
     dump = read_dump(args, temp)
     version = determine_version(args, dump)
     compiler = determine_compiler(args, dump)
     out = determine_output(args, temp)
-    jar = download_distribution(args, version, temp)
+    jar = args.r8_jar if args.r8_jar else download_distribution(args, version, temp)
     wrapper_dir = prepare_wrapper(jar, temp)
     cmd = [jdk.GetJavaExecutable()]
     if args.debug_agent:

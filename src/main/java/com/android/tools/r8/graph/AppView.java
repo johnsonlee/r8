@@ -19,12 +19,13 @@ import com.android.tools.r8.ir.optimize.CallSiteOptimizationInfoPropagator;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoFactory;
 import com.android.tools.r8.ir.optimize.library.LibraryMethodOptimizer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.LibraryModeledPredicate;
 import com.android.tools.r8.shaking.RootSetBuilder.RootSet;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionalBool;
+import com.android.tools.r8.utils.ThrowingConsumer;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
-import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +33,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public class AppView<T extends AppInfo> implements DexDefinitionSupplier {
+public class AppView<T extends AppInfo> implements DexDefinitionSupplier, LibraryModeledPredicate {
 
   private enum WholeProgramOptimizations {
     ON,
@@ -65,7 +66,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier {
   private Set<DexMethod> unneededVisibilityBridgeMethods = ImmutableSet.of();
   private HorizontallyMergedLambdaClasses horizontallyMergedLambdaClasses;
   private VerticallyMergedClasses verticallyMergedClasses;
-  private Set<DexType> unboxedEnums = Collections.emptySet();
+  private EnumValueInfoMapCollection unboxedEnums = EnumValueInfoMapCollection.empty();
 
   private Map<DexClass, DexValueString> sourceDebugExtensions = new IdentityHashMap<>();
 
@@ -106,6 +107,11 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier {
     } else {
       this.protoShrinker = null;
     }
+  }
+
+  @Override
+  public boolean isModeled(DexType type) {
+    return libraryMethodOptimizer.isModeled(type);
   }
 
   public static <T extends AppInfo> AppView<T> createForD8(T appInfo, InternalOptions options) {
@@ -268,8 +274,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier {
     }
   }
 
-  public void withGeneratedMessageLiteBuilderShrinker(
-      Consumer<GeneratedMessageLiteBuilderShrinker> consumer) {
+  public <E extends Throwable> void withGeneratedMessageLiteBuilderShrinker(
+      ThrowingConsumer<GeneratedMessageLiteBuilderShrinker, E> consumer) throws E {
     if (protoShrinker != null && protoShrinker.generatedMessageLiteBuilderShrinker != null) {
       consumer.accept(protoShrinker.generatedMessageLiteBuilderShrinker);
     }
@@ -370,12 +376,16 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier {
     this.verticallyMergedClasses = verticallyMergedClasses;
   }
 
-  public void setUnboxedEnums(Set<DexType> unboxedEnums) {
+  public EnumValueInfoMapCollection unboxedEnums() {
+    return unboxedEnums;
+  }
+
+  public void setUnboxedEnums(EnumValueInfoMapCollection unboxedEnums) {
     this.unboxedEnums = unboxedEnums;
   }
 
   public boolean validateUnboxedEnumsHaveBeenPruned() {
-    for (DexType unboxedEnum : unboxedEnums) {
+    for (DexType unboxedEnum : unboxedEnums.enumSet()) {
       assert definitionForProgramType(unboxedEnum) == null
           : "Enum " + unboxedEnum + " has been unboxed but is still in the program.";
       assert appInfo().withLiveness().wasPruned(unboxedEnum)

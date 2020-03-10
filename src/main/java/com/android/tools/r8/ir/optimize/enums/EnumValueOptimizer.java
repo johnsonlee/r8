@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfo;
 import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfoMap;
@@ -19,6 +20,7 @@ import com.android.tools.r8.ir.code.BasicBlock.ThrowingInfo;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.ConstString;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.IntSwitch;
@@ -46,7 +48,9 @@ public class EnumValueOptimizer {
 
   @SuppressWarnings("ConstantConditions")
   public void rewriteConstantEnumMethodCalls(IRCode code) {
-    if (!code.metadata().mayHaveInvokeMethodWithReceiver()) {
+    IRMetadata metadata = code.metadata();
+    if (!metadata.mayHaveInvokeMethodWithReceiver()
+        && !(metadata.mayHaveInvokeStatic() && metadata.mayHaveArrayLength())) {
       return;
     }
 
@@ -54,65 +58,79 @@ public class EnumValueOptimizer {
     while (iterator.hasNext()) {
       Instruction current = iterator.next();
 
-      if (!current.isInvokeMethodWithReceiver()) {
-        continue;
-      }
-      InvokeMethodWithReceiver methodWithReceiver = current.asInvokeMethodWithReceiver();
-      DexMethod invokedMethod = methodWithReceiver.getInvokedMethod();
-      boolean isOrdinalInvoke = invokedMethod == factory.enumMethods.ordinal;
-      boolean isNameInvoke = invokedMethod == factory.enumMethods.name;
-      boolean isToStringInvoke = invokedMethod == factory.enumMethods.toString;
-      if (!isOrdinalInvoke && !isNameInvoke && !isToStringInvoke) {
-        continue;
-      }
-
-      Value receiver = methodWithReceiver.getReceiver().getAliasedValue();
-      if (receiver.isPhi()) {
-        continue;
-      }
-      Instruction definition = receiver.getDefinition();
-      if (!definition.isStaticGet()) {
-        continue;
-      }
-      DexField enumField = definition.asStaticGet().getField();
-
-      EnumValueInfoMap valueInfoMap =
-          appView.appInfo().withLiveness().getEnumValueInfoMap(enumField.type);
-      if (valueInfoMap == null) {
-        continue;
-      }
-
-      // The receiver value is identified as being from a constant enum field lookup by the fact
-      // that it is a static-get to a field whose type is the same as the enclosing class (which
-      // is known to be an enum type). An enum may still define a static field using the enum type
-      // so ensure the field is present in the ordinal map for final validation.
-      EnumValueInfo valueInfo = valueInfoMap.getEnumValueInfo(enumField);
-      if (valueInfo == null) {
-        continue;
-      }
-
-      Value outValue = methodWithReceiver.outValue();
-      if (isOrdinalInvoke) {
-        iterator.replaceCurrentInstruction(new ConstNumber(outValue, valueInfo.ordinal));
-      } else if (isNameInvoke) {
-        iterator.replaceCurrentInstruction(
-            new ConstString(outValue, enumField.name, ThrowingInfo.NO_THROW));
-      } else {
-        assert isToStringInvoke;
-        DexClass enumClazz = appView.appInfo().definitionFor(enumField.type);
-        if (!enumClazz.accessFlags.isFinal()) {
+      if (current.isInvokeMethodWithReceiver()) {
+        InvokeMethodWithReceiver methodWithReceiver = current.asInvokeMethodWithReceiver();
+        DexMethod invokedMethod = methodWithReceiver.getInvokedMethod();
+        boolean isOrdinalInvoke = invokedMethod == factory.enumMethods.ordinal;
+        boolean isNameInvoke = invokedMethod == factory.enumMethods.name;
+        boolean isToStringInvoke = invokedMethod == factory.enumMethods.toString;
+        if (!isOrdinalInvoke && !isNameInvoke && !isToStringInvoke) {
           continue;
         }
-        DexEncodedMethod singleTarget =
-            appView
-                .appInfo()
-                .resolveMethodOnClass(valueInfo.type, factory.objectMethods.toString)
-                .getSingleTarget();
-        if (singleTarget != null && singleTarget.method != factory.enumMethods.toString) {
+
+        Value receiver = methodWithReceiver.getReceiver().getAliasedValue();
+        if (receiver.isPhi()) {
           continue;
         }
-        iterator.replaceCurrentInstruction(
-            new ConstString(outValue, enumField.name, ThrowingInfo.NO_THROW));
+        Instruction definition = receiver.getDefinition();
+        if (!definition.isStaticGet()) {
+          continue;
+        }
+        DexField enumField = definition.asStaticGet().getField();
+        EnumValueInfoMap valueInfoMap =
+            appView.appInfo().withLiveness().getEnumValueInfoMap(enumField.type);
+        if (valueInfoMap == null) {
+          continue;
+        }
+
+        // The receiver value is identified as being from a constant enum field lookup by the fact
+        // that it is a static-get to a field whose type is the same as the enclosing class (which
+        // is known to be an enum type). An enum may still define a static field using the enum type
+        // so ensure the field is present in the ordinal map for final validation.
+        EnumValueInfo valueInfo = valueInfoMap.getEnumValueInfo(enumField);
+        if (valueInfo == null) {
+          continue;
+        }
+
+        Value outValue = methodWithReceiver.outValue();
+        if (isOrdinalInvoke) {
+          iterator.replaceCurrentInstruction(new ConstNumber(outValue, valueInfo.ordinal));
+        } else if (isNameInvoke) {
+          iterator.replaceCurrentInstruction(
+              new ConstString(outValue, enumField.name, ThrowingInfo.NO_THROW));
+        } else {
+          assert isToStringInvoke;
+          DexClass enumClazz = appView.appInfo().definitionFor(enumField.type);
+          if (!enumClazz.accessFlags.isFinal()) {
+            continue;
+          }
+          DexEncodedMethod singleTarget =
+              appView
+                  .appInfo()
+                  .resolveMethodOnClass(valueInfo.type, factory.objectMembers.toString)
+                  .getSingleTarget();
+          if (singleTarget != null && singleTarget.method != factory.enumMethods.toString) {
+            continue;
+          }
+          iterator.replaceCurrentInstruction(
+              new ConstString(outValue, enumField.name, ThrowingInfo.NO_THROW));
+        }
+      } else if (current.isArrayLength()) {
+        // Rewrites MyEnum.values().length to a constant int.
+        Instruction arrayDefinition = current.asArrayLength().array().definition;
+        if (arrayDefinition != null && arrayDefinition.isInvokeStatic()) {
+          DexMethod invokedMethod = arrayDefinition.asInvokeStatic().getInvokedMethod();
+          DexProgramClass enumClass = appView.definitionForProgramType(invokedMethod.holder);
+          if (enumClass != null
+              && enumClass.isEnum()
+              && factory.enumMethods.isValuesMethod(invokedMethod, enumClass)) {
+            EnumValueInfoMap enumValueInfoMap =
+                appView.appInfo().withLiveness().getEnumValueInfoMap(invokedMethod.holder);
+            if (enumValueInfoMap != null) {
+              iterator.replaceCurrentInstructionWithConstInt(code, enumValueInfoMap.size());
+            }
+          }
+        }
       }
     }
     assert code.isConsistentSSA();

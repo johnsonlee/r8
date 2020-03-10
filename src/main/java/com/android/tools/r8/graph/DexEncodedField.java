@@ -138,6 +138,10 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     return accessFlags.isPrivate();
   }
 
+  public boolean isPublic() {
+    return accessFlags.isPublic();
+  }
+
   @Override
   public boolean isStaticMember() {
     return isStatic();
@@ -156,6 +160,11 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     assert accessFlags.isStatic();
     assert staticValue != null;
     this.staticValue = staticValue;
+  }
+
+  public void clearStaticValue() {
+    assert accessFlags.isStatic();
+    this.staticValue = null;
   }
 
   public DexValue getStaticValue() {

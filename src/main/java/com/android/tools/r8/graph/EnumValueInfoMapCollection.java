@@ -86,6 +86,10 @@ public class EnumValueInfoMapCollection {
       return map.size();
     }
 
+    public boolean hasEnumValueInfo(DexField field) {
+      return map.containsKey(field);
+    }
+
     public EnumValueInfo getEnumValueInfo(DexField field) {
       return map.get(field);
     }
@@ -108,6 +112,10 @@ public class EnumValueInfoMapCollection {
     public EnumValueInfo(DexType type, int ordinal) {
       this.type = type;
       this.ordinal = ordinal;
+    }
+
+    public int convertToInt() {
+      return ordinal + 1;
     }
 
     EnumValueInfo rewrittenWithLens(GraphLense lens) {

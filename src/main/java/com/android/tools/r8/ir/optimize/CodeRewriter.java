@@ -26,6 +26,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.equivalence.BasicBlockBehavioralSubsumption;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeUtils;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.AlwaysMaterializingNop;
 import com.android.tools.r8.ir.code.ArrayLength;
@@ -73,6 +74,7 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.code.Xor;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.optimize.controlflow.SwitchCaseAnalyzer;
 import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOutputMode;
@@ -240,10 +242,64 @@ public class CodeRewriter {
 
   // Rewrite 'throw new NullPointerException()' to 'throw null'.
   public void rewriteThrowNullPointerException(IRCode code) {
+    boolean shouldRemoveUnreachableBlocks = false;
     for (BasicBlock block : code.blocks) {
       InstructionListIterator it = block.listIterator(code);
       while (it.hasNext()) {
         Instruction instruction = it.next();
+
+        // Check for the patterns 'if (x == null) throw null' and
+        // 'if (x == null) throw new NullPointerException()'.
+        if (instruction.isIf()) {
+          if (appView.dexItemFactory().objectsMethods.isRequireNonNullMethod(code.method.method)) {
+            continue;
+          }
+
+          If ifInstruction = instruction.asIf();
+          if (!ifInstruction.isZeroTest()) {
+            continue;
+          }
+
+          Value value = ifInstruction.lhs();
+          if (!value.getTypeLattice().isReference()) {
+            assert value.getTypeLattice().isPrimitive();
+            continue;
+          }
+
+          BasicBlock valueIsNullTarget = ifInstruction.targetFromCondition(0);
+          if (valueIsNullTarget.getPredecessors().size() != 1
+              || !valueIsNullTarget.exit().isThrow()) {
+            continue;
+          }
+
+          Throw throwInstruction = valueIsNullTarget.exit().asThrow();
+          Value exceptionValue = throwInstruction.exception();
+          if (!exceptionValue.isConstZero()
+              && !TypeUtils.isNullPointerException(exceptionValue.getTypeLattice(), appView)) {
+            continue;
+          }
+
+          boolean canDetachValueIsNullTarget = true;
+          for (Instruction i : valueIsNullTarget.instructionsBefore(throwInstruction)) {
+            if (!i.isBlockLocalInstructionWithoutSideEffects(appView, code.method.holder())) {
+              canDetachValueIsNullTarget = false;
+              break;
+            }
+          }
+          if (!canDetachValueIsNullTarget) {
+            continue;
+          }
+
+          rewriteIfToRequireNonNull(
+              block,
+              it,
+              ifInstruction,
+              ifInstruction.targetFromCondition(1),
+              valueIsNullTarget,
+              throwInstruction.getPosition());
+          shouldRemoveUnreachableBlocks = true;
+        }
+
         // Check for 'new-instance NullPointerException' with 2 users, not declaring a local and
         // not ending the scope of any locals.
         if (instruction.isNewInstance()
@@ -295,6 +351,12 @@ public class CodeRewriter {
             }
           }
         }
+      }
+    }
+    if (shouldRemoveUnreachableBlocks) {
+      Set<Value> affectedValues = code.removeUnreachableBlocks();
+      if (!affectedValues.isEmpty()) {
+        new TypeAnalysis(appView).narrowing(affectedValues);
       }
     }
     assert code.isConsistentSSA();
@@ -843,7 +905,11 @@ public class CodeRewriter {
     return outliersAsIfSize;
   }
 
-  private boolean rewriteSwitch(IRCode code) {
+  public boolean rewriteSwitch(IRCode code) {
+    return rewriteSwitch(code, SwitchCaseAnalyzer.getInstance());
+  }
+
+  public boolean rewriteSwitch(IRCode code, SwitchCaseAnalyzer switchCaseAnalyzer) {
     if (!code.metadata().mayHaveIntSwitch()) {
       return false;
     }
@@ -859,7 +925,7 @@ public class CodeRewriter {
           IntSwitch theSwitch = instruction.asIntSwitch();
           if (options.testing.enableDeadSwitchCaseElimination) {
             SwitchCaseEliminator eliminator =
-                removeUnnecessarySwitchCases(code, theSwitch, iterator);
+                removeUnnecessarySwitchCases(code, theSwitch, iterator, switchCaseAnalyzer);
             if (eliminator != null) {
               if (eliminator.mayHaveIntroducedUnreachableBlocks()) {
                 needToRemoveUnreachableBlocks = true;
@@ -1004,7 +1070,10 @@ public class CodeRewriter {
   }
 
   private SwitchCaseEliminator removeUnnecessarySwitchCases(
-      IRCode code, IntSwitch theSwitch, InstructionListIterator iterator) {
+      IRCode code,
+      IntSwitch theSwitch,
+      InstructionListIterator iterator,
+      SwitchCaseAnalyzer switchCaseAnalyzer) {
     BasicBlock defaultTarget = theSwitch.fallthroughBlock();
     SwitchCaseEliminator eliminator = null;
     BasicBlockBehavioralSubsumption behavioralSubsumption =
@@ -1016,7 +1085,7 @@ public class CodeRewriter {
 
       // This switch case can be removed if the behavior of the target block is equivalent to the
       // behavior of the default block, or if the switch case is unreachable.
-      if (switchCaseIsUnreachable(theSwitch, i)
+      if (switchCaseAnalyzer.switchCaseIsUnreachable(theSwitch, i)
           || behavioralSubsumption.isSubsumedBy(targetBlock, defaultTarget)) {
         if (eliminator == null) {
           eliminator = new SwitchCaseEliminator(theSwitch, iterator);
@@ -1028,12 +1097,6 @@ public class CodeRewriter {
       eliminator.optimize();
     }
     return eliminator;
-  }
-
-  private boolean switchCaseIsUnreachable(IntSwitch theSwitch, int index) {
-    Value switchValue = theSwitch.value();
-    return switchValue.hasValueRange()
-        && !switchValue.getValueRange().containsValue(theSwitch.getKey(index));
   }
 
   /**
@@ -2701,7 +2764,10 @@ public class CodeRewriter {
         throwNullInsnIterator.replaceCurrentInstruction(notReachableThrow);
       }
     }
-    code.removeUnreachableBlocks();
+    Set<Value> affectedValues = code.removeUnreachableBlocks();
+    if (!affectedValues.isEmpty()) {
+      new TypeAnalysis(appView).narrowing(affectedValues);
+    }
     assert code.isConsistentSSA();
   }
 
@@ -2846,6 +2912,32 @@ public class CodeRewriter {
     deadTarget.unlinkSinglePredecessorSiblingsAllowed();
     assert theIf == block.exit();
     block.replaceLastInstruction(new Goto(), code);
+    assert block.exit().isGoto();
+    assert block.exit().asGoto().getTarget() == target;
+  }
+
+  private void rewriteIfToRequireNonNull(
+      BasicBlock block,
+      InstructionListIterator iterator,
+      If theIf,
+      BasicBlock target,
+      BasicBlock deadTarget,
+      Position position) {
+    deadTarget.unlinkSinglePredecessorSiblingsAllowed();
+    assert theIf == block.exit();
+    iterator.previous();
+    Instruction instruction;
+    if (appView.options().canUseRequireNonNull()) {
+      DexMethod requireNonNullMethod = appView.dexItemFactory().objectsMethods.requireNonNull;
+      instruction = new InvokeStatic(requireNonNullMethod, null, ImmutableList.of(theIf.lhs()));
+    } else {
+      DexMethod getClassMethod = appView.dexItemFactory().objectMembers.getClass;
+      instruction = new InvokeVirtual(getClassMethod, null, ImmutableList.of(theIf.lhs()));
+    }
+    instruction.setPosition(position);
+    iterator.add(instruction);
+    iterator.next();
+    iterator.replaceCurrentInstruction(new Goto());
     assert block.exit().isGoto();
     assert block.exit().asGoto().getTarget() == target;
   }
@@ -3280,8 +3372,9 @@ public class CodeRewriter {
         iterator = isNotNullBlock.listIterator(code);
         iterator.setInsertionPosition(position);
         value = code.createValue(TypeLatticeElement.classClassType(appView, definitelyNotNull()));
-        iterator.add(new InvokeVirtual(dexItemFactory.objectMethods.getClass, value,
-            ImmutableList.of(arguments.get(i))));
+        iterator.add(
+            new InvokeVirtual(
+                dexItemFactory.objectMembers.getClass, value, ImmutableList.of(arguments.get(i))));
         iterator.add(new InvokeVirtual(print, null, ImmutableList.of(out, value)));
       }
 

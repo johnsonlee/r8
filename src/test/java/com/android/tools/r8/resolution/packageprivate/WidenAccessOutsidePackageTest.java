@@ -5,6 +5,8 @@
 package com.android.tools.r8.resolution.packageprivate;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
@@ -14,7 +16,6 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.LookupResult;
@@ -24,9 +25,9 @@ import com.android.tools.r8.resolution.packageprivate.a.A.B;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -59,13 +60,17 @@ public class WidenAccessOutsidePackageTest extends TestBase {
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
     DexProgramClass context =
         appView.definitionForProgramType(buildType(A.class, appInfo.dexItemFactory()));
-    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appView);
-    Set<String> targets =
-        lookupResult.asLookupResultSuccess().getMethodTargets().stream()
-            .map(DexEncodedMethod::qualifiedName)
-            .collect(Collectors.toSet());
-    ImmutableSet<String> expected =
-        ImmutableSet.of(A.class.getTypeName() + ".bar", B.class.getTypeName() + ".bar");
+    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appInfo);
+    assertFalse(lookupResult.asLookupResultSuccess().hasLambdaTargets());
+    Set<String> targets = new HashSet<>();
+    lookupResult
+        .asLookupResultSuccess()
+        .forEach(
+            target -> targets.add(target.getMethod().qualifiedName()),
+            lambda -> {
+              fail();
+            });
+    ImmutableSet<String> expected = ImmutableSet.of(B.class.getTypeName() + ".bar");
     assertEquals(expected, targets);
   }
 
@@ -85,13 +90,12 @@ public class WidenAccessOutsidePackageTest extends TestBase {
 
   @Test
   public void testR8() throws ExecutionException, CompilationFailedException, IOException {
-    // TODO(b/149363086): Fix expectation.
     testForR8(parameters.getBackend())
         .addProgramClasses(A.class, B.class, C.class, Main.class)
         .setMinApi(parameters.getApiLevel())
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines(EXPECTED_DALVIK);
+        .assertSuccessWithOutputLines(EXPECTED);
   }
 
   public static class C extends B {

@@ -6,13 +6,13 @@ package com.android.tools.r8.resolution.virtualtargets;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -61,7 +62,8 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
         methodToBeKept,
         classToBeKept,
         Arrays.asList(expectedMethodHolders),
-        Arrays.asList(I.class, A.class, B.class, C.class));
+        Arrays.asList(I.class, A.class, B.class, C.class, Main.class),
+        Main.class);
   }
 
   private LookupResultSuccess testLookup(
@@ -69,7 +71,8 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
       Class<?> methodToBeKept,
       Class<?> classToBeKept,
       Collection<Class<?>> expectedMethodHolders,
-      Collection<Class<?>> classes)
+      Collection<Class<?>> classes,
+      Class<?> main)
       throws Exception {
     AppView<AppInfoWithLiveness> appView =
         computeAppViewWithLiveness(
@@ -78,6 +81,7 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
               List<ProguardConfigurationRule> rules = new ArrayList<>();
               rules.addAll(buildKeepRuleForClassAndMethods(methodToBeKept, factory));
               rules.addAll(buildKeepRuleForClass(classToBeKept, factory));
+              rules.addAll(buildKeepRuleForClassAndMethods(main, factory));
               return rules;
             });
     AppInfoWithLiveness appInfo = appView.appInfo();
@@ -85,13 +89,12 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
     DexProgramClass context =
         appView.definitionForProgramType(buildType(Unrelated.class, appInfo.dexItemFactory()));
-    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appView);
+    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appInfo);
     assertTrue(lookupResult.isLookupResultSuccess());
     LookupResultSuccess lookupResultSuccess = lookupResult.asLookupResultSuccess();
-    Set<String> targets =
-        lookupResultSuccess.getMethodTargets().stream()
-            .map(DexEncodedMethod::qualifiedName)
-            .collect(Collectors.toSet());
+    Set<String> targets = new HashSet<>();
+    lookupResult.forEach(
+        target -> targets.add(target.getMethod().qualifiedName()), lambda -> fail());
     Set<String> expected =
         expectedMethodHolders.stream()
             .map(c -> c.getTypeName() + ".foo")
@@ -237,19 +240,18 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
     LookupResult lookupResult =
         resolutionResult.lookupVirtualDispatchTargets(
             classB,
-            appView,
+            appInfo,
             (type, subTypeConsumer, callSiteConsumer) -> {
-              if (type == typeA) {
+              if (type == typeB) {
                 subTypeConsumer.accept(classB);
               }
             },
             reference -> false);
     assertTrue(lookupResult.isLookupResultSuccess());
     LookupResultSuccess lookupResultSuccess = lookupResult.asLookupResultSuccess();
-    Set<String> targets =
-        lookupResultSuccess.getMethodTargets().stream()
-            .map(DexEncodedMethod::qualifiedName)
-            .collect(Collectors.toSet());
+    Set<String> targets = new HashSet<>();
+    lookupResult.forEach(
+        target -> targets.add(target.getMethod().qualifiedName()), lambda -> fail());
     Set<String> expected = ImmutableSet.of(A.class.getTypeName() + ".foo");
     assertEquals(expected, targets);
     assertTrue(lookupResultSuccess.isComplete());
@@ -267,13 +269,12 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
     DexProgramClass context =
         appView.definitionForProgramType(buildType(Unrelated.class, appInfo.dexItemFactory()));
-    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appView);
+    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appInfo);
     assertTrue(lookupResult.isLookupResultSuccess());
     LookupResultSuccess lookupResultSuccess = lookupResult.asLookupResultSuccess();
-    Set<String> targets =
-        lookupResultSuccess.getMethodTargets().stream()
-            .map(DexEncodedMethod::qualifiedName)
-            .collect(Collectors.toSet());
+    Set<String> targets = new HashSet<>();
+    lookupResult.forEach(
+        target -> targets.add(target.getMethod().qualifiedName()), lambda -> fail());
     Set<String> expected = ImmutableSet.of(Unrelated.class.getTypeName() + ".foo");
     assertEquals(expected, targets);
     assertTrue(lookupResultSuccess.isIncomplete());
@@ -334,7 +335,8 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
                 I.class,
                 Z.class,
                 Collections.singleton(X.class),
-                Arrays.asList(X.class, I.class, Y.class, Z.class))
+                Arrays.asList(X.class, I.class, Y.class, Z.class),
+                MainXYZ.class)
             .isIncomplete());
   }
 
@@ -368,6 +370,17 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
     }
   }
 
+  public static class Main {
+
+    public static void main(String[] args) {
+      // This is necessary for considering the classes as instantiated.
+      new Unrelated();
+      new A();
+      new B();
+      new C();
+    }
+  }
+
   public static class X {
 
     public void foo() {
@@ -378,4 +391,14 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
   public static class Y extends X implements I {}
 
   public static class Z extends Y {}
+
+  public static class MainXYZ {
+
+    public static void main(String[] args) {
+      // This is necessary for considering the classes as instantiated.
+      new X();
+      new Y();
+      new Z();
+    }
+  }
 }

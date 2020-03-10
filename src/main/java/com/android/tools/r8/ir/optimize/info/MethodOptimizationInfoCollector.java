@@ -96,7 +96,6 @@ import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.Pair;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -412,6 +411,8 @@ public class MethodOptimizationInfoCollector {
       return null;
     }
 
+    AliasedValueConfiguration aliasesThroughAssumeAndCheckCasts =
+        AssumeAndCheckCastAliasedValueConfiguration.getInstance();
     Value receiver = code.getThis();
     boolean hasCatchHandler = false;
     for (BasicBlock block : code.blocks) {
@@ -487,12 +488,14 @@ public class MethodOptimizationInfoCollector {
               if (field == null) {
                 return null;
               }
-              if (instancePut.object().getAliasedValue() != receiver
+              Value object =
+                  instancePut.object().getAliasedValue(aliasesThroughAssumeAndCheckCasts);
+              if (object != receiver
                   || instancePut.instructionInstanceCanThrow(appView, clazz.type).isThrowing()) {
                 builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
               }
 
-              Value value = instancePut.value().getAliasedValue();
+              Value value = instancePut.value().getAliasedValue(aliasesThroughAssumeAndCheckCasts);
               // TODO(b/142762134): Replace the use of onlyDependsOnArgument() by
               //  ValueMayDependOnEnvironmentAnalysis.
               if (!value.onlyDependsOnArgument()) {
@@ -518,13 +521,14 @@ public class MethodOptimizationInfoCollector {
                 }
                 // java.lang.Enum.<init>() and java.lang.Object.<init>() are considered trivial.
                 if (invokedMethod == dexItemFactory.enumMethods.constructor
-                    || invokedMethod == dexItemFactory.objectMethods.constructor) {
+                    || invokedMethod == dexItemFactory.objectMembers.constructor) {
                   builder.setParent(invokedMethod);
                   break;
                 }
                 builder.merge(singleTarget.getOptimizationInfo().getInstanceInitializerInfo());
                 for (int i = 1; i < invoke.arguments().size(); i++) {
-                  Value argument = invoke.arguments().get(i).getAliasedValue();
+                  Value argument =
+                      invoke.arguments().get(i).getAliasedValue(aliasesThroughAssumeAndCheckCasts);
                   if (argument == receiver) {
                     // In the analysis of the parent constructor, we don't consider the non-receiver
                     // arguments as being aliases of the receiver. Therefore, we explicitly mark
@@ -543,7 +547,7 @@ public class MethodOptimizationInfoCollector {
                     .markAllFieldsAsRead()
                     .setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
                 for (Value inValue : invoke.inValues()) {
-                  if (inValue.getAliasedValue() == receiver) {
+                  if (inValue.getAliasedValue(aliasesThroughAssumeAndCheckCasts) == receiver) {
                     builder.setReceiverMayEscapeOutsideConstructorChain();
                     break;
                   }
@@ -559,7 +563,7 @@ public class MethodOptimizationInfoCollector {
                 builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
               }
               for (Value argument : invoke.arguments()) {
-                if (argument.getAliasedValue() == receiver) {
+                if (argument.getAliasedValue(aliasesThroughAssumeAndCheckCasts) == receiver) {
                   builder.setReceiverMayEscapeOutsideConstructorChain();
                   break;
                 }
@@ -576,7 +580,7 @@ public class MethodOptimizationInfoCollector {
                   .markAllFieldsAsRead()
                   .setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
               for (Value argument : invoke.arguments()) {
-                if (argument.getAliasedValue() == receiver) {
+                if (argument.getAliasedValue(aliasesThroughAssumeAndCheckCasts) == receiver) {
                   builder.setReceiverMayEscapeOutsideConstructorChain();
                   break;
                 }
@@ -783,7 +787,7 @@ public class MethodOptimizationInfoCollector {
           if (isInstantiationOfNullPointerException(instr, it, appView.dexItemFactory())) {
             it.next(); // Skip call to NullPointerException.<init>.
             return InstructionEffect.NO_EFFECT;
-          } else if (instr.throwsNpeIfValueIsNull(value, appView.dexItemFactory())) {
+          } else if (instr.throwsNpeIfValueIsNull(value, appView, code.method.holder())) {
             // In order to preserve NPE semantic, the exception must not be caught by any handler.
             // Therefore, we must ignore this instruction if it is covered by a catch handler.
             // Note: this is a conservative approach where we consider that any catch handler could
@@ -961,10 +965,14 @@ public class MethodOptimizationInfoCollector {
       // {v0}, T`.
       mayHaveSideEffects = true;
     } else {
+      mayHaveSideEffects = false;
       // Otherwise, check if there is an instruction that has side effects.
-      mayHaveSideEffects =
-          Streams.stream(code.instructions())
-              .anyMatch(instruction -> instruction.instructionMayHaveSideEffects(appView, context));
+      for (Instruction instruction : code.instructions()) {
+        if (instruction.instructionMayHaveSideEffects(appView, context)) {
+          mayHaveSideEffects = true;
+          break;
+        }
+      }
     }
     if (!mayHaveSideEffects) {
       feedback.methodMayNotHaveSideEffects(method);
@@ -981,13 +989,13 @@ public class MethodOptimizationInfoCollector {
         ResolutionResult resolutionResult =
             appView
                 .appInfo()
-                .resolveMethodOnClass(clazz, appView.dexItemFactory().objectMethods.finalize);
+                .resolveMethodOnClass(clazz, appView.dexItemFactory().objectMembers.finalize);
 
         DexEncodedMethod target = resolutionResult.getSingleTarget();
         if (target != null
             && target.method != dexItemFactory.enumMethods.finalize
-            && target.method != dexItemFactory.objectMethods.finalize) {
-            return true;
+            && target.method != dexItemFactory.objectMembers.finalize) {
+          return true;
         }
         return false;
       } else {

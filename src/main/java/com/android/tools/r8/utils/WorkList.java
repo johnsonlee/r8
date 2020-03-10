@@ -15,6 +15,16 @@ public class WorkList<T> {
   private final Deque<T> workingList = new ArrayDeque<>();
   private final Set<T> seen;
 
+  public static <T> WorkList<T> newEqualityWorkList() {
+    return new WorkList<T>(EqualityTest.HASH);
+  }
+
+  public static <T> WorkList<T> newEqualityWorkList(Iterable<T> items) {
+    WorkList<T> workList = new WorkList<>(EqualityTest.HASH);
+    workList.addIfNotSeen(items);
+    return workList;
+  }
+
   public static <T> WorkList<T> newIdentityWorkList() {
     return new WorkList<T>(EqualityTest.IDENTITY);
   }
@@ -43,10 +53,12 @@ public class WorkList<T> {
     }
   }
 
-  public void addIfNotSeen(T item) {
+  public boolean addIfNotSeen(T item) {
     if (seen.add(item)) {
       workingList.addLast(item);
+      return true;
     }
+    return false;
   }
 
   public boolean hasNext() {

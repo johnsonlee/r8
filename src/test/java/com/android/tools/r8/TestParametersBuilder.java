@@ -7,9 +7,12 @@ import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.TestRuntime.NoneRuntime;
 import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -147,8 +150,10 @@ public class TestParametersBuilder {
   private static final AndroidApiLevel lowestCompilerApiLevel = AndroidApiLevel.B;
 
   private boolean enableApiLevels = false;
+  private boolean enableApiLevelsForCf = false;
 
   private Predicate<AndroidApiLevel> apiLevelFilter = param -> false;
+  private List<AndroidApiLevel> explicitApiLevels = new ArrayList<>();
 
   private TestParametersBuilder withApiFilter(Predicate<AndroidApiLevel> filter) {
     enableApiLevels = true;
@@ -160,7 +165,13 @@ public class TestParametersBuilder {
     return withApiFilter(api -> true);
   }
 
+  public TestParametersBuilder withAllApiLevelsAlsoForCf() {
+    enableApiLevelsForCf = true;
+    return withAllApiLevels();
+  }
+
   public TestParametersBuilder withApiLevel(AndroidApiLevel api) {
+    explicitApiLevels.add(api);
     return withApiFilter(api::equals);
   }
 
@@ -190,8 +201,16 @@ public class TestParametersBuilder {
   }
 
   public Stream<TestParameters> createParameters(TestRuntime runtime) {
-    if (!enableApiLevels || !runtime.isDex()) {
+    if (!enableApiLevels) {
       return Stream.of(new TestParameters(runtime));
+    }
+    if (!runtime.isDex()) {
+      if (!enableApiLevelsForCf) {
+        return Stream.of(new TestParameters(runtime));
+      }
+      return Stream.of(
+          new TestParameters(runtime, AndroidApiLevel.B),
+          new TestParameters(runtime, AndroidApiLevel.LATEST));
     }
     List<AndroidApiLevel> sortedApiLevels =
         AndroidApiLevel.getAndroidApiLevelsSorted().stream()
@@ -210,9 +229,15 @@ public class TestParametersBuilder {
         AndroidApiLevel highestApplicable = sortedApiLevels.get(i);
         if (highestApplicable.getLevel() <= vmLevel.getLevel()
             && lowestApplicable != highestApplicable) {
-          return Stream.of(
-              new TestParameters(runtime, lowestApplicable),
-              new TestParameters(runtime, highestApplicable));
+          Set<AndroidApiLevel> set = new TreeSet<>();
+          set.add(lowestApplicable);
+          set.add(highestApplicable);
+          for (AndroidApiLevel explicitApiLevel : explicitApiLevels) {
+            if (explicitApiLevel.getLevel() <= vmLevel.getLevel()) {
+              set.add(explicitApiLevel);
+            }
+          }
+          return set.stream().map(api -> new TestParameters(runtime, api));
         }
       }
     }

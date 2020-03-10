@@ -28,7 +28,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.GraphLenseLookupResult;
-import com.android.tools.r8.graph.LookupResult;
+import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ResolutionResult;
@@ -45,6 +45,7 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.synthetic.AbstractSynthesizedCode;
 import com.android.tools.r8.ir.synthetic.ForwardMethodSourceCode;
 import com.android.tools.r8.logging.Log;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.FieldSignatureEquivalence;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.Timing;
@@ -499,8 +500,14 @@ public class VerticalClassMerger {
       if (!(method.accessFlags.isPublic() || method.accessFlags.isPrivate())) {
         return true;
       }
+      // Check if the target is overriding and narrowing the access.
+      if (method.accessFlags.isPublic()) {
+        DexEncodedMethod targetOverride = target.lookupVirtualMethod(method.method);
+        if (targetOverride != null && !targetOverride.accessFlags.isPublic()) {
+          return true;
+        }
+      }
     }
-
     // Check that all accesses from [source] to classes or members from the current package of
     // [source] will continue to work. This is guaranteed if the methods of [source] do not access
     // any private or protected classes or members from the current package of [source].
@@ -736,26 +743,34 @@ public class VerticalClassMerger {
       //   }
       for (DexEncodedMethod method : defaultMethods) {
         // Conservatively find all possible targets for this method.
-        LookupResult lookupResult =
+        LookupResultSuccess lookupResult =
             appInfo
                 .resolveMethodOnInterface(method.method.holder, method.method)
-                .lookupVirtualDispatchTargets(target, appView);
-        assert lookupResult.isLookupResultSuccess();
-        if (lookupResult.isLookupResultFailure()) {
+                .lookupVirtualDispatchTargets(target, appInfo)
+                .asLookupResultSuccess();
+        assert lookupResult != null;
+        if (lookupResult == null) {
           return true;
         }
-        assert lookupResult.isLookupResultSuccess();
-        Set<DexEncodedMethod> interfaceTargets =
-            lookupResult.asLookupResultSuccess().getMethodTargets();
-        // If [method] is not even an interface-target, then we can safely merge it. Otherwise we
-        // need to check for a conflict.
-        if (interfaceTargets.remove(method)) {
-          for (DexEncodedMethod interfaceTarget : interfaceTargets) {
-            DexClass enclosingClass = appInfo.definitionFor(interfaceTarget.method.holder);
-            if (enclosingClass != null && enclosingClass.isInterface()) {
-              // Found another default method that is different from the one in [source], aborting.
-              return true;
-            }
+        if (lookupResult.contains(method)) {
+          Box<Boolean> found = new Box<>(false);
+          lookupResult.forEach(
+              interfaceTarget -> {
+                if (interfaceTarget.getMethod() == method) {
+                  return;
+                }
+                DexClass enclosingClass = interfaceTarget.getHolder();
+                if (enclosingClass != null && enclosingClass.isInterface()) {
+                  // Found a default method that is different from the one in [source], aborting.
+                  found.set(true);
+                }
+              },
+              lambdaTarget -> {
+                // The merger should already have excluded lambda implemented interfaces.
+                assert false;
+              });
+          if (found.get()) {
+            return true;
           }
         }
       }

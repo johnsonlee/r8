@@ -8,14 +8,16 @@ import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.TypeAndLocalInfoSupplier;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
-public class SingleNumberValue extends SingleValue {
+public class SingleNumberValue extends SingleConstValue {
 
   private final long value;
 
@@ -78,5 +80,15 @@ public class SingleNumberValue extends SingleValue {
   @Override
   public boolean isMaterializableInContext(AppView<?> appView, DexType context) {
     return true;
+  }
+
+  @Override
+  public boolean isMaterializableInAllContexts(AppView<?> appView) {
+    return true;
+  }
+
+  @Override
+  public SingleValue rewrittenWithLens(AppView<AppInfoWithLiveness> appView, GraphLense lens) {
+    return this;
   }
 }

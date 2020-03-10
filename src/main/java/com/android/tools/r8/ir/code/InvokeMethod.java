@@ -5,6 +5,7 @@ package com.android.tools.r8.ir.code;
 
 import com.android.tools.r8.cf.LoadStoreHelper;
 import com.android.tools.r8.cf.TypeVerificationHelper;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -25,6 +26,7 @@ import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -89,12 +91,17 @@ public abstract class InvokeMethod extends Invoke {
             .appInfo()
             .resolveMethod(method.holder, method)
             .lookupVirtualDispatchTargets(
-                appView.definitionForProgramType(invocationContext), appView.withLiveness())
+                appView.definitionForProgramType(invocationContext),
+                appView.withLiveness().appInfo())
             .asLookupResultSuccess();
-    if (lookupResult == null) {
+    if (lookupResult == null || lookupResult.isEmpty()) {
       return null;
     }
-    assert lookupResult.getMethodTargets() != null;
+    assert lookupResult.hasMethodTargets();
+    if (lookupResult.hasLambdaTargets()) {
+      // TODO(b/150277553): Support lambda targets.
+      return null;
+    }
     DexType staticReceiverType = getInvokedMethod().holder;
     DexType refinedReceiverType =
         TypeAnalysis.getRefinedReceiverType(
@@ -107,17 +114,30 @@ public abstract class InvokeMethod extends Invoke {
       if (refinedResolution.isSingleResolution()) {
         DexEncodedMethod refinedTarget = refinedResolution.getSingleTarget();
         Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
-        for (DexEncodedMethod target : lookupResult.getMethodTargets()) {
-          if (target == refinedTarget
-              || appView.isSubtype(target.method.holder, refinedReceiverType).isPossiblyTrue()) {
-            result.add(target);
-          }
-        }
+        lookupResult.forEach(
+            methodTarget -> {
+              DexEncodedMethod target = methodTarget.getMethod();
+              if (target == refinedTarget
+                  || appView
+                      .isSubtype(target.method.holder, refinedReceiverType)
+                      .isPossiblyTrue()) {
+                result.add(target);
+              }
+            },
+            lambdaTarget -> {
+              throw new Unreachable();
+            });
         return result;
       }
       // If resolution at the refined type fails, conservatively return the full set of targets.
     }
-    return lookupResult.getMethodTargets();
+    Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
+    lookupResult.forEach(
+        methodTarget -> result.add(methodTarget.getMethod()),
+        lambda -> {
+          assert false;
+        });
+    return result;
   }
 
   public abstract InlineAction computeInlining(
@@ -201,5 +221,18 @@ public abstract class InvokeMethod extends Invoke {
     }
     assert lookupDirectTargetOnItself == hierarchyResult;
     return true;
+  }
+
+  @Override
+  public boolean throwsNpeIfValueIsNull(Value value, AppView<?> appView, DexType context) {
+    DexEncodedMethod singleTarget = lookupSingleTarget(appView, context);
+    if (singleTarget != null) {
+      BitSet nonNullParamOrThrow = singleTarget.getOptimizationInfo().getNonNullParamOrThrow();
+      if (nonNullParamOrThrow != null) {
+        int argumentIndex = inValues.indexOf(value);
+        return argumentIndex >= 0 && nonNullParamOrThrow.get(argumentIndex);
+      }
+    }
+    return false;
   }
 }

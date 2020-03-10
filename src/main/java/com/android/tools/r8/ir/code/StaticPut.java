@@ -30,7 +30,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.ProguardMemberRule;
 import com.google.common.collect.Sets;
 
-public class StaticPut extends FieldInstruction {
+public class StaticPut extends FieldInstruction implements StaticFieldInstruction {
 
   public StaticPut(Value source, DexField field) {
     super(field, null, source);
@@ -95,8 +95,15 @@ public class StaticPut extends FieldInstruction {
 
   @Override
   public boolean instructionMayHaveSideEffects(AppView<?> appView, DexType context) {
+    return instructionMayHaveSideEffects(appView, context, Assumption.NONE);
+  }
+
+  @Override
+  public boolean instructionMayHaveSideEffects(
+      AppView<?> appView, DexType context, Assumption assumption) {
     if (appView.appInfo().hasLiveness()) {
-      AppInfoWithLiveness appInfoWithLiveness = appView.appInfo().withLiveness();
+      AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+      AppInfoWithLiveness appInfoWithLiveness = appViewWithLiveness.appInfo();
       // MemberValuePropagation will replace the field read only if the target field has bound
       // -assumevalues rule whose return value is *single*.
       //
@@ -107,7 +114,7 @@ public class StaticPut extends FieldInstruction {
         return false;
       }
 
-      if (instructionInstanceCanThrow(appView, context).isThrowing()) {
+      if (instructionInstanceCanThrow(appView, context, assumption).isThrowing()) {
         return true;
       }
 
@@ -122,7 +129,7 @@ public class StaticPut extends FieldInstruction {
       }
 
       return appInfoWithLiveness.isFieldRead(encodedField)
-          || isStoringObjectWithFinalizer(appInfoWithLiveness);
+          || isStoringObjectWithFinalizer(appViewWithLiveness, encodedField);
     }
 
     // In D8, we always have to assume that the field can be read, and thus have side effects.
@@ -192,6 +199,11 @@ public class StaticPut extends FieldInstruction {
   @Override
   public String toString() {
     return super.toString() + "; field: " + getField().toSourceString();
+  }
+
+  @Override
+  public boolean isStaticFieldInstruction() {
+    return true;
   }
 
   @Override

@@ -188,8 +188,6 @@ def GenerateAdditionalProguardConfiguration(temp, outdir):
 # do Bug: #BUG in the commit message of disabling to ensure re-enabling
 DISABLED_PERMUTATIONS = [
   # (app, version, type), e.g., ('gmail', '180826.15', 'deploy'),
-  ('youtube', '13.37', 'deploy'), # b/120977564
-  ('youtube', '15.08', 'deploy'), # b/150267318
   ('youtube', '15.09', 'deploy'), # b/150267318
 ]
 
@@ -517,14 +515,6 @@ def run_with_options(options, args, extra_args=None, stdout=None, quiet=False):
         args.extend(['--main-dex-rules', rules])
     if 'allow-type-errors' in values:
       extra_args.append('-Dcom.android.tools.r8.allowTypeErrors=1')
-    if 'proto-shrinking' in values:
-      extra_args.append('-Dcom.android.tools.r8.applyInliningToInlinee=1')
-      extra_args.append('-Dcom.android.tools.r8.fieldBitAccessAnalysis=1')
-      extra_args.append('-Dcom.android.tools.r8.generatedExtensionRegistryShrinking=1')
-      extra_args.append('-Dcom.android.tools.r8.generatedMessageLiteShrinking=1')
-      extra_args.append('-Dcom.android.tools.r8.generatedMessageLiteBuilderShrinking=1')
-      extra_args.append('-Dcom.android.tools.r8.stringSwitchConversion=1')
-      extra_args.append('-Dcom.android.tools.r8.traverseOneOfAndRepeatedProtoFields=0')
 
   if not options.no_libraries:
     for lib in libraries:

@@ -7,22 +7,23 @@ import static com.android.tools.r8.KotlinCompilerTool.KOTLINC;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isExtensionFunction;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isRenamed;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
-import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
+import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.KmFunctionSubject;
 import com.android.tools.r8.utils.codeinspector.KmPackageSubject;
+import com.android.tools.r8.utils.codeinspector.KmTypeProjectionSubject;
+import com.android.tools.r8.utils.codeinspector.KmTypeSubject;
 import com.android.tools.r8.utils.codeinspector.KmValueParameterSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.nio.file.Path;
@@ -37,6 +38,7 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class MetadataRewriteInFunctionWithDefaultValueTest extends KotlinMetadataTestBase {
+  private static final String EXPECTED = StringUtils.lines("a", "b", "c");
 
   private final TestParameters parameters;
 
@@ -75,27 +77,25 @@ public class MetadataRewriteInFunctionWithDefaultValueTest extends KotlinMetadat
             // Keep LibKt and applyMap function, along with applyMap$default
             .addKeepRules("-keep class **.LibKt { *** applyMap*(...); }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
+            .addKeepAttributes(ProguardKeepAttributes.SIGNATURE)
+            .addKeepAttributes(ProguardKeepAttributes.INNER_CLASSES)
+            .addKeepAttributes(ProguardKeepAttributes.ENCLOSING_METHOD)
             .compile()
             .inspect(this::inspect)
             .writeToZip();
 
-    ProcessResult kotlinTestCompileResult =
+    Path output =
         kotlinc(parameters.getRuntime().asCf(), KOTLINC, targetVersion)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/default_value_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
-            // TODO(b/70169921): update to just .compile() once fixed.
-            .compileRaw();
+            .compile();
 
-    // TODO(b/70169921): should be able to compile!
-    assertNotEquals(0, kotlinTestCompileResult.exitCode);
-    assertThat(
-        kotlinTestCompileResult.stderr,
-        containsString("type mismatch: inferred type is kotlin.collections.Map<String, String"));
-    assertThat(
-        kotlinTestCompileResult.stderr, containsString("but java.util.Map<K, V> was expected"));
-    assertThat(
-        kotlinTestCompileResult.stderr, not(containsString("no value passed for parameter 'p2'")));
+    testForJvm()
+        .addRunClasspathFiles(ToolHelper.getKotlinStdlibJar(), libJar)
+        .addClasspath(output)
+        .run(parameters.getRuntime(), PKG + ".default_value_app.MainKt")
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   private void inspect(CodeInspector inspector) {
@@ -116,13 +116,24 @@ public class MetadataRewriteInFunctionWithDefaultValueTest extends KotlinMetadat
     KmPackageSubject kmPackage = libKt.getKmPackage();
     assertThat(kmPackage, isPresent());
 
+    // String applyMap(Map<String, String>, (default) String)
     KmFunctionSubject kmFunction = kmPackage.kmFunctionExtensionWithUniqueName("applyMap");
     assertThat(kmFunction, isExtensionFunction());
     List<KmValueParameterSubject> valueParameters = kmFunction.valueParameters();
     assertEquals(2, valueParameters.size());
-    // TODO(b/70169921): inspect 1st arg is Map with correct type parameter.
-    KmValueParameterSubject valueParameter = valueParameters.get(1);
+
+    KmValueParameterSubject valueParameter = valueParameters.get(0);
+    assertFalse(valueParameter.declaresDefaultValue());
+    assertEquals(KT_MAP, valueParameter.type().descriptor());
+    List<KmTypeProjectionSubject> typeArguments = valueParameter.type().typeArguments();
+    assertEquals(2, typeArguments.size());
+    KmTypeSubject typeArgument = typeArguments.get(0).type();
+    assertEquals(KT_STRING, typeArgument.descriptor());
+    typeArgument = typeArguments.get(1).type();
+    assertEquals(KT_STRING, typeArgument.descriptor());
+
+    valueParameter = valueParameters.get(1);
     assertTrue(valueParameter.declaresDefaultValue());
-    assertEquals("Lkotlin/String;", valueParameter.type().descriptor());
+    assertEquals(KT_STRING, valueParameter.type().descriptor());
   }
 }

@@ -7,6 +7,7 @@ package com.android.tools.r8.resolution.virtualtargets;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
@@ -18,7 +19,6 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.LookupResult;
@@ -30,9 +30,9 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -44,8 +44,8 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
   private static final String[] EXPECTED =
       new String[] {"ViewModel.clear()", "MyViewModel.clear()", "ViewModel.clear()"};
 
-  private static final String[] R8_OUTPUT =
-      new String[] {"MyViewModel.clear()", "MyViewModel.clear()", "MyViewModel.clear()"};
+  private static final String[] AMBIGUOUS_EXPECTED_OUTPUT =
+      new String[] {"ViewModel.clear()", "MyViewModel.clear()", "MyViewModel.clear()"};
 
   private final TestParameters parameters;
 
@@ -72,12 +72,11 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
     DexProgramClass context =
         appView.definitionForProgramType(
             buildType(ViewModelRunner.class, appInfo.dexItemFactory()));
-    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appView);
+    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appInfo);
     assertTrue(lookupResult.isLookupResultSuccess());
-    Set<String> targets =
-        lookupResult.asLookupResultSuccess().getMethodTargets().stream()
-            .map(DexEncodedMethod::qualifiedName)
-            .collect(Collectors.toSet());
+    Set<String> targets = new HashSet<>();
+    lookupResult.forEach(
+        target -> targets.add(target.getMethod().qualifiedName()), lambda -> fail());
     ImmutableSet<String> expected = ImmutableSet.of(ViewModel.class.getTypeName() + ".clear");
     assertEquals(expected, targets);
   }
@@ -99,13 +98,12 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
 
   @Test
   public void testR8() throws ExecutionException, CompilationFailedException, IOException {
-    // TODO(b/148429150): Fix R8 to output expected.
     testForR8(parameters.getBackend())
         .addProgramClasses(MyViewModel.class, Main.class, ViewModel.class, ViewModelRunner.class)
         .addKeepMainRule(Main.class)
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines(R8_OUTPUT);
+        .assertSuccessWithOutputLines(EXPECTED);
   }
 
   @Test
@@ -121,7 +119,7 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
     DexProgramClass context =
         appView.definitionForProgramType(buildType(Main.class, appInfo.dexItemFactory()));
-    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appView);
+    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appInfo);
     assertTrue(lookupResult.isLookupResultFailure());
   }
 
@@ -137,21 +135,20 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
         && parameters.getRuntime().asDex().getVm().isOlderThanOrEqual(DexVm.ART_4_4_4_TARGET)) {
       runResult.assertFailureWithErrorThatMatches(containsString("clear overrides final"));
     } else {
-      runResult.assertFailureWithErrorThatMatches(containsString("java.lang.IllegalAccessError"));
+      runResult.assertFailureWithErrorThatThrows(IllegalAccessError.class);
     }
   }
 
   @Test
   public void testR8WithInvalidInvoke()
       throws ExecutionException, CompilationFailedException, IOException {
-    // TODO(b/148429150): Fix R8 to output expected.
     testForR8(parameters.getBackend())
         .addProgramClasses(MyViewModel.class, ViewModel.class, ViewModelRunner.class)
         .addProgramClassFileData(getModifiedMainWithIllegalInvokeToViewModelClear())
         .addKeepMainRule(Main.class)
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), Main.class)
-        .assertFailureWithErrorThatMatches(containsString("java.lang.NullPointerException"));
+        .assertFailureWithErrorThatThrows(IllegalAccessError.class);
   }
 
   @Test
@@ -169,12 +166,11 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
     DexProgramClass context =
         appView.definitionForProgramType(
             buildType(ViewModelRunnerWithCast.class, appInfo.dexItemFactory()));
-    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appView);
+    LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appInfo);
     assertTrue(lookupResult.isLookupResultSuccess());
-    Set<String> targets =
-        lookupResult.asLookupResultSuccess().getMethodTargets().stream()
-            .map(DexEncodedMethod::qualifiedName)
-            .collect(Collectors.toSet());
+    Set<String> targets = new HashSet<>();
+    lookupResult.forEach(
+        target -> targets.add(target.getMethod().qualifiedName()), lambda -> fail());
     ImmutableSet<String> expected = ImmutableSet.of(ViewModel.class.getTypeName() + ".clear");
     assertEquals(expected, targets);
   }
@@ -191,22 +187,20 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
         && parameters.getRuntime().asDex().getVm().isOlderThanOrEqual(DexVm.ART_4_4_4_TARGET)) {
       runResult.assertFailureWithErrorThatMatches(containsString("clear overrides final"));
     } else {
-      runResult.assertSuccessWithOutputLines(
-          "ViewModel.clear()", "MyViewModel.clear()", "MyViewModel.clear()");
+      runResult.assertSuccessWithOutputLines(AMBIGUOUS_EXPECTED_OUTPUT);
     }
   }
 
   @Test
   public void testR8WithAmbiguousInvoke()
       throws ExecutionException, CompilationFailedException, IOException {
-    // TODO(b/148429150): Fix R8 to output expected.
     testForR8(parameters.getBackend())
         .addProgramClasses(MyViewModel.class, ViewModel.class, Main.class)
         .addProgramClassFileData(getModifiedViewModelRunnerWithDirectMyViewModelTarget())
         .addKeepMainRule(Main.class)
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines(R8_OUTPUT);
+        .assertSuccessWithOutputLines(AMBIGUOUS_EXPECTED_OUTPUT);
   }
 
   private byte[] getModifiedMainWithIllegalInvokeToViewModelClear() throws IOException {

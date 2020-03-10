@@ -6,6 +6,7 @@ package com.android.tools.r8.graph;
 import static com.android.tools.r8.ir.desugar.LambdaRewriter.LAMBDA_GROUP_CLASS_NAME_PREFIX;
 
 import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
+import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.annotations.VisibleForTesting;
@@ -40,7 +41,7 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy
   public void forEachInstantiatedSubType(
       DexType type,
       Consumer<DexProgramClass> subTypeConsumer,
-      Consumer<DexCallSite> callSiteConsumer) {
+      Consumer<LambdaDescriptor> lambdaConsumer) {
     WorkList<DexType> workList = WorkList.newIdentityWorkList();
     workList.addIfNotSeen(type);
     while (workList.hasNext()) {
@@ -52,7 +53,7 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy
       workList.addIfNotSeen(allImmediateSubtypes(subType));
     }
     // TODO(b/148769279): Change this when we have information about callsites.
-    callSiteConsumer.accept(null);
+    //  This should effectively disappear once AppInfoWithLiveness implements support.
   }
 
   private static class TypeInfo {
@@ -356,7 +357,7 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy
     return true;
   }
 
-  protected boolean hasAnyInstantiatedLambdas(DexProgramClass clazz) {
+  public boolean hasAnyInstantiatedLambdas(DexProgramClass clazz) {
     assert checkIfObsolete();
     return true; // Don't know, there might be.
   }
@@ -480,9 +481,8 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy
   }
 
   public boolean mayHaveFinalizeMethodDirectlyOrIndirectly(ClassTypeLatticeElement type) {
-    Set<DexType> interfaces = type.getInterfaces();
-    if (!interfaces.isEmpty()) {
-      for (DexType interfaceType : interfaces) {
+    if (type.getClassType() == dexItemFactory().objectType && !type.getInterfaces().isEmpty()) {
+      for (DexType interfaceType : type.getInterfaces()) {
         if (computeMayHaveFinalizeMethodDirectlyOrIndirectlyIfAbsent(interfaceType, false)) {
           return true;
         }
@@ -509,13 +509,13 @@ public class AppInfoWithSubtyping extends AppInfoWithClassHierarchy
     if (clazz.isProgramClass()) {
       if (lookUpwards) {
         DexEncodedMethod resolutionResult =
-            resolveMethod(type, dexItemFactory().objectMethods.finalize).getSingleTarget();
+            resolveMethod(type, dexItemFactory().objectMembers.finalize).getSingleTarget();
         if (resolutionResult != null && resolutionResult.isProgramMethod(this)) {
           mayHaveFinalizeMethodDirectlyOrIndirectlyCache.put(type, true);
           return true;
         }
       } else {
-        if (clazz.lookupVirtualMethod(dexItemFactory().objectMethods.finalize) != null) {
+        if (clazz.lookupVirtualMethod(dexItemFactory().objectMembers.finalize) != null) {
           mayHaveFinalizeMethodDirectlyOrIndirectlyCache.put(type, true);
           return true;
         }
