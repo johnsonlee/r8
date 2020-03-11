@@ -59,6 +59,8 @@ import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.code.AliasedValueConfiguration;
+import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.DominatorTree;
 import com.android.tools.r8.ir.code.FieldInstruction;
@@ -384,6 +386,8 @@ public class MethodOptimizationInfoCollector {
       return null;
     }
 
+    AliasedValueConfiguration aliasesThroughAssumeAndCheckCasts =
+        AssumeAndCheckCastAliasedValueConfiguration.getInstance();
     NonTrivialInstanceInitializerInfo.Builder builder = NonTrivialInstanceInitializerInfo.builder();
     Value receiver = code.getThis();
     boolean hasCatchHandler = false;
@@ -460,12 +464,14 @@ public class MethodOptimizationInfoCollector {
               if (field == null) {
                 return null;
               }
-              if (instancePut.object().getAliasedValue() != receiver
+              Value object =
+                  instancePut.object().getAliasedValue(aliasesThroughAssumeAndCheckCasts);
+              if (object != receiver
                   || instancePut.instructionInstanceCanThrow(appView, clazz.type).isThrowing()) {
                 builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
               }
 
-              Value value = instancePut.value().getAliasedValue();
+              Value value = instancePut.value().getAliasedValue(aliasesThroughAssumeAndCheckCasts);
               // TODO(b/142762134): Replace the use of onlyDependsOnArgument() by
               //  ValueMayDependOnEnvironmentAnalysis.
               if (!value.onlyDependsOnArgument()) {
@@ -497,7 +503,8 @@ public class MethodOptimizationInfoCollector {
                 }
                 builder.merge(singleTarget.getOptimizationInfo().getInstanceInitializerInfo());
                 for (int i = 1; i < invoke.arguments().size(); i++) {
-                  Value argument = invoke.arguments().get(i).getAliasedValue();
+                  Value argument =
+                      invoke.arguments().get(i).getAliasedValue(aliasesThroughAssumeAndCheckCasts);
                   if (argument == receiver) {
                     // In the analysis of the parent constructor, we don't consider the non-receiver
                     // arguments as being aliases of the receiver. Therefore, we explicitly mark
@@ -516,7 +523,7 @@ public class MethodOptimizationInfoCollector {
                     .markAllFieldsAsRead()
                     .setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
                 for (Value inValue : invoke.inValues()) {
-                  if (inValue.getAliasedValue() == receiver) {
+                  if (inValue.getAliasedValue(aliasesThroughAssumeAndCheckCasts) == receiver) {
                     builder.setReceiverMayEscapeOutsideConstructorChain();
                     break;
                   }
@@ -532,7 +539,7 @@ public class MethodOptimizationInfoCollector {
                 builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
               }
               for (Value argument : invoke.arguments()) {
-                if (argument.getAliasedValue() == receiver) {
+                if (argument.getAliasedValue(aliasesThroughAssumeAndCheckCasts) == receiver) {
                   builder.setReceiverMayEscapeOutsideConstructorChain();
                   break;
                 }
@@ -549,7 +556,7 @@ public class MethodOptimizationInfoCollector {
                   .markAllFieldsAsRead()
                   .setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
               for (Value argument : invoke.arguments()) {
-                if (argument.getAliasedValue() == receiver) {
+                if (argument.getAliasedValue(aliasesThroughAssumeAndCheckCasts) == receiver) {
                   builder.setReceiverMayEscapeOutsideConstructorChain();
                   break;
                 }

@@ -264,25 +264,31 @@ public class Value implements Comparable<Value> {
    * <p>This method is useful to find the "true" definition of a value inside the current method.
    */
   public Value getAliasedValue() {
-    return getAliasedValue(Predicates.alwaysFalse());
+    return getAliasedValue(
+        DefaultAliasedValueConfiguration.getInstance(), Predicates.alwaysFalse());
   }
 
-  public Value getAliasedValue(Predicate<Value> stoppingCriterion) {
+  public Value getAliasedValue(AliasedValueConfiguration configuration) {
+    return getAliasedValue(configuration, Predicates.alwaysFalse());
+  }
+
+  public Value getAliasedValue(
+      AliasedValueConfiguration configuration, Predicate<Value> stoppingCriterion) {
     assert stoppingCriterion != null;
     Set<Value> visited = Sets.newIdentityHashSet();
     Value lastAliasedValue;
     Value aliasedValue = this;
     do {
-      if (stoppingCriterion.test(aliasedValue)) {
-        return aliasedValue;
-      }
       lastAliasedValue = aliasedValue;
       if (aliasedValue.isPhi()) {
         return aliasedValue;
       }
+      if (stoppingCriterion.test(aliasedValue)) {
+        return aliasedValue;
+      }
       Instruction definitionOfAliasedValue = aliasedValue.definition;
-      if (definitionOfAliasedValue.isIntroducingAnAlias()) {
-        aliasedValue = definitionOfAliasedValue.getAliasForOutValue();
+      if (configuration.isIntroducingAnAlias(definitionOfAliasedValue)) {
+        aliasedValue = configuration.getAliasForOutValue(definitionOfAliasedValue);
 
         // There shouldn't be a cycle.
         assert visited.add(aliasedValue);
@@ -293,7 +299,8 @@ public class Value implements Comparable<Value> {
   }
 
   public Value getSpecificAliasedValue(Predicate<Value> stoppingCriterion) {
-    Value aliasedValue = getAliasedValue(stoppingCriterion);
+    Value aliasedValue =
+        getAliasedValue(DefaultAliasedValueConfiguration.getInstance(), stoppingCriterion);
     return stoppingCriterion.test(aliasedValue) ? aliasedValue : null;
   }
 
