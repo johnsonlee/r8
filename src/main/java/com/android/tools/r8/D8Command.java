@@ -6,6 +6,8 @@ package com.android.tools.r8;
 import com.android.tools.r8.AssertionsConfiguration.AssertionTransformation;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.inspector.Inspector;
+import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryConfiguration;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -15,10 +17,12 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.DesugarState;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.android.tools.r8.utils.ThreadUtils;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 
 /**
  * Immutable command structure for an invocation of the {@link D8} compiler.
@@ -35,13 +39,6 @@ import java.util.function.BiPredicate;
  */
 @Keep
 public final class D8Command extends BaseCompilerCommand {
-
-  private static class ClasspathInputOrigin extends InputFileOrigin {
-
-    public ClasspathInputOrigin(Path file) {
-      super("classpath input", file);
-    }
-  }
 
   private static class DefaultD8DiagnosticsHandler implements DiagnosticsHandler {
 
@@ -229,6 +226,8 @@ public final class D8Command extends BaseCompilerCommand {
           desugaredLibraryKeepRuleConsumer,
           libraryConfiguration,
           getAssertionsConfiguration(),
+          getOutputInspections(),
+          getThreadCount(),
           factory);
     }
   }
@@ -297,6 +296,8 @@ public final class D8Command extends BaseCompilerCommand {
       StringConsumer desugaredLibraryKeepRuleConsumer,
       DesugaredLibraryConfiguration libraryConfiguration,
       List<AssertionsConfiguration> assertionsConfiguration,
+      List<Consumer<Inspector>> outputInspections,
+      int threadCount,
       DexItemFactory factory) {
     super(
         inputApp,
@@ -309,7 +310,9 @@ public final class D8Command extends BaseCompilerCommand {
         optimizeMultidexForLinearAlloc,
         encodeChecksum,
         dexClassChecksumFilter,
-        assertionsConfiguration);
+        assertionsConfiguration,
+        outputInspections,
+        threadCount);
     this.intermediate = intermediate;
     this.desugarGraphConsumer = desugarGraphConsumer;
     this.desugaredLibraryKeepRuleConsumer = desugaredLibraryKeepRuleConsumer;
@@ -378,6 +381,11 @@ public final class D8Command extends BaseCompilerCommand {
     internal.assertionsConfiguration =
         new AssertionConfigurationWithDefault(
             AssertionTransformation.DISABLE, getAssertionsConfiguration());
+
+    internal.outputInspections = InspectorImpl.wrapInspections(getOutputInspections());
+
+    assert internal.threadCount == ThreadUtils.NOT_SPECIFIED;
+    internal.threadCount = getThreadCount();
 
     return internal;
   }

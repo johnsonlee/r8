@@ -44,6 +44,7 @@ import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.PredicateSet;
 import com.android.tools.r8.utils.SetUtils;
+import com.android.tools.r8.utils.Visibility;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
@@ -165,6 +166,11 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
   /** Set of const-class references. */
   public final Set<DexType> constClassReferences;
   /**
+   * A map from seen init-class references to the minimum required visibility of the corresponding
+   * static field.
+   */
+  public final Map<DexType, Visibility> initClassReferences;
+  /**
    * All methods and fields whose value *must* never be propagated due to a configuration directive.
    * (testing only).
    */
@@ -183,6 +189,9 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
   final EnumValueInfoMapCollection enumValueInfoMaps;
 
   final Set<DexType> instantiatedLambdas;
+
+  /* A cache to improve the lookup performance of lookupSingleVirtualTarget */
+  private final SingleTargetLookupCache singleTargetLookupCache = new SingleTargetLookupCache();
 
   // TODO(zerny): Clean up the constructors so we have just one.
   AppInfoWithLiveness(
@@ -225,7 +234,8 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
       Map<DexField, Int2ReferenceMap<DexField>> switchMaps,
       EnumValueInfoMapCollection enumValueInfoMaps,
       Set<DexType> instantiatedLambdas,
-      Set<DexType> constClassReferences) {
+      Set<DexType> constClassReferences,
+      Map<DexType, Visibility> initClassReferences) {
     super(application);
     this.missingTypes = missingTypes;
     this.liveTypes = liveTypes;
@@ -266,6 +276,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
     this.enumValueInfoMaps = enumValueInfoMaps;
     this.instantiatedLambdas = instantiatedLambdas;
     this.constClassReferences = constClassReferences;
+    this.initClassReferences = initClassReferences;
   }
 
   public AppInfoWithLiveness(
@@ -308,7 +319,8 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
       Map<DexField, Int2ReferenceMap<DexField>> switchMaps,
       EnumValueInfoMapCollection enumValueInfoMaps,
       Set<DexType> instantiatedLambdas,
-      Set<DexType> constClassReferences) {
+      Set<DexType> constClassReferences,
+      Map<DexType, Visibility> initClassReferences) {
     super(appInfoWithSubtyping);
     this.missingTypes = missingTypes;
     this.liveTypes = liveTypes;
@@ -349,6 +361,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
     this.enumValueInfoMaps = enumValueInfoMaps;
     this.instantiatedLambdas = instantiatedLambdas;
     this.constClassReferences = constClassReferences;
+    this.initClassReferences = initClassReferences;
   }
 
   private AppInfoWithLiveness(AppInfoWithLiveness previous) {
@@ -392,7 +405,8 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
         previous.switchMaps,
         previous.enumValueInfoMaps,
         previous.instantiatedLambdas,
-        previous.constClassReferences);
+        previous.constClassReferences,
+        previous.initClassReferences);
     copyMetadataFromPrevious(previous);
   }
 
@@ -445,7 +459,8 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
         previous.switchMaps,
         previous.enumValueInfoMaps,
         previous.instantiatedLambdas,
-        previous.constClassReferences);
+        previous.constClassReferences,
+        previous.initClassReferences);
     copyMetadataFromPrevious(previous);
     assert removedClasses == null || assertNoItemRemoved(previous.pinnedItems, removedClasses);
   }
@@ -494,23 +509,15 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
     this.switchMaps = switchMaps;
     this.enumValueInfoMaps = enumValueInfoMaps;
     this.constClassReferences = previous.constClassReferences;
+    this.initClassReferences = previous.initClassReferences;
     previous.markObsolete();
   }
 
+  // TODO(b/150736225): Don't disable this assert.
   private boolean dontAssertDefinitionFor = true;
 
   public static AppInfoWithLivenessModifier modifier() {
     return new AppInfoWithLivenessModifier();
-  }
-
-  @Override
-  public void enableDefinitionForAssert() {
-    dontAssertDefinitionFor = false;
-  }
-
-  @Override
-  public void disableDefinitionForAssert() {
-    dontAssertDefinitionFor = true;
   }
 
   @Override
@@ -730,6 +737,10 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
 
   ObjectAllocationInfoCollectionImpl getMutableObjectAllocationInfoCollection() {
     return objectAllocationInfoCollection;
+  }
+
+  void removeFromSingleTargetLookupCache(DexClass clazz) {
+    singleTargetLookupCache.removeInstantiatedType(clazz.type, this);
   }
 
   private boolean assertNoItemRemoved(Collection<DexReference> items, Collection<DexType> types) {
@@ -1069,7 +1080,8 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
         rewriteReferenceKeys(switchMaps, lens::lookupField),
         enumValueInfoMaps.rewrittenWithLens(lens),
         rewriteItems(instantiatedLambdas, lens::lookupType),
-        constClassReferences);
+        rewriteItems(constClassReferences, lens::lookupType),
+        rewriteReferenceKeys(initClassReferences, lens::lookupType));
   }
 
   /**
@@ -1112,31 +1124,6 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
     }
   }
 
-  private DexEncodedMethod validateSingleVirtualTarget(
-      DexEncodedMethod singleTarget, DexEncodedMethod resolutionResult) {
-    assert resolutionResult.isVirtualMethod();
-
-    if (singleTarget == null || singleTarget == DexEncodedMethod.SENTINEL) {
-      return null;
-    }
-
-    // Art978_virtual_interfaceTest correctly expects an IncompatibleClassChangeError exception
-    // at runtime.
-    if (isInvalidSingleVirtualTarget(singleTarget, resolutionResult)) {
-      return null;
-    }
-
-    return singleTarget;
-  }
-
-  private boolean isInvalidSingleVirtualTarget(
-      DexEncodedMethod singleTarget, DexEncodedMethod resolutionResult) {
-    assert resolutionResult.isVirtualMethod();
-    // Art978_virtual_interfaceTest correctly expects an IncompatibleClassChangeError exception
-    // at runtime.
-    return !singleTarget.accessFlags.isAtLeastAsVisibleAs(resolutionResult.accessFlags);
-  }
-
   /** For mapping invoke virtual instruction to single target method. */
   public DexEncodedMethod lookupSingleVirtualTarget(
       DexMethod method, DexType invocationContext, boolean isInterface) {
@@ -1174,25 +1161,87 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
       // (it is either primitive or array).
       return null;
     }
+    DexClass initialResolutionHolder = definitionFor(method.holder);
+    if (initialResolutionHolder == null || initialResolutionHolder.isInterface() != isInterface) {
+      return null;
+    }
     DexClass refinedReceiverClass = definitionFor(refinedReceiverType);
     if (refinedReceiverClass == null) {
       // The refined receiver is not defined in the program and we cannot determine the target.
       return null;
     }
+    if (receiverLowerBoundType == null
+        && singleTargetLookupCache.hasCachedItem(refinedReceiverType, method)) {
+      DexEncodedMethod cachedItem =
+          singleTargetLookupCache.getCachedItem(refinedReceiverType, method);
+      return cachedItem;
+    }
     SingleResolutionResult resolution =
-        resolveMethod(method.holder, method, isInterface).asSingleResolution();
+        resolveMethod(initialResolutionHolder, method).asSingleResolution();
     if (resolution == null
         || !resolution.isAccessibleForVirtualDispatchFrom(invocationClass, this)) {
       return null;
     }
     // If the method is modeled, return the resolution.
+    DexEncodedMethod resolvedMethod = resolution.getResolvedMethod();
     if (modeledPredicate.isModeled(resolution.getResolvedHolder().type)) {
       if (resolution.getResolvedHolder().isFinal()
-          || (resolution.getResolvedMethod().isFinal()
-              && resolution.getResolvedMethod().accessFlags.isPublic())) {
-        return resolution.getResolvedMethod();
+          || (resolvedMethod.isFinal() && resolvedMethod.accessFlags.isPublic())) {
+        singleTargetLookupCache.addToCache(refinedReceiverType, method, resolvedMethod);
+        return resolvedMethod;
       }
     }
+    DexEncodedMethod exactTarget =
+        getMethodTargetFromExactRuntimeInformation(
+            refinedReceiverType, receiverLowerBoundType, resolution, refinedReceiverClass);
+    if (exactTarget != null) {
+      // We are not caching single targets here because the cache does not include the
+      // lower bound dimension.
+      return exactTarget == DexEncodedMethod.SENTINEL ? null : exactTarget;
+    }
+    if (refinedReceiverClass.isNotProgramClass()) {
+      // The refined receiver is not defined in the program and we cannot determine the target.
+      singleTargetLookupCache.addToCache(refinedReceiverType, method, null);
+      return null;
+    }
+    DexClass resolvedHolder = resolution.getResolvedHolder();
+    // TODO(b/148769279): Disable lookup single target on lambda's for now.
+    if (resolvedHolder.isInterface()
+        && resolvedHolder.isProgramClass()
+        && hasAnyInstantiatedLambdas(resolvedHolder.asProgramClass())) {
+      singleTargetLookupCache.addToCache(refinedReceiverType, method, null);
+      return null;
+    }
+    DexEncodedMethod singleMethodTarget = null;
+    DexProgramClass refinedLowerBound = null;
+    if (receiverLowerBoundType != null) {
+      DexClass refinedLowerBoundClass = definitionFor(receiverLowerBoundType.getClassType());
+      if (refinedLowerBoundClass != null) {
+        refinedLowerBound = refinedLowerBoundClass.asProgramClass();
+      }
+    }
+    LookupResultSuccess lookupResult =
+        resolution
+            .lookupVirtualDispatchTargets(
+                invocationClass, this, refinedReceiverClass.asProgramClass(), refinedLowerBound)
+            .asLookupResultSuccess();
+    if (lookupResult != null && !lookupResult.isIncomplete()) {
+      LookupTarget singleTarget = lookupResult.getSingleLookupTarget();
+      if (singleTarget != null && singleTarget.isMethodTarget()) {
+        singleMethodTarget = singleTarget.asMethodTarget().getMethod();
+      }
+    }
+    if (receiverLowerBoundType == null) {
+      singleTargetLookupCache.addToCache(refinedReceiverType, method, singleMethodTarget);
+    }
+    return singleMethodTarget;
+  }
+
+  private DexEncodedMethod getMethodTargetFromExactRuntimeInformation(
+      DexType refinedReceiverType,
+      ClassTypeLatticeElement receiverLowerBoundType,
+      SingleResolutionResult resolution,
+      DexClass refinedReceiverClass) {
     // If the lower-bound on the receiver type is the same as the upper-bound, then we have exact
     // runtime type information. In this case, the invoke will dispatch to the resolution result
     // from the runtime type of the receiver.
@@ -1203,7 +1252,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
             resolution.lookupVirtualDispatchTarget(refinedReceiverClass.asProgramClass(), this);
         if (clazzAndMethod == null || isPinned(clazzAndMethod.getMethod().method)) {
           // TODO(b/150640456): We should maybe only consider program methods.
-          return null;
+          return DexEncodedMethod.SENTINEL;
         }
         return clazzAndMethod.getMethod();
       } else {
@@ -1211,56 +1260,16 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
         // If we resolved to a method on the refined receiver in the library, then we report the
         // method as a single target as well. This is a bit iffy since the library could change
         // implementation, but we use this for library modelling.
-        DexEncodedMethod targetOnReceiver = refinedReceiverClass.lookupVirtualMethod(method);
-        if (targetOnReceiver != null
-            && isOverriding(resolution.getResolvedMethod(), targetOnReceiver)) {
+        DexEncodedMethod resolvedMethod = resolution.getResolvedMethod();
+        DexEncodedMethod targetOnReceiver =
+            refinedReceiverClass.lookupVirtualMethod(resolvedMethod.method);
+        if (targetOnReceiver != null && isOverriding(resolvedMethod, targetOnReceiver)) {
           return targetOnReceiver;
         }
-        return null;
+        return DexEncodedMethod.SENTINEL;
       }
     }
-    if (refinedReceiverClass.isNotProgramClass()) {
-      // The refined receiver is not defined in the program and we cannot determine the target.
-      return null;
-    }
-    DexClass resolvedHolder = resolution.getResolvedHolder();
-    // TODO(b/148769279): Disable lookup single target on lambda's for now.
-    if (resolvedHolder.isInterface()
-        && resolvedHolder.isProgramClass()
-        && hasAnyInstantiatedLambdas(resolvedHolder.asProgramClass())) {
-      return null;
-    }
-
-    if (method.isSingleVirtualMethodCached(refinedReceiverType)) {
-      return method.getSingleVirtualMethodCache(refinedReceiverType);
-    }
-
-    DexProgramClass refinedLowerBound = null;
-    if (receiverLowerBoundType != null) {
-      assert receiverLowerBoundType.isClassType();
-      DexClass refinedLowerBoundClass = definitionFor(receiverLowerBoundType.getClassType());
-      if (refinedLowerBoundClass != null) {
-        refinedLowerBound = refinedLowerBoundClass.asProgramClass();
-      }
-    }
-
-    LookupResultSuccess lookupResult =
-        resolution
-            .lookupVirtualDispatchTargets(
-                invocationClass, this, refinedReceiverClass.asProgramClass(), refinedLowerBound)
-            .asLookupResultSuccess();
-
-    if (lookupResult == null || lookupResult.isIncomplete()) {
-      return null;
-    }
-
-    LookupTarget singleTarget = lookupResult.getSingleLookupTarget();
-    DexEncodedMethod singleMethodTarget = null;
-    if (singleTarget != null && singleTarget.isMethodTarget()) {
-      singleMethodTarget = singleTarget.asMethodTarget().getMethod();
-    }
-    method.setSingleVirtualMethodCache(refinedReceiverType, singleMethodTarget);
-    return singleMethodTarget;
+    return null;
   }
 
   public AppInfoWithLiveness withSwitchMaps(Map<DexField, Int2ReferenceMap<DexField>> switchMaps) {
@@ -1273,12 +1282,6 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
     assert checkIfObsolete();
     assert this.enumValueInfoMaps.isEmpty();
     return new AppInfoWithLiveness(this, switchMaps, enumValueInfoMaps);
-  }
-
-  public void forEachLiveProgramClass(Consumer<DexProgramClass> fn) {
-    for (DexType type : liveTypes) {
-      fn.accept(definitionFor(type).asProgramClass());
-    }
   }
 
   /**
@@ -1363,12 +1366,30 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
       if (clazz == null) {
         continue;
       }
-      if (isInstantiatedDirectly(clazz)
-          || isPinned(clazz.type)
-          || hasAnyInstantiatedLambdas(clazz)) {
+      if (isInstantiatedOrPinned(clazz)) {
         subTypeConsumer.accept(clazz);
       }
     }
+  }
+
+  public void forEachInstantiatedSubTypeInChain(
+      DexProgramClass refinedReceiverUpperBound,
+      DexProgramClass refinedReceiverLowerBound,
+      Consumer<DexProgramClass> subTypeConsumer,
+      Consumer<LambdaDescriptor> callSiteConsumer) {
+    List<DexProgramClass> subTypes =
+        computeProgramClassRelationChain(refinedReceiverLowerBound, refinedReceiverUpperBound);
+    for (DexProgramClass subType : subTypes) {
+      if (isInstantiatedOrPinned(subType)) {
+        subTypeConsumer.accept(subType);
+      }
+    }
+  }
+
+  private boolean isInstantiatedOrPinned(DexProgramClass clazz) {
+    return isInstantiatedDirectly(clazz)
+        || isPinned(clazz.type)
+        || hasAnyInstantiatedLambdas(clazz);
   }
 
   public boolean isPinnedNotProgramOrLibraryOverride(DexReference reference) {

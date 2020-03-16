@@ -55,7 +55,7 @@ public class FoundKmClassSubject extends KmClassSubject
 
   @Override
   public boolean isSynthetic() {
-    // TODO(b/70169921): This should return `true` conditionally if we start synthesizing @Metadata
+    // TODO(b/151194785): This should return `true` conditionally if we start synthesizing @Metadata
     //   from scratch.
     return false;
   }
@@ -109,5 +109,10 @@ public class FoundKmClassSubject extends KmClassSubject
         .map(DescriptorUtils::getDescriptorFromKotlinClassifier)
         .map(this::getClassSubjectFromDescriptor)
         .collect(Collectors.toList());
+  }
+
+  @Override
+  public String getCompanionObject() {
+    return kmClass.getCompanionObject();
   }
 }

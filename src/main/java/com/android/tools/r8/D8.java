@@ -16,7 +16,9 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
+import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.PrefixRewritingMapper;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
@@ -220,6 +222,7 @@ public final class D8 {
         markers.add(marker);
       }
 
+      InspectorImpl.runInspections(options.outputInspections, app);
       if (options.isGeneratingClassFiles()) {
         new CfApplicationWriter(
                 app,
@@ -237,6 +240,7 @@ public final class D8 {
                 options,
                 marker == null ? null : ImmutableList.copyOf(markers),
                 GraphLense.getIdentityLense(),
+                InitClassLens.getDefault(),
                 PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView),
                 null)
             .write(executor);

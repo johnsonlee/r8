@@ -71,6 +71,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.ImpreciseMemberTypeInstruction;
+import com.android.tools.r8.ir.code.InitClass;
 import com.android.tools.r8.ir.code.InstanceGet;
 import com.android.tools.r8.ir.code.InstanceOf;
 import com.android.tools.r8.ir.code.InstancePut;
@@ -687,7 +688,7 @@ public class IRBuilder {
       block.deduplicatePhis();
     }
 
-    ir.removeAllTrivialPhis(this);
+    ir.removeAllDeadAndTrivialPhis(this);
     ir.removeUnreachableBlocks();
 
     // Compute precise types for all values.
@@ -1793,6 +1794,13 @@ public class IRBuilder {
     attachLocalValues(ret);
     source.buildPostlude(this);
     closeCurrentBlock(ret);
+  }
+
+  public void addInitClass(int dest, DexType clazz) {
+    Value out = writeRegister(dest, TypeLatticeElement.getInt(), ThrowingInfo.CAN_THROW);
+    InitClass instruction = new InitClass(out, clazz);
+    assert instruction.instructionTypeCanThrow();
+    addInstruction(instruction);
   }
 
   public void addStaticGet(int dest, DexField field) {

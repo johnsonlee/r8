@@ -23,12 +23,13 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.retrace.RetraceMethodResult;
+import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
-import com.android.tools.r8.utils.codeinspector.Matchers.InlinePosition;
+import com.android.tools.r8.utils.codeinspector.Matchers.LinePosition;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
@@ -41,6 +42,7 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class DexPcWithDebugInfoForOverloadedMethodsTestRunner extends TestBase {
 
+  private static final String FILENAME_INLINE = "InlineFunction.kt";
   private static final Class<?> MAIN = DexPcWithDebugInfoForOverloadedMethodsTest.class;
   private static final int MINIFIED_LINE_POSITION = 6;
   private static final String EXPECTED = "java.lang.RuntimeException: overloaded(String)42";
@@ -66,6 +68,7 @@ public class DexPcWithDebugInfoForOverloadedMethodsTestRunner extends TestBase {
         .addKeepMainRule(MAIN)
         .addKeepMethodRules(MAIN, "void overloaded(...)")
         .addKeepAttributeLineNumberTable()
+        .addKeepAttributes(ProguardKeepAttributes.SOURCE_FILE)
         .setMinApi(parameters.getApiLevel())
         .addOptionsModification(
             internalOptions -> {
@@ -86,18 +89,20 @@ public class DexPcWithDebugInfoForOverloadedMethodsTestRunner extends TestBase {
               MethodSubject throwingSubject =
                   codeInspector.clazz(MAIN).method("void", "overloaded", "java.lang.String");
               assertThat(throwingSubject, isPresent());
-              InlinePosition inlineStack =
-                  InlinePosition.stack(
-                      InlinePosition.create(
+              LinePosition inlineStack =
+                  LinePosition.stack(
+                      LinePosition.create(
                           Reference.methodFromMethod(
                               MAIN.getDeclaredMethod("inlinee", String.class)),
                           MINIFIED_LINE_POSITION,
-                          11),
-                      InlinePosition.create(
+                          11,
+                          FILENAME_INLINE),
+                      LinePosition.create(
                           Reference.methodFromMethod(
                               MAIN.getDeclaredMethod("overloaded", String.class)),
                           MINIFIED_LINE_POSITION,
-                          20));
+                          20,
+                          FILENAME_INLINE));
               RetraceMethodResult retraceResult =
                   throwingSubject
                       .streamInstructions()

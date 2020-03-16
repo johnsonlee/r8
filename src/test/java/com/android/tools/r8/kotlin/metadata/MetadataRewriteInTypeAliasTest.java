@@ -12,9 +12,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotEquals;
 
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
+import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.KmPackageSubject;
@@ -30,6 +32,9 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class MetadataRewriteInTypeAliasTest extends KotlinMetadataTestBase {
+  private static final String EXPECTED =
+      StringUtils.lines("Impl::foo", "Program::foo", "true", "42");
+
   private final TestParameters parameters;
 
   @Parameterized.Parameters(name = "{0} target: {1}")
@@ -59,6 +64,24 @@ public class MetadataRewriteInTypeAliasTest extends KotlinMetadataTestBase {
   }
 
   @Test
+  public void smokeTest() throws Exception {
+    Path libJar = typeAliasLibJarMap.get(targetVersion);
+
+    Path output =
+        kotlinc(parameters.getRuntime().asCf(), KOTLINC, targetVersion)
+            .addClasspathFiles(libJar)
+            .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/typealias_app", "main"))
+            .setOutputPath(temp.newFolder().toPath())
+            .compile();
+
+    testForJvm()
+        .addRunClasspathFiles(ToolHelper.getKotlinStdlibJar(), libJar)
+        .addClasspath(output)
+        .run(parameters.getRuntime(), PKG + ".typealias_app.MainKt")
+        .assertSuccessWithOutput(EXPECTED);
+  }
+
+  @Test
   public void testMetadataInTypeAlias_renamed() throws Exception {
     Path libJar =
         testForR8(parameters.getBackend())
@@ -79,9 +102,9 @@ public class MetadataRewriteInTypeAliasTest extends KotlinMetadataTestBase {
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/typealias_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
-            // TODO(b/70169921): update to just .compile() once fixed.
+            // TODO(b/151194785): update to just .compile() once fixed.
             .compileRaw();
-    // TODO(b/70169921): should be able to compile!
+    // TODO(b/151194785): should be able to compile!
     assertNotEquals(0, kotlinTestCompileResult.exitCode);
     assertThat(
         kotlinTestCompileResult.stderr,
@@ -107,6 +130,6 @@ public class MetadataRewriteInTypeAliasTest extends KotlinMetadataTestBase {
     // API entry is kept, hence the presence of Metadata.
     KmPackageSubject kmPackage = libKt.getKmPackage();
     assertThat(kmPackage, isPresent());
-    // TODO(b/70169921): need further inspection: many kinds of type appearances in typealias.
+    // TODO(b/151194785): need further inspection: many kinds of type appearances in typealias.
   }
 }

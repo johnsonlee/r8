@@ -34,6 +34,7 @@ import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
@@ -69,6 +70,7 @@ public class ApplicationWriter {
   public final DexApplication application;
   public final AppView<?> appView;
   public final GraphLense graphLense;
+  public final InitClassLens initClassLens;
   public final NamingLens namingLens;
   public final InternalOptions options;
   private final CodeToKeep desugaredLibraryCodeToKeep;
@@ -80,10 +82,16 @@ public class ApplicationWriter {
 
   private static class SortAnnotations extends MixedSectionCollection {
 
+    private final NamingLens namingLens;
+
+    public SortAnnotations(NamingLens namingLens) {
+      this.namingLens = namingLens;
+    }
+
     @Override
     public boolean add(DexAnnotationSet dexAnnotationSet) {
       // Annotation sets are sorted by annotation types.
-      dexAnnotationSet.sort();
+      dexAnnotationSet.sort(namingLens);
       return true;
     }
 
@@ -141,6 +149,7 @@ public class ApplicationWriter {
       InternalOptions options,
       List<Marker> markers,
       GraphLense graphLense,
+      InitClassLens initClassLens,
       NamingLens namingLens,
       ProguardMapSupplier proguardMapSupplier) {
     this(
@@ -149,6 +158,7 @@ public class ApplicationWriter {
         options,
         markers,
         graphLense,
+        initClassLens,
         namingLens,
         proguardMapSupplier,
         null);
@@ -160,6 +170,7 @@ public class ApplicationWriter {
       InternalOptions options,
       List<Marker> markers,
       GraphLense graphLense,
+      InitClassLens initClassLens,
       NamingLens namingLens,
       ProguardMapSupplier proguardMapSupplier,
       DexIndexedConsumer consumer) {
@@ -171,6 +182,7 @@ public class ApplicationWriter {
     this.desugaredLibraryCodeToKeep = CodeToKeep.createCodeToKeep(options, namingLens);
     this.markers = markers;
     this.graphLense = graphLense;
+    this.initClassLens = initClassLens;
     this.namingLens = namingLens;
     this.proguardMapSupplier = proguardMapSupplier;
     this.programConsumer = consumer;
@@ -238,6 +250,7 @@ public class ApplicationWriter {
       }
     }
     try {
+      // TODO(b/151313715): Move this to the writer threads.
       insertAttributeAnnotations();
 
       // Generate the dex file contents.
@@ -246,21 +259,12 @@ public class ApplicationWriter {
       if (options.encodeChecksums) {
         encodeChecksums(virtualFiles);
       }
-      // TODO(b/149190785): Only sort the live program!
-      if (appView != null) {
-        appView.appInfo().disableDefinitionForAssert();
-      }
-      namingLens.setIsSortingBeforeWriting(true);
-      application.dexItemFactory.sort(namingLens);
-      namingLens.setIsSortingBeforeWriting(false);
-      if (appView != null) {
-        appView.appInfo().enableDefinitionForAssert();
-      }
       assert markers == null
           || markers.isEmpty()
           || application.dexItemFactory.extractMarkers() != null;
 
-      SortAnnotations sortAnnotations = new SortAnnotations();
+      // TODO(b/151313617): Sorting annotations mutates elements so run single threaded on main.
+      SortAnnotations sortAnnotations = new SortAnnotations(namingLens);
       application.classes().forEach((clazz) -> clazz.addDependencies(sortAnnotations));
 
       for (VirtualFile virtualFile : virtualFiles) {
@@ -290,7 +294,8 @@ public class ApplicationWriter {
                       byteBufferProvider = options.getDexIndexedConsumer();
                     }
                   }
-                  ObjectToOffsetMapping objectMapping = virtualFile.computeMapping(application);
+                  ObjectToOffsetMapping objectMapping =
+                      virtualFile.computeMapping(application, namingLens, initClassLens);
                   MethodToCodeObjectMapping codeMapping =
                       rewriteCodeWithJumboStrings(
                           objectMapping, virtualFile.classes(), application);

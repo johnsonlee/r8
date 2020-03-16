@@ -66,6 +66,24 @@ public class MetadataRewriteInFunctionTest extends KotlinMetadataTestBase {
   }
 
   @Test
+  public void smokeTest() throws Exception {
+    Path libJar = funLibJarMap.get(targetVersion);
+
+    Path output =
+        kotlinc(parameters.getRuntime().asCf(), KOTLINC, targetVersion)
+            .addClasspathFiles(libJar)
+            .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/function_app", "main"))
+            .setOutputPath(temp.newFolder().toPath())
+            .compile();
+
+    testForJvm()
+        .addRunClasspathFiles(ToolHelper.getKotlinStdlibJar(), libJar)
+        .addClasspath(output)
+        .run(parameters.getRuntime(), PKG + ".function_app.MainKt")
+        .assertSuccessWithOutput(EXPECTED);
+  }
+
+  @Test
   public void testMetadataInFunction_merged() throws Exception {
     Path libJar =
         testForR8(parameters.getBackend())
@@ -170,7 +188,7 @@ public class MetadataRewriteInFunctionTest extends KotlinMetadataTestBase {
     KmClassSubject kmClass = sup.getKmClass();
     assertThat(kmClass, isPresent());
 
-    // TODO(b/70169921): would be better to look up function with the original name, "foo".
+    // TODO(b/151194869): would be better to look up function with the original name, "foo".
     KmFunctionSubject kmFunction = kmClass.kmFunctionWithUniqueName(foo.getFinalName());
     assertThat(kmFunction, isPresent());
     assertThat(kmFunction, not(isExtensionFunction()));

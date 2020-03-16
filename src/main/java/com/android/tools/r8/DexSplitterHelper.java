@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.naming.NamingLens;
@@ -82,8 +83,6 @@ public final class DexSplitterHelper {
           getDistribution(app, featureClassMapping, mapper);
       for (Entry<String, LazyLoadedDexApplication.Builder> entry : applications.entrySet()) {
         DexApplication featureApp = entry.getValue().build();
-        // We use the same factory, reset sorting.
-        featureApp.dexItemFactory.resetSortedIndices();
         assert !options.hasMethodsFilter();
 
         // Run d8 optimize to ensure jumbo strings are handled.
@@ -103,6 +102,7 @@ public final class DexSplitterHelper {
                   options,
                   markers,
                   GraphLense.getIdentityLense(),
+                  InitClassLens.getDefault(),
                   NamingLens.getIdentityLens(),
                   null,
                   consumer)

@@ -16,10 +16,12 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.AnnotationSubject;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -39,6 +41,7 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class MetadataRewriteInMultifileClassTest extends KotlinMetadataTestBase {
+  private static final String EXPECTED = StringUtils.lines(", 1, 2, 3");
 
   private final TestParameters parameters;
 
@@ -71,6 +74,24 @@ public class MetadataRewriteInMultifileClassTest extends KotlinMetadataTestBase 
   }
 
   @Test
+  public void smokeTest() throws Exception {
+    Path libJar = multifileLibJarMap.get(targetVersion);
+
+    Path output =
+        kotlinc(parameters.getRuntime().asCf(), KOTLINC, targetVersion)
+            .addClasspathFiles(libJar)
+            .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/multifileclass_app", "main"))
+            .setOutputPath(temp.newFolder().toPath())
+            .compile();
+
+    testForJvm()
+        .addRunClasspathFiles(ToolHelper.getKotlinStdlibJar(), libJar)
+        .addClasspath(output)
+        .run(parameters.getRuntime(), PKG + ".multifileclass_app.MainKt")
+        .assertSuccessWithOutput(EXPECTED);
+  }
+
+  @Test
   public void testMetadataInMultifileClass_merged() throws Exception {
     Path libJar =
         testForR8(parameters.getBackend())
@@ -88,9 +109,9 @@ public class MetadataRewriteInMultifileClassTest extends KotlinMetadataTestBase 
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/multifileclass_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
-            // TODO(b/70169921): update to just .compile() once fixed.
+            // TODO(b/151193860): update to just .compile() once fixed.
             .compileRaw();
-    // TODO(b/70169921): should be able to compile!
+    // TODO(b/151193860): should be able to compile!
     assertNotEquals(0, kotlinTestCompileResult.exitCode);
     assertThat(kotlinTestCompileResult.stderr, containsString("unresolved reference: join"));
   }
@@ -133,9 +154,9 @@ public class MetadataRewriteInMultifileClassTest extends KotlinMetadataTestBase 
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/multifileclass_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
-            // TODO(b/70169921): update to just .compile() once fixed.
+            // TODO(b/151193860): update to just .compile() once fixed.
             .compileRaw();
-    // TODO(b/70169921): should be able to compile!
+    // TODO(b/151193860): should be able to compile!
     assertNotEquals(0, kotlinTestCompileResult.exitCode);
     assertThat(kotlinTestCompileResult.stderr, containsString("unresolved reference: join"));
   }
@@ -193,7 +214,7 @@ public class MetadataRewriteInMultifileClassTest extends KotlinMetadataTestBase 
         kmPackage.kmFunctionExtensionWithUniqueName("commaSeparatedJoinOfInt");
     assertThat(kmFunction, isPresent());
     assertThat(kmFunction, isExtensionFunction());
-    // TODO(b/70169921): Inspect that parameter type has a correct type argument, Int.
-    // TODO(b/70169921): Inspect that the name in KmFunction is still 'join' so that apps can refer.
+    // TODO(b/151193860): Inspect parameter type has a correct type argument, Int.
+    // TODO(b/151193860): Inspect the name in KmFunction is still 'join' so that apps can refer.
   }
 }

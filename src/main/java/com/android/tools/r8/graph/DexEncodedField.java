@@ -80,6 +80,10 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     return kotlinMemberInfo.memberKind.isBackingField();
   }
 
+  public boolean isKotlinBackingFieldForCompanionObject() {
+    return kotlinMemberInfo.memberKind.isBackingFieldForCompanionObject();
+  }
+
   @Override
   public void collectIndexedItems(
       IndexedItemCollection indexedItems, DexMethod method, int instructionOffset) {
@@ -134,8 +138,16 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     return accessFlags.isStatic();
   }
 
+  public boolean isPackagePrivate() {
+    return accessFlags.isPackagePrivate();
+  }
+
   public boolean isPrivate() {
     return accessFlags.isPrivate();
+  }
+
+  public boolean isProtected() {
+    return accessFlags.isProtected();
   }
 
   public boolean isPublic() {
@@ -253,5 +265,20 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
             ? optimizationInfo.asMutableFieldOptimizationInfo().mutableCopy()
             : DefaultFieldOptimizationInfo.getInstance();
     return result;
+  }
+
+  public boolean validateDexValue(DexItemFactory factory) {
+    if (!accessFlags.isStatic() || staticValue == null) {
+      return true;
+    }
+    if (field.type.isPrimitiveType()) {
+      assert staticValue.getType(factory) == field.type
+          : "Static " + field + " has invalid static value " + staticValue + ".";
+    }
+    if (staticValue.isDexValueNull()) {
+      assert field.type.isReferenceType() : "Static " + field + " has invalid null static value.";
+    }
+    // TODO(b/150593449): Support non primitive DexValue (String, enum) and add assertions.
+    return true;
   }
 }

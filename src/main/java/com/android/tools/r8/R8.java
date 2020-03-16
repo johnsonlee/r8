@@ -28,8 +28,10 @@ import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.EnumValueInfoMapCollection;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
+import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
+import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.analysis.proto.GeneratedExtensionRegistryShrinker;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
@@ -46,9 +48,7 @@ import com.android.tools.r8.ir.optimize.UnusedArgumentsCollector.UnusedArguments
 import com.android.tools.r8.ir.optimize.enums.EnumValueInfoMapCollector;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.jar.CfApplicationWriter;
-import com.android.tools.r8.kotlin.Kotlin;
-import com.android.tools.r8.kotlin.KotlinInfo;
-import com.android.tools.r8.kotlin.KotlinMemberInfo;
+import com.android.tools.r8.kotlin.KotlinInfoCollector;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.naming.Minifier;
@@ -66,6 +66,7 @@ import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.shaking.AbstractMethodRemover;
 import com.android.tools.r8.shaking.AnnotationRemover;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.ClassInitFieldSynthesizer;
 import com.android.tools.r8.shaking.DefaultTreePrunerConfiguration;
 import com.android.tools.r8.shaking.DiscardedChecker;
 import com.android.tools.r8.shaking.Enqueuer;
@@ -91,7 +92,6 @@ import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.LineNumberOptimizer;
-import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SelfRetraceTest;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -155,7 +155,6 @@ public class R8 {
       System.gc();
     }
     timing = Timing.create("R8", options);
-    options.itemFactory.resetSortedIndices();
   }
 
   /**
@@ -197,10 +196,12 @@ public class R8 {
       DexApplication application,
       AppView<?> appView,
       GraphLense graphLense,
+      InitClassLens initClassLens,
       NamingLens namingLens,
       InternalOptions options,
       ProguardMapSupplier proguardMapSupplier)
       throws ExecutionException {
+    InspectorImpl.runInspections(options.outputInspections, application);
     try {
       Marker marker = options.getMarker(Tool.R8);
       assert marker != null;
@@ -215,6 +216,7 @@ public class R8 {
                 options,
                 Collections.singletonList(marker),
                 graphLense,
+                initClassLens,
                 namingLens,
                 proguardMapSupplier)
             .write(executorService);
@@ -309,7 +311,8 @@ public class R8 {
 
         // Compute kotlin info before setting the roots and before
         // kotlin metadata annotation is removed.
-        computeKotlinInfoForProgramClasses(application, appView, executorService);
+        KotlinInfoCollector.computeKotlinInfoForProgramClasses(
+            application, appView, executorService);
 
         // Add synthesized -assumenosideeffects from min api if relevant.
         if (options.isGeneratingDex()) {
@@ -613,9 +616,7 @@ public class R8 {
 
       appView.setAppInfo(new AppInfoWithSubtyping(application));
 
-      if (options.isShrinking()
-          || options.isMinifying()
-          || options.getProguardConfiguration().hasApplyMappingFile()) {
+      if (options.shouldRerunEnqueuer()) {
         timing.begin("Post optimization code stripping");
         try {
           GraphConsumer keptGraphConsumer = null;
@@ -699,6 +700,9 @@ public class R8 {
               // Remove types that no longer exists from the computed main dex list.
               mainDexClasses = mainDexClasses.prunedCopy(appView.appInfo().withLiveness());
             }
+
+            // Synthesize fields for triggering class initializers.
+            new ClassInitFieldSynthesizer(appViewWithLiveness).run(executorService);
           }
         } finally {
           timing.end();
@@ -819,6 +823,7 @@ public class R8 {
           application,
           appView,
           appView.graphLense(),
+          appView.initClassLens(),
           PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView, namingLens),
           options,
           proguardMapSupplier);
@@ -911,24 +916,6 @@ public class R8 {
     if (!options.testing.allowCheckDiscardedErrors) {
       throw new CompilationError("Discard checks failed.");
     }
-  }
-
-  private void computeKotlinInfoForProgramClasses(
-      DexApplication application, AppView<?> appView, ExecutorService executorService)
-      throws ExecutionException {
-    if (appView.options().kotlinOptimizationOptions().disableKotlinSpecificOptimizations) {
-      return;
-    }
-    Kotlin kotlin = appView.dexItemFactory().kotlin;
-    Reporter reporter = options.reporter;
-    ThreadUtils.processItems(
-        application.classes(),
-        programClass -> {
-          KotlinInfo kotlinInfo = kotlin.getKotlinInfo(programClass, reporter);
-          programClass.setKotlinInfo(kotlinInfo);
-          KotlinMemberInfo.markKotlinMemberInfo(programClass, kotlinInfo, reporter);
-        },
-        executorService);
   }
 
   private static boolean verifyNoJarApplicationReaders(List<DexProgramClass> classes) {

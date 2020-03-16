@@ -5,7 +5,7 @@
 package com.android.tools.r8.desugar.desugaredlibrary.r8ondex;
 
 import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.R8;
 import com.android.tools.r8.TestParameters;

@@ -7,6 +7,7 @@ import com.android.tools.r8.AssertionsConfiguration.AssertionTransformation;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.inspector.Inspector;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryConfiguration;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApp;
@@ -16,11 +17,13 @@ import com.android.tools.r8.utils.InternalOptions.DesugarState;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.android.tools.r8.utils.ThreadUtils;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 
 /** Immutable command structure for an invocation of the {@link L8} library compiler. */
 @Keep
@@ -83,6 +86,8 @@ public final class L8Command extends BaseCompilerCommand {
       Reporter diagnosticsHandler,
       DesugaredLibraryConfiguration libraryConfiguration,
       List<AssertionsConfiguration> assertionsConfiguration,
+      List<Consumer<Inspector>> outputInspections,
+      int threadCount,
       DexItemFactory factory) {
     super(
         inputApp,
@@ -95,7 +100,9 @@ public final class L8Command extends BaseCompilerCommand {
         false,
         false,
         (name, checksum) -> true,
-        assertionsConfiguration);
+        assertionsConfiguration,
+        outputInspections,
+        threadCount);
     this.d8Command = d8Command;
     this.r8Command = r8Command;
     this.libraryConfiguration = libraryConfiguration;
@@ -179,6 +186,9 @@ public final class L8Command extends BaseCompilerCommand {
     internal.assertionsConfiguration =
         new AssertionConfigurationWithDefault(
             AssertionTransformation.DISABLE, getAssertionsConfiguration());
+
+    assert internal.threadCount == ThreadUtils.NOT_SPECIFIED;
+    internal.threadCount = getThreadCount();
 
     return internal;
   }
@@ -317,6 +327,8 @@ public final class L8Command extends BaseCompilerCommand {
           getReporter(),
           libraryConfiguration,
           getAssertionsConfiguration(),
+          getOutputInspections(),
+          getThreadCount(),
           factory);
     }
   }

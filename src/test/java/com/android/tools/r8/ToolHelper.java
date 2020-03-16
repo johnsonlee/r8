@@ -21,6 +21,7 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
@@ -246,6 +247,10 @@ public class ToolHelper {
 
       Version(String shortName) {
         this.shortName = shortName;
+      }
+
+      public boolean isDalvik() {
+        return isOlderThanOrEqual(Version.V4_4_4);
       }
 
       public boolean isLatest() {
@@ -2075,6 +2080,7 @@ public class ToolHelper {
         application,
         null,
         GraphLense.getIdentityLense(),
+        InitClassLens.getDefault(),
         NamingLens.getIdentityLens(),
         options,
         null);

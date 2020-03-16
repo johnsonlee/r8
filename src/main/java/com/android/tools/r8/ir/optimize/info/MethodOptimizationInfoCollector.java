@@ -19,6 +19,7 @@ import static com.android.tools.r8.ir.code.Opcodes.DEX_ITEM_BASED_CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.DIV;
 import static com.android.tools.r8.ir.code.Opcodes.GOTO;
 import static com.android.tools.r8.ir.code.Opcodes.IF;
+import static com.android.tools.r8.ir.code.Opcodes.INIT_CLASS;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_GET;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_OF;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_PUT;
@@ -94,6 +95,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.Pair;
+import com.android.tools.r8.utils.WorkList;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
@@ -286,9 +288,6 @@ public class MethodOptimizationInfoCollector {
     List<Value> values = code.collectArguments();
     for (int i = 0; i < values.size(); i++) {
       Value value = values.get(i);
-      if (value.numberOfPhiUsers() > 0) {
-        continue;
-      }
       ParameterUsage usage = collectParameterUsages(i, value);
       if (usage != null) {
         usages.add(usage);
@@ -301,11 +300,22 @@ public class MethodOptimizationInfoCollector {
             : new ParameterUsagesInfo(usages));
   }
 
-  private ParameterUsage collectParameterUsages(int i, Value value) {
-    ParameterUsageBuilder builder = new ParameterUsageBuilder(value, i, dexItemFactory);
-    for (Instruction user : value.aliasedUsers()) {
-      if (!builder.note(user)) {
+  private ParameterUsage collectParameterUsages(int i, Value root) {
+    ParameterUsageBuilder builder = new ParameterUsageBuilder(root, i, dexItemFactory);
+    WorkList<Value> worklist = WorkList.newIdentityWorkList();
+    worklist.addIfNotSeen(root);
+    while (worklist.hasNext()) {
+      Value value = worklist.next();
+      if (value.hasPhiUsers()) {
         return null;
+      }
+      for (Instruction user : value.uniqueUsers()) {
+        if (!builder.note(user)) {
+          return null;
+        }
+        if (user.isAssume()) {
+          worklist.addIfNotSeen(user.outValue());
+        }
       }
     }
     return builder.build();
@@ -442,6 +452,7 @@ public class MethodOptimizationInfoCollector {
           case CONST_STRING:
           case DEX_ITEM_BASED_CONST_STRING:
           case DIV:
+          case INIT_CLASS:
           case INSTANCE_OF:
           case MUL:
           case NEW_ARRAY_EMPTY:

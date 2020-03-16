@@ -32,6 +32,7 @@ import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryConfiguration;
 import com.android.tools.r8.ir.optimize.Inliner;
@@ -58,6 +59,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -112,6 +114,8 @@ public class InternalOptions {
 
   public DataResourceConsumer dataResourceConsumer;
   public FeatureSplitConfiguration featureSplitConfiguration;
+
+  public List<Consumer<InspectorImpl>> outputInspections = Collections.emptyList();
 
   // Constructor for testing and/or other utilities.
   public InternalOptions() {
@@ -227,6 +231,7 @@ public class InternalOptions {
   public boolean applyInliningToInlinee =
       System.getProperty("com.android.tools.r8.applyInliningToInlinee") != null;
   public int applyInliningToInlineeMaxDepth = 0;
+  public boolean enableInliningOfInvokesWithClassInitializationSideEffects = true;
   public boolean enableInliningOfInvokesWithNullableReceivers = true;
   public boolean disableInliningOfLibraryMethodOverrides = true;
   public boolean enableClassInlining = true;
@@ -283,7 +288,7 @@ public class InternalOptions {
   public boolean enablePcDebugInfoOutput = false;
 
   // Number of threads to use while processing the dex files.
-  public int numberOfThreads = DETERMINISTIC_DEBUGGING ? 1 : ThreadUtils.NOT_SPECIFIED;
+  public int threadCount = DETERMINISTIC_DEBUGGING ? 1 : ThreadUtils.NOT_SPECIFIED;
   // Print smali disassembly.
   public boolean useSmaliSyntax = false;
   // Verbose output.
@@ -358,6 +363,10 @@ public class InternalOptions {
   public boolean shouldKeepStackMapTable() {
     return isDesugaredLibraryCompilation()
         || getProguardConfiguration().getKeepAttributes().stackMapTable;
+  }
+
+  public boolean shouldRerunEnqueuer() {
+    return isShrinking() || isMinifying() || getProguardConfiguration().hasApplyMappingFile();
   }
 
   public boolean isGeneratingDex() {
@@ -1220,7 +1229,7 @@ public class InternalOptions {
   }
 
   public boolean canUseRequireNonNull() {
-    return isGeneratingClassFiles() || hasMinApi(AndroidApiLevel.K);
+    return isGeneratingDex() && hasMinApi(AndroidApiLevel.K);
   }
 
   public boolean canUseSuppressedExceptions() {
