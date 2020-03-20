@@ -1132,6 +1132,7 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
     MethodAccessFlags newFlags = target.accessFlags.copy();
     // Some debuggers (like IntelliJ) automatically skip synthetic methods on single step.
     newFlags.setSynthetic();
+    newFlags.unsetAbstract();
     ForwardMethodSourceCode.Builder forwardSourceCodeBuilder =
         ForwardMethodSourceCode.builder(newMethod);
     forwardSourceCodeBuilder
