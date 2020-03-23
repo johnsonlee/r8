@@ -17,7 +17,7 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
@@ -323,8 +323,7 @@ public class LambdaRewriter {
       // The out value might be empty in case it was optimized out.
       lambdaInstanceValue =
           code.createValue(
-              TypeLatticeElement.fromDexType(
-                  lambdaClass.type, Nullability.maybeNull(), getAppView()));
+              TypeElement.fromDexType(lambdaClass.type, Nullability.maybeNull(), getAppView()));
     } else {
       affectedValues.add(lambdaInstanceValue);
     }
@@ -352,8 +351,8 @@ public class LambdaRewriter {
     //    result:
     //      NewInstance   rResult <-  LambdaClass
     //      Invoke-Direct { rResult, rArg0, rArg1, ... }; method: void LambdaClass.<init>(...)
-    lambdaInstanceValue.setTypeLattice(
-        lambdaInstanceValue.getTypeLattice().asReferenceTypeLatticeElement().asDefinitelyNotNull());
+    lambdaInstanceValue.setType(
+        lambdaInstanceValue.getType().asReferenceType().asDefinitelyNotNull());
     NewInstance newInstance = new NewInstance(lambdaClass.type, lambdaInstanceValue);
     instructions.replaceCurrentInstruction(newInstance);
 

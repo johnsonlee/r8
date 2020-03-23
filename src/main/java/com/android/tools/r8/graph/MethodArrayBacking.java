@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.PredicateUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.google.common.base.MoreObjects;
@@ -11,7 +10,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -22,16 +20,23 @@ public class MethodArrayBacking extends MethodCollectionBacking {
   private DexEncodedMethod[] directMethods = DexEncodedMethod.EMPTY_ARRAY;
   private DexEncodedMethod[] virtualMethods = DexEncodedMethod.EMPTY_ARRAY;
 
-  private boolean belongsToDirectPool(DexEncodedMethod method) {
-    return method.accessFlags.isStatic()
-        || method.accessFlags.isPrivate()
-        || method.accessFlags.isConstructor();
+  private boolean verifyNoDuplicateMethods() {
+    Set<DexMethod> unique = Sets.newIdentityHashSet();
+    forEachMethod(
+        method -> {
+          boolean changed = unique.add(method.method);
+          assert changed : "Duplicate method `" + method.method.toSourceString() + "`";
+        });
+    return true;
   }
 
-  private boolean belongsToVirtualPool(DexEncodedMethod method) {
-    return !belongsToDirectPool(method);
+  @Override
+  boolean verify() {
+    assert verifyNoDuplicateMethods();
+    return true;
   }
 
+  @Override
   int size() {
     return directMethods.length + virtualMethods.length;
   }
@@ -53,27 +58,19 @@ public class MethodArrayBacking extends MethodCollectionBacking {
     return TraversalContinuation.CONTINUE;
   }
 
+  @Override
   public Iterable<DexEncodedMethod> methods() {
     return Iterables.concat(Arrays.asList(directMethods), Arrays.asList(virtualMethods));
   }
 
+  @Override
   List<DexEncodedMethod> directMethods() {
     assert directMethods != null;
-    if (InternalOptions.assertionsEnabled()) {
-      return Collections.unmodifiableList(Arrays.asList(directMethods));
-    }
     return Arrays.asList(directMethods);
   }
 
-  void appendDirectMethod(DexEncodedMethod method) {
-    DexEncodedMethod[] newMethods = new DexEncodedMethod[directMethods.length + 1];
-    System.arraycopy(directMethods, 0, newMethods, 0, directMethods.length);
-    newMethods[directMethods.length] = method;
-    directMethods = newMethods;
-    assert verifyNoDuplicateMethods();
-  }
-
-  void appendDirectMethods(Collection<DexEncodedMethod> methods) {
+  @Override
+  void addDirectMethods(Collection<DexEncodedMethod> methods) {
     DexEncodedMethod[] newMethods = new DexEncodedMethod[directMethods.length + methods.size()];
     System.arraycopy(directMethods, 0, newMethods, 0, directMethods.length);
     int i = directMethods.length;
@@ -92,6 +89,7 @@ public class MethodArrayBacking extends MethodCollectionBacking {
     directMethods = newMethods;
   }
 
+  @Override
   void removeDirectMethod(DexMethod method) {
     int index = -1;
     for (int i = 0; i < directMethods.length; i++) {
@@ -105,33 +103,20 @@ public class MethodArrayBacking extends MethodCollectionBacking {
     }
   }
 
-  void setDirectMethod(int index, DexEncodedMethod method) {
-    directMethods[index] = method;
-    assert verifyNoDuplicateMethods();
-  }
-
+  @Override
   void setDirectMethods(DexEncodedMethod[] methods) {
     directMethods = MoreObjects.firstNonNull(methods, DexEncodedMethod.EMPTY_ARRAY);
     assert verifyNoDuplicateMethods();
   }
 
+  @Override
   List<DexEncodedMethod> virtualMethods() {
     assert virtualMethods != null;
-    if (InternalOptions.assertionsEnabled()) {
-      return Collections.unmodifiableList(Arrays.asList(virtualMethods));
-    }
     return Arrays.asList(virtualMethods);
   }
 
-  void appendVirtualMethod(DexEncodedMethod method) {
-    DexEncodedMethod[] newMethods = new DexEncodedMethod[virtualMethods.length + 1];
-    System.arraycopy(virtualMethods, 0, newMethods, 0, virtualMethods.length);
-    newMethods[virtualMethods.length] = method;
-    virtualMethods = newMethods;
-    assert verifyNoDuplicateMethods();
-  }
-
-  void appendVirtualMethods(Collection<DexEncodedMethod> methods) {
+  @Override
+  void addVirtualMethods(Collection<DexEncodedMethod> methods) {
     DexEncodedMethod[] newMethods = new DexEncodedMethod[virtualMethods.length + methods.size()];
     System.arraycopy(virtualMethods, 0, newMethods, 0, virtualMethods.length);
     int i = virtualMethods.length;
@@ -143,11 +128,13 @@ public class MethodArrayBacking extends MethodCollectionBacking {
     assert verifyNoDuplicateMethods();
   }
 
+  @Override
   void setVirtualMethods(DexEncodedMethod[] methods) {
     virtualMethods = MoreObjects.firstNonNull(methods, DexEncodedMethod.EMPTY_ARRAY);
     assert verifyNoDuplicateMethods();
   }
 
+  @Override
   void virtualizeMethods(Set<DexEncodedMethod> privateInstanceMethods) {
     int vLen = virtualMethods.length;
     int dLen = directMethods.length;
@@ -174,6 +161,7 @@ public class MethodArrayBacking extends MethodCollectionBacking {
     setVirtualMethods(newVirtualMethods);
   }
 
+  @Override
   DexEncodedMethod getDirectMethod(DexMethod method) {
     for (DexEncodedMethod directMethod : directMethods) {
       if (method.match(directMethod)) {
@@ -183,10 +171,12 @@ public class MethodArrayBacking extends MethodCollectionBacking {
     return null;
   }
 
+  @Override
   DexEncodedMethod getDirectMethod(Predicate<DexEncodedMethod> predicate) {
     return PredicateUtils.findFirst(directMethods, predicate);
   }
 
+  @Override
   DexEncodedMethod getVirtualMethod(DexMethod method) {
     for (DexEncodedMethod virtualMethod : virtualMethods) {
       if (method.match(virtualMethod)) {
@@ -196,51 +186,41 @@ public class MethodArrayBacking extends MethodCollectionBacking {
     return null;
   }
 
+  @Override
   DexEncodedMethod getVirtualMethod(Predicate<DexEncodedMethod> predicate) {
     return PredicateUtils.findFirst(virtualMethods, predicate);
   }
 
+  @Override
   DexEncodedMethod getMethod(DexMethod method) {
     DexEncodedMethod result = getDirectMethod(method);
     return result == null ? getVirtualMethod(method) : result;
   }
 
+  @Override
   void addMethod(DexEncodedMethod method) {
-    if (method.accessFlags.isStatic()
-        || method.accessFlags.isPrivate()
-        || method.accessFlags.isConstructor()) {
+    if (belongsToDirectPool(method)) {
       addDirectMethod(method);
     } else {
       addVirtualMethod(method);
     }
   }
 
+  @Override
   void addVirtualMethod(DexEncodedMethod virtualMethod) {
-    assert !virtualMethod.accessFlags.isStatic();
-    assert !virtualMethod.accessFlags.isPrivate();
-    assert !virtualMethod.accessFlags.isConstructor();
+    assert belongsToVirtualPool(virtualMethod);
     virtualMethods = Arrays.copyOf(virtualMethods, virtualMethods.length + 1);
     virtualMethods[virtualMethods.length - 1] = virtualMethod;
   }
 
-  void addDirectMethod(DexEncodedMethod staticMethod) {
-    assert staticMethod.accessFlags.isStatic()
-        || staticMethod.accessFlags.isPrivate()
-        || staticMethod.accessFlags.isConstructor();
+  @Override
+  void addDirectMethod(DexEncodedMethod directMethod) {
+    assert belongsToDirectPool(directMethod);
     directMethods = Arrays.copyOf(directMethods, directMethods.length + 1);
-    directMethods[directMethods.length - 1] = staticMethod;
+    directMethods[directMethods.length - 1] = directMethod;
   }
 
-  boolean verifyNoDuplicateMethods() {
-    Set<DexMethod> unique = Sets.newIdentityHashSet();
-    forEachMethod(
-        method -> {
-          boolean changed = unique.add(method.method);
-          assert changed : "Duplicate method `" + method.method.toSourceString() + "`";
-        });
-    return true;
-  }
-
+  @Override
   public DexEncodedMethod replaceDirectMethod(
       DexMethod method, Function<DexEncodedMethod, DexEncodedMethod> replacement) {
     for (int i = 0; i < directMethods.length; i++) {
@@ -255,6 +235,7 @@ public class MethodArrayBacking extends MethodCollectionBacking {
     return null;
   }
 
+  @Override
   public DexEncodedMethod replaceDirectMethodWithVirtualMethod(
       DexMethod method, Function<DexEncodedMethod, DexEncodedMethod> replacement) {
     for (int i = 0; i < directMethods.length; i++) {
@@ -263,18 +244,20 @@ public class MethodArrayBacking extends MethodCollectionBacking {
         DexEncodedMethod newMethod = replacement.apply(directMethod);
         assert belongsToVirtualPool(newMethod);
         removeDirectMethod(i);
-        appendVirtualMethod(newMethod);
+        addVirtualMethod(newMethod);
         return newMethod;
       }
     }
     return null;
   }
 
+  @Override
   public void replaceMethods(Function<DexEncodedMethod, DexEncodedMethod> replacement) {
     replaceDirectMethods(replacement);
     replaceVirtualMethods(replacement);
   }
 
+  @Override
   public void replaceDirectMethods(Function<DexEncodedMethod, DexEncodedMethod> replacement) {
     for (int i = 0; i < directMethods.length; i++) {
       DexEncodedMethod method = directMethods[i];
@@ -287,6 +270,7 @@ public class MethodArrayBacking extends MethodCollectionBacking {
     }
   }
 
+  @Override
   public void replaceVirtualMethods(Function<DexEncodedMethod, DexEncodedMethod> replacement) {
     for (int i = 0; i < virtualMethods.length; i++) {
       DexEncodedMethod method = virtualMethods[i];

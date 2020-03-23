@@ -15,7 +15,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoMessageInfo;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoObject;
 import com.android.tools.r8.ir.analysis.type.Nullability;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.ArrayPut;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlock.ThrowingInfo;
@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.OneTimeMethodProcessor;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.Timing;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -43,8 +44,8 @@ public class GeneratedMessageLiteShrinker {
   private final ProtoReferences references;
   private final ThrowingInfo throwingInfo;
 
-  private final TypeLatticeElement objectArrayType;
-  private final TypeLatticeElement stringType;
+  private final TypeElement objectArrayType;
+  private final TypeElement stringType;
 
   public GeneratedMessageLiteShrinker(
       AppView<AppInfoWithLiveness> appView,
@@ -58,9 +59,9 @@ public class GeneratedMessageLiteShrinker {
 
     // Types.
     this.objectArrayType =
-        TypeLatticeElement.fromDexType(
+        TypeElement.fromDexType(
             appView.dexItemFactory().objectArrayType, Nullability.definitelyNotNull(), appView);
-    this.stringType = TypeLatticeElement.stringClassType(appView, Nullability.definitelyNotNull());
+    this.stringType = TypeElement.stringClassType(appView, Nullability.definitelyNotNull());
   }
 
   public void run(DexEncodedMethod method, IRCode code) {
@@ -69,13 +70,15 @@ public class GeneratedMessageLiteShrinker {
     }
   }
 
-  public void postOptimizeDynamicMethods(IRConverter converter) {
+  public void postOptimizeDynamicMethods(IRConverter converter, Timing timing) {
+    timing.begin("[Proto] Post optimize dynamic methods");
     forEachDynamicMethod(
         method ->
             converter.processMethod(
                 method,
                 OptimizationFeedbackIgnore.getInstance(),
                 OneTimeMethodProcessor.getInstance()));
+    timing.end();
   }
 
   private void forEachDynamicMethod(Consumer<DexEncodedMethod> consumer) {

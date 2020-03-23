@@ -30,7 +30,7 @@ import com.android.tools.r8.ir.analysis.fieldaccess.FieldAccessAnalysis;
 import com.android.tools.r8.ir.analysis.fieldaccess.TrivialFieldAccessReprocessor;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.InstanceFieldValueAnalysis;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValueAnalysis;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.AlwaysMaterializingDefinition;
 import com.android.tools.r8.ir.code.AlwaysMaterializingUser;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -45,6 +45,7 @@ import com.android.tools.r8.ir.desugar.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.ir.desugar.D8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter.Mode;
+import com.android.tools.r8.ir.desugar.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter.Flavor;
 import com.android.tools.r8.ir.desugar.LambdaRewriter;
@@ -143,6 +144,7 @@ public class IRConverter {
   private final InterfaceMethodRewriter interfaceMethodRewriter;
   private final TwrCloseResourceRewriter twrCloseResourceRewriter;
   private final BackportedMethodRewriter backportedMethodRewriter;
+  private final DesugaredLibraryRetargeter desugaredLibraryRetargeter;
   private final LambdaMerger lambdaMerger;
   private final ClassInliner classInliner;
   private final ClassStaticizer classStaticizer;
@@ -217,13 +219,16 @@ public class IRConverter {
             .collect(Collectors.toList());
     if (options.isDesugaredLibraryCompilation()) {
       // Specific L8 Settings.
-      // BackportedMethodRewriter is needed for retarget core library members and backports.
+      // DesugaredLibraryRetargeter is needed for retarget core library members and backports.
       // InterfaceMethodRewriter is needed for emulated interfaces.
       // LambdaRewriter is needed because if it is missing there are invoke custom on
       // default/static interface methods, and this is not supported by the compiler.
       // DesugaredLibraryAPIConverter is here to duplicate APIs.
       // The rest is nulled out. In addition the rewriting logic fails without lambda rewriting.
-      this.backportedMethodRewriter = new BackportedMethodRewriter(appView, this);
+      this.desugaredLibraryRetargeter =
+          options.desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()
+              ? null
+              : new DesugaredLibraryRetargeter(appView);
       this.interfaceMethodRewriter =
           options.desugaredLibraryConfiguration.getEmulateLibraryInterface().isEmpty()
               ? null
@@ -231,6 +236,10 @@ public class IRConverter {
       this.lambdaRewriter = new LambdaRewriter(appView);
       this.desugaredLibraryAPIConverter =
           new DesugaredLibraryAPIConverter(appView, Mode.GENERATE_CALLBACKS_AND_WRAPPERS);
+      this.backportedMethodRewriter =
+          options.testing.forceLibBackportsInL8CfToCf
+              ? new BackportedMethodRewriter(appView, this)
+              : null;
       this.twrCloseResourceRewriter = null;
       this.lambdaMerger = null;
       this.covariantReturnTypeAnnotationTransformer = null;
@@ -268,6 +277,10 @@ public class IRConverter {
             ? new TwrCloseResourceRewriter(appView, this)
             : null;
     this.backportedMethodRewriter = new BackportedMethodRewriter(appView, this);
+    this.desugaredLibraryRetargeter =
+        options.desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()
+            ? null
+            : new DesugaredLibraryRetargeter(appView);
     this.covariantReturnTypeAnnotationTransformer =
         options.processCovariantReturnTypeAnnotations
             ? new CovariantReturnTypeAnnotationTransformer(this, appView.dexItemFactory())
@@ -450,7 +463,16 @@ public class IRConverter {
 
   private void synthesizeJava8UtilityClass(
       Builder<?> builder, ExecutorService executorService) throws ExecutionException {
-    backportedMethodRewriter.synthesizeUtilityClasses(builder, executorService);
+    if (backportedMethodRewriter != null) {
+      backportedMethodRewriter.synthesizeUtilityClasses(builder, executorService);
+    }
+  }
+
+  private void synthesizeRetargetClass(Builder<?> builder, ExecutorService executorService)
+      throws ExecutionException {
+    if (desugaredLibraryRetargeter != null) {
+      desugaredLibraryRetargeter.synthesizeRetargetClasses(builder, executorService, this);
+    }
   }
 
   private void synthesizeEnumUnboxingUtilityClass(
@@ -482,6 +504,8 @@ public class IRConverter {
     desugarInterfaceMethods(builder, ExcludeDexResources, executor);
     synthesizeTwrCloseResourceUtilityClass(builder, executor);
     synthesizeJava8UtilityClass(builder, executor);
+    synthesizeRetargetClass(builder, executor);
+
     processCovariantReturnTypeAnnotations(builder);
     generateDesugaredLibraryAPIWrappers(builder, executor);
 
@@ -747,6 +771,7 @@ public class IRConverter {
     printPhase("Utility classes synthesis");
     synthesizeTwrCloseResourceUtilityClass(builder, executorService);
     synthesizeJava8UtilityClass(builder, executorService);
+    synthesizeRetargetClass(builder, executorService);
     handleSynthesizedClassMapping(builder);
     synthesizeEnumUnboxingUtilityClass(builder, executorService);
 
@@ -974,12 +999,7 @@ public class IRConverter {
   private DexType computeOutlineClassType() {
     DexType result;
     int count = 0;
-    String tempPrefix =
-        appView
-            .options()
-            .desugaredLibraryConfiguration
-            .getSynthesizedLibraryClassesPackagePrefix(appView);
-    String prefix = tempPrefix.replace('/', '.');
+    String prefix = appView.options().synthesizedClassPrefix.replace('/', '.');
     do {
       String name =
           prefix + OutlineOptions.CLASS_NAME + (count == 0 ? "" : Integer.toString(count));
@@ -1375,9 +1395,20 @@ public class IRConverter {
       codeRewriter.rewriteThrowableAddAndGetSuppressed(code);
       timing.end();
     }
-    timing.begin("Rewrite backport methods");
-    backportedMethodRewriter.desugar(code);
-    timing.end();
+
+    if (desugaredLibraryRetargeter != null) {
+      // The desugaredLibraryRetargeter should run before backportedMethodRewriter to be able to
+      // perform backport rewriting before the methods can be retargeted.
+      timing.begin("Retarget library methods");
+      desugaredLibraryRetargeter.desugar(code);
+      timing.end();
+    }
+
+    if (backportedMethodRewriter != null) {
+      timing.begin("Rewrite backport methods");
+      backportedMethodRewriter.desugar(code);
+      timing.end();
+    }
 
     timing.begin("Desugar string concat");
     stringConcatRewriter.desugarStringConcats(method.method, code);
@@ -1599,15 +1630,20 @@ public class IRConverter {
     if (method.isInitializer()) {
       if (method.isClassInitializer()) {
         StaticFieldValueAnalysis.run(
-            appView, code, classInitializerDefaultsResult, feedback, code.method);
+            appView, code, classInitializerDefaultsResult, feedback, code.method, timing);
       } else {
         instanceFieldInitializationInfos =
             InstanceFieldValueAnalysis.run(
-                appView, code, classInitializerDefaultsResult, feedback, code.method);
+                appView, code, classInitializerDefaultsResult, feedback, code.method, timing);
       }
     }
     methodOptimizationInfoCollector.collectMethodOptimizationInfo(
-        code.method, code, feedback, dynamicTypeOptimization, instanceFieldInitializationInfos);
+        code.method,
+        code,
+        feedback,
+        dynamicTypeOptimization,
+        instanceFieldInitializationInfos,
+        timing);
   }
 
   public void removeDeadCodeAndFinalizeIR(
@@ -1884,7 +1920,7 @@ public class IRConverter {
     Instruction check = it.previous();
     assert addBefore == check;
     // Forced definition of const-zero
-    Value fixitValue = code.createValue(TypeLatticeElement.getInt());
+    Value fixitValue = code.createValue(TypeElement.getInt());
     Instruction fixitDefinition = new AlwaysMaterializingDefinition(fixitValue);
     fixitDefinition.setBlock(addBefore.getBlock());
     fixitDefinition.setPosition(addBefore.getPosition());

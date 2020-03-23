@@ -22,15 +22,18 @@ import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfo;
 import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfoMap;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
+import com.android.tools.r8.ir.analysis.type.ArrayTypeElement;
 import com.android.tools.r8.ir.analysis.type.DestructivePhiTypeUpdater;
-import com.android.tools.r8.ir.analysis.type.PrimitiveTypeLatticeElement;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.PrimitiveTypeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.code.ArrayAccess;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.InvokeStatic;
+import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.StaticGet;
@@ -96,7 +99,7 @@ public class EnumUnboxingRewriter {
         InvokeMethodWithReceiver invokeMethod = instruction.asInvokeMethodWithReceiver();
         DexMethod invokedMethod = invokeMethod.getInvokedMethod();
         if (invokedMethod == factory.enumMethods.ordinal
-            && invokeMethod.getReceiver().getTypeLattice().isInt()) {
+            && invokeMethod.getReceiver().getType().isInt()) {
           instruction =
               new InvokeStatic(
                   ordinalUtilityMethod, invokeMethod.outValue(), invokeMethod.inValues());
@@ -122,11 +125,17 @@ public class EnumUnboxingRewriter {
           assert enumValueInfo != null
               : "Invalid read to " + staticGet.getField().name + ", error during enum analysis";
           instruction = new ConstNumber(staticGet.outValue(), enumValueInfo.convertToInt());
-          staticGet
-              .outValue()
-              .setTypeLattice(PrimitiveTypeLatticeElement.fromNumericType(NumericType.INT));
+          staticGet.outValue().setType(PrimitiveTypeElement.fromNumericType(NumericType.INT));
           iterator.replaceCurrentInstruction(instruction);
           affectedPhis.addAll(staticGet.outValue().uniquePhiUsers());
+        }
+      }
+      // Rewrite array accesses from MyEnum[] (OBJECT) to int[] (INT).
+      if (instruction.isArrayAccess()) {
+        ArrayAccess arrayAccess = instruction.asArrayAccess();
+        if (shouldRewriteArrayAccess(arrayAccess)) {
+          instruction = arrayAccess.withMemberType(MemberType.INT);
+          iterator.replaceCurrentInstruction(instruction);
         }
       }
       assert validateEnumToUnboxRemoved(instruction);
@@ -137,19 +146,31 @@ public class EnumUnboxingRewriter {
     assert code.isConsistentSSABeforeTypesAreCorrect();
   }
 
+  private boolean shouldRewriteArrayAccess(ArrayAccess arrayAccess) {
+    ArrayTypeElement arrayType = arrayAccess.array().getType().asArrayType();
+    return arrayAccess.getMemberType() == MemberType.OBJECT
+        && arrayType.getNesting() == 1
+        && arrayType.getBaseType().isInt();
+  }
+
   private boolean validateEnumToUnboxRemoved(Instruction instruction) {
+    if (instruction.isArrayAccess()) {
+      ArrayAccess arrayAccess = instruction.asArrayAccess();
+      ArrayTypeElement arrayType = arrayAccess.array().getType().asArrayType();
+      assert arrayAccess.getMemberType() != MemberType.OBJECT
+          || arrayType.getNesting() > 1
+          || arrayType.getBaseType().isReferenceType();
+    }
     if (instruction.outValue() == null) {
       return true;
     }
-    TypeLatticeElement typeLattice = instruction.outValue().getTypeLattice();
+    TypeElement typeLattice = instruction.outValue().getType();
     assert !typeLattice.isClassType()
-        || !enumsToUnbox.containsEnum(typeLattice.asClassTypeLatticeElement().getClassType());
+        || !enumsToUnbox.containsEnum(typeLattice.asClassType().getClassType());
     if (typeLattice.isArrayType()) {
-      TypeLatticeElement arrayBaseTypeLattice =
-          typeLattice.asArrayTypeLatticeElement().getArrayBaseTypeLattice();
+      TypeElement arrayBaseTypeLattice = typeLattice.asArrayType().getBaseType();
       assert !arrayBaseTypeLattice.isClassType()
-          || !enumsToUnbox.containsEnum(
-              arrayBaseTypeLattice.asClassTypeLatticeElement().getClassType());
+          || !enumsToUnbox.containsEnum(arrayBaseTypeLattice.asClassType().getClassType());
     }
     return true;
   }

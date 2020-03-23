@@ -14,7 +14,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.escape.EscapeAnalysis;
 import com.android.tools.r8.ir.analysis.escape.EscapeAnalysisConfiguration;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Assume;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlock.ThrowingInfo;
@@ -294,8 +294,8 @@ public class StringBuilderOptimizer {
       }
       // Make sure builder is neither phi nor coming from outside of the method.
       assert !builder.isPhi() && builder.definition.isNewInstance();
-      assert builder.getTypeLattice().isClassType();
-      DexType builderType = builder.getTypeLattice().asClassTypeLatticeElement().getClassType();
+      assert builder.getType().isClassType();
+      DexType builderType = builder.getType().asClassType().getClassType();
       assert optimizationConfiguration.isBuilderType(builderType);
       EscapeAnalysis escapeAnalysis =
           new EscapeAnalysis(
@@ -442,7 +442,7 @@ public class StringBuilderOptimizer {
         if (number == null) {
           return addition;
         }
-        if (arg.getTypeLattice().isPrimitive()) {
+        if (arg.getType().isPrimitiveType()) {
           if (argType == factory.booleanType) {
             addition = String.valueOf(number.intValue() != 0);
           } else if (argType == factory.byteType) {
@@ -460,7 +460,7 @@ public class StringBuilderOptimizer {
           } else if (argType == factory.doubleType) {
             addition = String.valueOf(number.doubleValue());
           }
-        } else if (arg.getTypeLattice().isNullType()) {
+        } else if (arg.getType().isNullType()) {
           assert number.intValue() == 0;
           addition = "null";
         }
@@ -591,7 +591,7 @@ public class StringBuilderOptimizer {
           if (outValue != null && outValue.isUsed()) {
             Value dummy =
                 code.createValue(
-                    TypeLatticeElement.stringClassType(appView, definitelyNotNull()),
+                    TypeElement.stringClassType(appView, definitelyNotNull()),
                     invoke.getLocalInfo());
             it.replaceCurrentInstruction(
                 new ConstString(dummy, factory.createString(DUMMY), throwingInfo));
@@ -612,8 +612,7 @@ public class StringBuilderOptimizer {
         assert element != null;
         Value stringValue =
             code.createValue(
-                TypeLatticeElement.stringClassType(appView, definitelyNotNull()),
-                invoke.getLocalInfo());
+                TypeElement.stringClassType(appView, definitelyNotNull()), invoke.getLocalInfo());
         affectedValues.addAll(outValue.affectedValues());
         it.replaceCurrentInstruction(
             new ConstString(stringValue, factory.createString(element), throwingInfo));
@@ -815,7 +814,7 @@ public class StringBuilderOptimizer {
     public boolean isBuilderInitWithInitialValue(InvokeMethod invoke) {
       return isBuilderInit(invoke.getInvokedMethod())
           && invoke.inValues().size() == 2
-          && !invoke.inValues().get(1).getTypeLattice().isPrimitive();
+          && !invoke.inValues().get(1).getType().isPrimitiveType();
     }
 
     @Override
@@ -838,13 +837,13 @@ public class StringBuilderOptimizer {
         return false;
       }
       assert invoke.inValues().size() == 2;
-      TypeLatticeElement argType = invoke.inValues().get(1).getTypeLattice();
-      if (!argType.isPrimitive() && !argType.isClassType() && !argType.isNullType()) {
+      TypeElement argType = invoke.inValues().get(1).getType();
+      if (!argType.isPrimitiveType() && !argType.isClassType() && !argType.isNullType()) {
         numberOfBuildersWithUnsupportedArg++;
         return false;
       }
       if (argType.isClassType()) {
-        DexType argClassType = argType.asClassTypeLatticeElement().getClassType();
+        DexType argClassType = argType.asClassType().getClassType();
         return canHandleArgumentType(argClassType);
       }
       return true;
@@ -868,8 +867,8 @@ public class StringBuilderOptimizer {
 
     private StringBuilderOptimizerEscapeAnalysisConfiguration(Value builder) {
       this.builder = builder;
-      assert builder.getTypeLattice().isClassType();
-      builderType = builder.getTypeLattice().asClassTypeLatticeElement().getClassType();
+      assert builder.getType().isClassType();
+      builderType = builder.getType().asClassType().getClassType();
     }
 
     private void logEscapingRoute(boolean legitimate) {

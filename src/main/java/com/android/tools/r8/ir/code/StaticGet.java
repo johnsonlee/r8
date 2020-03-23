@@ -22,7 +22,7 @@ import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.AnalysisAssumption;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.Query;
 import com.android.tools.r8.ir.analysis.type.Nullability;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
@@ -40,7 +40,7 @@ public class StaticGet extends FieldInstruction implements StaticFieldInstructio
     Value newValue =
         new Value(
             code.valueNumberGenerator.next(),
-            original.outValue().getTypeLattice(),
+            original.outValue().getType(),
             original.getLocalInfo());
     return copyOf(newValue, original);
   }
@@ -71,22 +71,25 @@ public class StaticGet extends FieldInstruction implements StaticFieldInstructio
 
   @Override
   public boolean couldIntroduceAnAlias(AppView<?> appView, Value root) {
-    assert root != null && root.getTypeLattice().isReference();
+    assert root != null && root.getType().isReferenceType();
     assert outValue != null;
-    TypeLatticeElement outType = outValue.getTypeLattice();
-    if (outType.isPrimitive()) {
+    TypeElement outType = outValue.getType();
+    if (outType.isPrimitiveType()) {
       return false;
     }
     if (appView.appInfo().hasSubtyping()) {
       if (outType.isClassType()
-          && root.getTypeLattice().isClassType()
-          && appView.appInfo().withSubtyping().inDifferentHierarchy(
-              outType.asClassTypeLatticeElement().getClassType(),
-              root.getTypeLattice().asClassTypeLatticeElement().getClassType())) {
+          && root.getType().isClassType()
+          && appView
+              .appInfo()
+              .withSubtyping()
+              .inDifferentHierarchy(
+                  outType.asClassType().getClassType(),
+                  root.getType().asClassType().getClassType())) {
         return false;
       }
     }
-    return outType.isReference();
+    return outType.isReferenceType();
   }
 
   @Override
@@ -219,8 +222,8 @@ public class StaticGet extends FieldInstruction implements StaticFieldInstructio
   }
 
   @Override
-  public TypeLatticeElement evaluate(AppView<?> appView) {
-    return TypeLatticeElement.fromDexType(getField().type, Nullability.maybeNull(), appView);
+  public TypeElement evaluate(AppView<?> appView) {
+    return TypeElement.fromDexType(getField().type, Nullability.maybeNull(), appView);
   }
 
   @Override

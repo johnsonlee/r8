@@ -17,7 +17,7 @@ import com.android.tools.r8.ir.analysis.fieldvalueanalysis.AbstractFieldSet;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.ConcreteMutableFieldSet;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.EmptyFieldSet;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.UnknownFieldSet;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
@@ -114,7 +114,7 @@ public abstract class FieldInstruction extends Instruction {
     if (isInstanceGet() || isInstancePut()) {
       if (!assumption.canAssumeReceiverIsNotNull()) {
         Value receiver = inValues.get(0);
-        if (receiver.isAlwaysNull(appView) || receiver.typeLattice.isNullable()) {
+        if (receiver.isAlwaysNull(appView) || receiver.type.isNullable()) {
           return AbstractError.specific(appView.dexItemFactory().npeType);
         }
       }
@@ -189,9 +189,8 @@ public abstract class FieldInstruction extends Instruction {
       AppView<AppInfoWithLiveness> appView, DexEncodedField field) {
     assert isFieldPut();
 
-    TypeLatticeElement type = value().getTypeLattice();
-    TypeLatticeElement baseType =
-        type.isArrayType() ? type.asArrayTypeLatticeElement().getArrayBaseTypeLattice() : type;
+    TypeElement type = value().getType();
+    TypeElement baseType = type.isArrayType() ? type.asArrayType().getBaseType() : type;
     if (!baseType.isClassType()) {
       return false;
     }
@@ -225,7 +224,7 @@ public abstract class FieldInstruction extends Instruction {
       return resolutionResult != null && resolutionResult.isProgramMethod(appView);
     }
 
-    return appInfo.mayHaveFinalizeMethodDirectlyOrIndirectly(baseType.asClassTypeLatticeElement());
+    return appInfo.mayHaveFinalizeMethodDirectlyOrIndirectly(baseType.asClassType());
   }
 
   @Override

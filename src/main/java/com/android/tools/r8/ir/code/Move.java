@@ -9,7 +9,7 @@ import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
@@ -73,7 +73,7 @@ public class Move extends Instruction {
 
   @Override
   public String toString() {
-    return super.toString() + " (" + outValue().getTypeLattice() + ")";
+    return super.toString() + " (" + outValue().getType() + ")";
   }
 
   @Override
@@ -104,8 +104,8 @@ public class Move extends Instruction {
   }
 
   @Override
-  public TypeLatticeElement evaluate(AppView<?> appView) {
-    return src().getTypeLattice();
+  public TypeElement evaluate(AppView<?> appView) {
+    return src().getType();
   }
 
   @Override
@@ -128,7 +128,7 @@ public class Move extends Instruction {
     super.verifyTypes(appView);
     // DebugLocalWrite defines it's own verification of types but should be allowed to call super.
     if (!this.isDebugLocalWrite()) {
-      assert src().getTypeLattice().equals(outValue().getTypeLattice());
+      assert src().getType().equals(outValue().getType());
     }
     return true;
   }

@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.regalloc;
 
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Instruction;
 import java.util.Map;
 import java.util.Set;
@@ -12,19 +12,19 @@ import java.util.Set;
 // for phi moves and they are moves between actual registers represented by their register number.
 public class RegisterMove implements Comparable<RegisterMove> {
 
-  final TypeLatticeElement type;
+  final TypeElement type;
   final int dst;
   final int src;
   final Instruction definition;
 
-  public RegisterMove(int dst, int src, TypeLatticeElement type) {
+  public RegisterMove(int dst, int src, TypeElement type) {
     this.dst = dst;
     this.src = src;
     this.definition = null;
     this.type = type;
   }
 
-  public RegisterMove(int dst, TypeLatticeElement type, Instruction definition) {
+  public RegisterMove(int dst, TypeElement type, Instruction definition) {
     assert definition.isOutConstant();
     this.dst = dst;
     this.src = LiveIntervals.NO_REGISTER;
@@ -82,14 +82,14 @@ public class RegisterMove implements Comparable<RegisterMove> {
     if (dstDiff != 0) {
       return dstDiff;
     }
-    if (type.isPrimitive() != o.type.isPrimitive()) {
-      return Boolean.compare(type.isPrimitive(), o.type.isPrimitive());
+    if (type.isPrimitiveType() != o.type.isPrimitiveType()) {
+      return Boolean.compare(type.isPrimitiveType(), o.type.isPrimitiveType());
     }
     if (type.isWidePrimitive() != o.type.isWidePrimitive()) {
       return Boolean.compare(type.isWidePrimitive(), o.type.isWidePrimitive());
     }
-    if (type.isReference() != o.type.isReference()) {
-      return Boolean.compare(type.isReference(), o.type.isReference());
+    if (type.isReferenceType() != o.type.isReferenceType()) {
+      return Boolean.compare(type.isReferenceType(), o.type.isReferenceType());
     }
     if (definition == null) {
       if (o.definition != null) {

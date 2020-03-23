@@ -12,9 +12,9 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
 import com.android.tools.r8.ir.analysis.TypeChecker;
 import com.android.tools.r8.ir.analysis.ValueMayDependOnEnvironmentAnalysis;
-import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.Nullability;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Phi.RegisterReadType;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.origin.Origin;
@@ -565,9 +565,8 @@ public class IRCode {
       return true;
     }
     for (Instruction instruction : instructions()) {
-      if (instruction.outValue != null && instruction.outValue.getTypeLattice().isClassType()) {
-        ClassTypeLatticeElement classTypeLattice =
-            instruction.outValue.getTypeLattice().asClassTypeLatticeElement();
+      if (instruction.outValue != null && instruction.outValue.getType().isClassType()) {
+        ClassTypeElement classTypeLattice = instruction.outValue.getType().asClassType();
         assert !verticallyMergedClasses.hasBeenMergedIntoSubtype(classTypeLattice.getClassType());
         for (DexType itf : classTypeLattice.getInterfaces()) {
           assert !verticallyMergedClasses.hasBeenMergedIntoSubtype(itf);
@@ -893,11 +892,11 @@ public class IRCode {
   public boolean verifyNoImpreciseOrBottomTypes() {
     Predicate<Value> verifyValue =
         v -> {
-          assert v.getTypeLattice().isPreciseType();
-          assert !v.getTypeLattice().isFineGrainedType();
+          assert v.getType().isPreciseType();
+          assert !v.getType().isFineGrainedType();
           // For now we assume no bottom types on IR values. We may want to reconsider this for
           // representing unreachable code.
-          assert !v.getTypeLattice().isBottom();
+          assert !v.getType().isBottom();
           assert !(v.definition instanceof ImpreciseMemberTypeInstruction)
               || ((ImpreciseMemberTypeInstruction) v.definition).getMemberType().isPrecise();
           return true;
@@ -908,9 +907,8 @@ public class IRCode {
   public boolean verifyNoNullabilityBottomTypes() {
     Predicate<Value> verifyValue =
         v -> {
-          assert v.getTypeLattice().isPrimitive()
-              || v.getTypeLattice().asReferenceTypeLatticeElement().nullability()
-                  != Nullability.bottom();
+          assert v.getType().isPrimitiveType()
+              || v.getType().asReferenceType().nullability() != Nullability.bottom();
           return true;
         };
     return verifySSATypeLattice(wrapSSAVerifierWithStackValueHandling(verifyValue));
@@ -1049,21 +1047,21 @@ public class IRCode {
     return thisValue;
   }
 
-  public Value createValue(TypeLatticeElement typeLattice, DebugLocalInfo local) {
+  public Value createValue(TypeElement typeLattice, DebugLocalInfo local) {
     return new Value(valueNumberGenerator.next(), typeLattice, local);
   }
 
-  public Value createValue(TypeLatticeElement typeLattice) {
+  public Value createValue(TypeElement typeLattice) {
     return createValue(typeLattice, null);
   }
 
   public ConstNumber createDoubleConstant(double value, DebugLocalInfo local) {
-    Value out = createValue(TypeLatticeElement.getDouble(), local);
+    Value out = createValue(TypeElement.getDouble(), local);
     return new ConstNumber(out, Double.doubleToLongBits(value));
   }
 
   public ConstNumber createFloatConstant(float value, DebugLocalInfo local) {
-    Value out = createValue(TypeLatticeElement.getFloat(), local);
+    Value out = createValue(TypeElement.getFloat(), local);
     return new ConstNumber(out, Float.floatToIntBits(value));
   }
 
@@ -1072,16 +1070,16 @@ public class IRCode {
   }
 
   public ConstNumber createIntConstant(int value, DebugLocalInfo local) {
-    Value out = createValue(TypeLatticeElement.getInt(), local);
+    Value out = createValue(TypeElement.getInt(), local);
     return new ConstNumber(out, value);
   }
 
   public ConstNumber createLongConstant(long value, DebugLocalInfo local) {
-    Value out = createValue(TypeLatticeElement.getLong(), local);
+    Value out = createValue(TypeElement.getLong(), local);
     return new ConstNumber(out, value);
   }
 
-  public Phi createPhi(BasicBlock block, TypeLatticeElement type) {
+  public Phi createPhi(BasicBlock block, TypeElement type) {
     return new Phi(valueNumberGenerator.next(), block, type, null, RegisterReadType.NORMAL);
   }
 
@@ -1091,17 +1089,17 @@ public class IRCode {
 
   public ConstClass createConstClass(AppView<?> appView, DexType type) {
     Value out =
-        createValue(TypeLatticeElement.fromDexType(type, Nullability.definitelyNotNull(), appView));
+        createValue(TypeElement.fromDexType(type, Nullability.definitelyNotNull(), appView));
     return new ConstClass(out, type);
   }
 
   public ConstNumber createConstNull() {
-    Value out = createValue(TypeLatticeElement.getNull());
+    Value out = createValue(TypeElement.getNull());
     return new ConstNumber(out, 0);
   }
 
   public ConstNumber createConstNull(DebugLocalInfo local) {
-    Value out = createValue(TypeLatticeElement.getNull(), local);
+    Value out = createValue(TypeElement.getNull(), local);
     return new ConstNumber(out, 0);
   }
 

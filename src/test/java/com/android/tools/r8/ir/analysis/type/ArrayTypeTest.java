@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.ir.analysis.type;
 
-import static com.android.tools.r8.ir.analysis.type.TypeLatticeElement.getFloat;
-import static com.android.tools.r8.ir.analysis.type.TypeLatticeElement.getInt;
+import static com.android.tools.r8.ir.analysis.type.TypeElement.getFloat;
+import static com.android.tools.r8.ir.analysis.type.TypeElement.getInt;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -69,13 +69,13 @@ public class ArrayTypeTest extends AnalysisTestBase {
             value = arrayPutInstruction.value();
           }
 
-          assertTrue(array.getTypeLattice().isArrayType());
+          assertTrue(array.getType().isArrayType());
 
-          ArrayTypeLatticeElement arrayType = array.getTypeLattice().asArrayTypeLatticeElement();
-          TypeLatticeElement elementType = arrayType.getArrayMemberTypeAsMemberType();
+          ArrayTypeElement arrayType = array.getType().asArrayType();
+          TypeElement elementType = arrayType.getMemberType();
 
           assertEquals(getFloat(), elementType);
-          assertEquals(getFloat(), value.getTypeLattice());
+          assertEquals(getFloat(), value.getType());
         }
       }
     };
@@ -89,13 +89,13 @@ public class ArrayTypeTest extends AnalysisTestBase {
         Value array = arrayPutInstruction.array();
         Value value = arrayPutInstruction.value();
 
-        assertTrue(array.getTypeLattice().isArrayType());
+        assertTrue(array.getType().isArrayType());
 
-        ArrayTypeLatticeElement arrayType = array.getTypeLattice().asArrayTypeLatticeElement();
-        TypeLatticeElement elementType = arrayType.getArrayMemberTypeAsMemberType();
+        ArrayTypeElement arrayType = array.getType().asArrayType();
+        TypeElement elementType = arrayType.getMemberType();
 
         assertEquals(getFloat(), elementType);
-        assertEquals(getFloat(), value.getTypeLattice());
+        assertEquals(getFloat(), value.getType());
       }
 
       {
@@ -104,7 +104,7 @@ public class ArrayTypeTest extends AnalysisTestBase {
                 code,
                 instruction ->
                     instruction.isConstNumber() && instruction.asConstNumber().getRawValue() != 0);
-        assertEquals(getFloat(), constNumberInstruction.outValue().getTypeLattice());
+        assertEquals(getFloat(), constNumberInstruction.outValue().getType());
       }
     };
   }
@@ -115,7 +115,7 @@ public class ArrayTypeTest extends AnalysisTestBase {
       for (BasicBlock block : code.blocks) {
         for (Phi phi : block.getPhis()) {
           phiCount++;
-          assertEquals(getInt(), phi.getTypeLattice());
+          assertEquals(getInt(), phi.getType());
         }
       }
       assertEquals(2, phiCount);

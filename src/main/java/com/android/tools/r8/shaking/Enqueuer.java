@@ -23,6 +23,7 @@ import com.android.tools.r8.cf.code.CfStore;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -93,7 +94,9 @@ import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.DesugarState;
+import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.OptionalBool;
+import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.Timing;
@@ -169,8 +172,10 @@ public class Enqueuer {
 
   private Set<EnqueuerAnalysis> analyses = Sets.newIdentityHashSet();
   private Set<EnqueuerInvokeAnalysis> invokeAnalyses = Sets.newIdentityHashSet();
-  private final AppInfoWithSubtyping appInfo;
-  private final AppView<? extends AppInfoWithSubtyping> appView;
+
+  // Don't hold a direct pointer to app info (use appView).
+  private AppInfoWithSubtyping appInfo;
+  private final AppView<AppInfoWithSubtyping> appView;
   private final InternalOptions options;
   private RootSet rootSet;
   private ProguardClassFilter dontWarnPatterns;
@@ -271,16 +276,8 @@ public class Enqueuer {
    */
   private final Set<DexEncodedMethod> pendingReflectiveUses = Sets.newLinkedHashSet();
 
-  /**
-   * Mapping of types to the reachable method resolutions.
-   *
-   * <p>Primary map key is the initial/static/symbolic type specified by a live invoke.
-   *
-   * <p>The keys of the reachable resolutions are again the static reference, thus methodKey.holder
-   * will be the same as the classKey.type. The value of the reachable resolution is the resolution
-   * target.
-   */
-  private final Map<DexProgramClass, Map<DexMethod, ProgramMethod>> reachableVirtualResolutions =
+  /** Mapping of types to the methods reachable at that type. */
+  private final Map<DexProgramClass, Set<DexMethod>> reachableVirtualTargets =
       new IdentityHashMap<>();
 
   /**
@@ -327,7 +324,8 @@ public class Enqueuer {
 
   private final LambdaRewriter lambdaRewriter;
   private final DesugaredLibraryConversionWrapperAnalysis desugaredLibraryWrapperAnalysis;
-  private final Map<DexType, LambdaClass> lambdaClasses = new IdentityHashMap<>();
+  private final Map<DexType, Pair<LambdaClass, DexEncodedMethod>> lambdaClasses =
+      new IdentityHashMap<>();
   private final Map<DexEncodedMethod, Map<DexCallSite, LambdaClass>> lambdaCallSites =
       new IdentityHashMap<>();
   private final Set<DexProgramClass> classesWithSerializableLambdas = Sets.newIdentityHashSet();
@@ -339,7 +337,7 @@ public class Enqueuer {
     assert appView.appServices() != null;
     InternalOptions options = appView.options();
     this.appInfo = appView.appInfo();
-    this.appView = appView;
+    this.appView = appView.withSubtyping();
     this.forceProguardCompatibility = options.forceProguardCompatibility;
     this.graphReporter = new GraphReporter(appView, keptGraphConsumer);
     this.mode = mode;
@@ -373,6 +371,10 @@ public class Enqueuer {
     } else {
       desugaredLibraryWrapperAnalysis = null;
     }
+  }
+
+  private AppInfoWithClassHierarchy appInfo() {
+    return appView.appInfo();
   }
 
   public Mode getMode() {
@@ -656,7 +658,7 @@ public class Enqueuer {
       if (code != null) {
         LambdaClass lambdaClass =
             lambdaRewriter.getOrCreateLambdaClass(descriptor, contextMethod.method.holder);
-        lambdaClasses.put(lambdaClass.type, lambdaClass);
+        lambdaClasses.put(lambdaClass.type, new Pair<>(lambdaClass, contextMethod));
         lambdaCallSites
             .computeIfAbsent(contextMethod, k -> new IdentityHashMap<>())
             .put(callSite, lambdaClass);
@@ -1855,7 +1857,7 @@ public class Enqueuer {
    */
   private void transitionMethodsForInstantiatedObject(
       InstantiatedObject instantiation, DexClass clazz, List<DexType> interfaces) {
-    ScopedDexMethodSet seen = new ScopedDexMethodSet();
+    Set<Wrapper<DexMethod>> seen = new HashSet<>();
     WorkList<DexType> worklist = WorkList.newIdentityWorkList();
     worklist.addIfNotSeen(interfaces);
     // First we lookup and mark all targets on the instantiated class for each reachable method in
@@ -1889,22 +1891,27 @@ public class Enqueuer {
     }
   }
 
-  private Map<DexMethod, ProgramMethod> getReachableVirtualResolutions(DexProgramClass clazz) {
-    return reachableVirtualResolutions.getOrDefault(clazz, Collections.emptyMap());
+  private Set<DexMethod> getReachableVirtualTargets(DexProgramClass clazz) {
+    return reachableVirtualTargets.getOrDefault(clazz, Collections.emptySet());
   }
 
   private void markProgramMethodOverridesAsLive(
       InstantiatedObject instantiation,
       DexProgramClass superClass,
-      ScopedDexMethodSet seenMethods) {
-    Map<DexMethod, ProgramMethod> reachableResolution = getReachableVirtualResolutions(superClass);
-    reachableResolution.forEach(
-        (method, resolution) -> {
-          assert method.holder == superClass.type;
-          if (seenMethods.addMethod(resolution.getMethod())) {
-            markLiveOverrides(instantiation, superClass, resolution);
-          }
-        });
+      Set<Wrapper<DexMethod>> seenMethods) {
+    for (DexMethod method : getReachableVirtualTargets(superClass)) {
+      assert method.holder == superClass.type;
+      if (seenMethods.add(MethodSignatureEquivalence.get().wrap(method))) {
+        SingleResolutionResult resolution =
+            appInfo.resolveMethod(superClass, method).asSingleResolution();
+        assert resolution != null;
+        assert resolution.getResolvedHolder().isProgramClass();
+        if (resolution != null && resolution.getResolvedHolder().isProgramClass()) {
+          markLiveOverrides(
+              instantiation, superClass, resolution.getResolutionPair().asProgramMethod());
+        }
+      }
+    }
   }
 
   private void markLiveOverrides(
@@ -2281,18 +2288,6 @@ public class Enqueuer {
       return;
     }
 
-    ProgramMethod resolutionMethod = getReachableVirtualResolutions(holder).get(method);
-
-    // If the method has already been marked, just report the new reason for the resolved target.
-    if (resolutionMethod != null) {
-      graphReporter.registerMethod(resolutionMethod.getMethod(), reason);
-      return;
-    }
-
-    if (Log.ENABLED) {
-      Log.verbose(getClass(), "Marking virtual method `%s` as reachable.", method);
-    }
-
     SingleResolutionResult resolution = resolveMethod(method, reason, interfaceInvoke);
     if (resolution == null) {
       return;
@@ -2304,6 +2299,16 @@ public class Enqueuer {
       // 'reason' is not already reported (eg, must be delayed / non-witness) and report that for
       // each possible target edge below.
       return;
+    }
+
+    // If the method has already been marked, just report the new reason for the resolved target.
+    if (getReachableVirtualTargets(holder).contains(method)) {
+      graphReporter.registerMethod(resolution.getResolvedMethod(), reason);
+      return;
+    }
+
+    if (Log.ENABLED) {
+      Log.verbose(getClass(), "Marking virtual method `%s` as reachable.", method);
     }
 
     // We have to mark the resolution targeted, even if it does not become live, we
@@ -2326,9 +2331,7 @@ public class Enqueuer {
     }
 
     // The method resolved and is accessible, so currently live overrides become live.
-    reachableVirtualResolutions
-        .computeIfAbsent(holder, k -> new IdentityHashMap<>())
-        .put(method, new ProgramMethod(resolvedHolder, resolvedMethod));
+    reachableVirtualTargets.computeIfAbsent(holder, k -> Sets.newIdentityHashSet()).add(method);
 
     resolution
         .lookupVirtualDispatchTargets(
@@ -2504,6 +2507,163 @@ public class Enqueuer {
     return appInfoWithLiveness;
   }
 
+  private static class SyntheticAdditions {
+
+    Map<DexType, Pair<DexProgramClass, DexEncodedMethod>> syntheticInstantiations =
+        new IdentityHashMap<>();
+
+    Map<DexMethod, ProgramMethod> liveMethods = new IdentityHashMap<>();
+
+    Map<DexType, DexClasspathClass> syntheticClasspathClasses = new IdentityHashMap<>();
+
+    // Subset of live methods that need to be pinned.
+    Set<DexMethod> pinnedMethods = Sets.newIdentityHashSet();
+
+    // Subset of synthesized classes that need to be added to the main-dex file.
+    Set<DexType> mainDexTypes = Sets.newIdentityHashSet();
+
+    boolean isEmpty() {
+      boolean empty = syntheticInstantiations.isEmpty() && liveMethods.isEmpty();
+      assert !empty || (pinnedMethods.isEmpty() && mainDexTypes.isEmpty());
+      return empty;
+    }
+
+    void addInstantiatedClass(
+        DexProgramClass clazz, DexEncodedMethod context, boolean isMainDexClass) {
+      assert !syntheticInstantiations.containsKey(clazz.type);
+      syntheticInstantiations.put(clazz.type, new Pair<>(clazz, context));
+      if (isMainDexClass) {
+        mainDexTypes.add(clazz.type);
+      }
+    }
+
+    void addClasspathClass(DexClasspathClass clazz) {
+      DexClasspathClass old = syntheticClasspathClasses.put(clazz.type, clazz);
+      assert old == null;
+    }
+
+    void addLiveMethod(ProgramMethod method) {
+      DexMethod signature = method.getMethod().method;
+      assert !liveMethods.containsKey(signature);
+      liveMethods.put(signature, method);
+    }
+
+    void addLiveAndPinnedMethod(ProgramMethod method) {
+      addLiveMethod(method);
+      pinnedMethods.add(method.getMethod().method);
+    }
+
+    void amendApplication(Builder appBuilder) {
+      assert !isEmpty();
+      for (Pair<DexProgramClass, DexEncodedMethod> clazzAndContext :
+          syntheticInstantiations.values()) {
+        appBuilder.addProgramClass(clazzAndContext.getFirst());
+      }
+      appBuilder.addClasspathClasses(syntheticClasspathClasses.values());
+      appBuilder.addToMainDexList(mainDexTypes);
+    }
+
+    void enqueueWorkItems(Enqueuer enqueuer) {
+      assert !isEmpty();
+      assert enqueuer.mode.isInitialTreeShaking();
+      // All synthetic additions are initial tree shaking only. No need to track keep reasons.
+      KeepReasonWitness fakeReason = enqueuer.graphReporter.fakeReportShouldNotBeUsed();
+
+      enqueuer.pinnedItems.addAll(pinnedMethods);
+      for (Pair<DexProgramClass, DexEncodedMethod> clazzAndContext :
+          syntheticInstantiations.values()) {
+        enqueuer.workList.enqueueMarkInstantiatedAction(
+            clazzAndContext.getFirst(),
+            clazzAndContext.getSecond(),
+            InstantiationReason.SYNTHESIZED_CLASS,
+            fakeReason);
+      }
+      for (ProgramMethod liveMethod : liveMethods.values()) {
+        assert !enqueuer.targetedMethods.contains(liveMethod.getMethod());
+        DexProgramClass holder = liveMethod.getHolder();
+        DexEncodedMethod method = liveMethod.getMethod();
+        enqueuer.markMethodAsTargeted(holder, method, fakeReason);
+        enqueuer.enqueueMarkMethodLiveAction(holder, method, fakeReason);
+      }
+    }
+  }
+
+  private void synthesize() {
+    if (!mode.isInitialTreeShaking()) {
+      return;
+    }
+    // First part of synthesis is to create and register all reachable synthetic additions.
+    // In particular these additions are order independent, i.e., it does not matter which are
+    // registered first and no dependencies may exist among them.
+    SyntheticAdditions additions = new SyntheticAdditions();
+    synthesizeInterfaceMethodBridges(additions);
+    synthesizeLambdas(additions);
+    synthesizeLibraryConversionWrappers(additions);
+    if (additions.isEmpty()) {
+      return;
+    }
+
+    // Now all additions are computed, the application is atomically extended with those additions.
+    Builder appBuilder = appInfo.app().asDirect().builder();
+    additions.amendApplication(appBuilder);
+    appInfo = new AppInfoWithSubtyping(appBuilder.build());
+    appView.setAppInfo(appInfo);
+
+    // Finally once all synthesized items "exist" it is now safe to continue tracing. The new work
+    // items are enqueued and the fixed point will continue once this subroutine returns.
+    additions.enqueueWorkItems(this);
+  }
+
+  private void synthesizeInterfaceMethodBridges(SyntheticAdditions additions) {
+    for (ProgramMethod bridge : syntheticInterfaceMethodBridges.values()) {
+      DexProgramClass holder = bridge.getHolder();
+      DexEncodedMethod method = bridge.getMethod();
+      holder.addVirtualMethod(method);
+      additions.addLiveAndPinnedMethod(bridge);
+    }
+    syntheticInterfaceMethodBridges.clear();
+  }
+
+  private void synthesizeLambdas(SyntheticAdditions additions) {
+    if (lambdaRewriter == null || lambdaClasses.isEmpty()) {
+      assert lambdaCallSites.isEmpty();
+      assert classesWithSerializableLambdas.isEmpty();
+      return;
+    }
+    for (Pair<LambdaClass, DexEncodedMethod> lambdaClassAndContext : lambdaClasses.values()) {
+      // Add all desugared classes to the application, main-dex list, and mark them instantiated.
+      LambdaClass lambdaClass = lambdaClassAndContext.getFirst();
+      DexEncodedMethod context = lambdaClassAndContext.getSecond();
+      DexProgramClass programClass = lambdaClass.getOrCreateLambdaClass();
+      additions.addInstantiatedClass(programClass, context, lambdaClass.addToMainDexList.get());
+
+      // Mark all methods on the desugared lambda classes as live.
+      for (DexEncodedMethod method : programClass.methods()) {
+        additions.addLiveMethod(new ProgramMethod(programClass, method));
+      }
+
+      // Ensure accessors if needed and mark them live too.
+      DexEncodedMethod accessor = lambdaClass.target.ensureAccessibilityIfNeeded(false);
+      if (accessor != null) {
+        DexProgramClass clazz = getProgramClassOrNull(accessor.method.holder);
+        additions.addLiveMethod(new ProgramMethod(clazz, accessor));
+      }
+    }
+
+    // Rewrite all of the invoke-dynamic instructions to lambda class instantiations.
+    lambdaCallSites.forEach(this::rewriteLambdaCallSites);
+
+    // Remove all '$deserializeLambda$' methods which are not supported by desugaring.
+    for (DexProgramClass clazz : classesWithSerializableLambdas) {
+      clazz.removeDirectMethod(appView.dexItemFactory().deserializeLambdaMethod);
+    }
+
+    // Clear state before next fixed point iteration.
+    lambdaClasses.clear();
+    lambdaCallSites.clear();
+    classesWithSerializableLambdas.clear();
+  }
+
   private void finalizeLibraryMethodOverrideInformation() {
     for (DexProgramClass liveType : liveTypes.getItems()) {
       for (DexEncodedMethod method : liveType.virtualMethods()) {
@@ -2529,16 +2689,6 @@ public class Enqueuer {
     fieldAccessInfoCollection.removeIf(
         (field, info) -> field != info.getField() || info == MISSING_FIELD_ACCESS_INFO);
     assert fieldAccessInfoCollection.verifyMappingIsOneToOne();
-
-    for (ProgramMethod bridge : syntheticInterfaceMethodBridges.values()) {
-      DexProgramClass holder = bridge.getHolder();
-      DexEncodedMethod method = bridge.getMethod();
-      appView.appInfo().invalidateTypeCacheFor(holder.type);
-      holder.appendVirtualMethod(method);
-      targetedMethods.add(method, graphReporter.fakeReportShouldNotBeUsed());
-      liveMethods.add(holder, method, graphReporter.fakeReportShouldNotBeUsed());
-      pinnedItems.add(method.method);
-    }
 
     // Ensure references from various root set collections.
     rootSet
@@ -2573,8 +2723,6 @@ public class Enqueuer {
     appBuilder.replaceClasspathClasses(classpathClasses);
     // Can't replace the program classes at this point as they are needed in tree pruning.
     // Post process the app to add synthetic content.
-    postProcessLambdaDesugaring(appBuilder);
-    postProcessLibraryConversionWrappers(appBuilder);
     DirectMappedDexApplication app = appBuilder.build();
 
     AppInfoWithLiveness appInfoWithLiveness =
@@ -2670,7 +2818,7 @@ public class Enqueuer {
     }
   }
 
-  private void postProcessLibraryConversionWrappers(DirectMappedDexApplication.Builder appBuilder) {
+  private void synthesizeLibraryConversionWrappers(SyntheticAdditions additions) {
     if (desugaredLibraryWrapperAnalysis == null) {
       return;
     }
@@ -2679,95 +2827,24 @@ public class Enqueuer {
     List<DexEncodedMethod> callbacks = desugaredLibraryWrapperAnalysis.generateCallbackMethods();
     for (DexEncodedMethod callback : callbacks) {
       DexProgramClass clazz = getProgramClassOrNull(callback.method.holder);
-      targetedMethods.add(callback, graphReporter.fakeReportShouldNotBeUsed());
-      liveMethods.add(clazz, callback, graphReporter.fakeReportShouldNotBeUsed());
+      additions.addLiveMethod(new ProgramMethod(clazz, callback));
     }
 
     // Generate the wrappers.
-    Set<DexProgramClass> wrappers = desugaredLibraryWrapperAnalysis.generateWrappers();
+    List<DexProgramClass> wrappers = desugaredLibraryWrapperAnalysis.generateWrappers();
     for (DexProgramClass wrapper : wrappers) {
-      appBuilder.addProgramClass(wrapper);
-      liveTypes.add(wrapper, graphReporter.fakeReportShouldNotBeUsed());
-      objectAllocationInfoCollection.recordDirectAllocationSite(
-          wrapper,
-          null,
-          InstantiationReason.SYNTHESIZED_CLASS,
-          graphReporter.fakeReportShouldNotBeUsed(),
-          appInfo);
+      additions.addInstantiatedClass(wrapper, null, false);
       // Mark all methods on the wrapper as live and targeted.
       for (DexEncodedMethod method : wrapper.methods()) {
-        targetedMethods.add(method, graphReporter.fakeReportShouldNotBeUsed());
-        liveMethods.add(wrapper, method, graphReporter.fakeReportShouldNotBeUsed());
+        additions.addLiveMethod(new ProgramMethod(wrapper, method));
       }
-      // Register wrapper unique field reads and unique write.
-      assert wrapper.instanceFields().size() == 1;
-      DexField field = wrapper.instanceFields().get(0).field;
-      FieldAccessInfoImpl info = new FieldAccessInfoImpl(field);
-      fieldAccessInfoCollection.extend(field, info);
-      desugaredLibraryWrapperAnalysis
-          .registerWrite(wrapper, writeContext -> info.recordWrite(field, writeContext))
-          .registerReads(wrapper, readContext -> info.recordRead(field, readContext));
     }
 
     // Add all vivified types as classpath classes.
     // They will be available at runtime in the desugared library dex file.
-    List<DexClasspathClass> mockVivifiedClasses =
-        desugaredLibraryWrapperAnalysis.generateWrappersSuperTypeMock();
-    appBuilder.addClasspathClasses(mockVivifiedClasses);
-  }
-
-  private void postProcessLambdaDesugaring(DirectMappedDexApplication.Builder appBuilder) {
-    if (lambdaRewriter == null || lambdaClasses.isEmpty()) {
-      return;
-    }
-    for (LambdaClass lambdaClass : lambdaClasses.values()) {
-      // Add all desugared classes to the application, main-dex list, and mark them instantiated.
-      DexProgramClass programClass = lambdaClass.getOrCreateLambdaClass();
-      appBuilder.addProgramClass(programClass);
-      if (lambdaClass.addToMainDexList.get()) {
-        appBuilder.addToMainDexList(Collections.singletonList(programClass.type));
-      }
-      liveTypes.add(programClass, graphReporter.fakeReportShouldNotBeUsed());
-      objectAllocationInfoCollection.recordDirectAllocationSite(
-          programClass,
-          null,
-          InstantiationReason.SYNTHESIZED_CLASS,
-          graphReporter.fakeReportShouldNotBeUsed(),
-          appInfo);
-
-      // Register all of the field writes in the lambda constructors.
-      // This is needed to ensure that the initializers can be optimized.
-      Map<DexEncodedField, Set<DexEncodedMethod>> writes =
-          lambdaRewriter.getWritesWithContexts(programClass);
-      writes.forEach(
-          (field, contexts) -> {
-            for (DexEncodedMethod context : contexts) {
-              registerFieldWrite(field.field, context);
-            }
-          });
-
-      // Mark all methods on the desugared lambda classes as live.
-      for (DexEncodedMethod method : programClass.methods()) {
-        targetedMethods.add(method, graphReporter.fakeReportShouldNotBeUsed());
-        liveMethods.add(programClass, method, graphReporter.fakeReportShouldNotBeUsed());
-      }
-
-      // Ensure accessors if needed and mark them live too.
-      DexEncodedMethod accessor = lambdaClass.target.ensureAccessibilityIfNeeded(false);
-      if (accessor != null) {
-        DexProgramClass clazz = getProgramClassOrNull(accessor.method.holder);
-        targetedMethods.add(accessor, graphReporter.fakeReportShouldNotBeUsed());
-        liveMethods.add(clazz, accessor, graphReporter.fakeReportShouldNotBeUsed());
-      }
-    }
-
-    // Rewrite all of the invoke-dynamic instructions to lambda class instantiations.
-    lambdaCallSites.forEach(this::rewriteLambdaCallSites);
-
-    // Remove all '$deserializeLambda$' methods which are not supported by desugaring.
-    for (DexProgramClass clazz : classesWithSerializableLambdas) {
-      clazz.removeDirectMethod(appView.dexItemFactory().deserializeLambdaMethod);
-    }
+    desugaredLibraryWrapperAnalysis
+        .generateWrappersSuperTypeMock(wrappers)
+        .forEach(additions::addClasspathClass);
   }
 
   private void rewriteLambdaCallSites(
@@ -2893,7 +2970,7 @@ public class Enqueuer {
 
         // Notify each analysis that a fixpoint has been reached, and give each analysis an
         // opportunity to add items to the worklist.
-        analyses.forEach(analysis -> analysis.notifyFixpoint(this, workList));
+        analyses.forEach(analysis -> analysis.notifyFixpoint(this, workList, timing));
         if (!workList.isEmpty()) {
           continue;
         }
@@ -2901,6 +2978,11 @@ public class Enqueuer {
         addConsequentRootSet(computeDelayedInterfaceMethodSyntheticBridges(), true);
         rootSet.delayedRootSetActionItems.clear();
 
+        if (!workList.isEmpty()) {
+          continue;
+        }
+
+        synthesize();
         if (!workList.isEmpty()) {
           continue;
         }

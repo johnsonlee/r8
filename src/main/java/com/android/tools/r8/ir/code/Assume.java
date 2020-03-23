@@ -9,8 +9,8 @@ import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Assume.Assumption;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
@@ -47,8 +47,8 @@ public class Assume<An extends Assumption> extends Instruction {
   }
 
   public static Assume<DynamicTypeAssumption> createAssumeDynamicTypeInstruction(
-      TypeLatticeElement dynamicUpperBoundType,
-      ClassTypeLatticeElement dynamicLowerBoundType,
+      TypeElement dynamicUpperBoundType,
+      ClassTypeElement dynamicLowerBoundType,
       Value dest,
       Value src,
       Instruction origin,
@@ -164,10 +164,10 @@ public class Assume<An extends Assumption> extends Instruction {
 
   @Override
   public boolean couldIntroduceAnAlias(AppView<?> appView, Value root) {
-    assert root != null && root.getTypeLattice().isReference();
+    assert root != null && root.getType().isReferenceType();
     assert outValue != null;
-    TypeLatticeElement outType = outValue.getTypeLattice();
-    if (outType.isPrimitive()) {
+    TypeElement outType = outValue.getType();
+    if (outType.isPrimitiveType()) {
       return false;
     }
     if (assumption.isAssumeNone()) {
@@ -179,14 +179,17 @@ public class Assume<An extends Assumption> extends Instruction {
     }
     if (appView.appInfo().hasSubtyping()) {
       if (outType.isClassType()
-          && root.getTypeLattice().isClassType()
-          && appView.appInfo().withSubtyping().inDifferentHierarchy(
-              outType.asClassTypeLatticeElement().getClassType(),
-              root.getTypeLattice().asClassTypeLatticeElement().getClassType())) {
+          && root.getType().isClassType()
+          && appView
+              .appInfo()
+              .withSubtyping()
+              .inDifferentHierarchy(
+                  outType.asClassType().getClassType(),
+                  root.getType().asClassType().getClassType())) {
         return false;
       }
     }
-    return outType.isReference();
+    return outType.isReferenceType();
   }
 
   @Override
@@ -240,13 +243,13 @@ public class Assume<An extends Assumption> extends Instruction {
   }
 
   @Override
-  public TypeLatticeElement evaluate(AppView<?> appView) {
+  public TypeElement evaluate(AppView<?> appView) {
     if (assumption.isAssumeNone() || assumption.isAssumeDynamicType()) {
-      return src().getTypeLattice();
+      return src().getType();
     }
     if (assumption.isAssumeNonNull()) {
-      assert src().getTypeLattice().isReference();
-      return src().getTypeLattice().asReferenceTypeLatticeElement().asMeetWithNotNull();
+      assert src().getType().isReferenceType();
+      return src().getType().asReferenceType().asMeetWithNotNull();
     }
     throw new Unimplemented();
   }
@@ -275,18 +278,17 @@ public class Assume<An extends Assumption> extends Instruction {
   public boolean verifyTypes(AppView<?> appView) {
     assert super.verifyTypes(appView);
 
-    TypeLatticeElement inType = src().getTypeLattice();
-    TypeLatticeElement outType = outValue().getTypeLattice();
+    TypeElement inType = src().getType();
+    TypeElement outType = outValue().getType();
     if (isAssumeNone() || isAssumeDynamicType()) {
-      assert inType.isReference() : inType;
+      assert inType.isReferenceType() : inType;
       assert outType.equals(inType)
           : "At " + this + System.lineSeparator() + outType + " != " + inType;
     } else {
       assert isAssumeNonNull() : this;
-      assert inType.isReference() : inType;
-      assert inType.isNullType()
-          || outType.equals(inType.asReferenceTypeLatticeElement().asMeetWithNotNull())
-              : "At " + this + System.lineSeparator() + outType + " != " + inType;
+      assert inType.isReferenceType() : inType;
+      assert inType.isNullType() || outType.equals(inType.asReferenceType().asMeetWithNotNull())
+          : "At " + this + System.lineSeparator() + outType + " != " + inType;
     }
     return true;
   }
@@ -351,27 +353,27 @@ public class Assume<An extends Assumption> extends Instruction {
 
     @Override
     public boolean verifyCorrectnessOfValues(Value dest, Value src, AppView<?> appView) {
-      assert dest.getTypeLattice() == src.getTypeLattice();
+      assert dest.getType() == src.getType();
       return true;
     }
   }
 
   public static class DynamicTypeAssumption extends Assumption {
 
-    private final TypeLatticeElement dynamicUpperBoundType;
-    private final ClassTypeLatticeElement dynamicLowerBoundType;
+    private final TypeElement dynamicUpperBoundType;
+    private final ClassTypeElement dynamicLowerBoundType;
 
     private DynamicTypeAssumption(
-        TypeLatticeElement dynamicUpperBoundType, ClassTypeLatticeElement dynamicLowerBoundType) {
+        TypeElement dynamicUpperBoundType, ClassTypeElement dynamicLowerBoundType) {
       this.dynamicUpperBoundType = dynamicUpperBoundType;
       this.dynamicLowerBoundType = dynamicLowerBoundType;
     }
 
-    public TypeLatticeElement getDynamicUpperBoundType() {
+    public TypeElement getDynamicUpperBoundType() {
       return dynamicUpperBoundType;
     }
 
-    public ClassTypeLatticeElement getDynamicLowerBoundType() {
+    public ClassTypeElement getDynamicLowerBoundType() {
       return dynamicLowerBoundType;
     }
 
@@ -382,7 +384,7 @@ public class Assume<An extends Assumption> extends Instruction {
 
     @Override
     public boolean verifyCorrectnessOfValues(Value dest, Value src, AppView<?> appView) {
-      assert dynamicUpperBoundType.lessThanOrEqualUpToNullability(src.getTypeLattice(), appView);
+      assert dynamicUpperBoundType.lessThanOrEqualUpToNullability(src.getType(), appView);
       return true;
     }
 

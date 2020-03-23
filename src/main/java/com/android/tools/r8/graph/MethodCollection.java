@@ -1,12 +1,13 @@
 package com.android.tools.r8.graph;
 
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -14,12 +15,37 @@ import java.util.function.Predicate;
 
 public class MethodCollection {
 
-  private final DexClass holder;
-  private final MethodArrayBacking backing = new MethodArrayBacking();
-  private Optional<DexEncodedMethod> cachedClassInitializer = null;
+  // Threshold between using an array and a map for the backing store.
+  // Compiling R8 plus library shows classes with up to 30 methods account for about 95% of classes.
+  private static final int ARRAY_BACKING_THRESHOLD = 30;
 
-  public MethodCollection(DexClass holder) {
+  private final DexClass holder;
+  private final MethodCollectionBacking backing;
+  private DexEncodedMethod cachedClassInitializer = DexEncodedMethod.SENTINEL;
+
+  public MethodCollection(
+      DexClass holder, DexEncodedMethod[] directMethods, DexEncodedMethod[] virtualMethods) {
     this.holder = holder;
+    if (directMethods.length + virtualMethods.length > ARRAY_BACKING_THRESHOLD) {
+      backing = new MethodMapBacking();
+    } else {
+      backing = new MethodArrayBacking();
+    }
+    backing.setDirectMethods(directMethods);
+    backing.setVirtualMethods(virtualMethods);
+  }
+
+  private void resetCaches() {
+    resetDirectMethodCaches();
+    resetVirtualMethodCaches();
+  }
+
+  private void resetDirectMethodCaches() {
+    resetClassInitializerCache();
+  }
+
+  private void resetVirtualMethodCaches() {
+    // Nothing to do.
   }
 
   public int size() {
@@ -50,10 +76,16 @@ public class MethodCollection {
   }
 
   public List<DexEncodedMethod> directMethods() {
+    if (InternalOptions.assertionsEnabled()) {
+      return Collections.unmodifiableList(backing.directMethods());
+    }
     return backing.directMethods();
   }
 
   public List<DexEncodedMethod> virtualMethods() {
+    if (InternalOptions.assertionsEnabled()) {
+      return Collections.unmodifiableList(backing.virtualMethods());
+    }
     return backing.virtualMethods();
   }
 
@@ -77,48 +109,56 @@ public class MethodCollection {
     return backing.getVirtualMethod(predicate);
   }
 
+  private void resetClassInitializerCache() {
+    cachedClassInitializer = DexEncodedMethod.SENTINEL;
+  }
+
   public DexEncodedMethod getClassInitializer() {
-    if (cachedClassInitializer == null) {
-      cachedClassInitializer = Optional.empty();
+    if (cachedClassInitializer == DexEncodedMethod.SENTINEL) {
+      cachedClassInitializer = null;
       for (DexEncodedMethod directMethod : directMethods()) {
         if (directMethod.isClassInitializer()) {
-          cachedClassInitializer = Optional.of(directMethod);
+          cachedClassInitializer = directMethod;
           break;
         }
       }
     }
-    return cachedClassInitializer.orElse(null);
+    return cachedClassInitializer;
   }
 
   public void addMethod(DexEncodedMethod method) {
+    resetCaches();
     backing.addMethod(method);
   }
 
   public void addVirtualMethod(DexEncodedMethod virtualMethod) {
+    resetVirtualMethodCaches();
     backing.addVirtualMethod(virtualMethod);
   }
 
   public void addDirectMethod(DexEncodedMethod directMethod) {
-    cachedClassInitializer = null;
+    resetDirectMethodCaches();
     backing.addDirectMethod(directMethod);
   }
 
   public DexEncodedMethod replaceDirectMethod(
       DexMethod method, Function<DexEncodedMethod, DexEncodedMethod> replacement) {
-    cachedClassInitializer = null;
+    resetDirectMethodCaches();
     return backing.replaceDirectMethod(method, replacement);
   }
 
   public void replaceMethods(Function<DexEncodedMethod, DexEncodedMethod> replacement) {
+    resetCaches();
     backing.replaceMethods(replacement);
   }
 
   public void replaceVirtualMethods(Function<DexEncodedMethod, DexEncodedMethod> replacement) {
+    resetVirtualMethodCaches();
     backing.replaceVirtualMethods(replacement);
   }
 
   public void replaceDirectMethods(Function<DexEncodedMethod, DexEncodedMethod> replacement) {
-    cachedClassInitializer = null;
+    resetDirectMethodCaches();
     backing.replaceDirectMethods(replacement);
   }
 
@@ -131,49 +171,41 @@ public class MethodCollection {
    */
   public DexEncodedMethod replaceDirectMethodWithVirtualMethod(
       DexMethod method, Function<DexEncodedMethod, DexEncodedMethod> replacement) {
-    // The class initializer can never by converted to a virtual.
+    resetCaches();
     return backing.replaceDirectMethodWithVirtualMethod(method, replacement);
   }
 
-  public void appendDirectMethod(DexEncodedMethod method) {
-    assert verifyCorrectnessOfMethodHolder(method);
-    cachedClassInitializer = null;
-    backing.appendDirectMethod(method);
-  }
-
-  public void appendDirectMethods(Collection<DexEncodedMethod> methods) {
+  public void addDirectMethods(Collection<DexEncodedMethod> methods) {
     assert verifyCorrectnessOfMethodHolders(methods);
-    cachedClassInitializer = null;
-    backing.appendDirectMethods(methods);
+    resetDirectMethodCaches();
+    backing.addDirectMethods(methods);
   }
 
   public void removeDirectMethod(DexMethod method) {
-    cachedClassInitializer = null;
+    resetDirectMethodCaches();
     backing.removeDirectMethod(method);
   }
 
   public void setDirectMethods(DexEncodedMethod[] methods) {
     assert verifyCorrectnessOfMethodHolders(methods);
-    cachedClassInitializer = null;
+    resetDirectMethodCaches();
     backing.setDirectMethods(methods);
   }
 
-  public void appendVirtualMethod(DexEncodedMethod method) {
-    assert verifyCorrectnessOfMethodHolder(method);
-    backing.appendVirtualMethod(method);
-  }
-
-  public void appendVirtualMethods(Collection<DexEncodedMethod> methods) {
+  public void addVirtualMethods(Collection<DexEncodedMethod> methods) {
     assert verifyCorrectnessOfMethodHolders(methods);
-    backing.appendVirtualMethods(methods);
+    resetVirtualMethodCaches();
+    backing.addVirtualMethods(methods);
   }
 
   public void setVirtualMethods(DexEncodedMethod[] methods) {
     assert verifyCorrectnessOfMethodHolders(methods);
+    resetVirtualMethodCaches();
     backing.setVirtualMethods(methods);
   }
 
   public void virtualizeMethods(Set<DexEncodedMethod> privateInstanceMethods) {
+    resetVirtualMethodCaches();
     backing.virtualizeMethods(privateInstanceMethods);
   }
 
@@ -191,7 +223,7 @@ public class MethodCollection {
         method -> {
           assert verifyCorrectnessOfMethodHolder(method);
         });
-    assert backing.verifyNoDuplicateMethods();
+    assert backing.verify();
     return true;
   }
 

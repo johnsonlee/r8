@@ -85,9 +85,7 @@ public abstract class DexClass extends DexDefinition {
     this.type = type;
     setStaticFields(staticFields);
     setInstanceFields(instanceFields);
-    this.methodCollection = new MethodCollection(this);
-    setDirectMethods(directMethods);
-    setVirtualMethods(virtualMethods);
+    this.methodCollection = new MethodCollection(this, directMethods, virtualMethods);
     this.nestHost = nestHost;
     this.nestMembers = nestMembers;
     assert nestMembers != null;
@@ -148,12 +146,8 @@ public abstract class DexClass extends DexDefinition {
     return Iterables.filter(directMethods(), predicate::test);
   }
 
-  public void appendDirectMethod(DexEncodedMethod method) {
-    methodCollection.appendDirectMethod(method);
-  }
-
-  public void appendDirectMethods(Collection<DexEncodedMethod> methods) {
-    methodCollection.appendDirectMethods(methods);
+  public void addDirectMethods(Collection<DexEncodedMethod> methods) {
+    methodCollection.addDirectMethods(methods);
   }
 
   public void removeDirectMethod(DexMethod method) {
@@ -172,12 +166,8 @@ public abstract class DexClass extends DexDefinition {
     return Iterables.filter(virtualMethods(), predicate::test);
   }
 
-  public void appendVirtualMethod(DexEncodedMethod method) {
-    methodCollection.appendVirtualMethod(method);
-  }
-
-  public void appendVirtualMethods(Collection<DexEncodedMethod> methods) {
-    methodCollection.appendVirtualMethods(methods);
+  public void addVirtualMethods(Collection<DexEncodedMethod> methods) {
+    methodCollection.addVirtualMethods(methods);
   }
 
   public void setVirtualMethods(DexEncodedMethod[] methods) {

@@ -18,14 +18,15 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue.DexValueInt;
 import com.android.tools.r8.graph.DexValue.DexValueNull;
-import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfoMap;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.RewrittenTypeInfo;
-import com.android.tools.r8.ir.analysis.type.ArrayTypeLatticeElement;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.ArrayTypeElement;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.code.ArrayPut;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.FieldInstruction;
@@ -33,6 +34,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeMethod;
+import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.CodeOptimization;
@@ -106,16 +108,15 @@ public class EnumUnboxer implements PostOptimization {
     enumsUnboxingCandidates.remove(enumClass.type);
   }
 
-  private DexProgramClass getEnumUnboxingCandidateOrNull(TypeLatticeElement lattice) {
+  private DexProgramClass getEnumUnboxingCandidateOrNull(TypeElement lattice) {
     if (lattice.isClassType()) {
-      DexType classType = lattice.asClassTypeLatticeElement().getClassType();
+      DexType classType = lattice.asClassType().getClassType();
       return getEnumUnboxingCandidateOrNull(classType);
     }
     if (lattice.isArrayType()) {
-      ArrayTypeLatticeElement arrayLattice = lattice.asArrayTypeLatticeElement();
-      if (arrayLattice.getArrayBaseTypeLattice().isClassType()) {
-        DexType classType =
-            arrayLattice.getArrayBaseTypeLattice().asClassTypeLatticeElement().getClassType();
+      ArrayTypeElement arrayLattice = lattice.asArrayType();
+      if (arrayLattice.getBaseType().isClassType()) {
+        DexType classType = arrayLattice.getBaseType().asClassType().getClassType();
         return getEnumUnboxingCandidateOrNull(classType);
       }
     }
@@ -135,7 +136,7 @@ public class EnumUnboxer implements PostOptimization {
       for (Instruction instruction : block.getInstructions()) {
         Value outValue = instruction.outValue();
         if (outValue != null) {
-          DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(outValue.getTypeLattice());
+          DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(outValue.getType());
           if (enumClass != null) {
             Reason reason = validateEnumUsages(code, outValue, enumClass);
             if (reason == Reason.ELIGIBLE) {
@@ -147,7 +148,7 @@ public class EnumUnboxer implements PostOptimization {
               eligibleEnums.add(enumClass.type);
             }
           }
-          if (outValue.getTypeLattice().isNullType()) {
+          if (outValue.getType().isNullType()) {
             addNullDependencies(outValue.uniqueUsers(), eligibleEnums);
           }
         }
@@ -160,17 +161,33 @@ public class EnumUnboxer implements PostOptimization {
             markEnumAsUnboxable(
                 Reason.CONST_CLASS, appView.definitionForProgramType(constClass.getValue()));
           }
+        } else if (instruction.isInvokeStatic()) {
+          // TODO(b/150370354): Since we temporary allow enum unboxing on enums with values and
+          // valueOf static methods only if such methods are unused, such methods cannot be
+          // called. the long term solution is to simply move called methods to a companion class,
+          // as any static helper method, and remove these checks.
+          DexMethod invokedMethod = instruction.asInvokeStatic().getInvokedMethod();
+          DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(invokedMethod.holder);
+          if (enumClass != null) {
+            if (factory.enumMethods.isValueOfMethod(invokedMethod, enumClass)) {
+              markEnumAsUnboxable(Reason.VALUE_OF_INVOKE, enumClass);
+            } else if (factory.enumMethods.isValuesMethod(invokedMethod, enumClass)) {
+              markEnumAsUnboxable(Reason.VALUES_INVOKE, enumClass);
+            } else {
+              assert false; // We do not allow any other static call in unboxing candidates.
+            }
+          }
         }
       }
       for (Phi phi : block.getPhis()) {
-        DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(phi.getTypeLattice());
+        DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(phi.getType());
         if (enumClass != null) {
           Reason reason = validateEnumUsages(code, phi, enumClass);
           if (reason == Reason.ELIGIBLE) {
             eligibleEnums.add(enumClass.type);
           }
         }
-        if (phi.getTypeLattice().isNullType()) {
+        if (phi.getType().isNullType()) {
           addNullDependencies(phi.uniqueUsers(), eligibleEnums);
         }
       }
@@ -223,7 +240,7 @@ public class EnumUnboxer implements PostOptimization {
     }
     for (Phi phi : value.uniquePhiUsers()) {
       for (Value operand : phi.getOperands()) {
-        if (getEnumUnboxingCandidateOrNull(operand.getTypeLattice()) != enumClass) {
+        if (getEnumUnboxingCandidateOrNull(operand.getType()) != enumClass) {
           markEnumAsUnboxable(Reason.INVALID_PHI, enumClass);
           return Reason.INVALID_PHI;
         }
@@ -263,6 +280,7 @@ public class EnumUnboxer implements PostOptimization {
               if (optimizationInfo.isMutableFieldOptimizationInfo()) {
                 optimizationInfo
                     .asMutableFieldOptimizationInfo()
+                    .fixupClassTypeReferences(appView.graphLense()::lookupType, appView)
                     .fixupAbstractValue(appView, appView.graphLense());
               } else {
                 assert optimizationInfo.isDefaultFieldOptimizationInfo();
@@ -275,6 +293,7 @@ public class EnumUnboxer implements PostOptimization {
               if (optimizationInfo.isUpdatableMethodOptimizationInfo()) {
                 optimizationInfo
                     .asUpdatableMethodOptimizationInfo()
+                    .fixupClassTypeReferences(appView.graphLense()::lookupType, appView)
                     .fixupAbstractReturnValue(appView, appView.graphLense())
                     .fixupInstanceInitializerInfo(appView, appView.graphLense());
               } else {
@@ -292,6 +311,8 @@ public class EnumUnboxer implements PostOptimization {
       DexProgramClass enumClass = appView.definitionForProgramType(toUnbox);
       assert enumClass != null;
 
+      // Enum candidates have necessarily only one constructor matching enumMethods.constructor
+      // signature.
       DexEncodedMethod initializer = enumClass.lookupDirectMethod(factory.enumMethods.constructor);
       if (initializer == null) {
         // This case typically happens when a programmer uses EnumSet/EnumMap without using the
@@ -307,17 +328,6 @@ public class EnumUnboxer implements PostOptimization {
 
       if (enumClass.classInitializationMayHaveSideEffects(appView)) {
         markEnumAsUnboxable(Reason.INVALID_CLINIT, enumClass);
-        continue;
-      }
-
-      EnumValueInfoMap enumValueInfoMap =
-          appView.appInfo().withLiveness().getEnumValueInfoMap(enumClass.type);
-      if (enumValueInfoMap == null) {
-        markEnumAsUnboxable(Reason.MISSING_INFO_MAP, enumClass);
-        continue;
-      }
-      if (enumValueInfoMap.size() != enumClass.staticFields().size() - 1) {
-        markEnumAsUnboxable(Reason.UNEXPECTED_STATIC_FIELD, enumClass);
       }
     }
     if (debugLogEnabled) {
@@ -360,7 +370,7 @@ public class EnumUnboxer implements PostOptimization {
         int offset = BooleanUtils.intValue(!encodedSingleTarget.isStatic());
         for (int i = 0; i < singleTarget.proto.parameters.size(); i++) {
           if (invokeMethod.inValues().get(offset + i) == enumValue) {
-            if (singleTarget.proto.parameters.values[i] != enumClass.type) {
+            if (singleTarget.proto.parameters.values[i].toBaseType(factory) != enumClass.type) {
               return Reason.GENERIC_INVOKE;
             }
           }
@@ -426,14 +436,48 @@ public class EnumUnboxer implements PostOptimization {
         return Reason.ELIGIBLE;
       }
       // e == MyEnum.X
-      TypeLatticeElement leftType = anIf.lhs().getTypeLattice();
-      TypeLatticeElement rightType = anIf.rhs().getTypeLattice();
+      TypeElement leftType = anIf.lhs().getType();
+      TypeElement rightType = anIf.rhs().getType();
       if (leftType.equalUpToNullability(rightType)) {
         assert leftType.isClassType();
-        assert leftType.asClassTypeLatticeElement().getClassType() == enumClass.type;
+        assert leftType.asClassType().getClassType() == enumClass.type;
         return Reason.ELIGIBLE;
       }
       return Reason.INVALID_IF_TYPES;
+    }
+
+    if (instruction.isArrayLength()) {
+      // MyEnum[] array = ...; array.length; is valid.
+      return Reason.ELIGIBLE;
+    }
+
+    if (instruction.isArrayGet()) {
+      // MyEnum[] array = ...; array[0]; is valid.
+      return Reason.ELIGIBLE;
+    }
+
+    if (instruction.isArrayPut()) {
+      // MyEnum[] array; array[0] = MyEnum.A; is valid.
+      // MyEnum[][] array2d; MyEnum[] array; array2d[0] = array; is valid.
+      // MyEnum[]^N array; MyEnum[]^(N-1) element; array[0] = element; is valid.
+      // We need to prove that the value to put in and the array have correct types.
+      ArrayPut arrayPut = instruction.asArrayPut();
+      assert arrayPut.getMemberType() == MemberType.OBJECT;
+      TypeElement arrayType = arrayPut.array().getType();
+      assert arrayType.isArrayType();
+      assert arrayType.asArrayType().getBaseType().isClassType();
+      ClassTypeElement arrayBaseType = arrayType.asArrayType().getBaseType().asClassType();
+      TypeElement valueBaseType = arrayPut.value().getType();
+      if (valueBaseType.isArrayType()) {
+        assert valueBaseType.asArrayType().getBaseType().isClassType();
+        assert valueBaseType.asArrayType().getNesting() == arrayType.asArrayType().getNesting() - 1;
+        valueBaseType = valueBaseType.asArrayType().getBaseType();
+      }
+      if (arrayBaseType.equalUpToNullability(valueBaseType)
+          && arrayBaseType.getClassType() == enumClass.type) {
+        return Reason.ELIGIBLE;
+      }
+      return Reason.INVALID_ARRAY_PUT;
     }
 
     if (instruction.isAssume()) {
@@ -537,6 +581,7 @@ public class EnumUnboxer implements PostOptimization {
     UNSUPPORTED_LIBRARY_CALL,
     MISSING_INFO_MAP,
     INVALID_FIELD_PUT,
+    INVALID_ARRAY_PUT,
     FIELD_PUT_ON_ENUM,
     TYPE_MISSMATCH_FIELD_PUT,
     INVALID_IF_TYPES,

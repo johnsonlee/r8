@@ -21,7 +21,7 @@ import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
 import com.android.tools.r8.ir.analysis.proto.ProtoReferences;
 import com.android.tools.r8.ir.analysis.proto.ProtoShrinker;
 import com.android.tools.r8.ir.analysis.proto.RawMessageInfoDecoder;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRCodeUtils;
@@ -37,6 +37,7 @@ import com.android.tools.r8.shaking.InstantiationReason;
 import com.android.tools.r8.shaking.KeepReason;
 import com.android.tools.r8.utils.BitUtils;
 import com.android.tools.r8.utils.OptionalBool;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
@@ -171,7 +172,8 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
   }
 
   @Override
-  public void notifyFixpoint(Enqueuer enqueuer, EnqueuerWorklist worklist) {
+  public void notifyFixpoint(Enqueuer enqueuer, EnqueuerWorklist worklist, Timing timing) {
+    timing.begin("[Proto] Extend fixpoint");
     populateExtensionGraph(enqueuer);
 
     markMapOrRequiredFieldsAsReachable(enqueuer, worklist);
@@ -187,6 +189,7 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
         tracePendingInstructionsInDynamicMethods(enqueuer, worklist);
       }
     }
+    timing.end();
   }
 
   /**
@@ -317,17 +320,17 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
       InvokeMethod invoke = extensionFactory.asInvokeMethod();
       DexMethod invokedMethod = invoke.getInvokedMethod();
 
-      TypeLatticeElement containerType, extensionType;
+      TypeElement containerType, extensionType;
       if (invokedMethod == references.generatedMessageLiteMethods.newRepeatedGeneratedExtension) {
-        containerType = invoke.arguments().get(0).getTypeLattice();
-        extensionType = invoke.arguments().get(1).getTypeLattice();
+        containerType = invoke.arguments().get(0).getType();
+        extensionType = invoke.arguments().get(1).getType();
       } else if (invokedMethod
           == references.generatedMessageLiteMethods.newSingularGeneratedExtension) {
-        containerType = invoke.arguments().get(0).getTypeLattice();
-        extensionType = invoke.arguments().get(2).getTypeLattice();
+        containerType = invoke.arguments().get(0).getType();
+        extensionType = invoke.arguments().get(2).getType();
       } else if (references.generatedExtensionMethods.isConstructor(invokedMethod)) {
-        containerType = invoke.arguments().get(1).getTypeLattice();
-        extensionType = invoke.arguments().get(3).getTypeLattice();
+        containerType = invoke.arguments().get(1).getType();
+        extensionType = invoke.arguments().get(3).getType();
       } else {
         return;
       }
@@ -343,9 +346,8 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
 
       extensionGraph
           .computeIfAbsent(
-              containerType.asClassTypeLatticeElement().getClassType(),
-              ignore -> Sets.newIdentityHashSet())
-          .add(extensionType.asClassTypeLatticeElement().getClassType());
+              containerType.asClassType().getClassType(), ignore -> Sets.newIdentityHashSet())
+          .add(extensionType.asClassType().getClassType());
     }
   }
 

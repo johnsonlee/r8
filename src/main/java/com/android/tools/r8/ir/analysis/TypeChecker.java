@@ -9,7 +9,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.ir.analysis.type.Nullability;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InstancePut;
@@ -67,15 +67,14 @@ public class TypeChecker {
     if (instruction.isReturnVoid()) {
       return true;
     }
-    TypeLatticeElement valueType = instruction.returnValue().getTypeLattice();
-    TypeLatticeElement returnType =
-        TypeLatticeElement.fromDexType(
-            method.method.proto.returnType, Nullability.maybeNull(), appView);
+    TypeElement valueType = instruction.returnValue().getType();
+    TypeElement returnType =
+        TypeElement.fromDexType(method.method.proto.returnType, Nullability.maybeNull(), appView);
     if (isSubtypeOf(valueType, returnType)) {
       return true;
     }
 
-    if (returnType.isClassType() && valueType.isReference()) {
+    if (returnType.isClassType() && valueType.isReferenceType()) {
       // Interface types are treated like Object according to the JVM spec.
       // https://docs.oracle.com/javase/specs/jvms/se9/html/jvms-4.html#jvms-4.10.1.2-100
       DexClass clazz = appView.definitionFor(method.method.proto.returnType);
@@ -91,15 +90,14 @@ public class TypeChecker {
 
   public boolean checkFieldPut(FieldInstruction instruction) {
     assert instruction.isFieldPut();
-    TypeLatticeElement valueType = instruction.value().getTypeLattice();
-    TypeLatticeElement fieldType =
-        TypeLatticeElement.fromDexType(
-            instruction.getField().type, valueType.nullability(), appView);
+    TypeElement valueType = instruction.value().getType();
+    TypeElement fieldType =
+        TypeElement.fromDexType(instruction.getField().type, valueType.nullability(), appView);
     if (isSubtypeOf(valueType, fieldType)) {
       return true;
     }
 
-    if (fieldType.isClassType() && valueType.isReference()) {
+    if (fieldType.isClassType() && valueType.isReferenceType()) {
       // Interface types are treated like Object according to the JVM spec.
       // https://docs.oracle.com/javase/specs/jvms/se9/html/jvms-4.html#jvms-4.10.1.2-100
       DexClass clazz = appView.definitionFor(instruction.getField().type);
@@ -110,16 +108,15 @@ public class TypeChecker {
   }
 
   public boolean check(Throw instruction) {
-    TypeLatticeElement valueType = instruction.exception().getTypeLattice();
-    TypeLatticeElement throwableType =
-        TypeLatticeElement.fromDexType(
+    TypeElement valueType = instruction.exception().getType();
+    TypeElement throwableType =
+        TypeElement.fromDexType(
             appView.dexItemFactory().throwableType, valueType.nullability(), appView);
     return isSubtypeOf(valueType, throwableType);
   }
 
-  private boolean isSubtypeOf(
-      TypeLatticeElement expectedSubtype, TypeLatticeElement expectedSupertype) {
-    return (expectedSubtype.isNullType() && expectedSupertype.isReference())
+  private boolean isSubtypeOf(TypeElement expectedSubtype, TypeElement expectedSupertype) {
+    return (expectedSubtype.isNullType() && expectedSupertype.isReferenceType())
         || expectedSubtype.lessThanOrEqual(expectedSupertype, appView)
         || expectedSubtype.isBasedOnMissingClass(appView);
   }

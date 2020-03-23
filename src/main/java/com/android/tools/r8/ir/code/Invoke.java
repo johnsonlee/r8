@@ -16,7 +16,7 @@ import com.android.tools.r8.graph.DexMethodHandle.MethodHandleType;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import java.util.List;
 import java.util.Set;
@@ -167,14 +167,14 @@ public abstract class Invoke extends Instruction {
   protected void addInvokeAndMoveResult(
       com.android.tools.r8.code.Instruction instruction, DexBuilder builder) {
     if (outValue != null && outValue.needsRegister()) {
-      TypeLatticeElement moveType = outValue.getTypeLattice();
+      TypeElement moveType = outValue.getType();
       int register = builder.allocatedRegister(outValue, getNumber());
       com.android.tools.r8.code.Instruction moveResult;
       if (moveType.isSinglePrimitive()) {
         moveResult = new MoveResult(register);
       } else if (moveType.isWidePrimitive()) {
         moveResult = new MoveResultWide(register);
-      } else if (moveType.isReference()) {
+      } else if (moveType.isReferenceType()) {
         moveResult = new MoveResultObject(register);
       } else {
         throw new Unreachable("Unexpected result type " + outType());
@@ -187,24 +187,27 @@ public abstract class Invoke extends Instruction {
 
   @Override
   public boolean couldIntroduceAnAlias(AppView<?> appView, Value root) {
-    assert root != null && root.getTypeLattice().isReference();
+    assert root != null && root.getType().isReferenceType();
     if (outValue == null) {
       return false;
     }
-    TypeLatticeElement outType = outValue.getTypeLattice();
-    if (outType.isPrimitive()) {
+    TypeElement outType = outValue.getType();
+    if (outType.isPrimitiveType()) {
       return false;
     }
     if (appView.appInfo().hasSubtyping()) {
       if (outType.isClassType()
-          && root.getTypeLattice().isClassType()
-          && appView.appInfo().withSubtyping().inDifferentHierarchy(
-              outType.asClassTypeLatticeElement().getClassType(),
-              root.getTypeLattice().asClassTypeLatticeElement().getClassType())) {
+          && root.getType().isClassType()
+          && appView
+              .appInfo()
+              .withSubtyping()
+              .inDifferentHierarchy(
+                  outType.asClassType().getClassType(),
+                  root.getType().asClassType().getClassType())) {
         return false;
       }
     }
-    return outType.isReference();
+    return outType.isReferenceType();
   }
 
   @Override
@@ -284,12 +287,12 @@ public abstract class Invoke extends Instruction {
   }
 
   @Override
-  public TypeLatticeElement evaluate(AppView<?> appView) {
+  public TypeElement evaluate(AppView<?> appView) {
     DexType returnType = getReturnType();
     if (returnType.isVoidType()) {
       throw new Unreachable("void methods have no type.");
     }
-    return TypeLatticeElement.fromDexType(returnType, Nullability.maybeNull(), appView);
+    return TypeElement.fromDexType(returnType, Nullability.maybeNull(), appView);
   }
 
   @Override

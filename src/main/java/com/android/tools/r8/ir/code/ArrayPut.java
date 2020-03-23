@@ -16,8 +16,8 @@ import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.type.ArrayTypeLatticeElement;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.ArrayTypeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.conversion.TypeConstraintResolver;
@@ -26,11 +26,9 @@ import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import java.util.Arrays;
 
-public class ArrayPut extends Instruction implements ImpreciseMemberTypeInstruction {
+public class ArrayPut extends ArrayAccess {
 
   // Input values are ordered according to the stack order of the Java bytecode astore.
-  private static final int ARRAY_INDEX = 0;
-  private static final int INDEX_INDEX = 1;
   private static final int VALUE_INDEX = 2;
 
   private MemberType type;
@@ -51,14 +49,6 @@ public class ArrayPut extends Instruction implements ImpreciseMemberTypeInstruct
   @Override
   public <T> T accept(InstructionVisitor<T> visitor) {
     return visitor.visit(this);
-  }
-
-  public Value array() {
-    return inValues.get(ARRAY_INDEX);
-  }
-
-  public Value index() {
-    return inValues.get(INDEX_INDEX);
   }
 
   public Value value() {
@@ -89,13 +79,12 @@ public class ArrayPut extends Instruction implements ImpreciseMemberTypeInstruct
         instruction = new AputObject(value, array, index);
         break;
       case BOOLEAN_OR_BYTE:
-        ArrayTypeLatticeElement arrayType = array().getTypeLattice().asArrayTypeLatticeElement();
-        if (arrayType != null
-            && arrayType.getArrayMemberTypeAsMemberType() == TypeLatticeElement.getBoolean()) {
+        ArrayTypeElement arrayType = array().getType().asArrayType();
+        if (arrayType != null && arrayType.getMemberType() == TypeElement.getBoolean()) {
           instruction = new AputBoolean(value, array, index);
         } else {
-          assert array().getTypeLattice().isDefinitelyNull()
-              || arrayType.getArrayMemberTypeAsMemberType() == TypeLatticeElement.getByte();
+          assert array().getType().isDefinitelyNull()
+              || arrayType.getMemberType() == TypeElement.getByte();
           instruction = new AputByte(value, array, index);
         }
         break;
@@ -176,13 +165,12 @@ public class ArrayPut extends Instruction implements ImpreciseMemberTypeInstruct
     }
 
     // Check for type errors.
-    TypeLatticeElement arrayType = array.getTypeLattice();
-    TypeLatticeElement valueType = value().getTypeLattice();
+    TypeElement arrayType = array.getType();
+    TypeElement valueType = value().getType();
     if (!arrayType.isArrayType()) {
       return true;
     }
-    TypeLatticeElement memberType =
-        arrayType.asArrayTypeLatticeElement().getArrayMemberTypeAsValueType();
+    TypeElement memberType = arrayType.asArrayType().getMemberTypeAsValueType();
     if (!valueType.lessThanOrEqualUpToNullability(memberType, appView)) {
       return true;
     }
@@ -274,5 +262,10 @@ public class ArrayPut extends Instruction implements ImpreciseMemberTypeInstruct
   @Override
   public boolean instructionMayTriggerMethodInvocation(AppView<?> appView, DexType context) {
     return false;
+  }
+
+  @Override
+  public ArrayAccess withMemberType(MemberType newMemberType) {
+    return new ArrayPut(newMemberType, array(), index(), value());
   }
 }

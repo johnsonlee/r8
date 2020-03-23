@@ -11,7 +11,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock.EdgeType;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.TypeConstraintResolver;
@@ -53,10 +53,10 @@ public class Phi extends Value implements InstructionOrPhi {
   public Phi(
       int number,
       BasicBlock block,
-      TypeLatticeElement typeLattice,
+      TypeElement type,
       DebugLocalInfo local,
       RegisterReadType readType) {
-    super(number, typeLattice, local);
+    super(number, type, local);
     this.block = block;
     this.readType = readType;
     block.addPhi(this);
@@ -97,7 +97,7 @@ public class Phi extends Value implements InstructionOrPhi {
       throw new InvalidDebugInfoException(
           "Type information in locals-table is inconsistent."
               + " Cannot constrain type: "
-              + typeLattice
+              + type
               + " for value: "
               + this
               + " by constraint "
@@ -115,7 +115,7 @@ public class Phi extends Value implements InstructionOrPhi {
       throwUndefinedValueError();
     }
 
-    ValueTypeConstraint readConstraint = TypeConstraintResolver.constraintForType(typeLattice);
+    ValueTypeConstraint readConstraint = TypeConstraintResolver.constraintForType(type);
     List<Value> operands = new ArrayList<>(block.getPredecessors().size());
     for (BasicBlock pred : block.getPredecessors()) {
       EdgeType edgeType = pred.getEdgeType(block);
@@ -125,7 +125,7 @@ public class Phi extends Value implements InstructionOrPhi {
 
     if (readType != RegisterReadType.NORMAL) {
       for (Value operand : operands) {
-        TypeLatticeElement type = operand.getTypeLattice();
+        TypeElement type = operand.getType();
         ValueTypeConstraint constraint = TypeConstraintResolver.constraintForType(type);
         abortOnInvalidDebugInfo(constraint);
       }
@@ -261,8 +261,8 @@ public class Phi extends Value implements InstructionOrPhi {
       return false;
     }
     // Ensure that the value that replaces this phi is constrained to the type of this phi.
-    if (builder != null && typeLattice.isPreciseType() && !typeLattice.isBottom()) {
-      builder.constrainType(same, ValueTypeConstraint.fromTypeLattice(typeLattice));
+    if (builder != null && type.isPreciseType() && !type.isBottom()) {
+      builder.constrainType(same, ValueTypeConstraint.fromTypeLattice(type));
     }
     if (affectedValues != null) {
       affectedValues.addAll(this.affectedValues());
@@ -320,7 +320,7 @@ public class Phi extends Value implements InstructionOrPhi {
     }
     builder.append(" <- phi");
     StringUtils.append(builder, ListUtils.map(operands, Value::toString));
-    builder.append(" : ").append(getTypeLattice());
+    builder.append(" : ").append(getType());
     return builder.toString();
   }
 
@@ -398,17 +398,16 @@ public class Phi extends Value implements InstructionOrPhi {
   }
 
   // Type of phi(v1, v2, ..., vn) is the least upper bound of all those n operands.
-  public TypeLatticeElement computePhiType(AppView<?> appView) {
-    TypeLatticeElement result = TypeLatticeElement.getBottom();
+  public TypeElement computePhiType(AppView<?> appView) {
+    TypeElement result = TypeElement.getBottom();
     for (Value operand : getOperands()) {
-      result = result.join(operand.getTypeLattice(), appView);
+      result = result.join(operand.getType(), appView);
     }
     return result;
   }
 
   @Override
-  public TypeLatticeElement getDynamicUpperBoundType(
-      AppView<? extends AppInfoWithSubtyping> appView) {
+  public TypeElement getDynamicUpperBoundType(AppView<? extends AppInfoWithSubtyping> appView) {
     Set<Phi> reachablePhis = SetUtils.newIdentityHashSet(this);
     Deque<Phi> worklist = DequeUtils.newArrayDeque(this);
     while (!worklist.isEmpty()) {
@@ -422,7 +421,7 @@ public class Phi extends Value implements InstructionOrPhi {
       }
     }
     Set<Value> visitedOperands = Sets.newIdentityHashSet();
-    TypeLatticeElement result = TypeLatticeElement.getBottom();
+    TypeElement result = TypeElement.getBottom();
     for (Phi phi : reachablePhis) {
       for (Value operand : phi.getOperands()) {
         if (!operand.getAliasedValue().isPhi() && visitedOperands.add(operand)) {

@@ -14,7 +14,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ResolutionResult;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CatchHandlers.CatchHandler;
 import com.android.tools.r8.ir.code.DominatorTree;
@@ -278,7 +278,7 @@ public class ClassInitializationAnalysis {
             instruction.isInstanceGet()
                 ? instruction.asInstanceGet().object()
                 : instruction.asInstancePut().object();
-        if (object.getTypeLattice().isNullable()) {
+        if (object.getType().isNullable()) {
           // If the receiver is null we cannot be sure that the holder has been initialized.
           return false;
         }
@@ -294,7 +294,7 @@ public class ClassInitializationAnalysis {
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
-        if (instruction.getReceiver().getTypeLattice().isNullable()) {
+        if (instruction.getReceiver().getType().isNullable()) {
           // If the receiver is null we cannot be sure that the holder has been initialized.
           return false;
         }
@@ -311,7 +311,7 @@ public class ClassInitializationAnalysis {
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
-        if (instruction.getReceiver().getTypeLattice().isNullable()) {
+        if (instruction.getReceiver().getType().isNullable()) {
           // If the receiver is null we cannot be sure that the holder has been initialized.
           return false;
         }
@@ -362,7 +362,7 @@ public class ClassInitializationAnalysis {
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
-        if (instruction.getReceiver().getTypeLattice().isNullable()) {
+        if (instruction.getReceiver().getType().isNullable()) {
           // If the receiver is null we cannot be sure that the holder has been initialized.
           return false;
         }
@@ -406,7 +406,7 @@ public class ClassInitializationAnalysis {
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
-        if (instruction.getReceiver().getTypeLattice().isNullable()) {
+        if (instruction.getReceiver().getType().isNullable()) {
           // If the receiver is null we cannot be sure that the holder has been initialized.
           return false;
         }
@@ -554,9 +554,9 @@ public class ClassInitializationAnalysis {
       // implies that the type of the receiver must be initialized.
       if (!method.isStatic()) {
         assert arguments.size() > 0;
-        TypeLatticeElement type = arguments.get(0).getTypeLattice();
+        TypeElement type = arguments.get(0).getType();
         if (type.isClassType()) {
-          enqueue(type.asClassTypeLatticeElement().getClassType(), visited, worklist);
+          enqueue(type.asClassType().getClassType(), visited, worklist);
         }
       }
       // If an invoke to a method succeeds, and the method would have thrown and exception if the
@@ -566,9 +566,9 @@ public class ClassInitializationAnalysis {
       if (nonNullParamOrThrowFacts != null) {
         for (int i = 0; i < arguments.size(); i++) {
           if (nonNullParamOrThrowFacts.get(i)) {
-            TypeLatticeElement type = arguments.get(i).getTypeLattice();
+            TypeElement type = arguments.get(i).getType();
             if (type.isClassType()) {
-              enqueue(type.asClassTypeLatticeElement().getClassType(), visited, worklist);
+              enqueue(type.asClassType().getClassType(), visited, worklist);
             }
           }
         }

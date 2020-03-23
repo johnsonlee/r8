@@ -20,8 +20,8 @@ import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.ir.regalloc.LiveIntervals;
@@ -52,81 +52,80 @@ public class Value implements Comparable<Value> {
 
   public void constrainType(
       ValueTypeConstraint constraint, DexMethod method, Origin origin, Reporter reporter) {
-    TypeLatticeElement constrainedType = constrainedType(constraint);
+    TypeElement constrainedType = constrainedType(constraint);
     if (constrainedType == null) {
       throw reporter.fatalError(
           new StringDiagnostic(
               "Cannot constrain type: "
-                  + typeLattice
+                  + type
                   + " for value: "
                   + this
                   + " by constraint: "
                   + constraint,
               origin,
               new MethodPosition(method)));
-    } else if (constrainedType != typeLattice) {
-      setTypeLattice(constrainedType);
+    } else if (constrainedType != type) {
+      setType(constrainedType);
     }
   }
 
-  public TypeLatticeElement constrainedType(ValueTypeConstraint constraint) {
-    if (constraint == ValueTypeConstraint.INT_OR_FLOAT_OR_OBJECT
-        && !typeLattice.isWidePrimitive()) {
-      return typeLattice;
+  public TypeElement constrainedType(ValueTypeConstraint constraint) {
+    if (constraint == ValueTypeConstraint.INT_OR_FLOAT_OR_OBJECT && !type.isWidePrimitive()) {
+      return type;
     }
     switch (constraint) {
       case OBJECT:
-        if (typeLattice.isTop()) {
+        if (type.isTop()) {
           if (definition != null && definition.isConstNumber()) {
             assert definition.asConstNumber().isZero();
-            return TypeLatticeElement.getNull();
+            return TypeElement.getNull();
           } else {
-            return TypeLatticeElement.getBottom();
+            return TypeElement.getBottom();
           }
         }
-        if (typeLattice.isReference()) {
-          return typeLattice;
+        if (type.isReferenceType()) {
+          return type;
         }
-        if (typeLattice.isBottom()) {
+        if (type.isBottom()) {
           // Only a few instructions may propagate a bottom input to a bottom output.
           assert isPhi()
               || definition.isDebugLocalWrite()
               || (definition.isArrayGet()
                   && definition.asArrayGet().getMemberType() == MemberType.OBJECT);
-          return typeLattice;
+          return type;
         }
         break;
       case INT:
-        if (typeLattice.isTop() || (typeLattice.isSinglePrimitive() && !typeLattice.isFloat())) {
-          return TypeLatticeElement.getInt();
+        if (type.isTop() || (type.isSinglePrimitive() && !type.isFloat())) {
+          return TypeElement.getInt();
         }
         break;
       case FLOAT:
-        if (typeLattice.isTop() || (typeLattice.isSinglePrimitive() && !typeLattice.isInt())) {
-          return TypeLatticeElement.getFloat();
+        if (type.isTop() || (type.isSinglePrimitive() && !type.isInt())) {
+          return TypeElement.getFloat();
         }
         break;
       case INT_OR_FLOAT:
-        if (typeLattice.isTop()) {
-          return TypeLatticeElement.getSingle();
+        if (type.isTop()) {
+          return TypeElement.getSingle();
         }
-        if (typeLattice.isSinglePrimitive()) {
-          return typeLattice;
+        if (type.isSinglePrimitive()) {
+          return type;
         }
         break;
       case LONG:
-        if (typeLattice.isWidePrimitive() && !typeLattice.isDouble()) {
-          return TypeLatticeElement.getLong();
+        if (type.isWidePrimitive() && !type.isDouble()) {
+          return TypeElement.getLong();
         }
         break;
       case DOUBLE:
-        if (typeLattice.isWidePrimitive() && !typeLattice.isLong()) {
-          return TypeLatticeElement.getDouble();
+        if (type.isWidePrimitive() && !type.isLong()) {
+          return TypeElement.getDouble();
         }
         break;
       case LONG_OR_DOUBLE:
-        if (typeLattice.isWidePrimitive()) {
-          return typeLattice;
+        if (type.isWidePrimitive()) {
+          return type;
         }
         break;
       default:
@@ -212,8 +211,7 @@ public class Value implements Comparable<Value> {
 
   public static final int UNDEFINED_NUMBER = -1;
 
-  public static final Value UNDEFINED =
-      new Value(UNDEFINED_NUMBER, TypeLatticeElement.getBottom(), null);
+  public static final Value UNDEFINED = new Value(UNDEFINED_NUMBER, TypeElement.getBottom(), null);
 
   protected final int number;
   public Instruction definition = null;
@@ -228,13 +226,13 @@ public class Value implements Comparable<Value> {
   private boolean isThis = false;
   private LongInterval valueRange;
   private DebugData debugData;
-  protected TypeLatticeElement typeLattice;
+  protected TypeElement type;
 
-  public Value(int number, TypeLatticeElement typeLattice, DebugLocalInfo local) {
-    assert typeLattice != null;
+  public Value(int number, TypeElement type, DebugLocalInfo local) {
+    assert type != null;
     this.number = number;
     this.debugData = local == null ? null : new DebugData(local);
-    this.typeLattice = typeLattice;
+    this.type = type;
   }
 
   public boolean isFixedRegisterValue() {
@@ -310,7 +308,7 @@ public class Value implements Comparable<Value> {
   }
 
   public int requiredRegisters() {
-    return typeLattice.requiredRegisters();
+    return type.requiredRegisters();
   }
 
   public DebugLocalInfo getLocalInfo() {
@@ -553,14 +551,11 @@ public class Value implements Comparable<Value> {
       // Not always null as the value can be changed via the debugger.
       return false;
     }
-    if (typeLattice.isDefinitelyNull()) {
+    if (type.isDefinitelyNull()) {
       return true;
     }
-    if (typeLattice.isClassType() && appView.appInfo().hasLiveness()) {
-      return typeLattice
-          .asClassTypeLatticeElement()
-          .getClassType()
-          .isAlwaysNull(appView.withLiveness());
+    if (type.isClassType() && appView.appInfo().hasLiveness()) {
+      return type.asClassType().getClassType().isAlwaysNull(appView.withLiveness());
     }
     return false;
   }
@@ -831,7 +826,7 @@ public class Value implements Comparable<Value> {
       builder.append("(");
       if (isConstant && definition.asConstNumber().outValue != null) {
         ConstNumber constNumber = definition.asConstNumber();
-        if (constNumber.outValue().getTypeLattice().isSinglePrimitive()) {
+        if (constNumber.outValue().getType().isSinglePrimitive()) {
           builder.append((int) constNumber.getRawValue());
         } else {
           builder.append(constNumber.getRawValue());
@@ -852,7 +847,7 @@ public class Value implements Comparable<Value> {
   }
 
   public ValueType outType() {
-    return ValueType.fromTypeLattice(typeLattice);
+    return ValueType.fromType(type);
   }
 
   public ConstInstruction getConstInstruction() {
@@ -921,9 +916,9 @@ public class Value implements Comparable<Value> {
    * Returns whether this value is known to never be <code>null</code>.
    */
   public boolean isNeverNull() {
-    assert typeLattice.isReference();
+    assert type.isReferenceType();
     return (definition != null && definition.isAssumeNonNull())
-        || typeLattice.nullability().isDefinitelyNotNull();
+        || type.nullability().isDefinitelyNotNull();
   }
 
   public boolean isArgument() {
@@ -956,7 +951,7 @@ public class Value implements Comparable<Value> {
   }
 
   public boolean knownToBeBoolean(Set<Phi> seen) {
-    if (!getTypeLattice().isInt()) {
+    if (!getType().isInt()) {
       return false;
     }
 
@@ -1014,11 +1009,11 @@ public class Value implements Comparable<Value> {
 
   public LongInterval getValueRange() {
     if (isConstNumber()) {
-      if (typeLattice.isSinglePrimitive()) {
+      if (type.isSinglePrimitive()) {
         int value = getConstInstruction().asConstNumber().getIntValue();
         return new LongInterval(value, value);
       } else {
-        assert typeLattice.isWidePrimitive();
+        assert type.isWidePrimitive();
         long value = getConstInstruction().asConstNumber().getLongValue();
         return new LongInterval(value, value);
       }
@@ -1096,45 +1091,44 @@ public class Value implements Comparable<Value> {
    *
    * @param newType The new type lattice element
    */
-  public void setTypeLattice(TypeLatticeElement newType) {
+  public void setType(TypeElement newType) {
     assert newType != null;
-    typeLattice = newType;
+    type = newType;
   }
 
-  public void widening(AppView<?> appView, TypeLatticeElement newType) {
+  public void widening(AppView<?> appView, TypeElement newType) {
     // During WIDENING (due to fix-point iteration), type update is monotonically upwards,
     //   i.e., towards something wider.
-    assert this.typeLattice.lessThanOrEqual(newType, appView)
+    assert this.type.lessThanOrEqual(newType, appView)
         : "During WIDENING, "
             + newType
             + " < "
-            + typeLattice
+            + type
             + " at "
             + (isPhi() ? asPhi().printPhi() : definition.toString());
-    setTypeLattice(newType);
+    setType(newType);
   }
 
-  public void narrowing(AppView<?> appView, TypeLatticeElement newType) {
+  public void narrowing(AppView<?> appView, TypeElement newType) {
     // During NARROWING (e.g., after inlining), type update is monotonically downwards,
     //   i.e., towards something narrower, with more specific type info.
     assert (!appView.options().testing.enableNarrowingChecksInD8
                 && !appView.enableWholeProgramOptimizations())
-            || !this.typeLattice.strictlyLessThan(newType, appView)
+            || !this.type.strictlyLessThan(newType, appView)
         : "During NARROWING, "
-            + typeLattice
+            + type
             + " < "
             + newType
             + " at "
             + (isPhi() ? asPhi().printPhi() : definition.toString());
-    setTypeLattice(newType);
+    setType(newType);
   }
 
-  public TypeLatticeElement getTypeLattice() {
-    return typeLattice;
+  public TypeElement getType() {
+    return type;
   }
 
-  public TypeLatticeElement getDynamicUpperBoundType(
-      AppView<? extends AppInfoWithSubtyping> appView) {
+  public TypeElement getDynamicUpperBoundType(AppView<? extends AppInfoWithSubtyping> appView) {
     Value root = getAliasedValue();
     if (root.isPhi()) {
       assert getSpecificAliasedValue(
@@ -1147,7 +1141,7 @@ public class Value implements Comparable<Value> {
     // Assume<DynamicTypeAssumption>.
     Value aliasedValue =
         getSpecificAliasedValue(value -> !value.isPhi() && value.definition.isAssumeDynamicType());
-    TypeLatticeElement lattice;
+    TypeElement lattice;
     if (aliasedValue != null) {
       // If there is an alias of the receiver, which is defined by an Assume<DynamicTypeAssumption>
       // instruction, then use the dynamic type as the refined receiver type.
@@ -1155,25 +1149,24 @@ public class Value implements Comparable<Value> {
           aliasedValue.definition.asAssumeDynamicType().getAssumption().getDynamicUpperBoundType();
 
       // For precision, verify that the dynamic type is at least as precise as the static type.
-      assert lattice.lessThanOrEqualUpToNullability(typeLattice, appView)
-          : typeLattice + " < " + lattice;
+      assert lattice.lessThanOrEqualUpToNullability(type, appView) : type + " < " + lattice;
     } else {
       // Otherwise, simply use the static type.
-      lattice = typeLattice;
+      lattice = type;
     }
 
     // Account for nullability, which could be flown from non-null assumption in between dynamic
     // type assumption or simply from array/object creation.
-    if (typeLattice.isDefinitelyNotNull() && lattice.isNullable()) {
+    if (type.isDefinitelyNotNull() && lattice.isNullable()) {
       // Having non-null assumption means it is a reference type.
-      assert lattice.isReference();
+      assert lattice.isReferenceType();
       // Then, we can return the non-null variant of dynamic type if both assumptions are aliased.
-      return lattice.asReferenceTypeLatticeElement().asMeetWithNotNull();
+      return lattice.asReferenceType().asMeetWithNotNull();
     }
     return lattice;
   }
 
-  public ClassTypeLatticeElement getDynamicLowerBoundType(AppView<AppInfoWithLiveness> appView) {
+  public ClassTypeElement getDynamicLowerBoundType(AppView<AppInfoWithLiveness> appView) {
     Value root = getAliasedValue();
     if (root.isPhi()) {
       return null;
@@ -1184,7 +1177,7 @@ public class Value implements Comparable<Value> {
       DexType type = definition.asNewInstance().clazz;
       DexClass clazz = appView.definitionFor(type);
       if (clazz != null && !clazz.isInterface()) {
-        return ClassTypeLatticeElement.create(type, definitelyNotNull(), appView);
+        return ClassTypeElement.create(type, definitelyNotNull(), appView);
       }
       return null;
     }
@@ -1193,16 +1186,16 @@ public class Value implements Comparable<Value> {
     // Assume<DynamicTypeAssumption>.
     Value aliasedValue = getSpecificAliasedValue(value -> value.definition.isAssumeDynamicType());
     if (aliasedValue != null) {
-      ClassTypeLatticeElement lattice =
+      ClassTypeElement lattice =
           aliasedValue.definition.asAssumeDynamicType().getAssumption().getDynamicLowerBoundType();
-      return lattice != null && typeLattice.isDefinitelyNotNull() && lattice.isNullable()
+      return lattice != null && type.isDefinitelyNotNull() && lattice.isNullable()
           ? lattice.asMeetWithNotNull()
           : lattice;
     }
 
     // If it is a final or effectively-final class type, then we know the lower bound.
-    if (getTypeLattice().isClassType()) {
-      ClassTypeLatticeElement classType = getTypeLattice().asClassTypeLatticeElement();
+    if (getType().isClassType()) {
+      ClassTypeElement classType = getType().asClassType();
       DexType type = classType.getClassType();
       DexClass clazz = appView.definitionFor(type);
       if (clazz != null && clazz.isEffectivelyFinal(appView)) {

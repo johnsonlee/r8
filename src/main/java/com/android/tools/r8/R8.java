@@ -34,7 +34,7 @@ import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAn
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.analysis.proto.GeneratedExtensionRegistryShrinker;
 import com.android.tools.r8.ir.conversion.IRConverter;
-import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
+import com.android.tools.r8.ir.desugar.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.NestedPrivateMethodLense;
 import com.android.tools.r8.ir.desugar.R8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
@@ -278,7 +278,7 @@ public class R8 {
         MainDexListBuilder.checkForAssumedLibraryTypes(appView.appInfo());
       }
       if (!options.desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()) {
-        BackportedMethodRewriter.checkForAssumedLibraryTypes(appView);
+        DesugaredLibraryRetargeter.checkForAssumedLibraryTypes(appView);
       }
 
       List<ProguardConfigurationRule> synthesizedProguardRules = new ArrayList<>();
@@ -411,7 +411,7 @@ public class R8 {
       // The class type lattice elements include information about the interfaces that a class
       // implements. This information can change as a result of vertical class merging, so we need
       // to clear the cache, so that we will recompute the type lattice elements.
-      appView.dexItemFactory().clearTypeLatticeElementsCache();
+      appView.dexItemFactory().clearTypeElementsCache();
 
       if (options.getProguardConfiguration().isAccessModificationAllowed()) {
         GraphLense publicizedLense =
@@ -514,7 +514,7 @@ public class R8 {
       }
 
       // None of the optimizations above should lead to the creation of type lattice elements.
-      assert appView.dexItemFactory().verifyNoCachedTypeLatticeElements();
+      assert appView.dexItemFactory().verifyNoCachedTypeElements();
 
       // Collect switch maps and ordinals maps.
       if (options.enableEnumSwitchMapRemoval) {
@@ -536,7 +536,7 @@ public class R8 {
       }
 
       // Clear the reference type lattice element cache to reduce memory pressure.
-      appView.dexItemFactory().clearTypeLatticeElementsCache();
+      appView.dexItemFactory().clearTypeElementsCache();
 
       // At this point all code has been mapped according to the graph lens. We cannot remove the
       // graph lens entirely, though, since it is needed for mapping all field and method signatures
@@ -717,7 +717,7 @@ public class R8 {
           // TODO(b/112437944): Avoid iterating the entire application to post-process every
           //  dynamicMethod() method.
           appView.withGeneratedMessageLiteShrinker(
-              shrinker -> shrinker.postOptimizeDynamicMethods(converter));
+              shrinker -> shrinker.postOptimizeDynamicMethods(converter, timing));
 
           // If proto shrinking is enabled, we need to post-process every
           // findLiteExtensionByNumber() method. This ensures that there are no references to dead
@@ -725,7 +725,7 @@ public class R8 {
           // TODO(b/112437944): Avoid iterating the entire application to post-process every
           //  findLiteExtensionByNumber() method.
           appView.withGeneratedExtensionRegistryShrinker(
-              shrinker -> shrinker.postOptimizeGeneratedExtensionRegistry(converter));
+              shrinker -> shrinker.postOptimizeGeneratedExtensionRegistry(converter, timing));
         }
       }
 

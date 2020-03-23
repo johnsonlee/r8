@@ -34,7 +34,7 @@ import com.android.tools.r8.graph.RewrittenPrototypeDescription.RewrittenTypeInf
 import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
 import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
 import com.android.tools.r8.ir.analysis.type.DestructivePhiTypeUpdater;
-import com.android.tools.r8.ir.analysis.type.TypeLatticeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.CheckCast;
@@ -86,8 +86,8 @@ public class LensCodeRewriter {
 
   private Value makeOutValue(Instruction insn, IRCode code) {
     if (insn.outValue() != null) {
-      TypeLatticeElement oldType = insn.outValue().getTypeLattice();
-      TypeLatticeElement newType =
+      TypeElement oldType = insn.outValue().getType();
+      TypeElement newType =
           oldType.fixupClassTypeReferences(appView.graphLense()::lookupType, appView);
       return code.createValue(newType, insn.getLocalInfo());
     }
@@ -123,8 +123,7 @@ public class LensCodeRewriter {
             InvokeCustom newInvokeCustom =
                 new InvokeCustom(newCallSite, newOutValue, invokeCustom.inValues());
             iterator.replaceCurrentInstruction(newInvokeCustom);
-            if (newOutValue != null
-                && newOutValue.getTypeLattice() != invokeCustom.outValue().getTypeLattice()) {
+            if (newOutValue != null && newOutValue.getType() != invokeCustom.outValue().getType()) {
               affectedPhis.addAll(newOutValue.uniquePhiUsers());
             }
           }
@@ -135,8 +134,7 @@ public class LensCodeRewriter {
           if (newHandle != handle) {
             Value newOutValue = makeOutValue(current, code);
             iterator.replaceCurrentInstruction(new ConstMethodHandle(newOutValue, newHandle));
-            if (newOutValue != null
-                && newOutValue.getTypeLattice() != current.outValue().getTypeLattice()) {
+            if (newOutValue != null && newOutValue.getType() != current.outValue().getType()) {
               affectedPhis.addAll(newOutValue.uniquePhiUsers());
             }
           }
@@ -250,8 +248,7 @@ public class LensCodeRewriter {
             Invoke newInvoke =
                 Invoke.create(actualInvokeType, actualTarget, null, newOutValue, newInValues);
             iterator.replaceCurrentInstruction(newInvoke);
-            if (newOutValue != null
-                && newOutValue.getTypeLattice() != current.outValue().getTypeLattice()) {
+            if (newOutValue != null && newOutValue.getType() != current.outValue().getType()) {
               affectedPhis.addAll(newOutValue.uniquePhiUsers());
             }
 
@@ -287,16 +284,14 @@ public class LensCodeRewriter {
             Value newOutValue = makeOutValue(current, code);
             iterator.replaceCurrentInstruction(
                 new InvokeStatic(replacementMethod, newOutValue, current.inValues()));
-            if (newOutValue != null
-                && newOutValue.getTypeLattice() != current.outValue().getTypeLattice()) {
+            if (newOutValue != null && newOutValue.getType() != current.outValue().getType()) {
               affectedPhis.addAll(current.outValue().uniquePhiUsers());
             }
           } else if (actualField != field) {
             Value newOutValue = makeOutValue(instanceGet, code);
             iterator.replaceCurrentInstruction(
                 new InstanceGet(newOutValue, instanceGet.object(), actualField));
-            if (newOutValue != null
-                && newOutValue.getTypeLattice() != current.outValue().getTypeLattice()) {
+            if (newOutValue != null && newOutValue.getType() != current.outValue().getType()) {
               affectedPhis.addAll(newOutValue.uniquePhiUsers());
             }
           }
@@ -328,15 +323,13 @@ public class LensCodeRewriter {
             Value newOutValue = makeOutValue(current, code);
             iterator.replaceCurrentInstruction(
                 new InvokeStatic(replacementMethod, newOutValue, current.inValues()));
-            if (newOutValue != null
-                && newOutValue.getTypeLattice() != current.outValue().getTypeLattice()) {
+            if (newOutValue != null && newOutValue.getType() != current.outValue().getType()) {
               affectedPhis.addAll(newOutValue.uniquePhiUsers());
             }
           } else if (actualField != field) {
             Value newOutValue = makeOutValue(staticGet, code);
             iterator.replaceCurrentInstruction(new StaticGet(newOutValue, actualField));
-            if (newOutValue != null
-                && newOutValue.getTypeLattice() != current.outValue().getTypeLattice()) {
+            if (newOutValue != null && newOutValue.getType() != current.outValue().getType()) {
               affectedPhis.addAll(newOutValue.uniquePhiUsers());
             }
           }
@@ -399,11 +392,11 @@ public class LensCodeRewriter {
               .replaceInstructionIfTypeChanged(type, NewInstance::new);
         } else if (current.outValue() != null) {
           // For all other instructions, substitute any changed type.
-          TypeLatticeElement typeLattice = current.outValue().getTypeLattice();
-          TypeLatticeElement substituted =
+          TypeElement typeLattice = current.outValue().getType();
+          TypeElement substituted =
               typeLattice.fixupClassTypeReferences(graphLense::lookupType, appView);
           if (substituted != typeLattice) {
-            current.outValue().setTypeLattice(substituted);
+            current.outValue().setType(substituted);
             affectedPhis.addAll(current.outValue().uniquePhiUsers());
           }
         }
@@ -434,7 +427,7 @@ public class LensCodeRewriter {
       // TODO(b/150188380): Add API to insert a const instruction with a type lattice.
       Value rewrittenDefaultValue = iterator.insertConstIntInstruction(code, appView.options(), 0);
       iterator.next();
-      rewrittenDefaultValue.setTypeLattice(defaultValueLatticeElement(newType));
+      rewrittenDefaultValue.setType(defaultValueLatticeElement(newType));
       return rewrittenDefaultValue;
     }
     return initialValue;
@@ -455,11 +448,11 @@ public class LensCodeRewriter {
     return false;
   }
 
-  private TypeLatticeElement defaultValueLatticeElement(DexType type) {
+  private TypeElement defaultValueLatticeElement(DexType type) {
     if (type.isPrimitiveType()) {
-      return TypeLatticeElement.fromDexType(type, null, appView);
+      return TypeElement.fromDexType(type, null, appView);
     }
-    return TypeLatticeElement.getNull();
+    return TypeElement.getNull();
   }
 
   public DexCallSite rewriteCallSite(DexCallSite callSite, DexEncodedMethod context) {
@@ -568,16 +561,22 @@ public class LensCodeRewriter {
     for (int i = 0; i < bootstrapArgs.size(); i++) {
       DexValue argument = bootstrapArgs.get(i);
       DexValue newArgument = null;
-      if (argument instanceof DexValueMethodHandle) {
-        newArgument = rewriteDexValueMethodHandle(argument.asDexValueMethodHandle(), method, use);
-      } else if (argument instanceof DexValueMethodType) {
-        newArgument = rewriteDexMethodType(argument.asDexValueMethodType());
-      } else if (argument instanceof DexValueType) {
-        DexType oldType = ((DexValueType) argument).value;
-        DexType newType = appView.graphLense().lookupType(oldType);
-        if (newType != oldType) {
-          newArgument = new DexValueType(newType);
-        }
+      switch (argument.getValueKind()) {
+        case METHOD_HANDLE:
+          newArgument = rewriteDexValueMethodHandle(argument.asDexValueMethodHandle(), method, use);
+          break;
+        case METHOD_TYPE:
+          newArgument = rewriteDexMethodType(argument.asDexValueMethodType());
+          break;
+        case TYPE:
+          DexType oldType = argument.asDexValueType().value;
+          DexType newType = appView.graphLense().lookupType(oldType);
+          if (newType != oldType) {
+            newArgument = new DexValueType(newType);
+          }
+          break;
+        default:
+          // Intentionally empty.
       }
       if (newArgument != null) {
         if (newBootstrapArgs == null) {
@@ -686,7 +685,7 @@ public class LensCodeRewriter {
         Instruction newInstruction = constructor.apply(newType, newOutValue);
         iterator.replaceCurrentInstruction(newInstruction);
         if (newOutValue != null) {
-          if (newOutValue.getTypeLattice() != current.outValue().getTypeLattice()) {
+          if (newOutValue.getType() != current.outValue().getType()) {
             affectedPhis.addAll(newOutValue.uniquePhiUsers());
           } else {
             assert current.hasInvariantOutType();
