@@ -79,6 +79,7 @@ public final class NonConstructorRelaxationTest extends AccessRelaxationTestBase
             .addProgramFiles(ToolHelper.getClassFilesForTestPackage(mainClass.getPackage()))
             .enableInliningAnnotations()
             .enableMemberValuePropagationAnnotations()
+            .enableUnusedArgumentAnnotations()
             .addKeepMainRule(mainClass)
             .addOptionsModification(o -> o.enableArgumentRemoval = enableArgumentRemoval)
             .noMinification()
