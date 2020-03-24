@@ -289,9 +289,40 @@ public final class BackportedMethodRewriter {
       if (current.type == typeToInherit) {
         return true;
       }
-      current = appView.definitionFor(current.superType).asLibraryClass();
+      DexClass dexClass = appView.definitionFor(current.superType);
+      if (dexClass == null || dexClass.isClasspathClass()) {
+        reportInvalidLibrarySupertype(current, rewritableMethods.getEmulatedDispatchMethods());
+        return false;
+      } else if (dexClass.isProgramClass()) {
+        // If dexClass is a program class, then it is already correctly desugared.
+        return false;
+      }
+      current = dexClass.asLibraryClass();
     }
     return false;
+  }
+
+  private void reportInvalidLibrarySupertype(
+          DexLibraryClass libraryClass, Set<DexMethod> retarget) {
+    DexClass dexClass = appView.definitionFor(libraryClass.superType);
+    String message;
+    if (dexClass == null) {
+      message = "missing";
+    } else if (dexClass.isClasspathClass()) {
+      message = "a classpath class";
+    } else {
+      message = "INVALID";
+      assert false;
+    }
+    appView
+            .options()
+            .warningInvalidLibrarySuperclassForDesugar(
+                    dexClass == null ? libraryClass.getOrigin() : dexClass.getOrigin(),
+                    libraryClass.type,
+                    libraryClass.superType,
+                    message,
+                    retarget,
+                    appView);
   }
 
   private List<DexEncodedMethod> addInterfacesAndForwardingMethods(
