@@ -273,22 +273,22 @@ public class DesugaredLibraryAPIConverter {
     appView.options().reporter.warning(new StringDiagnostic(sb.toString()));
   }
 
-  private void warnInvalidInvoke(DexType type, DexMethod invokedMethod, String debugString) {
+  public void reportInvalidInvoke(DexType type, DexMethod invokedMethod, String debugString) {
     DexType desugaredType = appView.rewritePrefix.rewrittenType(type);
     appView
         .options()
         .reporter
-        .warning(
+        .info(
             new StringDiagnostic(
                 "Invoke to "
                     + invokedMethod.holder
                     + "#"
                     + invokedMethod.name
-                    + " may not work correctly at runtime ("
+                    + " may not work correctly at runtime (Cannot convert "
                     + debugString
-                    + " type "
+                    + "type "
                     + desugaredType
-                    + " is a desugared type)."));
+                    + ")."));
   }
 
   public static DexType vivifiedTypeFor(DexType type, AppView<?> appView) {
@@ -306,6 +306,7 @@ public class DesugaredLibraryAPIConverter {
       InstructionListIterator iterator,
       ListIterator<BasicBlock> blockIterator) {
     DexMethod invokedMethod = invokeMethod.getInvokedMethod();
+    boolean invalidConversion = false;
     if (trackedAPIs != null) {
       trackedAPIs.add(invokedMethod);
     }
@@ -320,12 +321,13 @@ public class DesugaredLibraryAPIConverter {
         // Return conversion added only if return value is used.
         if (invokeMethod.outValue() != null
             && invokeMethod.outValue().numberOfUsers() + invokeMethod.outValue().numberOfPhiUsers()
-            > 0) {
+                > 0) {
           returnConversion =
               createReturnConversionAndReplaceUses(code, invokeMethod, returnType, newReturnType);
         }
       } else {
-        warnInvalidInvoke(returnType, invokeMethod.getInvokedMethod(), "return");
+        reportInvalidInvoke(returnType, invokeMethod.getInvokedMethod(), "return ");
+        invalidConversion = true;
         newReturnType = returnType;
       }
     } else {
@@ -353,7 +355,8 @@ public class DesugaredLibraryAPIConverter {
               createParameterConversion(code, argType, argVivifiedType, inValue));
           newInValues.add(parameterConversions.get(parameterConversions.size() - 1).outValue());
         } else {
-          warnInvalidInvoke(argType, invokeMethod.getInvokedMethod(), "parameter");
+          reportInvalidInvoke(argType, invokeMethod.getInvokedMethod(), "parameter ");
+          invalidConversion = true;
           newInValues.add(invokeMethod.inValues().get(i + receiverShift));
         }
       } else {
@@ -373,7 +376,8 @@ public class DesugaredLibraryAPIConverter {
             invokeMethod.outValue(),
             newInValues);
     assert newDexMethod
-        == methodWithVivifiedTypeInSignature(invokedMethod, invokedMethod.holder, appView);
+            == methodWithVivifiedTypeInSignature(invokedMethod, invokedMethod.holder, appView)
+        || invalidConversion;
 
     // Insert and reschedule all instructions.
     iterator.previous();
