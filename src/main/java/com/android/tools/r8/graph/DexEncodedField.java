@@ -159,6 +159,10 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     return isStatic();
   }
 
+  public boolean isVolatile() {
+    return accessFlags.isVolatile();
+  }
+
   public boolean hasAnnotation() {
     return !annotations().isEmpty();
   }
@@ -206,7 +210,7 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
           && singleValue.asSingleFieldValue().getField() == field) {
         return null;
       }
-      if (singleValue.isMaterializableInContext(appView, code.method.method.holder)) {
+      if (singleValue.isMaterializableInContext(appView, code.method.holder())) {
         TypeElement type = TypeElement.fromDexType(field.type, maybeNull(), appView);
         return singleValue.createMaterializingInstruction(
             appView, code, TypeAndLocalInfoSupplier.create(type, local));

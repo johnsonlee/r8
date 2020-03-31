@@ -19,24 +19,36 @@ class KotlinValueParameterInfo {
   final int flag;
   // Indicates whether the formal parameter is originally `vararg`.
   final boolean isVararg;
+  // Original information about the type.
+  final KotlinTypeInfo type;
+
   // TODO(b/151194869): Should we treat them as normal annotations? E.g., shrinking and renaming?
   // Annotations on the type of value parameter.
   final List<KmAnnotation> annotations;
 
   private KotlinValueParameterInfo(
-      String name, int flag, boolean isVararg, List<KmAnnotation> annotations) {
+      String name,
+      int flag,
+      boolean isVararg,
+      KotlinTypeInfo type,
+      List<KmAnnotation> annotations) {
     this.name = name;
     this.flag = flag;
     this.isVararg = isVararg;
+    this.type = type;
     this.annotations = annotations;
   }
 
   static KotlinValueParameterInfo fromKmValueParameter(KmValueParameter kmValueParameter) {
+    if (kmValueParameter == null) {
+      return null;
+    }
     KmType kmType = kmValueParameter.getType();
     return new KotlinValueParameterInfo(
         kmValueParameter.getName(),
         kmValueParameter.getFlags(),
         kmValueParameter.getVarargElementType() != null,
+        KotlinTypeInfo.create(kmType),
         kmType != null ? JvmExtensionsKt.getAnnotations(kmType) : ImmutableList.of());
   }
 }

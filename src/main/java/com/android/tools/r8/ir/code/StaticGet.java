@@ -38,10 +38,7 @@ public class StaticGet extends FieldInstruction implements StaticFieldInstructio
 
   public static StaticGet copyOf(IRCode code, StaticGet original) {
     Value newValue =
-        new Value(
-            code.valueNumberGenerator.next(),
-            original.outValue().getType(),
-            original.getLocalInfo());
+        new Value(code.valueNumberGenerator.next(), original.getOutType(), original.getLocalInfo());
     return copyOf(newValue, original);
   }
 
@@ -156,7 +153,7 @@ public class StaticGet extends FieldInstruction implements StaticFieldInstructio
     // * IncompatibleClassChangeError (static-* instruction for instance fields)
     // * IllegalAccessError (not visible from the access context)
     // * side-effects in <clinit>
-    return !instructionMayHaveSideEffects(appView, code.method.method.holder);
+    return !instructionMayHaveSideEffects(appView, code.method.holder());
   }
 
   @Override

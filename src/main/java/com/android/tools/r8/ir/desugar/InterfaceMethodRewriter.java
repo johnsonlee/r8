@@ -62,6 +62,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 //
@@ -141,6 +142,37 @@ public final class InterfaceMethodRewriter {
     this.options = appView.options();
     this.factory = appView.dexItemFactory();
     initializeEmulatedInterfaceVariables();
+  }
+
+  public static void checkForAssumedLibraryTypes(AppInfo appInfo, InternalOptions options) {
+    DesugaredLibraryConfiguration config = options.desugaredLibraryConfiguration;
+    BiConsumer<DexType, DexType> registerEntry = registerMapEntry(appInfo);
+    config.getEmulateLibraryInterface().forEach(registerEntry);
+    config.getCustomConversions().forEach(registerEntry);
+    config.getRetargetCoreLibMember().forEach((method, types) -> types.forEach(registerEntry));
+  }
+
+  private static BiConsumer<DexType, DexType> registerMapEntry(AppInfo appInfo) {
+    return (key, value) -> {
+      registerType(appInfo, key);
+      registerType(appInfo, value);
+    };
+  }
+
+  private static void registerType(AppInfo appInfo, DexType type) {
+    appInfo.dexItemFactory().registerTypeNeededForDesugaring(type);
+    DexClass clazz = appInfo.definitionFor(type);
+    if (clazz != null && clazz.isLibraryClass() && clazz.isInterface()) {
+      clazz.forEachMethod(
+          m -> {
+            if (m.isDefaultMethod()) {
+              appInfo.dexItemFactory().registerTypeNeededForDesugaring(m.method.proto.returnType);
+              for (DexType param : m.method.proto.parameters.values) {
+                appInfo.dexItemFactory().registerTypeNeededForDesugaring(param);
+              }
+            }
+          });
+    }
   }
 
   private void initializeEmulatedInterfaceVariables() {
@@ -238,7 +270,7 @@ public final class InterfaceMethodRewriter {
                         invokeStatic.outValue(), invokeStatic.arguments()));
                 requiredDispatchClasses
                     .computeIfAbsent(clazz.asLibraryClass(), k -> Sets.newConcurrentHashSet())
-                    .add(appInfo.definitionFor(encodedMethod.method.holder).asProgramClass());
+                    .add(appInfo.definitionFor(encodedMethod.holder()).asProgramClass());
               }
             } else {
               instructions.replaceCurrentInstruction(
@@ -269,8 +301,7 @@ public final class InterfaceMethodRewriter {
             // WARNING: This may result in incorrect code on older platforms!
             // Retarget call to an appropriate method of companion class.
             DexMethod amendedMethod =
-                amendDefaultMethod(
-                    appInfo.definitionFor(encodedMethod.method.holder), invokedMethod);
+                amendDefaultMethod(appInfo.definitionFor(encodedMethod.holder()), invokedMethod);
             instructions.replaceCurrentInstruction(
                 new InvokeStatic(defaultAsMethodOfCompanionClass(amendedMethod),
                     invokeSuper.outValue(), invokeSuper.arguments()));
@@ -284,9 +315,9 @@ public final class InterfaceMethodRewriter {
               DexEncodedMethod dexEncodedMethod =
                   appView
                       .appInfo()
-                      .lookupSuperTarget(invokeSuper.getInvokedMethod(), code.method.method.holder);
+                      .lookupSuperTarget(invokeSuper.getInvokedMethod(), code.method.holder());
               if (dexEncodedMethod != null) {
-                DexClass dexClass = appView.definitionFor(dexEncodedMethod.method.holder);
+                DexClass dexClass = appView.definitionFor(dexEncodedMethod.holder());
                 if (dexClass != null && dexClass.isLibraryClass()) {
                   // Rewriting is required because the super invoke resolves into a missing
                   // method (method is on desugared library). Find out if it needs to be
@@ -418,8 +449,8 @@ public final class InterfaceMethodRewriter {
       // interfaces.
       return null;
     }
-    if (!singleTarget.isAbstract() && isEmulatedInterface(singleTarget.method.holder)) {
-      return singleTarget.method.holder;
+    if (!singleTarget.isAbstract() && isEmulatedInterface(singleTarget.holder())) {
+      return singleTarget.holder();
     }
     return null;
   }
@@ -616,8 +647,8 @@ public final class InterfaceMethodRewriter {
         }
         emulationMethods.add(
             DexEncodedMethod.toEmulateDispatchLibraryMethod(
-                method.method.holder,
-                emulateInterfaceLibraryMethod(method.method, method.method.holder, factory),
+                method.holder(),
+                emulateInterfaceLibraryMethod(method.method, method.holder(), factory),
                 companionMethod,
                 libraryMethod,
                 extraDispatchCases,
@@ -717,6 +748,10 @@ public final class InterfaceMethodRewriter {
   // Checks if `type` is a companion class.
   public static boolean isCompanionClassType(DexType type) {
     return type.descriptor.toString().endsWith(COMPANION_CLASS_NAME_SUFFIX + ";");
+  }
+
+  public static boolean isEmulatedLibraryClassType(DexType type) {
+    return type.descriptor.toString().endsWith(EMULATE_LIBRARY_CLASS_NAME_SUFFIX + ";");
   }
 
   // Gets the interface class for a companion class `type`.

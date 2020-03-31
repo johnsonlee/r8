@@ -29,6 +29,7 @@ import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.GraphLenseLookupResult;
 import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
 import com.android.tools.r8.graph.MethodAccessFlags;
+import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
@@ -332,9 +333,9 @@ public class VerticalClassMerger {
   private boolean isMergeCandidate(
       DexProgramClass sourceClass, DexProgramClass targetClass, Set<DexType> pinnedTypes) {
     assert targetClass != null;
-
-    if (appInfo.getObjectAllocationInfoCollection().isInstantiatedDirectly(sourceClass)
-        || appInfo.instantiatedLambdas.contains(sourceClass.type)
+    ObjectAllocationInfoCollection allocationInfo = appInfo.getObjectAllocationInfoCollection();
+    if (allocationInfo.isInstantiatedDirectly(sourceClass)
+        || allocationInfo.isInterfaceWithUnknownSubtypeHierarchy(sourceClass)
         || appInfo.isPinned(sourceClass.type)
         || pinnedTypes.contains(sourceClass.type)
         || appInfo.neverMerge.contains(sourceClass.type)) {
@@ -736,7 +737,7 @@ public class VerticalClassMerger {
         // Conservatively find all possible targets for this method.
         LookupResultSuccess lookupResult =
             appInfo
-                .resolveMethodOnInterface(method.method.holder, method.method)
+                .resolveMethodOnInterface(method.holder(), method.method)
                 .lookupVirtualDispatchTargets(target, appInfo)
                 .asLookupResultSuccess();
         assert lookupResult != null;
@@ -988,7 +989,7 @@ public class VerticalClassMerger {
                   Rename.ALWAYS,
                   appView
                       .dexItemFactory()
-                      .prependTypeToProto(virtualMethod.method.holder, virtualMethod.method.proto));
+                      .prependTypeToProto(virtualMethod.holder(), virtualMethod.method.proto));
           makeStatic(resultingDirectMethod);
 
           // Update method pool collection now that we are adding a new public method.
@@ -1327,7 +1328,7 @@ public class VerticalClassMerger {
     private DexEncodedMethod renameConstructor(
         DexEncodedMethod method, Predicate<DexMethod> availableMethodSignatures) {
       assert method.isInstanceInitializer();
-      DexType oldHolder = method.method.holder;
+      DexType oldHolder = method.holder();
 
       DexMethod newSignature;
       int count = 1;
@@ -1363,7 +1364,7 @@ public class VerticalClassMerger {
       // renamed already.
       assert !method.accessFlags.isConstructor() || strategy == Rename.NEVER;
       DexString oldName = method.method.name;
-      DexType oldHolder = method.method.holder;
+      DexType oldHolder = method.holder();
 
       DexMethod newSignature;
       switch (strategy) {
@@ -1398,7 +1399,7 @@ public class VerticalClassMerger {
     private DexEncodedField renameFieldIfNeeded(
         DexEncodedField field, Predicate<DexField> availableFieldSignatures) {
       DexString oldName = field.field.name;
-      DexType oldHolder = field.field.holder;
+      DexType oldHolder = field.holder();
 
       DexField newSignature =
           application.dexItemFactory.createField(target.type, field.field.type, oldName);
@@ -1647,7 +1648,7 @@ public class VerticalClassMerger {
             code.computeInliningConstraint(
                 method,
                 appView,
-                new SingleTypeMapperGraphLense(method.method.holder, invocationContext),
+                new SingleTypeMapperGraphLense(method.holder(), invocationContext),
                 invocationContext);
         if (constraint == ConstraintWithTarget.NEVER) {
           return AbortReason.UNSAFE_INLINING;

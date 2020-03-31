@@ -196,7 +196,7 @@ public class NewInstance extends Instruction {
 
   @Override
   public boolean canBeDeadCode(AppView<?> appView, IRCode code) {
-    return !instructionMayHaveSideEffects(appView, code.method.method.holder);
+    return !instructionMayHaveSideEffects(appView, code.method.holder());
   }
 
   public void markNoSpilling() {
@@ -226,7 +226,7 @@ public class NewInstance extends Instruction {
 
   @Override
   public boolean verifyTypes(AppView<?> appView) {
-    TypeElement type = outValue().getType();
+    TypeElement type = getOutType();
     assert type.isClassType();
     assert type.asClassType().getClassType() == clazz || appView.options().testing.allowTypeErrors;
     assert type.isDefinitelyNotNull();

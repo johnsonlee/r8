@@ -11,7 +11,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
-import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.Test;
@@ -46,7 +45,6 @@ public class WhyAreYouKeepingAllTest extends TestBase {
 
   @Test
   public void test() throws Throwable {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
     testForR8(Backend.CF)
         .addProgramFiles(ToolHelper.R8_WITH_RELOCATED_DEPS_JAR)
         .addKeepRuleFiles(MAIN_KEEP)

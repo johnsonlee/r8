@@ -4,15 +4,12 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataSynthesizer.toRenamedBinaryName;
-
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.DescriptorUtils;
-import com.android.tools.r8.utils.StringUtils;
 import kotlinx.metadata.KmPackage;
 import kotlinx.metadata.jvm.KotlinClassHeader;
 import kotlinx.metadata.jvm.KotlinClassMetadata;
@@ -45,11 +42,12 @@ public final class KotlinClassPart extends KotlinInfo<KotlinClassMetadata.MultiF
   void rewrite(AppView<AppInfoWithLiveness> appView, NamingLens lens) {
     DexType facadeClassType = appView.dexItemFactory().createType(
         DescriptorUtils.getDescriptorFromClassBinaryName(facadeClassName));
-    facadeClassName = toRenamedBinaryName(facadeClassType, appView, lens);
+    KotlinMetadataSynthesizer synthesizer = new KotlinMetadataSynthesizer(appView, lens, this);
+    facadeClassName = synthesizer.toRenamedBinaryName(facadeClassType);
     if (!appView.options().enableKotlinMetadataRewritingForMembers) {
       return;
     }
-    rewriteDeclarationContainer(appView, lens);
+    rewriteDeclarationContainer(synthesizer);
   }
 
   @Override
@@ -85,12 +83,14 @@ public final class KotlinClassPart extends KotlinInfo<KotlinClassMetadata.MultiF
   @Override
   public String toString(String indent) {
     StringBuilder sb = new StringBuilder(indent);
-    sb.append("Metadata.MultiFileClassPart {");
-    sb.append(StringUtils.LINE_SEPARATOR);
-    sb.append(kmDeclarationContainerToString(indent + INDENT));
-    appendKeyValue(indent + INDENT, "facadeClassName", facadeClassName, sb);
-    sb.append(indent);
-    sb.append("}");
+    appendKmSection(
+        indent,
+        "Metadata.MultiFileClassPart",
+        sb,
+        newIndent -> {
+          appendKeyValue(newIndent, "facadeClassName", sb, facadeClassName);
+          appendKmPackage(newIndent, sb, kmPackage);
+        });
     return sb.toString();
   }
 }

@@ -45,6 +45,10 @@ public abstract class ResolutionResult {
     return false;
   }
 
+  public boolean isIncompatibleClassChangeErrorResult() {
+    return false;
+  }
+
   /** Returns non-null if isFailedResolution() is true, otherwise null. */
   public FailedResolutionResult asFailedResolution() {
     return null;
@@ -101,7 +105,7 @@ public abstract class ResolutionResult {
       InstantiatedObject instance, AppInfoWithClassHierarchy appInfo);
 
   public abstract DexClassAndMethod lookupVirtualDispatchTarget(
-      DexProgramClass dynamicInstance, AppInfoWithClassHierarchy appInfo);
+      DexClass dynamicInstance, AppInfoWithClassHierarchy appInfo);
 
   public abstract LookupTarget lookupVirtualDispatchTarget(
       LambdaDescriptor lambdaInstance, AppInfoWithClassHierarchy appInfo);
@@ -119,12 +123,12 @@ public abstract class ResolutionResult {
       assert initialResolutionHolder != null;
       assert resolvedHolder != null;
       assert resolvedMethod != null;
-      assert resolvedHolder.type == resolvedMethod.method.holder;
+      assert resolvedHolder.type == resolvedMethod.holder();
       this.resolvedHolder = resolvedHolder;
       this.resolvedMethod = resolvedMethod;
       this.initialResolutionHolder = initialResolutionHolder;
       assert !resolvedMethod.isPrivateMethod()
-          || initialResolutionHolder.type == resolvedMethod.method.holder;
+          || initialResolutionHolder.type == resolvedMethod.holder();
     }
 
     public DexClass getResolvedHolder() {
@@ -324,7 +328,7 @@ public abstract class ResolutionResult {
       // It appears as if this check is also in place for non-initializer methods too.
       // See NestInvokeSpecialMethodAccessWithIntermediateTest.
       if ((target.isInstanceInitializer() || target.isPrivateMethod())
-          && target.method.holder != symbolicReference.type) {
+          && target.holder() != symbolicReference.type) {
         return null;
       }
       // Runtime exceptions:
@@ -440,7 +444,7 @@ public abstract class ResolutionResult {
         Consumer<DexProgramClass> lambdaInstantiatedConsumer =
             subType -> {
               subTypeConsumer.accept(subType);
-              if (appInfo.hasAnyInstantiatedLambdas(subType)) {
+              if (appInfo.isInstantiatedInterface(subType)) {
                 hasInstantiatedLambdas.set(true);
               }
             };
@@ -516,7 +520,7 @@ public abstract class ResolutionResult {
 
     @Override
     public DexClassAndMethod lookupVirtualDispatchTarget(
-        DexProgramClass dynamicInstance, AppInfoWithClassHierarchy appInfo) {
+        DexClass dynamicInstance, AppInfoWithClassHierarchy appInfo) {
       return lookupVirtualDispatchTarget(dynamicInstance, appInfo, initialResolutionHolder.type);
     }
 
@@ -542,9 +546,7 @@ public abstract class ResolutionResult {
     }
 
     private DexClassAndMethod lookupVirtualDispatchTarget(
-        DexProgramClass dynamicInstance,
-        AppInfoWithClassHierarchy appInfo,
-        DexType resolutionHolder) {
+        DexClass dynamicInstance, AppInfoWithClassHierarchy appInfo, DexType resolutionHolder) {
       assert appInfo.isSubtype(dynamicInstance.type, resolutionHolder)
           : dynamicInstance.type + " is not a subtype of " + resolutionHolder;
       // TODO(b/148591377): Enable this assertion.
@@ -567,7 +569,7 @@ public abstract class ResolutionResult {
         }
         if (candidate == null || candidate == DexEncodedMethod.SENTINEL) {
           // We cannot find a target above the resolved method.
-          if (current.type == overrideTarget.method.holder) {
+          if (current.type == overrideTarget.holder()) {
             return null;
           }
           current = current.superType == null ? null : appInfo.definitionFor(current.superType);
@@ -584,7 +586,7 @@ public abstract class ResolutionResult {
     }
 
     private DexClassAndMethod lookupMaximallySpecificDispatchTarget(
-        DexProgramClass dynamicInstance, AppInfoWithClassHierarchy appInfo) {
+        DexClass dynamicInstance, AppInfoWithClassHierarchy appInfo) {
       return appInfo.lookupMaximallySpecificMethod(dynamicInstance, resolvedMethod.method);
     }
 
@@ -646,7 +648,7 @@ public abstract class ResolutionResult {
       }
       // For package private methods, a valid override has to be inside the package.
       assert resolvedMethod.accessFlags.isPackagePrivate();
-      return resolvedMethod.method.holder.isSamePackage(candidate.method.holder);
+      return resolvedMethod.holder().isSamePackage(candidate.holder());
     }
   }
 
@@ -702,7 +704,7 @@ public abstract class ResolutionResult {
 
     @Override
     public DexClassAndMethod lookupVirtualDispatchTarget(
-        DexProgramClass dynamicInstance, AppInfoWithClassHierarchy appInfo) {
+        DexClass dynamicInstance, AppInfoWithClassHierarchy appInfo) {
       return null;
     }
 
@@ -807,6 +809,11 @@ public abstract class ResolutionResult {
       return methodsCausingError.isEmpty()
           ? INSTANCE
           : new IncompatibleClassResult(methodsCausingError);
+    }
+
+    @Override
+    public boolean isIncompatibleClassChangeErrorResult() {
+      return true;
     }
   }
 

@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.shaking.ReprocessClassInitializerRule.Type.ALWAYS;
+import static com.android.tools.r8.shaking.ReprocessClassInitializerRule.Type.NEVER;
+
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
@@ -14,6 +17,7 @@ import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinition;
+import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -377,7 +381,7 @@ public class RootSetBuilder {
       DexEncodedMethod target =
           appView.appInfo().resolveMethod(subType, referenceInSubType).getSingleTarget();
       // But, the resolution should not be landed on the current type we are visiting.
-      if (target == null || target.method.holder == type) {
+      if (target == null || target.holder() == type) {
         continue;
       }
       ProguardMemberRule ruleInSubType = assumeRulePool.get(target.method);
@@ -598,7 +602,7 @@ public class RootSetBuilder {
 
   private boolean canInsertForwardingMethod(DexClass holder, DexEncodedMethod target) {
     return appView.options().isGeneratingDex()
-        || ArrayUtils.contains(holder.interfaces.values, target.method.holder);
+        || ArrayUtils.contains(holder.interfaces.values, target.holder());
   }
 
   private void markMatchingOverriddenMethods(
@@ -1056,7 +1060,7 @@ public class RootSetBuilder {
         if (options.isInterfaceMethodDesugaringEnabled()
             && encodedMethod.hasCode()
             && (encodedMethod.isPrivateMethod() || encodedMethod.isStaticMember())) {
-          DexClass holder = appView.definitionFor(encodedMethod.method.holder);
+          DexClass holder = appView.definitionFor(encodedMethod.holder());
           if (holder != null && holder.isInterface()) {
             if (rule.isSpecific()) {
               options.reporter.warning(
@@ -1219,7 +1223,16 @@ public class RootSetBuilder {
     } else if (context instanceof ReprocessClassInitializerRule) {
       DexProgramClass clazz = item.asProgramClass();
       if (clazz != null && clazz.hasClassInitializer()) {
-        reprocess.add(clazz.getClassInitializer().method);
+        switch (context.asReprocessClassInitializerRule().getType()) {
+          case ALWAYS:
+            reprocess.add(clazz.getClassInitializer().method);
+            break;
+          case NEVER:
+            neverReprocess.add(clazz.getClassInitializer().method);
+            break;
+          default:
+            throw new Unreachable();
+        }
         context.markAsUsed();
       }
     } else if (context.isReprocessMethodRule()) {
@@ -1306,8 +1319,8 @@ public class RootSetBuilder {
       this.noObfuscation = noObfuscation;
       this.reasonAsked = reasonAsked;
       this.checkDiscarded = checkDiscarded;
-      this.alwaysInline = Collections.unmodifiableSet(alwaysInline);
-      this.forceInline = Collections.unmodifiableSet(forceInline);
+      this.alwaysInline = alwaysInline;
+      this.forceInline = forceInline;
       this.neverInline = neverInline;
       this.bypassClinitForInlining = bypassClinitForInlining;
       this.whyAreYouNotInlining = whyAreYouNotInlining;
@@ -1317,7 +1330,7 @@ public class RootSetBuilder {
       this.neverReprocess = neverReprocess;
       this.alwaysClassInline = alwaysClassInline;
       this.neverClassInline = neverClassInline;
-      this.neverMerge = Collections.unmodifiableSet(neverMerge);
+      this.neverMerge = neverMerge;
       this.neverPropagateValue = neverPropagateValue;
       this.mayHaveSideEffects = mayHaveSideEffects;
       this.noSideEffects = noSideEffects;
@@ -1446,6 +1459,45 @@ public class RootSetBuilder {
       noObfuscation.remove(reference);
       noSideEffects.remove(reference);
       assumedValues.remove(reference);
+    }
+
+    public void pruneDeadItems(DexDefinitionSupplier definitions, Enqueuer enqueuer) {
+      pruneDeadReferences(neverMerge, definitions, enqueuer);
+      pruneDeadReferences(alwaysInline, definitions, enqueuer);
+      pruneDeadReferences(noSideEffects.keySet(), definitions, enqueuer);
+    }
+
+    private static void pruneDeadReferences(
+        Set<? extends DexReference> references,
+        DexDefinitionSupplier definitions,
+        Enqueuer enqueuer) {
+      references.removeIf(
+          reference -> {
+            if (reference.isDexField()) {
+              DexEncodedField definition = definitions.definitionFor(reference.asDexField());
+              if (definition == null) {
+                return true;
+              }
+              DexClass holder = definitions.definitionFor(definition.holder());
+              if (holder.isProgramClass()) {
+                return !enqueuer.isFieldReferenced(definition);
+              }
+              return !enqueuer.isNonProgramTypeLive(holder);
+            } else if (reference.isDexMethod()) {
+              DexEncodedMethod definition = definitions.definitionFor(reference.asDexMethod());
+              if (definition == null) {
+                return true;
+              }
+              DexClass holder = definitions.definitionFor(definition.holder());
+              if (holder.isProgramClass()) {
+                return !enqueuer.isMethodLive(definition) && !enqueuer.isMethodTargeted(definition);
+              }
+              return !enqueuer.isNonProgramTypeLive(holder);
+            } else {
+              DexClass definition = definitions.definitionFor(reference.asDexType());
+              return definition == null || !enqueuer.isTypeLive(definition);
+            }
+          });
     }
 
     public void move(DexReference original, DexReference rewritten) {

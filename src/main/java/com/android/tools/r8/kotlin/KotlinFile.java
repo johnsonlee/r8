@@ -38,7 +38,7 @@ public final class KotlinFile extends KotlinInfo<KotlinClassMetadata.FileFacade>
     if (!appView.options().enableKotlinMetadataRewritingForMembers) {
       return;
     }
-    rewriteDeclarationContainer(appView, lens);
+    rewriteDeclarationContainer(new KotlinMetadataSynthesizer(appView, lens, this));
   }
 
   @Override
@@ -66,11 +66,13 @@ public final class KotlinFile extends KotlinInfo<KotlinClassMetadata.FileFacade>
   @Override
   public String toString(String indent) {
     StringBuilder sb = new StringBuilder(indent);
-    sb.append("Metadata.MultiFileClassPart {\n");
-    sb.append(kmDeclarationContainerToString(indent + INDENT));
-    appendKeyValue(indent + INDENT, "package", kmPackage.toString(), sb);
-    sb.append(indent);
-    sb.append("}");
+    appendKmSection(
+        indent,
+        "Metadata.FileFacade",
+        sb,
+        newIndent -> {
+          appendKmPackage(newIndent, sb, kmPackage);
+        });
     return sb.toString();
   }
 }

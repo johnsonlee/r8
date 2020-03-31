@@ -125,6 +125,11 @@ public final class BackportedMethodRewriter {
     }
   }
 
+  public static void registerAssumedLibraryTypes(InternalOptions options) {
+    // TODO(b/150693139): Remove the pre-registration once fixed.
+    BackportedMethods.registerSynthesizedCodeReferences(options.itemFactory);
+  }
+
   public void desugar(IRCode code) {
     if (!enabled) {
       return; // Nothing to do!
@@ -154,7 +159,7 @@ public final class BackportedMethodRewriter {
       if (provider.requiresGenerationOfCode()) {
         DexMethod newMethod = provider.provideMethod(appView);
         methodProviders.putIfAbsent(newMethod, provider);
-        holders.add(code.method.method.holder);
+        holders.add(code.method.holder());
       }
     }
     if (!affectedValues.isEmpty()) {

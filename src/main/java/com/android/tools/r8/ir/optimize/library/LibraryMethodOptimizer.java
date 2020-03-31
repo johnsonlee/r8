@@ -37,6 +37,9 @@ public class LibraryMethodOptimizer implements CodeOptimization {
     register(new ObjectMethodOptimizer(appView));
     register(new ObjectsMethodOptimizer(appView));
     register(new StringMethodOptimizer(appView));
+    if (appView.appInfo().hasSubtyping() && appView.options().enableDynamicTypeOptimization) {
+      register(new EnumMethodOptimizer(appView));
+    }
 
     if (LogMethodOptimizer.isEnabled(appView)) {
       register(new LogMethodOptimizer(appView));
@@ -83,8 +86,7 @@ public class LibraryMethodOptimizer implements CodeOptimization {
       Instruction instruction = instructionIterator.next();
       if (instruction.isInvokeMethod()) {
         InvokeMethod invoke = instruction.asInvokeMethod();
-        DexEncodedMethod singleTarget =
-            invoke.lookupSingleTarget(appView, code.method.method.holder);
+        DexEncodedMethod singleTarget = invoke.lookupSingleTarget(appView, code.method.holder());
         if (singleTarget != null) {
           optimizeInvoke(code, instructionIterator, invoke, singleTarget, affectedValues);
         }
@@ -103,7 +105,7 @@ public class LibraryMethodOptimizer implements CodeOptimization {
       Set<Value> affectedValues) {
     LibraryMethodModelCollection optimizer =
         libraryMethodModelCollections.getOrDefault(
-            singleTarget.method.holder, NopLibraryMethodModelCollection.getInstance());
+            singleTarget.holder(), NopLibraryMethodModelCollection.getInstance());
     optimizer.optimize(code, instructionIterator, invoke, singleTarget, affectedValues);
   }
 }
