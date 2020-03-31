@@ -32,8 +32,11 @@ public final class NumericMethodRewrites {
       DexItemFactory factory) {
     List<Value> values = invoke.inValues();
     assert values.size() == 1;
-    invoke.outValue().replaceUsers(values.get(0));
-    iterator.remove();
+    if (invoke.hasOutValue()) {
+      invoke.outValue().replaceUsers(values.get(0));
+    }
+    // TODO(b/152853271): Debugging information is lost here (DebugLocalWrite may be required).
+    iterator.removeOrReplaceByDebugLocalRead();
   }
 
   private NumericMethodRewrites() {
