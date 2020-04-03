@@ -30,6 +30,7 @@ import com.android.tools.r8.ir.analysis.type.ClassTypeLatticeElement;
 import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.optimize.NestUtils;
 import com.android.tools.r8.utils.CollectionUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -531,6 +532,31 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping {
     this.enumValueInfoMaps = enumValueInfoMaps;
     this.constClassReferences = previous.constClassReferences;
     previous.markObsolete();
+  }
+
+  private int largestInputCfVersion = -1;
+
+  public boolean canUseConstClassInstructions(InternalOptions options) {
+    if (!options.isGeneratingClassFiles()) {
+      return true;
+    }
+    if (largestInputCfVersion == -1) {
+      computeLargestCfVersion();
+    }
+    return options.canUseConstClassInstructions(largestInputCfVersion);
+  }
+
+  private synchronized void computeLargestCfVersion() {
+    if (largestInputCfVersion != -1) {
+      return;
+    }
+    for (DexProgramClass clazz : classes()) {
+      // Skip synthetic classes which may not have a specified version.
+      if (clazz.hasClassFileVersion()) {
+        largestInputCfVersion = Math.max(largestInputCfVersion, clazz.getInitialClassFileVersion());
+      }
+    }
+    assert largestInputCfVersion != -1;
   }
 
   public boolean isLiveProgramClass(DexProgramClass clazz) {
