@@ -361,38 +361,46 @@ public final class InterfaceMethodRewriter {
           if (clazz == null) {
             // Report missing class since we don't know if it is an interface.
             warnMissingType(encodedMethod.method, method.holder);
-
           } else if (clazz.isInterface()) {
             if (clazz.isLibraryClass()) {
               throw new CompilationError("Unexpected call to a private method " +
                   "defined in library class " + clazz.toSourceString(),
                   getMethodOrigin(encodedMethod.method));
             }
-
-            // This might be either private method call, or a call to default
-            // interface method made via invoke-direct.
-            DexEncodedMethod virtualTarget = null;
-            for (DexEncodedMethod candidate : clazz.virtualMethods()) {
-              if (candidate.method == method) {
-                virtualTarget = candidate;
-                break;
-              }
-            }
-
-            if (virtualTarget != null) {
-              // This is a invoke-direct call to a virtual method.
-              instructions.replaceCurrentInstruction(
-                  new InvokeStatic(defaultAsMethodOfCompanionClass(method),
-                      invokeDirect.outValue(), invokeDirect.arguments()));
-
-            } else {
-              // Otherwise this must be a private instance method call. Note that the referenced
+            DexEncodedMethod directTarget = appView.definitionFor(method);
+            if (directTarget != null) {
+              // This can be a private instance method call. Note that the referenced
               // method is expected to be in the current class since it is private, but desugaring
               // may move some methods or their code into other classes.
-
-              instructions.replaceCurrentInstruction(
-                  new InvokeStatic(privateAsMethodOfCompanionClass(method),
-                      invokeDirect.outValue(), invokeDirect.arguments()));
+              if (directTarget.isPrivateMethod()) {
+                instructions.replaceCurrentInstruction(
+                    new InvokeStatic(
+                        privateAsMethodOfCompanionClass(method),
+                        invokeDirect.outValue(),
+                        invokeDirect.arguments()));
+              } else {
+                instructions.replaceCurrentInstruction(
+                    new InvokeStatic(
+                        defaultAsMethodOfCompanionClass(method),
+                        invokeDirect.outValue(),
+                        invokeDirect.arguments()));
+              }
+            } else {
+              // The method can be a default method in the interface hierarchy.
+              DexClassAndMethod virtualTarget =
+                  appView.appInfo().lookupMaximallySpecificMethod(clazz, method);
+              if (virtualTarget != null) {
+                // This is a invoke-direct call to a virtual method.
+                instructions.replaceCurrentInstruction(
+                    new InvokeStatic(
+                        defaultAsMethodOfCompanionClass(virtualTarget.getMethod().method),
+                        invokeDirect.outValue(),
+                        invokeDirect.arguments()));
+              } else {
+                // The below assert is here because a well-type program should have a target, but we
+                // cannot throw a compilation error, since we have no knowledge about the input.
+                assert false;
+              }
             }
           }
         }

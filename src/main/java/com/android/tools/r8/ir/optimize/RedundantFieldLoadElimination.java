@@ -16,7 +16,6 @@ import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.value.SingleValue;
 import com.android.tools.r8.ir.code.BasicBlock;
-import com.android.tools.r8.ir.code.DominatorTree;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InitClass;
@@ -33,6 +32,8 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoCollection;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfo;
 import com.google.common.collect.Sets;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -43,7 +44,7 @@ import java.util.Set;
 /**
  * Eliminate redundant field loads.
  *
- * <p>Simple algorithm that goes through all blocks in one pass in dominator order and propagates
+ * <p>Simple algorithm that goes through all blocks in one pass in topological order and propagates
  * active field sets across control-flow edges where the target has only one predecessor.
  */
 // TODO(ager): Evaluate speed/size for computing active field sets in a fixed-point computation.
@@ -52,7 +53,6 @@ public class RedundantFieldLoadElimination {
   private final AppView<?> appView;
   private final DexEncodedMethod method;
   private final IRCode code;
-  private final DominatorTree dominatorTree;
 
   // Values that may require type propagation.
   private final Set<Value> affectedValues = Sets.newIdentityHashSet();
@@ -68,7 +68,6 @@ public class RedundantFieldLoadElimination {
     this.appView = appView;
     this.method = code.method;
     this.code = code;
-    dominatorTree = new DominatorTree(code);
   }
 
   public static boolean shouldRun(AppView<?> appView, IRCode code) {
@@ -140,6 +139,13 @@ public class RedundantFieldLoadElimination {
     }
   }
 
+  public boolean isFinal(DexEncodedField field) {
+    if (field.isProgramField(appView)) {
+      return field.isFinal();
+    }
+    return appView.libraryMethodOptimizer().isFinalLibraryField(field);
+  }
+
   private DexEncodedField resolveField(DexField field) {
     if (appView.enableWholeProgramOptimizations()) {
       return appView.appInfo().resolveField(field);
@@ -152,138 +158,169 @@ public class RedundantFieldLoadElimination {
 
   public void run() {
     DexType context = method.holder();
-    for (BasicBlock block : dominatorTree.getSortedBlocks()) {
-      computeActiveStateOnBlockEntry(block);
-      InstructionListIterator it = block.listIterator(code);
-      while (it.hasNext()) {
-        Instruction instruction = it.next();
-        if (instruction.isFieldInstruction()) {
-          DexField field = instruction.asFieldInstruction().getField();
-          DexEncodedField definition = resolveField(field);
-          if (definition == null || definition.isVolatile()) {
-            killAllNonFinalActiveFields();
-            continue;
-          }
-
-          if (instruction.isInstanceGet()) {
-            InstanceGet instanceGet = instruction.asInstanceGet();
-            if (instanceGet.outValue().hasLocalInfo()) {
-              continue;
-            }
-            Value object = instanceGet.object().getAliasedValue();
-            FieldAndObject fieldAndObject = new FieldAndObject(field, object);
-            FieldValue replacement = activeState.getInstanceFieldValue(fieldAndObject);
-            if (replacement != null) {
-              replacement.eliminateRedundantRead(it, instanceGet);
-            } else {
-              activeState.putNonFinalInstanceField(
-                  fieldAndObject, new ExistingValue(instanceGet.value()));
-            }
-          } else if (instruction.isInstancePut()) {
-            InstancePut instancePut = instruction.asInstancePut();
-            // An instance-put instruction can potentially write the given field on all objects
-            // because of aliases.
-            killNonFinalActiveFields(instancePut);
-            // ... but at least we know the field value for this particular object.
-            Value object = instancePut.object().getAliasedValue();
-            FieldAndObject fieldAndObject = new FieldAndObject(field, object);
-            ExistingValue value = new ExistingValue(instancePut.value());
-            if (definition.isFinal()) {
-              assert method.isInstanceInitializer() || verifyWasInstanceInitializer();
-              activeState.putFinalInstanceField(fieldAndObject, value);
-            } else {
-              activeState.putNonFinalInstanceField(fieldAndObject, value);
-            }
-          } else if (instruction.isStaticGet()) {
-            StaticGet staticGet = instruction.asStaticGet();
-            if (staticGet.outValue().hasLocalInfo()) {
-              continue;
-            }
-            FieldValue replacement = activeState.getStaticFieldValue(field);
-            if (replacement != null) {
-              replacement.eliminateRedundantRead(it, staticGet);
-            } else {
-              // A field get on a different class can cause <clinit> to run and change static
-              // field values.
-              killNonFinalActiveFields(staticGet);
-              activeState.putNonFinalStaticField(field, new ExistingValue(staticGet.value()));
-            }
-          } else if (instruction.isStaticPut()) {
-            StaticPut staticPut = instruction.asStaticPut();
-            // A field put on a different class can cause <clinit> to run and change static
-            // field values.
-            killNonFinalActiveFields(staticPut);
-            ExistingValue value = new ExistingValue(staticPut.value());
-            if (definition.isFinal()) {
-              assert method.isClassInitializer();
-              activeState.putFinalStaticField(field, value);
-            } else {
-              activeState.putNonFinalStaticField(field, value);
-            }
-          }
-        } else if (instruction.isInitClass()) {
-          InitClass initClass = instruction.asInitClass();
-          assert !initClass.outValue().hasAnyUsers();
-          DexType clazz = initClass.getClassValue();
-          if (activeState.isClassInitialized(clazz)) {
-            it.removeOrReplaceByDebugLocalRead();
-          }
-          activeState.markClassAsInitialized(clazz);
-        } else if (instruction.isMonitor()) {
-          if (instruction.asMonitor().isEnter()) {
-            killAllNonFinalActiveFields();
-          }
-        } else if (instruction.isInvokeDirect()) {
-          handleInvokeDirect(instruction.asInvokeDirect());
-        } else if (instruction.isInvokeMethod() || instruction.isInvokeCustom()) {
-          killAllNonFinalActiveFields();
-        } else if (instruction.isNewInstance()) {
-          NewInstance newInstance = instruction.asNewInstance();
-          if (newInstance.clazz.classInitializationMayHaveSideEffects(
-              appView,
-              // Types that are a super type of `context` are guaranteed to be initialized already.
-              type -> appView.isSubtype(context, type).isTrue(),
-              Sets.newIdentityHashSet())) {
-            killAllNonFinalActiveFields();
-          }
-        } else {
-          // If the current instruction could trigger a method invocation, it could also cause field
-          // values to change. In that case, it must be handled above.
-          assert !instruction.instructionMayTriggerMethodInvocation(appView, context);
-
-          // If this assertion fails for a new instruction we need to determine if that instruction
-          // has side-effects that can change the value of fields. If so, it must be handled above.
-          // If not, it can be safely added to the assert.
-          assert instruction.isArgument()
-                  || instruction.isArrayGet()
-                  || instruction.isArrayLength()
-                  || instruction.isArrayPut()
-                  || instruction.isAssume()
-                  || instruction.isBinop()
-                  || instruction.isCheckCast()
-                  || instruction.isConstClass()
-                  || instruction.isConstMethodHandle()
-                  || instruction.isConstMethodType()
-                  || instruction.isConstNumber()
-                  || instruction.isConstString()
-                  || instruction.isDebugInstruction()
-                  || instruction.isDexItemBasedConstString()
-                  || instruction.isGoto()
-                  || instruction.isIf()
-                  || instruction.isInstanceOf()
-                  || instruction.isInvokeMultiNewArray()
-                  || instruction.isInvokeNewArray()
-                  || instruction.isMoveException()
-                  || instruction.isNewArrayEmpty()
-                  || instruction.isNewArrayFilledData()
-                  || instruction.isReturn()
-                  || instruction.isSwitch()
-                  || instruction.isThrow()
-                  || instruction.isUnop()
-              : "Unexpected instruction of type " + instruction.getClass().getTypeName();
-        }
+    Reference2IntMap<BasicBlock> pendingNormalSuccessors = new Reference2IntOpenHashMap<>();
+    for (BasicBlock block : code.blocks) {
+      if (!block.hasUniqueSuccessor()) {
+        pendingNormalSuccessors.put(block, block.numberOfNormalSuccessors());
       }
-      recordActiveStateOnBlockExit(block);
+    }
+
+    Set<BasicBlock> visited = Sets.newIdentityHashSet();
+    for (BasicBlock head : code.topologicallySortedBlocks()) {
+      if (!visited.add(head)) {
+        continue;
+      }
+      computeActiveStateOnBlockEntry(head);
+      removeDeadBlockExitStates(head, pendingNormalSuccessors);
+      BasicBlock block = head;
+      BasicBlock end = null;
+      do {
+        InstructionListIterator it = block.listIterator(code);
+        while (it.hasNext()) {
+          Instruction instruction = it.next();
+          if (instruction.isFieldInstruction()) {
+            DexField field = instruction.asFieldInstruction().getField();
+            DexEncodedField definition = resolveField(field);
+            if (definition == null || definition.isVolatile()) {
+              killAllNonFinalActiveFields();
+              continue;
+            }
+
+            if (instruction.isInstanceGet()) {
+              InstanceGet instanceGet = instruction.asInstanceGet();
+              if (instanceGet.outValue().hasLocalInfo()) {
+                continue;
+              }
+              Value object = instanceGet.object().getAliasedValue();
+              FieldAndObject fieldAndObject = new FieldAndObject(field, object);
+              FieldValue replacement = activeState.getInstanceFieldValue(fieldAndObject);
+              if (replacement != null) {
+                replacement.eliminateRedundantRead(it, instanceGet);
+              } else {
+                activeState.putNonFinalInstanceField(
+                    fieldAndObject, new ExistingValue(instanceGet.value()));
+              }
+            } else if (instruction.isInstancePut()) {
+              InstancePut instancePut = instruction.asInstancePut();
+              // An instance-put instruction can potentially write the given field on all objects
+              // because of aliases.
+              killNonFinalActiveFields(instancePut);
+              // ... but at least we know the field value for this particular object.
+              Value object = instancePut.object().getAliasedValue();
+              FieldAndObject fieldAndObject = new FieldAndObject(field, object);
+              ExistingValue value = new ExistingValue(instancePut.value());
+              if (isFinal(definition)) {
+                assert method.isInstanceInitializer() || verifyWasInstanceInitializer();
+                activeState.putFinalInstanceField(fieldAndObject, value);
+              } else {
+                activeState.putNonFinalInstanceField(fieldAndObject, value);
+              }
+            } else if (instruction.isStaticGet()) {
+              StaticGet staticGet = instruction.asStaticGet();
+              if (staticGet.outValue().hasLocalInfo()) {
+                continue;
+              }
+              FieldValue replacement = activeState.getStaticFieldValue(field);
+              if (replacement != null) {
+                replacement.eliminateRedundantRead(it, staticGet);
+              } else {
+                // A field get on a different class can cause <clinit> to run and change static
+                // field values.
+                killNonFinalActiveFields(staticGet);
+                FieldValue value = new ExistingValue(staticGet.value());
+                if (isFinal(definition)) {
+                  activeState.putFinalStaticField(field, value);
+                } else {
+                  activeState.putNonFinalStaticField(field, value);
+                }
+              }
+            } else if (instruction.isStaticPut()) {
+              StaticPut staticPut = instruction.asStaticPut();
+              // A field put on a different class can cause <clinit> to run and change static
+              // field values.
+              killNonFinalActiveFields(staticPut);
+              ExistingValue value = new ExistingValue(staticPut.value());
+              if (definition.isFinal()) {
+                assert method.isClassInitializer();
+                activeState.putFinalStaticField(field, value);
+              } else {
+                activeState.putNonFinalStaticField(field, value);
+              }
+            }
+          } else if (instruction.isInitClass()) {
+            InitClass initClass = instruction.asInitClass();
+            assert !initClass.outValue().hasAnyUsers();
+            DexType clazz = initClass.getClassValue();
+            if (activeState.isClassInitialized(clazz)) {
+              it.removeOrReplaceByDebugLocalRead();
+            }
+            activeState.markClassAsInitialized(clazz);
+          } else if (instruction.isMonitor()) {
+            if (instruction.asMonitor().isEnter()) {
+              killAllNonFinalActiveFields();
+            }
+          } else if (instruction.isInvokeDirect()) {
+            handleInvokeDirect(instruction.asInvokeDirect());
+          } else if (instruction.isInvokeMethod() || instruction.isInvokeCustom()) {
+            killAllNonFinalActiveFields();
+          } else if (instruction.isNewInstance()) {
+            NewInstance newInstance = instruction.asNewInstance();
+            if (newInstance.clazz.classInitializationMayHaveSideEffects(
+                appView,
+                // Types that are a super type of `context` are guaranteed to be initialized
+                // already.
+                type -> appView.isSubtype(context, type).isTrue(),
+                Sets.newIdentityHashSet())) {
+              killAllNonFinalActiveFields();
+            }
+          } else {
+            // If the current instruction could trigger a method invocation, it could also cause
+            // field values to change. In that case, it must be handled above.
+            assert !instruction.instructionMayTriggerMethodInvocation(appView, context);
+
+            // If this assertion fails for a new instruction we need to determine if that
+            // instruction has side-effects that can change the value of fields. If so, it must be
+            // handled above. If not, it can be safely added to the assert.
+            assert instruction.isArgument()
+                    || instruction.isArrayGet()
+                    || instruction.isArrayLength()
+                    || instruction.isArrayPut()
+                    || instruction.isAssume()
+                    || instruction.isBinop()
+                    || instruction.isCheckCast()
+                    || instruction.isConstClass()
+                    || instruction.isConstMethodHandle()
+                    || instruction.isConstMethodType()
+                    || instruction.isConstNumber()
+                    || instruction.isConstString()
+                    || instruction.isDebugInstruction()
+                    || instruction.isDexItemBasedConstString()
+                    || instruction.isGoto()
+                    || instruction.isIf()
+                    || instruction.isInstanceOf()
+                    || instruction.isInvokeMultiNewArray()
+                    || instruction.isInvokeNewArray()
+                    || instruction.isMoveException()
+                    || instruction.isNewArrayEmpty()
+                    || instruction.isNewArrayFilledData()
+                    || instruction.isReturn()
+                    || instruction.isSwitch()
+                    || instruction.isThrow()
+                    || instruction.isUnop()
+                : "Unexpected instruction of type " + instruction.getClass().getTypeName();
+          }
+        }
+        if (block.hasUniqueNormalSuccessorWithUniquePredecessor()) {
+          block = block.getUniqueNormalSuccessor();
+          assert !visited.contains(block);
+          visited.add(block);
+        } else {
+          end = block;
+          block = null;
+        }
+      } while (block != null);
+      assert end != null;
+      recordActiveStateOnBlockExit(end);
     }
     if (!affectedValues.isEmpty()) {
       new TypeAnalysis(appView).narrowing(affectedValues);
@@ -382,9 +419,29 @@ public class RedundantFieldLoadElimination {
     activeState = state;
   }
 
+  private void removeDeadBlockExitStates(
+      BasicBlock current, Reference2IntMap<BasicBlock> pendingNormalSuccessorsMap) {
+    for (BasicBlock predecessor : current.getPredecessors()) {
+      if (predecessor.hasUniqueSuccessor()) {
+        activeStateAtExit.remove(predecessor);
+      } else {
+        if (predecessor.hasNormalSuccessor(current)) {
+          int pendingNormalSuccessors = pendingNormalSuccessorsMap.getInt(predecessor) - 1;
+          if (pendingNormalSuccessors == 0) {
+            activeStateAtExit.remove(predecessor);
+          } else {
+            pendingNormalSuccessorsMap.put(predecessor, pendingNormalSuccessors);
+          }
+        }
+      }
+    }
+  }
+
   private void recordActiveStateOnBlockExit(BasicBlock block) {
     assert !activeStateAtExit.containsKey(block);
-    activeStateAtExit.put(block, activeState);
+    if (!activeState.isEmpty()) {
+      activeStateAtExit.put(block, activeState);
+    }
   }
 
   private void killAllNonFinalActiveFields() {
@@ -419,50 +476,94 @@ public class RedundantFieldLoadElimination {
 
   static class State {
 
-    private final Map<FieldAndObject, FieldValue> finalInstanceFieldValues = new HashMap<>();
+    private Map<FieldAndObject, FieldValue> finalInstanceFieldValues;
 
-    private final Map<DexField, FieldValue> finalStaticFieldValues = new IdentityHashMap<>();
+    private Map<DexField, FieldValue> finalStaticFieldValues;
 
-    private final Set<DexType> initializedClasses = Sets.newIdentityHashSet();
+    private Set<DexType> initializedClasses;
 
-    private final Map<FieldAndObject, FieldValue> nonFinalInstanceFieldValues = new HashMap<>();
+    private Map<FieldAndObject, FieldValue> nonFinalInstanceFieldValues;
 
-    private final Map<DexField, FieldValue> nonFinalStaticFieldValues = new IdentityHashMap<>();
+    private Map<DexField, FieldValue> nonFinalStaticFieldValues;
 
     public State() {}
 
     public State(State state) {
-      finalInstanceFieldValues.putAll(state.finalInstanceFieldValues);
-      finalStaticFieldValues.putAll(state.finalStaticFieldValues);
-      initializedClasses.addAll(state.initializedClasses);
-      nonFinalInstanceFieldValues.putAll(state.nonFinalInstanceFieldValues);
-      nonFinalStaticFieldValues.putAll(state.nonFinalStaticFieldValues);
+      if (state.finalInstanceFieldValues != null && !state.finalInstanceFieldValues.isEmpty()) {
+        finalInstanceFieldValues = new HashMap<>();
+        finalInstanceFieldValues.putAll(state.finalInstanceFieldValues);
+      }
+      if (state.finalStaticFieldValues != null && !state.finalStaticFieldValues.isEmpty()) {
+        finalStaticFieldValues = new IdentityHashMap<>();
+        finalStaticFieldValues.putAll(state.finalStaticFieldValues);
+      }
+      if (state.initializedClasses != null && !state.initializedClasses.isEmpty()) {
+        initializedClasses = Sets.newIdentityHashSet();
+        initializedClasses.addAll(state.initializedClasses);
+      }
+      if (state.nonFinalInstanceFieldValues != null
+          && !state.nonFinalInstanceFieldValues.isEmpty()) {
+        nonFinalInstanceFieldValues = new HashMap<>();
+        nonFinalInstanceFieldValues.putAll(state.nonFinalInstanceFieldValues);
+      }
+      if (state.nonFinalStaticFieldValues != null && !state.nonFinalStaticFieldValues.isEmpty()) {
+        nonFinalStaticFieldValues = new IdentityHashMap<>();
+        nonFinalStaticFieldValues.putAll(state.nonFinalStaticFieldValues);
+      }
     }
 
     public void clearNonFinalInstanceFields() {
-      nonFinalInstanceFieldValues.clear();
+      nonFinalInstanceFieldValues = null;
     }
 
     public void clearNonFinalStaticFields() {
-      nonFinalStaticFieldValues.clear();
+      nonFinalStaticFieldValues = null;
     }
 
     public FieldValue getInstanceFieldValue(FieldAndObject field) {
-      FieldValue value = nonFinalInstanceFieldValues.get(field);
-      return value != null ? value : finalInstanceFieldValues.get(field);
+      FieldValue value =
+          nonFinalInstanceFieldValues != null ? nonFinalInstanceFieldValues.get(field) : null;
+      if (value != null) {
+        return value;
+      }
+      return finalInstanceFieldValues != null ? finalInstanceFieldValues.get(field) : null;
     }
 
     public FieldValue getStaticFieldValue(DexField field) {
-      FieldValue value = nonFinalStaticFieldValues.get(field);
-      return value != null ? value : finalStaticFieldValues.get(field);
+      FieldValue value =
+          nonFinalStaticFieldValues != null ? nonFinalStaticFieldValues.get(field) : null;
+      if (value != null) {
+        return value;
+      }
+      return finalStaticFieldValues != null ? finalStaticFieldValues.get(field) : null;
     }
 
     public void intersect(State state) {
-      intersectFieldValues(finalInstanceFieldValues, state.finalInstanceFieldValues);
-      intersectFieldValues(finalStaticFieldValues, state.finalStaticFieldValues);
-      intersectInitializedClasses(initializedClasses, state.initializedClasses);
-      intersectFieldValues(nonFinalInstanceFieldValues, state.nonFinalInstanceFieldValues);
-      intersectFieldValues(nonFinalStaticFieldValues, state.nonFinalStaticFieldValues);
+      if (finalInstanceFieldValues != null && state.finalInstanceFieldValues != null) {
+        intersectFieldValues(finalInstanceFieldValues, state.finalInstanceFieldValues);
+      } else {
+        finalInstanceFieldValues = null;
+      }
+      if (finalStaticFieldValues != null && state.finalStaticFieldValues != null) {
+        intersectFieldValues(finalStaticFieldValues, state.finalStaticFieldValues);
+      } else {
+        finalStaticFieldValues = null;
+      }
+      if (initializedClasses != null && state.initializedClasses != null) {
+        intersectInitializedClasses(initializedClasses, state.initializedClasses);
+      } else {
+        initializedClasses = null;
+      }
+      if (nonFinalInstanceFieldValues != null && state.nonFinalInstanceFieldValues != null) {
+        intersectFieldValues(nonFinalInstanceFieldValues, state.nonFinalInstanceFieldValues);
+      } else {
+        nonFinalInstanceFieldValues = null;
+      }
+      if (nonFinalStaticFieldValues != null && state.nonFinalStaticFieldValues != null) {
+        intersectFieldValues(nonFinalStaticFieldValues, state.nonFinalStaticFieldValues);
+      } else {
+        nonFinalStaticFieldValues = null;
+      }
     }
 
     private static <K> void intersectFieldValues(
@@ -476,7 +577,23 @@ public class RedundantFieldLoadElimination {
     }
 
     public boolean isClassInitialized(DexType clazz) {
-      return initializedClasses.contains(clazz);
+      return initializedClasses != null && initializedClasses.contains(clazz);
+    }
+
+    public boolean isEmpty() {
+      return isEmpty(finalInstanceFieldValues)
+          && isEmpty(finalStaticFieldValues)
+          && isEmpty(initializedClasses)
+          && isEmpty(nonFinalInstanceFieldValues)
+          && isEmpty(nonFinalStaticFieldValues);
+    }
+
+    private static boolean isEmpty(Set<?> set) {
+      return set == null || set.isEmpty();
+    }
+
+    private static boolean isEmpty(Map<?, ?> map) {
+      return map == null || map.isEmpty();
     }
 
     // If a field get instruction throws an exception it did not have an effect on the value of the
@@ -487,17 +604,22 @@ public class RedundantFieldLoadElimination {
       if (instruction.isInstanceGet()) {
         Value object = instruction.asInstanceGet().object().getAliasedValue();
         FieldAndObject fieldAndObject = new FieldAndObject(field, object);
-        removeNonFinalInstanceField(fieldAndObject);
+        removeInstanceField(fieldAndObject);
       } else if (instruction.isStaticGet()) {
-        removeNonFinalStaticField(field);
+        removeStaticField(field);
       }
     }
 
     private void killActiveInitializedClassesForExceptionalExit(InitClass instruction) {
-      initializedClasses.remove(instruction.getClassValue());
+      if (initializedClasses != null) {
+        initializedClasses.remove(instruction.getClassValue());
+      }
     }
 
     public void markClassAsInitialized(DexType clazz) {
+      if (initializedClasses == null) {
+        initializedClasses = Sets.newIdentityHashSet();
+      }
       initializedClasses.add(clazz);
     }
 
@@ -507,15 +629,21 @@ public class RedundantFieldLoadElimination {
     }
 
     public void removeFinalInstanceField(FieldAndObject field) {
-      finalInstanceFieldValues.remove(field);
+      if (finalInstanceFieldValues != null) {
+        finalInstanceFieldValues.remove(field);
+      }
     }
 
     public void removeNonFinalInstanceField(FieldAndObject field) {
-      nonFinalInstanceFieldValues.remove(field);
+      if (nonFinalInstanceFieldValues != null) {
+        nonFinalInstanceFieldValues.remove(field);
+      }
     }
 
     public void removeNonFinalInstanceFields(DexField field) {
-      nonFinalInstanceFieldValues.keySet().removeIf(key -> key.field == field);
+      if (nonFinalInstanceFieldValues != null) {
+        nonFinalInstanceFieldValues.keySet().removeIf(key -> key.field == field);
+      }
     }
 
     public void removeStaticField(DexField field) {
@@ -524,28 +652,44 @@ public class RedundantFieldLoadElimination {
     }
 
     public void removeFinalStaticField(DexField field) {
-      finalStaticFieldValues.remove(field);
+      if (finalStaticFieldValues != null) {
+        finalStaticFieldValues.remove(field);
+      }
     }
 
     public void removeNonFinalStaticField(DexField field) {
-      nonFinalStaticFieldValues.remove(field);
+      if (nonFinalStaticFieldValues != null) {
+        nonFinalStaticFieldValues.remove(field);
+      }
     }
 
     public void putFinalInstanceField(FieldAndObject field, FieldValue value) {
+      if (finalInstanceFieldValues == null) {
+        finalInstanceFieldValues = new HashMap<>();
+      }
       finalInstanceFieldValues.put(field, value);
     }
 
     public void putFinalStaticField(DexField field, FieldValue value) {
+      if (finalStaticFieldValues == null) {
+        finalStaticFieldValues = new IdentityHashMap<>();
+      }
       finalStaticFieldValues.put(field, value);
     }
 
     public void putNonFinalInstanceField(FieldAndObject field, FieldValue value) {
-      assert !finalInstanceFieldValues.containsKey(field);
+      assert finalInstanceFieldValues == null || !finalInstanceFieldValues.containsKey(field);
+      if (nonFinalInstanceFieldValues == null) {
+        nonFinalInstanceFieldValues = new HashMap<>();
+      }
       nonFinalInstanceFieldValues.put(field, value);
     }
 
     public void putNonFinalStaticField(DexField field, FieldValue value) {
-      assert !nonFinalStaticFieldValues.containsKey(field);
+      assert nonFinalStaticFieldValues == null || !nonFinalStaticFieldValues.containsKey(field);
+      if (nonFinalStaticFieldValues == null) {
+        nonFinalStaticFieldValues = new IdentityHashMap<>();
+      }
       nonFinalStaticFieldValues.put(field, value);
     }
   }

@@ -3,19 +3,21 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.code;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+
 import com.android.tools.r8.cf.LoadStoreHelper;
 import com.android.tools.r8.cf.TypeVerificationHelper;
-import com.android.tools.r8.errors.Unreachable;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
+import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.AbstractFieldSet;
 import com.android.tools.r8.ir.analysis.modeling.LibraryMethodReadSetModeling;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
@@ -24,7 +26,8 @@ import com.android.tools.r8.ir.optimize.Inliner.InlineAction;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.regalloc.RegisterAllocator;
-import com.google.common.collect.ImmutableList;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.Sets;
 import java.util.BitSet;
 import java.util.Collection;
@@ -77,63 +80,48 @@ public abstract class InvokeMethod extends Invoke {
 
   // TODO(b/140204899): Refactor lookup methods to be defined in a single place.
   public Collection<DexEncodedMethod> lookupTargets(
-      AppView<? extends AppInfoWithSubtyping> appView, DexType invocationContext) {
-    // Leverage exact receiver type if available.
-    DexEncodedMethod singleTarget = lookupSingleTarget(appView, invocationContext);
-    if (singleTarget != null) {
-      return ImmutableList.of(singleTarget);
-    }
-    if (!isInvokeMethodWithDynamicDispatch() || !appView.appInfo().hasLiveness()) {
+      AppView<AppInfoWithLiveness> appView, DexType invocationContext) {
+    if (!getInvokedMethod().holder.isClassType()) {
       return null;
     }
-    LookupResultSuccess lookupResult =
-        appView
-            .appInfo()
-            .resolveMethod(method.holder, method)
-            .lookupVirtualDispatchTargets(
-                appView.definitionForProgramType(invocationContext),
-                appView.withLiveness().appInfo())
-            .asLookupResultSuccess();
-    if (lookupResult == null || lookupResult.isEmpty()) {
-      return null;
+    if (!isInvokeMethodWithDynamicDispatch()) {
+      DexEncodedMethod singleTarget = lookupSingleTarget(appView, invocationContext);
+      return singleTarget != null ? SetUtils.newIdentityHashSet(singleTarget) : null;
     }
-    assert lookupResult.hasMethodTargets();
-    if (lookupResult.hasLambdaTargets()) {
-      // TODO(b/150277553): Support lambda targets.
-      return null;
+    DexProgramClass refinedReceiverUpperBound =
+        asProgramClassOrNull(
+            appView.definitionFor(
+                TypeAnalysis.getRefinedReceiverType(appView, asInvokeMethodWithReceiver())));
+    DexProgramClass refinedReceiverLowerBound = null;
+    ClassTypeElement refinedReceiverLowerBoundType =
+        asInvokeMethodWithReceiver().getReceiver().getDynamicLowerBoundType(appView);
+    if (refinedReceiverLowerBoundType != null) {
+      refinedReceiverLowerBound =
+          asProgramClassOrNull(appView.definitionFor(refinedReceiverLowerBoundType.getClassType()));
     }
-    DexType staticReceiverType = getInvokedMethod().holder;
-    DexType refinedReceiverType =
-        TypeAnalysis.getRefinedReceiverType(
-            appView.withLiveness(), this.asInvokeMethodWithReceiver());
-    // TODO(b/140204899): Instead of reprocessing here, pass refined receiver to lookup.
-    // Leverage refined receiver type if available.
-    if (refinedReceiverType != staticReceiverType) {
-      ResolutionResult refinedResolution =
-          appView.appInfo().resolveMethod(refinedReceiverType, method);
-      if (refinedResolution.isSingleResolution()) {
-        DexEncodedMethod refinedTarget = refinedResolution.getSingleTarget();
-        Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
-        lookupResult.forEach(
-            methodTarget -> {
-              DexEncodedMethod target = methodTarget.getMethod();
-              if (target == refinedTarget
-                  || appView.isSubtype(target.holder(), refinedReceiverType).isPossiblyTrue()) {
-                result.add(target);
-              }
-            },
-            lambdaTarget -> {
-              throw new Unreachable();
-            });
-        return result;
-      }
-      // If resolution at the refined type fails, conservatively return the full set of targets.
+    ResolutionResult resolutionResult = appView.appInfo().resolveMethod(method.holder, method);
+    LookupResult lookupResult;
+    if (refinedReceiverUpperBound != null) {
+      lookupResult =
+          resolutionResult.lookupVirtualDispatchTargets(
+              appView.definitionForProgramType(invocationContext),
+              appView.withLiveness().appInfo(),
+              refinedReceiverUpperBound,
+              refinedReceiverLowerBound);
+    } else {
+      lookupResult =
+          resolutionResult.lookupVirtualDispatchTargets(
+              appView.definitionForProgramType(invocationContext),
+              appView.withLiveness().appInfo());
+    }
+    if (lookupResult.isLookupResultFailure()) {
+      return null;
     }
     Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
     lookupResult.forEach(
         methodTarget -> result.add(methodTarget.getMethod()),
         lambda -> {
-          assert false;
+          // TODO(b/150277553): Support lambda targets.
         });
     return result;
   }

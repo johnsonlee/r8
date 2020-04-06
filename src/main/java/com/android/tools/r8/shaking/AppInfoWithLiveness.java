@@ -43,10 +43,10 @@ import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.desugar.TwrCloseResourceRewriter;
 import com.android.tools.r8.utils.CollectionUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.PredicateSet;
 import com.android.tools.r8.utils.Visibility;
-import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.ImmutableSortedSet.Builder;
@@ -544,6 +544,31 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
             || type.toDescriptorString().endsWith("$Builder;")
         : "Failed lookup of non-missing type: " + type;
     return definition;
+  }
+
+  private int largestInputCfVersion = -1;
+
+  public boolean canUseConstClassInstructions(InternalOptions options) {
+    if (!options.isGeneratingClassFiles()) {
+      return true;
+    }
+    if (largestInputCfVersion == -1) {
+      computeLargestCfVersion();
+    }
+    return options.canUseConstClassInstructions(largestInputCfVersion);
+  }
+
+  private synchronized void computeLargestCfVersion() {
+    if (largestInputCfVersion != -1) {
+      return;
+    }
+    for (DexProgramClass clazz : classes()) {
+      // Skip synthetic classes which may not have a specified version.
+      if (clazz.hasClassFileVersion()) {
+        largestInputCfVersion = Math.max(largestInputCfVersion, clazz.getInitialClassFileVersion());
+      }
+    }
+    assert largestInputCfVersion != -1;
   }
 
   public boolean isLiveProgramClass(DexProgramClass clazz) {
@@ -1313,19 +1338,8 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
       DexType type,
       Consumer<DexProgramClass> subTypeConsumer,
       Consumer<LambdaDescriptor> callSiteConsumer) {
-    WorkList<DexType> workList = WorkList.newIdentityWorkList();
-    workList.addIfNotSeen(type);
-    while (workList.hasNext()) {
-      DexType subType = workList.next();
-      DexProgramClass clazz = definitionForProgramType(subType);
-      workList.addIfNotSeen(allImmediateSubtypes(subType));
-      if (clazz == null) {
-        continue;
-      }
-      if (isInstantiatedOrPinned(clazz)) {
-        subTypeConsumer.accept(clazz);
-      }
-    }
+    objectAllocationInfoCollection.forEachInstantiatedSubType(
+        type, subTypeConsumer, callSiteConsumer, this);
   }
 
   public void forEachInstantiatedSubTypeInChain(

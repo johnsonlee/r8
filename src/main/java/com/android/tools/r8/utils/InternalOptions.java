@@ -773,7 +773,7 @@ public class InternalOptions {
 
   private String messageWarningMissingNestHost(DexClass compiledClass) {
     return messageErrorMissingNestHost(compiledClass)
-        + "Class"
+        + "Class "
         + compiledClass.type.getName()
         + " is considered as not being part of any nest.";
   }
@@ -1200,6 +1200,16 @@ public class InternalOptions {
   private boolean hasMinApi(AndroidApiLevel level) {
     assert isGeneratingDex();
     return minApiLevel >= level.getLevel();
+  }
+
+  public boolean canUseConstClassInstructions(int cfVersion) {
+    assert isGeneratingClassFiles();
+    return cfVersion >= requiredCfVersionForConstClassInstructions();
+  }
+
+  public int requiredCfVersionForConstClassInstructions() {
+    assert isGeneratingClassFiles();
+    return Opcodes.V1_5;
   }
 
   public boolean canUseInvokePolymorphicOnVarHandle() {

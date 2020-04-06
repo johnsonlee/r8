@@ -184,6 +184,28 @@ public class BasicBlock {
     onControlFlowEdgesMayChangeListeners.add(listener);
   }
 
+  public boolean hasUniqueSuccessor() {
+    return successors.size() == 1;
+  }
+
+  public boolean hasUniqueNormalSuccessor() {
+    return numberOfNormalSuccessors() == 1;
+  }
+
+  public boolean hasUniqueNormalSuccessorWithUniquePredecessor() {
+    return hasUniqueNormalSuccessor() && getUniqueNormalSuccessor().getPredecessors().size() == 1;
+  }
+
+  public BasicBlock getUniqueSuccessor() {
+    assert hasUniqueSuccessor();
+    return successors.get(0);
+  }
+
+  public BasicBlock getUniqueNormalSuccessor() {
+    assert hasUniqueNormalSuccessor();
+    return ListUtils.last(successors);
+  }
+
   public List<BasicBlock> getSuccessors() {
     return Collections.unmodifiableList(successors);
   }
@@ -200,17 +222,27 @@ public class BasicBlock {
     return true;
   }
 
+  public void forEachNormalSuccessor(Consumer<BasicBlock> consumer) {
+    for (int i = successors.size() - numberOfNormalSuccessors(); i < successors.size(); i++) {
+      consumer.accept(successors.get(i));
+    }
+  }
+
+  public boolean hasNormalSuccessor(BasicBlock block) {
+    for (int i = successors.size() - numberOfNormalSuccessors(); i < successors.size(); i++) {
+      if (successors.get(i) == block) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public List<BasicBlock> getNormalSuccessors() {
     if (!hasCatchHandlers()) {
       return successors;
     }
-    Set<Integer> handlers = catchHandlers.getUniqueTargets();
     ImmutableList.Builder<BasicBlock> normals = ImmutableList.builder();
-    for (int i = 0; i < successors.size(); i++) {
-      if (!handlers.contains(i)) {
-        normals.add(successors.get(i));
-      }
-    }
+    forEachNormalSuccessor(normals::add);
     return normals.build();
   }
 

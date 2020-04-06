@@ -19,11 +19,7 @@ def CheckDoNotMerge(input_api, output_api):
       return [output_api.PresubmitPromptWarning(msg, [])]
   return []
 
-def CheckFormatting(input_api, output_api):
-  branch = (
-      check_output(['git', 'cl', 'upstream'])
-          .strip()
-          .replace('refs/heads/', ''))
+def CheckFormatting(input_api, output_api, branch):
   results = []
   for f in input_api.AffectedFiles():
     path = f.LocalPath()
@@ -47,26 +43,58 @@ or bypass the checks with:
   """ % FMT_CMD))
   return results
 
-def CheckDeterministicDebuggingChanged(input_api, output_api):
+def CheckDeterministicDebuggingChanged(input_api, output_api, branch):
   for f in input_api.AffectedFiles():
     path = f.LocalPath()
     if not path.endswith('InternalOptions.java'):
       continue
-    branch = (
-        check_output(['git', 'cl', 'upstream'])
-            .strip()
-            .replace('refs/heads/', ''))
     diff = check_output(
         ['git', 'diff', '--no-prefix', '-U0', branch, '--', path])
     if 'DETERMINISTIC_DEBUGGING' in diff:
       return [output_api.PresubmitError(diff)]
   return []
 
-def CheckChange(input_api, output_api):
+def CheckForAddedDisassemble(input_api, output_api):
   results = []
-  results.extend(CheckFormatting(input_api, output_api))
+  for (file, line_nr, line) in input_api.RightHandSideLines():
+    if 'disassemble()' in line:
+      results.append(
+          output_api.PresubmitError(
+              '%s:%s %s' % (file.LocalPath(), line_nr, line)))
+  return results
+
+def CheckForCopyRight(input_api, output_api, branch):
+  results = []
+  for f in input_api.AffectedSourceFiles(None):
+    # Check if it is a new file.
+    if f.OldContents():
+      continue
+    contents = f.NewContents()
+    if (not contents) or (len(contents) == 0):
+      continue
+    if not CopyRightInContents(contents):
+      results.append(
+          output_api.PresubmitError('Could not find Copyright in file: %s' % f))
+  return results
+
+def CopyRightInContents(contents):
+  for content_line in contents:
+    if '// Copyright' in content_line:
+      return True
+  return False
+
+def CheckChange(input_api, output_api):
+  branch = (
+      check_output(['git', 'cl', 'upstream'])
+          .strip()
+          .replace('refs/heads/', ''))
+  results = []
   results.extend(CheckDoNotMerge(input_api, output_api))
-  results.extend(CheckDeterministicDebuggingChanged(input_api, output_api))
+  results.extend(CheckFormatting(input_api, output_api, branch))
+  results.extend(
+      CheckDeterministicDebuggingChanged(input_api, output_api, branch))
+  results.extend(CheckForAddedDisassemble(input_api, output_api))
+  results.extend(CheckForCopyRight(input_api, output_api, branch))
   return results
 
 def CheckChangeOnCommit(input_api, output_api):

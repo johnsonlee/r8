@@ -6,7 +6,6 @@ package com.android.tools.r8.graph;
 import static com.android.tools.r8.utils.DescriptorUtils.getClassBinaryNameFromDescriptor;
 import static com.android.tools.r8.utils.DescriptorUtils.getDescriptorFromClassBinaryName;
 
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -218,10 +217,30 @@ public class GenericSignature {
     }
   }
 
-  // TODO(b/129925954): better structures for a circle of
-  //  TypeSignature - FieldTypeSignature - ClassTypeSignature - TypeArgument
+  public enum WildcardIndicator {
+    NOT_AN_ARGUMENT,
+    NONE,
+    NEGATIVE,
+    POSITIVE
+  }
+
   public abstract static class FieldTypeSignature
       extends TypeSignature implements DexDefinitionSignature<DexEncodedField> {
+
+    private final WildcardIndicator wildcardIndicator;
+
+    private FieldTypeSignature(WildcardIndicator wildcardIndicator) {
+      this.wildcardIndicator = wildcardIndicator;
+    }
+
+    public final boolean isArgument() {
+      return wildcardIndicator != WildcardIndicator.NOT_AN_ARGUMENT;
+    }
+
+    public WildcardIndicator getWildcardIndicator() {
+      return wildcardIndicator;
+    }
+
     @Override
     public boolean isFieldTypeSignature() {
       return true;
@@ -259,6 +278,32 @@ public class GenericSignature {
     public boolean isUnknown() {
       return this == ClassTypeSignature.UNKNOWN_CLASS_TYPE_SIGNATURE;
     }
+
+    public abstract FieldTypeSignature asArgument(WildcardIndicator indicator);
+
+    public boolean isStar() {
+      return false;
+    }
+  }
+
+  private static final class StarFieldTypeSignature extends FieldTypeSignature {
+
+    private static final StarFieldTypeSignature STAR_FIELD_TYPE_SIGNATURE =
+        new StarFieldTypeSignature();
+
+    private StarFieldTypeSignature() {
+      super(WildcardIndicator.NONE);
+    }
+
+    @Override
+    public FieldTypeSignature asArgument(WildcardIndicator indicator) {
+      throw new Unreachable("Should not be called");
+    }
+
+    @Override
+    public boolean isStar() {
+      return true;
+    }
   }
 
   public static class ClassTypeSignature extends FieldTypeSignature {
@@ -268,7 +313,6 @@ public class GenericSignature {
     final DexType type;
     // E.g., for Map<K, V>, a signature will indicate what types are for K and V.
     // Note that this could be nested, e.g., Map<K, Consumer<V>>.
-    // TODO(b/129925954): What about * ?
     final List<FieldTypeSignature> typeArguments;
 
     // TODO(b/129925954): towards immutable structure?
@@ -277,10 +321,17 @@ public class GenericSignature {
     ClassTypeSignature innerTypeSignature;
 
     ClassTypeSignature(DexType type, List<FieldTypeSignature> typeArguments) {
+      this(type, typeArguments, WildcardIndicator.NOT_AN_ARGUMENT);
+    }
+
+    private ClassTypeSignature(
+        DexType type, List<FieldTypeSignature> typeArguments, WildcardIndicator indicator) {
+      super(indicator);
       assert type != null;
       assert typeArguments != null;
       this.type = type;
       this.typeArguments = typeArguments;
+      assert typeArguments.stream().allMatch(FieldTypeSignature::isArgument);
     }
 
     public DexType type() {
@@ -302,6 +353,15 @@ public class GenericSignature {
     }
 
     @Override
+    public ClassTypeSignature asArgument(WildcardIndicator indicator) {
+      assert indicator != WildcardIndicator.NOT_AN_ARGUMENT;
+      ClassTypeSignature argument = new ClassTypeSignature(type, typeArguments, indicator);
+      argument.innerTypeSignature = this.innerTypeSignature;
+      argument.enclosingTypeSignature = this.enclosingTypeSignature;
+      return argument;
+    }
+
+    @Override
     public ArrayTypeSignature toArrayTypeSignature(AppView<?> appView) {
       return new ArrayTypeSignature(this);
     }
@@ -311,32 +371,18 @@ public class GenericSignature {
       outer.innerTypeSignature = inner;
       inner.enclosingTypeSignature = outer;
     }
-
-    // TODO(b/129925954): rewrite GenericSignatureRewriter with this pattern?
-    public interface Converter<R> {
-      R init();
-      R visitType(DexType type, R result);
-      R visitTypeArgument(FieldTypeSignature typeArgument, R result);
-      R visitInnerTypeSignature(ClassTypeSignature innerTypeSignature, R result);
-    }
-
-    public <R> R convert(Converter<R> converter) {
-      R result = converter.init();
-      result = converter.visitType(type, result);
-      for (FieldTypeSignature typeArgument : typeArguments) {
-        result = converter.visitTypeArgument(typeArgument, result);
-      }
-      if (innerTypeSignature != null) {
-        result = converter.visitInnerTypeSignature(innerTypeSignature, result);
-      }
-      return result;
-    }
   }
 
   public static class ArrayTypeSignature extends FieldTypeSignature {
+
     final TypeSignature elementSignature;
 
     ArrayTypeSignature(TypeSignature elementSignature) {
+      this(elementSignature, WildcardIndicator.NOT_AN_ARGUMENT);
+    }
+
+    private ArrayTypeSignature(TypeSignature elementSignature, WildcardIndicator indicator) {
+      super(indicator);
       assert elementSignature != null;
       this.elementSignature = elementSignature;
     }
@@ -356,6 +402,12 @@ public class GenericSignature {
     }
 
     @Override
+    public FieldTypeSignature asArgument(WildcardIndicator indicator) {
+      assert indicator != WildcardIndicator.NOT_AN_ARGUMENT;
+      return new ArrayTypeSignature(elementSignature, indicator);
+    }
+
+    @Override
     public TypeSignature toArrayTypeSignature(AppView<?> appView) {
       return new ArrayTypeSignature(this);
     }
@@ -367,9 +419,15 @@ public class GenericSignature {
   }
 
   public static class TypeVariableSignature extends FieldTypeSignature {
+
     final String typeVariable;
 
     private TypeVariableSignature(String typeVariable) {
+      this(typeVariable, WildcardIndicator.NOT_AN_ARGUMENT);
+    }
+
+    private TypeVariableSignature(String typeVariable, WildcardIndicator indicator) {
+      super(indicator);
       assert typeVariable != null;
       this.typeVariable = typeVariable;
     }
@@ -382,6 +440,12 @@ public class GenericSignature {
     @Override
     public TypeVariableSignature asTypeVariableSignature() {
       return this;
+    }
+
+    @Override
+    public FieldTypeSignature asArgument(WildcardIndicator indicator) {
+      assert indicator != WildcardIndicator.NOT_AN_ARGUMENT;
+      return new TypeVariableSignature(typeVariable, indicator);
     }
 
     @Override
@@ -617,9 +681,6 @@ public class GenericSignature {
       try {
         setInput(signature);
         return parseClassSignature();
-      } catch (Unimplemented e) {
-        // TODO(b/129925954): Should not catch this once fully implemented
-        return ClassSignature.UNKNOWN_CLASS_SIGNATURE;
       } catch (GenericSignatureFormatError e) {
         throw e;
       } catch (Throwable t) {
@@ -634,9 +695,6 @@ public class GenericSignature {
       try {
         setInput(signature);
         return parseMethodTypeSignature();
-      } catch (Unimplemented e) {
-        // TODO(b/129925954): Should not catch this once fully implemented
-        return MethodTypeSignature.UNKNOWN_METHOD_TYPE_SIGNATURE;
       } catch (GenericSignatureFormatError e) {
         throw e;
       } catch (Throwable t) {
@@ -651,9 +709,6 @@ public class GenericSignature {
       try {
         setInput(signature);
         return parseFieldTypeSignature(ParserPosition.MEMBER_ANNOTATION);
-      } catch (Unimplemented e) {
-        // TODO(b/129925954): Should not catch this once fully implemented
-        return ClassTypeSignature.UNKNOWN_CLASS_TYPE_SIGNATURE;
       } catch (GenericSignatureFormatError e) {
         throw e;
       } catch (Throwable t) {
@@ -877,15 +932,18 @@ public class GenericSignature {
       // TypeArgument ::= (["+" | "-"] FieldTypeSignature) | "*".
       if (symbol == '*') {
         scanSymbol();
-        throw new Unimplemented("GenericSignature.TypeArgument *");
+        return StarFieldTypeSignature.STAR_FIELD_TYPE_SIGNATURE;
       } else if (symbol == '+') {
         scanSymbol();
-        return parseFieldTypeSignature(ParserPosition.ENCLOSING_INNER_OR_TYPE_ANNOTATION);
+        return parseFieldTypeSignature(ParserPosition.ENCLOSING_INNER_OR_TYPE_ANNOTATION)
+            .asArgument(WildcardIndicator.POSITIVE);
       } else if (symbol == '-') {
         scanSymbol();
-        return parseFieldTypeSignature(ParserPosition.ENCLOSING_INNER_OR_TYPE_ANNOTATION);
+        return parseFieldTypeSignature(ParserPosition.ENCLOSING_INNER_OR_TYPE_ANNOTATION)
+            .asArgument(WildcardIndicator.NEGATIVE);
       } else {
-        return parseFieldTypeSignature(ParserPosition.ENCLOSING_INNER_OR_TYPE_ANNOTATION);
+        return parseFieldTypeSignature(ParserPosition.ENCLOSING_INNER_OR_TYPE_ANNOTATION)
+            .asArgument(WildcardIndicator.NONE);
       }
     }
 
