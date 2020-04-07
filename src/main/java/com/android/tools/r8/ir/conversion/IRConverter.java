@@ -276,9 +276,7 @@ public class IRConverter {
       assert appView.rootSet() != null;
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       this.classInliner =
-          options.enableClassInlining && options.enableInlining
-              ? new ClassInliner(lambdaRewriter)
-              : null;
+          options.enableClassInlining && options.enableInlining ? new ClassInliner() : null;
       this.classStaticizer =
           options.enableClassStaticizer ? new ClassStaticizer(appViewWithLiveness, this) : null;
       this.dynamicTypeOptimization =
@@ -405,9 +403,11 @@ public class IRConverter {
       Builder<?> builder, OptimizationFeedback feedback, ExecutorService executorService)
       throws ExecutionException {
     if (lambdaRewriter != null) {
-      lambdaRewriter.adjustAccessibility(this, feedback);
-      lambdaRewriter.synthesizeLambdaClasses(builder);
-      lambdaRewriter.optimizeSynthesizedClasses(this, executorService);
+      if (appView.enableWholeProgramOptimizations()) {
+        lambdaRewriter.finalizeLambdaDesugaringForR8(builder);
+      } else {
+        lambdaRewriter.finalizeLambdaDesugaringForD8(builder, this, executorService);
+      }
     }
   }
 
@@ -629,7 +629,6 @@ public class IRConverter {
   }
 
   public DexApplication optimize(ExecutorService executorService) throws ExecutionException {
-
     if (options.isShrinking()) {
       assert !removeLambdaDeserializationMethods();
     } else {
@@ -641,6 +640,10 @@ public class IRConverter {
     computeReachabilitySensitivity(application);
     collectLambdaMergingCandidates(application);
     collectStaticizerCandidates(application);
+
+    if (lambdaRewriter != null) {
+      lambdaRewriter.installGraphLens();
+    }
 
     // The process is in two phases in general.
     // 1) Subject all DexEncodedMethods to optimization, except some optimizations that require
@@ -821,7 +824,7 @@ public class IRConverter {
 
     if (lambdaRewriter != null) {
       lambdaRewriter.synthesizeLambdaClassesForWave(
-          wave, executorService, delayedOptimizationFeedback, lensCodeRewriter, this);
+          wave, this, executorService, delayedOptimizationFeedback, lensCodeRewriter);
     }
   }
 
