@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.optimize.staticizer;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
+import com.android.tools.r8.graph.Descriptor;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -65,6 +66,7 @@ final class StaticizingProcessor {
   private final Map<DexEncodedMethod, CandidateInfo> hostClassInits = new IdentityHashMap<>();
   private final Set<DexEncodedMethod> methodsToBeStaticized = Sets.newIdentityHashSet();
   private final Map<DexField, CandidateInfo> singletonFields = new IdentityHashMap<>();
+  private final Map<DexMethod, CandidateInfo> singletonGetters = new IdentityHashMap<>();
   private final Map<DexType, DexType> candidateToHostMapping = new IdentityHashMap<>();
 
   StaticizingProcessor(
@@ -94,7 +96,7 @@ final class StaticizingProcessor {
                 .add(collectOptimizationInfo(feedback)));
 
     // Enqueue instance methods to be staticized (only remove references to 'this'). Intentionally
-    // not collection optimization info for these methods, since they will be reprocessed again
+    // not collecting optimization info for these methods, since they will be reprocessed again
     // below once staticized.
     enqueueMethodsWithCodeOptimizations(
         methodsToBeStaticized, optimizations -> optimizations.add(this::removeReferencesToThis));
@@ -203,19 +205,36 @@ final class StaticizingProcessor {
       for (DexEncodedMethod method : info.referencedFrom) {
         IRCode code = method.buildIR(appView, appView.appInfo().originFor(method.method.holder));
         assert code != null;
-        List<StaticGet> singletonFieldReads =
+        List<Instruction> singletonUsers =
             Streams.stream(code.instructionIterator())
-                .filter(Instruction::isStaticGet)
-                .map(Instruction::asStaticGet)
-                .filter(get -> get.getField() == info.singletonField.field)
+                .filter(
+                    instruction -> {
+                      if (instruction.isStaticGet()
+                          && instruction.asStaticGet().getField() == info.singletonField.field) {
+                        return true;
+                      }
+                      DexEncodedMethod getter = info.getter.get();
+                      return getter != null
+                          && instruction.isInvokeStatic()
+                          && instruction.asInvokeStatic().getInvokedMethod() == getter.method;
+                    })
                 .collect(Collectors.toList());
         boolean fixableFieldReadsPerUsage = true;
-        for (StaticGet read : singletonFieldReads) {
-          Value dest = read.dest();
+        for (Instruction user : singletonUsers) {
+          if (user.outValue() == null) {
+            continue;
+          }
+          Value dest = user.outValue();
           visited.clear();
           trivialPhis.clear();
-          boolean onlyHasTrivialPhis = testAndCollectPhisComposedOfSameFieldRead(
-              visited, dest.uniquePhiUsers(), read.getField(), trivialPhis);
+          assert user.isInvokeStatic() || user.isStaticGet();
+          Descriptor member =
+              user.isStaticGet()
+                  ? user.asStaticGet().getField()
+                  : user.asInvokeStatic().getInvokedMethod();
+          boolean onlyHasTrivialPhis =
+              testAndCollectPhisComposedOfSameMember(
+                  visited, dest.uniquePhiUsers(), member, trivialPhis);
           if (dest.hasPhiUsers() && !onlyHasTrivialPhis) {
             fixableFieldReadsPerUsage = false;
             break;
@@ -255,6 +274,10 @@ final class StaticizingProcessor {
         }
       }
       singletonFields.put(candidate.singletonField.field, candidate);
+      DexEncodedMethod getter = candidate.getter.get();
+      if (getter != null) {
+        singletonGetters.put(getter.method, candidate);
+      }
       referencingExtraMethods.addAll(candidate.referencedFrom);
     }
 
@@ -341,28 +364,38 @@ final class StaticizingProcessor {
   }
 
   private void rewriteReferences(IRCode code) {
-    // Process all singleton field reads and rewrite their users.
-    List<StaticGet> singletonFieldReads =
+    // Fetch all instructions that reference singletons to avoid concurrent modifications to the
+    // instruction list that can arise from doing it directly in the iterator.
+    List<Instruction> singletonUsers =
         Streams.stream(code.instructionIterator())
-            .filter(Instruction::isStaticGet)
-            .map(Instruction::asStaticGet)
-            .filter(get -> singletonFields.containsKey(get.getField()))
+            .filter(
+                instruction ->
+                    (instruction.isStaticGet()
+                            && singletonFields.containsKey(
+                                instruction.asFieldInstruction().getField()))
+                        || (instruction.isInvokeStatic()
+                            && singletonGetters.containsKey(
+                                instruction.asInvokeStatic().getInvokedMethod())))
             .collect(Collectors.toList());
-
-    singletonFieldReads.forEach(
-        read -> {
-          DexField field = read.getField();
-          CandidateInfo candidateInfo = singletonFields.get(field);
-          assert candidateInfo != null;
-          Value value = read.dest();
-          if (value != null) {
-            fixupStaticizedFieldReadUsers(code, value, field);
-          }
-          if (!candidateInfo.preserveRead.get()) {
-            read.removeOrReplaceByDebugLocalRead(code);
-          }
-        });
-
+    for (Instruction singletonUser : singletonUsers) {
+      CandidateInfo candidateInfo;
+      Descriptor member;
+      if (singletonUser.isStaticGet()) {
+        candidateInfo = singletonFields.get(singletonUser.asStaticGet().getField());
+        member = singletonUser.asStaticGet().getField();
+      } else {
+        assert singletonUser.isInvokeStatic();
+        candidateInfo = singletonGetters.get(singletonUser.asInvokeStatic().getInvokedMethod());
+        member = singletonUser.asInvokeStatic().getInvokedMethod();
+      }
+      Value value = singletonUser.outValue();
+      if (value != null) {
+        fixupStaticizedFieldUsers(code, value, member);
+      }
+      if (!candidateInfo.preserveRead.get()) {
+        singletonUser.removeOrReplaceByDebugLocalRead(code);
+      }
+    }
     if (!candidateToHostMapping.isEmpty()) {
       remapMovedCandidates(code);
     }
@@ -429,7 +462,7 @@ final class StaticizingProcessor {
   //    invoke-virtual { s1, ... } mtd1
   //    goto Exit
   //  b2:
-  //    s2 <- static-get singleton
+  //    s2 <- invoke-static getter()
   //    ...
   //    invoke-virtual { s2, ... } mtd1
   //    goto Exit
@@ -443,7 +476,7 @@ final class StaticizingProcessor {
   //    ...
   //    goto Exit
   //  b2:
-  //    s2 <- static-get singleton
+  //    s2 <- invoke-static getter()
   //    ...
   //    goto Exit
   //  Exit:
@@ -454,8 +487,8 @@ final class StaticizingProcessor {
   // From staticizer's viewpoint, `sp` is trivial in the sense that it is composed of values that
   // refer to the same singleton field. If so, we can safely relax the assertion; remove uses of
   // field reads; remove quasi-trivial phis; and then remove original field reads.
-  private boolean testAndCollectPhisComposedOfSameFieldRead(
-      Set<Phi> visited, Set<Phi> phisToCheck, DexField field, Set<Phi> trivialPhis) {
+  private boolean testAndCollectPhisComposedOfSameMember(
+      Set<Phi> visited, Set<Phi> phisToCheck, Descriptor dexMember, Set<Phi> trivialPhis) {
     for (Phi phi : phisToCheck) {
       if (!visited.add(phi)) {
         continue;
@@ -466,16 +499,20 @@ final class StaticizingProcessor {
         if (v.isPhi()) {
           chainedPhis.add(operand.asPhi());
         } else {
-          if (!v.definition.isStaticGet()) {
+          Instruction definition = v.definition;
+          if (!definition.isStaticGet() && !definition.isInvokeStatic()) {
             return false;
           }
-          if (v.definition.asStaticGet().getField() != field) {
+          if (definition.isStaticGet() && definition.asStaticGet().getField() != dexMember) {
+            return false;
+          } else if (definition.isInvokeStatic()
+              && definition.asInvokeStatic().getInvokedMethod() != dexMember) {
             return false;
           }
         }
       }
       if (!chainedPhis.isEmpty()) {
-        if (!testAndCollectPhisComposedOfSameFieldRead(visited, chainedPhis, field, trivialPhis)) {
+        if (!testAndCollectPhisComposedOfSameMember(visited, chainedPhis, dexMember, trivialPhis)) {
           return false;
         }
       }
@@ -486,13 +523,14 @@ final class StaticizingProcessor {
 
   // Fixup field read usages. Same as {@link #fixupStaticizedThisUsers} except this one determines
   // quasi-trivial phis, based on the original field.
-  private void fixupStaticizedFieldReadUsers(IRCode code, Value dest, DexField field) {
+  private void fixupStaticizedFieldUsers(IRCode code, Value dest, Descriptor member) {
     assert dest != null;
     // During the examine phase, field reads with any phi users have been invalidated, hence zero.
     // However, it may be not true if re-processing introduces phis after optimizing common suffix.
     Set<Phi> trivialPhis = Sets.newIdentityHashSet();
-    boolean onlyHasTrivialPhis = testAndCollectPhisComposedOfSameFieldRead(
-        Sets.newIdentityHashSet(), dest.uniquePhiUsers(), field, trivialPhis);
+    boolean onlyHasTrivialPhis =
+        testAndCollectPhisComposedOfSameMember(
+            Sets.newIdentityHashSet(), dest.uniquePhiUsers(), member, trivialPhis);
     assert !dest.hasPhiUsers() || onlyHasTrivialPhis;
     assert trivialPhis.isEmpty() || onlyHasTrivialPhis;
 

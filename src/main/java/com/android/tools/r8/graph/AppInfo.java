@@ -436,6 +436,16 @@ public class AppInfo implements DexDefinitionSupplier {
     return builder.resolve();
   }
 
+  // Non-private lookup (ie, not resolution) to find interface targets.
+  public DexEncodedMethod lookupMaximallySpecificTarget(DexClass clazz, DexMethod method) {
+    MaximallySpecificMethodsBuilder builder = new MaximallySpecificMethodsBuilder(clazz);
+    resolveMethodStep3Helper(clazz, method, builder);
+    ResolutionResult resolution = builder.resolve();
+    return resolution.isSingleResolution()
+        ? resolution.asSingleResolution().getResolvedMethod()
+        : null;
+  }
+
   /** Helper method that builds the set of maximally specific methods. */
   private void resolveMethodStep3Helper(
       DexClass clazz, DexMethod method, MaximallySpecificMethodsBuilder builder) {
