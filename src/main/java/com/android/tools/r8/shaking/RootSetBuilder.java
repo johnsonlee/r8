@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
@@ -14,6 +16,7 @@ import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinition;
+import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -1222,33 +1225,135 @@ public class RootSetBuilder {
     }
   }
 
-  public static class RootSet {
+  abstract static class RootSetBase {
 
-    public final Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking;
-    public final Set<DexReference> noOptimization;
-    private final Set<DexReference> noObfuscation;
+    final Set<DexMethod> neverInline;
+    final Set<DexType> neverClassInline;
+    final Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking;
+    final Set<DexReference> noObfuscation;
+    final Set<DexReference> noOptimization;
+    final Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>> dependentNoShrinking;
+    final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule;
+    final List<DelayedRootSetActionItem> delayedRootSetActionItems;
+
+    RootSetBase(
+        Set<DexMethod> neverInline,
+        Set<DexType> neverClassInline,
+        Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking,
+        Set<DexReference> noObfuscation,
+        Set<DexReference> noOptimization,
+        Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>> dependentNoShrinking,
+        Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
+        List<DelayedRootSetActionItem> delayedRootSetActionItems) {
+      this.neverInline = neverInline;
+      this.neverClassInline = neverClassInline;
+      this.noShrinking = noShrinking;
+      this.noObfuscation = noObfuscation;
+      this.noOptimization = noOptimization;
+      this.dependentNoShrinking = dependentNoShrinking;
+      this.dependentKeepClassCompatRule = dependentKeepClassCompatRule;
+      this.delayedRootSetActionItems = delayedRootSetActionItems;
+    }
+
+    public void forEachClassWithDependentItems(
+        DexDefinitionSupplier definitions, Consumer<DexProgramClass> consumer) {
+      for (DexReference reference : dependentNoShrinking.keySet()) {
+        if (reference.isDexType()) {
+          DexType type = reference.asDexType();
+          DexProgramClass clazz = asProgramClassOrNull(definitions.definitionFor(type));
+          if (clazz != null) {
+            consumer.accept(clazz);
+          }
+        }
+      }
+    }
+
+    public void forEachMemberWithDependentItems(
+        DexDefinitionSupplier definitions, Consumer<DexDefinition> consumer) {
+      for (DexReference reference : dependentNoShrinking.keySet()) {
+        if (reference.isDexField() || reference.isDexMethod()) {
+          DexDefinition definition = definitions.definitionFor(reference);
+          if (definition != null) {
+            consumer.accept(definition);
+          }
+        }
+      }
+    }
+
+    public void forEachDependentInstanceConstructor(
+        DexProgramClass clazz,
+        AppView<?> appView,
+        Consumer3<DexProgramClass, DexEncodedMethod, Set<ProguardKeepRuleBase>> fn) {
+      getDependentItems(clazz)
+          .forEach(
+              (reference, reasons) -> {
+                DexDefinition definition = appView.definitionFor(reference);
+                if (definition != null
+                    && definition.isDexEncodedMethod()
+                    && definition.asDexEncodedMethod().isInstanceInitializer()) {
+                  fn.accept(clazz, definition.asDexEncodedMethod(), reasons);
+                }
+              });
+    }
+
+    public void forEachDependentNonStaticMember(
+        DexDefinition item,
+        AppView<?> appView,
+        Consumer3<DexDefinition, DexDefinition, Set<ProguardKeepRuleBase>> fn) {
+      getDependentItems(item)
+          .forEach(
+              (reference, reasons) -> {
+                DexDefinition definition = appView.definitionFor(reference);
+                if (definition != null
+                    && !definition.isDexClass()
+                    && !definition.isStaticMember()) {
+                  fn.accept(item, definition, reasons);
+                }
+              });
+    }
+
+    public void forEachDependentStaticMember(
+        DexDefinition item,
+        AppView<?> appView,
+        Consumer3<DexDefinition, DexDefinition, Set<ProguardKeepRuleBase>> fn) {
+      getDependentItems(item)
+          .forEach(
+              (reference, reasons) -> {
+                DexDefinition definition = appView.definitionFor(reference);
+                if (definition != null && !definition.isDexClass() && definition.isStaticMember()) {
+                  fn.accept(item, definition, reasons);
+                }
+              });
+    }
+
+    Map<DexReference, Set<ProguardKeepRuleBase>> getDependentItems(DexDefinition item) {
+      return Collections.unmodifiableMap(
+          dependentNoShrinking.getOrDefault(item.toReference(), Collections.emptyMap()));
+    }
+
+    Set<ProguardKeepRuleBase> getDependentKeepClassCompatRule(DexType type) {
+      return dependentKeepClassCompatRule.get(type);
+    }
+  }
+
+  public static class RootSet extends RootSetBase {
+
     public final ImmutableList<DexReference> reasonAsked;
     public final ImmutableList<DexReference> checkDiscarded;
     public final Set<DexMethod> alwaysInline;
     public final Set<DexMethod> forceInline;
-    public final Set<DexMethod> neverInline;
     public final Set<DexMethod> bypassClinitForInlining;
     public final Set<DexMethod> whyAreYouNotInlining;
     public final Set<DexMethod> keepConstantArguments;
     public final Set<DexMethod> keepUnusedArguments;
     public final Set<DexType> alwaysClassInline;
-    public final Set<DexType> neverClassInline;
     public final Set<DexType> neverMerge;
     public final Set<DexReference> neverPropagateValue;
     public final Map<DexReference, ProguardMemberRule> mayHaveSideEffects;
     public final Map<DexReference, ProguardMemberRule> noSideEffects;
     public final Map<DexReference, ProguardMemberRule> assumedValues;
-    private final Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>>
-        dependentNoShrinking;
-    private final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule;
     public final Set<DexReference> identifierNameStrings;
     public final Set<ProguardIfRule> ifRules;
-    public final List<DelayedRootSetActionItem> delayedRootSetActionItems;
 
     private RootSet(
         Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking,
@@ -1275,30 +1380,31 @@ public class RootSetBuilder {
         Set<DexReference> identifierNameStrings,
         Set<ProguardIfRule> ifRules,
         List<DelayedRootSetActionItem> delayedRootSetActionItems) {
-      this.noShrinking = noShrinking;
-      this.noOptimization = noOptimization;
-      this.noObfuscation = noObfuscation;
+      super(
+          neverInline,
+          neverClassInline,
+          noShrinking,
+          noObfuscation,
+          noOptimization,
+          dependentNoShrinking,
+          dependentKeepClassCompatRule,
+          delayedRootSetActionItems);
       this.reasonAsked = reasonAsked;
       this.checkDiscarded = checkDiscarded;
       this.alwaysInline = Collections.unmodifiableSet(alwaysInline);
       this.forceInline = Collections.unmodifiableSet(forceInline);
-      this.neverInline = neverInline;
       this.bypassClinitForInlining = bypassClinitForInlining;
       this.whyAreYouNotInlining = whyAreYouNotInlining;
       this.keepConstantArguments = keepConstantArguments;
       this.keepUnusedArguments = keepUnusedArguments;
       this.alwaysClassInline = alwaysClassInline;
-      this.neverClassInline = neverClassInline;
       this.neverMerge = Collections.unmodifiableSet(neverMerge);
       this.neverPropagateValue = neverPropagateValue;
       this.mayHaveSideEffects = mayHaveSideEffects;
       this.noSideEffects = noSideEffects;
       this.assumedValues = assumedValues;
-      this.dependentNoShrinking = dependentNoShrinking;
-      this.dependentKeepClassCompatRule = dependentKeepClassCompatRule;
       this.identifierNameStrings = Collections.unmodifiableSet(identifierNameStrings);
       this.ifRules = Collections.unmodifiableSet(ifRules);
-      this.delayedRootSetActionItems = delayedRootSetActionItems;
     }
 
     public void checkAllRulesAreUsed(InternalOptions options) {
@@ -1345,61 +1451,6 @@ public class RootSetBuilder {
               dependentNoShrinking
                   .computeIfAbsent(reference, x -> new IdentityHashMap<>())
                   .putAll(dependence));
-    }
-
-    Set<ProguardKeepRuleBase> getDependentKeepClassCompatRule(DexType type) {
-      return dependentKeepClassCompatRule.get(type);
-    }
-
-    Map<DexReference, Set<ProguardKeepRuleBase>> getDependentItems(DexDefinition item) {
-      return Collections.unmodifiableMap(
-          dependentNoShrinking.getOrDefault(item.toReference(), Collections.emptyMap()));
-    }
-
-    public void forEachDependentStaticMember(
-        DexDefinition item,
-        AppView<?> appView,
-        Consumer3<DexDefinition, DexDefinition, Set<ProguardKeepRuleBase>> fn) {
-      getDependentItems(item)
-          .forEach(
-              (reference, reasons) -> {
-                DexDefinition definition = appView.definitionFor(reference);
-                if (definition != null && !definition.isDexClass() && definition.isStaticMember()) {
-                  fn.accept(item, definition, reasons);
-                }
-              });
-    }
-
-    public void forEachDependentNonStaticMember(
-        DexDefinition item,
-        AppView<?> appView,
-        Consumer3<DexDefinition, DexDefinition, Set<ProguardKeepRuleBase>> fn) {
-      getDependentItems(item)
-          .forEach(
-              (reference, reasons) -> {
-                DexDefinition definition = appView.definitionFor(reference);
-                if (definition != null
-                    && !definition.isDexClass()
-                    && !definition.isStaticMember()) {
-                  fn.accept(item, definition, reasons);
-                }
-              });
-    }
-
-    public void forEachDependentInstanceConstructor(
-        DexProgramClass clazz,
-        AppView<?> appView,
-        Consumer3<DexProgramClass, DexEncodedMethod, Set<ProguardKeepRuleBase>> fn) {
-      getDependentItems(clazz)
-          .forEach(
-              (reference, reasons) -> {
-                DexDefinition definition = appView.definitionFor(reference);
-                if (definition != null
-                    && definition.isDexEncodedMethod()
-                    && definition.asDexEncodedMethod().isInstanceInitializer()) {
-                  fn.accept(clazz, definition.asDexEncodedMethod(), reasons);
-                }
-              });
     }
 
     public void copy(DexReference original, DexReference rewritten) {
@@ -1624,17 +1675,9 @@ public class RootSetBuilder {
 
   // A partial RootSet that becomes live due to the enabled -if rule or the addition of interface
   // keep rules.
-  public static class ConsequentRootSet {
-    final Set<DexMethod> neverInline;
-    final Set<DexType> neverClassInline;
-    final Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking;
-    final Set<DexReference> noOptimization;
-    final Set<DexReference> noObfuscation;
-    final Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>> dependentNoShrinking;
-    final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule;
-    final List<DelayedRootSetActionItem> delayedRootSetActionItems;
+  public static class ConsequentRootSet extends RootSetBase {
 
-    private ConsequentRootSet(
+    ConsequentRootSet(
         Set<DexMethod> neverInline,
         Set<DexType> neverClassInline,
         Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking,
@@ -1643,14 +1686,15 @@ public class RootSetBuilder {
         Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>> dependentNoShrinking,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems) {
-      this.neverInline = Collections.unmodifiableSet(neverInline);
-      this.neverClassInline = Collections.unmodifiableSet(neverClassInline);
-      this.noShrinking = Collections.unmodifiableMap(noShrinking);
-      this.noOptimization = Collections.unmodifiableSet(noOptimization);
-      this.noObfuscation = Collections.unmodifiableSet(noObfuscation);
-      this.dependentNoShrinking = Collections.unmodifiableMap(dependentNoShrinking);
-      this.dependentKeepClassCompatRule = Collections.unmodifiableMap(dependentKeepClassCompatRule);
-      this.delayedRootSetActionItems = Collections.unmodifiableList(delayedRootSetActionItems);
+      super(
+          neverInline,
+          neverClassInline,
+          noShrinking,
+          noObfuscation,
+          noOptimization,
+          dependentNoShrinking,
+          dependentKeepClassCompatRule,
+          delayedRootSetActionItems);
     }
   }
 }

@@ -8,6 +8,7 @@ import static org.objectweb.asm.Opcodes.ASM7;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.dex.Constants;
+import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.naming.MemberNaming.MethodSignature;
 import com.android.tools.r8.references.ClassReference;
@@ -16,6 +17,7 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.transformers.MethodTransformer.MethodContext;
 import com.android.tools.r8.utils.DescriptorUtils;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -299,10 +301,23 @@ public class ClassFileTransformer {
         });
   }
 
+  public ClassFileTransformer setSynthetic(Method method) {
+    return setAccessFlags(method, AccessFlags::setSynthetic);
+  }
+
+  public ClassFileTransformer setAccessFlags(
+      Constructor<?> constructor, Consumer<MethodAccessFlags> setter) {
+    return setAccessFlags(Reference.methodFromMethod(constructor), setter);
+  }
+
   public ClassFileTransformer setAccessFlags(Method method, Consumer<MethodAccessFlags> setter) {
+    return setAccessFlags(Reference.methodFromMethod(method), setter);
+  }
+
+  private ClassFileTransformer setAccessFlags(
+      MethodReference methodReference, Consumer<MethodAccessFlags> setter) {
     return addClassTransformer(
         new ClassTransformer() {
-          final MethodReference methodReference = Reference.methodFromMethod(method);
 
           @Override
           public MethodVisitor visitMethod(

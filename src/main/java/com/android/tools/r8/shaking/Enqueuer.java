@@ -1962,6 +1962,14 @@ public class Enqueuer {
     return directAndIndirectlyInstantiatedTypes.contains(clazz);
   }
 
+  public boolean isMemberLive(DexDefinition member) {
+    assert member != null;
+    assert member.isDexEncodedField() || member.isDexEncodedMethod();
+    return member.isDexEncodedField()
+        ? liveFields.contains(member.asDexEncodedField())
+        : liveMethods.contains(member.asDexEncodedMethod());
+  }
+
   public boolean isMethodLive(DexEncodedMethod method) {
     return liveMethods.contains(method);
   }
@@ -2483,12 +2491,32 @@ public class Enqueuer {
   }
 
   private void addConsequentRootSet(ConsequentRootSet consequentRootSet, boolean addNoShrinking) {
+    consequentRootSet.forEachClassWithDependentItems(
+        appView,
+        clazz -> {
+          if (isTypeLive(clazz)) {
+            consequentRootSet.forEachDependentInstanceConstructor(
+                clazz, appView, this::enqueueHolderWithDependentInstanceConstructor);
+            consequentRootSet.forEachDependentStaticMember(
+                clazz, appView, this::enqueueDependentItem);
+            if (isInstantiatedOrHasInstantiatedSubtype(clazz)) {
+              consequentRootSet.forEachDependentNonStaticMember(
+                  clazz, appView, this::enqueueDependentItem);
+            }
+            compatEnqueueHolderIfDependentNonStaticMember(
+                clazz, consequentRootSet.getDependentKeepClassCompatRule(clazz.type));
+          }
+        });
+    consequentRootSet.forEachMemberWithDependentItems(
+        appView,
+        member -> {
+          if (isMemberLive(member)) {
+            enqueueRootItems(consequentRootSet.getDependentItems(member));
+          }
+        });
     // TODO(b/132600955): This modifies the root set. Should the consequent be persistent?
     rootSet.addConsequentRootSet(consequentRootSet, addNoShrinking);
     enqueueRootItems(consequentRootSet.noShrinking);
-    // TODO(b/132828740): Seems incorrect that the precondition is not always met here.
-    consequentRootSet.dependentNoShrinking.forEach(
-        (precondition, dependentItems) -> enqueueRootItems(dependentItems));
     // Check for compatibility rules indicating that the holder must be implicitly kept.
     if (forceProguardCompatibility) {
       consequentRootSet.dependentKeepClassCompatRule.forEach(
