@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.conversion;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.desugar.InterfaceMethodRewriter.Flavor.ExcludeDexResources;
 import static com.android.tools.r8.ir.desugar.InterfaceMethodRewriter.Flavor.IncludeAllResources;
 
@@ -725,7 +726,8 @@ public class IRConverter {
     }
     if (enumUnboxer != null) {
       enumUnboxer.finishAnalysis();
-      enumUnboxer.unboxEnums(postMethodProcessorBuilder, executorService, feedback);
+      enumUnboxer.unboxEnums(
+          postMethodProcessorBuilder, executorService, feedback, classStaticizer);
     }
     new TrivialFieldAccessReprocessor(appView.withLiveness(), postMethodProcessorBuilder)
         .run(executorService, feedback, timing);
@@ -1122,6 +1124,9 @@ public class IRConverter {
   private Timing optimize(
       IRCode code, OptimizationFeedback feedback, MethodProcessor methodProcessor) {
     DexEncodedMethod method = code.method;
+    DexProgramClass holder = asProgramClassOrNull(appView.definitionForHolder(method));
+    assert holder != null;
+
     Timing timing = Timing.create(method.qualifiedName(), options);
 
     if (Log.ENABLED) {
@@ -1280,7 +1285,7 @@ public class IRConverter {
     if (devirtualizer != null) {
       assert code.verifyTypes(appView);
       timing.begin("Devirtualize invoke interface");
-      devirtualizer.devirtualizeInvokeInterface(code, method.holder());
+      devirtualizer.devirtualizeInvokeInterface(code, holder);
       timing.end();
     }
 

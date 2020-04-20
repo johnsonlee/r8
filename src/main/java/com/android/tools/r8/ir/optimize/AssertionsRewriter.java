@@ -345,7 +345,8 @@ public class AssertionsRewriter {
         }
       } else if (current.isStaticPut()) {
         StaticPut staticPut = current.asStaticPut();
-        if (staticPut.getField().name == dexItemFactory.assertionsDisabled) {
+        if (isInitializerEnablingJavaVmAssertions
+            && staticPut.getField().name == dexItemFactory.assertionsDisabled) {
           iterator.remove();
         }
       } else if (current.isStaticGet()) {

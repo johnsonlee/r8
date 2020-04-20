@@ -48,6 +48,7 @@ import com.android.tools.r8.ir.optimize.info.FieldOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback.OptimizationInfoFixer;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
+import com.android.tools.r8.ir.optimize.staticizer.ClassStaticizer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.Reporter;
@@ -283,7 +284,8 @@ public class EnumUnboxer implements PostOptimization {
   public void unboxEnums(
       PostMethodProcessor.Builder postBuilder,
       ExecutorService executorService,
-      OptimizationFeedbackDelayed feedback)
+      OptimizationFeedbackDelayed feedback,
+      ClassStaticizer classStaticizer)
       throws ExecutionException {
     // At this point the enumsToUnbox are no longer candidates, they will all be unboxed.
     if (enumsUnboxingCandidates.isEmpty()) {
@@ -299,7 +301,7 @@ public class EnumUnboxer implements PostOptimization {
           appView
               .appInfo()
               .rewrittenWithLens(appView.appInfo().app().asDirect(), enumUnboxingLens));
-
+      classStaticizer.filterCandidates();
       // Update optimization info.
       feedback.fixupOptimizationInfos(
           appView,
@@ -659,7 +661,21 @@ public class EnumUnboxer implements PostOptimization {
       for (DexProgramClass clazz : appView.appInfo().classes()) {
         if (enumsToUnbox.contains(clazz.type)) {
           assert clazz.instanceFields().size() == 0;
-          clearEnumToUnboxMethods(clazz);
+          // TODO(b/150370354): Remove when static methods are supported.
+          if (appView.options().testing.enumUnboxingRewriteJavaCGeneratedMethod) {
+            // Clear only the initializers.
+            clazz
+                .methods()
+                .forEach(
+                    m -> {
+                      if (m.isInitializer()) {
+                        clearEnumToUnboxMethod(m);
+                      }
+                    });
+            clazz.getMethodCollection().replaceMethods(this::fixupMethod);
+          } else {
+            clazz.methods().forEach(this::clearEnumToUnboxMethod);
+          }
         } else {
           clazz.getMethodCollection().replaceMethods(this::fixupMethod);
           fixupFields(clazz.staticFields(), clazz::setStaticField);
@@ -672,19 +688,17 @@ public class EnumUnboxer implements PostOptimization {
       return lensBuilder.build(factory, appView.graphLense());
     }
 
-    private void clearEnumToUnboxMethods(DexProgramClass clazz) {
+    private void clearEnumToUnboxMethod(DexEncodedMethod enumMethod) {
       // The compiler may have references to the enum methods, but such methods will be removed
       // and they cannot be reprocessed since their rewriting through the lensCodeRewriter/
       // enumUnboxerRewriter will generate invalid code.
       // To work around this problem we clear such methods, i.e., we replace the code object by
       // an empty throwing code object, so reprocessing won't take time and will be valid.
-      for (DexEncodedMethod method : clazz.methods()) {
-        method.setCode(
-            appView.options().isGeneratingClassFiles()
-                ? method.buildEmptyThrowingCfCode()
-                : method.buildEmptyThrowingDexCode(),
-            appView);
-      }
+      enumMethod.setCode(
+          appView.options().isGeneratingClassFiles()
+              ? enumMethod.buildEmptyThrowingCfCode()
+              : enumMethod.buildEmptyThrowingDexCode(),
+          appView);
     }
 
     private DexEncodedMethod fixupMethod(DexEncodedMethod encodedMethod) {
