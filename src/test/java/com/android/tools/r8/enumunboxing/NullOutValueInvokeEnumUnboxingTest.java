@@ -5,7 +5,8 @@
 package com.android.tools.r8.enumunboxing;
 
 import com.android.tools.r8.NeverClassInline;
-import com.android.tools.r8.R8TestCompileResult;
+import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestParameters;
 import java.util.List;
 import org.junit.Test;
@@ -14,9 +15,9 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class PinnedEnumUnboxingTest extends EnumUnboxingTestBase {
+public class NullOutValueInvokeEnumUnboxingTest extends EnumUnboxingTestBase {
 
-  private static final Class<?>[] BOXED = {MainWithKeptEnum.class, MainWithKeptEnumArray.class};
+  private static final Class<?> ENUM_CLASS = MyEnum.class;
 
   private final TestParameters parameters;
   private final boolean enumValueOptimization;
@@ -27,7 +28,7 @@ public class PinnedEnumUnboxingTest extends EnumUnboxingTestBase {
     return enumUnboxingTestParameters();
   }
 
-  public PinnedEnumUnboxingTest(
+  public NullOutValueInvokeEnumUnboxingTest(
       TestParameters parameters, boolean enumValueOptimization, KeepRule enumKeepRules) {
     this.parameters = parameters;
     this.enumValueOptimization = enumValueOptimization;
@@ -36,56 +37,44 @@ public class PinnedEnumUnboxingTest extends EnumUnboxingTestBase {
 
   @Test
   public void testEnumUnboxing() throws Exception {
-    R8TestCompileResult compileResult =
+    Class<?> classToTest = NullOutValueInvoke.class;
+    R8TestRunResult run =
         testForR8(parameters.getBackend())
-            .addInnerClasses(PinnedEnumUnboxingTest.class)
-            .addKeepMainRules(BOXED)
-            .addKeepClassRules(MainWithKeptEnum.MyEnum.class)
-            .addKeepMethodRules(MainWithKeptEnumArray.class, "keptMethod()")
+            .addProgramClasses(classToTest, ENUM_CLASS)
+            .addKeepMainRule(classToTest)
             .addKeepRules(enumKeepRules.getKeepRule())
             .enableNeverClassInliningAnnotations()
+            .enableInliningAnnotations()
             .addOptionsModification(opt -> enableEnumOptions(opt, enumValueOptimization))
             .allowDiagnosticInfoMessages()
             .setMinApi(parameters.getApiLevel())
-            .compile();
-    for (Class<?> boxed : BOXED) {
-      compileResult
-          .inspectDiagnosticMessages(
-              m -> assertEnumIsBoxed(boxed.getDeclaredClasses()[0], boxed.getSimpleName(), m))
-          .run(parameters.getRuntime(), boxed)
-          .assertSuccessWithOutputLines("0");
-    }
+            .compile()
+            .inspectDiagnosticMessages(
+                m -> assertEnumIsUnboxed(ENUM_CLASS, classToTest.getSimpleName(), m))
+            .run(parameters.getRuntime(), classToTest)
+            .assertSuccess();
+    assertLines2By2Correct(run.getStdOut());
   }
 
-  static class MainWithKeptEnum {
-
-    @NeverClassInline
-    enum MyEnum {
-      A,
-      B,
-      C
-    }
-
-    public static void main(String[] args) {
-      System.out.println(MyEnum.A.ordinal());
-    }
+  @NeverClassInline
+  enum MyEnum {
+    A,
+    B,
+    C
   }
 
-  static class MainWithKeptEnumArray {
-    @NeverClassInline
-    enum MyEnum {
-      A,
-      B,
-      C
-    }
+  static class NullOutValueInvoke {
 
     public static void main(String[] args) {
-      System.out.println(MyEnum.A.ordinal());
+      printAndGetMyEnum();
+      printAndGetMyEnum();
     }
 
-    public static MyEnum[] keptMethod() {
-      System.out.println("KEPT");
-      return null;
+    @SuppressWarnings("UnusedReturnValue")
+    @NeverInline
+    static MyEnum printAndGetMyEnum() {
+      System.out.println("print");
+      return MyEnum.B;
     }
   }
 }

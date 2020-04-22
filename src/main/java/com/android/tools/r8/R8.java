@@ -61,6 +61,7 @@ import com.android.tools.r8.naming.ProguardMapSupplier;
 import com.android.tools.r8.naming.SeedMapper;
 import com.android.tools.r8.naming.SourceFileRewriter;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
+import com.android.tools.r8.optimize.BridgeHoisting;
 import com.android.tools.r8.optimize.ClassAndMemberPublicizer;
 import com.android.tools.r8.optimize.MemberRebindingAnalysis;
 import com.android.tools.r8.optimize.VisibilityBridgeRemover;
@@ -99,6 +100,7 @@ import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
@@ -290,8 +292,8 @@ public class R8 {
       List<ProguardConfigurationRule> synthesizedProguardRules = new ArrayList<>();
       timing.begin("Strip unused code");
       Set<DexType> classesToRetainInnerClassAttributeFor = null;
+      Set<DexType> missingClasses = appView.appInfo().getMissingClasses();
       try {
-        Set<DexType> missingClasses = appView.appInfo().getMissingClasses();
         missingClasses = filterMissingClasses(
             missingClasses, options.getProguardConfiguration().getDontWarnPatterns());
         if (!missingClasses.isEmpty()) {
@@ -347,6 +349,9 @@ public class R8 {
         assert appView.rootSet().verifyKeptMethodsAreTargetedAndLive(appViewWithLiveness.appInfo());
         assert appView.rootSet().verifyKeptTypesAreLive(appViewWithLiveness.appInfo());
         assert appView.rootSet().verifyKeptItemsAreKept(appView.appInfo().app(), appView.appInfo());
+
+        missingClasses =
+            Sets.union(missingClasses, appViewWithLiveness.appInfo().getMissingTypes());
 
         appView.rootSet().checkAllRulesAreUsed(options);
 
@@ -636,7 +641,8 @@ public class R8 {
             }
           }
 
-          Enqueuer enqueuer = EnqueuerFactory.createForFinalTreeShaking(appView, keptGraphConsumer);
+          Enqueuer enqueuer =
+              EnqueuerFactory.createForFinalTreeShaking(appView, keptGraphConsumer, missingClasses);
           appView.setAppInfo(
               enqueuer
                   .traceApplication(
@@ -680,6 +686,8 @@ public class R8 {
                         CollectionUtils.mergeSets(prunedTypes, removedClasses),
                         pruner.getMethodsToKeepForConfigurationDebugging()));
             appView.setAppServices(appView.appServices().prunedCopy(removedClasses));
+
+            new BridgeHoisting(appViewWithLiveness).run();
 
             // TODO(b/130721661): Enable this assert.
             // assert Inliner.verifyNoMethodsInlinedDueToSingleCallSite(appView);
@@ -725,7 +733,7 @@ public class R8 {
           // TODO(b/112437944): Avoid iterating the entire application to post-process every
           //  dynamicMethod() method.
           appView.withGeneratedMessageLiteShrinker(
-              shrinker -> shrinker.postOptimizeDynamicMethods(converter, timing));
+              shrinker -> shrinker.postOptimizeDynamicMethods(converter, executorService, timing));
 
           // If proto shrinking is enabled, we need to post-process every
           // findLiteExtensionByNumber() method. This ensures that there are no references to dead
@@ -733,7 +741,9 @@ public class R8 {
           // TODO(b/112437944): Avoid iterating the entire application to post-process every
           //  findLiteExtensionByNumber() method.
           appView.withGeneratedExtensionRegistryShrinker(
-              shrinker -> shrinker.postOptimizeGeneratedExtensionRegistry(converter, timing));
+              shrinker ->
+                  shrinker.postOptimizeGeneratedExtensionRegistry(
+                      converter, executorService, timing));
         }
       }
 
@@ -858,12 +868,21 @@ public class R8 {
               appView.dexItemFactory(), OptimizationFeedbackSimple.getInstance()));
     }
 
-    return appView.setAppInfo(
-        enqueuer.traceApplication(
-            appView.rootSet(),
-            options.getProguardConfiguration().getDontWarnPatterns(),
-            executorService,
-            timing));
+    AppView<AppInfoWithLiveness> appViewWithLiveness =
+        appView.setAppInfo(
+            enqueuer.traceApplication(
+                appView.rootSet(),
+                options.getProguardConfiguration().getDontWarnPatterns(),
+                executorService,
+                timing));
+    if (InternalOptions.assertionsEnabled()) {
+      // Register the dead proto types. These are needed to verify that no new missing types are
+      // reported and that no dead proto types are referenced in the generated application.
+      appViewWithLiveness.withProtoShrinker(
+          shrinker ->
+              shrinker.setDeadProtoTypes(appViewWithLiveness.appInfo().getDeadProtoTypes()));
+    }
+    return appViewWithLiveness;
   }
 
   static void processWhyAreYouKeepingAndCheckDiscarded(

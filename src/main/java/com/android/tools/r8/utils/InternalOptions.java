@@ -23,6 +23,7 @@ import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.android.tools.r8.errors.InvalidDebugInfoException;
 import com.android.tools.r8.errors.InvalidLibrarySuperclassDiagnostic;
 import com.android.tools.r8.errors.MissingNestHostNestDesugarDiagnostic;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
 import com.android.tools.r8.graph.AppView;
@@ -162,7 +163,6 @@ public class InternalOptions {
   void enableProtoShrinking() {
     applyInliningToInlinee = true;
     enableFieldBitAccessAnalysis = true;
-    enableStringSwitchConversion = true;
     protoShrinking.enableGeneratedMessageLiteShrinking = true;
     protoShrinking.enableGeneratedMessageLiteBuilderShrinking = true;
     protoShrinking.enableGeneratedExtensionRegistryShrinking = true;
@@ -273,8 +273,8 @@ public class InternalOptions {
   // the actual catch handler allowed when inlining. Threshold found empirically by testing on
   // GMS Core.
   public int inliningControlFlowResolutionBlocksThreshold = 15;
-  public boolean enableStringSwitchConversion =
-      System.getProperty("com.android.tools.r8.stringSwitchConversion") != null;
+  public boolean enableStringSwitchConversion = true;
+  public int minimumStringSwitchSize = 3;
   public boolean enableEnumValueOptimization = true;
   public boolean enableEnumSwitchMapRemoval = true;
   public final OutlineOptions outline = new OutlineOptions();
@@ -699,6 +699,12 @@ public class InternalOptions {
     boolean assertionsEnabled = false;
     assert assertionsEnabled = true; // Intentional side-effect.
     return assertionsEnabled;
+  }
+
+  public static void checkAssertionsEnabled() {
+    if (!assertionsEnabled()) {
+      throw new Unreachable();
+    }
   }
 
   /** A set of dexitems we have reported missing to dedupe warnings. */

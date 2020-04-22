@@ -4,6 +4,7 @@
 package com.android.tools.r8.graph;
 
 import static com.android.tools.r8.ir.analysis.type.ClassTypeElement.computeLeastUpperBoundOfInterfaces;
+import static com.android.tools.r8.ir.optimize.ServiceLoaderRewriter.SERVICE_LOADER_CLASS_NAME;
 import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.dex.Constants;
@@ -355,7 +356,8 @@ public class DexItemFactory {
       createStaticallyKnownType(invocationHandlerDescriptor);
   public final DexType proxyType = createStaticallyKnownType(proxyDescriptor);
   public final DexType serviceLoaderType = createStaticallyKnownType(serviceLoaderDescriptor);
-
+  public final DexType serviceLoaderRewrittenClassType =
+      createStaticallyKnownType("L" + SERVICE_LOADER_CLASS_NAME + ";");
   public final DexType serviceLoaderConfigurationErrorType =
       createStaticallyKnownType(serviceLoaderConfigurationErrorDescriptor);
   public final DexType listType = createStaticallyKnownType(listDescriptor);
@@ -683,6 +685,7 @@ public class DexItemFactory {
               Stream.of(new Pair<>(npeMethods.initWithMessage, alwaysTrue())),
               Stream.of(new Pair<>(objectMembers.constructor, alwaysTrue())),
               Stream.of(new Pair<>(objectMembers.getClass, alwaysTrue())),
+              Stream.of(new Pair<>(stringMembers.hashCode, alwaysTrue())),
               mapToPredicate(classMethods.getNames, alwaysTrue()),
               mapToPredicate(
                   stringBufferMethods.constructorMethods,
@@ -1807,6 +1810,10 @@ public class DexItemFactory {
     if (type.isClassType()) {
       possibleCompilerSynthesizedTypes.add(type);
     }
+  }
+
+  public boolean isPossiblyCompilerSynthesizedType(DexType type) {
+    return possibleCompilerSynthesizedTypes.contains(type);
   }
 
   public void forEachPossiblyCompilerSynthesizedType(Consumer<DexType> fn) {

@@ -14,6 +14,7 @@ import com.android.tools.r8.code.PackedSwitchPayload;
 import com.android.tools.r8.code.SparseSwitch;
 import com.android.tools.r8.code.SparseSwitchPayload;
 import com.android.tools.r8.dex.Constants;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.utils.CfgPrinter;
@@ -51,13 +52,18 @@ public class IntSwitch extends Switch {
   }
 
   @Override
+  public Instruction materializeFirstKey(AppView<?> appView, IRCode code) {
+    return code.createIntConstant(getFirstKey());
+  }
+
+  @Override
   public boolean valid() {
     assert super.valid();
     assert keys.length >= 1;
     assert keys.length <= Constants.U16BIT_MAX;
     // Keys must be acceding, and cannot target the fallthrough.
     assert keys.length == numberOfKeys();
-    for (int i = 1; i < keys.length - 1; i++) {
+    for (int i = 1; i < keys.length; i++) {
       assert keys[i - 1] < keys[i];
     }
     return true;

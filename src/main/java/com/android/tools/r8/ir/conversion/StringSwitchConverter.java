@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.ir.conversion;
 
+import static com.android.tools.r8.ir.code.ConstNumber.asConstNumberOrNull;
+
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
@@ -24,11 +26,12 @@ import com.android.tools.r8.ir.code.Value;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.io.UTFDataFormatException;
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -231,7 +234,7 @@ class StringSwitchConverter {
           return null;
         }
 
-        Map<DexString, BasicBlock> stringToTargetMapping = new IdentityHashMap<>();
+        Map<DexString, BasicBlock> stringToTargetMapping = new LinkedHashMap<>();
         for (DexString key : stringToIdMapping.mapping.keySet()) {
           int id = stringToIdMapping.mapping.getInt(key);
           BasicBlock target = idToTargetMapping.mapping.get(id);
@@ -378,7 +381,7 @@ class StringSwitchConverter {
             InvokeVirtual invoke = instruction.asInvokeVirtual();
             if (invoke.getInvokedMethod() == dexItemFactory.stringMembers.hashCode
                 && invoke.getReceiver() == stringValue
-                && invoke.outValue().onlyUsedInBlock(block)) {
+                && (!invoke.hasOutValue() || invoke.outValue().onlyUsedInBlock(block))) {
               continue;
             }
           }
@@ -430,7 +433,7 @@ class StringSwitchConverter {
         }
 
         // Go into the true-target and record a mapping from all strings to their id.
-        Reference2IntMap<DexString> extension = new Reference2IntOpenHashMap<>();
+        Reference2IntMap<DexString> extension = new Reference2IntLinkedOpenHashMap<>();
         BasicBlock ifEqualsHashTarget = Utils.getTrueTarget(theIf);
         if (!addMappingsForStringsWithHash(ifEqualsHashTarget, hash, extension)) {
           // Not a valid extension of `toBeExtended`.
@@ -460,7 +463,7 @@ class StringSwitchConverter {
         }
 
         // Go into each switch case and record a mapping from all strings to their id.
-        Reference2IntMap<DexString> extension = new Reference2IntOpenHashMap<>();
+        Reference2IntMap<DexString> extension = new Reference2IntLinkedOpenHashMap<>();
         for (int i = 0; i < theSwitch.numberOfKeys(); i++) {
           int hash = theSwitch.getKey(i);
           BasicBlock equalsHashTarget = theSwitch.targetBlock(i);
@@ -494,18 +497,36 @@ class StringSwitchConverter {
           Set<BasicBlock> visited) {
         InstructionIterator instructionIterator = block.iterator();
 
-        // Verify that the first instruction is a non-throwing const-string instruction.
-        // If the string throws, it can't be decoded, and then the string does not have a hash.
-        ConstString theString = instructionIterator.next().asConstString();
-        if (theString == null || theString.instructionInstanceCanThrow()) {
+        // The first instruction is expected to be a non-throwing const-string instruction, but this
+        // may change due to canonicalization. If the string throws, it can't be decoded, and then
+        // the string does not have a hash.
+        Instruction first = instructionIterator.next();
+        ConstString optionalString = first.asConstString();
+        if (optionalString != null && optionalString.instructionInstanceCanThrow()) {
           return false;
         }
 
-        InvokeVirtual theInvoke = instructionIterator.next().asInvokeVirtual();
+        // The next instruction must be an invoke-virtual that calls stringValue.equals() with a
+        // constant string argument.
+        InvokeVirtual theInvoke =
+            first.isConstString()
+                ? instructionIterator.next().asInvokeVirtual()
+                : first.asInvokeVirtual();
         if (theInvoke == null
             || theInvoke.getInvokedMethod() != dexItemFactory.stringMembers.equals
-            || theInvoke.getReceiver() != stringValue
-            || theInvoke.inValues().get(1) != theString.outValue()) {
+            || theInvoke.getReceiver() != stringValue) {
+          return false;
+        }
+
+        // If this block starts with a const-string instruction, then it should be passed as the
+        // second argument to equals().
+        if (optionalString != null && theInvoke.getArgument(1) != optionalString.outValue()) {
+          assert false; // This should generally not happen.
+          return false;
+        }
+
+        Value theString = theInvoke.getArgument(1).getAliasedValue();
+        if (!theString.isDefinedByInstructionSatisfying(Instruction::isConstString)) {
           return false;
         }
 
@@ -518,9 +539,10 @@ class StringSwitchConverter {
         }
 
         try {
-          if (theString.getValue().decodedHashCode() == hash) {
-            BasicBlock trueTarget = theIf.targetFromCondition(1).endOfGotoChain();
-            if (!addMappingForString(trueTarget, theString.getValue(), extension)) {
+          DexString theStringValue = theString.definition.asConstString().getValue();
+          if (theStringValue.decodedHashCode() == hash) {
+            BasicBlock trueTarget = theIf.targetFromCondition(1);
+            if (!addMappingForString(trueTarget, theStringValue, extension)) {
               return false;
             }
           }
@@ -545,7 +567,17 @@ class StringSwitchConverter {
       private boolean addMappingForString(
           BasicBlock block, DexString string, Reference2IntMap<DexString> extension) {
         InstructionIterator instructionIterator = block.iterator();
-        ConstNumber constNumberInstruction = instructionIterator.next().asConstNumber();
+        ConstNumber constNumberInstruction;
+        if (block.isTrivialGoto()) {
+          if (block.getUniqueNormalSuccessor() != idValue.getBlock()) {
+            return false;
+          }
+          int predecessorIndex = idValue.getBlock().getPredecessors().indexOf(block);
+          constNumberInstruction =
+              asConstNumberOrNull(idValue.getOperand(predecessorIndex).definition);
+        } else {
+          constNumberInstruction = instructionIterator.next().asConstNumber();
+        }
         if (constNumberInstruction == null
             || !idValue.getOperands().contains(constNumberInstruction.outValue())) {
           return false;
@@ -568,7 +600,7 @@ class StringSwitchConverter {
     // The hash value of interest.
     private final Value stringHashValue;
 
-    private final Reference2IntMap<DexString> mapping = new Reference2IntOpenHashMap<>();
+    private final Reference2IntMap<DexString> mapping = new Reference2IntLinkedOpenHashMap<>();
 
     private StringToIdMapping(Value stringHashValue, DexItemFactory dexItemFactory) {
       assert isDefinedByStringHashCode(stringHashValue, dexItemFactory);

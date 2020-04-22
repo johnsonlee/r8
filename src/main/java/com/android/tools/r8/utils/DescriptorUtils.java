@@ -355,7 +355,7 @@ public class DescriptorUtils {
    */
   public static String getDescriptorFromClassBinaryName(String typeBinaryName) {
     assert typeBinaryName != null;
-    return ('L' + typeBinaryName + ';');
+    return 'L' + typeBinaryName + ';';
   }
 
   /**

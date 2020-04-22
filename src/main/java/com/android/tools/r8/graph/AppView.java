@@ -27,7 +27,6 @@ import com.android.tools.r8.utils.ThrowingConsumer;
 import com.google.common.base.Predicates;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -252,8 +251,22 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return protoShrinker;
   }
 
-  public void withGeneratedExtensionRegistryShrinker(
-      Consumer<GeneratedExtensionRegistryShrinker> consumer) {
+  public <E extends Throwable> void withProtoShrinker(ThrowingConsumer<ProtoShrinker, E> consumer)
+      throws E {
+    if (protoShrinker != null) {
+      consumer.accept(protoShrinker);
+    }
+  }
+
+  public <U> U withProtoShrinker(Function<ProtoShrinker, U> consumer, U defaultValue) {
+    if (protoShrinker != null) {
+      return consumer.apply(protoShrinker);
+    }
+    return defaultValue;
+  }
+
+  public <E extends Throwable> void withGeneratedExtensionRegistryShrinker(
+      ThrowingConsumer<GeneratedExtensionRegistryShrinker, E> consumer) throws E {
     if (protoShrinker != null && protoShrinker.generatedExtensionRegistryShrinker != null) {
       consumer.accept(protoShrinker.generatedExtensionRegistryShrinker);
     }
@@ -267,7 +280,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return defaultValue;
   }
 
-  public void withGeneratedMessageLiteShrinker(Consumer<GeneratedMessageLiteShrinker> consumer) {
+  public <E extends Throwable> void withGeneratedMessageLiteShrinker(
+      ThrowingConsumer<GeneratedMessageLiteShrinker, E> consumer) throws E {
     if (protoShrinker != null && protoShrinker.generatedMessageLiteShrinker != null) {
       consumer.accept(protoShrinker.generatedMessageLiteShrinker);
     }

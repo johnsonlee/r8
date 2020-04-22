@@ -150,8 +150,8 @@ public abstract class DexClass extends DexDefinition {
     methodCollection.addDirectMethods(methods);
   }
 
-  public void removeMethod(DexMethod method) {
-    methodCollection.removeMethod(method);
+  public DexEncodedMethod removeMethod(DexMethod method) {
+    return methodCollection.removeMethod(method);
   }
 
   public void setDirectMethods(DexEncodedMethod[] methods) {
@@ -559,7 +559,7 @@ public abstract class DexClass extends DexDefinition {
     return getInitializer(DexType.EMPTY_ARRAY);
   }
 
-  public boolean hasMissingSuperType(AppInfoWithSubtyping appInfo) {
+  public boolean hasMissingSuperType(AppInfoWithClassHierarchy appInfo) {
     if (superType != null && appInfo.isMissingOrHasMissingSuperType(superType)) {
       return true;
     }

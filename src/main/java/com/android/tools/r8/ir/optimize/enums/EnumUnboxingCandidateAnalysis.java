@@ -151,8 +151,9 @@ class EnumUnboxingCandidateAnalysis {
   }
 
   private void removePinnedIfNotHolder(DexMember<?, ?> member, DexType type) {
-    if (type != member.holder) {
-      removePinnedCandidate(type);
+    DexType baseType = type.toBaseType(factory);
+    if (baseType != member.holder) {
+      removePinnedCandidate(baseType);
     }
   }
 
