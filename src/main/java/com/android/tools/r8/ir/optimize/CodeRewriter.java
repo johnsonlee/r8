@@ -1075,7 +1075,17 @@ public class CodeRewriter {
             int key = switchInsn.getKey(i);
             DexField field = info.indexMap.get(key);
             EnumValueInfo valueInfo = info.valueInfoMap.get(field);
-            targetMap.put(valueInfo.ordinal, switchInsn.targetBlockIndices()[i]);
+            if (valueInfo != null) {
+              targetMap.put(valueInfo.ordinal, switchInsn.targetBlockIndices()[i]);
+            } else {
+              // The switch map refers to a field on the enum that does not exist in this
+              // compilation.
+              targetMap = null;
+              break;
+            }
+          }
+          if (targetMap == null) {
+            continue;
           }
           int[] keys = targetMap.keySet().toIntArray();
           Arrays.sort(keys);
