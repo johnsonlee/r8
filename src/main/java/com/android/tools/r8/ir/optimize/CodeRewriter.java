@@ -1078,8 +1078,12 @@ public class CodeRewriter {
             } else {
               // The switch map refers to a field on the enum that does not exist in this
               // compilation.
-              return;
+              targetMap = null;
+              break;
             }
+          }
+          if (targetMap == null) {
+            continue;
           }
           int[] keys = targetMap.keySet().toIntArray();
           Arrays.sort(keys);
