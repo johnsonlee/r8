@@ -42,6 +42,7 @@ class EnumUnboxingCandidateAnalysis {
         enumToUnboxCandidates.put(clazz.type, Sets.newConcurrentHashSet());
       }
     }
+    removeEnumsInAnnotations();
     removePinnedCandidates();
     return enumToUnboxCandidates;
   }
@@ -126,6 +127,30 @@ class EnumUnboxingCandidateAnalysis {
       }
     }
     return true;
+  }
+
+  private void removeEnumsInAnnotations() {
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      if (appView.appInfo().isSubtype(clazz.type, factory.annotationType)) {
+        removeEnumsInAnnotation(clazz);
+      }
+    }
+  }
+
+  private void removeEnumsInAnnotation(DexProgramClass clazz) {
+    // Browse annotation values types in search for enum.
+    // Each annotation value is represented by a virtual method.
+    for (DexEncodedMethod method : clazz.virtualMethods()) {
+      DexProto proto = method.method.proto;
+      assert proto.parameters.isEmpty();
+      DexType valueType = proto.returnType.toBaseType(appView.appInfo().dexItemFactory());
+      if (valueType.isClassType()
+          && enumToUnboxCandidates.containsKey(valueType)
+          && appView.appInfo().isSubtype(valueType, appView.appInfo().dexItemFactory().enumType)) {
+        enumUnboxer.reportFailure(valueType, Reason.ANNOTATION);
+        enumToUnboxCandidates.remove(valueType);
+      }
+    }
   }
 
   private void removePinnedCandidates() {

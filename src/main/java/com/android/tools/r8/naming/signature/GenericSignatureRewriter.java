@@ -13,7 +13,6 @@ import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
@@ -32,17 +31,16 @@ import java.util.function.Supplier;
 // TODO(b/129925954): Reimplement this by using the internal encoding and transformation logic.
 public class GenericSignatureRewriter {
 
-  private final AppView<AppInfoWithLiveness> appView;
+  private final AppView<?> appView;
   private final Map<DexType, DexString> renaming;
   private final InternalOptions options;
   private final Reporter reporter;
 
-  public GenericSignatureRewriter(AppView<AppInfoWithLiveness> appView) {
+  public GenericSignatureRewriter(AppView<?> appView) {
     this(appView, Maps.newIdentityHashMap());
   }
 
-  public GenericSignatureRewriter(
-      AppView<AppInfoWithLiveness> appView, Map<DexType, DexString> renaming) {
+  public GenericSignatureRewriter(AppView<?> appView, Map<DexType, DexString> renaming) {
     this.appView = appView;
     this.renaming = renaming;
     this.options = appView.options();
@@ -90,8 +88,7 @@ public class GenericSignatureRewriter {
                               options.warningInvalidSignature(
                                   method, clazz.getOrigin(), signature, e))));
         },
-        executorService
-    );
+        executorService);
   }
 
   private DexAnnotationSet rewriteGenericSignatures(
@@ -113,8 +110,10 @@ public class GenericSignatureRewriter {
         String signature = DexAnnotation.getSignature(annotation);
         try {
           parser.accept(signature);
+          String renamedSignature = collector.get();
+          assert verifyConsistentRenaming(parser, collector, renamedSignature);
           DexAnnotation signatureAnnotation =
-              DexAnnotation.createSignatureAnnotation(collector.get(), appView.dexItemFactory());
+              DexAnnotation.createSignatureAnnotation(renamedSignature, appView.dexItemFactory());
           rewrittenAnnotations[i] = signatureAnnotation;
         } catch (GenericSignatureFormatError e) {
           parseError.accept(signature, e);
@@ -142,6 +141,21 @@ public class GenericSignatureRewriter {
     }
     assert dest == prunedAnnotations.length;
     return new DexAnnotationSet(prunedAnnotations);
+  }
+
+  /**
+   * Calling this method will clobber the parsed signature in the collector - ideally with the same
+   * string. Only use this after the original result has been collected.
+   */
+  private boolean verifyConsistentRenaming(
+      Consumer<String> parser, Supplier<String> collector, String renamedSignature) {
+    if (!options.testing.assertConsistentRenamingOfSignature) {
+      return true;
+    }
+    parser.accept(renamedSignature);
+    String reRenamedSignature = collector.get();
+    assert renamedSignature.equals(reRenamedSignature);
+    return true;
   }
 
   private class GenericSignatureCollector implements GenericSignatureAction<DexType> {
@@ -187,7 +201,7 @@ public class GenericSignatureRewriter {
       String originalDescriptor = getDescriptorFromClassBinaryName(name);
       DexType type =
           appView.graphLense().lookupType(appView.dexItemFactory().createType(originalDescriptor));
-      if (appView.appInfo().wasPruned(type)) {
+      if (appView.appInfo().hasLiveness() && appView.withLiveness().appInfo().wasPruned(type)) {
         type = appView.dexItemFactory().objectType;
       }
       DexString renamedDescriptor = renaming.getOrDefault(type, type.descriptor);
