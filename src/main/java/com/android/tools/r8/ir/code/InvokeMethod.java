@@ -7,6 +7,7 @@ import com.android.tools.r8.cf.LoadStoreHelper;
 import com.android.tools.r8.cf.TypeVerificationHelper;
 import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
@@ -107,23 +108,31 @@ public abstract class InvokeMethod extends Invoke {
             appView.withLiveness(), this.asInvokeMethodWithReceiver());
     // TODO(b/140204899): Instead of reprocessing here, pass refined receiver to lookup.
     // Leverage refined receiver type if available.
-    if (refinedReceiverType != staticReceiverType) {
-      ResolutionResult refinedResolution =
-          appView.appInfo().resolveMethod(refinedReceiverType, method);
-      if (refinedResolution.isSingleResolution()) {
-        DexEncodedMethod refinedTarget = refinedResolution.getSingleTarget();
-        Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
-        for (DexEncodedMethod target : targets) {
-          if (target == refinedTarget
-              || appView.isSubtype(target.method.holder, refinedReceiverType).isPossiblyTrue()) {
-            result.add(target);
-          }
-        }
-        return result;
-      }
-      // If resolution at the refined type fails, conservatively return the full set of targets.
+    if (refinedReceiverType == staticReceiverType) {
+      return targets;
     }
-    return targets;
+
+    DexClass refinedReceiverClass = appView.definitionFor(refinedReceiverType);
+    if (refinedReceiverClass == null || refinedReceiverClass.isInterface()) {
+      return targets;
+    }
+
+    ResolutionResult refinedResolution =
+        appView.appInfo().resolveMethod(refinedReceiverType, method);
+    if (!refinedResolution.isSingleResolution()) {
+      // If resolution at the refined type fails, conservatively return the full set of targets.
+      return targets;
+    }
+
+    DexEncodedMethod refinedTarget = refinedResolution.getSingleTarget();
+    Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
+    for (DexEncodedMethod target : targets) {
+      if (target == refinedTarget
+          || appView.isSubtype(target.method.holder, refinedReceiverType).isPossiblyTrue()) {
+        result.add(target);
+      }
+    }
+    return result;
   }
 
   public abstract InlineAction computeInlining(
