@@ -403,10 +403,7 @@ public class ProguardMapMinifier {
 
     @Override
     public DexString next(
-        DexType type,
-        char[] packagePrefix,
-        InternalNamingState state,
-        Predicate<DexString> isUsed) {
+        DexType type, char[] packagePrefix, InternalNamingState state, Predicate<String> isUsed) {
       assert !mappings.containsKey(type);
       assert appView.rootSet().mayBeMinified(type, appView);
       return super.next(
@@ -414,7 +411,7 @@ public class ProguardMapMinifier {
           packagePrefix,
           state,
           candidate -> {
-            if (mappedNames.contains(candidate.toString())) {
+            if (mappedNames.contains(candidate)) {
               return true;
             }
             return isUsed.test(candidate);
