@@ -63,11 +63,11 @@ public final class InvokeCustom extends Invoke {
   @Override
   public TypeElement evaluate(AppView<?> appView) {
     TypeElement returnType = super.evaluate(appView);
-    if (!appView.appInfo().hasSubtyping()) {
+    if (!appView.appInfo().hasLiveness()) {
       return returnType;
     }
     List<DexType> lambdaInterfaces =
-        LambdaDescriptor.getInterfaces(callSite, appView.appInfo().withSubtyping());
+        LambdaDescriptor.getInterfaces(callSite, appView.appInfo().withClassHierarchy());
     if (lambdaInterfaces == null || lambdaInterfaces.isEmpty()) {
       return returnType;
     }

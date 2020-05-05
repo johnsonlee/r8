@@ -76,7 +76,7 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
     assertTrue(lookupResult.isLookupResultSuccess());
     Set<String> targets = new HashSet<>();
     lookupResult.forEach(
-        target -> targets.add(target.getMethod().qualifiedName()), lambda -> fail());
+        target -> targets.add(target.getDefinition().qualifiedName()), lambda -> fail());
     ImmutableSet<String> expected = ImmutableSet.of(ViewModel.class.getTypeName() + ".clear");
     assertEquals(expected, targets);
   }
@@ -170,7 +170,7 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
     assertTrue(lookupResult.isLookupResultSuccess());
     Set<String> targets = new HashSet<>();
     lookupResult.forEach(
-        target -> targets.add(target.getMethod().qualifiedName()), lambda -> fail());
+        target -> targets.add(target.getDefinition().qualifiedName()), lambda -> fail());
     ImmutableSet<String> expected = ImmutableSet.of(ViewModel.class.getTypeName() + ".clear");
     assertEquals(expected, targets);
   }
@@ -209,14 +209,14 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
             "main",
             (opcode, owner, name, descriptor, isInterface, continuation) -> {
               if (name.equals("clear")) {
-                continuation.apply(
+                continuation.visitMethodInsn(
                     opcode,
                     DescriptorUtils.getBinaryNameFromJavaType(ViewModel.class.getTypeName()),
                     name,
                     descriptor,
                     isInterface);
               } else {
-                continuation.apply(opcode, owner, name, descriptor, isInterface);
+                continuation.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
               }
             })
         .transform();
@@ -230,9 +230,9 @@ public class PackagePrivateFinalOverrideTest extends TestBase {
             "run",
             (opcode, owner, name, descriptor, isInterface, continuation) -> {
               if (name.equals("clearBridge")) {
-                continuation.apply(opcode, owner, "clear", descriptor, isInterface);
+                continuation.visitMethodInsn(opcode, owner, "clear", descriptor, isInterface);
               } else {
-                continuation.apply(opcode, owner, name, descriptor, isInterface);
+                continuation.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
               }
             })
         .transform();

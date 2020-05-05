@@ -4,7 +4,9 @@
 
 package com.android.tools.r8.ir.analysis.fieldvalueanalysis;
 
-import static com.android.tools.r8.ir.code.Opcodes.*;
+import static com.android.tools.r8.ir.code.Opcodes.ARRAY_PUT;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_DIRECT;
+import static com.android.tools.r8.ir.code.Opcodes.STATIC_PUT;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -17,8 +19,8 @@ import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
-import com.android.tools.r8.ir.analysis.value.SingleEnumValue;
-import com.android.tools.r8.ir.analysis.value.UnknownValue;
+import com.android.tools.r8.ir.analysis.value.ObjectState;
+import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
 import com.android.tools.r8.ir.code.ArrayPut;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.IRCode;
@@ -28,6 +30,8 @@ import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization.ClassInitializerDefaultsResult;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
+import com.android.tools.r8.ir.optimize.info.field.InstanceFieldArgumentInitializationInfo;
+import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoCollection;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Timing;
 
@@ -100,10 +104,9 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
   void updateFieldOptimizationInfo(DexEncodedField field, FieldInstruction fieldPut, Value value) {
     // Abstract value.
     Value root = value.getAliasedValue();
-    AbstractValue abstractValue = computeAbstractValue(root);
+    AbstractValue abstractValue = root.getAbstractValue(appView, clazz.type);
     if (abstractValue.isUnknown()) {
-      feedback.recordFieldHasAbstractValue(
-          field, appView, appView.abstractValueFactory().createSingleFieldValue(field.field));
+      feedback.recordFieldHasAbstractValue(field, appView, computeSingleFieldValue(field, root));
     } else {
       feedback.recordFieldHasAbstractValue(field, appView, abstractValue);
     }
@@ -124,33 +127,29 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
     }
   }
 
-  private AbstractValue computeAbstractValue(Value value) {
+  private SingleFieldValue computeSingleFieldValue(DexEncodedField field, Value value) {
     assert !value.hasAliasedValue();
-    if (clazz.isEnum()) {
-      SingleEnumValue singleEnumValue = getSingleEnumValue(value);
-      if (singleEnumValue != null) {
-        return singleEnumValue;
-      }
+    SingleFieldValue result = computeSingleEnumFieldValue(value);
+    if (result != null) {
+      return result;
     }
-    if (!value.isPhi()) {
-      return value.definition.getAbstractValue(appView, clazz.type);
-    }
-    return UnknownValue.getInstance();
+    return appView
+        .abstractValueFactory()
+        .createSingleFieldValue(field.field, computeObjectState(value));
   }
 
   /**
    * If {@param value} is defined by a new-instance instruction that instantiates the enclosing enum
    * class, and the value is assigned into exactly one static enum field on the enclosing enum
-   * class, then returns a {@link SingleEnumValue} instance. Otherwise, returns {@code null}.
+   * class, then returns a {@link SingleFieldValue} instance. Otherwise, returns {@code null}.
    *
    * <p>Note that enum constructors also store the newly instantiated enums in the {@code $VALUES}
    * array field on the enum. Therefore, this code also allows {@param value} to be stored into an
    * array as long as the array is identified as being the {@code $VALUES} array.
    */
-  private SingleEnumValue getSingleEnumValue(Value value) {
-    assert clazz.isEnum();
+  private SingleFieldValue computeSingleEnumFieldValue(Value value) {
     assert !value.hasAliasedValue();
-    if (value.isPhi() || !value.definition.isNewInstance()) {
+    if (!clazz.isEnum() || !value.isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
       return null;
     }
 
@@ -202,7 +201,53 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
       return null;
     }
 
-    return appView.abstractValueFactory().createSingleEnumValue(enumField.field);
+    return appView
+        .abstractValueFactory()
+        .createSingleFieldValue(enumField.field, computeObjectState(value));
+  }
+
+  private ObjectState computeObjectState(Value value) {
+    assert !value.hasAliasedValue();
+    if (!value.isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
+      return ObjectState.empty();
+    }
+
+    NewInstance newInstance = value.definition.asNewInstance();
+    InvokeDirect uniqueConstructorInvoke =
+        newInstance.getUniqueConstructorInvoke(appView.dexItemFactory());
+    if (uniqueConstructorInvoke == null) {
+      return ObjectState.empty();
+    }
+
+    DexEncodedMethod singleTarget = uniqueConstructorInvoke.lookupSingleTarget(appView, clazz.type);
+    if (singleTarget == null) {
+      return ObjectState.empty();
+    }
+
+    InstanceFieldInitializationInfoCollection initializationInfos =
+        singleTarget.getOptimizationInfo().getInstanceInitializerInfo().fieldInitializationInfos();
+    if (initializationInfos.isEmpty()) {
+      return ObjectState.empty();
+    }
+
+    ObjectState.Builder builder = ObjectState.builder();
+    initializationInfos.forEach(
+        appView,
+        (field, initializationInfo) -> {
+          if (!appView.appInfo().isInstanceFieldWrittenOnlyInInstanceInitializers(field)) {
+            return;
+          }
+          if (initializationInfo.isArgumentInitializationInfo()) {
+            InstanceFieldArgumentInitializationInfo argumentInitializationInfo =
+                initializationInfo.asArgumentInitializationInfo();
+            Value argument =
+                uniqueConstructorInvoke.getArgument(argumentInitializationInfo.getArgumentIndex());
+            builder.recordFieldHasValue(field, argument.getAbstractValue(appView, clazz.type));
+          } else if (initializationInfo.isSingleValue()) {
+            builder.recordFieldHasValue(field, initializationInfo.asSingleValue());
+          }
+        });
+    return builder.build();
   }
 
   private boolean isEnumValuesArray(Value value) {

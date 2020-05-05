@@ -31,7 +31,7 @@ import static com.android.tools.r8.ir.code.Opcodes.STATIC_GET;
 import static com.android.tools.r8.ir.code.Opcodes.STATIC_PUT;
 
 import com.android.tools.r8.errors.Unreachable;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
@@ -100,12 +100,12 @@ import java.util.function.BiFunction;
 
 public class LensCodeRewriter {
 
-  private final AppView<? extends AppInfoWithSubtyping> appView;
+  private final AppView<? extends AppInfoWithClassHierarchy> appView;
 
   private final EnumUnboxer enumUnboxer;
   private final Map<DexProto, DexProto> protoFixupCache = new ConcurrentHashMap<>();
 
-  LensCodeRewriter(AppView<? extends AppInfoWithSubtyping> appView, EnumUnboxer enumUnboxer) {
+  LensCodeRewriter(AppView<? extends AppInfoWithClassHierarchy> appView, EnumUnboxer enumUnboxer) {
     this.appView = appView;
     this.enumUnboxer = enumUnboxer;
   }
@@ -499,7 +499,7 @@ public class LensCodeRewriter {
               if (ret.isReturnVoid()) {
                 break;
               }
-              DexType returnType = code.method.method.proto.returnType;
+              DexType returnType = code.method().method.proto.returnType;
               Value retValue = ret.returnValue();
               DexType initialType =
                   retValue.getType().isPrimitiveType()
@@ -551,10 +551,10 @@ public class LensCodeRewriter {
         && initialValue.definition.asConstNumber().isZero()
         && defaultValueHasChanged(oldType, newType)) {
       iterator.previous();
-      // TODO(b/150188380): Add API to insert a const instruction with a type lattice.
-      Value rewrittenDefaultValue = iterator.insertConstIntInstruction(code, appView.options(), 0);
+      Value rewrittenDefaultValue =
+          iterator.insertConstNumberInstruction(
+              code, appView.options(), 0, defaultValueLatticeElement(newType));
       iterator.next();
-      rewrittenDefaultValue.setType(defaultValueLatticeElement(newType));
       return rewrittenDefaultValue;
     }
     return initialValue;

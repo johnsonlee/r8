@@ -23,6 +23,7 @@ import com.android.tools.r8.transformers.ClassFileTransformer;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -85,7 +86,7 @@ public class NestInvokeSpecialInterfaceMethodAccessTest extends TestBase {
                           ? DescriptorUtils.getBinaryNameFromJavaType(I.class.getName())
                           : DescriptorUtils.getBinaryNameFromJavaType(A.class.getName());
                   boolean newIsInterface = symbolicReferenceIsDefiningType;
-                  continuation.apply(
+                  continuation.visitMethodInsn(
                       Opcodes.INVOKESPECIAL, newOwner, name, descriptor, newIsInterface);
                 })
             .transform());
@@ -127,7 +128,9 @@ public class NestInvokeSpecialInterfaceMethodAccessTest extends TestBase {
       return;
     }
 
-    assertEquals(inSameNest, resolutionResult.isAccessibleFrom(callerClassDefinition, appInfo));
+    assertEquals(
+        OptionalBool.of(inSameNest),
+        resolutionResult.isAccessibleFrom(callerClassDefinition, appInfo));
     DexEncodedMethod targetSpecial =
         resolutionResult.lookupInvokeSpecialTarget(callerClassDefinition, appInfo);
     DexEncodedMethod targetSuper =

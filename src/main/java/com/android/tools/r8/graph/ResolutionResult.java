@@ -3,12 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.LookupResult.LookupResultSuccess.LookupResultCollectionState;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.InstantiatedObject;
 import com.android.tools.r8.utils.Box;
+import com.android.tools.r8.utils.OptionalBool;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -59,10 +59,10 @@ public abstract class ResolutionResult {
     return isSingleResolution() ? asSingleResolution().getResolvedMethod() : null;
   }
 
-  public abstract boolean isAccessibleFrom(
+  public abstract OptionalBool isAccessibleFrom(
       DexProgramClass context, AppInfoWithClassHierarchy appInfo);
 
-  public abstract boolean isAccessibleForVirtualDispatchFrom(
+  public abstract OptionalBool isAccessibleForVirtualDispatchFrom(
       DexProgramClass context, AppInfoWithClassHierarchy appInfo);
 
   public abstract boolean isVirtualTarget();
@@ -154,15 +154,19 @@ public abstract class ResolutionResult {
     }
 
     @Override
-    public boolean isAccessibleFrom(DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
+    public OptionalBool isAccessibleFrom(
+        DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
       return AccessControl.isMethodAccessible(
           resolvedMethod, initialResolutionHolder, context, appInfo);
     }
 
     @Override
-    public boolean isAccessibleForVirtualDispatchFrom(
+    public OptionalBool isAccessibleForVirtualDispatchFrom(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
-      return resolvedMethod.isVirtualMethod() && isAccessibleFrom(context, appInfo);
+      if (resolvedMethod.isVirtualMethod()) {
+        return isAccessibleFrom(context, appInfo);
+      }
+      return OptionalBool.FALSE;
     }
 
     @Override
@@ -180,7 +184,7 @@ public abstract class ResolutionResult {
     public DexEncodedMethod lookupInvokeSpecialTarget(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
       // If the resolution is non-accessible then no target exists.
-      if (isAccessibleFrom(context, appInfo)) {
+      if (isAccessibleFrom(context, appInfo).isPossiblyTrue()) {
         return internalInvokeSpecialOrSuper(
             context, appInfo, (sup, sub) -> isSuperclass(sup, sub, appInfo));
       }
@@ -205,16 +209,13 @@ public abstract class ResolutionResult {
     @Override
     public DexEncodedMethod lookupInvokeSuperTarget(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
-      // TODO(b/147848950): Investigate and remove the Compilation error. It could compile to
-      //  throw IAE.
       if (resolvedMethod.isInstanceInitializer()
-          || (appInfo.hasSubtyping()
-              && initialResolutionHolder != context
-              && !isSuperclass(initialResolutionHolder, context, appInfo.withSubtyping()))) {
-        throw new CompilationError(
-            "Illegal invoke-super to " + resolvedMethod.toSourceString(), context.getOrigin());
+          || (initialResolutionHolder != context
+              && !isSuperclass(initialResolutionHolder, context, appInfo))) {
+        // If the target is <init> or not on a super class then the call is invalid.
+        return null;
       }
-      if (isAccessibleFrom(context, appInfo)) {
+      if (isAccessibleFrom(context, appInfo).isPossiblyTrue()) {
         return internalInvokeSpecialOrSuper(context, appInfo, (sup, sub) -> true);
       }
       return null;
@@ -233,7 +234,7 @@ public abstract class ResolutionResult {
     @Override
     public DexEncodedMethod lookupInvokeStaticTarget(DexProgramClass context,
         AppInfoWithClassHierarchy appInfo) {
-      if (!isAccessibleFrom(context, appInfo)) {
+      if (isAccessibleFrom(context, appInfo).isFalse()) {
         return null;
       }
       if (resolvedMethod.isStatic()) {
@@ -254,7 +255,7 @@ public abstract class ResolutionResult {
     @Override
     public DexEncodedMethod lookupInvokeDirectTarget(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
-      if (!isAccessibleFrom(context, appInfo)) {
+      if (isAccessibleFrom(context, appInfo).isFalse()) {
         return null;
       }
       if (resolvedMethod.isDirectMethod()) {
@@ -313,7 +314,7 @@ public abstract class ResolutionResult {
       if (target == null) {
         DexClassAndMethod result = appInfo.lookupMaximallySpecificMethod(initialType, method);
         if (result != null) {
-          target = result.getMethod();
+          target = result.getDefinition();
         }
       }
       if (target == null) {
@@ -341,7 +342,7 @@ public abstract class ResolutionResult {
 
     private static boolean isSuperclass(
         DexClass sup, DexClass sub, AppInfoWithClassHierarchy appInfo) {
-      return sup != sub && appInfo.isSubtype(sub.type, sup.type);
+      return appInfo.isStrictSubtypeOf(sub.type, sup.type);
     }
 
     @Override
@@ -353,7 +354,7 @@ public abstract class ResolutionResult {
       // Check that the initial resolution holder is accessible from the context.
       assert appInfo.isSubtype(initialResolutionHolder.type, resolvedHolder.type)
           : initialResolutionHolder.type + " is not a subtype of " + resolvedHolder.type;
-      if (context != null && !isAccessibleFrom(context, appInfo)) {
+      if (context != null && isAccessibleFrom(context, appInfo).isFalse()) {
         return LookupResult.createFailedResult();
       }
       if (resolvedMethod.isPrivateMethod()) {
@@ -466,7 +467,7 @@ public abstract class ResolutionResult {
         DexClassAndMethod target,
         boolean holderIsInterface,
         Map<DexEncodedMethod, DexClassAndMethod> result) {
-      DexEncodedMethod targetMethod = target.getMethod();
+      DexEncodedMethod targetMethod = target.getDefinition();
       assert !targetMethod.isPrivateMethod();
       if (holderIsInterface) {
         // Add default interface methods to the list of targets.
@@ -726,14 +727,15 @@ public abstract class ResolutionResult {
     }
 
     @Override
-    public boolean isAccessibleFrom(DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
-      return true;
+    public OptionalBool isAccessibleFrom(
+        DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
+      return OptionalBool.TRUE;
     }
 
     @Override
-    public boolean isAccessibleForVirtualDispatchFrom(
+    public OptionalBool isAccessibleForVirtualDispatchFrom(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
-      return true;
+      return OptionalBool.TRUE;
     }
 
     @Override
@@ -760,14 +762,15 @@ public abstract class ResolutionResult {
     }
 
     @Override
-    public boolean isAccessibleFrom(DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
-      return false;
+    public OptionalBool isAccessibleFrom(
+        DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
+      return OptionalBool.FALSE;
     }
 
     @Override
-    public boolean isAccessibleForVirtualDispatchFrom(
+    public OptionalBool isAccessibleForVirtualDispatchFrom(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
-      return false;
+      return OptionalBool.FALSE;
     }
 
     @Override

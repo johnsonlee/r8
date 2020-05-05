@@ -5,6 +5,7 @@
 package com.android.tools.r8.kotlin.metadata;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNotNull;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNull;
@@ -19,6 +20,7 @@ import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
+import kotlinx.metadata.jvm.KotlinClassHeader;
 import kotlinx.metadata.jvm.KotlinClassMetadata;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,6 +52,9 @@ public class MetadataRewritePassThroughTest extends KotlinMetadataTestBase {
         .addKeepRules("-keep class kotlin.Metadata")
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .compile()
+        // TODO(b/155536535): Enable this assert.
+        // .assertAllInfoMessagesMatch(expectedInfoMessagesFromKotlinStdLib())
+        // .assertInfosCount(5)
         .inspect(this::inspect);
   }
 
@@ -59,12 +64,26 @@ public class MetadataRewritePassThroughTest extends KotlinMetadataTestBase {
       ClassSubject r8Clazz = inspector.clazz(clazzSubject.getOriginalName());
       assertThat(r8Clazz, isPresent());
       KotlinClassMetadata originalMetadata = clazzSubject.getKotlinClassMetadata();
+      KotlinClassMetadata rewrittenMetadata = r8Clazz.getKotlinClassMetadata();
       if (originalMetadata == null) {
-        assertNull(r8Clazz.getKotlinClassMetadata());
+        assertNull(rewrittenMetadata);
         continue;
       }
-      assertNotNull(r8Clazz.getKotlinClassMetadata());
-      // TODO(b/152153136): Extend the test with assertions about metadata equality.
+      assertNotNull(rewrittenMetadata);
+      KotlinClassHeader originalHeader = originalMetadata.getHeader();
+      KotlinClassHeader rewrittenHeader = rewrittenMetadata.getHeader();
+      assertEquals(originalHeader.getKind(), rewrittenHeader.getKind());
+      // TODO(b/154199572): Should we check for meta-data version?
+      assertEquals(originalHeader.getPackageName(), rewrittenHeader.getPackageName());
+      // We cannot assert equality of the data since it may be ordered differently. Instead we use
+      // the KotlinMetadataWriter.
+      // TODO(b/155571455): Deactivating the method call to kotlinMetadataString until resolved.
+      // String expected = KotlinMetadataWriter.kotlinMetadataToString("", originalMetadata);
+      // String actual = KotlinMetadataWriter.kotlinMetadataToString("", rewrittenMetadata);
+      // // TODO(b/155534905): For invalid synthetic class lambdas, we emit null after rewriting.
+      // if (clazzSubject.getKotlinClassMetadata().getHeader().getKind() != 3) {
+      //   assertEquals(expected, actual);
+      // }
     }
   }
 }

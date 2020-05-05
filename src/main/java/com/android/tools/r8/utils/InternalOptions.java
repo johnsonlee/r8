@@ -187,7 +187,6 @@ public class InternalOptions {
     enableVerticalClassMerging = false;
     enableEnumUnboxing = false;
     enableUninstantiatedTypeOptimization = false;
-    enableUnusedArgumentRemoval = false;
     outline.enabled = false;
     enableEnumValueOptimization = false;
     enableValuePropagation = false;
@@ -222,14 +221,13 @@ public class InternalOptions {
   public boolean enableHorizontalClassMerging = true;
   public boolean enableVerticalClassMerging = true;
   public boolean enableArgumentRemoval = true;
-  public boolean enableUnusedArgumentRemoval = true;
   public boolean enableUnusedInterfaceRemoval = true;
   public boolean enableDevirtualization = true;
   public boolean enableNonNullTracking = true;
   public boolean enableInlining =
       !Version.isDevelopmentVersion()
           || System.getProperty("com.android.tools.r8.disableinlining") == null;
-  public boolean enableEnumUnboxing = false;
+  public boolean enableEnumUnboxing = true;
   // TODO(b/141451716): Evaluate the effect of allowing inlining in the inlinee.
   public boolean applyInliningToInlinee =
       System.getProperty("com.android.tools.r8.applyInliningToInlinee") != null;
@@ -336,6 +334,9 @@ public class InternalOptions {
     if (!isGeneratingClassFiles()) {
       marker.setMinApi(minApiLevel);
     }
+    if (desugaredLibraryConfiguration.getIdentifier() != null) {
+      marker.setDesugaredLibraryIdentifiers(desugaredLibraryConfiguration.getIdentifier());
+    }
     if (Version.isDevelopmentVersion()) {
       marker.setSha1(VersionProperties.INSTANCE.getSha());
     }
@@ -365,12 +366,17 @@ public class InternalOptions {
     return desugaredLibraryConfiguration.isLibraryCompilation();
   }
 
+  public boolean isRelocatorCompilation() {
+    return relocatorCompilation;
+  }
+
   public boolean shouldBackportMethods() {
     return !hasConsumer() || isGeneratingDex();
   }
 
   public boolean shouldKeepStackMapTable() {
     return isDesugaredLibraryCompilation()
+        || isRelocatorCompilation()
         || getProguardConfiguration().getKeepAttributes().stackMapTable;
   }
 
@@ -674,6 +680,8 @@ public class InternalOptions {
   // If non null it contains flags describing library desugaring.
   public DesugaredLibraryConfiguration desugaredLibraryConfiguration =
       DesugaredLibraryConfiguration.empty();
+
+  public boolean relocatorCompilation = false;
 
   // If null, no keep rules are recorded.
   // If non null it records desugared library APIs used by the program.
@@ -1099,6 +1107,7 @@ public class InternalOptions {
     public boolean addCallEdgesForLibraryInvokes = false;
 
     public boolean allowCheckDiscardedErrors = false;
+    public boolean allowInjectedAnnotationMethods = false;
     public boolean allowTypeErrors =
         !Version.isDevelopmentVersion()
             || System.getProperty("com.android.tools.r8.allowTypeErrors") != null;
@@ -1182,12 +1191,6 @@ public class InternalOptions {
     // Use this util to disable get*Name() computation if the main intention of tests is checking
     // const-class, e.g., canonicalization, or some test classes' only usages are get*Name().
     enableNameReflectionOptimization = false;
-  }
-
-  @VisibleForTesting
-  public void enableEnumUnboxing() {
-    assert !enableEnumUnboxing;
-    enableEnumUnboxing = true;
   }
 
   // TODO(b/69963623): Remove this once enabled.

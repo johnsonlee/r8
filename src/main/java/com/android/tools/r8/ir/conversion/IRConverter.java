@@ -120,6 +120,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -186,8 +187,9 @@ public class IRConverter {
   private List<Action> onWaveDoneActions = null;
 
   private final List<DexString> neverMergePrefixes;
-  boolean seenNotNeverMergePrefix = false;
-  boolean seenNeverMergePrefix = false;
+  // Use AtomicBoolean to satisfy TSAN checking (see b/153714743).
+  AtomicBoolean seenNotNeverMergePrefix = new AtomicBoolean();
+  AtomicBoolean seenNeverMergePrefix = new AtomicBoolean();
 
   /**
    * The argument `appView` is used to determine if whole program optimizations are allowed or not
@@ -614,12 +616,12 @@ public class IRConverter {
               continue;
             }
             if (method.holder().descriptor.startsWith(neverMergePrefix)) {
-              seenNeverMergePrefix = true;
+              seenNeverMergePrefix.getAndSet(true);
             } else {
-              seenNotNeverMergePrefix = true;
+              seenNotNeverMergePrefix.getAndSet(true);
             }
             // Don't mix.
-            if (seenNeverMergePrefix && seenNotNeverMergePrefix) {
+            if (seenNeverMergePrefix.get() && seenNotNeverMergePrefix.get()) {
               StringBuilder message = new StringBuilder();
               message
                   .append("Merging dex file containing classes with prefix")
@@ -813,7 +815,7 @@ public class IRConverter {
               outliner.applyOutliningCandidate(code);
               printMethod(code, "IR after outlining (SSA)", null);
               removeDeadCodeAndFinalizeIR(
-                  code.method, code, OptimizationFeedbackIgnore.getInstance(), Timing.empty());
+                  code.method(), code, OptimizationFeedbackIgnore.getInstance(), Timing.empty());
             },
             executorService);
         feedback.updateVisibleOptimizationInfo();
@@ -1123,7 +1125,7 @@ public class IRConverter {
   // TODO(b/140766440): Convert all sub steps an implementer of CodeOptimization
   private Timing optimize(
       IRCode code, OptimizationFeedback feedback, MethodProcessor methodProcessor) {
-    DexEncodedMethod method = code.method;
+    DexEncodedMethod method = code.method();
     DexProgramClass holder = asProgramClassOrNull(appView.definitionForHolder(method));
     assert holder != null;
 
@@ -1216,7 +1218,7 @@ public class IRConverter {
 
     if (memberValuePropagation != null) {
       timing.begin("Propagate member values");
-      memberValuePropagation.rewriteWithConstantValues(code, method.holder());
+      memberValuePropagation.run(code);
       timing.end();
     }
 
@@ -1626,7 +1628,7 @@ public class IRConverter {
       timing.end();
     }
 
-    if (appView.appInfo().withLiveness().isPinned(code.method.method)) {
+    if (appView.appInfo().withLiveness().isPinned(code.method().method)) {
       return;
     }
 
@@ -1634,15 +1636,15 @@ public class IRConverter {
     if (method.isInitializer()) {
       if (method.isClassInitializer()) {
         StaticFieldValueAnalysis.run(
-            appView, code, classInitializerDefaultsResult, feedback, code.method, timing);
+            appView, code, classInitializerDefaultsResult, feedback, code.method(), timing);
       } else {
         instanceFieldInitializationInfos =
             InstanceFieldValueAnalysis.run(
-                appView, code, classInitializerDefaultsResult, feedback, code.method, timing);
+                appView, code, classInitializerDefaultsResult, feedback, code.method(), timing);
       }
     }
     methodOptimizationInfoCollector.collectMethodOptimizationInfo(
-        code.method,
+        code.method(),
         code,
         feedback,
         dynamicTypeOptimization,
@@ -1778,11 +1780,11 @@ public class IRConverter {
       return;
     }
     // Only constructors.
-    if (!code.method.isInstanceInitializer()) {
+    if (!code.method().isInstanceInitializer()) {
       return;
     }
     // Only constructors with certain signatures.
-    DexTypeList paramTypes = code.method.method.proto.parameters;
+    DexTypeList paramTypes = code.method().method.proto.parameters;
     if (paramTypes.size() != 3 ||
         paramTypes.values[0] != options.itemFactory.doubleType ||
         paramTypes.values[1] != options.itemFactory.doubleType ||
@@ -1964,7 +1966,7 @@ public class IRConverter {
       printer.end("cfg");
     }
     if (options.extensiveLoggingFilter.size() > 0
-        && options.extensiveLoggingFilter.contains(code.method.method.toSourceString())) {
+        && options.extensiveLoggingFilter.contains(code.method().method.toSourceString())) {
       String current = code.toString();
       System.out.println();
       System.out.println("-----------------------------------------------------------------------");

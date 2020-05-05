@@ -7,7 +7,7 @@ package com.android.tools.r8.ir.code;
 import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
 import static com.android.tools.r8.ir.code.DominatorTree.Assumption.MAY_HAVE_UNREACHABLE_BLOCKS;
 
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexString;
@@ -206,17 +206,9 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
   }
 
   @Override
-  public Value insertConstNullInstruction(IRCode code, InternalOptions options) {
-    ConstNumber constNumberInstruction = code.createConstNull();
-    // Note that we only keep position info for throwing instructions in release mode.
-    constNumberInstruction.setPosition(options.debug ? current.getPosition() : Position.none());
-    add(constNumberInstruction);
-    return constNumberInstruction.outValue();
-  }
-
-  @Override
-  public Value insertConstIntInstruction(IRCode code, InternalOptions options, int value) {
-    ConstNumber constNumberInstruction = code.createIntConstant(value);
+  public Value insertConstNumberInstruction(
+      IRCode code, InternalOptions options, long value, TypeElement type) {
+    ConstNumber constNumberInstruction = code.createNumberConstant(value, type);
     // Note that we only keep position info for throwing instructions in release mode.
     constNumberInstruction.setPosition(options.debug ? current.getPosition() : Position.none());
     add(constNumberInstruction);
@@ -280,7 +272,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
 
   @Override
   public void replaceCurrentInstructionWithThrowNull(
-      AppView<? extends AppInfoWithSubtyping> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       IRCode code,
       ListIterator<BasicBlock> blockIterator,
       Set<BasicBlock> blocksToRemove,
@@ -506,9 +498,9 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       Set<BasicBlock> blocksToRemove,
       DexType downcast) {
     assert blocksToRemove != null;
-    DexType codeHolder = code.method.holder();
-    DexType inlineeHolder = inlinee.method.holder();
-    if (codeHolder != inlineeHolder && inlinee.method.isOnlyInlinedIntoNestMembers()) {
+    DexType codeHolder = code.method().holder();
+    DexType inlineeHolder = inlinee.method().holder();
+    if (codeHolder != inlineeHolder && inlinee.method().isOnlyInlinedIntoNestMembers()) {
       // Should rewrite private calls to virtual calls.
       assert NestUtils.sameNest(codeHolder, inlineeHolder, appView);
       NestUtils.rewriteNestCallsForInlining(inlinee, codeHolder, appView);

@@ -239,6 +239,7 @@ public final class D8 {
       if (marker != null && hasClassResources) {
         markers.add(marker);
       }
+      Marker.checkCompatibleDesugaredLibrary(markers, options.reporter);
 
       InspectorImpl.runInspections(options.outputInspections, app);
       if (options.isGeneratingClassFiles()) {
@@ -250,7 +251,7 @@ public final class D8 {
                 GraphLense.getIdentityLense(),
                 NamingLens.getIdentityLens(),
                 null)
-            .write(options.getClassFileConsumer(), executor);
+            .write(options.getClassFileConsumer());
       } else {
         NamingLens namingLens;
         DexApplication finalApp = app;

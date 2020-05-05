@@ -7,12 +7,13 @@ import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException
 
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerFactory;
 import com.android.tools.r8.shaking.MainDexClasses;
@@ -48,14 +49,16 @@ public class GenerateMainDexList {
     try {
       DirectMappedDexApplication application =
           new ApplicationReader(app, options, timing).read(executor).toDirect();
-      AppView<? extends AppInfoWithSubtyping> appView =
-          AppView.createForR8(new AppInfoWithSubtyping(application), options);
+      AppView<? extends AppInfoWithClassHierarchy> appView =
+          AppView.createForR8(new AppInfoWithClassHierarchy(application), options);
       appView.setAppServices(AppServices.builder(appView).build());
 
       MainDexListBuilder.checkForAssumedLibraryTypes(appView.appInfo());
 
+      SubtypingInfo subtypingInfo = new SubtypingInfo(application.allClasses(), application);
+
       RootSet mainDexRootSet =
-          new RootSetBuilder(appView, application, options.mainDexKeepRules).run(executor);
+          new RootSetBuilder(appView, subtypingInfo, options.mainDexKeepRules).run(executor);
 
       GraphConsumer graphConsumer = options.mainDexKeptGraphConsumer;
       WhyAreYouKeepingConsumer whyAreYouKeepingConsumer = null;
@@ -64,7 +67,8 @@ public class GenerateMainDexList {
         graphConsumer = whyAreYouKeepingConsumer;
       }
 
-      Enqueuer enqueuer = EnqueuerFactory.createForMainDexTracing(appView, graphConsumer);
+      Enqueuer enqueuer =
+          EnqueuerFactory.createForMainDexTracing(appView, subtypingInfo, graphConsumer);
       Set<DexProgramClass> liveTypes = enqueuer.traceMainDex(mainDexRootSet, executor, timing);
       // LiveTypes is the result.
       MainDexClasses mainDexClasses = new MainDexListBuilder(liveTypes, application).run();

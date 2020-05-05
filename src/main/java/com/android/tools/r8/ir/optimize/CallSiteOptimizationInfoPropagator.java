@@ -6,8 +6,10 @@ package com.android.tools.r8.ir.optimize;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ResolutionResult;
+import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -19,10 +21,12 @@ import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
+import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.CodeOptimization;
 import com.android.tools.r8.ir.conversion.PostOptimization;
+import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.ConcreteCallSiteOptimizationInfo;
 import com.android.tools.r8.logging.Log;
@@ -76,7 +80,7 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     if (mode != Mode.COLLECT) {
       return;
     }
-    DexEncodedMethod context = code.method;
+    DexEncodedMethod context = code.method();
     for (Instruction instruction : code.instructions()) {
       if (!instruction.isInvokeMethod() && !instruction.isInvokeCustom()) {
         continue;
@@ -109,18 +113,28 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
           recordArgumentsIfNecessary(target, invoke.inValues());
         }
       }
-      // TODO(b/129458850): if lambda desugaring happens before IR processing, seeing invoke-custom
-      //  means we can't find matched methods in the app, hence safe to ignore (only for DEX).
       if (instruction.isInvokeCustom()) {
-        // Conservatively register argument info for all possible lambda implemented methods.
-        Collection<DexEncodedMethod> targets =
-            appView.appInfo().lookupLambdaImplementedMethods(
-                instruction.asInvokeCustom().getCallSite());
-        if (targets == null || targets.isEmpty() || hasLibraryOverrides(targets)) {
+        InvokeCustom invokeCustom = instruction.asInvokeCustom();
+        // The bootstrap method for lambda allocation is always runtime internal.
+        if (LambdaDescriptor.isLambdaMetafactoryMethod(
+            invokeCustom.getCallSite(), appView.dexItemFactory())) {
           continue;
         }
-        for (DexEncodedMethod target : targets) {
-          recordArgumentsIfNecessary(target, instruction.inValues());
+        // In other cases, if the bootstrap method is program declared it will be called. The call
+        // is with runtime provided arguments so ensure that the call-site info is TOP.
+        DexMethodHandle bootstrapMethod = invokeCustom.getCallSite().bootstrapMethod;
+        SingleResolutionResult resolution =
+            appView
+                .appInfo()
+                .resolveMethod(
+                    bootstrapMethod.asMethod().holder,
+                    bootstrapMethod.asMethod(),
+                    bootstrapMethod.isInterface)
+                .asSingleResolution();
+        if (resolution != null && resolution.getResolvedHolder().isProgramClass()) {
+          resolution
+              .getResolvedMethod()
+              .joinCallSiteOptimizationInfo(CallSiteOptimizationInfo.TOP, appView);
         }
       }
     }
@@ -208,7 +222,7 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
       return;
     }
     // TODO(b/139246447): Assert no BOTTOM left.
-    if (!callSiteOptimizationInfo.hasUsefulOptimizationInfo(appView, code.method)) {
+    if (!callSiteOptimizationInfo.hasUsefulOptimizationInfo(appView, code.method())) {
       return;
     }
     Set<Value> affectedValues = Sets.newIdentityHashSet();
@@ -231,7 +245,7 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
       if (abstractValue.isSingleValue()) {
         assert appView.options().enablePropagationOfConstantsAtCallSites;
         SingleValue singleValue = abstractValue.asSingleValue();
-        if (singleValue.isMaterializableInContext(appView, code.method.holder())) {
+        if (singleValue.isMaterializableInContext(appView, code.method().holder())) {
           Instruction replacement =
               singleValue.createMaterializingInstruction(appView, code, instr);
           replacement.setPosition(instr.getPosition());
@@ -282,9 +296,14 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
         }
       }
     }
-    assert argumentsSeen == code.method.method.getArity() + (code.method.isStatic() ? 0 : 1)
-        : "args: " + argumentsSeen + " != "
-            + "arity: " + code.method.method.getArity() + ", static: " + code.method.isStatic();
+    assert argumentsSeen == code.method().method.getArity() + (code.method().isStatic() ? 0 : 1)
+        : "args: "
+            + argumentsSeen
+            + " != "
+            + "arity: "
+            + code.method().method.getArity()
+            + ", static: "
+            + code.method().isStatic();
     // After packed Argument instructions, add Assume<?> and constant instructions.
     assert !iterator.peekPrevious().isArgument();
     iterator.previous();

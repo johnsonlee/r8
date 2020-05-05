@@ -40,7 +40,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.concurrent.ExecutorService;
+import java.util.Optional;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -88,24 +88,21 @@ public class CfApplicationWriter {
     this.proguardMapSupplier = proguardMapSupplier;
   }
 
-  public void write(ClassFileConsumer consumer, ExecutorService executor) {
+  public void write(ClassFileConsumer consumer) {
     application.timing.begin("CfApplicationWriter.write");
     try {
-      writeApplication(consumer, executor);
+      writeApplication(consumer);
     } finally {
       application.timing.end();
     }
   }
 
-  private void writeApplication(ClassFileConsumer consumer, ExecutorService executor) {
-    ProguardMapSupplier.ProguardMapAndId proguardMapAndId = null;
+  private void writeApplication(ClassFileConsumer consumer) {
     if (proguardMapSupplier != null && options.proguardMapConsumer != null) {
-      proguardMapAndId = proguardMapSupplier.getProguardMapAndId();
-      if (proguardMapAndId != null) {
-        marker.setPgMapId(proguardMapAndId.id);
-      }
+      marker.setPgMapId(proguardMapSupplier.writeProguardMap().get());
     }
-    String markerString = marker.toString();
+    Optional<String> markerString =
+        marker.isRelocator() ? Optional.empty() : Optional.of(marker.toString());
     for (DexProgramClass clazz : application.classes()) {
       if (clazz.getSynthesizedFrom().isEmpty()
           || options.isDesugaredLibraryCompilation()
@@ -116,18 +113,16 @@ public class CfApplicationWriter {
       }
     }
     ApplicationWriter.supplyAdditionalConsumers(
-        application,
-        appView,
-        graphLense,
-        namingLens,
-        options,
-        proguardMapAndId == null ? null : proguardMapAndId.map);
+        application, appView, graphLense, namingLens, options);
   }
 
-  private void writeClass(DexProgramClass clazz, ClassFileConsumer consumer, String markerString) {
+  private void writeClass(
+      DexProgramClass clazz, ClassFileConsumer consumer, Optional<String> markerString) {
     ClassWriter writer = new ClassWriter(0);
-    int markerStringPoolIndex = writer.newConst(markerString);
-    assert markerStringPoolIndex == MARKER_STRING_CONSTANT_POOL_INDEX;
+    if (markerString.isPresent()) {
+      int markerStringPoolIndex = writer.newConst(markerString.get());
+      assert markerStringPoolIndex == MARKER_STRING_CONSTANT_POOL_INDEX;
+    }
     String sourceDebug = getSourceDebugExtension(clazz.annotations());
     writer.visitSource(clazz.sourceFile != null ? clazz.sourceFile.toString() : null, sourceDebug);
     int version = getClassFileVersion(clazz);

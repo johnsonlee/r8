@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.kotlin;
 
-import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -44,6 +44,7 @@ public final class Kotlin {
   public static final class ClassClassifiers {
 
     public static final String arrayBinaryName = NAME + "/Array";
+    public static final String anyName = NAME + "/Any";
   }
 
   // Mappings from JVM types to Kotlin types (of type DexType)
@@ -193,7 +194,7 @@ public final class Kotlin {
   }
 
   // Calculates kotlin info for a class.
-  public KotlinInfo getKotlinInfo(DexClass clazz, DiagnosticsHandler reporter) {
-    return KotlinClassMetadataReader.getKotlinInfo(this, clazz, reporter);
+  public KotlinClassLevelInfo getKotlinInfo(DexClass clazz, AppView<?> appView) {
+    return KotlinClassMetadataReader.getKotlinInfo(this, clazz, appView);
   }
 }

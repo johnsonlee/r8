@@ -3,16 +3,19 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming;
 
+import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.Version;
-import com.android.tools.r8.graph.DexApplication;
+import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.utils.Box;
+import com.android.tools.r8.utils.ChainableStringConsumer;
+import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.VersionProperties;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.Writer;
 
 public class ProguardMapSupplier {
 
@@ -25,57 +28,57 @@ public class ProguardMapSupplier {
 
   public static int PG_MAP_ID_LENGTH = 7;
 
-  public static ProguardMapSupplier fromClassNameMapper(
-      ClassNameMapper classNameMapper, InternalOptions options) {
-    return new ProguardMapSupplier(true, classNameMapper, null, null, options);
-  }
-
-  public static ProguardMapSupplier fromNamingLens(
-      NamingLens namingLens, DexApplication dexApplication, InternalOptions options) {
-    return new ProguardMapSupplier(false, null, namingLens, dexApplication, options);
-  }
-
-  public static class ProguardMapAndId {
-    public final String map;
-    public final String id;
-
-    ProguardMapAndId(String map, String id) {
-      assert map != null && id != null;
-      this.map = map;
-      this.id = id;
+  // Truncated murmur hash of the non-whitespace codepoints of the Proguard map (excluding the
+  // marker).
+  public static class ProguardMapId extends Box<String> {
+    private ProguardMapId(String id) {
+      super(id);
+      assert id != null;
+      assert id.length() == PG_MAP_ID_LENGTH;
     }
   }
 
-  public ProguardMapSupplier(
-      boolean useClassNameMapper,
-      ClassNameMapper classNameMapper,
-      NamingLens namingLens,
-      DexApplication application,
-      InternalOptions options) {
-    this.useClassNameMapper = useClassNameMapper;
-    this.classNameMapper = classNameMapper;
-    this.namingLens = namingLens;
-    this.application = application;
-    this.minApiLevel = options.isGeneratingClassFiles() ? null : options.minApiLevel;
-  }
-
-  private final boolean useClassNameMapper;
   private final ClassNameMapper classNameMapper;
-  private final NamingLens namingLens;
-  private final DexApplication application;
-  private final Integer minApiLevel;
+  private final StringConsumer consumer;
+  private final InternalOptions options;
+  private final Reporter reporter;
 
-  public ProguardMapAndId getProguardMapAndId() {
-    String body = getBody();
-    if (body == null || body.trim().length() == 0) {
-      return null;
-    }
-    // Algorithm:
-    // Hash of the non-whitespace codepoints of the input string.
-    Hasher hasher = Hashing.murmur3_32().newHasher();
-    body.codePoints().filter(c -> !Character.isWhitespace(c)).forEach(hasher::putInt);
-    String proguardMapId = hasher.hash().toString().substring(0, PG_MAP_ID_LENGTH);
+  private ProguardMapSupplier(ClassNameMapper classNameMapper, InternalOptions options) {
+    assert classNameMapper != null;
+    assert !classNameMapper.isEmpty();
+    this.classNameMapper = classNameMapper.sorted();
+    this.consumer =
+        InternalOptions.assertionsEnabled()
+            ? new ProguardMapChecker(options.proguardMapConsumer)
+            : options.proguardMapConsumer;
+    this.options = options;
+    this.reporter = options.reporter;
+  }
 
+  public static ProguardMapSupplier create(
+      ClassNameMapper classNameMapper, InternalOptions options) {
+    return classNameMapper.isEmpty() ? null : new ProguardMapSupplier(classNameMapper, options);
+  }
+
+  public ProguardMapId writeProguardMap() {
+    ProguardMapId id = computeProguardMapId();
+    writeMarker(id);
+    writeBody();
+    ExceptionUtils.withFinishedResourceHandler(reporter, consumer);
+    return id;
+  }
+
+  private ProguardMapId computeProguardMapId() {
+    ProguardMapIdBuilder builder = new ProguardMapIdBuilder();
+    classNameMapper.write(builder);
+    return builder.build();
+  }
+
+  private void writeBody() {
+    classNameMapper.write(new ProguardMapWriter());
+  }
+
+  private void writeMarker(ProguardMapId id) {
     StringBuilder builder = new StringBuilder();
     builder.append(
         "# "
@@ -88,44 +91,81 @@ public class ProguardMapSupplier {
             + ": "
             + Version.LABEL
             + "\n");
-    if (minApiLevel != null) {
-      builder.append("# " + MARKER_KEY_MIN_API + ": " + minApiLevel + "\n");
+    if (options.isGeneratingDex()) {
+      builder.append("# " + MARKER_KEY_MIN_API + ": " + options.minApiLevel + "\n");
     }
     if (Version.isDevelopmentVersion()) {
       builder.append(
           "# " + MARKER_KEY_COMPILER_HASH + ": " + VersionProperties.INSTANCE.getSha() + "\n");
     }
-    builder.append("# " + MARKER_KEY_PG_MAP_ID + ": " + proguardMapId + "\n");
+    builder.append("# " + MARKER_KEY_PG_MAP_ID + ": " + id.get() + "\n");
     // Turn off linting of the mapping file in some build systems.
     builder.append("# common_typos_disable" + "\n");
-    builder.append(body);
-
-    return new ProguardMapAndId(builder.toString(), proguardMapId);
+    consumer.accept(builder.toString(), reporter);
   }
 
-  private String getBody() {
-    if (useClassNameMapper) {
-      assert classNameMapper != null;
-      return classNameMapper.toString();
-    }
-    assert namingLens != null && application != null;
-    // TODO(herhut): Should writing of the proguard-map file be split like this?
-    if (!namingLens.isIdentityLens()) {
-      StringBuilder map = new StringBuilder();
-      new MinifiedNameMapPrinter(application, namingLens).write(map);
-      return map.toString();
-    }
-    if (application.getProguardMap() != null) {
-      ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-      Writer writer = new PrintWriter(bytes);
-      try {
-        application.getProguardMap().write(writer);
-        writer.flush();
-      } catch (IOException e) {
-        throw new RuntimeException("IOException while creating Proguard-map output: " + e);
+  static class ProguardMapIdBuilder implements ChainableStringConsumer {
+
+    private final Hasher hasher = Hashing.murmur3_32().newHasher();
+
+    @Override
+    public ProguardMapIdBuilder accept(String string) {
+      for (int i = 0; i < string.length(); i++) {
+        char c = string.charAt(i);
+        if (!Character.isWhitespace(c)) {
+          hasher.putInt(c);
+        }
       }
-      return bytes.toString();
+      return this;
     }
-    return null;
+
+    public ProguardMapId build() {
+      return new ProguardMapId(hasher.hash().toString().substring(0, PG_MAP_ID_LENGTH));
+    }
+  }
+
+  class ProguardMapWriter implements ChainableStringConsumer {
+
+    @Override
+    public ProguardMapWriter accept(String string) {
+      consumer.accept(string, reporter);
+      return this;
+    }
+  }
+
+  static class ProguardMapChecker implements StringConsumer {
+
+    private final StringConsumer inner;
+    private final StringBuilder contents = new StringBuilder();
+
+    ProguardMapChecker(StringConsumer inner) {
+      if (!InternalOptions.assertionsEnabled()) {
+        // Make sure we never get here without assertions enabled.
+        throw new Unreachable();
+      }
+      this.inner = inner;
+    }
+
+    @Override
+    public void accept(String string, DiagnosticsHandler handler) {
+      inner.accept(string, handler);
+      contents.append(string);
+    }
+
+    @Override
+    public void finished(DiagnosticsHandler handler) {
+      inner.finished(handler);
+      assert validateProguardMapParses(contents.toString());
+    }
+
+    private static boolean validateProguardMapParses(String content) {
+      try {
+        ClassNameMapper.mapperFromString(content);
+      } catch (IOException e) {
+        e.printStackTrace();
+        return false;
+      }
+      return true;
+    }
   }
 }

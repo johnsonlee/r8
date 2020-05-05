@@ -5,7 +5,10 @@ package com.android.tools.r8.enumunboxing;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NeverMerge;
+import com.android.tools.r8.NeverPropagateValue;
 import com.android.tools.r8.TestParameters;
+import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
@@ -41,16 +44,14 @@ public class AnnotationEnumUnboxingTest extends EnumUnboxingTestBase {
         enumKeepRules.toString().equals("none"));
     testForR8(parameters.getBackend())
         .addInnerClasses(AnnotationEnumUnboxingTest.class)
+        .noMinification()
         .addKeepMainRule(Main.class)
         .addKeepRules(enumKeepRules.getKeepRule())
-        .addKeepRules(
-            "-keep @interface"
-                + " com.android.tools.r8.enumunboxing."
-                + "AnnotationEnumUnboxingTest$ClassAnnotationDefault"
-                + " {  }",
-            "-keepattributes *Annotation*")
+        .addKeepClassRules(ClassAnnotationDefault.class)
+        .addKeepRuntimeVisibleAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableInliningAnnotations()
+        .enableMergeAnnotations()
         .addOptionsModification(opt -> enableEnumOptions(opt, enumValueOptimization))
         .allowDiagnosticInfoMessages()
         .setMinApi(parameters.getApiLevel())
@@ -62,9 +63,13 @@ public class AnnotationEnumUnboxingTest extends EnumUnboxingTestBase {
               assertEnumIsBoxed(
                   MyEnumArrayDefault.class, MyEnumArrayDefault.class.getSimpleName(), m);
               assertEnumIsBoxed(MyEnumArray.class, MyEnumArray.class.getSimpleName(), m);
+              assertEnumIsUnboxed(
+                  MyEnumRetMethod2.class, MyEnumRetMethod2.class.getSimpleName(), m);
+              assertEnumIsUnboxed(
+                  MyEnumParamMethod2.class, MyEnumParamMethod2.class.getSimpleName(), m);
             })
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("print", "1", "1", "1", "1", "1", "0", "0", "0");
+        .assertSuccessWithOutputLines("print", "1", "1", "1", "1", "1", "0", "0", "0", "0");
   }
 
   @Retention(RetentionPolicy.RUNTIME)
@@ -76,6 +81,20 @@ public class AnnotationEnumUnboxingTest extends EnumUnboxingTestBase {
     MyEnumArrayDefault[] myEnumArrayDefault() default {MyEnumArrayDefault.A, MyEnumArrayDefault.B};
 
     MyEnumArray[] myEnumArray();
+  }
+
+  @NeverMerge
+  @Retention(RetentionPolicy.RUNTIME)
+  @interface ClassAnnotation {}
+
+  enum MyEnumParamMethod2 {
+    A,
+    B
+  }
+
+  enum MyEnumRetMethod2 {
+    A,
+    B
   }
 
   enum MyEnumDefault {
@@ -111,6 +130,20 @@ public class AnnotationEnumUnboxingTest extends EnumUnboxingTestBase {
     }
   }
 
+  static class ClassAnnotationSub implements ClassAnnotation {
+
+    @NeverInline
+    @NeverPropagateValue
+    MyEnumRetMethod2 enumMethod(MyEnumParamMethod2 param) {
+      return param == MyEnumParamMethod2.A ? MyEnumRetMethod2.A : MyEnumRetMethod2.B;
+    }
+
+    @Override
+    public Class<? extends Annotation> annotationType() {
+      return null;
+    }
+  }
+
   static class Main {
     public static void main(String[] args) {
       new ClassDefault().print();
@@ -124,6 +157,7 @@ public class AnnotationEnumUnboxingTest extends EnumUnboxingTestBase {
       System.out.println(annotation.myEnumArray()[0].ordinal());
       System.out.println(annotation.myEnumArrayDefault()[0].ordinal());
       System.out.println(annotation.myEnumDefault().ordinal());
+      System.out.println(new ClassAnnotationSub().enumMethod(MyEnumParamMethod2.A).ordinal());
     }
   }
 }

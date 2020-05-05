@@ -22,7 +22,6 @@ import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
@@ -35,6 +34,7 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.SmaliWriter;
+import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.jasmin.JasminBuilder;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.ClassReference;
@@ -587,14 +587,14 @@ public class TestBase {
     }
   }
 
-  protected static AppView<AppInfoWithSubtyping> computeAppViewWithSubtyping(AndroidApp app)
+  protected static AppView<AppInfoWithClassHierarchy> computeAppViewWithSubtyping(AndroidApp app)
       throws Exception {
     Timing timing = Timing.empty();
     InternalOptions options = new InternalOptions();
     DirectMappedDexApplication application =
         new ApplicationReader(app, options, timing).read().toDirect();
-    AppView<AppInfoWithSubtyping> appView =
-        AppView.createForR8(new AppInfoWithSubtyping(application), options);
+    AppView<AppInfoWithClassHierarchy> appView =
+        AppView.createForR8(new AppInfoWithClassHierarchy(application), options);
     appView.setAppServices(AppServices.builder(appView).build());
     return appView;
   }
@@ -616,18 +616,19 @@ public class TestBase {
       Function<DexItemFactory, Collection<ProguardConfigurationRule>>
           proguardConfigurationRulesGenerator)
       throws Exception {
-    AppView<AppInfoWithSubtyping> appView = computeAppViewWithSubtyping(app);
+    AppView<AppInfoWithClassHierarchy> appView = computeAppViewWithSubtyping(app);
     // Run the tree shaker to compute an instance of AppInfoWithLiveness.
     ExecutorService executor = Executors.newSingleThreadExecutor();
-    DexApplication application = appView.appInfo().app();
+    DirectMappedDexApplication application = appView.appInfo().app().asDirect();
+    SubtypingInfo subtypingInfo = new SubtypingInfo(application.allClasses(), application);
     RootSet rootSet =
         new RootSetBuilder(
                 appView,
-                application,
+                subtypingInfo,
                 proguardConfigurationRulesGenerator.apply(appView.appInfo().dexItemFactory()))
             .run(executor);
     AppInfoWithLiveness appInfoWithLiveness =
-        EnqueuerFactory.createForInitialTreeShaking(appView)
+        EnqueuerFactory.createForInitialTreeShaking(appView, subtypingInfo)
             .traceApplication(rootSet, ProguardClassFilter.empty(), executor, application.timing);
     // We do not run the tree pruner to ensure that the hierarchy is as designed and not modified
     // due to liveness.
@@ -1480,5 +1481,13 @@ public class TestBase {
 
   public static String typeName(Class<?> clazz) {
     return clazz.getTypeName();
+  }
+
+  public static AndroidApiLevel apiLevelWithDefaultInterfaceMethodsSupport() {
+    return AndroidApiLevel.N;
+  }
+
+  public static AndroidApiLevel apiLevelWithInvokeCustomSupport() {
+    return AndroidApiLevel.O;
   }
 }

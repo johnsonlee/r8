@@ -9,6 +9,7 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isRenamed;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestParameters;
@@ -147,11 +148,10 @@ public class MetadataRewriteInClasspathTypeTest extends KotlinMetadataTestBase {
     List<ClassSubject> superTypes = kmClass.getSuperTypes();
     assertTrue(superTypes.stream().noneMatch(
         supertype -> supertype.getFinalDescriptor().contains("Impl")));
-    // Can't build ClassSubject with Itf in classpath. Instead, check if the reference to Itf is
-    // not altered via descriptors.
+    // The super types are changed and we should not keep any information about it in the metadata.
     List<String> superTypeDescriptors = kmClass.getSuperTypeDescriptors();
-    assertTrue(superTypeDescriptors.stream().noneMatch(supertype -> supertype.contains("Impl")));
-    assertTrue(superTypeDescriptors.stream().anyMatch(supertype -> supertype.contains("Itf")));
+    assertEquals(1, superTypeDescriptors.size());
+    assertEquals(KT_ANY, superTypeDescriptors.get(0));
   }
 
   @Test

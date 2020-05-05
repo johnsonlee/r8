@@ -69,7 +69,7 @@ public class RedundantFieldLoadElimination {
 
   public RedundantFieldLoadElimination(AppView<?> appView, IRCode code) {
     this.appView = appView;
-    this.method = code.method;
+    this.method = code.method();
     this.code = code;
   }
 
@@ -105,7 +105,7 @@ public class RedundantFieldLoadElimination {
     private final SingleValue value;
 
     private MaterializableValue(SingleValue value) {
-      assert value.isMaterializableInContext(appView, method.holder());
+      assert value.isMaterializableInContext(appView.withLiveness(), method.holder());
       this.value = value;
     }
 
@@ -113,7 +113,7 @@ public class RedundantFieldLoadElimination {
     public void eliminateRedundantRead(InstructionListIterator it, FieldInstruction redundant) {
       affectedValues.addAll(redundant.value().affectedValues());
       it.replaceCurrentInstruction(
-          value.createMaterializingInstruction(appView.withSubtyping(), code, redundant));
+          value.createMaterializingInstruction(appView.withClassHierarchy(), code, redundant));
     }
   }
 
@@ -374,7 +374,7 @@ public class RedundantFieldLoadElimination {
             activeState.putNonFinalInstanceField(fieldAndObject, new ExistingValue(value));
           } else if (info.isSingleValue()) {
             SingleValue value = info.asSingleValue();
-            if (value.isMaterializableInContext(appView, method.holder())) {
+            if (value.isMaterializableInContext(appView.withLiveness(), method.holder())) {
               Value object = invoke.getReceiver().getAliasedValue();
               FieldAndObject fieldAndObject = new FieldAndObject(field.field, object);
               activeState.putNonFinalInstanceField(fieldAndObject, new MaterializableValue(value));
@@ -397,7 +397,7 @@ public class RedundantFieldLoadElimination {
       // that we are conservative.
       activeState.removeNonFinalInstanceFields(field);
     } else if (instruction.isStaticPut()) {
-      if (field.holder != code.method.holder()) {
+      if (field.holder != code.method().holder()) {
         // Accessing a static field on a different object could cause <clinit> to run which
         // could modify any static field on any other object.
         activeState.clearNonFinalStaticFields();
@@ -405,7 +405,7 @@ public class RedundantFieldLoadElimination {
         activeState.removeNonFinalStaticField(field);
       }
     } else if (instruction.isStaticGet()) {
-      if (field.holder != code.method.holder()) {
+      if (field.holder != code.method().holder()) {
         // Accessing a static field on a different object could cause <clinit> to run which
         // could modify any static field on any other object.
         activeState.clearNonFinalStaticFields();

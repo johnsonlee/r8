@@ -12,7 +12,7 @@ import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.AppliedGraphLens;
@@ -212,7 +212,7 @@ public class R8 {
       if (options.isGeneratingClassFiles()) {
         new CfApplicationWriter(
                 application, appView, options, marker, graphLense, namingLens, proguardMapSupplier)
-            .write(options.getClassFileConsumer(), executorService);
+            .write(options.getClassFileConsumer());
       } else {
         new ApplicationWriter(
                 application,
@@ -273,8 +273,8 @@ public class R8 {
       // Now that the dex-application is fully loaded, close any internal archive providers.
       inputApp.closeInternalArchiveProviders();
 
-      AppView<AppInfoWithSubtyping> appView =
-          AppView.createForR8(new AppInfoWithSubtyping(application), options);
+      AppView<AppInfoWithClassHierarchy> appView =
+          AppView.createForR8(new AppInfoWithClassHierarchy(application), options);
       appView.setAppServices(AppServices.builder(appView).build());
 
       // Up-front check for valid library setup.
@@ -334,11 +334,11 @@ public class R8 {
                     options.itemFactory, AndroidApiLevel.getAndroidApiLevel(options.minApiLevel)));
           }
         }
-
+        SubtypingInfo subtypingInfo = new SubtypingInfo(application.allClasses(), application);
         appView.setRootSet(
             new RootSetBuilder(
                     appView,
-                    application,
+                    subtypingInfo,
                     Iterables.concat(
                         options.getProguardConfiguration().getRules(), synthesizedProguardRules))
                 .run(executorService));
@@ -346,7 +346,7 @@ public class R8 {
         AnnotationRemover.Builder annotationRemoverBuilder =
             options.isShrinking() ? AnnotationRemover.builder() : null;
         AppView<AppInfoWithLiveness> appViewWithLiveness =
-            runEnqueuer(annotationRemoverBuilder, executorService, appView);
+            runEnqueuer(annotationRemoverBuilder, executorService, appView, subtypingInfo);
         application = appViewWithLiveness.appInfo().app().asDirect();
         assert appView.rootSet().verifyKeptFieldsAreAccessedAndLive(appViewWithLiveness.appInfo());
         assert appView.rootSet().verifyKeptMethodsAreTargetedAndLive(appViewWithLiveness.appInfo());
@@ -414,11 +414,14 @@ public class R8 {
       if (!options.mainDexKeepRules.isEmpty()) {
         assert appView.graphLense().isIdentityLense();
         // Find classes which may have code executed before secondary dex files installation.
+        SubtypingInfo subtypingInfo =
+            new SubtypingInfo(appView.appInfo().app().asDirect().allClasses(), appView);
         mainDexRootSet =
-            new RootSetBuilder(appView, application, options.mainDexKeepRules).run(executorService);
+            new RootSetBuilder(appView, subtypingInfo, options.mainDexKeepRules)
+                .run(executorService);
         // Live types is the tracing result.
         Set<DexProgramClass> mainDexBaseClasses =
-            EnqueuerFactory.createForMainDexTracing(appView)
+            EnqueuerFactory.createForMainDexTracing(appView, subtypingInfo)
                 .traceMainDex(mainDexRootSet, executorService, timing);
         // Calculate the automatic main dex list according to legacy multidex constraints.
         mainDexClasses = new MainDexListBuilder(mainDexBaseClasses, application).run();
@@ -469,71 +472,74 @@ public class R8 {
         new NestReducer(appViewWithLiveness).run(executorService);
         timing.end();
       }
-      if (options.enableHorizontalClassMerging) {
-        timing.begin("HorizontalStaticClassMerger");
-        StaticClassMerger staticClassMerger =
-            new StaticClassMerger(appViewWithLiveness, options, mainDexClasses);
-        NestedGraphLense lens = staticClassMerger.run();
-        if (lens != null) {
-          boolean changed = appView.setGraphLense(lens);
-          assert changed;
-          appViewWithLiveness.setAppInfo(
-              appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
-        }
-        timing.end();
-      }
-      if (options.enableVerticalClassMerging) {
-        timing.begin("VerticalClassMerger");
-        VerticalClassMerger verticalClassMerger =
-            new VerticalClassMerger(
-                application, appViewWithLiveness, executorService, timing, mainDexClasses);
-        VerticalClassMergerGraphLense lens = verticalClassMerger.run();
-        if (lens != null) {
-          boolean changed = appView.setGraphLense(lens);
-          assert changed;
-          appView.setVerticallyMergedClasses(verticalClassMerger.getMergedClasses());
-          application = application.asDirect().rewrittenWithLens(lens);
-          lens.initializeCacheForLookupMethodInAllContexts();
-          appViewWithLiveness.setAppInfo(
-              appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
-          lens.unsetCacheForLookupMethodInAllContexts();
-        }
-        timing.end();
-      }
-      if (options.enableArgumentRemoval) {
-        SubtypingInfo subtypingInfo = appViewWithLiveness.appInfo().computeSubtypingInfo();
-        if (options.enableUnusedArgumentRemoval) {
-          timing.begin("UnusedArgumentRemoval");
-          UnusedArgumentsGraphLense lens =
-              new UnusedArgumentsCollector(
-                      appViewWithLiveness,
-                      new MethodPoolCollection(appViewWithLiveness, subtypingInfo))
-                  .run(executorService, timing);
+
+      if (options.getProguardConfiguration().isOptimizing()) {
+        if (options.enableHorizontalClassMerging) {
+          timing.begin("HorizontalStaticClassMerger");
+          StaticClassMerger staticClassMerger =
+              new StaticClassMerger(appViewWithLiveness, options, mainDexClasses);
+          NestedGraphLense lens = staticClassMerger.run();
           if (lens != null) {
             boolean changed = appView.setGraphLense(lens);
             assert changed;
-            assert application.asDirect().verifyNothingToRewrite(appView, lens);
             appViewWithLiveness.setAppInfo(
                 appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
           }
           timing.end();
         }
-        if (options.enableUninstantiatedTypeOptimization) {
-          timing.begin("UninstantiatedTypeOptimization");
-          UninstantiatedTypeOptimizationGraphLense lens =
-              new UninstantiatedTypeOptimization(appViewWithLiveness)
-                  .run(
-                      new MethodPoolCollection(appViewWithLiveness, subtypingInfo),
-                      executorService,
-                      timing);
+        if (options.enableVerticalClassMerging) {
+          timing.begin("VerticalClassMerger");
+          VerticalClassMerger verticalClassMerger =
+              new VerticalClassMerger(
+                  application, appViewWithLiveness, executorService, timing, mainDexClasses);
+          VerticalClassMergerGraphLense lens = verticalClassMerger.run();
           if (lens != null) {
             boolean changed = appView.setGraphLense(lens);
             assert changed;
-            assert application.asDirect().verifyNothingToRewrite(appView, lens);
+            appView.setVerticallyMergedClasses(verticalClassMerger.getMergedClasses());
+            application = application.asDirect().rewrittenWithLens(lens);
+            lens.initializeCacheForLookupMethodInAllContexts();
             appViewWithLiveness.setAppInfo(
                 appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
+            lens.unsetCacheForLookupMethodInAllContexts();
           }
           timing.end();
+        }
+        if (options.enableArgumentRemoval) {
+          SubtypingInfo subtypingInfo = appViewWithLiveness.appInfo().computeSubtypingInfo();
+          {
+            timing.begin("UnusedArgumentRemoval");
+            UnusedArgumentsGraphLense lens =
+                new UnusedArgumentsCollector(
+                        appViewWithLiveness,
+                        new MethodPoolCollection(appViewWithLiveness, subtypingInfo))
+                    .run(executorService, timing);
+            if (lens != null) {
+              boolean changed = appView.setGraphLense(lens);
+              assert changed;
+              assert application.asDirect().verifyNothingToRewrite(appView, lens);
+              appViewWithLiveness.setAppInfo(
+                  appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
+            }
+            timing.end();
+          }
+          if (options.enableUninstantiatedTypeOptimization) {
+            timing.begin("UninstantiatedTypeOptimization");
+            UninstantiatedTypeOptimizationGraphLense lens =
+                new UninstantiatedTypeOptimization(appViewWithLiveness)
+                    .run(
+                        new MethodPoolCollection(appViewWithLiveness, subtypingInfo),
+                        executorService,
+                        timing);
+            if (lens != null) {
+              boolean changed = appView.setGraphLense(lens);
+              assert changed;
+              assert application.asDirect().verifyNothingToRewrite(appView, lens);
+              appViewWithLiveness.setAppInfo(
+                  appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
+            }
+            timing.end();
+          }
         }
       }
 
@@ -594,7 +600,7 @@ public class R8 {
           appViewWithLiveness.appInfo().getEnumValueInfoMapCollection();
 
       if (!options.mainDexKeepRules.isEmpty()) {
-        appView.setAppInfo(new AppInfoWithSubtyping(application));
+        appView.setAppInfo(new AppInfoWithClassHierarchy(application));
         // No need to build a new main dex root set
         assert mainDexRootSet != null;
         GraphConsumer mainDexKeptGraphConsumer = options.mainDexKeptGraphConsumer;
@@ -605,7 +611,10 @@ public class R8 {
         }
 
         Enqueuer enqueuer =
-            EnqueuerFactory.createForMainDexTracing(appView, mainDexKeptGraphConsumer);
+            EnqueuerFactory.createForMainDexTracing(
+                appView,
+                new SubtypingInfo(application.allClasses(), application),
+                mainDexKeptGraphConsumer);
         // Find classes which may have code executed before secondary dex files installation.
         // Live types is the tracing result.
         Set<DexProgramClass> mainDexBaseClasses =
@@ -638,7 +647,7 @@ public class R8 {
             executorService);
       }
 
-      appView.setAppInfo(new AppInfoWithSubtyping(application));
+      appView.setAppInfo(new AppInfoWithClassHierarchy(application));
 
       if (options.shouldRerunEnqueuer()) {
         timing.begin("Post optimization code stripping");
@@ -654,7 +663,11 @@ public class R8 {
           }
 
           Enqueuer enqueuer =
-              EnqueuerFactory.createForFinalTreeShaking(appView, keptGraphConsumer, missingClasses);
+              EnqueuerFactory.createForFinalTreeShaking(
+                  appView,
+                  new SubtypingInfo(application.allClasses(), application),
+                  keptGraphConsumer,
+                  missingClasses);
           appView.setAppInfo(
               enqueuer
                   .traceApplication(
@@ -786,8 +799,6 @@ public class R8 {
         namingLens = NamingLens.getIdentityLens();
       }
 
-      ProguardMapSupplier proguardMapSupplier;
-
       timing.begin("Line number remapping");
       // When line number optimization is turned off the identity mapping for line numbers is
       // used. We still run the line number optimizer to collect line numbers and inline frame
@@ -795,7 +806,6 @@ public class R8 {
       ClassNameMapper classNameMapper =
           LineNumberOptimizer.run(appView, application, inputApp, namingLens);
       timing.end();
-      proguardMapSupplier = ProguardMapSupplier.fromClassNameMapper(classNameMapper, options);
 
       // If a method filter is present don't produce output since the application is likely partial.
       if (options.hasMethodsFilter()) {
@@ -846,7 +856,7 @@ public class R8 {
           appView.initClassLens(),
           PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView, namingLens),
           options,
-          proguardMapSupplier);
+          ProguardMapSupplier.create(classNameMapper, options));
 
       options.printWarnings();
     } catch (ExecutionException e) {
@@ -863,9 +873,10 @@ public class R8 {
   private AppView<AppInfoWithLiveness> runEnqueuer(
       AnnotationRemover.Builder annotationRemoverBuilder,
       ExecutorService executorService,
-      AppView<AppInfoWithSubtyping> appView)
+      AppView<AppInfoWithClassHierarchy> appView,
+      SubtypingInfo subtypingInfo)
       throws ExecutionException {
-    Enqueuer enqueuer = EnqueuerFactory.createForInitialTreeShaking(appView);
+    Enqueuer enqueuer = EnqueuerFactory.createForInitialTreeShaking(appView, subtypingInfo);
     enqueuer.setAnnotationRemoverBuilder(annotationRemoverBuilder);
     if (appView.options().enableInitializedClassesInInstanceMethodsAnalysis) {
       enqueuer.registerAnalysis(new InitializedClassesInInstanceMethodsAnalysis(appView));
@@ -897,7 +908,7 @@ public class R8 {
       RootSet rootSet,
       Supplier<Iterable<DexProgramClass>> classes,
       WhyAreYouKeepingConsumer whyAreYouKeepingConsumer,
-      AppView<? extends AppInfoWithSubtyping> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       Enqueuer enqueuer,
       boolean forMainDex,
       InternalOptions options,
@@ -921,11 +932,17 @@ public class R8 {
     // If there is no kept-graph info, re-run the enqueueing to compute it.
     if (whyAreYouKeepingConsumer == null) {
       whyAreYouKeepingConsumer = new WhyAreYouKeepingConsumer(null);
+      SubtypingInfo subtypingInfo =
+          new SubtypingInfo(appView.appInfo().app().asDirect().allClasses(), appView);
       if (forMainDex) {
-        enqueuer = EnqueuerFactory.createForMainDexTracing(appView, whyAreYouKeepingConsumer);
+        enqueuer =
+            EnqueuerFactory.createForMainDexTracing(
+                appView, subtypingInfo, whyAreYouKeepingConsumer);
         enqueuer.traceMainDex(rootSet, executorService, timing);
       } else {
-        enqueuer = EnqueuerFactory.createForWhyAreYouKeeping(appView, whyAreYouKeepingConsumer);
+        enqueuer =
+            EnqueuerFactory.createForWhyAreYouKeeping(
+                appView, subtypingInfo, whyAreYouKeepingConsumer);
         enqueuer.traceApplication(
             rootSet,
             options.getProguardConfiguration().getDontWarnPatterns(),

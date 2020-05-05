@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.optimize.inliner.InlinerUtils.addMonitorEnterValue;
 import static com.android.tools.r8.ir.optimize.inliner.InlinerUtils.collectAllMonitorEnterValues;
 
@@ -170,8 +171,12 @@ public final class DefaultInliningOracle implements InliningOracle, InliningStra
     if (options.featureSplitConfiguration != null
         && !options.featureSplitConfiguration.inSameFeatureOrBase(
             singleTarget.method, method.method)) {
-      whyAreYouNotInliningReporter.reportInliningAcrossFeatureSplit();
-      return false;
+      // Still allow inlining if we inline from the base into a feature.
+      DexClass clazz = asProgramClassOrNull(appView.definitionFor(singleTarget.method.holder));
+      if (!options.featureSplitConfiguration.isInBase(clazz.asProgramClass())) {
+        whyAreYouNotInliningReporter.reportInliningAcrossFeatureSplit();
+        return false;
+      }
     }
 
     Set<Reason> validInliningReasons = options.testing.validInliningReasons;
@@ -446,7 +451,7 @@ public final class DefaultInliningOracle implements InliningOracle, InliningStra
     // Allow inlining a constructor into a constructor of the same class, as the constructor code
     // is expected to adhere to the VM specification.
     DexType callerMethodHolder = method.holder();
-    DexType calleeMethodHolder = inlinee.method.holder();
+    DexType calleeMethodHolder = inlinee.method().holder();
     // Calling a constructor on the same class from a constructor can always be inlined.
     if (method.isInstanceInitializer() && callerMethodHolder == calleeMethodHolder) {
       return true;

@@ -6,7 +6,7 @@ package com.android.tools.r8.ir.code;
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 
 import com.android.tools.r8.errors.Unreachable;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -104,7 +104,7 @@ public class IRCode {
   // use odd instruction numbers for the insertion of moves during spilling.
   public static final int INSTRUCTION_NUMBER_DELTA = 2;
 
-  public final DexEncodedMethod method;
+  private final DexEncodedMethod method;
 
   public LinkedList<BasicBlock> blocks;
   public final ValueNumberGenerator valueNumberGenerator;
@@ -143,6 +143,10 @@ public class IRCode {
 
   public IRMetadata metadata() {
     return metadata;
+  }
+
+  public DexEncodedMethod method() {
+    return method;
   }
 
   public BasicBlock entryBlock() {
@@ -566,7 +570,8 @@ public class IRCode {
     return true;
   }
 
-  public boolean hasNoVerticallyMergedClasses(AppView<? extends AppInfoWithSubtyping> appView) {
+  public boolean hasNoVerticallyMergedClasses(
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
     VerticallyMergedClasses verticallyMergedClasses = appView.verticallyMergedClasses();
     if (verticallyMergedClasses == null) {
       return true;
@@ -783,7 +788,7 @@ public class IRCode {
     for (BasicBlock block : blocks) {
       assert block.consistentBlockInstructions(
           argumentsAllowed,
-          options.debug || method.getOptimizationInfo().isReachabilitySensitive());
+          options.debug || method().getOptimizationInfo().isReachabilitySensitive());
       argumentsAllowed = false;
     }
     return true;
@@ -1060,12 +1065,13 @@ public class IRCode {
       }
     }
     assert arguments.size()
-        == method.method.getArity() + ((method.accessFlags.isStatic() || ignoreReceiver) ? 0 : 1);
+        == method().method.getArity()
+            + ((method().accessFlags.isStatic() || ignoreReceiver) ? 0 : 1);
     return arguments;
   }
 
   public Value getThis() {
-    if (method.accessFlags.isStatic()) {
+    if (method().accessFlags.isStatic()) {
       return null;
     }
     Instruction firstArg = entryBlock().iterator().nextUntil(Instruction::isArgument);
@@ -1083,14 +1089,20 @@ public class IRCode {
     return createValue(typeLattice, null);
   }
 
+  public ConstNumber createNumberConstant(long value, TypeElement type) {
+    return createNumberConstant(value, type, null);
+  }
+
+  public ConstNumber createNumberConstant(long value, TypeElement type, DebugLocalInfo local) {
+    return new ConstNumber(createValue(type, local), value);
+  }
+
   public ConstNumber createDoubleConstant(double value, DebugLocalInfo local) {
-    Value out = createValue(TypeElement.getDouble(), local);
-    return new ConstNumber(out, Double.doubleToLongBits(value));
+    return createNumberConstant(Double.doubleToLongBits(value), TypeElement.getDouble(), local);
   }
 
   public ConstNumber createFloatConstant(float value, DebugLocalInfo local) {
-    Value out = createValue(TypeElement.getFloat(), local);
-    return new ConstNumber(out, Float.floatToIntBits(value));
+    return createNumberConstant(Float.floatToIntBits(value), TypeElement.getFloat(), local);
   }
 
   public ConstNumber createIntConstant(int value) {
@@ -1098,13 +1110,11 @@ public class IRCode {
   }
 
   public ConstNumber createIntConstant(int value, DebugLocalInfo local) {
-    Value out = createValue(TypeElement.getInt(), local);
-    return new ConstNumber(out, value);
+    return createNumberConstant(value, TypeElement.getInt(), local);
   }
 
   public ConstNumber createLongConstant(long value, DebugLocalInfo local) {
-    Value out = createValue(TypeElement.getLong(), local);
-    return new ConstNumber(out, value);
+    return createNumberConstant(value, TypeElement.getLong(), local);
   }
 
   public ConstString createStringConstant(AppView<?> appView, DexString value) {
@@ -1131,13 +1141,11 @@ public class IRCode {
   }
 
   public ConstNumber createConstNull() {
-    Value out = createValue(TypeElement.getNull());
-    return new ConstNumber(out, 0);
+    return createNumberConstant(0, TypeElement.getNull());
   }
 
   public ConstNumber createConstNull(DebugLocalInfo local) {
-    Value out = createValue(TypeElement.getNull(), local);
-    return new ConstNumber(out, 0);
+    return createNumberConstant(0, TypeElement.getNull(), local);
   }
 
   public boolean doAllThrowingInstructionsHavePositions() {

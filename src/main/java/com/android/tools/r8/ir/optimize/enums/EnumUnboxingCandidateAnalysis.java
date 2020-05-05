@@ -44,6 +44,9 @@ class EnumUnboxingCandidateAnalysis {
     }
     removeEnumsInAnnotations();
     removePinnedCandidates();
+    if (appView.options().protoShrinking().isProtoShrinkingEnabled()) {
+      enumToUnboxCandidates.remove(appView.protoShrinker().references.methodToInvokeType);
+    }
     return enumToUnboxCandidates;
   }
 
@@ -131,7 +134,8 @@ class EnumUnboxingCandidateAnalysis {
 
   private void removeEnumsInAnnotations() {
     for (DexProgramClass clazz : appView.appInfo().classes()) {
-      if (appView.appInfo().isSubtype(clazz.type, factory.annotationType)) {
+      if (clazz.isAnnotation()) {
+        assert clazz.interfaces.contains(appView.dexItemFactory().annotationType);
         removeEnumsInAnnotation(clazz);
       }
     }
@@ -141,12 +145,10 @@ class EnumUnboxingCandidateAnalysis {
     // Browse annotation values types in search for enum.
     // Each annotation value is represented by a virtual method.
     for (DexEncodedMethod method : clazz.virtualMethods()) {
-      DexProto proto = method.method.proto;
-      assert proto.parameters.isEmpty();
-      DexType valueType = proto.returnType.toBaseType(appView.appInfo().dexItemFactory());
-      if (valueType.isClassType()
-          && enumToUnboxCandidates.containsKey(valueType)
-          && appView.appInfo().isSubtype(valueType, appView.appInfo().dexItemFactory().enumType)) {
+      assert method.parameters().isEmpty()
+          || appView.options().testing.allowInjectedAnnotationMethods;
+      DexType valueType = method.returnType().toBaseType(appView.dexItemFactory());
+      if (enumToUnboxCandidates.containsKey(valueType)) {
         enumUnboxer.reportFailure(valueType, Reason.ANNOTATION);
         enumToUnboxCandidates.remove(valueType);
       }

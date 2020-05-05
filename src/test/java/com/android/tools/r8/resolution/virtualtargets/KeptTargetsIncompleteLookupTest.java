@@ -11,7 +11,7 @@ import static org.junit.Assert.fail;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -94,7 +94,7 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
     LookupResultSuccess lookupResultSuccess = lookupResult.asLookupResultSuccess();
     Set<String> targets = new HashSet<>();
     lookupResult.forEach(
-        target -> targets.add(target.getMethod().qualifiedName()), lambda -> fail());
+        target -> targets.add(target.getDefinition().qualifiedName()), lambda -> fail());
     Set<String> expected =
         expectedMethodHolders.stream()
             .map(c -> c.getTypeName() + ".foo")
@@ -227,11 +227,11 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
     //
     // ----- Program -----
     // B extends A { } <-- initial
-    AppView<AppInfoWithSubtyping> appView =
+    AppView<AppInfoWithClassHierarchy> appView =
         computeAppViewWithSubtyping(
             buildClasses(Collections.singletonList(B.class), Arrays.asList(A.class, I.class))
                 .build());
-    AppInfoWithSubtyping appInfo = appView.appInfo();
+    AppInfoWithClassHierarchy appInfo = appView.appInfo();
     DexMethod method = buildNullaryVoidMethod(B.class, "foo", appInfo.dexItemFactory());
     ResolutionResult resolutionResult = appInfo.resolveMethod(method.holder, method);
     DexType typeA = buildType(A.class, appInfo.dexItemFactory());
@@ -251,7 +251,7 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
     LookupResultSuccess lookupResultSuccess = lookupResult.asLookupResultSuccess();
     Set<String> targets = new HashSet<>();
     lookupResult.forEach(
-        target -> targets.add(target.getMethod().qualifiedName()), lambda -> fail());
+        target -> targets.add(target.getDefinition().qualifiedName()), lambda -> fail());
     Set<String> expected = ImmutableSet.of(A.class.getTypeName() + ".foo");
     assertEquals(expected, targets);
     assertTrue(lookupResultSuccess.isComplete());
@@ -274,7 +274,7 @@ public class KeptTargetsIncompleteLookupTest extends TestBase {
     LookupResultSuccess lookupResultSuccess = lookupResult.asLookupResultSuccess();
     Set<String> targets = new HashSet<>();
     lookupResult.forEach(
-        target -> targets.add(target.getMethod().qualifiedName()), lambda -> fail());
+        target -> targets.add(target.getDefinition().qualifiedName()), lambda -> fail());
     Set<String> expected = ImmutableSet.of(Unrelated.class.getTypeName() + ".foo");
     assertEquals(expected, targets);
     assertTrue(lookupResultSuccess.isIncomplete());

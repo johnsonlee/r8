@@ -64,7 +64,7 @@ public class Java11R8BootstrapTest extends TestBase {
   private static Path compileR8(boolean desugar) throws Exception {
     // Shrink R8 11 with R8
     return testForR8(TestBase.getStaticTemp(), Backend.CF)
-        .addProgramFiles(ToolHelper.R8_WITH_RELOCATED_DEPS_JAR_11)
+        .addProgramFiles(ToolHelper.R8_WITH_RELOCATED_DEPS_11_JAR)
         .addKeepRuleFiles(MAIN_KEEP)
         .addOptionsModification(
             options -> options.testing.enableForceNestBasedAccessDesugaringForTest = desugar)
@@ -75,16 +75,18 @@ public class Java11R8BootstrapTest extends TestBase {
 
   private static void assertNests(CodeInspector inspector, boolean desugar) {
     if (desugar) {
-      assertTrue(inspector.allClasses().stream().noneMatch(subj -> subj.getDexClass().isInANest()));
+      assertTrue(
+          inspector.allClasses().stream().noneMatch(subj -> subj.getDexProgramClass().isInANest()));
     } else {
-      assertTrue(inspector.allClasses().stream().anyMatch(subj -> subj.getDexClass().isInANest()));
+      assertTrue(
+          inspector.allClasses().stream().anyMatch(subj -> subj.getDexProgramClass().isInANest()));
     }
   }
 
   private Path[] jarsToCompare() {
     return new Path[] {
       ToolHelper.R8_WITH_RELOCATED_DEPS_JAR,
-      ToolHelper.R8_WITH_RELOCATED_DEPS_JAR_11,
+      ToolHelper.R8_WITH_RELOCATED_DEPS_11_JAR,
       r8Lib11NoDesugar,
       r8Lib11Desugar
     };

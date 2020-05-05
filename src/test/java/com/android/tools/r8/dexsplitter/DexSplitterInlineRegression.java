@@ -4,7 +4,10 @@
 
 package com.android.tools.r8.dexsplitter;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static junit.framework.TestCase.assertEquals;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
@@ -16,13 +19,13 @@ import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.ProcessResult;
+import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -46,15 +49,11 @@ public class DexSplitterInlineRegression extends SplitterTestBase {
 
   @Test
   public void testInliningFromFeature() throws Exception {
-    Predicate<R8TestCompileResult> ensureGetFromFeatureGone =
+    ThrowingConsumer<R8TestCompileResult, Exception> ensureGetFromFeatureGone =
         r8TestCompileResult -> {
           // Ensure that getFromFeature from FeatureClass is inlined into the run method.
-          try {
-            ClassSubject clazz = r8TestCompileResult.inspector().clazz(FeatureClass.class);
-            return clazz.uniqueMethodWithName("getFromFeature").isAbsent();
-          } catch (IOException | ExecutionException ex) {
-            throw new RuntimeException("Found getFromFeature in FeatureClass");
-          }
+          ClassSubject clazz = r8TestCompileResult.inspector().clazz(FeatureClass.class);
+          assertThat(clazz.uniqueMethodWithName("getFromFeature"), not(isPresent()));
         };
     Consumer<R8FullTestBuilder> configurator =
         r8FullTestBuilder -> r8FullTestBuilder.enableMergeAnnotations().noMinification();
@@ -83,8 +82,7 @@ public class DexSplitterInlineRegression extends SplitterTestBase {
             ImmutableSet.of(BaseSuperClass.class),
             ImmutableSet.of(FeatureClass.class),
             FeatureClass.class,
-            EXPECTED,
-            a -> true,
+            ConsumerUtils.emptyThrowingConsumer(),
             configurator);
 
     assertEquals(processResult.exitCode, 0);

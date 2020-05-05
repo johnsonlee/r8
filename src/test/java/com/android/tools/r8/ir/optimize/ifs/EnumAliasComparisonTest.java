@@ -44,7 +44,7 @@ public class EnumAliasComparisonTest extends TestBase {
         .compile()
         .inspect(this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutputLines("true");
+        .assertSuccessWithOutputLines("true", "false", "false", "true", "true", "false");
   }
 
   private void inspect(CodeInspector inspector) {
@@ -67,15 +67,20 @@ public class EnumAliasComparisonTest extends TestBase {
   static class TestClass {
 
     public static void main(String[] args) {
-      // Should print "true" since MyEnum.B is an alias of MyEnum.A.
+      System.out.println(MyEnum.A == MyEnum.A);
+      System.out.println(MyEnum.A != MyEnum.A);
       System.out.println(MyEnum.A == MyEnum.B);
+      System.out.println(MyEnum.A != MyEnum.B);
+      System.out.println(MyEnum.A == MyEnum.C);
+      System.out.println(MyEnum.A != MyEnum.C);
     }
   }
 
   enum MyEnum {
-    A;
+    A,
+    B;
 
     // Introduce an alias of MyEnum.A.
-    static MyEnum B = A;
+    static MyEnum C = A;
   }
 }

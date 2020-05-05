@@ -24,7 +24,6 @@ import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexAnnotation;
@@ -177,9 +176,9 @@ public class Enqueuer {
   private Set<EnqueuerInvokeAnalysis> invokeAnalyses = Sets.newIdentityHashSet();
 
   // Don't hold a direct pointer to app info (use appView).
-  private AppInfoWithSubtyping appInfo;
-  private final AppView<AppInfoWithSubtyping> appView;
-  private final SubtypingInfo subtypingInfo;
+  private AppInfoWithClassHierarchy appInfo;
+  private final AppView<AppInfoWithClassHierarchy> appView;
+  private SubtypingInfo subtypingInfo;
   private final InternalOptions options;
   private RootSet rootSet;
   private ProguardClassFilter dontWarnPatterns;
@@ -344,15 +343,15 @@ public class Enqueuer {
   private final Set<DexProgramClass> classesWithSerializableLambdas = Sets.newIdentityHashSet();
 
   Enqueuer(
-      AppView<? extends AppInfoWithSubtyping> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      SubtypingInfo subtypingInfo,
       GraphConsumer keptGraphConsumer,
       Mode mode) {
     assert appView.appServices() != null;
     InternalOptions options = appView.options();
     this.appInfo = appView.appInfo();
-    this.appView = appView.withSubtyping();
-    this.subtypingInfo =
-        new SubtypingInfo(appView.appInfo().app().asDirect().allClasses(), appView);
+    this.appView = appView.withClassHierarchy();
+    this.subtypingInfo = subtypingInfo;
     this.forceProguardCompatibility = options.forceProguardCompatibility;
     this.graphReporter = new GraphReporter(appView, keptGraphConsumer);
     this.mode = mode;
@@ -762,20 +761,10 @@ public class Enqueuer {
     DexProgramClass contextHolder = context.getHolder();
     LambdaDescriptor descriptor = LambdaDescriptor.tryInfer(callSite, appInfo, contextHolder);
     if (descriptor == null) {
-      if (!isStringConcat(callSite.bootstrapMethod)) {
-        if (options.reporter != null) {
-          Diagnostic message =
-              new StringDiagnostic(
-                  "Unknown bootstrap method " + callSite.bootstrapMethod, contextHolder.origin);
-          options.reporter.warning(message);
-        }
-      }
-
-      callSites.add(callSite);
       return;
     }
 
-    DexEncodedMethod contextMethod = context.getMethod();
+    DexEncodedMethod contextMethod = context.getDefinition();
     if (lambdaRewriter != null) {
       assert contextMethod.getCode().isCfCode() : "Unexpected input type with lambdas";
       CfCode code = contextMethod.getCode().asCfCode();
@@ -879,7 +868,7 @@ public class Enqueuer {
       initClassReferences.put(
           type, computeMinimumRequiredVisibilityForInitClassField(type, currentMethod.getHolder()));
 
-      markTypeAsLive(type, classReferencedFromReporter(currentMethod.getMethod()));
+      markTypeAsLive(type, classReferencedFromReporter(currentMethod.getDefinition()));
       markDirectAndIndirectClassInitializersAsLive(clazz);
       return true;
     }
@@ -956,7 +945,7 @@ public class Enqueuer {
 
   boolean traceInvokeDirect(DexMethod invokedMethod, ProgramMethod context) {
     DexProgramClass currentHolder = context.getHolder();
-    DexEncodedMethod currentMethod = context.getMethod();
+    DexEncodedMethod currentMethod = context.getDefinition();
     boolean skipTracing =
         registerDeferredActionForDeadProtoBuilder(
             invokedMethod.holder,
@@ -989,12 +978,12 @@ public class Enqueuer {
 
   boolean traceInvokeDirectFromLambda(DexMethod invokedMethod, ProgramMethod context) {
     return traceInvokeDirect(
-        invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context.getMethod()));
+        invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context.getDefinition()));
   }
 
   private boolean traceInvokeDirect(
       DexMethod invokedMethod, ProgramMethod context, KeepReason reason) {
-    DexEncodedMethod currentMethod = context.getMethod();
+    DexEncodedMethod currentMethod = context.getDefinition();
     if (!registerMethodWithTargetAndContext(directInvokes, invokedMethod, currentMethod)) {
       return false;
     }
@@ -1012,12 +1001,12 @@ public class Enqueuer {
 
   boolean traceInvokeInterfaceFromLambda(DexMethod invokedMethod, ProgramMethod context) {
     return traceInvokeInterface(
-        invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context.getMethod()));
+        invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context.getDefinition()));
   }
 
   private boolean traceInvokeInterface(
       DexMethod method, ProgramMethod context, KeepReason keepReason) {
-    DexEncodedMethod currentMethod = context.getMethod();
+    DexEncodedMethod currentMethod = context.getDefinition();
     if (!registerMethodWithTargetAndContext(interfaceInvokes, method, currentMethod)) {
       return false;
     }
@@ -1035,12 +1024,12 @@ public class Enqueuer {
 
   boolean traceInvokeStaticFromLambda(DexMethod invokedMethod, ProgramMethod context) {
     return traceInvokeStatic(
-        invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context.getMethod()));
+        invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context.getDefinition()));
   }
 
   private boolean traceInvokeStatic(
       DexMethod invokedMethod, ProgramMethod context, KeepReason reason) {
-    DexEncodedMethod currentMethod = context.getMethod();
+    DexEncodedMethod currentMethod = context.getDefinition();
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     if (dexItemFactory.classMethods.isReflectiveClassLookup(invokedMethod)
         || dexItemFactory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod)) {
@@ -1072,7 +1061,7 @@ public class Enqueuer {
   }
 
   boolean traceInvokeSuper(DexMethod invokedMethod, ProgramMethod context) {
-    DexEncodedMethod currentMethod = context.getMethod();
+    DexEncodedMethod currentMethod = context.getDefinition();
     // We have to revisit super invokes based on the context they are found in. The same
     // method descriptor will hit different targets, depending on the context it is used in.
     DexMethod actualTarget = getInvokeSuperTarget(invokedMethod, currentMethod);
@@ -1093,21 +1082,22 @@ public class Enqueuer {
 
   boolean traceInvokeVirtualFromLambda(DexMethod invokedMethod, ProgramMethod context) {
     return traceInvokeVirtual(
-        invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context.getMethod()));
+        invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context.getDefinition()));
   }
 
   private boolean traceInvokeVirtual(
       DexMethod invokedMethod, ProgramMethod context, KeepReason reason) {
     if (invokedMethod == appView.dexItemFactory().classMethods.newInstance
         || invokedMethod == appView.dexItemFactory().constructorMethods.newInstance) {
-      pendingReflectiveUses.add(context.getMethod());
+      pendingReflectiveUses.add(context.getDefinition());
     } else if (appView.dexItemFactory().classMethods.isReflectiveMemberLookup(invokedMethod)) {
       // Implicitly add -identifiernamestring rule for the Java reflection in use.
       identifierNameStrings.add(invokedMethod);
       // Revisit the current method to implicitly add -keep rule for items with reflective access.
-      pendingReflectiveUses.add(context.getMethod());
+      pendingReflectiveUses.add(context.getDefinition());
     }
-    if (!registerMethodWithTargetAndContext(virtualInvokes, invokedMethod, context.getMethod())) {
+    if (!registerMethodWithTargetAndContext(
+        virtualInvokes, invokedMethod, context.getDefinition())) {
       return false;
     }
     if (Log.ENABLED) {
@@ -1119,7 +1109,7 @@ public class Enqueuer {
   }
 
   boolean traceNewInstance(DexType type, ProgramMethod context) {
-    DexEncodedMethod currentMethod = context.getMethod();
+    DexEncodedMethod currentMethod = context.getDefinition();
     boolean skipTracing =
         registerDeferredActionForDeadProtoBuilder(
             type, currentMethod, () -> workList.enqueueTraceNewInstanceAction(type, context));
@@ -1140,7 +1130,7 @@ public class Enqueuer {
         type,
         context,
         InstantiationReason.LAMBDA,
-        KeepReason.invokedFromLambdaCreatedIn(context.getMethod()));
+        KeepReason.invokedFromLambdaCreatedIn(context.getDefinition()));
   }
 
   private boolean traceNewInstance(
@@ -1148,7 +1138,7 @@ public class Enqueuer {
       ProgramMethod context,
       InstantiationReason instantiationReason,
       KeepReason keepReason) {
-    DexEncodedMethod currentMethod = context.getMethod();
+    DexEncodedMethod currentMethod = context.getDefinition();
     DexProgramClass clazz = getProgramClassOrNull(type);
     if (clazz != null) {
       if (clazz.isAnnotation() || clazz.isInterface()) {
@@ -1938,12 +1928,6 @@ public class Enqueuer {
     for (DexType iface : descriptor.interfaces) {
       checkLambdaInterface(iface, context);
       objectAllocationInfoCollection.recordInstantiatedLambdaInterface(iface, descriptor, appInfo);
-      // TODO(b/150277553): Lambdas should be accurately traced and thus not be added here.
-      assert lambdaRewriter == null;
-      DexProgramClass clazz = getProgramClassOrNull(iface);
-      if (clazz != null) {
-        objectAllocationInfoCollection.recordInstantiatedInterface(clazz, appInfo);
-      }
     }
   }
 
@@ -2054,26 +2038,26 @@ public class Enqueuer {
     // The validity of the reachable method is checked at the point it becomes "reachable" and is
     // resolved. If the method is private, then the dispatch is not "virtual" and the method is
     // simply marked live on its holder.
-    if (resolutionMethod.getMethod().isPrivateMethod()) {
+    if (resolutionMethod.getDefinition().isPrivateMethod()) {
       markVirtualMethodAsLive(
           resolutionMethod.getHolder(),
-          resolutionMethod.getMethod(),
+          resolutionMethod.getDefinition(),
           graphReporter.reportReachableMethodAsLive(
-              resolutionMethod.getMethod().method, resolutionMethod));
+              resolutionMethod.getDefinition().method, resolutionMethod));
       return;
     }
     // Otherwise, we set the initial holder type to be the holder of the reachable method, which
     // ensures that access will be generally valid.
     SingleResolutionResult resolution =
         new SingleResolutionResult(
-            initialHolder, resolutionMethod.getHolder(), resolutionMethod.getMethod());
+            initialHolder, resolutionMethod.getHolder(), resolutionMethod.getDefinition());
     LookupTarget lookup = resolution.lookupVirtualDispatchTarget(instantiation, appInfo);
     if (lookup != null) {
       markVirtualDispatchTargetAsLive(
           lookup,
           programMethod ->
               graphReporter.reportReachableMethodAsLive(
-                  resolutionMethod.getMethod().method, programMethod));
+                  resolutionMethod.getDefinition().method, programMethod));
     }
   }
 
@@ -2131,7 +2115,7 @@ public class Enqueuer {
     if (instantiation.isClass()) {
       // TODO(b/149976493): We need to mark these for lambdas too!
       markOverridesAsLibraryMethodOverrides(
-          instantiation.asClass(), lookup.asMethodTarget().getMethod().method);
+          instantiation.asClass(), lookup.asMethodTarget().getDefinition().method);
     }
   }
 
@@ -2453,7 +2437,8 @@ public class Enqueuer {
     markMethodAsTargeted(resolvedHolder, resolvedMethod, reason);
 
     DexProgramClass context = contextOrNull == null ? null : contextOrNull.getHolder();
-    if (contextOrNull != null && !resolution.isAccessibleForVirtualDispatchFrom(context, appInfo)) {
+    if (contextOrNull != null
+        && resolution.isAccessibleForVirtualDispatchFrom(context, appInfo).isFalse()) {
       // Not accessible from this context, so this call will cause a runtime exception.
       return;
     }
@@ -2498,9 +2483,9 @@ public class Enqueuer {
   private void markVirtualDispatchTargetAsLive(
       DexClassAndMethod target, Function<ProgramMethod, KeepReasonWitness> reason) {
     ProgramMethod programMethod = target.asProgramMethod();
-    if (programMethod != null && !programMethod.getMethod().isAbstract()) {
+    if (programMethod != null && !programMethod.getDefinition().isAbstract()) {
       markVirtualMethodAsLive(
-          programMethod.getHolder(), programMethod.getMethod(), reason.apply(programMethod));
+          programMethod.getHolder(), programMethod.getDefinition(), reason.apply(programMethod));
     }
   }
 
@@ -2510,7 +2495,7 @@ public class Enqueuer {
     if (implementationMethod != null) {
       enqueueMarkMethodLiveAction(
           implementationMethod.getHolder(),
-          implementationMethod.getMethod(),
+          implementationMethod.getDefinition(),
           reason.apply(implementationMethod));
     }
   }
@@ -2678,14 +2663,14 @@ public class Enqueuer {
     }
 
     void addLiveMethod(ProgramMethod method) {
-      DexMethod signature = method.getMethod().method;
+      DexMethod signature = method.getDefinition().method;
       assert !liveMethods.containsKey(signature);
       liveMethods.put(signature, method);
     }
 
     void addLiveAndPinnedMethod(ProgramMethod method) {
       addLiveMethod(method);
-      pinnedMethods.add(method.getMethod().method);
+      pinnedMethods.add(method.getDefinition().method);
     }
 
     void amendApplication(Builder appBuilder) {
@@ -2714,9 +2699,9 @@ public class Enqueuer {
             fakeReason);
       }
       for (ProgramMethod liveMethod : liveMethods.values()) {
-        assert !enqueuer.targetedMethods.contains(liveMethod.getMethod());
+        assert !enqueuer.targetedMethods.contains(liveMethod.getDefinition());
         DexProgramClass holder = liveMethod.getHolder();
-        DexEncodedMethod method = liveMethod.getMethod();
+        DexEncodedMethod method = liveMethod.getDefinition();
         enqueuer.markMethodAsTargeted(holder, method, fakeReason);
         enqueuer.enqueueMarkMethodLiveAction(holder, method, fakeReason);
       }
@@ -2741,8 +2726,10 @@ public class Enqueuer {
     // Now all additions are computed, the application is atomically extended with those additions.
     Builder appBuilder = appInfo.app().asDirect().builder();
     additions.amendApplication(appBuilder);
-    appInfo = new AppInfoWithSubtyping(appBuilder.build());
+    DirectMappedDexApplication app = appBuilder.build();
+    appInfo = new AppInfoWithClassHierarchy(app);
     appView.setAppInfo(appInfo);
+    subtypingInfo = new SubtypingInfo(app.allClasses(), app);
 
     // Finally once all synthesized items "exist" it is now safe to continue tracing. The new work
     // items are enqueued and the fixed point will continue once this subroutine returns.
@@ -2752,7 +2739,7 @@ public class Enqueuer {
   private void synthesizeInterfaceMethodBridges(SyntheticAdditions additions) {
     for (ProgramMethod bridge : syntheticInterfaceMethodBridges.values()) {
       DexProgramClass holder = bridge.getHolder();
-      DexEncodedMethod method = bridge.getMethod();
+      DexEncodedMethod method = bridge.getDefinition();
       holder.addVirtualMethod(method);
       additions.addLiveAndPinnedMethod(bridge);
     }
@@ -2811,7 +2798,7 @@ public class Enqueuer {
     return true;
   }
 
-  private AppInfoWithLiveness createAppInfo(AppInfoWithSubtyping appInfo) {
+  private AppInfoWithLiveness createAppInfo(AppInfoWithClassHierarchy appInfo) {
     // Once all tracing is done, we generate accessor methods for lambdas.
     // These are assumed to be simple forwarding or access flag updates, thus no further tracing
     // is needed. These cannot be generated as part of lambda synthesis as changing a direct method
@@ -3127,7 +3114,7 @@ public class Enqueuer {
             }
           }
           ConsequentRootSetBuilder consequentSetBuilder =
-              new ConsequentRootSetBuilder(appView, this);
+              new ConsequentRootSetBuilder(appView, subtypingInfo, this);
           IfRuleEvaluator ifRuleEvaluator =
               new IfRuleEvaluator(
                   appView,
@@ -3239,7 +3226,7 @@ public class Enqueuer {
   }
 
   private ConsequentRootSet computeDelayedInterfaceMethodSyntheticBridges() {
-    RootSetBuilder builder = new RootSetBuilder(appView);
+    RootSetBuilder builder = new RootSetBuilder(appView, subtypingInfo);
     for (DelayedRootSetActionItem delayedRootSetActionItem : rootSet.delayedRootSetActionItems) {
       if (delayedRootSetActionItem.isInterfaceMethodSyntheticBridgeAction()) {
         handleInterfaceMethodSyntheticBridgeAction(
@@ -3255,17 +3242,17 @@ public class Enqueuer {
       InterfaceMethodSyntheticBridgeAction action, RootSetBuilder builder) {
     ProgramMethod methodToKeep = action.getMethodToKeep();
     ProgramMethod singleTarget = action.getSingleTarget();
-    DexEncodedMethod singleTargetMethod = singleTarget.getMethod();
+    DexEncodedMethod singleTargetMethod = singleTarget.getDefinition();
     if (rootSet.noShrinking.containsKey(singleTargetMethod.method)) {
       return;
     }
     if (methodToKeep != singleTarget) {
-      assert null == methodToKeep.getHolder().lookupMethod(methodToKeep.getMethod().method);
+      assert null == methodToKeep.getHolder().lookupMethod(methodToKeep.getDefinition().method);
       ProgramMethod old =
-          syntheticInterfaceMethodBridges.put(methodToKeep.getMethod().method, methodToKeep);
+          syntheticInterfaceMethodBridges.put(methodToKeep.getDefinition().method, methodToKeep);
       if (old == null) {
         if (singleTargetMethod.isLibraryMethodOverride().isTrue()) {
-          methodToKeep.getMethod().setLibraryMethodOverride(OptionalBool.TRUE);
+          methodToKeep.getDefinition().setLibraryMethodOverride(OptionalBool.TRUE);
         }
         DexProgramClass singleTargetHolder = singleTarget.getHolder();
         assert singleTargetHolder.isInterface();
@@ -3351,7 +3338,7 @@ public class Enqueuer {
       return false;
     }
     DexProgramClass clazz = programMethod.getHolder();
-    DexEncodedMethod method = programMethod.getMethod();
+    DexEncodedMethod method = programMethod.getDefinition();
     assert method.isVirtualMethod();
 
     if (method.isAbstract() || method.isPrivateMethod()) {

@@ -8,7 +8,6 @@ import static com.android.tools.r8.graph.GraphLense.rewriteReferenceKeys;
 import static com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult.isOverriding;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -71,7 +70,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Encapsulates liveness and reachability information for an application. */
-public class AppInfoWithLiveness extends AppInfoWithSubtyping implements InstantiatedSubTypeInfo {
+public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
+    implements InstantiatedSubTypeInfo {
   /** Set of reachable proto types that will be dead code eliminated. */
   private final Set<DexType> deadProtoTypes;
   /** Set of types that are mentioned in the program, but for which no definition exists. */
@@ -278,7 +278,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
   }
 
   public AppInfoWithLiveness(
-      AppInfoWithSubtyping appInfoWithSubtyping,
+      AppInfoWithClassHierarchy appInfoWithSubtyping,
       Set<DexType> deadProtoTypes,
       Set<DexType> missingTypes,
       Set<DexType> liveTypes,
@@ -1129,7 +1129,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
     SingleResolutionResult resolution =
         resolveMethod(initialResolutionHolder, method).asSingleResolution();
     if (resolution == null
-        || !resolution.isAccessibleForVirtualDispatchFrom(invocationClass, this)) {
+        || resolution.isAccessibleForVirtualDispatchFrom(invocationClass, this).isFalse()) {
       return null;
     }
     // If the method is modeled, return the resolution.
@@ -1158,7 +1158,8 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
     // TODO(b/148769279): Disable lookup single target on lambda's for now.
     if (resolvedHolder.isInterface()
         && resolvedHolder.isProgramClass()
-        && isInstantiatedInterface(resolvedHolder.asProgramClass())) {
+        && objectAllocationInfoCollection.isImmediateInterfaceOfInstantiatedLambda(
+            resolvedHolder.asProgramClass())) {
       singleTargetLookupCache.addToCache(refinedReceiverType, method, null);
       return null;
     }
@@ -1170,7 +1171,6 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
         refinedLowerBound = refinedLowerBoundClass.asProgramClass();
         // TODO(b/154822960): Check if the lower bound is a subtype of the upper bound.
         if (refinedLowerBound != null && !isSubtype(refinedLowerBound.type, refinedReceiverType)) {
-          // We cannot trust the lower bound, so null it out.
           refinedLowerBound = null;
         }
       }
@@ -1183,7 +1183,7 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
     if (lookupResult != null && !lookupResult.isIncomplete()) {
       LookupTarget singleTarget = lookupResult.getSingleLookupTarget();
       if (singleTarget != null && singleTarget.isMethodTarget()) {
-        singleMethodTarget = singleTarget.asMethodTarget().getMethod();
+        singleMethodTarget = singleTarget.asMethodTarget().getDefinition();
       }
     }
     if (receiverLowerBoundType == null) {
@@ -1205,11 +1205,11 @@ public class AppInfoWithLiveness extends AppInfoWithSubtyping implements Instant
       if (refinedReceiverClass.isProgramClass()) {
         DexClassAndMethod clazzAndMethod =
             resolution.lookupVirtualDispatchTarget(refinedReceiverClass.asProgramClass(), this);
-        if (clazzAndMethod == null || isPinned(clazzAndMethod.getMethod().method)) {
+        if (clazzAndMethod == null || isPinned(clazzAndMethod.getDefinition().method)) {
           // TODO(b/150640456): We should maybe only consider program methods.
           return DexEncodedMethod.SENTINEL;
         }
-        return clazzAndMethod.getMethod();
+        return clazzAndMethod.getDefinition();
       } else {
         // TODO(b/150640456): We should maybe only consider program methods.
         // If we resolved to a method on the refined receiver in the library, then we report the

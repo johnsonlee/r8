@@ -6,8 +6,10 @@ package com.android.tools.r8.kotlin;
 
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
+import com.android.tools.r8.utils.StringUtils;
 
 public class KotlinMetadataDiagnostic implements Diagnostic {
 
@@ -36,14 +38,39 @@ public class KotlinMetadataDiagnostic implements Diagnostic {
     return message;
   }
 
-  static KotlinMetadataDiagnostic messageInvalidUnderlyingType(DexClass clazz, String typeAlias) {
+  static KotlinMetadataDiagnostic missingCompanionObject(
+      DexClass clazz, String companionObjectName) {
     return new KotlinMetadataDiagnostic(
         clazz.getOrigin(),
         Position.UNKNOWN,
-        "The type alias "
-            + typeAlias
-            + " in class "
-            + clazz.type.getName()
-            + " has an invalid underlying type. The type-alias is removed from the output.");
+        "The companion object "
+            + companionObjectName
+            + " could not be found in class "
+            + clazz.type.getName());
+  }
+
+  static KotlinMetadataDiagnostic unknownClassifier(String classifier) {
+    return new KotlinMetadataDiagnostic(
+        Origin.unknown(),
+        Position.UNKNOWN,
+        "The classifier " + classifier + " is unknown and cannot be parsed");
+  }
+
+  static KotlinMetadataDiagnostic invalidMethodDescriptor(String nameAndDescriptor) {
+    return new KotlinMetadataDiagnostic(
+        Origin.unknown(),
+        Position.UNKNOWN,
+        "Invalid descriptor (deserialized from Kotlin @Metadata): " + nameAndDescriptor);
+  }
+
+  static KotlinMetadataDiagnostic unexpectedErrorWhenRewriting(DexType type, Throwable t) {
+    return new KotlinMetadataDiagnostic(
+        Origin.unknown(),
+        Position.UNKNOWN,
+        "Unexpected error during rewriting of Kotlin metadata for class '"
+            + type.toSourceString()
+            + "':"
+            + StringUtils.LINE_SEPARATOR
+            + StringUtils.stacktraceAsString(t));
   }
 }

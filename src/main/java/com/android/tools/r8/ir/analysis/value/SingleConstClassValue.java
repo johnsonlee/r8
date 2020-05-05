@@ -6,9 +6,9 @@ package com.android.tools.r8.ir.analysis.value;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.ir.analysis.type.TypeElement.classClassType;
-import static com.android.tools.r8.optimize.MemberRebindingAnalysis.isClassTypeVisibleFromContext;
 
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AccessControl;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexClass;
@@ -62,7 +62,9 @@ public class SingleConstClassValue extends SingleConstValue {
 
   @Override
   public Instruction createMaterializingInstruction(
-      AppView<? extends AppInfoWithSubtyping> appView, IRCode code, TypeAndLocalInfoSupplier info) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      IRCode code,
+      TypeAndLocalInfoSupplier info) {
     TypeElement typeLattice = info.getOutType();
     DebugLocalInfo debugLocalInfo = info.getLocalInfo();
     assert typeLattice.isClassType();
@@ -72,18 +74,22 @@ public class SingleConstClassValue extends SingleConstValue {
     Value returnedValue =
         code.createValue(classClassType(appView, definitelyNotNull()), debugLocalInfo);
     ConstClass instruction = new ConstClass(returnedValue, type);
-    assert !instruction.instructionMayHaveSideEffects(appView, code.method.holder());
+    assert !instruction.instructionMayHaveSideEffects(appView, code.method().holder());
     return instruction;
   }
 
   @Override
-  public boolean isMaterializableInContext(AppView<?> appView, DexType context) {
+  public boolean isMaterializableInContext(AppView<AppInfoWithLiveness> appView, DexType context) {
     DexType baseType = type.toBaseType(appView.dexItemFactory());
     if (baseType.isClassType()) {
       DexClass clazz = appView.definitionFor(type);
       return clazz != null
           && clazz.isResolvable(appView)
-          && isClassTypeVisibleFromContext(appView, context, clazz);
+          && AccessControl.isClassAccessible(
+                  clazz,
+                  appView.definitionFor(context).asProgramClass(),
+                  appView.options().featureSplitConfiguration)
+              .isTrue();
     }
     assert baseType.isPrimitiveType();
     return true;

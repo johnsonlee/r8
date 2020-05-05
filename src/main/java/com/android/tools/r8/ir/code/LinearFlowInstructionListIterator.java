@@ -4,11 +4,12 @@
 
 package com.android.tools.r8.ir.code;
 
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.ListIterator;
 import java.util.Set;
@@ -42,13 +43,9 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
   }
 
   @Override
-  public Value insertConstNullInstruction(IRCode code, InternalOptions options) {
-    return currentBlockIterator.insertConstNullInstruction(code, options);
-  }
-
-  @Override
-  public Value insertConstIntInstruction(IRCode code, InternalOptions options, int value) {
-    return currentBlockIterator.insertConstIntInstruction(code, options, value);
+  public Value insertConstNumberInstruction(
+      IRCode code, InternalOptions options, long value, TypeElement type) {
+    return currentBlockIterator.insertConstNumberInstruction(code, options, value, type);
   }
 
   @Override
@@ -70,7 +67,7 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
 
   @Override
   public void replaceCurrentInstructionWithThrowNull(
-      AppView<? extends AppInfoWithSubtyping> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       IRCode code,
       ListIterator<BasicBlock> blockIterator,
       Set<BasicBlock> blocksToRemove,

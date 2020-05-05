@@ -5,14 +5,15 @@
 package com.android.tools.r8.ir.analysis.value;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
-import static com.android.tools.r8.optimize.MemberRebindingAnalysis.isMemberVisibleFromOriginalContext;
 
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AccessControl;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.EnumValueInfoMapCollection.EnumValueInfoMap;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
@@ -23,11 +24,10 @@ import com.android.tools.r8.ir.code.TypeAndLocalInfoSupplier;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
-public class SingleFieldValue extends SingleValue {
+public abstract class SingleFieldValue extends SingleValue {
 
-  private final DexField field;
+  final DexField field;
 
-  /** Intentionally package private, use {@link AbstractValueFactory} instead. */
   SingleFieldValue(DexField field) {
     this.field = field;
   }
@@ -35,6 +35,8 @@ public class SingleFieldValue extends SingleValue {
   public DexField getField() {
     return field;
   }
+
+  public abstract ObjectState getState();
 
   public boolean mayHaveFinalizeMethodDirectlyOrIndirectly(AppView<AppInfoWithLiveness> appView) {
     DexType fieldType = field.type;
@@ -58,23 +60,16 @@ public class SingleFieldValue extends SingleValue {
   }
 
   @Override
-  public boolean equals(Object o) {
-    return this == o;
-  }
+  public abstract boolean equals(Object o);
 
   @Override
-  public int hashCode() {
-    return System.identityHashCode(this);
-  }
-
-  @Override
-  public String toString() {
-    return "SingleFieldValue(" + field.toSourceString() + ")";
-  }
+  public abstract int hashCode();
 
   @Override
   public Instruction createMaterializingInstruction(
-      AppView<? extends AppInfoWithSubtyping> appView, IRCode code, TypeAndLocalInfoSupplier info) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      IRCode code,
+      TypeAndLocalInfoSupplier info) {
     TypeElement type = TypeElement.fromDexType(field.type, maybeNull(), appView);
     assert type.lessThanOrEqual(info.getOutType(), appView);
     Value outValue = code.createValue(type, info.getLocalInfo());
@@ -82,10 +77,13 @@ public class SingleFieldValue extends SingleValue {
   }
 
   @Override
-  public boolean isMaterializableInContext(AppView<?> appView, DexType context) {
-    DexEncodedField encodedField = appView.appInfo().resolveField(field);
-    return isMemberVisibleFromOriginalContext(
-        appView, context, encodedField.holder(), encodedField.accessFlags);
+  public boolean isMaterializableInContext(AppView<AppInfoWithLiveness> appView, DexType context) {
+    return AccessControl.isFieldAccessible(
+            appView.appInfo().resolveField(field),
+            appView.definitionForHolder(field),
+            appView.definitionFor(context).asProgramClass(),
+            appView.appInfo())
+        .isTrue();
   }
 
   @Override
@@ -108,9 +106,15 @@ public class SingleFieldValue extends SingleValue {
 
   @Override
   public SingleValue rewrittenWithLens(AppView<AppInfoWithLiveness> appView, GraphLense lens) {
-    DexField rewrittenField = lens.lookupField(field);
-    assert !appView.unboxedEnums().containsEnum(field.holder)
-        || !appView.appInfo().resolveField(rewrittenField).accessFlags.isEnum();
-    return appView.abstractValueFactory().createSingleFieldValue(rewrittenField);
+    AbstractValueFactory factory = appView.abstractValueFactory();
+    EnumValueInfoMap unboxedEnumInfo = appView.unboxedEnums().getEnumValueInfoMap(field.type);
+    if (unboxedEnumInfo != null) {
+      // Return the ordinal of the unboxed enum.
+      assert unboxedEnumInfo.hasEnumValueInfo(field);
+      return factory.createSingleNumberValue(
+          unboxedEnumInfo.getEnumValueInfo(field).convertToInt());
+    }
+    return factory.createSingleFieldValue(
+        lens.lookupField(field), getState().rewrittenWithLens(appView, lens));
   }
 }

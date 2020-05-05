@@ -130,6 +130,11 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return new AppView<>(appInfo, WholeProgramOptimizations.OFF, options, mapper);
   }
 
+  public static <T extends AppInfo> AppView<T> createForRelocator(
+      T appInfo, InternalOptions options) {
+    return new AppView<>(appInfo, WholeProgramOptimizations.OFF, options);
+  }
+
   public AbstractValueFactory abstractValueFactory() {
     return abstractValueFactory;
   }
@@ -418,13 +423,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
         : null;
   }
 
-  @SuppressWarnings("unchecked")
-  public AppView<AppInfoWithSubtyping> withSubtyping() {
-    return appInfo.hasSubtyping()
-        ? (AppView<AppInfoWithSubtyping>) this
-        : null;
-  }
-
   public AppView<AppInfoWithLiveness> withLiveness() {
     @SuppressWarnings("unchecked")
     AppView<AppInfoWithLiveness> appViewWithLiveness = (AppView<AppInfoWithLiveness>) this;
@@ -432,8 +430,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   public OptionalBool isSubtype(DexType subtype, DexType supertype) {
-    return appInfo().hasSubtyping()
-        ? OptionalBool.of(appInfo().withSubtyping().isSubtype(subtype, supertype))
+    return appInfo().hasLiveness()
+        ? OptionalBool.of(appInfo().withLiveness().isSubtype(subtype, supertype))
         : OptionalBool.unknown();
   }
 }

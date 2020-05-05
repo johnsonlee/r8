@@ -7,7 +7,7 @@ package com.android.tools.r8.ir.optimize;
 import static com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization.Strategy.ALLOW_ARGUMENT_REMOVAL;
 import static com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization.Strategy.DISALLOW_ARGUMENT_REMOVAL;
 
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -351,7 +351,8 @@ public class UninstantiatedTypeOptimization {
         Instruction instruction = instructionIterator.next();
         if (instruction.throwsOnNullInput()) {
           Value couldBeNullValue = instruction.getNonNullInput();
-          if (isThrowNullCandidate(couldBeNullValue, instruction, appView, code.method.holder())) {
+          if (isThrowNullCandidate(
+              couldBeNullValue, instruction, appView, code.method().holder())) {
             if (instruction.isInstanceGet() || instruction.isInstancePut()) {
               ++numberOfInstanceGetOrInstancePutWithNullReceiver;
             } else if (instruction.isInvokeMethodWithReceiver()) {
@@ -403,7 +404,7 @@ public class UninstantiatedTypeOptimization {
   private static boolean isThrowNullCandidate(
       Value couldBeNullValue,
       Instruction current,
-      AppView<? extends AppInfoWithSubtyping> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       DexType context) {
     if (!couldBeNullValue.isAlwaysNull(appView)) {
       return false;
@@ -450,7 +451,7 @@ public class UninstantiatedTypeOptimization {
       IRCode code,
       AssumeDynamicTypeRemover assumeDynamicTypeRemover,
       Set<Value> affectedValues) {
-    DexType context = code.method.holder();
+    DexType context = code.method().holder();
     DexField field = instruction.getField();
     DexType fieldType = field.type;
     if (fieldType.isAlwaysNull(appView)) {
@@ -506,7 +507,7 @@ public class UninstantiatedTypeOptimization {
       AssumeDynamicTypeRemover assumeDynamicTypeRemover,
       Set<BasicBlock> blocksToBeRemoved,
       Set<Value> affectedValues) {
-    DexEncodedMethod target = invoke.lookupSingleTarget(appView, code.method.holder());
+    DexEncodedMethod target = invoke.lookupSingleTarget(appView, code.method().holder());
     if (target == null) {
       return;
     }

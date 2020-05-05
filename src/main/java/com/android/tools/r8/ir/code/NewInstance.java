@@ -165,7 +165,7 @@ public class NewInstance extends Instruction {
     }
 
     // Verify that the instruction does not lead to an IllegalAccessError.
-    if (appView.appInfo().hasSubtyping()
+    if (appView.appInfo().hasLiveness()
         && !isMemberVisibleFromOriginalContext(
             appView, context, definition.type, definition.accessFlags)) {
       return true;
@@ -196,7 +196,7 @@ public class NewInstance extends Instruction {
 
   @Override
   public boolean canBeDeadCode(AppView<?> appView, IRCode code) {
-    return !instructionMayHaveSideEffects(appView, code.method.holder());
+    return !instructionMayHaveSideEffects(appView, code.method().holder());
   }
 
   public void markNoSpilling() {

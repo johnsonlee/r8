@@ -167,7 +167,7 @@ public abstract class PrefixRewritingMapper {
     }
 
     private DexType lookup(DexType type, DexString prefixToMatch, Map<DexString, DexString> map) {
-      // TODO: We could use tries instead of looking-up everywhere.
+      // TODO(b/154800164): We could use tries instead of looking-up everywhere.
       for (DexString prefix : map.keySet()) {
         if (prefixToMatch.startsWith(prefix)) {
           DexString rewrittenTypeDescriptor =

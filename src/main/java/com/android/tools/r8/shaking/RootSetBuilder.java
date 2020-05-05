@@ -8,7 +8,7 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.BottomUpClassHierarchyTraversal;
 import com.android.tools.r8.graph.DexAnnotation;
@@ -77,7 +77,7 @@ import java.util.stream.Collectors;
 
 public class RootSetBuilder {
 
-  private final AppView<? extends AppInfoWithSubtyping> appView;
+  private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final SubtypingInfo subtypingInfo;
   private final DirectMappedDexApplication application;
   private final Iterable<? extends ProguardConfigurationRule> rules;
@@ -114,18 +114,19 @@ public class RootSetBuilder {
   private final Set<ProguardIfRule> ifRules = Sets.newIdentityHashSet();
 
   public RootSetBuilder(
-      AppView<? extends AppInfoWithSubtyping> appView,
-      DexApplication application,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      SubtypingInfo subtypingInfo,
       Iterable<? extends ProguardConfigurationRule> rules) {
     this.appView = appView;
-    this.application = application.asDirect();
-    this.subtypingInfo = new SubtypingInfo(this.application.allClasses(), this.application);
+    this.subtypingInfo = subtypingInfo;
+    this.application = appView.appInfo().app().asDirect();
     this.rules = rules;
     this.options = appView.options();
   }
 
-  public RootSetBuilder(AppView<? extends AppInfoWithSubtyping> appView) {
-    this(appView, appView.appInfo().app(), null);
+  public RootSetBuilder(
+      AppView<? extends AppInfoWithClassHierarchy> appView, SubtypingInfo subtypingInfo) {
+    this(appView, subtypingInfo, null);
   }
 
   void handleMatchedAnnotation(AnnotationMatchResult annotation) {
@@ -571,10 +572,10 @@ public class RootSetBuilder {
               resolutionResult.getResolvedHolder().asProgramClass(),
               resolutionResult.getResolvedMethod());
       ProgramMethod methodToKeep =
-          canInsertForwardingMethod(originalClazz, resolutionMethod.getMethod())
+          canInsertForwardingMethod(originalClazz, resolutionMethod.getDefinition())
               ? new ProgramMethod(
                   originalClazz,
-                  resolutionMethod.getMethod().toForwardingMethod(originalClazz, appView))
+                  resolutionMethod.getDefinition().toForwardingMethod(originalClazz, appView))
               : resolutionMethod;
 
       delayedRootSetActionItems.add(
@@ -591,9 +592,9 @@ public class RootSetBuilder {
                       rule);
                 }
                 DexDefinition precondition =
-                    testAndGetPrecondition(methodToKeep.getMethod(), preconditionSupplier);
+                    testAndGetPrecondition(methodToKeep.getDefinition(), preconditionSupplier);
                 rootSetBuilder.addItemToSets(
-                    methodToKeep.getMethod(), context, rule, precondition, ifRule);
+                    methodToKeep.getDefinition(), context, rule, precondition, ifRule);
               }));
     }
   }
@@ -604,7 +605,7 @@ public class RootSetBuilder {
   }
 
   private void markMatchingOverriddenMethods(
-      AppInfoWithSubtyping appInfoWithSubtyping,
+      AppInfoWithClassHierarchy appInfoWithSubtyping,
       DexClass clazz,
       Collection<ProguardMemberRule> memberKeepRules,
       ProguardConfigurationRule rule,

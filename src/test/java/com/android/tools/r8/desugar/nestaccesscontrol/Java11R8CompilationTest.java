@@ -41,14 +41,15 @@ public class Java11R8CompilationTest extends TestBase {
   private static final Path MAIN_KEEP = Paths.get("src/main/keep.txt");
 
   private static void assertNoNests(CodeInspector inspector) {
-    assertTrue(inspector.allClasses().stream().noneMatch(subj -> subj.getDexClass().isInANest()));
+    assertTrue(
+        inspector.allClasses().stream().noneMatch(subj -> subj.getDexProgramClass().isInANest()));
   }
 
   @Test
   public void testR8CompiledWithR8() throws Exception {
     testForR8(parameters.getBackend())
         .setMinApi(parameters.getApiLevel())
-        .addProgramFiles(ToolHelper.R8_WITH_RELOCATED_DEPS_JAR_11)
+        .addProgramFiles(ToolHelper.R8_WITH_RELOCATED_DEPS_11_JAR)
         .addKeepRuleFiles(MAIN_KEEP)
         .addOptionsModification(opt -> opt.ignoreMissingClasses = true)
         .allowDiagnosticWarningMessages()

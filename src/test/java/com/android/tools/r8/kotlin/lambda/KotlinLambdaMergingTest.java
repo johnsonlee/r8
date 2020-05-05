@@ -42,7 +42,6 @@ public class KotlinLambdaMergingTest extends AbstractR8KotlinTestBase {
   private Consumer<InternalOptions> getOptionsModifier() {
     return opts -> {
       opts.enableClassInlining = false;
-      opts.enableUnusedArgumentRemoval = false;
       // The test checks that the generated lambdas inherit from Function, which is not true if
       // the unused interface removal is enabled.
       opts.enableUnusedInterfaceRemoval = enableUnusedInterfaceRemoval;
@@ -183,16 +182,17 @@ public class KotlinLambdaMergingTest extends AbstractR8KotlinTestBase {
     }
 
     private void initGroupsAndLambdas() {
-      codeInspector.forAllClasses(clazz -> {
-        DexClass dexClass = clazz.getDexClass();
-        if (isLambdaOrGroup(dexClass)) {
-          if (isLambdaGroupClass(dexClass)) {
-            groups.add(dexClass);
-          } else {
-            lambdas.add(dexClass);
-          }
-        }
-      });
+      codeInspector.forAllClasses(
+          clazz -> {
+            DexClass dexClass = clazz.getDexProgramClass();
+            if (isLambdaOrGroup(dexClass)) {
+              if (isLambdaGroupClass(dexClass)) {
+                groups.add(dexClass);
+              } else {
+                lambdas.add(dexClass);
+              }
+            }
+          });
     }
 
     void assertLambdaGroups(Group... groups) {
@@ -303,6 +303,7 @@ public class KotlinLambdaMergingTest extends AbstractR8KotlinTestBase {
     runTest(
         "lambdas_kstyle_trivial",
         mainClassName,
+        "-keepunusedarguments class * extends kotlin.jvm.internal.Lambda { invoke(int, short); }",
         getOptionsModifier(),
         app -> {
           if (enableUnusedInterfaceRemoval) {

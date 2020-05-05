@@ -5,11 +5,12 @@
 package com.android.tools.r8.ir.code;
 
 import com.android.tools.r8.errors.Unimplemented;
-import com.android.tools.r8.graph.AppInfoWithSubtyping;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.Sets;
 import java.util.ListIterator;
@@ -61,9 +62,17 @@ public interface InstructionListIterator
     // Intentionally empty.
   }
 
-  Value insertConstNullInstruction(IRCode code, InternalOptions options);
+  default Value insertConstNullInstruction(IRCode code, InternalOptions options) {
+    return insertConstNumberInstruction(code, options, 0, TypeElement.getNull());
+  }
 
-  Value insertConstIntInstruction(IRCode code, InternalOptions options, int value);
+  default Value insertConstIntInstruction(IRCode code, InternalOptions options, int value) {
+    return insertConstNumberInstruction(code, options, value, TypeElement.getInt());
+  }
+
+  // This method can be used for any numeric constant, but also for null (value 0, null type).
+  Value insertConstNumberInstruction(
+      IRCode code, InternalOptions options, long value, TypeElement type);
 
   Value insertConstStringInstruction(AppView<?> appView, IRCode code, DexString value);
 
@@ -75,7 +84,7 @@ public interface InstructionListIterator
   /**
    * Replace the current instruction with null throwing instructions.
    *
-   * @param appView with subtype info through which we can test if the guard is subtype of NPE.
+   * @param appView with hierarchy info through which we can test if the guard is subtype of NPE.
    * @param code the IR code for the block this iterator originates from.
    * @param blockIterator basic block iterator used to iterate the blocks.
    * @param blocksToRemove set passed where blocks that were detached from the graph, but not
@@ -87,7 +96,7 @@ public interface InstructionListIterator
    * @param affectedValues set passed where values depending on detached blocks will be added.
    */
   void replaceCurrentInstructionWithThrowNull(
-      AppView<? extends AppInfoWithSubtyping> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       IRCode code,
       ListIterator<BasicBlock> blockIterator,
       Set<BasicBlock> blocksToRemove,
