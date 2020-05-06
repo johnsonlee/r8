@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.optimize.staticizer;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
 
 import com.android.tools.r8.graph.AppView;
@@ -17,6 +18,7 @@ import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
@@ -36,10 +38,11 @@ import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization.Cla
 import com.android.tools.r8.ir.optimize.CodeRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.staticizer.ClassStaticizer.CandidateInfo;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.TraversalContinuation;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -66,13 +69,15 @@ final class StaticizingProcessor {
   private final ClassStaticizer classStaticizer;
   private final IRConverter converter;
 
+  private final ProgramMethodSet methodsToReprocess = ProgramMethodSet.create();
+
   // Optimization order matters, hence a collection that preserves orderings.
   private final Map<DexEncodedMethod, ImmutableList.Builder<BiConsumer<IRCode, MethodProcessor>>>
       processingQueue = new IdentityHashMap<>();
 
-  private final Set<DexEncodedMethod> referencingExtraMethods = Sets.newIdentityHashSet();
+  private final ProgramMethodSet referencingExtraMethods = ProgramMethodSet.create();
   private final Map<DexEncodedMethod, CandidateInfo> hostClassInits = new IdentityHashMap<>();
-  private final Set<DexEncodedMethod> methodsToBeStaticized = Sets.newIdentityHashSet();
+  private final ProgramMethodSet methodsToBeStaticized = ProgramMethodSet.create();
   private final Map<DexField, CandidateInfo> singletonFields = new IdentityHashMap<>();
   private final Map<DexMethod, CandidateInfo> singletonGetters = new IdentityHashMap<>();
   private final Map<DexType, DexType> candidateToHostMapping = new IdentityHashMap<>();
@@ -89,14 +94,21 @@ final class StaticizingProcessor {
   final void run(OptimizationFeedback feedback, ExecutorService executorService)
       throws ExecutionException {
     // Filter out candidates based on the information we collected while examining methods.
-    finalEligibilityCheck();
+    Map<CandidateInfo, ProgramMethodSet> materializedReferencedFromCollections =
+        finalEligibilityCheck();
 
     // Prepare interim data.
-    prepareCandidates();
+    prepareCandidates(materializedReferencedFromCollections);
 
     // Enqueue all host class initializers (only remove instantiations).
+    ProgramMethodSet hostClassInitMethods = ProgramMethodSet.create();
+    hostClassInits
+        .values()
+        .forEach(
+            candidateInfo ->
+                hostClassInitMethods.add(candidateInfo.hostClass().getProgramClassInitializer()));
     enqueueMethodsWithCodeOptimizations(
-        hostClassInits.keySet(),
+        hostClassInitMethods,
         optimizations ->
             optimizations
                 .add(this::removeCandidateInstantiation)
@@ -114,13 +126,13 @@ final class StaticizingProcessor {
 
     // TODO(b/140767158): Merge the remaining part below.
     // Convert instance methods into static methods with an extra parameter.
-    Set<DexEncodedMethod> methods = staticizeMethodSymbols();
+    ProgramMethodSet methods = staticizeMethodSymbols();
 
     // Process all other methods that may reference singleton fields and call methods on them.
     // (Note that we exclude the former instance methods, but include new static methods created as
     // a result of staticizing.)
     methods.addAll(referencingExtraMethods);
-    methods.addAll(hostClassInits.keySet());
+    methods.addAll(hostClassInitMethods);
     enqueueMethodsWithCodeOptimizations(
         methods,
         optimizations ->
@@ -131,13 +143,17 @@ final class StaticizingProcessor {
 
     // Process queued methods with associated optimizations
     processMethodsConcurrently(feedback, executorService);
+
+    // Clear all candidate information now that all candidates have been staticized.
+    classStaticizer.candidates.clear();
   }
 
-  private void finalEligibilityCheck() {
+  private Map<CandidateInfo, ProgramMethodSet> finalEligibilityCheck() {
+    Map<CandidateInfo, ProgramMethodSet> materializedReferencedFromCollections =
+        new IdentityHashMap<>();
     Set<Phi> visited = Sets.newIdentityHashSet();
     Set<Phi> trivialPhis = Sets.newIdentityHashSet();
-    Iterator<Entry<DexType, CandidateInfo>> it =
-        classStaticizer.candidates.entrySet().iterator();
+    Iterator<Entry<DexType, CandidateInfo>> it = classStaticizer.candidates.entrySet().iterator();
     while (it.hasNext()) {
       Entry<DexType, CandidateInfo> entry = it.next();
       DexType candidateType = entry.getKey();
@@ -185,33 +201,41 @@ final class StaticizingProcessor {
       }
 
       // CHECK: references to 'this' in instance methods are fixable.
-      boolean fixableThisPointer = true;
-      for (DexEncodedMethod method : candidateClass.methods()) {
-        if (method.isStatic() || factory().isConstructor(method.method)) {
-          continue;
-        }
-        IRCode code = method.buildIR(appView, appView.appInfo().originFor(method.holder()));
-        assert code != null;
-        Value thisValue = code.getThis();
-        assert thisValue != null;
-        visited.clear();
-        trivialPhis.clear();
-        boolean onlyHasTrivialPhis = testAndCollectPhisComposedOfThis(
-            visited, thisValue.uniquePhiUsers(), thisValue, trivialPhis);
-        if (thisValue.hasPhiUsers() && !onlyHasTrivialPhis) {
-          fixableThisPointer = false;
-          break;
-        }
-      }
-      if (!fixableThisPointer) {
+      TraversalContinuation fixableThisPointer =
+          candidateClass.traverseProgramMethods(
+              method -> {
+                IRCode code = method.buildIR(appView);
+                assert code != null;
+                Value thisValue = code.getThis();
+                assert thisValue != null;
+                visited.clear();
+                trivialPhis.clear();
+                boolean onlyHasTrivialPhis =
+                    testAndCollectPhisComposedOfThis(
+                        visited, thisValue.uniquePhiUsers(), thisValue, trivialPhis);
+                if (thisValue.hasPhiUsers() && !onlyHasTrivialPhis) {
+                  return TraversalContinuation.BREAK;
+                }
+                return TraversalContinuation.CONTINUE;
+              },
+              definition -> !definition.isStatic() && !definition.isInstanceInitializer());
+      if (fixableThisPointer.shouldBreak()) {
         it.remove();
         continue;
       }
 
+      ProgramMethodSet referencedFrom;
+      if (classStaticizer.referencedFrom.containsKey(info)) {
+        referencedFrom = classStaticizer.referencedFrom.remove(info).build(appView);
+        materializedReferencedFromCollections.put(info, referencedFrom);
+      } else {
+        referencedFrom = ProgramMethodSet.empty();
+      }
+
       // CHECK: references to field read usages are fixable.
       boolean fixableFieldReads = true;
-      for (DexEncodedMethod method : info.referencedFrom) {
-        IRCode code = method.buildIR(appView, appView.appInfo().originFor(method.holder()));
+      for (ProgramMethod method : referencedFrom) {
+        IRCode code = method.buildIR(appView);
         assert code != null;
         List<Instruction> singletonUsers =
             Streams.stream(code.instructionIterator())
@@ -258,9 +282,11 @@ final class StaticizingProcessor {
         continue;
       }
     }
+    return materializedReferencedFromCollections;
   }
 
-  private void prepareCandidates() {
+  private void prepareCandidates(
+      Map<CandidateInfo, ProgramMethodSet> materializedReferencedFromCollections) {
     Set<DexEncodedMethod> removedInstanceMethods = Sets.newIdentityHashSet();
 
     for (CandidateInfo candidate : classStaticizer.candidates.values()) {
@@ -273,40 +299,46 @@ final class StaticizingProcessor {
       assert previous == null;
 
       // Collect instance methods to be staticized.
-      for (DexEncodedMethod method : candidateClass.methods()) {
-        if (!method.isStatic()) {
-          removedInstanceMethods.add(method);
-          if (!factory().isConstructor(method.method)) {
-            methodsToBeStaticized.add(method);
-          }
-        }
-      }
+      candidateClass.forEachProgramMethodMatching(
+          definition -> {
+            if (!definition.isStatic()) {
+              removedInstanceMethods.add(definition);
+              return !definition.isInstanceInitializer();
+            }
+            return false;
+          },
+          methodsToBeStaticized::add);
       singletonFields.put(candidate.singletonField.field, candidate);
       DexEncodedMethod getter = candidate.getter.get();
       if (getter != null) {
         singletonGetters.put(getter.method, candidate);
       }
-      assert validMethods(candidate.referencedFrom);
-      referencingExtraMethods.addAll(candidate.referencedFrom);
+      ProgramMethodSet referencedFrom =
+          materializedReferencedFromCollections.getOrDefault(candidate, ProgramMethodSet.empty());
+      assert validMethods(referencedFrom);
+      referencingExtraMethods.addAll(referencedFrom);
     }
 
-    referencingExtraMethods.removeAll(removedInstanceMethods);
+    removedInstanceMethods.forEach(referencingExtraMethods::remove);
   }
 
-  private boolean validMethods(Set<DexEncodedMethod> referencedFrom) {
-    for (DexEncodedMethod dexEncodedMethod : referencedFrom) {
-      DexClass clazz = appView.definitionForHolder(dexEncodedMethod.method);
+  private boolean validMethods(ProgramMethodSet referencedFrom) {
+    for (ProgramMethod method : referencedFrom) {
+      DexClass clazz = appView.definitionForHolder(method.getReference());
       assert clazz != null;
-      assert clazz.lookupMethod(dexEncodedMethod.method) == dexEncodedMethod;
+      assert clazz.lookupMethod(method.getReference()) == method.getDefinition();
     }
     return true;
   }
 
   private void enqueueMethodsWithCodeOptimizations(
-      Iterable<DexEncodedMethod> methods,
+      Iterable<ProgramMethod> methods,
       Consumer<ImmutableList.Builder<BiConsumer<IRCode, MethodProcessor>>> extension) {
-    for (DexEncodedMethod method : methods) {
-      extension.accept(processingQueue.computeIfAbsent(method, ignore -> ImmutableList.builder()));
+    for (ProgramMethod method : methods) {
+      methodsToReprocess.add(method);
+      extension.accept(
+          processingQueue.computeIfAbsent(
+              method.getDefinition(), ignore -> ImmutableList.builder()));
     }
   }
 
@@ -322,24 +354,27 @@ final class StaticizingProcessor {
    */
   private void processMethodsConcurrently(
       OptimizationFeedback feedback, ExecutorService executorService) throws ExecutionException {
-    Set<DexEncodedMethod> wave = processingQueue.keySet();
-    OneTimeMethodProcessor methodProcessor = OneTimeMethodProcessor.getInstance(wave);
+    OneTimeMethodProcessor methodProcessor = OneTimeMethodProcessor.getInstance(methodsToReprocess);
     methodProcessor.forEachWave(
         method ->
-            forEachMethod(method, processingQueue.get(method).build(), feedback, methodProcessor),
+            forEachMethod(
+                method,
+                processingQueue.get(method.getDefinition()).build(),
+                feedback,
+                methodProcessor),
         executorService);
     // TODO(b/140767158): No need to clear if we can do every thing in one go.
+    methodsToReprocess.clear();
     processingQueue.clear();
   }
 
   // TODO(b/140766440): Should be part or variant of PostProcessor.
   private void forEachMethod(
-      DexEncodedMethod method,
+      ProgramMethod method,
       Collection<BiConsumer<IRCode, MethodProcessor>> codeOptimizations,
       OptimizationFeedback feedback,
       OneTimeMethodProcessor methodProcessor) {
-    Origin origin = appView.appInfo().originFor(method.holder());
-    IRCode code = method.buildIR(appView, origin);
+    IRCode code = method.buildIR(appView);
     codeOptimizations.forEach(codeOptimization -> codeOptimization.accept(code, methodProcessor));
     CodeRewriter.removeAssumeInstructions(appView, code);
     converter.removeDeadCodeAndFinalizeIR(method, code, feedback, Timing.empty());
@@ -686,11 +721,11 @@ final class StaticizingProcessor {
     return field;
   }
 
-  private Set<DexEncodedMethod> staticizeMethodSymbols() {
+  private ProgramMethodSet staticizeMethodSymbols() {
     BiMap<DexMethod, DexMethod> methodMapping = HashBiMap.create();
     BiMap<DexField, DexField> fieldMapping = HashBiMap.create();
 
-    Set<DexEncodedMethod> staticizedMethods = Sets.newIdentityHashSet();
+    ProgramMethodSet staticizedMethods = ProgramMethodSet.create();
     for (CandidateInfo candidate : classStaticizer.candidates.values()) {
       DexProgramClass candidateClass = candidate.candidate;
 
@@ -702,7 +737,7 @@ final class StaticizingProcessor {
         } else if (!factory().isConstructor(method.method)) {
           DexEncodedMethod staticizedMethod = method.toStaticMethodWithoutThis();
           newDirectMethods.add(staticizedMethod);
-          staticizedMethods.add(staticizedMethod);
+          staticizedMethods.createAndAdd(candidateClass, staticizedMethod);
           methodMapping.put(method.method, staticizedMethod.method);
         }
       }
@@ -712,7 +747,7 @@ final class StaticizingProcessor {
       // Consider moving static members from candidate into host.
       DexType hostType = candidate.hostType();
       if (candidateClass.type != hostType) {
-        DexClass hostClass = appView.definitionFor(hostType);
+        DexProgramClass hostClass = asProgramClassOrNull(appView.definitionFor(hostType));
         assert hostClass != null;
         if (!classMembersConflict(candidateClass, hostClass)) {
           // Move all members of the candidate class into host class.
@@ -736,9 +771,10 @@ final class StaticizingProcessor {
   }
 
   private void moveMembersIntoHost(
-      Set<DexEncodedMethod> staticizedMethods,
+      ProgramMethodSet staticizedMethods,
       DexProgramClass candidateClass,
-      DexType hostType, DexClass hostClass,
+      DexType hostType,
+      DexProgramClass hostClass,
       BiMap<DexMethod, DexMethod> methodMapping,
       BiMap<DexField, DexField> fieldMapping) {
     candidateToHostMapping.put(candidateClass.type, hostType);
@@ -787,7 +823,7 @@ final class StaticizingProcessor {
         if (staticizedMethods.remove(method)) {
           // Properly update staticized methods to reprocess, i.e., add the corresponding one that
           // has just been migrated to the host class.
-          staticizedMethods.add(newMethod);
+          staticizedMethods.createAndAdd(hostClass, newMethod);
         }
         DexMethod originalMethod = methodMapping.inverse().get(method.method);
         if (originalMethod == null) {

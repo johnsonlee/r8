@@ -5,6 +5,8 @@ package com.android.tools.r8.graph;
 
 import static com.android.tools.r8.graph.DexCode.FAKE_THIS_PREFIX;
 import static com.android.tools.r8.graph.DexCode.FAKE_THIS_SUFFIX;
+import static org.objectweb.asm.Opcodes.V1_5;
+import static org.objectweb.asm.Opcodes.V1_6;
 
 import com.android.tools.r8.cf.CfPrinter;
 import com.android.tools.r8.cf.code.CfFrame;
@@ -211,8 +213,8 @@ public class CfCode extends Code {
     }
     for (CfInstruction instruction : instructions) {
       if (instruction instanceof CfFrame
-          && (classFileVersion <= 49
-          || (classFileVersion == 50 && !options.shouldKeepStackMapTable()))) {
+          && (classFileVersion <= V1_5
+              || (classFileVersion == V1_6 && !options.shouldKeepStackMapTable()))) {
         continue;
       }
       instruction.write(visitor, initClassLens, namingLens);
@@ -287,15 +289,14 @@ public class CfCode extends Code {
   }
 
   @Override
-  public IRCode buildIR(DexEncodedMethod encodedMethod, AppView<?> appView, Origin origin) {
-    return internalBuildPossiblyWithLocals(
-        encodedMethod, encodedMethod, appView, null, null, origin, null);
+  public IRCode buildIR(ProgramMethod method, AppView<?> appView, Origin origin) {
+    return internalBuildPossiblyWithLocals(method, method, appView, null, null, origin, null);
   }
 
   @Override
   public IRCode buildInliningIR(
-      DexEncodedMethod context,
-      DexEncodedMethod encodedMethod,
+      ProgramMethod context,
+      ProgramMethod method,
       AppView<?> appView,
       ValueNumberGenerator valueNumberGenerator,
       Position callerPosition,
@@ -304,29 +305,23 @@ public class CfCode extends Code {
     assert valueNumberGenerator != null;
     assert callerPosition != null;
     return internalBuildPossiblyWithLocals(
-        context,
-        encodedMethod,
-        appView,
-        valueNumberGenerator,
-        callerPosition,
-        origin,
-        methodProcessor);
+        context, method, appView, valueNumberGenerator, callerPosition, origin, methodProcessor);
   }
 
   // First build entry. Will either strip locals or build with locals.
   private IRCode internalBuildPossiblyWithLocals(
-      DexEncodedMethod context,
-      DexEncodedMethod encodedMethod,
+      ProgramMethod context,
+      ProgramMethod method,
       AppView<?> appView,
       ValueNumberGenerator generator,
       Position callerPosition,
       Origin origin,
       MethodProcessor methodProcessor) {
-    if (!encodedMethod.keepLocals(appView.options())) {
+    if (!method.getDefinition().keepLocals(appView.options())) {
       return internalBuild(
           Collections.emptyList(),
           context,
-          encodedMethod,
+          method,
           appView,
           generator,
           callerPosition,
@@ -334,14 +329,14 @@ public class CfCode extends Code {
           methodProcessor);
     } else {
       return internalBuildWithLocals(
-          context, encodedMethod, appView, generator, callerPosition, origin, methodProcessor);
+          context, method, appView, generator, callerPosition, origin, methodProcessor);
     }
   }
 
   // When building with locals, on invalid debug info, retry build without locals info.
   private IRCode internalBuildWithLocals(
-      DexEncodedMethod context,
-      DexEncodedMethod encodedMethod,
+      ProgramMethod context,
+      ProgramMethod method,
       AppView<?> appView,
       ValueNumberGenerator generator,
       Position callerPosition,
@@ -351,18 +346,18 @@ public class CfCode extends Code {
       return internalBuild(
           Collections.unmodifiableList(localVariables),
           context,
-          encodedMethod,
+          method,
           appView,
           generator,
           callerPosition,
           origin,
           methodProcessor);
     } catch (InvalidDebugInfoException e) {
-      appView.options().warningInvalidDebugInfo(encodedMethod, origin, e);
+      appView.options().warningInvalidDebugInfo(method, origin, e);
       return internalBuild(
           Collections.emptyList(),
           context,
-          encodedMethod,
+          method,
           appView,
           generator,
           callerPosition,
@@ -374,8 +369,8 @@ public class CfCode extends Code {
   // Inner-most subroutine for building. Must only be called by the two internalBuildXYZ above.
   private IRCode internalBuild(
       List<LocalVariableInfo> localVariables,
-      DexEncodedMethod context,
-      DexEncodedMethod encodedMethod,
+      ProgramMethod context,
+      ProgramMethod method,
       AppView<?> appView,
       ValueNumberGenerator generator,
       Position callerPosition,
@@ -385,22 +380,32 @@ public class CfCode extends Code {
         new CfSourceCode(
             this,
             localVariables,
-            encodedMethod,
-            appView.graphLense().getOriginalMethodSignature(encodedMethod.method),
+            method,
+            appView.graphLense().getOriginalMethodSignature(method.getReference()),
             callerPosition,
             origin,
             appView);
-    IRBuilder builder = methodProcessor == null ?
-        IRBuilder.create(encodedMethod, appView, source, origin) :
-        IRBuilder
-            .createForInlining(encodedMethod, appView, source, origin, methodProcessor, generator);
+    IRBuilder builder =
+        methodProcessor == null
+            ? IRBuilder.create(method, appView, source, origin)
+            : IRBuilder.createForInlining(
+                method, appView, source, origin, methodProcessor, generator);
     return builder.build(context);
   }
 
   @Override
-  public void registerCodeReferences(DexEncodedMethod method, UseRegistry registry) {
+  public void registerCodeReferences(ProgramMethod method, UseRegistry registry) {
+    internalRegisterCodeReferences(method, registry);
+  }
+
+  @Override
+  public void registerCodeReferencesForDesugaring(ClasspathMethod method, UseRegistry registry) {
+    internalRegisterCodeReferences(method, registry);
+  }
+
+  private void internalRegisterCodeReferences(DexClassAndMethod method, UseRegistry registry) {
     for (CfInstruction instruction : instructions) {
-      instruction.registerUse(registry, method.holder());
+      instruction.registerUse(registry, method.getHolderType());
     }
     for (CfTryCatch tryCatch : tryCatchRanges) {
       for (DexType guard : tryCatch.guards) {
@@ -505,7 +510,7 @@ public class CfCode extends Code {
   }
 
   public ConstraintWithTarget computeInliningConstraint(
-      DexEncodedMethod encodedMethod,
+      ProgramMethod method,
       AppView<AppInfoWithLiveness> appView,
       GraphLense graphLense,
       DexType invocationContext) {
@@ -521,7 +526,7 @@ public class CfCode extends Code {
 
     // Model a synchronized method as having a monitor instruction.
     ConstraintWithTarget constraint =
-        encodedMethod.accessFlags.isSynchronized()
+        method.getDefinition().isSynchronized()
             ? inliningConstraints.forMonitor()
             : ConstraintWithTarget.ALWAYS;
 

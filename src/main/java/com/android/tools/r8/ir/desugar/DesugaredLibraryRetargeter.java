@@ -30,6 +30,7 @@ import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
@@ -274,27 +275,26 @@ public class DesugaredLibraryRetargeter {
         map.putIfAbsent(emulatedDispatchMethod.holder, new ArrayList<>(1));
         map.get(emulatedDispatchMethod.holder).add(emulatedDispatchMethod);
       }
-      List<DexEncodedMethod> addedMethods = new ArrayList<>();
+      ProgramMethodSet addedMethods = ProgramMethodSet.create();
       for (DexProgramClass clazz : appView.appInfo().classes()) {
         if (clazz.superType == null) {
           assert clazz.type == appView.dexItemFactory().objectType : clazz.type.toSourceString();
           continue;
         }
-        DexClass dexClass = appView.definitionFor(clazz.superType);
+        DexClass superclass = appView.definitionFor(clazz.superType);
         // Only performs computation if superclass is a library class, but not object to filter out
         // the most common case.
-        if (dexClass != null
-            && dexClass.isLibraryClass()
-            && dexClass.type != appView.dexItemFactory().objectType) {
-          for (DexType dexType : map.keySet()) {
-            if (inherit(dexClass.asLibraryClass(), dexType, emulatedDispatchMethods)) {
-              addedMethods.addAll(addInterfacesAndForwardingMethods(clazz, map.get(dexType)));
-            }
-          }
+        if (superclass != null
+            && superclass.isLibraryClass()
+            && superclass.type != appView.dexItemFactory().objectType) {
+          map.forEach(
+              (type, methods) -> {
+                if (inherit(superclass.asLibraryClass(), type, emulatedDispatchMethods)) {
+                  addInterfacesAndForwardingMethods(
+                      clazz, methods, method -> addedMethods.createAndAdd(clazz, method));
+                }
+              });
         }
-      }
-      if (addedMethods.isEmpty()) {
-        return;
       }
       converter.processMethodsConcurrently(addedMethods, executorService);
     }
@@ -318,14 +318,15 @@ public class DesugaredLibraryRetargeter {
       return false;
     }
 
-    private List<DexEncodedMethod> addInterfacesAndForwardingMethods(
-        DexProgramClass clazz, List<DexMethod> dexMethods) {
+    private void addInterfacesAndForwardingMethods(
+        DexProgramClass clazz,
+        List<DexMethod> methods,
+        Consumer<DexEncodedMethod> newForwardingMethodsConsumer) {
       // DesugaredLibraryRetargeter emulate dispatch: insertion of a marker interface & forwarding
       // methods.
       // We cannot use the ClassProcessor since this applies up to 26, while the ClassProcessor
       // applies up to 24.
-      List<DexEncodedMethod> newForwardingMethods = new ArrayList<>();
-      for (DexMethod dexMethod : dexMethods) {
+      for (DexMethod dexMethod : methods) {
         DexType[] newInterfaces =
             Arrays.copyOf(clazz.interfaces.values, clazz.interfaces.size() + 1);
         newInterfaces[newInterfaces.length - 1] = dispatchInterfaceTypeFor(dexMethod);
@@ -334,10 +335,9 @@ public class DesugaredLibraryRetargeter {
         if (dexEncodedMethod == null) {
           DexEncodedMethod newMethod = createForwardingMethod(dexMethod, clazz);
           clazz.addVirtualMethod(newMethod);
-          newForwardingMethods.add(newMethod);
+          newForwardingMethodsConsumer.accept(newMethod);
         }
       }
-      return newForwardingMethods;
     }
 
     private DexEncodedMethod createForwardingMethod(DexMethod target, DexClass clazz) {

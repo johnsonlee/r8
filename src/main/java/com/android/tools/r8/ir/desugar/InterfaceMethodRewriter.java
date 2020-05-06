@@ -28,6 +28,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
@@ -46,6 +47,7 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -110,7 +112,7 @@ public final class InterfaceMethodRewriter {
 
   // All forwarding methods generated during desugaring. We don't synchronize access
   // to this collection since it is only filled in ClassProcessor running synchronously.
-  private final Set<DexEncodedMethod> synthesizedMethods = Sets.newIdentityHashSet();
+  private final ProgramMethodSet synthesizedMethods = ProgramMethodSet.create();
 
   // Caches default interface method info for already processed interfaces.
   private final Map<DexType, DefaultMethodsHelper.Collection> cache = new ConcurrentHashMap<>();
@@ -675,28 +677,30 @@ public final class InterfaceMethodRewriter {
     emulateLibraryClassFlags.setFinal();
     emulateLibraryClassFlags.setSynthetic();
     emulateLibraryClassFlags.setPublic();
-    synthesizedMethods.addAll(emulationMethods);
-    return new DexProgramClass(
-        emulateLibraryClassType,
-        null,
-        new SynthesizedOrigin("interface desugaring (libs)", getClass()),
-        emulateLibraryClassFlags,
-        factory.objectType,
-        DexTypeList.empty(),
-        theInterface.sourceFile,
-        null,
-        Collections.emptyList(),
-        null,
-        Collections.emptyList(),
-        DexAnnotationSet.empty(),
-        DexEncodedField.EMPTY_ARRAY,
-        DexEncodedField.EMPTY_ARRAY,
-        // All synthesized methods are static in this case.
-        emulationMethods.toArray(DexEncodedMethod.EMPTY_ARRAY),
-        DexEncodedMethod.EMPTY_ARRAY,
-        factory.getSkipNameValidationForTesting(),
-        DexProgramClass::checksumFromType,
-        Collections.singletonList(theInterface));
+    DexProgramClass clazz =
+        new DexProgramClass(
+            emulateLibraryClassType,
+            null,
+            new SynthesizedOrigin("interface desugaring (libs)", getClass()),
+            emulateLibraryClassFlags,
+            factory.objectType,
+            DexTypeList.empty(),
+            theInterface.sourceFile,
+            null,
+            Collections.emptyList(),
+            null,
+            Collections.emptyList(),
+            DexAnnotationSet.empty(),
+            DexEncodedField.EMPTY_ARRAY,
+            DexEncodedField.EMPTY_ARRAY,
+            // All synthesized methods are static in this case.
+            emulationMethods.toArray(DexEncodedMethod.EMPTY_ARRAY),
+            DexEncodedMethod.EMPTY_ARRAY,
+            factory.getSkipNameValidationForTesting(),
+            DexProgramClass::checksumFromType,
+            Collections.singletonList(theInterface));
+    clazz.forEachProgramMethod(synthesizedMethods::add);
+    return clazz;
   }
 
   private static String getEmulateLibraryInterfaceClassDescriptor(String descriptor) {
@@ -1020,7 +1024,8 @@ public final class InterfaceMethodRewriter {
       }
     }
     for (Entry<DexLibraryClass, Set<DexProgramClass>> entry : requiredDispatchClasses.entrySet()) {
-      synthesizedMethods.addAll(processor.process(entry.getKey(), entry.getValue()));
+      DexProgramClass dispatchClass = processor.process(entry.getKey(), entry.getValue());
+      dispatchClass.forEachProgramMethod(synthesizedMethods::add);
     }
     if (appView.enableWholeProgramOptimizations()) {
       appView.setGraphLense(graphLensBuilder.build(appView.dexItemFactory(), appView.graphLense()));
@@ -1029,7 +1034,7 @@ public final class InterfaceMethodRewriter {
   }
 
   private void processClasses(
-      Builder<?> builder, Flavor flavour, Consumer<DexEncodedMethod> newSynthesizedMethodConsumer) {
+      Builder<?> builder, Flavor flavour, Consumer<ProgramMethod> newSynthesizedMethodConsumer) {
     ClassProcessor processor = new ClassProcessor(appView, this, newSynthesizedMethodConsumer);
     // First we compute all desugaring *without* introducing forwarding methods.
     for (DexProgramClass clazz : builder.getProgramClasses()) {

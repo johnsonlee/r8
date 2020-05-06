@@ -53,6 +53,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -73,7 +74,7 @@ public class EnumUnboxer implements PostOptimization {
   private final DexItemFactory factory;
   // Map the enum candidates with their dependencies, i.e., the methods to reprocess for the given
   // enum if the optimization eventually decides to unbox it.
-  private final Map<DexType, Set<DexEncodedMethod>> enumsUnboxingCandidates;
+  private final Map<DexType, ProgramMethodSet> enumsUnboxingCandidates;
 
   private EnumUnboxingRewriter enumUnboxerRewriter;
 
@@ -184,11 +185,11 @@ public class EnumUnboxer implements PostOptimization {
     }
     if (!eligibleEnums.isEmpty()) {
       for (DexType eligibleEnum : eligibleEnums) {
-        Set<DexEncodedMethod> dependencies = enumsUnboxingCandidates.get(eligibleEnum);
+        ProgramMethodSet dependencies = enumsUnboxingCandidates.get(eligibleEnum);
         // If dependencies is null, it means the enum is not eligible (It has been marked as
         // unboxable by this thread or another one), so we do not need to record dependencies.
         if (dependencies != null) {
-          dependencies.add(code.method());
+          dependencies.add(code.context());
         }
       }
     }
@@ -313,7 +314,6 @@ public class EnumUnboxer implements PostOptimization {
           appView
               .appInfo()
               .rewrittenWithLens(appView.appInfo().app().asDirect(), enumUnboxingLens));
-      classStaticizer.filterCandidates();
       // Update optimization info.
       feedback.fixupOptimizationInfos(
           appView,
@@ -609,9 +609,9 @@ public class EnumUnboxer implements PostOptimization {
   }
 
   @Override
-  public Set<DexEncodedMethod> methodsToRevisit() {
-    Set<DexEncodedMethod> toReprocess = Sets.newIdentityHashSet();
-    for (Set<DexEncodedMethod> methods : enumsUnboxingCandidates.values()) {
+  public ProgramMethodSet methodsToRevisit() {
+    ProgramMethodSet toReprocess = ProgramMethodSet.create();
+    for (ProgramMethodSet methods : enumsUnboxingCandidates.values()) {
       toReprocess.addAll(methods);
     }
     return toReprocess;

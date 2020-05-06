@@ -10,9 +10,8 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.graph.DexEncodedMethod;
-import java.util.ArrayList;
-import java.util.Collection;
+import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.Deque;
 import java.util.Optional;
 import org.junit.Test;
@@ -46,16 +45,16 @@ public class FieldWithDefaultValueAssignmentAfterDefaultsOptimizationTest extend
         .assertSuccessWithOutputLines("42");
   }
 
-  private void waveModifier(Deque<Collection<DexEncodedMethod>> waves) {
-    Collection<DexEncodedMethod> initialWave = waves.getFirst();
-    Optional<DexEncodedMethod> printFieldMethod =
+  private void waveModifier(Deque<ProgramMethodSet> waves) {
+    ProgramMethodSet initialWave = waves.getFirst();
+    Optional<ProgramMethod> printFieldMethod =
         initialWave.stream()
-            .filter(method -> method.method.name.toSourceString().equals("printField"))
+            .filter(method -> method.getReference().name.toSourceString().equals("printField"))
             .findFirst();
     assertTrue(printFieldMethod.isPresent());
-    initialWave.remove(printFieldMethod.get());
+    initialWave.remove(printFieldMethod.get().getDefinition());
 
-    ArrayList<DexEncodedMethod> lastWave = new ArrayList<>();
+    ProgramMethodSet lastWave = ProgramMethodSet.create();
     lastWave.add(printFieldMethod.get());
     waves.addLast(lastWave);
   }

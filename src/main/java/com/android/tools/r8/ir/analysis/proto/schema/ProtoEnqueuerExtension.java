@@ -8,13 +8,13 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteShrinker;
 import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
@@ -38,6 +38,7 @@ import com.android.tools.r8.shaking.KeepReason;
 import com.android.tools.r8.utils.BitUtils;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
@@ -79,7 +80,7 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
       Sets.newIdentityHashSet();
 
   // The findLiteExtensionByNumber() methods that have become live since the last fixpoint.
-  private final Set<DexEncodedMethod> findLiteExtensionByNumberMethods = Sets.newIdentityHashSet();
+  private final ProgramMethodSet findLiteExtensionByNumberMethods = ProgramMethodSet.create();
 
   // Mapping from extension container types to the extensions for that type.
   private final Map<DexType, Set<DexType>> extensionGraph = new IdentityHashMap<>();
@@ -107,7 +108,7 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
       assert clazz.type == references.extendableMessageType;
       return;
     }
-    DexEncodedMethod dynamicMethod = clazz.lookupVirtualMethod(references::isDynamicMethod);
+    ProgramMethod dynamicMethod = clazz.lookupProgramMethod(references.dynamicMethod);
     if (dynamicMethod != null) {
       worklist.enqueueMarkInstantiatedAction(
           clazz,
@@ -125,49 +126,39 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
    * ProtoMessageInfo} object, and create a mapping from the holder to it.
    */
   @Override
-  public void processNewlyLiveMethod(DexEncodedMethod encodedMethod) {
-    if (references.isFindLiteExtensionByNumberMethod(encodedMethod.method)) {
-      findLiteExtensionByNumberMethods.add(encodedMethod);
+  public void processNewlyLiveMethod(ProgramMethod method) {
+    if (references.isFindLiteExtensionByNumberMethod(method.getReference())) {
+      findLiteExtensionByNumberMethods.add(method);
       return;
     }
 
-    if (!references.isDynamicMethod(encodedMethod)) {
+    if (!references.isDynamicMethod(method)) {
       return;
     }
 
-    DexType holder = encodedMethod.holder();
-    if (seenButNotLiveProtos.containsKey(holder)) {
+    DexType holderType = method.getHolderType();
+    if (seenButNotLiveProtos.containsKey(holderType)) {
       // The proto is now live instead of dead.
-      liveProtos.put(holder, seenButNotLiveProtos.remove(holder));
+      liveProtos.put(holderType, seenButNotLiveProtos.remove(holderType));
       return;
     }
 
     // Since this dynamicMethod() only becomes live once, and it has just become live, it must be
     // the case that the proto is not already live.
-    assert !liveProtos.containsKey(holder);
-    createProtoMessageInfoFromDynamicMethod(encodedMethod, liveProtos);
+    assert !liveProtos.containsKey(holderType);
+    createProtoMessageInfoFromDynamicMethod(method, liveProtos);
   }
 
   private void createProtoMessageInfoFromDynamicMethod(
-      DexEncodedMethod dynamicMethod, Map<DexType, ProtoMessageInfo> protos) {
-    DexType holder = dynamicMethod.holder();
+      ProgramMethod dynamicMethod, Map<DexType, ProtoMessageInfo> protos) {
+    DexType holder = dynamicMethod.getHolderType();
     assert !protos.containsKey(holder);
 
-    DexClass context = appView.definitionFor(holder);
-    if (context == null || !context.isProgramClass()) {
-      // TODO(b/112437944): What if a proto message references a proto message on the classpath or
-      //  library path? We should treat them as having a map/required field to be conservative.
-      assert false; // Should generally not happen.
-      return;
-    }
-
-    IRCode code = dynamicMethod.buildIR(appView, context.origin);
+    IRCode code = dynamicMethod.buildIR(appView);
     InvokeMethod newMessageInfoInvoke =
         GeneratedMessageLiteShrinker.getNewMessageInfoInvoke(code, references);
     ProtoMessageInfo protoMessageInfo =
-        newMessageInfoInvoke != null
-            ? decoder.run(dynamicMethod, context, newMessageInfoInvoke)
-            : null;
+        newMessageInfoInvoke != null ? decoder.run(dynamicMethod, newMessageInfoInvoke) : null;
     protos.put(holder, protoMessageInfo);
   }
 
@@ -221,13 +212,13 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
     collectExtensionFields()
         .forEach(
             (clazz, extensionFields) -> {
-              DexEncodedMethod clinit = clazz.getClassInitializer();
+              ProgramMethod clinit = clazz.getProgramClassInitializer();
               if (clinit == null) {
                 assert false; // Should generally not happen.
                 return;
               }
 
-              IRCode code = clinit.buildIR(appView, appView.appInfo().originFor(clazz.type));
+              IRCode code = clinit.buildIR(appView);
               Map<DexEncodedField, StaticPut> uniqueStaticPuts =
                   IRCodeUtils.findUniqueStaticPuts(appView, code, extensionFields);
               for (DexEncodedField extensionField : extensionFields) {
@@ -251,10 +242,8 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
    */
   private Map<DexProgramClass, Set<DexEncodedField>> collectExtensionFields() {
     Map<DexProgramClass, Set<DexEncodedField>> extensionFieldsByClass = new IdentityHashMap<>();
-    for (DexEncodedMethod findLiteExtensionByNumberMethod : findLiteExtensionByNumberMethods) {
-      IRCode code =
-          findLiteExtensionByNumberMethod.buildIR(
-              appView, appView.appInfo().originFor(findLiteExtensionByNumberMethod.holder()));
+    for (ProgramMethod findLiteExtensionByNumberMethod : findLiteExtensionByNumberMethods) {
+      IRCode code = findLiteExtensionByNumberMethod.buildIR(appView);
       for (BasicBlock block : code.blocks(BasicBlock::isReturnBlock)) {
         Value returnValue = block.exit().asReturn().returnValue().getAliasedValue();
         if (returnValue.isPhi()) {
@@ -364,9 +353,7 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
         continue;
       }
 
-      DexEncodedMethod dynamicMethod = protoMessageInfo.getDynamicMethod();
-      DexProgramClass clazz = appView.definitionFor(dynamicMethod.holder()).asProgramClass();
-
+      ProgramMethod dynamicMethod = protoMessageInfo.getDynamicMethod();
       for (ProtoFieldInfo protoFieldInfo : protoMessageInfo.getFields()) {
         DexEncodedField valueStorage = protoFieldInfo.getValueStorage(appView, protoMessageInfo);
         if (valueStorage == null) {
@@ -390,7 +377,7 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
           // written such that we cannot optimize any field reads or writes.
           enqueuer.registerReflectiveFieldAccess(valueStorage.field, dynamicMethod);
           worklist.enqueueMarkReachableFieldAction(
-              clazz, valueStorage, KeepReason.reflectiveUseIn(dynamicMethod));
+              dynamicMethod.getHolder(), valueStorage, KeepReason.reflectiveUseIn(dynamicMethod));
           valueStorageIsLive = true;
         } else {
           valueStorageIsLive = false;
@@ -438,10 +425,13 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
         if (newlyLiveField != null) {
           // Mark hazzer and one-of proto fields as read from dynamicMethod() if they are written in
           // the app. This is needed to ensure that field writes are not removed from the app.
-          DexEncodedMethod defaultInitializer = clazz.getDefaultInitializer();
+          ProgramMethod defaultInitializer =
+              dynamicMethod.getHolder().getProgramDefaultInitializer();
           assert defaultInitializer != null;
           Predicate<DexEncodedMethod> neitherDefaultConstructorNorDynamicMethod =
-              writer -> writer != defaultInitializer && writer != dynamicMethod;
+              writer ->
+                  writer != defaultInitializer.getDefinition()
+                      && writer != dynamicMethod.getDefinition();
           if (enqueuer.isFieldWrittenInMethodSatisfying(
               newlyLiveField, neitherDefaultConstructorNorDynamicMethod)) {
             enqueuer.registerReflectiveFieldRead(newlyLiveField.field, dynamicMethod);
@@ -451,7 +441,9 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
           // dynamicMethod().
           if (enqueuer.registerReflectiveFieldWrite(newlyLiveField.field, dynamicMethod)) {
             worklist.enqueueMarkReachableFieldAction(
-                clazz, newlyLiveField, KeepReason.reflectiveUseIn(dynamicMethod));
+                dynamicMethod.getHolder(),
+                newlyLiveField,
+                KeepReason.reflectiveUseIn(dynamicMethod));
           }
         }
       }
@@ -467,8 +459,8 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
         continue;
       }
 
-      DexEncodedMethod dynamicMethod = protoMessageInfo.getDynamicMethod();
-      if (!dynamicMethodsWithTracedProtoObjects.add(dynamicMethod)) {
+      ProgramMethod dynamicMethod = protoMessageInfo.getDynamicMethod();
+      if (!dynamicMethodsWithTracedProtoObjects.add(dynamicMethod.getDefinition())) {
         continue;
       }
 
@@ -526,13 +518,14 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
       return;
     }
 
-    DexClass clazz = appView.definitionFor(encodedOneOfCaseField.holder());
-    if (clazz == null || !clazz.isProgramClass()) {
+    DexProgramClass clazz =
+        asProgramClassOrNull(appView.definitionFor(encodedOneOfCaseField.holder()));
+    if (clazz == null) {
       assert false;
       return;
     }
 
-    DexEncodedMethod dynamicMethod = clazz.lookupVirtualMethod(references::isDynamicMethod);
+    ProgramMethod dynamicMethod = clazz.lookupProgramMethod(references.dynamicMethod);
     if (dynamicMethod == null) {
       assert false;
       return;
@@ -651,13 +644,13 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
       return seenButNotLiveProtos.get(type);
     }
 
-    DexClass clazz = appView.definitionFor(type);
-    if (clazz == null || !clazz.isProgramClass()) {
+    DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(type));
+    if (clazz == null) {
       seenButNotLiveProtos.put(type, null);
       return null;
     }
 
-    DexEncodedMethod dynamicMethod = clazz.lookupVirtualMethod(references::isDynamicMethod);
+    ProgramMethod dynamicMethod = clazz.lookupProgramMethod(references.dynamicMethod);
     if (dynamicMethod == null) {
       seenButNotLiveProtos.put(type, null);
       return null;

@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
@@ -31,6 +32,7 @@ import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.ConcreteCallSiteOptimizationInfo;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -52,14 +54,14 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
   }
 
   private final AppView<AppInfoWithLiveness> appView;
-  private Set<DexEncodedMethod> revisitedMethods = null;
+  private ProgramMethodSet revisitedMethods = null;
   private Mode mode = Mode.COLLECT;
 
   public CallSiteOptimizationInfoPropagator(AppView<AppInfoWithLiveness> appView) {
     assert appView.enableWholeProgramOptimizations();
     this.appView = appView;
     if (Log.isLoggingEnabledFor(CallSiteOptimizationInfoPropagator.class)) {
-      revisitedMethods = Sets.newIdentityHashSet();
+      revisitedMethods = ProgramMethodSet.create();
     }
   }
 
@@ -67,9 +69,12 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     assert Log.ENABLED;
     if (revisitedMethods != null) {
       Log.info(getClass(), "# of methods to revisit: %s", revisitedMethods.size());
-      for (DexEncodedMethod m : revisitedMethods) {
-        Log.info(getClass(), "%s: %s",
-            m.toSourceString(), m.getCallSiteOptimizationInfo().toString());
+      for (ProgramMethod m : revisitedMethods) {
+        Log.info(
+            getClass(),
+            "%s: %s",
+            m.toSourceString(),
+            m.getDefinition().getCallSiteOptimizationInfo().toString());
       }
     }
   }
@@ -245,7 +250,7 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
       if (abstractValue.isSingleValue()) {
         assert appView.options().enablePropagationOfConstantsAtCallSites;
         SingleValue singleValue = abstractValue.asSingleValue();
-        if (singleValue.isMaterializableInContext(appView, code.method().holder())) {
+        if (singleValue.isMaterializableInContext(appView, code.context())) {
           Instruction replacement =
               singleValue.createMaterializingInstruction(appView, code, instr);
           replacement.setPosition(instr.getPosition());
@@ -318,27 +323,29 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
   }
 
   @Override
-  public Set<DexEncodedMethod> methodsToRevisit() {
+  public ProgramMethodSet methodsToRevisit() {
     mode = Mode.REVISIT;
-    Set<DexEncodedMethod> targetsToRevisit = Sets.newIdentityHashSet();
+    ProgramMethodSet targetsToRevisit = ProgramMethodSet.create();
     for (DexProgramClass clazz : appView.appInfo().classes()) {
-      for (DexEncodedMethod method : clazz.methods()) {
-        assert !method.isObsolete();
-        if (method.shouldNotHaveCode()
-            || !method.hasCode()
-            || method.getCode().isEmptyVoidMethod()) {
-          continue;
-        }
-        // TODO(b/139246447): Assert no BOTTOM left.
-        CallSiteOptimizationInfo callSiteOptimizationInfo = method.getCallSiteOptimizationInfo();
-        if (!callSiteOptimizationInfo.hasUsefulOptimizationInfo(appView, method)) {
-          continue;
-        }
-        targetsToRevisit.add(method);
-        if (appView.options().testing.callSiteOptimizationInfoInspector != null) {
-          appView.options().testing.callSiteOptimizationInfoInspector.accept(method);
-        }
-      }
+      clazz.forEachProgramMethodMatching(
+          definition -> {
+            assert !definition.isObsolete();
+            if (definition.shouldNotHaveCode()
+                || !definition.hasCode()
+                || definition.getCode().isEmptyVoidMethod()) {
+              return false;
+            }
+            // TODO(b/139246447): Assert no BOTTOM left.
+            CallSiteOptimizationInfo callSiteOptimizationInfo =
+                definition.getCallSiteOptimizationInfo();
+            return callSiteOptimizationInfo.hasUsefulOptimizationInfo(appView, definition);
+          },
+          method -> {
+            targetsToRevisit.add(method);
+            if (appView.options().testing.callSiteOptimizationInfoInspector != null) {
+              appView.options().testing.callSiteOptimizationInfoInspector.accept(method);
+            }
+          });
     }
     if (revisitedMethods != null) {
       revisitedMethods.addAll(targetsToRevisit);

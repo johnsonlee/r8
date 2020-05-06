@@ -10,12 +10,14 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexApplication.Builder;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.classmerging.HorizontallyMergedLambdaClasses;
 import com.android.tools.r8.ir.analysis.type.DestructivePhiTypeUpdater;
@@ -50,6 +52,8 @@ import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.ThrowingConsumer;
+import com.android.tools.r8.utils.collections.LongLivedProgramMethodSetBuilder;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Sets;
@@ -67,7 +71,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 // Merging lambda classes into single lambda group classes. There are three flavors
 // of lambdas we are dealing with:
@@ -97,19 +100,19 @@ public final class LambdaMerger {
   private abstract static class Mode {
 
     void rewriteCode(
-        DexEncodedMethod method,
+        ProgramMethod method,
         IRCode code,
         Inliner inliner,
-        DexEncodedMethod context,
+        ProgramMethod context,
         InliningIRProvider provider) {}
 
-    void analyzeCode(DexEncodedMethod method, IRCode code) {}
+    void analyzeCode(ProgramMethod method, IRCode code) {}
   }
 
   private class AnalyzeMode extends Mode {
 
     @Override
-    void analyzeCode(DexEncodedMethod method, IRCode code) {
+    void analyzeCode(ProgramMethod method, IRCode code) {
       new AnalysisStrategy(method, code).processCode();
     }
   }
@@ -128,27 +131,24 @@ public final class LambdaMerger {
 
     @Override
     void rewriteCode(
-        DexEncodedMethod method,
+        ProgramMethod method,
         IRCode code,
         Inliner inliner,
-        DexEncodedMethod context,
+        ProgramMethod context,
         InliningIRProvider provider) {
-      DexProgramClass clazz = appView.definitionFor(method.holder()).asProgramClass();
-      assert clazz != null;
-
-      LambdaGroup lambdaGroup = lambdaGroups.get(clazz);
+      LambdaGroup lambdaGroup = lambdaGroups.get(method.getHolder());
       if (lambdaGroup == null) {
         // Only rewrite the methods that have not been synthesized for the lambda group classes.
         new ApplyStrategy(method, code, context, optimizationInfoFixer).processCode();
         return;
       }
 
-      if (method.isInitializer()) {
+      if (method.getDefinition().isInitializer()) {
         // Should not require rewriting.
         return;
       }
 
-      assert method.isNonPrivateVirtualMethod();
+      assert method.getDefinition().isNonPrivateVirtualMethod();
       assert context == null;
 
       Map<InvokeVirtual, InliningInfo> invokesToInline = new IdentityHashMap<>();
@@ -160,9 +160,10 @@ public final class LambdaMerger {
           ResolutionResult resolution =
               appView.appInfo().resolveMethod(holder, invokedMethod, false);
           assert resolution.isSingleResolution();
-          DexEncodedMethod singleTarget = resolution.getSingleTarget();
+          ProgramMethod singleTarget =
+              resolution.asSingleResolution().getResolutionPair().asProgramMethod();
           assert singleTarget != null;
-          invokesToInline.put(invoke, new InliningInfo(singleTarget, singleTarget.holder()));
+          invokesToInline.put(invoke, new InliningInfo(singleTarget, singleTarget.getHolderType()));
         }
       }
 
@@ -194,7 +195,8 @@ public final class LambdaMerger {
   // we mark a method for further processing, and then invalidate the only lambda referenced
   // from it. In this case we will reprocess method that does not need patching, but it
   // should not be happening very frequently and we ignore possible overhead.
-  private final Set<DexEncodedMethod> methodsToReprocess = Sets.newIdentityHashSet();
+  private final LongLivedProgramMethodSetBuilder methodsToReprocess =
+      new LongLivedProgramMethodSetBuilder();
 
   private final AppView<AppInfoWithLiveness> appView;
   private final Kotlin kotlin;
@@ -236,7 +238,7 @@ public final class LambdaMerger {
     return lambdas.get(lambda);
   }
 
-  private synchronized void queueForProcessing(DexEncodedMethod method) {
+  private synchronized void queueForProcessing(ProgramMethod method) {
     methodsToReprocess.add(method);
   }
 
@@ -291,7 +293,7 @@ public final class LambdaMerger {
    *   <li>in APPLY mode does nothing.
    * </ol>
    */
-  public final void analyzeCode(DexEncodedMethod method, IRCode code) {
+  public final void analyzeCode(ProgramMethod method, IRCode code) {
     if (mode != null) {
       mode.analyzeCode(method, code);
     }
@@ -308,10 +310,10 @@ public final class LambdaMerger {
    * </ol>
    */
   public final void rewriteCode(
-      DexEncodedMethod method, IRCode code, Inliner inliner, MethodProcessor methodProcessor) {
+      ProgramMethod method, IRCode code, Inliner inliner, MethodProcessor methodProcessor) {
     if (mode != null) {
       mode.rewriteCode(
-          method,
+          code.context(),
           code,
           inliner,
           null,
@@ -320,12 +322,12 @@ public final class LambdaMerger {
   }
 
   /**
-   * Similar to {@link #rewriteCode(DexEncodedMethod, IRCode, Inliner, MethodProcessor)}, but for
+   * Similar to {@link #rewriteCode(ProgramMethod, IRCode, Inliner, MethodProcessor)}, but for
    * rewriting code for inlining. The {@param context} is the caller that {@param method} is being
    * inlined into.
    */
   public final void rewriteCodeForInlining(
-      DexEncodedMethod method, IRCode code, DexEncodedMethod context, InliningIRProvider provider) {
+      ProgramMethod method, IRCode code, ProgramMethod context, InliningIRProvider provider) {
     if (mode != null) {
       mode.rewriteCode(method, code, null, context, provider);
     }
@@ -453,12 +455,11 @@ public final class LambdaMerger {
     if (methodsToReprocess.isEmpty()) {
       return;
     }
-    Set<DexEncodedMethod> methods =
-        methodsToReprocess.stream()
-            .map(method -> appView.graphLense().mapDexEncodedMethod(method, appView))
-            .collect(Collectors.toSet());
+    ProgramMethodSet methods = methodsToReprocess.build(appView);
     converter.processMethodsConcurrently(methods, executorService);
-    assert methods.stream().allMatch(DexEncodedMethod::isProcessed);
+    assert methods.stream()
+        .map(DexClassAndMethod::getDefinition)
+        .allMatch(DexEncodedMethod::isProcessed);
   }
 
   private void analyzeClass(DexProgramClass clazz) {
@@ -491,7 +492,7 @@ public final class LambdaMerger {
   }
 
   private final class AnalysisStrategy extends CodeProcessor {
-    private AnalysisStrategy(DexEncodedMethod method, IRCode code) {
+    private AnalysisStrategy(ProgramMethod method, IRCode code) {
       super(
           LambdaMerger.this.appView,
           LambdaMerger.this::strategyProvider,
@@ -543,9 +544,9 @@ public final class LambdaMerger {
     private final Set<Value> typeAffectedValues = Sets.newIdentityHashSet();
 
     private ApplyStrategy(
-        DexEncodedMethod method,
+        ProgramMethod method,
         IRCode code,
-        DexEncodedMethod context,
+        ProgramMethod context,
         LambdaMergerOptimizationInfoFixer optimizationInfoFixer) {
       super(
           LambdaMerger.this.appView,

@@ -6,36 +6,34 @@ package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.logging.Log;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.IROrdering;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import com.android.tools.r8.utils.collections.LongLivedProgramMethodSetBuilder;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
 
 public class PostMethodProcessor implements MethodProcessor {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final Map<DexEncodedMethod, Collection<CodeOptimization>> methodsMap;
-  private final Deque<Set<DexEncodedMethod>> waves;
-  private Set<DexEncodedMethod> wave;
-  private final Set<DexEncodedMethod> processed = Sets.newIdentityHashSet();
+  private final Deque<ProgramMethodSet> waves;
+  private ProgramMethodSet wave;
+  private final ProgramMethodSet processed = ProgramMethodSet.create();
 
   private PostMethodProcessor(
       AppView<AppInfoWithLiveness> appView,
@@ -52,7 +50,7 @@ public class PostMethodProcessor implements MethodProcessor {
   }
 
   @Override
-  public boolean shouldApplyCodeRewritings(DexEncodedMethod method) {
+  public boolean shouldApplyCodeRewritings(ProgramMethod method) {
     assert !wave.contains(method);
     return !processed.contains(method);
   }
@@ -60,30 +58,33 @@ public class PostMethodProcessor implements MethodProcessor {
   public static class Builder {
 
     private final Collection<CodeOptimization> defaultCodeOptimizations;
-    private final Map<DexEncodedMethod, Collection<CodeOptimization>> methodsMap =
-        Maps.newIdentityHashMap();
+    private final LongLivedProgramMethodSetBuilder methodsMap =
+        new LongLivedProgramMethodSetBuilder();
+    private final Map<DexEncodedMethod, Collection<CodeOptimization>> optimizationsMap =
+        new IdentityHashMap<>();
 
     Builder(Collection<CodeOptimization> defaultCodeOptimizations) {
       this.defaultCodeOptimizations = defaultCodeOptimizations;
     }
 
     private void put(
-        Set<DexEncodedMethod> methodsToRevisit, Collection<CodeOptimization> codeOptimizations) {
+        ProgramMethodSet methodsToRevisit, Collection<CodeOptimization> codeOptimizations) {
       if (codeOptimizations.isEmpty()) {
         // Nothing to conduct.
         return;
       }
-      for (DexEncodedMethod method : methodsToRevisit) {
-        methodsMap
+      for (ProgramMethod method : methodsToRevisit) {
+        methodsMap.add(method);
+        optimizationsMap
             .computeIfAbsent(
-                method,
+                method.getDefinition(),
                 // Optimization order might matter, hence a collection that preserves orderings.
                 k -> new LinkedHashSet<>())
             .addAll(codeOptimizations);
       }
     }
 
-    public void put(Set<DexEncodedMethod> methodsToRevisit) {
+    public void put(ProgramMethodSet methodsToRevisit) {
       put(methodsToRevisit, defaultCodeOptimizations);
     }
 
@@ -100,45 +101,54 @@ public class PostMethodProcessor implements MethodProcessor {
     // new signature. The compiler needs to update the set of methods that must be reprocessed
     // according to the graph lens.
     public void mapDexEncodedMethods(AppView<?> appView) {
-      Map<DexEncodedMethod, Collection<CodeOptimization>> newMethodsMap = new IdentityHashMap<>();
-      methodsMap.forEach(
-          (dexEncodedMethod, optimizations) -> {
-            newMethodsMap.put(
-                appView.graphLense().mapDexEncodedMethod(dexEncodedMethod, appView), optimizations);
-          });
-      methodsMap.clear();
-      methodsMap.putAll(newMethodsMap);
+      Map<DexEncodedMethod, Collection<CodeOptimization>> newOptimizationsMap =
+          new IdentityHashMap<>();
+      optimizationsMap.forEach(
+          (method, optimizations) ->
+              newOptimizationsMap.put(
+                  appView.graphLense().mapDexEncodedMethod(method, appView), optimizations));
+      optimizationsMap.clear();
+      optimizationsMap.putAll(newOptimizationsMap);
     }
 
     PostMethodProcessor build(
         AppView<AppInfoWithLiveness> appView, ExecutorService executorService, Timing timing)
         throws ExecutionException {
       if (!appView.appInfo().reprocess.isEmpty()) {
-        put(
-            appView.appInfo().reprocess.stream()
-                .map(appView::definitionFor)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
+        ProgramMethodSet set = ProgramMethodSet.create();
+        appView
+            .appInfo()
+            .reprocess
+            .forEach(
+                reference -> {
+                  DexEncodedMethod definition = appView.definitionFor(reference);
+                  if (definition != null) {
+                    DexProgramClass clazz =
+                        appView.definitionForHolder(definition).asProgramClass();
+                    set.createAndAdd(clazz, definition);
+                  }
+                });
+        put(set);
       }
-      if (methodsMap.keySet().isEmpty()) {
+      if (methodsMap.isEmpty()) {
         // Nothing to revisit.
         return null;
       }
       CallGraph callGraph =
-          new PartialCallGraphBuilder(appView, methodsMap.keySet())
+          new PartialCallGraphBuilder(appView, methodsMap.build(appView))
               .build(executorService, timing);
-      return new PostMethodProcessor(appView, methodsMap, callGraph);
+      return new PostMethodProcessor(appView, optimizationsMap, callGraph);
     }
   }
 
-  private Deque<Set<DexEncodedMethod>> createWaves(AppView<?> appView, CallGraph callGraph) {
+  private Deque<ProgramMethodSet> createWaves(AppView<?> appView, CallGraph callGraph) {
     IROrdering shuffle = appView.options().testing.irOrdering;
-    Deque<Set<DexEncodedMethod>> waves = new ArrayDeque<>();
+    Deque<ProgramMethodSet> waves = new ArrayDeque<>();
 
     int waveCount = 1;
     while (!callGraph.isEmpty()) {
-      Set<DexEncodedMethod> wave = callGraph.extractRoots();
-      waves.addLast(shuffle.order(wave));
+      ProgramMethodSet wave = callGraph.extractRoots();
+      waves.addLast(wave);
       if (Log.ENABLED && Log.isLoggingEnabledFor(PostMethodProcessor.class)) {
         Log.info(getClass(), "Wave #%d: %d", waveCount++, wave.size());
       }
@@ -148,7 +158,7 @@ public class PostMethodProcessor implements MethodProcessor {
   }
 
   @Override
-  public boolean isProcessedConcurrently(DexEncodedMethod method) {
+  public boolean isProcessedConcurrently(ProgramMethod method) {
     return wave != null && wave.contains(method);
   }
 
@@ -160,7 +170,7 @@ public class PostMethodProcessor implements MethodProcessor {
       ThreadUtils.processItems(
           wave,
           method -> {
-            Collection<CodeOptimization> codeOptimizations = methodsMap.get(method);
+            Collection<CodeOptimization> codeOptimizations = methodsMap.get(method.getDefinition());
             assert codeOptimizations != null && !codeOptimizations.isEmpty();
             forEachMethod(method, codeOptimizations, feedback);
           },
@@ -170,19 +180,18 @@ public class PostMethodProcessor implements MethodProcessor {
   }
 
   private void forEachMethod(
-      DexEncodedMethod method,
+      ProgramMethod method,
       Collection<CodeOptimization> codeOptimizations,
       OptimizationFeedback feedback) {
     // TODO(b/140766440): Make IRConverter#process receive a list of CodeOptimization to conduct.
     //   Then, we can share IRCode creation there.
-    Origin origin = appView.appInfo().originFor(method.holder());
     if (appView.options().skipIR) {
-      feedback.markProcessed(method, ConstraintWithTarget.NEVER);
+      feedback.markProcessed(method.getDefinition(), ConstraintWithTarget.NEVER);
       return;
     }
-    IRCode code = method.buildIR(appView, origin);
+    IRCode code = method.buildIR(appView);
     if (code == null) {
-      feedback.markProcessed(method, ConstraintWithTarget.NEVER);
+      feedback.markProcessed(method.getDefinition(), ConstraintWithTarget.NEVER);
       return;
     }
     // TODO(b/140768815): Reprocessing may trigger more methods to revisit. Update waves on-the-fly.

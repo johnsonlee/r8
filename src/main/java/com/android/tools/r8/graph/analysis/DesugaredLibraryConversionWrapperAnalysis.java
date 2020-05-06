@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter.Mode;
 import com.android.tools.r8.utils.OptionalBool;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -33,7 +34,7 @@ public class DesugaredLibraryConversionWrapperAnalysis extends EnqueuerAnalysis
   }
 
   @Override
-  public void processNewlyLiveMethod(DexEncodedMethod method) {
+  public void processNewlyLiveMethod(ProgramMethod method) {
     converter.registerCallbackIfRequired(method);
   }
 
@@ -66,7 +67,7 @@ public class DesugaredLibraryConversionWrapperAnalysis extends EnqueuerAnalysis
     this.traceInvoke(invokedMethod);
   }
 
-  public List<DexEncodedMethod> generateCallbackMethods() {
+  public ProgramMethodSet generateCallbackMethods() {
     return converter.generateCallbackMethods();
   }
 

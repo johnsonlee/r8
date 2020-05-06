@@ -5,19 +5,17 @@
 package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.CallGraph.Node;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.IROrdering;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.ThrowingFunction;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Timing.TimingMerger;
-import com.google.common.collect.Sets;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.ArrayDeque;
-import java.util.Collection;
 import java.util.Deque;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -32,13 +30,13 @@ class PrimaryMethodProcessor implements MethodProcessor {
 
   interface WaveStartAction {
 
-    void notifyWaveStart(Collection<DexEncodedMethod> wave);
+    void notifyWaveStart(ProgramMethodSet wave);
   }
 
   private final CallSiteInformation callSiteInformation;
   private final PostMethodProcessor.Builder postMethodProcessorBuilder;
-  private final Deque<Collection<DexEncodedMethod>> waves;
-  private Collection<DexEncodedMethod> wave;
+  private final Deque<ProgramMethodSet> waves;
+  private ProgramMethodSet wave;
 
   private PrimaryMethodProcessor(
       AppView<AppInfoWithLiveness> appView,
@@ -65,9 +63,9 @@ class PrimaryMethodProcessor implements MethodProcessor {
   }
 
   @Override
-  public boolean shouldApplyCodeRewritings(DexEncodedMethod method) {
+  public boolean shouldApplyCodeRewritings(ProgramMethod method) {
     assert !wave.contains(method);
-    return !method.isProcessed();
+    return !method.getDefinition().isProcessed();
   }
 
   @Override
@@ -75,23 +73,22 @@ class PrimaryMethodProcessor implements MethodProcessor {
     return callSiteInformation;
   }
 
-  private Deque<Collection<DexEncodedMethod>> createWaves(
+  private Deque<ProgramMethodSet> createWaves(
       AppView<?> appView, CallGraph callGraph, CallSiteInformation callSiteInformation) {
     InternalOptions options = appView.options();
-    IROrdering shuffle = options.testing.irOrdering;
-    Deque<Collection<DexEncodedMethod>> waves = new ArrayDeque<>();
-
+    Deque<ProgramMethodSet> waves = new ArrayDeque<>();
     Set<Node> nodes = callGraph.nodes;
-    Set<DexEncodedMethod> reprocessing = Sets.newIdentityHashSet();
+    ProgramMethodSet reprocessing = ProgramMethodSet.create();
     int waveCount = 1;
     while (!nodes.isEmpty()) {
-      Set<DexEncodedMethod> wave = callGraph.extractLeaves();
-      for (DexEncodedMethod method : wave) {
-        if (callSiteInformation.hasSingleCallSite(method.method)) {
-          callGraph.cycleEliminationResult.forEachRemovedCaller(method, reprocessing::add);
-        }
-      }
-      waves.addLast(shuffle.order(wave));
+      ProgramMethodSet wave = callGraph.extractLeaves();
+      wave.forEach(
+          method -> {
+            if (callSiteInformation.hasSingleCallSite(method)) {
+              callGraph.cycleEliminationResult.forEachRemovedCaller(method, reprocessing::add);
+            }
+          });
+      waves.addLast(wave);
       if (Log.ENABLED && Log.isLoggingEnabledFor(PrimaryMethodProcessor.class)) {
         Log.info(getClass(), "Wave #%d: %d", waveCount++, wave.size());
       }
@@ -104,7 +101,7 @@ class PrimaryMethodProcessor implements MethodProcessor {
   }
 
   @Override
-  public boolean isProcessedConcurrently(DexEncodedMethod method) {
+  public boolean isProcessedConcurrently(ProgramMethod method) {
     return wave != null && wave.contains(method);
   }
 
@@ -115,9 +112,9 @@ class PrimaryMethodProcessor implements MethodProcessor {
    * processed at the same time is passed. This can be used to avoid races in concurrent processing.
    */
   <E extends Exception> void forEachMethod(
-      ThrowingFunction<DexEncodedMethod, Timing, E> consumer,
+      ThrowingFunction<ProgramMethod, Timing, E> consumer,
       WaveStartAction waveStartAction,
-      Consumer<Collection<DexEncodedMethod>> waveDone,
+      Consumer<ProgramMethodSet> waveDone,
       Timing timing,
       ExecutorService executorService)
       throws ExecutionException {

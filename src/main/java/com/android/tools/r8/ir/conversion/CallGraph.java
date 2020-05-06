@@ -6,9 +6,11 @@ package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.CallGraphBuilderBase.CycleEliminator.CycleEliminationResult;
 import com.android.tools.r8.ir.conversion.CallSiteInformation.CallGraphBasedCallSiteInformation;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
 import java.util.Iterator;
 import java.util.Set;
@@ -38,7 +40,7 @@ public class CallGraph {
 
     public static Node[] EMPTY_ARRAY = {};
 
-    public final DexEncodedMethod method;
+    private final ProgramMethod method;
     private int numberOfCallSites = 0;
 
     // Outgoing calls from this method.
@@ -55,7 +57,7 @@ public class CallGraph {
     // by the current method).
     private final Set<Node> writers = new TreeSet<>();
 
-    public Node(DexEncodedMethod method) {
+    public Node(ProgramMethod method) {
       this.method = method;
     }
 
@@ -201,14 +203,16 @@ public class CallGraph {
 
     @Override
     public int compareTo(Node other) {
-      return method.method.slowCompareTo(other.method.method);
+      return getProgramMethod()
+          .getReference()
+          .slowCompareTo(other.getProgramMethod().getReference());
     }
 
     @Override
     public String toString() {
       StringBuilder builder = new StringBuilder();
       builder.append("MethodNode for: ");
-      builder.append(method.toSourceString());
+      builder.append(getProgramMethod().toSourceString());
       builder.append(" (");
       builder.append(callees.size());
       builder.append(" callees, ");
@@ -222,7 +226,7 @@ public class CallGraph {
         builder.append(System.lineSeparator());
         for (Node call : callees) {
           builder.append("  ");
-          builder.append(call.method.toSourceString());
+          builder.append(call.getProgramMethod().toSourceString());
           builder.append(System.lineSeparator());
         }
       }
@@ -231,11 +235,19 @@ public class CallGraph {
         builder.append(System.lineSeparator());
         for (Node caller : callers) {
           builder.append("  ");
-          builder.append(caller.method.toSourceString());
+          builder.append(caller.getProgramMethod().toSourceString());
           builder.append(System.lineSeparator());
         }
       }
       return builder.toString();
+    }
+
+    public DexEncodedMethod getMethod() {
+      return method.getDefinition();
+    }
+
+    public ProgramMethod getProgramMethod() {
+      return method;
     }
   }
 
@@ -266,22 +278,22 @@ public class CallGraph {
     return nodes.isEmpty();
   }
 
-  public Set<DexEncodedMethod> extractLeaves() {
+  public ProgramMethodSet extractLeaves() {
     return extractNodes(Node::isLeaf, Node::cleanCallersAndReadersForRemoval);
   }
 
-  public Set<DexEncodedMethod> extractRoots() {
+  public ProgramMethodSet extractRoots() {
     return extractNodes(Node::isRoot, Node::cleanCalleesAndWritersForRemoval);
   }
 
-  private Set<DexEncodedMethod> extractNodes(Predicate<Node> predicate, Consumer<Node> clean) {
-    Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
+  private ProgramMethodSet extractNodes(Predicate<Node> predicate, Consumer<Node> clean) {
+    ProgramMethodSet result = ProgramMethodSet.create();
     Set<Node> removed = Sets.newIdentityHashSet();
     Iterator<Node> nodeIterator = nodes.iterator();
     while (nodeIterator.hasNext()) {
       Node node = nodeIterator.next();
       if (predicate.test(node)) {
-        result.add(node.method);
+        result.add(node.getProgramMethod());
         nodeIterator.remove();
         removed.add(node);
       }

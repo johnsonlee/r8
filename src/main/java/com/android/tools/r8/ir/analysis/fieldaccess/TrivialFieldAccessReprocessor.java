@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldAccessInfo;
 import com.android.tools.r8.graph.FieldAccessInfoCollection;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
@@ -24,6 +25,7 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -38,7 +40,7 @@ public class TrivialFieldAccessReprocessor {
   private final Set<DexEncodedField> fieldsOfInterest = Sets.newConcurrentHashSet();
 
   /** Updated concurrently from {@link #processClass(DexProgramClass)}. */
-  private final Set<DexEncodedMethod> methodsToReprocess = Sets.newConcurrentHashSet();
+  private final ProgramMethodSet methodsToReprocess = ProgramMethodSet.createConcurrent();
 
   public TrivialFieldAccessReprocessor(
       AppView<AppInfoWithLiveness> appView,
@@ -109,11 +111,9 @@ public class TrivialFieldAccessReprocessor {
   }
 
   private void processClass(DexProgramClass clazz) {
-    for (DexEncodedMethod method : clazz.methods()) {
-      if (method.hasCode()) {
-        method.getCode().registerCodeReferences(method, new TrivialFieldAccessUseRegistry(method));
-      }
-    }
+    clazz.forEachProgramMethodMatching(
+        DexEncodedMethod::hasCode,
+        method -> method.registerCodeReferences(new TrivialFieldAccessUseRegistry(method)));
   }
 
   private static boolean canOptimizeField(
@@ -154,9 +154,9 @@ public class TrivialFieldAccessReprocessor {
 
   class TrivialFieldAccessUseRegistry extends UseRegistry {
 
-    private final DexEncodedMethod method;
+    private final ProgramMethod method;
 
-    TrivialFieldAccessUseRegistry(DexEncodedMethod method) {
+    TrivialFieldAccessUseRegistry(ProgramMethod method) {
       super(appView.dexItemFactory());
       this.method = method;
     }
