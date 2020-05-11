@@ -20,6 +20,7 @@ import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -891,7 +892,7 @@ public class Value implements Comparable<Value> {
     return definition.isOutConstant() && !hasLocalInfo();
   }
 
-  public AbstractValue getAbstractValue(AppView<?> appView, DexType context) {
+  public AbstractValue getAbstractValue(AppView<?> appView, ProgramMethod context) {
     if (!appView.enableWholeProgramOptimizations()) {
       return UnknownValue.getInstance();
     }
@@ -901,7 +902,7 @@ public class Value implements Comparable<Value> {
       return UnknownValue.getInstance();
     }
 
-    return root.definition.getAbstractValue(appView, context);
+    return root.definition.getAbstractValue(appView.withLiveness(), context);
   }
 
   public boolean isDefinedByInstructionSatisfying(Predicate<Instruction> predicate) {

@@ -165,25 +165,25 @@ abstract class CallGraphBuilderBase {
     }
 
     private void processInvoke(Invoke.Type originalType, DexMethod originalMethod) {
-      ProgramMethod source = currentMethod.getProgramMethod();
-      DexMethod context = source.getReference();
+      ProgramMethod context = currentMethod.getProgramMethod();
       GraphLenseLookupResult result =
-          appView.graphLense().lookupMethod(originalMethod, context, originalType);
+          appView.graphLense().lookupMethod(originalMethod, context.getReference(), originalType);
       DexMethod method = result.getMethod();
       Invoke.Type type = result.getType();
       if (type == Invoke.Type.INTERFACE || type == Invoke.Type.VIRTUAL) {
         // For virtual and interface calls add all potential targets that could be called.
-        ResolutionResult resolutionResult = appView.appInfo().resolveMethod(method.holder, method);
+        ResolutionResult resolutionResult =
+            appView.appInfo().resolveMethod(method, type == Invoke.Type.INTERFACE);
         DexEncodedMethod target = resolutionResult.getSingleTarget();
         if (target != null) {
-          processInvokeWithDynamicDispatch(type, target, context.holder);
+          processInvokeWithDynamicDispatch(type, target, context);
         }
       } else {
         ProgramMethod singleTarget =
-            appView.appInfo().lookupSingleProgramTarget(type, method, context.holder, appView);
+            appView.appInfo().lookupSingleProgramTarget(type, method, context, appView);
         if (singleTarget != null) {
-          assert !source.getDefinition().isBridge()
-              || singleTarget.getDefinition() != source.getDefinition();
+          assert !context.getDefinition().isBridge()
+              || singleTarget.getDefinition() != context.getDefinition();
           // For static invokes, the class could be initialized.
           if (type == Invoke.Type.STATIC) {
             addClassInitializerTarget(singleTarget.getHolder());
@@ -194,7 +194,7 @@ abstract class CallGraphBuilderBase {
     }
 
     private void processInvokeWithDynamicDispatch(
-        Invoke.Type type, DexEncodedMethod encodedTarget, DexType context) {
+        Invoke.Type type, DexEncodedMethod encodedTarget, ProgramMethod context) {
       DexMethod target = encodedTarget.method;
       DexClass clazz = appView.definitionFor(target.holder);
       if (clazz == null) {
@@ -214,12 +214,11 @@ abstract class CallGraphBuilderBase {
           possibleProgramTargetsCache.computeIfAbsent(
               target,
               method -> {
-                ResolutionResult resolution =
-                    appView.appInfo().resolveMethod(method.holder, method, isInterface);
+                ResolutionResult resolution = appView.appInfo().resolveMethod(method, isInterface);
                 if (resolution.isVirtualTarget()) {
                   LookupResult lookupResult =
                       resolution.lookupVirtualDispatchTargets(
-                          appView.definitionForProgramType(context), appView.appInfo());
+                          context.getHolder(), appView.appInfo());
                   if (lookupResult.isLookupResultSuccess()) {
                     ProgramMethodSet targets = ProgramMethodSet.create();
                     lookupResult
@@ -258,7 +257,7 @@ abstract class CallGraphBuilderBase {
         return;
       }
 
-      DexEncodedField encodedField = appView.appInfo().resolveField(field);
+      DexEncodedField encodedField = appView.appInfo().resolveField(field).getResolvedField();
       if (encodedField == null || appView.appInfo().isPinned(encodedField.field)) {
         return;
       }
@@ -283,7 +282,7 @@ abstract class CallGraphBuilderBase {
 
     private void processFieldWrite(DexField field) {
       if (field.holder.isClassType()) {
-        DexEncodedField encodedField = appView.appInfo().resolveField(field);
+        DexEncodedField encodedField = appView.appInfo().resolveField(field).getResolvedField();
         if (encodedField != null && encodedField.isStatic()) {
           // Each static field access implicitly triggers the class initializer.
           addClassInitializerTarget(field.holder);

@@ -6,7 +6,7 @@ package com.android.tools.r8.ir.analysis.sideeffect;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
-import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.ValueMayDependOnEnvironmentAnalysis;
 import com.android.tools.r8.ir.code.ArrayPut;
 import com.android.tools.r8.ir.code.IRCode;
@@ -15,6 +15,7 @@ import com.android.tools.r8.ir.code.InvokeNewArray;
 import com.android.tools.r8.ir.code.NewArrayFilledData;
 import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.OptionalBool;
 
 public class ClassInitializerSideEffectAnalysis {
@@ -38,8 +39,8 @@ public class ClassInitializerSideEffectAnalysis {
    * non-static-put instructions may have side effects.
    */
   public static ClassInitializerSideEffect classInitializerCanBePostponed(
-      AppView<?> appView, IRCode code) {
-    DexType context = code.method().holder();
+      AppView<AppInfoWithLiveness> appView, IRCode code) {
+    ProgramMethod context = code.context();
     OptionalBool controlFlowMayDependOnEnvironment = OptionalBool.unknown();
     boolean mayHaveSideEffects = false;
 
@@ -111,9 +112,10 @@ public class ClassInitializerSideEffectAnalysis {
 
       if (instruction.isStaticPut()) {
         StaticPut staticPut = instruction.asStaticPut();
-        DexEncodedField field = appView.appInfo().resolveField(staticPut.getField());
+        DexEncodedField field =
+            appView.appInfo().resolveField(staticPut.getField()).getResolvedField();
         if (field == null
-            || field.holder() != context
+            || field.holder() != context.getHolderType()
             || environmentAnalysis.valueMayDependOnEnvironment(staticPut.value())
             || instruction.instructionInstanceCanThrow(appView, context).isThrowing()) {
           return ClassInitializerSideEffect.SIDE_EFFECTS_THAT_CANNOT_BE_POSTPONED;

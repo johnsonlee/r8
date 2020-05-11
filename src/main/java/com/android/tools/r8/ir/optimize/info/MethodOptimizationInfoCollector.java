@@ -44,13 +44,14 @@ import static com.android.tools.r8.ir.code.Opcodes.USHR;
 import static com.android.tools.r8.ir.code.Opcodes.XOR;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.AnalysisAssumption;
 import com.android.tools.r8.ir.analysis.DeterminismAnalysis;
@@ -128,9 +129,9 @@ public class MethodOptimizationInfoCollector {
       InstanceFieldInitializationInfoCollection instanceFieldInitializationInfos,
       Timing timing) {
     identifyBridgeInfo(method, code, feedback, timing);
-    identifyClassInlinerEligibility(method, code, feedback, timing);
+    identifyClassInlinerEligibility(code, feedback, timing);
     identifyParameterUsages(method, code, feedback, timing);
-    identifyReturnsArgument(method, code, feedback, timing);
+    identifyReturnsArgument(code, feedback, timing);
     if (options.enableInlining) {
       identifyInvokeSemanticsForInlining(method, code, feedback, timing);
     }
@@ -152,14 +153,13 @@ public class MethodOptimizationInfoCollector {
   }
 
   private void identifyClassInlinerEligibility(
-      DexEncodedMethod method, IRCode code, OptimizationFeedback feedback, Timing timing) {
+      IRCode code, OptimizationFeedback feedback, Timing timing) {
     timing.begin("Identify class inliner eligibility");
-    identifyClassInlinerEligibility(method, code, feedback);
+    identifyClassInlinerEligibility(code, feedback);
     timing.end();
   }
 
-  private void identifyClassInlinerEligibility(
-      DexEncodedMethod method, IRCode code, OptimizationFeedback feedback) {
+  private void identifyClassInlinerEligibility(IRCode code, OptimizationFeedback feedback) {
     // Method eligibility is calculated in similar way for regular method
     // and for the constructor. To be eligible method should only be using its
     // receiver in the following ways:
@@ -173,21 +173,18 @@ public class MethodOptimizationInfoCollector {
     //
     // Note that (4) can safely be removed as the receiver is guaranteed not to escape when we class
     // inline it, and hence any monitor instructions are no-ops.
-    boolean instanceInitializer = method.isInstanceInitializer();
-    if (method.accessFlags.isNative()
-        || (!method.isNonAbstractVirtualMethod() && !instanceInitializer)) {
+    ProgramMethod context = code.context();
+    DexEncodedMethod definition = context.getDefinition();
+    boolean instanceInitializer = definition.isInstanceInitializer();
+    if (definition.isNative()
+        || (!definition.isNonAbstractVirtualMethod() && !instanceInitializer)) {
       return;
     }
 
-    feedback.setClassInlinerEligibility(method, null);  // To allow returns below.
+    feedback.setClassInlinerEligibility(definition, null); // To allow returns below.
 
     Value receiver = code.getThis();
     if (receiver.numberOfPhiUsers() > 0) {
-      return;
-    }
-
-    DexClass clazz = appView.definitionFor(method.holder());
-    if (clazz == null) {
       return;
     }
 
@@ -224,11 +221,10 @@ public class MethodOptimizationInfoCollector {
               }
             }
             DexField field = insn.asFieldInstruction().getField();
-            if (appView.appInfo().resolveFieldOn(clazz, field) != null) {
-              // Require only accessing direct or indirect instance fields of the current class.
-              break;
+            if (appView.appInfo().resolveField(field).isFailedOrUnknownResolution()) {
+              return;
             }
-            return;
+            break;
           }
 
         case INVOKE_DIRECT:
@@ -236,7 +232,7 @@ public class MethodOptimizationInfoCollector {
             InvokeDirect invoke = insn.asInvokeDirect();
             DexMethod invokedMethod = invoke.getInvokedMethod();
             if (dexItemFactory.isConstructor(invokedMethod)
-                && invokedMethod.holder == clazz.superType
+                && invokedMethod.holder == context.getHolder().superType
                 && ListUtils.lastIndexMatching(invoke.arguments(), isReceiverAlias) == 0
                 && !seenSuperInitCall
                 && instanceInitializer) {
@@ -250,7 +246,7 @@ public class MethodOptimizationInfoCollector {
         case INVOKE_STATIC:
           {
             InvokeStatic invoke = insn.asInvokeStatic();
-            DexEncodedMethod singleTarget = invoke.lookupSingleTarget(appView, method.holder());
+            DexEncodedMethod singleTarget = invoke.lookupSingleTarget(appView, context);
             if (singleTarget == null) {
               return; // Not allowed.
             }
@@ -271,7 +267,7 @@ public class MethodOptimizationInfoCollector {
             DexMethod invokedMethod = invoke.getInvokedMethod();
             DexType returnType = invokedMethod.proto.returnType;
             if (returnType.isClassType()
-                && appView.appInfo().inSameHierarchy(returnType, method.holder())) {
+                && appView.appInfo().inSameHierarchy(returnType, context.getHolderType())) {
               return; // Not allowed, could introduce an alias of the receiver.
             }
             callsReceiver.add(new Pair<>(Invoke.Type.VIRTUAL, invokedMethod));
@@ -289,13 +285,13 @@ public class MethodOptimizationInfoCollector {
       return;
     }
 
-    boolean synchronizedVirtualMethod = method.isSynchronized() && method.isVirtualMethod();
+    boolean synchronizedVirtualMethod = definition.isSynchronized() && definition.isVirtualMethod();
 
     feedback.setClassInlinerEligibility(
-        method,
+        definition,
         new ClassInlinerEligibilityInfo(
             callsReceiver,
-            new ClassInlinerReceiverAnalysis(appView, method, code).computeReturnsReceiver(),
+            new ClassInlinerReceiverAnalysis(appView, definition, code).computeReturnsReceiver(),
             seenMonitor || synchronizedVirtualMethod));
   }
 
@@ -345,15 +341,15 @@ public class MethodOptimizationInfoCollector {
     return builder.build();
   }
 
-  private void identifyReturnsArgument(
-      DexEncodedMethod method, IRCode code, OptimizationFeedback feedback, Timing timing) {
+  private void identifyReturnsArgument(IRCode code, OptimizationFeedback feedback, Timing timing) {
     timing.begin("Identify returns argument");
-    identifyReturnsArgument(method, code, feedback);
+    identifyReturnsArgument(code, feedback);
     timing.end();
   }
 
-  private void identifyReturnsArgument(
-      DexEncodedMethod method, IRCode code, OptimizationFeedback feedback) {
+  private void identifyReturnsArgument(IRCode code, OptimizationFeedback feedback) {
+    ProgramMethod context = code.context();
+    DexEncodedMethod method = context.getDefinition();
     List<BasicBlock> normalExits = code.computeNormalExitBlocks();
     if (normalExits.isEmpty()) {
       feedback.methodNeverReturnsNormally(method);
@@ -380,7 +376,6 @@ public class MethodOptimizationInfoCollector {
         if (definition.isArgument()) {
           feedback.methodReturnsArgument(method, definition.asArgument().getIndex());
         }
-        DexType context = method.holder();
         AbstractValue abstractReturnValue = definition.getAbstractValue(appView, context);
         if (abstractReturnValue.isNonTrivial()) {
           feedback.methodReturnsAbstractValue(method, appView, abstractReturnValue);
@@ -424,16 +419,9 @@ public class MethodOptimizationInfoCollector {
       return;
     }
 
-    DexClass clazz = appView.appInfo().definitionFor(method.holder());
-    if (clazz == null) {
-      assert false;
-      return;
-    }
-
     NonTrivialInstanceInitializerInfo.Builder builder =
         NonTrivialInstanceInitializerInfo.builder(instanceFieldInitializationInfos);
-    InstanceInitializerInfo instanceInitializerInfo =
-        analyzeInstanceInitializer(code, clazz, builder);
+    InstanceInitializerInfo instanceInitializerInfo = analyzeInstanceInitializer(code, builder);
     feedback.setInstanceInitializerInfo(
         method,
         instanceInitializerInfo != null
@@ -457,8 +445,9 @@ public class MethodOptimizationInfoCollector {
   //
   // (Note that this initializer does not have to have zero arguments.)
   private InstanceInitializerInfo analyzeInstanceInitializer(
-      IRCode code, DexClass clazz, NonTrivialInstanceInitializerInfo.Builder builder) {
-    if (clazz.definesFinalizer(options.itemFactory)) {
+      IRCode code, NonTrivialInstanceInitializerInfo.Builder builder) {
+    ProgramMethod context = code.context();
+    if (context.getHolder().definesFinalizer(options.itemFactory)) {
       // Defining a finalize method can observe the side-effect of Object.<init> GC registration.
       return null;
     }
@@ -510,7 +499,7 @@ public class MethodOptimizationInfoCollector {
             // instructions can trigger class initialization side effects, hence it is not necessary
             // to mark all fields as potentially being read. Also, none of the instruction types
             // can cause the receiver to escape.
-            if (instruction.instructionMayHaveSideEffects(appView, clazz.type)) {
+            if (instruction.instructionMayHaveSideEffects(appView, context)) {
               builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
             }
             break;
@@ -519,12 +508,13 @@ public class MethodOptimizationInfoCollector {
           case STATIC_GET:
             {
               FieldInstruction fieldGet = instruction.asFieldInstruction();
-              DexEncodedField field = appView.appInfo().resolveField(fieldGet.getField());
+              DexEncodedField field =
+                  appView.appInfo().resolveField(fieldGet.getField()).getResolvedField();
               if (field == null) {
                 return null;
               }
               builder.markFieldAsRead(field);
-              if (fieldGet.instructionMayHaveSideEffects(appView, clazz.type)) {
+              if (fieldGet.instructionMayHaveSideEffects(appView, context)) {
                 builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
                 if (fieldGet.isStaticGet()) {
                   // It could trigger a class initializer.
@@ -537,14 +527,15 @@ public class MethodOptimizationInfoCollector {
           case INSTANCE_PUT:
             {
               InstancePut instancePut = instruction.asInstancePut();
-              DexEncodedField field = appView.appInfo().resolveField(instancePut.getField());
+              DexEncodedField field =
+                  appView.appInfo().resolveField(instancePut.getField()).getResolvedField();
               if (field == null) {
                 return null;
               }
               Value object =
                   instancePut.object().getAliasedValue(aliasesThroughAssumeAndCheckCasts);
               if (object != receiver
-                  || instancePut.instructionInstanceCanThrow(appView, clazz.type).isThrowing()) {
+                  || instancePut.instructionInstanceCanThrow(appView, context).isThrowing()) {
                 builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
               }
 
@@ -612,7 +603,7 @@ public class MethodOptimizationInfoCollector {
           case INVOKE_NEW_ARRAY:
             {
               InvokeNewArray invoke = instruction.asInvokeNewArray();
-              if (invoke.instructionMayHaveSideEffects(appView, clazz.type)) {
+              if (invoke.instructionMayHaveSideEffects(appView, context)) {
                 builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
               }
               for (Value argument : invoke.arguments()) {
@@ -644,7 +635,7 @@ public class MethodOptimizationInfoCollector {
           case NEW_INSTANCE:
             {
               NewInstance newInstance = instruction.asNewInstance();
-              if (newInstance.instructionMayHaveSideEffects(appView, clazz.type)) {
+              if (newInstance.instructionMayHaveSideEffects(appView, context)) {
                 // It could trigger a class initializer.
                 builder
                     .markAllFieldsAsRead()
@@ -694,12 +685,12 @@ public class MethodOptimizationInfoCollector {
     if (method.isStatic()) {
       // Identifies if the method preserves class initialization after inlining.
       feedback.markTriggerClassInitBeforeAnySideEffect(
-          method, triggersClassInitializationBeforeSideEffect(method.holder(), code, appView));
+          method, triggersClassInitializationBeforeSideEffect(code));
     } else {
       // Identifies if the method preserves null check of the receiver after inlining.
       final Value receiver = code.getThis();
       feedback.markCheckNullReceiverBeforeAnySideEffect(
-          method, receiver.isUsed() && checksNullBeforeSideEffect(code, receiver, appView));
+          method, receiver.isUsed() && checksNullBeforeSideEffect(code, receiver));
     }
   }
 
@@ -709,14 +700,17 @@ public class MethodOptimizationInfoCollector {
    *
    * <p>Note: we do not track phis so we may return false negative. This is a conservative approach.
    */
-  private static boolean triggersClassInitializationBeforeSideEffect(
-      DexType clazz, IRCode code, AppView<?> appView) {
+  private boolean triggersClassInitializationBeforeSideEffect(IRCode code) {
     return alwaysTriggerExpectedEffectBeforeAnythingElse(
         code,
         (instruction, it) -> {
-          DexType context = code.method().holder();
+          ProgramMethod context = code.context();
           if (instruction.definitelyTriggersClassInitialization(
-              clazz, context, appView, DIRECTLY, AnalysisAssumption.INSTRUCTION_DOES_NOT_THROW)) {
+              context.getHolderType(),
+              context,
+              appView,
+              DIRECTLY,
+              AnalysisAssumption.INSTRUCTION_DOES_NOT_THROW)) {
             // In order to preserve class initialization semantic, the exception must not be caught
             // by any handler. Therefore, we must ignore this instruction if it is covered by a
             // catch handler.
@@ -726,7 +720,7 @@ public class MethodOptimizationInfoCollector {
               // We found an instruction that preserves initialization of the class.
               return InstructionEffect.DESIRED_EFFECT;
             }
-          } else if (instruction.instructionMayHaveSideEffects(appView, clazz)) {
+          } else if (instruction.instructionMayHaveSideEffects(appView, context)) {
             // We found a side effect before class initialization.
             return InstructionEffect.OTHER_EFFECT;
           }
@@ -810,7 +804,7 @@ public class MethodOptimizationInfoCollector {
    *
    * <p>Note: we do not track phis so we may return false negative. This is a conservative approach.
    */
-  private static boolean checksNullBeforeSideEffect(IRCode code, Value value, AppView<?> appView) {
+  private boolean checksNullBeforeSideEffect(IRCode code, Value value) {
     return alwaysTriggerExpectedEffectBeforeAnythingElse(
         code,
         (instr, it) -> {
@@ -847,7 +841,7 @@ public class MethodOptimizationInfoCollector {
           if (isInstantiationOfNullPointerException(instr, it, appView.dexItemFactory())) {
             it.next(); // Skip call to NullPointerException.<init>.
             return InstructionEffect.NO_EFFECT;
-          } else if (instr.throwsNpeIfValueIsNull(value, appView, code.method().holder())) {
+          } else if (instr.throwsNpeIfValueIsNull(value, appView, code.context())) {
             // In order to preserve NPE semantic, the exception must not be caught by any handler.
             // Therefore, we must ignore this instruction if it is covered by a catch handler.
             // Note: this is a conservative approach where we consider that any catch handler could
@@ -856,7 +850,7 @@ public class MethodOptimizationInfoCollector {
               // We found a NPE check on the value.
               return InstructionEffect.DESIRED_EFFECT;
             }
-          } else if (instr.instructionMayHaveSideEffects(appView, code.method().holder())) {
+          } else if (instr.instructionMayHaveSideEffects(appView, code.context())) {
             // If the current instruction is const-string, this could load the parameter name.
             // Just make sure it is indeed not throwing.
             if (instr.isConstString() && !instr.instructionInstanceCanThrow()) {
@@ -1021,7 +1015,7 @@ public class MethodOptimizationInfoCollector {
     if (appView.appInfo().mayHaveSideEffects.containsKey(method.method)) {
       return;
     }
-    DexType context = method.holder();
+    ProgramMethod context = code.context();
     if (method.isClassInitializer()) {
       // For class initializers, we also wish to compute if the class initializer has observable
       // side effects.
@@ -1033,9 +1027,9 @@ public class MethodOptimizationInfoCollector {
       } else if (classInitializerSideEffect.canBePostponed()) {
         feedback.classInitializerMayBePostponed(method);
       } else {
-        assert !context.isD8R8SynthesizedLambdaClassType()
+        assert !context.getHolderType().isD8R8SynthesizedLambdaClassType()
                 || options.debug
-                || appView.appInfo().hasPinnedInstanceInitializer(context)
+                || appView.appInfo().hasPinnedInstanceInitializer(context.getHolderType())
             : "Unexpected observable side effects from lambda `" + context.toSourceString() + "`";
       }
       return;
@@ -1044,7 +1038,7 @@ public class MethodOptimizationInfoCollector {
     if (method.isSynchronized()) {
       // If the method is synchronized then it acquires a lock.
       mayHaveSideEffects = true;
-    } else if (method.isInstanceInitializer() && hasNonTrivialFinalizeMethod(context)) {
+    } else if (method.isInstanceInitializer() && hasNonTrivialFinalizeMethod(context.getHolder())) {
       // If a class T overrides java.lang.Object.finalize(), then treat the constructor as having
       // side effects. This ensures that we won't remove instructions on the form `new-instance
       // {v0}, T`.
@@ -1064,31 +1058,20 @@ public class MethodOptimizationInfoCollector {
     }
   }
 
-  // Returns true if `method` is an initializer and the enclosing class overrides the method
-  // `void java.lang.Object.finalize()`.
-  private boolean hasNonTrivialFinalizeMethod(DexType type) {
-    DexClass clazz = appView.definitionFor(type);
-    if (clazz != null) {
-      if (clazz.isProgramClass() && !clazz.isInterface()) {
-        DexItemFactory dexItemFactory = appView.dexItemFactory();
-        ResolutionResult resolutionResult =
-            appView
-                .appInfo()
-                .resolveMethodOnClass(clazz, appView.dexItemFactory().objectMembers.finalize);
-
-        DexEncodedMethod target = resolutionResult.getSingleTarget();
-        if (target != null
-            && target.method != dexItemFactory.enumMethods.finalize
-            && target.method != dexItemFactory.objectMembers.finalize) {
-          return true;
-        }
-        return false;
-      } else {
-        // Conservatively report that the library class could implement finalize().
-        return true;
-      }
+  // Returns true if the given class overrides the method `void java.lang.Object.finalize()`.
+  private boolean hasNonTrivialFinalizeMethod(DexProgramClass clazz) {
+    if (clazz.isInterface()) {
+      return false;
     }
-    return false;
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    ResolutionResult resolutionResult =
+        appView
+            .appInfo()
+            .resolveMethodOnClass(appView.dexItemFactory().objectMembers.finalize, clazz);
+    DexEncodedMethod target = resolutionResult.getSingleTarget();
+    return target != null
+        && target.method != dexItemFactory.enumMethods.finalize
+        && target.method != dexItemFactory.objectMembers.finalize;
   }
 
   private void computeReturnValueOnlyDependsOnArguments(
@@ -1137,7 +1120,7 @@ public class MethodOptimizationInfoCollector {
       //   invoke-static throwParameterIsNullException(msg)
       //
       // or some other variants, e.g., throw null or NPE after the direct null check.
-      if (argument.isUsed() && checksNullBeforeSideEffect(code, argument, appView)) {
+      if (argument.isUsed() && checksNullBeforeSideEffect(code, argument)) {
         paramsCheckedForNull.set(index);
       }
     }

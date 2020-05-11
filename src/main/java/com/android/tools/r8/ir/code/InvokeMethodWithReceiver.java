@@ -3,8 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.code;
 
+import static com.android.tools.r8.graph.DexEncodedMethod.asProgramMethodOrNull;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
@@ -53,7 +56,20 @@ public abstract class InvokeMethodWithReceiver extends InvokeMethod {
   }
 
   @Override
-  public boolean throwsNpeIfValueIsNull(Value value, AppView<?> appView, DexType context) {
+  public final DexEncodedMethod lookupSingleTarget(AppView<?> appView, ProgramMethod context) {
+    return lookupSingleTarget(appView, context, getReceiver());
+  }
+
+  public abstract DexEncodedMethod lookupSingleTarget(
+      AppView<?> appView, ProgramMethod context, Value receiver);
+
+  public final ProgramMethod lookupSingleProgramTarget(
+      AppView<?> appView, ProgramMethod context, Value receiver) {
+    return asProgramMethodOrNull(lookupSingleTarget(appView, context, receiver), appView);
+  }
+
+  @Override
+  public boolean throwsNpeIfValueIsNull(Value value, AppView<?> appView, ProgramMethod context) {
     return value == getReceiver() || super.throwsNpeIfValueIsNull(value, appView, context);
   }
 

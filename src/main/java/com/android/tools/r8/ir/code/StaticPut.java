@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.AnalysisAssumption;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.Query;
@@ -95,7 +96,7 @@ public class StaticPut extends FieldInstruction implements StaticFieldInstructio
 
   @Override
   public boolean instructionMayHaveSideEffects(
-      AppView<?> appView, DexType context, SideEffectAssumption assumption) {
+      AppView<?> appView, ProgramMethod context, SideEffectAssumption assumption) {
     if (appView.appInfo().hasLiveness()) {
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       AppInfoWithLiveness appInfoWithLiveness = appViewWithLiveness.appInfo();
@@ -113,7 +114,8 @@ public class StaticPut extends FieldInstruction implements StaticFieldInstructio
         return true;
       }
 
-      DexEncodedField encodedField = appInfoWithLiveness.resolveField(getField());
+      DexEncodedField encodedField =
+          appInfoWithLiveness.resolveField(getField()).getResolvedField();
       assert encodedField != null : "NoSuchFieldError (resolution failure) should be caught.";
 
       boolean isDeadProtoExtensionField =
@@ -139,7 +141,7 @@ public class StaticPut extends FieldInstruction implements StaticFieldInstructio
     // * IllegalAccessError (not visible from the access context)
     // * side-effects in <clinit>
     // * not read _globally_
-    boolean haveSideEffects = instructionMayHaveSideEffects(appView, code.method().holder());
+    boolean haveSideEffects = instructionMayHaveSideEffects(appView, code.context());
     assert appView.enableWholeProgramOptimizations() || haveSideEffects
         : "Expected static-put instruction to have side effects in D8";
     return !haveSideEffects;
@@ -187,8 +189,8 @@ public class StaticPut extends FieldInstruction implements StaticFieldInstructio
 
   @Override
   public ConstraintWithTarget inliningConstraint(
-      InliningConstraints inliningConstraints, DexType invocationContext) {
-    return inliningConstraints.forStaticPut(getField(), invocationContext);
+      InliningConstraints inliningConstraints, ProgramMethod context) {
+    return inliningConstraints.forStaticPut(getField(), context.getHolder());
   }
 
   @Override
@@ -226,8 +228,8 @@ public class StaticPut extends FieldInstruction implements StaticFieldInstructio
   @Override
   public boolean definitelyTriggersClassInitialization(
       DexType clazz,
-      DexType context,
-      AppView<?> appView,
+      ProgramMethod context,
+      AppView<AppInfoWithLiveness> appView,
       Query mode,
       AnalysisAssumption assumption) {
     return ClassInitializationAnalysis.InstructionUtils.forStaticPut(
@@ -235,7 +237,7 @@ public class StaticPut extends FieldInstruction implements StaticFieldInstructio
   }
 
   @Override
-  public boolean instructionMayTriggerMethodInvocation(AppView<?> appView, DexType context) {
+  public boolean instructionMayTriggerMethodInvocation(AppView<?> appView, ProgramMethod context) {
     DexType holder = getField().holder;
     if (appView.enableWholeProgramOptimizations()) {
       // In R8, check if the class initialization of the holder or any of its ancestor types may
@@ -243,12 +245,12 @@ public class StaticPut extends FieldInstruction implements StaticFieldInstructio
       return holder.classInitializationMayHaveSideEffects(
           appView,
           // Types that are a super type of `context` are guaranteed to be initialized already.
-          type -> appView.isSubtype(context, type).isTrue(),
+          type -> appView.isSubtype(context.getHolderType(), type).isTrue(),
           Sets.newIdentityHashSet());
     } else {
       // In D8, this instruction may trigger class initialization if the holder of the field is
       // different from the current context.
-      return holder != context;
+      return holder != context.getHolderType();
     }
   }
 }

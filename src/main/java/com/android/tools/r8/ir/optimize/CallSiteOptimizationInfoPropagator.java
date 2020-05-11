@@ -4,7 +4,6 @@
 package com.android.tools.r8.ir.optimize;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -85,7 +84,7 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     if (mode != Mode.COLLECT) {
       return;
     }
-    DexEncodedMethod context = code.method();
+    ProgramMethod context = code.context();
     for (Instruction instruction : code.instructions()) {
       if (!instruction.isInvokeMethod() && !instruction.isInvokeCustom()) {
         continue;
@@ -95,26 +94,28 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
         if (invoke.isInvokeMethodWithDynamicDispatch()) {
           DexMethod invokedMethod = invoke.getInvokedMethod();
           ResolutionResult resolutionResult =
-              appView.appInfo().resolveMethod(invokedMethod.holder, invokedMethod);
+              appView.appInfo().resolveMethod(invokedMethod, invoke.isInvokeInterface());
           // For virtual and interface calls, proceed on valid results only (since it's enforced).
-          if (!resolutionResult.isVirtualTarget()) {
+          if (!resolutionResult.isSingleResolution() || !resolutionResult.isVirtualTarget()) {
             continue;
           }
           // If the resolution ended up with a single target, check if it is a library override.
           // And if so, bail out early (to avoid expensive target lookup).
-          if (resolutionResult.isSingleResolution()
-              && isLibraryMethodOrLibraryMethodOverride(resolutionResult.getSingleTarget())) {
+          ProgramMethod resolutionTarget =
+              resolutionResult.asSingleResolution().getResolutionPair().asProgramMethod();
+          if (resolutionTarget == null
+              || isLibraryMethodOrLibraryMethodOverride(resolutionTarget)) {
             continue;
           }
         }
-        Collection<DexEncodedMethod> targets = invoke.lookupTargets(appView, context.holder());
+        ProgramMethodSet targets = invoke.lookupProgramDispatchTargets(appView, context);
         assert invoke.isInvokeMethodWithDynamicDispatch()
             // For other invocation types, the size of targets should be at most one.
             || targets == null || targets.size() <= 1;
         if (targets == null || targets.isEmpty() || hasLibraryOverrides(targets)) {
           continue;
         }
-        for (DexEncodedMethod target : targets) {
+        for (ProgramMethod target : targets) {
           recordArgumentsIfNecessary(target, invoke.inValues());
         }
       }
@@ -132,7 +133,6 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
             appView
                 .appInfo()
                 .resolveMethod(
-                    bootstrapMethod.asMethod().holder,
                     bootstrapMethod.asMethod(),
                     bootstrapMethod.isInterface)
                 .asSingleResolution();
@@ -147,8 +147,8 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
 
   // TODO(b/140204899): Instead of reprocessing here, pass stopping criteria to lookup?
   // If any of target method is a library method override, bail out entirely/early.
-  private boolean hasLibraryOverrides(Collection<DexEncodedMethod> targets) {
-    for (DexEncodedMethod target : targets) {
+  private boolean hasLibraryOverrides(ProgramMethodSet targets) {
+    for (ProgramMethod target : targets) {
       if (isLibraryMethodOrLibraryMethodOverride(target)) {
         return true;
       }
@@ -156,54 +156,42 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     return false;
   }
 
-  private boolean isLibraryMethodOrLibraryMethodOverride(DexEncodedMethod target) {
-    // Not a program method.
-    if (!target.isProgramMethod(appView)) {
-      return true;
-    }
+  private boolean isLibraryMethodOrLibraryMethodOverride(ProgramMethod target) {
     // If the method overrides a library method, it is unsure how the method would be invoked by
     // that library.
-    if (target.isLibraryMethodOverride().isTrue()) {
-      return true;
-    }
-    return false;
+    return target.getDefinition().isLibraryMethodOverride().isTrue();
   }
 
   // Record arguments for the given method if necessary.
   // At the same time, if it decides to bail out, make the corresponding info immutable so that we
   // can avoid recording arguments for the same method accidentally.
-  private void recordArgumentsIfNecessary(DexEncodedMethod target, List<Value> inValues) {
-    assert !target.isObsolete();
-    if (appView.appInfo().neverReprocess.contains(target.method)) {
+  private void recordArgumentsIfNecessary(ProgramMethod target, List<Value> inValues) {
+    assert !target.getDefinition().isObsolete();
+    if (appView.appInfo().neverReprocess.contains(target.getReference())) {
       return;
     }
-    if (target.getCallSiteOptimizationInfo().isTop()) {
+    if (target.getDefinition().getCallSiteOptimizationInfo().isTop()) {
       return;
     }
-    target.joinCallSiteOptimizationInfo(
-        computeCallSiteOptimizationInfoFromArguments(target, inValues), appView);
+    target
+        .getDefinition()
+        .joinCallSiteOptimizationInfo(
+            computeCallSiteOptimizationInfoFromArguments(target, inValues), appView);
   }
 
   private CallSiteOptimizationInfo computeCallSiteOptimizationInfoFromArguments(
-      DexEncodedMethod target, List<Value> inValues) {
+      ProgramMethod target, List<Value> inValues) {
     // No method body or no argument at all.
-    if (target.shouldNotHaveCode() || inValues.size() == 0) {
+    if (target.getDefinition().shouldNotHaveCode() || inValues.size() == 0) {
       return CallSiteOptimizationInfo.TOP;
     }
     // If pinned, that method could be invoked via reflection.
-    if (appView.appInfo().isPinned(target.method)) {
-      return CallSiteOptimizationInfo.TOP;
-    }
-    // Not a program method.
-    if (!target.isProgramMethod(appView)) {
-      // But, should not be reachable, since we already bail out.
-      assert false
-          : "Trying to compute call site optimization info for " + target.toSourceString();
+    if (appView.appInfo().isPinned(target.getReference())) {
       return CallSiteOptimizationInfo.TOP;
     }
     // If the method overrides a library method, it is unsure how the method would be invoked by
     // that library.
-    if (target.isLibraryMethodOverride().isTrue()) {
+    if (target.getDefinition().isLibraryMethodOverride().isTrue()) {
       // But, should not be reachable, since we already bail out.
       assert false
           : "Trying to compute call site optimization info for " + target.toSourceString();
@@ -212,8 +200,8 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     // If the program already has illegal accesses, method resolution results will reflect that too.
     // We should avoid recording arguments in that case. E.g., b/139823850: static methods can be a
     // result of virtual call targets, if that's the only method that matches name and signature.
-    int argumentOffset = target.isStatic() ? 0 : 1;
-    if (inValues.size() != argumentOffset + target.method.getArity()) {
+    int argumentOffset = target.getDefinition().isStatic() ? 0 : 1;
+    if (inValues.size() != argumentOffset + target.getReference().getArity()) {
       return CallSiteOptimizationInfo.BOTTOM;
     }
     return ConcreteCallSiteOptimizationInfo.fromArguments(appView, target, inValues);

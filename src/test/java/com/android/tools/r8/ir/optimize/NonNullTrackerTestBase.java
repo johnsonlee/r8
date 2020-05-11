@@ -16,14 +16,15 @@ import com.android.tools.r8.utils.Timing;
 
 public abstract class NonNullTrackerTestBase extends TestBase {
 
-  protected AppView<?> build(Class<?> mainClass) throws Exception {
+  protected AppView<? extends AppInfoWithClassHierarchy> build(Class<?> mainClass)
+      throws Exception {
     Timing timing = Timing.empty();
     AndroidApp app = buildAndroidApp(ToolHelper.getClassAsBytes(mainClass));
     InternalOptions options = new InternalOptions();
     DirectMappedDexApplication dexApplication =
         new ApplicationReader(app, options, timing).read().toDirect();
-    AppView<?> appView =
-        AppView.createForD8(new AppInfoWithClassHierarchy(dexApplication), options);
+    AppView<? extends AppInfoWithClassHierarchy> appView =
+        AppView.createForR8(new AppInfoWithClassHierarchy(dexApplication), options);
     appView.setAppServices(AppServices.builder(appView).build());
     return appView;
   }

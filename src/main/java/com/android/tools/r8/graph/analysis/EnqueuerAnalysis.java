@@ -4,8 +4,9 @@
 
 package com.android.tools.r8.graph.analysis;
 
-import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
@@ -17,10 +18,11 @@ public abstract class EnqueuerAnalysis {
   public void processNewlyInstantiatedClass(DexProgramClass clazz, ProgramMethod context) {}
 
   /** Called when a class is found to be live. */
-  public void processNewlyLiveClass(DexProgramClass clazz, EnqueuerWorklist worklist) {}
+  public void processNewlyLiveClass(
+      DexProgramClass clazz, EnqueuerWorklist worklist, DexDefinitionSupplier definitionSupplier) {}
 
   /** Called when a field is found to be live. */
-  public void processNewlyLiveField(DexEncodedField field) {}
+  public void processNewlyLiveField(ProgramField field) {}
 
   /** Called when a method is found to be live. */
   public void processNewlyLiveMethod(ProgramMethod method) {}

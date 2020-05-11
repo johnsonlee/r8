@@ -38,6 +38,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   private T appInfo;
+  private AppInfoWithClassHierarchy appInfoForDesugaring;
   private AppServices appServices;
   private final DexItemFactory dexItemFactory;
   private final WholeProgramOptimizations wholeProgramOptimizations;
@@ -144,13 +145,31 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   public T appInfo() {
+    assert !appInfo.hasClassHierarchy() || enableWholeProgramOptimizations();
     return appInfo;
+  }
+
+  public AppInfoWithClassHierarchy appInfoForDesugaring() {
+    if (enableWholeProgramOptimizations()) {
+      assert appInfo.hasClassHierarchy();
+      return appInfo.withClassHierarchy();
+    }
+    assert !appInfo.hasClassHierarchy();
+    if (appInfoForDesugaring == null) {
+      appInfoForDesugaring = AppInfoWithClassHierarchy.createForDesugaring(appInfo());
+    }
+    return appInfoForDesugaring;
+  }
+
+  private void unsetAppInfoForDesugaring() {
+    appInfoForDesugaring = null;
   }
 
   public <U extends T> AppView<U> setAppInfo(U appInfo) {
     assert !appInfo.isObsolete();
     AppInfo previous = this.appInfo;
     this.appInfo = appInfo;
+    unsetAppInfoForDesugaring();
     if (appInfo != previous) {
       previous.markObsolete();
     }
@@ -433,5 +452,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return appInfo().hasLiveness()
         ? OptionalBool.of(appInfo().withLiveness().isSubtype(subtype, supertype))
         : OptionalBool.unknown();
+  }
+
+  public boolean isCfByteCodePassThrough(DexEncodedMethod method) {
+    return options.testing.cfByteCodePassThrough != null
+        && options.testing.cfByteCodePassThrough.test(method);
   }
 }

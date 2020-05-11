@@ -11,13 +11,13 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.MethodAccessFlags;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,7 +67,7 @@ public final class LambdaDescriptor {
 
   private LambdaDescriptor(
       AppInfoWithClassHierarchy appInfo,
-      DexType invocationContext,
+      ProgramMethod context,
       DexCallSite callSite,
       DexString name,
       DexProto erasedProto,
@@ -92,8 +92,7 @@ public final class LambdaDescriptor {
     this.captures = captures;
 
     this.interfaces.add(mainInterface);
-    DexEncodedMethod targetMethod =
-        invocationContext == null ? null : lookupTargetMethod(appInfo, invocationContext);
+    DexEncodedMethod targetMethod = context == null ? null : lookupTargetMethod(appInfo, context);
     if (targetMethod != null) {
       targetAccessFlags = targetMethod.accessFlags.copy();
       targetHolder = targetMethod.holder();
@@ -113,17 +112,19 @@ public final class LambdaDescriptor {
   }
 
   private DexEncodedMethod lookupTargetMethod(
-      AppInfoWithClassHierarchy appInfo, DexType invocationContext) {
-    assert invocationContext != null;
+      AppInfoWithClassHierarchy appInfo, ProgramMethod context) {
+    assert context != null;
     // Find the lambda's impl-method target.
     DexMethod method = implHandle.asMethod();
     switch (implHandle.type) {
       case INVOKE_DIRECT:
       case INVOKE_INSTANCE: {
           DexEncodedMethod target =
-              appInfo.resolveMethod(getImplReceiverType(), method).getSingleTarget();
+              appInfo
+                  .resolveMethodOn(getImplReceiverType(), method, implHandle.isInterface)
+                  .getSingleTarget();
         if (target == null) {
-            target = appInfo.lookupDirectTarget(method, invocationContext);
+            target = appInfo.lookupDirectTarget(method, context);
         }
         assert target == null
             || (implHandle.type.isInvokeInstance() && isInstanceMethod(target))
@@ -133,20 +134,20 @@ public final class LambdaDescriptor {
       }
 
       case INVOKE_STATIC: {
-          DexEncodedMethod target = appInfo.lookupStaticTarget(method, invocationContext);
+          DexEncodedMethod target = appInfo.lookupStaticTarget(method, context);
         assert target == null || target.accessFlags.isStatic();
         return target;
       }
 
       case INVOKE_CONSTRUCTOR: {
-          DexEncodedMethod target = appInfo.lookupDirectTarget(method, invocationContext);
+          DexEncodedMethod target = appInfo.lookupDirectTarget(method, context);
         assert target == null || target.accessFlags.isConstructor();
         return target;
       }
 
       case INVOKE_INTERFACE: {
           DexEncodedMethod target =
-              appInfo.resolveMethod(getImplReceiverType(), method).getSingleTarget();
+              appInfo.resolveMethodOnInterface(getImplReceiverType(), method).getSingleTarget();
         assert target == null || isInstanceMethod(target);
         return target;
       }
@@ -187,7 +188,7 @@ public final class LambdaDescriptor {
   }
 
   /** Checks if call site needs a accessor when referenced from `accessedFrom`. */
-  boolean needsAccessor(DexType accessedFrom) {
+  boolean needsAccessor(ProgramMethod accessedFrom) {
     if (delegatesToLambdaImplMethod()) {
       return false;
     }
@@ -217,8 +218,10 @@ public final class LambdaDescriptor {
         // because the method being called must be present in method holder,
         // and not in one from its supertypes.
         boolean accessedFromSamePackage =
-            accessedFrom.getPackageDescriptor().equals(
-                implHandle.asMethod().holder.getPackageDescriptor());
+            accessedFrom
+                .getHolderType()
+                .getPackageDescriptor()
+                .equals(implHandle.asMethod().holder.getPackageDescriptor());
         return !accessedFromSamePackage;
       }
 
@@ -238,7 +241,10 @@ public final class LambdaDescriptor {
     }
 
     boolean accessedFromSamePackage =
-        accessedFrom.getPackageDescriptor().equals(targetHolder.getPackageDescriptor());
+        accessedFrom
+            .getHolderType()
+            .getPackageDescriptor()
+            .equals(targetHolder.getPackageDescriptor());
     assert flags.isProtected() || accessedFromSamePackage;
     return flags.isProtected() && !accessedFromSamePackage;
   }
@@ -248,8 +254,8 @@ public final class LambdaDescriptor {
    * information, or null if match failed.
    */
   public static LambdaDescriptor tryInfer(
-      DexCallSite callSite, AppInfoWithClassHierarchy appInfo, DexProgramClass invocationContext) {
-    LambdaDescriptor descriptor = infer(callSite, appInfo, invocationContext.type);
+      DexCallSite callSite, AppInfoWithClassHierarchy appInfo, ProgramMethod context) {
+    LambdaDescriptor descriptor = infer(callSite, appInfo, context);
     return descriptor == MATCH_FAILED ? null : descriptor;
   }
 
@@ -265,7 +271,7 @@ public final class LambdaDescriptor {
    * information, or MATCH_FAILED if match failed.
    */
   static LambdaDescriptor infer(
-      DexCallSite callSite, AppInfoWithClassHierarchy appInfo, DexType invocationContext) {
+      DexCallSite callSite, AppInfoWithClassHierarchy appInfo, ProgramMethod context) {
     if (!isLambdaMetafactoryMethod(callSite, appInfo.dexItemFactory())) {
       return LambdaDescriptor.MATCH_FAILED;
     }
@@ -309,7 +315,7 @@ public final class LambdaDescriptor {
     LambdaDescriptor match =
         new LambdaDescriptor(
             appInfo,
-            invocationContext,
+            context,
             callSite,
             funcMethodName,
             funcErasedSignature.value,

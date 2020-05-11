@@ -18,6 +18,7 @@ import com.android.tools.r8.code.ConstWideHigh16;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.constant.Bottom;
 import com.android.tools.r8.ir.analysis.constant.ConstLatticeElement;
 import com.android.tools.r8.ir.analysis.constant.LatticeElement;
@@ -25,6 +26,7 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOutputMode;
 import com.android.tools.r8.utils.NumberUtils;
 import java.util.Set;
@@ -333,7 +335,8 @@ public class ConstNumber extends ConstInstruction {
   }
 
   @Override
-  public AbstractValue getAbstractValue(AppView<?> appView, DexType context) {
+  public AbstractValue getAbstractValue(
+      AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
     return appView.abstractValueFactory().createSingleNumberValue(value);
   }
 }

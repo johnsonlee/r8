@@ -394,7 +394,7 @@ public class EnumUnboxer implements PostOptimization {
         return Reason.INVALID_INVOKE_ON_ARRAY;
       }
       DexEncodedMethod encodedSingleTarget =
-          invokeMethod.lookupSingleTarget(appView, code.method().holder());
+          invokeMethod.lookupSingleTarget(appView, code.context());
       if (encodedSingleTarget == null) {
         return Reason.INVALID_INVOKE;
       }
@@ -459,7 +459,8 @@ public class EnumUnboxer implements PostOptimization {
     // have identical enum type.
     if (instruction.isFieldPut()) {
       FieldInstruction fieldInstruction = instruction.asFieldInstruction();
-      DexEncodedField field = appView.appInfo().resolveField(fieldInstruction.getField());
+      DexEncodedField field =
+          appView.appInfo().resolveField(fieldInstruction.getField()).getResolvedField();
       if (field == null) {
         return Reason.INVALID_FIELD_PUT;
       }

@@ -8,12 +8,15 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.FieldResolutionResult;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteShrinker;
@@ -56,7 +59,7 @@ import java.util.function.Predicate;
 //  keep fields that could reach extensions to be conservative.
 public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
 
-  private final AppView<?> appView;
+  private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final RawMessageInfoDecoder decoder;
   private final ProtoFieldTypeFactory factory;
   private final ProtoReferences references;
@@ -85,7 +88,7 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
   // Mapping from extension container types to the extensions for that type.
   private final Map<DexType, Set<DexType>> extensionGraph = new IdentityHashMap<>();
 
-  public ProtoEnqueuerExtension(AppView<?> appView) {
+  public ProtoEnqueuerExtension(AppView<? extends AppInfoWithClassHierarchy> appView) {
     ProtoShrinker protoShrinker = appView.protoShrinker();
     this.appView = appView;
     this.decoder = protoShrinker.decoder;
@@ -94,7 +97,8 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
   }
 
   @Override
-  public void processNewlyLiveClass(DexProgramClass clazz, EnqueuerWorklist worklist) {
+  public void processNewlyLiveClass(
+      DexProgramClass clazz, EnqueuerWorklist worklist, DexDefinitionSupplier definitionSupplier) {
     assert appView.appInfo().hasClassHierarchy();
     AppInfoWithClassHierarchy appInfo = appView.appInfo().withClassHierarchy();
     if (appInfo.isStrictSubtypeOf(clazz.type, references.generatedMessageLiteType)) {
@@ -258,7 +262,8 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
         Instruction definition = returnValue.definition;
         if (definition.isStaticGet()) {
           StaticGet staticGet = definition.asStaticGet();
-          DexEncodedField field = appView.appInfo().resolveField(staticGet.getField());
+          DexEncodedField field =
+              appView.appInfo().resolveField(staticGet.getField()).getResolvedField();
           if (field == null) {
             assert false;
             continue;
@@ -355,7 +360,7 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
 
       ProgramMethod dynamicMethod = protoMessageInfo.getDynamicMethod();
       for (ProtoFieldInfo protoFieldInfo : protoMessageInfo.getFields()) {
-        DexEncodedField valueStorage = protoFieldInfo.getValueStorage(appView, protoMessageInfo);
+        ProgramField valueStorage = protoFieldInfo.getValueStorage(appView, protoMessageInfo);
         if (valueStorage == null) {
           continue;
         }
@@ -369,21 +374,21 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
             // (i) optimize field reads into loading the default value of the field or (ii) remove
             // field writes to proto fields that could be read using reflection by the proto
             // library.
-            enqueuer.registerReflectiveFieldAccess(valueStorage.field, dynamicMethod);
+            enqueuer.registerReflectiveFieldAccess(valueStorage.getReference(), dynamicMethod);
           }
           valueStorageIsLive = true;
         } else if (reachesMapOrRequiredField(protoFieldInfo)) {
           // Map/required fields cannot be removed. Therefore, we mark such fields as both read and
           // written such that we cannot optimize any field reads or writes.
-          enqueuer.registerReflectiveFieldAccess(valueStorage.field, dynamicMethod);
+          enqueuer.registerReflectiveFieldAccess(valueStorage.getReference(), dynamicMethod);
           worklist.enqueueMarkReachableFieldAction(
-              dynamicMethod.getHolder(), valueStorage, KeepReason.reflectiveUseIn(dynamicMethod));
+              valueStorage, KeepReason.reflectiveUseIn(dynamicMethod));
           valueStorageIsLive = true;
         } else {
           valueStorageIsLive = false;
         }
 
-        DexEncodedField newlyLiveField = null;
+        ProgramField newlyLiveField = null;
         if (valueStorageIsLive) {
           // For one-of fields, mark the corresponding one-of-case field as live, and for proto2
           // singular fields, mark the corresponding hazzer-bit field as live.
@@ -391,27 +396,28 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
             newlyLiveField = protoFieldInfo.getOneOfCaseField(appView, protoMessageInfo);
           } else if (protoFieldInfo.hasHazzerBitField(protoMessageInfo)) {
             newlyLiveField = protoFieldInfo.getHazzerBitField(appView, protoMessageInfo);
-            enqueuer.registerReflectiveFieldAccess(valueStorage.field, dynamicMethod);
+            enqueuer.registerReflectiveFieldAccess(valueStorage.getReference(), dynamicMethod);
           }
         } else {
           // For one-of fields, mark the one-of field as live if the one-of-case field is live, and
           // for proto2 singular fields, mark the field as live if the corresponding hazzer-bit
           // field is live.
           if (protoFieldInfo.getType().isOneOf()) {
-            DexEncodedField oneOfCaseField =
+            ProgramField oneOfCaseField =
                 protoFieldInfo.getOneOfCaseField(appView, protoMessageInfo);
             if (oneOfCaseField != null && enqueuer.isFieldLive(oneOfCaseField)) {
               newlyLiveField = valueStorage;
             }
           } else if (protoFieldInfo.hasHazzerBitField(protoMessageInfo)) {
-            DexEncodedField hazzerBitField =
+            ProgramField hazzerBitField =
                 protoFieldInfo.getHazzerBitField(appView, protoMessageInfo);
             if (hazzerBitField == null || !enqueuer.isFieldLive(hazzerBitField)) {
               continue;
             }
 
             if (appView.options().enableFieldBitAccessAnalysis && appView.isAllCodeProcessed()) {
-              FieldOptimizationInfo optimizationInfo = hazzerBitField.getOptimizationInfo();
+              FieldOptimizationInfo optimizationInfo =
+                  hazzerBitField.getDefinition().getOptimizationInfo();
               int hazzerBitIndex = protoFieldInfo.getHazzerBitFieldIndex(protoMessageInfo);
               if (!BitUtils.isBitSet(optimizationInfo.getReadBits(), hazzerBitIndex)) {
                 continue;
@@ -428,20 +434,19 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
           ProgramMethod defaultInitializer =
               dynamicMethod.getHolder().getProgramDefaultInitializer();
           assert defaultInitializer != null;
-          Predicate<DexEncodedMethod> neitherDefaultConstructorNorDynamicMethod =
+          Predicate<ProgramMethod> neitherDefaultConstructorNorDynamicMethod =
               writer ->
-                  writer != defaultInitializer.getDefinition()
-                      && writer != dynamicMethod.getDefinition();
+                  !writer.isStructurallyEqualTo(defaultInitializer)
+                      && !writer.isStructurallyEqualTo(dynamicMethod);
           if (enqueuer.isFieldWrittenInMethodSatisfying(
               newlyLiveField, neitherDefaultConstructorNorDynamicMethod)) {
-            enqueuer.registerReflectiveFieldRead(newlyLiveField.field, dynamicMethod);
+            enqueuer.registerReflectiveFieldRead(newlyLiveField.getReference(), dynamicMethod);
           }
 
           // Unconditionally register the hazzer and one-of proto fields as written from
           // dynamicMethod().
-          if (enqueuer.registerReflectiveFieldWrite(newlyLiveField.field, dynamicMethod)) {
+          if (enqueuer.registerReflectiveFieldWrite(newlyLiveField.getReference(), dynamicMethod)) {
             worklist.enqueueMarkReachableFieldAction(
-                dynamicMethod.getHolder(),
                 newlyLiveField,
                 KeepReason.reflectiveUseIn(dynamicMethod));
           }
@@ -474,7 +479,7 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
         // NOTE: If `valueStorage` is not a live field, then code for it will not be emitted in the
         // schema, and therefore we do need to trace the const-class instructions that will be
         // emitted for it.
-        DexEncodedField valueStorage = protoFieldInfo.getValueStorage(appView, protoMessageInfo);
+        ProgramField valueStorage = protoFieldInfo.getValueStorage(appView, protoMessageInfo);
         if (valueStorage != null && enqueuer.isFieldLive(valueStorage)) {
           for (ProtoObject object : objects) {
             if (object.isProtoObjectFromStaticGet()) {
@@ -511,27 +516,32 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
       return;
     }
 
-    DexField oneOfCaseField = oneOfCaseObject.asLiveProtoFieldObject().getField();
-    DexEncodedField encodedOneOfCaseField = appView.appInfo().resolveField(oneOfCaseField);
-    if (encodedOneOfCaseField == null) {
+    DexField oneOfCaseFieldReference = oneOfCaseObject.asLiveProtoFieldObject().getField();
+    FieldResolutionResult oneOfCaseFieldResolutionResult =
+        appView.appInfo().resolveField(oneOfCaseFieldReference);
+    if (oneOfCaseFieldResolutionResult.isFailedOrUnknownResolution()) {
       assert false;
       return;
     }
 
-    DexProgramClass clazz =
-        asProgramClassOrNull(appView.definitionFor(encodedOneOfCaseField.holder()));
-    if (clazz == null) {
+    ProgramField oneOfCaseField =
+        oneOfCaseFieldResolutionResult
+            .asSuccessfulResolution()
+            .getResolutionPair()
+            .asProgramField();
+    if (oneOfCaseField == null) {
       assert false;
       return;
     }
 
-    ProgramMethod dynamicMethod = clazz.lookupProgramMethod(references.dynamicMethod);
+    ProgramMethod dynamicMethod =
+        oneOfCaseField.getHolder().lookupProgramMethod(references.dynamicMethod);
     if (dynamicMethod == null) {
       assert false;
       return;
     }
 
-    if (!enqueuer.isFieldLive(encodedOneOfCaseField)) {
+    if (!enqueuer.isFieldLive(oneOfCaseField)) {
       return;
     }
 
@@ -541,21 +551,24 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
       return;
     }
 
-    DexField oneOfField = oneOfObject.asLiveProtoFieldObject().getField();
-    DexEncodedField encodedOneOfField = appView.appInfo().resolveField(oneOfField);
-    if (encodedOneOfField == null) {
+    DexField oneOfFieldReference = oneOfObject.asLiveProtoFieldObject().getField();
+    FieldResolutionResult oneOfFieldResolutionResult =
+        appView.appInfo().resolveField(oneOfFieldReference);
+    if (oneOfFieldResolutionResult.isFailedOrUnknownResolution()) {
       assert false;
       return;
     }
 
-    if (encodedOneOfField.holder() != encodedOneOfCaseField.holder()) {
+    ProgramField oneOfField =
+        oneOfFieldResolutionResult.asSuccessfulResolution().getResolutionPair().asProgramField();
+    if (oneOfField == null || oneOfField.getHolder() != oneOfCaseField.getHolder()) {
       assert false;
       return;
     }
 
-    if (enqueuer.registerReflectiveFieldWrite(encodedOneOfField.field, dynamicMethod)) {
+    if (enqueuer.registerReflectiveFieldWrite(oneOfField.getReference(), dynamicMethod)) {
       worklist.enqueueMarkReachableFieldAction(
-          clazz.asProgramClass(), encodedOneOfField, KeepReason.reflectiveUseIn(dynamicMethod));
+          oneOfField, KeepReason.reflectiveUseIn(dynamicMethod));
     }
   }
 

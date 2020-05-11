@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.AnalysisAssumption;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.Query;
@@ -93,12 +94,13 @@ public class InvokeSuper extends InvokeMethodWithReceiver {
   }
 
   @Override
-  public DexEncodedMethod lookupSingleTarget(AppView<?> appView, DexType invocationContext) {
-    if (appView.appInfo().hasLiveness() && invocationContext != null) {
+  public DexEncodedMethod lookupSingleTarget(
+      AppView<?> appView, ProgramMethod context, Value receiver) {
+    if (appView.appInfo().hasLiveness() && context != null) {
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       AppInfoWithLiveness appInfo = appViewWithLiveness.appInfo();
-      if (appInfo.isSubtype(invocationContext, getInvokedMethod().holder)) {
-        return appInfo.lookupSuperTarget(getInvokedMethod(), invocationContext);
+      if (appInfo.isSubtype(context.getHolderType(), getInvokedMethod().holder)) {
+        return appInfo.lookupSuperTarget(getInvokedMethod(), context);
       }
     }
     return null;
@@ -106,15 +108,15 @@ public class InvokeSuper extends InvokeMethodWithReceiver {
 
   @Override
   public ConstraintWithTarget inliningConstraint(
-      InliningConstraints inliningConstraints, DexType invocationContext) {
-    return inliningConstraints.forInvokeSuper(getInvokedMethod(), invocationContext);
+      InliningConstraints inliningConstraints, ProgramMethod context) {
+    return inliningConstraints.forInvokeSuper(getInvokedMethod(), context.getHolder());
   }
 
   @Override
   public boolean definitelyTriggersClassInitialization(
       DexType clazz,
-      DexType context,
-      AppView<?> appView,
+      ProgramMethod context,
+      AppView<AppInfoWithLiveness> appView,
       Query mode,
       AnalysisAssumption assumption) {
     return ClassInitializationAnalysis.InstructionUtils.forInvokeSuper(

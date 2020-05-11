@@ -4,13 +4,9 @@
 
 package com.android.tools.r8.ir.desugar;
 
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication.Builder;
 import com.android.tools.r8.graph.DexCallSite;
-import com.android.tools.r8.graph.DexEncodedField;
-import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
@@ -59,7 +55,7 @@ public class LambdaRewriter {
   static final String EXPECTED_LAMBDA_METHOD_PREFIX = "lambda$";
   private static final String LAMBDA_INSTANCE_FIELD_NAME = "INSTANCE";
 
-  private final AppView<? extends AppInfoWithClassHierarchy> appView;
+  private final AppView<?> appView;
 
   final DexString instanceFieldName;
 
@@ -76,42 +72,9 @@ public class LambdaRewriter {
   // NOTE: synchronize concurrent access on `knownLambdaClasses`.
   private final Map<DexType, LambdaClass> knownLambdaClasses = new IdentityHashMap<>();
 
-  // Checks if the type starts with lambda-class prefix.
-  public static boolean hasLambdaClassPrefix(DexType clazz) {
-    return clazz.getName().startsWith(LAMBDA_CLASS_NAME_PREFIX);
-  }
-
   public LambdaRewriter(AppView<?> appView) {
-    assert appView.appInfo().hasClassHierarchy()
-        : "Lambda desugaring is not available without class hierarchy.";
-    this.appView = appView.withClassHierarchy();
-    this.instanceFieldName = getFactory().createString(LAMBDA_INSTANCE_FIELD_NAME);
-  }
-
-  public AppView<?> getAppView() {
-    return appView;
-  }
-
-  public AppInfoWithClassHierarchy getAppInfo() {
-    return appView.appInfo();
-  }
-
-  public DexItemFactory getFactory() {
-    return getAppView().dexItemFactory();
-  }
-
-  public Map<DexEncodedField, Set<DexEncodedMethod>> getWritesWithContexts(
-      DexProgramClass synthesizedLambdaClass) {
-    // Record that the static fields on each lambda class are only written inside the static
-    // initializer of the lambdas.
-    Map<DexEncodedField, Set<DexEncodedMethod>> writesWithContexts = new IdentityHashMap<>();
-      DexEncodedMethod clinit = synthesizedLambdaClass.getClassInitializer();
-      if (clinit != null) {
-        for (DexEncodedField field : synthesizedLambdaClass.staticFields()) {
-          writesWithContexts.put(field, ImmutableSet.of(clinit));
-        }
-      }
-    return writesWithContexts;
+    this.appView = appView;
+    this.instanceFieldName = appView.dexItemFactory().createString(LAMBDA_INSTANCE_FIELD_NAME);
   }
 
   private void synthesizeAccessibilityBridgesForLambdaClassesD8(
@@ -136,9 +99,9 @@ public class LambdaRewriter {
    *
    * <p>NOTE: this method can be called concurrently for several different methods.
    */
-  public void desugarLambdas(DexEncodedMethod encodedMethod, IRCode code) {
+  public void desugarLambdas(IRCode code) {
     Set<Value> affectedValues = Sets.newIdentityHashSet();
-    DexType currentType = encodedMethod.holder();
+    ProgramMethod context = code.context();
     ListIterator<BasicBlock> blocks = code.listIterator();
     while (blocks.hasNext()) {
       BasicBlock block = blocks.next();
@@ -147,8 +110,7 @@ public class LambdaRewriter {
         Instruction instruction = instructions.next();
         if (instruction.isInvokeCustom()) {
           InvokeCustom invoke = instruction.asInvokeCustom();
-          LambdaDescriptor descriptor =
-              inferLambdaDescriptor(invoke.getCallSite(), encodedMethod.holder());
+          LambdaDescriptor descriptor = inferLambdaDescriptor(invoke.getCallSite(), context);
           if (descriptor == LambdaDescriptor.MATCH_FAILED) {
             continue;
           }
@@ -156,9 +118,9 @@ public class LambdaRewriter {
           // We have a descriptor, get the lambda class. In D8, we synthesize the lambda classes
           // during IR processing, and therefore we may need to create it now.
           LambdaClass lambdaClass =
-              getAppView().enableWholeProgramOptimizations()
-                  ? getKnownLambdaClass(descriptor, currentType)
-                  : getOrCreateLambdaClass(descriptor, currentType);
+              appView.enableWholeProgramOptimizations()
+                  ? getKnownLambdaClass(descriptor, context)
+                  : getOrCreateLambdaClass(descriptor, context);
           assert lambdaClass != null;
 
           // We rely on patch performing its work in a way which
@@ -169,7 +131,7 @@ public class LambdaRewriter {
       }
     }
     if (!affectedValues.isEmpty()) {
-      new TypeAnalysis(getAppView()).narrowing(affectedValues);
+      new TypeAnalysis(appView).narrowing(affectedValues);
     }
     assert code.isConsistentSSA();
   }
@@ -177,7 +139,7 @@ public class LambdaRewriter {
   /** Remove lambda deserialization methods. */
   public void removeLambdaDeserializationMethods(Iterable<DexProgramClass> classes) {
     for (DexProgramClass clazz : classes) {
-      clazz.removeMethod(getFactory().deserializeLambdaMethod);
+      clazz.removeMethod(appView.dexItemFactory().deserializeLambdaMethod);
     }
   }
 
@@ -189,7 +151,7 @@ public class LambdaRewriter {
         knownLambdaClasses.values(), converter, executorService);
     for (LambdaClass lambdaClass : knownLambdaClasses.values()) {
       DexProgramClass synthesizedClass = lambdaClass.getOrCreateLambdaClass();
-      getAppInfo().addSynthesizedClass(synthesizedClass);
+      appView.appInfo().addSynthesizedClass(synthesizedClass);
       builder.addSynthesizedClass(synthesizedClass, lambdaClass.addToMainDexList.get());
     }
     optimizeSynthesizedClasses(converter, executorService);
@@ -204,17 +166,11 @@ public class LambdaRewriter {
         executorService);
   }
 
-  public Set<DexCallSite> getDesugaredCallSites() {
-    synchronized (knownCallSites) {
-      return knownCallSites.keySet();
-    }
-  }
-
   // Matches invoke-custom instruction operands to infer lambda descriptor
   // corresponding to this lambda invocation point.
   //
   // Returns the lambda descriptor or `MATCH_FAILED`.
-  private LambdaDescriptor inferLambdaDescriptor(DexCallSite callSite, DexType invocationContext) {
+  private LambdaDescriptor inferLambdaDescriptor(DexCallSite callSite, ProgramMethod context) {
     // We check the map before and after inferring lambda descriptor to minimize time
     // spent in synchronized block. As a result we may throw away calculated descriptor
     // in rare case when another thread has same call site processed concurrently,
@@ -225,17 +181,18 @@ public class LambdaRewriter {
         : putIfAbsent(
             knownCallSites,
             callSite,
-            LambdaDescriptor.infer(callSite, getAppInfo(), invocationContext));
+            LambdaDescriptor.infer(callSite, appView.appInfoForDesugaring(), context));
   }
 
   private boolean isInMainDexList(DexType type) {
-    return getAppInfo().isInMainDexList(type);
+    return appView.appInfo().isInMainDexList(type);
   }
 
   // Returns a lambda class corresponding to the lambda descriptor and context,
   // creates the class if it does not yet exist.
-  public LambdaClass getOrCreateLambdaClass(LambdaDescriptor descriptor, DexType accessedFrom) {
-    DexType lambdaClassType = LambdaClass.createLambdaClassType(this, accessedFrom, descriptor);
+  public LambdaClass getOrCreateLambdaClass(
+      LambdaDescriptor descriptor, ProgramMethod accessedFrom) {
+    DexType lambdaClassType = LambdaClass.createLambdaClassType(appView, accessedFrom, descriptor);
     // We check the map twice to to minimize time spent in synchronized block.
     LambdaClass lambdaClass = getKnown(knownLambdaClasses, lambdaClassType);
     if (lambdaClass == null) {
@@ -243,50 +200,50 @@ public class LambdaRewriter {
           putIfAbsent(
               knownLambdaClasses,
               lambdaClassType,
-              new LambdaClass(this, accessedFrom, lambdaClassType, descriptor));
-      if (getAppView().options().isDesugaredLibraryCompilation()) {
+              new LambdaClass(appView, this, accessedFrom, lambdaClassType, descriptor));
+      if (appView.options().isDesugaredLibraryCompilation()) {
         DexType rewrittenType =
-            getAppView().rewritePrefix.rewrittenType(accessedFrom, getAppView());
+            appView.rewritePrefix.rewrittenType(accessedFrom.getHolderType(), appView);
         if (rewrittenType == null) {
           rewrittenType =
-              getAppView()
+              appView
                   .options()
                   .desugaredLibraryConfiguration
                   .getEmulateLibraryInterface()
-                  .get(accessedFrom);
+                  .get(accessedFrom.getHolderType());
         }
         if (rewrittenType != null) {
           addRewritingPrefix(accessedFrom, rewrittenType, lambdaClassType);
         }
       }
     }
-    lambdaClass.addSynthesizedFrom(getAppView().definitionFor(accessedFrom).asProgramClass());
-    if (isInMainDexList(accessedFrom)) {
+    lambdaClass.addSynthesizedFrom(accessedFrom.getHolder());
+    if (isInMainDexList(accessedFrom.getHolderType())) {
       lambdaClass.addToMainDexList.set(true);
     }
     return lambdaClass;
   }
 
-  private LambdaClass getKnownLambdaClass(LambdaDescriptor descriptor, DexType accessedFrom) {
-    DexType lambdaClassType = LambdaClass.createLambdaClassType(this, accessedFrom, descriptor);
+  private LambdaClass getKnownLambdaClass(LambdaDescriptor descriptor, ProgramMethod accessedFrom) {
+    DexType lambdaClassType = LambdaClass.createLambdaClassType(appView, accessedFrom, descriptor);
     return getKnown(knownLambdaClasses, lambdaClassType);
   }
 
-  private void addRewritingPrefix(DexType type, DexType rewritten, DexType lambdaClassType) {
+  private void addRewritingPrefix(
+      ProgramMethod context, DexType rewritten, DexType lambdaClassType) {
     String javaName = lambdaClassType.toString();
-    String typeString = type.toString();
+    String typeString = context.getHolderType().toString();
     String actualPrefix = typeString.substring(0, typeString.lastIndexOf('.'));
     String rewrittenString = rewritten.toString();
     String actualRewrittenPrefix = rewrittenString.substring(0, rewrittenString.lastIndexOf('.'));
     assert javaName.startsWith(actualPrefix);
-    getAppView()
-        .rewritePrefix
-        .rewriteType(
-            lambdaClassType,
-            getFactory()
-                .createType(
-                    DescriptorUtils.javaTypeToDescriptor(
-                        actualRewrittenPrefix + javaName.substring(actualPrefix.length()))));
+    appView.rewritePrefix.rewriteType(
+        lambdaClassType,
+        appView
+            .dexItemFactory()
+            .createType(
+                DescriptorUtils.javaTypeToDescriptor(
+                    actualRewrittenPrefix + javaName.substring(actualPrefix.length()))));
   }
 
   private static <K, V> V getKnown(Map<K, V> map, K key) {
@@ -326,7 +283,7 @@ public class LambdaRewriter {
       // The out value might be empty in case it was optimized out.
       lambdaInstanceValue =
           code.createValue(
-              TypeElement.fromDexType(lambdaClass.type, Nullability.maybeNull(), getAppView()));
+              TypeElement.fromDexType(lambdaClass.type, Nullability.maybeNull(), appView));
     } else {
       affectedValues.add(lambdaInstanceValue);
     }
@@ -379,7 +336,7 @@ public class LambdaRewriter {
     BasicBlock currentBlock = newInstance.getBlock();
     BasicBlock nextBlock = instructions.split(code, blocks);
     assert !instructions.hasNext();
-    nextBlock.copyCatchHandlers(code, blocks, currentBlock, getAppView().options());
+    nextBlock.copyCatchHandlers(code, blocks, currentBlock, appView.options());
   }
 
   public Map<DexType, LambdaClass> getKnownLambdaClasses() {

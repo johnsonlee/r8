@@ -78,8 +78,7 @@ public class DynamicTypeOptimization implements Assumer {
               TypeElement.fromDexType(invokedMethod.holder, definitelyNotNull(), appView);
           dynamicLowerBoundType = null;
         } else {
-          DexEncodedMethod singleTarget =
-              invoke.lookupSingleTarget(appView, code.method().holder());
+          DexEncodedMethod singleTarget = invoke.lookupSingleTarget(appView, code.context());
           if (singleTarget == null) {
             continue;
           }
@@ -96,7 +95,8 @@ public class DynamicTypeOptimization implements Assumer {
         }
       } else if (current.isStaticGet()) {
         StaticGet staticGet = current.asStaticGet();
-        DexEncodedField encodedField = appView.appInfo().resolveField(staticGet.getField());
+        DexEncodedField encodedField =
+            appView.appInfo().resolveField(staticGet.getField()).getResolvedField();
         if (encodedField == null) {
           continue;
         }

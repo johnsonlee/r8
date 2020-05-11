@@ -73,6 +73,7 @@ import java.util.TreeSet;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.objectweb.asm.Opcodes;
 
@@ -838,14 +839,14 @@ public class InternalOptions {
   }
 
   public void warningMissingTypeForDesugar(
-      Origin origin, Position position, DexType missingType, DexType contextType) {
+      Origin origin, Position position, DexType missingType, DexMethod context) {
     if (reportedMissingForDesugaring.add(missingType)) {
       reporter.warning(
           new InterfaceDesugarMissingTypeDiagnostic(
               origin,
               position,
               Reference.classFromDescriptor(missingType.toDescriptorString()),
-              Reference.classFromDescriptor(contextType.toDescriptorString()),
+              Reference.classFromDescriptor(context.holder.toDescriptorString()),
               null));
     }
   }
@@ -1186,6 +1187,8 @@ public class InternalOptions {
     }
 
     public Consumer<ProgramMethod> callSiteOptimizationInfoInspector = null;
+
+    public Predicate<DexEncodedMethod> cfByteCodePassThrough = null;
   }
 
   @VisibleForTesting

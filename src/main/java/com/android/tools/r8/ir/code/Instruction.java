@@ -10,6 +10,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.AbstractError;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.AnalysisAssumption;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.Query;
@@ -30,6 +31,7 @@ import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.ir.regalloc.RegisterAllocator;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.CfgPrinter;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.StringUtils.BraceType;
@@ -139,7 +141,8 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
     return oldOutValue;
   }
 
-  public AbstractValue getAbstractValue(AppView<?> appView, DexType context) {
+  public AbstractValue getAbstractValue(
+      AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
     assert hasOutValue();
     return UnknownValue.getInstance();
   }
@@ -532,7 +535,8 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
     return false;
   }
 
-  public boolean isBlockLocalInstructionWithoutSideEffects(AppView<?> appView, DexType context) {
+  public boolean isBlockLocalInstructionWithoutSideEffects(
+      AppView<?> appView, ProgramMethod context) {
     return definesBlockLocalValue() && !instructionMayHaveSideEffects(appView, context);
   }
 
@@ -570,12 +574,12 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
     return instructionTypeCanThrow();
   }
 
-  public boolean instructionMayHaveSideEffects(AppView<?> appView, DexType context) {
+  public boolean instructionMayHaveSideEffects(AppView<?> appView, ProgramMethod context) {
     return instructionMayHaveSideEffects(appView, context, SideEffectAssumption.NONE);
   }
 
   public boolean instructionMayHaveSideEffects(
-      AppView<?> appView, DexType context, SideEffectAssumption assumption) {
+      AppView<?> appView, ProgramMethod context, SideEffectAssumption assumption) {
     return instructionInstanceCanThrow();
   }
 
@@ -584,9 +588,9 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
    * indirectly (e.g., via class initialization).
    */
   public abstract boolean instructionMayTriggerMethodInvocation(
-      AppView<?> appView, DexType context);
+      AppView<?> appView, ProgramMethod context);
 
-  public AbstractError instructionInstanceCanThrow(AppView<?> appView, DexType context) {
+  public AbstractError instructionInstanceCanThrow(AppView<?> appView, ProgramMethod context) {
     return instructionInstanceCanThrow() ? AbstractError.top() : AbstractError.bottom();
   }
 
@@ -601,7 +605,7 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
    * Returns an abstraction of the set of fields that may possibly be read as a result of executing
    * this instruction.
    */
-  public AbstractFieldSet readSet(AppView<?> appView, DexType context) {
+  public AbstractFieldSet readSet(AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
     if (instructionMayTriggerMethodInvocation(appView, context)
         && instructionMayHaveSideEffects(appView, context)) {
       return UnknownFieldSet.getInstance();
@@ -1378,7 +1382,7 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
    * <p>The type is used to judge visibility constraints and also for dispatch decisions.
    */
   public abstract ConstraintWithTarget inliningConstraint(
-      InliningConstraints inliningConstraints, DexType invocationContext);
+      InliningConstraints inliningConstraints, ProgramMethod context);
 
   public abstract void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper);
 
@@ -1432,7 +1436,7 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
    * @return true if the instruction throws NullPointerException if value is null at runtime, false
    *     otherwise.
    */
-  public boolean throwsNpeIfValueIsNull(Value value, AppView<?> appView, DexType context) {
+  public boolean throwsNpeIfValueIsNull(Value value, AppView<?> appView, ProgramMethod context) {
     return false;
   }
 
@@ -1460,8 +1464,8 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
    */
   public boolean definitelyTriggersClassInitialization(
       DexType clazz,
-      DexType context,
-      AppView<?> appView,
+      ProgramMethod context,
+      AppView<AppInfoWithLiveness> appView,
       Query mode,
       AnalysisAssumption assumption) {
     return false;

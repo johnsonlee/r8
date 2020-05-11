@@ -10,9 +10,9 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -74,7 +74,6 @@ public class ClassInitializationAnalysis {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final IRCode code;
-  private final DexItemFactory dexItemFactory;
 
   private DominatorTree dominatorTree = null;
   private int markingColor = -1;
@@ -82,13 +81,11 @@ public class ClassInitializationAnalysis {
   private ClassInitializationAnalysis() {
     this.appView = null;
     this.code = null;
-    this.dexItemFactory = null;
   }
 
   public ClassInitializationAnalysis(AppView<AppInfoWithLiveness> appView, IRCode code) {
     this.appView = appView;
     this.code = code;
-    this.dexItemFactory = appView.dexItemFactory();
   }
 
   // Returns a trivial, conservative analysis that always returns false.
@@ -97,7 +94,7 @@ public class ClassInitializationAnalysis {
   }
 
   public boolean isClassDefinitelyLoadedBeforeInstruction(DexType type, Instruction instruction) {
-    DexType context = code.method().holder();
+    ProgramMethod context = code.context();
     BasicBlock block = instruction.getBlock();
 
     // Visit the instructions in `block` prior to `instruction`.
@@ -237,7 +234,7 @@ public class ClassInitializationAnalysis {
     public static boolean forInitClass(
         InitClass instruction,
         DexType type,
-        AppView<?> appView,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
@@ -251,7 +248,7 @@ public class ClassInitializationAnalysis {
     public static boolean forInstanceGet(
         InstanceGet instruction,
         DexType type,
-        AppView<?> appView,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       return forInstanceGetOrPut(instruction, type, appView, mode, assumption);
@@ -260,7 +257,7 @@ public class ClassInitializationAnalysis {
     public static boolean forInstancePut(
         InstancePut instruction,
         DexType type,
-        AppView<?> appView,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       return forInstanceGetOrPut(instruction, type, appView, mode, assumption);
@@ -269,7 +266,7 @@ public class ClassInitializationAnalysis {
     private static boolean forInstanceGetOrPut(
         FieldInstruction instruction,
         DexType type,
-        AppView<?> appView,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       assert instruction.isInstanceGet() || instruction.isInstancePut();
@@ -283,14 +280,15 @@ public class ClassInitializationAnalysis {
           return false;
         }
       }
-      DexEncodedField field = appView.appInfo().resolveField(instruction.getField());
+      DexEncodedField field =
+          appView.appInfo().resolveField(instruction.getField()).getResolvedField();
       return field != null && isTypeInitializedBy(instruction, type, field, appView, mode);
     }
 
     public static boolean forInvokeDirect(
         InvokeDirect instruction,
         DexType type,
-        AppView<?> appView,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
@@ -306,8 +304,8 @@ public class ClassInitializationAnalysis {
     public static boolean forInvokeInterface(
         InvokeInterface instruction,
         DexType type,
-        DexType context,
-        AppView<?> appView,
+        ProgramMethod context,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
@@ -342,8 +340,8 @@ public class ClassInitializationAnalysis {
     public static boolean forInvokeStatic(
         InvokeStatic instruction,
         DexType type,
-        DexType context,
-        AppView<?> appView,
+        ProgramMethod context,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
@@ -357,8 +355,8 @@ public class ClassInitializationAnalysis {
     public static boolean forInvokeSuper(
         InvokeSuper instruction,
         DexType type,
-        DexType context,
-        AppView<?> appView,
+        ProgramMethod context,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
@@ -390,7 +388,7 @@ public class ClassInitializationAnalysis {
         return false;
       }
       ResolutionResult resolutionResult =
-          appView.appInfo().resolveMethod(superType, method, instruction.itf);
+          appView.appInfo().resolveMethodOn(superType, method, instruction.itf);
       if (!resolutionResult.isSingleResolution()) {
         return false;
       }
@@ -401,8 +399,8 @@ public class ClassInitializationAnalysis {
     public static boolean forInvokeVirtual(
         InvokeVirtual instruction,
         DexType type,
-        DexType context,
-        AppView<?> appView,
+        ProgramMethod context,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
@@ -426,7 +424,7 @@ public class ClassInitializationAnalysis {
       }
       DexMethod method = instruction.getInvokedMethod();
       ResolutionResult resolutionResult =
-          appView.appInfo().resolveMethodOnClass(method.holder, method);
+          appView.appInfo().resolveMethodOnClass(method, method.holder);
       if (!resolutionResult.isSingleResolution()) {
         return false;
       }
@@ -437,7 +435,7 @@ public class ClassInitializationAnalysis {
     public static boolean forNewInstance(
         NewInstance instruction,
         DexType type,
-        AppView<?> appView,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       if (assumption == AnalysisAssumption.NONE) {
@@ -451,7 +449,7 @@ public class ClassInitializationAnalysis {
     public static boolean forStaticGet(
         StaticGet instruction,
         DexType type,
-        AppView<?> appView,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       return forStaticGetOrPut(instruction, type, appView, mode, assumption);
@@ -460,7 +458,7 @@ public class ClassInitializationAnalysis {
     public static boolean forStaticPut(
         StaticPut instruction,
         DexType type,
-        AppView<?> appView,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       return forStaticGetOrPut(instruction, type, appView, mode, assumption);
@@ -469,7 +467,7 @@ public class ClassInitializationAnalysis {
     private static boolean forStaticGetOrPut(
         FieldInstruction instruction,
         DexType type,
-        AppView<?> appView,
+        AppView<AppInfoWithLiveness> appView,
         Query mode,
         AnalysisAssumption assumption) {
       assert instruction.isStaticGet() || instruction.isStaticPut();
@@ -477,7 +475,8 @@ public class ClassInitializationAnalysis {
         // Class initialization may fail with ExceptionInInitializerError.
         return false;
       }
-      DexEncodedField field = appView.appInfo().resolveField(instruction.getField());
+      DexEncodedField field =
+          appView.appInfo().resolveField(instruction.getField()).getResolvedField();
       return field != null && isTypeInitializedBy(instruction, type, field, appView, mode);
     }
 
@@ -485,7 +484,7 @@ public class ClassInitializationAnalysis {
         Instruction instruction,
         DexType typeToBeInitialized,
         DexDefinition definition,
-        AppView<?> appView,
+        AppView<AppInfoWithLiveness> appView,
         Query mode) {
       if (mode == Query.DIRECTLY) {
         if (definition.isDexClass()) {

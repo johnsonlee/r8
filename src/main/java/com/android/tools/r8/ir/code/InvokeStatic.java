@@ -103,13 +103,13 @@ public class InvokeStatic extends InvokeMethod {
   }
 
   @Override
-  public DexEncodedMethod lookupSingleTarget(AppView<?> appView, DexType invocationContext) {
+  public DexEncodedMethod lookupSingleTarget(AppView<?> appView, ProgramMethod context) {
     DexMethod invokedMethod = getInvokedMethod();
     if (appView.appInfo().hasLiveness()) {
       AppInfoWithLiveness appInfo = appView.appInfo().withLiveness();
-      DexEncodedMethod result = appInfo.lookupStaticTarget(invokedMethod, invocationContext);
+      DexEncodedMethod result = appInfo.lookupStaticTarget(invokedMethod, context);
       assert verifyD8LookupResult(
-          result, appView.appInfo().lookupStaticTargetOnItself(invokedMethod, invocationContext));
+          result, appView.appInfo().lookupStaticTargetOnItself(invokedMethod, context));
       return result;
     }
     // Allow optimizing static library invokes in D8.
@@ -120,13 +120,13 @@ public class InvokeStatic extends InvokeMethod {
     }
     // In D8, we can treat invoke-static instructions as having a single target if the invoke is
     // targeting a method in the enclosing class.
-    return appView.appInfo().lookupStaticTargetOnItself(invokedMethod, invocationContext);
+    return appView.appInfo().lookupStaticTargetOnItself(invokedMethod, context);
   }
 
   @Override
   public ConstraintWithTarget inliningConstraint(
-      InliningConstraints inliningConstraints, DexType invocationContext) {
-    return inliningConstraints.forInvokeStatic(getInvokedMethod(), invocationContext);
+      InliningConstraints inliningConstraints, ProgramMethod context) {
+    return inliningConstraints.forInvokeStatic(getInvokedMethod(), context.getHolder());
   }
 
   @Override
@@ -148,8 +148,8 @@ public class InvokeStatic extends InvokeMethod {
   @Override
   public boolean definitelyTriggersClassInitialization(
       DexType clazz,
-      DexType context,
-      AppView<?> appView,
+      ProgramMethod context,
+      AppView<AppInfoWithLiveness> appView,
       Query mode,
       AnalysisAssumption assumption) {
     return ClassInitializationAnalysis.InstructionUtils.forInvokeStatic(
@@ -158,7 +158,7 @@ public class InvokeStatic extends InvokeMethod {
 
   @Override
   public boolean instructionMayHaveSideEffects(
-      AppView<?> appView, DexType context, SideEffectAssumption assumption) {
+      AppView<?> appView, ProgramMethod context, SideEffectAssumption assumption) {
     if (!appView.enableWholeProgramOptimizations()) {
       return true;
     }
@@ -207,7 +207,7 @@ public class InvokeStatic extends InvokeMethod {
               appView,
               // Types that are a super type of `context` are guaranteed to be initialized
               // already.
-              type -> appView.isSubtype(context, type).isTrue(),
+              type -> appView.isSubtype(context.getHolderType(), type).isTrue(),
               Sets.newIdentityHashSet());
     }
 
@@ -216,6 +216,6 @@ public class InvokeStatic extends InvokeMethod {
 
   @Override
   public boolean canBeDeadCode(AppView<?> appView, IRCode code) {
-    return !instructionMayHaveSideEffects(appView, code.method().holder());
+    return !instructionMayHaveSideEffects(appView, code.context());
   }
 }

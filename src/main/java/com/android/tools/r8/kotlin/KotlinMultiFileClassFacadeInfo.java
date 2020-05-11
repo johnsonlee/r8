@@ -6,6 +6,7 @@ package com.android.tools.r8.kotlin;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.naming.NamingLens;
@@ -28,7 +29,7 @@ public class KotlinMultiFileClassFacadeInfo implements KotlinClassLevelInfo {
   }
 
   static KotlinMultiFileClassFacadeInfo create(
-      MultiFileClassFacade kmMultiFileClassFacade, AppView<?> appView) {
+      MultiFileClassFacade kmMultiFileClassFacade, DexDefinitionSupplier appView) {
     ImmutableList.Builder<DexType> builder = ImmutableList.builder();
     for (String partClassName : kmMultiFileClassFacade.getPartClassNames()) {
       String descriptor = DescriptorUtils.getDescriptorFromClassBinaryName(partClassName);
@@ -55,7 +56,7 @@ public class KotlinMultiFileClassFacadeInfo implements KotlinClassLevelInfo {
         new KotlinClassMetadata.MultiFileClassFacade.Writer();
     List<String> partClassNameStrings = new ArrayList<>(partClassNames.size());
     for (DexType partClassName : partClassNames) {
-      if (appView.definitionFor(partClassName) != null) {
+      if (appView.appInfo().isNonProgramTypeOrLiveProgramType(partClassName)) {
         DexString descriptor = namingLens.lookupDescriptor(partClassName);
         String classifier = DescriptorUtils.descriptorToKotlinClassifier(descriptor.toString());
         partClassNameStrings.add(classifier);

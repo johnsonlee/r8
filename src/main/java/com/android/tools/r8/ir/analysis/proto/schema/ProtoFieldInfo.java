@@ -6,9 +6,11 @@ package com.android.tools.r8.ir.analysis.proto.schema;
 
 import static com.android.tools.r8.ir.analysis.proto.schema.ProtoMessageInfo.BITS_PER_HAS_BITS_WORD;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.FieldResolutionResult;
+import com.android.tools.r8.graph.ProgramField;
 import java.util.List;
 import java.util.OptionalInt;
 
@@ -120,7 +122,8 @@ public class ProtoFieldInfo {
     return protoMessageInfo.isProto2() && type.isSingular();
   }
 
-  public DexEncodedField getHazzerBitField(AppView<?> appView, ProtoMessageInfo protoMessageInfo) {
+  public ProgramField getHazzerBitField(
+      AppView<? extends AppInfoWithClassHierarchy> appView, ProtoMessageInfo protoMessageInfo) {
     assert hasHazzerBitField(protoMessageInfo);
 
     int hasBitsIndex = getAuxData() / BITS_PER_HAS_BITS_WORD;
@@ -128,7 +131,12 @@ public class ProtoFieldInfo {
 
     ProtoObject object = protoMessageInfo.getHasBitsObjects().get(hasBitsIndex);
     assert object.isLiveProtoFieldObject();
-    return appView.appInfo().resolveField(object.asLiveProtoFieldObject().getField());
+    FieldResolutionResult resolutionResult =
+        appView.appInfo().resolveField(object.asLiveProtoFieldObject().getField());
+    if (resolutionResult.isSuccessfulResolution()) {
+      return resolutionResult.asSuccessfulResolution().getResolutionPair().asProgramField();
+    }
+    return null;
   }
 
   public int getHazzerBitFieldIndex(ProtoMessageInfo protoMessageInfo) {
@@ -162,12 +170,17 @@ public class ProtoFieldInfo {
    *   }
    * </pre>
    */
-  public DexEncodedField getOneOfCaseField(AppView<?> appView, ProtoMessageInfo protoMessageInfo) {
+  public ProgramField getOneOfCaseField(
+      AppView<? extends AppInfoWithClassHierarchy> appView, ProtoMessageInfo protoMessageInfo) {
     assert type.isOneOf();
-
     ProtoObject object = protoMessageInfo.getOneOfObjects().get(getAuxData()).getOneOfCaseObject();
     assert object.isLiveProtoFieldObject();
-    return appView.appInfo().resolveField(object.asLiveProtoFieldObject().getField());
+    FieldResolutionResult resolutionResult =
+        appView.appInfo().resolveField(object.asLiveProtoFieldObject().getField());
+    if (resolutionResult.isSuccessfulResolution()) {
+      return resolutionResult.asSuccessfulResolution().getResolutionPair().asProgramField();
+    }
+    return null;
   }
 
   /**
@@ -176,13 +189,19 @@ public class ProtoFieldInfo {
    * <p>Java field into which the value is stored; constituents of a oneof all share the same
    * storage.
    */
-  public DexEncodedField getValueStorage(AppView<?> appView, ProtoMessageInfo protoMessageInfo) {
+  public ProgramField getValueStorage(
+      AppView<? extends AppInfoWithClassHierarchy> appView, ProtoMessageInfo protoMessageInfo) {
     ProtoObject object =
         type.isOneOf()
             ? protoMessageInfo.getOneOfObjects().get(getAuxData()).getOneOfObject()
             : objects.get(0);
     assert object.isLiveProtoFieldObject();
-    return appView.appInfo().resolveField(object.asLiveProtoFieldObject().getField());
+    FieldResolutionResult resolutionResult =
+        appView.appInfo().resolveField(object.asLiveProtoFieldObject().getField());
+    if (resolutionResult.isSuccessfulResolution()) {
+      return resolutionResult.asSuccessfulResolution().getResolutionPair().asProgramField();
+    }
+    return null;
   }
 
   @Override

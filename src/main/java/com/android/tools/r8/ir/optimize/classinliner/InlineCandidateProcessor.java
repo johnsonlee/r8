@@ -172,10 +172,10 @@ final class InlineCandidateProcessor {
     assert root.isStaticGet();
 
     StaticGet staticGet = root.asStaticGet();
-    if (staticGet.instructionMayHaveSideEffects(appView, method.getHolderType())) {
+    if (staticGet.instructionMayHaveSideEffects(appView, method)) {
       return EligibilityStatus.RETRIEVAL_MAY_HAVE_SIDE_EFFECTS;
     }
-    DexEncodedField field = appView.appInfo().resolveField(staticGet.getField());
+    DexEncodedField field = appView.appInfo().resolveField(staticGet.getField()).getResolvedField();
     FieldOptimizationInfo optimizationInfo = field.getOptimizationInfo();
     ClassTypeElement dynamicLowerBoundType = optimizationInfo.getDynamicLowerBoundType();
     if (dynamicLowerBoundType == null
@@ -221,7 +221,14 @@ final class InlineCandidateProcessor {
     while (!currentUsers.isEmpty()) {
       Set<Instruction> indirectUsers = Sets.newIdentityHashSet();
       for (Instruction user : currentUsers) {
-        if (user.isAssume()) {
+        if (user.isAssume() || user.isCheckCast()) {
+          if (user.isCheckCast()) {
+            boolean isCheckCastUnsafe =
+                !appView.appInfo().isSubtype(eligibleClass.type, user.asCheckCast().getType());
+            if (isCheckCastUnsafe) {
+              return user; // Not eligible.
+            }
+          }
           Value alias = user.outValue();
           if (receivers.isReceiverAlias(alias)) {
             continue; // Already processed.
@@ -242,7 +249,10 @@ final class InlineCandidateProcessor {
             return user; // Not eligible.
           }
           DexEncodedField field =
-              appView.appInfo().resolveField(user.asFieldInstruction().getField());
+              appView
+                  .appInfo()
+                  .resolveField(user.asFieldInstruction().getField())
+                  .getResolvedField();
           if (field == null || field.isStatic()) {
             return user; // Not eligible.
           }
@@ -258,7 +268,10 @@ final class InlineCandidateProcessor {
             return user; // Not eligible.
           }
           DexEncodedField field =
-              appView.appInfo().resolveField(user.asFieldInstruction().getField());
+              appView
+                  .appInfo()
+                  .resolveField(user.asFieldInstruction().getField())
+                  .getResolvedField();
           if (field == null || field.isStatic()) {
             return user; // Not eligible.
           }
@@ -267,8 +280,7 @@ final class InlineCandidateProcessor {
 
         if (user.isInvokeMethod()) {
           InvokeMethod invokeMethod = user.asInvokeMethod();
-          DexEncodedMethod singleTargetMethod =
-              invokeMethod.lookupSingleTarget(appView, method.getHolderType());
+          DexEncodedMethod singleTargetMethod = invokeMethod.lookupSingleTarget(appView, method);
           if (singleTargetMethod == null) {
             return user; // Not eligible.
           }
@@ -513,7 +525,8 @@ final class InlineCandidateProcessor {
             continue;
           }
 
-          ProgramMethod singleTarget = invoke.lookupSingleProgramTarget(appView, method);
+          ProgramMethod singleTarget =
+              invoke.lookupSingleProgramTarget(appView, method, eligibleInstance);
           if (singleTarget == null || !indirectMethodCallsOnInstance.contains(singleTarget)) {
             throw new IllegalClassInlinerStateException();
           }
@@ -574,7 +587,7 @@ final class InlineCandidateProcessor {
           continue;
         }
 
-        DexEncodedMethod singleTarget = invoke.lookupSingleTarget(appView, method.getHolderType());
+        DexEncodedMethod singleTarget = invoke.lookupSingleTarget(appView, method);
         if (singleTarget != null) {
           Predicate<InvokeMethod> noSideEffectsPredicate =
               dexItemFactory.libraryMethodsWithoutSideEffects.getOrDefault(
@@ -701,7 +714,10 @@ final class InlineCandidateProcessor {
       }
       InstancePut instancePut = user.asInstancePut();
       DexEncodedField field =
-          appView.appInfo().resolveFieldOn(eligibleClass, instancePut.getField());
+          appView
+              .appInfo()
+              .resolveFieldOn(eligibleClass, instancePut.getField())
+              .getResolvedField();
       if (field == null) {
         throw new Unreachable(
             "Unexpected field write left in method `"
@@ -880,8 +896,8 @@ final class InlineCandidateProcessor {
         invoke,
         invoke.getInvokedMethod(),
         singleTarget,
-        eligibility ->
-            isEligibleInvokeWithAllUsersAsReceivers(eligibility, invoke, indirectUsers))) {
+        eligibility -> isEligibleInvokeWithAllUsersAsReceivers(eligibility, invoke, indirectUsers),
+        invoke.getType())) {
       return null;
     }
 
@@ -892,15 +908,18 @@ final class InlineCandidateProcessor {
     }
     if (!eligibility.callsReceiver.isEmpty()) {
       assert eligibility.callsReceiver.get(0).getFirst() == Invoke.Type.VIRTUAL;
-      DexMethod indirectlyInvokedMethod = eligibility.callsReceiver.get(0).getSecond();
+      Pair<Type, DexMethod> invokeInfo = eligibility.callsReceiver.get(0);
+      Type invokeType = invokeInfo.getFirst();
+      DexMethod indirectlyInvokedMethod = invokeInfo.getSecond();
       ResolutionResult resolutionResult =
-          appView.appInfo().resolveMethod(eligibleClass, indirectlyInvokedMethod);
+          appView.appInfo().resolveMethodOn(eligibleClass, indirectlyInvokedMethod);
       if (!resolutionResult.isSingleResolution()) {
         return null;
       }
       ProgramMethod indirectSingleTarget =
           resolutionResult.asSingleResolution().getResolutionPair().asProgramMethod();
-      if (!isEligibleIndirectVirtualMethodCall(indirectlyInvokedMethod, indirectSingleTarget)) {
+      if (!isEligibleIndirectVirtualMethodCall(
+          indirectlyInvokedMethod, invokeType, indirectSingleTarget)) {
         return null;
       }
       indirectMethodCallsOnInstance.add(indirectSingleTarget);
@@ -909,16 +928,16 @@ final class InlineCandidateProcessor {
     return new InliningInfo(singleTarget, eligibleClass.type);
   }
 
-  private boolean isEligibleIndirectVirtualMethodCall(DexMethod invokedMethod) {
+  private boolean isEligibleIndirectVirtualMethodCall(DexMethod invokedMethod, Type type) {
     ProgramMethod singleTarget =
         asProgramMethodOrNull(
-            appView.appInfo().resolveMethod(eligibleClass, invokedMethod).getSingleTarget(),
+            appView.appInfo().resolveMethodOn(eligibleClass, invokedMethod).getSingleTarget(),
             appView);
-    return isEligibleIndirectVirtualMethodCall(invokedMethod, singleTarget);
+    return isEligibleIndirectVirtualMethodCall(invokedMethod, type, singleTarget);
   }
 
   private boolean isEligibleIndirectVirtualMethodCall(
-      DexMethod invokedMethod, ProgramMethod singleTarget) {
+      DexMethod invokedMethod, Type type, ProgramMethod singleTarget) {
     if (!isEligibleSingleTarget(singleTarget)) {
       return false;
     }
@@ -929,21 +948,23 @@ final class InlineCandidateProcessor {
         null,
         invokedMethod,
         singleTarget,
-        eligibility ->
-            eligibility.callsReceiver.isEmpty() && eligibility.returnsReceiver.isFalse());
+        eligibility -> eligibility.callsReceiver.isEmpty() && eligibility.returnsReceiver.isFalse(),
+        type);
   }
 
   private boolean isEligibleVirtualMethodCall(
       InvokeMethodWithReceiver invoke,
       DexMethod callee,
       ProgramMethod singleTarget,
-      Predicate<ClassInlinerEligibilityInfo> eligibilityAcceptanceCheck) {
+      Predicate<ClassInlinerEligibilityInfo> eligibilityAcceptanceCheck,
+      Type type) {
     assert isEligibleSingleTarget(singleTarget);
 
     // We should not inline a method if the invocation has type interface or virtual and the
     // signature of the invocation resolves to a private or static method.
     // TODO(b/147212189): Why not inline private methods? If access is permitted it is valid.
-    ResolutionResult resolutionResult = appView.appInfo().resolveMethod(callee.holder, callee);
+    ResolutionResult resolutionResult =
+        appView.appInfo().resolveMethod(callee, type == Type.INTERFACE);
     if (resolutionResult.isSingleResolution()
         && !resolutionResult.getSingleTarget().isNonPrivateVirtualMethod()) {
       return false;
@@ -1152,7 +1173,7 @@ final class InlineCandidateProcessor {
 
       if (type == Type.VIRTUAL || type == Type.INTERFACE) {
         // Is the method called indirectly still eligible?
-        if (!isEligibleIndirectVirtualMethodCall(target)) {
+        if (!isEligibleIndirectVirtualMethodCall(target, type)) {
           return false;
         }
       } else if (type == Type.DIRECT) {
@@ -1166,7 +1187,7 @@ final class InlineCandidateProcessor {
       }
 
       // Check if the method is inline-able by standard inliner.
-      DexEncodedMethod singleTarget = invoke.lookupSingleTarget(appView, method.getHolderType());
+      DexEncodedMethod singleTarget = invoke.lookupSingleTarget(appView, method);
       if (singleTarget == null) {
         return false;
       }

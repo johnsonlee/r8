@@ -4,17 +4,17 @@
 package com.android.tools.r8.resolution.access.indirectfield;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRunResult;
-import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.FieldResolutionResult;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.resolution.access.indirectfield.pkg.C;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -53,18 +53,17 @@ public class IndirectFieldAccessTest extends TestBase {
     AppInfoWithLiveness appInfo = appView.appInfo();
     DexProgramClass cClass =
         appInfo.definitionFor(buildType(C.class, appInfo.dexItemFactory())).asProgramClass();
+    ProgramMethod barMethod =
+        cClass.lookupProgramMethod(
+            buildMethod(C.class.getDeclaredMethod("bar"), appInfo.dexItemFactory()));
     DexField f =
         buildField(
             // Reflecting on B.class.getField("f") will give A.f, so manually create the reference.
             Reference.field(Reference.classFromClass(B.class), "f", Reference.INT),
             appInfo.dexItemFactory());
-    DexClass initialResolutionHolder = appInfo.definitionFor(f.holder);
-    DexEncodedField resolutionTarget = appInfo.resolveField(f);
-    // TODO(b/145723539): Test access via the resolution result once possible.
-    assertEquals(
-        OptionalBool.TRUE,
-        AccessControl.isFieldAccessible(
-            resolutionTarget, initialResolutionHolder, cClass, appInfo));
+    FieldResolutionResult resolutionResult = appInfo.resolveField(f);
+    assertTrue(resolutionResult.isSuccessfulResolution());
+    assertEquals(OptionalBool.TRUE, resolutionResult.isAccessibleFrom(barMethod, appInfo));
   }
 
   @Test

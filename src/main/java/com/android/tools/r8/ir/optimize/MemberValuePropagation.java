@@ -146,7 +146,7 @@ public class MemberValuePropagation {
       DexField field = returnValueRule.getField();
       assert instruction.getOutType() == TypeElement.fromDexType(field.type, maybeNull(), appView);
 
-      DexEncodedField staticField = appView.appInfo().lookupStaticTarget(field.holder, field);
+      DexEncodedField staticField = appView.appInfo().lookupStaticTarget(field);
       if (staticField == null) {
         if (warnedFields.add(field)) {
           reporter.warning(
@@ -212,7 +212,7 @@ public class MemberValuePropagation {
       if (current.isStaticGet()) {
         StaticGet staticGet = current.asStaticGet();
         replaceInstructionByInitClassIfPossible(
-            staticGet, staticGet.getField().holder, code, iterator, code.method().holder());
+            staticGet, staticGet.getField().holder, code, iterator, code.context());
       }
       replacement.setPosition(position);
       if (block.hasCatchHandlers()) {
@@ -236,7 +236,7 @@ public class MemberValuePropagation {
     if (!invokedHolder.isClassType()) {
       return;
     }
-    DexEncodedMethod target = current.lookupSingleTarget(appView, context.getHolderType());
+    DexEncodedMethod target = current.lookupSingleTarget(appView, context);
     if (target != null && target.isInstanceInitializer()) {
       // Member value propagation does not apply to constructors. Removing a call to a constructor
       // that is marked as having no side effects could lead to verification errors, due to
@@ -250,7 +250,7 @@ public class MemberValuePropagation {
       // references that have actual definitions are marked by the root set builder. So, here, we
       // try again with a resolved target, not the direct definition, which may not exist.
       DexEncodedMethod resolutionTarget =
-          appView.appInfo().resolveMethod(invokedHolder, invokedMethod).getSingleTarget();
+          appView.appInfo().unsafeResolveMethodDueToDexFormat(invokedMethod).getSingleTarget();
       lookup = lookupMemberRule(resolutionTarget);
     }
     boolean invokeReplaced = false;
@@ -303,10 +303,10 @@ public class MemberValuePropagation {
         current.setOutValue(null);
 
         if (current.isInvokeMethodWithReceiver()) {
-          replaceInstructionByNullCheckIfPossible(current, iterator, context.getHolderType());
+          replaceInstructionByNullCheckIfPossible(current, iterator, context);
         } else if (current.isInvokeStatic()) {
           replaceInstructionByInitClassIfPossible(
-              current, target.holder(), code, iterator, context.getHolderType());
+              current, target.holder(), code, iterator, context);
         }
 
         // Insert the definition of the replacement.
@@ -330,7 +330,7 @@ public class MemberValuePropagation {
     DexField field = current.getField();
 
     // TODO(b/123857022): Should be able to use definitionFor().
-    DexEncodedField target = appView.appInfo().resolveField(field);
+    DexEncodedField target = appView.appInfo().resolveField(field).getResolvedField();
     if (target == null) {
       boolean replaceCurrentInstructionWithConstNull =
           appView.withGeneratedExtensionRegistryShrinker(
@@ -367,7 +367,7 @@ public class MemberValuePropagation {
       abstractValue = target.getOptimizationInfo().getAbstractValue();
       if (abstractValue.isUnknown() && !target.isStatic()) {
         AbstractValue abstractReceiverValue =
-            current.asInstanceGet().object().getAbstractValue(appView, code.method().holder());
+            current.asInstanceGet().object().getAbstractValue(appView, code.context());
         if (abstractReceiverValue.isSingleFieldValue()) {
           abstractValue =
               abstractReceiverValue.asSingleFieldValue().getState().getAbstractFieldValue(target);
@@ -393,7 +393,7 @@ public class MemberValuePropagation {
       }
       if (singleValue.isMaterializableInContext(appView, code.context())) {
         BasicBlock block = current.getBlock();
-        DexType context = code.method().holder();
+        ProgramMethod context = code.context();
         Position position = current.getPosition();
 
         // All usages are replaced by the replacement value.
@@ -425,7 +425,7 @@ public class MemberValuePropagation {
   }
 
   private void replaceInstructionByNullCheckIfPossible(
-      Instruction instruction, InstructionListIterator iterator, DexType context) {
+      Instruction instruction, InstructionListIterator iterator, ProgramMethod context) {
     assert instruction.isInstanceFieldInstruction() || instruction.isInvokeMethodWithReceiver();
     assert !instruction.hasOutValue() || !instruction.outValue().hasAnyUsers();
     if (instruction.instructionMayHaveSideEffects(
@@ -456,7 +456,7 @@ public class MemberValuePropagation {
       DexType holder,
       IRCode code,
       InstructionListIterator iterator,
-      DexType context) {
+      ProgramMethod context) {
     assert instruction.isStaticFieldInstruction() || instruction.isInvokeStatic();
     if (instruction.instructionMayHaveSideEffects(
         appView, context, Instruction.SideEffectAssumption.CLASS_ALREADY_INITIALIZED)) {
@@ -467,7 +467,7 @@ public class MemberValuePropagation {
             appView,
             // Types that are a super type of `context` are guaranteed to be initialized
             // already.
-            type -> appView.isSubtype(context, type).isTrue(),
+            type -> appView.appInfo().isSubtype(context.getHolderType(), type),
             Sets.newIdentityHashSet());
     if (!classInitializationMayHaveSideEffects) {
       iterator.removeOrReplaceByDebugLocalRead();
@@ -485,7 +485,7 @@ public class MemberValuePropagation {
 
   private void replaceInstancePutByNullCheckIfNeverRead(
       IRCode code, InstructionListIterator iterator, InstancePut current) {
-    DexEncodedField target = appView.appInfo().resolveField(current.getField());
+    DexEncodedField target = appView.appInfo().resolveField(current.getField()).getResolvedField();
     if (target == null || appView.appInfo().isFieldRead(target)) {
       return;
     }
@@ -494,12 +494,12 @@ public class MemberValuePropagation {
       return;
     }
 
-    replaceInstructionByNullCheckIfPossible(current, iterator, code.method().holder());
+    replaceInstructionByNullCheckIfPossible(current, iterator, code.context());
   }
 
   private void replaceStaticPutByInitClassIfNeverRead(
       IRCode code, InstructionListIterator iterator, StaticPut current) {
-    DexEncodedField field = appView.appInfo().resolveField(current.getField());
+    DexEncodedField field = appView.appInfo().resolveField(current.getField()).getResolvedField();
     if (field == null || appView.appInfo().isFieldRead(field)) {
       return;
     }
@@ -509,7 +509,7 @@ public class MemberValuePropagation {
     }
 
     replaceInstructionByInitClassIfPossible(
-        current, field.holder(), code, iterator, code.method().holder());
+        current, field.holder(), code, iterator, code.context());
   }
 
   /**

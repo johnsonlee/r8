@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.code;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -44,11 +45,14 @@ public class IRCodeUtils {
    * does not guarantee that the assignments found dominate all the normal exits.
    */
   public static Map<DexEncodedField, StaticPut> findUniqueStaticPuts(
-      AppView<?> appView, IRCode code, Set<DexEncodedField> fields) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      IRCode code,
+      Set<DexEncodedField> fields) {
     Set<DexEncodedField> writtenMoreThanOnce = Sets.newIdentityHashSet();
     Map<DexEncodedField, StaticPut> uniqueStaticPuts = new IdentityHashMap<>();
     for (StaticPut staticPut : code.<StaticPut>instructions(Instruction::isStaticPut)) {
-      DexEncodedField field = appView.appInfo().resolveField(staticPut.getField());
+      DexEncodedField field =
+          appView.appInfo().resolveField(staticPut.getField()).getResolvedField();
       if (field == null || !fields.contains(field) || writtenMoreThanOnce.contains(field)) {
         continue;
       }
