@@ -50,12 +50,8 @@ public class MetadataRewritePassThroughTest extends KotlinMetadataTestBase {
         .addProgramFiles(ToolHelper.getKotlinStdlibJar())
         .setMinApi(parameters.getApiLevel())
         .addKeepAllClassesRule()
-        .addKeepRules("-keep class kotlin.Metadata")
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .compile()
-        // TODO(b/155536535): Enable this assert.
-        // .assertAllInfoMessagesMatch(expectedInfoMessagesFromKotlinStdLib())
-        // .assertInfosCount(5)
         .inspect(this::inspect);
   }
 
@@ -75,7 +71,8 @@ public class MetadataRewritePassThroughTest extends KotlinMetadataTestBase {
       KotlinClassHeader rewrittenHeader = rewrittenMetadata.getHeader();
       assertEquals(originalHeader.getKind(), rewrittenHeader.getKind());
       // TODO(b/154199572): Should we check for meta-data version?
-      assertEquals(originalHeader.getPackageName(), rewrittenHeader.getPackageName());
+      // TODO(b/156290606): Check if we should assert the package names are equal.
+      // assertEquals(originalHeader.getPackageName(), rewrittenHeader.getPackageName());
       // We cannot assert equality of the data since it may be ordered differently. Instead we use
       // the KotlinMetadataWriter.
       String expected = KotlinMetadataWriter.kotlinMetadataToString("", originalMetadata);

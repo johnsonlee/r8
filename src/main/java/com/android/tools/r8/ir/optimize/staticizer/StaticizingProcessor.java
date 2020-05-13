@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.MethodProcessingId;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.OneTimeMethodProcessor;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization.ClassInitializerDefaultsResult;
@@ -43,6 +44,7 @@ import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.android.tools.r8.utils.collections.SortedProgramMethodSet;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -69,7 +71,7 @@ final class StaticizingProcessor {
   private final ClassStaticizer classStaticizer;
   private final IRConverter converter;
 
-  private final ProgramMethodSet methodsToReprocess = ProgramMethodSet.create();
+  private final SortedProgramMethodSet methodsToReprocess = SortedProgramMethodSet.create();
 
   // Optimization order matters, hence a collection that preserves orderings.
   private final Map<DexEncodedMethod, ImmutableList.Builder<BiConsumer<IRCode, MethodProcessor>>>
@@ -354,14 +356,16 @@ final class StaticizingProcessor {
    */
   private void processMethodsConcurrently(
       OptimizationFeedback feedback, ExecutorService executorService) throws ExecutionException {
-    OneTimeMethodProcessor methodProcessor = OneTimeMethodProcessor.getInstance(methodsToReprocess);
+    OneTimeMethodProcessor methodProcessor =
+        OneTimeMethodProcessor.create(methodsToReprocess, appView);
     methodProcessor.forEachWave(
-        method ->
+        (method, methodProcessingId) ->
             forEachMethod(
                 method,
                 processingQueue.get(method.getDefinition()).build(),
                 feedback,
-                methodProcessor),
+                methodProcessor,
+                methodProcessingId),
         executorService);
     // TODO(b/140767158): No need to clear if we can do every thing in one go.
     methodsToReprocess.clear();
@@ -373,7 +377,8 @@ final class StaticizingProcessor {
       ProgramMethod method,
       Collection<BiConsumer<IRCode, MethodProcessor>> codeOptimizations,
       OptimizationFeedback feedback,
-      OneTimeMethodProcessor methodProcessor) {
+      OneTimeMethodProcessor methodProcessor,
+      MethodProcessingId methodProcessingId) {
     IRCode code = method.buildIR(appView);
     codeOptimizations.forEach(codeOptimization -> codeOptimization.accept(code, methodProcessor));
     CodeRewriter.removeAssumeInstructions(appView, code);
@@ -381,7 +386,7 @@ final class StaticizingProcessor {
   }
 
   private void insertAssumeInstructions(IRCode code, MethodProcessor methodProcessor) {
-    CodeRewriter.insertAssumeInstructions(code, converter.assumers);
+    CodeRewriter.insertAssumeInstructions(code, converter.assumers, Timing.empty());
   }
 
   private BiConsumer<IRCode, MethodProcessor> collectOptimizationInfo(
@@ -812,28 +817,32 @@ final class StaticizingProcessor {
     hostClass.setStaticFields(newFields);
 
     // Process static methods.
-    List<DexEncodedMethod> extraMethods = candidateClass.directMethods();
-    if (!extraMethods.isEmpty()) {
-      List<DexEncodedMethod> newMethods = new ArrayList<>(extraMethods.size());
-      for (DexEncodedMethod method : extraMethods) {
-        DexEncodedMethod newMethod = method.toTypeSubstitutedMethod(
-            factory().createMethod(hostType, method.method.proto, method.method.name));
-        newMethods.add(newMethod);
-        // If the old method from the candidate class has been staticized,
-        if (staticizedMethods.remove(method)) {
-          // Properly update staticized methods to reprocess, i.e., add the corresponding one that
-          // has just been migrated to the host class.
-          staticizedMethods.createAndAdd(hostClass, newMethod);
-        }
-        DexMethod originalMethod = methodMapping.inverse().get(method.method);
-        if (originalMethod == null) {
-          methodMapping.put(method.method, newMethod.method);
-        } else {
-          methodMapping.put(originalMethod, newMethod.method);
-        }
-      }
-      hostClass.addDirectMethods(newMethods);
+    if (!candidateClass.getMethodCollection().hasDirectMethods()) {
+      return;
     }
+
+    Iterable<DexEncodedMethod> extraMethods = candidateClass.directMethods();
+    List<DexEncodedMethod> newMethods =
+        new ArrayList<>(candidateClass.getMethodCollection().numberOfDirectMethods());
+    for (DexEncodedMethod method : extraMethods) {
+      DexEncodedMethod newMethod =
+          method.toTypeSubstitutedMethod(
+              factory().createMethod(hostType, method.method.proto, method.method.name));
+      newMethods.add(newMethod);
+      // If the old method from the candidate class has been staticized,
+      if (staticizedMethods.remove(method)) {
+        // Properly update staticized methods to reprocess, i.e., add the corresponding one that
+        // has just been migrated to the host class.
+        staticizedMethods.createAndAdd(hostClass, newMethod);
+      }
+      DexMethod originalMethod = methodMapping.inverse().get(method.method);
+      if (originalMethod == null) {
+        methodMapping.put(method.method, newMethod.method);
+      } else {
+        methodMapping.put(originalMethod, newMethod.method);
+      }
+    }
+    hostClass.addDirectMethods(newMethods);
   }
 
   private DexField mapCandidateField(DexField field, DexType candidateType, DexType hostType) {

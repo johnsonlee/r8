@@ -4,14 +4,15 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.utils.Box;
+import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.google.common.base.Equivalence.Wrapper;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceMap;
-import java.util.ArrayList;
+import it.unimi.dsi.fastutil.objects.Object2ReferenceRBTreeMap;
 import java.util.Collection;
-import java.util.List;
+import java.util.Comparator;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
@@ -22,7 +23,16 @@ public class MethodMapBacking extends MethodCollectionBacking {
   private Object2ReferenceMap<Wrapper<DexMethod>, DexEncodedMethod> methodMap;
 
   public MethodMapBacking() {
-    this.methodMap = createMap();
+    this(createMap());
+  }
+
+  private MethodMapBacking(Object2ReferenceMap<Wrapper<DexMethod>, DexEncodedMethod> methodMap) {
+    this.methodMap = methodMap;
+  }
+
+  public static MethodMapBacking createSorted() {
+    Comparator<Wrapper<DexMethod>> comparator = (x, y) -> x.get().slowCompareTo(y.get());
+    return new MethodMapBacking(new Object2ReferenceRBTreeMap<>(comparator));
   }
 
   private static Object2ReferenceMap<Wrapper<DexMethod>, DexEncodedMethod> createMap() {
@@ -107,27 +117,13 @@ public class MethodMapBacking extends MethodCollectionBacking {
   }
 
   @Override
-  List<DexEncodedMethod> directMethods() {
-    List<DexEncodedMethod> methods = new ArrayList<>(size());
-    forEachMethod(
-        method -> {
-          if (belongsToDirectPool(method)) {
-            methods.add(method);
-          }
-        });
-    return methods;
+  Iterable<DexEncodedMethod> directMethods() {
+    return () -> IteratorUtils.filter(methodMap.values().iterator(), this::belongsToDirectPool);
   }
 
   @Override
-  List<DexEncodedMethod> virtualMethods() {
-    List<DexEncodedMethod> methods = new ArrayList<>(size());
-    forEachMethod(
-        method -> {
-          if (belongsToVirtualPool(method)) {
-            methods.add(method);
-          }
-        });
-    return methods;
+  Iterable<DexEncodedMethod> virtualMethods() {
+    return () -> IteratorUtils.filter(methodMap.values().iterator(), this::belongsToVirtualPool);
   }
 
   @Override

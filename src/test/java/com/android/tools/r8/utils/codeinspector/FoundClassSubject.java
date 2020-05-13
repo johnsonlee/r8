@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.kotlin.KotlinClassMetadataReader;
 import com.android.tools.r8.naming.ClassNamingForNameMapper;
 import com.android.tools.r8.naming.MemberNaming;
 import com.android.tools.r8.naming.MemberNaming.FieldSignature;
@@ -101,7 +102,7 @@ public class FoundClassSubject extends ClassSubject {
         : new FoundMethodSubject(codeInspector, encoded, this);
   }
 
-  private DexEncodedMethod findMethod(List<DexEncodedMethod> methods, DexMethod dexMethod) {
+  private DexEncodedMethod findMethod(Iterable<DexEncodedMethod> methods, DexMethod dexMethod) {
     for (DexEncodedMethod method : methods) {
       if (method.method.equals(dexMethod)) {
         return method;
