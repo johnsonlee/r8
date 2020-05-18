@@ -7,9 +7,11 @@ package com.android.tools.r8.kotlin;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Reporter;
+import java.util.function.Consumer;
 import kotlinx.metadata.KmPackage;
 import kotlinx.metadata.jvm.KotlinClassHeader;
 import kotlinx.metadata.jvm.KotlinClassMetadata;
@@ -19,18 +21,24 @@ import kotlinx.metadata.jvm.KotlinClassMetadata.FileFacade;
 public class KotlinFileFacadeInfo implements KotlinClassLevelInfo {
 
   private final KotlinPackageInfo packageInfo;
+  private final String packageName;
 
-  private KotlinFileFacadeInfo(KotlinPackageInfo packageInfo) {
+  private KotlinFileFacadeInfo(KotlinPackageInfo packageInfo, String packageName) {
     this.packageInfo = packageInfo;
+    this.packageName = packageName;
   }
 
   public static KotlinFileFacadeInfo create(
       FileFacade kmFileFacade,
+      String packageName,
       DexClass clazz,
       DexDefinitionSupplier definitionSupplier,
-      Reporter reporter) {
+      Reporter reporter,
+      Consumer<DexEncodedMethod> keepByteCode) {
     return new KotlinFileFacadeInfo(
-        KotlinPackageInfo.create(kmFileFacade.toKmPackage(), clazz, definitionSupplier, reporter));
+        KotlinPackageInfo.create(
+            kmFileFacade.toKmPackage(), clazz, definitionSupplier, reporter, keepByteCode),
+        packageName);
   }
 
   @Override
@@ -51,5 +59,10 @@ public class KotlinFileFacadeInfo implements KotlinClassLevelInfo {
     packageInfo.rewrite(kmPackage, clazz, appView, namingLens);
     kmPackage.accept(writer);
     return writer.write().getHeader();
+  }
+
+  @Override
+  public String getPackageName() {
+    return packageName;
   }
 }

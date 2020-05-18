@@ -3,12 +3,16 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
+import static com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo.abandoned;
+import static com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo.top;
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
@@ -23,14 +27,19 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.ir.code.InvokeMethod;
+import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.CodeOptimization;
 import com.android.tools.r8.ir.conversion.PostOptimization;
-import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.ConcreteCallSiteOptimizationInfo;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.utils.ForEachable;
+import com.android.tools.r8.utils.InternalOptions.CallSiteOptimizationOptions;
+import com.android.tools.r8.utils.LazyBox;
+import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
 import java.util.Collection;
@@ -53,12 +62,14 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
   }
 
   private final AppView<AppInfoWithLiveness> appView;
+  private final CallSiteOptimizationOptions options;
   private ProgramMethodSet revisitedMethods = null;
   private Mode mode = Mode.COLLECT;
 
   public CallSiteOptimizationInfoPropagator(AppView<AppInfoWithLiveness> appView) {
     assert appView.enableWholeProgramOptimizations();
     this.appView = appView;
+    this.options = appView.options().callSiteOptimizationOptions();
     if (Log.isLoggingEnabledFor(CallSiteOptimizationInfoPropagator.class)) {
       revisitedMethods = ProgramMethodSet.create();
     }
@@ -78,7 +89,7 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     }
   }
 
-  public void collectCallSiteOptimizationInfo(IRCode code) {
+  public void collectCallSiteOptimizationInfo(IRCode code, Timing timing) {
     // TODO(b/139246447): we could collect call site optimization during REVISIT mode as well,
     //   but that may require a separate copy of CallSiteOptimizationInfo.
     if (mode != Mode.COLLECT) {
@@ -86,125 +97,204 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     }
     ProgramMethod context = code.context();
     for (Instruction instruction : code.instructions()) {
-      if (!instruction.isInvokeMethod() && !instruction.isInvokeCustom()) {
-        continue;
-      }
       if (instruction.isInvokeMethod()) {
-        InvokeMethod invoke = instruction.asInvokeMethod();
-        if (invoke.isInvokeMethodWithDynamicDispatch()) {
-          DexMethod invokedMethod = invoke.getInvokedMethod();
-          ResolutionResult resolutionResult =
-              appView.appInfo().resolveMethod(invokedMethod, invoke.isInvokeInterface());
-          // For virtual and interface calls, proceed on valid results only (since it's enforced).
-          if (!resolutionResult.isSingleResolution() || !resolutionResult.isVirtualTarget()) {
-            continue;
-          }
-          // If the resolution ended up with a single target, check if it is a library override.
-          // And if so, bail out early (to avoid expensive target lookup).
-          ProgramMethod resolutionTarget =
-              resolutionResult.asSingleResolution().getResolutionPair().asProgramMethod();
-          if (resolutionTarget == null
-              || isLibraryMethodOrLibraryMethodOverride(resolutionTarget)) {
-            continue;
-          }
-        }
-        ProgramMethodSet targets = invoke.lookupProgramDispatchTargets(appView, context);
-        assert invoke.isInvokeMethodWithDynamicDispatch()
-            // For other invocation types, the size of targets should be at most one.
-            || targets == null || targets.size() <= 1;
-        if (targets == null || targets.isEmpty() || hasLibraryOverrides(targets)) {
-          continue;
-        }
-        for (ProgramMethod target : targets) {
-          recordArgumentsIfNecessary(target, invoke.inValues());
-        }
-      }
-      if (instruction.isInvokeCustom()) {
-        InvokeCustom invokeCustom = instruction.asInvokeCustom();
-        // The bootstrap method for lambda allocation is always runtime internal.
-        if (LambdaDescriptor.isLambdaMetafactoryMethod(
-            invokeCustom.getCallSite(), appView.dexItemFactory())) {
-          continue;
-        }
-        // In other cases, if the bootstrap method is program declared it will be called. The call
-        // is with runtime provided arguments so ensure that the call-site info is TOP.
-        DexMethodHandle bootstrapMethod = invokeCustom.getCallSite().bootstrapMethod;
-        SingleResolutionResult resolution =
-            appView
-                .appInfo()
-                .resolveMethod(
-                    bootstrapMethod.asMethod(),
-                    bootstrapMethod.isInterface)
-                .asSingleResolution();
-        if (resolution != null && resolution.getResolvedHolder().isProgramClass()) {
-          resolution
-              .getResolvedMethod()
-              .joinCallSiteOptimizationInfo(CallSiteOptimizationInfo.TOP, appView);
-        }
+        collectCallSiteOptimizationInfoForInvokeMethod(
+            instruction.asInvokeMethod(), context, timing);
+      } else if (instruction.isInvokeCustom()) {
+        collectCallSiteOptimizationInfoForInvokeCustom(instruction.asInvokeCustom());
       }
     }
   }
 
-  // TODO(b/140204899): Instead of reprocessing here, pass stopping criteria to lookup?
-  // If any of target method is a library method override, bail out entirely/early.
-  private boolean hasLibraryOverrides(ProgramMethodSet targets) {
-    for (ProgramMethod target : targets) {
-      if (isLibraryMethodOrLibraryMethodOverride(target)) {
-        return true;
-      }
+  private void collectCallSiteOptimizationInfoForInvokeMethod(
+      InvokeMethod invoke, ProgramMethod context, Timing timing) {
+    DexMethod invokedMethod = invoke.getInvokedMethod();
+    SingleResolutionResult resolutionResult =
+        appView
+            .appInfo()
+            .resolveMethod(invokedMethod, invoke.isInvokeInterface())
+            .asSingleResolution();
+    if (resolutionResult == null) {
+      return;
     }
-    return false;
+    // For virtual and interface calls, proceed on valid results only (since it's enforced).
+    if (invoke.isInvokeMethodWithDynamicDispatch() && !resolutionResult.isVirtualTarget()) {
+      return;
+    }
+    ProgramMethod resolutionTarget =
+        resolutionResult.asSingleResolution().getResolutionPair().asProgramMethod();
+    if (resolutionTarget == null || isMaybeClasspathOrLibraryMethodOverride(resolutionTarget)) {
+      return;
+    }
+    propagateArgumentsToDispatchTargets(invoke, resolutionResult, context, timing);
   }
 
-  private boolean isLibraryMethodOrLibraryMethodOverride(ProgramMethod target) {
+  private void collectCallSiteOptimizationInfoForInvokeCustom(InvokeCustom invoke) {
+    // If the bootstrap method is program declared it will be called. The call is with runtime
+    // provided arguments so ensure that the call-site info is TOP.
+    DexMethodHandle bootstrapMethod = invoke.getCallSite().bootstrapMethod;
+    SingleResolutionResult resolution =
+        appView
+            .appInfo()
+            .resolveMethod(bootstrapMethod.asMethod(), bootstrapMethod.isInterface)
+            .asSingleResolution();
+    if (resolution != null && resolution.getResolvedHolder().isProgramClass()) {
+      resolution.getResolvedMethod().joinCallSiteOptimizationInfo(top(), appView);
+    }
+  }
+
+  private boolean isMaybeClasspathOrLibraryMethodOverride(ProgramMethod target) {
     // If the method overrides a library method, it is unsure how the method would be invoked by
     // that library.
-    return target.getDefinition().isLibraryMethodOverride().isTrue();
+    return target.getDefinition().isLibraryMethodOverride().isPossiblyTrue();
   }
 
-  // Record arguments for the given method if necessary.
-  // At the same time, if it decides to bail out, make the corresponding info immutable so that we
-  // can avoid recording arguments for the same method accidentally.
-  private void recordArgumentsIfNecessary(ProgramMethod target, List<Value> inValues) {
-    assert !target.getDefinition().isObsolete();
-    if (appView.appInfo().neverReprocess.contains(target.getReference())) {
+  // Propagate information about the arguments to all possible dispatch targets of the invoke.
+  private void propagateArgumentsToDispatchTargets(
+      InvokeMethod invoke,
+      SingleResolutionResult resolutionResult,
+      ProgramMethod context,
+      Timing timing) {
+    if (invoke.arguments().isEmpty()) {
+      // Nothing to propagate.
       return;
     }
-    if (target.getDefinition().getCallSiteOptimizationInfo().isTop()) {
+
+    if (invoke.arguments().size()
+        != invoke.getInvokedMethod().getArity()
+            + BooleanUtils.intValue(invoke.isInvokeMethodWithReceiver())) {
+      // Verification error.
+      assert false;
       return;
     }
+
+    if (resolutionResult.getResolvedMethod().getCallSiteOptimizationInfo().isAbandoned()) {
+      // We stopped tracking the arguments to all possible dispatch targets.
+      assert verifyAllProgramDispatchTargetsHaveBeenAbandoned(invoke, context);
+      return;
+    }
+
+    timing.begin("Lookup possible dispatch targets");
+    ProgramMethodSet targets = invoke.lookupProgramDispatchTargets(appView, context);
+    timing.end();
+
+    assert invoke.isInvokeMethodWithDynamicDispatch()
+        // For other invocation types, the size of targets should be at most one.
+        || targets == null
+        || targets.size() <= 1;
+
+    if (targets == null || targets.isEmpty()) {
+      return;
+    }
+
+    if (targets.size() > options.getMaxNumberOfDispatchTargetsBeforeAbandoning()) {
+      // If the number of targets exceed the threshold, abandon call site optimization for all
+      // targets.
+      abandonCallSitePropagation(invoke, resolutionResult, targets, context);
+      return;
+    }
+
+    timing.begin("Record arguments");
+    // Lazily computed piece of information that needs to be propagated to all dispatch targets.
+    LazyBox<CallSiteOptimizationInfo> callSiteOptimizationInfo =
+        new LazyBox<>(() -> computeCallSiteOptimizationInfoFromArguments(invoke, context, timing));
+    for (ProgramMethod target : targets) {
+      CallSiteOptimizationInfo newCallSiteOptimizationInfo =
+          propagateArgumentsToDispatchTarget(target, callSiteOptimizationInfo, timing);
+
+      // If one of the targets is abandoned or ends up being abandoned, then abandon call site
+      // optimization for all targets.
+      if (newCallSiteOptimizationInfo.isAbandoned()) {
+        abandonCallSitePropagation(invoke, resolutionResult, targets, context);
+        break;
+      }
+    }
+    timing.end();
+  }
+
+  private CallSiteOptimizationInfo propagateArgumentsToDispatchTarget(
+      ProgramMethod target,
+      LazyBox<CallSiteOptimizationInfo> lazyCallSiteOptimizationInfo,
+      Timing timing) {
+    CallSiteOptimizationInfo existingCallSiteOptimizationInfo =
+        target.getDefinition().getCallSiteOptimizationInfo();
+    if (existingCallSiteOptimizationInfo.isAbandoned()
+        || existingCallSiteOptimizationInfo.isTop()) {
+      return existingCallSiteOptimizationInfo;
+    }
+    if (!appView.appInfo().mayPropagateArgumentsTo(target)) {
+      return top();
+    }
+    timing.begin("Join argument info");
+    CallSiteOptimizationInfo callSiteOptimizationInfo =
+        lazyCallSiteOptimizationInfo.computeIfAbsent();
     target
         .getDefinition()
         .joinCallSiteOptimizationInfo(
-            computeCallSiteOptimizationInfoFromArguments(target, inValues), appView);
+            callSiteOptimizationInfo.hasUsefulOptimizationInfo(appView, target)
+                ? callSiteOptimizationInfo
+                : top(),
+            appView);
+    timing.end();
+    return target.getDefinition().getCallSiteOptimizationInfo();
+  }
+
+  private void abandonCallSitePropagation(
+      InvokeMethod invoke,
+      SingleResolutionResult resolutionResult,
+      ProgramMethodSet targets,
+      ProgramMethod context) {
+    if (invoke.isInvokeMethodWithDynamicDispatch()) {
+      // When there is a dynamic dispatch, we may have used dynamic type information to reduce the
+      // set of possible dispatch targets. However, it is an invariant that a method is marked as
+      // abandoned if-and-only-if that method and all of its overrides have been marked as
+      // abandoned. Therefore, we need to find all the overrides of the targeted method and mark
+      // them as abandoned, which we accomplish by performing a lookup without any dynamic type
+      // information.
+      InvokeMethodWithReceiver invokeMethodWithReceiver = invoke.asInvokeMethodWithReceiver();
+      if (invokeMethodWithReceiver.hasRefinedReceiverUpperBoundType(appView)
+          || invokeMethodWithReceiver.hasRefinedReceiverLowerBoundType(appView)) {
+        LookupResult lookupResult =
+            resolutionResult.lookupVirtualDispatchTargets(context.getHolder(), appView.appInfo());
+        // This should always succeed since we already looked up `targets` successfully.
+        assert lookupResult.isLookupResultSuccess();
+        abandonCallSitePropagation(
+            consumer ->
+                lookupResult.forEach(
+                    methodTarget -> {
+                      if (methodTarget.isProgramMethod()) {
+                        consumer.accept(methodTarget.asProgramMethod());
+                      } else {
+                        // This may happen if an interface method in the program is implemented
+                        // by a method in the classpath or library.
+                        assert invoke.isInvokeInterface();
+                      }
+                    },
+                    emptyConsumer()));
+        return;
+      }
+    }
+    abandonCallSitePropagation(targets::forEach);
+  }
+
+  private void abandonCallSitePropagation(ForEachable<ProgramMethod> methods) {
+    methods.forEach(method -> method.getDefinition().abandonCallSiteOptimizationInfo());
   }
 
   private CallSiteOptimizationInfo computeCallSiteOptimizationInfoFromArguments(
-      ProgramMethod target, List<Value> inValues) {
-    // No method body or no argument at all.
-    if (target.getDefinition().shouldNotHaveCode() || inValues.size() == 0) {
-      return CallSiteOptimizationInfo.TOP;
+      InvokeMethod invoke, ProgramMethod context, Timing timing) {
+    timing.begin("Compute argument info");
+    CallSiteOptimizationInfo callSiteOptimizationInfo =
+        ConcreteCallSiteOptimizationInfo.fromArguments(
+            appView, invoke.getInvokedMethod(), invoke.arguments(), context);
+    if (callSiteOptimizationInfo.isTop()) {
+      // If we are propagating unknown information to all call sites, then mark them as abandoned
+      // such that we bail out before looking up the possible dispatch targets if we see any future
+      // invokes to these methods.
+      callSiteOptimizationInfo = abandoned();
     }
-    // If pinned, that method could be invoked via reflection.
-    if (appView.appInfo().isPinned(target.getReference())) {
-      return CallSiteOptimizationInfo.TOP;
-    }
-    // If the method overrides a library method, it is unsure how the method would be invoked by
-    // that library.
-    if (target.getDefinition().isLibraryMethodOverride().isTrue()) {
-      // But, should not be reachable, since we already bail out.
-      assert false
-          : "Trying to compute call site optimization info for " + target.toSourceString();
-      return CallSiteOptimizationInfo.TOP;
-    }
-    // If the program already has illegal accesses, method resolution results will reflect that too.
-    // We should avoid recording arguments in that case. E.g., b/139823850: static methods can be a
-    // result of virtual call targets, if that's the only method that matches name and signature.
-    int argumentOffset = target.getDefinition().isStatic() ? 0 : 1;
-    if (inValues.size() != argumentOffset + target.getReference().getArity()) {
-      return CallSiteOptimizationInfo.BOTTOM;
-    }
-    return ConcreteCallSiteOptimizationInfo.fromArguments(appView, target, inValues);
+    timing.end();
+    return callSiteOptimizationInfo;
   }
 
   // If collected call site optimization info has something useful, e.g., non-null argument,
@@ -236,7 +326,7 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
       int argIndex = argumentsSeen - 1;
       AbstractValue abstractValue = callSiteOptimizationInfo.getAbstractArgumentValue(argIndex);
       if (abstractValue.isSingleValue()) {
-        assert appView.options().enablePropagationOfConstantsAtCallSites;
+        assert options.isConstantPropagationEnabled();
         SingleValue singleValue = abstractValue.asSingleValue();
         if (singleValue.isMaterializableInContext(appView, code.context())) {
           Instruction replacement =
@@ -345,5 +435,16 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
   public Collection<CodeOptimization> codeOptimizationsForPostProcessing() {
     // Run IRConverter#optimize.
     return null;
+  }
+
+  private boolean verifyAllProgramDispatchTargetsHaveBeenAbandoned(
+      InvokeMethod invoke, ProgramMethod context) {
+    ProgramMethodSet targets = invoke.lookupProgramDispatchTargets(appView, context);
+    if (targets != null) {
+      for (ProgramMethod target : targets) {
+        assert target.getDefinition().getCallSiteOptimizationInfo().isAbandoned();
+      }
+    }
+    return true;
   }
 }

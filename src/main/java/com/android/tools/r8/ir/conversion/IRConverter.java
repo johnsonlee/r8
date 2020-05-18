@@ -51,7 +51,6 @@ import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter.Flavor;
 import com.android.tools.r8.ir.desugar.LambdaRewriter;
 import com.android.tools.r8.ir.desugar.StringConcatRewriter;
 import com.android.tools.r8.ir.desugar.TwrCloseResourceRewriter;
-import com.android.tools.r8.ir.optimize.AliasIntroducer;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.Assumer;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization;
@@ -288,9 +287,6 @@ public class IRConverter {
         options.processCovariantReturnTypeAnnotations
             ? new CovariantReturnTypeAnnotationTransformer(this, appView.dexItemFactory())
             : null;
-    if (options.testing.forceAssumeNoneInsertion) {
-      assumers.add(new AliasIntroducer(appView));
-    }
     if (appView.enableWholeProgramOptimizations()) {
       assert appView.appInfo().hasLiveness();
       assert appView.rootSet() != null;
@@ -477,10 +473,10 @@ public class IRConverter {
     }
   }
 
-  private void synthesizeEnumUnboxingUtilityClass(
+  private void synthesizeEnumUnboxingUtilityMethods(
       Builder<?> builder, ExecutorService executorService) throws ExecutionException {
     if (enumUnboxer != null) {
-      enumUnboxer.synthesizeUtilityClass(builder, this, executorService);
+      enumUnboxer.synthesizeUtilityMethods(builder, this, executorService);
     }
   }
 
@@ -730,8 +726,7 @@ public class IRConverter {
     }
     if (enumUnboxer != null) {
       enumUnboxer.finishAnalysis();
-      enumUnboxer.unboxEnums(
-          postMethodProcessorBuilder, executorService, feedback, classStaticizer);
+      enumUnboxer.unboxEnums(postMethodProcessorBuilder, executorService, feedback);
     }
     new TrivialFieldAccessReprocessor(appView.withLiveness(), postMethodProcessorBuilder)
         .run(executorService, feedback, timing);
@@ -779,7 +774,7 @@ public class IRConverter {
     synthesizeJava8UtilityClass(builder, executorService);
     synthesizeRetargetClass(builder, executorService);
     handleSynthesizedClassMapping(builder);
-    synthesizeEnumUnboxingUtilityClass(builder, executorService);
+    synthesizeEnumUnboxingUtilityMethods(builder, executorService);
 
     printPhase("Lambda merging finalization");
     // TODO(b/127694949): Adapt to PostOptimization.
@@ -1102,7 +1097,7 @@ public class IRConverter {
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
       MethodProcessingId methodProcessingId) {
-    return ExceptionUtils.withOriginAttachmentHandler(
+    return ExceptionUtils.withOriginAndPositionAttachmentHandler(
         method.getOrigin(),
         new MethodPosition(method.getReference()),
         () -> rewriteCodeInternal(method, feedback, methodProcessor, methodProcessingId));
@@ -1123,6 +1118,9 @@ public class IRConverter {
           "Original code for %s:\n%s",
           method.toSourceString(),
           logCode(options, method.getDefinition()));
+    }
+    if (options.testing.hookInIrConversion != null) {
+      options.testing.hookInIrConversion.run();
     }
     if (options.skipIR) {
       feedback.markProcessed(method.getDefinition(), ConstraintWithTarget.NEVER);
@@ -1217,6 +1215,16 @@ public class IRConverter {
     // we will return with finalizeEmptyThrowingCode() above.
     assert code.verifyTypes(appView);
     assert code.isConsistentSSA();
+
+    if (appView.isCfByteCodePassThrough(method)) {
+      // If the code is pass trough, do not finalize by overwriting the existing code.
+      assert appView.enableWholeProgramOptimizations();
+      timing.begin("Collect optimization info");
+      collectOptimizationInfo(
+          method, code, ClassInitializerDefaultsResult.empty(), feedback, methodProcessor, timing);
+      timing.end();
+      return timing;
+    }
 
     assertionsRewriter.run(method, code, timing);
 
@@ -1608,11 +1616,6 @@ public class IRConverter {
       timing.end();
     }
 
-    if (appView.isCfByteCodePassThrough(method)) {
-      // If the code is pass trough, do not finalize by overwriting the existing code.
-      return timing;
-    }
-
     printMethod(code, "Optimized IR (SSA)", previous);
     timing.begin("Finalize IR");
     finalizeIR(code, feedback, timing);
@@ -1648,7 +1651,7 @@ public class IRConverter {
     boolean isDebugMode = options.debug || method.getOptimizationInfo().isReachabilitySensitive();
     if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
       timing.begin("Collect call-site info");
-      appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code);
+      appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code, timing);
       timing.end();
     }
 

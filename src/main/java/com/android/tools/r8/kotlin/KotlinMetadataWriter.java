@@ -23,6 +23,7 @@ import kotlinx.metadata.KmAnnotationArgument;
 import kotlinx.metadata.KmClass;
 import kotlinx.metadata.KmConstructor;
 import kotlinx.metadata.KmDeclarationContainer;
+import kotlinx.metadata.KmFlexibleTypeUpperBound;
 import kotlinx.metadata.KmFunction;
 import kotlinx.metadata.KmLambda;
 import kotlinx.metadata.KmPackage;
@@ -43,7 +44,7 @@ public class KotlinMetadataWriter {
 
   public static void writeKotlinMetadataAnnotation(
       String prefix, DexAnnotation annotation, PrintStream ps, Kotlin kotlin) {
-    assert annotation.annotation.type == kotlin.metadata.kotlinMetadataType;
+    assert annotation.annotation.type == kotlin.factory.kotlinMetadataType;
     try {
       KotlinClassMetadata kMetadata =
           KotlinClassMetadataReader.toKotlinClassMetadata(kotlin, annotation.annotation);
@@ -525,6 +526,33 @@ public class KotlinMetadataWriter {
               "outerType",
               sb,
               nextIndent -> appendKmType(newIndent, sb, kmType.getOuterType()));
+          KmFlexibleTypeUpperBound flexibleTypeUpperBound = kmType.getFlexibleTypeUpperBound();
+          if (flexibleTypeUpperBound != null) {
+            appendKeyValue(
+                newIndent,
+                "flexibleTypeUpperBound",
+                sb,
+                nextIndent -> {
+                  appendKmSection(
+                      newIndent,
+                      "FlexibleTypeUpperBound",
+                      sb,
+                      nextNextIndent -> {
+                        appendKeyValue(
+                            nextNextIndent,
+                            "typeFlexibilityId",
+                            sb,
+                            flexibleTypeUpperBound.getTypeFlexibilityId());
+                        appendKeyValue(
+                            nextNextIndent,
+                            "type",
+                            sb,
+                            nextNextNextIndent ->
+                                appendKmType(
+                                    nextNextNextIndent, sb, flexibleTypeUpperBound.getType()));
+                      });
+                });
+          }
           appendKeyValue(newIndent, "raw", sb, JvmExtensionsKt.isRaw(kmType) + "");
           appendKeyValue(
               newIndent,

@@ -195,8 +195,7 @@ public class InternalOptions {
     enableValuePropagation = false;
     enableSideEffectAnalysis = false;
     enableTreeShakingOfLibraryMethodOverrides = false;
-    enablePropagationOfDynamicTypesAtCallSites = false;
-    enablePropagationOfConstantsAtCallSites = false;
+    callSiteOptimizationOptions.disableOptimization();
   }
 
   public boolean printTimes = System.getProperty("com.android.tools.r8.printtimes") != null;
@@ -247,14 +246,6 @@ public class InternalOptions {
   public boolean enableNameReflectionOptimization = true;
   public boolean enableStringConcatenationOptimization = true;
   public boolean enableTreeShakingOfLibraryMethodOverrides = false;
-  public boolean enablePropagationOfDynamicTypesAtCallSites = true;
-  // TODO(b/69963623): enable if everything is ready, including signature rewriting at call sites.
-  public boolean enablePropagationOfConstantsAtCallSites = false;
-  // At 2.0, part of @Metadata up to this flag is rewritten, which is super-type hierarchy.
-  public boolean enableKotlinMetadataRewritingForMembers = true;
-  // Up to 2.0, Kotlin @Metadata is removed if the associated class is renamed.
-  // Under this flag, Kotlin @Metadata is generally kept and modified for all program classes.
-  public boolean enableKotlinMetadataRewritingForRenamedClasses = true;
   public boolean encodeChecksums = false;
   public BiPredicate<String, Long> dexClassChecksumFilter = (name, checksum) -> true;
   public boolean cfToCfDesugar = false;
@@ -307,6 +298,9 @@ public class InternalOptions {
   // When dexsplitting we ignore main dex classes missing in the application. These will be
   // fused together by play store when shipped for pre-L devices.
   public boolean ignoreMainDexMissingClasses = false;
+
+  // Boolean value indicating that byte code pass through may be enabled.
+  public boolean enableCfByteCodePassThrough = false;
 
   // Hidden marker for classes.dex
   private boolean hasMarker = false;
@@ -488,6 +482,9 @@ public class InternalOptions {
   // to disable the check that the build makes sense for multi-dexing.
   public boolean enableMainDexListCheck = true;
 
+  // TODO(b/156934674): Remove when resource shrinker is removed.
+  public boolean isRunningDeprecatedResourceShrinker = false;
+
   private final boolean enableTreeShaking;
   private final boolean enableMinification;
 
@@ -517,6 +514,8 @@ public class InternalOptions {
 
   public boolean debug = false;
 
+  private final CallSiteOptimizationOptions callSiteOptimizationOptions =
+      new CallSiteOptimizationOptions();
   private final ProtoShrinkingOptions protoShrinking = new ProtoShrinkingOptions();
   private final KotlinOptimizationOptions kotlinOptimizationOptions =
       new KotlinOptimizationOptions();
@@ -534,6 +533,10 @@ public class InternalOptions {
   public boolean enableInheritanceClassInDexDistributor = true;
 
   public LineNumberOptimization lineNumberOptimization = LineNumberOptimization.ON;
+
+  public CallSiteOptimizationOptions callSiteOptimizationOptions() {
+    return callSiteOptimizationOptions;
+  }
 
   public ProtoShrinkingOptions protoShrinking() {
     return protoShrinking;
@@ -1065,6 +1068,51 @@ public class InternalOptions {
         System.getProperty("com.android.tools.r8.disableKotlinSpecificOptimizations") != null;
   }
 
+  public static class CallSiteOptimizationOptions {
+
+    // Each time we see an invoke with more dispatch targets than the threshold, we stop call site
+    // propagation for all these dispatch targets. The motivation for this is that it is expensive
+    // and that we are somewhat unlikely to have precise knowledge about the value of arguments when
+    // there are many (possibly spurious) call graph edges.
+    private final int maxNumberOfDispatchTargetsBeforeAbandoning = 10;
+
+    // TODO(b/69963623): enable if everything is ready, including signature rewriting at call sites.
+    private boolean enableConstantPropagation = false;
+    private boolean enableTypePropagation = true;
+
+    private void disableOptimization() {
+      enableConstantPropagation = false;
+      enableTypePropagation = false;
+    }
+
+    public void disableTypePropagationForTesting() {
+      enableTypePropagation = false;
+    }
+
+    // TODO(b/69963623): Remove this once enabled.
+    @VisibleForTesting
+    public static void enableConstantPropagationForTesting(InternalOptions options) {
+      assert !options.callSiteOptimizationOptions().isConstantPropagationEnabled();
+      options.callSiteOptimizationOptions().enableConstantPropagation = true;
+    }
+
+    public int getMaxNumberOfDispatchTargetsBeforeAbandoning() {
+      return maxNumberOfDispatchTargetsBeforeAbandoning;
+    }
+
+    public boolean isEnabled() {
+      return enableConstantPropagation || enableTypePropagation;
+    }
+
+    public boolean isConstantPropagationEnabled() {
+      return enableConstantPropagation;
+    }
+
+    public boolean isTypePropagationEnabled() {
+      return enableTypePropagation;
+    }
+  }
+
   public static class ProtoShrinkingOptions {
 
     public boolean enableGeneratedExtensionRegistryShrinking = false;
@@ -1128,7 +1176,6 @@ public class InternalOptions {
     public boolean enableSwitchToIfRewriting = true;
     public boolean enableEnumUnboxingDebugLogs = false;
     public boolean forceRedundantConstNumberRemoval = false;
-    public boolean forceAssumeNoneInsertion = false;
     public boolean invertConditionals = false;
     public boolean placeExceptionalBlocksLast = false;
     public boolean dontCreateMarkerInD8 = false;
@@ -1166,6 +1213,9 @@ public class InternalOptions {
 
     public MinifierTestingOptions minifier = new MinifierTestingOptions();
 
+    // Testing hooks to trigger effects in various compiler places.
+    public Runnable hookInIrConversion = null;
+
     public static class MinifierTestingOptions {
 
       public Comparator<DexMethod> interfaceMethodOrdering = null;
@@ -1191,7 +1241,7 @@ public class InternalOptions {
 
     public Consumer<ProgramMethod> callSiteOptimizationInfoInspector = null;
 
-    public Predicate<DexEncodedMethod> cfByteCodePassThrough = null;
+    public Predicate<DexMethod> cfByteCodePassThrough = null;
   }
 
   @VisibleForTesting
@@ -1199,22 +1249,6 @@ public class InternalOptions {
     // Use this util to disable get*Name() computation if the main intention of tests is checking
     // const-class, e.g., canonicalization, or some test classes' only usages are get*Name().
     enableNameReflectionOptimization = false;
-  }
-
-  // TODO(b/69963623): Remove this once enabled.
-  @VisibleForTesting
-  public void enablePropagationOfConstantsAtCallSites() {
-    assert !enablePropagationOfConstantsAtCallSites;
-    enablePropagationOfConstantsAtCallSites = true;
-  }
-
-  public boolean isCallSiteOptimizationEnabled() {
-    return enablePropagationOfConstantsAtCallSites || enablePropagationOfDynamicTypesAtCallSites;
-  }
-
-  public void disableCallSiteOptimization() {
-    enablePropagationOfConstantsAtCallSites = false;
-    enablePropagationOfDynamicTypesAtCallSites = false;
   }
 
   private boolean hasMinApi(AndroidApiLevel level) {

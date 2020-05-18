@@ -4,7 +4,13 @@
 
 package com.android.tools.r8.utils;
 
+import java.util.function.Consumer;
+
 public class ConsumerUtils {
+
+  public static <T> Consumer<T> emptyConsumer() {
+    return ignore -> {};
+  }
 
   public static <T> ThrowingConsumer<T, RuntimeException> emptyThrowingConsumer() {
     return ignore -> {};

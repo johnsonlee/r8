@@ -78,6 +78,8 @@ public class ProguardConfigurationParserTest extends TestBase {
       VALID_PROGUARD_DIR + "assume-no-side-effects-with-return-value.flags";
   private static final String ASSUME_VALUES_WITH_RETURN_VALUE =
       VALID_PROGUARD_DIR + "assume-values-with-return-value.flags";
+  private static final String ADAPT_KOTLIN_METADATA =
+      VALID_PROGUARD_DIR + "adapt-kotlin-metadata.flags";
   private static final String INCLUDING =
       VALID_PROGUARD_DIR + "including.flags";
   private static final String INVALID_INCLUDING_1 =
@@ -770,6 +772,15 @@ public class ProguardConfigurationParserTest extends TestBase {
   }
 
   @Test
+  public void parseAdaptKotlinMetadata() {
+    ProguardConfigurationParser parser =
+        new ProguardConfigurationParser(new DexItemFactory(), reporter);
+    Path path = Paths.get(ADAPT_KOTLIN_METADATA);
+    parser.parse(path);
+    checkDiagnostics(handler.infos, path, 1, 1, "Ignoring", "-adaptkotlinmetadata");
+  }
+
+  @Test
   public void parseIncluding() throws Exception {
     ProguardConfigurationParser parser =
         new ProguardConfigurationParser(new DexItemFactory(), reporter);
@@ -831,14 +842,30 @@ public class ProguardConfigurationParserTest extends TestBase {
     for (String before : whiteSpace) {
       for (String after : whiteSpace) {
         reset();
-        parseAndVerifyParserEndsCleanly(ImmutableList.of(
-            "-keep"
-                + before + "," + after + "includedescriptorclasses"
-                + before + "," + after + "allowshrinking"
-                + before + "," + after + "allowobfuscation"
-                + before + "," + after + "allowoptimization "
-                + "class A { *; }"
-        ));
+        parseAndVerifyParserEndsCleanly(
+            ImmutableList.of(
+                "-keep"
+                    + before
+                    + ","
+                    + after
+                    + "includedescriptorclasses"
+                    + before
+                    + ","
+                    + after
+                    + "allowaccessmodification"
+                    + before
+                    + ","
+                    + after
+                    + "allowshrinking"
+                    + before
+                    + ","
+                    + after
+                    + "allowobfuscation"
+                    + before
+                    + ","
+                    + after
+                    + "allowoptimization "
+                    + "class A { *; }"));
       }
     }
   }

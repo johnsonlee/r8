@@ -49,10 +49,8 @@ public class MetadataStripTest extends KotlinMetadataTestBase {
             .addProgramFiles(getJavaJarFile(folder))
             .addProgramFiles(ToolHelper.getKotlinReflectJar())
             .addKeepMainRule(mainClassName)
+            .addKeepKotlinMetadata()
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-            .addKeepRules("-keep class kotlin.Metadata")
-            // TODO(b/151194540): if this option is settled down, this test is meaningless.
-            .addOptionsModification(o -> o.enableKotlinMetadataRewritingForRenamedClasses = false)
             .allowDiagnosticWarningMessages()
             .setMinApi(parameters.getApiLevel())
             .compile()

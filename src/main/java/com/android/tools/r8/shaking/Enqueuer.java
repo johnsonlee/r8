@@ -135,6 +135,7 @@ import java.util.SortedSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.objectweb.asm.Opcodes;
@@ -189,7 +190,7 @@ public class Enqueuer {
   private ProguardClassFilter dontWarnPatterns;
   private final EnqueuerUseRegistryFactory useRegistryFactory;
   private AnnotationRemover.Builder annotationRemoverBuilder;
-  private final DexDefinitionSupplier enqueuerDefinitionSupplier;
+  private final EnqueuerDefinitionSupplier enqueuerDefinitionSupplier;
 
   private final Map<DexMethod, ProgramMethodSet> virtualInvokes = new IdentityHashMap<>();
   private final Map<DexMethod, ProgramMethodSet> interfaceInvokes = new IdentityHashMap<>();
@@ -306,6 +307,13 @@ public class Enqueuer {
    * due to dependent keep rules.
    */
   private final Set<DexReference> pinnedItems = Sets.newIdentityHashSet();
+
+  /**
+   * A set of references that we are keeping due to keep rules, which we are allowed to publicize.
+   */
+  // TODO(b/156715504): This should be maintained in a structure that describes what we are allowed
+  //  and not allowed to do with program items that are referenced from keep rules.
+  private final Map<DexReference, OptionalBool> allowAccessModification = new IdentityHashMap<>();
 
   /**
    * A set of seen const-class references that both serve as an initial lock-candidate set and will
@@ -662,7 +670,7 @@ public class Enqueuer {
     } else {
       throw new IllegalArgumentException(item.toString());
     }
-    pinnedItems.add(item.toReference());
+    addPinnedItem(item.toReference(), rules);
   }
 
   private void enqueueFirstNonSerializableClassInitializer(
@@ -1536,8 +1544,7 @@ public class Enqueuer {
     compatEnqueueHolderIfDependentNonStaticMember(
         holder, rootSet.getDependentKeepClassCompatRule(holder.getType()));
 
-    analyses.forEach(
-        analysis -> analysis.processNewlyLiveClass(holder, workList, enqueuerDefinitionSupplier));
+    analyses.forEach(analysis -> analysis.processNewlyLiveClass(holder, workList));
   }
 
   private void ensureMethodsContinueToWidenAccess(DexClass clazz) {
@@ -1794,11 +1801,11 @@ public class Enqueuer {
             (dexType, ignored) -> {
               if (holder.isProgramClass()) {
                 DexReference holderReference = holder.toReference();
-                pinnedItems.add(holderReference);
+                addPinnedItem(holderReference);
                 rootSet.shouldNotBeMinified(holderReference);
                 for (DexEncodedMember<?, ?> member : holder.members()) {
                   DexMember<?, ?> memberReference = member.toReference();
-                  pinnedItems.add(memberReference);
+                  addPinnedItem(memberReference);
                   rootSet.shouldNotBeMinified(memberReference);
                 }
               }
@@ -2339,6 +2346,10 @@ public class Enqueuer {
     return liveNonProgramTypes.contains(clazz);
   }
 
+  public void forAllLiveClasses(Consumer<DexProgramClass> consumer) {
+    liveTypes.items.forEach(consumer);
+  }
+
   // Package protected due to entry point from worklist.
   void markInstanceFieldAsReachable(ProgramField field, KeepReason reason) {
     if (Log.ENABLED) {
@@ -2509,7 +2520,7 @@ public class Enqueuer {
       // TODO(sgjesse): Does this have to be enqueued as a root item? Right now it is done as the
       // marking for not renaming it is in the root set.
       workList.enqueueMarkMethodKeptAction(new ProgramMethod(clazz, valuesMethod), reason);
-      pinnedItems.add(valuesMethod.toReference());
+      addPinnedItem(valuesMethod.toReference());
       rootSet.shouldNotBeMinified(valuesMethod.toReference());
     }
   }
@@ -2578,11 +2589,12 @@ public class Enqueuer {
       throws ExecutionException {
     this.rootSet = rootSet;
     this.dontWarnPatterns = dontWarnPatterns;
-    if (!options.kotlinOptimizationOptions().disableKotlinSpecificOptimizations
-        && mode.isInitialTreeShaking()) {
-      registerAnalysis(new KotlinMetadataEnqueuerExtension(appView));
-    }
     // Translate the result of root-set computation into enqueuer actions.
+    if (appView.options().getProguardConfiguration() != null
+        && !options.kotlinOptimizationOptions().disableKotlinSpecificOptimizations
+        && mode.isInitialTreeShaking()) {
+      registerAnalysis(new KotlinMetadataEnqueuerExtension(appView, enqueuerDefinitionSupplier));
+    }
     if (appView.options().isShrinking() || appView.options().getProguardConfiguration() == null) {
       enqueueRootItems(rootSet.noShrinking);
     } else {
@@ -2603,13 +2615,46 @@ public class Enqueuer {
     trace(executorService, timing);
     options.reporter.failIfPendingErrors();
     finalizeLibraryMethodOverrideInformation();
-    analyses.forEach(EnqueuerAnalysis::done);
+    analyses.forEach(analyses -> analyses.done(this));
     assert verifyKeptGraph();
     AppInfoWithLiveness appInfoWithLiveness = createAppInfo(appInfo);
     if (options.testing.enqueuerInspector != null) {
       options.testing.enqueuerInspector.accept(appInfoWithLiveness, mode);
     }
     return appInfoWithLiveness;
+  }
+
+  public boolean isPinned(DexReference reference) {
+    return pinnedItems.contains(reference);
+  }
+
+  private boolean addPinnedItem(DexReference reference) {
+    allowAccessModification.put(reference, OptionalBool.unknown());
+    return pinnedItems.add(reference);
+  }
+
+  private boolean addPinnedItem(DexReference reference, Set<ProguardKeepRuleBase> rules) {
+    assert rules != null;
+    assert !rules.isEmpty();
+    OptionalBool allowAccessModificationOfReference =
+        allowAccessModification.getOrDefault(reference, OptionalBool.TRUE);
+    if (allowAccessModificationOfReference.isTrue()) {
+      for (ProguardKeepRuleBase rule : rules) {
+        ProguardKeepRuleModifiers modifiers =
+            (rule.isProguardIfRule() ? rule.asProguardIfRule().getSubsequentRule() : rule)
+                .getModifiers();
+        if (!modifiers.allowsAccessModification) {
+          allowAccessModificationOfReference = OptionalBool.FALSE;
+          break;
+        }
+      }
+      allowAccessModification.put(reference, allowAccessModificationOfReference);
+    }
+    return pinnedItems.add(reference);
+  }
+
+  public boolean isMissing(DexType type) {
+    return missingTypes.contains(type);
   }
 
   private static class SyntheticAdditions {
@@ -2674,7 +2719,7 @@ public class Enqueuer {
       // All synthetic additions are initial tree shaking only. No need to track keep reasons.
       KeepReasonWitness fakeReason = enqueuer.graphReporter.fakeReportShouldNotBeUsed();
 
-      enqueuer.pinnedItems.addAll(pinnedMethods);
+      pinnedMethods.forEach(enqueuer::addPinnedItem);
       for (Pair<DexProgramClass, ProgramMethod> clazzAndContext :
           syntheticInstantiations.values()) {
         enqueuer.workList.enqueueMarkInstantiatedAction(
@@ -2789,6 +2834,9 @@ public class Enqueuer {
     // to a static method will invalidate the reachable method sets for tracing methods.
     ensureLambdaAccessibility();
 
+    // Remove the items from `allowAccessModification` that we are not allowed to publicize.
+    allowAccessModification.entrySet().removeIf(entry -> !entry.getValue().isTrue());
+
     // Compute the set of dead proto types.
     deadProtoTypeCandidates.removeIf(this::isTypeLive);
 
@@ -2860,6 +2908,7 @@ public class Enqueuer {
             toImmutableSortedMap(staticInvokes, PresortedComparable::slowCompare),
             callSites,
             pinnedItems,
+            allowAccessModification.keySet(),
             rootSet.mayHaveSideEffects,
             rootSet.noSideEffects,
             rootSet.assumedValues,
@@ -3538,7 +3587,7 @@ public class Enqueuer {
         workList.enqueueMarkInstantiatedAction(
             clazz, null, InstantiationReason.REFLECTION, KeepReason.reflectiveUseIn(method));
       }
-      if (pinnedItems.add(encodedField.field)) {
+      if (addPinnedItem(encodedField.field)) {
         markFieldAsKept(new ProgramField(clazz, encodedField), KeepReason.reflectiveUseIn(method));
       }
     } else {
@@ -3725,14 +3774,14 @@ public class Enqueuer {
         // Add this interface to the set of pinned items to ensure that we do not merge the
         // interface into its unique subtype, if any.
         // TODO(b/145344105): This should be superseded by the unknown interface hierarchy.
-        pinnedItems.add(clazz.type);
+        addPinnedItem(clazz.type);
         KeepReason reason = KeepReason.reflectiveUseIn(method);
         markInterfaceAsInstantiated(clazz, graphReporter.registerClass(clazz, reason));
 
         // Also pin all of its virtual methods to ensure that the devirtualizer does not perform
         // illegal rewritings of invoke-interface instructions into invoke-virtual instructions.
         for (DexEncodedMethod virtualMethod : clazz.virtualMethods()) {
-          pinnedItems.add(virtualMethod.method);
+          addPinnedItem(virtualMethod.method);
           markVirtualMethodAsReachable(virtualMethod.method, true, null, reason);
         }
       }

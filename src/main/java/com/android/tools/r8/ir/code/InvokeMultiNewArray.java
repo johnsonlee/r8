@@ -3,17 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.code;
 
-import static com.android.tools.r8.optimize.MemberRebindingAnalysis.isClassTypeVisibleFromContext;
-
 import com.android.tools.r8.cf.LoadStoreHelper;
 import com.android.tools.r8.cf.TypeVerificationHelper;
 import com.android.tools.r8.cf.code.CfMultiANewArray;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.analysis.AbstractError;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.CfBuilder;
@@ -114,7 +112,7 @@ public class InvokeMultiNewArray extends Invoke {
   }
 
   @Override
-  public AbstractError instructionInstanceCanThrow(AppView<?> appView, ProgramMethod context) {
+  public boolean instructionInstanceCanThrow(AppView<?> appView, ProgramMethod context) {
     DexType baseType = type.isArrayType() ? type.toBaseType(appView.dexItemFactory()) : type;
     if (baseType.isPrimitiveType()) {
       // Primitives types are known to be present and accessible.
@@ -132,30 +130,30 @@ public class InvokeMultiNewArray extends Invoke {
     if (!appView.enableWholeProgramOptimizations()) {
       // Conservatively bail-out in D8, because we require whole program knowledge to determine if
       // the type is present and accessible.
-      return AbstractError.top();
+      return true;
     }
 
     // Check if the type is guaranteed to be present.
     DexClass clazz = appView.definitionFor(baseType);
     if (clazz == null) {
-      return AbstractError.top();
+      return true;
     }
 
     if (clazz.isLibraryClass()
         && !appView.dexItemFactory().libraryTypesAssumedToBePresent.contains(baseType)) {
-      return AbstractError.top();
+      return true;
     }
 
     // Check if the type is guaranteed to be accessible.
-    if (!isClassTypeVisibleFromContext(appView, context, clazz)) {
-      return AbstractError.top();
+    if (AccessControl.isClassAccessible(clazz, context, appView).isPossiblyFalse()) {
+      return true;
     }
 
     // The type is known to be present and accessible.
     return instructionInstanceCanThrowNegativeArraySizeException();
   }
 
-  private AbstractError instructionInstanceCanThrowNegativeArraySizeException() {
+  private boolean instructionInstanceCanThrowNegativeArraySizeException() {
     boolean mayHaveNegativeArraySize = false;
     for (Value value : arguments()) {
       if (!value.hasValueRange()) {
@@ -168,7 +166,7 @@ public class InvokeMultiNewArray extends Invoke {
         break;
       }
     }
-    return mayHaveNegativeArraySize ? AbstractError.top() : AbstractError.bottom();
+    return mayHaveNegativeArraySize;
   }
 
   @Override
@@ -180,7 +178,7 @@ public class InvokeMultiNewArray extends Invoke {
       return true;
     }
 
-    return instructionInstanceCanThrow(appView, context).isThrowing();
+    return instructionInstanceCanThrow(appView, context);
   }
 
   @Override

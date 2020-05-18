@@ -131,7 +131,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   //   we need to maintain a set of states with (potentially different) contexts.
   private CompilationState compilationState = CompilationState.NOT_PROCESSED;
   private MethodOptimizationInfo optimizationInfo = DefaultMethodOptimizationInfo.DEFAULT_INSTANCE;
-  private CallSiteOptimizationInfo callSiteOptimizationInfo = CallSiteOptimizationInfo.BOTTOM;
+  private CallSiteOptimizationInfo callSiteOptimizationInfo = CallSiteOptimizationInfo.bottom();
   private int classFileVersion;
   private KotlinMethodLevelInfo kotlinMemberInfo = NO_KOTLIN_INFO;
 
@@ -783,6 +783,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     assert !shouldNotHaveCode();
     Builder builder = builder(this);
     builder.setCode(buildEmptyThrowingDexCode());
+    if (isNonPrivateVirtualMethod()) {
+      builder.setIsLibraryMethodOverride(isLibraryMethodOverride());
+    }
     // Note that we are not marking this instance obsolete, since this util is only used by
     // TreePruner while keeping non-live yet targeted, empty method. Such method can be retrieved
     // again only during the 2nd round of tree sharking, and seeing an obsolete empty body v.s.
@@ -807,6 +810,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     assert !shouldNotHaveCode();
     Builder builder = builder(this);
     builder.setCode(buildEmptyThrowingCfCode());
+    if (isNonPrivateVirtualMethod()) {
+      builder.setIsLibraryMethodOverride(isLibraryMethodOverride());
+    }
     // Note that we are not marking this instance obsolete:
     // refer to Dex-backend version of this method above.
     return builder.build();
@@ -1232,6 +1238,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     optimizationInfo = info;
   }
 
+  public synchronized void abandonCallSiteOptimizationInfo() {
+    checkIfObsolete();
+    callSiteOptimizationInfo = CallSiteOptimizationInfo.abandoned();
+  }
+
   public synchronized CallSiteOptimizationInfo getCallSiteOptimizationInfo() {
     checkIfObsolete();
     return callSiteOptimizationInfo;
@@ -1263,6 +1274,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     private DexMethod method;
     private final MethodAccessFlags accessFlags;
     private final DexAnnotationSet annotations;
+    private OptionalBool isLibraryMethodOverride = OptionalBool.UNKNOWN;
     private ParameterAnnotationsList parameterAnnotations;
     private Code code;
     private CompilationState compilationState;
@@ -1299,6 +1311,12 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
     public void setMethod(DexMethod method) {
       this.method = method;
+    }
+
+    public Builder setIsLibraryMethodOverride(OptionalBool isLibraryMethodOverride) {
+      assert !isLibraryMethodOverride.isUnknown();
+      this.isLibraryMethodOverride = isLibraryMethodOverride;
+      return this;
     }
 
     public Builder setParameterAnnotations(ParameterAnnotationsList parameterAnnotations) {
@@ -1381,6 +1399,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       result.setKotlinMemberInfo(kotlinMemberInfo);
       result.compilationState = compilationState;
       result.optimizationInfo = optimizationInfo;
+      if (!isLibraryMethodOverride.isUnknown()) {
+        result.setLibraryMethodOverride(isLibraryMethodOverride);
+      }
       return result;
     }
   }

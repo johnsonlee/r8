@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexAnnotationElement;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedAnnotation;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.DexValue.DexValueArray;
@@ -18,18 +19,34 @@ import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 import kotlinx.metadata.InconsistentKotlinMetadataException;
 import kotlinx.metadata.jvm.KotlinClassHeader;
 import kotlinx.metadata.jvm.KotlinClassMetadata;
 
 public final class KotlinClassMetadataReader {
 
+  private static int KOTLIN_METADATA_KIND_LAMBDA = 3;
+
   public static KotlinClassLevelInfo getKotlinInfo(
-      Kotlin kotlin, DexClass clazz, DexDefinitionSupplier definitionSupplier, Reporter reporter) {
-    DexAnnotation meta = clazz.annotations().getFirstMatching(kotlin.metadata.kotlinMetadataType);
+      Kotlin kotlin,
+      DexClass clazz,
+      DexDefinitionSupplier definitionSupplier,
+      Reporter reporter,
+      boolean onlyProcessLambda,
+      Consumer<DexEncodedMethod> keepByteCode) {
+    DexAnnotation meta =
+        clazz
+            .annotations()
+            .getFirstMatching(definitionSupplier.dexItemFactory().kotlinMetadataType);
     if (meta != null) {
       try {
-        return createKotlinInfo(kotlin, clazz, meta.annotation, definitionSupplier, reporter);
+        KotlinClassMetadata kMetadata = toKotlinClassMetadata(kotlin, meta.annotation);
+        if (onlyProcessLambda && kMetadata.getHeader().getKind() != KOTLIN_METADATA_KIND_LAMBDA) {
+          return NO_KOTLIN_INFO;
+        }
+        return createKotlinInfo(
+            kotlin, clazz, kMetadata, definitionSupplier, reporter, keepByteCode);
       } catch (ClassCastException | InconsistentKotlinMetadataException | MetadataError e) {
         reporter.info(
             new StringDiagnostic(
@@ -85,29 +102,45 @@ public final class KotlinClassMetadataReader {
   public static KotlinClassLevelInfo createKotlinInfo(
       Kotlin kotlin,
       DexClass clazz,
-      DexEncodedAnnotation metadataAnnotation,
+      KotlinClassMetadata kMetadata,
       DexDefinitionSupplier definitionSupplier,
-      Reporter reporter) {
-    KotlinClassMetadata kMetadata = toKotlinClassMetadata(kotlin, metadataAnnotation);
-
+      Reporter reporter,
+      Consumer<DexEncodedMethod> keepByteCode) {
+    String packageName = kMetadata.getHeader().getPackageName();
     if (kMetadata instanceof KotlinClassMetadata.Class) {
       return KotlinClassInfo.create(
-          ((KotlinClassMetadata.Class) kMetadata).toKmClass(), clazz, definitionSupplier, reporter);
+          ((KotlinClassMetadata.Class) kMetadata).toKmClass(),
+          packageName,
+          clazz,
+          definitionSupplier,
+          reporter,
+          keepByteCode);
     } else if (kMetadata instanceof KotlinClassMetadata.FileFacade) {
       // e.g., B.kt becomes class `BKt`
       return KotlinFileFacadeInfo.create(
-          (KotlinClassMetadata.FileFacade) kMetadata, clazz, definitionSupplier, reporter);
+          (KotlinClassMetadata.FileFacade) kMetadata,
+          packageName,
+          clazz,
+          definitionSupplier,
+          reporter,
+          keepByteCode);
     } else if (kMetadata instanceof KotlinClassMetadata.MultiFileClassFacade) {
       // multi-file class with the same @JvmName.
       return KotlinMultiFileClassFacadeInfo.create(
-          (KotlinClassMetadata.MultiFileClassFacade) kMetadata, definitionSupplier);
+          (KotlinClassMetadata.MultiFileClassFacade) kMetadata, packageName, definitionSupplier);
     } else if (kMetadata instanceof KotlinClassMetadata.MultiFileClassPart) {
       // A single file, which is part of multi-file class.
       return KotlinMultiFileClassPartInfo.create(
-          (KotlinClassMetadata.MultiFileClassPart) kMetadata, clazz, definitionSupplier, reporter);
+          (KotlinClassMetadata.MultiFileClassPart) kMetadata,
+          packageName,
+          clazz,
+          definitionSupplier,
+          reporter,
+          keepByteCode);
     } else if (kMetadata instanceof KotlinClassMetadata.SyntheticClass) {
       return KotlinSyntheticClassInfo.create(
           (KotlinClassMetadata.SyntheticClass) kMetadata,
+          packageName,
           clazz,
           kotlin,
           definitionSupplier,

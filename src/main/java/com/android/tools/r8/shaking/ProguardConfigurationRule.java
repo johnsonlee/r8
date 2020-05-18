@@ -58,6 +58,14 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
     return null;
   }
 
+  public boolean isProguardIfRule() {
+    return false;
+  }
+
+  public ProguardIfRule asProguardIfRule() {
+    return null;
+  }
+
   public boolean isClassInlineRule() {
     return false;
   }

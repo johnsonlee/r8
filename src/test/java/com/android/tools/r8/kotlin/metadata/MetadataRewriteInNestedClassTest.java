@@ -84,6 +84,7 @@ public class MetadataRewriteInNestedClassTest extends KotlinMetadataTestBase {
   public void testMetadataInNestedClass() throws Exception {
     Path libJar =
         testForR8(parameters.getBackend())
+            .addClasspathFiles(ToolHelper.getKotlinStdlibJar())
             .addProgramFiles(nestedLibJarMap.get(targetVersion))
             // Keep the Outer class and delegations.
             .addKeepRules("-keep class **.Outer { <init>(...); *** delegate*(...); }")

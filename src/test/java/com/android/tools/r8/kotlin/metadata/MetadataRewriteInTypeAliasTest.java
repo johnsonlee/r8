@@ -112,6 +112,7 @@ public class MetadataRewriteInTypeAliasTest extends KotlinMetadataTestBase {
   public void testMetadataInTypeAlias_renamed() throws Exception {
     Path libJar =
         testForR8(parameters.getBackend())
+            .addClasspathFiles(ToolHelper.getKotlinStdlibJar())
             .addProgramFiles(typeAliasLibJarMap.get(targetVersion))
             // Keep non-private members of Impl
             .addKeepRules("-keep class **.Impl { !private *; }")

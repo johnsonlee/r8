@@ -7,9 +7,11 @@ package com.android.tools.r8.kotlin;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Reporter;
+import java.util.function.Consumer;
 import kotlinx.metadata.KmPackage;
 import kotlinx.metadata.jvm.KotlinClassHeader;
 import kotlinx.metadata.jvm.KotlinClassMetadata;
@@ -20,20 +22,27 @@ public class KotlinMultiFileClassPartInfo implements KotlinClassLevelInfo {
 
   private final String facadeClassName;
   private final KotlinPackageInfo packageInfo;
+  private final String packageName;
 
-  private KotlinMultiFileClassPartInfo(String facadeClassName, KotlinPackageInfo packageInfo) {
+  private KotlinMultiFileClassPartInfo(
+      String facadeClassName, KotlinPackageInfo packageInfo, String packageName) {
     this.facadeClassName = facadeClassName;
     this.packageInfo = packageInfo;
+    this.packageName = packageName;
   }
 
   static KotlinMultiFileClassPartInfo create(
       MultiFileClassPart classPart,
+      String packageName,
       DexClass clazz,
       DexDefinitionSupplier definitionSupplier,
-      Reporter reporter) {
+      Reporter reporter,
+      Consumer<DexEncodedMethod> keepByteCode) {
     return new KotlinMultiFileClassPartInfo(
         classPart.getFacadeClassName(),
-        KotlinPackageInfo.create(classPart.toKmPackage(), clazz, definitionSupplier, reporter));
+        KotlinPackageInfo.create(
+            classPart.toKmPackage(), clazz, definitionSupplier, reporter, keepByteCode),
+        packageName);
   }
 
   @Override
@@ -55,5 +64,10 @@ public class KotlinMultiFileClassPartInfo implements KotlinClassLevelInfo {
     packageInfo.rewrite(kmPackage, clazz, appView, namingLens);
     kmPackage.accept(writer);
     return writer.write(facadeClassName).getHeader();
+  }
+
+  @Override
+  public String getPackageName() {
+    return packageName;
   }
 }

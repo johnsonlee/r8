@@ -10,11 +10,16 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.ProguardConfiguration;
+import com.android.tools.r8.shaking.ProguardConfigurationRule;
+import com.android.tools.r8.shaking.ProguardKeepRule;
+import com.android.tools.r8.shaking.ProguardKeepRuleType;
 import com.android.tools.r8.utils.DescriptorUtils;
 import kotlinx.metadata.KmExtensionType;
 import kotlinx.metadata.KmProperty;
@@ -47,6 +52,11 @@ public class KotlinMetadataUtils {
     @Override
     public KotlinClassHeader rewrite(
         DexClass clazz, AppView<AppInfoWithLiveness> appView, NamingLens namingLens) {
+      throw new Unreachable("Should never be called");
+    }
+
+    @Override
+    public String getPackageName() {
       throw new Unreachable("Should never be called");
     }
   }
@@ -160,5 +170,48 @@ public class KotlinMetadataUtils {
       definitionSupplier.definitionFor(type);
     }
     return type;
+  }
+
+  public static boolean mayProcessKotlinMetadata(AppView<?> appView) {
+    // This can run before we have determined the pinned items, because we may need to load the
+    // stack-map table on input. This is therefore a conservative guess on kotlin.Metadata is kept.
+    DexClass kotlinMetadata =
+        appView
+            .appInfo()
+            .definitionForWithoutExistenceAssert(appView.dexItemFactory().kotlinMetadataType);
+    if (kotlinMetadata == null || kotlinMetadata.isNotProgramClass()) {
+      return true;
+    }
+    ProguardConfiguration proguardConfiguration = appView.options().getProguardConfiguration();
+    if (proguardConfiguration != null && proguardConfiguration.getRules() != null) {
+      for (ProguardConfigurationRule rule : proguardConfiguration.getRules()) {
+        if (KotlinMetadataUtils.canBeKotlinMetadataKeepRule(rule, appView.options().itemFactory)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean canBeKotlinMetadataKeepRule(
+      ProguardConfigurationRule rule, DexItemFactory factory) {
+    if (rule.isProguardIfRule()) {
+      // For if rules, we simply assume that the precondition can become true.
+      return canBeKotlinMetadataKeepRule(rule.asProguardIfRule().getSubsequentRule(), factory);
+    }
+    if (!rule.isProguardKeepRule()) {
+      return false;
+    }
+    ProguardKeepRule proguardKeepRule = rule.asProguardKeepRule();
+    // -keepclassmembers will not in itself keep a class alive.
+    if (proguardKeepRule.getType() == ProguardKeepRuleType.KEEP_CLASS_MEMBERS) {
+      return false;
+    }
+    // If the rule allows shrinking, it will not require us to keep the class.
+    if (proguardKeepRule.getModifiers().allowsShrinking) {
+      return false;
+    }
+    // Check if the type is matched
+    return proguardKeepRule.getClassNames().matches(factory.kotlinMetadataType);
   }
 }
