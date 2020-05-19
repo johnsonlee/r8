@@ -668,14 +668,10 @@ public class DexParser {
               annotationIterator.getNextFor(method),
               parameterAnnotationsIterator.getNextFor(method),
               code);
-      if (accessFlags.isAbstract()
-          && ensureNonAbstract
-          && !options.isRunningDeprecatedResourceShrinker) {
+      if (accessFlags.isAbstract() && ensureNonAbstract) {
         accessFlags.unsetAbstract();
-        encodedMethod =
-            options.isGeneratingClassFiles()
-                ? encodedMethod.toEmptyThrowingMethodCf()
-                : encodedMethod.toEmptyThrowingMethodDex();
+        assert !options.isGeneratingClassFiles();
+        encodedMethod = encodedMethod.toEmptyThrowingMethodDex(false);
       }
       methods[i] = encodedMethod;
     }
