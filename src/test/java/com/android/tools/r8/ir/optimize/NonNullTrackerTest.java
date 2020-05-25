@@ -40,9 +40,9 @@ public class NonNullTrackerTest extends NonNullTrackerTestBase {
     IRCode code = fooSubject.buildIR();
     checkCountOfNonNull(code, 0);
 
-    NonNullTracker nonNullTracker = new NonNullTracker(appView);
+    AssumeInserter assumeInserter = new AssumeInserter(appView);
 
-    nonNullTracker.insertAssumeInstructions(code, Timing.empty());
+    assumeInserter.insertAssumeInstructions(code, Timing.empty());
     assertTrue(code.isConsistentSSA());
     checkCountOfNonNull(code, expectedNumberOfNonNull);
 
@@ -69,8 +69,7 @@ public class NonNullTrackerTest extends NonNullTrackerTestBase {
             || (prev.isIf() && prev.asIf().isZeroTest())
             || !curr.getBlock().getPredecessors().contains(prev.getBlock()));
         // Make sure non-null is used or inserted for arguments.
-        assertTrue(
-            curr.outValue().numberOfAllUsers() > 0 || curr.asAssumeNonNull().src().isArgument());
+        assertTrue(curr.outValue().numberOfAllUsers() > 0 || curr.asAssume().src().isArgument());
         count++;
       }
     }

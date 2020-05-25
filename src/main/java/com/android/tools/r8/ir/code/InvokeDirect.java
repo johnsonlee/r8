@@ -16,6 +16,8 @@ import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.AnalysisAssu
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.Query;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.AbstractFieldSet;
 import com.android.tools.r8.ir.analysis.modeling.LibraryMethodReadSetModeling;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
@@ -27,15 +29,15 @@ import java.util.function.Predicate;
 
 public class InvokeDirect extends InvokeMethodWithReceiver {
 
-  private final boolean itf;
+  private final boolean isInterface;
 
   public InvokeDirect(DexMethod target, Value result, List<Value> arguments) {
     this(target, result, arguments, false);
   }
 
-  public InvokeDirect(DexMethod target, Value result, List<Value> arguments, boolean itf) {
+  public InvokeDirect(DexMethod target, Value result, List<Value> arguments, boolean isInterface) {
     super(target, result, arguments);
-    this.itf = itf;
+    this.isInterface = isInterface;
     // invoke-direct <init> should have no out value.
     assert !target.name.toString().equals(Constants.INSTANCE_INITIALIZER_NAME)
         || result == null;
@@ -46,8 +48,9 @@ public class InvokeDirect extends InvokeMethodWithReceiver {
     return Opcodes.INVOKE_DIRECT;
   }
 
-  public boolean isInterface() {
-    return itf;
+  @Override
+  public boolean getInterfaceBit() {
+    return isInterface;
   }
 
   @Override
@@ -118,7 +121,10 @@ public class InvokeDirect extends InvokeMethodWithReceiver {
 
   @Override
   public DexEncodedMethod lookupSingleTarget(
-      AppView<?> appView, ProgramMethod context, Value receiver) {
+      AppView<?> appView,
+      ProgramMethod context,
+      TypeElement receiverUpperBoundType,
+      ClassTypeElement receiverLowerBoundType) {
     DexMethod invokedMethod = getInvokedMethod();
     if (appView.appInfo().hasLiveness()) {
       AppInfoWithLiveness appInfo = appView.appInfo().withLiveness();
@@ -140,7 +146,8 @@ public class InvokeDirect extends InvokeMethodWithReceiver {
 
   @Override
   public void buildCf(CfBuilder builder) {
-    builder.add(new CfInvoke(org.objectweb.asm.Opcodes.INVOKESPECIAL, getInvokedMethod(), itf));
+    builder.add(
+        new CfInvoke(org.objectweb.asm.Opcodes.INVOKESPECIAL, getInvokedMethod(), isInterface));
   }
 
   @Override

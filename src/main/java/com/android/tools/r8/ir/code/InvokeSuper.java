@@ -13,6 +13,8 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.AnalysisAssumption;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.Query;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
@@ -22,11 +24,16 @@ import java.util.List;
 
 public class InvokeSuper extends InvokeMethodWithReceiver {
 
-  public final boolean itf;
+  public final boolean isInterface;
 
-  public InvokeSuper(DexMethod target, Value result, List<Value> arguments, boolean itf) {
+  public InvokeSuper(DexMethod target, Value result, List<Value> arguments, boolean isInterface) {
     super(target, result, arguments);
-    this.itf = itf;
+    this.isInterface = isInterface;
+  }
+
+  @Override
+  public boolean getInterfaceBit() {
+    return isInterface;
   }
 
   @Override
@@ -75,7 +82,8 @@ public class InvokeSuper extends InvokeMethodWithReceiver {
 
   @Override
   public void buildCf(CfBuilder builder) {
-    builder.add(new CfInvoke(org.objectweb.asm.Opcodes.INVOKESPECIAL, getInvokedMethod(), itf));
+    builder.add(
+        new CfInvoke(org.objectweb.asm.Opcodes.INVOKESPECIAL, getInvokedMethod(), isInterface));
   }
 
   @Override
@@ -95,7 +103,10 @@ public class InvokeSuper extends InvokeMethodWithReceiver {
 
   @Override
   public DexEncodedMethod lookupSingleTarget(
-      AppView<?> appView, ProgramMethod context, Value receiver) {
+      AppView<?> appView,
+      ProgramMethod context,
+      TypeElement receiverUpperBoundType,
+      ClassTypeElement receiverLowerBoundType) {
     if (appView.appInfo().hasLiveness() && context != null) {
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       AppInfoWithLiveness appInfo = appViewWithLiveness.appInfo();

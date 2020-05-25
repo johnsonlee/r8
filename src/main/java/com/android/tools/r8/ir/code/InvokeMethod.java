@@ -41,6 +41,8 @@ public abstract class InvokeMethod extends Invoke {
     this.method = target;
   }
 
+  public abstract boolean getInterfaceBit();
+
   @Override
   public DexType getReturnType() {
     return method.proto.returnType;
@@ -109,8 +111,7 @@ public abstract class InvokeMethod extends Invoke {
         refinedReceiverLowerBound = null;
       }
     }
-    ResolutionResult resolutionResult =
-        appView.appInfo().resolveMethod(method, isInvokeInterface());
+    ResolutionResult resolutionResult = appView.appInfo().resolveMethod(method, getInterfaceBit());
     LookupResult lookupResult;
     if (refinedReceiverUpperBound != null) {
       lookupResult =

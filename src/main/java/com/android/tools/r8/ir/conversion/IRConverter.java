@@ -52,6 +52,7 @@ import com.android.tools.r8.ir.desugar.LambdaRewriter;
 import com.android.tools.r8.ir.desugar.StringConcatRewriter;
 import com.android.tools.r8.ir.desugar.TwrCloseResourceRewriter;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
+import com.android.tools.r8.ir.optimize.AssumeInserter;
 import com.android.tools.r8.ir.optimize.Assumer;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization.ClassInitializerDefaultsResult;
@@ -64,7 +65,6 @@ import com.android.tools.r8.ir.optimize.IdempotentFunctionCallCanonicalizer;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.MemberValuePropagation;
-import com.android.tools.r8.ir.optimize.NonNullTracker;
 import com.android.tools.r8.ir.optimize.Outliner;
 import com.android.tools.r8.ir.optimize.PeepholeOptimizer;
 import com.android.tools.r8.ir.optimize.RedundantFieldLoadElimination;
@@ -292,7 +292,7 @@ public class IRConverter {
       assert appView.rootSet() != null;
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       if (options.enableNonNullTracking) {
-        assumers.add(new NonNullTracker(appViewWithLiveness));
+        assumers.add(new AssumeInserter(appViewWithLiveness));
       }
       this.classInliner =
           options.enableClassInlining && options.enableInlining ? new ClassInliner() : null;
@@ -797,8 +797,10 @@ public class IRConverter {
     if (outliner != null) {
       printPhase("Outlining");
       timing.begin("IR conversion phase 3");
-      if (outliner.selectMethodsForOutlining()) {
+      ProgramMethodSet methodsSelectedForOutlining = outliner.selectMethodsForOutlining();
+      if (!methodsSelectedForOutlining.isEmpty()) {
         forEachSelectedOutliningMethod(
+            methodsSelectedForOutlining,
             code -> {
               printMethod(code, "IR before outlining (SSA)", null);
               outliner.identifyOutlineSites(code);
@@ -808,6 +810,7 @@ public class IRConverter {
         appView.appInfo().addSynthesizedClass(outlineClass);
         optimizeSynthesizedClass(outlineClass, executorService);
         forEachSelectedOutliningMethod(
+            methodsSelectedForOutlining,
             code -> {
               outliner.applyOutliningCandidate(code);
               printMethod(code, "IR after outlining (SSA)", null);
@@ -838,9 +841,6 @@ public class IRConverter {
       }
       if (libraryMethodOverrideAnalysis != null) {
         libraryMethodOverrideAnalysis.logResults();
-      }
-      if (uninstantiatedTypeOptimization != null) {
-        uninstantiatedTypeOptimization.logResults();
       }
       if (stringOptimizer != null) {
         stringOptimizer.logResult();
@@ -898,11 +898,13 @@ public class IRConverter {
   }
 
   private void forEachSelectedOutliningMethod(
-      Consumer<IRCode> consumer, ExecutorService executorService)
+      ProgramMethodSet methodsSelectedForOutlining,
+      Consumer<IRCode> consumer,
+      ExecutorService executorService)
       throws ExecutionException {
     assert !options.skipIR;
     ThreadUtils.processItems(
-        outliner.buildMethodsSelectedForOutlining(),
+        methodsSelectedForOutlining,
         method -> {
           IRCode code = method.buildIR(appView);
           assert code != null;
