@@ -25,7 +25,6 @@ import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -233,48 +232,15 @@ public class InvokeDirect extends InvokeMethodWithReceiver {
     if (instructionMayHaveSideEffects(appView, method.method.holder)) {
       return false;
     }
-
-    if (appView.dexItemFactory().isConstructor(getInvokedMethod())) {
-      // If it is a constructor call that initializes an uninitialized object, then the
-      // uninitialized object must be dead. This is the case if all the constructor calls cannot
-      // have side effects and the instance is dead except for the constructor calls.
-      List<Instruction> otherInitCalls = null;
-      for (Instruction user : getReceiver().uniqueUsers()) {
-        if (user == this) {
-          continue;
-        }
-        if (user.isInvokeDirect()) {
-          InvokeDirect invoke = user.asInvokeDirect();
-          if (appView.dexItemFactory().isConstructor(invoke.getInvokedMethod())
-              && invoke.getReceiver() == getReceiver()) {
-            // If another constructor call than `this` is found, then it must not have side effects.
-            if (invoke.instructionMayHaveSideEffects(appView, method.method.holder)) {
-              return false;
-            }
-            if (otherInitCalls == null) {
-              otherInitCalls = new ArrayList<>();
-            }
-            otherInitCalls.add(invoke);
-          }
-        }
-      }
-
-      // Now check that the instance is dead except for the constructor calls.
-      final List<Instruction> finalOtherInitCalls = otherInitCalls;
-      Predicate<Instruction> ignoreConstructorCalls =
-          instruction ->
-              instruction == this
-                  || (finalOtherInitCalls != null && finalOtherInitCalls.contains(instruction));
-      if (!getReceiver().isDead(appView, code, ignoreConstructorCalls)) {
-        return false;
-      }
-
-      // Verify that it is not a super-constructor call (these cannot be removed).
-      if (getReceiver().getAliasedValue() == code.getThis()) {
-        return false;
-      }
+    if (!appView.dexItemFactory().isConstructor(getInvokedMethod())) {
+      return true;
     }
-
+    // Super-constructor calls cannot be removed.
+    if (getReceiver().getAliasedValue() == code.getThis()) {
+      return false;
+    }
+    // Constructor calls can only be removed if the receiver is dead. It is the responsibility of
+    // the caller to check this property.
     return true;
   }
 

@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.code.CatchHandlers.CatchHandler;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
+import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -101,6 +102,14 @@ public class DeadCodeRemover {
       }
       if (!current.canBeDeadCode(appView, code)) {
         continue;
+      }
+      if (current.isInvokeDirect()) {
+        // Constructor calls can only be removed if the receiver is dead.
+        InvokeDirect invoke = current.asInvokeDirect();
+        if (appView.dexItemFactory().isConstructor(invoke.getInvokedMethod())
+            && !invoke.getReceiver().isDead(appView, code)) {
+          continue;
+        }
       }
       Value outValue = current.outValue();
       if (outValue != null && !outValue.isDead(appView, code)) {

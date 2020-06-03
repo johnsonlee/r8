@@ -1057,6 +1057,16 @@ public class Value implements Comparable<Value> {
       if (!instruction.canBeDeadCode(appView, code)) {
         return false;
       }
+      if (instruction.isInvokeDirect()) {
+        // Constructor calls can only be removed if the receiver is dead.
+        // This fixes b/157926129, but note that the fix is different in R8 version 2.1 and higher.
+        InvokeDirect invoke = instruction.asInvokeDirect();
+        if (appView.dexItemFactory().isConstructor(invoke.getInvokedMethod())
+            && !active.contains(invoke.getReceiver())
+            && !invoke.getReceiver().isDead(appView, code, ignoreUser, active)) {
+          continue;
+        }
+      }
       Value outValue = instruction.outValue();
       if (outValue != null
           && !active.contains(outValue)
