@@ -170,6 +170,7 @@ public class DynamicTypeOptimizationTest extends TestBase {
 
   static class A implements I {
 
+    @NeverInline
     @Override
     public void hello() {
       System.out.print("Hello");
