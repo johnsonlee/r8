@@ -40,7 +40,7 @@ public class DeadConstructorWithCycleTest extends TestBase {
         .compile()
         .inspect(inspector -> assertThat(inspector.clazz(A.class), not(isPresent())))
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithEmptyOutput();
+        .assertSuccessWithOutput("");
   }
 
   static class TestClass {

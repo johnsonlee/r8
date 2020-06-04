@@ -1373,7 +1373,7 @@ public class IRConverter {
     codeRewriter.splitRangeInvokeConstants(code);
     timing.end();
     timing.begin("Propogate sparse conditionals");
-    new SparseConditionalConstantPropagation(code).run();
+    new SparseConditionalConstantPropagation(appView, code).run();
     timing.end();
     timing.begin("Rewrite always throwing invokes");
     codeRewriter.processMethodsNeverReturningNormally(code);
