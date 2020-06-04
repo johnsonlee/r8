@@ -489,6 +489,8 @@ public class IRConverter {
   public DexApplication convert(DexApplication application, ExecutorService executor)
       throws ExecutionException {
     removeLambdaDeserializationMethods();
+    workaroundAbstractMethodOnNonAbstractClassVerificationBug(
+        executor, OptimizationFeedbackIgnore.getInstance());
 
     timing.begin("IR conversion");
     ThreadUtils.processItems(application.classes(), this::convertMethods, executor);
@@ -652,6 +654,28 @@ public class IRConverter {
     }
   }
 
+  private void workaroundAbstractMethodOnNonAbstractClassVerificationBug(
+      ExecutorService executorService, OptimizationFeedback feedback) throws ExecutionException {
+    if (!options.canHaveDalvikAbstractMethodOnNonAbstractClassVerificationBug()) {
+      return;
+    }
+    assert delayedOptimizationFeedback.noUpdatesLeft();
+    ThreadUtils.processItems(
+        appView.appInfo().classes(),
+        clazz -> {
+          if (!clazz.isAbstract()) {
+            clazz.forEachMethod(
+                method -> {
+                  if (method.isAbstract()) {
+                    method.accessFlags.unsetAbstract();
+                    finalizeEmptyThrowingCode(method, feedback);
+                  }
+                });
+          }
+        },
+        executorService);
+  }
+
   public DexApplication optimize() throws ExecutionException {
     ExecutorService executor = Executors.newSingleThreadExecutor();
     try {
@@ -667,6 +691,8 @@ public class IRConverter {
     computeReachabilitySensitivity(application);
     collectLambdaMergingCandidates(application);
     collectStaticizerCandidates(application);
+    workaroundAbstractMethodOnNonAbstractClassVerificationBug(
+        executorService, simpleOptimizationFeedback);
 
     // The process is in two phases in general.
     // 1) Subject all DexEncodedMethods to optimization, except some optimizations that require
@@ -1705,10 +1731,7 @@ public class IRConverter {
 
   private void finalizeEmptyThrowingCode(DexEncodedMethod method, OptimizationFeedback feedback) {
     assert options.isGeneratingClassFiles() || options.isGeneratingDex();
-    Code emptyThrowingCode =
-        options.isGeneratingClassFiles()
-            ? method.buildEmptyThrowingCfCode()
-            : method.buildEmptyThrowingDexCode();
+    Code emptyThrowingCode = method.buildEmptyThrowingCode(options);
     method.setCode(emptyThrowingCode, appView);
     feedback.markProcessed(method, ConstraintWithTarget.ALWAYS);
   }

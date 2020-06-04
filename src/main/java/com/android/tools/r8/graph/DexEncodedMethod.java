@@ -767,11 +767,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         null);
   }
 
-  public DexCode buildEmptyThrowingDexCode() {
-    Instruction insn[] = {new Const(0, 0), new Throw(0)};
-    return generateCodeFromTemplate(1, 0, insn);
-  }
-
   public DexEncodedMethod toEmptyThrowingMethod(InternalOptions options) {
     // Note that we are not marking this instance obsolete, since this util is only used by
     // TreePruner while keeping non-live yet targeted, empty method. Such method can be retrieved
@@ -794,17 +789,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return builder.build();
   }
 
-  public CfCode buildEmptyThrowingCfCode() {
-    CfInstruction insn[] = {new CfConstNull(), new CfThrow()};
-    return new CfCode(
-        method.holder,
-        1,
-        method.proto.parameters.size() + 1,
-        Arrays.asList(insn),
-        Collections.emptyList(),
-        Collections.emptyList());
-  }
-
   private DexEncodedMethod toEmptyThrowingMethodCf() {
     checkIfObsolete();
     assert !shouldNotHaveCode();
@@ -816,6 +800,28 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     // Note that we are not marking this instance obsolete:
     // refer to Dex-backend version of this method above.
     return builder.build();
+  }
+
+  public Code buildEmptyThrowingCode(InternalOptions options) {
+    return options.isGeneratingClassFiles()
+        ? buildEmptyThrowingCfCode()
+        : buildEmptyThrowingDexCode();
+  }
+
+  public CfCode buildEmptyThrowingCfCode() {
+    CfInstruction insn[] = {new CfConstNull(), new CfThrow()};
+    return new CfCode(
+        method.holder,
+        1,
+        method.proto.parameters.size() + 1,
+        Arrays.asList(insn),
+        Collections.emptyList(),
+        Collections.emptyList());
+  }
+
+  public DexCode buildEmptyThrowingDexCode() {
+    Instruction insn[] = {new Const(0, 0), new Throw(0)};
+    return generateCodeFromTemplate(1, 0, insn);
   }
 
   public DexEncodedMethod toMethodThatLogsError(AppView<?> appView) {
