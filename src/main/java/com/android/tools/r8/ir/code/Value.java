@@ -1064,7 +1064,7 @@ public class Value implements Comparable<Value> {
         if (appView.dexItemFactory().isConstructor(invoke.getInvokedMethod())
             && !active.contains(invoke.getReceiver())
             && !invoke.getReceiver().isDead(appView, code, ignoreUser, active)) {
-          continue;
+          return false;
         }
       }
       Value outValue = instruction.outValue();
