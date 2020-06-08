@@ -245,10 +245,14 @@ public class IRCode {
             liveStack.addLast(use);
           }
         }
-        assert instruction.getDebugValues().stream().allMatch(Value::needsRegister);
-        assert instruction.getDebugValues().stream().allMatch(Value::hasLocalInfo);
-        live.addAll(instruction.getDebugValues());
-        liveLocals.addAll(instruction.getDebugValues());
+        if (!instruction.getDebugValues().isEmpty()) {
+          ArrayList<Value> sortedValues = new ArrayList<>(instruction.getDebugValues());
+          sortedValues.sort(Value::compareTo);
+          assert sortedValues.stream().allMatch(Value::needsRegister);
+          assert sortedValues.stream().allMatch(Value::hasLocalInfo);
+          live.addAll(sortedValues);
+          liveLocals.addAll(sortedValues);
+        }
       }
       for (Phi phi : block.getPhis()) {
         if (phi.isValueOnStack()) {
@@ -609,17 +613,17 @@ public class IRCode {
     // We can only type check the program if we have subtyping information. Therefore, we do not
     // require that the program type checks in D8.
     if (appView.enableWholeProgramOptimizations()) {
-      assert validAssumeDynamicTypeInstructions(appView);
+      assert validAssumeInstructions(appView);
       assert new TypeChecker(appView.withLiveness()).check(this);
     }
     assert blocks.stream().allMatch(block -> block.verifyTypes(appView));
     return true;
   }
 
-  private boolean validAssumeDynamicTypeInstructions(AppView<?> appView) {
+  private boolean validAssumeInstructions(AppView<?> appView) {
     for (BasicBlock block : blocks) {
       for (Instruction instruction : block.getInstructions()) {
-        if (instruction.isAssumeDynamicType()) {
+        if (instruction.isAssume()) {
           assert instruction.asAssume().verifyInstructionIsNeeded(appView);
         }
       }

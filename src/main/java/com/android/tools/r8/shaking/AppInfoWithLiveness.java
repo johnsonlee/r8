@@ -5,7 +5,6 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.graph.DexEncodedMethod.asProgramMethodOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
-import static com.android.tools.r8.graph.GraphLense.rewriteReferenceKeys;
 import static com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult.isOverriding;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -27,6 +26,7 @@ import com.android.tools.r8.graph.FieldAccessInfo;
 import com.android.tools.r8.graph.FieldAccessInfoCollection;
 import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldAccessInfoImpl;
+import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.GraphLense;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
 import com.android.tools.r8.graph.InstantiatedSubTypeInfo;
@@ -44,6 +44,7 @@ import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.desugar.TwrCloseResourceRewriter;
+import com.android.tools.r8.utils.AssertionUtils;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
@@ -51,9 +52,6 @@ import com.android.tools.r8.utils.PredicateSet;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.Visibility;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.ImmutableSortedSet.Builder;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
@@ -63,13 +61,11 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Encapsulates liveness and reachability information for an application. */
@@ -136,10 +132,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
    * will have been removed from the code.
    */
   public final Set<DexCallSite> callSites;
-  /** Set of all items that have to be kept independent of whether they are used. */
-  final Set<DexReference> pinnedItems;
-  /** Set of kept items that are allowed to be publicized. */
-  final Set<DexReference> allowAccessModification;
+  /** Collection of keep requirements for the program. */
+  private final KeepInfoCollection keepInfo;
   /** All items with assumemayhavesideeffects rule. */
   public final Map<DexReference, ProguardMemberRule> mayHaveSideEffects;
   /** All items with assumenosideeffects rule. */
@@ -217,8 +211,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       SortedMap<DexMethod, ProgramMethodSet> directInvokes,
       SortedMap<DexMethod, ProgramMethodSet> staticInvokes,
       Set<DexCallSite> callSites,
-      Set<DexReference> pinnedItems,
-      Set<DexReference> allowAccessModification,
+      KeepInfoCollection keepInfo,
       Map<DexReference, ProguardMemberRule> mayHaveSideEffects,
       Map<DexReference, ProguardMemberRule> noSideEffects,
       Map<DexReference, ProguardMemberRule> assumedValues,
@@ -253,8 +246,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.liveMethods = liveMethods;
     this.fieldAccessInfoCollection = fieldAccessInfoCollection;
     this.objectAllocationInfoCollection = objectAllocationInfoCollection;
-    this.pinnedItems = pinnedItems;
-    this.allowAccessModification = allowAccessModification;
+    this.keepInfo = keepInfo;
     this.mayHaveSideEffects = mayHaveSideEffects;
     this.noSideEffects = noSideEffects;
     this.assumedValues = assumedValues;
@@ -304,8 +296,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       SortedMap<DexMethod, ProgramMethodSet> directInvokes,
       SortedMap<DexMethod, ProgramMethodSet> staticInvokes,
       Set<DexCallSite> callSites,
-      Set<DexReference> pinnedItems,
-      Set<DexReference> allowAccessModification,
+      KeepInfoCollection keepInfo,
       Map<DexReference, ProguardMemberRule> mayHaveSideEffects,
       Map<DexReference, ProguardMemberRule> noSideEffects,
       Map<DexReference, ProguardMemberRule> assumedValues,
@@ -340,8 +331,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.liveMethods = liveMethods;
     this.fieldAccessInfoCollection = fieldAccessInfoCollection;
     this.objectAllocationInfoCollection = objectAllocationInfoCollection;
-    this.pinnedItems = pinnedItems;
-    this.allowAccessModification = allowAccessModification;
+    this.keepInfo = keepInfo;
     this.mayHaveSideEffects = mayHaveSideEffects;
     this.noSideEffects = noSideEffects;
     this.assumedValues = assumedValues;
@@ -392,8 +382,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.directInvokes,
         previous.staticInvokes,
         previous.callSites,
-        previous.pinnedItems,
-        previous.allowAccessModification,
+        previous.keepInfo,
         previous.mayHaveSideEffects,
         previous.noSideEffects,
         previous.assumedValues,
@@ -443,10 +432,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.directInvokes,
         previous.staticInvokes,
         previous.callSites,
-        additionalPinnedItems == null
-            ? previous.pinnedItems
-            : CollectionUtils.mergeSets(previous.pinnedItems, additionalPinnedItems),
-        previous.allowAccessModification,
+        extendPinnedItems(previous, additionalPinnedItems),
         previous.mayHaveSideEffects,
         previous.noSideEffects,
         previous.assumedValues,
@@ -471,7 +457,44 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.constClassReferences,
         previous.initClassReferences);
     copyMetadataFromPrevious(previous);
-    assert removedClasses == null || assertNoItemRemoved(previous.pinnedItems, removedClasses);
+    assert keepInfo.verifyNoneArePinned(removedClasses, previous);
+  }
+
+  private static KeepInfoCollection extendPinnedItems(
+      AppInfoWithLiveness previous, Collection<DexReference> additionalPinnedItems) {
+    if (additionalPinnedItems == null || additionalPinnedItems.isEmpty()) {
+      return previous.keepInfo;
+    }
+    return previous.keepInfo.mutate(
+        collection -> {
+          for (DexReference reference : additionalPinnedItems) {
+            if (reference.isDexType()) {
+              DexProgramClass clazz =
+                  asProgramClassOrNull(previous.definitionFor(reference.asDexType()));
+              if (clazz != null) {
+                collection.pinClass(clazz);
+              }
+            } else if (reference.isDexMethod()) {
+              DexMethod method = reference.asDexMethod();
+              DexProgramClass clazz = asProgramClassOrNull(previous.definitionFor(method.holder));
+              if (clazz != null) {
+                DexEncodedMethod definition = clazz.lookupMethod(method);
+                if (definition != null) {
+                  collection.pinMethod(clazz, definition);
+                }
+              }
+            } else {
+              DexField field = reference.asDexField();
+              DexProgramClass clazz = asProgramClassOrNull(previous.definitionFor(field.holder));
+              if (clazz != null) {
+                DexEncodedField definition = clazz.lookupField(field);
+                if (definition != null) {
+                  collection.pinField(clazz, definition);
+                }
+              }
+            }
+          }
+        });
   }
 
   public AppInfoWithLiveness(
@@ -491,8 +514,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.liveMethods = previous.liveMethods;
     this.fieldAccessInfoCollection = previous.fieldAccessInfoCollection;
     this.objectAllocationInfoCollection = previous.objectAllocationInfoCollection;
-    this.pinnedItems = previous.pinnedItems;
-    this.allowAccessModification = previous.allowAccessModification;
+    this.keepInfo = previous.keepInfo;
     this.mayHaveSideEffects = previous.mayHaveSideEffects;
     this.noSideEffects = previous.noSideEffects;
     this.assumedValues = previous.assumedValues;
@@ -543,8 +565,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
             || TwrCloseResourceRewriter.isUtilityClassDescriptor(type)
             // TODO(b/150736225): Not sure how to remove these.
             || DesugaredLibraryAPIConverter.isVivifiedType(type)
-            // TODO(b/149363884): Handle references to dead proto builders.
-            || type.toDescriptorString().endsWith("$Builder;")
         : "Failed lookup of non-missing type: " + type;
     return definition;
   }
@@ -754,23 +774,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     singleTargetLookupCache.removeInstantiatedType(clazz.type, this);
   }
 
-  private boolean assertNoItemRemoved(Collection<DexReference> items, Collection<DexType> types) {
-    Set<DexType> typeSet = ImmutableSet.copyOf(types);
-    for (DexReference item : items) {
-      DexType typeToCheck;
-      if (item.isDexType()) {
-        typeToCheck = item.asDexType();
-      } else if (item.isDexMethod()) {
-        typeToCheck = item.asDexMethod().holder;
-      } else {
-        assert item.isDexField();
-        typeToCheck = item.asDexField().holder;
-      }
-      assert !typeSet.contains(typeToCheck);
-    }
-    return true;
-  }
-
   private boolean isInstantiatedDirectly(DexProgramClass clazz) {
     assert checkIfObsolete();
     DexType type = clazz.type;
@@ -797,7 +800,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     if (info != null && info.isRead()) {
       return true;
     }
-    return isPinned(field)
+    return keepInfo.isPinned(field, this)
         // Fields in the class that is synthesized by D8/R8 would be used soon.
         || field.holder.isD8R8SynthesizedClassType()
         // For library classes we don't know whether a field is read.
@@ -869,7 +872,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return method.getDefinition().hasCode()
         && !method.getDefinition().isLibraryMethodOverride().isPossiblyTrue()
         && !neverReprocess.contains(reference)
-        && !pinnedItems.contains(reference);
+        && !keepInfo.getMethodInfo(method).isPinned();
   }
 
   public boolean mayPropagateValueFor(DexReference reference) {
@@ -884,27 +887,15 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return holder == null || holder.isLibraryClass() || holder.isClasspathClass();
   }
 
-  private static <T extends PresortedComparable<T>> ImmutableSortedSet<T> rewriteItems(
-      Set<T> original, Function<T, T> rewrite) {
-    Builder<T> builder = new Builder<>(PresortedComparable::slowCompare);
-    for (T item : original) {
-      builder.add(rewrite.apply(item));
-    }
-    return builder.build();
-  }
-
-  private static <T extends PresortedComparable<T>>
-      SortedMap<T, ProgramMethodSet> rewriteKeysConservativelyWhileMergingValues(
-          Map<T, ProgramMethodSet> original, Function<T, Set<T>> rewrite) {
-    SortedMap<T, ProgramMethodSet> result = new TreeMap<>(PresortedComparable::slowCompare);
-    for (T item : original.keySet()) {
-      Set<T> rewrittenKeys = rewrite.apply(item);
-      for (T rewrittenKey : rewrittenKeys) {
-        result
-            .computeIfAbsent(rewrittenKey, k -> ProgramMethodSet.create())
-            .addAll(original.get(item));
-      }
-    }
+  private static SortedMap<DexMethod, ProgramMethodSet> rewriteInvokesWithContexts(
+      Map<DexMethod, ProgramMethodSet> invokes, GraphLense lens) {
+    SortedMap<DexMethod, ProgramMethodSet> result = new TreeMap<>(PresortedComparable::slowCompare);
+    invokes.forEach(
+        (method, contexts) ->
+            result
+                .computeIfAbsent(
+                    lens.getRenamedMethodSignature(method), ignore -> ProgramMethodSet.create())
+                .addAll(contexts));
     return Collections.unmodifiableSortedMap(result);
   }
 
@@ -927,12 +918,14 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
 
   public boolean isAccessModificationAllowed(DexReference reference) {
     assert options().getProguardConfiguration().isAccessModificationAllowed();
-    return allowAccessModification.contains(reference) || !isPinned(reference);
+    return keepInfo
+        .getInfo(reference, this)
+        .isAccessModificationAllowed(options().getProguardConfiguration());
   }
 
   public boolean isPinned(DexReference reference) {
     assert checkIfObsolete();
-    return pinnedItems.contains(reference);
+    return keepInfo.isPinned(reference, this);
   }
 
   public boolean hasPinnedInstanceInitializer(DexType type) {
@@ -948,9 +941,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return false;
   }
 
-  public Set<DexReference> getPinnedItems() {
-    assert checkIfObsolete();
-    return pinnedItems;
+  public KeepInfoCollection getKeepInfo() {
+    return keepInfo;
   }
 
   /**
@@ -984,70 +976,62 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     // Switchmap classes should never be affected by renaming.
     assert lens.assertDefinitionsNotModified(
         switchMaps.keySet().stream()
-            .map(this::definitionFor)
-            .filter(Objects::nonNull)
+            .map(this::resolveField)
+            .filter(FieldResolutionResult::isSuccessfulResolution)
+            .map(FieldResolutionResult::getResolvedField)
             .collect(Collectors.toList()));
 
     assert lens.assertDefinitionsNotModified(
         neverMerge.stream()
             .map(this::definitionFor)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
-
-    assert lens.assertDefinitionsNotModified(
-        alwaysInline.stream()
-            .map(this::definitionFor)
-            .filter(Objects::nonNull)
+            .filter(AssertionUtils::assertNotNull)
             .collect(Collectors.toList()));
 
     return new AppInfoWithLiveness(
         application,
         deadProtoTypes,
         missingTypes,
-        rewriteItems(liveTypes, lens::lookupType),
-        rewriteItems(instantiatedAppServices, lens::lookupType),
-        lens.rewriteMethodsConservatively(targetedMethods),
-        lens.rewriteMethodsConservatively(failedResolutionTargets),
-        lens.rewriteMethodsConservatively(bootstrapMethods),
-        lens.rewriteMethodsConservatively(methodsTargetedByInvokeDynamic),
-        lens.rewriteMethodsConservatively(virtualMethodsTargetedByInvokeDirect),
-        lens.rewriteMethodsConservatively(liveMethods),
+        lens.rewriteTypes(liveTypes),
+        lens.rewriteTypes(instantiatedAppServices),
+        lens.rewriteMethods(targetedMethods),
+        lens.rewriteMethods(failedResolutionTargets),
+        lens.rewriteMethods(bootstrapMethods),
+        lens.rewriteMethods(methodsTargetedByInvokeDynamic),
+        lens.rewriteMethods(virtualMethodsTargetedByInvokeDirect),
+        lens.rewriteMethods(liveMethods),
         fieldAccessInfoCollection.rewrittenWithLens(application, lens),
         objectAllocationInfoCollection.rewrittenWithLens(application, lens),
-        rewriteKeysConservativelyWhileMergingValues(
-            virtualInvokes, lens::lookupMethodInAllContexts),
-        rewriteKeysConservativelyWhileMergingValues(
-            interfaceInvokes, lens::lookupMethodInAllContexts),
-        rewriteKeysConservativelyWhileMergingValues(superInvokes, lens::lookupMethodInAllContexts),
-        rewriteKeysConservativelyWhileMergingValues(directInvokes, lens::lookupMethodInAllContexts),
-        rewriteKeysConservativelyWhileMergingValues(staticInvokes, lens::lookupMethodInAllContexts),
+        rewriteInvokesWithContexts(virtualInvokes, lens),
+        rewriteInvokesWithContexts(interfaceInvokes, lens),
+        rewriteInvokesWithContexts(superInvokes, lens),
+        rewriteInvokesWithContexts(directInvokes, lens),
+        rewriteInvokesWithContexts(staticInvokes, lens),
         // TODO(sgjesse): Rewrite call sites as well? Right now they are only used by minification
         //   after second tree shaking.
         callSites,
-        lens.rewriteReferencesConservatively(pinnedItems),
-        lens.rewriteReferencesConservatively(allowAccessModification),
-        rewriteReferenceKeys(mayHaveSideEffects, lens::lookupReference),
-        rewriteReferenceKeys(noSideEffects, lens::lookupReference),
-        rewriteReferenceKeys(assumedValues, lens::lookupReference),
-        lens.rewriteMethodsWithRenamedSignature(alwaysInline),
-        lens.rewriteMethodsWithRenamedSignature(forceInline),
-        lens.rewriteMethodsWithRenamedSignature(neverInline),
-        lens.rewriteMethodsWithRenamedSignature(whyAreYouNotInlining),
-        lens.rewriteMethodsWithRenamedSignature(keepConstantArguments),
-        lens.rewriteMethodsWithRenamedSignature(keepUnusedArguments),
-        lens.rewriteMethodsWithRenamedSignature(reprocess),
-        lens.rewriteMethodsWithRenamedSignature(neverReprocess),
+        keepInfo.rewrite(lens),
+        lens.rewriteReferenceKeys(mayHaveSideEffects),
+        lens.rewriteReferenceKeys(noSideEffects),
+        lens.rewriteReferenceKeys(assumedValues),
+        lens.rewriteMethods(alwaysInline),
+        lens.rewriteMethods(forceInline),
+        lens.rewriteMethods(neverInline),
+        lens.rewriteMethods(whyAreYouNotInlining),
+        lens.rewriteMethods(keepConstantArguments),
+        lens.rewriteMethods(keepUnusedArguments),
+        lens.rewriteMethods(reprocess),
+        lens.rewriteMethods(neverReprocess),
         alwaysClassInline.rewriteItems(lens::lookupType),
-        rewriteItems(neverClassInline, lens::lookupType),
-        rewriteItems(neverMerge, lens::lookupType),
-        lens.rewriteReferencesConservatively(neverPropagateValue),
-        lens.rewriteReferencesConservatively(identifierNameStrings),
+        lens.rewriteTypes(neverClassInline),
+        lens.rewriteTypes(neverMerge),
+        lens.rewriteReferences(neverPropagateValue),
+        lens.rewriteReferenceKeys(identifierNameStrings),
         // Don't rewrite pruned types - the removed types are identified by their original name.
         prunedTypes,
-        rewriteReferenceKeys(switchMaps, lens::lookupField),
+        lens.rewriteFieldKeys(switchMaps),
         enumValueInfoMaps.rewrittenWithLens(lens),
-        rewriteItems(constClassReferences, lens::lookupType),
-        rewriteReferenceKeys(initClassReferences, lens::lookupType));
+        lens.rewriteTypes(constClassReferences),
+        lens.rewriteTypeKeys(initClassReferences));
   }
 
   /**

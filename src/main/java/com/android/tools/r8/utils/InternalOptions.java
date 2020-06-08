@@ -172,14 +172,12 @@ public class InternalOptions {
 
   void disableAllOptimizations() {
     disableGlobalOptimizations();
-    enableNonNullTracking = false;
     enableNameReflectionOptimization = false;
     enableStringConcatenationOptimization = false;
   }
 
   public void disableGlobalOptimizations() {
     enableArgumentRemoval = false;
-    enableDynamicTypeOptimization = false;
     enableInlining = false;
     enableClassInlining = false;
     enableClassStaticizer = false;
@@ -215,7 +213,6 @@ public class InternalOptions {
   public boolean libraryInterfacesMayHaveStaticInitialization = false;
 
   // Optimization-related flags. These should conform to -dontoptimize and disableAllOptimizations.
-  public boolean enableDynamicTypeOptimization = true;
   public boolean enableFieldAssignmentTracker = true;
   public boolean enableFieldBitAccessAnalysis =
       System.getProperty("com.android.tools.r8.fieldBitAccessAnalysis") != null;
@@ -224,7 +221,6 @@ public class InternalOptions {
   public boolean enableArgumentRemoval = true;
   public boolean enableUnusedInterfaceRemoval = true;
   public boolean enableDevirtualization = true;
-  public boolean enableNonNullTracking = true;
   public boolean enableInlining =
       !Version.isDevelopmentVersion()
           || System.getProperty("com.android.tools.r8.disableinlining") == null;
@@ -1250,6 +1246,22 @@ public class InternalOptions {
     return minApiLevel >= level.getLevel();
   }
 
+  /**
+   * Dex2Oat issues a warning for abstract methods on non-abstract classes, so we never allow this.
+   *
+   * <p>Note that having an invoke instruction that targets an abstract method on a non-abstract
+   * class will fail with a verification error on Dalvik. Therefore, this must not be more
+   * permissive than {@code return minApiLevel >= AndroidApiLevel.L.getLevel()}.
+   *
+   * <p>See b/132953944.
+   */
+  @SuppressWarnings("ConstantConditions")
+  public boolean canUseAbstractMethodOnNonAbstractClass() {
+    boolean result = false;
+    assert !(result && canHaveDalvikAbstractMethodOnNonAbstractClassVerificationBug());
+    return result;
+  }
+
   public boolean canUseConstClassInstructions(int cfVersion) {
     assert isGeneratingClassFiles();
     return cfVersion >= requiredCfVersionForConstClassInstructions();
@@ -1673,7 +1685,7 @@ public class InternalOptions {
   //
   // See b/132953944.
   public boolean canHaveDalvikAbstractMethodOnNonAbstractClassVerificationBug() {
-    return minApiLevel < AndroidApiLevel.L.getLevel();
+    return isGeneratingDex() && minApiLevel < AndroidApiLevel.L.getLevel();
   }
 
   // On dalvik we see issues when using an int value in places where a boolean, byte, char, or short

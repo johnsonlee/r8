@@ -92,7 +92,9 @@ import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.shaking.DelayedRootSetActionItem.InterfaceMethodSyntheticBridgeAction;
 import com.android.tools.r8.shaking.EnqueuerWorklist.EnqueuerAction;
 import com.android.tools.r8.shaking.GraphReporter.KeepReasonWitness;
+import com.android.tools.r8.shaking.KeepInfoCollection.MutableKeepInfoCollection;
 import com.android.tools.r8.shaking.RootSetBuilder.ConsequentRootSet;
+import com.android.tools.r8.shaking.RootSetBuilder.ItemsWithRules;
 import com.android.tools.r8.shaking.RootSetBuilder.RootSet;
 import com.android.tools.r8.shaking.ScopedDexMethodSet.AddMethodIfMoreVisibleResult;
 import com.android.tools.r8.utils.Action;
@@ -237,7 +239,7 @@ public class Enqueuer {
   private final Set<DexType> missingTypes = Sets.newIdentityHashSet();
 
   /** Set of proto types that were found to be dead during the first round of tree shaking. */
-  private Set<DexType> initialDeadProtoTypes;
+  private Set<DexType> initialDeadProtoTypes = Sets.newIdentityHashSet();
 
   /** Set of types that were found to be missing during the first round of tree shaking. */
   private Set<DexType> initialMissingTypes;
@@ -305,18 +307,8 @@ public class Enqueuer {
    */
   private final Set<DexReference> reportedMissing = Sets.newIdentityHashSet();
 
-  /**
-   * A set of references that we are keeping due to keep rules. This may differ from the root set
-   * due to dependent keep rules.
-   */
-  private final Set<DexReference> pinnedItems = Sets.newIdentityHashSet();
-
-  /**
-   * A set of references that we are keeping due to keep rules, which we are allowed to publicize.
-   */
-  // TODO(b/156715504): This should be maintained in a structure that describes what we are allowed
-  //  and not allowed to do with program items that are referenced from keep rules.
-  private final Map<DexReference, OptionalBool> allowAccessModification = new IdentityHashMap<>();
+  /** Collection of keep requirements for the program. */
+  private final MutableKeepInfoCollection keepInfo = new MutableKeepInfoCollection();
 
   /**
    * A set of seen const-class references that both serve as an initial lock-candidate set and will
@@ -374,10 +366,15 @@ public class Enqueuer {
     this.useRegistryFactory = createUseRegistryFactory();
     this.workList = EnqueuerWorklist.createWorklist(appView);
 
-    if (options.protoShrinking().enableGeneratedMessageLiteShrinking
-        && mode.isInitialOrFinalTreeShaking()) {
-      registerAnalysis(new ProtoEnqueuerExtension(appView));
+    if (mode.isInitialOrFinalTreeShaking()) {
+      if (options.protoShrinking().enableGeneratedMessageLiteShrinking) {
+        registerAnalysis(new ProtoEnqueuerExtension(appView));
+      }
+      appView.withGeneratedMessageLiteBuilderShrinker(
+          shrinker -> registerAnalysis(shrinker.createEnqueuerAnalysis()));
     }
+
+
     liveTypes = new SetWithReportedReason<>();
     initializedTypes = new SetWithReportedReason<>();
     targetedMethods = new SetWithReason<>(graphReporter::registerMethod);
@@ -507,25 +504,6 @@ public class Enqueuer {
     recordTypeReference(field.type);
   }
 
-  public DexDefinition definitionFor(DexReference reference) {
-    if (reference.isDexType()) {
-      return definitionFor(reference.asDexType());
-    } else if (reference.isDexMethod()) {
-      return definitionFor(reference.asDexMethod());
-    } else {
-      assert reference.isDexField();
-      return definitionFor(reference.asDexField());
-    }
-  }
-
-  public DexEncodedField definitionFor(DexField field) {
-    DexClass clazz = definitionFor(field.holder);
-    if (clazz == null) {
-      return null;
-    }
-    return clazz.lookupField(field);
-  }
-
   public DexEncodedMethod definitionFor(DexMethod method) {
     DexClass clazz = definitionFor(method.holder);
     if (clazz == null) {
@@ -544,6 +522,10 @@ public class Enqueuer {
       addLiveNonProgramType(clazz);
     }
     return clazz;
+  }
+
+  public boolean isPinned(DexType type) {
+    return keepInfo.isPinned(type, appInfo);
   }
 
   private void addLiveNonProgramType(DexClass clazz) {
@@ -614,22 +596,96 @@ public class Enqueuer {
     }
   }
 
-  private static <T> SetWithReason<T> newSetWithoutReasonReporter() {
-    return new SetWithReason<>((f, r) -> {});
-  }
-
   private void enqueueRootItems(Map<DexReference, Set<ProguardKeepRuleBase>> items) {
     items.entrySet().forEach(this::enqueueRootItem);
   }
 
+  private void enqueueRootItems(ItemsWithRules items) {
+    items.forEachField(this::enqueueRootField);
+    items.forEachMethod(this::enqueueRootMethod);
+    items.forEachClass(this::enqueueRootClass);
+  }
+
   private void enqueueRootItem(Entry<DexReference, Set<ProguardKeepRuleBase>> root) {
-    DexDefinition item = appView.definitionFor(root.getKey());
-    if (item != null) {
-      enqueueRootItem(item, root.getValue());
+    DexReference reference = root.getKey();
+    Set<ProguardKeepRuleBase> rules = root.getValue();
+    if (reference.isDexField()) {
+      enqueueRootField(reference.asDexField(), rules);
+    } else if (reference.isDexMethod()) {
+      enqueueRootMethod(reference.asDexMethod(), rules);
+    } else if (reference.isDexType()) {
+      enqueueRootClass(reference.asDexType(), rules);
     } else {
-      // TODO(b/123923324): Verify that root items are present.
-      // assert false : "Expected root item `" + root.getKey().toSourceString() + "` to be present";
+      throw new Unreachable();
     }
+  }
+
+  // TODO(b/123923324): Verify that root items are present.
+  private void enqueueRootClass(DexType type, Set<ProguardKeepRuleBase> rules) {
+    DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(type));
+    if (clazz != null) {
+      enqueueRootClass(clazz, rules, null);
+    }
+  }
+
+  private void enqueueRootClass(
+      DexProgramClass clazz, Set<ProguardKeepRuleBase> rules, DexDefinition precondition) {
+    KeepReasonWitness witness = graphReporter.reportKeepClass(precondition, rules, clazz);
+    keepClassWithRules(clazz, rules);
+    if (clazz.isAnnotation()) {
+      workList.enqueueMarkAnnotationInstantiatedAction(clazz, witness);
+    } else if (clazz.isInterface()) {
+      workList.enqueueMarkInterfaceInstantiatedAction(clazz, witness);
+    } else {
+      workList.enqueueMarkInstantiatedAction(clazz, null, InstantiationReason.KEEP_RULE, witness);
+      if (clazz.hasDefaultInitializer()) {
+        ProgramMethod defaultInitializer = clazz.getProgramDefaultInitializer();
+        if (forceProguardCompatibility) {
+          workList.enqueueMarkMethodKeptAction(
+              defaultInitializer,
+              graphReporter.reportCompatKeepDefaultInitializer(defaultInitializer));
+        }
+        if (clazz.isExternalizable(appView)) {
+          enqueueMarkMethodLiveAction(defaultInitializer, witness);
+        }
+      }
+    }
+  }
+
+  // TODO(b/123923324): Verify that root items are present.
+  private void enqueueRootField(DexField reference, Set<ProguardKeepRuleBase> rules) {
+    DexProgramClass holder = getProgramClassOrNull(reference.holder);
+    if (holder != null) {
+      ProgramField field = holder.lookupProgramField(reference);
+      if (field != null) {
+        enqueueRootField(field, rules, null);
+      }
+    }
+  }
+
+  private void enqueueRootField(
+      ProgramField field, Set<ProguardKeepRuleBase> rules, DexDefinition precondition) {
+    keepFieldWithRules(field.getHolder(), field.getDefinition(), rules);
+    workList.enqueueMarkFieldKeptAction(
+        field, graphReporter.reportKeepField(precondition, rules, field.getDefinition()));
+  }
+
+  // TODO(b/123923324): Verify that root items are present.
+  private void enqueueRootMethod(DexMethod reference, Set<ProguardKeepRuleBase> rules) {
+    DexProgramClass holder = getProgramClassOrNull(reference.holder);
+    if (holder != null) {
+      ProgramMethod method = holder.lookupProgramMethod(reference);
+      if (method != null) {
+        enqueueRootMethod(method, rules, null);
+      }
+    }
+  }
+
+  private void enqueueRootMethod(
+      ProgramMethod method, Set<ProguardKeepRuleBase> rules, DexDefinition precondition) {
+    keepMethodWithRules(method.getHolder(), method.getDefinition(), rules);
+    workList.enqueueMarkMethodKeptAction(
+        method, graphReporter.reportKeepMethod(precondition, rules, method.getDefinition()));
   }
 
   private void enqueueRootItem(DexDefinition item, Set<ProguardKeepRuleBase> rules) {
@@ -640,45 +696,24 @@ public class Enqueuer {
       DexDefinition item, Set<ProguardKeepRuleBase> rules, DexDefinition precondition) {
     if (item.isDexClass()) {
       DexProgramClass clazz = item.asDexClass().asProgramClass();
-      KeepReasonWitness witness = graphReporter.reportKeepClass(precondition, rules, clazz);
-      if (clazz.isAnnotation()) {
-        workList.enqueueMarkAnnotationInstantiatedAction(clazz, witness);
-      } else if (clazz.isInterface()) {
-        workList.enqueueMarkInterfaceInstantiatedAction(clazz, witness);
-      } else {
-        workList.enqueueMarkInstantiatedAction(clazz, null, InstantiationReason.KEEP_RULE, witness);
-        if (clazz.hasDefaultInitializer()) {
-          ProgramMethod defaultInitializer = clazz.getProgramDefaultInitializer();
-          if (forceProguardCompatibility) {
-            workList.enqueueMarkMethodKeptAction(
-                defaultInitializer,
-                graphReporter.reportCompatKeepDefaultInitializer(defaultInitializer));
-          }
-          if (clazz.isExternalizable(appView)) {
-            enqueueMarkMethodLiveAction(defaultInitializer, witness);
-          }
-        }
+      if (clazz != null) {
+        enqueueRootClass(clazz, rules, precondition);
       }
     } else if (item.isDexEncodedField()) {
       DexEncodedField field = item.asDexEncodedField();
       DexProgramClass holder = getProgramClassOrNull(field.holder());
       if (holder != null) {
-        workList.enqueueMarkFieldKeptAction(
-            new ProgramField(holder, field),
-            graphReporter.reportKeepField(precondition, rules, field));
+        enqueueRootField(new ProgramField(holder, field), rules, precondition);
       }
     } else if (item.isDexEncodedMethod()) {
-      DexEncodedMethod encodedMethod = item.asDexEncodedMethod();
-      DexProgramClass holder = getProgramClassOrNull(encodedMethod.holder());
+      DexEncodedMethod method = item.asDexEncodedMethod();
+      DexProgramClass holder = getProgramClassOrNull(method.holder());
       if (holder != null) {
-        workList.enqueueMarkMethodKeptAction(
-            new ProgramMethod(holder, encodedMethod),
-            graphReporter.reportKeepMethod(precondition, rules, encodedMethod));
+        enqueueRootMethod(new ProgramMethod(holder, method), rules, precondition);
       }
     } else {
       throw new IllegalArgumentException(item.toString());
     }
-    addPinnedItem(item.toReference(), rules);
   }
 
   private void enqueueFirstNonSerializableClassInitializer(
@@ -1314,7 +1349,7 @@ public class Enqueuer {
       boolean skipTracing =
           appView.withGeneratedExtensionRegistryShrinker(
               shrinker ->
-                  shrinker.isDeadProtoExtensionField(field, fieldAccessInfoCollection, pinnedItems),
+                  shrinker.isDeadProtoExtensionField(field, fieldAccessInfoCollection, keepInfo),
               false);
       if (skipTracing) {
         addDeadProtoTypeCandidate(field.getHolder());
@@ -1373,7 +1408,7 @@ public class Enqueuer {
       boolean skipTracing =
           appView.withGeneratedExtensionRegistryShrinker(
               shrinker ->
-                  shrinker.isDeadProtoExtensionField(field, fieldAccessInfoCollection, pinnedItems),
+                  shrinker.isDeadProtoExtensionField(field, fieldAccessInfoCollection, keepInfo),
               false);
       if (skipTracing) {
         addDeadProtoTypeCandidate(field.getHolder());
@@ -1482,7 +1517,7 @@ public class Enqueuer {
       recordTypeReference(innerClassAttribute.getInner());
       recordTypeReference(innerClassAttribute.getOuter());
     }
-    EnclosingMethodAttribute enclosingMethodAttribute = holder.getEnclosingMethod();
+    EnclosingMethodAttribute enclosingMethodAttribute = holder.getEnclosingMethodAttribute();
     if (enclosingMethodAttribute != null) {
       DexMethod enclosingMethod = enclosingMethodAttribute.getEnclosingMethod();
       if (enclosingMethod != null) {
@@ -1619,8 +1654,8 @@ public class Enqueuer {
   }
 
   private void enqueueHolderWithDependentInstanceConstructor(
-      DexProgramClass clazz, ProgramMethod instanceInitializer, Set<ProguardKeepRuleBase> reasons) {
-    enqueueRootItem(clazz, reasons);
+      ProgramMethod instanceInitializer, Set<ProguardKeepRuleBase> reasons) {
+    enqueueRootItem(instanceInitializer.getHolder(), reasons);
   }
 
   private void processAnnotations(DexProgramClass holder, DexDefinition annotatedItem) {
@@ -1808,12 +1843,12 @@ public class Enqueuer {
             holder,
             (dexType, ignored) -> {
               if (holder.isProgramClass()) {
-                DexReference holderReference = holder.toReference();
-                addPinnedItem(holderReference);
-                rootSet.shouldNotBeMinified(holderReference);
+                DexProgramClass holderClass = holder.asProgramClass();
+                keepInfo.keepClass(holderClass);
+                rootSet.shouldNotBeMinified(holder.toReference());
                 for (DexEncodedMember<?, ?> member : holder.members()) {
+                  keepInfo.keepMember(holderClass, member);
                   DexMember<?, ?> memberReference = member.toReference();
-                  addPinnedItem(memberReference);
                   rootSet.shouldNotBeMinified(memberReference);
                 }
               }
@@ -1841,7 +1876,7 @@ public class Enqueuer {
   private void reportMissingClass(DexType clazz) {
     assert !mode.isFinalTreeShaking()
             || appView.dexItemFactory().isPossiblyCompilerSynthesizedType(clazz)
-            || (initialDeadProtoTypes != null && initialDeadProtoTypes.contains(clazz))
+            || initialDeadProtoTypes.contains(clazz)
             || initialMissingTypes.contains(clazz)
         : "Unexpected missing class `" + clazz.toSourceString() + "`";
     boolean newReport = missingTypes.add(clazz);
@@ -2461,7 +2496,7 @@ public class Enqueuer {
             (type, subTypeConsumer, lambdaConsumer) ->
                 objectAllocationInfoCollection.forEachInstantiatedSubType(
                     type, subTypeConsumer, lambdaConsumer, appInfo),
-            pinnedItems::contains)
+            reference -> keepInfo.isPinned(reference, appInfo))
         .forEach(
             target ->
                 markVirtualDispatchTargetAsLive(
@@ -2528,7 +2563,7 @@ public class Enqueuer {
       // TODO(sgjesse): Does this have to be enqueued as a root item? Right now it is done as the
       // marking for not renaming it is in the root set.
       workList.enqueueMarkMethodKeptAction(new ProgramMethod(clazz, valuesMethod), reason);
-      addPinnedItem(valuesMethod.toReference());
+      keepInfo.keepMethod(clazz, valuesMethod);
       rootSet.shouldNotBeMinified(valuesMethod.toReference());
     }
   }
@@ -2599,9 +2634,10 @@ public class Enqueuer {
     this.dontWarnPatterns = dontWarnPatterns;
     // Translate the result of root-set computation into enqueuer actions.
     if (appView.options().getProguardConfiguration() != null
-        && !options.kotlinOptimizationOptions().disableKotlinSpecificOptimizations
-        && mode.isInitialTreeShaking()) {
-      registerAnalysis(new KotlinMetadataEnqueuerExtension(appView, enqueuerDefinitionSupplier));
+        && !options.kotlinOptimizationOptions().disableKotlinSpecificOptimizations) {
+      registerAnalysis(
+          new KotlinMetadataEnqueuerExtension(
+              appView, enqueuerDefinitionSupplier, initialPrunedTypes));
     }
     if (appView.options().isShrinking() || appView.options().getProguardConfiguration() == null) {
       enqueueRootItems(rootSet.noShrinking);
@@ -2632,37 +2668,44 @@ public class Enqueuer {
     return appInfoWithLiveness;
   }
 
-  public boolean isPinned(DexReference reference) {
-    return pinnedItems.contains(reference);
+  private void keepClassWithRules(DexProgramClass clazz, Set<ProguardKeepRuleBase> rules) {
+    keepInfo.joinClass(
+        clazz,
+        info ->
+            info.pin()
+                .lazyDisallowAccessModification(() -> computeDisallowAccessModification(rules)));
   }
 
-  private boolean addPinnedItem(DexReference reference) {
-    allowAccessModification.put(reference, OptionalBool.unknown());
-    return pinnedItems.add(reference);
+  private void keepMethodWithRules(
+      DexProgramClass holder, DexEncodedMethod method, Set<ProguardKeepRuleBase> rules) {
+    keepInfo.joinMethod(
+        holder,
+        method,
+        info ->
+            info.pin()
+                .lazyDisallowAccessModification(() -> computeDisallowAccessModification(rules)));
   }
 
-  private boolean addPinnedItem(DexReference reference, Set<ProguardKeepRuleBase> rules) {
-    assert rules != null;
-    assert !rules.isEmpty();
-    OptionalBool allowAccessModificationOfReference =
-        allowAccessModification.getOrDefault(reference, OptionalBool.TRUE);
-    if (allowAccessModificationOfReference.isTrue()) {
-      for (ProguardKeepRuleBase rule : rules) {
-        ProguardKeepRuleModifiers modifiers =
-            (rule.isProguardIfRule() ? rule.asProguardIfRule().getSubsequentRule() : rule)
-                .getModifiers();
-        if (!modifiers.allowsAccessModification) {
-          allowAccessModificationOfReference = OptionalBool.FALSE;
-          break;
-        }
+  private void keepFieldWithRules(
+      DexProgramClass holder, DexEncodedField field, Set<ProguardKeepRuleBase> rules) {
+    keepInfo.joinField(
+        holder,
+        field,
+        info ->
+            info.pin()
+                .lazyDisallowAccessModification(() -> computeDisallowAccessModification(rules)));
+  }
+
+  private boolean computeDisallowAccessModification(Set<ProguardKeepRuleBase> rules) {
+    for (ProguardKeepRuleBase rule : rules) {
+      ProguardKeepRuleModifiers modifiers =
+          (rule.isProguardIfRule() ? rule.asProguardIfRule().getSubsequentRule() : rule)
+              .getModifiers();
+      if (!modifiers.allowsAccessModification) {
+        return true;
       }
-      allowAccessModification.put(reference, allowAccessModificationOfReference);
     }
-    return pinnedItems.add(reference);
-  }
-
-  public boolean isMissing(DexType type) {
-    return missingTypes.contains(type);
+    return false;
   }
 
   private static class SyntheticAdditions {
@@ -2674,15 +2717,16 @@ public class Enqueuer {
 
     Map<DexType, DexClasspathClass> syntheticClasspathClasses = new IdentityHashMap<>();
 
-    // Subset of live methods that need to be pinned.
-    Set<DexMethod> pinnedMethods = Sets.newIdentityHashSet();
+    // Subset of live methods that need have keep requirements.
+    List<Pair<ProgramMethod, Consumer<KeepMethodInfo.Joiner>>> liveMethodsWithKeepActions =
+        new ArrayList<>();
 
     // Subset of synthesized classes that need to be added to the main-dex file.
     Set<DexType> mainDexTypes = Sets.newIdentityHashSet();
 
     boolean isEmpty() {
       boolean empty = syntheticInstantiations.isEmpty() && liveMethods.isEmpty();
-      assert !empty || (pinnedMethods.isEmpty() && mainDexTypes.isEmpty());
+      assert !empty || (liveMethodsWithKeepActions.isEmpty() && mainDexTypes.isEmpty());
       return empty;
     }
 
@@ -2706,9 +2750,10 @@ public class Enqueuer {
       liveMethods.put(signature, method);
     }
 
-    void addLiveAndPinnedMethod(ProgramMethod method) {
+    void addLiveMethodWithKeepAction(
+        ProgramMethod method, Consumer<KeepMethodInfo.Joiner> keepAction) {
       addLiveMethod(method);
-      pinnedMethods.add(method.getDefinition().method);
+      liveMethodsWithKeepActions.add(new Pair<>(method, keepAction));
     }
 
     void amendApplication(Builder appBuilder) {
@@ -2727,7 +2772,8 @@ public class Enqueuer {
       // All synthetic additions are initial tree shaking only. No need to track keep reasons.
       KeepReasonWitness fakeReason = enqueuer.graphReporter.fakeReportShouldNotBeUsed();
 
-      pinnedMethods.forEach(enqueuer::addPinnedItem);
+      liveMethodsWithKeepActions.forEach(
+          item -> enqueuer.keepInfo.joinMethod(item.getFirst(), item.getSecond()));
       for (Pair<DexProgramClass, ProgramMethod> clazzAndContext :
           syntheticInstantiations.values()) {
         enqueuer.workList.enqueueMarkInstantiatedAction(
@@ -2777,7 +2823,7 @@ public class Enqueuer {
       DexProgramClass holder = bridge.getHolder();
       DexEncodedMethod method = bridge.getDefinition();
       holder.addVirtualMethod(method);
-      additions.addLiveAndPinnedMethod(bridge);
+      additions.addLiveMethodWithKeepAction(bridge, KeepMethodInfo.Joiner::pin);
     }
     syntheticInterfaceMethodBridges.clear();
   }
@@ -2842,11 +2888,12 @@ public class Enqueuer {
     // to a static method will invalidate the reachable method sets for tracing methods.
     ensureLambdaAccessibility();
 
-    // Remove the items from `allowAccessModification` that we are not allowed to publicize.
-    allowAccessModification.entrySet().removeIf(entry -> !entry.getValue().isTrue());
-
     // Compute the set of dead proto types.
     deadProtoTypeCandidates.removeIf(this::isTypeLive);
+    Set<DexType> deadProtoTypes =
+        SetUtils.newIdentityHashSet(deadProtoTypeCandidates.size() + initialDeadProtoTypes.size());
+    deadProtoTypeCandidates.forEach(deadProtoType -> deadProtoTypes.add(deadProtoType.type));
+    deadProtoTypes.addAll(initialDeadProtoTypes);
 
     // Remove the temporary mappings that have been inserted into the field access info collection
     // and verify that the mapping is then one-to-one.
@@ -2891,7 +2938,7 @@ public class Enqueuer {
     AppInfoWithLiveness appInfoWithLiveness =
         new AppInfoWithLiveness(
             app,
-            SetUtils.mapIdentityHashSet(deadProtoTypeCandidates, DexProgramClass::getType),
+            deadProtoTypes,
             mode.isFinalTreeShaking()
                 ? Sets.union(initialMissingTypes, missingTypes)
                 : missingTypes,
@@ -2914,8 +2961,7 @@ public class Enqueuer {
             toImmutableSortedMap(directInvokes, PresortedComparable::slowCompare),
             toImmutableSortedMap(staticInvokes, PresortedComparable::slowCompare),
             callSites,
-            pinnedItems,
-            allowAccessModification.keySet(),
+            keepInfo,
             rootSet.mayHaveSideEffects,
             rootSet.noSideEffects,
             rootSet.assumedValues,
@@ -3258,9 +3304,9 @@ public class Enqueuer {
         });
     consequentRootSet.forEachMemberWithDependentItems(
         appView,
-        member -> {
+        (member, dependentItems) -> {
           if (isMemberLive(member)) {
-            enqueueRootItems(consequentRootSet.getDependentItems(member));
+            enqueueRootItems(dependentItems);
           }
         });
     // TODO(b/132600955): This modifies the root set. Should the consequent be persistent?
@@ -3295,7 +3341,7 @@ public class Enqueuer {
     ProgramMethod methodToKeep = action.getMethodToKeep();
     ProgramMethod singleTarget = action.getSingleTarget();
     DexEncodedMethod singleTargetMethod = singleTarget.getDefinition();
-    if (rootSet.noShrinking.containsKey(singleTargetMethod.method)) {
+    if (rootSet.noShrinking.containsMethod(singleTarget.getReference())) {
       return;
     }
     if (methodToKeep != singleTarget) {
@@ -3319,11 +3365,12 @@ public class Enqueuer {
     action.getAction().accept(builder);
   }
 
+  // TODO(b/157700141): Determine if this is the right way to avoid modification of pinned lambdas.
   private void unpinLambdaMethods() {
     assert desugaredLambdaImplementationMethods.isEmpty()
         || options.desugarState == DesugarState.ON;
     for (DexMethod method : desugaredLambdaImplementationMethods) {
-      pinnedItems.remove(method);
+      keepInfo.unsafeUnpinMethod(method);
       rootSet.prune(method);
     }
     desugaredLambdaImplementationMethods.clear();
@@ -3610,7 +3657,8 @@ public class Enqueuer {
         workList.enqueueMarkInstantiatedAction(
             clazz, null, InstantiationReason.REFLECTION, KeepReason.reflectiveUseIn(method));
       }
-      if (addPinnedItem(encodedField.field)) {
+      if (!keepInfo.getFieldInfo(encodedField, clazz).isPinned()) {
+        keepInfo.pinField(clazz, encodedField);
         markFieldAsKept(new ProgramField(clazz, encodedField), KeepReason.reflectiveUseIn(method));
       }
     } else {
@@ -3797,14 +3845,14 @@ public class Enqueuer {
         // Add this interface to the set of pinned items to ensure that we do not merge the
         // interface into its unique subtype, if any.
         // TODO(b/145344105): This should be superseded by the unknown interface hierarchy.
-        addPinnedItem(clazz.type);
+        keepInfo.pinClass(clazz);
         KeepReason reason = KeepReason.reflectiveUseIn(method);
         markInterfaceAsInstantiated(clazz, graphReporter.registerClass(clazz, reason));
 
         // Also pin all of its virtual methods to ensure that the devirtualizer does not perform
         // illegal rewritings of invoke-interface instructions into invoke-virtual instructions.
         for (DexEncodedMethod virtualMethod : clazz.virtualMethods()) {
-          addPinnedItem(virtualMethod.method);
+          keepInfo.pinMethod(clazz, virtualMethod);
           markVirtualMethodAsReachable(virtualMethod.method, true, null, reason);
         }
       }
@@ -4113,16 +4161,7 @@ public class Enqueuer {
       this.enqueuer = enqueuer;
     }
 
-    @Override
-    public DexDefinition definitionFor(DexReference reference) {
-      return enqueuer.definitionFor(reference);
-    }
-
-    @Override
-    public DexEncodedField definitionFor(DexField field) {
-      return enqueuer.definitionFor(field);
-    }
-
+    @Deprecated
     @Override
     public DexEncodedMethod definitionFor(DexMethod method) {
       return enqueuer.definitionFor(method);

@@ -40,6 +40,7 @@ import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.Consumer3;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
+import com.android.tools.r8.utils.OriginWithPosition;
 import com.android.tools.r8.utils.PredicateSet;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -55,7 +56,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -71,6 +71,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -81,7 +82,7 @@ public class RootSetBuilder {
   private final SubtypingInfo subtypingInfo;
   private final DirectMappedDexApplication application;
   private final Iterable<? extends ProguardConfigurationRule> rules;
-  private final Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking = new IdentityHashMap<>();
+  private final MutableItemsWithRules noShrinking = new MutableItemsWithRules();
   private final Set<DexReference> noObfuscation = Sets.newIdentityHashSet();
   private final LinkedHashMap<DexReference, DexReference> reasonAsked = new LinkedHashMap<>();
   private final LinkedHashMap<DexReference, DexReference> checkDiscarded = new LinkedHashMap<>();
@@ -98,8 +99,8 @@ public class RootSetBuilder {
   private final Set<DexType> neverClassInline = Sets.newIdentityHashSet();
   private final Set<DexType> neverMerge = Sets.newIdentityHashSet();
   private final Set<DexReference> neverPropagateValue = Sets.newIdentityHashSet();
-  private final Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>>
-      dependentNoShrinking = new IdentityHashMap<>();
+  private final Map<DexReference, MutableItemsWithRules> dependentNoShrinking =
+      new IdentityHashMap<>();
   private final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule =
       new IdentityHashMap<>();
   private final Map<DexReference, ProguardMemberRule> mayHaveSideEffects = new IdentityHashMap<>();
@@ -112,6 +113,9 @@ public class RootSetBuilder {
 
   private final DexStringCache dexStringCache = new DexStringCache();
   private final Set<ProguardIfRule> ifRules = Sets.newIdentityHashSet();
+
+  private final Map<OriginWithPosition, List<DexMethod>> assumeNoSideEffectsWarnings =
+      new HashMap<>();
 
   public RootSetBuilder(
       AppView<? extends AppInfoWithClassHierarchy> appView,
@@ -304,6 +308,7 @@ public class RootSetBuilder {
     } finally {
       application.timing.end();
     }
+    generateAssumeNoSideEffectsWarnings();
     if (!noSideEffects.isEmpty() || !assumedValues.isEmpty()) {
       BottomUpClassHierarchyTraversal.forAllClasses(appView, subtypingInfo)
           .visit(appView.appInfo().classes(), this::propagateAssumeRules);
@@ -689,53 +694,62 @@ public class RootSetBuilder {
   // TODO(b/67934426): Test this code.
   public static void writeSeeds(
       AppInfoWithLiveness appInfo, PrintStream out, Predicate<DexType> include) {
-    for (DexReference seed : appInfo.getPinnedItems()) {
-      if (seed.isDexType()) {
-        if (include.test(seed.asDexType())) {
-          out.println(seed.toSourceString());
-        }
-      } else if (seed.isDexField()) {
-        DexField field = seed.asDexField();
-        if (include.test(field.holder)) {
-          out.println(
-              field.holder.toSourceString()
-                  + ": "
-                  + field.type.toSourceString()
-                  + " "
-                  + field.name.toSourceString());
-        }
-      } else {
-        assert seed.isDexMethod();
-        DexMethod method = seed.asDexMethod();
-        if (!include.test(method.holder)) {
-          continue;
-        }
-        out.print(method.holder.toSourceString() + ": ");
-        DexEncodedMethod encodedMethod = appInfo.definitionFor(method);
-        if (encodedMethod.accessFlags.isConstructor()) {
-          if (encodedMethod.accessFlags.isStatic()) {
-            out.print(Constants.CLASS_INITIALIZER_NAME);
-          } else {
-            String holderName = method.holder.toSourceString();
-            String constrName = holderName.substring(holderName.lastIndexOf('.') + 1);
-            out.print(constrName);
-          }
-        } else {
-          out.print(
-              method.proto.returnType.toSourceString() + " " + method.name.toSourceString());
-        }
-        boolean first = true;
-        out.print("(");
-        for (DexType param : method.proto.parameters.values) {
-          if (!first) {
-            out.print(",");
-          }
-          first = false;
-          out.print(param.toSourceString());
-        }
-        out.println(")");
-      }
-    }
+    appInfo
+        .getKeepInfo()
+        .forEachPinnedType(
+            type -> {
+              if (include.test(type)) {
+                out.println(type.toSourceString());
+              }
+            });
+    appInfo
+        .getKeepInfo()
+        .forEachPinnedField(
+            field -> {
+              if (include.test(field.holder)) {
+                out.println(
+                    field.holder.toSourceString()
+                        + ": "
+                        + field.type.toSourceString()
+                        + " "
+                        + field.name.toSourceString());
+              }
+            });
+    appInfo
+        .getKeepInfo()
+        .forEachPinnedMethod(
+            method -> {
+              if (!include.test(method.holder)) {
+                return;
+              }
+              DexProgramClass holder = asProgramClassOrNull(appInfo.definitionForHolder(method));
+              DexEncodedMethod definition = method.lookupOnClass(holder);
+              if (definition == null) {
+                assert false;
+                return;
+              }
+              out.print(method.holder.toSourceString() + ": ");
+              if (definition.isClassInitializer()) {
+                out.print(Constants.CLASS_INITIALIZER_NAME);
+              } else if (definition.isInstanceInitializer()) {
+                String holderName = method.holder.toSourceString();
+                String constrName = holderName.substring(holderName.lastIndexOf('.') + 1);
+                out.print(constrName);
+              } else {
+                out.print(
+                    method.proto.returnType.toSourceString() + " " + method.name.toSourceString());
+              }
+              boolean first = true;
+              out.print("(");
+              for (DexType param : method.proto.parameters.values) {
+                if (!first) {
+                  out.print(",");
+                }
+                first = false;
+                out.print(param.toSourceString());
+              }
+              out.println(")");
+            });
     out.close();
   }
 
@@ -1002,9 +1016,8 @@ public class RootSetBuilder {
     }
     // Keep the type if the item is also kept.
     dependentNoShrinking
-        .computeIfAbsent(item.toReference(), x -> new IdentityHashMap<>())
-        .computeIfAbsent(type, k -> new HashSet<>())
-        .add(context);
+        .computeIfAbsent(item.toReference(), x -> new MutableItemsWithRules())
+        .addClassWithRule(type, context);
     // Unconditionally add to no-obfuscation, as that is only checked for surviving items.
     noObfuscation.add(type);
   }
@@ -1091,11 +1104,10 @@ public class RootSetBuilder {
       if (!modifiers.allowsShrinking) {
         if (precondition != null) {
           dependentNoShrinking
-              .computeIfAbsent(precondition.toReference(), x -> new IdentityHashMap<>())
-              .computeIfAbsent(item.toReference(), i -> new HashSet<>())
-              .add(keepRule);
+              .computeIfAbsent(precondition.toReference(), x -> new MutableItemsWithRules())
+              .addReferenceWithRule(item.toReference(), keepRule);
         } else {
-          noShrinking.computeIfAbsent(item.toReference(), i -> new HashSet<>()).add(keepRule);
+          noShrinking.addReferenceWithRule(item.toReference(), keepRule);
         }
         context.markAsUsed();
       }
@@ -1117,6 +1129,7 @@ public class RootSetBuilder {
       mayHaveSideEffects.put(item.toReference(), rule);
       context.markAsUsed();
     } else if (context instanceof ProguardAssumeNoSideEffectRule) {
+      checkAssumeNoSideEffectsWarnings(item, (ProguardAssumeNoSideEffectRule) context, rule);
       noSideEffects.put(item.toReference(), rule);
       context.markAsUsed();
     } else if (context instanceof ProguardWhyAreYouKeepingRule) {
@@ -1263,18 +1276,18 @@ public class RootSetBuilder {
 
     final Set<DexMethod> neverInline;
     final Set<DexType> neverClassInline;
-    final Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking;
+    final MutableItemsWithRules noShrinking;
     final Set<DexReference> noObfuscation;
-    final Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>> dependentNoShrinking;
+    final Map<DexReference, MutableItemsWithRules> dependentNoShrinking;
     final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule;
     final List<DelayedRootSetActionItem> delayedRootSetActionItems;
 
     RootSetBase(
         Set<DexMethod> neverInline,
         Set<DexType> neverClassInline,
-        Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking,
+        MutableItemsWithRules noShrinking,
         Set<DexReference> noObfuscation,
-        Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>> dependentNoShrinking,
+        Map<DexReference, MutableItemsWithRules> dependentNoShrinking,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems) {
       this.neverInline = neverInline;
@@ -1284,10 +1297,6 @@ public class RootSetBuilder {
       this.dependentNoShrinking = dependentNoShrinking;
       this.dependentKeepClassCompatRule = dependentKeepClassCompatRule;
       this.delayedRootSetActionItems = delayedRootSetActionItems;
-    }
-
-    public boolean noShrinking(DexReference reference) {
-      return noShrinking.containsKey(reference);
     }
 
     public void forEachClassWithDependentItems(
@@ -1304,33 +1313,55 @@ public class RootSetBuilder {
     }
 
     public void forEachMemberWithDependentItems(
-        DexDefinitionSupplier definitions, Consumer<DexEncodedMember<?, ?>> consumer) {
-      for (DexReference reference : dependentNoShrinking.keySet()) {
-        if (reference.isDexMember()) {
-          DexEncodedMember<?, ?> definition = definitions.definitionFor(reference.asDexMember());
-          if (definition != null) {
-            consumer.accept(definition);
-          }
-        }
-      }
+        DexDefinitionSupplier definitions,
+        BiConsumer<DexEncodedMember<?, ?>, ItemsWithRules> consumer) {
+      dependentNoShrinking.forEach(
+          (reference, dependentItems) -> {
+            if (reference.isDexMember()) {
+              DexMember<?, ?> member = reference.asDexMember();
+              DexProgramClass holder =
+                  asProgramClassOrNull(definitions.definitionForHolder(member));
+              if (holder != null) {
+                DexEncodedMember<?, ?> definition = holder.lookupMember(member);
+                if (definition != null) {
+                  consumer.accept(definition, dependentItems);
+                }
+              }
+            }
+          });
     }
 
     public void forEachDependentInstanceConstructor(
         DexProgramClass clazz,
         AppView<?> appView,
-        Consumer3<DexProgramClass, ProgramMethod, Set<ProguardKeepRuleBase>> fn) {
+        BiConsumer<ProgramMethod, Set<ProguardKeepRuleBase>> fn) {
       getDependentItems(clazz)
-          .forEach(
+          .forEachMethod(
               (reference, reasons) -> {
-                if (reference.isDexMethod()) {
-                  DexMethod methodReference = reference.asDexMethod();
-                  DexProgramClass holder =
-                      asProgramClassOrNull(appView.definitionForHolder(methodReference));
-                  if (holder != null) {
-                    ProgramMethod method = holder.lookupProgramMethod(methodReference);
-                    if (method != null && method.getDefinition().isInstanceInitializer()) {
-                      fn.accept(clazz, method, reasons);
-                    }
+                DexProgramClass holder =
+                    asProgramClassOrNull(appView.definitionForHolder(reference));
+                if (holder != null) {
+                  ProgramMethod method = holder.lookupProgramMethod(reference);
+                  if (method != null && method.getDefinition().isInstanceInitializer()) {
+                    fn.accept(method, reasons);
+                  }
+                }
+              });
+    }
+
+    public void forEachDependentMember(
+        DexDefinition item,
+        AppView<?> appView,
+        Consumer3<DexDefinition, DexDefinition, Set<ProguardKeepRuleBase>> fn) {
+      getDependentItems(item)
+          .forEachMember(
+              (reference, reasons) -> {
+                DexProgramClass holder =
+                    asProgramClassOrNull(appView.definitionForHolder(reference));
+                if (holder != null) {
+                  DexEncodedMember<?, ?> member = holder.lookupMember(reference);
+                  if (member != null) {
+                    fn.accept(item, member, reasons);
                   }
                 }
               });
@@ -1340,40 +1371,324 @@ public class RootSetBuilder {
         DexDefinition item,
         AppView<?> appView,
         Consumer3<DexDefinition, DexDefinition, Set<ProguardKeepRuleBase>> fn) {
-      getDependentItems(item)
-          .forEach(
-              (reference, reasons) -> {
-                DexDefinition definition = appView.definitionFor(reference);
-                if (definition != null
-                    && !definition.isDexClass()
-                    && !definition.isStaticMember()) {
-                  fn.accept(item, definition, reasons);
-                }
-              });
+      forEachDependentMember(
+          item,
+          appView,
+          (precondition, member, reasons) -> {
+            if (!member.isStatic()) {
+              fn.accept(precondition, member, reasons);
+            }
+          });
     }
 
     public void forEachDependentStaticMember(
         DexDefinition item,
         AppView<?> appView,
         Consumer3<DexDefinition, DexDefinition, Set<ProguardKeepRuleBase>> fn) {
-      getDependentItems(item)
-          .forEach(
-              (reference, reasons) -> {
-                DexDefinition definition = appView.definitionFor(reference);
-                if (definition != null && !definition.isDexClass() && definition.isStaticMember()) {
-                  fn.accept(item, definition, reasons);
-                }
-              });
+      forEachDependentMember(
+          item,
+          appView,
+          (precondition, member, reasons) -> {
+            if (member.isStatic()) {
+              fn.accept(precondition, member, reasons);
+            }
+          });
     }
 
-    Map<DexReference, Set<ProguardKeepRuleBase>> getDependentItems(DexDefinition item) {
-      return Collections.unmodifiableMap(
-          dependentNoShrinking.getOrDefault(item.toReference(), Collections.emptyMap()));
+    ItemsWithRules getDependentItems(DexDefinition item) {
+      ItemsWithRules found = dependentNoShrinking.get(item.toReference());
+      return found != null ? found : ItemsWithRules.empty();
     }
 
     Set<ProguardKeepRuleBase> getDependentKeepClassCompatRule(DexType type) {
       return dependentKeepClassCompatRule.get(type);
     }
+  }
+
+  abstract static class ItemsWithRules {
+
+    public static ItemsWithRules empty() {
+      return MutableItemsWithRules.EMPTY;
+    }
+
+    public abstract boolean containsClass(DexType type);
+
+    public abstract boolean containsField(DexField field);
+
+    public abstract boolean containsMethod(DexMethod method);
+
+    public final boolean containsReference(DexReference reference) {
+      return reference.apply(this::containsClass, this::containsField, this::containsMethod);
+    }
+
+    public abstract void forEachClass(Consumer<DexType> consumer);
+
+    public abstract void forEachClass(BiConsumer<DexType, Set<ProguardKeepRuleBase>> consumer);
+
+    public abstract void forEachField(Consumer<? super DexField> consumer);
+
+    public abstract void forEachField(
+        BiConsumer<? super DexField, Set<ProguardKeepRuleBase>> consumer);
+
+    public abstract void forEachMember(Consumer<DexMember<?, ?>> consumer);
+
+    public abstract void forEachMember(
+        BiConsumer<DexMember<?, ?>, Set<ProguardKeepRuleBase>> consumer);
+
+    public abstract void forEachMethod(Consumer<? super DexMethod> consumer);
+
+    public abstract void forEachMethod(
+        BiConsumer<? super DexMethod, Set<ProguardKeepRuleBase>> consumer);
+
+    public abstract Set<ProguardKeepRuleBase> getRulesForClass(DexType type);
+
+    public abstract Set<ProguardKeepRuleBase> getRulesForField(DexField field);
+
+    public abstract Set<ProguardKeepRuleBase> getRulesForMethod(DexMethod method);
+
+    public final Set<ProguardKeepRuleBase> getRulesForReference(DexReference reference) {
+      return reference.apply(
+          this::getRulesForClass, this::getRulesForField, this::getRulesForMethod);
+    }
+  }
+
+  static class MutableItemsWithRules extends ItemsWithRules {
+
+    private static final ItemsWithRules EMPTY =
+        new MutableItemsWithRules(
+            Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+
+    final Map<DexType, Set<ProguardKeepRuleBase>> classesWithRules;
+    final Map<DexField, Set<ProguardKeepRuleBase>> fieldsWithRules;
+    final Map<DexMethod, Set<ProguardKeepRuleBase>> methodsWithRules;
+
+    MutableItemsWithRules() {
+      this(new IdentityHashMap<>(), new IdentityHashMap<>(), new IdentityHashMap<>());
+    }
+
+    private MutableItemsWithRules(
+        Map<DexType, Set<ProguardKeepRuleBase>> classesWithRules,
+        Map<DexField, Set<ProguardKeepRuleBase>> fieldsWithRules,
+        Map<DexMethod, Set<ProguardKeepRuleBase>> methodsWithRules) {
+      this.classesWithRules = classesWithRules;
+      this.fieldsWithRules = fieldsWithRules;
+      this.methodsWithRules = methodsWithRules;
+    }
+
+    public void addAll(ItemsWithRules items) {
+      items.forEachClass(this::addClassWithRules);
+      items.forEachField(this::addFieldWithRules);
+      items.forEachMethod(this::addMethodWithRules);
+    }
+
+    public void addClassWithRule(DexType type, ProguardKeepRuleBase rule) {
+      classesWithRules.computeIfAbsent(type, ignore -> new HashSet<>()).add(rule);
+    }
+
+    public void addClassWithRules(DexType type, Set<ProguardKeepRuleBase> rules) {
+      classesWithRules.computeIfAbsent(type, ignore -> new HashSet<>()).addAll(rules);
+    }
+
+    public void addFieldWithRule(DexField field, ProguardKeepRuleBase rule) {
+      fieldsWithRules.computeIfAbsent(field, ignore -> new HashSet<>()).add(rule);
+    }
+
+    public void addFieldWithRules(DexField field, Set<ProguardKeepRuleBase> rules) {
+      fieldsWithRules.computeIfAbsent(field, ignore -> new HashSet<>()).addAll(rules);
+    }
+
+    public void addMethodWithRule(DexMethod method, ProguardKeepRuleBase rule) {
+      methodsWithRules.computeIfAbsent(method, ignore -> new HashSet<>()).add(rule);
+    }
+
+    public void addMethodWithRules(DexMethod method, Set<ProguardKeepRuleBase> rules) {
+      methodsWithRules.computeIfAbsent(method, ignore -> new HashSet<>()).addAll(rules);
+    }
+
+    public void addReferenceWithRule(DexReference reference, ProguardKeepRuleBase rule) {
+      reference.accept(
+          this::addClassWithRule, this::addFieldWithRule, this::addMethodWithRule, rule);
+    }
+
+    public void addReferenceWithRules(DexReference reference, Set<ProguardKeepRuleBase> rules) {
+      reference.accept(
+          this::addClassWithRules, this::addFieldWithRules, this::addMethodWithRules, rules);
+    }
+
+    @Override
+    public boolean containsClass(DexType type) {
+      return classesWithRules.containsKey(type);
+    }
+
+    @Override
+    public boolean containsField(DexField field) {
+      return fieldsWithRules.containsKey(field);
+    }
+
+    @Override
+    public boolean containsMethod(DexMethod method) {
+      return methodsWithRules.containsKey(method);
+    }
+
+    @Override
+    public void forEachClass(Consumer<DexType> consumer) {
+      classesWithRules.keySet().forEach(consumer);
+    }
+
+    @Override
+    public void forEachClass(BiConsumer<DexType, Set<ProguardKeepRuleBase>> consumer) {
+      classesWithRules.forEach(consumer);
+    }
+
+    @Override
+    public void forEachField(Consumer<? super DexField> consumer) {
+      fieldsWithRules.keySet().forEach(consumer);
+    }
+
+    @Override
+    public void forEachField(BiConsumer<? super DexField, Set<ProguardKeepRuleBase>> consumer) {
+      fieldsWithRules.forEach(consumer);
+    }
+
+    @Override
+    public void forEachMember(Consumer<DexMember<?, ?>> consumer) {
+      forEachField(consumer);
+      forEachMethod(consumer);
+    }
+
+    @Override
+    public void forEachMember(BiConsumer<DexMember<?, ?>, Set<ProguardKeepRuleBase>> consumer) {
+      forEachField(consumer);
+      forEachMethod(consumer);
+    }
+
+    @Override
+    public void forEachMethod(Consumer<? super DexMethod> consumer) {
+      methodsWithRules.keySet().forEach(consumer);
+    }
+
+    @Override
+    public void forEachMethod(BiConsumer<? super DexMethod, Set<ProguardKeepRuleBase>> consumer) {
+      methodsWithRules.forEach(consumer);
+    }
+
+    @Override
+    public Set<ProguardKeepRuleBase> getRulesForClass(DexType type) {
+      return classesWithRules.get(type);
+    }
+
+    @Override
+    public Set<ProguardKeepRuleBase> getRulesForField(DexField field) {
+      return fieldsWithRules.get(field);
+    }
+
+    @Override
+    public Set<ProguardKeepRuleBase> getRulesForMethod(DexMethod method) {
+      return methodsWithRules.get(method);
+    }
+
+    public void removeClass(DexType type) {
+      classesWithRules.remove(type);
+    }
+
+    public void removeField(DexField field) {
+      fieldsWithRules.remove(field);
+    }
+
+    public void removeMethod(DexMethod method) {
+      methodsWithRules.remove(method);
+    }
+
+    public void removeReference(DexReference reference) {
+      reference.accept(this::removeClass, this::removeField, this::removeMethod);
+    }
+
+    public void putAll(ItemsWithRules items) {
+      items.forEachClass(this::putClassWithRules);
+      items.forEachField(this::putFieldWithRules);
+      items.forEachMethod(this::putMethodWithRules);
+    }
+
+    public void putClassWithRules(DexType type, Set<ProguardKeepRuleBase> rules) {
+      classesWithRules.put(type, rules);
+    }
+
+    public void putFieldWithRules(DexField field, Set<ProguardKeepRuleBase> rules) {
+      fieldsWithRules.put(field, rules);
+    }
+
+    public void putMethodWithRules(DexMethod method, Set<ProguardKeepRuleBase> rules) {
+      methodsWithRules.put(method, rules);
+    }
+
+    public void putReferenceWithRules(DexReference reference, Set<ProguardKeepRuleBase> rules) {
+      reference.accept(
+          this::putClassWithRules, this::putFieldWithRules, this::putMethodWithRules, rules);
+    }
+
+    public int size() {
+      return classesWithRules.size() + fieldsWithRules.size() + methodsWithRules.size();
+    }
+  }
+
+  private void checkAssumeNoSideEffectsWarnings(
+      DexDefinition item, ProguardAssumeNoSideEffectRule context, ProguardMemberRule rule) {
+    if (rule.getRuleType() == ProguardMemberType.METHOD && rule.isSpecific()) {
+      return;
+    }
+    if (item.isDexEncodedMethod()) {
+      DexEncodedMethod method = item.asDexEncodedMethod();
+      if (method.holder() == options.itemFactory.objectType) {
+        OriginWithPosition key = new OriginWithPosition(context.getOrigin(), context.getPosition());
+        assumeNoSideEffectsWarnings.computeIfAbsent(key, k -> new ArrayList<>()).add(method.method);
+      }
+    }
+  }
+
+  private boolean isWaitOrNotifyMethod(DexMethod method) {
+    return method.name == options.itemFactory.waitMethodName
+        || method.name == options.itemFactory.notifyMethodName
+        || method.name == options.itemFactory.notifyAllMethodName;
+  }
+
+  private void generateAssumeNoSideEffectsWarnings() {
+    ProguardClassFilter dontWarnPatterns =
+        options.getProguardConfiguration() != null
+            ? options.getProguardConfiguration().getDontWarnPatterns()
+            : ProguardClassFilter.empty();
+    if (dontWarnPatterns.matches(options.itemFactory.objectType)) {
+      return;
+    }
+
+    assumeNoSideEffectsWarnings.forEach(
+        (originWithPosition, methods) -> {
+          boolean waitOrNotifyMethods = methods.stream().anyMatch(this::isWaitOrNotifyMethod);
+          StringBuilder message = new StringBuilder();
+          message.append(
+              "The -assumenosideeffects rule matches methods on `java.lang.Object` with wildcards");
+          if (waitOrNotifyMethods) {
+            message.append(" including the method(s) ");
+            for (int i = 0; i < methods.size(); i++) {
+              if (i > 0) {
+                message.append(i < methods.size() - 1 ? ", " : " and ");
+              }
+              message.append("`");
+              message.append(methods.get(i).toSourceStringWithoutHolder());
+              message.append("`");
+            }
+            message.append(". ");
+            message.append("This will most likely cause problems. ");
+          } else {
+            message.append(". ");
+            message.append("This is most likely not intended. ");
+          }
+          message.append("Consider specifying the methods more precisely.");
+          options.reporter.warning(
+              new StringDiagnostic(
+                  message.toString(),
+                  originWithPosition.getOrigin(),
+                  originWithPosition.getPosition()));
+        });
   }
 
   public static class RootSet extends RootSetBase {
@@ -1398,7 +1713,7 @@ public class RootSetBuilder {
     public final Set<ProguardIfRule> ifRules;
 
     private RootSet(
-        Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking,
+        MutableItemsWithRules noShrinking,
         Set<DexReference> noObfuscation,
         ImmutableList<DexReference> reasonAsked,
         ImmutableList<DexReference> checkDiscarded,
@@ -1418,7 +1733,7 @@ public class RootSetBuilder {
         Map<DexReference, ProguardMemberRule> mayHaveSideEffects,
         Map<DexReference, ProguardMemberRule> noSideEffects,
         Map<DexReference, ProguardMemberRule> assumedValues,
-        Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>> dependentNoShrinking,
+        Map<DexReference, MutableItemsWithRules> dependentNoShrinking,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         Set<DexReference> identifierNameStrings,
         Set<ProguardIfRule> ifRules,
@@ -1472,8 +1787,7 @@ public class RootSetBuilder {
       neverClassInline.addAll(consequentRootSet.neverClassInline);
       noObfuscation.addAll(consequentRootSet.noObfuscation);
       if (addNoShrinking) {
-        consequentRootSet.noShrinking.forEach(
-            (type, rules) -> noShrinking.computeIfAbsent(type, k -> new HashSet<>()).addAll(rules));
+        noShrinking.addAll(consequentRootSet.noShrinking);
       }
       addDependentItems(consequentRootSet.dependentNoShrinking);
       consequentRootSet.dependentKeepClassCompatRule.forEach(
@@ -1484,18 +1798,17 @@ public class RootSetBuilder {
     }
 
     // Add dependent items that depend on -if rules.
-    private void addDependentItems(
-        Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>> dependentItems) {
+    private void addDependentItems(Map<DexReference, ? extends ItemsWithRules> dependentItems) {
       dependentItems.forEach(
           (reference, dependence) ->
               dependentNoShrinking
-                  .computeIfAbsent(reference, x -> new IdentityHashMap<>())
+                  .computeIfAbsent(reference, x -> new MutableItemsWithRules())
                   .putAll(dependence));
     }
 
     public void copy(DexReference original, DexReference rewritten) {
-      if (noShrinking.containsKey(original)) {
-        noShrinking.put(rewritten, noShrinking.get(original));
+      if (noShrinking.containsReference(original)) {
+        noShrinking.putReferenceWithRules(rewritten, noShrinking.getRulesForReference(original));
       }
       if (noObfuscation.contains(original)) {
         noObfuscation.add(rewritten);
@@ -1509,7 +1822,7 @@ public class RootSetBuilder {
     }
 
     public void prune(DexReference reference) {
-      noShrinking.remove(reference);
+      noShrinking.removeReference(reference);
       noObfuscation.remove(reference);
       noSideEffects.remove(reference);
       assumedValues.remove(reference);
@@ -1527,30 +1840,29 @@ public class RootSetBuilder {
         Enqueuer enqueuer) {
       references.removeIf(
           reference -> {
-            if (reference.isDexField()) {
-              DexEncodedField definition = definitions.definitionFor(reference.asDexField());
-              if (definition == null) {
-                return true;
-              }
-              DexClass holder = definitions.definitionFor(definition.holder());
-              if (holder.isProgramClass()) {
-                return !enqueuer.isFieldReferenced(definition);
-              }
-              return !enqueuer.isNonProgramTypeLive(holder);
-            } else if (reference.isDexMethod()) {
-              DexEncodedMethod definition = definitions.definitionFor(reference.asDexMethod());
-              if (definition == null) {
-                return true;
-              }
-              DexClass holder = definitions.definitionFor(definition.holder());
-              if (holder.isProgramClass()) {
-                return !enqueuer.isMethodLive(definition) && !enqueuer.isMethodTargeted(definition);
-              }
-              return !enqueuer.isNonProgramTypeLive(holder);
-            } else {
+            if (reference.isDexType()) {
               DexClass definition = definitions.definitionFor(reference.asDexType());
               return definition == null || !enqueuer.isTypeLive(definition);
             }
+
+            assert reference.isDexMember();
+
+            DexMember<?, ?> member = reference.asDexMember();
+            DexClass holder = definitions.definitionForHolder(member);
+            DexEncodedMember<?, ?> definition = member.lookupOnClass(holder);
+            if (definition == null) {
+              return true;
+            }
+            if (holder.isProgramClass()) {
+              if (definition.isDexEncodedField()) {
+                DexEncodedField field = definition.asDexEncodedField();
+                return !enqueuer.isFieldReferenced(field);
+              }
+              assert definition.isDexEncodedMethod();
+              DexEncodedMethod method = definition.asDexEncodedMethod();
+              return !enqueuer.isMethodLive(method) && !enqueuer.isMethodTargeted(method);
+            }
+            return !enqueuer.isNonProgramTypeLive(holder);
           });
     }
 
@@ -1582,54 +1894,49 @@ public class RootSetBuilder {
     }
 
     public boolean verifyKeptFieldsAreAccessedAndLive(AppInfoWithLiveness appInfo) {
-      for (DexReference reference : noShrinking.keySet()) {
-        if (reference.isDexField()) {
-          DexField field = reference.asDexField();
-          DexEncodedField encodedField = appInfo.definitionFor(field);
-          if (encodedField != null
-              && (encodedField.isStatic() || isKeptDirectlyOrIndirectly(field.holder, appInfo))) {
-            assert appInfo.isFieldRead(encodedField)
-                : "Expected kept field `" + field.toSourceString() + "` to be read";
-            assert appInfo.isFieldWritten(encodedField)
-                : "Expected kept field `" + field.toSourceString() + "` to be written";
-          }
-        }
-      }
+      noShrinking.forEachField(
+          reference -> {
+            DexClass holder = appInfo.definitionForHolder(reference);
+            DexEncodedField field = reference.lookupOnClass(holder);
+            if (field != null
+                && (field.isStatic() || isKeptDirectlyOrIndirectly(field.holder(), appInfo))) {
+              assert appInfo.isFieldRead(field)
+                  : "Expected kept field `" + field.toSourceString() + "` to be read";
+              assert appInfo.isFieldWritten(field)
+                  : "Expected kept field `" + field.toSourceString() + "` to be written";
+            }
+          });
       return true;
     }
 
     public boolean verifyKeptMethodsAreTargetedAndLive(AppInfoWithLiveness appInfo) {
-      for (DexReference reference : noShrinking.keySet()) {
-        if (reference.isDexMethod()) {
-          DexMethod method = reference.asDexMethod();
-          assert appInfo.targetedMethods.contains(method)
-              : "Expected kept method `" + method.toSourceString() + "` to be targeted";
-          DexEncodedMethod encodedMethod = appInfo.definitionFor(method);
-          if (!encodedMethod.accessFlags.isAbstract()
-              && isKeptDirectlyOrIndirectly(method.holder, appInfo)) {
-            assert appInfo.liveMethods.contains(method)
-                : "Expected non-abstract kept method `"
-                    + method.toSourceString()
-                    + "` to be live";
-          }
-        }
-      }
+      noShrinking.forEachMethod(
+          reference -> {
+            assert appInfo.targetedMethods.contains(reference)
+                : "Expected kept method `" + reference.toSourceString() + "` to be targeted";
+            DexEncodedMethod method =
+                appInfo.definitionForHolder(reference).lookupMethod(reference);
+            if (!method.isAbstract() && isKeptDirectlyOrIndirectly(method.holder(), appInfo)) {
+              assert appInfo.liveMethods.contains(reference)
+                  : "Expected non-abstract kept method `"
+                      + reference.toSourceString()
+                      + "` to be live";
+            }
+          });
       return true;
     }
 
     public boolean verifyKeptTypesAreLive(AppInfoWithLiveness appInfo) {
-      for (DexReference reference : noShrinking.keySet()) {
-        if (reference.isDexType()) {
-          DexType type = reference.asDexType();
-          assert appInfo.isLiveProgramType(type)
-              : "Expected kept type `" + type.toSourceString() + "` to be live";
-        }
-      }
+      noShrinking.forEachClass(
+          type -> {
+            assert appInfo.isLiveProgramType(type)
+                : "Expected kept type `" + type.toSourceString() + "` to be live";
+          });
       return true;
     }
 
     private boolean isKeptDirectlyOrIndirectly(DexType type, AppInfoWithLiveness appInfo) {
-      if (noShrinking.containsKey(type)) {
+      if (noShrinking.containsClass(type)) {
         return true;
       }
       DexClass clazz = appInfo.definitionFor(type);
@@ -1643,41 +1950,34 @@ public class RootSetBuilder {
     }
 
     public boolean verifyKeptItemsAreKept(DexApplication application, AppInfo appInfo) {
-      Set<DexReference> pinnedItems =
-          appInfo.hasLiveness() ? appInfo.withLiveness().pinnedItems : null;
-
       // Create a mapping from each required type to the set of required members on that type.
-      Map<DexType, Set<DexReference>> requiredReferencesPerType = new IdentityHashMap<>();
-      for (DexReference reference : noShrinking.keySet()) {
-        // Check that `pinnedItems` is a super set of the root set.
-        assert pinnedItems == null || pinnedItems.contains(reference)
-            : "Expected reference `" + reference.toSourceString() + "` to be pinned";
-        if (reference.isDexType()) {
-          DexType type = reference.asDexType();
-          requiredReferencesPerType.putIfAbsent(type, Sets.newIdentityHashSet());
-        } else {
-          assert reference.isDexField() || reference.isDexMethod();
-          DexType holder =
-              reference.isDexField()
-                  ? reference.asDexField().holder
-                  : reference.asDexMethod().holder;
-          requiredReferencesPerType
-              .computeIfAbsent(holder, key -> Sets.newIdentityHashSet())
-              .add(reference);
-        }
-      }
+      Map<DexType, Set<DexMember<?, ?>>> requiredMembersPerType = new IdentityHashMap<>();
+      noShrinking.forEachClass(
+          type -> {
+            assert !appInfo.hasLiveness() || appInfo.withLiveness().isPinned(type)
+                : "Expected reference `" + type.toSourceString() + "` to be pinned";
+            requiredMembersPerType.computeIfAbsent(type, key -> Sets.newIdentityHashSet());
+          });
+      noShrinking.forEachMember(
+          member -> {
+            assert !appInfo.hasLiveness() || appInfo.withLiveness().isPinned(member)
+                : "Expected reference `" + member.toSourceString() + "` to be pinned";
+            requiredMembersPerType
+                .computeIfAbsent(member.holder, key -> Sets.newIdentityHashSet())
+                .add(member);
+          });
 
       // Run through each class in the program and check that it has members it must have.
       for (DexProgramClass clazz : application.classes()) {
-        Set<DexReference> requiredReferences =
-            requiredReferencesPerType.getOrDefault(clazz.type, ImmutableSet.of());
+        Set<DexMember<?, ?>> requiredMembers =
+            requiredMembersPerType.getOrDefault(clazz.type, ImmutableSet.of());
 
         Set<DexField> fields = null;
         Set<DexMethod> methods = null;
 
-        for (DexReference requiredReference : requiredReferences) {
-          if (requiredReference.isDexField()) {
-            DexField requiredField = requiredReference.asDexField();
+        for (DexMember<?, ?> requiredMember : requiredMembers) {
+          if (requiredMember.isDexField()) {
+            DexField requiredField = requiredMember.asDexField();
             if (fields == null) {
               // Create a Set of the fields to avoid quadratic behavior.
               fields =
@@ -1689,8 +1989,8 @@ public class RootSetBuilder {
                 : "Expected field `"
                     + requiredField.toSourceString()
                     + "` from the root set to be present";
-          } else if (requiredReference.isDexMethod()) {
-            DexMethod requiredMethod = requiredReference.asDexMethod();
+          } else {
+            DexMethod requiredMethod = requiredMember.asDexMethod();
             if (methods == null) {
               // Create a Set of the methods to avoid quadratic behavior.
               methods =
@@ -1702,20 +2002,18 @@ public class RootSetBuilder {
                 : "Expected method `"
                     + requiredMethod.toSourceString()
                     + "` from the root set to be present";
-          } else {
-            assert false;
           }
         }
-        requiredReferencesPerType.remove(clazz.type);
+        requiredMembersPerType.remove(clazz.type);
       }
 
       // If the map is non-empty, then a type in the root set was not in the application.
-      if (!requiredReferencesPerType.isEmpty()) {
-        DexType type = requiredReferencesPerType.keySet().iterator().next();
+      if (!requiredMembersPerType.isEmpty()) {
+        DexType type = requiredMembersPerType.keySet().iterator().next();
         DexClass clazz = application.definitionFor(type);
         assert clazz == null || clazz.isProgramClass()
             : "Unexpected library type in root set: `" + type + "`";
-        assert requiredReferencesPerType.isEmpty()
+        assert requiredMembersPerType.isEmpty()
             : "Expected type `" + type.toSourceString() + "` to be present";
       }
 
@@ -1726,7 +2024,6 @@ public class RootSetBuilder {
     public String toString() {
       StringBuilder builder = new StringBuilder();
       builder.append("RootSet");
-
       builder.append("\nnoShrinking: " + noShrinking.size());
       builder.append("\nnoObfuscation: " + noObfuscation.size());
       builder.append("\nreasonAsked: " + reasonAsked.size());
@@ -1736,13 +2033,6 @@ public class RootSetBuilder {
       builder.append("\ndependentNoShrinking: " + dependentNoShrinking.size());
       builder.append("\nidentifierNameStrings: " + identifierNameStrings.size());
       builder.append("\nifRules: " + ifRules.size());
-
-      builder.append("\n\nNo Shrinking:");
-      noShrinking.keySet().stream()
-          .sorted(Comparator.comparing(DexReference::toSourceString))
-          .forEach(a -> builder
-              .append("\n").append(a.toSourceString()).append(" ").append(noShrinking.get(a)));
-      builder.append("\n");
       return builder.toString();
     }
   }
@@ -1754,9 +2044,9 @@ public class RootSetBuilder {
     ConsequentRootSet(
         Set<DexMethod> neverInline,
         Set<DexType> neverClassInline,
-        Map<DexReference, Set<ProguardKeepRuleBase>> noShrinking,
+        MutableItemsWithRules noShrinking,
         Set<DexReference> noObfuscation,
-        Map<DexReference, Map<DexReference, Set<ProguardKeepRuleBase>>> dependentNoShrinking,
+        Map<DexReference, MutableItemsWithRules> dependentNoShrinking,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems) {
       super(

@@ -48,6 +48,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
 
   private AllowedDiagnosticMessages allowedDiagnosticMessages = AllowedDiagnosticMessages.NONE;
   private boolean allowUnusedProguardConfigurationRules = false;
+  private boolean enableAssumeNoSideEffectsAnnotations = false;
   private boolean enableConstantArgumentAnnotations = false;
   private boolean enableInliningAnnotations = false;
   private boolean enableMemberValuePropagationAnnotations = false;
@@ -135,7 +136,8 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
             box.proguardConfiguration,
             box.syntheticProguardRules,
             proguardMapBuilder.toString(),
-            graphConsumer);
+            graphConsumer,
+            builder.getMinApiLevel());
     switch (allowedDiagnosticMessages) {
       case ALL:
         compileResult.assertDiagnosticThatMatches(new IsAnything<>());
@@ -345,6 +347,21 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
       enableInliningAnnotations = true;
       addInternalKeepRules(
           "-alwaysinline class * { @" + annotationPackageName + ".AlwaysInline *; }");
+    }
+    return self();
+  }
+
+  public T enableAssumeNoSideEffectsAnnotations() {
+    return enableAssumeNoSideEffectsAnnotations(AssumeNoSideEffects.class.getPackage().getName());
+  }
+
+  public T enableAssumeNoSideEffectsAnnotations(String annotationPackageName) {
+    if (!enableAssumeNoSideEffectsAnnotations) {
+      enableAssumeNoSideEffectsAnnotations = true;
+      addInternalKeepRules(
+          "-assumenosideeffects class * { @"
+              + annotationPackageName
+              + ".AssumeNoSideEffects <methods>; }");
     }
     return self();
   }

@@ -515,10 +515,8 @@ public class R8 {
             assert changed;
             appView.setVerticallyMergedClasses(verticalClassMerger.getMergedClasses());
             application = application.asDirect().rewrittenWithLens(lens);
-            lens.initializeCacheForLookupMethodInAllContexts();
             appViewWithLiveness.setAppInfo(
                 appViewWithLiveness.appInfo().rewrittenWithLens(application.asDirect(), lens));
-            lens.unsetCacheForLookupMethodInAllContexts();
           }
           timing.end();
         }
@@ -544,6 +542,7 @@ public class R8 {
             timing.begin("UninstantiatedTypeOptimization");
             UninstantiatedTypeOptimizationGraphLense lens =
                 new UninstantiatedTypeOptimization(appViewWithLiveness)
+                    .strenghtenOptimizationInfo()
                     .run(
                         new MethodPoolCollection(appViewWithLiveness, subtypingInfo),
                         executorService,
@@ -697,7 +696,7 @@ public class R8 {
 
           appView.withGeneratedMessageLiteBuilderShrinker(
               shrinker ->
-                  shrinker.removeDeadBuilderReferencesFromDynamicMethods(
+                  shrinker.rewriteDeadBuilderReferencesFromDynamicMethods(
                       appViewWithLiveness, executorService, timing));
 
           if (options.isShrinking()) {
@@ -914,6 +913,10 @@ public class R8 {
           shrinker ->
               shrinker.setDeadProtoTypes(appViewWithLiveness.appInfo().getDeadProtoTypes()));
     }
+    appView.withGeneratedMessageLiteBuilderShrinker(
+        shrinker ->
+            shrinker.rewriteDeadBuilderReferencesFromDynamicMethods(
+                appViewWithLiveness, executorService, timing));
     return appViewWithLiveness;
   }
 

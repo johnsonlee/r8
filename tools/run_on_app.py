@@ -182,6 +182,10 @@ def ParseOptions(argv):
   result.add_option('--cpu-list',
                     help='Run under \'taskset\' with these CPUs. See '
                          'the \'taskset\' -c option for the format')
+  result.add_option('--quiet',
+                    help='Disable compiler logging',
+                    default=False,
+                    action='store_true')
 
   return result.parse_args(argv)
 
@@ -370,7 +374,7 @@ def main(argv):
     return find_min_xmx(options, args)
   if options.track_time_in_memory:
     return track_time_in_memory(options, args)
-  exit_code = run_with_options(options, args)
+  exit_code = run_with_options(options, args, quiet=options.quiet)
   if options.expect_oom:
     exit_code = 0 if exit_code == OOM_EXIT_CODE else 1
   return exit_code
@@ -564,6 +568,13 @@ def run_with_options(options, args, extra_args=None, stdout=None, quiet=False):
     args.extend(options.compiler_flags.split(' '))
   if options.r8_flags:
     args.extend(options.r8_flags.split(' '))
+
+  # Feature jars.
+  features = values['features'] if 'features' in values else []
+  for i, feature in enumerate(features, start=1):
+    feature_out = os.path.join(outdir, 'feature-%d.zip' % i)
+    for feature_jar in feature['inputs']:
+      args.extend(['--feature', feature_jar, feature_out])
 
   args.extend(inputs)
 

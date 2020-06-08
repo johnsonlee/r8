@@ -4,17 +4,21 @@
 
 package com.android.tools.r8.kotlin;
 
+import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 import kotlinx.metadata.KmTypeAlias;
 import kotlinx.metadata.KmTypeAliasVisitor;
 
 // Holds information about KmTypeAlias
-public class KotlinTypeAliasInfo {
+public class KotlinTypeAliasInfo implements EnqueuerMetadataTraceable {
 
   private final int flags;
   private final String name;
@@ -22,6 +26,7 @@ public class KotlinTypeAliasInfo {
   private final KotlinTypeInfo expandedType;
   private final List<KotlinTypeParameterInfo> typeParameters;
   private final List<KotlinAnnotationInfo> annotations;
+  private final KotlinVersionRequirementInfo versionRequirements;
 
   private KotlinTypeAliasInfo(
       int flags,
@@ -29,7 +34,8 @@ public class KotlinTypeAliasInfo {
       KotlinTypeInfo underlyingType,
       KotlinTypeInfo expandedType,
       List<KotlinTypeParameterInfo> typeParameters,
-      List<KotlinAnnotationInfo> annotations) {
+      List<KotlinAnnotationInfo> annotations,
+      KotlinVersionRequirementInfo versionRequirements) {
     this.flags = flags;
     this.name = name;
     assert underlyingType != null;
@@ -38,17 +44,19 @@ public class KotlinTypeAliasInfo {
     this.expandedType = expandedType;
     this.typeParameters = typeParameters;
     this.annotations = annotations;
+    this.versionRequirements = versionRequirements;
   }
 
   public static KotlinTypeAliasInfo create(
-      KmTypeAlias alias, DexDefinitionSupplier definitionSupplier, Reporter reporter) {
+      KmTypeAlias alias, DexItemFactory factory, Reporter reporter) {
     return new KotlinTypeAliasInfo(
         alias.getFlags(),
         alias.getName(),
-        KotlinTypeInfo.create(alias.underlyingType, definitionSupplier, reporter),
-        KotlinTypeInfo.create(alias.expandedType, definitionSupplier, reporter),
-        KotlinTypeParameterInfo.create(alias.getTypeParameters(), definitionSupplier, reporter),
-        KotlinAnnotationInfo.create(alias.getAnnotations(), definitionSupplier));
+        KotlinTypeInfo.create(alias.underlyingType, factory, reporter),
+        KotlinTypeInfo.create(alias.expandedType, factory, reporter),
+        KotlinTypeParameterInfo.create(alias.getTypeParameters(), factory, reporter),
+        KotlinAnnotationInfo.create(alias.getAnnotations(), factory),
+        KotlinVersionRequirementInfo.create(alias.getVersionRequirements()));
   }
 
   void rewrite(
@@ -64,5 +72,14 @@ public class KotlinTypeAliasInfo {
     for (KotlinAnnotationInfo annotation : annotations) {
       annotation.rewrite(kmTypeAliasVisitor::visitAnnotation, appView, namingLens);
     }
+    versionRequirements.rewrite(kmTypeAliasVisitor::visitVersionRequirement);
+  }
+
+  @Override
+  public void trace(DexDefinitionSupplier definitionSupplier) {
+    underlyingType.trace(definitionSupplier);
+    expandedType.trace(definitionSupplier);
+    forEachApply(typeParameters, typeParam -> typeParam::trace, definitionSupplier);
+    forEachApply(annotations, annotation -> annotation::trace, definitionSupplier);
   }
 }

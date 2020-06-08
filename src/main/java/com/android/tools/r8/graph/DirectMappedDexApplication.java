@@ -73,24 +73,7 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
     return classpathClasses;
   }
 
-  @Override
-  public DexDefinition definitionFor(DexReference reference) {
-    if (reference.isDexType()) {
-      return definitionFor(reference.asDexType());
-    }
-    if (reference.isDexMethod()) {
-      return definitionFor(reference.asDexMethod());
-    }
-    assert reference.isDexField();
-    return definitionFor(reference.asDexField());
-  }
-
-  @Override
-  public DexEncodedField definitionFor(DexField field) {
-    DexClass clazz = definitionFor(field.holder);
-    return clazz != null ? clazz.lookupField(field) : null;
-  }
-
+  @Deprecated
   @Override
   public DexEncodedMethod definitionFor(DexMethod method) {
     DexClass clazz = definitionFor(method.holder);

@@ -87,8 +87,18 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
   }
 
   @Override
+  public boolean hasInsertionPosition() {
+    return position != null;
+  }
+
+  @Override
   public void setInsertionPosition(Position position) {
     this.position = position;
+  }
+
+  @Override
+  public void unsetInsertionPosition() {
+    this.position = null;
   }
 
   /**
@@ -198,7 +208,9 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     }
     current.moveDebugValues(newInstruction);
     newInstruction.setBlock(block);
-    newInstruction.setPosition(current.getPosition());
+    if (!newInstruction.hasPosition()) {
+      newInstruction.setPosition(current.getPosition());
+    }
     listIterator.remove();
     listIterator.add(newInstruction);
     current.clearBlock();
@@ -210,7 +222,15 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       IRCode code, InternalOptions options, long value, TypeElement type) {
     ConstNumber constNumberInstruction = code.createNumberConstant(value, type);
     // Note that we only keep position info for throwing instructions in release mode.
-    constNumberInstruction.setPosition(options.debug ? current.getPosition() : Position.none());
+    if (!hasInsertionPosition()) {
+      Position position;
+      if (options.debug) {
+        position = current != null ? current.getPosition() : block.getPosition();
+      } else {
+        position = Position.none();
+      }
+      constNumberInstruction.setPosition(position);
+    }
     add(constNumberInstruction);
     return constNumberInstruction.outValue();
   }
@@ -235,12 +255,6 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
 
     // Replace the instruction by const-number.
     ConstNumber constNumber = code.createIntConstant(value, current.getLocalInfo());
-    for (Value inValue : current.inValues()) {
-      if (inValue.hasLocalInfo()) {
-        // Add this value as a debug value to avoid changing its live range.
-        constNumber.addDebugValue(inValue);
-      }
-    }
     replaceCurrentInstruction(constNumber);
   }
 
@@ -256,12 +270,6 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     TypeElement oldType = current.getOutType();
     Value value = code.createValue(newType, current.getLocalInfo());
     StaticGet staticGet = new StaticGet(value, field);
-    for (Value inValue : current.inValues()) {
-      if (inValue.hasLocalInfo()) {
-        // Add this value as a debug value to avoid changing its live range.
-        staticGet.addDebugValue(inValue);
-      }
-    }
     replaceCurrentInstruction(staticGet);
 
     // Update affected values.
@@ -280,58 +288,97 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     if (current == null) {
       throw new IllegalStateException();
     }
-    BasicBlock block = current.getBlock();
+
+    Instruction toBeReplaced = current;
+
+    BasicBlock block = toBeReplaced.getBlock();
     assert !blocksToRemove.contains(block);
     assert affectedValues != null;
 
-    BasicBlock normalSuccessorBlock = split(code, blockIterator);
+    // Split the block before the instruction that should be replaced by `throw null`.
     previous();
 
-    // Unlink all blocks that are dominated by successor.
-    {
-      DominatorTree dominatorTree = new DominatorTree(code, MAY_HAVE_UNREACHABLE_BLOCKS);
-      blocksToRemove.addAll(block.unlink(normalSuccessorBlock, dominatorTree, affectedValues));
+    BasicBlock throwBlock;
+    if (block.hasCatchHandlers() && !toBeReplaced.instructionTypeCanThrow()) {
+      // We need to insert the throw instruction in a block of its own, so split the current block
+      // into three blocks, where the intermediate block only contains a goto instruction.
+      throwBlock = split(code, blockIterator, true);
+      throwBlock.listIterator(code).split(code, blockIterator);
+    } else {
+      split(code, blockIterator, true);
+      throwBlock = block;
     }
 
-    // Insert constant null before the instruction.
+    // Position the instruction iterator before the goto instruction.
+    assert !hasNext();
     previous();
-    Value nullValue = insertConstNullInstruction(code, appView.options());
-    next();
+
+    // Unlink all blocks that are dominated by the unique normal successor of the throw block.
+    blocksToRemove.addAll(
+        throwBlock.unlink(
+            throwBlock.getUniqueNormalSuccessor(),
+            new DominatorTree(code, MAY_HAVE_UNREACHABLE_BLOCKS),
+            affectedValues));
+
+    InstructionListIterator throwBlockInstructionIterator;
+    if (throwBlock == block) {
+      throwBlockInstructionIterator = this;
+    } else {
+      throwBlockInstructionIterator = throwBlock.listIterator(code);
+      throwBlockInstructionIterator.setInsertionPosition(position);
+    }
+
+    // Insert constant null before the goto instruction.
+    Value nullValue =
+        throwBlockInstructionIterator.insertConstNullInstruction(code, appView.options());
+
+    // Move past the inserted goto instruction.
+    throwBlockInstructionIterator.next();
+    assert !throwBlockInstructionIterator.hasNext();
 
     // Replace the instruction by throw.
     Throw throwInstruction = new Throw(nullValue);
-    for (Value inValue : current.inValues()) {
-      if (inValue.hasLocalInfo()) {
-        // Add this value as a debug value to avoid changing its live range.
-        throwInstruction.addDebugValue(inValue);
-      }
+    if (hasInsertionPosition()) {
+      throwInstruction.setPosition(position);
+    } else if (toBeReplaced.getPosition().isSome()) {
+      throwInstruction.setPosition(toBeReplaced.getPosition());
+    } else {
+      // The instruction that is being removed cannot throw, and thus it must be unreachable as we
+      // are replacing it by `throw null`, so we can safely use a none-position.
+      assert !toBeReplaced.instructionTypeCanThrow();
+      throwInstruction.setPosition(Position.syntheticNone());
     }
-    replaceCurrentInstruction(throwInstruction);
-    next();
-    remove();
+    throwBlockInstructionIterator.replaceCurrentInstruction(throwInstruction);
 
-    // Remove all catch handlers where the guard does not include NullPointerException.
     if (block.hasCatchHandlers()) {
-      CatchHandlers<BasicBlock> catchHandlers = block.getCatchHandlers();
-      catchHandlers.forEach(
-          (guard, target) -> {
-            if (blocksToRemove.contains(target)) {
-              // Already removed previously. This may happen if two catch handlers have the same
-              // target.
-              return;
-            }
-            if (!appView.appInfo().isSubtype(appView.dexItemFactory().npeType, guard)) {
-              // TODO(christofferqa): Consider updating previous dominator tree instead of
-              //   rebuilding it from scratch.
-              DominatorTree dominatorTree = new DominatorTree(code, MAY_HAVE_UNREACHABLE_BLOCKS);
-              blocksToRemove.addAll(block.unlink(target, dominatorTree, affectedValues));
-            }
-          });
+      if (block == throwBlock) {
+        // Remove all catch handlers where the guard does not include NullPointerException if the
+        // replaced instruction could throw.
+        CatchHandlers<BasicBlock> catchHandlers = block.getCatchHandlers();
+        catchHandlers.forEach(
+            (guard, target) -> {
+              if (blocksToRemove.contains(target)) {
+                // Already removed previously. This may happen if two catch handlers have the same
+                // target.
+                return;
+              }
+              if (!appView.appInfo().isSubtype(appView.dexItemFactory().npeType, guard)) {
+                // TODO(christofferqa): Consider updating previous dominator tree instead of
+                //   rebuilding it from scratch.
+                DominatorTree dominatorTree = new DominatorTree(code, MAY_HAVE_UNREACHABLE_BLOCKS);
+                blocksToRemove.addAll(block.unlink(target, dominatorTree, affectedValues));
+              }
+            });
+      } else {
+        // We replaced a dead, non-throwing instruction by a throwing instruction. Since this is
+        // dead code, we don't need to worry about the catch handlers of the `throwBlock`.
+      }
     }
   }
 
   @Override
-  public BasicBlock split(IRCode code, ListIterator<BasicBlock> blocksIterator) {
+  public BasicBlock split(
+      IRCode code, ListIterator<BasicBlock> blocksIterator, boolean keepCatchHandlers) {
     List<BasicBlock> blocks = code.blocks;
     assert blocksIterator == null || IteratorUtils.peekPrevious(blocksIterator) == block;
 
@@ -346,7 +393,6 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
 
     // Prepare the new block, placing the exception handlers on the block with the throwing
     // instruction.
-    boolean keepCatchHandlers = hasPrevious() && peekPrevious().instructionTypeCanThrow();
     newBlock = block.createSplitBlock(blockNumber, keepCatchHandlers);
 
     // Add a goto instruction.

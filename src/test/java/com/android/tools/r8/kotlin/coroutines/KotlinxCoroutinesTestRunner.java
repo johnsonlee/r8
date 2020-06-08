@@ -7,12 +7,13 @@ package com.android.tools.r8.kotlin.coroutines;
 import static com.android.tools.r8.KotlinCompilerTool.KOTLINC;
 import static org.junit.Assert.assertEquals;
 
-import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.ToolHelper.ProcessResult;
+import com.android.tools.r8.kotlin.metadata.KotlinMetadataTestBase;
 import com.android.tools.r8.utils.ZipUtils;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import java.io.IOException;
@@ -27,7 +28,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class KotlinxCoroutinesTestRunner extends KotlinTestBase {
+public class KotlinxCoroutinesTestRunner extends KotlinMetadataTestBase {
 
   private static final String PKG = "kotlinx-coroutines-1.3.6";
   private static final Path BASE_LIBRARY =
@@ -63,22 +64,44 @@ public class KotlinxCoroutinesTestRunner extends KotlinTestBase {
 
   @Test
   public void runKotlinxCoroutinesTests_smoke() throws Exception {
-    Path baseJar =
-        kotlinc(KOTLINC, targetVersion)
-            .addArguments(
-                "-Xuse-experimental=kotlinx.coroutines.InternalCoroutinesApi",
-                "-Xuse-experimental=kotlinx.coroutines.ObsoleteCoroutinesApi",
-                "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi")
-            .addClasspathFiles(DEPENDENCIES)
-            .addClasspathFiles(BASE_LIBRARY)
-            .addSourceFiles(TEST_SOURCES)
-            .compile();
-    runTestsInJar(baseJar, BASE_LIBRARY);
+    runTestsInJar(compileTestSources(BASE_LIBRARY), BASE_LIBRARY);
   }
 
-  private void runTestsInJar(Path testJar, Path deps) throws Exception {
+  @Test
+  public void runKotlinxCoroutinesTests_r8() throws Exception {
+    Path baseJar =
+        testForR8(parameters.getBackend())
+            .addProgramFiles(BASE_LIBRARY)
+            .addKeepAllClassesRule()
+            .addKeepAllAttributes()
+            // The BASE_LIBRARY contains proguard rules that do not match.
+            .allowUnusedProguardConfigurationRules()
+            .addKeepRules(
+                "-dontwarn reactor.blockhound.integration.BlockHoundIntegration",
+                "-dontwarn org.junit.runners.model.Statement",
+                "-dontwarn org.junit.rules.TestRule")
+            .compile()
+            .inspect(inspector -> assertEqualMetadata(new CodeInspector(BASE_LIBRARY), inspector))
+            .writeToZip();
+    Path testJar = compileTestSources(baseJar);
+    runTestsInJar(testJar, baseJar);
+  }
+
+  private Path compileTestSources(Path baseJar) throws Exception {
+    return kotlinc(KOTLINC, targetVersion)
+        .addArguments(
+            "-Xuse-experimental=kotlinx.coroutines.InternalCoroutinesApi",
+            "-Xuse-experimental=kotlinx.coroutines.ObsoleteCoroutinesApi",
+            "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi")
+        .addClasspathFiles(DEPENDENCIES)
+        .addClasspathFiles(baseJar)
+        .addSourceFiles(TEST_SOURCES)
+        .compile();
+  }
+
+  private void runTestsInJar(Path testJar, Path baseJar) throws Exception {
     List<Path> dependencies = new ArrayList<>(DEPENDENCIES);
-    dependencies.add(deps);
+    dependencies.add(baseJar);
     dependencies.add(testJar);
     ZipUtils.iter(
         testJar.toString(),

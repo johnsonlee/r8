@@ -176,12 +176,10 @@ public abstract class DexClass extends DexDefinition {
 
   private boolean verifyNoAbstractMethodsOnNonAbstractClasses(
       Iterable<DexEncodedMethod> methods, InternalOptions options) {
-    if (options.canHaveDalvikAbstractMethodOnNonAbstractClassVerificationBug()) {
-      if (!isAbstract()) {
-        for (DexEncodedMethod method : methods) {
-          assert !method.isAbstract()
-              : "Non-abstract method on abstract class: `" + method.method.toSourceString() + "`";
-        }
+    if (options.canHaveDalvikAbstractMethodOnNonAbstractClassVerificationBug() && !isAbstract()) {
+      for (DexEncodedMethod method : methods) {
+        assert !method.isAbstract()
+            : "Non-abstract method on abstract class: `" + method.method.toSourceString() + "`";
       }
     }
     return true;
@@ -404,6 +402,15 @@ public abstract class DexClass extends DexDefinition {
   /** Find virtual method in this class matching {@param predicate}. */
   public DexEncodedMethod lookupVirtualMethod(Predicate<DexEncodedMethod> predicate) {
     return methodCollection.getVirtualMethod(predicate);
+  }
+
+  /** Find member in this class matching {@param member}. */
+  @SuppressWarnings("unchecked")
+  public <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>> D lookupMember(
+      DexMember<D, R> member) {
+    DexEncodedMember<?, ?> definition =
+        member.isDexField() ? lookupField(member.asDexField()) : lookupMethod(member.asDexMethod());
+    return (D) definition;
   }
 
   /** Find method in this class matching {@param method}. */
@@ -700,15 +707,15 @@ public abstract class DexClass extends DexDefinition {
     return innerClasses;
   }
 
-  public EnclosingMethodAttribute getEnclosingMethod() {
+  public EnclosingMethodAttribute getEnclosingMethodAttribute() {
     return enclosingMethod;
   }
 
-  public void clearEnclosingMethod() {
+  public void clearEnclosingMethodAttribute() {
     enclosingMethod = null;
   }
 
-  public void removeEnclosingMethod(Predicate<EnclosingMethodAttribute> predicate) {
+  public void removeEnclosingMethodAttribute(Predicate<EnclosingMethodAttribute> predicate) {
     if (enclosingMethod != null && predicate.test(enclosingMethod)) {
       enclosingMethod = null;
     }
@@ -752,7 +759,7 @@ public abstract class DexClass extends DexDefinition {
   public boolean isMemberClass() {
     InnerClassAttribute innerClass = getInnerClassAttributeForThisClass();
     boolean isMember = innerClass != null && innerClass.getOuter() != null && innerClass.isNamed();
-    assert !isMember || getEnclosingMethod() == null;
+    assert !isMember || getEnclosingMethodAttribute() == null;
     return isMember;
   }
 

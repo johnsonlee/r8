@@ -104,7 +104,7 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
   @Override
   public void methodReturnsObjectWithUpperBoundType(
       DexEncodedMethod method, AppView<?> appView, TypeElement type) {
-    // Ignored.
+    method.getMutableOptimizationInfo().markReturnsObjectWithUpperBoundType(appView, type);
   }
 
   @Override
@@ -124,11 +124,6 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
   }
 
   @Override
-  public void methodNeverReturnsNull(DexEncodedMethod method) {
-    method.getMutableOptimizationInfo().markNeverReturnsNull();
-  }
-
-  @Override
   public void methodNeverReturnsNormally(DexEncodedMethod method) {
     // Ignored.
   }
@@ -140,8 +135,7 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
 
   @Override
   public void markProcessed(DexEncodedMethod method, ConstraintWithTarget state) {
-    // Just as processed, don't provide any inlining constraints.
-    method.markProcessed(ConstraintWithTarget.NEVER);
+    method.markProcessed(state);
   }
 
   @Override

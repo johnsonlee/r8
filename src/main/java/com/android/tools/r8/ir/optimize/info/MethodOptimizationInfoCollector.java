@@ -360,14 +360,12 @@ public class MethodOptimizationInfoCollector {
       return;
     }
     Value returnValue = firstExit.returnValue();
-    boolean isNeverNull = returnValue.getType().isReferenceType() && returnValue.isNeverNull();
     for (int i = 1; i < normalExits.size(); i++) {
       Return exit = normalExits.get(i).exit().asReturn();
       Value value = exit.returnValue();
       if (value != returnValue) {
         returnValue = null;
       }
-      isNeverNull &= value.getType().isReferenceType() && value.isNeverNull();
     }
     if (returnValue != null) {
       Value aliasedValue = returnValue.getAliasedValue();
@@ -381,9 +379,6 @@ public class MethodOptimizationInfoCollector {
           feedback.methodReturnsAbstractValue(method, appView, abstractReturnValue);
         }
       }
-    }
-    if (isNeverNull) {
-      feedback.methodNeverReturnsNull(method);
     }
   }
 
@@ -958,21 +953,38 @@ public class MethodOptimizationInfoCollector {
       if (!staticReturnTypeRaw.isReferenceType()) {
         return;
       }
-      TypeElement dynamicReturnType =
+      TypeElement dynamicUpperBoundReturnType =
           dynamicTypeOptimization.computeDynamicReturnType(method, code);
-      if (dynamicReturnType != null) {
-        TypeElement staticReturnType =
-            TypeElement.fromDexType(staticReturnTypeRaw, Nullability.maybeNull(), appView);
-        // If the dynamic return type is not more precise than the static return type there is no
-        // need to record it.
-        if (dynamicReturnType.strictlyLessThan(staticReturnType, appView)) {
-          feedback.methodReturnsObjectWithUpperBoundType(method, appView, dynamicReturnType);
+      if (dynamicUpperBoundReturnType != null) {
+        if (dynamicUpperBoundReturnType.isReferenceType()
+            && dynamicUpperBoundReturnType.isDefinitelyNull()) {
+          feedback.methodReturnsAbstractValue(
+              method, appView, appView.abstractValueFactory().createSingleNumberValue(0));
+          feedback.methodReturnsObjectWithUpperBoundType(method, appView, TypeElement.getNull());
+        } else {
+          TypeElement staticReturnType =
+              TypeElement.fromDexType(staticReturnTypeRaw, Nullability.maybeNull(), appView);
+          // If the dynamic return type is not more precise than the static return type there is no
+          // need to record it.
+          if (dynamicUpperBoundReturnType.strictlyLessThan(staticReturnType, appView)) {
+            feedback.methodReturnsObjectWithUpperBoundType(
+                method, appView, dynamicUpperBoundReturnType);
+          }
         }
       }
-      ClassTypeElement exactReturnType =
+
+      if (dynamicUpperBoundReturnType != null && dynamicUpperBoundReturnType.isNullType()) {
+        return;
+      }
+
+      ClassTypeElement dynamicLowerBoundReturnType =
           dynamicTypeOptimization.computeDynamicLowerBoundType(method, code);
-      if (exactReturnType != null) {
-        feedback.methodReturnsObjectWithLowerBoundType(method, exactReturnType);
+      if (dynamicLowerBoundReturnType != null) {
+        assert dynamicUpperBoundReturnType == null
+            || dynamicUpperBoundReturnType
+                .nullability()
+                .lessThanOrEqual(dynamicLowerBoundReturnType.nullability());
+        feedback.methodReturnsObjectWithLowerBoundType(method, dynamicLowerBoundReturnType);
       }
     }
   }
@@ -1156,7 +1168,7 @@ public class MethodOptimizationInfoCollector {
       // Collect basic blocks that check nullability of the parameter.
       nullCheckedBlocks.clear();
       for (Instruction user : argument.uniqueUsers()) {
-        if (user.isAssumeNonNull()) {
+        if (user.isAssumeWithNonNullAssumption()) {
           nullCheckedBlocks.add(user.asAssume().getBlock());
         }
         if (user.isIf()

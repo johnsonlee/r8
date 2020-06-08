@@ -7,7 +7,6 @@ package com.android.tools.r8.ir.optimize;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
-import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.CompilationError;
@@ -52,8 +51,10 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.If.Type;
+import com.android.tools.r8.ir.code.InstanceFieldInstruction;
 import com.android.tools.r8.ir.code.InstanceOf;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.Instruction.SideEffectAssumption;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InstructionOrPhi;
@@ -61,6 +62,7 @@ import com.android.tools.r8.ir.code.IntSwitch;
 import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
+import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.InvokeNewArray;
 import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
@@ -79,13 +81,14 @@ import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.code.Xor;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.optimize.controlflow.SwitchCaseAnalyzer;
+import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOutputMode;
 import com.android.tools.r8.utils.LongInterval;
 import com.android.tools.r8.utils.SetUtils;
-import com.android.tools.r8.utils.Timing;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Suppliers;
@@ -117,6 +120,7 @@ import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
@@ -157,21 +161,6 @@ public class CodeRewriter {
     this.converter = converter;
     this.options = appView.options();
     this.dexItemFactory = appView.dexItemFactory();
-  }
-
-  public static void insertAssumeInstructions(
-      IRCode code, Collection<Assumer> assumers, Timing timing) {
-    insertAssumeInstructionsInBlocks(code, assumers, alwaysTrue(), timing);
-  }
-
-  public static void insertAssumeInstructionsInBlocks(
-      IRCode code, Collection<Assumer> assumers, Predicate<BasicBlock> blockTester, Timing timing) {
-    timing.begin("Insert assume instructions");
-    for (Assumer assumer : assumers) {
-      assumer.insertAssumeInstructionsInBlocks(code, code.listIterator(), blockTester, timing);
-      assert code.isConsistentSSA();
-    }
-    timing.end();
   }
 
   public static void removeAssumeInstructions(AppView<?> appView, IRCode code) {
@@ -1249,7 +1238,7 @@ public class CodeRewriter {
       return false;
     }
 
-    AssumeDynamicTypeRemover assumeDynamicTypeRemover = new AssumeDynamicTypeRemover(appView, code);
+    AssumeRemover assumeRemover = new AssumeRemover(appView, code);
     boolean changed = false;
     boolean mayHaveRemovedTrivialPhi = false;
     Set<Value> affectedValues = Sets.newIdentityHashSet();
@@ -1282,7 +1271,7 @@ public class CodeRewriter {
             // return false unless it is object.
             if (argument.getType().lessThanOrEqual(outValue.getType(), appView)) {
               affectedValues.addAll(outValue.affectedValues());
-              assumeDynamicTypeRemover.markUsersForRemoval(outValue);
+              assumeRemover.markAssumeDynamicTypeUsersForRemoval(outValue);
               mayHaveRemovedTrivialPhi |= outValue.numberOfPhiUsers() > 0;
               outValue.replaceUsers(argument);
               invoke.setOutValue(null);
@@ -1292,12 +1281,12 @@ public class CodeRewriter {
         }
       }
     }
-    assumeDynamicTypeRemover.removeMarkedInstructions(blocksToBeRemoved).finish();
+    assumeRemover.removeMarkedInstructions(blocksToBeRemoved).finish();
     if (!blocksToBeRemoved.isEmpty()) {
       code.removeBlocks(blocksToBeRemoved);
       code.removeAllDeadAndTrivialPhis(affectedValues);
       assert code.getUnreachableBlocks().isEmpty();
-    } else if (mayHaveRemovedTrivialPhi || assumeDynamicTypeRemover.mayHaveIntroducedTrivialPhi()) {
+    } else if (mayHaveRemovedTrivialPhi || assumeRemover.mayHaveIntroducedTrivialPhi()) {
       code.removeAllDeadAndTrivialPhis(affectedValues);
     }
     if (!affectedValues.isEmpty()) {
@@ -1502,7 +1491,9 @@ public class CodeRewriter {
       if (result == InstanceOfResult.UNKNOWN) {
         Value aliasedValue =
             inValue.getSpecificAliasedValue(
-                value -> !value.isPhi() && value.definition.isAssumeDynamicType());
+                value ->
+                    value.isDefinedByInstructionSatisfying(
+                        Instruction::isAssumeWithDynamicTypeAssumption));
         if (aliasedValue != null) {
           TypeElement dynamicType =
               aliasedValue
@@ -2232,7 +2223,6 @@ public class CodeRewriter {
             instruction.outValue().replaceUsers(inValue);
             Value overwrittenLocal = instruction.removeDebugValue(localInfo);
             if (overwrittenLocal != null) {
-              inValue.definition.addDebugValue(overwrittenLocal);
               overwrittenLocal.addDebugLocalEnd(inValue.definition);
             }
             if (prevInstruction != null &&
@@ -2553,10 +2543,13 @@ public class CodeRewriter {
                 if (singleFieldValue.getField() == otherSingleFieldValue.getField()) {
                   simplifyIfWithKnownCondition(code, block, theIf, 0);
                 } else {
-                  DexEncodedField field = appView.definitionFor(singleFieldValue.getField());
+                  DexClass holder = appView.definitionForHolder(singleFieldValue.getField());
+                  DexEncodedField field = singleFieldValue.getField().lookupOnClass(holder);
                   if (field != null && field.isEnum()) {
+                    DexClass otherHolder =
+                        appView.definitionForHolder(otherSingleFieldValue.getField());
                     DexEncodedField otherField =
-                        appView.definitionFor(otherSingleFieldValue.getField());
+                        otherSingleFieldValue.getField().lookupOnClass(otherHolder);
                     if (otherField != null && otherField.isEnum()) {
                       simplifyIfWithKnownCondition(code, block, theIf, 1);
                     }
@@ -2822,69 +2815,94 @@ public class CodeRewriter {
     return changed;
   }
 
-  // Find all method invocations that never returns normally, split the block
-  // after each such invoke instruction and follow it with a block throwing a
-  // null value (which should result in NPE). Note that this throw is not
+  // Find all instructions that always throw, split the block after each such instruction and follow
+  // it with a block throwing a null value (which should result in NPE). Note that this throw is not
   // expected to be ever reached, but is intended to satisfy verifier.
-  public void processMethodsNeverReturningNormally(IRCode code) {
+  public void optimizeAlwaysThrowingInstructions(IRCode code) {
     if (!appView.appInfo().hasLiveness()) {
       return;
     }
 
+    AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+    Set<Value> affectedValues = Sets.newIdentityHashSet();
+    Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
     ListIterator<BasicBlock> blockIterator = code.listIterator();
+    ProgramMethod context = code.context();
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
       if (block.getNumber() != 0 && block.getPredecessors().isEmpty()) {
         continue;
       }
-      InstructionListIterator insnIterator = block.listIterator(code);
-      while (insnIterator.hasNext()) {
-        Instruction insn = insnIterator.next();
-        if (!insn.isInvokeMethod()) {
+      if (blocksToRemove.contains(block)) {
+        continue;
+      }
+      InstructionListIterator instructionIterator = block.listIterator(code);
+      while (instructionIterator.hasNext()) {
+        Instruction instruction = instructionIterator.next();
+        if (instruction.throwsOnNullInput()) {
+          Value inValue = instruction.getNonNullInput();
+          if (inValue.isAlwaysNull(appView)) {
+            // Insert `throw null` after the instruction if it is not guaranteed to throw an NPE.
+            if (instruction.isInstanceFieldInstruction()) {
+              InstanceFieldInstruction instanceFieldInstruction =
+                  instruction.asInstanceFieldInstruction();
+              if (instanceFieldInstruction.instructionInstanceCanThrow(
+                  appView, context, SideEffectAssumption.RECEIVER_NOT_NULL)) {
+                instructionIterator.next();
+              }
+            } else if (instruction.isInvokeMethodWithReceiver()) {
+              InvokeMethodWithReceiver invoke = instruction.asInvokeMethodWithReceiver();
+              SideEffectAssumption assumption =
+                  SideEffectAssumption.RECEIVER_NOT_NULL.join(
+                      SideEffectAssumption.INVOKED_METHOD_DOES_NOT_HAVE_SIDE_EFFECTS);
+              if (invoke.instructionMayHaveSideEffects(appView, context, assumption)) {
+                instructionIterator.next();
+              }
+            }
+            instructionIterator.replaceCurrentInstructionWithThrowNull(
+                appViewWithLiveness, code, blockIterator, blocksToRemove, affectedValues);
+            continue;
+          }
+        }
+
+        if (!instruction.isInvokeMethod()) {
           continue;
         }
 
-        InvokeMethod invoke = insn.asInvokeMethod();
+        InvokeMethod invoke = instruction.asInvokeMethod();
         DexEncodedMethod singleTarget =
             invoke.lookupSingleTarget(appView.withLiveness(), code.context());
-        if (singleTarget == null || !singleTarget.getOptimizationInfo().neverReturnsNormally()) {
+        if (singleTarget == null) {
           continue;
         }
 
-        // Split the block.
-        {
-          BasicBlock newBlock = insnIterator.split(code, blockIterator);
-          assert !insnIterator.hasNext(); // must be pointing *after* inserted GoTo.
-          // Move block iterator back so current block is 'newBlock'.
-          blockIterator.previous();
+        MethodOptimizationInfo optimizationInfo = singleTarget.getOptimizationInfo();
 
-          newBlock.unlinkSinglePredecessorSiblingsAllowed();
+        // If the invoke instruction is a null check, we can remove it.
+        boolean isNullCheck = false;
+        if (optimizationInfo.hasNonNullParamOrThrow()) {
+          BitSet nonNullParamOrThrow = optimizationInfo.getNonNullParamOrThrow();
+          for (int i = 0; i < invoke.arguments().size(); i++) {
+            Value argument = invoke.arguments().get(i);
+            if (argument.isAlwaysNull(appView) && nonNullParamOrThrow.get(i)) {
+              isNullCheck = true;
+              break;
+            }
+          }
         }
-
-        // We want to follow the invoke instruction with 'throw null', which should
-        // be unreachable but is needed to satisfy the verifier. Note that we have
-        // to put 'throw null' into a separate block to make sure we don't get two
-        // throwing instructions in the block having catch handler. This new block
-        // does not need catch handlers.
-        Instruction gotoInsn = insnIterator.previous();
-        assert gotoInsn.isGoto();
-        assert insnIterator.hasNext();
-        BasicBlock throwNullBlock = insnIterator.split(code, blockIterator);
-        InstructionListIterator throwNullInsnIterator = throwNullBlock.listIterator(code);
-
-        // Insert 'null' constant.
-        ConstNumber nullConstant = code.createConstNull(gotoInsn.getLocalInfo());
-        nullConstant.setPosition(invoke.getPosition());
-        throwNullInsnIterator.add(nullConstant);
-
-        // Replace Goto with Throw.
-        Throw notReachableThrow = new Throw(nullConstant.outValue());
-        Instruction insnGoto = throwNullInsnIterator.next();
-        assert insnGoto.isGoto();
-        throwNullInsnIterator.replaceCurrentInstruction(notReachableThrow);
+        // If the invoke instruction never returns normally, we can insert a throw null instruction
+        // after the invoke.
+        if (isNullCheck || optimizationInfo.neverReturnsNormally()) {
+          instructionIterator.setInsertionPosition(invoke.getPosition());
+          instructionIterator.next();
+          instructionIterator.replaceCurrentInstructionWithThrowNull(
+              appViewWithLiveness, code, blockIterator, blocksToRemove, affectedValues);
+          instructionIterator.unsetInsertionPosition();
+        }
       }
     }
-    Set<Value> affectedValues = code.removeUnreachableBlocks();
+    code.removeBlocks(blocksToRemove);
+    assert code.getUnreachableBlocks().isEmpty();
     if (!affectedValues.isEmpty()) {
       new TypeAnalysis(appView).narrowing(affectedValues);
     }

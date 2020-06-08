@@ -53,7 +53,6 @@ import com.android.tools.r8.ir.desugar.StringConcatRewriter;
 import com.android.tools.r8.ir.desugar.TwrCloseResourceRewriter;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.AssumeInserter;
-import com.android.tools.r8.ir.optimize.Assumer;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization.ClassInitializerDefaultsResult;
 import com.android.tools.r8.ir.optimize.CodeRewriter;
@@ -70,7 +69,6 @@ import com.android.tools.r8.ir.optimize.PeepholeOptimizer;
 import com.android.tools.r8.ir.optimize.RedundantFieldLoadElimination;
 import com.android.tools.r8.ir.optimize.ReflectionOptimizer;
 import com.android.tools.r8.ir.optimize.ServiceLoaderRewriter;
-import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization;
 import com.android.tools.r8.ir.optimize.classinliner.ClassInliner;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxer;
 import com.android.tools.r8.ir.optimize.enums.EnumValueOptimizer;
@@ -160,15 +158,13 @@ public class IRConverter {
   private final Devirtualizer devirtualizer;
   private final CovariantReturnTypeAnnotationTransformer covariantReturnTypeAnnotationTransformer;
   private final StringSwitchRemover stringSwitchRemover;
-  private final UninstantiatedTypeOptimization uninstantiatedTypeOptimization;
   private final TypeChecker typeChecker;
   private final DesugaredLibraryAPIConverter desugaredLibraryAPIConverter;
   private final ServiceLoaderRewriter serviceLoaderRewriter;
   private final EnumValueOptimizer enumValueOptimizer;
   private final EnumUnboxer enumUnboxer;
 
-  // Assumers that will insert Assume instructions.
-  public final Collection<Assumer> assumers = new ArrayList<>();
+  public final AssumeInserter assumeInserter;
   private final DynamicTypeOptimization dynamicTypeOptimization;
 
   final AssertionsRewriter assertionsRewriter;
@@ -256,7 +252,6 @@ public class IRConverter {
       this.lensCodeRewriter = null;
       this.identifierNameStringMarker = null;
       this.devirtualizer = null;
-      this.uninstantiatedTypeOptimization = null;
       this.typeChecker = null;
       this.d8NestBasedAccessDesugaring = null;
       this.stringSwitchRemover = null;
@@ -264,6 +259,7 @@ public class IRConverter {
       this.methodOptimizationInfoCollector = null;
       this.enumValueOptimizer = null;
       this.enumUnboxer = null;
+      this.assumeInserter = null;
       return;
     }
     this.lambdaRewriter =
@@ -291,20 +287,12 @@ public class IRConverter {
       assert appView.appInfo().hasLiveness();
       assert appView.rootSet() != null;
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
-      if (options.enableNonNullTracking) {
-        assumers.add(new AssumeInserter(appViewWithLiveness));
-      }
+      assumeInserter = new AssumeInserter(appViewWithLiveness);
       this.classInliner =
           options.enableClassInlining && options.enableInlining ? new ClassInliner() : null;
       this.classStaticizer =
           options.enableClassStaticizer ? new ClassStaticizer(appViewWithLiveness, this) : null;
-      this.dynamicTypeOptimization =
-          options.enableDynamicTypeOptimization
-              ? new DynamicTypeOptimization(appViewWithLiveness)
-              : null;
-      if (dynamicTypeOptimization != null) {
-        assumers.add(dynamicTypeOptimization);
-      }
+      this.dynamicTypeOptimization = new DynamicTypeOptimization(appViewWithLiveness);
       this.fieldAccessAnalysis =
           FieldAccessAnalysis.enable(options) ? new FieldAccessAnalysis(appViewWithLiveness) : null;
       this.libraryMethodOverrideAnalysis =
@@ -329,10 +317,6 @@ public class IRConverter {
       }
       this.devirtualizer =
           options.enableDevirtualization ? new Devirtualizer(appViewWithLiveness) : null;
-      this.uninstantiatedTypeOptimization =
-          options.enableUninstantiatedTypeOptimization
-              ? new UninstantiatedTypeOptimization(appViewWithLiveness)
-              : null;
       this.typeChecker = new TypeChecker(appViewWithLiveness);
       this.d8NestBasedAccessDesugaring = null;
       this.serviceLoaderRewriter =
@@ -347,6 +331,7 @@ public class IRConverter {
       this.enumValueOptimizer =
           options.enableEnumValueOptimization ? new EnumValueOptimizer(appViewWithLiveness) : null;
     } else {
+      this.assumeInserter = null;
       this.classInliner = null;
       this.classStaticizer = null;
       this.dynamicTypeOptimization = null;
@@ -359,7 +344,6 @@ public class IRConverter {
       this.lensCodeRewriter = null;
       this.identifierNameStringMarker = null;
       this.devirtualizer = null;
-      this.uninstantiatedTypeOptimization = null;
       this.typeChecker = null;
       this.d8NestBasedAccessDesugaring =
           options.shouldDesugarNests() ? new D8NestBasedAccessDesugaring(appView) : null;
@@ -489,6 +473,8 @@ public class IRConverter {
   public DexApplication convert(DexApplication application, ExecutorService executor)
       throws ExecutionException {
     removeLambdaDeserializationMethods();
+    workaroundAbstractMethodOnNonAbstractClassVerificationBug(
+        executor, OptimizationFeedbackIgnore.getInstance());
 
     timing.begin("IR conversion");
     ThreadUtils.processItems(application.classes(), this::convertMethods, executor);
@@ -652,6 +638,28 @@ public class IRConverter {
     }
   }
 
+  private void workaroundAbstractMethodOnNonAbstractClassVerificationBug(
+      ExecutorService executorService, OptimizationFeedback feedback) throws ExecutionException {
+    if (!options.canHaveDalvikAbstractMethodOnNonAbstractClassVerificationBug()) {
+      return;
+    }
+    assert delayedOptimizationFeedback.noUpdatesLeft();
+    ThreadUtils.processItems(
+        appView.appInfo().classes(),
+        clazz -> {
+          if (!clazz.isAbstract()) {
+            clazz.forEachMethod(
+                method -> {
+                  if (method.isAbstract()) {
+                    method.accessFlags.unsetAbstract();
+                    finalizeEmptyThrowingCode(method, feedback);
+                  }
+                });
+          }
+        },
+        executorService);
+  }
+
   public DexApplication optimize() throws ExecutionException {
     ExecutorService executor = Executors.newSingleThreadExecutor();
     try {
@@ -667,6 +675,8 @@ public class IRConverter {
     computeReachabilitySensitivity(application);
     collectLambdaMergingCandidates(application);
     collectStaticizerCandidates(application);
+    workaroundAbstractMethodOnNonAbstractClassVerificationBug(
+        executorService, simpleOptimizationFeedback);
 
     // The process is in two phases in general.
     // 1) Subject all DexEncodedMethods to optimization, except some optimizations that require
@@ -675,6 +685,9 @@ public class IRConverter {
     // 2) Revisit DexEncodedMethods for the collected candidates.
 
     printPhase("Primary optimization pass");
+    if (fieldAccessAnalysis != null) {
+      fieldAccessAnalysis.fieldAssignmentTracker().initialize();
+    }
 
     // Process the application identifying outlining candidates.
     GraphLense graphLenseForIR = appView.graphLense();
@@ -1259,9 +1272,9 @@ public class IRConverter {
 
     previous = printMethod(code, "IR after disable assertions (SSA)", previous);
 
-    timing.begin("Insert assume instructions");
-    CodeRewriter.insertAssumeInstructions(code, assumers, timing);
-    timing.end();
+    if (assumeInserter != null) {
+      assumeInserter.insertAssumeInstructions(code, timing);
+    }
 
     previous = printMethod(code, "IR after inserting assume instructions (SSA)", previous);
 
@@ -1323,14 +1336,6 @@ public class IRConverter {
 
     assert code.verifyTypes(appView);
 
-    if (uninstantiatedTypeOptimization != null) {
-      timing.begin("Rewrite uninstantiated types");
-      uninstantiatedTypeOptimization.rewrite(code);
-      timing.end();
-    }
-
-    assert code.verifyTypes(appView);
-
     timing.begin("Remove trivial type checks/casts");
     codeRewriter.removeTrivialCheckCastAndInstanceOfInstructions(code);
     timing.end();
@@ -1370,10 +1375,10 @@ public class IRConverter {
     codeRewriter.splitRangeInvokeConstants(code);
     timing.end();
     timing.begin("Propogate sparse conditionals");
-    new SparseConditionalConstantPropagation(code).run();
+    new SparseConditionalConstantPropagation(appView, code).run();
     timing.end();
-    timing.begin("Rewrite always throwing invokes");
-    codeRewriter.processMethodsNeverReturningNormally(code);
+    timing.begin("Rewrite always throwing instructions");
+    codeRewriter.optimizeAlwaysThrowingInstructions(code);
     timing.end();
     timing.begin("Simplify control flow");
     if (codeRewriter.simplifyControlFlow(code)) {
@@ -1597,7 +1602,7 @@ public class IRConverter {
       timing.end();
     }
 
-    if (!assumers.isEmpty()) {
+    if (assumeInserter != null) {
       timing.begin("Remove assume instructions");
       CodeRewriter.removeAssumeInstructions(appView, code);
       timing.end();
@@ -1702,10 +1707,7 @@ public class IRConverter {
 
   private void finalizeEmptyThrowingCode(DexEncodedMethod method, OptimizationFeedback feedback) {
     assert options.isGeneratingClassFiles() || options.isGeneratingDex();
-    Code emptyThrowingCode =
-        options.isGeneratingClassFiles()
-            ? method.buildEmptyThrowingCfCode()
-            : method.buildEmptyThrowingDexCode();
+    Code emptyThrowingCode = method.buildEmptyThrowingCode(options);
     method.setCode(emptyThrowingCode, appView);
     feedback.markProcessed(method, ConstraintWithTarget.ALWAYS);
   }

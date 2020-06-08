@@ -11,6 +11,9 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.references.TypeReference;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class DexMethod extends DexMember<DexEncodedMethod, DexMethod> {
 
@@ -26,6 +29,36 @@ public class DexMethod extends DexMember<DexEncodedMethod, DexMethod> {
           "Method name '" + name + "' in class '" + holder.toSourceString() +
               "' cannot be represented in dex format.");
     }
+  }
+
+  @Override
+  public <T> T apply(
+      Function<DexType, T> classConsumer,
+      Function<DexField, T> fieldConsumer,
+      Function<DexMethod, T> methodConsumer) {
+    return methodConsumer.apply(this);
+  }
+
+  @Override
+  public void accept(
+      Consumer<DexType> classConsumer,
+      Consumer<DexField> fieldConsumer,
+      Consumer<DexMethod> methodConsumer) {
+    methodConsumer.accept(this);
+  }
+
+  @Override
+  public <T> void accept(
+      BiConsumer<DexType, T> classConsumer,
+      BiConsumer<DexField, T> fieldConsumer,
+      BiConsumer<DexMethod, T> methodConsumer,
+      T arg) {
+    methodConsumer.accept(this, arg);
+  }
+
+  @Override
+  public DexEncodedMethod lookupOnClass(DexClass clazz) {
+    return clazz != null ? clazz.lookupMember(this) : null;
   }
 
   @Override
@@ -190,5 +223,9 @@ public class DexMethod extends DexMember<DexEncodedMethod, DexMethod> {
   public boolean isLambdaDeserializeMethod(DexItemFactory dexItemFactory) {
     return name == dexItemFactory.deserializeLambdaMethodName
         && proto == dexItemFactory.deserializeLambdaMethodProto;
+  }
+
+  public boolean isInstanceInitializer(DexDefinitionSupplier definitions) {
+    return definitions.dexItemFactory().isConstructor(this);
   }
 }

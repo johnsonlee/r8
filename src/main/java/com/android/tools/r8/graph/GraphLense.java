@@ -4,6 +4,8 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.ir.code.Invoke.Type;
+import com.android.tools.r8.shaking.KeepInfoCollection;
+import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
@@ -12,13 +14,11 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
-import java.util.ArrayDeque;
-import java.util.Collections;
-import java.util.Deque;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -189,13 +189,6 @@ public abstract class GraphLense {
 
   public abstract RewrittenPrototypeDescription lookupPrototypeChanges(DexMethod method);
 
-  // Context sensitive graph lenses should override this method.
-  public Set<DexMethod> lookupMethodInAllContexts(DexMethod method) {
-    DexMethod result = lookupMethod(method);
-    assert result != null;
-    return ImmutableSet.of(result);
-  }
-
   public abstract DexField lookupField(DexField field);
 
   public DexMethod lookupGetFieldForMethod(DexField field, DexMethod context) {
@@ -263,6 +256,14 @@ public abstract class GraphLense {
     return true;
   }
 
+  public <T extends DexReference> boolean assertPinnedNotModified(KeepInfoCollection keepInfo) {
+    List<DexReference> pinnedItems = new ArrayList<>();
+    keepInfo.forEachPinnedType(pinnedItems::add);
+    keepInfo.forEachPinnedMethod(pinnedItems::add);
+    keepInfo.forEachPinnedField(pinnedItems::add);
+    return assertReferencesNotModified(pinnedItems);
+  }
+
   public <T extends DexReference> boolean assertReferencesNotModified(Iterable<T> references) {
     for (DexReference reference : references) {
       if (reference.isDexField()) {
@@ -280,37 +281,40 @@ public abstract class GraphLense {
     return true;
   }
 
-  public ImmutableSet<DexReference> rewriteReferencesConservatively(Set<DexReference> original) {
-    ImmutableSet.Builder<DexReference> builder = ImmutableSet.builder();
-    for (DexReference item : original) {
-      if (item.isDexMethod()) {
-        DexMethod method = item.asDexMethod();
-        builder.addAll(lookupMethodInAllContexts(method));
-      } else {
-        builder.add(lookupReference(item));
-      }
+  public DexReference rewriteReference(DexReference reference) {
+    if (reference.isDexField()) {
+      return getRenamedFieldSignature(reference.asDexField());
     }
-    return builder.build();
+    if (reference.isDexMethod()) {
+      return getRenamedMethodSignature(reference.asDexMethod());
+    }
+    assert reference.isDexType();
+    return lookupType(reference.asDexType());
   }
 
-  public Object2BooleanMap<DexReference> rewriteReferencesConservatively(
-      Object2BooleanMap<DexReference> original) {
-    Object2BooleanMap<DexReference> result = new Object2BooleanArrayMap<>();
-    for (Object2BooleanMap.Entry<DexReference> entry : original.object2BooleanEntrySet()) {
-      DexReference item = entry.getKey();
-      if (item.isDexMethod()) {
-        DexMethod method = item.asDexMethod();
-        for (DexMethod candidate : lookupMethodInAllContexts(method)) {
-          result.put(candidate, entry.getBooleanValue());
-        }
-      } else {
-        result.put(lookupReference(item), entry.getBooleanValue());
-      }
+  public Set<DexReference> rewriteReferences(Set<DexReference> references) {
+    Set<DexReference> result = SetUtils.newIdentityHashSet(references.size());
+    for (DexReference reference : references) {
+      result.add(rewriteReference(reference));
     }
     return result;
   }
 
-  public ImmutableSortedSet<DexMethod> rewriteMethodsWithRenamedSignature(Set<DexMethod> methods) {
+  public <T> ImmutableMap<DexReference, T> rewriteReferenceKeys(Map<DexReference, T> map) {
+    ImmutableMap.Builder<DexReference, T> builder = ImmutableMap.builder();
+    map.forEach((reference, value) -> builder.put(rewriteReference(reference), value));
+    return builder.build();
+  }
+
+  public Object2BooleanMap<DexReference> rewriteReferenceKeys(Object2BooleanMap<DexReference> map) {
+    Object2BooleanMap<DexReference> result = new Object2BooleanArrayMap<>();
+    for (Object2BooleanMap.Entry<DexReference> entry : map.object2BooleanEntrySet()) {
+      result.put(rewriteReference(entry.getKey()), entry.getBooleanValue());
+    }
+    return result;
+  }
+
+  public ImmutableSortedSet<DexMethod> rewriteMethods(Set<DexMethod> methods) {
     ImmutableSortedSet.Builder<DexMethod> builder =
         new ImmutableSortedSet.Builder<>(PresortedComparable::slowCompare);
     for (DexMethod method : methods) {
@@ -319,25 +323,24 @@ public abstract class GraphLense {
     return builder.build();
   }
 
-  public ImmutableSortedSet<DexMethod> rewriteMethodsConservatively(Set<DexMethod> original) {
-    ImmutableSortedSet.Builder<DexMethod> builder =
+  public <T> ImmutableMap<DexField, T> rewriteFieldKeys(Map<DexField, T> map) {
+    ImmutableMap.Builder<DexField, T> builder = ImmutableMap.builder();
+    map.forEach((field, value) -> builder.put(getRenamedFieldSignature(field), value));
+    return builder.build();
+  }
+
+  public ImmutableSet<DexType> rewriteTypes(Set<DexType> types) {
+    ImmutableSortedSet.Builder<DexType> builder =
         new ImmutableSortedSet.Builder<>(PresortedComparable::slowCompare);
-    if (isContextFreeForMethods()) {
-      for (DexMethod item : original) {
-        builder.add(lookupMethod(item));
-      }
-    } else {
-      for (DexMethod item : original) {
-        builder.addAll(lookupMethodInAllContexts(item));
-      }
+    for (DexType type : types) {
+      builder.add(lookupType(type));
     }
     return builder.build();
   }
 
-  public static <T extends DexReference, S> ImmutableMap<T, S> rewriteReferenceKeys(
-      Map<T, S> original, Function<T, T> rewrite) {
-    ImmutableMap.Builder<T, S> builder = ImmutableMap.builder();
-    original.forEach((item, value) -> builder.put(rewrite.apply(item), value));
+  public <T> ImmutableMap<DexType, T> rewriteTypeKeys(Map<DexType, T> map) {
+    ImmutableMap.Builder<DexType, T> builder = ImmutableMap.builder();
+    map.forEach((type, value) -> builder.put(lookupType(type), value));
     return builder.build();
   }
 
@@ -380,49 +383,11 @@ public abstract class GraphLense {
           continue;
         }
         DexMethod originalMethod = getOriginalMethodSignature(method.method);
-        assert originalMethods.contains(originalMethod)
-                || verifyIsBridgeMethod(
-                    originalMethod, originalApplication, originalMethods, dexItemFactory)
-            : "Unable to map method `"
-                + originalMethod.toSourceString()
-                + "` back to original program";
+        assert originalMethods.contains(originalMethod);
       }
     }
 
     return true;
-  }
-
-  // Check if `method` is a bridge method for a method that is in the original application.
-  // This is needed because member rebinding synthesizes bridge methods for visibility.
-  private static boolean verifyIsBridgeMethod(
-      DexMethod method,
-      DexApplication originalApplication,
-      Set<DexMethod> originalMethods,
-      DexItemFactory dexItemFactory) {
-    Deque<DexType> worklist = new ArrayDeque<>();
-    Set<DexType> visited = Sets.newIdentityHashSet();
-    worklist.add(method.holder);
-    while (!worklist.isEmpty()) {
-      DexType holder = worklist.removeFirst();
-      if (!visited.add(holder)) {
-        // Already visited previously.
-        continue;
-      }
-      DexMethod targetMethod = dexItemFactory.createMethod(holder, method.proto, method.name);
-      if (originalMethods.contains(targetMethod)) {
-        return true;
-      }
-      // Stop traversing upwards if we reach the Object.
-      if (holder == dexItemFactory.objectType) {
-        continue;
-      }
-      DexClass clazz = originalApplication.definitionFor(holder);
-      if (clazz != null) {
-        worklist.add(clazz.superType);
-        Collections.addAll(worklist, clazz.interfaces.values);
-      }
-    }
-    return false;
   }
 
   private static class IdentityGraphLense extends GraphLense {
@@ -725,15 +690,6 @@ public abstract class GraphLense {
         return newTargetClass.accessFlags.isInterface() ? Type.INTERFACE : Type.VIRTUAL;
       }
       return type;
-    }
-
-    @Override
-    public Set<DexMethod> lookupMethodInAllContexts(DexMethod method) {
-      Set<DexMethod> result = Sets.newIdentityHashSet();
-      for (DexMethod previous : previousLense.lookupMethodInAllContexts(method)) {
-        result.add(methodMap.getOrDefault(previous, previous));
-      }
-      return result;
     }
 
     @Override

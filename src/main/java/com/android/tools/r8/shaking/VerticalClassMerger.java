@@ -75,14 +75,12 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -273,12 +271,12 @@ public class VerticalClassMerger {
     // For all pinned fields, also pin the type of the field (because changing the type of the field
     // implicitly changes the signature of the field). Similarly, for all pinned methods, also pin
     // the return type and the parameter types of the method.
-    extractPinnedItems(appInfo.pinnedItems, AbortReason.PINNED_SOURCE);
-
-    // TODO(christofferqa): Remove the invariant that the graph lense should not modify any
-    // methods from the sets alwaysInline and noSideEffects (see use of assertNotModified).
-    extractPinnedItems(appInfo.alwaysInline, AbortReason.ALWAYS_INLINE);
-    extractPinnedItems(appInfo.noSideEffects.keySet(), AbortReason.NO_SIDE_EFFECTS);
+    // TODO(b/156715504): Compute referenced-by-pinned in the keep info objects.
+    List<DexReference> pinnedItems = new ArrayList<>();
+    appInfo.getKeepInfo().forEachPinnedType(pinnedItems::add);
+    appInfo.getKeepInfo().forEachPinnedMethod(pinnedItems::add);
+    appInfo.getKeepInfo().forEachPinnedField(pinnedItems::add);
+    extractPinnedItems(pinnedItems, AbortReason.PINNED_SOURCE);
 
     for (DexProgramClass clazz : classes) {
       for (DexEncodedMethod method : clazz.methods()) {
@@ -396,7 +394,8 @@ public class VerticalClassMerger {
     if (result.shouldBreak()) {
       return false;
     }
-    if (sourceClass.getEnclosingMethod() != null || !sourceClass.getInnerClasses().isEmpty()) {
+    if (sourceClass.getEnclosingMethodAttribute() != null
+        || !sourceClass.getInnerClasses().isEmpty()) {
       // TODO(b/147504070): Consider merging of enclosing-method and inner-class attributes.
       if (Log.ENABLED) {
         AbortReason.UNSUPPORTED_ATTRIBUTES.printLogMessageForClass(sourceClass);
@@ -454,7 +453,8 @@ public class VerticalClassMerger {
       }
       return false;
     }
-    if (targetClass.getEnclosingMethod() != null || !targetClass.getInnerClasses().isEmpty()) {
+    if (targetClass.getEnclosingMethodAttribute() != null
+        || !targetClass.getInnerClasses().isEmpty()) {
       // TODO(b/147504070): Consider merging of enclosing-method and inner-class attributes.
       if (Log.ENABLED) {
         AbortReason.UNSUPPORTED_ATTRIBUTES.printLogMessageForClass(sourceClass);
@@ -646,14 +646,6 @@ public class VerticalClassMerger {
   }
 
   private boolean verifyGraphLens(VerticalClassMergerGraphLense graphLense) {
-    assert graphLense.assertDefinitionsNotModified(
-        appInfo.alwaysInline.stream()
-            .map(appInfo::definitionFor)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
-
-    assert graphLense.assertReferencesNotModified(appInfo.noSideEffects.keySet());
-
     // Note that the method assertReferencesNotModified() relies on getRenamedFieldSignature() and
     // getRenamedMethodSignature() instead of lookupField() and lookupMethod(). This is important
     // for this check to succeed, since it is not guaranteed that calling lookupMethod() with a
@@ -680,7 +672,7 @@ public class VerticalClassMerger {
     // that `invoke-super A.method` instructions, which are in one of the methods from C, needs to
     // be rewritten to `invoke-direct C.method$B`. This is valid even though A.method() is actually
     // pinned, because this rewriting does not affect A.method() in any way.
-    assert graphLense.assertReferencesNotModified(appInfo.pinnedItems);
+    assert graphLense.assertPinnedNotModified(appInfo.getKeepInfo());
 
     for (DexProgramClass clazz : appInfo.classes()) {
       for (DexEncodedMethod encodedMethod : clazz.methods()) {
@@ -1783,10 +1775,10 @@ public class VerticalClassMerger {
     private boolean foundIllegalAccess;
     private ProgramMethod context;
 
-    private final AppView<?> appView;
+    private final AppView<AppInfoWithLiveness> appView;
     private final DexClass source;
 
-    public IllegalAccessDetector(AppView<?> appView, DexClass source) {
+    public IllegalAccessDetector(AppView<AppInfoWithLiveness> appView, DexClass source) {
       super(appView.dexItemFactory());
       this.appView = appView;
       this.source = source;
@@ -1808,7 +1800,7 @@ public class VerticalClassMerger {
           checkTypeReference(field.holder);
           checkTypeReference(field.type);
 
-          DexEncodedField definition = appView.definitionFor(field);
+          DexEncodedField definition = appView.appInfo().resolveField(field).getResolvedField();
           if (definition == null || !definition.accessFlags.isPublic()) {
             foundIllegalAccess = true;
           }
@@ -1817,7 +1809,7 @@ public class VerticalClassMerger {
       return true;
     }
 
-    private boolean checkMethodReference(DexMethod method) {
+    private boolean checkMethodReference(DexMethod method, OptionalBool isInterface) {
       if (!foundIllegalAccess) {
         DexType baseType =
             appView.graphLense().lookupType(method.holder.toBaseType(appView.dexItemFactory()));
@@ -1827,8 +1819,12 @@ public class VerticalClassMerger {
           for (DexType type : method.proto.parameters.values) {
             checkTypeReference(type);
           }
-          DexEncodedMethod definition = appView.definitionFor(method);
-          if (definition == null || !definition.accessFlags.isPublic()) {
+          ResolutionResult resolutionResult =
+              isInterface.isUnknown()
+                  ? appView.appInfo().unsafeResolveMethodDueToDexFormat(method)
+                  : appView.appInfo().resolveMethod(method, isInterface.isTrue());
+          if (!resolutionResult.isSingleResolution()
+              || !resolutionResult.asSingleResolution().getResolvedMethod().isPublic()) {
             foundIllegalAccess = true;
           }
         }
@@ -1860,7 +1856,7 @@ public class VerticalClassMerger {
       assert context != null;
       GraphLenseLookupResult lookup =
           appView.graphLense().lookupMethod(method, context.getReference(), Type.VIRTUAL);
-      return checkMethodReference(lookup.getMethod());
+      return checkMethodReference(lookup.getMethod(), OptionalBool.FALSE);
     }
 
     @Override
@@ -1868,7 +1864,7 @@ public class VerticalClassMerger {
       assert context != null;
       GraphLenseLookupResult lookup =
           appView.graphLense().lookupMethod(method, context.getReference(), Type.DIRECT);
-      return checkMethodReference(lookup.getMethod());
+      return checkMethodReference(lookup.getMethod(), OptionalBool.UNKNOWN);
     }
 
     @Override
@@ -1876,7 +1872,7 @@ public class VerticalClassMerger {
       assert context != null;
       GraphLenseLookupResult lookup =
           appView.graphLense().lookupMethod(method, context.getReference(), Type.STATIC);
-      return checkMethodReference(lookup.getMethod());
+      return checkMethodReference(lookup.getMethod(), OptionalBool.UNKNOWN);
     }
 
     @Override
@@ -1884,7 +1880,7 @@ public class VerticalClassMerger {
       assert context != null;
       GraphLenseLookupResult lookup =
           appView.graphLense().lookupMethod(method, context.getReference(), Type.INTERFACE);
-      return checkMethodReference(lookup.getMethod());
+      return checkMethodReference(lookup.getMethod(), OptionalBool.TRUE);
     }
 
     @Override
@@ -1892,7 +1888,7 @@ public class VerticalClassMerger {
       assert context != null;
       GraphLenseLookupResult lookup =
           appView.graphLense().lookupMethod(method, context.getReference(), Type.SUPER);
-      return checkMethodReference(lookup.getMethod());
+      return checkMethodReference(lookup.getMethod(), OptionalBool.UNKNOWN);
     }
 
     @Override

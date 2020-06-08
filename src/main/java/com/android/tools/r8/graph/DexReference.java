@@ -3,7 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
-import java.util.Objects;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -12,6 +13,22 @@ import java.util.stream.Stream;
  * A common interface for {@link DexType}, {@link DexField}, and {@link DexMethod}.
  */
 public abstract class DexReference extends IndexedDexItem {
+
+  public abstract <T> T apply(
+      Function<DexType, T> classConsumer,
+      Function<DexField, T> fieldConsumer,
+      Function<DexMethod, T> methodConsumer);
+
+  public abstract void accept(
+      Consumer<DexType> classConsumer,
+      Consumer<DexField> fieldConsumer,
+      Consumer<DexMethod> methodConsumer);
+
+  public abstract <T> void accept(
+      BiConsumer<DexType, T> classConsumer,
+      BiConsumer<DexField, T> fieldConsumer,
+      BiConsumer<DexMethod, T> methodConsumer,
+      T arg);
 
   public boolean isDexType() {
     return false;
@@ -47,22 +64,6 @@ public abstract class DexReference extends IndexedDexItem {
 
   public static Stream<DexReference> filterDexReference(Stream<DexItem> stream) {
     return DexItem.filter(stream, DexReference.class);
-  }
-
-  public DexDefinition toDefinition(AppInfo appInfo) {
-    if (isDexType()) {
-      return appInfo.definitionFor(asDexType());
-    } else if (isDexField()) {
-      return appInfo.definitionFor(asDexField());
-    } else {
-      assert isDexMethod();
-      return appInfo.definitionFor(asDexMethod());
-    }
-  }
-
-  public static Stream<DexDefinition> mapToDefinition(
-      Stream<DexReference> references, AppInfo appInfo) {
-    return references.map(r -> r.toDefinition(appInfo)).filter(Objects::nonNull);
   }
 
   private static <T extends DexReference> Stream<T> filter(

@@ -705,6 +705,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return builder.toString();
   }
 
+  public void clearParameterAnnotations() {
+    parameterAnnotationsList = ParameterAnnotationsList.empty();
+  }
+
   public String toSmaliString(ClassNameMapper naming) {
     checkIfObsolete();
     StringBuilder builder = new StringBuilder();
@@ -767,17 +771,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         null);
   }
 
-  public DexCode buildEmptyThrowingDexCode() {
-    Instruction insn[] = {new Const(0, 0), new Throw(0)};
-    return generateCodeFromTemplate(1, 0, insn);
-  }
-
   public DexEncodedMethod toEmptyThrowingMethod(InternalOptions options) {
-    // Note that we are not marking this instance obsolete, since this util is only used by
-    // TreePruner while keeping non-live yet targeted, empty method. Such method can be retrieved
-    // again only during the 2nd round of tree sharking, and seeing an obsolete empty body v.s.
-    // seeing this empty throwing code do not matter.
-    // If things are changed, the cure point is obsolete instances inside RootSet.
     return options.isGeneratingClassFiles()
         ? toEmptyThrowingMethodCf()
         : toEmptyThrowingMethodDex(true);
@@ -791,7 +785,28 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     if (setIsLibraryOverride && isNonPrivateVirtualMethod()) {
       builder.setIsLibraryMethodOverride(isLibraryMethodOverride());
     }
-    return builder.build();
+    DexEncodedMethod result = builder.build();
+    setObsolete();
+    return result;
+  }
+
+  private DexEncodedMethod toEmptyThrowingMethodCf() {
+    checkIfObsolete();
+    assert !shouldNotHaveCode();
+    Builder builder = builder(this);
+    builder.setCode(buildEmptyThrowingCfCode());
+    if (isNonPrivateVirtualMethod()) {
+      builder.setIsLibraryMethodOverride(isLibraryMethodOverride());
+    }
+    DexEncodedMethod result = builder.build();
+    setObsolete();
+    return result;
+  }
+
+  public Code buildEmptyThrowingCode(InternalOptions options) {
+    return options.isGeneratingClassFiles()
+        ? buildEmptyThrowingCfCode()
+        : buildEmptyThrowingDexCode();
   }
 
   public CfCode buildEmptyThrowingCfCode() {
@@ -805,17 +820,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         Collections.emptyList());
   }
 
-  private DexEncodedMethod toEmptyThrowingMethodCf() {
-    checkIfObsolete();
-    assert !shouldNotHaveCode();
-    Builder builder = builder(this);
-    builder.setCode(buildEmptyThrowingCfCode());
-    if (isNonPrivateVirtualMethod()) {
-      builder.setIsLibraryMethodOverride(isLibraryMethodOverride());
-    }
-    // Note that we are not marking this instance obsolete:
-    // refer to Dex-backend version of this method above.
-    return builder.build();
+  public DexCode buildEmptyThrowingDexCode() {
+    Instruction insn[] = {new Const(0, 0), new Throw(0)};
+    return generateCodeFromTemplate(1, 0, insn);
   }
 
   public DexEncodedMethod toMethodThatLogsError(AppView<?> appView) {

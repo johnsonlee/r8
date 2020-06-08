@@ -68,7 +68,8 @@ public class IRCodeInstructionListIterator implements InstructionListIterator {
   }
 
   @Override
-  public BasicBlock split(IRCode code, ListIterator<BasicBlock> blockIterator) {
+  public BasicBlock split(
+      IRCode code, ListIterator<BasicBlock> blockIterator, boolean keepCatchHandlers) {
     throw new Unimplemented();
   }
 
@@ -158,5 +159,20 @@ public class IRCodeInstructionListIterator implements InstructionListIterator {
   @Override
   public void removeOrReplaceByDebugLocalRead() {
     instructionIterator.removeOrReplaceByDebugLocalRead();
+  }
+
+  @Override
+  public boolean hasInsertionPosition() {
+    return instructionIterator.hasInsertionPosition();
+  }
+
+  @Override
+  public void setInsertionPosition(Position position) {
+    instructionIterator.setInsertionPosition(position);
+  }
+
+  @Override
+  public void unsetInsertionPosition() {
+    instructionIterator.unsetInsertionPosition();
   }
 }

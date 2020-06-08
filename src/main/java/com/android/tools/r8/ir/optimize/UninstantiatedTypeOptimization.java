@@ -7,7 +7,6 @@ package com.android.tools.r8.ir.optimize;
 import static com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization.Strategy.ALLOW_ARGUMENT_REMOVAL;
 import static com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization.Strategy.DISALLOW_ARGUMENT_REMOVAL;
 
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -15,22 +14,17 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.FieldAccessInfo;
+import com.android.tools.r8.graph.FieldAccessInfoCollection;
 import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
-import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
-import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
-import com.android.tools.r8.ir.code.BasicBlock;
-import com.android.tools.r8.ir.code.FieldInstruction;
-import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.Instruction.SideEffectAssumption;
-import com.android.tools.r8.ir.code.InstructionListIterator;
-import com.android.tools.r8.ir.code.InvokeMethod;
-import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.optimize.MemberPoolCollection.MemberPool;
+import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
+import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.Timing;
@@ -40,11 +34,9 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -102,6 +94,33 @@ public class UninstantiatedTypeOptimization {
 
   public UninstantiatedTypeOptimization(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
+  }
+
+  public UninstantiatedTypeOptimization strenghtenOptimizationInfo() {
+    OptimizationFeedback feedback = OptimizationFeedbackSimple.getInstance();
+    FieldAccessInfoCollection<?> fieldAccessInfoCollection =
+        appView.appInfo().getFieldAccessInfoCollection();
+    AbstractValue nullValue = appView.abstractValueFactory().createSingleNumberValue(0);
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      clazz.forEachField(
+          field -> {
+            if (field.type().isAlwaysNull(appView)) {
+              FieldAccessInfo fieldAccessInfo = fieldAccessInfoCollection.get(field.field);
+              if (fieldAccessInfo != null) {
+                // Clear all writes since each write must write `null` to the field.
+                fieldAccessInfo.asMutable().clearWrites();
+              }
+              feedback.recordFieldHasAbstractValue(field, appView, nullValue);
+            }
+          });
+      clazz.forEachMethod(
+          method -> {
+            if (method.returnType().isAlwaysNull(appView)) {
+              feedback.methodReturnsAbstractValue(method, appView, nullValue);
+            }
+          });
+    }
+    return this;
   }
 
   public UninstantiatedTypeOptimizationGraphLense run(
@@ -323,125 +342,5 @@ public class UninstantiatedTypeOptimization {
     DexProto newProto = prototypeChanges.rewriteProto(encodedMethod, dexItemFactory);
 
     return dexItemFactory.createMethod(method.holder, newProto, method.name);
-  }
-
-  public void rewrite(IRCode code) {
-    AssumeDynamicTypeRemover assumeDynamicTypeRemover = new AssumeDynamicTypeRemover(appView, code);
-    Set<BasicBlock> blocksToBeRemoved = Sets.newIdentityHashSet();
-    ListIterator<BasicBlock> blockIterator = code.listIterator();
-    Set<Value> valuesToNarrow = Sets.newIdentityHashSet();
-    while (blockIterator.hasNext()) {
-      BasicBlock block = blockIterator.next();
-      if (blocksToBeRemoved.contains(block)) {
-        continue;
-      }
-      InstructionListIterator instructionIterator = block.listIterator(code);
-      while (instructionIterator.hasNext()) {
-        Instruction instruction = instructionIterator.next();
-        if (instruction.throwsOnNullInput()) {
-          Value couldBeNullValue = instruction.getNonNullInput();
-          if (isThrowNullCandidate(couldBeNullValue, instruction, appView, code.context())) {
-            instructionIterator.replaceCurrentInstructionWithThrowNull(
-                appView, code, blockIterator, blocksToBeRemoved, valuesToNarrow);
-            continue;
-          }
-        }
-        if (instruction.isInvokeMethod()) {
-          rewriteInvoke(
-              instruction.asInvokeMethod(),
-              blockIterator,
-              instructionIterator,
-              code,
-              assumeDynamicTypeRemover,
-              blocksToBeRemoved,
-              valuesToNarrow);
-        }
-      }
-    }
-    assumeDynamicTypeRemover.removeMarkedInstructions(blocksToBeRemoved).finish();
-    code.removeBlocks(blocksToBeRemoved);
-    code.removeAllDeadAndTrivialPhis(valuesToNarrow);
-    code.removeUnreachableBlocks();
-    if (!valuesToNarrow.isEmpty()) {
-      new TypeAnalysis(appView).narrowing(valuesToNarrow);
-    }
-    assert code.isConsistentSSA();
-  }
-
-  private static boolean isThrowNullCandidate(
-      Value couldBeNullValue,
-      Instruction current,
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      ProgramMethod context) {
-    if (!couldBeNullValue.isAlwaysNull(appView)) {
-      return false;
-    }
-    if (current.isFieldInstruction()) {
-      // Other resolution-related errors come first.
-      FieldInstruction fieldInstruction = current.asFieldInstruction();
-      // We can't replace the current instruction with `throw null` if it may throw another
-      // exception than NullPointerException.
-      if (fieldInstruction.instructionInstanceCanThrow(
-          appView, context, SideEffectAssumption.RECEIVER_NOT_NULL)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  // invoke instructions with a null receiver has already been rewritten to `throw null`.
-  // At this point, we attempt to explore non-null-param-or-throw optimization info and replace
-  // the invocation with `throw null` if an argument is known to be null and the method is going to
-  // throw for that null argument.
-  private void rewriteInvoke(
-      InvokeMethod invoke,
-      ListIterator<BasicBlock> blockIterator,
-      InstructionListIterator instructionIterator,
-      IRCode code,
-      AssumeDynamicTypeRemover assumeDynamicTypeRemover,
-      Set<BasicBlock> blocksToBeRemoved,
-      Set<Value> affectedValues) {
-    DexEncodedMethod target = invoke.lookupSingleTarget(appView, code.context());
-    if (target == null) {
-      return;
-    }
-
-    BitSet facts = target.getOptimizationInfo().getNonNullParamOrThrow();
-    if (facts != null) {
-      for (int i = 0; i < invoke.arguments().size(); i++) {
-        Value argument = invoke.arguments().get(i);
-        if (argument.isAlwaysNull(appView) && facts.get(i)) {
-          instructionIterator.replaceCurrentInstructionWithThrowNull(
-              appView, code, blockIterator, blocksToBeRemoved, affectedValues);
-          return;
-        }
-      }
-    }
-
-    DexType returnType = target.method.proto.returnType;
-    if (returnType.isAlwaysNull(appView)) {
-      replaceOutValueByNull(
-          invoke, instructionIterator, code, assumeDynamicTypeRemover, affectedValues);
-    }
-  }
-
-  private void replaceOutValueByNull(
-      Instruction instruction,
-      InstructionListIterator instructionIterator,
-      IRCode code,
-      AssumeDynamicTypeRemover assumeDynamicTypeRemover,
-      Set<Value> affectedValues) {
-    assert instructionIterator.peekPrevious() == instruction;
-    if (instruction.hasOutValue()) {
-      Value outValue = instruction.outValue();
-      if (outValue.numberOfAllUsers() > 0) {
-        assumeDynamicTypeRemover.markUsersForRemoval(outValue);
-        instructionIterator.previous();
-        affectedValues.addAll(outValue.affectedValues());
-        outValue.replaceUsers(
-            instructionIterator.insertConstNullInstruction(code, appView.options()));
-        instructionIterator.next();
-      }
-    }
   }
 }
