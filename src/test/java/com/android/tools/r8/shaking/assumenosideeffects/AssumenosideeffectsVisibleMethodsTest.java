@@ -41,27 +41,32 @@ public class AssumenosideeffectsVisibleMethodsTest extends TestBase {
         case RULE_THAT_REFERS_LIB_BASE:
           return StringUtils.lines(
               "-assumenosideeffects class " + LibraryBase.class.getTypeName() + " {",
-              "  *;",
+              "  throwing(...);",
+              "  debug(...);",
               "}");
         case RULE_THAT_REFERS_PRG_BASE:
           return StringUtils.lines(
               "-assumenosideeffects class " + ProgramBase.class.getTypeName() + " {",
-              "  *;",
+              "  throwing(...);",
+              "  debug(...);",
               "}");
         case RULE_THAT_REFERS_PRG_SUB:
           return StringUtils.lines(
               "-assumenosideeffects class " + ProgramSub.class.getTypeName() + " {",
-              "  *;",
+              "  throwing(...);",
+              "  debug(...);",
               "}");
         case RULE_WITH_EXTENDS_LIB_BASE:
           return StringUtils.lines(
               "-assumenosideeffects class * extends " + LibraryBase.class.getTypeName() + " {",
-              "  *;",
+              "  throwing(...);",
+              "  debug(...);",
               "}");
         case RULE_WITH_EXTENDS_PRG_BASE:
           return StringUtils.lines(
               "-assumenosideeffects class * extends " + ProgramBase.class.getTypeName() + " {",
-              "  *;",
+              "  throwing(...);",
+              "  debug(...);",
               "}");
       }
       throw new Unreachable();
@@ -112,7 +117,9 @@ public class AssumenosideeffectsVisibleMethodsTest extends TestBase {
 
   @Parameterized.Parameters(name = "{0} {1}")
   public static Collection<Object[]> data() {
-    return buildParameters(getTestParameters().withAllRuntimes().build(), TestConfig.values());
+    return buildParameters(
+        getTestParameters().withAllRuntimesAndApiLevels().withAllApiLevels().build(),
+        TestConfig.values());
   }
 
   private final TestParameters parameters;
@@ -153,7 +160,7 @@ public class AssumenosideeffectsVisibleMethodsTest extends TestBase {
         .enableMergeAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableInliningAnnotations()
-        .setMinApi(parameters.getRuntime())
+        .setMinApi(parameters.getApiLevel())
         .compile()
         .addRunClasspathFiles(parameters.isDexRuntime() ? libDexPath : libJarPath)
         .run(parameters.getRuntime(), MAIN)
