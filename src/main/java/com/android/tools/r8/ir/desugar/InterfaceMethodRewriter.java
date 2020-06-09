@@ -255,16 +255,14 @@ public final class InterfaceMethodRewriter {
             // exception but we can not report it as error since it can also be the intended
             // behavior.
             warnMissingType(encodedMethod.method, invokedMethod.holder);
-          } else if (clazz.isInterface() && !clazz.isLibraryClass()) {
-            // NOTE: we intentionally don't desugar super calls into interface methods
-            // coming from android.jar since it is only possible in case v24+ version
-            // of android.jar is provided.
-            //
-            // We assume such calls are properly guarded by if-checks like
-            //    'if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.XYZ) { ... }'
-            //
-            // WARNING: This may result in incorrect code on older platforms!
-            // Retarget call to an appropriate method of companion class.
+            continue;
+          }
+          if (!clazz.isInterface()) {
+            // Skip non-interface invokes.
+            continue;
+          }
+          if (!clazz.isLibraryClass()) {
+            // For program and classpath retarget call to an appropriate method of companion class.
             DexMethod amendedMethod =
                 amendDefaultMethod(
                     appInfo.definitionFor(encodedMethod.method.holder), invokedMethod);
@@ -272,44 +270,32 @@ public final class InterfaceMethodRewriter {
                 new InvokeStatic(defaultAsMethodOfCompanionClass(amendedMethod),
                     invokeSuper.outValue(), invokeSuper.arguments()));
           } else {
-            DexType dexType = maximallySpecificEmulatedInterfaceOrNull(invokedMethod);
-            if (dexType != null) {
-              // That invoke super may not resolve since the super method may not be present
-              // since it's in the emulated interface. We need to force resolution. If it resolves
-              // to a library method, then it needs to be rewritten.
-              // If it resolves to a program overrides, the invoke-super can remain.
-              DexEncodedMethod dexEncodedMethod =
-                  appView
-                      .appInfo()
-                      .lookupSuperTarget(invokeSuper.getInvokedMethod(), code.method.method.holder);
-              if (dexEncodedMethod != null) {
-                DexClass dexClass = appView.definitionFor(dexEncodedMethod.method.holder);
-                if (dexClass != null && dexClass.isLibraryClass()) {
-                  // Rewriting is required because the super invoke resolves into a missing
-                  // method (method is on desugared library). Find out if it needs to be
-                  // retarget or if it just calls a companion class method and rewrite.
-                  DexMethod retargetMethod =
-                      options.desugaredLibraryConfiguration.retargetMethod(
-                          dexEncodedMethod.method, appView);
-                  if (retargetMethod == null) {
-                    DexMethod originalCompanionMethod =
-                        instanceAsMethodOfCompanionClass(
-                            dexEncodedMethod.method, DEFAULT_METHOD_PREFIX, factory);
-                    DexMethod companionMethod =
-                        factory.createMethod(
-                            getCompanionClassType(dexType),
-                            factory.protoWithDifferentFirstParameter(
-                                originalCompanionMethod.proto, dexType),
-                            originalCompanionMethod.name);
-                    instructions.replaceCurrentInstruction(
-                        new InvokeStatic(
-                            companionMethod, invokeSuper.outValue(), invokeSuper.arguments()));
-                  } else {
-                    instructions.replaceCurrentInstruction(
-                        new InvokeStatic(
-                            retargetMethod, invokeSuper.outValue(), invokeSuper.arguments()));
-                  }
-                }
+            // Rewriting is required if the super invoke resolves to a default method on the
+            // desugared library. Retarget or rewrite to the desugared library companion class.
+            DexEncodedMethod dexEncodedMethod =
+                targetForInvokeSuperDispatchToDefaultMethod(
+                    invokedMethod, clazz.asLibraryClass(), code.method.method.holder);
+            if (dexEncodedMethod != null) {
+              DexMethod retargetMethod =
+                  options.desugaredLibraryConfiguration.retargetMethod(
+                      dexEncodedMethod.method, appView);
+              if (retargetMethod == null) {
+                DexMethod originalCompanionMethod =
+                    instanceAsMethodOfCompanionClass(
+                        dexEncodedMethod.method, DEFAULT_METHOD_PREFIX, factory);
+                DexMethod companionMethod =
+                    factory.createMethod(
+                        getCompanionClassType(clazz.type),
+                        factory.protoWithDifferentFirstParameter(
+                            originalCompanionMethod.proto, clazz.type),
+                        originalCompanionMethod.name);
+                instructions.replaceCurrentInstruction(
+                    new InvokeStatic(
+                        companionMethod, invokeSuper.outValue(), invokeSuper.arguments()));
+              } else {
+                instructions.replaceCurrentInstruction(
+                    new InvokeStatic(
+                        retargetMethod, invokeSuper.outValue(), invokeSuper.arguments()));
               }
             }
           }
@@ -382,6 +368,27 @@ public final class InterfaceMethodRewriter {
         }
       }
     }
+  }
+
+  private DexEncodedMethod targetForInvokeSuperDispatchToDefaultMethod(
+      DexMethod invokedSuperMethod, DexLibraryClass holder, DexType context) {
+    assert invokedSuperMethod.holder == holder.type;
+    assert holder.isInterface();
+    DexEncodedMethod definition = holder.lookupMethod(invokedSuperMethod);
+    if (definition == null || !definition.isDefaultMethod()) {
+      return null;
+    }
+    // Only default methods on emulated interfaces or rewritten types need to be dealt with.
+    if (!emulatedMethods.contains(invokedSuperMethod.name)
+        && !appView.rewritePrefix.hasRewrittenType(holder.type)) {
+      return null;
+    }
+    DexEncodedMethod target = appView.appInfo().lookupSuperTarget(invokedSuperMethod, context);
+    DexClass targetHolder = appView.definitionFor(target.method.holder);
+    if (targetHolder == null || !targetHolder.isLibraryClass()) {
+      return null;
+    }
+    return target;
   }
 
   private DexType maximallySpecificEmulatedInterfaceOrNull(DexMethod invokedMethod) {
