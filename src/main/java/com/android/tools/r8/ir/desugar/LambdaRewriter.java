@@ -181,13 +181,13 @@ public class LambdaRewriter {
       OptimizationFeedbackDelayed feedback,
       LensCodeRewriter lensCodeRewriter)
       throws ExecutionException {
-    Set<DexEncodedMethod> accessibilityBridges = Sets.newIdentityHashSet();
+    Set<DexEncodedMethod> nonDexAccessibilityBridges = Sets.newIdentityHashSet();
     for (LambdaClass lambdaClass : lambdaClasses) {
       // This call may cause originalMethodSignatures to be updated.
       DexEncodedMethod accessibilityBridge =
           lambdaClass.target.ensureAccessibilityIfNeeded(feedback);
-      if (accessibilityBridge != null) {
-        accessibilityBridges.add(accessibilityBridge);
+      if (accessibilityBridge != null && !accessibilityBridge.getCode().isDexCode()) {
+        nonDexAccessibilityBridges.add(accessibilityBridge);
       }
     }
     if (appView.enableWholeProgramOptimizations()) {
@@ -199,10 +199,10 @@ public class LambdaRewriter {
       // Ensure that all lambda classes referenced from accessibility bridges are synthesized
       // prior to the IR processing of these accessibility bridges.
       synthesizeLambdaClassesForWave(
-          accessibilityBridges, converter, executorService, feedback, lensCodeRewriter);
+          nonDexAccessibilityBridges, converter, executorService, feedback, lensCodeRewriter);
     }
-    if (!accessibilityBridges.isEmpty()) {
-      converter.processMethodsConcurrently(accessibilityBridges, executorService);
+    if (!nonDexAccessibilityBridges.isEmpty()) {
+      converter.processMethodsConcurrently(nonDexAccessibilityBridges, executorService);
     }
   }
 
