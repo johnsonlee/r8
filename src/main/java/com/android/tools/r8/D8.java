@@ -20,7 +20,9 @@ import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.PrefixRewritingMapper;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
+import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.PrefixRewritingNamingLens;
+import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
 import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.CfgPrinter;
@@ -172,8 +174,8 @@ public final class D8 {
         }
       }
 
-      IRConverter converter =
-          new IRConverter(AppView.createForD8(appInfo, options, rewritePrefix), timing, printer);
+      AppView<AppInfo> appView = AppView.createForD8(appInfo, options, rewritePrefix);
+      IRConverter converter = new IRConverter(appView, timing, printer);
       app = converter.convert(app, executor);
 
       if (options.printCfg) {
@@ -212,13 +214,18 @@ public final class D8 {
         markers.add(marker);
       }
 
+      NamingLens namingLens =
+          PrefixRewritingNamingLens.createPrefixRewritingNamingLens(options, rewritePrefix);
+
+      new GenericSignatureRewriter(appView, namingLens).run(appView.appInfo().classes());
+
       new ApplicationWriter(
               app,
               null,
               options,
               marker == null ? null : ImmutableList.copyOf(markers),
               GraphLense.getIdentityLense(),
-              PrefixRewritingNamingLens.createPrefixRewritingNamingLens(options, rewritePrefix),
+              namingLens,
               null)
           .write(executor);
       options.printWarnings();

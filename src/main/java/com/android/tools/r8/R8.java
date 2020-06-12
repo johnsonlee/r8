@@ -719,11 +719,6 @@ public class R8 {
             new Minifier(appView.withLiveness(), desugaredCallSites).run(executorService, timing);
         timing.end();
       } else {
-        // Rewrite signature annotations for applications that are not minified.
-        if (appView.appInfo().hasLiveness()) {
-          // TODO(b/124726014): Rewrite signature annotations in lens rewriting instead of here?
-          new GenericSignatureRewriter(appView.withLiveness()).run(appView.appInfo().classes());
-        }
         namingLens = NamingLens.getIdentityLens();
       }
 
@@ -784,14 +779,20 @@ public class R8 {
         options.syntheticProguardRulesConsumer.accept(synthesizedProguardRules);
       }
 
+      NamingLens prefixRewritingNamingLens =
+          PrefixRewritingNamingLens.createPrefixRewritingNamingLens(
+              options, appView.rewritePrefix, namingLens);
+
+      new GenericSignatureRewriter(appView, prefixRewritingNamingLens)
+          .run(appView.appInfo().classes());
+
       // Generate the resulting application resources.
       writeApplication(
           executorService,
           application,
           appView,
           appView.graphLense(),
-          PrefixRewritingNamingLens.createPrefixRewritingNamingLens(
-              options, appView.rewritePrefix, namingLens),
+          prefixRewritingNamingLens,
           options,
           proguardMapSupplier);
 
