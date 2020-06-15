@@ -307,7 +307,23 @@ public final class InterfaceMethodRewriter {
                     invokeSuper.outValue(), invokeSuper.arguments()));
           } else {
             DexType dexType = maximallySpecificEmulatedInterfaceOrNull(invokedMethod);
-            if (dexType != null) {
+            if (dexType == null) {
+              if (clazz.isInterface()
+                  && appView.rewritePrefix.hasRewrittenType(clazz.type, appView)) {
+                DexEncodedMethod target =
+                    appView.appInfoForDesugaring().lookupSuperTarget(invokedMethod, code.context());
+                if (target != null && target.isDefaultMethod()) {
+                  DexClass holder = appView.definitionFor(target.holder());
+                  if (holder.isLibraryClass() && holder.isInterface()) {
+                    instructions.replaceCurrentInstruction(
+                        new InvokeStatic(
+                            defaultAsMethodOfCompanionClass(target.method, factory),
+                            invokeSuper.outValue(),
+                            invokeSuper.arguments()));
+                  }
+                }
+              }
+            } else {
               // That invoke super may not resolve since the super method may not be present
               // since it's in the emulated interface. We need to force resolution. If it resolves
               // to a library method, then it needs to be rewritten.
@@ -324,7 +340,7 @@ public final class InterfaceMethodRewriter {
                   // retarget or if it just calls a companion class method and rewrite.
                   DexMethod retargetMethod =
                       options.desugaredLibraryConfiguration.retargetMethod(
-                          dexEncodedMethod.method, appView);
+                          dexEncodedMethod, appView);
                   if (retargetMethod == null) {
                     DexMethod originalCompanionMethod =
                         instanceAsMethodOfCompanionClass(
@@ -357,7 +373,7 @@ public final class InterfaceMethodRewriter {
             continue;
           }
 
-          DexClass clazz = appInfo.definitionFor(method.holder);
+          DexClass clazz = appInfo.definitionForHolder(method);
           if (clazz == null) {
             // Report missing class since we don't know if it is an interface.
             warnMissingType(encodedMethod.method, method.holder);
@@ -367,7 +383,7 @@ public final class InterfaceMethodRewriter {
                   "defined in library class " + clazz.toSourceString(),
                   getMethodOrigin(encodedMethod.method));
             }
-            DexEncodedMethod directTarget = appView.definitionFor(method);
+            DexEncodedMethod directTarget = clazz.lookupMethod(method);
             if (directTarget != null) {
               // This can be a private instance method call. Note that the referenced
               // method is expected to be in the current class since it is private, but desugaring

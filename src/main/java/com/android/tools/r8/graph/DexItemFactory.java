@@ -764,6 +764,8 @@ public class DexItemFactory {
 
     public final DexMethod booleanValue =
         createMethod(boxedBooleanType, createProto(booleanType), "booleanValue");
+    public final DexMethod parseBoolean =
+        createMethod(boxedBooleanType, createProto(booleanType, stringType), "parseBoolean");
     public final DexMethod valueOf =
         createMethod(boxedBooleanType, createProto(boxedBooleanType, booleanType), "valueOf");
 
@@ -1885,6 +1887,10 @@ public class DexItemFactory {
     DexType[] parameterTypes = proto.parameters.values.clone();
     parameterTypes[0] = firstParameter;
     return createProto(proto.returnType, parameterTypes);
+  }
+
+  public DexProto prependHolderToProto(DexMethod method) {
+    return prependTypeToProto(method.holder, method.proto);
   }
 
   public DexProto prependTypeToProto(DexType extraFirstType, DexProto initialProto) {

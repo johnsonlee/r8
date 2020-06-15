@@ -5,6 +5,7 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
+import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
@@ -763,7 +764,7 @@ public class RootSetBuilder {
   }
 
   static AnnotationMatchResult satisfyAnnotation(ProguardConfigurationRule rule, DexClass clazz) {
-    return containsAnnotation(rule.getClassAnnotation(), clazz);
+    return containsAllAnnotations(rule.getClassAnnotations(), clazz);
   }
 
   boolean satisfyInheritanceRule(DexClass clazz, ProguardConfigurationRule rule) {
@@ -795,7 +796,7 @@ public class RootSetBuilder {
       // annotations of `class`.
       if (rule.getInheritanceClassName().matches(clazz.type, appView)) {
         AnnotationMatchResult annotationMatchResult =
-            containsAnnotation(rule.getInheritanceAnnotation(), clazz);
+            containsAllAnnotations(rule.getInheritanceAnnotations(), clazz);
         if (annotationMatchResult != null) {
           handleMatchedAnnotation(annotationMatchResult);
           return true;
@@ -832,7 +833,7 @@ public class RootSetBuilder {
       // annotations of `ifaceClass`.
       if (rule.getInheritanceClassName().matches(iface, appView)) {
         AnnotationMatchResult annotationMatchResult =
-            containsAnnotation(rule.getInheritanceAnnotation(), ifaceClass);
+            containsAllAnnotations(rule.getInheritanceAnnotations(), ifaceClass);
         if (annotationMatchResult != null) {
           handleMatchedAnnotation(annotationMatchResult);
           return true;
@@ -908,17 +909,18 @@ public class RootSetBuilder {
     return false;
   }
 
-  static AnnotationMatchResult containsAnnotation(
-      ProguardTypeMatcher classAnnotation, DexClass clazz) {
-    return containsAnnotation(classAnnotation, clazz.annotations());
+  static AnnotationMatchResult containsAllAnnotations(
+      List<ProguardTypeMatcher> annotationMatchers, DexClass clazz) {
+    return containsAllAnnotations(annotationMatchers, clazz.annotations());
   }
 
-  static <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>> boolean containsAnnotation(
-      ProguardTypeMatcher classAnnotation,
-      DexEncodedMember<D, R> member,
-      Consumer<AnnotationMatchResult> matchedAnnotationsConsumer) {
+  static <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>>
+      boolean containsAllAnnotations(
+          List<ProguardTypeMatcher> annotationMatchers,
+          DexEncodedMember<D, R> member,
+          Consumer<AnnotationMatchResult> matchedAnnotationsConsumer) {
     AnnotationMatchResult annotationMatchResult =
-        containsAnnotation(classAnnotation, member.annotations());
+        containsAllAnnotations(annotationMatchers, member.annotations());
     if (annotationMatchResult != null) {
       matchedAnnotationsConsumer.accept(annotationMatchResult);
       return true;
@@ -927,7 +929,7 @@ public class RootSetBuilder {
       DexEncodedMethod method = member.asDexEncodedMethod();
       for (int i = 0; i < method.parameterAnnotationsList.size(); i++) {
         annotationMatchResult =
-            containsAnnotation(classAnnotation, method.parameterAnnotationsList.get(i));
+            containsAllAnnotations(annotationMatchers, method.parameterAnnotationsList.get(i));
         if (annotationMatchResult != null) {
           matchedAnnotationsConsumer.accept(annotationMatchResult);
           return true;
@@ -937,14 +939,28 @@ public class RootSetBuilder {
     return false;
   }
 
-  private static AnnotationMatchResult containsAnnotation(
-      ProguardTypeMatcher classAnnotation, DexAnnotationSet annotations) {
-    if (classAnnotation == null) {
+  private static AnnotationMatchResult containsAllAnnotations(
+      List<ProguardTypeMatcher> annotationMatchers, DexAnnotationSet annotations) {
+    if (annotationMatchers.isEmpty()) {
       return AnnotationsIgnoredMatchResult.getInstance();
     }
+    List<DexAnnotation> matchedAnnotations = new ArrayList<>();
+    for (ProguardTypeMatcher annotationMatcher : annotationMatchers) {
+      DexAnnotation matchedAnnotation =
+          getFirstAnnotationThatMatches(annotationMatcher, annotations);
+      if (matchedAnnotation == null) {
+        return null;
+      }
+      matchedAnnotations.add(matchedAnnotation);
+    }
+    return new ConcreteAnnotationMatchResult(matchedAnnotations);
+  }
+
+  private static DexAnnotation getFirstAnnotationThatMatches(
+      ProguardTypeMatcher annotationMatcher, DexAnnotationSet annotations) {
     for (DexAnnotation annotation : annotations.annotations) {
-      if (classAnnotation.matches(annotation.annotation.type)) {
-        return new ConcreteAnnotationMatchResult(annotation);
+      if (annotationMatcher.matches(annotation.getAnnotationType())) {
+        return annotation;
       }
     }
     return null;
@@ -1656,38 +1672,50 @@ public class RootSetBuilder {
         options.getProguardConfiguration() != null
             ? options.getProguardConfiguration().getDontWarnPatterns()
             : ProguardClassFilter.empty();
-    if (dontWarnPatterns.matches(options.itemFactory.objectType)) {
-      return;
-    }
 
     assumeNoSideEffectsWarnings.forEach(
         (originWithPosition, methods) -> {
           boolean waitOrNotifyMethods = methods.stream().anyMatch(this::isWaitOrNotifyMethod);
+          boolean dontWarnObject = dontWarnPatterns.matches(options.itemFactory.objectType);
           StringBuilder message = new StringBuilder();
           message.append(
               "The -assumenosideeffects rule matches methods on `java.lang.Object` with wildcards");
-          if (waitOrNotifyMethods) {
-            message.append(" including the method(s) ");
-            for (int i = 0; i < methods.size(); i++) {
-              if (i > 0) {
-                message.append(i < methods.size() - 1 ? ", " : " and ");
-              }
-              message.append("`");
-              message.append(methods.get(i).toSourceStringWithoutHolder());
-              message.append("`");
+          message.append(" including the method(s) ");
+          for (int i = 0; i < methods.size(); i++) {
+            if (i > 0) {
+              message.append(i < methods.size() - 1 ? ", " : " and ");
             }
-            message.append(". ");
-            message.append("This will most likely cause problems. ");
-          } else {
-            message.append(". ");
-            message.append("This is most likely not intended. ");
+            message.append("`");
+            message.append(methods.get(i).toSourceStringWithoutHolder());
+            message.append("`.");
           }
-          message.append("Consider specifying the methods more precisely.");
-          options.reporter.warning(
+          if (waitOrNotifyMethods) {
+            message.append(" This will most likely cause problems.");
+          } else {
+            message.append(" This is most likely not intended.");
+          }
+          if (waitOrNotifyMethods && !dontWarnObject) {
+            message.append(" Specify the methods more precisely.");
+          } else {
+            message.append(" Consider specifying the methods more precisely.");
+          }
+          Diagnostic diagnostic =
               new StringDiagnostic(
                   message.toString(),
                   originWithPosition.getOrigin(),
-                  originWithPosition.getPosition()));
+                  originWithPosition.getPosition());
+          if (waitOrNotifyMethods) {
+            if (!dontWarnObject) {
+              options.reporter.error(diagnostic);
+            } else {
+              options.reporter.warning(diagnostic);
+            }
+
+          } else {
+            if (!dontWarnObject) {
+              options.reporter.warning(diagnostic);
+            }
+          }
         });
   }
 

@@ -70,6 +70,11 @@ public abstract class ResolutionResult {
   public abstract OptionalBool isAccessibleForVirtualDispatchFrom(
       DexProgramClass context, AppInfoWithClassHierarchy appInfo);
 
+  public final OptionalBool isAccessibleForVirtualDispatchFrom(
+      ProgramMethod context, AppInfoWithClassHierarchy appInfo) {
+    return isAccessibleForVirtualDispatchFrom(context.getHolder(), appInfo);
+  }
+
   public abstract boolean isVirtualTarget();
 
   /** Lookup the single target of an invoke-special on this resolution result if possible. */
@@ -367,8 +372,7 @@ public abstract class ResolutionResult {
         // This is assuming that the method is accessible, which implies self/nest access.
         // Only include if the target has code or is native.
         boolean isIncomplete =
-            pinnedPredicate.isPinned(resolvedHolder.type)
-                && pinnedPredicate.isPinned(resolvedMethod.method);
+            pinnedPredicate.isPinned(resolvedHolder) && pinnedPredicate.isPinned(resolvedMethod);
         return LookupResult.createResult(
             Collections.singletonMap(
                 resolvedMethod, DexClassAndMethod.create(resolvedHolder, resolvedMethod)),
@@ -536,18 +540,17 @@ public abstract class ResolutionResult {
         LambdaDescriptor lambdaInstance, AppInfoWithClassHierarchy appInfo) {
       if (lambdaInstance.getMainMethod().match(resolvedMethod)) {
         DexMethod method = lambdaInstance.implHandle.asMethod();
-        DexClass holder = appInfo.definitionFor(method.holder);
+        DexClass holder = appInfo.definitionForHolder(method);
         if (holder == null) {
           assert false;
           return null;
         }
-        DexEncodedMethod encodedMethod = appInfo.definitionFor(method);
-        if (encodedMethod == null) {
+        DexEncodedMethod definition = holder.lookupMethod(method);
+        if (definition == null) {
           // The targeted method might not exist, eg, Throwable.addSuppressed in an old library.
           return null;
         }
-        return new LookupLambdaTarget(
-            lambdaInstance, DexClassAndMethod.create(holder, encodedMethod));
+        return new LookupLambdaTarget(lambdaInstance, DexClassAndMethod.create(holder, definition));
       }
       return lookupMaximallySpecificDispatchTarget(lambdaInstance, appInfo);
     }

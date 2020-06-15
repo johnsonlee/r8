@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.StringUtils;
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -20,9 +21,13 @@ import java.util.stream.Collectors;
 import kotlinx.metadata.InconsistentKotlinMetadataException;
 import kotlinx.metadata.KmAnnotation;
 import kotlinx.metadata.KmAnnotationArgument;
+import kotlinx.metadata.KmAnnotationArgument.ArrayValue;
 import kotlinx.metadata.KmClass;
 import kotlinx.metadata.KmConstructor;
+import kotlinx.metadata.KmContract;
 import kotlinx.metadata.KmDeclarationContainer;
+import kotlinx.metadata.KmEffect;
+import kotlinx.metadata.KmEffectExpression;
 import kotlinx.metadata.KmFlexibleTypeUpperBound;
 import kotlinx.metadata.KmFunction;
 import kotlinx.metadata.KmLambda;
@@ -174,7 +179,7 @@ public class KotlinMetadataWriter {
       String indent,
       String typeDescription,
       StringBuilder sb,
-      List<T> items,
+      Collection<T> items,
       BiConsumer<String, T> appendItem) {
     if (items.isEmpty()) {
       sb.append(typeDescription).append("[]");
@@ -424,6 +429,18 @@ public class KotlinMetadataWriter {
               sb,
               nextIndent -> appendValueParameters(nextIndent, sb, function.getValueParameters()));
           appendKmVersionRequirement(newIndent, sb, function.getVersionRequirements());
+          KmContract contract = function.getContract();
+          if (contract == null) {
+            appendKeyValue(newIndent, "contract", sb, "null");
+          } else {
+            appendKeyValue(
+                newIndent,
+                "contract",
+                sb,
+                nextIndent -> {
+                  appendKmContract(nextIndent, sb, contract);
+                });
+          }
           JvmMethodSignature signature = JvmExtensionsKt.getSignature(function);
           appendKeyValue(
               newIndent, "signature", sb, signature != null ? signature.asString() : "null");
@@ -753,11 +770,45 @@ public class KotlinMetadataWriter {
               sb,
               nextIndent -> {
                 Map<String, KmAnnotationArgument<?>> arguments = kmAnnotation.getArguments();
-                for (String key : arguments.keySet()) {
-                  appendKeyValue(nextIndent, key, sb, arguments.get(key).toString());
-                }
+                appendKmList(
+                    nextIndent,
+                    "{ key: String, value: KmAnnotationArgument<?> }",
+                    sb,
+                    arguments.keySet(),
+                    (nextNextIndent, key) -> {
+                      appendKmSection(
+                          nextNextIndent,
+                          "",
+                          sb,
+                          nextNextNextIndent -> {
+                            appendKeyValue(
+                                nextNextNextIndent,
+                                key,
+                                sb,
+                                nextNextNextNextIndent -> {
+                                  appendKmArgument(nextNextNextIndent, sb, arguments.get(key));
+                                });
+                          });
+                    });
               });
         });
+  }
+
+  private static void appendKmArgument(
+      String indent, StringBuilder sb, KmAnnotationArgument<?> annotationArgument) {
+    if (annotationArgument instanceof KmAnnotationArgument.ArrayValue) {
+      List<KmAnnotationArgument<?>> value = ((ArrayValue) annotationArgument).getValue();
+      appendKmList(
+          indent,
+          "ArrayValue",
+          sb,
+          value,
+          (newIndent, annoArg) -> {
+            appendKmArgument(newIndent, sb, annoArg);
+          });
+    } else {
+      sb.append(annotationArgument.toString());
+    }
   }
 
   private static void appendKmVersionRequirement(
@@ -795,6 +846,125 @@ public class KotlinMetadataWriter {
                           "version",
                           sb,
                           kmVersionRequirement.getVersion().toString());
+                    });
+              });
+        });
+  }
+
+  private static void appendKmContract(String indent, StringBuilder sb, KmContract contract) {
+    appendKmSection(
+        indent,
+        "KmContract",
+        sb,
+        newIndent -> {
+          appendKeyValue(
+              newIndent,
+              "effects",
+              sb,
+              nextIndent ->
+                  appendKmList(
+                      nextIndent,
+                      "KmEffect",
+                      sb,
+                      contract.getEffects(),
+                      (nextNextIndent, effect) -> appendKmEffect(nextNextIndent, sb, effect)));
+        });
+  }
+
+  private static void appendKmEffect(String indent, StringBuilder sb, KmEffect effect) {
+    appendKmSection(
+        indent,
+        "KmEffect",
+        sb,
+        newIndent -> {
+          appendKeyValue(newIndent, "type", sb, effect.getType().toString());
+          appendKeyValue(
+              newIndent,
+              "invocationKind",
+              sb,
+              effect.getInvocationKind() == null ? "null" : effect.getInvocationKind().toString());
+          appendKeyValue(
+              newIndent,
+              "constructorArguments",
+              sb,
+              nextIndent -> {
+                appendKmList(
+                    nextIndent,
+                    "KmEffectExpression",
+                    sb,
+                    effect.getConstructorArguments(),
+                    (nextNextIndent, expression) -> {
+                      appendKmEffectExpression(nextNextIndent, sb, expression);
+                    });
+              });
+          KmEffectExpression conclusion = effect.getConclusion();
+          if (conclusion == null) {
+            appendKeyValue(newIndent, "conclusion", sb, "null");
+          } else {
+            appendKeyValue(
+                newIndent,
+                "conclusion",
+                sb,
+                nextIndent -> appendKmEffectExpression(nextIndent, sb, conclusion));
+          }
+        });
+  }
+
+  private static void appendKmEffectExpression(
+      String indent, StringBuilder sb, KmEffectExpression expression) {
+    appendKmSection(
+        indent,
+        "KmEffectExpression",
+        sb,
+        newIndent -> {
+          appendKeyValue(newIndent, "flags", sb, expression.getFlags() + "");
+          appendKeyValue(
+              newIndent,
+              "foo",
+              sb,
+              expression.getParameterIndex() == null
+                  ? "null"
+                  : expression.getParameterIndex() + "");
+          appendKeyValue(
+              newIndent,
+              "constantValue",
+              sb,
+              expression.getConstantValue() == null
+                  ? "null"
+                  : expression.getConstantValue().toString());
+          appendKeyValue(
+              newIndent,
+              "isInstanceType",
+              sb,
+              nextIndent -> {
+                appendKmType(nextIndent, sb, expression.isInstanceType());
+              });
+          appendKeyValue(
+              newIndent,
+              "andArguments",
+              sb,
+              nextIndent -> {
+                appendKmList(
+                    nextIndent,
+                    "KmEffectExpression",
+                    sb,
+                    expression.getAndArguments(),
+                    (nextNextIndent, expr) -> {
+                      appendKmEffectExpression(nextNextIndent, sb, expr);
+                    });
+              });
+          appendKeyValue(
+              newIndent,
+              "orArguments",
+              sb,
+              nextIndent -> {
+                appendKmList(
+                    nextIndent,
+                    "KmEffectExpression",
+                    sb,
+                    expression.getOrArguments(),
+                    (nextNextIndent, expr) -> {
+                      appendKmEffectExpression(nextNextIndent, sb, expr);
                     });
               });
         });

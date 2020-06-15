@@ -2496,7 +2496,7 @@ public class Enqueuer {
             (type, subTypeConsumer, lambdaConsumer) ->
                 objectAllocationInfoCollection.forEachInstantiatedSubType(
                     type, subTypeConsumer, lambdaConsumer, appInfo),
-            reference -> keepInfo.isPinned(reference, appInfo))
+            definition -> keepInfo.isPinned(definition.toReference(), appInfo))
         .forEach(
             target ->
                 markVirtualDispatchTargetAsLive(
@@ -3376,10 +3376,10 @@ public class Enqueuer {
     desugaredLambdaImplementationMethods.clear();
   }
 
-  void retainAnnotationForFinalTreeShaking(DexAnnotation annotation) {
+  void retainAnnotationForFinalTreeShaking(List<DexAnnotation> annotations) {
     assert mode.isInitialTreeShaking();
     if (annotationRemoverBuilder != null) {
-      annotationRemoverBuilder.retainAnnotation(annotation);
+      annotations.forEach(annotationRemoverBuilder::retainAnnotation);
     }
   }
 
@@ -4159,12 +4159,6 @@ public class Enqueuer {
     private EnqueuerDefinitionSupplier(AppView<?> appView, Enqueuer enqueuer) {
       this.appView = appView;
       this.enqueuer = enqueuer;
-    }
-
-    @Deprecated
-    @Override
-    public DexEncodedMethod definitionFor(DexMethod method) {
-      return enqueuer.definitionFor(method);
     }
 
     @Override

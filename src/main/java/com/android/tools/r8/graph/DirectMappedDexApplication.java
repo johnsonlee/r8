@@ -73,13 +73,6 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
     return classpathClasses;
   }
 
-  @Deprecated
-  @Override
-  public DexEncodedMethod definitionFor(DexMethod method) {
-    DexClass clazz = definitionFor(method.holder);
-    return clazz != null ? clazz.lookupMethod(method) : null;
-  }
-
   @Override
   public DexClass definitionFor(DexType type) {
     assert type.isClassType() : "Cannot lookup definition for type: " + type;
@@ -173,7 +166,7 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
     return computeCodeObjectOwnersForDebugging().get(code);
   }
 
-  private boolean verifyCodeObjectsOwners() {
+  public boolean verifyCodeObjectsOwners() {
     codeOwners.clear();
     for (DexProgramClass clazz : programClasses) {
       for (DexEncodedMethod method :

@@ -263,6 +263,11 @@ public class FoundClassSubject extends ClassSubject {
     }
   }
 
+  @Override
+  public String getOriginalBinaryName() {
+    return DescriptorUtils.getBinaryNameFromDescriptor(getOriginalDescriptor());
+  }
+
   public DexType getOriginalDexType(DexItemFactory dexItemFactory) {
     return dexItemFactory.createType(getOriginalDescriptor());
   }
@@ -305,6 +310,11 @@ public class FoundClassSubject extends ClassSubject {
   @Override
   public boolean isSynthesizedJavaLambdaClass() {
     return dexClass.type.getName().contains("$Lambda$");
+  }
+
+  @Override
+  public DexMethod getFinalEnclosingMethod() {
+    return dexClass.getEnclosingMethodAttribute().getEnclosingMethod();
   }
 
   @Override

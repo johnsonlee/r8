@@ -867,7 +867,7 @@ public class InternalOptions {
       DexType libraryType,
       DexType invalidSuperType,
       String message,
-      Set<DexMethod> retarget) {
+      Set<DexEncodedMethod> retarget) {
     if (invalidLibraryClasses.add(invalidSuperType)) {
       reporter.warning(
           new InvalidLibrarySuperclassDiagnostic(
@@ -875,7 +875,7 @@ public class InternalOptions {
               Reference.classFromDescriptor(libraryType.toDescriptorString()),
               Reference.classFromDescriptor(invalidSuperType.toDescriptorString()),
               message,
-              ListUtils.map(retarget, DexMethod::asMethodReference)));
+              ListUtils.map(retarget, method -> method.getReference().asMethodReference())));
     }
   }
 
@@ -1210,10 +1210,11 @@ public class InternalOptions {
 
       public Comparator<DexMethod> interfaceMethodOrdering = null;
 
-      public Comparator<Wrapper<DexMethod>> getInterfaceMethodOrderingOrDefault(
-          Comparator<Wrapper<DexMethod>> comparator) {
+      public Comparator<Wrapper<DexEncodedMethod>> getInterfaceMethodOrderingOrDefault(
+          Comparator<Wrapper<DexEncodedMethod>> comparator) {
         if (interfaceMethodOrdering != null) {
-          return (a, b) -> interfaceMethodOrdering.compare(a.get(), b.get());
+          return (a, b) ->
+              interfaceMethodOrdering.compare(a.get().getReference(), b.get().getReference());
         }
         return comparator;
       }

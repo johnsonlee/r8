@@ -250,6 +250,18 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     assert parameterAnnotationsList != null;
   }
 
+  public DexType getHolderType() {
+    return getReference().holder;
+  }
+
+  public DexString getName() {
+    return getReference().name;
+  }
+
+  public DexProto getProto() {
+    return getReference().proto;
+  }
+
   public DexMethod getReference() {
     return method;
   }

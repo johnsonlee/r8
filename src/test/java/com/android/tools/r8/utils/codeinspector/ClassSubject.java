@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.utils.codeinspector;
 
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.naming.MemberNaming.MethodSignature;
 import com.android.tools.r8.references.MethodReference;
@@ -164,6 +165,8 @@ public abstract class ClassSubject extends Subject {
 
   public abstract String getOriginalDescriptor();
 
+  public abstract String getOriginalBinaryName();
+
   public abstract String getFinalName();
 
   public abstract String getFinalDescriptor();
@@ -177,6 +180,8 @@ public abstract class ClassSubject extends Subject {
   public abstract boolean isAnonymousClass();
 
   public abstract boolean isSynthesizedJavaLambdaClass();
+
+  public abstract DexMethod getFinalEnclosingMethod();
 
   public abstract String getOriginalSignatureAttribute();
 
