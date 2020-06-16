@@ -4,14 +4,13 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.referenceTypeFromBinaryName;
+import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 import kotlinx.metadata.KmFunction;
@@ -36,7 +35,13 @@ public final class KotlinFunctionInfo implements KotlinMethodLevelInfo {
   // Information about the signature
   private final KotlinJvmMethodSignatureInfo signature;
   // Information about the lambdaClassOrigin.
-  private final DexType lambdaClassOrigin;
+  private final KotlinTypeReference lambdaClassOrigin;
+  // Information about version requirements.
+  private final KotlinVersionRequirementInfo versionRequirements;
+  // Kotlin contract information.
+  private final KotlinContractInfo contract;
+  // A value describing if any of the parameters are crossinline.
+  private final boolean crossInlineParameter;
 
   private KotlinFunctionInfo(
       int flags,
@@ -46,7 +51,10 @@ public final class KotlinFunctionInfo implements KotlinMethodLevelInfo {
       List<KotlinValueParameterInfo> valueParameters,
       List<KotlinTypeParameterInfo> typeParameters,
       KotlinJvmMethodSignatureInfo signature,
-      DexType lambdaClassOrigin) {
+      KotlinTypeReference lambdaClassOrigin,
+      KotlinVersionRequirementInfo versionRequirements,
+      KotlinContractInfo contract,
+      boolean crossInlineParameter) {
     this.flags = flags;
     this.name = name;
     this.returnType = returnType;
@@ -55,29 +63,45 @@ public final class KotlinFunctionInfo implements KotlinMethodLevelInfo {
     this.typeParameters = typeParameters;
     this.signature = signature;
     this.lambdaClassOrigin = lambdaClassOrigin;
+    this.versionRequirements = versionRequirements;
+    this.contract = contract;
+    this.crossInlineParameter = crossInlineParameter;
+  }
+
+  public boolean hasCrossInlineParameter() {
+    return crossInlineParameter;
   }
 
   static KotlinFunctionInfo create(
-      KmFunction kmFunction, DexDefinitionSupplier definitionSupplier, Reporter reporter) {
+      KmFunction kmFunction, DexItemFactory factory, Reporter reporter) {
+    boolean isCrossInline = false;
+    List<KotlinValueParameterInfo> valueParameters =
+        KotlinValueParameterInfo.create(kmFunction.getValueParameters(), factory, reporter);
+    for (KotlinValueParameterInfo valueParameter : valueParameters) {
+      if (valueParameter.isCrossInline()) {
+        isCrossInline = true;
+        break;
+      }
+    }
     return new KotlinFunctionInfo(
         kmFunction.getFlags(),
         kmFunction.getName(),
-        KotlinTypeInfo.create(kmFunction.getReturnType(), definitionSupplier, reporter),
-        KotlinTypeInfo.create(kmFunction.getReceiverParameterType(), definitionSupplier, reporter),
-        KotlinValueParameterInfo.create(
-            kmFunction.getValueParameters(), definitionSupplier, reporter),
-        KotlinTypeParameterInfo.create(
-            kmFunction.getTypeParameters(), definitionSupplier, reporter),
-        KotlinJvmMethodSignatureInfo.create(
-            JvmExtensionsKt.getSignature(kmFunction), definitionSupplier),
-        getlambdaClassOrigin(kmFunction, definitionSupplier));
+        KotlinTypeInfo.create(kmFunction.getReturnType(), factory, reporter),
+        KotlinTypeInfo.create(kmFunction.getReceiverParameterType(), factory, reporter),
+        valueParameters,
+        KotlinTypeParameterInfo.create(kmFunction.getTypeParameters(), factory, reporter),
+        KotlinJvmMethodSignatureInfo.create(JvmExtensionsKt.getSignature(kmFunction), factory),
+        getlambdaClassOrigin(kmFunction, factory),
+        KotlinVersionRequirementInfo.create(kmFunction.getVersionRequirements()),
+        KotlinContractInfo.create(kmFunction.getContract(), factory, reporter),
+        isCrossInline);
   }
 
-  private static DexType getlambdaClassOrigin(
-      KmFunction kmFunction, DexDefinitionSupplier definitionSupplier) {
+  private static KotlinTypeReference getlambdaClassOrigin(
+      KmFunction kmFunction, DexItemFactory factory) {
     String lambdaClassOriginName = JvmExtensionsKt.getLambdaClassOriginName(kmFunction);
     if (lambdaClassOriginName != null) {
-      return referenceTypeFromBinaryName(lambdaClassOriginName, definitionSupplier);
+      return KotlinTypeReference.fromBinaryName(lambdaClassOriginName, factory);
     }
     return null;
   }
@@ -85,7 +109,7 @@ public final class KotlinFunctionInfo implements KotlinMethodLevelInfo {
   public void rewrite(
       KmVisitorProviders.KmFunctionVisitorProvider visitorProvider,
       DexEncodedMethod method,
-      AppView<AppInfoWithLiveness> appView,
+      AppView<?> appView,
       NamingLens namingLens) {
     // TODO(b/154348683): Check method for flags to pass in.
     String finalName = this.name;
@@ -108,15 +132,20 @@ public final class KotlinFunctionInfo implements KotlinMethodLevelInfo {
     if (receiverParameterType != null) {
       receiverParameterType.rewrite(kmFunction::visitReceiverParameterType, appView, namingLens);
     }
+    versionRequirements.rewrite(kmFunction::visitVersionRequirement);
     JvmFunctionExtensionVisitor extensionVisitor =
         (JvmFunctionExtensionVisitor) kmFunction.visitExtensions(JvmFunctionExtensionVisitor.TYPE);
     if (signature != null && extensionVisitor != null) {
       extensionVisitor.visit(signature.rewrite(method, appView, namingLens));
     }
     if (lambdaClassOrigin != null && extensionVisitor != null) {
-      extensionVisitor.visitLambdaClassOriginName(
-          KotlinMetadataUtils.kotlinNameFromDescriptor(lambdaClassOrigin.descriptor));
+      String lambdaClassOriginName =
+          lambdaClassOrigin.toRenamedBinaryNameOrDefault(appView, namingLens, null);
+      if (lambdaClassOriginName != null) {
+        extensionVisitor.visitLambdaClassOriginName(lambdaClassOriginName);
+      }
     }
+    contract.rewrite(kmFunction::visitContract, appView, namingLens);
   }
 
   @Override
@@ -131,5 +160,26 @@ public final class KotlinFunctionInfo implements KotlinMethodLevelInfo {
 
   public boolean isExtensionFunction() {
     return receiverParameterType != null;
+  }
+
+  public KotlinJvmMethodSignatureInfo getSignature() {
+    return signature;
+  }
+
+  @Override
+  public void trace(DexDefinitionSupplier definitionSupplier) {
+    forEachApply(valueParameters, param -> param::trace, definitionSupplier);
+    returnType.trace(definitionSupplier);
+    if (receiverParameterType != null) {
+      receiverParameterType.trace(definitionSupplier);
+    }
+    forEachApply(typeParameters, param -> param::trace, definitionSupplier);
+    if (signature != null) {
+      signature.trace(definitionSupplier);
+    }
+    if (lambdaClassOrigin != null) {
+      lambdaClassOrigin.trace(definitionSupplier);
+    }
+    contract.trace(definitionSupplier);
   }
 }

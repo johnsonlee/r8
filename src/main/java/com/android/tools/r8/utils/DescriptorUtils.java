@@ -512,6 +512,11 @@ public class DescriptorUtils {
     return 'L' + descriptor + ';';
   }
 
+  public static boolean isValidBinaryName(String binaryName) {
+    return isValidJavaType(
+        binaryName.replace(DESCRIPTOR_PACKAGE_SEPARATOR, JAVA_PACKAGE_SEPARATOR));
+  }
+
   public static class ModuleAndDescriptor {
     private final String module;
     private final String descriptor;

@@ -12,30 +12,37 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 import kotlinx.metadata.KmPackage;
 import kotlinx.metadata.jvm.JvmExtensionsKt;
+import kotlinx.metadata.jvm.JvmPackageExtensionVisitor;
 
 // Holds information about a KmPackage object.
-public class KotlinPackageInfo {
+public class KotlinPackageInfo implements EnqueuerMetadataTraceable {
 
   private final String moduleName;
   private final KotlinDeclarationContainerInfo containerInfo;
+  private final KotlinLocalDelegatedPropertyInfo localDelegatedProperties;
 
-  private KotlinPackageInfo(String moduleName, KotlinDeclarationContainerInfo containerInfo) {
+  private KotlinPackageInfo(
+      String moduleName,
+      KotlinDeclarationContainerInfo containerInfo,
+      KotlinLocalDelegatedPropertyInfo localDelegatedProperties) {
     this.moduleName = moduleName;
     this.containerInfo = containerInfo;
+    this.localDelegatedProperties = localDelegatedProperties;
   }
 
   public static KotlinPackageInfo create(
       KmPackage kmPackage,
       DexClass clazz,
-      DexDefinitionSupplier definitionSupplier,
+      DexItemFactory factory,
       Reporter reporter,
       Consumer<DexEncodedMethod> keepByteCode) {
     Map<String, DexEncodedField> fieldMap = new HashMap<>();
@@ -49,14 +56,13 @@ public class KotlinPackageInfo {
     return new KotlinPackageInfo(
         JvmExtensionsKt.getModuleName(kmPackage),
         KotlinDeclarationContainerInfo.create(
-            kmPackage, methodMap, fieldMap, definitionSupplier, reporter, keepByteCode));
+            kmPackage, methodMap, fieldMap, factory, reporter, keepByteCode),
+        KotlinLocalDelegatedPropertyInfo.create(
+            JvmExtensionsKt.getLocalDelegatedProperties(kmPackage), factory, reporter));
   }
 
   public void rewrite(
-      KmPackage kmPackage,
-      DexClass clazz,
-      AppView<AppInfoWithLiveness> appView,
-      NamingLens namingLens) {
+      KmPackage kmPackage, DexClass clazz, AppView<?> appView, NamingLens namingLens) {
     containerInfo.rewrite(
         kmPackage::visitFunction,
         kmPackage::visitProperty,
@@ -64,6 +70,17 @@ public class KotlinPackageInfo {
         clazz,
         appView,
         namingLens);
-    JvmExtensionsKt.setModuleName(kmPackage, moduleName);
+    JvmPackageExtensionVisitor extensionVisitor =
+        (JvmPackageExtensionVisitor) kmPackage.visitExtensions(JvmPackageExtensionVisitor.TYPE);
+    localDelegatedProperties.rewrite(
+        extensionVisitor::visitLocalDelegatedProperty, appView, namingLens);
+    extensionVisitor.visitModuleName(moduleName);
+    extensionVisitor.visitEnd();
+  }
+
+  @Override
+  public void trace(DexDefinitionSupplier definitionSupplier) {
+    containerInfo.trace(definitionSupplier);
+    localDelegatedProperties.trace(definitionSupplier);
   }
 }

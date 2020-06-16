@@ -5,6 +5,11 @@
 package com.android.tools.r8.kotlin;
 
 import kotlinx.metadata.KmAnnotation;
+import kotlinx.metadata.KmContractVisitor;
+import kotlinx.metadata.KmEffectExpressionVisitor;
+import kotlinx.metadata.KmEffectInvocationKind;
+import kotlinx.metadata.KmEffectType;
+import kotlinx.metadata.KmEffectVisitor;
 import kotlinx.metadata.KmFunctionVisitor;
 import kotlinx.metadata.KmLambdaVisitor;
 import kotlinx.metadata.KmPropertyVisitor;
@@ -13,6 +18,7 @@ import kotlinx.metadata.KmTypeParameterVisitor;
 import kotlinx.metadata.KmTypeVisitor;
 import kotlinx.metadata.KmValueParameterVisitor;
 import kotlinx.metadata.KmVariance;
+import kotlinx.metadata.KmVersionRequirementVisitor;
 
 /**
  * The reason for having these visitor providers is to make the separation of concern a bit easier
@@ -100,5 +106,29 @@ public class KmVisitorProviders {
   public interface KmFlexibleUpperBoundVisitorProvider {
 
     KmTypeVisitor get(int flags, String typeFlexibilityId);
+  }
+
+  @FunctionalInterface
+  public interface KmVersionRequirementVisitorProvider {
+
+    KmVersionRequirementVisitor get();
+  }
+
+  @FunctionalInterface
+  public interface KmContractVisitorProvider {
+
+    KmContractVisitor get();
+  }
+
+  @FunctionalInterface
+  public interface KmEffectVisitorProvider {
+
+    KmEffectVisitor get(KmEffectType type, KmEffectInvocationKind effectInvocationKind);
+  }
+
+  @FunctionalInterface
+  public interface KmEffectExpressionVisitorProvider {
+
+    KmEffectExpressionVisitor get();
   }
 }

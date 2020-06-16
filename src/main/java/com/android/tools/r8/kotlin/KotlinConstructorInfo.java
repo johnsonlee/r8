@@ -4,11 +4,13 @@
 
 package com.android.tools.r8.kotlin;
 
+import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 import kotlinx.metadata.KmClass;
@@ -21,34 +23,34 @@ public class KotlinConstructorInfo implements KotlinMethodLevelInfo {
   // Information from original KmValueParameter(s) if available.
   private final int flags;
   // Information about the value parameters.
-  private final List<KotlinValueParameterInfo> valueParameterInfos;
+  private final List<KotlinValueParameterInfo> valueParameters;
+  // Information about version requirements.
+  private final KotlinVersionRequirementInfo versionRequirements;
   // Information about the signature.
   private final KotlinJvmMethodSignatureInfo signature;
 
   private KotlinConstructorInfo(
       int flags,
-      List<KotlinValueParameterInfo> valueParameterInfos,
+      List<KotlinValueParameterInfo> valueParameters,
+      KotlinVersionRequirementInfo versionRequirements,
       KotlinJvmMethodSignatureInfo signature) {
     this.flags = flags;
-    this.valueParameterInfos = valueParameterInfos;
+    this.valueParameters = valueParameters;
+    this.versionRequirements = versionRequirements;
     this.signature = signature;
   }
 
   public static KotlinConstructorInfo create(
-      KmConstructor kmConstructor, DexDefinitionSupplier definitionSupplier, Reporter reporter) {
+      KmConstructor kmConstructor, DexItemFactory factory, Reporter reporter) {
     return new KotlinConstructorInfo(
         kmConstructor.getFlags(),
-        KotlinValueParameterInfo.create(
-            kmConstructor.getValueParameters(), definitionSupplier, reporter),
-        KotlinJvmMethodSignatureInfo.create(
-            JvmExtensionsKt.getSignature(kmConstructor), definitionSupplier));
+        KotlinValueParameterInfo.create(kmConstructor.getValueParameters(), factory, reporter),
+        KotlinVersionRequirementInfo.create(kmConstructor.getVersionRequirements()),
+        KotlinJvmMethodSignatureInfo.create(JvmExtensionsKt.getSignature(kmConstructor), factory));
   }
 
   public void rewrite(
-      KmClass kmClass,
-      DexEncodedMethod method,
-      AppView<AppInfoWithLiveness> appView,
-      NamingLens namingLens) {
+      KmClass kmClass, DexEncodedMethod method, AppView<?> appView, NamingLens namingLens) {
     // Note that JvmExtensionsKt.setSignature does not have an overload for KmConstructorVisitor,
     // thus we rely on creating the KmConstructor manually.
     // TODO(b/154348683): Check for special flags to pass in.
@@ -56,9 +58,10 @@ public class KotlinConstructorInfo implements KotlinMethodLevelInfo {
     if (signature != null) {
       JvmExtensionsKt.setSignature(kmConstructor, signature.rewrite(method, appView, namingLens));
     }
-    for (KotlinValueParameterInfo valueParameterInfo : valueParameterInfos) {
+    for (KotlinValueParameterInfo valueParameterInfo : valueParameters) {
       valueParameterInfo.rewrite(kmConstructor::visitValueParameter, appView, namingLens);
     }
+    versionRequirements.rewrite(kmConstructor::visitVersionRequirement);
     kmClass.getConstructors().add(kmConstructor);
   }
 
@@ -70,5 +73,13 @@ public class KotlinConstructorInfo implements KotlinMethodLevelInfo {
   @Override
   public KotlinConstructorInfo asConstructor() {
     return this;
+  }
+
+  @Override
+  public void trace(DexDefinitionSupplier definitionSupplier) {
+    forEachApply(valueParameters, param -> param::trace, definitionSupplier);
+    if (signature != null) {
+      signature.trace(definitionSupplier);
+    }
   }
 }

@@ -6,8 +6,8 @@ package com.android.tools.r8.kotlin;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 import kotlinx.metadata.KmFlexibleTypeUpperBound;
@@ -45,33 +45,39 @@ public class KotlinFlexibleTypeUpperBoundInfo extends KotlinTypeInfo {
   }
 
   static KotlinFlexibleTypeUpperBoundInfo create(
-      KmFlexibleTypeUpperBound flexibleTypeUpperBound,
-      DexDefinitionSupplier definitionSupplier,
-      Reporter reporter) {
+      KmFlexibleTypeUpperBound flexibleTypeUpperBound, DexItemFactory factory, Reporter reporter) {
     if (flexibleTypeUpperBound == null) {
       return NO_FLEXIBLE_UPPER_BOUND;
     }
     KmType kmType = flexibleTypeUpperBound.getType();
     return new KotlinFlexibleTypeUpperBoundInfo(
         kmType.getFlags(),
-        KotlinClassifierInfo.create(kmType.classifier, definitionSupplier, reporter),
-        KotlinTypeInfo.create(kmType.getAbbreviatedType(), definitionSupplier, reporter),
-        KotlinTypeInfo.create(kmType.getOuterType(), definitionSupplier, reporter),
-        getArguments(kmType.getArguments(), definitionSupplier, reporter),
-        KotlinAnnotationInfo.create(JvmExtensionsKt.getAnnotations(kmType), definitionSupplier),
+        KotlinClassifierInfo.create(kmType.classifier, factory, reporter),
+        KotlinTypeInfo.create(kmType.getAbbreviatedType(), factory, reporter),
+        KotlinTypeInfo.create(kmType.getOuterType(), factory, reporter),
+        getArguments(kmType.getArguments(), factory, reporter),
+        KotlinAnnotationInfo.create(JvmExtensionsKt.getAnnotations(kmType), factory),
         KotlinFlexibleTypeUpperBoundInfo.create(
-            kmType.getFlexibleTypeUpperBound(), definitionSupplier, reporter),
+            kmType.getFlexibleTypeUpperBound(), factory, reporter),
         flexibleTypeUpperBound.getTypeFlexibilityId());
   }
 
   public void rewrite(
       KmVisitorProviders.KmFlexibleUpperBoundVisitorProvider visitorProvider,
-      AppView<AppInfoWithLiveness> appView,
+      AppView<?> appView,
       NamingLens namingLens) {
     if (this == NO_FLEXIBLE_UPPER_BOUND) {
       // Nothing to do.
       return;
     }
     super.rewrite(flags -> visitorProvider.get(flags, typeFlexibilityId), appView, namingLens);
+  }
+
+  @Override
+  public void trace(DexDefinitionSupplier definitionSupplier) {
+    if (this == NO_FLEXIBLE_UPPER_BOUND) {
+      return;
+    }
+    super.trace(definitionSupplier);
   }
 }

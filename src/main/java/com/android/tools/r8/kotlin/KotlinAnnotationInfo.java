@@ -4,65 +4,75 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.referenceTypeFromBinaryName;
-
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
-import com.android.tools.r8.graph.DexString;
-import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import kotlinx.metadata.KmAnnotation;
 import kotlinx.metadata.KmAnnotationArgument;
 
 // Holds information about a KmAnnotation
-public class KotlinAnnotationInfo {
+public class KotlinAnnotationInfo implements EnqueuerMetadataTraceable {
 
   private static final List<KotlinAnnotationInfo> EMPTY_ANNOTATIONS = ImmutableList.of();
 
-  private final DexType annotationType;
-  // TODO(b/155053894): Model KmAnnotationArgument.
-  private final Map<String, KmAnnotationArgument<?>> arguments;
+  private final KotlinTypeReference annotationType;
+  private final Map<String, KotlinAnnotationArgumentInfo> arguments;
 
   private KotlinAnnotationInfo(
-      DexType annotationType, Map<String, KmAnnotationArgument<?>> arguments) {
+      KotlinTypeReference annotationType, Map<String, KotlinAnnotationArgumentInfo> arguments) {
     this.annotationType = annotationType;
     this.arguments = arguments;
   }
 
-  private static KotlinAnnotationInfo create(
-      KmAnnotation annotation, DexDefinitionSupplier definitionSupplier) {
+  static KotlinAnnotationInfo create(KmAnnotation annotation, DexItemFactory factory) {
     return new KotlinAnnotationInfo(
-        referenceTypeFromBinaryName(annotation.getClassName(), definitionSupplier),
-        annotation.getArguments());
+        KotlinTypeReference.fromBinaryName(annotation.getClassName(), factory),
+        KotlinAnnotationArgumentInfo.create(annotation.getArguments(), factory));
   }
 
-  static List<KotlinAnnotationInfo> create(
-      List<KmAnnotation> annotations, DexDefinitionSupplier definitionSupplier) {
+  static List<KotlinAnnotationInfo> create(List<KmAnnotation> annotations, DexItemFactory factory) {
     if (annotations.isEmpty()) {
       return EMPTY_ANNOTATIONS;
     }
     ImmutableList.Builder<KotlinAnnotationInfo> builder = ImmutableList.builder();
     for (KmAnnotation annotation : annotations) {
-      builder.add(create(annotation, definitionSupplier));
+      builder.add(create(annotation, factory));
     }
     return builder.build();
   }
 
   public void rewrite(
       KmVisitorProviders.KmAnnotationVisitorProvider visitorProvider,
-      AppView<AppInfoWithLiveness> appView,
+      AppView<?> appView,
       NamingLens namingLens) {
-    if (appView.appInfo().wasPruned(annotationType)) {
+    String renamedDescriptor =
+        annotationType.toRenamedDescriptorOrDefault(appView, namingLens, null);
+    if (renamedDescriptor == null) {
+      // The type has been pruned
       return;
     }
-    DexString descriptor = namingLens.lookupDescriptor(annotationType);
-    String classifier = DescriptorUtils.descriptorToKotlinClassifier(descriptor.toString());
-    KmAnnotation annotation = new KmAnnotation(classifier, arguments);
-    visitorProvider.get(annotation);
+    String classifier = DescriptorUtils.descriptorToKotlinClassifier(renamedDescriptor);
+    Map<String, KmAnnotationArgument<?>> rewrittenArguments = new LinkedHashMap<>();
+    arguments.forEach(
+        (key, arg) -> {
+          KmAnnotationArgument<?> rewrittenArg = arg.rewrite(appView, namingLens);
+          if (rewrittenArg != null) {
+            rewrittenArguments.put(key, rewrittenArg);
+          }
+        });
+    visitorProvider.get(new KmAnnotation(classifier, rewrittenArguments));
+  }
+
+  @Override
+  public void trace(DexDefinitionSupplier definitionSupplier) {
+    annotationType.trace(definitionSupplier);
+    arguments.forEach((ignored, arg) -> arg.trace(definitionSupplier));
   }
 }

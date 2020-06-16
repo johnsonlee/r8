@@ -16,7 +16,6 @@ import com.android.tools.r8.graph.DexValue.DexValueArray;
 import com.android.tools.r8.graph.DexValue.DexValueInt;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ThreadUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,12 +25,12 @@ import kotlinx.metadata.jvm.KotlinClassHeader;
 
 public class KotlinMetadataRewriter {
 
-  private final AppView<AppInfoWithLiveness> appView;
+  private final AppView<?> appView;
   private final NamingLens lens;
   private final DexItemFactory factory;
   private final Kotlin kotlin;
 
-  public KotlinMetadataRewriter(AppView<AppInfoWithLiveness> appView, NamingLens lens) {
+  public KotlinMetadataRewriter(AppView<?> appView, NamingLens lens) {
     this.appView = appView;
     this.lens = lens;
     this.factory = appView.dexItemFactory();
@@ -54,7 +53,8 @@ public class KotlinMetadataRewriter {
           }
           if (oldMeta == null
               || kotlinInfo == NO_KOTLIN_INFO
-              || !appView.appInfo().isPinned(clazz.type)) {
+              || (appView.appInfo().hasLiveness()
+                  && !appView.withLiveness().appInfo().isPinned(clazz.type))) {
             // Remove @Metadata in DexAnnotation when there is no kotlin info and the type is not
             // missing.
             if (oldMeta != null) {
@@ -83,27 +83,33 @@ public class KotlinMetadataRewriter {
       KotlinClassHeader header, String packageName) {
     List<DexAnnotationElement> elements = new ArrayList<>();
     elements.add(
-        new DexAnnotationElement(kotlin.metadata.kind, DexValueInt.create(header.getKind())));
-    elements.add(
         new DexAnnotationElement(
             kotlin.metadata.metadataVersion, createIntArray(header.getMetadataVersion())));
     elements.add(
         new DexAnnotationElement(
             kotlin.metadata.bytecodeVersion, createIntArray(header.getBytecodeVersion())));
     elements.add(
+        new DexAnnotationElement(kotlin.metadata.kind, DexValueInt.create(header.getKind())));
+    elements.add(
         new DexAnnotationElement(kotlin.metadata.data1, createStringArray(header.getData1())));
     elements.add(
         new DexAnnotationElement(kotlin.metadata.data2, createStringArray(header.getData2())));
-    elements.add(
-        new DexAnnotationElement(
-            kotlin.metadata.extraString,
-            new DexValueString(factory.createString(header.getExtraString()))));
-    elements.add(
-        new DexAnnotationElement(
-            kotlin.metadata.packageName, new DexValueString(factory.createString(packageName))));
-    elements.add(
-        new DexAnnotationElement(
-            kotlin.metadata.extraInt, DexValueInt.create(header.getExtraInt())));
+    if (packageName != null && !packageName.isEmpty()) {
+      elements.add(
+          new DexAnnotationElement(
+              kotlin.metadata.packageName, new DexValueString(factory.createString(packageName))));
+    }
+    if (!header.getExtraString().isEmpty()) {
+      elements.add(
+          new DexAnnotationElement(
+              kotlin.metadata.extraString,
+              new DexValueString(factory.createString(header.getExtraString()))));
+    }
+    if (header.getExtraInt() != 0) {
+      elements.add(
+          new DexAnnotationElement(
+              kotlin.metadata.extraInt, DexValueInt.create(header.getExtraInt())));
+    }
     DexEncodedAnnotation encodedAnnotation =
         new DexEncodedAnnotation(
             factory.kotlinMetadataType, elements.toArray(DexAnnotationElement.EMPTY_ARRAY));
