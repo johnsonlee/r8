@@ -123,7 +123,19 @@ public abstract class Instruction {
     this.offset = offset;
   }
 
+  public CheckCast asCheckCast() {
+    return null;
+  }
+
   public boolean isCheckCast() {
+    return false;
+  }
+
+  public InstanceOf asInstanceOf() {
+    return null;
+  }
+
+  public boolean isInstanceOf() {
     return false;
   }
 
