@@ -2687,7 +2687,10 @@ public class Enqueuer {
     Set<DexType> mainDexTypes = Sets.newIdentityHashSet();
 
     boolean isEmpty() {
-      boolean empty = syntheticInstantiations.isEmpty() && liveMethods.isEmpty();
+      boolean empty =
+          syntheticInstantiations.isEmpty()
+              && liveMethods.isEmpty()
+              && syntheticClasspathClasses.isEmpty();
       assert !empty || (pinnedMethods.isEmpty() && mainDexTypes.isEmpty());
       return empty;
     }
@@ -2747,6 +2750,7 @@ public class Enqueuer {
         enqueuer.markMethodAsTargeted(liveMethod, fakeReason);
         enqueuer.enqueueMarkMethodLiveAction(liveMethod, fakeReason);
       }
+      enqueuer.liveNonProgramTypes.addAll(syntheticClasspathClasses.values());
     }
   }
 
@@ -3059,21 +3063,8 @@ public class Enqueuer {
     ProgramMethodSet callbacks = desugaredLibraryWrapperAnalysis.generateCallbackMethods();
     callbacks.forEach(additions::addLiveMethod);
 
-    // Generate the wrappers.
-    List<DexProgramClass> wrappers = desugaredLibraryWrapperAnalysis.generateWrappers();
-    for (DexProgramClass wrapper : wrappers) {
-      additions.addInstantiatedClass(wrapper, null, false);
-      // Mark all methods on the wrapper as live and targeted.
-      for (DexEncodedMethod method : wrapper.methods()) {
-        additions.addLiveMethod(new ProgramMethod(wrapper, method));
-      }
-    }
-
-    // Add all vivified types as classpath classes.
-    // They will be available at runtime in the desugared library dex file.
-    desugaredLibraryWrapperAnalysis
-        .generateWrappersSuperTypeMock(wrappers)
-        .forEach(additions::addClasspathClass);
+    // Generate wrappers on classpath so types are defined.
+    desugaredLibraryWrapperAnalysis.generateWrappers(additions::addClasspathClass);
   }
 
   private void rewriteLambdaCallSites(

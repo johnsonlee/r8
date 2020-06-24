@@ -44,8 +44,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
-// TODO(b/134732760): In progress.
 // I convert library calls with desugared parameters/return values so they can work normally.
 // In the JSON of the desugared library, one can specify conversions between desugared and
 // non-desugared types. If no conversion is specified, D8/R8 simply generate wrapper classes around
@@ -286,7 +286,9 @@ public class DesugaredLibraryAPIConverter {
     }
     SortedProgramMethodSet callbacks = generateCallbackMethods();
     irConverter.processMethodsConcurrently(callbacks, executorService);
-    wrapperSynthesizor.finalizeWrappersForD8(builder, irConverter, executorService);
+    if (appView.options().isDesugaredLibraryCompilation()) {
+      wrapperSynthesizor.finalizeWrappersForL8(builder, irConverter, executorService);
+    }
   }
 
   public SortedProgramMethodSet generateCallbackMethods() {
@@ -312,14 +314,10 @@ public class DesugaredLibraryAPIConverter {
     return allCallbackMethods;
   }
 
-  public List<DexProgramClass> synthesizeWrappers(
-      Map<DexType, DexProgramClass> synthesizedWrappers) {
-    return wrapperSynthesizor.synthesizeWrappers(synthesizedWrappers);
-  }
-
-  public DexClasspathClass synthesizeClasspathMock(
-      DexClass classToMock, DexType mockType, boolean mockIsInterface) {
-    return wrapperSynthesizor.synthesizeClasspathMock(classToMock, mockType, mockIsInterface);
+  public void synthesizeWrappers(
+      Map<DexType, DexClasspathClass> synthesizedWrappers,
+      Consumer<DexClasspathClass> synthesizedCallback) {
+    wrapperSynthesizor.synthesizeWrappersForClasspath(synthesizedWrappers, synthesizedCallback);
   }
 
   private ProgramMethod generateCallbackMethod(
@@ -351,20 +349,22 @@ public class DesugaredLibraryAPIConverter {
 
   public void reportInvalidInvoke(DexType type, DexMethod invokedMethod, String debugString) {
     DexType desugaredType = appView.rewritePrefix.rewrittenType(type, appView);
-    appView
-        .options()
-        .reporter
-        .info(
-            new StringDiagnostic(
-                "Invoke to "
-                    + invokedMethod.holder
-                    + "#"
-                    + invokedMethod.name
-                    + " may not work correctly at runtime (Cannot convert "
-                    + debugString
-                    + "type "
-                    + desugaredType
-                    + ")."));
+    StringDiagnostic diagnostic =
+        new StringDiagnostic(
+            "Invoke to "
+                + invokedMethod.holder
+                + "#"
+                + invokedMethod.name
+                + " may not work correctly at runtime (Cannot convert "
+                + debugString
+                + "type "
+                + desugaredType
+                + ").");
+    if (appView.options().isDesugaredLibraryCompilation()) {
+      throw appView.options().reporter.fatalError(diagnostic);
+    } else {
+      appView.options().reporter.info(diagnostic);
+    }
   }
 
   public static DexType vivifiedTypeFor(DexType type, AppView<?> appView) {
