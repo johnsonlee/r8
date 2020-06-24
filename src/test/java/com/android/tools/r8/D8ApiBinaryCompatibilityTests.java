@@ -4,7 +4,9 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
+import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.TestRuntime.NoneRuntime;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.FileUtils;
@@ -16,18 +18,26 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Assert;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
-public class D8ApiBinaryCompatibilityTests {
+@RunWith(Parameterized.class)
+public class D8ApiBinaryCompatibilityTests extends TestBase {
 
-  @Rule
-  public TemporaryFolder temp = ToolHelper.getTemporaryFolderForTest();
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withNoneRuntime().build();
+  }
+
+  public D8ApiBinaryCompatibilityTests(TestParameters parameters) {
+    assertEquals(NoneRuntime.getInstance(), parameters.getRuntime());
+  }
 
   @Test
   public void testCompatibility() throws IOException {
-    Path jar = Paths.get("tests", "d8_api_usage_sample.jar");
+    Path jar = ToolHelper.API_SAMPLE_JAR;
     String main = "com.android.tools.apiusagesample.D8ApiUsageSample";
     int minApiLevel = AndroidApiLevel.K.getLevel();
 
@@ -79,7 +89,7 @@ public class D8ApiBinaryCompatibilityTests {
 
     ProcessBuilder builder = new ProcessBuilder(command);
     ProcessResult result = ToolHelper.runProcess(builder);
-    Assert.assertEquals(result.stderr + "\n" + result.stdout, 0, result.exitCode);
+    assertEquals(result.stderr + "\n" + result.stdout, 0, result.exitCode);
     Assert.assertTrue(result.stdout, result.stdout.isEmpty());
     Assert.assertTrue(result.stderr, result.stderr.isEmpty());
   }

@@ -335,6 +335,7 @@ def cloudDependencies = [
                 "proguard/proguard5.2.1",
                 "proguard/proguard6.0.1",
                 "r8",
+                "r8-releases/2.0.74",
                 "r8mappings",
                 "tachiyomi"
         ],
@@ -427,6 +428,7 @@ def x20Dependencies = [
         "proguardsettings",
         "proto",
         "protobuf-lite",
+        "retrace_internal",
         "youtube/youtube.android_12.10",
         "youtube/youtube.android_12.17",
         "youtube/youtube.android_12.22",
@@ -1050,12 +1052,6 @@ task buildCfSegments(type: Jar, dependsOn: downloadDeps) {
     destinationDir file('build/libs')
 }
 
-task buildD8ApiUsageSample(type: Jar) {
-    from sourceSets.apiUsageSample.output
-    baseName 'd8_api_usage_sample'
-    destinationDir file('tests')
-}
-
 task buildR8ApiUsageSample(type: Jar) {
     from sourceSets.apiUsageSample.output
     baseName 'r8_api_usage_sample'
@@ -1063,7 +1059,6 @@ task buildR8ApiUsageSample(type: Jar) {
 }
 
 task buildApiSampleJars {
-    dependsOn buildD8ApiUsageSample
     dependsOn buildR8ApiUsageSample
 }
 

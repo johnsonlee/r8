@@ -10,7 +10,6 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +31,7 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
   private final KotlinTypeInfo outerType;
   private final List<KotlinTypeProjectionInfo> arguments;
   private final List<KotlinAnnotationInfo> annotations;
-  private final KotlinFlexibleTypeUpperBoundInfo flexibleTypeUpperBoundInfo;
+  private final KotlinFlexibleTypeUpperBoundInfo flexibleTypeUpperBound;
 
   KotlinTypeInfo(
       int flags,
@@ -41,14 +40,14 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
       KotlinTypeInfo outerType,
       List<KotlinTypeProjectionInfo> arguments,
       List<KotlinAnnotationInfo> annotations,
-      KotlinFlexibleTypeUpperBoundInfo flexibleTypeUpperBoundInfo) {
+      KotlinFlexibleTypeUpperBoundInfo flexibleTypeUpperBound) {
     this.flags = flags;
     this.classifier = classifier;
     this.abbreviatedType = abbreviatedType;
     this.outerType = outerType;
     this.arguments = arguments;
     this.annotations = annotations;
-    this.flexibleTypeUpperBoundInfo = flexibleTypeUpperBoundInfo;
+    this.flexibleTypeUpperBound = flexibleTypeUpperBound;
   }
 
   static KotlinTypeInfo create(KmType kmType, DexItemFactory factory, Reporter reporter) {
@@ -80,7 +79,7 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
 
   public void rewrite(
       KmVisitorProviders.KmTypeVisitorProvider visitorProvider,
-      AppView<AppInfoWithLiveness> appView,
+      AppView<?> appView,
       NamingLens namingLens) {
     // TODO(b/154348683): Check for correct flags
     KmTypeVisitor kmTypeVisitor = visitorProvider.get(flags);
@@ -95,8 +94,7 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
       argument.rewrite(
           kmTypeVisitor::visitArgument, kmTypeVisitor::visitStarProjection, appView, namingLens);
     }
-    flexibleTypeUpperBoundInfo.rewrite(
-        kmTypeVisitor::visitFlexibleTypeUpperBound, appView, namingLens);
+    flexibleTypeUpperBound.rewrite(kmTypeVisitor::visitFlexibleTypeUpperBound, appView, namingLens);
     if (annotations.isEmpty()) {
       return;
     }
@@ -119,7 +117,7 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
       outerType.trace(definitionSupplier);
     }
     forEachApply(arguments, argument -> argument::trace, definitionSupplier);
-    flexibleTypeUpperBoundInfo.trace(definitionSupplier);
+    flexibleTypeUpperBound.trace(definitionSupplier);
     forEachApply(annotations, annotation -> annotation::trace, definitionSupplier);
   }
 }

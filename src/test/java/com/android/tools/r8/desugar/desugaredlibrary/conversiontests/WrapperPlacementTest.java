@@ -5,7 +5,7 @@
 package com.android.tools.r8.desugar.desugaredlibrary.conversiontests;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestParameters;
@@ -17,19 +17,17 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
-import com.google.common.collect.Sets;
-import it.unimi.dsi.fastutil.objects.Object2ReferenceMap;
-import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class WrapperMergeTest extends DesugaredLibraryTestBase {
+public class WrapperPlacementTest extends DesugaredLibraryTestBase {
 
   private static final String EXPECTED = StringUtils.lines("[1, 2, 3]", "[2, 3, 4]");
 
@@ -40,7 +38,7 @@ public class WrapperMergeTest extends DesugaredLibraryTestBase {
 
   private final TestParameters parameters;
 
-  public WrapperMergeTest(TestParameters parameters) {
+  public WrapperPlacementTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
@@ -57,21 +55,28 @@ public class WrapperMergeTest extends DesugaredLibraryTestBase {
   }
 
   @Test
-  public void testWrapperMerge() throws Exception {
+  public void testNoWrappers() throws Exception {
     assumeTrue(parameters.isDexRuntime());
-    // Multiple wrapper classes have to be merged here.
+    // No wrappers are made during program compilation.
     Path path1 = compileWithCoreLibraryDesugaring(MyArrays1.class);
     Path path2 = compileWithCoreLibraryDesugaring(MyArrays2.class);
     testForD8()
-        .addProgramFiles(path1, path2)
         .addProgramClasses(TestClass.class)
         .addAndroidBuildVersion()
         .enableCoreLibraryDesugaring(parameters.getApiLevel())
         .setMinApi(parameters.getApiLevel())
         .compile()
-        .inspect(this::assertWrappers)
-        .inspect(this::assertNoDuplicates)
-        .addDesugaredCoreLibraryRunClassPath(this::buildDesugaredLibrary, parameters.getApiLevel())
+        .inspect(this::assertNoWrappers)
+        .apply(
+            b -> {
+              if (!hasNativeIntUnaryOperator()) {
+                Path coreLib = buildDesugaredLibrary(parameters.getApiLevel());
+                assertCoreLibContainsWrappers(coreLib);
+                b.addRunClasspathFiles(coreLib);
+              }
+            })
+        // The previous compilations are appended to the classpath (no merge).
+        .addRunClasspathFiles(path1, path2)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED);
   }
@@ -82,34 +87,29 @@ public class WrapperMergeTest extends DesugaredLibraryTestBase {
         .setMinApi(parameters.getApiLevel())
         .enableCoreLibraryDesugaring(parameters.getApiLevel())
         .compile()
-        .inspect(this::assertWrappers)
+        .inspect(this::assertNoWrappers)
         .writeToZip();
-  }
-
-  private void assertNoDuplicates(CodeInspector inspector) {
-    Object2ReferenceMap<String, Set<FoundClassSubject>> map = new Object2ReferenceOpenHashMap<>();
-    for (FoundClassSubject clazz : inspector.allClasses()) {
-      map.computeIfAbsent(clazz.getFinalName(), k -> Sets.newIdentityHashSet()).add(clazz);
-    }
-    for (Set<FoundClassSubject> duplicates : map.values()) {
-      if (duplicates.size() > 1) {
-        fail("Unexpected duplicates: " + duplicates);
-      }
-    }
   }
 
   private boolean hasNativeIntUnaryOperator() {
     return parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N);
   }
 
-  private void assertWrappers(CodeInspector inspector) {
-    assertEquals(
-        hasNativeIntUnaryOperator() ? 0 : 2,
-        inspector.allClasses().stream()
-            .filter(
-                c ->
-                    c.getOriginalName().contains(DesugaredLibraryWrapperSynthesizer.WRAPPER_PREFIX))
-            .count());
+  private void assertCoreLibContainsWrappers(Path coreLib) throws IOException {
+    CodeInspector inspector = new CodeInspector(coreLib);
+    Stream<FoundClassSubject> wrappers = getWrappers(inspector);
+    assertNotEquals(0, wrappers.count());
+  }
+
+  private void assertNoWrappers(CodeInspector inspector) {
+    Stream<FoundClassSubject> wrappers = getWrappers(inspector);
+    assertEquals(0, wrappers.count());
+  }
+
+  private Stream<FoundClassSubject> getWrappers(CodeInspector inspector) {
+    return inspector.allClasses().stream()
+        .filter(
+            c -> c.getOriginalName().contains(DesugaredLibraryWrapperSynthesizer.WRAPPER_PREFIX));
   }
 
   static class MyArrays1 {

@@ -4,10 +4,10 @@
 
 package com.android.tools.r8.retrace;
 
-import static com.android.tools.r8.retrace.RetraceTests.DEFAULT_REGULAR_EXPRESSION;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.ProcessResult;
@@ -61,12 +61,25 @@ public class RetraceCommandLineTests {
   @Test
   public void testVerbose() throws IOException {
     FoundMethodVerboseStackTrace stackTrace = new FoundMethodVerboseStackTrace();
-    runTest(
+    // TODO(b/159562137): Add proper support for -verbose when using regexp.
+    runTestNotEquals(
         stackTrace.mapping(),
         StringUtils.joinLines(stackTrace.obfuscatedStackTrace()),
         false,
         StringUtils.joinLines(stackTrace.retracedStackTrace()) + StringUtils.LINE_SEPARATOR,
         "--verbose");
+  }
+
+  @Test
+  public void testVerboseSingleHyphen() throws IOException {
+    FoundMethodVerboseStackTrace stackTrace = new FoundMethodVerboseStackTrace();
+    // TODO(b/159562137): Add proper support for -verbose when using regexp.
+    runTestNotEquals(
+        stackTrace.mapping(),
+        StringUtils.joinLines(stackTrace.obfuscatedStackTrace()),
+        false,
+        StringUtils.joinLines(stackTrace.retracedStackTrace()) + StringUtils.LINE_SEPARATOR,
+        "-verbose");
   }
 
   @Test
@@ -76,8 +89,17 @@ public class RetraceCommandLineTests {
         stackTrace.mapping(),
         StringUtils.joinLines(stackTrace.obfuscatedStackTrace()),
         false,
-        StringUtils.joinLines(stackTrace.retracedStackTrace()) + StringUtils.LINE_SEPARATOR,
-        "--regex=" + DEFAULT_REGULAR_EXPRESSION);
+        StringUtils.joinLines(stackTrace.retracedStackTrace()) + StringUtils.LINE_SEPARATOR);
+  }
+
+  @Test
+  public void testRegularExpressionSingleHyphen() throws IOException {
+    ActualRetraceBotStackTrace stackTrace = new ActualRetraceBotStackTrace();
+    runTest(
+        stackTrace.mapping(),
+        StringUtils.joinLines(stackTrace.obfuscatedStackTrace()),
+        false,
+        StringUtils.joinLines(stackTrace.retracedStackTrace()) + StringUtils.LINE_SEPARATOR);
   }
 
   @Test
@@ -88,7 +110,6 @@ public class RetraceCommandLineTests {
         StringUtils.joinLines(stackTrace.obfuscatedStackTrace()),
         false,
         StringUtils.joinLines(stackTrace.retracedStackTrace()) + StringUtils.LINE_SEPARATOR,
-        "--regex=" + DEFAULT_REGULAR_EXPRESSION,
         "--info");
   }
 
@@ -121,6 +142,14 @@ public class RetraceCommandLineTests {
     ProcessResult result = runRetrace(mapping, stackTrace, stacktraceStdIn, args);
     assertEquals(0, result.exitCode);
     assertEquals(expected, result.stdout);
+  }
+
+  private void runTestNotEquals(
+      String mapping, String stackTrace, boolean stacktraceStdIn, String expected, String... args)
+      throws IOException {
+    ProcessResult result = runRetrace(mapping, stackTrace, stacktraceStdIn, args);
+    assertEquals(0, result.exitCode);
+    assertNotEquals(expected, result.stdout);
   }
 
   private void runAbortTest(Matcher<String> errorMatch, String... args) throws IOException {
