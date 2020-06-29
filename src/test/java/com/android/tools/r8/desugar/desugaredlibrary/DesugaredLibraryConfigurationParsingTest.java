@@ -17,7 +17,6 @@ import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestDiagnosticMessagesImpl;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.TestRuntime.NoneRuntime;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
@@ -28,6 +27,7 @@ import com.android.tools.r8.utils.AbortException;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Reporter;
+import com.android.tools.r8.utils.SemanticVersion;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.StringUtils.BraceType;
 import com.google.common.collect.ImmutableList;
@@ -51,7 +51,7 @@ public class DesugaredLibraryConfigurationParsingTest extends TestBase {
   }
 
   public DesugaredLibraryConfigurationParsingTest(TestParameters parameters) {
-    assertEquals(NoneRuntime.getInstance(), parameters.getRuntime());
+    parameters.assertNoneRuntime();
   }
 
   final AndroidApiLevel minApi = AndroidApiLevel.B;
@@ -73,7 +73,7 @@ public class DesugaredLibraryConfigurationParsingTest extends TestBase {
               DesugaredLibraryConfigurationParser.MAX_SUPPORTED_VERSION)
           .put("group_id", "com.tools.android")
           .put("artifact_id", "desugar_jdk_libs")
-          .put("version", "0.0.0")
+          .put("version", DesugaredLibraryConfigurationParser.MIN_SUPPORTED_VERSION.toString())
           .put("required_compilation_api_level", 1)
           .put("synthesized_library_classes_package_prefix", "j$.")
           .put("common_flags", Collections.emptyList())
@@ -141,6 +141,7 @@ public class DesugaredLibraryConfigurationParsingTest extends TestBase {
             "version",
             "required_compilation_api_level",
             "synthesized_library_classes_package_prefix",
+            "common_flags",
             "program_flags",
             "library_flags");
     for (String key : requiredKeys) {
@@ -158,9 +159,13 @@ public class DesugaredLibraryConfigurationParsingTest extends TestBase {
   }
 
   @Test
-  public void testUnsupportedFormatMissingFlags() {
+  public void testUnsupportedVersion() {
     LinkedHashMap<String, Object> data = template();
-    data.remove("common_flags");
+    SemanticVersion minVersion = DesugaredLibraryConfigurationParser.MIN_SUPPORTED_VERSION;
+    data.put(
+        "version",
+        new SemanticVersion(minVersion.getMajor(), minVersion.getMinor(), minVersion.getPatch() - 1)
+            .toString());
     runFailing(
         toJson(data),
         diagnostics ->

@@ -1368,7 +1368,7 @@ public class RootSetBuilder {
     public void forEachDependentMember(
         DexDefinition item,
         AppView<?> appView,
-        Consumer3<DexDefinition, DexDefinition, Set<ProguardKeepRuleBase>> fn) {
+        Consumer3<DexDefinition, DexEncodedMember<?, ?>, Set<ProguardKeepRuleBase>> fn) {
       getDependentItems(item)
           .forEachMember(
               (reference, reasons) -> {
@@ -1386,7 +1386,7 @@ public class RootSetBuilder {
     public void forEachDependentNonStaticMember(
         DexDefinition item,
         AppView<?> appView,
-        Consumer3<DexDefinition, DexDefinition, Set<ProguardKeepRuleBase>> fn) {
+        Consumer3<DexDefinition, DexEncodedMember<?, ?>, Set<ProguardKeepRuleBase>> fn) {
       forEachDependentMember(
           item,
           appView,
@@ -1400,7 +1400,7 @@ public class RootSetBuilder {
     public void forEachDependentStaticMember(
         DexDefinition item,
         AppView<?> appView,
-        Consumer3<DexDefinition, DexDefinition, Set<ProguardKeepRuleBase>> fn) {
+        Consumer3<DexDefinition, DexEncodedMember<?, ?>, Set<ProguardKeepRuleBase>> fn) {
       forEachDependentMember(
           item,
           appView,
@@ -1901,24 +1901,6 @@ public class RootSetBuilder {
 
     void shouldNotBeMinified(DexReference reference) {
       noObfuscation.add(reference);
-    }
-
-    public boolean mayBeMinified(DexReference reference, AppView<?> appView) {
-      return !mayNotBeMinified(reference, appView);
-    }
-
-    public boolean mayNotBeMinified(DexReference reference, AppView<?> appView) {
-      if (reference.isDexType()) {
-        return noObfuscation.contains(
-            appView.graphLense().getOriginalType(reference.asDexType()));
-      } else if (reference.isDexMethod()) {
-        return noObfuscation.contains(
-            appView.graphLense().getOriginalMethodSignature(reference.asDexMethod()));
-      } else {
-        assert reference.isDexField();
-        return noObfuscation.contains(
-            appView.graphLense().getOriginalFieldSignature(reference.asDexField()));
-      }
     }
 
     public boolean verifyKeptFieldsAreAccessedAndLive(AppInfoWithLiveness appInfo) {
