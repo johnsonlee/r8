@@ -126,7 +126,7 @@ public final class BackportedMethodRewriter {
       InvokeMethod invoke = instruction.asInvokeMethod();
       MethodProvider provider = getMethodProviderOrNull(invoke.getInvokedMethod());
       if (provider == null) {
-        if (!rewritableMethods.matchesVirtualRewrite(invoke.getInvokedMethod())) {
+        if (!rewritableMethods.matchesNonFinalHolderRewrite(invoke.getInvokedMethod())) {
           continue;
         }
         // We need to force resolution, even on d8, to know if the invoke has to be rewritten.
@@ -148,7 +148,7 @@ public final class BackportedMethodRewriter {
       // Due to emulated dispatch, we have to rewrite invoke-super differently or we end up in
       // infinite loops. We do direct resolution. This is a very uncommon case.
       if (invoke.isInvokeSuper()
-          && rewritableMethods.matchesVirtualRewrite(invoke.getInvokedMethod())) {
+          && rewritableMethods.matchesNonFinalHolderRewrite(invoke.getInvokedMethod())) {
         DexEncodedMethod dexEncodedMethod =
             appView
                 .appInfo()
@@ -533,10 +533,10 @@ public final class BackportedMethodRewriter {
 
     // Map backported method to a provider for creating the actual target method (with code).
     private final Map<DexMethod, MethodProvider> rewritable = new IdentityHashMap<>();
-    // Map virtualRewrites hold a methodName->method mapping for virtual methods which are
-    // rewritten while the holder is non final but no superclass implement the method. In this case
-    // d8 needs to force resolution of given methods to see if the invoke needs to be rewritten.
-    private final Map<DexString, List<DexMethod>> virtualRewrites = new IdentityHashMap<>();
+    // Map nonFinalRewrite hold a methodName -> method mapping for methods which are rewritten while
+    // the holder is non final. In this case d8 needs to force resolution of given methods to see if
+    // the invoke needs to be rewritten.
+    private final Map<DexString, List<DexMethod>> nonFinalHolderRewrites = new IdentityHashMap<>();
     // non final virtual library methods requiring generation of emulated dispatch.
     private final Set<DexMethod> emulatedDispatchMethods = Sets.newHashSet();
 
@@ -578,8 +578,8 @@ public final class BackportedMethodRewriter {
       }
     }
 
-    boolean matchesVirtualRewrite(DexMethod method) {
-      List<DexMethod> dexMethods = virtualRewrites.get(method.name);
+    boolean matchesNonFinalHolderRewrite(DexMethod method) {
+      List<DexMethod> dexMethods = nonFinalHolderRewrites.get(method.name);
       if (dexMethods == null) {
         return false;
       }
@@ -1678,17 +1678,19 @@ public final class BackportedMethodRewriter {
             DexType newHolder = retargetCoreLibMember.get(methodName).get(inType);
             List<DexEncodedMethod> found = findDexEncodedMethodsWithName(methodName, typeClass);
             for (DexEncodedMethod encodedMethod : found) {
-              if (!encodedMethod.isStatic()) {
-                virtualRewrites.putIfAbsent(encodedMethod.method.name, new ArrayList<>());
-                virtualRewrites.get(encodedMethod.method.name).add(encodedMethod.method);
-                if (InterfaceMethodRewriter.isEmulatedInterfaceDispatch(appView, encodedMethod)) {
-                  // In this case interface method rewriter takes care of it.
-                  continue;
-                } else if (!encodedMethod.isFinal()) {
-                  // Virtual rewrites require emulated dispatch for inheritance.
-                  // The call is rewritten to the dispatch holder class instead.
-                  handleEmulateDispatch(appView, encodedMethod.method);
-                  newHolder = dispatchHolderTypeFor(appView, encodedMethod.method);
+              if (!typeClass.isFinal()) {
+                nonFinalHolderRewrites.putIfAbsent(encodedMethod.method.name, new ArrayList<>());
+                nonFinalHolderRewrites.get(encodedMethod.method.name).add(encodedMethod.method);
+                if (!encodedMethod.isStatic()) {
+                  if (InterfaceMethodRewriter.isEmulatedInterfaceDispatch(appView, encodedMethod)) {
+                    // In this case interface method rewriter takes care of it.
+                    continue;
+                  } else if (!encodedMethod.isFinal()) {
+                    // Virtual rewrites require emulated dispatch for inheritance.
+                    // The call is rewritten to the dispatch holder class instead.
+                    handleEmulateDispatch(appView, encodedMethod.method);
+                    newHolder = dispatchHolderTypeFor(appView, encodedMethod.method);
+                  }
                 }
               }
               DexProto proto = encodedMethod.method.proto;
