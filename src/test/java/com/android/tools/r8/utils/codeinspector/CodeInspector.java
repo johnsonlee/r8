@@ -48,6 +48,7 @@ import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject.JumboStringMode;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -280,9 +281,9 @@ public class CodeInspector {
     }
     DexClass clazz = application.definitionFor(toDexTypeIgnorePrimitives(name));
     if (clazz == null) {
-      return new AbsentClassSubject();
+      return new AbsentClassSubject(this, reference);
     }
-    return new FoundClassSubject(this, clazz, naming);
+    return new FoundClassSubject(this, clazz, naming, reference);
   }
 
   public ClassSubject companionClassFor(Class<?> clazz) {
@@ -306,6 +307,10 @@ public class CodeInspector {
     ImmutableList.Builder<FoundClassSubject> builder = ImmutableList.builder();
     forAllClasses(builder::add);
     return builder.build();
+  }
+
+  public FieldSubject field(Field field) {
+    return field(Reference.fieldFromField(field));
   }
 
   public FieldSubject field(FieldReference field) {
