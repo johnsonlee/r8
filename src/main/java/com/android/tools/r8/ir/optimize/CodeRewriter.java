@@ -3036,6 +3036,12 @@ public class CodeRewriter {
       boolean isOrdinalInvoke = invokedMethod == dexItemFactory.enumMethods.ordinal;
       boolean isNameInvoke = invokedMethod == dexItemFactory.enumMethods.name;
       boolean isToStringInvoke = invokedMethod == dexItemFactory.enumMethods.toString;
+
+      // TODO(b/160667929): Re-enable name()/toString() optimizations.
+      if (!isOrdinalInvoke) {
+        continue;
+      }
+
       if (!isOrdinalInvoke && !isNameInvoke && !isToStringInvoke) {
         continue;
       }
