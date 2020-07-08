@@ -75,12 +75,6 @@ public class EnumValueOptimizer {
         boolean isOrdinalInvoke = invokedMethod == factory.enumMethods.ordinal;
         boolean isNameInvoke = invokedMethod == factory.enumMethods.name;
         boolean isToStringInvoke = invokedMethod == factory.enumMethods.toString;
-
-        // TODO(b/160667929): Re-enable name()/toString() optimizations.
-        if (!isOrdinalInvoke) {
-          continue;
-        }
-
         if (!isOrdinalInvoke && !isNameInvoke && !isToStringInvoke) {
           continue;
         }
