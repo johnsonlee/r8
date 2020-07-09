@@ -8,6 +8,7 @@ import static com.android.tools.r8.graph.DexEncodedMethod.asProgramMethodOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.google.common.base.Predicates.alwaysFalse;
 
+import com.android.tools.r8.errors.InternalCompilerError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -40,6 +41,7 @@ import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
+import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
@@ -57,10 +59,10 @@ import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.kotlin.KotlinClassLevelInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -568,11 +570,35 @@ final class InlineCandidateProcessor {
     while (!currentUsers.isEmpty()) {
       Set<Instruction> indirectOutValueUsers = Sets.newIdentityHashSet();
       for (Instruction instruction : currentUsers) {
-        if (instruction.isAssume() || instruction.isCheckCast()) {
-          Value src = ListUtils.first(instruction.inValues());
+        if (aliasesThroughAssumeAndCheckCasts.isIntroducingAnAlias(instruction)) {
+          Value src = aliasesThroughAssumeAndCheckCasts.getAliasForOutValue(instruction);
           Value dest = instruction.outValue();
-          indirectOutValueUsers.addAll(dest.uniqueUsers());
+          if (dest.hasPhiUsers()) {
+            // It is possible that a trivial phi is constructed upon IR building for the eligible
+            // value. It must actually be trivial so verify that it is indeed trivial and replace
+            // all of the phis involved with the value.
+            WorkList<Phi> worklist = WorkList.newIdentityWorkList(dest.uniquePhiUsers());
+            while (worklist.hasNext()) {
+              Phi phi = worklist.next();
+              for (Value operand : phi.getOperands()) {
+                operand = operand.getAliasedValue(aliasesThroughAssumeAndCheckCasts);
+                if (operand.isPhi()) {
+                  worklist.addIfNotSeen(operand.asPhi());
+                } else if (src != operand) {
+                  throw new InternalCompilerError(
+                      "Unexpected non-trivial phi in method eligible for class inlining");
+                }
+              }
+            }
+            // The only value flowing into any of the phis is src, so replace all phis by src.
+            for (Phi phi : worklist.getSeenSet()) {
+              indirectOutValueUsers.addAll(phi.uniqueUsers());
+              phi.replaceUsers(src);
+              phi.removeDeadPhi();
+            }
+          }
           assert !dest.hasPhiUsers();
+          indirectOutValueUsers.addAll(dest.uniqueUsers());
           dest.replaceUsers(src);
           removeInstruction(instruction);
         }
