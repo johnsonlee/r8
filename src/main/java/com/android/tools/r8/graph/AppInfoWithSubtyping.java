@@ -21,8 +21,8 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -60,7 +60,7 @@ public class AppInfoWithSubtyping extends AppInfo implements ClassHierarchy {
 
     private void ensureDirectSubTypeSet() {
       if (directSubtypes == NO_DIRECT_SUBTYPE) {
-        directSubtypes = new TreeSet<>(DexType::slowCompareTo);
+        directSubtypes = new ConcurrentSkipListSet<>(DexType::slowCompareTo);
       }
     }
 
