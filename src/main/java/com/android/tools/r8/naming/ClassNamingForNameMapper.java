@@ -3,10 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming;
 
+import static com.android.tools.r8.naming.MemberNaming.NoSignature.NO_SIGNATURE;
+
+import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.naming.MemberNaming.FieldSignature;
 import com.android.tools.r8.naming.MemberNaming.MethodSignature;
 import com.android.tools.r8.naming.MemberNaming.Signature;
 import com.android.tools.r8.naming.MemberNaming.Signature.SignatureKind;
+import com.android.tools.r8.naming.mappinginformation.MappingInformation;
+import com.android.tools.r8.naming.mappinginformation.MappingInformationDiagnostics;
 import com.android.tools.r8.utils.ChainableStringConsumer;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.google.common.collect.ImmutableMap;
@@ -19,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * Stores name information for a class.
@@ -28,12 +34,14 @@ import java.util.Objects;
 public class ClassNamingForNameMapper implements ClassNaming {
 
   public static class Builder extends ClassNaming.Builder {
+
     private final String originalName;
     private final String renamedName;
     private final Map<MethodSignature, MemberNaming> methodMembers = Maps.newHashMap();
     private final Map<FieldSignature, MemberNaming> fieldMembers = Maps.newHashMap();
     private final Map<String, List<MappedRange>> mappedRangesByName = Maps.newHashMap();
     private final Map<String, List<MemberNaming>> mappedNamingsByName = Maps.newHashMap();
+    private final Map<Signature, List<MappingInformation>> additionalMappings = Maps.newHashMap();
 
     private Builder(String renamedName, String originalName) {
       this.originalName = originalName;
@@ -43,13 +51,52 @@ public class ClassNamingForNameMapper implements ClassNaming {
     @Override
     public ClassNaming.Builder addMemberEntry(MemberNaming entry) {
       if (entry.isMethodNaming()) {
-        methodMembers.put((MethodSignature) entry.getRenamedSignature(), entry);
+        methodMembers.put(entry.getRenamedSignature().asMethodSignature(), entry);
       } else {
-        fieldMembers.put((FieldSignature) entry.getRenamedSignature(), entry);
+        fieldMembers.put(entry.getRenamedSignature().asFieldSignature(), entry);
       }
       mappedNamingsByName
           .computeIfAbsent(entry.getRenamedName(), m -> new ArrayList<>())
           .add(entry);
+      return this;
+    }
+
+    @Override
+    public ClassNaming.Builder addMappingInformation(MappingInformation mappingInformation) {
+      return addMappingInformation(
+          mappingInformation,
+          other -> {
+            assert false;
+          });
+    }
+
+    @Override
+    public ClassNaming.Builder addMappingInformation(
+        MappingInformation mappingInformation,
+        DiagnosticsHandler diagnosticsHandler,
+        int lineNumber) {
+      return addMappingInformation(
+          mappingInformation,
+          other ->
+              diagnosticsHandler.warning(
+                  MappingInformationDiagnostics.notAllowedCombination(
+                      originalName, renamedName, mappingInformation, other, lineNumber)));
+    }
+
+    private ClassNaming.Builder addMappingInformation(
+        MappingInformation mappingInformation, Consumer<MappingInformation> notAllowedCombination) {
+      Signature signature =
+          mappingInformation.isSignatureMappingInformation()
+              ? mappingInformation.asSignatureMappingInformation().getSignature()
+              : NO_SIGNATURE;
+      List<MappingInformation> additionalMappingForSignature =
+          additionalMappings.computeIfAbsent(signature, ignored -> new ArrayList<>());
+      for (MappingInformation information : additionalMappingForSignature) {
+        if (!information.allowOther(mappingInformation)) {
+          notAllowedCombination.accept(information);
+        }
+      }
+      additionalMappingForSignature.add(mappingInformation);
       return this;
     }
 
@@ -67,7 +114,13 @@ public class ClassNamingForNameMapper implements ClassNaming {
       }
 
       return new ClassNamingForNameMapper(
-          renamedName, originalName, methodMembers, fieldMembers, map, mappedNamingsByName);
+          renamedName,
+          originalName,
+          methodMembers,
+          fieldMembers,
+          map,
+          mappedNamingsByName,
+          additionalMappings);
     }
 
     /** The parameters are forwarded to MappedRange constructor, see explanation there. */
@@ -198,19 +251,23 @@ public class ClassNamingForNameMapper implements ClassNaming {
 
   public final Map<String, List<MemberNaming>> mappedNamingsByName;
 
+  private final Map<Signature, List<MappingInformation>> additionalMappings;
+
   private ClassNamingForNameMapper(
       String renamedName,
       String originalName,
       Map<MethodSignature, MemberNaming> methodMembers,
       Map<FieldSignature, MemberNaming> fieldMembers,
       Map<String, MappedRangesOfName> mappedRangesByRenamedName,
-      Map<String, List<MemberNaming>> mappedNamingsByName) {
+      Map<String, List<MemberNaming>> mappedNamingsByName,
+      Map<Signature, List<MappingInformation>> additionalMappings) {
     this.renamedName = renamedName;
     this.originalName = originalName;
     this.methodMembers = ImmutableMap.copyOf(methodMembers);
     this.fieldMembers = ImmutableMap.copyOf(fieldMembers);
     this.mappedRangesByRenamedName = mappedRangesByRenamedName;
     this.mappedNamingsByName = mappedNamingsByName;
+    this.additionalMappings = additionalMappings;
   }
 
   public MappedRangesOfName getMappedRangesForRenamedName(String renamedName) {
@@ -298,7 +355,16 @@ public class ClassNamingForNameMapper implements ClassNaming {
   void write(ChainableStringConsumer consumer) {
     consumer.accept(originalName).accept(" -> ").accept(renamedName).accept(":\n");
 
-    // First print field member namings.
+    // Print all additional mapping information.
+    additionalMappings.forEach(
+        (signature, mappingInformations) -> {
+          assert !mappingInformations.isEmpty();
+          for (MappingInformation mappingInformation : mappingInformations) {
+            consumer.accept("# " + mappingInformation.serialize()).accept("\n");
+          }
+        });
+
+    // Print field member namings.
     forAllFieldNaming(m -> consumer.accept("    ").accept(m.toString()).accept("\n"));
 
     // Sort MappedRanges by sequence number to restore construction order (original Proguard-map
@@ -311,6 +377,10 @@ public class ClassNamingForNameMapper implements ClassNaming {
     for (MappedRange range : mappedRangesSorted) {
       consumer.accept("    ").accept(range.toString()).accept("\n");
     }
+  }
+
+  public Map<Signature, List<MappingInformation>> getAdditionalMappings() {
+    return additionalMappings;
   }
 
   @Override
