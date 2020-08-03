@@ -18,7 +18,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ResolutionResult;
@@ -33,7 +32,6 @@ import com.android.tools.r8.utils.collections.SortedProgramMethodSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -324,14 +322,11 @@ public class DesugaredLibraryRetargeter {
       // methods.
       // We cannot use the ClassProcessor since this applies up to 26, while the ClassProcessor
       // applies up to 24.
-      for (DexMethod dexMethod : methods) {
-        DexType[] newInterfaces =
-            Arrays.copyOf(clazz.interfaces.values, clazz.interfaces.size() + 1);
-        newInterfaces[newInterfaces.length - 1] = dispatchInterfaceTypeFor(dexMethod);
-        clazz.interfaces = new DexTypeList(newInterfaces);
-        DexEncodedMethod dexEncodedMethod = clazz.lookupVirtualMethod(dexMethod);
-        if (dexEncodedMethod == null) {
-          DexEncodedMethod newMethod = createForwardingMethod(dexMethod, clazz);
+      for (DexMethod method : methods) {
+        clazz.addExtraInterfaces(
+            Collections.singletonList(dispatchInterfaceTypeFor(method)), appView.dexItemFactory());
+        if (clazz.lookupVirtualMethod(method) == null) {
+          DexEncodedMethod newMethod = createForwardingMethod(method, clazz);
           clazz.addVirtualMethod(newMethod);
           newForwardingMethodsConsumer.accept(newMethod);
         }
