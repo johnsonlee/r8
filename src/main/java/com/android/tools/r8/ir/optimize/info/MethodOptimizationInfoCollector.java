@@ -477,7 +477,7 @@ public class MethodOptimizationInfoCollector {
               if (!value.onlyDependsOnArgument()) {
                 builder.setInstanceFieldInitializationMayDependOnEnvironment();
               }
-              if (value == receiver) {
+              if (couldBeReceiverValue(value, receiver, aliasesThroughAssumeAndCheckCasts)) {
                 builder.setReceiverMayEscapeOutsideConstructorChain();
               }
             }
@@ -505,7 +505,7 @@ public class MethodOptimizationInfoCollector {
                 for (int i = 1; i < invoke.arguments().size(); i++) {
                   Value argument =
                       invoke.arguments().get(i).getAliasedValue(aliasesThroughAssumeAndCheckCasts);
-                  if (argument == receiver) {
+                  if (couldBeReceiverValue(argument, receiver, aliasesThroughAssumeAndCheckCasts)) {
                     // In the analysis of the parent constructor, we don't consider the non-receiver
                     // arguments as being aliases of the receiver. Therefore, we explicitly mark
                     // that the receiver escapes from this constructor.
@@ -523,7 +523,7 @@ public class MethodOptimizationInfoCollector {
                     .markAllFieldsAsRead()
                     .setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
                 for (Value inValue : invoke.inValues()) {
-                  if (inValue.getAliasedValue(aliasesThroughAssumeAndCheckCasts) == receiver) {
+                  if (couldBeReceiverValue(inValue, receiver, aliasesThroughAssumeAndCheckCasts)) {
                     builder.setReceiverMayEscapeOutsideConstructorChain();
                     break;
                   }
@@ -539,7 +539,7 @@ public class MethodOptimizationInfoCollector {
                 builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
               }
               for (Value argument : invoke.arguments()) {
-                if (argument.getAliasedValue(aliasesThroughAssumeAndCheckCasts) == receiver) {
+                if (couldBeReceiverValue(argument, receiver, aliasesThroughAssumeAndCheckCasts)) {
                   builder.setReceiverMayEscapeOutsideConstructorChain();
                   break;
                 }
@@ -556,7 +556,7 @@ public class MethodOptimizationInfoCollector {
                   .markAllFieldsAsRead()
                   .setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
               for (Value argument : invoke.arguments()) {
-                if (argument.getAliasedValue(aliasesThroughAssumeAndCheckCasts) == receiver) {
+                if (couldBeReceiverValue(argument, receiver, aliasesThroughAssumeAndCheckCasts)) {
                   builder.setReceiverMayEscapeOutsideConstructorChain();
                   break;
                 }
@@ -603,6 +603,18 @@ public class MethodOptimizationInfoCollector {
     }
 
     return builder.build();
+  }
+
+  private static boolean couldBeReceiverValue(
+      Value value, Value receiver, AliasedValueConfiguration aliasing) {
+    if (value.isPhi() && receiver.hasPhiUsers()) {
+      // Conservatively assume that the receiver might be an input dependency of the phi value.
+      return true;
+    }
+    if (value.getAliasedValue(aliasing) == receiver) {
+      return true;
+    }
+    return false;
   }
 
   private void identifyInvokeSemanticsForInlining(
