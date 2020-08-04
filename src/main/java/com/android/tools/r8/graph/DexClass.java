@@ -129,6 +129,14 @@ public abstract class DexClass extends DexDefinition {
     }
   }
 
+  public DexAnnotationSet annotations() {
+    return annotations;
+  }
+
+  public void setAnnotations(DexAnnotationSet annotations) {
+    this.annotations = annotations;
+  }
+
   public Iterable<DexEncodedField> fields() {
     return fields(Predicates.alwaysTrue());
   }

@@ -7,6 +7,7 @@ package com.android.tools.r8.dex;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.naming.NamingLens;
@@ -35,6 +36,8 @@ public abstract class CodeToKeep {
   abstract void recordClass(DexType type);
 
   abstract void recordClassAllAccesses(DexType type);
+
+  abstract void recordHierarchyOf(DexProgramClass clazz);
 
   abstract boolean isNop();
 
@@ -106,6 +109,14 @@ public abstract class CodeToKeep {
       if (shouldKeep(type)) {
         keepClass(type);
         toKeep.get(type).all = true;
+      }
+    }
+
+    @Override
+    void recordHierarchyOf(DexProgramClass clazz) {
+      recordClassAllAccesses(clazz.superType);
+      for (DexType itf : clazz.interfaces.values) {
+        recordClassAllAccesses(itf);
       }
     }
 
@@ -184,6 +195,9 @@ public abstract class CodeToKeep {
 
     @Override
     void recordClassAllAccesses(DexType type) {}
+
+    @Override
+    void recordHierarchyOf(DexProgramClass clazz) {}
 
     @Override
     boolean isNop() {

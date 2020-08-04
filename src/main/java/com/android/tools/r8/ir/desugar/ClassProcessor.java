@@ -315,8 +315,10 @@ final class ClassProcessor {
       return;
     }
 
-    // If target is a non-interface library class it may be an emulated interface.
-    if (!libraryHolder.isInterface()) {
+    // If target is a non-interface library class it may be an emulated interface,
+    // except on a rewritten type, where L8 has already dealt with the desugaring.
+    if (!libraryHolder.isInterface()
+        && !appView.rewritePrefix.hasRewrittenType(libraryHolder.type)) {
       // Here we use step-3 of resolution to find a maximally specific default interface method.
       target =
           appView

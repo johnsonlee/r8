@@ -56,7 +56,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -333,10 +332,9 @@ public final class BackportedMethodRewriter {
     // applies up to 24.
     List<DexEncodedMethod> newForwardingMethods = new ArrayList<>();
     for (DexMethod dexMethod : dexMethods) {
-      DexType[] newInterfaces = Arrays.copyOf(clazz.interfaces.values, clazz.interfaces.size() + 1);
-      newInterfaces[newInterfaces.length - 1] =
-          BackportedMethodRewriter.dispatchInterfaceTypeFor(appView, dexMethod);
-      clazz.interfaces = new DexTypeList(newInterfaces);
+      clazz.addExtraInterfaces(
+          Collections.singletonList(dispatchInterfaceTypeFor(appView, dexMethod)),
+          appView.dexItemFactory());
       DexEncodedMethod dexEncodedMethod = clazz.lookupVirtualMethod(dexMethod);
       if (dexEncodedMethod == null) {
         DexEncodedMethod newMethod = createForwardingMethod(dexMethod, clazz);
