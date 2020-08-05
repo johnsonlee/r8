@@ -519,7 +519,7 @@ public class AndroidApp {
       ZipOutputStream archiveOutputStream,
       ProgramResource programResource)
       throws ResourceException, IOException {
-    byte[] bytes = ByteStreams.toByteArray(programResource.getByteStream());
+    byte[] bytes = StreamUtils.StreamToByteArrayClose(programResource.getByteStream());
     String entryName;
     if (programResource.getKind() == Kind.CF) {
       Set<String> classDescriptors = programResource.getClassDescriptors();
