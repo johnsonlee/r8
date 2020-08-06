@@ -1048,6 +1048,12 @@ final class InlineCandidateProcessor {
         // We will not be able to remove the monitor instruction afterwards.
         return false;
       }
+      if (eligibility.modifiesInstanceFields) {
+        // The static instance could be accessed from elsewhere. Therefore, we cannot
+        // allow side-effects to be removed and therefore cannot class inline method
+        // calls that modifies the instance.
+        return false;
+      }
     }
 
     // If the method returns receiver and the return value is actually
@@ -1198,9 +1204,10 @@ final class InlineCandidateProcessor {
     }
 
     if (root.isStaticGet()) {
-      // If we are class inlining a singleton instance from a static-get, then we don't the value of
-      // the fields.
-      if (parameterUsage.hasFieldRead) {
+      // If we are class inlining a singleton instance from a static-get, then we don't know
+      // the value of the fields, and we also can't optimize away instance-field assignments, as
+      // they have global side effects.
+      if (parameterUsage.hasFieldAssignment || parameterUsage.hasFieldRead) {
         return false;
       }
     }
