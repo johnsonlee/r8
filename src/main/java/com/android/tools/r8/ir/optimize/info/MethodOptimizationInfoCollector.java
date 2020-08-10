@@ -167,6 +167,7 @@ public class MethodOptimizationInfoCollector {
     }
 
     List<Pair<Invoke.Type, DexMethod>> callsReceiver = new ArrayList<>();
+    boolean modifiesInstanceFields = false;
     boolean seenSuperInitCall = false;
     boolean seenMonitor = false;
     for (Instruction insn : receiver.aliasedUsers()) {
@@ -190,6 +191,7 @@ public class MethodOptimizationInfoCollector {
           if (instancePutInstruction.value().getAliasedValue() == receiver) {
             return;
           }
+          modifiesInstanceFields = true;
         }
         DexField field = insn.asFieldInstruction().getField();
         if (appView.appInfo().resolveFieldOn(clazz, field) != null) {
@@ -258,7 +260,8 @@ public class MethodOptimizationInfoCollector {
         new ClassInlinerEligibilityInfo(
             callsReceiver,
             new ClassInlinerReceiverAnalysis(appView, method, code).computeReturnsReceiver(),
-            seenMonitor || synchronizedVirtualMethod));
+            seenMonitor || synchronizedVirtualMethod,
+            modifiesInstanceFields));
   }
 
   private void identifyParameterUsages(
