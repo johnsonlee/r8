@@ -11,7 +11,7 @@ import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DebugLocalInfo.PrintLevel;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Phi.RegisterReadType;
@@ -998,17 +998,17 @@ public class BasicBlock {
 
   /**
    * Due to class merging, it is possible that two exception classes have been merged into one. This
-   * function renames the guards according to the given graph lense.
+   * function renames the guards according to the given graph lens.
    *
    * @return true if any guards were renamed.
    */
-  public boolean renameGuardsInCatchHandlers(GraphLense graphLense) {
+  public boolean renameGuardsInCatchHandlers(GraphLens graphLens) {
     assert hasCatchHandlers();
     boolean anyGuardsRenamed = false;
     List<DexType> newGuards = new ArrayList<>(catchHandlers.getGuards().size());
     for (DexType guard : catchHandlers.getGuards()) {
       // The type may have changed due to class merging.
-      DexType renamed = graphLense.lookupType(guard);
+      DexType renamed = graphLens.lookupType(guard);
       newGuards.add(renamed);
       anyGuardsRenamed |= renamed != guard;
     }
@@ -1483,7 +1483,7 @@ public class BasicBlock {
     block.add(moveException, code);
     block.add(throwInstruction, code);
     block.close(null);
-    block.setNumber(code.getHighestBlockNumber() + 1);
+    block.setNumber(code.getNextBlockNumber());
     return block;
   }
 
@@ -1762,9 +1762,8 @@ public class BasicBlock {
    * method does not affect incoming edges in any way, and just adds new blocks with MoveException
    * and Goto.
    */
-  public int splitCriticalExceptionEdges(
+  public void splitCriticalExceptionEdges(
       IRCode code, Consumer<BasicBlock> onNewBlock, InternalOptions options) {
-    int nextBlockNumber = code.getHighestBlockNumber() + 1;
     List<BasicBlock> predecessors = getMutablePredecessors();
     boolean hasMoveException = entry().isMoveException();
     TypeElement exceptionTypeLattice = null;
@@ -1788,7 +1787,7 @@ public class BasicBlock {
             "Invalid block structure: catch block reachable via non-exceptional flow.");
       }
       BasicBlock newBlock = new BasicBlock();
-      newBlock.setNumber(nextBlockNumber++);
+      newBlock.setNumber(code.getNextBlockNumber());
       newPredecessors.add(newBlock);
       if (hasMoveException) {
         Value value =
@@ -1823,7 +1822,6 @@ public class BasicBlock {
       phi.addOperands(values);
       move.outValue().replaceUsers(phi);
     }
-    return nextBlockNumber;
   }
 
   /**

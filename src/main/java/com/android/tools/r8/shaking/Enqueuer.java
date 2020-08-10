@@ -57,7 +57,7 @@ import com.android.tools.r8.graph.EnumValueInfoMapCollection;
 import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.FieldResolutionResult;
-import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.LookupLambdaTarget;
 import com.android.tools.r8.graph.LookupTarget;
@@ -2007,6 +2007,12 @@ public class Enqueuer {
         clazz, context, instantiationReason, keepReason, appInfo);
   }
 
+  void markAnnotationAsInstantiated(DexProgramClass clazz, KeepReasonWitness witness) {
+    assert clazz.isAnnotation();
+    markTypeAsLive(clazz, witness);
+    transitionDependentItemsForInstantiatedInterface(clazz);
+  }
+
   void markInterfaceAsInstantiated(DexProgramClass clazz, KeepReasonWitness witness) {
     assert !clazz.isAnnotation();
     assert clazz.isInterface();
@@ -2373,6 +2379,10 @@ public class Enqueuer {
     return liveFields.contains(field);
   }
 
+  public boolean isFieldLive(DexEncodedField field) {
+    return liveFields.contains(field);
+  }
+
   public boolean isFieldRead(ProgramField field) {
     FieldAccessInfoImpl info = fieldAccessInfoCollection.get(field.getReference());
     return info != null && info.isRead();
@@ -2723,10 +2733,8 @@ public class Enqueuer {
     return appInfoWithLiveness;
   }
 
-  public GraphLense buildGraphLense(AppView<?> appView) {
-    return lambdaRewriter != null
-        ? lambdaRewriter.buildMappingLense(appView)
-        : appView.graphLense();
+  public GraphLens buildGraphLens(AppView<?> appView) {
+    return lambdaRewriter != null ? lambdaRewriter.buildMappingLens(appView) : appView.graphLens();
   }
 
   private void keepClassWithRules(DexProgramClass clazz, Set<ProguardKeepRuleBase> rules) {

@@ -18,7 +18,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.NestMemberClassAttribute;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
@@ -136,7 +136,7 @@ public class Inliner implements PostOptimization {
       return true;
     }
 
-    if (blacklist.contains(appView.graphLense().getOriginalMethodSignature(singleTargetReference))
+    if (blacklist.contains(appView.graphLens().getOriginalMethodSignature(singleTargetReference))
         || TwrCloseResourceRewriter.isSynthesizedCloseResourceMethod(
             singleTargetReference, appView)) {
       whyAreYouNotInliningReporter.reportBlacklisted();
@@ -183,7 +183,7 @@ public class Inliner implements PostOptimization {
 
     ConstraintWithTarget result = ConstraintWithTarget.ALWAYS;
     InliningConstraints inliningConstraints =
-        new InliningConstraints(appView, GraphLense.getIdentityLense());
+        new InliningConstraints(appView, GraphLens.getIdentityLens());
     for (Instruction instruction : code.instructions()) {
       ConstraintWithTarget state =
           instructionAllowedForInlining(instruction, inliningConstraints, context);
@@ -635,11 +635,9 @@ public class Inliner implements PostOptimization {
 
         code.prepareBlocksForCatchHandlers();
 
-        int nextBlockNumber = code.getHighestBlockNumber() + 1;
-
         // Create a block for holding the monitor-exit instruction.
         BasicBlock monitorExitBlock = new BasicBlock();
-        monitorExitBlock.setNumber(nextBlockNumber++);
+        monitorExitBlock.setNumber(code.getNextBlockNumber());
 
         // For each block in the code that may throw, add a catch-all handler targeting the
         // monitor-exit block.
@@ -654,7 +652,7 @@ public class Inliner implements PostOptimization {
           }
           BasicBlock moveExceptionBlock =
               BasicBlock.createGotoBlock(
-                  nextBlockNumber++, Position.none(), code.metadata(), monitorExitBlock);
+                  code.getNextBlockNumber(), Position.none(), code.metadata(), monitorExitBlock);
           InstructionListIterator moveExceptionBlockIterator =
               moveExceptionBlock.listIterator(code);
           moveExceptionBlockIterator.setInsertionPosition(Position.syntheticNone());
@@ -665,28 +663,31 @@ public class Inliner implements PostOptimization {
           moveExceptionBlocks.add(moveExceptionBlock);
         }
 
-        // Create a phi for the exception values such that we can rethrow the exception if needed.
-        Value exceptionValue;
-        if (moveExceptionBlocks.size() == 1) {
-          exceptionValue =
-              ListUtils.first(moveExceptionBlocks).getInstructions().getFirst().outValue();
-        } else {
-          Phi phi = code.createPhi(monitorExitBlock, throwableType);
-          List<Value> operands =
-              ListUtils.map(
-                  moveExceptionBlocks, block -> block.getInstructions().getFirst().outValue());
-          phi.addOperands(operands);
-          exceptionValue = phi;
+        InstructionListIterator monitorExitBlockIterator = null;
+        if (!moveExceptionBlocks.isEmpty()) {
+          // Create a phi for the exception values such that we can rethrow the exception if needed.
+          Value exceptionValue;
+          if (moveExceptionBlocks.size() == 1) {
+            exceptionValue =
+                ListUtils.first(moveExceptionBlocks).getInstructions().getFirst().outValue();
+          } else {
+            Phi phi = code.createPhi(monitorExitBlock, throwableType);
+            List<Value> operands =
+                ListUtils.map(
+                    moveExceptionBlocks, block -> block.getInstructions().getFirst().outValue());
+            phi.addOperands(operands);
+            exceptionValue = phi;
+          }
+
+          monitorExitBlockIterator = monitorExitBlock.listIterator(code);
+          monitorExitBlockIterator.setInsertionPosition(Position.syntheticNone());
+          monitorExitBlockIterator.add(new Throw(exceptionValue));
+          monitorExitBlock.getMutablePredecessors().addAll(moveExceptionBlocks);
+
+          // Insert the newly created blocks.
+          code.blocks.addAll(moveExceptionBlocks);
+          code.blocks.add(monitorExitBlock);
         }
-
-        InstructionListIterator monitorExitBlockIterator = monitorExitBlock.listIterator(code);
-        monitorExitBlockIterator.setInsertionPosition(Position.syntheticNone());
-        monitorExitBlockIterator.add(new Throw(exceptionValue));
-        monitorExitBlock.getMutablePredecessors().addAll(moveExceptionBlocks);
-
-        // Insert the newly created blocks.
-        code.blocks.addAll(moveExceptionBlocks);
-        code.blocks.add(monitorExitBlock);
 
         // Create a block for holding the monitor-enter instruction. Note that, since this block
         // is created after we attach catch-all handlers to the code, this block will not have any
@@ -715,9 +716,11 @@ public class Inliner implements PostOptimization {
 
         // Insert the monitor-enter and monitor-exit instructions.
         monitorEnterBlockIterator.add(new Monitor(Monitor.Type.ENTER, lockValue));
-        monitorExitBlockIterator.previous();
-        monitorExitBlockIterator.add(new Monitor(Monitor.Type.EXIT, lockValue));
-        monitorExitBlock.close(null);
+        if (monitorExitBlockIterator != null) {
+          monitorExitBlockIterator.previous();
+          monitorExitBlockIterator.add(new Monitor(Monitor.Type.EXIT, lockValue));
+          monitorExitBlock.close(null);
+        }
 
         for (BasicBlock block : code.blocks) {
           if (block.exit().isReturn()) {
