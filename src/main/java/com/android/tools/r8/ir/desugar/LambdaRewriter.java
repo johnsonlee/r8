@@ -7,10 +7,13 @@ package com.android.tools.r8.ir.desugar;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication.Builder;
 import com.android.tools.r8.graph.DexCallSite;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GraphLense;
+import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
@@ -29,6 +32,7 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.collections.SortedProgramMethodSet;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
@@ -341,5 +345,35 @@ public class LambdaRewriter {
 
   public Map<DexType, LambdaClass> getKnownLambdaClasses() {
     return knownLambdaClasses;
+  }
+
+  public NestedGraphLense buildMappingLens(AppView<?> appView) {
+    if (originalMethodSignatures.isEmpty()) {
+      return null;
+    }
+    return new LambdaRewriterLens(
+        originalMethodSignatures, appView.graphLense(), appView.dexItemFactory());
+  }
+
+  static class LambdaRewriterLens extends NestedGraphLense {
+
+    public LambdaRewriterLens(
+        BiMap<DexMethod, DexMethod> originalMethodSignatures,
+        GraphLense graphLens,
+        DexItemFactory factory) {
+      super(
+          ImmutableMap.of(),
+          ImmutableMap.of(),
+          ImmutableMap.of(),
+          null,
+          originalMethodSignatures,
+          graphLens,
+          factory);
+    }
+
+    @Override
+    protected boolean isLegitimateToHaveEmptyMappings() {
+      return true;
+    }
   }
 }

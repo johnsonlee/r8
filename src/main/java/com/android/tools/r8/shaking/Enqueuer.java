@@ -57,6 +57,7 @@ import com.android.tools.r8.graph.EnumValueInfoMapCollection;
 import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.FieldResolutionResult;
+import com.android.tools.r8.graph.GraphLense.NestedGraphLense;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.LookupLambdaTarget;
 import com.android.tools.r8.graph.LookupTarget;
@@ -2640,6 +2641,10 @@ public class Enqueuer {
       options.testing.enqueuerInspector.accept(appInfoWithLiveness, mode);
     }
     return appInfoWithLiveness;
+  }
+
+  public NestedGraphLense buildGraphLens(AppView<?> appView) {
+    return lambdaRewriter != null ? lambdaRewriter.buildMappingLens(appView) : null;
   }
 
   public boolean isPinned(DexReference reference) {
