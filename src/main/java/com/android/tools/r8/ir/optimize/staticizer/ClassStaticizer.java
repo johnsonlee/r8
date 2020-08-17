@@ -113,6 +113,11 @@ public final class ClassStaticizer {
     this.converter = converter;
   }
 
+  // This set is an approximation and can be used only for heuristics.
+  public final Set<DexType> getCandidates() {
+    return candidates.keySet();
+  }
+
   // Before doing any usage-based analysis we collect a set of classes that can be
   // candidates for staticizing. This analysis is very simple, but minimizes the
   // set of eligible classes staticizer tracks and thus time and memory it needs.
@@ -274,8 +279,8 @@ public final class ClassStaticizer {
       if (instruction.isNewInstance()) {
         // Check the class being initialized against valid staticizing candidates.
         NewInstance newInstance = instruction.asNewInstance();
-        CandidateInfo candidateInfo = processInstantiation(context, iterator, newInstance);
-        if (candidateInfo != null) {
+        CandidateInfo info = processInstantiation(context, iterator, newInstance);
+        if (info != null) {
           alreadyProcessed.addAll(newInstance.outValue().aliasedUsers());
           // For host class initializers having eligible instantiation we also want to
           // ensure that the rest of the initializer consist of code w/o side effects.
@@ -283,15 +288,13 @@ public final class ClassStaticizer {
           // effects, otherwise we can still staticize, but cannot remove singleton reads.
           while (iterator.hasNext()) {
             if (!isAllowedInHostClassInitializer(context.getHolderType(), iterator.next(), code)) {
-              candidateInfo.preserveRead.set(true);
+              info.preserveRead.set(true);
               iterator.previous();
               break;
             }
             // Ignore just read instruction.
           }
-          referencedFrom
-              .computeIfAbsent(candidateInfo, ignore -> LongLivedProgramMethodSetBuilder.create())
-              .add(context);
+          addReferencedFrom(info, context);
         }
         continue;
       }
@@ -311,9 +314,7 @@ public final class ClassStaticizer {
         // Check the field being read: make sure all usages are valid.
         CandidateInfo info = processStaticFieldRead(instruction.asStaticGet());
         if (info != null) {
-          referencedFrom
-              .computeIfAbsent(info, ignore -> LongLivedProgramMethodSetBuilder.create())
-              .add(context);
+          addReferencedFrom(info, context);
           // If the candidate is still valid, ignore all usages in further analysis.
           Value value = instruction.outValue();
           if (value != null) {
@@ -327,9 +328,7 @@ public final class ClassStaticizer {
         // Check if it is a static singleton getter.
         CandidateInfo info = processInvokeStatic(instruction.asInvokeStatic());
         if (info != null) {
-          referencedFrom
-              .computeIfAbsent(info, ignore -> LongLivedProgramMethodSetBuilder.create())
-              .add(context);
+          addReferencedFrom(info, context);
           // If the candidate is still valid, ignore all usages in further analysis.
           Value value = instruction.outValue();
           if (value != null) {
@@ -366,6 +365,13 @@ public final class ClassStaticizer {
         continue;
       }
     }
+  }
+
+  private void addReferencedFrom(CandidateInfo info, ProgramMethod context) {
+    LongLivedProgramMethodSetBuilder<?> builder =
+        referencedFrom.computeIfAbsent(
+            info, ignore -> LongLivedProgramMethodSetBuilder.createConcurrentForIdentitySet());
+    builder.add(context);
   }
 
   private boolean isAllowedInHostClassInitializer(
@@ -760,6 +766,11 @@ public final class ClassStaticizer {
         candidateInfo.invalidate();
       }
       return true;
+    }
+
+    @Override
+    public boolean registerInstanceOf(DexType type) {
+      return registerTypeReference(type);
     }
   }
 }

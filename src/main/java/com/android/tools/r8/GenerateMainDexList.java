@@ -49,13 +49,12 @@ public class GenerateMainDexList {
     try {
       DirectMappedDexApplication application =
           new ApplicationReader(app, options, timing).read(executor).toDirect();
-      AppView<? extends AppInfoWithClassHierarchy> appView =
-          AppView.createForR8(new AppInfoWithClassHierarchy(application));
+      AppView<? extends AppInfoWithClassHierarchy> appView = AppView.createForR8(application);
       appView.setAppServices(AppServices.builder(appView).build());
 
       MainDexListBuilder.checkForAssumedLibraryTypes(appView.appInfo());
 
-      SubtypingInfo subtypingInfo = new SubtypingInfo(application.allClasses(), application);
+      SubtypingInfo subtypingInfo = new SubtypingInfo(appView);
 
       RootSet mainDexRootSet =
           new RootSetBuilder(appView, subtypingInfo, options.mainDexKeepRules).run(executor);
@@ -71,7 +70,7 @@ public class GenerateMainDexList {
           EnqueuerFactory.createForMainDexTracing(appView, subtypingInfo, graphConsumer);
       Set<DexProgramClass> liveTypes = enqueuer.traceMainDex(mainDexRootSet, executor, timing);
       // LiveTypes is the result.
-      MainDexClasses mainDexClasses = new MainDexListBuilder(liveTypes, application).run();
+      MainDexClasses mainDexClasses = new MainDexListBuilder(liveTypes, appView).run();
 
       List<String> result =
           mainDexClasses.getClasses().stream()

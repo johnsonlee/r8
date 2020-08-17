@@ -80,19 +80,14 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
   }
 
   @Override
-  public DexProgramClass definitionForProgramType(DexType type) {
-    return programDefinitionFor(type);
-  }
-
-  @Override
   public DexItemFactory dexItemFactory() {
     return dexItemFactory;
   }
 
   @Override
   public DexProgramClass programDefinitionFor(DexType type) {
-    DexClass clazz = definitionFor(type);
-    return clazz instanceof DexProgramClass ? clazz.asProgramClass() : null;
+    // The direct mapped application has no duplicates so this coincides with definitionFor.
+    return DexProgramClass.asProgramClassOrNull(definitionFor(type));
   }
 
   @Override
@@ -120,12 +115,10 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
     return "DexApplication (direct)";
   }
 
-  public DirectMappedDexApplication rewrittenWithLens(GraphLens lens) {
-    // As a side effect, this will rebuild the program classes and library classes maps.
-    DirectMappedDexApplication rewrittenApplication = builder().build().asDirect();
-    assert rewrittenApplication.mappingIsValid(lens, allClasses.keySet());
-    assert rewrittenApplication.verifyCodeObjectsOwners();
-    return rewrittenApplication;
+  public boolean verifyWithLens(GraphLens lens) {
+    assert mappingIsValid(lens, allClasses.keySet());
+    assert verifyCodeObjectsOwners();
+    return true;
   }
 
   public boolean verifyNothingToRewrite(AppView<?> appView, GraphLens lens) {
@@ -144,6 +137,9 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
     // original type will point to a definition that was renamed.
     for (DexType type : types) {
       DexType renamed = graphLens.lookupType(type);
+      if (renamed.isIntType()) {
+        continue;
+      }
       if (renamed != type) {
         if (definitionFor(type) == null && definitionFor(renamed) != null) {
           continue;

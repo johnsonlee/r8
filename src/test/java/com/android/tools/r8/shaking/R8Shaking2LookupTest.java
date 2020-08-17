@@ -9,6 +9,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
@@ -31,8 +32,9 @@ public class R8Shaking2LookupTest {
   public void readApp() throws IOException, ExecutionException {
     program = ToolHelper.buildApplication(ImmutableList.of(APP_FILE_NAME));
     dexItemFactory = program.dexItemFactory;
-    appInfo = new AppInfoWithClassHierarchy(program);
-    subtypingInfo = new SubtypingInfo(program.allClasses(), program);
+    AppView<AppInfoWithClassHierarchy> appView = AppView.createForR8(program);
+    appInfo = appView.appInfo();
+    subtypingInfo = new SubtypingInfo(appView);
   }
 
   private void validateSubtype(DexType super_type, DexType sub_type) {

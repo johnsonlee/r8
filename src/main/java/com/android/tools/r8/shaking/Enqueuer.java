@@ -57,7 +57,7 @@ import com.android.tools.r8.graph.EnumValueInfoMapCollection;
 import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.FieldResolutionResult;
-import com.android.tools.r8.graph.GraphLens;
+import com.android.tools.r8.graph.GraphLens.NestedGraphLens;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.LookupLambdaTarget;
 import com.android.tools.r8.graph.LookupTarget;
@@ -72,6 +72,8 @@ import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
 import com.android.tools.r8.graph.analysis.DesugaredLibraryConversionWrapperAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerCheckCastAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerInstanceOfAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerInvokeAnalysis;
 import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoEnqueuerExtension;
@@ -184,6 +186,8 @@ public class Enqueuer {
 
   private Set<EnqueuerAnalysis> analyses = Sets.newIdentityHashSet();
   private Set<EnqueuerInvokeAnalysis> invokeAnalyses = Sets.newIdentityHashSet();
+  private Set<EnqueuerInstanceOfAnalysis> instanceOfAnalyses = Sets.newIdentityHashSet();
+  private Set<EnqueuerCheckCastAnalysis> checkCastAnalyses = Sets.newIdentityHashSet();
 
   // Don't hold a direct pointer to app info (use appView).
   private AppInfoWithClassHierarchy appInfo;
@@ -436,6 +440,16 @@ public class Enqueuer {
     return this;
   }
 
+  public Enqueuer registerInstanceOfAnalysis(EnqueuerInstanceOfAnalysis analysis) {
+    instanceOfAnalyses.add(analysis);
+    return this;
+  }
+
+  public Enqueuer registerCheckCastAnalysis(EnqueuerCheckCastAnalysis analysis) {
+    checkCastAnalyses.add(analysis);
+    return this;
+  }
+
   public void setAnnotationRemoverBuilder(AnnotationRemover.Builder annotationRemoverBuilder) {
     this.annotationRemoverBuilder = annotationRemoverBuilder;
   }
@@ -587,6 +601,12 @@ public class Enqueuer {
   private DexProgramClass getProgramClassOrNull(DexType type) {
     DexClass clazz = definitionFor(type);
     return clazz != null && clazz.isProgramClass() ? clazz.asProgramClass() : null;
+  }
+
+  private DexProgramClass getProgramClassOrNullFromReflectiveAccess(DexType type) {
+    // This is using appInfo.definitionForWithoutExistenceAssert() to avoid that we report
+    // reflectively accessed types as missing.
+    return asProgramClassOrNull(appInfo().definitionForWithoutExistenceAssert(type));
   }
 
   private void warnIfLibraryTypeInheritsFromProgramType(DexLibraryClass clazz) {
@@ -899,6 +919,7 @@ public class Enqueuer {
   }
 
   boolean traceCheckCast(DexType type, ProgramMethod currentMethod) {
+    checkCastAnalyses.forEach(analysis -> analysis.traceCheckCast(type, currentMethod));
     return traceConstClassOrCheckCast(type, currentMethod);
   }
 
@@ -1021,6 +1042,11 @@ public class Enqueuer {
     return true;
   }
 
+  boolean traceInstanceOf(DexType type, ProgramMethod currentMethod) {
+    instanceOfAnalyses.forEach(analysis -> analysis.traceInstanceOf(type, currentMethod));
+    return traceTypeReference(type, currentMethod);
+  }
+
   boolean traceInvokeDirect(DexMethod invokedMethod, ProgramMethod context) {
     boolean skipTracing =
         registerDeferredActionForDeadProtoBuilder(
@@ -1109,7 +1135,7 @@ public class Enqueuer {
       pendingReflectiveUses.add(context);
     }
     // See comment in handleJavaLangEnumValueOf.
-    if (invokedMethod == dexItemFactory.enumMethods.valueOf) {
+    if (invokedMethod == dexItemFactory.enumMembers.valueOf) {
       pendingReflectiveUses.add(context);
     }
     // Handling of application services.
@@ -2733,8 +2759,8 @@ public class Enqueuer {
     return appInfoWithLiveness;
   }
 
-  public GraphLens buildGraphLens(AppView<?> appView) {
-    return lambdaRewriter != null ? lambdaRewriter.buildMappingLens(appView) : appView.graphLens();
+  public NestedGraphLens buildGraphLens(AppView<?> appView) {
+    return lambdaRewriter != null ? lambdaRewriter.buildMappingLens(appView) : null;
   }
 
   private void keepClassWithRules(DexProgramClass clazz, Set<ProguardKeepRuleBase> rules) {
@@ -2871,12 +2897,15 @@ public class Enqueuer {
     }
 
     // Now all additions are computed, the application is atomically extended with those additions.
-    Builder appBuilder = appInfo.app().asDirect().builder();
-    additions.amendApplication(appBuilder);
-    DirectMappedDexApplication app = appBuilder.build();
-    appInfo = new AppInfoWithClassHierarchy(app);
+    appInfo =
+        appInfo.rebuild(
+            app -> {
+              Builder appBuilder = app.asDirect().builder();
+              additions.amendApplication(appBuilder);
+              return appBuilder.build();
+            });
     appView.setAppInfo(appInfo);
-    subtypingInfo = new SubtypingInfo(app.allClasses(), app);
+    subtypingInfo = new SubtypingInfo(appView);
 
     // Finally once all synthesized items "exist" it is now safe to continue tracing. The new work
     // items are enqueued and the fixed point will continue once this subroutine returns.
@@ -3652,7 +3681,7 @@ public class Enqueuer {
       handleJavaLangReflectConstructorNewInstance(method, invoke);
       return;
     }
-    if (invokedMethod == dexItemFactory.enumMethods.valueOf) {
+    if (invokedMethod == dexItemFactory.enumMembers.valueOf) {
       handleJavaLangEnumValueOf(method, invoke);
       return;
     }
@@ -3672,11 +3701,7 @@ public class Enqueuer {
       return;
     }
     if (identifierItem.isDexType()) {
-      // This is using appView.definitionFor() to avoid that we report reflectively accessed types
-      // as missing.
-      DexProgramClass clazz =
-          asProgramClassOrNull(
-              appInfo().definitionForWithoutExistenceAssert(identifierItem.asDexType()));
+      DexProgramClass clazz = getProgramClassOrNullFromReflectiveAccess(identifierItem.asDexType());
       if (clazz == null) {
         return;
       }
@@ -3756,7 +3781,7 @@ public class Enqueuer {
       return;
     }
 
-    DexProgramClass clazz = getProgramClassOrNull(instantiatedType);
+    DexProgramClass clazz = getProgramClassOrNullFromReflectiveAccess(instantiatedType);
     if (clazz == null) {
       return;
     }
@@ -4221,11 +4246,6 @@ public class Enqueuer {
     @Override
     public DexClass definitionFor(DexType type) {
       return enqueuer.definitionFor(type);
-    }
-
-    @Override
-    public DexProgramClass definitionForProgramType(DexType type) {
-      return enqueuer.getProgramClassOrNull(type);
     }
 
     @Override

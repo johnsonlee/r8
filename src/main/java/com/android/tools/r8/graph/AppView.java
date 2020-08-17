@@ -5,6 +5,7 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.graph.DexValue.DexValueString;
+import com.android.tools.r8.graph.GraphLens.NestedGraphLens;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis.InitializedClassesInInstanceMethods;
 import com.android.tools.r8.graph.classmerging.HorizontallyMergedLambdaClasses;
 import com.android.tools.r8.graph.classmerging.MergedClassesCollection;
@@ -124,7 +125,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return new AppView<>(appInfo, WholeProgramOptimizations.OFF, mapper);
   }
 
-  public static <T extends AppInfo> AppView<T> createForR8(T appInfo) {
+  public static AppView<AppInfoWithClassHierarchy> createForR8(DexApplication application) {
+    AppInfoWithClassHierarchy appInfo = new AppInfoWithClassHierarchy(application);
     return new AppView<>(
         appInfo, WholeProgramOptimizations.ON, defaultPrefixRewritingMapper(appInfo));
   }
@@ -228,11 +230,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   @Override
   public final DexClass definitionFor(DexType type) {
     return appInfo().definitionFor(type);
-  }
-
-  @Override
-  public final DexProgramClass definitionForProgramType(DexType type) {
-    return appInfo.app().programDefinitionFor(type);
   }
 
   public OptionalBool isInterface(DexType type) {
@@ -430,7 +427,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public boolean validateUnboxedEnumsHaveBeenPruned() {
     for (DexType unboxedEnum : unboxedEnums.enumSet()) {
-      assert definitionForProgramType(unboxedEnum) == null
+      assert appInfo.definitionForWithoutExistenceAssert(unboxedEnum) == null
           : "Enum " + unboxedEnum + " has been unboxed but is still in the program.";
       assert appInfo().withLiveness().wasPruned(unboxedEnum)
           : "Enum " + unboxedEnum + " has been unboxed but was not pruned.";
@@ -470,5 +467,20 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public boolean hasCfByteCodePassThroughMethods() {
     return !cfByteCodePassThrough.isEmpty();
+  }
+
+  public void rewriteWithLens(NestedGraphLens lens) {
+    rewriteWithLens(lens, withLiveness());
+  }
+
+  private static void rewriteWithLens(NestedGraphLens lens, AppView<AppInfoWithLiveness> appView) {
+    if (lens == null) {
+      return;
+    }
+    boolean changed = appView.setGraphLens(lens);
+    assert changed;
+    DirectMappedDexApplication application = appView.appInfo().app().asDirect();
+    assert application.verifyWithLens(lens);
+    appView.setAppInfo(appView.appInfo().rewrittenWithLens(application, lens));
   }
 }

@@ -59,10 +59,9 @@ public class R8GMSCoreLookupTest extends TestBase {
         new ApplicationReader(app, new InternalOptions(), timing)
             .read(proguardMap, executorService)
             .toDirect();
-    InternalOptions options = new InternalOptions();
-    appView = AppView.createForR8(new AppInfoWithClassHierarchy(program));
+    appView = AppView.createForR8(program);
     appView.setAppServices(AppServices.builder(appView).build());
-    subtypingInfo = new SubtypingInfo(program.allClasses(), program);
+    subtypingInfo = new SubtypingInfo(appView);
   }
 
   private AppInfoWithClassHierarchy appInfo() {
