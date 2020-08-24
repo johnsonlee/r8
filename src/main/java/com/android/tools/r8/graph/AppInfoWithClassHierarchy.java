@@ -39,27 +39,37 @@ import java.util.function.Function;
  */
 public class AppInfoWithClassHierarchy extends AppInfo {
 
-  public AppInfoWithClassHierarchy(DexApplication application) {
-    super(application);
+  private static final CreateDesugaringViewOnAppInfo WITNESS = new CreateDesugaringViewOnAppInfo();
+
+  static class CreateDesugaringViewOnAppInfo {
+    private CreateDesugaringViewOnAppInfo() {}
   }
 
-  // For desugaring.
-  private AppInfoWithClassHierarchy(AppInfo appInfo) {
-    super(appInfo);
+  public static AppInfoWithClassHierarchy createInitialAppInfoWithClassHierarchy(
+      DexApplication application) {
+    return new AppInfoWithClassHierarchy(
+        application, SyntheticItems.createInitialSyntheticItems().commit(application));
   }
 
   // For AppInfoWithLiveness.
-  protected AppInfoWithClassHierarchy(AppInfoWithClassHierarchy previous) {
-    super(previous);
+  protected AppInfoWithClassHierarchy(
+      DexApplication application, SyntheticItems.CommittedItems committedItems) {
+    super(application, committedItems);
+  }
+
+  // For desugaring.
+  private AppInfoWithClassHierarchy(CreateDesugaringViewOnAppInfo witness, AppInfo appInfo) {
+    super(witness, appInfo);
   }
 
   public static AppInfoWithClassHierarchy createForDesugaring(AppInfo appInfo) {
     assert !appInfo.hasClassHierarchy();
-    return new AppInfoWithClassHierarchy(appInfo);
+    return new AppInfoWithClassHierarchy(WITNESS, appInfo);
   }
 
   public AppInfoWithClassHierarchy rebuild(Function<DexApplication, DexApplication> fn) {
-    return new AppInfoWithClassHierarchy(fn.apply(app()));
+    DexApplication application = fn.apply(app());
+    return new AppInfoWithClassHierarchy(application, getSyntheticItems().commit(application));
   }
 
   @Override

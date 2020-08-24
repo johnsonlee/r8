@@ -5,9 +5,11 @@
 package com.android.tools.r8;
 
 import com.android.tools.r8.TestBase.Backend;
+import com.android.tools.r8.dexsplitter.SplitterTestBase.RunInterface;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -28,6 +30,22 @@ public abstract class TestShrinkerBuilder<
 
   TestShrinkerBuilder(TestState state, B builder, Backend backend) {
     super(state, builder, backend);
+  }
+
+  @Override
+  public T setMinApi(AndroidApiLevel minApiLevel) {
+    if (backend == Backend.DEX) {
+      return super.setMinApi(minApiLevel.getLevel());
+    }
+    return self();
+  }
+
+  @Override
+  public T setMinApi(int minApiLevel) {
+    if (backend == Backend.DEX) {
+      return super.setMinApi(minApiLevel);
+    }
+    return self();
   }
 
   public T treeShaking(boolean enable) {
@@ -169,6 +187,31 @@ public abstract class TestShrinkerBuilder<
 
   public T addKeepMainRules(List<String> mainClasses) {
     mainClasses.forEach(this::addKeepMainRule);
+    return self();
+  }
+
+  public T addKeepFeatureMainRule(Class<?> mainClass) {
+    return addKeepFeatureMainRule(mainClass.getTypeName());
+  }
+
+  public T addKeepFeatureMainRules(Class<?>... mainClasses) {
+    for (Class<?> mainClass : mainClasses) {
+      this.addKeepFeatureMainRule(mainClass);
+    }
+    return self();
+  }
+
+  public T addKeepFeatureMainRule(String mainClass) {
+    return addKeepRules(
+        "-keep public class " + mainClass,
+        "    implements " + RunInterface.class.getTypeName() + " {",
+        "  public void <init>();",
+        "  public void run();",
+        "}");
+  }
+
+  public T addKeepFeatureMainRules(List<String> mainClasses) {
+    mainClasses.forEach(this::addKeepFeatureMainRule);
     return self();
   }
 

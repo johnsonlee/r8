@@ -126,7 +126,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   public static AppView<AppInfoWithClassHierarchy> createForR8(DexApplication application) {
-    AppInfoWithClassHierarchy appInfo = new AppInfoWithClassHierarchy(application);
+    AppInfoWithClassHierarchy appInfo =
+        AppInfoWithClassHierarchy.createInitialAppInfoWithClassHierarchy(application);
     return new AppView<>(
         appInfo, WholeProgramOptimizations.ON, defaultPrefixRewritingMapper(appInfo));
   }
@@ -396,6 +397,15 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return collection;
   }
 
+  public boolean hasBeenMerged(DexProgramClass clazz) {
+    // TODO(b/165227525): Add support for the horizontal class merger here.
+    if (horizontallyMergedLambdaClasses != null
+        && horizontallyMergedLambdaClasses.hasBeenMerged(clazz)) {
+      return true;
+    }
+    return verticallyMergedClasses != null && verticallyMergedClasses.hasBeenMerged(clazz);
+  }
+
   // Get the result of horizontal lambda class merging. Returns null if horizontal lambda class
   // merging has not been run.
   public HorizontallyMergedLambdaClasses horizontallyMergedLambdaClasses() {
@@ -470,16 +480,24 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   public void rewriteWithLens(NestedGraphLens lens) {
-    rewriteWithLens(lens, withLiveness());
+    if (lens != null) {
+      rewriteWithLens(lens, appInfo().app().asDirect(), withLiveness());
+    }
   }
 
-  private static void rewriteWithLens(NestedGraphLens lens, AppView<AppInfoWithLiveness> appView) {
-    if (lens == null) {
-      return;
-    }
+  public void rewriteWithLensAndApplication(
+      NestedGraphLens lens, DirectMappedDexApplication application) {
+    assert lens != null;
+    assert application != null;
+    rewriteWithLens(lens, application, withLiveness());
+  }
+
+  private static void rewriteWithLens(
+      NestedGraphLens lens,
+      DirectMappedDexApplication application,
+      AppView<AppInfoWithLiveness> appView) {
     boolean changed = appView.setGraphLens(lens);
     assert changed;
-    DirectMappedDexApplication application = appView.appInfo().app().asDirect();
     assert application.verifyWithLens(lens);
     appView.setAppInfo(appView.appInfo().rewrittenWithLens(application, lens));
   }

@@ -180,8 +180,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     obsolete = true;
   }
 
-  public CompilationState getCompilationState() {
-    return compilationState;
+  @Override
+  public MethodAccessFlags getAccessFlags() {
+    return accessFlags;
   }
 
   public DexEncodedMethod getDefaultInterfaceMethodImplementation() {
@@ -319,6 +320,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       return clazz != null && clazz.isProgramClass();
     }
     return false;
+  }
+
+  @Override
+  public ProgramMethod asProgramMember(DexDefinitionSupplier definitions) {
+    return asProgramMethod(definitions);
   }
 
   public ProgramMethod asProgramMethod(DexDefinitionSupplier definitions) {

@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexDefinition;
+import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -40,6 +41,7 @@ import com.android.tools.r8.graph.PresortedComparable;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.SubtypingInfo;
+import com.android.tools.r8.graph.SyntheticItems;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
@@ -195,6 +197,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   // TODO(zerny): Clean up the constructors so we have just one.
   AppInfoWithLiveness(
       DirectMappedDexApplication application,
+      SyntheticItems.CommittedItems syntheticItems,
       Set<DexType> deadProtoTypes,
       Set<DexType> missingTypes,
       Set<DexType> liveTypes,
@@ -235,7 +238,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       EnumValueInfoMapCollection enumValueInfoMaps,
       Set<DexType> constClassReferences,
       Map<DexType, Visibility> initClassReferences) {
-    super(application);
+    super(application, syntheticItems);
     this.deadProtoTypes = deadProtoTypes;
     this.missingTypes = missingTypes;
     this.liveTypes = liveTypes;
@@ -320,7 +323,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       EnumValueInfoMapCollection enumValueInfoMaps,
       Set<DexType> constClassReferences,
       Map<DexType, Visibility> initClassReferences) {
-    super(appInfoWithClassHierarchy);
+    super(
+        appInfoWithClassHierarchy.app(),
+        appInfoWithClassHierarchy.getSyntheticItems().commit(appInfoWithClassHierarchy.app()));
     this.deadProtoTypes = deadProtoTypes;
     this.missingTypes = missingTypes;
     this.liveTypes = liveTypes;
@@ -406,7 +411,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.enumValueInfoMaps,
         previous.constClassReferences,
         previous.initClassReferences);
-    copyMetadataFromPrevious(previous);
   }
 
   private AppInfoWithLiveness(
@@ -416,6 +420,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Collection<DexReference> additionalPinnedItems) {
     this(
         application,
+        previous.getSyntheticItems().commit(application),
         previous.deadProtoTypes,
         previous.missingTypes,
         previous.liveTypes,
@@ -458,7 +463,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.enumValueInfoMaps,
         previous.constClassReferences,
         previous.initClassReferences);
-    copyMetadataFromPrevious(previous);
     assert keepInfo.verifyNoneArePinned(removedClasses, previous);
   }
 
@@ -503,7 +507,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       AppInfoWithLiveness previous,
       Map<DexField, Int2ReferenceMap<DexField>> switchMaps,
       EnumValueInfoMapCollection enumValueInfoMaps) {
-    super(previous);
+    super(previous.app(), previous.getSyntheticItems().commit(previous.app()));
     this.deadProtoTypes = previous.deadProtoTypes;
     this.missingTypes = previous.missingTypes;
     this.liveTypes = previous.liveTypes;
@@ -785,7 +789,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   private boolean isInstantiatedDirectly(DexProgramClass clazz) {
     assert checkIfObsolete();
     DexType type = clazz.type;
-    return type.isD8R8SynthesizedClassType()
+    return
+    // TODO(b/165224388): Synthetic classes should be represented in the allocation info.
+    getSyntheticItems().isSyntheticClass(clazz)
         || (!clazz.isInterface() && objectAllocationInfoCollection.isInstantiatedDirectly(clazz))
         // TODO(b/145344105): Model annotations in the object allocation info.
         || (clazz.isAnnotation() && liveTypes.contains(type));
@@ -808,11 +814,16 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     if (info != null && info.isRead()) {
       return true;
     }
-    return keepInfo.isPinned(field, this)
-        // Fields in the class that is synthesized by D8/R8 would be used soon.
-        || field.holder.isD8R8SynthesizedClassType()
-        // For library classes we don't know whether a field is read.
-        || isLibraryOrClasspathField(encodedField);
+    if (keepInfo.isPinned(field, this)) {
+      return true;
+    }
+    // Fields in the class that is synthesized by D8/R8 would be used soon.
+    // TODO(b/165229577): Do we need this special handling of synthetics?
+    if (getSyntheticItems().isSyntheticClass(field.holder)) {
+      return true;
+    }
+    // For library classes we don't know whether a field is read.
+    return isLibraryOrClasspathField(encodedField);
   }
 
   public boolean isFieldWritten(DexEncodedField encodedField) {
@@ -828,15 +839,12 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       // The field is written directly by the program itself.
       return true;
     }
-    if (field.holder.isD8R8SynthesizedClassType()) {
-      // Fields in the class that is synthesized by D8/R8 would be used soon.
+    // TODO(b/165229577): Do we need this special handling of synthetics?
+    if (getSyntheticItems().isSyntheticClass(field.holder)) {
       return true;
     }
-    if (isLibraryOrClasspathField(encodedField)) {
-      // For library classes we don't know whether a field is rewritten.
-      return true;
-    }
-    return false;
+    // For library classes we don't know whether a field is rewritten.
+    return isLibraryOrClasspathField(encodedField);
   }
 
   public boolean isFieldOnlyWrittenInMethod(DexEncodedField field, DexEncodedMethod method) {
@@ -998,8 +1006,11 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
             .filter(AssertionUtils::assertNotNull)
             .collect(Collectors.toList()));
 
+    DexDefinitionSupplier definitionSupplier =
+        application.getDefinitionsSupplier(SyntheticItems.createInitialSyntheticItems());
     return new AppInfoWithLiveness(
         application,
+        getSyntheticItems().commit(application, lens),
         deadProtoTypes,
         missingTypes,
         lens.rewriteTypes(liveTypes),
@@ -1010,8 +1021,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         lens.rewriteMethods(methodsTargetedByInvokeDynamic),
         lens.rewriteMethods(virtualMethodsTargetedByInvokeDirect),
         lens.rewriteMethods(liveMethods),
-        fieldAccessInfoCollection.rewrittenWithLens(application, lens),
-        objectAllocationInfoCollection.rewrittenWithLens(application, lens),
+        fieldAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens),
+        objectAllocationInfoCollection.rewrittenWithLens(definitionSupplier, lens),
         rewriteInvokesWithContexts(virtualInvokes, lens),
         rewriteInvokesWithContexts(interfaceInvokes, lens),
         rewriteInvokesWithContexts(superInvokes, lens),

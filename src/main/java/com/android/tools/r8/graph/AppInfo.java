@@ -3,65 +3,49 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy.CreateDesugaringViewOnAppInfo;
 import com.android.tools.r8.graph.FieldResolutionResult.SuccessfulFieldResolutionResult;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.InternalOptions;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class AppInfo implements DexDefinitionSupplier {
 
   private final DexApplication app;
   private final DexItemFactory dexItemFactory;
-
-  // For some optimizations, e.g. optimizing synthetic classes, we may need to resolve the current
-  // class being optimized.
-  private final ConcurrentHashMap<DexType, DexProgramClass> synthesizedClasses;
+  private final SyntheticItems syntheticItems;
 
   // Set when a new AppInfo replaces a previous one. All public methods should verify that the
   // current instance is not obsolete, to ensure that we almost use the most recent AppInfo.
   private final BooleanBox obsolete;
 
-  public AppInfo(DexApplication application) {
-    this(application, new ConcurrentHashMap<>(), new BooleanBox());
+  public static AppInfo createInitialAppInfo(DexApplication application) {
+    return new AppInfo(application, SyntheticItems.createInitialSyntheticItems(), new BooleanBox());
+  }
+
+  public AppInfo(DexApplication application, SyntheticItems.CommittedItems committedItems) {
+    this(application, committedItems.toSyntheticItems(), new BooleanBox());
   }
 
   // For desugaring.
-  protected AppInfo(AppInfo appInfo) {
-    this(appInfo.app, appInfo.synthesizedClasses, appInfo.obsolete);
+  // This is a view onto the app info and is the only place the pending synthetics are shared.
+  AppInfo(CreateDesugaringViewOnAppInfo witness, AppInfo appInfo) {
+    this(appInfo.app, appInfo.syntheticItems, appInfo.obsolete);
+    assert witness != null;
   }
 
-  // For AppInfoWithLiveness.
-  protected AppInfo(AppInfoWithClassHierarchy previous) {
-    this(
-        ((AppInfo) previous).app,
-        new ConcurrentHashMap<>(((AppInfo) previous).synthesizedClasses),
-        new BooleanBox());
-  }
-
-  private AppInfo(
-      DexApplication application,
-      ConcurrentHashMap<DexType, DexProgramClass> synthesizedClasses,
-      BooleanBox obsolete) {
+  private AppInfo(DexApplication application, SyntheticItems syntheticItems, BooleanBox obsolete) {
     this.app = application;
     this.dexItemFactory = application.dexItemFactory;
-    this.synthesizedClasses = synthesizedClasses;
+    this.syntheticItems = syntheticItems;
     this.obsolete = obsolete;
   }
 
   protected InternalOptions options() {
     return app.options;
-  }
-
-  public void copyMetadataFromPrevious(AppInfo previous) {
-    this.synthesizedClasses.putAll(previous.synthesizedClasses);
   }
 
   public boolean isObsolete() {
@@ -92,25 +76,18 @@ public class AppInfo implements DexDefinitionSupplier {
     return dexItemFactory;
   }
 
+  public SyntheticItems getSyntheticItems() {
+    return syntheticItems;
+  }
+
   public void addSynthesizedClass(DexProgramClass clazz) {
     assert checkIfObsolete();
-    assert clazz.type.isD8R8SynthesizedClassType();
-    DexProgramClass previous = synthesizedClasses.put(clazz.type, clazz);
-    assert previous == null || previous == clazz;
+    syntheticItems.addSyntheticClass(clazz);
   }
 
   public Collection<DexProgramClass> synthesizedClasses() {
     assert checkIfObsolete();
-    return Collections.unmodifiableCollection(synthesizedClasses.values());
-  }
-
-  private Map<DexField, DexEncodedField> computeFieldDefinitions(DexType type) {
-    Builder<DexField, DexEncodedField> builder = ImmutableMap.builder();
-    DexClass clazz = definitionFor(type);
-    if (clazz != null) {
-      clazz.forEachField(field -> builder.put(field.field, field));
-    }
-    return builder.build();
+    return syntheticItems.getPendingSyntheticClasses();
   }
 
   public Collection<DexProgramClass> classes() {
@@ -130,12 +107,7 @@ public class AppInfo implements DexDefinitionSupplier {
 
   public final DexClass definitionForWithoutExistenceAssert(DexType type) {
     assert checkIfObsolete();
-    DexProgramClass cached = synthesizedClasses.get(type);
-    if (cached != null) {
-      assert app.definitionFor(type) == null;
-      return cached;
-    }
-    return app.definitionFor(type);
+    return syntheticItems.definitionFor(type, app::definitionFor);
   }
 
   public DexClass definitionForDesugarDependency(DexClass dependent, DexType type) {

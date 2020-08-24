@@ -226,8 +226,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean enableInlining =
       !Version.isDevelopmentVersion()
           || System.getProperty("com.android.tools.r8.disableinlining") == null;
-  // TODO(b/160854837): re-enable enum unboxing.
-  public boolean enableEnumUnboxing = false;
+  public boolean enableEnumUnboxing = true;
   // TODO(b/141451716): Evaluate the effect of allowing inlining in the inlinee.
   public boolean applyInliningToInlinee =
       System.getProperty("com.android.tools.r8.applyInliningToInlinee") != null;
@@ -326,7 +325,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
             .setVersion(Version.LABEL)
             .setCompilationMode(debug ? CompilationMode.DEBUG : CompilationMode.RELEASE)
             .setHasChecksums(encodeChecksums);
-    if (!isGeneratingClassFiles()) {
+    // Compiling with D8 and L8 is always with a min API level and desugaring to that level. If
+    // desugaring is explicitly turned off for D8 the input is expected to already have been
+    // desugared to the specified min API level. For R8 desugaring is optional.
+    if (tool == Tool.D8
+        || tool == Tool.L8
+        || (tool == Tool.R8 && desugarState != DesugarState.OFF)) {
       marker.setMinApi(minApiLevel);
     }
     if (desugaredLibraryConfiguration.getIdentifier() != null) {
@@ -394,6 +398,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public boolean isGeneratingClassFiles() {
     return programConsumer instanceof ClassFileConsumer;
+  }
+
+  public boolean isDesugaring() {
+    return !isGeneratingClassFiles() || cfToCfDesugar;
   }
 
   public DexIndexedConsumer getDexIndexedConsumer() {
@@ -503,6 +511,14 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   @Override
   public boolean isMinificationEnabled() {
     return isMinifying();
+  }
+
+  /**
+   * If any non-static class merging is enabled, information about types referred to by instanceOf
+   * and check cast instructions needs to be collected.
+   */
+  public boolean isClassMergingExtensionRequired() {
+    return enableHorizontalClassMerging || enableVerticalClassMerging;
   }
 
   @Override
@@ -1061,7 +1077,19 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     // Repackaging all classes into the single user-given (or top-level) package.
     REPACKAGE,
     // Repackaging all packages into the single user-given (or top-level) package.
-    FLATTEN
+    FLATTEN;
+
+    public boolean isNone() {
+      return this == NONE;
+    }
+
+    public boolean isFlattenPackageHierarchy() {
+      return this == FLATTEN;
+    }
+
+    public boolean isRepackageClasses() {
+      return this == REPACKAGE;
+    }
   }
 
   public static class OutlineOptions {
@@ -1185,6 +1213,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean alwaysUsePessimisticRegisterAllocation = false;
     public boolean enableCheckCastAndInstanceOfRemoval = true;
     public boolean enableDeadSwitchCaseElimination = true;
+    public boolean enableExperimentalRepackaging = false;
     public boolean enableInvokeSuperToInvokeVirtualRewriting = true;
     public boolean enableSwitchToIfRewriting = true;
     public boolean enableEnumUnboxingDebugLogs = false;
@@ -1207,6 +1236,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean forceLibBackportsInL8CfToCf = false;
     public boolean enumUnboxingRewriteJavaCGeneratedMethod = false;
     public boolean assertConsistentRenamingOfSignature = false;
+
+    // Flag to allow processing of resources in D8. A data resource consumer still needs to be
+    // specified.
+    public boolean enableD8ResourcesPassThrough = false;
 
     // TODO(b/144781417): This is disabled by default as some test apps appear to have such classes.
     public boolean allowNonAbstractClassesWithAbstractMethods = true;
@@ -1266,7 +1299,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   private boolean hasMinApi(AndroidApiLevel level) {
-    assert isGeneratingDex();
     return minApiLevel >= level.getLevel();
   }
 
@@ -1317,23 +1349,23 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean canUseDefaultAndStaticInterfaceMethods() {
-    return isGeneratingClassFiles() || hasMinApi(AndroidApiLevel.N);
+    return !isDesugaring() || hasMinApi(AndroidApiLevel.N);
   }
 
   public boolean canUseNestBasedAccess() {
-    return isGeneratingClassFiles();
+    return !isDesugaring();
   }
 
   public boolean canLeaveStaticInterfaceMethodInvokes() {
-    return isGeneratingClassFiles() || hasMinApi(AndroidApiLevel.L);
+    return !isDesugaring() || hasMinApi(AndroidApiLevel.L);
   }
 
   public boolean canUseTwrCloseResourceMethod() {
-    return isGeneratingClassFiles() || hasMinApi(AndroidApiLevel.K);
+    return !isDesugaring() || hasMinApi(AndroidApiLevel.K);
   }
 
   public boolean canUsePrivateInterfaceMethods() {
-    return isGeneratingClassFiles() || hasMinApi(AndroidApiLevel.N);
+    return !isDesugaring() || hasMinApi(AndroidApiLevel.N);
   }
 
   public boolean canUseDexPcAsDebugInformation() {
@@ -1348,7 +1380,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
     return desugarState == DesugarState.ON
         && interfaceMethodDesugaring == OffOrAuto.Auto
-        && (!canUseDefaultAndStaticInterfaceMethods() || cfToCfDesugar);
+        && !canUseDefaultAndStaticInterfaceMethods();
   }
 
   public boolean isStringSwitchConversionEnabled() {
@@ -1365,11 +1397,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean canUseSuppressedExceptions() {
-    return isGeneratingClassFiles() || hasMinApi(AndroidApiLevel.K);
+    return (isGeneratingClassFiles() && !cfToCfDesugar) || hasMinApi(AndroidApiLevel.K);
   }
 
   public boolean canUseAssertionErrorTwoArgumentConstructor() {
-    return isGeneratingClassFiles() || hasMinApi(AndroidApiLevel.K);
+    return (isGeneratingClassFiles() && !cfToCfDesugar) || hasMinApi(AndroidApiLevel.K);
   }
 
   // The Apache Harmony-based AssertionError constructor which takes an Object on API 15 and older
@@ -1379,7 +1411,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   //
   // https://android.googlesource.com/platform/libcore/+/refs/heads/ics-mr1/luni/src/main/java/java/lang/AssertionError.java#56
   public boolean canInitCauseAfterAssertionErrorObjectConstructor() {
-    return isGeneratingClassFiles() || hasMinApi(AndroidApiLevel.J);
+    return (isGeneratingClassFiles() && !cfToCfDesugar) || hasMinApi(AndroidApiLevel.J);
   }
 
   // Dalvik x86-atom backend had a bug that made it crash on filled-new-array instructions for

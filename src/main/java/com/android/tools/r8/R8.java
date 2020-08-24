@@ -31,6 +31,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.graph.DirectMappedDexApplication.Builder;
 import com.android.tools.r8.graph.EnumValueInfoMapCollection;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.GraphLens.NestedGraphLens;
@@ -38,6 +39,7 @@ import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
+import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
@@ -74,10 +76,12 @@ import com.android.tools.r8.optimize.ClassAndMemberPublicizer;
 import com.android.tools.r8.optimize.MemberRebindingAnalysis;
 import com.android.tools.r8.optimize.VisibilityBridgeRemover;
 import com.android.tools.r8.origin.CommandLineOrigin;
+import com.android.tools.r8.repackaging.Repackaging;
 import com.android.tools.r8.shaking.AbstractMethodRemover;
 import com.android.tools.r8.shaking.AnnotationRemover;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.ClassInitFieldSynthesizer;
+import com.android.tools.r8.shaking.ClassMergingEnqueuerExtension;
 import com.android.tools.r8.shaking.DefaultTreePrunerConfiguration;
 import com.android.tools.r8.shaking.DiscardedChecker;
 import com.android.tools.r8.shaking.Enqueuer;
@@ -323,6 +327,8 @@ public class R8 {
       timing.begin("Strip unused code");
       Set<DexType> classesToRetainInnerClassAttributeFor = null;
       Set<DexType> missingClasses = null;
+      ClassMergingEnqueuerExtension classMergingEnqueuerExtension =
+          new ClassMergingEnqueuerExtension(appView.dexItemFactory());
       try {
         // TODO(b/154849103): Find a better way to determine missing classes.
         missingClasses = new SubtypingInfo(appView).getMissingClasses();
@@ -370,7 +376,12 @@ public class R8 {
         AnnotationRemover.Builder annotationRemoverBuilder =
             options.isShrinking() ? AnnotationRemover.builder() : null;
         AppView<AppInfoWithLiveness> appViewWithLiveness =
-            runEnqueuer(annotationRemoverBuilder, executorService, appView, subtypingInfo);
+            runEnqueuer(
+                annotationRemoverBuilder,
+                executorService,
+                appView,
+                subtypingInfo,
+                classMergingEnqueuerExtension);
         assert appView.rootSet().verifyKeptFieldsAreAccessedAndLive(appViewWithLiveness.appInfo());
         assert appView.rootSet().verifyKeptMethodsAreTargetedAndLive(appViewWithLiveness.appInfo());
         assert appView.rootSet().verifyKeptTypesAreLive(appViewWithLiveness.appInfo());
@@ -487,8 +498,11 @@ public class R8 {
       if (options.shouldDesugarNests()) {
         timing.begin("NestBasedAccessDesugaring");
         R8NestBasedAccessDesugaring analyzer = new R8NestBasedAccessDesugaring(appViewWithLiveness);
-        NestedPrivateMethodLens lens = analyzer.run(executorService);
-        appView.rewriteWithLens(lens);
+        Builder appBuilder = getDirectApp(appView).builder();
+        NestedPrivateMethodLens lens = analyzer.run(executorService, appBuilder);
+        if (lens != null) {
+          appView.rewriteWithLensAndApplication(lens, appBuilder.build());
+        }
         timing.end();
       } else {
         timing.begin("NestReduction");
@@ -529,6 +543,17 @@ public class R8 {
           }
           timing.end();
         }
+        if (options.enableHorizontalClassMerging) {
+          timing.begin("HorizontalClassMerger");
+          HorizontalClassMerger merger =
+              new HorizontalClassMerger(appViewWithLiveness, mainDexClasses);
+          merger.run();
+          timing.end();
+        }
+
+        // Only required for class merging, clear instance to save memory.
+        classMergingEnqueuerExtension = null;
+
         if (options.enableArgumentRemoval) {
           SubtypingInfo subtypingInfo = appViewWithLiveness.appInfo().computeSubtypingInfo();
           {
@@ -772,6 +797,12 @@ public class R8 {
         }
       }
 
+      // Perform repackaging.
+      // TODO(b/165783399): Consider making repacking available without minification.
+      if (options.isMinifying() && options.testing.enableExperimentalRepackaging) {
+        new Repackaging(appView.withLiveness()).run(executorService, timing);
+      }
+
       // Perform minification.
       NamingLens namingLens;
       if (options.getProguardConfiguration().hasApplyMappingFile()) {
@@ -790,10 +821,6 @@ public class R8 {
       } else {
         namingLens = NamingLens.getIdentityLens();
       }
-
-      timing.begin("MinifyKotlinMetadata");
-      new KotlinMetadataRewriter(appView, namingLens).run(executorService);
-      timing.end();
 
       assert verifyMovedMethodsHaveOriginalMethodPosition(appView, getDirectApp(appView));
 
@@ -855,10 +882,9 @@ public class R8 {
       assert appView
           .graphLens()
           .verifyMappingToOriginalProgram(
-              appView.appInfo().classesWithDeterministicOrder(),
+              appView,
               new ApplicationReader(inputApp.withoutMainDexList(), options, timing)
-                  .read(executorService),
-              appView.dexItemFactory());
+                  .read(executorService));
 
       // Report synthetic rules (only for testing).
       // TODO(b/120959039): Move this to being reported through the graph consumer.
@@ -868,6 +894,10 @@ public class R8 {
 
       NamingLens prefixRewritingNamingLens =
           PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView, namingLens);
+
+      timing.begin("MinifyKotlinMetadata");
+      new KotlinMetadataRewriter(appView, prefixRewritingNamingLens).runForR8(executorService);
+      timing.end();
 
       new GenericSignatureRewriter(appView, prefixRewritingNamingLens)
           .run(appView.appInfo().classes(), executorService);
@@ -951,7 +981,8 @@ public class R8 {
       AnnotationRemover.Builder annotationRemoverBuilder,
       ExecutorService executorService,
       AppView<AppInfoWithClassHierarchy> appView,
-      SubtypingInfo subtypingInfo)
+      SubtypingInfo subtypingInfo,
+      ClassMergingEnqueuerExtension classMergingEnqueuerExtension)
       throws ExecutionException {
     Enqueuer enqueuer = EnqueuerFactory.createForInitialTreeShaking(appView, subtypingInfo);
     enqueuer.setAnnotationRemoverBuilder(annotationRemoverBuilder);
@@ -962,6 +993,10 @@ public class R8 {
       enqueuer.registerAnalysis(
           new ClassInitializerAssertionEnablingAnalysis(
               appView.dexItemFactory(), OptimizationFeedbackSimple.getInstance()));
+    }
+
+    if (options.isClassMergingExtensionRequired()) {
+      classMergingEnqueuerExtension.attach(enqueuer);
     }
 
     AppView<AppInfoWithLiveness> appViewWithLiveness =

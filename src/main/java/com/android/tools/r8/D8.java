@@ -11,6 +11,7 @@ import com.android.tools.r8.dex.ApplicationWriter;
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.graph.AppInfo;
+import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -24,6 +25,7 @@ import com.android.tools.r8.ir.desugar.PrefixRewritingMapper;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.jar.CfApplicationWriter;
+import com.android.tools.r8.kotlin.KotlinMetadataRewriter;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.PrefixRewritingNamingLens;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
@@ -166,7 +168,7 @@ public final class D8 {
       DexApplication app = new ApplicationReader(inputApp, options, timing).read(executor);
       PrefixRewritingMapper rewritePrefix =
           options.desugaredLibraryConfiguration.createPrefixRewritingMapper(options);
-      AppInfo appInfo = new AppInfo(app);
+      AppInfo appInfo = AppInfo.createInitialAppInfo(app);
 
       final CfgPrinter printer = options.printCfg ? new CfgPrinter() : null;
 
@@ -188,6 +190,10 @@ public final class D8 {
       }
 
       AppView<?> appView = AppView.createForD8(appInfo, rewritePrefix);
+
+      if (options.testing.enableD8ResourcesPassThrough) {
+        appView.setAppServices(AppServices.builder(appView).build());
+      }
 
       IRConverter converter = new IRConverter(appView, timing, printer);
       app = converter.convert(app, executor);
@@ -259,6 +265,7 @@ public final class D8 {
                   : PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView);
           new GenericSignatureRewriter(appView, namingLens)
               .run(appView.appInfo().classes(), executor);
+          new KotlinMetadataRewriter(appView, namingLens).runForD8(executor);
         } else {
           // There are both cf and dex inputs in the program, and rewriting is required for
           // desugared library only on cf inputs. We cannot easily rewrite part of the program
@@ -322,6 +329,7 @@ public final class D8 {
         PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView);
     new GenericSignatureRewriter(appView, prefixRewritingNamingLens)
         .run(appView.appInfo().classes(), executor);
+    new KotlinMetadataRewriter(appView, prefixRewritingNamingLens).runForD8(executor);
     new ApplicationWriter(
             cfApp,
             null,
