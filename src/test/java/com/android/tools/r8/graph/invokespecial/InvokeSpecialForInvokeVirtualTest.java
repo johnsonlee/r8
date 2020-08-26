@@ -4,17 +4,16 @@
 
 package com.android.tools.r8.graph.invokespecial;
 
+import static com.android.tools.r8.utils.DescriptorUtils.getBinaryNameFromJavaType;
 import static org.junit.Assert.assertEquals;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.TestRunResult;
+import com.android.tools.r8.utils.StringUtils;
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -23,6 +22,8 @@ import org.junit.runners.Parameterized.Parameters;
 // This is a reproduction of b/144450911.
 @RunWith(Parameterized.class)
 public class InvokeSpecialForInvokeVirtualTest extends TestBase {
+
+  private static final String EXPECTED = StringUtils.lines("Hello World!");
 
   private final TestParameters parameters;
 
@@ -36,13 +37,24 @@ public class InvokeSpecialForInvokeVirtualTest extends TestBase {
   }
 
   @Test
-  public void testRuntime() throws IOException, CompilationFailedException, ExecutionException {
-    TestRunResult<?> runResult =
-        testForRuntime(parameters.getRuntime(), parameters.getApiLevel())
-            .addProgramClasses(A.class, Main.class)
-            .addProgramClassFileData(getClassBWithTransformedInvoked())
-            .run(parameters.getRuntime(), Main.class)
-            .assertSuccessWithOutputLines("Hello World!");
+  public void testRuntime() throws Exception {
+    testForRuntime(parameters.getRuntime(), parameters.getApiLevel())
+        .addProgramClasses(A.class, Main.class)
+        .addProgramClassFileData(getClassBWithTransformedInvoked())
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutput(EXPECTED);
+  }
+
+  @Test
+  public void testR8() throws Exception {
+    testForR8(parameters.getBackend())
+        .addProgramClasses(A.class, Main.class)
+        .addProgramClassFileData(getClassBWithTransformedInvoked())
+        .addKeepMainRule(Main.class)
+        .setMinApi(parameters.getApiLevel())
+        .run(parameters.getRuntime(), Main.class)
+        // TODO(b/166210854): Fails but should not.
+        .assertFailure();
   }
 
   private byte[] getClassBWithTransformedInvoked() throws IOException {
@@ -51,6 +63,7 @@ public class InvokeSpecialForInvokeVirtualTest extends TestBase {
             "bar",
             (opcode, owner, name, descriptor, isInterface, continuation) -> {
               assertEquals(INVOKEVIRTUAL, opcode);
+              assertEquals(getBinaryNameFromJavaType(B.class.getTypeName()), owner);
               continuation.visitMethodInsn(INVOKESPECIAL, owner, name, descriptor, isInterface);
             })
         .transform();
@@ -66,7 +79,7 @@ public class InvokeSpecialForInvokeVirtualTest extends TestBase {
   public static class B extends A {
 
     void bar() {
-      foo();
+      foo(); // Will be invoke-special B::foo.
     }
   }
 

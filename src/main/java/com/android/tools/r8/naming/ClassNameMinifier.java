@@ -73,8 +73,10 @@ class ClassNameMinifier {
     this.keepInnerClassStructure = options.keepInnerClassStructure();
 
     // Initialize top-level naming state.
-    topLevelState = new Namespace(
-        getPackageBinaryNameFromJavaType(options.getProguardConfiguration().getPackagePrefix()));
+    topLevelState =
+        new Namespace(
+            getPackageBinaryNameFromJavaType(
+                options.getProguardConfiguration().getPackagePrefix()));
 
     states.put("", topLevelState);
 
@@ -212,9 +214,7 @@ class ClassNameMinifier {
     }
   }
 
-  /**
-   * Registers the given package prefix and all of parent packages as used.
-   */
+  /** Registers the given package prefix and all of parent packages as used. */
   private void registerPackagePrefixesAsUsed(String packagePrefix) {
     // If -allowaccessmodification is not set, we may keep classes in their original packages,
     // accounting for package-private accesses.

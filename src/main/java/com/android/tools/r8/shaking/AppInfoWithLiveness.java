@@ -42,13 +42,13 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.SyntheticItems;
+import com.android.tools.r8.graph.SyntheticItems.CommittedItems;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.desugar.TwrCloseResourceRewriter;
-import com.android.tools.r8.utils.AssertionUtils;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
@@ -1000,17 +1000,11 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
             .map(FieldResolutionResult::getResolvedField)
             .collect(Collectors.toList()));
 
-    assert lens.assertDefinitionsNotModified(
-        neverMerge.stream()
-            .map(this::definitionFor)
-            .filter(AssertionUtils::assertNotNull)
-            .collect(Collectors.toList()));
-
-    DexDefinitionSupplier definitionSupplier =
-        application.getDefinitionsSupplier(SyntheticItems.createInitialSyntheticItems());
+    CommittedItems committedItems = getSyntheticItems().commit(application, lens);
+    DexDefinitionSupplier definitionSupplier = application.getDefinitionsSupplier(committedItems);
     return new AppInfoWithLiveness(
         application,
-        getSyntheticItems().commit(application, lens),
+        committedItems,
         deadProtoTypes,
         missingTypes,
         lens.rewriteTypes(liveTypes),
