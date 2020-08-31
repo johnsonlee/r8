@@ -5,7 +5,6 @@
 package com.android.tools.r8.graph.classmerging;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Set;
@@ -30,7 +29,7 @@ public class HorizontallyMergedLambdaClasses implements MergedClasses {
   }
 
   @Override
-  public boolean hasBeenMerged(DexProgramClass clazz) {
-    return sources.contains(clazz.type);
+  public boolean hasBeenMerged(DexType type) {
+    return sources.contains(type);
   }
 }

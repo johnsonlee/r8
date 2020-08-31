@@ -40,6 +40,7 @@ import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
+import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerGraphLens;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
@@ -209,7 +210,6 @@ public class R8 {
 
   static void writeApplication(
       ExecutorService executorService,
-      DexApplication application,
       AppView<?> appView,
       GraphLens graphLens,
       InitClassLens initClassLens,
@@ -217,7 +217,7 @@ public class R8 {
       InternalOptions options,
       ProguardMapSupplier proguardMapSupplier)
       throws ExecutionException {
-    InspectorImpl.runInspections(options.outputInspections, application);
+    InspectorImpl.runInspections(options.outputInspections, appView.appInfo().classes());
     try {
       Marker marker = options.getMarker(Tool.R8);
       assert marker != null;
@@ -227,11 +227,15 @@ public class R8 {
       markers.remove(marker);
       if (options.isGeneratingClassFiles()) {
         new CfApplicationWriter(
-                application, appView, options, marker, graphLens, namingLens, proguardMapSupplier)
+                appView,
+                marker,
+                graphLens,
+                namingLens,
+                proguardMapSupplier)
             .write(options.getClassFileConsumer());
       } else {
         new ApplicationWriter(
-                application,
+                appView.appInfo().app(),
                 appView,
                 options,
                 // Ensure that the marker for this compilation is the first in the list.
@@ -354,6 +358,7 @@ public class R8 {
             }
           }
         }
+        options.reporter.failIfPendingErrors();
 
         // Add synthesized -assumenosideeffects from min api if relevant.
         if (options.isGeneratingDex()) {
@@ -547,7 +552,11 @@ public class R8 {
           timing.begin("HorizontalClassMerger");
           HorizontalClassMerger merger =
               new HorizontalClassMerger(appViewWithLiveness, mainDexClasses);
-          merger.run();
+          HorizontalClassMergerGraphLens lens = merger.run();
+          if (lens != null) {
+            appView.setHorizontallyMergedClasses(lens.getHorizontallyMergedClasses());
+            appView.rewriteWithLens(lens);
+          }
           timing.end();
         }
 
@@ -905,7 +914,6 @@ public class R8 {
       // Generate the resulting application resources.
       writeApplication(
           executorService,
-          appView.appInfo().app(),
           appView,
           appView.graphLens(),
           appView.initClassLens(),

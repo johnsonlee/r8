@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.debug.DebugTestConfig;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.utils.ListUtils;
@@ -13,8 +14,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
 
-public abstract class TestBuilder<RR extends TestRunResult, T extends TestBuilder<RR, T>> {
+public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBuilder<RR, T>> {
 
   private final TestState state;
 
@@ -134,6 +136,16 @@ public abstract class TestBuilder<RR extends TestRunResult, T extends TestBuilde
     return addLibraryFiles(Arrays.asList(files));
   }
 
+  public T addDefaultRuntimeLibrary(TestParameters parameters) {
+    if (parameters.getBackend() == Backend.DEX) {
+      addLibraryFiles(ToolHelper.getFirstSupportedAndroidJar(parameters.getApiLevel()));
+    } else {
+      assert parameters.getBackend() == Backend.CF;
+      addLibraryFiles(ToolHelper.getJava8RuntimeJar());
+    }
+    return self();
+  }
+
   public T addClasspathClasses(Class<?>... classes) {
     return addClasspathClasses(Arrays.asList(classes));
   }
@@ -178,5 +190,11 @@ public abstract class TestBuilder<RR extends TestRunResult, T extends TestBuilde
 
   public T addRunClasspathFiles(Path... files) {
     return addRunClasspathFiles(Arrays.asList(files));
+  }
+
+  public T setDiagnosticsLevelModifier(
+      BiFunction<DiagnosticsLevel, Diagnostic, DiagnosticsLevel> modifier) {
+    getState().setDiagnosticsLevelModifier(modifier);
+    return self();
   }
 }

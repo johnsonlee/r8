@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
+import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
@@ -35,6 +36,7 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.CfgPrinter;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.InternalOptions.DesugarState;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
@@ -158,6 +160,16 @@ public final class D8 {
         });
   }
 
+  private static AppView<AppInfo> readApp(
+      AndroidApp inputApp, InternalOptions options, ExecutorService executor, Timing timing)
+      throws IOException {
+    PrefixRewritingMapper rewritePrefix =
+        options.desugaredLibraryConfiguration.createPrefixRewritingMapper(options);
+    LazyLoadedDexApplication app = new ApplicationReader(inputApp, options, timing).read(executor);
+    AppInfo appInfo = AppInfo.createInitialAppInfo(app);
+    return AppView.createForD8(appInfo, rewritePrefix);
+  }
+
   private static void run(AndroidApp inputApp, InternalOptions options, ExecutorService executor)
       throws IOException {
     Timing timing = Timing.create("D8", options);
@@ -165,10 +177,7 @@ public final class D8 {
       // Disable global optimizations.
       options.disableGlobalOptimizations();
 
-      DexApplication app = new ApplicationReader(inputApp, options, timing).read(executor);
-      PrefixRewritingMapper rewritePrefix =
-          options.desugaredLibraryConfiguration.createPrefixRewritingMapper(options);
-      AppInfo appInfo = AppInfo.createInitialAppInfo(app);
+      AppView<AppInfo> appView = readApp(inputApp, options, executor, timing);
 
       final CfgPrinter printer = options.printCfg ? new CfgPrinter() : null;
 
@@ -177,9 +186,9 @@ public final class D8 {
         // enabling code.
         ClassInitializerAssertionEnablingAnalysis analysis =
             new ClassInitializerAssertionEnablingAnalysis(
-                appInfo.dexItemFactory(), OptimizationFeedbackSimple.getInstance());
+                appView.dexItemFactory(), OptimizationFeedbackSimple.getInstance());
         ThreadUtils.processItems(
-            appInfo.classes(),
+            appView.appInfo().classes(),
             clazz -> {
               ProgramMethod classInitializer = clazz.getProgramClassInitializer();
               if (classInitializer != null) {
@@ -189,14 +198,11 @@ public final class D8 {
             executor);
       }
 
-      AppView<?> appView = AppView.createForD8(appInfo, rewritePrefix);
-
       if (options.testing.enableD8ResourcesPassThrough) {
         appView.setAppServices(AppServices.builder(appView).build());
       }
 
-      IRConverter converter = new IRConverter(appView, timing, printer);
-      app = converter.convert(app, executor);
+      new IRConverter(appView, timing, printer).convert(appView, executor);
 
       if (options.printCfg) {
         if (options.printCfgFile == null || options.printCfgFile.isEmpty()) {
@@ -223,7 +229,7 @@ public final class D8 {
       // if there were class file inputs.
       boolean hasClassResources = false;
       boolean hasDexResources = false;
-      for (DexProgramClass dexProgramClass : app.classes()) {
+      for (DexProgramClass dexProgramClass : appView.appInfo().classes()) {
         if (dexProgramClass.originatesFromClassResource()) {
           hasClassResources = true;
           if (hasDexResources) {
@@ -237,26 +243,26 @@ public final class D8 {
         }
       }
       Marker marker = options.getMarker(Tool.D8);
-      Set<Marker> markers = new HashSet<>(app.dexItemFactory.extractMarkers());
-      if (marker != null && hasClassResources) {
+      Set<Marker> markers = new HashSet<>(appView.dexItemFactory().extractMarkers());
+      // TODO(b/166617364): Don't add an additional marker when desugaring is turned off.
+      if (hasClassResources && (options.desugarState != DesugarState.OFF || markers.isEmpty())) {
         markers.add(marker);
       }
       Marker.checkCompatibleDesugaredLibrary(markers, options.reporter);
 
-      InspectorImpl.runInspections(options.outputInspections, app);
+      InspectorImpl.runInspections(options.outputInspections, appView.appInfo().classes());
       if (options.isGeneratingClassFiles()) {
         new CfApplicationWriter(
-                app,
                 appView,
-                options,
                 marker,
                 GraphLens.getIdentityLens(),
-                NamingLens.getIdentityLens(),
+                appView.rewritePrefix.isRewriting()
+                    ? PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView)
+                    : NamingLens.getIdentityLens(),
                 null)
             .write(options.getClassFileConsumer());
       } else {
         NamingLens namingLens;
-        DexApplication finalApp = app;
         if (!hasDexResources || !hasClassResources || !appView.rewritePrefix.isRewriting()) {
           // All inputs are either dex or cf, or there is nothing to rewrite.
           namingLens =
@@ -271,11 +277,14 @@ public final class D8 {
           // desugared library only on cf inputs. We cannot easily rewrite part of the program
           // without iterating again the IR. We fall-back to writing one app with rewriting and
           // merging it with the other app in rewriteNonDexInputs.
-          finalApp = rewriteNonDexInputs(appView, inputApp, options, executor, timing, app);
+          DexApplication app =
+              rewriteNonDexInputs(
+                  appView, inputApp, options, executor, timing, appView.appInfo().app());
+          appView.setAppInfo(new AppInfo(app, appView.appInfo().getSyntheticItems().commit(app)));
           namingLens = NamingLens.getIdentityLens();
         }
         new ApplicationWriter(
-                finalApp,
+                appView.appInfo().app(),
                 appView,
                 options,
                 marker == null ? null : ImmutableList.copyOf(markers),
@@ -353,17 +362,12 @@ public final class D8 {
     return finalDexApp.build();
   }
 
-  static DexApplication optimize(
-      DexApplication application,
-      AppInfo appInfo,
-      InternalOptions options,
-      Timing timing,
-      ExecutorService executor)
+  static void optimize(
+      AppView<AppInfo> appView, InternalOptions options, Timing timing, ExecutorService executor)
       throws IOException, ExecutionException {
     final CfgPrinter printer = options.printCfg ? new CfgPrinter() : null;
 
-    IRConverter converter = new IRConverter(appInfo, timing, printer);
-    application = converter.convert(application, executor);
+    new IRConverter(appView, timing, printer).convert(appView, executor);
 
     if (options.printCfg) {
       if (options.printCfgFile == null || options.printCfgFile.isEmpty()) {
@@ -376,7 +380,6 @@ public final class D8 {
         }
       }
     }
-    return application;
   }
 
   static class ConvertedCfFiles implements DexIndexedConsumer, ProgramResourceProvider {

@@ -42,18 +42,15 @@ public class IdenticalFieldMembersTest extends TestBase {
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("foo A", "bar B")
+        .assertSuccessWithOutputLines("foo A", "bar 2")
         .inspect(
             codeInspector -> {
               if (enableHorizontalClassMerging) {
-                // TODO(b/163311975): A and B should be merged
-                //
-                //                        Class[] classes = {A.class, B.class};
-                //                        assertEquals(1, Arrays.stream(classes)
-                //                                .filter(a -> codeInspector.clazz(a).isPresent())
-                //                                .count());
                 assertThat(codeInspector.clazz(A.class), isPresent());
                 assertThat(codeInspector.clazz(B.class), isPresent());
+                // TODO(b/163311975): A and B should be merged
+                //   assertThat(codeInspector.clazz(B.class), not(isPresent()));
+                // TODO(b/165517236): Explicitly check classes have been merged.
               } else {
                 assertThat(codeInspector.clazz(A.class), isPresent());
                 assertThat(codeInspector.clazz(B.class), isPresent());
@@ -79,8 +76,8 @@ public class IdenticalFieldMembersTest extends TestBase {
   public static class B {
     private String field;
 
-    public B(String v) {
-      this.field = v;
+    public B(int v) {
+      this.field = Integer.toString(v);
     }
 
     @NeverInline
@@ -93,7 +90,7 @@ public class IdenticalFieldMembersTest extends TestBase {
     public static void main(String[] args) {
       A a = new A("A");
       a.foo();
-      B b = new B("B");
+      B b = new B(2);
       b.bar();
     }
   }
