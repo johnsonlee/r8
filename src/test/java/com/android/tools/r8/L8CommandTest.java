@@ -4,6 +4,8 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
+import static com.android.tools.r8.MarkerMatcher.assertMarkersMatch;
+import static com.android.tools.r8.MarkerMatcher.markerTool;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -14,11 +16,13 @@ import static org.junit.Assert.fail;
 import com.android.tools.r8.AssertionsConfiguration.AssertionTransformation;
 import com.android.tools.r8.AssertionsConfiguration.AssertionTransformationScope;
 import com.android.tools.r8.dex.Marker;
+import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.origin.EmbeddedOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.google.common.collect.ImmutableList;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -66,7 +69,7 @@ public class L8CommandTest extends TestBase {
   }
 
   @Test
-  public void testMarker() throws Throwable {
+  public void testDexMarker() throws Throwable {
     Path output = temp.newFolder().toPath().resolve("desugar_jdk_libs.zip");
     L8.run(
         L8Command.builder()
@@ -77,14 +80,28 @@ public class L8CommandTest extends TestBase {
                 StringResource.fromFile(ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING))
             .setOutput(output, OutputMode.DexIndexed)
             .build());
-    Collection<Marker> markers = ExtractMarker.extractMarkerFromDexFile(output);
-    // TODO(b/134732760): Shouldn't we remove the D8/R8 marker?
-    assertEquals(2, markers.size());
-    Marker marker = markers.iterator().next();
+    assertMarkersMatch(
+        ExtractMarker.extractMarkerFromDexFile(output),
+        ImmutableList.of(markerTool(Tool.L8), markerTool(Tool.D8)));
   }
 
   @Test
-  public void testMarkerCommandLine() throws Throwable {
+  public void testClassFileMarker() throws Throwable {
+    Path output = temp.newFolder().toPath().resolve("desugar_jdk_libs.zip");
+    L8.run(
+        L8Command.builder()
+            .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
+            .addProgramFiles(ToolHelper.getDesugarJDKLibs())
+            .setMinApiLevel(20)
+            .addDesugaredLibraryConfiguration(
+                StringResource.fromFile(ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING))
+            .setOutput(output, OutputMode.ClassFile)
+            .build());
+    assertMarkersMatch(ExtractMarker.extractMarkerFromDexFile(output), markerTool(Tool.L8));
+  }
+
+  @Test
+  public void testDexMarkerCommandLine() throws Throwable {
     Path output = temp.newFolder().toPath().resolve("desugar_jdk_libs.zip");
     L8Command l8Command =
         parse(
@@ -99,9 +116,28 @@ public class L8CommandTest extends TestBase {
             output.toString());
     L8.run(l8Command);
     Collection<Marker> markers = ExtractMarker.extractMarkerFromDexFile(output);
-    // TODO(b/134732760): Shouldn't we remove the D8/R8 marker?
-    assertEquals(2, markers.size());
-    Marker marker = markers.iterator().next();
+    assertMarkersMatch(
+        ExtractMarker.extractMarkerFromDexFile(output),
+        ImmutableList.of(markerTool(Tool.L8), markerTool(Tool.D8)));
+  }
+
+  @Test
+  public void testClassFileMarkerCommandLine() throws Throwable {
+    Path output = temp.newFolder().toPath().resolve("desugar_jdk_libs.zip");
+    L8Command l8Command =
+        parse(
+            ToolHelper.getDesugarJDKLibs().toString(),
+            "--lib",
+            ToolHelper.getAndroidJar(AndroidApiLevel.P).toString(),
+            "--min-api",
+            "20",
+            "--desugared-lib",
+            ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING.toString(),
+            "--output",
+            output.toString(),
+            "--classfile");
+    L8.run(l8Command);
+    assertMarkersMatch(ExtractMarker.extractMarkerFromDexFile(output), markerTool(Tool.L8));
   }
 
   @Test
@@ -115,6 +151,26 @@ public class L8CommandTest extends TestBase {
         ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING.toString(),
         "--pg-conf",
         pgconf.toString());
+  }
+
+  @Test
+  public void testFlagPgConfWithClassFile() throws Exception {
+    TestDiagnosticMessagesImpl diagnostics = new TestDiagnosticMessagesImpl();
+    try {
+      Path pgconf = temp.newFolder().toPath().resolve("pg.conf");
+      FileUtils.writeTextFile(pgconf, "");
+      parse(
+          diagnostics,
+          "--desugared-lib",
+          ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING.toString(),
+          "--pg-conf",
+          pgconf.toString(),
+          "--classfile");
+      fail("Expected failure");
+    } catch (CompilationFailedException e) {
+      diagnostics.assertErrorsMatch(
+          diagnosticMessage(containsString("not support shrinking when generating class files")));
+    }
   }
 
   @Test
@@ -162,14 +218,6 @@ public class L8CommandTest extends TestBase {
   }
 
   @Test(expected = CompilationFailedException.class)
-  public void classFileOutputNotSupported() throws Throwable {
-    DiagnosticsChecker.checkErrorsContains(
-        "L8 does not support compiling to class files",
-        (handler) ->
-            prepareBuilder(handler).setProgramConsumer(ClassFileConsumer.emptyConsumer()).build());
-  }
-
-  @Test(expected = CompilationFailedException.class)
   public void desugaredLibraryConfigurationRequired() throws Throwable {
     DiagnosticsChecker.checkErrorsContains(
         "L8 requires a desugared library configuration",
@@ -177,15 +225,14 @@ public class L8CommandTest extends TestBase {
             prepareBuilder(handler).setProgramConsumer(ClassFileConsumer.emptyConsumer()).build());
   }
 
-  @Test
-  @Ignore("b/143431384: Re-enable shrinking")
-  public void addProguardConfigurationString() throws Throwable {
+  private void addProguardConfigurationString(
+      DiagnosticsHandler diagnostics, ProgramConsumer programConsumer) throws Throwable {
     String keepRule = "-keep class java.time.*";
     List<String> keepRules = new ArrayList<>();
     keepRules.add(keepRule);
     L8Command.Builder builder =
-        prepareBuilder(new TestDiagnosticMessagesImpl())
-            .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
+        prepareBuilder(diagnostics)
+            .setProgramConsumer(programConsumer)
             .addDesugaredLibraryConfiguration(
                 StringResource.fromFile(ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING))
             .addProguardConfiguration(keepRules, Origin.unknown());
@@ -194,15 +241,32 @@ public class L8CommandTest extends TestBase {
   }
 
   @Test
-  @Ignore("b/143431384: Re-enable shrinking")
-  public void addProguardConfigurationFile() throws Throwable {
+  public void addProguardConfigurationStringWithDex() throws Throwable {
+    addProguardConfigurationString(
+        new TestDiagnosticMessagesImpl(), DexIndexedConsumer.emptyConsumer());
+  }
+
+  @Test
+  public void addProguardConfigurationStringWithClassFile() throws Throwable {
+    TestDiagnosticMessagesImpl diagnostics = new TestDiagnosticMessagesImpl();
+    try {
+      addProguardConfigurationString(diagnostics, ClassFileConsumer.emptyConsumer());
+      fail("Expected failure");
+    } catch (CompilationFailedException e) {
+      diagnostics.assertErrorsMatch(
+          diagnosticMessage(containsString("not support shrinking when generating class files")));
+    }
+  }
+
+  private void addProguardConfigurationFile(
+      DiagnosticsHandler diagnostics, ProgramConsumer programConsumer) throws Throwable {
     String keepRule = "-keep class java.time.*";
     Path keepRuleFile = temp.newFile("keepRuleFile.txt").toPath();
     Files.write(keepRuleFile, Collections.singletonList(keepRule), StandardCharsets.UTF_8);
 
     L8Command.Builder builder1 =
-        prepareBuilder(new TestDiagnosticMessagesImpl())
-            .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
+        prepareBuilder(diagnostics)
+            .setProgramConsumer(programConsumer)
             .addDesugaredLibraryConfiguration(
                 StringResource.fromFile(ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING))
             .addProguardConfigurationFiles(keepRuleFile);
@@ -219,6 +283,24 @@ public class L8CommandTest extends TestBase {
             .addProguardConfigurationFiles(keepRuleFiles);
     assertTrue(builder2.isShrinking());
     assertNotNull(builder2.build().getR8Command());
+  }
+
+  @Test
+  public void addProguardConfigurationFileDex() throws Throwable {
+    addProguardConfigurationFile(
+        new TestDiagnosticMessagesImpl(), DexIndexedConsumer.emptyConsumer());
+  }
+
+  @Test
+  public void addProguardConfigurationFileClassFile() throws Throwable {
+    TestDiagnosticMessagesImpl diagnostics = new TestDiagnosticMessagesImpl();
+    try {
+      addProguardConfigurationFile(diagnostics, ClassFileConsumer.emptyConsumer());
+      fail("Expected failure");
+    } catch (CompilationFailedException e) {
+      diagnostics.assertErrorsMatch(
+          diagnosticMessage(containsString("not support shrinking when generating class files")));
+    }
   }
 
   @Test

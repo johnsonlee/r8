@@ -2,48 +2,37 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.shaking.horizontalclassmerging;
+package com.android.tools.r8.classmerging.horizontal;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsNot.not;
 
 import com.android.tools.r8.NeverClassInline;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.utils.BooleanUtils;
-import java.util.List;
+import com.android.tools.r8.classmerging.horizontal.ConstructorMergingTest.A;
+import com.android.tools.r8.classmerging.horizontal.ConstructorMergingTest.B;
+import com.android.tools.r8.classmerging.horizontal.ConstructorMergingTest.Main;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-@RunWith(Parameterized.class)
-public class EmptyClassTest extends TestBase {
-  private final TestParameters parameters;
-  private final boolean enableHorizontalClassMerging;
+public class MergedConstructorForwardingTest extends HorizontalClassMergingTestBase {
 
-  public EmptyClassTest(TestParameters parameters, boolean enableHorizontalClassMerging) {
-    this.parameters = parameters;
-    this.enableHorizontalClassMerging = enableHorizontalClassMerging;
-  }
-
-  @Parameterized.Parameters(name = "{0}, horizontalClassMerging:{1}")
-  public static List<Object[]> data() {
-    return buildParameters(
-        getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
+  public MergedConstructorForwardingTest(
+      TestParameters parameters, boolean enableHorizontalClassMerging) {
+    super(parameters, enableHorizontalClassMerging);
   }
 
   @Test
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
-        .addInnerClasses(EmptyClassTest.class)
+        .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addOptionsModification(
             options -> options.enableHorizontalClassMerging = enableHorizontalClassMerging)
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccess()
+        .assertSuccessWithOutputLines("42", "13", "21", "39")
         .inspect(
             codeInspector -> {
               if (enableHorizontalClassMerging) {
@@ -58,20 +47,33 @@ public class EmptyClassTest extends TestBase {
   }
 
   @NeverClassInline
-  public static class A {}
+  public static class A {
+    public A() {
+      this(42);
+    }
+
+    public A(long x) {
+      System.out.println(x);
+    }
+  }
 
   @NeverClassInline
   public static class B {
-    // TODO(b/164924717): remove non overlapping constructor requirement
-    public B(String s) {}
+    public B() {
+      this(7);
+    }
+
+    public B(long y) {
+      System.out.println(y * 3);
+    }
   }
 
   public static class Main {
     public static void main(String[] args) {
       A a = new A();
-      System.out.println(a);
-      B b = new B("");
-      System.out.println(b);
+      a = new A(13);
+      B b = new B();
+      b = new B(13);
     }
   }
 }

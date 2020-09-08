@@ -9,6 +9,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.utils.ArrayUtils;
 import java.util.Arrays;
+import java.util.stream.Stream;
 
 public class DexTypeList extends DexItem {
 
@@ -38,11 +39,9 @@ public class DexTypeList extends DexItem {
     return Arrays.hashCode(values);
   }
 
-  @Override
-  void collectIndexedItems(IndexedItemCollection indexedItems,
-      DexMethod method, int instructionOffset) {
+  void collectIndexedItems(IndexedItemCollection indexedItems) {
     for (DexType type : values) {
-      type.collectIndexedItems(indexedItems, method, instructionOffset);
+      type.collectIndexedItems(indexedItems);
     }
   }
 
@@ -66,6 +65,10 @@ public class DexTypeList extends DexItem {
 
   public int size() {
     return values.length;
+  }
+
+  public Stream<DexType> stream() {
+    return Stream.of(values);
   }
 
   @Override

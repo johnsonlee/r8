@@ -283,8 +283,11 @@ public class EnumUnboxer implements PostOptimization {
 
   private void analyzeConstClass(ConstClass constClass, Set<DexType> eligibleEnums) {
     // We are using the ConstClass of an enum, which typically means the enum cannot be unboxed.
-    // We however allow unboxing if the ConstClass is only used as an argument to Enum#valueOf, to
-    // allow unboxing of: MyEnum a = Enum.valueOf(MyEnum.class, "A");.
+    // We however allow unboxing if the ConstClass is used only:
+    // - as an argument to Enum#valueOf, to allow unboxing of:
+    //    MyEnum a = Enum.valueOf(MyEnum.class, "A");
+    // - as a receiver for a name method, to allow unboxing of:
+    //    MyEnum.class.getName();
     DexType enumType = constClass.getValue();
     if (!enumsUnboxingCandidates.containsKey(enumType)) {
       return;
@@ -299,6 +302,10 @@ public class EnumUnboxer implements PostOptimization {
       return;
     }
     for (Instruction user : constClass.outValue().uniqueUsers()) {
+      if (user.isInvokeVirtual()
+          && isUnboxableNameMethod(user.asInvokeVirtual().getInvokedMethod())) {
+        continue;
+      }
       if (!(user.isInvokeStatic()
           && user.asInvokeStatic().getInvokedMethod() == factory.enumMembers.valueOf)) {
         markEnumAsUnboxable(Reason.CONST_CLASS, enumClass);
@@ -309,6 +316,12 @@ public class EnumUnboxer implements PostOptimization {
     // valueOf utility method.
     requiredEnumInstanceFieldData(enumType, factory.enumMembers.nameField);
     eligibleEnums.add(enumType);
+  }
+
+  private boolean isUnboxableNameMethod(DexMethod method) {
+    return method == factory.classMethods.getName
+        || method == factory.classMethods.getCanonicalName
+        || method == factory.classMethods.getSimpleName;
   }
 
   private void addNullDependencies(IRCode code, Set<Instruction> uses, Set<DexType> eligibleEnums) {
@@ -372,7 +385,7 @@ public class EnumUnboxer implements PostOptimization {
     }
     ImmutableSet<DexType> enumsToUnbox = ImmutableSet.copyOf(this.enumsUnboxingCandidates.keySet());
     // Update keep info on any of the enum methods of the removed classes.
-    updatePinnedItems(enumsToUnbox);
+    updateKeepInfo(enumsToUnbox);
     enumUnboxerRewriter = new EnumUnboxingRewriter(appView, enumsToUnbox, enumInstanceFieldDataMap);
     DirectMappedDexApplication.Builder appBuilder = appView.appInfo().app().asDirect().builder();
     Map<DexType, DexType> newMethodLocation = synthesizeUnboxedEnumsMethodsLocations(appBuilder);
@@ -480,8 +493,7 @@ public class EnumUnboxer implements PostOptimization {
     return syntheticClass;
   }
 
-
-  private void updatePinnedItems(Set<DexType> enumsToUnbox) {
+  private void updateKeepInfo(Set<DexType> enumsToUnbox) {
     appView
         .appInfo()
         .getKeepInfo()
@@ -490,8 +502,16 @@ public class EnumUnboxer implements PostOptimization {
               for (DexType type : enumsToUnbox) {
                 DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(type));
                 assert !keepInfo.getClassInfo(clazz).isPinned();
-                clazz.forEachProgramMethod(keepInfo::unsafeUnpinMethod);
-                clazz.forEachField(field -> keepInfo.unsafeUnpinField(clazz, field));
+                clazz.forEachProgramMethod(
+                    method -> {
+                      keepInfo.unsafeAllowMinificationOfMethod(method);
+                      keepInfo.unsafeUnpinMethod(method);
+                    });
+                clazz.forEachProgramField(
+                    field -> {
+                      keepInfo.unsafeAllowMinificationOfField(field);
+                      keepInfo.unsafeUnpinField(field);
+                    });
               }
             });
   }
@@ -852,7 +872,18 @@ public class EnumUnboxer implements PostOptimization {
       assert dexClass.isLibraryClass();
       if (dexClass.type != factory.enumType) {
         // System.identityHashCode(Object) is supported for proto enums.
+        // Object#getClass without outValue and Objects.requireNonNull are supported since R8
+        // rewrites explicit null checks to such instructions.
         if (singleTarget == factory.javaLangSystemMethods.identityHashCode) {
+          return Reason.ELIGIBLE;
+        }
+        if (singleTarget == factory.objectMembers.getClass
+            && (!invokeMethod.hasOutValue() || !invokeMethod.outValue().hasAnyUsers())) {
+          // This is a hidden null check.
+          return Reason.ELIGIBLE;
+        }
+        if (singleTarget == factory.objectsMethods.requireNonNull
+            || singleTarget == factory.objectsMethods.requireNonNullWithMessage) {
           return Reason.ELIGIBLE;
         }
         return Reason.UNSUPPORTED_LIBRARY_CALL;
@@ -873,9 +904,7 @@ public class EnumUnboxer implements PostOptimization {
         return Reason.ELIGIBLE;
       } else if (singleTarget == factory.enumMembers.constructor) {
         // Enum constructor call is allowed only if first call of an enum initializer.
-        if (code.method().isInstanceInitializer()
-            && code.method().holder() == enumClass.type
-            && isFirstInstructionAfterArguments(invokeMethod, code)) {
+        if (code.method().isInstanceInitializer() && code.method().holder() == enumClass.type) {
           return Reason.ELIGIBLE;
         }
       }
@@ -1074,16 +1103,6 @@ public class EnumUnboxer implements PostOptimization {
           .getObjectStateForOrdinal(enumValueInfoMap.getEnumValueInfo(staticField).ordinal);
     }
     return ObjectState.empty();
-  }
-
-  private boolean isFirstInstructionAfterArguments(InvokeMethod invokeMethod, IRCode code) {
-    BasicBlock basicBlock = code.entryBlock();
-    for (Instruction instruction : basicBlock.getInstructions()) {
-      if (!instruction.isArgument()) {
-        return instruction == invokeMethod;
-      }
-    }
-    return false;
   }
 
   private void reportEnumsAnalysis() {

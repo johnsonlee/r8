@@ -221,6 +221,10 @@ public class DexProgramClass extends DexClass implements Supplier<DexProgramClas
                     : TraversalContinuation.CONTINUE);
   }
 
+  public Kind getOriginKind() {
+    return originKind;
+  }
+
   public boolean originatesFromDexResource() {
     return originKind == Kind.DEX;
   }
@@ -229,22 +233,20 @@ public class DexProgramClass extends DexClass implements Supplier<DexProgramClas
     return originKind == Kind.CF;
   }
 
-  @Override
-  public void collectIndexedItems(
-      IndexedItemCollection indexedItems, DexMethod method, int instructionOffset) {
+  public void collectIndexedItems(IndexedItemCollection indexedItems) {
     if (indexedItems.addClass(this)) {
-      type.collectIndexedItems(indexedItems, method, instructionOffset);
+      type.collectIndexedItems(indexedItems);
       if (superType != null) {
-        superType.collectIndexedItems(indexedItems, method, instructionOffset);
+        superType.collectIndexedItems(indexedItems);
       } else {
         assert type.toDescriptorString().equals("Ljava/lang/Object;");
       }
       if (sourceFile != null) {
-        sourceFile.collectIndexedItems(indexedItems, method, instructionOffset);
+        sourceFile.collectIndexedItems(indexedItems);
       }
-      annotations().collectIndexedItems(indexedItems, method, instructionOffset);
+      annotations().collectIndexedItems(indexedItems);
       if (interfaces != null) {
-        interfaces.collectIndexedItems(indexedItems, method, instructionOffset);
+        interfaces.collectIndexedItems(indexedItems);
       }
       if (getEnclosingMethodAttribute() != null) {
         getEnclosingMethodAttribute().collectIndexedItems(indexedItems);
@@ -252,18 +254,8 @@ public class DexProgramClass extends DexClass implements Supplier<DexProgramClas
       for (InnerClassAttribute attribute : getInnerClasses()) {
         attribute.collectIndexedItems(indexedItems);
       }
-      synchronizedCollectAll(indexedItems, staticFields);
-      synchronizedCollectAll(indexedItems, instanceFields);
-      synchronized (methodCollection) {
-        methodCollection.forEachMethod(m -> m.collectIndexedItems(indexedItems));
-      }
-    }
-  }
-
-  private static <T extends DexItem> void synchronizedCollectAll(
-      IndexedItemCollection collection, T[] items) {
-    synchronized (items) {
-      collectAll(collection, items);
+      forEachField(field -> field.collectIndexedItems(indexedItems));
+      forEachMethod(method -> method.collectIndexedItems(indexedItems));
     }
   }
 

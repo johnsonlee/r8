@@ -171,12 +171,9 @@ public class DexType extends DexReference implements PresortedComparable<DexType
   }
 
   @Override
-  public void collectIndexedItems(
-      IndexedItemCollection collection, DexMethod method, int instructionOffset) {
+  public void collectIndexedItems(IndexedItemCollection collection) {
     if (collection.addType(this)) {
-      collection
-          .getRenamedDescriptor(this)
-          .collectIndexedItems(collection, method, instructionOffset);
+      collection.getRenamedDescriptor(this).collectIndexedItems(collection);
     }
   }
 
@@ -385,6 +382,19 @@ public class DexType extends DexReference implements PresortedComparable<DexType
     assert this.isArrayType();
     assert !newBase.isArrayType();
     return newBase.toArrayType(getNumberOfLeadingSquareBrackets(), dexItemFactory);
+  }
+
+  public DexType replacePackage(String newPackageDescriptor, DexItemFactory dexItemFactory) {
+    assert isClassType();
+    String descriptorString = toDescriptorString();
+    int lastPackageSeparator = descriptorString.lastIndexOf('/');
+    String newDescriptorString = "L" + newPackageDescriptor + "/";
+    if (lastPackageSeparator >= 0) {
+      newDescriptorString += descriptorString.substring(lastPackageSeparator + 1);
+    } else {
+      newDescriptorString += descriptorString.substring(1);
+    }
+    return dexItemFactory.createType(newDescriptorString);
   }
 
   public DexType toArrayType(int dimensions, DexItemFactory dexItemFactory) {

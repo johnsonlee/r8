@@ -10,6 +10,8 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.GraphLens.NestedGraphLens;
+import com.android.tools.r8.ir.code.Invoke.Type;
+import com.android.tools.r8.ir.conversion.ExtraConstantIntParameter;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import java.util.Collections;
@@ -20,14 +22,18 @@ import java.util.Set;
 
 public class HorizontalClassMergerGraphLens extends NestedGraphLens {
   private final AppView<?> appView;
+  private final Map<DexMethod, Integer> constructorIds;
+  private final Map<DexMethod, DexMethod> originalConstructorSignatures;
 
   private HorizontalClassMergerGraphLens(
       AppView<?> appView,
+      Map<DexMethod, Integer> constructorIds,
       Map<DexType, DexType> typeMap,
       Map<DexField, DexField> fieldMap,
       Map<DexMethod, DexMethod> methodMap,
       BiMap<DexField, DexField> originalFieldSignatures,
       BiMap<DexMethod, DexMethod> originalMethodSignatures,
+      Map<DexMethod, DexMethod> originalConstructorSignatures,
       GraphLens previousLens) {
     super(
         typeMap,
@@ -38,10 +44,42 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
         previousLens,
         appView.dexItemFactory());
     this.appView = appView;
+    this.constructorIds = constructorIds;
+    this.originalConstructorSignatures = originalConstructorSignatures;
+  }
+
+  @Override
+  public DexMethod getOriginalMethodSignature(DexMethod method) {
+    DexMethod originalConstructor = originalConstructorSignatures.get(method);
+    if (originalConstructor == null) {
+      return super.getOriginalMethodSignature(method);
+    }
+    return previousLens.getOriginalMethodSignature(originalConstructor);
   }
 
   public HorizontallyMergedClasses getHorizontallyMergedClasses() {
     return new HorizontallyMergedClasses(this.typeMap);
+  }
+
+  /**
+   * If an overloaded constructor is requested, add the constructor id as a parameter to the
+   * constructor. Otherwise return the lookup on the underlying graph lens.
+   */
+  @Override
+  public GraphLensLookupResult lookupMethod(DexMethod method, DexMethod context, Type type) {
+    Integer constructorId = constructorIds.get(method);
+    GraphLensLookupResult lookup = super.lookupMethod(method, context, type);
+    if (constructorId != null) {
+      DexMethod newMethod = lookup.getMethod();
+      return new GraphLensLookupResult(
+          newMethod,
+          mapInvocationType(newMethod, method, lookup.getType()),
+          lookup
+              .getPrototypeChanges()
+              .withExtraParameter(new ExtraConstantIntParameter(constructorId)));
+    } else {
+      return lookup;
+    }
   }
 
   public static class Builder {
@@ -51,6 +89,7 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
         new IdentityHashMap<>();
 
     private final BiMap<DexMethod, DexMethod> originalMethodSignatures = HashBiMap.create();
+    private final Map<DexMethod, DexMethod> extraOriginalMethodSignatures = new IdentityHashMap<>();
 
     private final Map<DexMethod, Integer> constructorIds = new IdentityHashMap<>();
 
@@ -64,11 +103,13 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
         BiMap<DexField, DexField> originalFieldSignatures = fieldMap.inverse();
         return new HorizontalClassMergerGraphLens(
             appView,
+            constructorIds,
             mergedClasses,
             fieldMap,
             methodMap,
             originalFieldSignatures,
             originalMethodSignatures,
+            extraOriginalMethodSignatures,
             appView.graphLens());
       }
     }
@@ -76,16 +117,23 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
     /** Bidirectional mapping from one method to another. */
     public Builder moveMethod(DexMethod from, DexMethod to) {
       mapMethod(from, to);
-      originalMethodSignatures.put(to, from);
+      recordOriginalSignature(from, to);
       return this;
     }
 
-    /**
-     * Unidirectional mapping from one method to another. This seems to only be used by synthesized
-     * constructors so is private for now. See {@link Builder#moveConstructor(DexMethod,
-     * DexMethod)}.
-     */
-    private Builder mapMethod(DexMethod from, DexMethod to) {
+    public Builder recordOriginalSignature(DexMethod from, DexMethod to) {
+      originalMethodSignatures.forcePut(to, originalMethodSignatures.getOrDefault(from, from));
+      return this;
+    }
+
+    /** Unidirectional mapping from one method to another. */
+    public Builder recordExtraOriginalSignature(DexMethod from, DexMethod to) {
+      extraOriginalMethodSignatures.put(to, extraOriginalMethodSignatures.getOrDefault(from, from));
+      return this;
+    }
+
+    /** Unidirectional mapping from one method to another. */
+    public Builder mapMethod(DexMethod from, DexMethod to) {
       for (DexMethod existingFrom :
           completeInverseMethodMap.getOrDefault(from, Collections.emptySet())) {
         methodMap.put(existingFrom, to);
@@ -100,6 +148,10 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
       return this;
     }
 
+    public boolean hasExtraSignatureMappingFor(DexMethod method) {
+      return extraOriginalMethodSignatures.containsKey(method);
+    }
+
     public boolean hasOriginalSignatureMappingFor(DexMethod method) {
       return originalMethodSignatures.containsKey(method);
     }
@@ -112,18 +164,10 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
      * @param constructorId The id that must be appended to the constructor call to ensure the
      *     correct constructor is called.
      */
-    public Builder mapConstructor(DexMethod from, DexMethod to, int constructorId) {
+    public Builder mapMergedConstructor(DexMethod from, DexMethod to, int constructorId) {
       mapMethod(from, to);
       constructorIds.put(from, constructorId);
       return this;
-    }
-
-    /**
-     * Bidirectional mapping from one constructor to another. When a single constructor is simply
-     * moved from one class to another, we can uniquely map the new constructor back to the old one.
-     */
-    public Builder moveConstructor(DexMethod from, DexMethod to) {
-      return moveMethod(from, to);
     }
   }
 }

@@ -3,15 +3,58 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.staticinterfacemethod;
 
-import com.android.tools.r8.AsmTestBase;
-import org.junit.Ignore;
+import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.TestRunResult;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
-public class MissingMethodTest extends AsmTestBase {
+@RunWith(Parameterized.class)
+public class MissingMethodTest extends TestBase {
 
-  @Ignore("b/69835274")
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withAllRuntimesAndApiLevels().build();
+  }
+
+  private final TestParameters parameters;
+
+  public MissingMethodTest(TestParameters parameters) {
+    this.parameters = parameters;
+  }
+
   @Test
-  public void testDesugarInvokeMissingMethod() throws Exception {
-    ensureException("Main", NoSuchMethodError.class, InterfaceDump.dump(), MainDump.dump());
+  public void testReference() throws Exception {
+    TestRunResult<?> result =
+        testForRuntime(parameters)
+            .addProgramClassFileData(InterfaceDump.dump(), MainDump.dump())
+            .run(parameters.getRuntime(), "Main");
+    if (parameters.isDexRuntime()
+        && parameters.getApiLevel().isLessThan(apiLevelWithStaticInterfaceMethodsSupport())) {
+      // TODO(b/69835274): Desugaring should preserve exception.
+      result.assertFailureWithErrorThatThrows(NoClassDefFoundError.class);
+    } else {
+      result.assertFailureWithErrorThatThrows(NoSuchMethodError.class);
+    }
+  }
+
+  @Test
+  public void testR8() throws Exception {
+    TestRunResult<?> result =
+        testForR8(parameters.getBackend())
+            .addProgramClassFileData(InterfaceDump.dump(), MainDump.dump())
+            .addKeepMainRule("Main")
+            .setMinApi(parameters.getApiLevel())
+            .run(parameters.getRuntime(), "Main");
+    if (parameters.isDexRuntime()
+        && parameters.getApiLevel().isLessThan(apiLevelWithStaticInterfaceMethodsSupport())) {
+      // TODO(b/69835274): Desugaring should preserve exception.
+      result.assertFailureWithErrorThatThrows(NoClassDefFoundError.class);
+    } else {
+      result.assertFailureWithErrorThatThrows(NoSuchMethodError.class);
+    }
   }
 }
