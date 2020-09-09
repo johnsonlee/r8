@@ -9,10 +9,13 @@ import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.IndexedDexItem;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.conversion.IRBuilder;
+import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.utils.StringUtils;
 import java.nio.ShortBuffer;
@@ -90,7 +93,11 @@ public abstract class Instruction {
   }
 
   protected void writeFirst(int a, int b, ShortBuffer dest) {
-    dest.put((short) (((a & 0xf) << 12) | ((b & 0xf) << 8) | (getOpcode() & 0xff)));
+    writeFirst(a, b, dest, getOpcode());
+  }
+
+  protected void writeFirst(int a, int b, ShortBuffer dest, int opcode) {
+    dest.put((short) (((a & 0xf) << 12) | ((b & 0xf) << 8) | (opcode & 0xff)));
   }
 
   protected void write16BitValue(int value, ShortBuffer dest) {
@@ -107,8 +114,8 @@ public abstract class Instruction {
     write32BitValue((value >> 32) & 0xffffffff, dest);
   }
 
-  protected void write16BitReference(IndexedDexItem item, ShortBuffer dest,
-      ObjectToOffsetMapping mapping) {
+  protected void write16BitReference(
+      IndexedDexItem item, ShortBuffer dest, ObjectToOffsetMapping mapping) {
     int index = item.getOffset(mapping);
     assert index == (index & 0xffff);
     write16BitValue(index, dest);
@@ -309,9 +316,18 @@ public abstract class Instruction {
     return toString(null);
   }
 
-  public abstract void write(ShortBuffer buffer, ObjectToOffsetMapping mapping);
+  public abstract void write(
+      ShortBuffer buffer,
+      ProgramMethod context,
+      GraphLens graphLens,
+      ObjectToOffsetMapping mapping,
+      LensCodeRewriterUtils rewriter);
 
-  public abstract void collectIndexedItems(IndexedItemCollection indexedItems);
+  public abstract void collectIndexedItems(
+      IndexedItemCollection indexedItems,
+      ProgramMethod context,
+      GraphLens graphLens,
+      LensCodeRewriterUtils rewriter);
 
   public boolean equals(Instruction other, BiPredicate<IndexedDexItem, IndexedDexItem> equality) {
     // In the default case, there is nothing to substitute.

@@ -85,13 +85,17 @@ public class DexFileMergerHelper {
     try {
       try {
         Timing timing = new Timing("DexFileMerger");
+        ApplicationReader applicationReader = new ApplicationReader(inputApp, options, timing);
         DexApplication app =
-            new ApplicationReader(inputApp, options, timing)
-                .read(
-                    null,
-                    executor,
-                    new DexFileMergerHelper(inputOrdering)::keepFirstProgramClassConflictResolver);
-        AppView<AppInfo> appView = AppView.createForD8(AppInfo.createInitialAppInfo(app));
+            applicationReader.read(
+                null,
+                executor,
+                new DexFileMergerHelper(inputOrdering)::keepFirstProgramClassConflictResolver);
+
+        AppView<AppInfo> appView =
+            AppView.createForD8(
+                AppInfo.createInitialAppInfo(app, applicationReader.readMainDexClasses(app)));
+
         D8.optimize(appView, options, timing, executor);
 
         List<Marker> markers = appView.dexItemFactory().extractMarkers();
@@ -99,9 +103,7 @@ public class DexFileMergerHelper {
         assert !options.hasMethodsFilter();
         ApplicationWriter writer =
             new ApplicationWriter(
-                appView.appInfo().app(),
-                null,
-                options,
+                appView,
                 markers,
                 GraphLens.getIdentityLens(),
                 InitClassLens.getDefault(),

@@ -8,10 +8,13 @@ import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.code.FieldMemberType;
 import com.android.tools.r8.ir.conversion.IRBuilder;
+import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.naming.ClassNameMapper;
 import java.nio.ShortBuffer;
 
@@ -36,9 +39,16 @@ public class DexInitClass extends Base2Format {
   }
 
   @Override
-  public void collectIndexedItems(IndexedItemCollection indexedItems) {
-    DexField field = indexedItems.getInitClassLens().getInitClassField(clazz);
-    field.collectIndexedItems(indexedItems);
+  public void collectIndexedItems(
+      IndexedItemCollection indexedItems,
+      ProgramMethod context,
+      GraphLens graphLens,
+      LensCodeRewriterUtils rewriter) {
+    // We intentionally apply the graph lens first, and then the init class lens, using the fact
+    // that the init class lens maps classes in the final program to fields in the final program.
+    DexType rewrittenClass = graphLens.lookupType(clazz);
+    DexField clinitField = indexedItems.getInitClassLens().getInitClassField(rewrittenClass);
+    clinitField.collectIndexedItems(indexedItems);
   }
 
   @Override
@@ -91,10 +101,18 @@ public class DexInitClass extends Base2Format {
   }
 
   @Override
-  public void write(ShortBuffer buffer, ObjectToOffsetMapping mapping) {
-    DexField field = mapping.getClinitField(clazz);
-    writeFirst(dest, buffer, getOpcode(field));
-    write16BitReference(field, buffer, mapping);
+  public void write(
+      ShortBuffer buffer,
+      ProgramMethod context,
+      GraphLens graphLens,
+      ObjectToOffsetMapping mapping,
+      LensCodeRewriterUtils rewriter) {
+    // We intentionally apply the graph lens first, and then the init class lens, using the fact
+    // that the init class lens maps classes in the final program to fields in the final program.
+    DexType rewrittenClass = graphLens.lookupType(clazz);
+    DexField clinitField = mapping.getClinitField(rewrittenClass);
+    writeFirst(dest, buffer, getOpcode(clinitField));
+    write16BitReference(clinitField, buffer, mapping);
   }
 
   @Override

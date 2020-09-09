@@ -221,9 +221,8 @@ public final class BackportedMethodRewriter {
               ParameterAnnotationsList.empty(),
               code,
               true);
-      boolean addToMainDexList =
-          referencingClasses.stream()
-              .anyMatch(clazz -> appView.appInfo().isInMainDexList(clazz.type));
+      boolean addToMainDexClasses =
+          appView.appInfo().getMainDexClasses().containsAnyOf(referencingClasses);
       DexProgramClass utilityClass =
           synthesizeClassWithUniqueMethod(
               builder,
@@ -231,7 +230,7 @@ public final class BackportedMethodRewriter {
               method.holder,
               dexEncodedMethod,
               "java8 methods utility class",
-              addToMainDexList,
+              addToMainDexClasses,
               appView);
       // The following may add elements to methodsProviders.
       converter.optimizeSynthesizedClass(utilityClass, executorService);
@@ -244,7 +243,7 @@ public final class BackportedMethodRewriter {
       DexType type,
       DexEncodedMethod uniqueMethod,
       String origin,
-      boolean addToMainDexList,
+      boolean addToMainDexClasses,
       AppView<?> appView) {
     DexItemFactory factory = appView.dexItemFactory();
     DexProgramClass newClass =
@@ -271,8 +270,8 @@ public final class BackportedMethodRewriter {
                 : new DexEncodedMethod[] {uniqueMethod},
             factory.getSkipNameValidationForTesting(),
             getChecksumSupplier(uniqueMethod, appView));
-    appView.appInfo().addSynthesizedClass(newClass);
-    builder.addSynthesizedClass(newClass, addToMainDexList);
+    appView.appInfo().addSynthesizedClass(newClass, addToMainDexClasses);
+    builder.addSynthesizedClass(newClass);
     return newClass;
   }
 

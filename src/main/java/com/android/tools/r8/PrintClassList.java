@@ -45,8 +45,7 @@ public class PrintClassList {
         new ApplicationReader(builder.build(), new InternalOptions(), new Timing("PrintClassList"))
             .read(
                 proguardMapFile == null ? null : StringResource.fromFile(proguardMapFile),
-                executorService
-            );
+                executorService);
     ClassNameMapper map = application.getProguardMap();
     for (DexProgramClass clazz : application.classes()) {
       System.out.print(maybeDeobfuscateType(map, clazz.type));

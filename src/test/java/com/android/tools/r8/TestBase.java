@@ -44,6 +44,7 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.EnqueuerFactory;
+import com.android.tools.r8.shaking.MainDexClasses;
 import com.android.tools.r8.shaking.ProguardClassFilter;
 import com.android.tools.r8.shaking.ProguardClassNameList;
 import com.android.tools.r8.shaking.ProguardConfiguration;
@@ -650,7 +651,8 @@ public class TestBase {
   protected static AppInfoWithClassHierarchy computeAppInfoWithClassHierarchy(AndroidApp app)
       throws Exception {
     return AppInfoWithClassHierarchy.createInitialAppInfoWithClassHierarchy(
-        readApplicationForDexOutput(app, new InternalOptions()));
+        readApplicationForDexOutput(app, new InternalOptions()),
+        MainDexClasses.createEmptyMainDexClasses());
   }
 
   protected static AppView<AppInfoWithClassHierarchy> computeAppViewWithSubtyping(AndroidApp app)
@@ -1599,6 +1601,10 @@ public class TestBase {
 
   public static AndroidApiLevel apiLevelWithInvokeCustomSupport() {
     return AndroidApiLevel.O;
+  }
+
+  public static AndroidApiLevel apiLevelWithNativeMultiDexSupport() {
+    return AndroidApiLevel.L;
   }
 
   public Path compileToZip(

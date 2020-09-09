@@ -53,7 +53,8 @@ public class JarSizeCompare {
           + "    --input <name2> <input2.jar> [<map2.txt>] ...\n"
           + "\n"
           + "JarSizeCompare outputs the class, method, field sizes of the given JAR files.\n"
-          + "For each input, a ProGuard map can be passed that is used to resolve minified names.\n";
+          + "For each input, a ProGuard map can be passed that is used to resolve minified"
+          + " names.\n";
 
   private static final ImmutableMap<String, String> R8_RELOCATIONS =
       ImmutableMap.<String, String>builder()

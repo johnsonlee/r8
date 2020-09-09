@@ -3,6 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.code;
 
+import com.android.tools.r8.code.InvokeCustomRange;
+import com.android.tools.r8.code.InvokeDirectRange;
+import com.android.tools.r8.code.InvokeInterfaceRange;
+import com.android.tools.r8.code.InvokePolymorphicRange;
+import com.android.tools.r8.code.InvokeStaticRange;
+import com.android.tools.r8.code.InvokeSuperRange;
+import com.android.tools.r8.code.InvokeVirtualRange;
 import com.android.tools.r8.code.MoveResult;
 import com.android.tools.r8.code.MoveResultObject;
 import com.android.tools.r8.code.MoveResultWide;
@@ -20,19 +27,60 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import java.util.List;
 import java.util.Set;
+import org.objectweb.asm.Opcodes;
 
 public abstract class Invoke extends Instruction {
 
+  private static final int NO_SUCH_DEX_INSTRUCTION = -1;
+
   public enum Type {
-    DIRECT,
-    INTERFACE,
-    STATIC,
-    SUPER,
-    VIRTUAL,
-    NEW_ARRAY,
-    MULTI_NEW_ARRAY,
-    CUSTOM,
-    POLYMORPHIC;
+    DIRECT(com.android.tools.r8.code.InvokeDirect.OPCODE, InvokeDirectRange.OPCODE),
+    INTERFACE(com.android.tools.r8.code.InvokeInterface.OPCODE, InvokeInterfaceRange.OPCODE),
+    STATIC(com.android.tools.r8.code.InvokeStatic.OPCODE, InvokeStaticRange.OPCODE),
+    SUPER(com.android.tools.r8.code.InvokeSuper.OPCODE, InvokeSuperRange.OPCODE),
+    VIRTUAL(com.android.tools.r8.code.InvokeVirtual.OPCODE, InvokeVirtualRange.OPCODE),
+    NEW_ARRAY(com.android.tools.r8.code.NewArray.OPCODE, NO_SUCH_DEX_INSTRUCTION),
+    MULTI_NEW_ARRAY(NO_SUCH_DEX_INSTRUCTION, NO_SUCH_DEX_INSTRUCTION),
+    CUSTOM(com.android.tools.r8.code.InvokeCustom.OPCODE, InvokeCustomRange.OPCODE),
+    POLYMORPHIC(com.android.tools.r8.code.InvokePolymorphic.OPCODE, InvokePolymorphicRange.OPCODE);
+
+    private final int dexOpcode;
+    private final int dexOpcodeRange;
+
+    Type(int dexOpcode, int dexOpcodeRange) {
+      this.dexOpcode = dexOpcode;
+      this.dexOpcodeRange = dexOpcodeRange;
+    }
+
+    public int getCfOpcode() {
+      switch (this) {
+        case DIRECT:
+          return Opcodes.INVOKESPECIAL;
+        case INTERFACE:
+          return Opcodes.INVOKEINTERFACE;
+        case STATIC:
+          return Opcodes.INVOKESTATIC;
+        case SUPER:
+          return Opcodes.INVOKESPECIAL;
+        case VIRTUAL:
+          return Opcodes.INVOKEVIRTUAL;
+        case NEW_ARRAY:
+        case MULTI_NEW_ARRAY:
+        case POLYMORPHIC:
+        default:
+          throw new Unreachable();
+      }
+    }
+
+    public int getDexOpcode() {
+      assert dexOpcode >= 0;
+      return dexOpcode;
+    }
+
+    public int getDexOpcodeRange() {
+      assert dexOpcodeRange >= 0;
+      return dexOpcodeRange;
+    }
 
     public MethodHandleType toMethodHandle(DexMethod targetMethod) {
       switch (this) {

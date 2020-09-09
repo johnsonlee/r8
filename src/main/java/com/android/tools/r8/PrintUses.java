@@ -25,6 +25,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
+import com.android.tools.r8.shaking.MainDexClasses;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringUtils;
@@ -349,7 +350,9 @@ public class PrintUses {
     InternalOptions options = new InternalOptions();
     application =
         new ApplicationReader(inputApp, options, new Timing("PrintUses")).read().toDirect();
-    appInfo = AppInfoWithClassHierarchy.createInitialAppInfoWithClassHierarchy(application);
+    appInfo =
+        AppInfoWithClassHierarchy.createInitialAppInfoWithClassHierarchy(
+            application, MainDexClasses.createEmptyMainDexClasses());
   }
 
   private void analyze() {

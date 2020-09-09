@@ -16,8 +16,8 @@ import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerFactory;
-import com.android.tools.r8.shaking.MainDexClasses;
 import com.android.tools.r8.shaking.MainDexListBuilder;
+import com.android.tools.r8.shaking.MainDexTracingResult;
 import com.android.tools.r8.shaking.RootSetBuilder;
 import com.android.tools.r8.shaking.RootSetBuilder.RootSet;
 import com.android.tools.r8.shaking.WhyAreYouKeepingConsumer;
@@ -70,10 +70,10 @@ public class GenerateMainDexList {
           EnqueuerFactory.createForMainDexTracing(appView, subtypingInfo, graphConsumer);
       Set<DexProgramClass> liveTypes = enqueuer.traceMainDex(mainDexRootSet, executor, timing);
       // LiveTypes is the result.
-      MainDexClasses mainDexClasses = new MainDexListBuilder(liveTypes, appView).run();
+      MainDexTracingResult mainDexTracingResult = new MainDexListBuilder(liveTypes, appView).run();
 
       List<String> result =
-          mainDexClasses.getClasses().stream()
+          mainDexTracingResult.getClasses().stream()
               .map(c -> c.toSourceString().replace('.', '/') + ".class")
               .sorted()
               .collect(Collectors.toList());
@@ -88,7 +88,7 @@ public class GenerateMainDexList {
           () -> {
             ArrayList<DexProgramClass> classes = new ArrayList<>();
             // TODO(b/131668850): This is not a deterministic order!
-            mainDexClasses
+            mainDexTracingResult
                 .getClasses()
                 .forEach(
                     type -> {

@@ -77,8 +77,13 @@ public class CodeInspector {
     this(Paths.get(path));
   }
 
-  public CodeInspector(Path file, String mappingFile) throws IOException {
-    this(Collections.singletonList(file), mappingFile, null);
+  public CodeInspector(Path file, String proguardMapContent) throws IOException {
+    this(AndroidApp.builder().addProgramFile(file).build(), proguardMapContent);
+  }
+
+  public CodeInspector(Path file, Path mappingFile) throws IOException {
+    this(
+        Collections.singletonList(file), mappingFile != null ? mappingFile.toString() : null, null);
   }
 
   public CodeInspector(Path file) throws IOException {
@@ -111,9 +116,7 @@ public class CodeInspector {
   }
 
   public CodeInspector(AndroidApp app) throws IOException {
-    this(
-        new ApplicationReader(app, runOptionsConsumer(null), Timing.empty())
-            .read(app.getProguardMapOutputData()));
+    this(app, (Consumer<InternalOptions>) null);
   }
 
   public CodeInspector(AndroidApp app, Consumer<InternalOptions> optionsConsumer)
@@ -144,7 +147,8 @@ public class CodeInspector {
   public CodeInspector(AndroidApp app, String proguardMapContent) throws IOException {
     this(
         new ApplicationReader(app, runOptionsConsumer(null), Timing.empty())
-            .read(StringResource.fromString(proguardMapContent, Origin.unknown())));
+            .read(
+                StringResource.fromString(proguardMapContent, Origin.unknown())));
   }
 
   public CodeInspector(DexApplication application) {

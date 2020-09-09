@@ -19,6 +19,7 @@ import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.shaking.MainDexClasses;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.FeatureClassMapping;
 import com.android.tools.r8.utils.FeatureClassMapping.FeatureMappingException;
@@ -71,8 +72,10 @@ public final class DexSplitterHelper {
 
     try {
       Timing timing = new Timing("DexSplitter");
-      DexApplication app =
-          new ApplicationReader(command.getInputApp(), options, timing).read(null, executor);
+      ApplicationReader applicationReader =
+          new ApplicationReader(command.getInputApp(), options, timing);
+      DexApplication app = applicationReader.read(executor);
+      MainDexClasses mainDexClasses = applicationReader.readMainDexClasses(app);
 
       List<Marker> markers = app.dexItemFactory.extractMarkers();
 
@@ -83,13 +86,20 @@ public final class DexSplitterHelper {
       Map<String, LazyLoadedDexApplication.Builder> applications =
           getDistribution(app, featureClassMapping, mapper);
       for (Entry<String, LazyLoadedDexApplication.Builder> entry : applications.entrySet()) {
+        String feature = entry.getKey();
         DexApplication featureApp = entry.getValue().build();
         assert !options.hasMethodsFilter();
 
-        // Run d8 optimize to ensure jumbo strings are handled.
-        AppInfo appInfo = AppInfo.createInitialAppInfo(featureApp);
+        // If this is the base, we add the main dex list.
+        AppInfo appInfo =
+            feature.equals(featureClassMapping.getBaseName())
+                ? AppInfo.createInitialAppInfo(featureApp, mainDexClasses)
+                : AppInfo.createInitialAppInfo(featureApp);
         AppView<AppInfo> appView = AppView.createForD8(appInfo);
+
+        // Run d8 optimize to ensure jumbo strings are handled.
         D8.optimize(appView, options, timing, executor);
+
         // We create a specific consumer for each split.
         Path outputDir = Paths.get(output).resolve(entry.getKey());
         if (!Files.exists(outputDir)) {
@@ -99,9 +109,7 @@ public final class DexSplitterHelper {
 
         try {
           new ApplicationWriter(
-                  appView.appInfo().app(),
                   appView,
-                  options,
                   markers,
                   GraphLens.getIdentityLens(),
                   InitClassLens.getDefault(),
@@ -134,10 +142,6 @@ public final class DexSplitterHelper {
       LazyLoadedDexApplication.Builder featureApplication = applications.get(feature);
       if (featureApplication == null) {
         featureApplication = DexApplication.builder(app.options, app.timing);
-        // If this is the base, we add the main dex list.
-        if (feature.equals(featureClassMapping.getBaseName())) {
-          featureApplication.addToMainDexList(app.mainDexList);
-        }
         applications.put(feature, featureApplication);
       }
       featureApplication.addProgramClass(clazz);

@@ -5,9 +5,14 @@ package com.android.tools.r8.code;
 
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.graph.DexCallSite;
+import com.android.tools.r8.graph.GraphLens;
+import com.android.tools.r8.graph.ObjectToOffsetMapping;
 import com.android.tools.r8.graph.OffsetToObjectMapping;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.conversion.IRBuilder;
+import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
+import java.nio.ShortBuffer;
 
 public class InvokeCustom extends Format35c<DexCallSite> {
 
@@ -39,8 +44,13 @@ public class InvokeCustom extends Format35c<DexCallSite> {
   }
 
   @Override
-  public void collectIndexedItems(IndexedItemCollection indexedItems) {
-    getCallSite().collectIndexedItems(indexedItems);
+  public void collectIndexedItems(
+      IndexedItemCollection indexedItems,
+      ProgramMethod context,
+      GraphLens graphLens,
+      LensCodeRewriterUtils rewriter) {
+    DexCallSite rewritten = rewriter.rewriteCallSite(getCallSite(), context);
+    rewritten.collectIndexedItems(indexedItems);
   }
 
   @Override
@@ -61,5 +71,17 @@ public class InvokeCustom extends Format35c<DexCallSite> {
   @Override
   public boolean canThrow() {
     return true;
+  }
+
+  @Override
+  public void write(
+      ShortBuffer dest,
+      ProgramMethod context,
+      GraphLens graphLens,
+      ObjectToOffsetMapping mapping,
+      LensCodeRewriterUtils rewriter) {
+    writeFirst(A, G, dest);
+    write16BitReference(rewriter.rewriteCallSite(getCallSite(), context), dest, mapping);
+    write16BitValue(combineBytes(makeByte(F, E), makeByte(D, C)), dest);
   }
 }

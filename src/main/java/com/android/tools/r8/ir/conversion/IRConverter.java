@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.conversion;
 
+import static com.android.tools.r8.graph.DexAnnotation.readAnnotationSynthesizedClassMap;
 import static com.android.tools.r8.ir.desugar.InterfaceMethodRewriter.Flavor.ExcludeDexResources;
 import static com.android.tools.r8.ir.desugar.InterfaceMethodRewriter.Flavor.IncludeAllResources;
 
@@ -90,6 +91,7 @@ import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.LibraryMethodOverrideAnalysis;
 import com.android.tools.r8.shaking.MainDexClasses;
+import com.android.tools.r8.shaking.MainDexTracingResult;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.CfgPrinter;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -190,7 +192,7 @@ public class IRConverter {
    * (i.e., whether we are running R8). See {@link AppView#enableWholeProgramOptimizations()}.
    */
   public IRConverter(
-      AppView<?> appView, Timing timing, CfgPrinter printer, MainDexClasses mainDexClasses) {
+      AppView<?> appView, Timing timing, CfgPrinter printer, MainDexTracingResult mainDexClasses) {
     assert appView.appInfo().hasLiveness() || appView.graphLens().isIdentityLens();
     assert appView.options() != null;
     assert appView.options().programConsumer != null;
@@ -309,7 +311,7 @@ public class IRConverter {
       this.memberValuePropagation =
           options.enableValuePropagation ? new MemberValuePropagation(appViewWithLiveness) : null;
       this.methodOptimizationInfoCollector =
-          new MethodOptimizationInfoCollector(appViewWithLiveness);
+          new MethodOptimizationInfoCollector(appViewWithLiveness, this);
       if (options.isMinifying()) {
         this.identifierNameStringMarker = new IdentifierNameStringMarker(appViewWithLiveness);
       } else {
@@ -364,16 +366,16 @@ public class IRConverter {
 
   /** Create an IR converter for processing methods with full program optimization disabled. */
   public IRConverter(AppView<?> appView, Timing timing) {
-    this(appView, timing, null, MainDexClasses.NONE);
+    this(appView, timing, null, MainDexTracingResult.NONE);
   }
 
   /** Create an IR converter for processing methods with full program optimization disabled. */
   public IRConverter(AppView<?> appView, Timing timing, CfgPrinter printer) {
-    this(appView, timing, printer, MainDexClasses.NONE);
+    this(appView, timing, printer, MainDexTracingResult.NONE);
   }
 
   public IRConverter(AppInfo appInfo, Timing timing, CfgPrinter printer) {
-    this(AppView.createForD8(appInfo), timing, printer, MainDexClasses.NONE);
+    this(AppView.createForD8(appInfo), timing, printer, MainDexTracingResult.NONE);
   }
 
   private boolean enableTwrCloseResourceDesugaring() {
@@ -493,42 +495,54 @@ public class IRConverter {
     processCovariantReturnTypeAnnotations(builder);
     generateDesugaredLibraryAPIWrappers(builder, executor);
 
-    handleSynthesizedClassMapping(builder);
+    handleSynthesizedClassMapping(appView, builder);
     timing.end();
 
     DexApplication app = builder.build();
-    appView.setAppInfo(new AppInfo(app, appView.appInfo().getSyntheticItems().commit(app)));
+    appView.setAppInfo(
+        new AppInfo(
+            app,
+            appView.appInfo().getMainDexClasses(),
+            appView.appInfo().getSyntheticItems().commit(app)));
   }
 
-  private void handleSynthesizedClassMapping(Builder<?> builder) {
+  private void handleSynthesizedClassMapping(AppView<?> appView, Builder<?> builder) {
     if (options.intermediate) {
       updateSynthesizedClassMapping(builder);
     }
 
-    updateMainDexListWithSynthesizedClassMap(builder);
+    updateMainDexListWithSynthesizedClassMap(appView, builder);
 
     if (!options.intermediate) {
       clearSynthesizedClassMapping(builder);
     }
   }
 
-  private void updateMainDexListWithSynthesizedClassMap(Builder<?> builder) {
-    Set<DexType> inputMainDexList = builder.getMainDexList();
-    if (!inputMainDexList.isEmpty()) {
-      Map<DexType, DexProgramClass> programClasses = builder.getProgramClasses().stream()
-          .collect(Collectors.toMap(
-              programClass -> programClass.type,
-              Function.identity()));
-      Collection<DexType> synthesized = new ArrayList<>();
-      for (DexType dexType : inputMainDexList) {
-        DexProgramClass programClass = programClasses.get(dexType);
-        if (programClass != null) {
-          synthesized.addAll(DexAnnotation.readAnnotationSynthesizedClassMap(
-              programClass, builder.dexItemFactory));
-        }
-      }
-      builder.addToMainDexList(synthesized);
+  private void updateMainDexListWithSynthesizedClassMap(AppView<?> appView, Builder<?> builder) {
+    MainDexClasses mainDexClasses = appView.appInfo().getMainDexClasses();
+    if (mainDexClasses.isEmpty()) {
+      return;
     }
+    Map<DexType, DexProgramClass> programClasses =
+        builder.getProgramClasses().stream()
+            .collect(Collectors.toMap(programClass -> programClass.type, Function.identity()));
+    List<DexProgramClass> newMainDexClasses = new ArrayList<>();
+    mainDexClasses.forEach(
+        mainDexClass -> {
+          DexProgramClass definition = programClasses.get(mainDexClass);
+          if (definition == null) {
+            return;
+          }
+          Iterable<DexType> syntheticTypes =
+              readAnnotationSynthesizedClassMap(definition, appView.dexItemFactory());
+          for (DexType syntheticType : syntheticTypes) {
+            DexProgramClass syntheticClass = programClasses.get(syntheticType);
+            if (syntheticClass != null) {
+              newMainDexClasses.add(syntheticClass);
+            }
+          }
+        });
+    mainDexClasses.addAll(newMainDexClasses);
   }
 
   private void clearSynthesizedClassMapping(Builder<?> builder) {
@@ -558,8 +572,7 @@ public class IRConverter {
           .stream()
           .map(dexProgramClass -> dexProgramClass.type)
           .forEach(synthesized::add);
-      synthesized.addAll(
-          DexAnnotation.readAnnotationSynthesizedClassMap(original, builder.dexItemFactory));
+      synthesized.addAll(readAnnotationSynthesizedClassMap(original, builder.dexItemFactory));
 
       DexAnnotation updatedAnnotation =
           DexAnnotation.createAnnotationSynthesizedClassMap(synthesized, builder.dexItemFactory);
@@ -589,52 +602,53 @@ public class IRConverter {
 
   private void convertMethod(ProgramMethod method) {
     DexEncodedMethod definition = method.getDefinition();
-    if (definition.getCode() != null) {
-      boolean matchesMethodFilter = options.methodMatchesFilter(definition);
-      if (matchesMethodFilter) {
-        if (appView.options().enableNeverMergePrefixes) {
-          for (DexString neverMergePrefix : neverMergePrefixes) {
-            // Synthetic classes will always be merged.
-            if (appView.appInfo().getSyntheticItems().isSyntheticClass(method.getHolder())) {
-              continue;
-            }
-            if (method.getHolderType().descriptor.startsWith(neverMergePrefix)) {
-              seenNeverMergePrefix.getAndSet(true);
-            } else {
-              seenNotNeverMergePrefix.getAndSet(true);
-            }
-            // Don't mix.
-            if (seenNeverMergePrefix.get() && seenNotNeverMergePrefix.get()) {
-              StringBuilder message = new StringBuilder();
-              message
-                  .append("Merging dex file containing classes with prefix")
-                  .append(neverMergePrefixes.size() > 1 ? "es " : " ");
-              for (int i = 0; i < neverMergePrefixes.size(); i++) {
-                message
-                    .append("'")
-                    .append(neverMergePrefixes.get(0).toString().substring(1).replace('/', '.'))
-                    .append("'")
-                    .append(i < neverMergePrefixes.size() - 1 ? ", " : "");
-              }
-              message.append(" with classes with any other prefixes is not allowed.");
-              throw new CompilationError(message.toString());
-            }
-          }
+    if (definition.getCode() == null) {
+      return;
+    }
+    if (!options.methodMatchesFilter(definition)) {
+      return;
+    }
+    checkPrefixMerging(method);
+    if (options.isGeneratingClassFiles()
+        || !(options.passthroughDexCode && definition.getCode().isDexCode())) {
+      // We do not process in call graph order, so anything could be a leaf.
+      rewriteCode(
+          method, simpleOptimizationFeedback, OneTimeMethodProcessor.create(method, appView), null);
+    } else {
+      assert definition.getCode().isDexCode();
+    }
+    if (!options.isGeneratingClassFiles()) {
+      updateHighestSortingStrings(definition);
+    }
+  }
+
+  private void checkPrefixMerging(ProgramMethod method) {
+    if (!appView.options().enableNeverMergePrefixes) {
+      return;
+    }
+    for (DexString neverMergePrefix : neverMergePrefixes) {
+      if (method.getHolderType().descriptor.startsWith(neverMergePrefix)) {
+        seenNeverMergePrefix.getAndSet(true);
+      } else {
+        seenNotNeverMergePrefix.getAndSet(true);
+      }
+      // Don't mix.
+      // TODO(b/168001352): Consider requiring that no 'never merge' prefix is ever seen as a
+      //  passthrough object.
+      if (seenNeverMergePrefix.get() && seenNotNeverMergePrefix.get()) {
+        StringBuilder message = new StringBuilder();
+        message
+            .append("Merging dex file containing classes with prefix")
+            .append(neverMergePrefixes.size() > 1 ? "es " : " ");
+        for (int i = 0; i < neverMergePrefixes.size(); i++) {
+          message
+              .append("'")
+              .append(neverMergePrefixes.get(0).toString().substring(1).replace('/', '.'))
+              .append("'")
+              .append(i < neverMergePrefixes.size() - 1 ? ", " : "");
         }
-        if (options.isGeneratingClassFiles()
-            || !(options.passthroughDexCode && definition.getCode().isDexCode())) {
-          // We do not process in call graph order, so anything could be a leaf.
-          rewriteCode(
-              method,
-              simpleOptimizationFeedback,
-              OneTimeMethodProcessor.create(method, appView),
-              null);
-        } else {
-          assert definition.getCode().isDexCode();
-        }
-        if (!options.isGeneratingClassFiles()) {
-          updateHighestSortingStrings(definition);
-        }
+        message.append(" with classes with any other prefixes is not allowed.");
+        throw new CompilationError(message.toString());
       }
     }
   }
@@ -716,6 +730,9 @@ public class IRConverter {
       assert graphLensForIR == appView.graphLens();
     }
 
+    // The field access info collection is not maintained during IR processing.
+    appView.appInfo().withLiveness().getFieldAccessInfoCollection().destroyAccessContexts();
+
     // Assure that no more optimization feedback left after primary processing.
     assert feedback.noUpdatesLeft();
     appView.setAllCodeProcessed();
@@ -789,7 +806,7 @@ public class IRConverter {
     synthesizeTwrCloseResourceUtilityClass(builder, executorService);
     synthesizeJava8UtilityClass(builder, executorService);
     synthesizeRetargetClass(builder, executorService);
-    handleSynthesizedClassMapping(builder);
+    handleSynthesizedClassMapping(appView, builder);
     synthesizeEnumUnboxingUtilityMethods(builder, executorService);
 
     printPhase("Lambda merging finalization");
@@ -800,10 +817,10 @@ public class IRConverter {
     generateDesugaredLibraryAPIWrappers(builder, executorService);
 
     if (serviceLoaderRewriter != null && serviceLoaderRewriter.getSynthesizedClass() != null) {
-      appView.appInfo().addSynthesizedClass(serviceLoaderRewriter.getSynthesizedClass());
+      appView.appInfo().addSynthesizedClass(serviceLoaderRewriter.getSynthesizedClass(), true);
       processSynthesizedServiceLoaderMethods(
           serviceLoaderRewriter.getSynthesizedClass(), executorService);
-      builder.addSynthesizedClass(serviceLoaderRewriter.getSynthesizedClass(), true);
+      builder.addSynthesizedClass(serviceLoaderRewriter.getSynthesizedClass());
     }
 
     // Update optimization info for all synthesized methods at once.
@@ -823,7 +840,7 @@ public class IRConverter {
             },
             executorService);
         DexProgramClass outlineClass = outliner.buildOutlinerClass(computeOutlineClassType());
-        appView.appInfo().addSynthesizedClass(outlineClass);
+        appView.appInfo().addSynthesizedClass(outlineClass, true);
         optimizeSynthesizedClass(outlineClass, executorService);
         forEachSelectedOutliningMethod(
             methodsSelectedForOutlining,
@@ -836,7 +853,7 @@ public class IRConverter {
             executorService);
         feedback.updateVisibleOptimizationInfo();
         assert outliner.checkAllOutlineSitesFoundAgain();
-        builder.addSynthesizedClass(outlineClass, true);
+        builder.addSynthesizedClass(outlineClass);
         clearDexMethodCompilationState(outlineClass);
       }
       timing.end();
@@ -1239,7 +1256,7 @@ public class IRConverter {
       assert appView.enableWholeProgramOptimizations();
       timing.begin("Collect optimization info");
       collectOptimizationInfo(
-          method, code, ClassInitializerDefaultsResult.empty(), feedback, methodProcessor, timing);
+          context, code, ClassInitializerDefaultsResult.empty(), feedback, methodProcessor, timing);
       timing.end();
       return timing;
     }
@@ -1601,7 +1618,7 @@ public class IRConverter {
     if (appView.enableWholeProgramOptimizations()) {
       timing.begin("Collect optimization info");
       collectOptimizationInfo(
-          method, code, classInitializerDefaultsResult, feedback, methodProcessor, timing);
+          context, code, classInitializerDefaultsResult, feedback, methodProcessor, timing);
       timing.end();
     }
 
@@ -1636,7 +1653,7 @@ public class IRConverter {
   // Compute optimization info summary for the current method unless it is pinned
   // (in that case we should not be making any assumptions about the behavior of the method).
   public void collectOptimizationInfo(
-      DexEncodedMethod method,
+      ProgramMethod method,
       IRCode code,
       ClassInitializerDefaultsResult classInitializerDefaultsResult,
       OptimizationFeedback feedback,
@@ -1658,7 +1675,8 @@ public class IRConverter {
     }
 
     // Arguments can be changed during the debug mode.
-    boolean isDebugMode = options.debug || method.getOptimizationInfo().isReachabilitySensitive();
+    boolean isDebugMode =
+        options.debug || method.getDefinition().getOptimizationInfo().isReachabilitySensitive();
     if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
       timing.begin("Collect call-site info");
       appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code, timing);
@@ -1670,8 +1688,8 @@ public class IRConverter {
     }
 
     InstanceFieldInitializationInfoCollection instanceFieldInitializationInfos = null;
-    if (method.isInitializer()) {
-      if (method.isClassInitializer()) {
+    if (method.getDefinition().isInitializer()) {
+      if (method.getDefinition().isClassInitializer()) {
         StaticFieldValueAnalysis.run(
             appView, code, classInitializerDefaultsResult, feedback, timing);
       } else {
@@ -1681,12 +1699,7 @@ public class IRConverter {
       }
     }
     methodOptimizationInfoCollector.collectMethodOptimizationInfo(
-        code.method(),
-        code,
-        feedback,
-        dynamicTypeOptimization,
-        instanceFieldInitializationInfos,
-        timing);
+        method, code, feedback, dynamicTypeOptimization, instanceFieldInitializationInfos, timing);
   }
 
   public void removeDeadCodeAndFinalizeIR(
@@ -1744,7 +1757,7 @@ public class IRConverter {
     timing.end();
   }
 
-  private void markProcessed(IRCode code, OptimizationFeedback feedback) {
+  public void markProcessed(IRCode code, OptimizationFeedback feedback) {
     // After all the optimizations have take place, we compute whether method should be inlined.
     ProgramMethod method = code.context();
     ConstraintWithTarget state =

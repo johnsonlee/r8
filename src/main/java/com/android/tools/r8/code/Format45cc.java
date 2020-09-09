@@ -8,8 +8,13 @@ import static com.android.tools.r8.dex.Constants.U4BIT_MAX;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.GraphLens;
+import com.android.tools.r8.graph.GraphLens.GraphLensLookupResult;
 import com.android.tools.r8.graph.IndexedDexItem;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
+import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.Invoke.Type;
+import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.naming.ClassNameMapper;
 import java.nio.ShortBuffer;
 
@@ -87,17 +92,36 @@ public abstract class Format45cc extends Base4Format {
   }
 
   @Override
-  public void collectIndexedItems(IndexedItemCollection indexedItems) {
-    BBBB.collectIndexedItems(indexedItems);
-    HHHH.collectIndexedItems(indexedItems);
+  public void collectIndexedItems(
+      IndexedItemCollection indexedItems,
+      ProgramMethod context,
+      GraphLens graphLens,
+      LensCodeRewriterUtils rewriter) {
+    GraphLensLookupResult lookup =
+        graphLens.lookupMethod(getMethod(), context.getReference(), Type.POLYMORPHIC);
+    assert lookup.getType() == Type.POLYMORPHIC;
+    lookup.getMethod().collectIndexedItems(indexedItems);
+
+    DexProto rewrittenProto = rewriter.rewriteProto(getProto());
+    rewrittenProto.collectIndexedItems(indexedItems);
   }
 
   @Override
-  public void write(ShortBuffer dest, ObjectToOffsetMapping mapping) {
+  public void write(
+      ShortBuffer dest,
+      ProgramMethod context,
+      GraphLens graphLens,
+      ObjectToOffsetMapping mapping,
+      LensCodeRewriterUtils rewriter) {
+    GraphLensLookupResult lookup =
+        graphLens.lookupMethod(getMethod(), context.getReference(), Type.POLYMORPHIC);
+    assert lookup.getType() == Type.POLYMORPHIC;
     writeFirst(A, G, dest);
-    write16BitReference(BBBB, dest, mapping);
+    write16BitReference(lookup.getMethod(), dest, mapping);
     write16BitValue(combineBytes(makeByte(F, E), makeByte(D, C)), dest);
-    write16BitReference(HHHH, dest, mapping);
+
+    DexProto rewrittenProto = rewriter.rewriteProto(getProto());
+    write16BitReference(rewrittenProto, dest, mapping);
   }
 
   @Override
