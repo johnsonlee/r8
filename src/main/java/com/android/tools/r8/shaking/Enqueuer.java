@@ -2743,7 +2743,7 @@ public class Enqueuer {
   }
 
   public NestedGraphLens buildGraphLens(AppView<?> appView) {
-    return lambdaRewriter != null ? lambdaRewriter.buildMappingLens(appView) : null;
+    return lambdaRewriter != null ? lambdaRewriter.fixup() : null;
   }
 
   private void keepClassWithRules(DexProgramClass clazz, Set<ProguardKeepRuleBase> rules) {
@@ -2885,7 +2885,7 @@ public class Enqueuer {
 
     // Now all additions are computed, the application is atomically extended with those additions.
     appInfo =
-        appInfo.rebuild(
+        appInfo.rebuildWithClassHierarchy(
             app -> {
               Builder appBuilder = app.asDirect().builder();
               additions.amendApplication(appBuilder);
@@ -3019,9 +3019,9 @@ public class Enqueuer {
 
     AppInfoWithLiveness appInfoWithLiveness =
         new AppInfoWithLiveness(
-            app,
-            appInfo.getMainDexClasses(),
             appInfo.getSyntheticItems().commit(app),
+            appInfo.getClassToFeatureSplitMap(),
+            appInfo.getMainDexClasses(),
             deadProtoTypes,
             mode.isFinalTreeShaking()
                 ? Sets.union(initialMissingTypes, missingTypes)
@@ -3059,7 +3059,9 @@ public class Enqueuer {
             rootSet.neverReprocess,
             rootSet.alwaysClassInline,
             rootSet.neverClassInline,
-            rootSet.neverMerge,
+            rootSet.noVerticalClassMerging,
+            rootSet.noHorizontalClassMerging,
+            rootSet.noStaticClassMerging,
             rootSet.neverPropagateValue,
             joinIdentifierNameStrings(rootSet.identifierNameStrings, identifierNameStrings),
             Collections.emptySet(),

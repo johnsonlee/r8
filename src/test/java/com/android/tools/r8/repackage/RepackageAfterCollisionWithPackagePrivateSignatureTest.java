@@ -4,10 +4,11 @@
 
 package com.android.tools.r8.repackage;
 
+import static com.android.tools.r8.shaking.ProguardConfigurationParser.FLATTEN_PACKAGE_HIERARCHY;
+import static com.android.tools.r8.shaking.ProguardConfigurationParser.REPACKAGE_CLASSES;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
@@ -25,8 +26,6 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class RepackageAfterCollisionWithPackagePrivateSignatureTest extends TestBase {
 
-  private static final String FLATTEN_PACKAGE_HIERARCHY = "flattenpackagehierarchy";
-  private static final String REPACKAGE_CLASSES = "repackageclasses";
   private static final String REPACKAGE_DIR = "foo";
 
   private final String flattenPackageHierarchyOrRepackageClasses;
@@ -76,7 +75,7 @@ public class RepackageAfterCollisionWithPackagePrivateSignatureTest extends Test
 
     public static void main(String[] args) {
       RepackageCandidate.foo(0);
-      RepackageCandidate.foo((int) System.currentTimeMillis(), 0);
+      RepackageCandidate.foo(System.currentTimeMillis(), 0);
     }
 
     static void restrictToCurrentPackage() {
@@ -86,12 +85,12 @@ public class RepackageAfterCollisionWithPackagePrivateSignatureTest extends Test
 
   public static class RepackageCandidate {
 
-    public static void foo(int unused) {
+    public static void foo(long unused) {
       TestClass.restrictToCurrentPackage();
     }
 
     @NeverInline
-    public static void foo(int used, int unused) {
+    public static void foo(long used, int unused) {
       if (used >= 0) {
         System.out.println(" world!");
       }

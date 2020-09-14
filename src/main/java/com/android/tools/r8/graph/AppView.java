@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.graph;
 
+import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.GraphLens.NestedGraphLens;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis.InitializedClassesInInstanceMethods;
@@ -27,6 +28,7 @@ import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.shaking.LibraryModeledPredicate;
 import com.android.tools.r8.shaking.MainDexClasses;
 import com.android.tools.r8.shaking.RootSetBuilder.RootSet;
+import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.ThrowingConsumer;
@@ -135,9 +137,11 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public static AppView<AppInfoWithClassHierarchy> createForR8(
       DexApplication application, MainDexClasses mainDexClasses) {
+    ClassToFeatureSplitMap classToFeatureSplitMap =
+        ClassToFeatureSplitMap.createInitialClassToFeatureSplitMap(application.options);
     AppInfoWithClassHierarchy appInfo =
         AppInfoWithClassHierarchy.createInitialAppInfoWithClassHierarchy(
-            application, mainDexClasses);
+            application, classToFeatureSplitMap, mainDexClasses);
     return new AppView<>(
         appInfo, WholeProgramOptimizations.ON, defaultPrefixRewritingMapper(appInfo));
   }
@@ -266,6 +270,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return wholeProgramOptimizations == WholeProgramOptimizations.ON;
   }
 
+  public SyntheticItems getSyntheticItems() {
+    return appInfo.getSyntheticItems();
+  }
+
   public CallSiteOptimizationInfoPropagator callSiteOptimizationInfoPropagator() {
     return callSiteOptimizationInfoPropagator;
   }
@@ -356,6 +364,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public InitClassLens initClassLens() {
     return initClassLens;
+  }
+
+  public boolean hasInitClassLens() {
+    return initClassLens != null;
   }
 
   public void setInitClassLens(InitClassLens initClassLens) {
@@ -514,6 +526,11 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     }
   }
 
+  public void rewriteWithApplication(DirectMappedDexApplication application) {
+    assert application != null;
+    rewriteWithLens(null, application, withLiveness());
+  }
+
   public void rewriteWithLensAndApplication(
       NestedGraphLens lens, DirectMappedDexApplication application) {
     assert lens != null;
@@ -525,9 +542,14 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       NestedGraphLens lens,
       DirectMappedDexApplication application,
       AppView<AppInfoWithLiveness> appView) {
-    boolean changed = appView.setGraphLens(lens);
-    assert changed;
-    assert application.verifyWithLens(lens);
+    if (lens != null) {
+      boolean changed = appView.setGraphLens(lens);
+      assert changed;
+      assert application.verifyWithLens(lens);
+    }
     appView.setAppInfo(appView.appInfo().rewrittenWithLens(application, lens));
+    if (appView.hasInitClassLens()) {
+      appView.setInitClassLens(appView.initClassLens().rewrittenWithLens(lens));
+    }
   }
 }

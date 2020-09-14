@@ -7,6 +7,7 @@ import static com.android.tools.r8.graph.DexEncodedMethod.asProgramMethodOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult.isOverriding;
 
+import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
@@ -40,14 +41,13 @@ import com.android.tools.r8.graph.PresortedComparable;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.SubtypingInfo;
-import com.android.tools.r8.graph.SyntheticItems;
-import com.android.tools.r8.graph.SyntheticItems.CommittedItems;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.desugar.TwrCloseResourceRewriter;
+import com.android.tools.r8.synthesis.CommittedItems;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
@@ -163,8 +163,11 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   public final PredicateSet<DexType> alwaysClassInline;
   /** All types that *must* never be inlined due to a configuration directive (testing only). */
   public final Set<DexType> neverClassInline;
-  /** All types that *must* never be merged due to a configuration directive (testing only). */
-  public final Set<DexType> neverMerge;
+
+  private final Set<DexType> noVerticalClassMerging;
+  private final Set<DexType> noHorizontalClassMerging;
+  private final Set<DexType> noStaticClassMerging;
+
   /** Set of const-class references. */
   public final Set<DexType> constClassReferences;
   /**
@@ -195,9 +198,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
 
   // TODO(zerny): Clean up the constructors so we have just one.
   AppInfoWithLiveness(
-      DirectMappedDexApplication application,
+      CommittedItems syntheticItems,
+      ClassToFeatureSplitMap classToFeatureSplitMap,
       MainDexClasses mainDexClasses,
-      SyntheticItems.CommittedItems syntheticItems,
       Set<DexType> deadProtoTypes,
       Set<DexType> missingTypes,
       Set<DexType> liveTypes,
@@ -230,7 +233,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Set<DexMethod> neverReprocess,
       PredicateSet<DexType> alwaysClassInline,
       Set<DexType> neverClassInline,
-      Set<DexType> neverMerge,
+      Set<DexType> noVerticalClassMerging,
+      Set<DexType> noHorizontalClassMerging,
+      Set<DexType> noStaticClassMerging,
       Set<DexReference> neverPropagateValue,
       Object2BooleanMap<DexReference> identifierNameStrings,
       Set<DexType> prunedTypes,
@@ -238,7 +243,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       EnumValueInfoMapCollection enumValueInfoMaps,
       Set<DexType> constClassReferences,
       Map<DexType, Visibility> initClassReferences) {
-    super(application, mainDexClasses, syntheticItems);
+    super(syntheticItems, classToFeatureSplitMap, mainDexClasses);
     this.deadProtoTypes = deadProtoTypes;
     this.missingTypes = missingTypes;
     this.liveTypes = liveTypes;
@@ -271,7 +276,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.neverReprocess = neverReprocess;
     this.alwaysClassInline = alwaysClassInline;
     this.neverClassInline = neverClassInline;
-    this.neverMerge = neverMerge;
+    this.noVerticalClassMerging = noVerticalClassMerging;
+    this.noHorizontalClassMerging = noHorizontalClassMerging;
+    this.noStaticClassMerging = noStaticClassMerging;
     this.neverPropagateValue = neverPropagateValue;
     this.identifierNameStrings = identifierNameStrings;
     this.prunedTypes = prunedTypes;
@@ -315,7 +322,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Set<DexMethod> neverReprocess,
       PredicateSet<DexType> alwaysClassInline,
       Set<DexType> neverClassInline,
-      Set<DexType> neverMerge,
+      Set<DexType> noVerticalClassMerging,
+      Set<DexType> noHorizontalClassMerging,
+      Set<DexType> noStaticClassMerging,
       Set<DexReference> neverPropagateValue,
       Object2BooleanMap<DexReference> identifierNameStrings,
       Set<DexType> prunedTypes,
@@ -324,9 +333,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Set<DexType> constClassReferences,
       Map<DexType, Visibility> initClassReferences) {
     super(
-        appInfoWithClassHierarchy.app(),
-        appInfoWithClassHierarchy.getMainDexClasses(),
-        appInfoWithClassHierarchy.getSyntheticItems().commit(appInfoWithClassHierarchy.app()));
+        appInfoWithClassHierarchy.getSyntheticItems().commit(appInfoWithClassHierarchy.app()),
+        appInfoWithClassHierarchy.getClassToFeatureSplitMap(),
+        appInfoWithClassHierarchy.getMainDexClasses());
     this.deadProtoTypes = deadProtoTypes;
     this.missingTypes = missingTypes;
     this.liveTypes = liveTypes;
@@ -359,7 +368,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.neverReprocess = neverReprocess;
     this.alwaysClassInline = alwaysClassInline;
     this.neverClassInline = neverClassInline;
-    this.neverMerge = neverMerge;
+    this.noVerticalClassMerging = noVerticalClassMerging;
+    this.noHorizontalClassMerging = noHorizontalClassMerging;
+    this.noStaticClassMerging = noStaticClassMerging;
     this.neverPropagateValue = neverPropagateValue;
     this.identifierNameStrings = identifierNameStrings;
     this.prunedTypes = prunedTypes;
@@ -369,12 +380,16 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.initClassReferences = initClassReferences;
   }
 
-  private AppInfoWithLiveness(AppInfoWithLiveness previous) {
+  private AppInfoWithLiveness(
+      AppInfoWithLiveness previous, CommittedItems committedItems, Set<DexType> removedTypes) {
     this(
-        previous,
+        committedItems,
+        previous.getClassToFeatureSplitMap(),
+        previous.getMainDexClasses(),
         previous.deadProtoTypes,
         previous.missingTypes,
-        previous.liveTypes,
+        CollectionUtils.mergeSets(
+            Sets.difference(previous.liveTypes, removedTypes), committedItems.getCommittedTypes()),
         previous.instantiatedAppServices,
         previous.targetedMethods,
         previous.failedResolutionTargets,
@@ -404,7 +419,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.neverReprocess,
         previous.alwaysClassInline,
         previous.neverClassInline,
-        previous.neverMerge,
+        previous.noVerticalClassMerging,
+        previous.noHorizontalClassMerging,
+        previous.noStaticClassMerging,
         previous.neverPropagateValue,
         previous.identifierNameStrings,
         previous.prunedTypes,
@@ -417,15 +434,17 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   private AppInfoWithLiveness(
       AppInfoWithLiveness previous,
       DirectMappedDexApplication application,
-      Collection<DexType> removedClasses,
+      Set<DexType> removedClasses,
       Collection<DexReference> additionalPinnedItems) {
     this(
-        application,
-        previous.getMainDexClasses(),
-        previous.getSyntheticItems().commit(application),
+        previous.getSyntheticItems().commitPrunedClasses(application, removedClasses),
+        previous.getClassToFeatureSplitMap().withoutPrunedClasses(removedClasses),
+        previous.getMainDexClasses().withoutPrunedClasses(removedClasses),
         previous.deadProtoTypes,
         previous.missingTypes,
-        previous.liveTypes,
+        removedClasses == null
+            ? previous.liveTypes
+            : Sets.difference(previous.liveTypes, removedClasses),
         previous.instantiatedAppServices,
         previous.targetedMethods,
         previous.failedResolutionTargets,
@@ -455,7 +474,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.neverReprocess,
         previous.alwaysClassInline,
         previous.neverClassInline,
-        previous.neverMerge,
+        previous.noVerticalClassMerging,
+        previous.noHorizontalClassMerging,
+        previous.noStaticClassMerging,
         previous.neverPropagateValue,
         previous.identifierNameStrings,
         removedClasses == null
@@ -510,9 +531,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Map<DexField, Int2ReferenceMap<DexField>> switchMaps,
       EnumValueInfoMapCollection enumValueInfoMaps) {
     super(
-        previous.app(),
-        previous.getMainDexClasses(),
-        previous.getSyntheticItems().commit(previous.app()));
+        previous.getSyntheticItems().commit(previous.app()),
+        previous.getClassToFeatureSplitMap(),
+        previous.getMainDexClasses());
     this.deadProtoTypes = previous.deadProtoTypes;
     this.missingTypes = previous.missingTypes;
     this.liveTypes = previous.liveTypes;
@@ -545,7 +566,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.neverReprocess = previous.neverReprocess;
     this.alwaysClassInline = previous.alwaysClassInline;
     this.neverClassInline = previous.neverClassInline;
-    this.neverMerge = previous.neverMerge;
+    this.noVerticalClassMerging = previous.noVerticalClassMerging;
+    this.noHorizontalClassMerging = previous.noHorizontalClassMerging;
+    this.noStaticClassMerging = previous.noStaticClassMerging;
     this.neverPropagateValue = previous.neverPropagateValue;
     this.identifierNameStrings = previous.identifierNameStrings;
     this.prunedTypes = previous.prunedTypes;
@@ -570,8 +593,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
             || InterfaceMethodRewriter.isCompanionClassType(type)
             || InterfaceMethodRewriter.hasDispatchClassSuffix(type)
             || InterfaceMethodRewriter.isEmulatedLibraryClassType(type)
-            || type.toDescriptorString().startsWith("L$r8$backportedMethods$")
-            || type.toDescriptorString().startsWith("Lj$/$r8$backportedMethods$")
             || type.toDescriptorString().startsWith("Lj$/$r8$retargetLibraryMember$")
             || TwrCloseResourceRewriter.isUtilityClassDescriptor(type)
             // TODO(b/150736225): Not sure how to remove these.
@@ -956,7 +977,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
    */
   public AppInfoWithLiveness prunedCopyFrom(
       DirectMappedDexApplication application,
-      Collection<DexType> removedClasses,
+      Set<DexType> removedClasses,
       Collection<DexReference> additionalPinnedItems) {
     assert checkIfObsolete();
     if (!removedClasses.isEmpty()) {
@@ -964,6 +985,11 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       objectAllocationInfoCollection.mutate(mutator -> {}, this);
     }
     return new AppInfoWithLiveness(this, application, removedClasses, additionalPinnedItems);
+  }
+
+  public AppInfoWithLiveness rebuildWithLiveness(
+      CommittedItems committedItems, Set<DexType> removedTypes) {
+    return new AppInfoWithLiveness(this, committedItems, removedTypes);
   }
 
   public AppInfoWithLiveness rewrittenWithLens(
@@ -986,12 +1012,12 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
             .map(FieldResolutionResult::getResolvedField)
             .collect(Collectors.toList()));
 
-    CommittedItems committedItems = getSyntheticItems().commit(application, lens);
+    CommittedItems committedItems = getSyntheticItems().commitRewrittenWithLens(application, lens);
     DexDefinitionSupplier definitionSupplier = application.getDefinitionsSupplier(committedItems);
     return new AppInfoWithLiveness(
-        application,
-        getMainDexClasses().rewrittenWithLens(lens),
         committedItems,
+        getClassToFeatureSplitMap().rewrittenWithLens(lens),
+        getMainDexClasses().rewrittenWithLens(lens),
         deadProtoTypes,
         missingTypes,
         lens.rewriteTypes(liveTypes),
@@ -1028,7 +1054,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         lens.rewriteMethods(neverReprocess),
         alwaysClassInline.rewriteItems(lens::lookupType),
         lens.rewriteTypes(neverClassInline),
-        lens.rewriteTypes(neverMerge),
+        lens.rewriteTypes(noVerticalClassMerging),
+        lens.rewriteTypes(noHorizontalClassMerging),
+        lens.rewriteTypes(noStaticClassMerging),
         lens.rewriteReferences(neverPropagateValue),
         lens.rewriteReferenceKeys(identifierNameStrings),
         // Don't rewrite pruned types - the removed types are identified by their original name.
@@ -1401,5 +1429,29 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
             },
             this)
         .shouldBreak();
+  }
+
+  /**
+   * All types that *must* never be merged vertically due to a configuration directive (testing
+   * only).
+   */
+  public Set<DexType> getNoVerticalClassMergingSet() {
+    return noVerticalClassMerging;
+  }
+
+  /**
+   * All types that *must* never be merged horizontally due to a configuration directive (testing
+   * only).
+   */
+  public Set<DexType> getNoHorizontalClassMergingSet() {
+    return noHorizontalClassMerging;
+  }
+
+  /**
+   * All types that *must* never be merged by the static class merger due to a configuration
+   * directive (testing only).
+   */
+  public Set<DexType> getNoStaticClassMergingSet() {
+    return noStaticClassMerging;
   }
 }

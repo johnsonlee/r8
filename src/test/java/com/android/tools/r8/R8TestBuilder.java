@@ -4,6 +4,7 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.dexsplitter.SplitterTestBase.simpleSplitProvider;
+import static com.android.tools.r8.dexsplitter.SplitterTestBase.splitWithNonJavaFile;
 import static org.hamcrest.CoreMatchers.containsString;
 
 import com.android.tools.r8.R8Command.Builder;
@@ -15,12 +16,16 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.CollectingGraphConsumer;
+import com.android.tools.r8.shaking.NoHorizontalClassMergingRule;
+import com.android.tools.r8.shaking.NoStaticClassMergingRule;
+import com.android.tools.r8.shaking.NoVerticalClassMergingRule;
 import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.Pair;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -55,7 +60,9 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   private boolean enableConstantArgumentAnnotations = false;
   private boolean enableInliningAnnotations = false;
   private boolean enableMemberValuePropagationAnnotations = false;
-  private boolean enableMergeAnnotations = false;
+  private boolean enableNoVerticalClassMergingAnnotations = false;
+  private boolean enableNoHorizontalClassMergingAnnotations = false;
+  private boolean enableNoStaticClassMergingAnnotations = false;
   private boolean enableNeverClassInliningAnnotations = false;
   private boolean enableNeverReprocessClassInitializerAnnotations = false;
   private boolean enableNeverReprocessMethodAnnotations = false;
@@ -76,7 +83,9 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     if (enableConstantArgumentAnnotations
         || enableInliningAnnotations
         || enableMemberValuePropagationAnnotations
-        || enableMergeAnnotations
+        || enableNoVerticalClassMergingAnnotations
+        || enableNoHorizontalClassMergingAnnotations
+        || enableNoStaticClassMergingAnnotations
         || enableNeverClassInliningAnnotations
         || enableNeverReprocessClassInitializerAnnotations
         || enableNeverReprocessMethodAnnotations
@@ -406,10 +415,38 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     return self();
   }
 
-  public T enableMergeAnnotations() {
-    if (!enableMergeAnnotations) {
-      enableMergeAnnotations = true;
-      addInternalKeepRules("-nevermerge @com.android.tools.r8.NeverMerge class *");
+  private void addInternalMatchInterfaceRule(String name, Class matchInterface) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("-");
+    sb.append(name);
+    sb.append(" @");
+    sb.append(matchInterface.getTypeName());
+    sb.append(" class *");
+    addInternalKeepRules(sb.toString());
+  }
+
+  public T enableNoVerticalClassMergingAnnotations() {
+    if (!enableNoVerticalClassMergingAnnotations) {
+      enableNoVerticalClassMergingAnnotations = true;
+      addInternalMatchInterfaceRule(
+          NoVerticalClassMergingRule.RULE_NAME, NoVerticalClassMerging.class);
+    }
+    return self();
+  }
+
+  public T enableNoHorizontalClassMergingAnnotations() {
+    if (!enableNoHorizontalClassMergingAnnotations) {
+      enableNoHorizontalClassMergingAnnotations = true;
+      addInternalMatchInterfaceRule(
+          NoHorizontalClassMergingRule.RULE_NAME, NoHorizontalClassMerging.class);
+    }
+    return self();
+  }
+
+  public T enableNoStaticClassMergingAnnotations() {
+    if (!enableNoStaticClassMergingAnnotations) {
+      enableNoStaticClassMergingAnnotations = true;
+      addInternalMatchInterfaceRule(NoStaticClassMergingRule.RULE_NAME, NoStaticClassMerging.class);
     }
     return self();
   }
@@ -590,6 +627,16 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     Path path = getState().getNewTempFile("feature.zip");
     builder.addFeatureSplit(
         builder -> simpleSplitProvider(builder, path, getState().getTempFolder(), classes));
+    features.add(path);
+    return self();
+  }
+
+  public T addFeatureSplitWithResources(
+      Collection<Pair<String, String>> nonJavaFiles, Class<?>... classes) throws IOException {
+    Path path = getState().getNewTempFolder().resolve("feature.zip");
+    builder.addFeatureSplit(
+        builder ->
+            splitWithNonJavaFile(builder, path, getState().getTempFolder(), nonJavaFiles, classes));
     features.add(path);
     return self();
   }

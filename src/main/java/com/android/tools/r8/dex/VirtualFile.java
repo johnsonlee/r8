@@ -8,6 +8,7 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
 import com.android.tools.r8.errors.InternalCompilerError;
+import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
@@ -28,6 +29,7 @@ import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.shaking.MainDexClasses;
+import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -74,6 +76,7 @@ public class VirtualFile {
   private static final int MAX_PREFILL_ENTRIES = MAX_ENTRIES - 5000;
 
   private final int id;
+  private final GraphLens graphLens;
   private final VirtualFileIndexedItemCollection indexedItems;
   private final IndexedItemTransaction transaction;
   private final FeatureSplit featureSplit;
@@ -118,6 +121,7 @@ public class VirtualFile {
       DexProgramClass primaryClass,
       FeatureSplit featureSplit) {
     this.id = id;
+    this.graphLens = graphLens;
     this.indexedItems = new VirtualFileIndexedItemCollection(graphLens, initClassLens, namingLens);
     this.transaction =
         new IndexedItemTransaction(indexedItems, appView, graphLens, initClassLens, namingLens);
@@ -438,14 +442,20 @@ public class VirtualFile {
     }
 
     protected Map<FeatureSplit, Set<DexProgramClass>> removeFeatureSplitClassesGetMapping() {
-      if (options.featureSplitConfiguration == null) {
+      assert appView.appInfo().hasClassHierarchy() == appView.enableWholeProgramOptimizations();
+      if (!appView.appInfo().hasClassHierarchy()) {
+        return ImmutableMap.of();
+      }
+
+      ClassToFeatureSplitMap classToFeatureSplitMap =
+          appView.appInfo().withClassHierarchy().getClassToFeatureSplitMap();
+      if (classToFeatureSplitMap.isEmpty()) {
         return ImmutableMap.of();
       }
 
       // Pull out the classes that should go into feature splits.
       Map<FeatureSplit, Set<DexProgramClass>> featureSplitClasses =
-          options.featureSplitConfiguration.getFeatureSplitClasses(
-              classes, appView.appInfo().app().getProguardMap());
+          classToFeatureSplitMap.getFeatureSplitClasses(classes);
       if (featureSplitClasses.size() > 0) {
         for (Set<DexProgramClass> featureClasses : featureSplitClasses.values()) {
           classes.removeAll(featureClasses);
@@ -627,12 +637,12 @@ public class VirtualFile {
 
     @Override
     public boolean addField(DexField field) {
-      return fields.add(field);
+      return fields.add(graphLens.lookupField(field));
     }
 
     @Override
     public boolean addMethod(DexMethod method) {
-      return methods.add(method);
+      return methods.add(graphLens.lookupMethod(method));
     }
 
     @Override
@@ -647,7 +657,9 @@ public class VirtualFile {
 
     @Override
     public boolean addType(DexType type) {
-      return types.add(type);
+      DexType rewritten = graphLens.lookupType(type);
+      assert SyntheticItems.verifyNotInternalSynthetic(rewritten);
+      return types.add(rewritten);
     }
 
     @Override
@@ -684,18 +696,19 @@ public class VirtualFile {
 
     @Override
     public DexString getRenamedDescriptor(DexType type) {
-      return namingLens.lookupDescriptor(type);
+      return namingLens.lookupDescriptor(graphLens.lookupType(type));
     }
 
     @Override
     public DexString getRenamedName(DexMethod method) {
-      assert namingLens.verifyRenamingConsistentWithResolution(method);
-      return namingLens.lookupName(method);
+      DexMethod mappedMethod = graphLens.lookupMethod(method);
+      assert namingLens.verifyRenamingConsistentWithResolution(mappedMethod);
+      return namingLens.lookupName(mappedMethod);
     }
 
     @Override
     public DexString getRenamedName(DexField field) {
-      return namingLens.lookupName(field);
+      return namingLens.lookupName(graphLens.lookupField(field));
     }
   }
 
@@ -748,12 +761,12 @@ public class VirtualFile {
 
     @Override
     public boolean addField(DexField field) {
-      return maybeInsert(field, fields, base.fields);
+      return maybeInsert(base.graphLens.lookupField(field), fields, base.fields);
     }
 
     @Override
     public boolean addMethod(DexMethod method) {
-      return maybeInsert(method, methods, base.methods);
+      return maybeInsert(base.graphLens.lookupMethod(method), methods, base.methods);
     }
 
     @Override
@@ -768,7 +781,9 @@ public class VirtualFile {
 
     @Override
     public boolean addType(DexType type) {
-      return maybeInsert(type, types, base.types);
+      DexType rewritten = base.graphLens.lookupType(type);
+      assert SyntheticItems.verifyNotInternalSynthetic(rewritten);
+      return maybeInsert(rewritten, types, base.types);
     }
 
     @Override
@@ -793,18 +808,19 @@ public class VirtualFile {
 
     @Override
     public DexString getRenamedDescriptor(DexType type) {
-      return namingLens.lookupDescriptor(type);
+      return namingLens.lookupDescriptor(base.graphLens.lookupType(type));
     }
 
     @Override
     public DexString getRenamedName(DexMethod method) {
-      assert namingLens.verifyRenamingConsistentWithResolution(method);
-      return namingLens.lookupName(method);
+      DexMethod mappedMethod = base.graphLens.lookupMethod(method);
+      assert namingLens.verifyRenamingConsistentWithResolution(mappedMethod);
+      return namingLens.lookupName(mappedMethod);
     }
 
     @Override
     public DexString getRenamedName(DexField field) {
-      return namingLens.lookupName(field);
+      return namingLens.lookupName(base.graphLens.lookupField(field));
     }
 
     int getNumberOfMethods() {

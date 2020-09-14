@@ -4,22 +4,22 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
-import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.horizontalclassmerging.SingleClassPolicy;
-import java.util.Collections;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Set;
 
-public class NoInternalUtilityClasses extends SingleClassPolicy {
-  private final Set<DexType> internalUtilityClasses;
+public class NotMatchedByNoHorizontalClassMerging extends SingleClassPolicy {
+  private final Set<DexType> neverMergeClassHorizontally;
 
-  public NoInternalUtilityClasses(DexItemFactory dexItemFactory) {
-    this.internalUtilityClasses = Collections.singleton(dexItemFactory.enumUnboxingUtilityType);
+  public NotMatchedByNoHorizontalClassMerging(AppView<AppInfoWithLiveness> appView) {
+    neverMergeClassHorizontally = appView.appInfo().getNoHorizontalClassMergingSet();
   }
 
   @Override
   public boolean canMerge(DexProgramClass program) {
-    return !internalUtilityClasses.contains(program.type);
+    return !neverMergeClassHorizontally.contains(program.toReference());
   }
 }

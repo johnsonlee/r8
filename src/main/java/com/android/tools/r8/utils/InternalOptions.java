@@ -104,6 +104,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public final DexItemFactory itemFactory;
 
+  public DexItemFactory dexItemFactory() {
+    return itemFactory;
+  }
+
   public boolean hasProguardConfiguration() {
     return proguardConfiguration != null;
   }
@@ -370,7 +374,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean shouldBackportMethods() {
-    return !hasConsumer() || isGeneratingDex();
+    return !hasConsumer() || isGeneratingDex() || cfToCfDesugar;
   }
 
   public boolean shouldKeepStackMapTable() {

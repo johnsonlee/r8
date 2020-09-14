@@ -6,12 +6,16 @@ package com.android.tools.r8.horizontalclassmerging;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.horizontalclassmerging.policies.NoAnnotations;
 import com.android.tools.r8.horizontalclassmerging.policies.NoFields;
+import com.android.tools.r8.horizontalclassmerging.policies.NoInnerClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoInterfaces;
-import com.android.tools.r8.horizontalclassmerging.policies.NoInternalUtilityClasses;
+import com.android.tools.r8.horizontalclassmerging.policies.NoKeepRules;
 import com.android.tools.r8.horizontalclassmerging.policies.NoRuntimeTypeChecks;
 import com.android.tools.r8.horizontalclassmerging.policies.NoStaticClassInitializer;
 import com.android.tools.r8.horizontalclassmerging.policies.NotEntryPoint;
+import com.android.tools.r8.horizontalclassmerging.policies.NotMatchedByNoHorizontalClassMerging;
+import com.android.tools.r8.horizontalclassmerging.policies.RespectPackageBoundaries;
 import com.android.tools.r8.horizontalclassmerging.policies.SameParentClass;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.ClassMergingEnqueuerExtension;
@@ -36,14 +40,18 @@ public class HorizontalClassMerger {
 
     List<Policy> policies =
         ImmutableList.of(
+            new NotMatchedByNoHorizontalClassMerging(appView),
             new NoFields(),
             // TODO(b/166071504): Allow merging of classes that implement interfaces.
             new NoInterfaces(),
+            new NoAnnotations(),
+            new NoInnerClasses(),
             new NoStaticClassInitializer(),
+            new NoKeepRules(appView),
             new NoRuntimeTypeChecks(classMergingEnqueuerExtension),
             new NotEntryPoint(appView.dexItemFactory()),
-            new NoInternalUtilityClasses(appView.dexItemFactory()),
-            new SameParentClass()
+            new SameParentClass(),
+            new RespectPackageBoundaries(appView)
             // TODO: add policies
             );
 

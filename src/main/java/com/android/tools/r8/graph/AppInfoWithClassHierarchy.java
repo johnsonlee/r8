@@ -7,6 +7,7 @@ package com.android.tools.r8.graph;
 import static com.android.tools.r8.utils.TraversalContinuation.BREAK;
 import static com.android.tools.r8.utils.TraversalContinuation.CONTINUE;
 
+import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.FieldResolutionResult.SuccessfulFieldResolutionResult;
 import com.android.tools.r8.graph.ResolutionResult.ArrayCloneMethodResult;
 import com.android.tools.r8.graph.ResolutionResult.ClassNotFoundResult;
@@ -16,6 +17,8 @@ import com.android.tools.r8.graph.ResolutionResult.NoSuchMethodResult;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.shaking.MainDexClasses;
+import com.android.tools.r8.synthesis.CommittedItems;
+import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
@@ -47,24 +50,30 @@ public class AppInfoWithClassHierarchy extends AppInfo {
   }
 
   public static AppInfoWithClassHierarchy createInitialAppInfoWithClassHierarchy(
-      DexApplication application, MainDexClasses mainDexClasses) {
+      DexApplication application,
+      ClassToFeatureSplitMap classToFeatureSplitMap,
+      MainDexClasses mainDexClasses) {
     return new AppInfoWithClassHierarchy(
-        application,
-        mainDexClasses,
-        SyntheticItems.createInitialSyntheticItems().commit(application));
+        SyntheticItems.createInitialSyntheticItems().commit(application),
+        classToFeatureSplitMap,
+        mainDexClasses);
   }
 
-  // For AppInfoWithLiveness.
+  private final ClassToFeatureSplitMap classToFeatureSplitMap;
+
+  // For AppInfoWithLiveness subclass.
   protected AppInfoWithClassHierarchy(
-      DexApplication application,
-      MainDexClasses mainDexClasses,
-      SyntheticItems.CommittedItems committedItems) {
-    super(application, mainDexClasses, committedItems);
+      CommittedItems committedItems,
+      ClassToFeatureSplitMap classToFeatureSplitMap,
+      MainDexClasses mainDexClasses) {
+    super(committedItems, mainDexClasses);
+    this.classToFeatureSplitMap = classToFeatureSplitMap;
   }
 
   // For desugaring.
   private AppInfoWithClassHierarchy(CreateDesugaringViewOnAppInfo witness, AppInfo appInfo) {
     super(witness, appInfo);
+    this.classToFeatureSplitMap = ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap();
   }
 
   public static AppInfoWithClassHierarchy createForDesugaring(AppInfo appInfo) {
@@ -72,10 +81,20 @@ public class AppInfoWithClassHierarchy extends AppInfo {
     return new AppInfoWithClassHierarchy(WITNESS, appInfo);
   }
 
-  public AppInfoWithClassHierarchy rebuild(Function<DexApplication, DexApplication> fn) {
-    DexApplication application = fn.apply(app());
+  public final AppInfoWithClassHierarchy rebuildWithClassHierarchy(CommittedItems commit) {
+    return new AppInfoWithClassHierarchy(commit, getClassToFeatureSplitMap(), getMainDexClasses());
+  }
+
+  public AppInfoWithClassHierarchy rebuildWithClassHierarchy(
+      Function<DexApplication, DexApplication> fn) {
     return new AppInfoWithClassHierarchy(
-        application, getMainDexClasses(), getSyntheticItems().commit(application));
+        getSyntheticItems().commit(fn.apply(app())),
+        getClassToFeatureSplitMap(),
+        getMainDexClasses());
+  }
+
+  public ClassToFeatureSplitMap getClassToFeatureSplitMap() {
+    return classToFeatureSplitMap;
   }
 
   @Override

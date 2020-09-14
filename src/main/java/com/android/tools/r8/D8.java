@@ -32,6 +32,7 @@ import com.android.tools.r8.naming.PrefixRewritingNamingLens;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
 import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.synthesis.SyntheticFinalization;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.CfgPrinter;
 import com.android.tools.r8.utils.ExceptionUtils;
@@ -253,6 +254,12 @@ public final class D8 {
 
       InspectorImpl.runInspections(options.outputInspections, appView.appInfo().classes());
       if (options.isGeneratingClassFiles()) {
+        // TODO(b/158159959): Move this out so it is shared for both CF and DEX pipelines.
+        SyntheticFinalization.Result result =
+            appView.getSyntheticItems().computeFinalSynthetics(appView);
+        if (result != null) {
+          appView.setAppInfo(new AppInfo(result.commit, appView.appInfo().getMainDexClasses()));
+        }
         new CfApplicationWriter(
                 appView,
                 marker,
@@ -283,15 +290,22 @@ public final class D8 {
                   appView, inputApp, options, executor, timing, appView.appInfo().app());
           appView.setAppInfo(
               new AppInfo(
-                  app,
-                  appView.appInfo().getMainDexClasses(),
-                  appView.appInfo().getSyntheticItems().commit(app)));
+                  appView.appInfo().getSyntheticItems().commit(app),
+                  appView.appInfo().getMainDexClasses()));
           namingLens = NamingLens.getIdentityLens();
         }
+
+        // TODO(b/158159959): Move this out so it is shared for both CF and DEX pipelines.
+        SyntheticFinalization.Result result =
+            appView.getSyntheticItems().computeFinalSynthetics(appView);
+        if (result != null) {
+          appView.setAppInfo(new AppInfo(result.commit, appView.appInfo().getMainDexClasses()));
+        }
+
         new ApplicationWriter(
                 appView,
                 marker == null ? null : ImmutableList.copyOf(markers),
-                GraphLens.getIdentityLens(),
+                appView.graphLens(),
                 InitClassLens.getDefault(),
                 namingLens,
                 null)
@@ -338,9 +352,8 @@ public final class D8 {
     DexApplication cfApp = app.builder().replaceProgramClasses(nonDexProgramClasses).build();
     appView.setAppInfo(
         new AppInfo(
-            cfApp,
-            appView.appInfo().getMainDexClasses(),
-            appView.appInfo().getSyntheticItems().commit(cfApp)));
+            appView.appInfo().getSyntheticItems().commit(cfApp),
+            appView.appInfo().getMainDexClasses()));
     ConvertedCfFiles convertedCfFiles = new ConvertedCfFiles();
     NamingLens prefixRewritingNamingLens =
         PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView);
