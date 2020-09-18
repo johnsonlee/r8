@@ -58,12 +58,12 @@ public class MemberNaming {
   final Position position;
 
   public MemberNaming(Signature signature, String renamedName) {
-    this(signature, renamedName, Position.UNKNOWN);
+    this(signature, signature.asRenamed(renamedName), Position.UNKNOWN);
   }
 
-  public MemberNaming(Signature signature, String renamedName, Position position) {
+  public MemberNaming(Signature signature, Signature renamedSignature, Position position) {
     this.signature = signature;
-    this.renamedSignature = signature.asRenamed(renamedName);
+    this.renamedSignature = renamedSignature;
     this.position = position;
   }
 
@@ -165,6 +165,40 @@ public class MemberNaming {
     enum SignatureKind {
       METHOD,
       FIELD
+    }
+  }
+
+  public static class NoSignature extends Signature {
+
+    public static final NoSignature NO_SIGNATURE = new NoSignature();
+
+    public NoSignature() {
+      super("NO SIGNATURE");
+    }
+
+    @Override
+    Signature asRenamed(String renamedName) {
+      throw new Unreachable("Should not be called on NoSignature");
+    }
+
+    @Override
+    public SignatureKind kind() {
+      throw new Unreachable("Should not be called on NoSignature");
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o == this;
+    }
+
+    @Override
+    public int hashCode() {
+      return 7;
+    }
+
+    @Override
+    void write(Writer builder) throws IOException {
+      throw new Unreachable("Should not be called on NoSignature");
     }
   }
 

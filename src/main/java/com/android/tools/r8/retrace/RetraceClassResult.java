@@ -4,10 +4,14 @@
 
 package com.android.tools.r8.retrace;
 
+import static com.android.tools.r8.naming.MemberNaming.NoSignature.NO_SIGNATURE;
+import static com.android.tools.r8.retrace.RetraceUtils.synthesizeFileName;
+
 import com.android.tools.r8.Keep;
 import com.android.tools.r8.naming.ClassNamingForNameMapper;
 import com.android.tools.r8.naming.ClassNamingForNameMapper.MappedRangesOfName;
 import com.android.tools.r8.naming.MemberNaming;
+import com.android.tools.r8.naming.mappinginformation.MappingInformation;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.retrace.RetraceClassResult.Element;
@@ -22,15 +26,18 @@ public class RetraceClassResult extends Result<Element, RetraceClassResult> {
 
   private final ClassReference obfuscatedReference;
   private final ClassNamingForNameMapper mapper;
+  private final RetraceApi retracer;
 
-  private RetraceClassResult(ClassReference obfuscatedReference, ClassNamingForNameMapper mapper) {
+  private RetraceClassResult(
+      ClassReference obfuscatedReference, ClassNamingForNameMapper mapper, RetraceApi retracer) {
     this.obfuscatedReference = obfuscatedReference;
     this.mapper = mapper;
+    this.retracer = retracer;
   }
 
   static RetraceClassResult create(
-      ClassReference obfuscatedReference, ClassNamingForNameMapper mapper) {
-    return new RetraceClassResult(obfuscatedReference, mapper);
+      ClassReference obfuscatedReference, ClassNamingForNameMapper mapper, RetraceApi retracer) {
+    return new RetraceClassResult(obfuscatedReference, mapper, retracer);
   }
 
   public RetraceFieldResult lookupField(String fieldName) {
@@ -71,12 +78,12 @@ public class RetraceClassResult extends Result<Element, RetraceClassResult> {
           if (element.mapper != null) {
             mappedRangesForT = lookupFunction.apply(element.mapper, name);
           }
-          elementBox.set(constructor.create(element, mappedRangesForT, name));
+          elementBox.set(constructor.create(element, mappedRangesForT, name, retracer));
         });
     return elementBox.get();
   }
 
-  private boolean hasRetraceResult() {
+  boolean hasRetraceResult() {
     return mapper != null;
   }
 
@@ -86,7 +93,8 @@ public class RetraceClassResult extends Result<Element, RetraceClassResult> {
         new Element(
             this,
             mapper == null ? obfuscatedReference : Reference.classFromTypeName(mapper.originalName),
-            mapper));
+            mapper,
+            false));
   }
 
   @Override
@@ -96,7 +104,12 @@ public class RetraceClassResult extends Result<Element, RetraceClassResult> {
   }
 
   private interface ResultConstructor<T, R> {
-    R create(Element element, T mappings, String obfuscatedName);
+    R create(Element element, T mappings, String obfuscatedName, RetraceApi retraceApi);
+  }
+
+  public boolean isAmbiguous() {
+    // Currently we have no way of producing ambiguous class results.
+    return false;
   }
 
   public static class Element {
@@ -108,7 +121,8 @@ public class RetraceClassResult extends Result<Element, RetraceClassResult> {
     public Element(
         RetraceClassResult classResult,
         ClassReference classReference,
-        ClassNamingForNameMapper mapper) {
+        ClassNamingForNameMapper mapper,
+        boolean isAmbiguous) {
       this.classResult = classResult;
       this.classReference = classReference;
       this.mapper = mapper;
@@ -122,9 +136,26 @@ public class RetraceClassResult extends Result<Element, RetraceClassResult> {
       return classResult;
     }
 
-    public String retraceSourceFile(String fileName, RetraceBase retraceBase) {
-      return retraceBase.retraceSourceFile(
-          classResult.obfuscatedReference, fileName, classReference, mapper != null);
+    public RetraceSourceFileResult retraceSourceFile(String sourceFile) {
+      if (mapper != null && mapper.getAdditionalMappings().size() > 0) {
+        List<MappingInformation> mappingInformations =
+            mapper.getAdditionalMappings().get(NO_SIGNATURE);
+        if (mappingInformations != null) {
+          for (MappingInformation mappingInformation : mappingInformations) {
+            if (mappingInformation.isFileNameInformation()) {
+              return new RetraceSourceFileResult(
+                  mappingInformation.asFileNameInformation().getFileName(), false);
+            }
+          }
+        }
+      }
+      return new RetraceSourceFileResult(
+          synthesizeFileName(
+              classReference.getTypeName(),
+              classResult.obfuscatedReference.getTypeName(),
+              sourceFile,
+              mapper != null),
+          true);
     }
 
     public RetraceFieldResult lookupField(String fieldName) {
@@ -158,7 +189,10 @@ public class RetraceClassResult extends Result<Element, RetraceClassResult> {
         BiFunction<ClassNamingForNameMapper, String, T> lookupFunction,
         ResultConstructor<T, R> constructor) {
       return constructor.create(
-          this, mapper != null ? lookupFunction.apply(mapper, name) : null, name);
+          this,
+          mapper != null ? lookupFunction.apply(mapper, name) : null,
+          name,
+          classResult.retracer);
     }
   }
 }

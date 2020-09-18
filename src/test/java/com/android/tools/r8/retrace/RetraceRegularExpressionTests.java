@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.retrace;
 
+import static com.android.tools.r8.retrace.Retrace.DEFAULT_REGULAR_EXPRESSION;
 import static junit.framework.TestCase.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -11,11 +12,13 @@ import com.android.tools.r8.TestDiagnosticMessagesImpl;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.retrace.stacktraces.InlineFileNameStackTrace;
+import com.android.tools.r8.retrace.stacktraces.RetraceAssertionErrorStackTrace;
 import com.android.tools.r8.retrace.stacktraces.StackTraceForTest;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -23,9 +26,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class RetraceRegularExpressionTests extends TestBase {
-
-  private static final String DEFAULT_REGULAR_EXPRESSION =
-      "(?:.*?\\bat\\s+%c\\.%m\\s*\\(%s(?::%l)?\\)\\s*(?:~\\[.*\\])?)|(?:(?:.*?[:\"]\\s+)?%c(?::.*)?)";
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -395,7 +395,7 @@ public class RetraceRegularExpressionTests extends TestBase {
   }
 
   @Test
-  public void testNotFoundLineNumberInMethodContext() {
+  public void testNoLineNumberInMethodContext() {
     runRetraceTest(
         "%c\\.%m\\(%l\\)",
         new StackTraceForTest() {
@@ -412,7 +412,35 @@ public class RetraceRegularExpressionTests extends TestBase {
 
           @Override
           public List<String> retracedStackTrace() {
-            return ImmutableList.of("a.b.c.a()");
+            return ImmutableList.of("com.android.tools.r8.R8.foo()");
+          }
+
+          @Override
+          public int expectedWarnings() {
+            return 0;
+          }
+        });
+  }
+
+  @Test
+  public void testNotFoundLineNumberInMethodContext() {
+    runRetraceTest(
+        "%c\\.%m\\(%l\\)",
+        new StackTraceForTest() {
+          @Override
+          public List<String> obfuscatedStackTrace() {
+            return ImmutableList.of("a.b.c.a(42)");
+          }
+
+          @Override
+          public String mapping() {
+            return StringUtils.lines(
+                "com.android.tools.r8.R8 -> a.b.c:", "  3:3:boolean foo():7 -> a");
+          }
+
+          @Override
+          public List<String> retracedStackTrace() {
+            return ImmutableList.of("com.android.tools.r8.R8.a(42)");
           }
 
           @Override
@@ -540,6 +568,7 @@ public class RetraceRegularExpressionTests extends TestBase {
   }
 
   @Test
+  @Ignore("b/165782924")
   public void useReturnTypeToNarrowMethodMatches() {
     runRetraceTest(
         "%t %c.%m",
@@ -663,6 +692,7 @@ public class RetraceRegularExpressionTests extends TestBase {
   }
 
   @Test
+  @Ignore("b/165782924")
   public void testPruningOfMethodsByFormals() {
     runRetraceTest(
         "%c.%m\\(%a\\)",
@@ -722,6 +752,41 @@ public class RetraceRegularExpressionTests extends TestBase {
                 "com.android.tools.r8.R8: foo bar baz",
                 "  at com.android.tools.r8.Bar.foo(Bar.java)",
                 "  at com.android.tools.r8.Baz.bar(Baz.java)");
+          }
+
+          @Override
+          public int expectedWarnings() {
+            return 0;
+          }
+        });
+  }
+
+  @Test
+  public void testSourceFileLineNumber() {
+    runRetraceTest(
+        DEFAULT_REGULAR_EXPRESSION.replace("%s(?::%l)?", "%S"),
+        new RetraceAssertionErrorStackTrace());
+  }
+
+  @Test
+  public void testEscaping() {
+    runRetraceTest(
+        "\\%c\\\\%c\\\\\\%c.%m\\(\\\\%S\\)\\\\\\%S",
+        new StackTraceForTest() {
+          @Override
+          public List<String> obfuscatedStackTrace() {
+            return ImmutableList.of("%c\\com.android.tools.r8.Foo\\%c.a(\\SourceFile:1)\\%S");
+          }
+
+          @Override
+          public String mapping() {
+            return "com.android.tools.r8.Bar -> com.android.tools.r8.Foo:\n"
+                + "  1:1:void m():13:13 -> a";
+          }
+
+          @Override
+          public List<String> retracedStackTrace() {
+            return ImmutableList.of("%c\\com.android.tools.r8.Bar\\%c.m(\\Bar.java:13)\\%S");
           }
 
           @Override

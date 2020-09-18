@@ -6,7 +6,7 @@ package com.android.tools.r8.utils.codeinspector;
 
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.retrace.RetraceBase;
+import com.android.tools.r8.retrace.RetraceApi;
 import com.android.tools.r8.retrace.RetraceMethodResult;
 
 public interface InstructionSubject {
@@ -125,18 +125,18 @@ public interface InstructionSubject {
     return lineNumberTable == null ? -1 : lineNumberTable.getLineForInstruction(this);
   }
 
-  default RetraceMethodResult retrace(RetraceBase retraceBase) {
+  default RetraceMethodResult retrace(RetraceApi retraceApi) {
     MethodSubject methodSubject = getMethodSubject();
     assert methodSubject.isPresent();
-    return retraceBase.retrace(methodSubject.asFoundMethodSubject().asMethodReference());
+    return retraceApi.retrace(methodSubject.asFoundMethodSubject().asMethodReference());
   }
 
-  default RetraceMethodResult retraceLinePosition(RetraceBase retraceBase) {
-    return retrace(retraceBase).narrowByLine(getLineNumber());
+  default RetraceMethodResult retraceLinePosition(RetraceApi retraceApi) {
+    return retrace(retraceApi).narrowByLine(getLineNumber());
   }
 
   default RetraceMethodResult retracePcPosition(
-      RetraceBase retraceBase, MethodSubject methodSubject) {
-    return retrace(retraceBase).narrowByLine(getOffset(methodSubject).offset);
+      RetraceApi retraceApi, MethodSubject methodSubject) {
+    return retrace(retraceApi).narrowByLine(getOffset(methodSubject).offset);
   }
 }

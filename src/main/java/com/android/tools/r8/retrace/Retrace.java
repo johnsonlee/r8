@@ -9,6 +9,7 @@ import static com.android.tools.r8.utils.ExceptionUtils.STATUS_ERROR;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.Keep;
+import com.android.tools.r8.Version;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.retrace.RetraceCommand.Builder;
 import com.android.tools.r8.retrace.RetraceCommand.ProguardMapProducer;
@@ -17,7 +18,11 @@ import com.android.tools.r8.utils.OptionsParsing.ParseContext;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.Timing;
+import com.google.common.base.Charsets;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,9 +40,16 @@ import java.util.Scanner;
 @Keep
 public class Retrace {
 
+  // This is a slight modification of the default regular expression shown for proguard retrace
+  // that allow for retracing classes in the form <class>: lorem ipsum...
+  // Seems like Proguard retrace is expecting the form "Caused by: <class>".
+  public static final String DEFAULT_REGULAR_EXPRESSION =
+      "(?:.*?\\bat\\s+%c\\.%m\\s*\\(%s(?::%l)?\\)\\s*(?:~\\[.*\\])?)"
+          + "|(?:(?:(?:%c|.*)?[:\"]\\s+)?%c(?::.*)?)";
+
   public static final String USAGE_MESSAGE =
       StringUtils.lines(
-          "Usage: retrace <proguard-map> <stacktrace-file> [--regex <regexp>, --verbose, --info]",
+          "Usage: retrace <proguard-map> [stack-trace-file] [--regex <regexp>, --verbose, --info]",
           "  where <proguard-map> is an r8 generated mapping file.");
 
   private static Builder parseArguments(String[] args, DiagnosticsHandler diagnosticsHandler) {
@@ -45,9 +57,14 @@ public class Retrace {
     Builder builder = RetraceCommand.builder(diagnosticsHandler);
     boolean hasSetProguardMap = false;
     boolean hasSetStackTrace = false;
+    boolean hasSetRegularExpression = false;
     while (context.head() != null) {
       Boolean help = OptionsParsing.tryParseBoolean(context, "--help");
       if (help != null) {
+        return null;
+      }
+      Boolean version = OptionsParsing.tryParseBoolean(context, "--version");
+      if (version != null) {
         return null;
       }
       Boolean info = OptionsParsing.tryParseBoolean(context, "--info");
@@ -63,6 +80,7 @@ public class Retrace {
       String regex = OptionsParsing.tryParseSingle(context, "--regex", "r");
       if (regex != null && !regex.isEmpty()) {
         builder.setRegularExpression(regex);
+        hasSetRegularExpression = true;
         continue;
       }
       if (!hasSetProguardMap) {
@@ -88,6 +106,9 @@ public class Retrace {
     if (!hasSetStackTrace) {
       builder.setStackTrace(getStackTraceFromStandardInput());
     }
+    if (!hasSetRegularExpression) {
+      builder.setRegularExpression(DEFAULT_REGULAR_EXPRESSION);
+    }
     return builder;
   }
 
@@ -105,7 +126,7 @@ public class Retrace {
   private static List<String> getStackTraceFromFile(
       String stackTracePath, DiagnosticsHandler diagnostics) {
     try {
-      return Files.readAllLines(Paths.get(stackTracePath));
+      return Files.readAllLines(Paths.get(stackTracePath), Charsets.UTF_8);
     } catch (IOException e) {
       diagnostics.error(new StringDiagnostic("Could not find stack trace file: " + stackTracePath));
       throw new RetraceAbortException();
@@ -122,23 +143,25 @@ public class Retrace {
       Timing timing = Timing.create("R8 retrace", command.printMemory());
       timing.begin("Read proguard map");
       ClassNameMapper classNameMapper =
-          ClassNameMapper.mapperFromString(command.proguardMapProducer.get());
+          ClassNameMapper.mapperFromString(
+              command.proguardMapProducer.get(), command.diagnosticsHandler);
       timing.end();
-      RetraceBase retraceBase = RetraceBaseImpl.create(classNameMapper);
+      RetraceApi retracer = Retracer.create(classNameMapper);
       RetraceCommandLineResult result;
       timing.begin("Parse and Retrace");
       if (command.regularExpression != null) {
         result =
             new RetraceRegularExpression(
-                    retraceBase,
+                    retracer,
                     command.stackTrace,
                     command.diagnosticsHandler,
-                    command.regularExpression)
+                    command.regularExpression,
+                    command.isVerbose)
                 .retrace();
       } else {
         result =
             new RetraceStackTrace(
-                    retraceBase, command.stackTrace, command.diagnosticsHandler, command.isVerbose)
+                    retracer, command.stackTrace, command.diagnosticsHandler, command.isVerbose)
                 .retrace();
       }
       timing.end();
@@ -156,18 +179,47 @@ public class Retrace {
   }
 
   public static void run(String[] args) {
+    // To be compatible with standard retrace and remapper, we translate -arg into --arg.
+    String[] mappedArgs = new String[args.length];
+    boolean printInfo = false;
+    for (int i = 0; i < args.length; i++) {
+      String arg = args[i];
+      if (arg == null || arg.length() < 2) {
+        mappedArgs[i] = arg;
+        continue;
+      }
+      if (arg.charAt(0) == '-' && arg.charAt(1) != '-') {
+        mappedArgs[i] = "-" + arg;
+      } else {
+        mappedArgs[i] = arg;
+      }
+      if (mappedArgs[i].equals("--info")) {
+        printInfo = true;
+      }
+    }
     RetraceDiagnosticsHandler retraceDiagnosticsHandler =
-        new RetraceDiagnosticsHandler(
-            new DiagnosticsHandler() {}, Arrays.asList(args).contains("--info"));
-    Builder builder = parseArguments(args, retraceDiagnosticsHandler);
+        new RetraceDiagnosticsHandler(new DiagnosticsHandler() {}, printInfo);
+    Builder builder = parseArguments(mappedArgs, retraceDiagnosticsHandler);
     if (builder == null) {
-      // --help was an argument to list
-      assert Arrays.asList(args).contains("--help");
+      // --help or --version was an argument to list
+      if (Arrays.asList(mappedArgs).contains("--version")) {
+        System.out.println("Retrace " + Version.getVersionString());
+        return;
+      }
+      assert Arrays.asList(mappedArgs).contains("--help");
       System.out.print(USAGE_MESSAGE);
       return;
     }
     builder.setRetracedStackTraceConsumer(
-        retraced -> System.out.print(StringUtils.lines(retraced)));
+        retraced -> {
+          try (PrintStream printStream = new PrintStream(System.out, true, Charsets.UTF_8.name())) {
+            for (String line : retraced) {
+              printStream.println(line);
+            }
+          } catch (UnsupportedEncodingException e) {
+            retraceDiagnosticsHandler.error(new StringDiagnostic(e.getMessage()));
+          }
+        });
     run(builder.build());
   }
 
@@ -181,7 +233,7 @@ public class Retrace {
   }
 
   private static List<String> getStackTraceFromStandardInput() {
-    Scanner sc = new Scanner(System.in);
+    Scanner sc = new Scanner(new InputStreamReader(System.in, Charsets.UTF_8));
     List<String> readLines = new ArrayList<>();
     while (sc.hasNext()) {
       readLines.add(sc.nextLine());

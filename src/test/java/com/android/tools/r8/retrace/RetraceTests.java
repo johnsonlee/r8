@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.retrace;
 
+import static com.android.tools.r8.retrace.Retrace.DEFAULT_REGULAR_EXPRESSION;
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -23,6 +24,7 @@ import com.android.tools.r8.retrace.stacktraces.CircularReferenceStackTrace;
 import com.android.tools.r8.retrace.stacktraces.FileNameExtensionStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineFileNameStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineNoLineNumberStackTrace;
+import com.android.tools.r8.retrace.stacktraces.InlineSourceFileContextStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineWithLineNumbersStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InvalidStackTrace;
 import com.android.tools.r8.retrace.stacktraces.NamedModuleStackTrace;
@@ -44,12 +46,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class RetraceTests extends TestBase {
-
-  // This is a slight modification of the default regular expression shown for proguard retrace
-  // that allow for retracing classes in the form <class>: lorem ipsum...
-  // Seems like Proguard retrace is expecting the form "Caused by: <class>".
-  public static final String DEFAULT_REGULAR_EXPRESSION =
-      "(?:.*?\\bat\\s+%c\\.%m\\s*\\(%s(?::%l)?\\)\\s*(?:~\\[.*\\])?)|(?:(?:(?:%c|.*)?[:\"]\\s+)?%c(?::.*)?)";
 
   @Parameters(name = "{0}, use regular expression: {1}")
   public static Collection<Object[]> data() {
@@ -176,6 +172,11 @@ public class RetraceTests extends TestBase {
   @Test
   public void testUnknownSourceStackTrace() {
     runRetraceTest(new UnknownSourceStackTrace());
+  }
+
+  @Test
+  public void testInlineSourceFileContext() {
+    runRetraceTest(new InlineSourceFileContextStackTrace());
   }
 
   private TestDiagnosticMessagesImpl runRetraceTest(StackTraceForTest stackTraceForTest) {

@@ -4,12 +4,15 @@
 
 package com.android.tools.r8.retrace;
 
+import com.android.tools.r8.Keep;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.TypeReference;
 
-public interface RetraceBase {
+/** This is the main api interface for retrace. */
+@Keep
+public interface RetraceApi {
 
   RetraceMethodResult retrace(MethodReference methodReference);
 
@@ -18,12 +21,4 @@ public interface RetraceBase {
   RetraceClassResult retrace(ClassReference classReference);
 
   RetraceTypeResult retrace(TypeReference typeReference);
-
-  String retraceSourceFile(ClassReference classReference, String sourceFile);
-
-  String retraceSourceFile(
-      ClassReference classReference,
-      String sourceFile,
-      ClassReference retracedClassReference,
-      boolean hasRetraceResult);
 }
