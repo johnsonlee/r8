@@ -99,6 +99,11 @@ public class RedundantFieldLoadElimination {
       it.removeOrReplaceByDebugLocalRead();
       value.uniquePhiUsers().forEach(Phi::removeTrivialPhi);
     }
+
+    @Override
+    public String toString() {
+      return "ExistingValue(v" + value.getNumber() + ")";
+    }
   }
 
   private class MaterializableValue implements FieldValue {
@@ -361,7 +366,7 @@ public class RedundantFieldLoadElimination {
 
     InstanceFieldInitializationInfoCollection fieldInitializationInfos =
         instanceInitializerInfo.fieldInitializationInfos();
-    fieldInitializationInfos.forEach(
+    fieldInitializationInfos.forEachWithDeterministicOrder(
         appView,
         (field, info) -> {
           if (!appView.appInfo().withLiveness().mayPropagateValueFor(field.field)) {
@@ -372,13 +377,22 @@ public class RedundantFieldLoadElimination {
                 invoke.getArgument(info.asArgumentInitializationInfo().getArgumentIndex());
             Value object = invoke.getReceiver().getAliasedValue();
             FieldAndObject fieldAndObject = new FieldAndObject(field.field, object);
-            activeState.putNonFinalInstanceField(fieldAndObject, new ExistingValue(value));
+            if (field.isFinal()) {
+              activeState.putFinalInstanceField(fieldAndObject, new ExistingValue(value));
+            } else {
+              activeState.putNonFinalInstanceField(fieldAndObject, new ExistingValue(value));
+            }
           } else if (info.isSingleValue()) {
             SingleValue value = info.asSingleValue();
             if (value.isMaterializableInContext(appView.withLiveness(), method)) {
               Value object = invoke.getReceiver().getAliasedValue();
               FieldAndObject fieldAndObject = new FieldAndObject(field.field, object);
-              activeState.putNonFinalInstanceField(fieldAndObject, new MaterializableValue(value));
+              if (field.isFinal()) {
+                activeState.putFinalInstanceField(fieldAndObject, new MaterializableValue(value));
+              } else {
+                activeState.putNonFinalInstanceField(
+                    fieldAndObject, new MaterializableValue(value));
+              }
             }
           } else {
             assert info.isTypeInitializationInfo();

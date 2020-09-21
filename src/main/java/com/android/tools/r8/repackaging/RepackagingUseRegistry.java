@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.repackaging;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ClassAccessFlags;
@@ -12,24 +14,30 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.EnclosingMethodAttribute;
+import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.MemberResolutionResult;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.SuccessfulMemberResolutionResult;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class RepackagingUseRegistry extends UseRegistry {
 
   private final AppInfoWithLiveness appInfo;
   private final RepackagingConstraintGraph constraintGraph;
-  private final ProgramMethod context;
+  private final ProgramDefinition context;
   private final RepackagingConstraintGraph.Node node;
 
   public RepackagingUseRegistry(
       AppView<AppInfoWithLiveness> appView,
       RepackagingConstraintGraph constraintGraph,
-      ProgramMethod context) {
+      ProgramDefinition context) {
     super(appView.dexItemFactory());
     this.appInfo = appView.appInfo();
     this.constraintGraph = constraintGraph;
@@ -43,7 +51,7 @@ public class RepackagingUseRegistry extends UseRegistry {
       return true;
     }
     if (accessFlags.isProtected()
-        && !appInfo.isSubtype(context.getHolderType(), referencedClass.getType())) {
+        && !appInfo.isSubtype(context.getContextType(), referencedClass.getType())) {
       return true;
     }
     return false;
@@ -55,13 +63,25 @@ public class RepackagingUseRegistry extends UseRegistry {
       return true;
     }
     if (accessFlags.isProtected()
-        && !appInfo.isSubtype(context.getHolderType(), member.getHolderType())) {
+        && !appInfo.isSubtype(context.getContextType(), member.getHolderType())) {
       return true;
     }
     return false;
   }
 
-  private void registerMemberAccess(MemberResolutionResult<?, ?> resolutionResult) {
+  public void registerFieldAccess(DexField field) {
+    registerMemberAccess(appInfo.resolveField(field));
+  }
+
+  public ProgramMethod registerMethodReference(DexMethod method) {
+    ResolutionResult resolutionResult = appInfo.unsafeResolveMethodDueToDexFormat(method);
+    registerMemberAccess(resolutionResult);
+    return resolutionResult.isSingleResolution()
+        ? resolutionResult.asSingleResolution().getResolvedProgramMethod()
+        : null;
+  }
+
+  public void registerMemberAccess(MemberResolutionResult<?, ?> resolutionResult) {
     SuccessfulMemberResolutionResult<?, ?> successfulResolutionResult =
         resolutionResult.asSuccessfulMemberResolutionResult();
     if (successfulResolutionResult == null) {
@@ -88,28 +108,36 @@ public class RepackagingUseRegistry extends UseRegistry {
   }
 
   private void registerTypeAccess(DexType type) {
+    registerTypeAccess(type, this::registerTypeAccess);
+  }
+
+  private void registerTypeAccess(DexType type, Consumer<DexClass> consumer) {
     if (type.isArrayType()) {
-      registerTypeAccess(type.toBaseType(appInfo.dexItemFactory()));
+      registerTypeAccess(type.toBaseType(appInfo.dexItemFactory()), consumer);
       return;
     }
-    if (type.isPrimitiveType()) {
+    if (type.isPrimitiveType() || type.isVoidType()) {
       return;
     }
     assert type.isClassType();
     DexClass clazz = appInfo.definitionFor(type);
     if (clazz != null) {
-      registerTypeAccess(clazz);
+      consumer.accept(clazz);
     }
   }
 
   private void registerTypeAccess(DexClass clazz) {
+    registerTypeAccess(clazz, this::isOnlyAccessibleFromSamePackage);
+  }
+
+  private void registerTypeAccess(DexClass clazz, Predicate<DexProgramClass> predicate) {
     // We only want to connect the current method node to the class node if the access requires the
     // two nodes to be in the same package. Therefore, we ignore accesses to non-program classes
     // and program classes outside the current package.
     DexProgramClass programClass = clazz.asProgramClass();
     if (programClass != null) {
       RepackagingConstraintGraph.Node classNode = constraintGraph.getNode(programClass);
-      if (classNode != null && isOnlyAccessibleFromSamePackage(programClass)) {
+      if (classNode != null && predicate.test(programClass)) {
         node.addNeighbor(classNode);
       }
     }
@@ -147,12 +175,12 @@ public class RepackagingUseRegistry extends UseRegistry {
 
   @Override
   public void registerInstanceFieldRead(DexField field) {
-    registerMemberAccess(appInfo.resolveField(field));
+    registerFieldAccess(field);
   }
 
   @Override
   public void registerInstanceFieldWrite(DexField field) {
-    registerMemberAccess(appInfo.resolveField(field));
+    registerFieldAccess(field);
   }
 
   @Override
@@ -162,12 +190,12 @@ public class RepackagingUseRegistry extends UseRegistry {
 
   @Override
   public void registerStaticFieldRead(DexField field) {
-    registerMemberAccess(appInfo.resolveField(field));
+    registerFieldAccess(field);
   }
 
   @Override
   public void registerStaticFieldWrite(DexField field) {
-    registerMemberAccess(appInfo.resolveField(field));
+    registerFieldAccess(field);
   }
 
   @Override
@@ -178,5 +206,30 @@ public class RepackagingUseRegistry extends UseRegistry {
   @Override
   public void registerInstanceOf(DexType type) {
     registerTypeAccess(type);
+  }
+
+  public void registerEnclosingMethodAttribute(EnclosingMethodAttribute enclosingMethodAttribute) {
+    // For references in enclosing method attributes we add an edge from the context to the
+    // referenced item even if the item would be accessible from another package, to make sure that
+    // we don't split such classes into different packages.
+    if (enclosingMethodAttribute.getEnclosingClass() != null) {
+      registerTypeAccess(
+          enclosingMethodAttribute.getEnclosingClass(),
+          clazz -> registerTypeAccess(clazz, alwaysTrue()));
+    }
+    if (enclosingMethodAttribute.getEnclosingMethod() != null) {
+      ProgramMethod method = registerMethodReference(enclosingMethodAttribute.getEnclosingMethod());
+      if (method != null) {
+        registerTypeAccess(method.getHolder(), alwaysTrue());
+      }
+    }
+  }
+
+  public void registerInnerClassAttribute(InnerClassAttribute innerClassAttribute) {
+    // For references in inner class attributes we add an edge from the context to the referenced
+    // class even if the referenced class would be accessible from another package, to make sure
+    // that we don't split such classes into different packages.
+    innerClassAttribute.forEachType(
+        type -> registerTypeAccess(type, clazz -> registerTypeAccess(clazz, alwaysTrue())));
   }
 }

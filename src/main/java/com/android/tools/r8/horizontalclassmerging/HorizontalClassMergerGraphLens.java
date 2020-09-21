@@ -10,24 +10,24 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.GraphLens.NestedGraphLens;
-import com.android.tools.r8.ir.code.Invoke.Type;
-import com.android.tools.r8.ir.conversion.ExtraConstantIntParameter;
+import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 public class HorizontalClassMergerGraphLens extends NestedGraphLens {
   private final AppView<?> appView;
-  private final Map<DexMethod, Integer> constructorIds;
+  private final Map<DexMethod, List<ExtraParameter>> methodExtraParameters;
   private final Map<DexMethod, DexMethod> originalConstructorSignatures;
 
   private HorizontalClassMergerGraphLens(
       AppView<?> appView,
-      Map<DexMethod, Integer> constructorIds,
+      Map<DexMethod, List<ExtraParameter>> methodExtraParameters,
       Map<DexType, DexType> typeMap,
       Map<DexField, DexField> fieldMap,
       Map<DexMethod, DexMethod> methodMap,
@@ -44,7 +44,7 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
         previousLens,
         appView.dexItemFactory());
     this.appView = appView;
-    this.constructorIds = constructorIds;
+    this.methodExtraParameters = methodExtraParameters;
     this.originalConstructorSignatures = originalConstructorSignatures;
   }
 
@@ -54,7 +54,7 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
     if (originalConstructor == null) {
       return super.getOriginalMethodSignature(method);
     }
-    return previousLens.getOriginalMethodSignature(originalConstructor);
+    return getPrevious().getOriginalMethodSignature(originalConstructor);
   }
 
   public HorizontallyMergedClasses getHorizontallyMergedClasses() {
@@ -66,20 +66,18 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
    * constructor. Otherwise return the lookup on the underlying graph lens.
    */
   @Override
-  public GraphLensLookupResult lookupMethod(DexMethod method, DexMethod context, Type type) {
-    Integer constructorId = constructorIds.get(method);
-    GraphLensLookupResult lookup = super.lookupMethod(method, context, type);
-    if (constructorId != null) {
-      DexMethod newMethod = lookup.getMethod();
-      return new GraphLensLookupResult(
-          newMethod,
-          mapInvocationType(newMethod, method, lookup.getType()),
-          lookup
-              .getPrototypeChanges()
-              .withExtraParameter(new ExtraConstantIntParameter(constructorId)));
-    } else {
+  public MethodLookupResult internalDescribeLookupMethod(
+      MethodLookupResult previous, DexMethod context) {
+    List<ExtraParameter> extraParameters = methodExtraParameters.get(previous.getReference());
+    MethodLookupResult lookup = super.internalDescribeLookupMethod(previous, context);
+    if (extraParameters == null) {
       return lookup;
     }
+    return MethodLookupResult.builder(this)
+        .setReference(lookup.getReference())
+        .setPrototypeChanges(lookup.getPrototypeChanges().withExtraParameters(extraParameters))
+        .setType(lookup.getType())
+        .build();
   }
 
   public static class Builder {
@@ -91,26 +89,25 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
     private final BiMap<DexMethod, DexMethod> originalMethodSignatures = HashBiMap.create();
     private final Map<DexMethod, DexMethod> extraOriginalMethodSignatures = new IdentityHashMap<>();
 
-    private final Map<DexMethod, Integer> constructorIds = new IdentityHashMap<>();
+    private final Map<DexMethod, List<ExtraParameter>> methodExtraParameters =
+        new IdentityHashMap<>();
 
     Builder() {}
 
     public HorizontalClassMergerGraphLens build(AppView<?> appView) {
-      if (typeMap.isEmpty()) {
-        return null;
-      } else {
-        BiMap<DexField, DexField> originalFieldSignatures = fieldMap.inverse();
-        return new HorizontalClassMergerGraphLens(
-            appView,
-            constructorIds,
-            typeMap,
-            fieldMap,
-            methodMap,
-            originalFieldSignatures,
-            originalMethodSignatures,
-            extraOriginalMethodSignatures,
-            appView.graphLens());
-      }
+      assert !typeMap.isEmpty();
+
+      BiMap<DexField, DexField> originalFieldSignatures = fieldMap.inverse();
+      return new HorizontalClassMergerGraphLens(
+          appView,
+          methodExtraParameters,
+          typeMap,
+          fieldMap,
+          methodMap,
+          originalFieldSignatures,
+          originalMethodSignatures,
+          extraOriginalMethodSignatures,
+          appView.graphLens());
     }
 
     public DexType lookupType(DexType type) {
@@ -186,13 +183,11 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
      * One way mapping from one constructor to another. This is used for synthesized constructors,
      * where many constructors are merged into a single constructor. The synthesized constructor
      * therefore does not have a unique reverse constructor.
-     *
-     * @param constructorId The id that must be appended to the constructor call to ensure the
-     *     correct constructor is called.
      */
-    public Builder mapMergedConstructor(DexMethod from, DexMethod to, int constructorId) {
+    public Builder mapMergedConstructor(
+        DexMethod from, DexMethod to, List<ExtraParameter> extraParameters) {
       mapMethod(from, to);
-      constructorIds.put(from, constructorId);
+      methodExtraParameters.put(from, extraParameters);
       return this;
     }
   }

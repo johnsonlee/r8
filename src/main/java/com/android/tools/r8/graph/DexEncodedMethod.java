@@ -298,11 +298,21 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   public int syntheticCompareTo(DexEncodedMethod other) {
     assert annotations().isEmpty();
     assert parameterAnnotationsList.isEmpty();
-    return Comparator.comparing(DexEncodedMethod::proto, DexProto::slowCompareTo)
-        .thenComparingInt(m -> m.accessFlags.getAsCfAccessFlags())
-        // TODO(b/158159959): Implement structural compareTo on code.
-        .thenComparing(m -> m.getCode().toString())
-        .compare(this, other);
+    Comparator<DexEncodedMethod> comparator =
+        Comparator.comparing(DexEncodedMethod::proto, DexProto::slowCompareTo)
+            .thenComparingInt(m -> m.accessFlags.getAsCfAccessFlags());
+    if (code.isCfCode() && other.getCode().isCfCode()) {
+      comparator = comparator.thenComparing(m -> m.getCode().asCfCode());
+    } else if (code.isDexCode() && other.getCode().isDexCode()) {
+      comparator = comparator.thenComparing(m -> m.getCode().asDexCode());
+    } else {
+      throw new Unreachable(
+          "Unexpected attempt to compare incompatible synthetic objects: "
+              + code
+              + " and "
+              + other.getCode());
+    }
+    return comparator.compare(this, other);
   }
 
   public DexType getHolderType() {
@@ -763,6 +773,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     builder.append(")");
     builder.append(namingLens.lookupDescriptor(method.proto.returnType).toString());
     return builder.toString();
+  }
+
+  public ParameterAnnotationsList getParameterAnnotations() {
+    return parameterAnnotationsList;
   }
 
   public void clearParameterAnnotations() {

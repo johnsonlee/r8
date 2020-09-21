@@ -4,13 +4,10 @@
 
 package com.android.tools.r8.kotlin.lambda.b159688129
 
-import com.android.tools.r8.NeverInline
-
 fun main() {
   run ({ arg -> println(arg)}, 3)
 }
 
-@NeverInline
 fun run(param: Function1<Int, Unit>, arg : Int) {
   param.invoke(arg)
 }

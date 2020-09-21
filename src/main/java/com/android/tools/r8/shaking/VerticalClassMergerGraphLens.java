@@ -50,7 +50,7 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
 
   interface GraphLensLookupResultProvider {
 
-    abstract GraphLensLookupResult get(RewrittenPrototypeDescription prototypeChanges);
+    abstract MethodLookupResult get(RewrittenPrototypeDescription prototypeChanges);
   }
 
   private final AppView<?> appView;
@@ -88,7 +88,7 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
 
   @Override
   public DexType getOriginalType(DexType type) {
-    return previousLens.getOriginalType(type);
+    return getPrevious().getOriginalType(type);
   }
 
   @Override
@@ -98,19 +98,16 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
   }
 
   @Override
-  public GraphLensLookupResult lookupMethod(DexMethod method, DexMethod context, Type type) {
-    assert context != null || verifyIsContextFreeForMethod(method);
-    assert context == null || type != null;
-    DexMethod previousContext =
-        originalMethodSignaturesForBridges.containsKey(context)
-            ? originalMethodSignaturesForBridges.get(context)
-            : originalMethodSignatures.getOrDefault(context, context);
-    GraphLensLookupResult lookup = previousLens.lookupMethod(method, previousContext, type);
-    if (lookup.getType() == Type.SUPER && !mergedMethods.contains(context)) {
+  public MethodLookupResult internalDescribeLookupMethod(
+      MethodLookupResult previous, DexMethod context) {
+    assert context != null || verifyIsContextFreeForMethod(previous.getReference());
+    assert context == null || previous.getType() != null;
+    if (previous.getType() == Type.SUPER && !mergedMethods.contains(context)) {
       Map<DexMethod, GraphLensLookupResultProvider> virtualToDirectMethodMap =
-          contextualVirtualToDirectMethodMaps.get(context.holder);
+          contextualVirtualToDirectMethodMaps.get(context.getHolderType());
       if (virtualToDirectMethodMap != null) {
-        GraphLensLookupResultProvider result = virtualToDirectMethodMap.get(lookup.getMethod());
+        GraphLensLookupResultProvider result =
+            virtualToDirectMethodMap.get(previous.getReference());
         if (result != null) {
           // If the super class A of the enclosing class B (i.e., context.holder())
           // has been merged into B during vertical class merging, and this invoke-super instruction
@@ -118,18 +115,20 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
           // method and moved into B, so that we need to use an invoke-direct instruction instead of
           // invoke-super (or invoke-static, if the method was originally a default interface
           // method).
-          return result.get(lookup.getPrototypeChanges());
+          return result.get(previous.getPrototypeChanges());
         }
       }
     }
-    DexMethod newMethod = methodMap.get(lookup.getMethod());
+    DexMethod newMethod = methodMap.get(previous.getReference());
     if (newMethod == null) {
-      return lookup;
+      return previous;
     }
-    return new GraphLensLookupResult(
-        newMethod,
-        mapInvocationType(newMethod, lookup.getMethod(), lookup.getType()),
-        internalDescribePrototypeChanges(lookup.getPrototypeChanges(), newMethod));
+    return MethodLookupResult.builder(this)
+        .setReference(newMethod)
+        .setPrototypeChanges(
+            internalDescribePrototypeChanges(previous.getPrototypeChanges(), newMethod))
+        .setType(mapInvocationType(newMethod, previous.getReference(), previous.getType()))
+        .build();
   }
 
   @Override
@@ -139,13 +138,13 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
 
   @Override
   public boolean isContextFreeForMethods() {
-    return contextualVirtualToDirectMethodMaps.isEmpty() && previousLens.isContextFreeForMethods();
+    return contextualVirtualToDirectMethodMaps.isEmpty() && getPrevious().isContextFreeForMethods();
   }
 
   @Override
   public boolean verifyIsContextFreeForMethod(DexMethod method) {
-    assert previousLens.verifyIsContextFreeForMethod(method);
-    DexMethod previous = previousLens.lookupMethod(method);
+    assert getPrevious().verifyIsContextFreeForMethod(method);
+    DexMethod previous = getPrevious().lookupMethod(method);
     assert contextualVirtualToDirectMethodMaps.values().stream()
         .noneMatch(virtualToDirectMethodMap -> virtualToDirectMethodMap.containsKey(previous));
     return true;
@@ -194,14 +193,14 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
         for (Map.Entry<DexMethod, GraphLensLookupResultProvider> innerEntry :
             entry.getValue().entrySet()) {
           DexMethod from = innerEntry.getKey();
-          GraphLensLookupResult rewriting =
+          MethodLookupResult rewriting =
               innerEntry.getValue().get(RewrittenPrototypeDescription.none());
           DexMethod to =
-              builder.getMethodSignatureAfterClassMerging(rewriting.getMethod(), mergedClasses);
+              builder.getMethodSignatureAfterClassMerging(rewriting.getReference(), mergedClasses);
           newBuilder.mapVirtualMethodToDirectInType(
               from,
               prototypeChanges ->
-                  new GraphLensLookupResult(to, rewriting.getType(), prototypeChanges),
+                  new MethodLookupResult(to, null, rewriting.getType(), prototypeChanges),
               context);
         }
       }

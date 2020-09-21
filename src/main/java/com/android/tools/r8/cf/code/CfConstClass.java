@@ -5,6 +5,7 @@ package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -29,6 +30,16 @@ public class CfConstClass extends CfInstruction {
 
   public CfConstClass(DexType type) {
     this.type = type;
+  }
+
+  @Override
+  public int getCompareToId() {
+    return CfCompareHelper.CONST_CLASS_COMPARE_ID;
+  }
+
+  @Override
+  public int internalCompareTo(CfInstruction other, CfCompareHelper helper) {
+    return type.slowCompareTo(((CfConstClass) other).type);
   }
 
   public DexType getType() {
@@ -98,5 +109,17 @@ public class CfConstClass extends CfInstruction {
   public ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, DexProgramClass context) {
     return inliningConstraints.forConstClass(type, context);
+  }
+
+  @Override
+  public void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens) {
+    // ... →
+    // ..., value
+    frameBuilder.push(factory.classType);
   }
 }

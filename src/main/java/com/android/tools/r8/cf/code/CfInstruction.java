@@ -4,10 +4,12 @@
 package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -33,6 +35,34 @@ public abstract class CfInstruction {
       MethodVisitor visitor);
 
   public abstract void print(CfPrinter printer);
+
+  /**
+   * Base compare id for each instruction.
+   *
+   * <p>The id is required to be unique for each instruction class and define a order on
+   * instructions up to the instructions data payload which is ordered by {@code internalCompareTo}.
+   * Currently we represent the ID using the ASM opcode of the instruction or in case the
+   * instruction is not represented externally, some non-overlapping ID defined in {@code
+   * CfCompareHelper}.
+   */
+  public abstract int getCompareToId();
+
+  /**
+   * Compare two instructions with the same compare id.
+   *
+   * <p>The internal compare may assume to only be called on instructions that have the same
+   * "compare id". Overrides of this method can assume 'other' to be of the same type (as this is a
+   * requirement for the defintion of the "compare id").
+   *
+   * <p>If an instruction is uniquely determined by the "compare id" then the override should simply
+   * call '{@code CfCompareHelper::compareIdUniquelyDeterminesEquality}'.
+   */
+  public abstract int internalCompareTo(CfInstruction other, CfCompareHelper helper);
+
+  public final int compareTo(CfInstruction o, CfCompareHelper helper) {
+    int diff = getCompareToId() - o.getCompareToId();
+    return diff != 0 ? diff : internalCompareTo(o, helper);
+  }
 
   @Override
   public String toString() {
@@ -145,6 +175,14 @@ public abstract class CfInstruction {
     return false;
   }
 
+  public CfThrow asThrow() {
+    return null;
+  }
+
+  public boolean isThrow() {
+    return false;
+  }
+
   public CfDexItemBasedConstString asDexItemBasedConstString() {
     return null;
   }
@@ -155,6 +193,10 @@ public abstract class CfInstruction {
 
   /** Return true if this instruction is CfReturn or CfReturnVoid. */
   public boolean isReturn() {
+    return false;
+  }
+
+  public boolean isReturnVoid() {
     return false;
   }
 
@@ -183,4 +225,11 @@ public abstract class CfInstruction {
 
   public abstract ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, DexProgramClass context);
+
+  public abstract void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens);
 }

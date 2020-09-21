@@ -4,13 +4,8 @@
 package com.android.tools.r8.code;
 
 import com.android.tools.r8.dex.Constants;
-import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.IndexedDexItem;
-import com.android.tools.r8.graph.ObjectToOffsetMapping;
-import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.naming.ClassNameMapper;
-import java.nio.ShortBuffer;
 import java.util.function.BiPredicate;
 
 abstract class Format21c<T extends IndexedDexItem> extends Base2Format {
@@ -32,29 +27,18 @@ abstract class Format21c<T extends IndexedDexItem> extends Base2Format {
   }
 
   @Override
-  public void write(
-      ShortBuffer dest,
-      ProgramMethod context,
-      GraphLens graphLens,
-      ObjectToOffsetMapping mapping,
-      LensCodeRewriterUtils rewriter) {
-    writeFirst(AA, dest);
-    write16BitReference(BBBB, dest, mapping);
-  }
-
-  @Override
   public final int hashCode() {
     return ((BBBB.hashCode() << 8) | AA) ^ getClass().hashCode();
   }
 
   @Override
-  public final boolean equals(Object other) {
-    if (other == null || this.getClass() != other.getClass()) {
-      return false;
-    }
+  final int internalCompareTo(Instruction other) {
     Format21c<?> o = (Format21c<?>) other;
-    return o.AA == AA && o.BBBB.equals(BBBB);
+    int aaDiff = Short.compare(AA, o.AA);
+    return aaDiff != 0 ? aaDiff : internalCompareBBBB(o);
   }
+
+  abstract int internalCompareBBBB(Format21c<?> other);
 
   @Override
   public String toString(ClassNameMapper naming) {

@@ -5,10 +5,12 @@ package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -31,6 +33,16 @@ public class CfDexItemBasedConstString extends CfInstruction {
   public CfDexItemBasedConstString(DexReference item, NameComputationInfo<?> nameComputationInfo) {
     this.item = item;
     this.nameComputationInfo = nameComputationInfo;
+  }
+
+  @Override
+  public int getCompareToId() {
+    return CfCompareHelper.CONST_STRING_DEX_ITEM_COMPARE_ID;
+  }
+
+  @Override
+  public int internalCompareTo(CfInstruction other, CfCompareHelper helper) {
+    return item.referenceCompareTo(((CfDexItemBasedConstString) other).item);
   }
 
   public DexReference getItem() {
@@ -95,5 +107,17 @@ public class CfDexItemBasedConstString extends CfInstruction {
   public ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, DexProgramClass context) {
     return inliningConstraints.forDexItemBasedConstString(item, context);
+  }
+
+  @Override
+  public void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens) {
+    // ... →
+    // ..., value
+    frameBuilder.push(factory.stringType);
   }
 }

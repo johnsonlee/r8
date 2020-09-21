@@ -5,8 +5,10 @@ package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -32,6 +34,16 @@ public class CfReturn extends CfInstruction {
 
   public ValueType getType() {
     return type;
+  }
+
+  @Override
+  public int getCompareToId() {
+    return getOpcode();
+  }
+
+  @Override
+  public int internalCompareTo(CfInstruction other, CfCompareHelper helper) {
+    return CfCompareHelper.compareIdUniquelyDeterminesEquality(this, other);
   }
 
   private int getOpcode() {
@@ -88,5 +100,17 @@ public class CfReturn extends CfInstruction {
   public ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, DexProgramClass context) {
     return inliningConstraints.forReturn();
+  }
+
+  @Override
+  public void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens) {
+    assert returnType != null;
+    frameBuilder.popAndDiscard(returnType);
+    frameBuilder.setNoFrame();
   }
 }

@@ -4,8 +4,10 @@
 package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -24,6 +26,16 @@ public class CfReturnVoid extends CfInstruction {
   @Override
   public boolean isJump() {
     return true;
+  }
+
+  @Override
+  public int getCompareToId() {
+    return Opcodes.RETURN;
+  }
+
+  @Override
+  public int internalCompareTo(CfInstruction other, CfCompareHelper helper) {
+    return CfCompareHelper.compareIdUniquelyDeterminesEquality(this, other);
   }
 
   @Override
@@ -49,6 +61,11 @@ public class CfReturnVoid extends CfInstruction {
   }
 
   @Override
+  public boolean isReturnVoid() {
+    return true;
+  }
+
+  @Override
   public void buildIR(IRBuilder builder, CfState state, CfSourceCode code) {
     builder.addReturn();
   }
@@ -57,5 +74,15 @@ public class CfReturnVoid extends CfInstruction {
   public ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, DexProgramClass context) {
     return inliningConstraints.forReturn();
+  }
+
+  @Override
+  public void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens) {
+    frameBuilder.setNoFrame();
   }
 }

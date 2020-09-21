@@ -11,7 +11,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.GraphLens.NestedGraphLens;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
-import com.android.tools.r8.ir.code.Invoke;
+import com.android.tools.r8.ir.code.Invoke.Type;
 import com.google.common.collect.ImmutableMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -61,13 +61,13 @@ public class NestedPrivateMethodLens extends NestedGraphLens {
 
   @Override
   public DexMethod lookupGetFieldForMethod(DexField field, DexMethod context) {
-    assert previousLens.lookupGetFieldForMethod(field, context) == null;
+    assert getPrevious().lookupGetFieldForMethod(field, context) == null;
     return lookupFieldForMethod(field, context, getFieldMap);
   }
 
   @Override
   public DexMethod lookupPutFieldForMethod(DexField field, DexMethod context) {
-    assert previousLens.lookupPutFieldForMethod(field, context) == null;
+    assert getPrevious().lookupPutFieldForMethod(field, context) == null;
     return lookupFieldForMethod(field, context, putFieldMap);
   }
 
@@ -78,7 +78,7 @@ public class NestedPrivateMethodLens extends NestedGraphLens {
 
   @Override
   public boolean verifyIsContextFreeForMethod(DexMethod method) {
-    assert !methodMap.containsKey(previousLens.lookupMethod(method));
+    assert !methodMap.containsKey(getPrevious().lookupMethod(method));
     return true;
   }
 
@@ -110,24 +110,28 @@ public class NestedPrivateMethodLens extends NestedGraphLens {
   }
 
   @Override
-  public GraphLensLookupResult lookupMethod(DexMethod method, DexMethod context, Invoke.Type type) {
+  public MethodLookupResult internalDescribeLookupMethod(
+      MethodLookupResult previous, DexMethod context) {
     assert originalMethodSignatures == null;
-    GraphLensLookupResult lookup = previousLens.lookupMethod(method, context, type);
-    DexMethod bridge = methodMap.get(lookup.getMethod());
+    DexMethod bridge = methodMap.get(previous.getReference());
     if (bridge == null) {
-      return lookup;
+      return previous;
     }
     assert context != null : "Guaranteed by isContextFreeForMethod";
     if (bridge.holder == context.holder) {
-      return lookup;
+      return previous;
     }
+    MethodLookupResult.Builder resultBuilder =
+        MethodLookupResult.builder(this).setReference(bridge);
     if (isConstructorBridge(bridge)) {
-      return new GraphLensLookupResult(
-          bridge,
-          Invoke.Type.DIRECT,
-          internalDescribePrototypeChanges(lookup.getPrototypeChanges(), bridge));
+      resultBuilder
+          .setPrototypeChanges(
+              internalDescribePrototypeChanges(previous.getPrototypeChanges(), bridge))
+          .setType(Type.DIRECT);
+    } else {
+      resultBuilder.setPrototypeChanges(previous.getPrototypeChanges()).setType(Type.STATIC);
     }
-    return new GraphLensLookupResult(bridge, Invoke.Type.STATIC, lookup.getPrototypeChanges());
+    return resultBuilder.build();
   }
 
   public static Builder builder() {

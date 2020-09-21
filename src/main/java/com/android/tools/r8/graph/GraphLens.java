@@ -3,11 +3,17 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.horizontalclassmerging.ClassMerger;
 import com.android.tools.r8.ir.code.Invoke.Type;
+import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.desugar.InterfaceProcessor.InterfaceProcessorNestedGraphLens;
 import com.android.tools.r8.shaking.KeepInfoCollection;
+import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.SetUtils;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
@@ -21,7 +27,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A GraphLens implements a virtual view on top of the graph, used to delay global rewrites until
@@ -41,6 +47,89 @@ import java.util.function.Supplier;
  */
 public abstract class GraphLens {
 
+  abstract static class MemberLookupResult<R extends DexMember<?, R>> {
+
+    private final R reference;
+    private final R reboundReference;
+
+    private MemberLookupResult(R reference, R reboundReference) {
+      this.reference = reference;
+      this.reboundReference = reboundReference;
+    }
+
+    public R getReference() {
+      return reference;
+    }
+
+    public R getRewrittenReference(Map<R, R> rewritings) {
+      return rewritings.getOrDefault(reference, reference);
+    }
+
+    public boolean hasReboundReference() {
+      return reboundReference != null;
+    }
+
+    public R getReboundReference() {
+      return reboundReference;
+    }
+
+    public R getRewrittenReboundReference(Map<R, R> rewritings) {
+      return rewritings.getOrDefault(reboundReference, reboundReference);
+    }
+
+    abstract static class Builder<R extends DexMember<?, R>, Self extends Builder<R, Self>> {
+
+      R reference;
+      R reboundReference;
+
+      public Self setReference(R reference) {
+        this.reference = reference;
+        return self();
+      }
+
+      public Self setReboundReference(R reboundReference) {
+        this.reboundReference = reboundReference;
+        return self();
+      }
+
+      public abstract Self self();
+    }
+  }
+
+  /**
+   * Intermediate result of a field lookup that stores the actual non-rebound reference and the
+   * rebound reference that points to the definition of the field.
+   */
+  public static class FieldLookupResult extends MemberLookupResult<DexField> {
+
+    private FieldLookupResult(DexField reference, DexField reboundReference) {
+      super(reference, reboundReference);
+    }
+
+    public static Builder builder(GraphLens lens) {
+      return new Builder(lens);
+    }
+
+    public static class Builder extends MemberLookupResult.Builder<DexField, Builder> {
+
+      private GraphLens lens;
+
+      private Builder(GraphLens lens) {
+        this.lens = lens;
+      }
+
+      @Override
+      public Builder self() {
+        return this;
+      }
+
+      public FieldLookupResult build() {
+        // TODO(b/168282032): All non-identity graph lenses should set the rebound reference.
+        return new FieldLookupResult(reference, reboundReference);
+      }
+    }
+  }
+
   /**
    * Result of a method lookup in a GraphLens.
    *
@@ -48,21 +137,23 @@ public abstract class GraphLens {
    * prototype changes that have been made to the target method and the corresponding required
    * changes to the invoke arguments.
    */
-  public static class GraphLensLookupResult {
+  public static class MethodLookupResult extends MemberLookupResult<DexMethod> {
 
-    private final DexMethod method;
     private final Type type;
     private final RewrittenPrototypeDescription prototypeChanges;
 
-    public GraphLensLookupResult(
-        DexMethod method, Type type, RewrittenPrototypeDescription prototypeChanges) {
-      this.method = method;
+    public MethodLookupResult(
+        DexMethod reference,
+        DexMethod reboundReference,
+        Type type,
+        RewrittenPrototypeDescription prototypeChanges) {
+      super(reference, reboundReference);
       this.type = type;
       this.prototypeChanges = prototypeChanges;
     }
 
-    public DexMethod getMethod() {
-      return method;
+    public static Builder builder(GraphLens lens) {
+      return new Builder(lens);
     }
 
     public Type getType() {
@@ -71,6 +162,38 @@ public abstract class GraphLens {
 
     public RewrittenPrototypeDescription getPrototypeChanges() {
       return prototypeChanges;
+    }
+
+    public static class Builder extends MemberLookupResult.Builder<DexMethod, Builder> {
+
+      private final GraphLens lens;
+      private RewrittenPrototypeDescription prototypeChanges = RewrittenPrototypeDescription.none();
+      private Type type;
+
+      private Builder(GraphLens lens) {
+        this.lens = lens;
+      }
+
+      public Builder setPrototypeChanges(RewrittenPrototypeDescription prototypeChanges) {
+        this.prototypeChanges = prototypeChanges;
+        return this;
+      }
+
+      public Builder setType(Type type) {
+        this.type = type;
+        return this;
+      }
+
+      public MethodLookupResult build() {
+        assert reference != null;
+        // TODO(b/168282032): All non-identity graph lenses should set the rebound reference.
+        return new MethodLookupResult(reference, reboundReference, type, prototypeChanges);
+      }
+
+      @Override
+      public Builder self() {
+        return this;
+      }
     }
   }
 
@@ -141,9 +264,11 @@ public abstract class GraphLens {
     }
   }
 
-  public static Builder builder() {
-    return new Builder();
-  }
+  /**
+   * Intentionally private. All graph lenses except for {@link IdentityGraphLens} should inherit
+   * from {@link NonIdentityGraphLens}.
+   */
+  private GraphLens() {}
 
   public abstract DexType getOriginalType(DexType type);
 
@@ -191,25 +316,50 @@ public abstract class GraphLens {
   public ProgramMethod mapProgramMethod(
       ProgramMethod oldMethod, DexDefinitionSupplier definitions) {
     DexMethod newMethod = getRenamedMethodSignature(oldMethod.getReference());
-    DexProgramClass holder = definitions.definitionForHolder(newMethod).asProgramClass();
-    return holder.lookupProgramMethod(newMethod);
+    DexProgramClass holder = asProgramClassOrNull(definitions.definitionForHolder(newMethod));
+    return newMethod.lookupOnProgramClass(holder);
   }
+
+  public abstract DexType lookupClassType(DexType type);
 
   public abstract DexType lookupType(DexType type);
 
   // This overload can be used when the graph lens is known to be context insensitive.
-  public DexMethod lookupMethod(DexMethod method) {
+  public final DexMethod lookupMethod(DexMethod method) {
     assert verifyIsContextFreeForMethod(method);
-    return lookupMethod(method, null, null).getMethod();
+    return lookupMethod(method, null, null).getReference();
   }
 
-  public abstract GraphLensLookupResult lookupMethod(
-      DexMethod method, DexMethod context, Type type);
+  /** Lookup a rebound or non-rebound method reference using the current graph lens. */
+  public MethodLookupResult lookupMethod(DexMethod method, DexMethod context, Type type) {
+    return internalLookupMethod(method, context, type, result -> result);
+  }
+
+  protected abstract MethodLookupResult internalLookupMethod(
+      DexMethod reference, DexMethod context, Type type, LookupMethodContinuation continuation);
+
+  interface LookupMethodContinuation {
+
+    MethodLookupResult lookupMethod(MethodLookupResult previous);
+  }
 
   public abstract RewrittenPrototypeDescription lookupPrototypeChangesForMethodDefinition(
       DexMethod method);
 
-  public abstract DexField lookupField(DexField field);
+  /** Lookup a rebound or non-rebound field reference using the current graph lens. */
+  public DexField lookupField(DexField field) {
+    // Lookup the field using the graph lens and return the (non-rebound) reference from the lookup
+    // result.
+    return internalLookupField(field, FieldLookupResult::getReference);
+  }
+
+  protected abstract DexField internalLookupField(
+      DexField reference, LookupFieldContinuation continuation);
+
+  interface LookupFieldContinuation {
+
+    DexField lookupField(FieldLookupResult previous);
+  }
 
   public DexMethod lookupGetFieldForMethod(DexField field, DexMethod context) {
     return null;
@@ -254,8 +404,16 @@ public abstract class GraphLens {
     return true;
   }
 
-  public final boolean isIdentityLens() {
-    return this == getIdentityLens();
+  public boolean isAppliedLens() {
+    return false;
+  }
+
+  public abstract boolean isIdentityLens();
+
+  public abstract boolean isNonIdentityLens();
+
+  public NonIdentityGraphLens asNonIdentityLens() {
+    return null;
   }
 
   public boolean isInterfaceProcessorLens() {
@@ -266,17 +424,9 @@ public abstract class GraphLens {
     return null;
   }
 
-  public boolean isGraphLensWithPrevious() {
-    return false;
-  }
-
-  public GraphLensWithPrevious asGraphLensWithPrevious() {
-    return null;
-  }
-
-  public GraphLens withCodeRewritingsApplied() {
+  public GraphLens withCodeRewritingsApplied(DexItemFactory dexItemFactory) {
     if (hasCodeRewritings()) {
-      return new ClearCodeRewritingGraphLens(this);
+      return new ClearCodeRewritingGraphLens(dexItemFactory, this);
     }
     return this;
   }
@@ -315,6 +465,22 @@ public abstract class GraphLens {
       }
     }
     return true;
+  }
+
+  public Map<DexCallSite, ProgramMethodSet> rewriteCallSites(
+      Map<DexCallSite, ProgramMethodSet> callSites, DexDefinitionSupplier definitions) {
+    Map<DexCallSite, ProgramMethodSet> result = new IdentityHashMap<>();
+    LensCodeRewriterUtils rewriter = new LensCodeRewriterUtils(definitions, this);
+    callSites.forEach(
+        (callSite, contexts) -> {
+          for (ProgramMethod context : contexts.rewrittenWithLens(definitions, this)) {
+            DexCallSite rewrittenCallSite = rewriter.rewriteCallSite(callSite, context);
+            result
+                .computeIfAbsent(rewrittenCallSite, ignore -> ProgramMethodSet.create())
+                .add(context);
+          }
+        });
+    return result;
   }
 
   public DexReference rewriteReference(DexReference reference) {
@@ -432,7 +598,96 @@ public abstract class GraphLens {
     return true;
   }
 
-  private static class IdentityGraphLens extends GraphLens {
+  public abstract static class NonIdentityGraphLens extends GraphLens {
+
+    private final DexItemFactory dexItemFactory;
+    private GraphLens previousLens;
+
+    private final Map<DexType, DexType> arrayTypeCache = new ConcurrentHashMap<>();
+
+    public NonIdentityGraphLens(DexItemFactory dexItemFactory, GraphLens previousLens) {
+      this.dexItemFactory = dexItemFactory;
+      this.previousLens = previousLens;
+    }
+
+    public final GraphLens getPrevious() {
+      return previousLens;
+    }
+
+    public final void withAlternativeParentLens(GraphLens lens, Action action) {
+      GraphLens oldParent = getPrevious();
+      previousLens = lens;
+      action.execute();
+      previousLens = oldParent;
+    }
+
+    @Override
+    public final DexType lookupType(DexType type) {
+      if (type.isPrimitiveType() || type.isVoidType() || type.isNullValueType()) {
+        return type;
+      }
+      if (type.isArrayType()) {
+        DexType result = arrayTypeCache.get(type);
+        if (result == null) {
+          DexType baseType = type.toBaseType(dexItemFactory);
+          DexType newType = lookupType(baseType);
+          result = baseType == newType ? type : type.replaceBaseType(newType, dexItemFactory);
+          arrayTypeCache.put(type, result);
+        }
+        return result;
+      }
+      return lookupClassType(type);
+    }
+
+    @Override
+    public final DexType lookupClassType(DexType type) {
+      assert type.isClassType() : "Expected class type, but was `" + type.toSourceString() + "`";
+      return internalDescribeLookupClassType(getPrevious().lookupClassType(type));
+    }
+
+    @Override
+    protected DexField internalLookupField(
+        DexField reference, LookupFieldContinuation continuation) {
+      return previousLens.internalLookupField(
+          reference, previous -> continuation.lookupField(internalDescribeLookupField(previous)));
+    }
+
+    @Override
+    protected MethodLookupResult internalLookupMethod(
+        DexMethod reference, DexMethod context, Type type, LookupMethodContinuation continuation) {
+      return previousLens.internalLookupMethod(
+          reference,
+          internalGetPreviousMethodSignature(context),
+          type,
+          previous -> continuation.lookupMethod(internalDescribeLookupMethod(previous, context)));
+    }
+
+    protected abstract FieldLookupResult internalDescribeLookupField(FieldLookupResult previous);
+
+    protected abstract MethodLookupResult internalDescribeLookupMethod(
+        MethodLookupResult previous, DexMethod context);
+
+    protected abstract DexType internalDescribeLookupClassType(DexType previous);
+
+    protected abstract DexMethod internalGetPreviousMethodSignature(DexMethod method);
+
+    @Override
+    public final boolean isIdentityLens() {
+      return false;
+    }
+
+    @Override
+    public final boolean isNonIdentityLens() {
+      return true;
+    }
+
+    @Override
+    public final NonIdentityGraphLens asNonIdentityLens() {
+      return this;
+    }
+  }
+
+  private static final class IdentityGraphLens extends GraphLens {
 
     private static IdentityGraphLens INSTANCE = new IdentityGraphLens();
 
@@ -440,6 +695,16 @@ public abstract class GraphLens {
 
     private static IdentityGraphLens getInstance() {
       return INSTANCE;
+    }
+
+    @Override
+    public boolean isIdentityLens() {
+      return true;
+    }
+
+    @Override
+    public boolean isNonIdentityLens() {
+      return false;
     }
 
     @Override
@@ -473,8 +738,9 @@ public abstract class GraphLens {
     }
 
     @Override
-    public GraphLensLookupResult lookupMethod(DexMethod method, DexMethod context, Type type) {
-      return new GraphLensLookupResult(method, type, RewrittenPrototypeDescription.none());
+    public DexType lookupClassType(DexType type) {
+      assert type.isClassType();
+      return type;
     }
 
     @Override
@@ -484,8 +750,21 @@ public abstract class GraphLens {
     }
 
     @Override
-    public DexField lookupField(DexField field) {
-      return field;
+    protected DexField internalLookupField(
+        DexField reference, LookupFieldContinuation continuation) {
+      // Passes the field reference back to the next graph lens. The identity lens intentionally
+      // does not set the rebound field reference, since it does not know what that is.
+      return continuation.lookupField(
+          FieldLookupResult.builder(this).setReference(reference).build());
+    }
+
+    @Override
+    protected MethodLookupResult internalLookupMethod(
+        DexMethod reference, DexMethod context, Type type, LookupMethodContinuation continuation) {
+      // Passes the method reference back to the next graph lens. The identity lens intentionally
+      // does not set the rebound method reference, since it does not know what that is.
+      return continuation.lookupMethod(
+          MethodLookupResult.builder(this).setReference(reference).setType(type).build());
     }
 
     @Override
@@ -501,66 +780,82 @@ public abstract class GraphLens {
 
   // This lens clears all code rewriting (lookup methods mimics identity lens behavior) but still
   // relies on the previous lens for names (getRenamed/Original methods).
-  public static class ClearCodeRewritingGraphLens extends IdentityGraphLens
-      implements GraphLensWithPrevious {
+  public static class ClearCodeRewritingGraphLens extends NonIdentityGraphLens {
 
-    private final GraphLens previous;
-
-    public ClearCodeRewritingGraphLens(GraphLens previous) {
-      this.previous = previous;
-    }
-
-    @Override
-    public boolean isGraphLensWithPrevious() {
-      return true;
-    }
-
-    @Override
-    public GraphLensWithPrevious asGraphLensWithPrevious() {
-      return this;
-    }
-
-    @Override
-    public GraphLens getPrevious() {
-      return previous;
+    public ClearCodeRewritingGraphLens(DexItemFactory dexItemFactory, GraphLens previousLens) {
+      super(dexItemFactory, previousLens);
     }
 
     @Override
     public DexType getOriginalType(DexType type) {
-      return previous.getOriginalType(type);
+      return getPrevious().getOriginalType(type);
     }
 
     @Override
     public DexField getOriginalFieldSignature(DexField field) {
-      return previous.getOriginalFieldSignature(field);
+      return getPrevious().getOriginalFieldSignature(field);
     }
 
     @Override
     public DexMethod getOriginalMethodSignature(DexMethod method) {
-      return previous.getOriginalMethodSignature(method);
+      return getPrevious().getOriginalMethodSignature(method);
     }
 
     @Override
     public DexField getRenamedFieldSignature(DexField originalField) {
-      return previous.getRenamedFieldSignature(originalField);
+      return getPrevious().getRenamedFieldSignature(originalField);
     }
 
     @Override
     public DexMethod getRenamedMethodSignature(DexMethod originalMethod, GraphLens applied) {
       return this != applied
-          ? previous.getRenamedMethodSignature(originalMethod, applied)
+          ? getPrevious().getRenamedMethodSignature(originalMethod, applied)
           : originalMethod;
     }
 
     @Override
-    public DexType lookupType(DexType type) {
-      return previous.lookupType(type);
+    public RewrittenPrototypeDescription lookupPrototypeChangesForMethodDefinition(
+        DexMethod method) {
+      return getIdentityLens().lookupPrototypeChangesForMethodDefinition(method);
     }
-  }
 
-  public interface GraphLensWithPrevious {
+    @Override
+    public final DexType internalDescribeLookupClassType(DexType previous) {
+      return previous;
+    }
 
-    GraphLens getPrevious();
+    @Override
+    protected DexField internalLookupField(
+        DexField reference, LookupFieldContinuation continuation) {
+      return getIdentityLens().internalLookupField(reference, continuation);
+    }
+
+    @Override
+    protected FieldLookupResult internalDescribeLookupField(FieldLookupResult previous) {
+      throw new Unreachable();
+    }
+
+    @Override
+    protected MethodLookupResult internalLookupMethod(
+        DexMethod reference, DexMethod context, Type type, LookupMethodContinuation continuation) {
+      return getIdentityLens().internalLookupMethod(reference, context, type, continuation);
+    }
+
+    @Override
+    public MethodLookupResult internalDescribeLookupMethod(
+        MethodLookupResult previous, DexMethod context) {
+      throw new Unreachable();
+    }
+
+    @Override
+    protected DexMethod internalGetPreviousMethodSignature(DexMethod method) {
+      return method;
+    }
+
+    @Override
+    public boolean isContextFreeForMethods() {
+      return getIdentityLens().isContextFreeForMethods();
+    }
   }
 
   /**
@@ -573,13 +868,11 @@ public abstract class GraphLens {
    * #mapInvocationType(DexMethod, DexMethod, Type)} if the default name mapping applies, and only
    * invocation type might need to change.
    */
-  public static class NestedGraphLens extends GraphLens implements GraphLensWithPrevious {
+  public static class NestedGraphLens extends NonIdentityGraphLens {
 
-    protected GraphLens previousLens;
     protected final DexItemFactory dexItemFactory;
 
     protected final Map<DexType, DexType> typeMap;
-    private final Map<DexType, DexType> arrayTypeCache = new IdentityHashMap<>();
     protected final Map<DexMethod, DexMethod> methodMap;
     protected final Map<DexField, DexField> fieldMap;
 
@@ -602,6 +895,7 @@ public abstract class GraphLens {
         BiMap<DexMethod, DexMethod> originalMethodSignatures,
         GraphLens previousLens,
         DexItemFactory dexItemFactory) {
+      super(dexItemFactory, previousLens);
       assert !typeMap.isEmpty()
           || !methodMap.isEmpty()
           || !fieldMap.isEmpty()
@@ -611,36 +905,16 @@ public abstract class GraphLens {
       this.fieldMap = fieldMap;
       this.originalFieldSignatures = originalFieldSignatures;
       this.originalMethodSignatures = originalMethodSignatures;
-      this.previousLens = previousLens;
       this.dexItemFactory = dexItemFactory;
     }
 
-    @Override
-    public GraphLens getPrevious() {
-      return previousLens;
-    }
-
-    public <T> T withAlternativeParentLens(GraphLens lens, Supplier<T> action) {
-      GraphLens oldParent = previousLens;
-      previousLens = lens;
-      T result = action.get();
-      previousLens = oldParent;
-      return result;
-    }
-
-    @Override
-    public boolean isGraphLensWithPrevious() {
-      return true;
-    }
-
-    @Override
-    public NestedGraphLens asGraphLensWithPrevious() {
-      return this;
+    public static Builder builder() {
+      return new Builder();
     }
 
     @Override
     public DexType getOriginalType(DexType type) {
-      return previousLens.getOriginalType(type);
+      return getPrevious().getOriginalType(type);
     }
 
     @Override
@@ -649,7 +923,7 @@ public abstract class GraphLens {
           originalFieldSignatures != null
               ? originalFieldSignatures.getOrDefault(field, field)
               : field;
-      return previousLens.getOriginalFieldSignature(originalField);
+      return getPrevious().getOriginalFieldSignature(originalField);
     }
 
     @Override
@@ -658,12 +932,12 @@ public abstract class GraphLens {
           originalMethodSignatures != null
               ? originalMethodSignatures.getOrDefault(method, method)
               : method;
-      return previousLens.getOriginalMethodSignature(originalMethod);
+      return getPrevious().getOriginalMethodSignature(originalMethod);
     }
 
     @Override
     public DexField getRenamedFieldSignature(DexField originalField) {
-      DexField renamedField = previousLens.getRenamedFieldSignature(originalField);
+      DexField renamedField = getPrevious().getRenamedFieldSignature(originalField);
       return originalFieldSignatures != null
           ? originalFieldSignatures.inverse().getOrDefault(renamedField, renamedField)
           : renamedField;
@@ -674,49 +948,73 @@ public abstract class GraphLens {
       if (this == applied) {
         return originalMethod;
       }
-      DexMethod renamedMethod = previousLens.getRenamedMethodSignature(originalMethod, applied);
+      DexMethod renamedMethod = getPrevious().getRenamedMethodSignature(originalMethod, applied);
       return originalMethodSignatures != null
           ? originalMethodSignatures.inverse().getOrDefault(renamedMethod, renamedMethod)
           : renamedMethod;
     }
 
     @Override
-    public DexType lookupType(DexType type) {
-      if (type.isArrayType()) {
-        synchronized (this) {
-          // This block need to be synchronized due to arrayTypeCache.
-          DexType result = arrayTypeCache.get(type);
-          if (result == null) {
-            DexType baseType = type.toBaseType(dexItemFactory);
-            DexType newType = lookupType(baseType);
-            if (baseType == newType) {
-              result = type;
-            } else {
-              result = type.replaceBaseType(newType, dexItemFactory);
-            }
-            arrayTypeCache.put(type, result);
-          }
-          return result;
-        }
-      }
-      DexType previous = previousLens.lookupType(type);
+    protected DexType internalDescribeLookupClassType(DexType previous) {
       return typeMap != null ? typeMap.getOrDefault(previous, previous) : previous;
     }
 
     @Override
-    public GraphLensLookupResult lookupMethod(DexMethod method, DexMethod context, Type type) {
-      DexMethod previousContext = internalGetPreviousMethodSignature(context);
-      GraphLensLookupResult lookup = previousLens.lookupMethod(method, previousContext, type);
-      DexMethod newMethod = methodMap.get(lookup.getMethod());
-      if (newMethod == null) {
-        return lookup;
+    protected FieldLookupResult internalDescribeLookupField(FieldLookupResult previous) {
+      if (previous.hasReboundReference()) {
+        // Rewrite the rebound reference and then "fixup" the non-rebound reference.
+        DexField rewrittenReboundReference = previous.getRewrittenReboundReference(fieldMap);
+        return FieldLookupResult.builder(this)
+            .setReboundReference(rewrittenReboundReference)
+            .setReference(
+                rewrittenReboundReference.withHolder(
+                    internalDescribeLookupClassType(previous.getReference().getHolderType()),
+                    dexItemFactory))
+            .build();
+      } else {
+        // TODO(b/168282032): We should always have the rebound reference, so this should become
+        //  unreachable.
+        DexField rewrittenReference = previous.getRewrittenReference(fieldMap);
+        return FieldLookupResult.builder(this).setReference(rewrittenReference).build();
       }
-      // TODO(sgjesse): Should we always do interface to virtual mapping? Is it a performance win
-      //  that only subclasses which are known to need it actually do it?
-      return new GraphLensLookupResult(
-          newMethod,
-          mapInvocationType(newMethod, method, lookup.getType()),
-          internalDescribePrototypeChanges(lookup.getPrototypeChanges(), newMethod));
+    }
+
+    @Override
+    public MethodLookupResult internalDescribeLookupMethod(
+        MethodLookupResult previous, DexMethod context) {
+      if (previous.hasReboundReference()) {
+        // TODO(sgjesse): Should we always do interface to virtual mapping? Is it a performance win
+        //  that only subclasses which are known to need it actually do it?
+        DexMethod rewrittenReboundReference = previous.getRewrittenReboundReference(methodMap);
+        return MethodLookupResult.builder(this)
+            .setReboundReference(rewrittenReboundReference)
+            .setReference(
+                rewrittenReboundReference.withHolder(
+                    internalDescribeLookupClassType(previous.getReference().getHolderType()),
+                    dexItemFactory))
+            .setPrototypeChanges(
+                internalDescribePrototypeChanges(
+                    previous.getPrototypeChanges(), rewrittenReboundReference))
+            .setType(
+                mapInvocationType(
+                    rewrittenReboundReference, previous.getReference(), previous.getType()))
+            .build();
+      } else {
+        // TODO(b/168282032): We should always have the rebound reference, so this should become
+        //  unreachable.
+        DexMethod newMethod = methodMap.get(previous.getReference());
+        if (newMethod == null) {
+          return previous;
+        }
+        // TODO(sgjesse): Should we always do interface to virtual mapping? Is it a performance win
+        //  that only subclasses which are known to need it actually do it?
+        return MethodLookupResult.builder(this)
+            .setReference(newMethod)
+            .setPrototypeChanges(
+                internalDescribePrototypeChanges(previous.getPrototypeChanges(), newMethod))
+            .setType(mapInvocationType(newMethod, previous.getReference(), previous.getType()))
+            .build();
+      }
     }
 
     @Override
@@ -724,7 +1022,7 @@ public abstract class GraphLens {
         DexMethod method) {
       DexMethod previous = internalGetPreviousMethodSignature(method);
       RewrittenPrototypeDescription lookup =
-          previousLens.lookupPrototypeChangesForMethodDefinition(previous);
+          getPrevious().lookupPrototypeChangesForMethodDefinition(previous);
       return internalDescribePrototypeChanges(lookup, method);
     }
 
@@ -733,6 +1031,7 @@ public abstract class GraphLens {
       return prototypeChanges;
     }
 
+    @Override
     protected DexMethod internalGetPreviousMethodSignature(DexMethod method) {
       return originalMethodSignatures != null
           ? originalMethodSignatures.getOrDefault(method, method)
@@ -741,12 +1040,12 @@ public abstract class GraphLens {
 
     @Override
     public DexMethod lookupGetFieldForMethod(DexField field, DexMethod context) {
-      return previousLens.lookupGetFieldForMethod(field, context);
+      return getPrevious().lookupGetFieldForMethod(field, context);
     }
 
     @Override
     public DexMethod lookupPutFieldForMethod(DexField field, DexMethod context) {
-      return previousLens.lookupPutFieldForMethod(field, context);
+      return getPrevious().lookupPutFieldForMethod(field, context);
     }
 
     /**
@@ -788,19 +1087,13 @@ public abstract class GraphLens {
     }
 
     @Override
-    public DexField lookupField(DexField field) {
-      DexField previous = previousLens.lookupField(field);
-      return fieldMap.getOrDefault(previous, previous);
-    }
-
-    @Override
     public boolean isContextFreeForMethods() {
-      return previousLens.isContextFreeForMethods();
+      return getPrevious().isContextFreeForMethods();
     }
 
     @Override
     public boolean verifyIsContextFreeForMethod(DexMethod method) {
-      assert previousLens.verifyIsContextFreeForMethod(method);
+      assert getPrevious().verifyIsContextFreeForMethod(method);
       return true;
     }
 
@@ -821,7 +1114,7 @@ public abstract class GraphLens {
         builder.append(entry.getKey().toSourceString()).append(" -> ");
         builder.append(entry.getValue().toSourceString()).append(System.lineSeparator());
       }
-      builder.append(previousLens.toString());
+      builder.append(getPrevious().toString());
       return builder.toString();
     }
   }

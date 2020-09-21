@@ -9,13 +9,14 @@ import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.GraphLens;
-import com.android.tools.r8.graph.GraphLens.GraphLensLookupResult;
+import com.android.tools.r8.graph.GraphLens.MethodLookupResult;
 import com.android.tools.r8.graph.IndexedDexItem;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.naming.ClassNameMapper;
+import com.android.tools.r8.utils.ComparatorUtils;
 import java.nio.ShortBuffer;
 
 /** Format45cc for instructions of size 4, with 5 registers and 2 constant pool index. */
@@ -76,19 +77,21 @@ public abstract class Format45cc extends Base4Format {
   }
 
   @Override
-  public final boolean equals(Object other) {
-    if (other == null || (this.getClass() != other.getClass())) {
-      return false;
-    }
+  final int internalCompareTo(Instruction other) {
     Format45cc o = (Format45cc) other;
-    return o.A == A
-        && o.C == C
-        && o.D == D
-        && o.E == E
-        && o.F == F
-        && o.G == G
-        && o.BBBB.equals(BBBB)
-        && o.HHHH.equals(HHHH);
+    int diff =
+        ComparatorUtils.compareInts(
+            A, o.A,
+            C, o.C,
+            D, o.D,
+            E, o.E,
+            F, o.F,
+            G, o.G);
+    if (diff != 0) {
+      return diff;
+    }
+    int bDiff = BBBB.slowCompareTo(o.BBBB);
+    return bDiff != 0 ? bDiff : HHHH.slowCompareTo(o.HHHH);
   }
 
   @Override
@@ -97,10 +100,10 @@ public abstract class Format45cc extends Base4Format {
       ProgramMethod context,
       GraphLens graphLens,
       LensCodeRewriterUtils rewriter) {
-    GraphLensLookupResult lookup =
+    MethodLookupResult lookup =
         graphLens.lookupMethod(getMethod(), context.getReference(), Type.POLYMORPHIC);
     assert lookup.getType() == Type.POLYMORPHIC;
-    lookup.getMethod().collectIndexedItems(indexedItems);
+    lookup.getReference().collectIndexedItems(indexedItems);
 
     DexProto rewrittenProto = rewriter.rewriteProto(getProto());
     rewrittenProto.collectIndexedItems(indexedItems);
@@ -113,11 +116,11 @@ public abstract class Format45cc extends Base4Format {
       GraphLens graphLens,
       ObjectToOffsetMapping mapping,
       LensCodeRewriterUtils rewriter) {
-    GraphLensLookupResult lookup =
+    MethodLookupResult lookup =
         graphLens.lookupMethod(getMethod(), context.getReference(), Type.POLYMORPHIC);
     assert lookup.getType() == Type.POLYMORPHIC;
     writeFirst(A, G, dest);
-    write16BitReference(lookup.getMethod(), dest, mapping);
+    write16BitReference(lookup.getReference(), dest, mapping);
     write16BitValue(combineBytes(makeByte(F, E), makeByte(D, C)), dest);
 
     DexProto rewrittenProto = rewriter.rewriteProto(getProto());

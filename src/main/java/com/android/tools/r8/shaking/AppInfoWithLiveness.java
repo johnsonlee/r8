@@ -31,10 +31,11 @@ import com.android.tools.r8.graph.FieldAccessInfoCollection;
 import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.GraphLens;
-import com.android.tools.r8.graph.GraphLens.NestedGraphLens;
+import com.android.tools.r8.graph.GraphLens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.InstantiatedSubTypeInfo;
 import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
 import com.android.tools.r8.graph.LookupTarget;
+import com.android.tools.r8.graph.MethodAccessInfoCollection;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollectionImpl;
 import com.android.tools.r8.graph.PresortedComparable;
@@ -118,23 +119,15 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
    * each field. The latter is used, for example, during member rebinding.
    */
   private FieldAccessInfoCollectionImpl fieldAccessInfoCollection;
+  /** Set of all methods referenced in invokes along with their calling contexts. */
+  private final MethodAccessInfoCollection methodAccessInfoCollection;
   /** Information about instantiated classes and their allocation sites. */
   private final ObjectAllocationInfoCollectionImpl objectAllocationInfoCollection;
-  /** Set of all methods referenced in virtual invokes, along with calling context. */
-  public final SortedMap<DexMethod, ProgramMethodSet> virtualInvokes;
-  /** Set of all methods referenced in interface invokes, along with calling context. */
-  public final SortedMap<DexMethod, ProgramMethodSet> interfaceInvokes;
-  /** Set of all methods referenced in super invokes, along with calling context. */
-  public final SortedMap<DexMethod, ProgramMethodSet> superInvokes;
-  /** Set of all methods referenced in direct invokes, along with calling context. */
-  public final SortedMap<DexMethod, ProgramMethodSet> directInvokes;
-  /** Set of all methods referenced in static invokes, along with calling context. */
-  public final SortedMap<DexMethod, ProgramMethodSet> staticInvokes;
   /**
    * Set of live call sites in the code. Note that if desugaring has taken place call site objects
    * will have been removed from the code.
    */
-  public final Set<DexCallSite> callSites;
+  public final Map<DexCallSite, ProgramMethodSet> callSites;
   /** Collection of keep requirements for the program. */
   private final KeepInfoCollection keepInfo;
   /** All items with assumemayhavesideeffects rule. */
@@ -212,13 +205,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       SortedSet<DexMethod> virtualMethodsTargetedByInvokeDirect,
       SortedSet<DexMethod> liveMethods,
       FieldAccessInfoCollectionImpl fieldAccessInfoCollection,
+      MethodAccessInfoCollection methodAccessInfoCollection,
       ObjectAllocationInfoCollectionImpl objectAllocationInfoCollection,
-      SortedMap<DexMethod, ProgramMethodSet> virtualInvokes,
-      SortedMap<DexMethod, ProgramMethodSet> interfaceInvokes,
-      SortedMap<DexMethod, ProgramMethodSet> superInvokes,
-      SortedMap<DexMethod, ProgramMethodSet> directInvokes,
-      SortedMap<DexMethod, ProgramMethodSet> staticInvokes,
-      Set<DexCallSite> callSites,
+      Map<DexCallSite, ProgramMethodSet> callSites,
       KeepInfoCollection keepInfo,
       Map<DexReference, ProguardMemberRule> mayHaveSideEffects,
       Map<DexReference, ProguardMemberRule> noSideEffects,
@@ -255,16 +244,12 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.virtualMethodsTargetedByInvokeDirect = virtualMethodsTargetedByInvokeDirect;
     this.liveMethods = liveMethods;
     this.fieldAccessInfoCollection = fieldAccessInfoCollection;
+    this.methodAccessInfoCollection = methodAccessInfoCollection;
     this.objectAllocationInfoCollection = objectAllocationInfoCollection;
     this.keepInfo = keepInfo;
     this.mayHaveSideEffects = mayHaveSideEffects;
     this.noSideEffects = noSideEffects;
     this.assumedValues = assumedValues;
-    this.virtualInvokes = virtualInvokes;
-    this.interfaceInvokes = interfaceInvokes;
-    this.superInvokes = superInvokes;
-    this.directInvokes = directInvokes;
-    this.staticInvokes = staticInvokes;
     this.callSites = callSites;
     this.alwaysInline = alwaysInline;
     this.forceInline = forceInline;
@@ -301,13 +286,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       SortedSet<DexMethod> virtualMethodsTargetedByInvokeDirect,
       SortedSet<DexMethod> liveMethods,
       FieldAccessInfoCollectionImpl fieldAccessInfoCollection,
+      MethodAccessInfoCollection methodAccessInfoCollection,
       ObjectAllocationInfoCollectionImpl objectAllocationInfoCollection,
-      SortedMap<DexMethod, ProgramMethodSet> virtualInvokes,
-      SortedMap<DexMethod, ProgramMethodSet> interfaceInvokes,
-      SortedMap<DexMethod, ProgramMethodSet> superInvokes,
-      SortedMap<DexMethod, ProgramMethodSet> directInvokes,
-      SortedMap<DexMethod, ProgramMethodSet> staticInvokes,
-      Set<DexCallSite> callSites,
+      Map<DexCallSite, ProgramMethodSet> callSites,
       KeepInfoCollection keepInfo,
       Map<DexReference, ProguardMemberRule> mayHaveSideEffects,
       Map<DexReference, ProguardMemberRule> noSideEffects,
@@ -347,16 +328,12 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.virtualMethodsTargetedByInvokeDirect = virtualMethodsTargetedByInvokeDirect;
     this.liveMethods = liveMethods;
     this.fieldAccessInfoCollection = fieldAccessInfoCollection;
+    this.methodAccessInfoCollection = methodAccessInfoCollection;
     this.objectAllocationInfoCollection = objectAllocationInfoCollection;
     this.keepInfo = keepInfo;
     this.mayHaveSideEffects = mayHaveSideEffects;
     this.noSideEffects = noSideEffects;
     this.assumedValues = assumedValues;
-    this.virtualInvokes = virtualInvokes;
-    this.interfaceInvokes = interfaceInvokes;
-    this.superInvokes = superInvokes;
-    this.directInvokes = directInvokes;
-    this.staticInvokes = staticInvokes;
     this.callSites = callSites;
     this.alwaysInline = alwaysInline;
     this.forceInline = forceInline;
@@ -398,12 +375,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.virtualMethodsTargetedByInvokeDirect,
         previous.liveMethods,
         previous.fieldAccessInfoCollection,
+        previous.methodAccessInfoCollection,
         previous.objectAllocationInfoCollection,
-        previous.virtualInvokes,
-        previous.interfaceInvokes,
-        previous.superInvokes,
-        previous.directInvokes,
-        previous.staticInvokes,
         previous.callSites,
         previous.keepInfo,
         previous.mayHaveSideEffects,
@@ -453,12 +426,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.virtualMethodsTargetedByInvokeDirect,
         previous.liveMethods,
         previous.fieldAccessInfoCollection,
+        previous.methodAccessInfoCollection,
         previous.objectAllocationInfoCollection,
-        previous.virtualInvokes,
-        previous.interfaceInvokes,
-        previous.superInvokes,
-        previous.directInvokes,
-        previous.staticInvokes,
         previous.callSites,
         extendPinnedItems(previous, additionalPinnedItems),
         previous.mayHaveSideEffects,
@@ -545,16 +514,12 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.virtualMethodsTargetedByInvokeDirect = previous.virtualMethodsTargetedByInvokeDirect;
     this.liveMethods = previous.liveMethods;
     this.fieldAccessInfoCollection = previous.fieldAccessInfoCollection;
+    this.methodAccessInfoCollection = previous.methodAccessInfoCollection;
     this.objectAllocationInfoCollection = previous.objectAllocationInfoCollection;
     this.keepInfo = previous.keepInfo;
     this.mayHaveSideEffects = previous.mayHaveSideEffects;
     this.noSideEffects = previous.noSideEffects;
     this.assumedValues = previous.assumedValues;
-    this.virtualInvokes = previous.virtualInvokes;
-    this.interfaceInvokes = previous.interfaceInvokes;
-    this.superInvokes = previous.superInvokes;
-    this.directInvokes = previous.directInvokes;
-    this.staticInvokes = previous.staticInvokes;
     this.callSites = previous.callSites;
     this.alwaysInline = previous.alwaysInline;
     this.forceInline = previous.forceInline;
@@ -653,7 +618,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     for (DexProgramClass clazz : classes()) {
       worklist.add(clazz.type);
     }
-    for (DexCallSite callSite : callSites) {
+    for (DexCallSite callSite : callSites.keySet()) {
       for (DexEncodedMethod method : lookupLambdaImplementedMethods(callSite)) {
         worklist.add(method.holder());
       }
@@ -777,6 +742,11 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
 
   FieldAccessInfoCollectionImpl getMutableFieldAccessInfoCollection() {
     return fieldAccessInfoCollection;
+  }
+
+  /** This method provides immutable access to `methodAccessInfoCollection`. */
+  public MethodAccessInfoCollection getMethodAccessInfoCollection() {
+    return methodAccessInfoCollection;
   }
 
   /** This method provides immutable access to `objectAllocationInfoCollection`. */
@@ -993,17 +963,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   }
 
   public AppInfoWithLiveness rewrittenWithLens(
-      DirectMappedDexApplication application, NestedGraphLens lens) {
+      DirectMappedDexApplication application, NonIdentityGraphLens lens) {
     assert checkIfObsolete();
-    // The application has already been rewritten with all of lens' parent lenses. Therefore, we
-    // temporarily replace lens' parent lens with an identity lens to avoid the overhead of
-    // traversing the entire lens chain upon each lookup during the rewriting.
-    return lens.withAlternativeParentLens(
-        GraphLens.getIdentityLens(), () -> createRewrittenAppInfoWithLiveness(application, lens));
-  }
 
-  private AppInfoWithLiveness createRewrittenAppInfoWithLiveness(
-      DirectMappedDexApplication application, NestedGraphLens lens) {
     // Switchmap classes should never be affected by renaming.
     assert lens.assertDefinitionsNotModified(
         switchMaps.keySet().stream()
@@ -1028,18 +990,10 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         lens.rewriteMethods(methodsTargetedByInvokeDynamic),
         lens.rewriteMethods(virtualMethodsTargetedByInvokeDirect),
         lens.rewriteMethods(liveMethods),
-        fieldAccessInfoCollection != null
-            ? fieldAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens)
-            : null,
+        fieldAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens),
+        methodAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens),
         objectAllocationInfoCollection.rewrittenWithLens(definitionSupplier, lens),
-        rewriteInvokesWithContexts(virtualInvokes, lens),
-        rewriteInvokesWithContexts(interfaceInvokes, lens),
-        rewriteInvokesWithContexts(superInvokes, lens),
-        rewriteInvokesWithContexts(directInvokes, lens),
-        rewriteInvokesWithContexts(staticInvokes, lens),
-        // TODO(sgjesse): Rewrite call sites as well? Right now they are only used by minification
-        //   after second tree shaking.
-        callSites,
+        lens.rewriteCallSites(callSites, definitionSupplier),
         keepInfo.rewrite(lens, application.options),
         lens.rewriteReferenceKeys(mayHaveSideEffects),
         lens.rewriteReferenceKeys(noSideEffects),
@@ -1300,7 +1254,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   static void forEachTypeInHierarchyOfLiveProgramClasses(
       Consumer<DexClass> fn,
       Collection<DexProgramClass> liveProgramClasses,
-      Set<DexCallSite> callSites,
+      Map<DexCallSite, ProgramMethodSet> callSites,
       AppInfoWithClassHierarchy appInfo) {
     Set<DexType> seen = Sets.newIdentityHashSet();
     Deque<DexType> worklist = new ArrayDeque<>();
@@ -1317,7 +1271,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         }
       }
     }
-    for (DexCallSite callSite : callSites) {
+    for (DexCallSite callSite : callSites.keySet()) {
       List<DexType> interfaces = LambdaDescriptor.getInterfaces(callSite, appInfo);
       if (interfaces != null) {
         for (DexType iface : interfaces) {

@@ -5,6 +5,7 @@ package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -36,6 +37,16 @@ public class CfNewArray extends CfInstruction {
 
   public DexType getType() {
     return type;
+  }
+
+  @Override
+  public int getCompareToId() {
+    return type.isPrimitiveArrayType() ? Opcodes.NEWARRAY : Opcodes.ANEWARRAY;
+  }
+
+  @Override
+  public int internalCompareTo(CfInstruction other, CfCompareHelper helper) {
+    return type.slowCompareTo(((CfNewArray) other).type);
   }
 
   private int getPrimitiveTypeCode() {
@@ -122,5 +133,18 @@ public class CfNewArray extends CfInstruction {
   public ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, DexProgramClass context) {
     return inliningConstraints.forNewArrayEmpty(type, context);
+  }
+
+  @Override
+  public void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens) {
+    // ..., count →
+    // ..., arrayref
+    assert type.isArrayType();
+    frameBuilder.popAndDiscard(factory.intType).push(type);
   }
 }

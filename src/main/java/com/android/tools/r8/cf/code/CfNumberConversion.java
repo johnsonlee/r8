@@ -4,9 +4,12 @@
 package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
+import com.android.tools.r8.cf.code.CfFrame.FrameType;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -36,6 +39,16 @@ public class CfNumberConversion extends CfInstruction {
     this.to = to;
   }
 
+  @Override
+  public int getCompareToId() {
+    return getAsmOpcode();
+  }
+
+  @Override
+  public int internalCompareTo(CfInstruction other, CfCompareHelper helper) {
+    return CfCompareHelper.compareIdUniquelyDeterminesEquality(this, other);
+  }
+
   public NumericType getFromType() {
     return from;
   }
@@ -53,7 +66,7 @@ public class CfNumberConversion extends CfInstruction {
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    visitor.visitInsn(this.getAsmOpcode());
+    visitor.visitInsn(getAsmOpcode());
   }
 
   @Override
@@ -165,5 +178,19 @@ public class CfNumberConversion extends CfInstruction {
   public ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, DexProgramClass context) {
     return inliningConstraints.forUnop();
+  }
+
+  @Override
+  public void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens) {
+    // ..., value →
+    // ..., result
+    frameBuilder
+        .popAndDiscard(FrameType.fromNumericType(from, factory))
+        .push(FrameType.fromNumericType(to, factory));
   }
 }

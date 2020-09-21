@@ -29,6 +29,10 @@ public class DexMethod extends DexMember<DexEncodedMethod, DexMethod> {
     }
   }
 
+  public DexType getHolderType() {
+    return holder;
+  }
+
   public DexString getName() {
     return name;
   }
@@ -69,6 +73,10 @@ public class DexMethod extends DexMember<DexEncodedMethod, DexMethod> {
   @Override
   public DexEncodedMethod lookupOnClass(DexClass clazz) {
     return clazz != null ? clazz.lookupMember(this) : null;
+  }
+
+  public ProgramMethod lookupOnProgramClass(DexProgramClass clazz) {
+    return clazz != null ? clazz.lookupProgramMethod(this) : null;
   }
 
   @Override
@@ -232,7 +240,11 @@ public class DexMethod extends DexMember<DexEncodedMethod, DexMethod> {
         && proto == dexItemFactory.deserializeLambdaMethodProto;
   }
 
-  public boolean isInstanceInitializer(DexDefinitionSupplier definitions) {
-    return definitions.dexItemFactory().isConstructor(this);
+  public boolean isInstanceInitializer(DexItemFactory factory) {
+    return factory.isConstructor(this);
+  }
+
+  public DexMethod withHolder(DexType holder, DexItemFactory dexItemFactory) {
+    return dexItemFactory.createMethod(holder, proto, name);
   }
 }

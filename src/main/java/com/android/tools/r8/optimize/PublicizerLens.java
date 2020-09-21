@@ -40,19 +40,22 @@ final class PublicizerLens extends NestedGraphLens {
   }
 
   @Override
-  public GraphLensLookupResult lookupMethod(DexMethod method, DexMethod context, Type type) {
-    GraphLensLookupResult lookup = previousLens.lookupMethod(method, context, type);
-    if (lookup.getType() == Type.DIRECT && publicizedMethods.contains(lookup.getMethod())) {
-      assert publicizedMethodIsPresentOnHolder(lookup.getMethod(), context);
-      return new GraphLensLookupResult(
-          lookup.getMethod(), Type.VIRTUAL, lookup.getPrototypeChanges());
+  public MethodLookupResult internalDescribeLookupMethod(
+      MethodLookupResult previous, DexMethod context) {
+    if (previous.getType() == Type.DIRECT && publicizedMethods.contains(previous.getReference())) {
+      assert publicizedMethodIsPresentOnHolder(previous.getReference(), context);
+      return MethodLookupResult.builder(this)
+          .setReference(previous.getReference())
+          .setPrototypeChanges(previous.getPrototypeChanges())
+          .setType(Type.VIRTUAL)
+          .build();
     }
-    return lookup;
+    return previous;
   }
 
   private boolean publicizedMethodIsPresentOnHolder(DexMethod method, DexMethod context) {
-    GraphLensLookupResult lookup = appView.graphLens().lookupMethod(method, context, Type.VIRTUAL);
-    DexMethod signatureInCurrentWorld = lookup.getMethod();
+    MethodLookupResult lookup = appView.graphLens().lookupMethod(method, context, Type.VIRTUAL);
+    DexMethod signatureInCurrentWorld = lookup.getReference();
     DexClass clazz = appView.definitionFor(signatureInCurrentWorld.holder);
     assert clazz != null;
     DexEncodedMethod actualEncodedTarget = clazz.lookupVirtualMethod(signatureInCurrentWorld);

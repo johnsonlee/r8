@@ -74,6 +74,8 @@ import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
 import com.android.tools.r8.optimize.BridgeHoisting;
 import com.android.tools.r8.optimize.ClassAndMemberPublicizer;
 import com.android.tools.r8.optimize.MemberRebindingAnalysis;
+import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
+import com.android.tools.r8.optimize.MemberRebindingIdentityLensFactory;
 import com.android.tools.r8.optimize.VisibilityBridgeRemover;
 import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.repackaging.Repackaging;
@@ -532,21 +534,6 @@ public class R8 {
           }
           timing.end();
         }
-        if (options.enableHorizontalClassMerging) {
-          timing.begin("HorizontalClassMerger");
-          HorizontalClassMerger merger =
-              new HorizontalClassMerger(
-                  appViewWithLiveness, mainDexTracingResult, classMergingEnqueuerExtension);
-          HorizontalClassMergerGraphLens lens = merger.run();
-          if (lens != null) {
-            appView.setHorizontallyMergedClasses(lens.getHorizontallyMergedClasses());
-            appView.rewriteWithLens(lens);
-          }
-          timing.end();
-        }
-
-        // Only required for class merging, clear instance to save memory.
-        classMergingEnqueuerExtension = null;
 
         if (options.enableArgumentRemoval) {
           SubtypingInfo subtypingInfo = appViewWithLiveness.appInfo().computeSubtypingInfo();
@@ -575,6 +562,23 @@ public class R8 {
             timing.end();
           }
         }
+        if (options.enableHorizontalClassMerging) {
+          timing.begin("HorizontalClassMerger");
+          HorizontalClassMerger merger =
+              new HorizontalClassMerger(
+                  appViewWithLiveness, mainDexTracingResult, classMergingEnqueuerExtension);
+          DirectMappedDexApplication.Builder appBuilder =
+              appView.appInfo().app().asDirect().builder();
+          HorizontalClassMergerGraphLens lens = merger.run(appBuilder);
+          if (lens != null) {
+            appView.setHorizontallyMergedClasses(lens.getHorizontallyMergedClasses());
+            appView.rewriteWithLensAndApplication(lens, appBuilder.build());
+          }
+          timing.end();
+        }
+
+        // Only required for class merging, clear instance to save memory.
+        classMergingEnqueuerExtension = null;
       }
 
       // None of the optimizations above should lead to the creation of type lattice elements.
@@ -793,6 +797,22 @@ public class R8 {
         }
       }
 
+      // Remove unneeded visibility bridges that have been inserted for member rebinding.
+      // This can only be done if we have AppInfoWithLiveness.
+      if (appView.appInfo().hasLiveness()) {
+        new VisibilityBridgeRemover(appView.withLiveness()).run();
+      } else {
+        // If we don't have AppInfoWithLiveness here, it must be because we are not shrinking. When
+        // we are not shrinking, we can't move visibility bridges. In principle, though, it would be
+        // possible to remove visibility bridges that have been synthesized by R8, but we currently
+        // do not have this information.
+        assert !options.isShrinking();
+      }
+
+      MemberRebindingIdentityLens memberRebindingLens =
+          MemberRebindingIdentityLensFactory.create(appView, executorService);
+      appView.setGraphLens(memberRebindingLens);
+
       // Perform repackaging.
       // TODO(b/165783399): Consider making repacking available without minification.
       if (options.isMinifying() && options.testing.enableExperimentalRepackaging) {
@@ -803,7 +823,13 @@ public class R8 {
         RepackagingLens lens =
             new Repackaging(appView.withLiveness()).run(appBuilder, executorService, timing);
         if (lens != null) {
-          appView.rewriteWithLensAndApplication(lens, appBuilder.build());
+          // Specify to use the member rebinding lens as the parent lens during the rewriting. This
+          // is needed to ensure that the rebound references are available during lens lookups.
+          // TODO(b/168282032): This call-site should not have to think about the parent lens that
+          //  is used for the rewriting. Once the new member rebinding lens replaces the old member
+          //  rebinding analysis it should be possible to clean this up.
+          appView.rewriteWithLensAndApplication(
+              lens, appBuilder.build(), memberRebindingLens.getPrevious());
         }
       }
 
@@ -864,18 +890,6 @@ public class R8 {
         System.out.println("Finished compilation with method filter: ");
         options.methodsFilter.forEach(m -> System.out.println("  - " + m));
         return;
-      }
-
-      // Remove unneeded visibility bridges that have been inserted for member rebinding.
-      // This can only be done if we have AppInfoWithLiveness.
-      if (appView.appInfo().hasLiveness()) {
-        new VisibilityBridgeRemover(appView.withLiveness()).run();
-      } else {
-        // If we don't have AppInfoWithLiveness here, it must be because we are not shrinking. When
-        // we are not shrinking, we can't move visibility bridges. In principle, though, it would be
-        // possible to remove visibility bridges that have been synthesized by R8, but we currently
-        // do not have this information.
-        assert !options.isShrinking();
       }
 
       // Validity checks.

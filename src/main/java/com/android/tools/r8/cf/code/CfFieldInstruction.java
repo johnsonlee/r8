@@ -5,6 +5,7 @@ package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -22,6 +23,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
+import java.util.Comparator;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -44,6 +46,18 @@ public class CfFieldInstruction extends CfInstruction {
 
   public int getOpcode() {
     return opcode;
+  }
+
+  @Override
+  public int getCompareToId() {
+    return opcode;
+  }
+
+  @Override
+  public int internalCompareTo(CfInstruction other, CfCompareHelper helper) {
+    return Comparator.comparing(CfFieldInstruction::getField, DexField::slowCompareTo)
+        .thenComparing(field -> field.declaringField, DexField::slowCompareTo)
+        .compare(this, (CfFieldInstruction) other);
   }
 
   @Override
@@ -148,6 +162,39 @@ public class CfFieldInstruction extends CfInstruction {
         return inliningConstraints.forInstanceGet(field, context);
       case Opcodes.PUTFIELD:
         return inliningConstraints.forInstancePut(field, context);
+      default:
+        throw new Unreachable("Unexpected opcode " + opcode);
+    }
+  }
+
+  @Override
+  public void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens) {
+    switch (opcode) {
+      case Opcodes.GETFIELD:
+        // ..., objectref →
+        // ..., value
+        frameBuilder.popAndDiscard(field.holder).push(field.type);
+        return;
+      case Opcodes.GETSTATIC:
+        // ..., →
+        // ..., value
+        frameBuilder.push(field.type);
+        return;
+      case Opcodes.PUTFIELD:
+        // ..., objectref, value →
+        // ...,
+        frameBuilder.popAndDiscard(field.holder, field.type);
+        return;
+      case Opcodes.PUTSTATIC:
+        // ..., value →
+        // ...
+        frameBuilder.pop(field.type);
+        return;
       default:
         throw new Unreachable("Unexpected opcode " + opcode);
     }

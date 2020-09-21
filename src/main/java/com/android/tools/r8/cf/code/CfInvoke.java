@@ -8,6 +8,7 @@ import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -17,7 +18,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
-import com.android.tools.r8.graph.GraphLens.GraphLensLookupResult;
+import com.android.tools.r8.graph.GraphLens.MethodLookupResult;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
@@ -51,6 +52,18 @@ public class CfInvoke extends CfInstruction {
     this.itf = itf;
   }
 
+  @Override
+  public int getCompareToId() {
+    return getOpcode();
+  }
+
+  @Override
+  public int internalCompareTo(CfInstruction other, CfCompareHelper helper) {
+    CfInvoke otherInvoke = other.asInvoke();
+    int itfDiff = Boolean.compare(itf, otherInvoke.itf);
+    return itfDiff != 0 ? itfDiff : method.slowCompareTo(otherInvoke.method);
+  }
+
   public DexMethod getMethod() {
     return method;
   }
@@ -82,9 +95,9 @@ public class CfInvoke extends CfInstruction {
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    GraphLensLookupResult lookup =
+    MethodLookupResult lookup =
         graphLens.lookupMethod(method, context.getReference(), getInvokeType(context));
-    DexMethod rewrittenMethod = lookup.getMethod();
+    DexMethod rewrittenMethod = lookup.getReference();
     String owner = namingLens.lookupInternalName(rewrittenMethod.holder);
     String name = namingLens.lookupName(rewrittenMethod).toString();
     String desc = rewrittenMethod.proto.toDescriptorString(namingLens);
@@ -273,8 +286,8 @@ public class CfInvoke extends CfInstruction {
       case Opcodes.INVOKESTATIC:
         {
           // Static invokes may have changed as a result of horizontal class merging.
-          GraphLensLookupResult lookup = graphLens.lookupMethod(target, null, Type.STATIC);
-          target = lookup.getMethod();
+          MethodLookupResult lookup = graphLens.lookupMethod(target, null, Type.STATIC);
+          target = lookup.getReference();
           type = lookup.getType();
         }
         break;
@@ -292,8 +305,8 @@ public class CfInvoke extends CfInstruction {
           }
 
           // Virtual invokes may have changed to interface invokes as a result of member rebinding.
-          GraphLensLookupResult lookup = graphLens.lookupMethod(target, null, type);
-          target = lookup.getMethod();
+          MethodLookupResult lookup = graphLens.lookupMethod(target, null, type);
+          target = lookup.getReference();
           type = lookup.getType();
         }
         break;
@@ -303,6 +316,29 @@ public class CfInvoke extends CfInstruction {
     }
 
     return inliningConstraints.forInvoke(target, type, context);
+  }
+
+  @Override
+  public void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens) {
+    // ..., objectref, [arg1, [arg2 ...]] →
+    // ... [ returnType ]
+    // OR, for static method calls:
+    // ..., [arg1, [arg2 ...]] →
+    // ...
+    frameBuilder.popAndDiscard(this.method.proto.parameters.values);
+    if (opcode == Opcodes.INVOKESPECIAL && method.isInstanceInitializer(factory)) {
+      frameBuilder.popAndInitialize(context, method.holder);
+    } else if (opcode != Opcodes.INVOKESTATIC) {
+      frameBuilder.pop(method.holder);
+    }
+    if (this.method.proto.returnType != factory.voidType) {
+      frameBuilder.push(this.method.proto.returnType);
+    }
   }
 
   private static boolean noNeedToUseGraphLens(
@@ -338,9 +374,8 @@ public class CfInvoke extends CfInstruction {
   }
 
   private DexEncodedMethod lookupMethodOnHolder(AppView<?> appView, DexMethod method) {
-    GraphLensLookupResult lookupResult =
-        appView.graphLens().lookupMethod(method, method, Type.DIRECT);
-    DexMethod rewrittenMethod = lookupResult.getMethod();
+    MethodLookupResult lookupResult = appView.graphLens().lookupMethod(method, method, Type.DIRECT);
+    DexMethod rewrittenMethod = lookupResult.getReference();
     // Directly lookup the program type for holder. This bypasses lookup order as well as looks
     // directly on the application data, which bypasses and indirection or validation.
     DexProgramClass clazz = appView.appInfo().unsafeDirectProgramTypeLookup(rewrittenMethod.holder);

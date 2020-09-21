@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
+import static com.android.tools.r8.utils.ComparatorUtils.arrayComparator;
+
 import com.android.tools.r8.code.Instruction;
 import com.android.tools.r8.code.ReturnVoid;
 import com.android.tools.r8.code.SwitchPayload;
@@ -20,11 +22,13 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.ComparatorUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.base.Strings;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -32,7 +36,7 @@ import java.util.Map;
 import java.util.Set;
 
 // DexCode corresponds to code item in dalvik/dex-format.html
-public class DexCode extends Code {
+public class DexCode extends Code implements Comparable<DexCode> {
 
   static final String FAKE_THIS_PREFIX = "_";
   static final String FAKE_THIS_SUFFIX = "this";
@@ -63,6 +67,9 @@ public class DexCode extends Code {
     this.tries = tries;
     this.handlers = handlers;
     this.debugInfo = debugInfo;
+    assert tries != null;
+    assert handlers != null;
+    assert instructions != null;
     hashCode();  // Cache the hash code eagerly.
   }
 
@@ -159,11 +166,6 @@ public class DexCode extends Code {
     return new DexDebugInfo(debugInfo.startLine, newParameters, debugInfo.events);
   }
 
-  public int codeSizeInBytes() {
-    Instruction last = instructions[instructions.length - 1];
-    return last.getOffset() + last.getSize();
-  }
-
   @Override
   public int computeHashCode() {
     return incomingRegisterSize * 2
@@ -176,37 +178,26 @@ public class DexCode extends Code {
   }
 
   @Override
-  public boolean computeEquals(Object other) {
-    if (other instanceof DexCode) {
-      DexCode o = (DexCode) other;
-      if (incomingRegisterSize != o.incomingRegisterSize) {
-        return false;
-      }
-      if (registerSize != o.registerSize) {
-        return false;
-      }
-      if (outgoingRegisterSize != o.outgoingRegisterSize) {
-        return false;
-      }
-      if (debugInfo == null) {
-        if (o.debugInfo != null) {
-          return false;
-        }
-      } else {
-        if (!debugInfo.equals(o.debugInfo)) {
-          return false;
-        }
-      }
-      if (!Arrays.equals(tries, o.tries)) {
-        return false;
-      }
-      if (!Arrays.equals(handlers, o.handlers)) {
-        return false;
-      }
-      // Save the most expensive operation to last.
-      return Arrays.equals(instructions, o.instructions);
+  public int compareTo(DexCode other) {
+    if (this == other) {
+      return 0;
     }
-    return false;
+    int diff =
+        Comparator.comparingInt((DexCode c) -> c.incomingRegisterSize)
+            .thenComparingInt(c -> c.registerSize)
+            .thenComparingInt(c -> c.outgoingRegisterSize)
+            .thenComparing(c -> c.tries, arrayComparator())
+            .thenComparing(c -> c.handlers, arrayComparator())
+            .thenComparing(c -> c.debugInfo, Comparator.nullsFirst(DexDebugInfo::compareTo))
+            .thenComparing((DexCode c) -> c.instructions, arrayComparator())
+            .compare(this, other);
+    assert (diff == 0) == (0 == toString().compareTo(other.toString()));
+    return diff;
+  }
+
+  @Override
+  public boolean computeEquals(Object other) {
+    return other instanceof DexCode && compareTo((DexCode) other) == 0;
   }
 
   @Override
@@ -259,11 +250,9 @@ public class DexCode extends Code {
     for (Instruction insn : instructions) {
       insn.registerUse(registry);
     }
-    if (handlers != null) {
-      for (TryHandler handler : handlers) {
-        for (TypeAddrPair pair : handler.pairs) {
-          registry.registerTypeReference(pair.type);
-        }
+    for (TryHandler handler : handlers) {
+      for (TypeAddrPair pair : handler.pairs) {
+        registry.registerTypeReference(pair.type);
       }
     }
   }
@@ -330,14 +319,12 @@ public class DexCode extends Code {
         builder.append(atry.toString());
         builder.append('\n');
       }
-      if (handlers != null) {
-        builder.append("Handlers (numbers are offsets)\n");
-        for (int handlerIndex = 0; handlerIndex < handlers.length; handlerIndex++) {
-          TryHandler handler = handlers[handlerIndex];
-          builder.append("  ").append(handlerIndex).append(": ");
-          builder.append(handler.toString());
-          builder.append('\n');
-        }
+      builder.append("Handlers (numbers are offsets)\n");
+      for (int handlerIndex = 0; handlerIndex < handlers.length; handlerIndex++) {
+        TryHandler handler = handlers[handlerIndex];
+        builder.append("  ").append(handlerIndex).append(": ");
+        builder.append(handler.toString());
+        builder.append('\n');
       }
     }
     return builder.toString();
@@ -393,13 +380,11 @@ public class DexCode extends Code {
         builder.append(atry.toString());
         builder.append('\n');
       }
-      if (handlers != null) {
         builder.append("Handlers (numbers are offsets)\n");
         for (TryHandler handler : handlers) {
           builder.append(handler.toString());
           builder.append('\n');
         }
-      }
     }
     return builder.toString();
   }
@@ -422,11 +407,9 @@ public class DexCode extends Code {
     if (debugInfo != null) {
       getDebugInfoForWriting().collectIndexedItems(indexedItems, graphLens);
     }
-    if (handlers != null) {
       for (TryHandler handler : handlers) {
         handler.collectIndexedItems(indexedItems, graphLens);
       }
-    }
   }
 
   public DexDebugInfoForWriting getDebugInfoForWriting() {
@@ -460,7 +443,12 @@ public class DexCode extends Code {
     }
   }
 
-  public static class Try extends DexItem {
+  public int codeSizeInBytes() {
+    Instruction last = instructions[instructions.length - 1];
+    return last.getOffset() + last.getSize();
+  }
+
+  public static class Try extends DexItem implements Comparable<Try> {
 
     public static final int NO_INDEX = -1;
 
@@ -487,20 +475,18 @@ public class DexCode extends Code {
 
     @Override
     public boolean equals(Object other) {
+      return other instanceof Try && compareTo((Try) other) == 0;
+    }
+
+    @Override
+    public int compareTo(Try other) {
       if (this == other) {
-        return true;
+        return 0;
       }
-      if (other instanceof Try) {
-        Try o = (Try) other;
-        if (startAddress != o.startAddress) {
-          return false;
-        }
-        if (instructionCount != o.instructionCount) {
-          return false;
-        }
-        return handlerIndex == o.handlerIndex;
-      }
-      return false;
+      return ComparatorUtils.compareInts(
+          startAddress, other.startAddress,
+          instructionCount, other.instructionCount,
+          handlerIndex, other.handlerIndex);
     }
 
     @Override
@@ -521,7 +507,7 @@ public class DexCode extends Code {
 
   }
 
-  public static class TryHandler extends DexItem {
+  public static class TryHandler extends DexItem implements Comparable<TryHandler> {
 
     public static final int NO_HANDLER = -1;
 
@@ -540,17 +526,17 @@ public class DexCode extends Code {
 
     @Override
     public boolean equals(Object other) {
+      return other instanceof TryHandler && compareTo((TryHandler) other) == 0;
+    }
+
+    @Override
+    public int compareTo(TryHandler other) {
       if (this == other) {
-        return true;
+        return 0;
       }
-      if (other instanceof TryHandler) {
-        TryHandler o = (TryHandler) other;
-        if (catchAllAddr != o.catchAllAddr) {
-          return false;
-        }
-        return Arrays.equals(pairs, o.pairs);
-      }
-      return false;
+      return Comparator.comparingInt((TryHandler h) -> h.catchAllAddr)
+          .thenComparing(h -> h.pairs, arrayComparator())
+          .compare(this, other);
     }
 
     public void collectIndexedItems(IndexedItemCollection indexedItems, GraphLens graphLens) {
@@ -585,7 +571,7 @@ public class DexCode extends Code {
       return builder.toString();
     }
 
-    public static class TypeAddrPair extends DexItem {
+    public static class TypeAddrPair extends DexItem implements Comparable<TypeAddrPair> {
 
       public final DexType type;
       public final /* offset */ int addr;
@@ -613,14 +599,17 @@ public class DexCode extends Code {
 
       @Override
       public boolean equals(Object other) {
+        return other instanceof TypeAddrPair && compareTo((TypeAddrPair) other) == 0;
+      }
+
+      @Override
+      public int compareTo(TypeAddrPair other) {
         if (this == other) {
-          return true;
+          return 0;
         }
-        if (other instanceof TypeAddrPair) {
-          TypeAddrPair o = (TypeAddrPair) other;
-          return type.equals(o.type) && addr == o.addr;
-        }
-        return false;
+        return Comparator.comparingInt((TypeAddrPair p) -> p.addr)
+            .thenComparing(p -> p.type, DexType::slowCompareTo)
+            .compare(this, other);
       }
     }
   }

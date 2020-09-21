@@ -67,8 +67,10 @@ import com.android.tools.r8.utils.InternalOptions;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -210,7 +212,8 @@ public class LazyCfCode extends Code {
 
   @Override
   public IRCode buildIR(ProgramMethod method, AppView<?> appView, Origin origin) {
-    return asCfCode().buildIR(method, appView, origin);
+    return verifyFrames(asCfCode(), method.getDefinition(), appView, origin, true)
+        .buildIR(method, appView, origin);
   }
 
   @Override
@@ -222,7 +225,12 @@ public class LazyCfCode extends Code {
       Position callerPosition,
       Origin origin,
       MethodProcessor methodProcessor) {
-    return asCfCode()
+    return verifyFrames(
+            asCfCode(),
+            method.getDefinition(),
+            appView,
+            origin,
+            methodProcessor.shouldApplyCodeRewritings(method))
         .buildInliningIR(
             context,
             method,
@@ -231,6 +239,18 @@ public class LazyCfCode extends Code {
             callerPosition,
             origin,
             methodProcessor);
+  }
+
+  private CfCode verifyFrames(
+      CfCode cfCode,
+      DexEncodedMethod method,
+      AppView<?> appView,
+      Origin origin,
+      boolean shouldApplyCodeRewritings) {
+    if (!cfCode.verifyFrames(method, appView, origin, shouldApplyCodeRewritings)) {
+      cfCode.instructions.removeIf(CfInstruction::isFrame);
+    }
+    return cfCode;
   }
 
   @Override
@@ -387,7 +407,7 @@ public class LazyCfCode extends Code {
         int frameType, int nLocals, Object[] localTypes, int nStack, Object[] stackTypes) {
       assert frameType == Opcodes.F_NEW;
       Int2ReferenceSortedMap<FrameType> parsedLocals = parseLocals(nLocals, localTypes);
-      List<FrameType> parsedStack = parseStack(nStack, stackTypes);
+      Deque<FrameType> parsedStack = parseStack(nStack, stackTypes);
       instructions.add(new CfFrame(parsedLocals, parsedStack));
     }
 
@@ -405,8 +425,8 @@ public class LazyCfCode extends Code {
       return types;
     }
 
-    private List<FrameType> parseStack(int nStack, Object[] stackTypes) {
-      List<FrameType> dexStack = new ArrayList<>(nStack);
+    private Deque<FrameType> parseStack(int nStack, Object[] stackTypes) {
+      Deque<FrameType> dexStack = new ArrayDeque<>(nStack);
       for (int i = 0; i < nStack; i++) {
         dexStack.add(getFrameType(stackTypes[i]));
       }
@@ -415,7 +435,7 @@ public class LazyCfCode extends Code {
 
     private FrameType getFrameType(Object localType) {
       if (localType instanceof Label) {
-        return FrameType.uninitializedNew(getLabel((Label) localType));
+        return FrameType.uninitializedNew(getLabel((Label) localType), null);
       } else if (localType == Opcodes.UNINITIALIZED_THIS) {
         return FrameType.uninitializedThis();
       } else if (localType == null || localType == Opcodes.TOP) {
@@ -989,12 +1009,11 @@ public class LazyCfCode extends Code {
 
   private static DebugParsingOptions getParsingOptions(
       JarApplicationReader application, boolean reachabilitySensitive) {
+    // TODO(b/166841731): We should compute our own from the compressed format.
     int parsingOptions =
-        (application.options.enableCfByteCodePassThrough
-                || application.options.testing.readInputStackMaps)
+        application.options.testing.readInputStackMaps
             ? ClassReader.EXPAND_FRAMES
             : ClassReader.SKIP_FRAMES;
-
     ProguardConfiguration configuration = application.options.getProguardConfiguration();
     if (configuration == null) {
       return new DebugParsingOptions(true, true, parsingOptions);

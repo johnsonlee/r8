@@ -13,7 +13,6 @@ import it.unimi.dsi.fastutil.objects.ObjectSortedSet;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import org.jetbrains.annotations.Nullable;
 
 public class ImmutableInt2ReferenceSortedMap<V> extends Int2ReferenceSortedMaps.EmptySortedMap<V> {
 
@@ -29,6 +28,10 @@ public class ImmutableInt2ReferenceSortedMap<V> extends Int2ReferenceSortedMaps.
 
   public static <V> ImmutableInt2ReferenceSortedMap<V> of(int[] keys, V[] values) {
     return new ImmutableInt2ReferenceSortedMap<>(new Int2ReferenceAVLTreeMap<>(keys, values));
+  }
+
+  public static <V> ImmutableInt2ReferenceSortedMap<V> empty() {
+    return new ImmutableInt2ReferenceSortedMap<>(new Int2ReferenceAVLTreeMap<>());
   }
 
   public static <V> Builder<V> builder() {
@@ -47,6 +50,21 @@ public class ImmutableInt2ReferenceSortedMap<V> extends Int2ReferenceSortedMaps.
     public ImmutableInt2ReferenceSortedMap<V> build() {
       return new ImmutableInt2ReferenceSortedMap<>(sortedMap);
     }
+  }
+
+  @Override
+  public V get(int k) {
+    return sortedMap.get(k);
+  }
+
+  @Override
+  public V get(Object ok) {
+    return sortedMap.get(ok);
+  }
+
+  @Override
+  public V getOrDefault(Object key, V defaultValue) {
+    return sortedMap.getOrDefault(key, defaultValue);
   }
 
   @Override
@@ -150,7 +168,6 @@ public class ImmutableInt2ReferenceSortedMap<V> extends Int2ReferenceSortedMaps.
     throw new Unreachable("Should not modify an immutable structure");
   }
 
-  @Nullable
   @Override
   public V putIfAbsent(Integer key, V value) {
     throw new Unreachable("Should not modify an immutable structure");

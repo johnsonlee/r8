@@ -4,10 +4,12 @@
 package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -24,7 +26,7 @@ import org.objectweb.asm.MethodVisitor;
 
 public class CfConstMethodHandle extends CfInstruction {
 
-  private DexMethodHandle handle;
+  private final DexMethodHandle handle;
 
   public CfConstMethodHandle(DexMethodHandle handle) {
     this.handle = handle;
@@ -32,6 +34,16 @@ public class CfConstMethodHandle extends CfInstruction {
 
   public DexMethodHandle getHandle() {
     return handle;
+  }
+
+  @Override
+  public int getCompareToId() {
+    return CfCompareHelper.CONST_METHOD_HANDLE_COMPARE_ID;
+  }
+
+  @Override
+  public int internalCompareTo(CfInstruction other, CfCompareHelper helper) {
+    return handle.slowCompareTo(((CfConstMethodHandle) other).handle);
   }
 
   @Override
@@ -75,5 +87,17 @@ public class CfConstMethodHandle extends CfInstruction {
   public ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, DexProgramClass context) {
     return inliningConstraints.forConstMethodHandle();
+  }
+
+  @Override
+  public void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens) {
+    // ... →
+    // ..., value
+    frameBuilder.push(factory.methodHandleType);
   }
 }

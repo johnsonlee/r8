@@ -4,8 +4,10 @@
 package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -27,6 +29,18 @@ public class CfPosition extends CfInstruction {
   public CfPosition(CfLabel label, Position position) {
     this.label = label;
     this.position = position;
+  }
+
+  @Override
+  public int getCompareToId() {
+    return CfCompareHelper.POSITION_COMPARE_ID;
+  }
+
+  @Override
+  public int internalCompareTo(CfInstruction other, CfCompareHelper helper) {
+    CfPosition otherPosition = (CfPosition) other;
+    int lineDiff = position.line - otherPosition.position.line;
+    return lineDiff != 0 ? lineDiff : helper.compareLabels(label, otherPosition.label);
   }
 
   @Override
@@ -80,5 +94,15 @@ public class CfPosition extends CfInstruction {
   public ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, DexProgramClass context) {
     return ConstraintWithTarget.ALWAYS;
+  }
+
+  @Override
+  public void evaluate(
+      CfFrameVerificationHelper frameBuilder,
+      DexType context,
+      DexType returnType,
+      DexItemFactory factory,
+      InitClassLens initClassLens) {
+    // This is a no-op.
   }
 }

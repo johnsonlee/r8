@@ -7,6 +7,7 @@ package com.android.tools.r8.retrace;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.TypeReference;
+import com.android.tools.r8.utils.Box;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
 import java.util.Set;
@@ -14,7 +15,7 @@ import java.util.Set;
 public class RetraceUtils {
 
   private static final Set<String> UNKNOWN_SOURCEFILE_NAMES =
-      Sets.newHashSet("", "SourceFile", "Unknown", "Unknown Source");
+      Sets.newHashSet("", "SourceFile", "Unknown", "Unknown Source", "PG");
 
   public static String methodDescriptionFromMethodReference(
       MethodReference methodReference, boolean appendHolder, boolean verbose) {
@@ -61,21 +62,33 @@ public class RetraceUtils {
   }
 
   static RetraceSourceFileResult getSourceFile(
-      RetraceClassResult.Element classElement, ClassReference context, String sourceFile) {
-    // For inline frames we do not have the class element associated with it.
+      RetraceClassResult.Element classElement,
+      ClassReference context,
+      String sourceFile,
+      RetraceApi retracer) {
+    // If no context is specified always retrace using the found class element.
     if (context == null) {
       return classElement.retraceSourceFile(sourceFile);
     }
     if (context.equals(classElement.getClassReference())) {
       return classElement.retraceSourceFile(sourceFile);
     } else {
-      return new RetraceSourceFileResult(
-          synthesizeFileName(
-              context.getTypeName(),
-              classElement.getClassReference().getTypeName(),
-              sourceFile,
-              true),
-          true);
+      RetraceClassResult contextClassResult = retracer.retrace(context);
+      assert !contextClassResult.isAmbiguous();
+      if (contextClassResult.hasRetraceResult()) {
+        Box<RetraceSourceFileResult> retraceSourceFile = new Box<>();
+        contextClassResult.forEach(
+            element -> retraceSourceFile.set(element.retraceSourceFile(sourceFile)));
+        return retraceSourceFile.get();
+      } else {
+        return new RetraceSourceFileResult(
+            synthesizeFileName(
+                context.getTypeName(),
+                classElement.getClassReference().getTypeName(),
+                sourceFile,
+                true),
+            true);
+      }
     }
   }
 
