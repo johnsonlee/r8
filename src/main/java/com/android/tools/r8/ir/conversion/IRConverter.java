@@ -9,6 +9,7 @@ import static com.android.tools.r8.ir.desugar.InterfaceMethodRewriter.Flavor.Inc
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.Code;
@@ -24,6 +25,7 @@ import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.TypeChecker;
+import com.android.tools.r8.ir.analysis.VerifyTypesHelper;
 import com.android.tools.r8.ir.analysis.constant.SparseConditionalConstantPropagation;
 import com.android.tools.r8.ir.analysis.fieldaccess.FieldAccessAnalysis;
 import com.android.tools.r8.ir.analysis.fieldaccess.TrivialFieldAccessReprocessor;
@@ -44,6 +46,7 @@ import com.android.tools.r8.ir.desugar.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.ir.desugar.D8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter.Mode;
+import com.android.tools.r8.ir.desugar.DesugaredLibraryConfiguration;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter.Flavor;
@@ -310,7 +313,7 @@ public class IRConverter {
       }
       this.devirtualizer =
           options.enableDevirtualization ? new Devirtualizer(appViewWithLiveness) : null;
-      this.typeChecker = new TypeChecker(appViewWithLiveness);
+      this.typeChecker = new TypeChecker(appViewWithLiveness, VerifyTypesHelper.create(appView));
       this.d8NestBasedAccessDesugaring = null;
       this.serviceLoaderRewriter =
           options.enableServiceLoaderRewriting
@@ -523,6 +526,9 @@ public class IRConverter {
       return;
     }
     checkPrefixMerging(method);
+    if (!needsIRConversion(definition.getCode(), method)) {
+      return;
+    }
     if (options.isGeneratingClassFiles()
         || !(options.passthroughDexCode && definition.getCode().isDexCode())) {
       // We do not process in call graph order, so anything could be a leaf.
@@ -534,6 +540,35 @@ public class IRConverter {
     if (!options.isGeneratingClassFiles()) {
       updateHighestSortingStrings(definition);
     }
+  }
+
+  private boolean needsIRConversion(Code code, ProgramMethod method) {
+    if (options.isDesugaredLibraryCompilation()) {
+      // TODO(b/169035524): Create method for evaluating if a code object needs rewriting for
+      // library desugaring.
+      return true;
+    }
+    if (options.desugaredLibraryConfiguration != DesugaredLibraryConfiguration.empty()) {
+      // TODO(b/169035524): Create method for evaluating if a code object needs rewriting for
+      // library desugaring.
+      return true;
+    }
+
+    if (!options.cfToCfDesugar) {
+      return true;
+    }
+    if (method.getHolder().isInANest()) {
+      return true;
+    }
+
+    NeedsIRDesugarUseRegistry useRegistry =
+        new NeedsIRDesugarUseRegistry(appView, backportedMethodRewriter);
+    method.registerCodeReferences(useRegistry);
+
+    if (useRegistry.needsDesugaring()) {
+      return true;
+    }
+    return false;
   }
 
   private void checkPrefixMerging(ProgramMethod method) {
@@ -1066,6 +1101,14 @@ public class IRConverter {
           method.toSourceString(),
           logCode(options, method.getDefinition()));
     }
+    boolean didDesugar = desugar(method);
+    if (Log.ENABLED && didDesugar) {
+      Log.debug(
+          getClass(),
+          "Desugared code for %s:\n%s",
+          method.toSourceString(),
+          logCode(options, method.getDefinition()));
+    }
     if (options.testing.hookInIrConversion != null) {
       options.testing.hookInIrConversion.run();
     }
@@ -1079,6 +1122,21 @@ public class IRConverter {
       return Timing.empty();
     }
     return optimize(code, feedback, methodProcessor, methodProcessingId);
+  }
+
+  private boolean desugar(ProgramMethod method) {
+    if (options.desugarState != DesugarState.ON) {
+      return false;
+    }
+    if (!method.getDefinition().getCode().isCfCode()) {
+      return false;
+    }
+    boolean didDesugar = false;
+    if (lambdaRewriter != null) {
+      AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
+      didDesugar |= lambdaRewriter.desugarLambdas(method, appInfo) > 0;
+    }
+    return didDesugar;
   }
 
   // TODO(b/140766440): Convert all sub steps an implementer of CodeOptimization
@@ -1128,13 +1186,6 @@ public class IRConverter {
     assert !method.isProcessed()
         || !appView.enableWholeProgramOptimizations()
         || !appView.appInfo().withLiveness().neverReprocess.contains(method.method);
-
-    if (!method.isProcessed() && lambdaRewriter != null) {
-      timing.begin("Desugar lambdas");
-      lambdaRewriter.desugarLambdas(code);
-      timing.end();
-      assert code.isConsistentSSA();
-    }
 
     if (lambdaMerger != null) {
       timing.begin("Merge lambdas");

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.maindexlist;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.ZIP_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.withNativeFileSeparators;
@@ -20,6 +21,7 @@ import com.android.tools.r8.GenerateMainDexListCommand;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompilerBuilder;
+import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ir.desugar.LambdaRewriter;
@@ -46,13 +48,42 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
+@RunWith(Parameterized.class)
 public class MainDexTracingTest extends TestBase {
 
   private static final String EXAMPLE_BUILD_DIR = ToolHelper.EXAMPLES_BUILD_DIR;
   private static final String EXAMPLE_O_BUILD_DIR = ToolHelper.EXAMPLES_ANDROID_O_BUILD_DIR;
   private static final String EXAMPLE_SRC_DIR = ToolHelper.EXAMPLES_DIR;
   private static final String EXAMPLE_O_SRC_DIR = ToolHelper.EXAMPLES_ANDROID_O_DIR;
+
+  @Parameters(name = "{0}, {1}")
+  public static List<Object[]> data() {
+    return buildParameters(getTestParameters().withNoneRuntime().build(), Backend.values());
+  }
+
+  private final Backend backend;
+
+  public MainDexTracingTest(TestParameters parameters, Backend backend) {
+    parameters.assertNoneRuntime();
+    this.backend = backend;
+  }
+
+  private Path getInputJar(Path cfJar) throws Exception {
+    if (backend == Backend.CF) {
+      return cfJar;
+    }
+    return testForD8()
+        .setIntermediate(true)
+        .addProgramFiles(cfJar)
+        .setMinApi(AndroidApiLevel.K)
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.K))
+        .compile()
+        .writeToZip();
+  }
 
   @Test
   public void traceMainDexList001_whyareyoukeeping() throws Throwable {
@@ -294,7 +325,7 @@ public class MainDexTracingTest extends TestBase {
       throws Throwable {
     Path out = temp.getRoot().toPath().resolve(testName + ZIP_EXTENSION);
 
-    Path inputJar = Paths.get(buildDir, packageName + JAR_EXTENSION);
+    Path inputJar = getInputJar(Paths.get(buildDir, packageName + JAR_EXTENSION));
     // Build main-dex list using GenerateMainDexList and test the output from run.
     GenerateMainDexListCommand.Builder mdlCommandBuilder = GenerateMainDexListCommand.builder();
     GenerateMainDexListCommand mdlCommand = mdlCommandBuilder
@@ -335,14 +366,22 @@ public class MainDexTracingTest extends TestBase {
         .addKeepRules("-keepattributes *Annotation*")
         .addMainDexRuleFiles(mainDexRules)
         .apply(configuration)
-        .allowDiagnosticWarningMessages()
         .assumeAllMethodsMayHaveSideEffects()
         .setMinApi(minSdk)
         .noMinification()
         .noTreeShaking()
         .setMainDexListConsumer(ToolHelper.consumeString(r8MainDexListOutput::set))
-        .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
+        .allowDiagnosticMessages()
+        .compileWithExpectedDiagnostics(
+            diagnostics -> {
+              diagnostics.assertNoInfos().assertNoErrors();
+              if (backend == Backend.CF) {
+                diagnostics.assertWarningsMatch(
+                    diagnosticMessage(equalTo("Resource 'META-INF/MANIFEST.MF' already exists.")));
+              } else {
+                diagnostics.assertNoWarnings();
+              }
+            })
         .writeToZip(out);
 
     List<String> r8MainDexList =
@@ -371,9 +410,16 @@ public class MainDexTracingTest extends TestBase {
         if (mainDexGeneratorMainDexList.size() <= i - nonLambdaOffset) {
           fail("Main dex list generator is missing '" + reference + "'");
         }
-        checkSameMainDexEntry(reference, mainDexGeneratorMainDexList.get(i - nonLambdaOffset));
-        checkSameMainDexEntry(
-            reference, mainDexGeneratorMainDexListFromConsumer.get(i - nonLambdaOffset));
+        String fromList = mainDexGeneratorMainDexList.get(i - nonLambdaOffset);
+        String fromConsumer = mainDexGeneratorMainDexListFromConsumer.get(i - nonLambdaOffset);
+        if (isLambda(fromList)) {
+          assertEquals(Backend.DEX, backend);
+          assertEquals(fromList, fromConsumer);
+          nonLambdaOffset--;
+        } else {
+          checkSameMainDexEntry(reference, fromList);
+          checkSameMainDexEntry(reference, fromConsumer);
+        }
       } else {
         nonLambdaOffset++;
       }

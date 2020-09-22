@@ -23,6 +23,7 @@ import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.ProguardClassFilter;
 import com.android.tools.r8.utils.ThreadUtils;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -143,7 +144,8 @@ class IdentifierMinifier {
     if (staticValue instanceof DexItemBasedValueString) {
       DexItemBasedValueString cnst = (DexItemBasedValueString) staticValue;
       DexString replacement =
-          cnst.getNameComputationInfo().computeNameFor(cnst.getValue(), appView, lens);
+          cnst.getNameComputationInfo()
+              .computeNameFor(cnst.getValue(), appView, appView.graphLens(), lens);
       encodedField.setStaticValue(new DexValueString(replacement));
     }
   }
@@ -158,7 +160,8 @@ class IdentifierMinifier {
         if (instruction.isDexItemBasedConstString()) {
           DexItemBasedConstString cnst = instruction.asDexItemBasedConstString();
           DexString replacement =
-              cnst.getNameComputationInfo().computeNameFor(cnst.getItem(), appView, lens);
+              cnst.getNameComputationInfo()
+                  .computeNameFor(cnst.getItem(), appView, appView.graphLens(), lens);
           ConstString constString = new ConstString(cnst.AA, replacement);
           constString.setOffset(instruction.getOffset());
           instructions[i] = constString;
@@ -166,15 +169,23 @@ class IdentifierMinifier {
       }
     } else {
       assert code.isCfCode();
-      List<CfInstruction> instructions = code.asCfCode().instructions;
+      List<CfInstruction> instructions = code.asCfCode().getInstructions();
+      List<CfInstruction> newInstructions = null;
       for (int i = 0; i < instructions.size(); ++i) {
         CfInstruction instruction = instructions.get(i);
         if (instruction.isDexItemBasedConstString()) {
           CfDexItemBasedConstString cnst = instruction.asDexItemBasedConstString();
           DexString replacement =
-              cnst.getNameComputationInfo().computeNameFor(cnst.getItem(), appView, lens);
-          instructions.set(i, new CfConstString(replacement));
+              cnst.getNameComputationInfo()
+                  .computeNameFor(cnst.getItem(), appView, appView.graphLens(), lens);
+          if (newInstructions == null) {
+            newInstructions = new ArrayList<>(instructions);
+          }
+          newInstructions.set(i, new CfConstString(replacement));
         }
+      }
+      if (newInstructions != null) {
+        code.asCfCode().setInstructions(newInstructions);
       }
     }
   }
