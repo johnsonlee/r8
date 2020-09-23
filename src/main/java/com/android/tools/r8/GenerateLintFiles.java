@@ -144,7 +144,9 @@ public class GenerateLintFiles {
               DexAnnotationSet.empty(),
               ParameterAnnotationsList.empty(),
               code,
-              50);
+              false,
+              50,
+              false);
       if (method.isStatic() || method.isDirectMethod()) {
         directMethods.add(throwingMethod);
       } else {

@@ -15,6 +15,7 @@ import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.GenerateMainDexListRunResult;
+import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -119,9 +120,6 @@ public class BackportMainDexTest extends TestBase {
     Path out =
         testForD8()
             .addProgramClasses(CLASSES)
-            // Setting intermediate will annotate synthetics, which should not cause types in those
-            // to become main-dex included.
-            .setIntermediate(true)
             .setMinApi(parameters.getApiLevel())
             .compile()
             .writeToZip();
@@ -136,11 +134,61 @@ public class BackportMainDexTest extends TestBase {
   }
 
   @Test
+  public void testMainDexTracingDexIntermediates() throws Exception {
+    assumeTrue(parameters.isDexRuntime());
+    Path out =
+        testForD8()
+            .addProgramClasses(CLASSES)
+            // Setting intermediate will annotate synthetics, which should not cause types in those
+            // to become main-dex included.
+            .setIntermediate(true)
+            .setMinApi(parameters.getApiLevel())
+            .compile()
+            .writeToZip();
+    GenerateMainDexListRunResult mainDexListFromDex =
+        traceMainDex(Collections.emptyList(), Collections.singleton(out));
+    // Compiling in intermediate will not share the synthetics so there is one per call site.
+    assertEquals(MAIN_DEX_LIST_CLASSES.size() + 6, mainDexListFromDex.getMainDexList().size());
+  }
+
+  @Test
   public void testD8() throws Exception {
     assumeTrue(parameters.isDexRuntime());
     MainDexConsumer mainDexConsumer = new MainDexConsumer();
     testForD8(parameters.getBackend())
         .addProgramClasses(CLASSES)
+        .setMinApi(parameters.getApiLevel())
+        .addMainDexListClasses(MiniAssert.class, TestClass.class, User2.class)
+        .setProgramConsumer(mainDexConsumer)
+        .compile()
+        .inspect(this::checkExpectedSynthetics)
+        .run(parameters.getRuntime(), TestClass.class, getRunArgs())
+        .assertSuccessWithOutput(EXPECTED);
+    checkMainDex(mainDexConsumer);
+  }
+
+  @Test
+  public void testD8FilePerClassFile() throws Exception {
+    runD8FilePerMode(OutputMode.DexFilePerClassFile);
+  }
+
+  @Test
+  public void testD8FilePerClass() throws Exception {
+    runD8FilePerMode(OutputMode.DexFilePerClass);
+  }
+
+  private void runD8FilePerMode(OutputMode outputMode) throws Exception {
+    assumeTrue(parameters.isDexRuntime());
+    Path perClassOutput =
+        testForD8(parameters.getBackend())
+            .setOutputMode(outputMode)
+            .addProgramClasses(CLASSES)
+            .setMinApi(parameters.getApiLevel())
+            .compile()
+            .writeToZip();
+    MainDexConsumer mainDexConsumer = new MainDexConsumer();
+    testForD8()
+        .addProgramFiles(perClassOutput)
         .setMinApi(parameters.getApiLevel())
         .addMainDexListClasses(MiniAssert.class, TestClass.class, User2.class)
         .setProgramConsumer(mainDexConsumer)

@@ -139,6 +139,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
   public final DexMethod method;
   public final MethodAccessFlags accessFlags;
+  public final boolean deprecated;
   public ParameterAnnotationsList parameterAnnotationsList;
   private Code code;
   // TODO(b/128967328): towards finer-grained inlining constraints,
@@ -227,7 +228,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       DexAnnotationSet annotations,
       ParameterAnnotationsList parameterAnnotationsList,
       Code code) {
-    this(method, accessFlags, annotations, parameterAnnotationsList, code, -1);
+    this(method, accessFlags, annotations, parameterAnnotationsList, code, false, -1);
   }
 
   public DexEncodedMethod(
@@ -236,8 +237,27 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       DexAnnotationSet annotations,
       ParameterAnnotationsList parameterAnnotationsList,
       Code code,
+      boolean d8R8Synthesized) {
+    this(method, accessFlags, annotations, parameterAnnotationsList, code, d8R8Synthesized, -1);
+  }
+
+  public DexEncodedMethod(
+      DexMethod method,
+      MethodAccessFlags accessFlags,
+      DexAnnotationSet annotations,
+      ParameterAnnotationsList parameterAnnotationsList,
+      Code code,
+      boolean d8R8Synthesized,
       int classFileVersion) {
-    this(method, accessFlags, annotations, parameterAnnotationsList, code, classFileVersion, false);
+    this(
+        method,
+        accessFlags,
+        annotations,
+        parameterAnnotationsList,
+        code,
+        d8R8Synthesized,
+        classFileVersion,
+        false);
   }
 
   public DexEncodedMethod(
@@ -246,21 +266,13 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       DexAnnotationSet annotations,
       ParameterAnnotationsList parameterAnnotationsList,
       Code code,
-      boolean d8R8Synthesized) {
-    this(method, accessFlags, annotations, parameterAnnotationsList, code, -1, d8R8Synthesized);
-  }
-
-  public DexEncodedMethod(
-      DexMethod method,
-      MethodAccessFlags accessFlags,
-      DexAnnotationSet annotations,
-      ParameterAnnotationsList parameterAnnotationsList,
-      Code code,
+      boolean d8R8Synthesized,
       int classFileVersion,
-      boolean d8R8Synthesized) {
+      boolean deprecated) {
     super(annotations);
     this.method = method;
     this.accessFlags = accessFlags;
+    this.deprecated = deprecated;
     this.parameterAnnotationsList = parameterAnnotationsList;
     this.code = code;
     this.classFileVersion = classFileVersion;
@@ -268,6 +280,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     assert accessFlags != null;
     assert code == null || !shouldNotHaveCode();
     assert parameterAnnotationsList != null;
+  }
+
+  public boolean isDeprecated() {
+    return deprecated;
   }
 
   public void hashSyntheticContent(Hasher hasher) {
@@ -1511,8 +1527,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
               annotations,
               parameterAnnotations,
               code,
-              classFileVersion,
-              d8R8Synthesized);
+              d8R8Synthesized,
+              classFileVersion);
       result.setKotlinMemberInfo(kotlinMemberInfo);
       result.compilationState = compilationState;
       result.optimizationInfo = optimizationInfo;
