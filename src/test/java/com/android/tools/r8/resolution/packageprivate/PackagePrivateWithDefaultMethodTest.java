@@ -5,9 +5,7 @@
 package com.android.tools.r8.resolution.packageprivate;
 
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
@@ -29,10 +27,7 @@ import com.android.tools.r8.resolution.packageprivate.a.NonAbstract;
 import com.android.tools.r8.resolution.packageprivate.a.NonAbstractExtendingA;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.transformers.ClassTransformer;
-import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -75,13 +70,7 @@ public class PackagePrivateWithDefaultMethodTest extends TestBase {
     DexProgramClass context =
         appView.definitionForProgramType(buildType(A.class, appInfo.dexItemFactory()));
     LookupResult lookupResult = resolutionResult.lookupVirtualDispatchTargets(context, appInfo);
-    assertTrue(lookupResult.isLookupResultSuccess());
-    Set<String> targets = new HashSet<>();
-    lookupResult.forEach(
-        target -> targets.add(target.getDefinition().qualifiedName()), lambda -> fail());
-    // TODO(b/148591377): The set should be empty.
-    ImmutableSet<String> expected = ImmutableSet.of(Abstract.class.getTypeName() + ".foo");
-    assertEquals(expected, targets);
+    assertTrue(lookupResult.isLookupResultFailure());
   }
 
   @Test

@@ -320,7 +320,11 @@ public class MemberRebindingAnalysis {
     for (ProgramMethod context : contexts) {
       boolean inaccessibleInContext =
           AccessControl.isFieldAccessible(
-                  resolvedField, resolutionResult.getResolvedHolder(), context, appView)
+                  resolvedField,
+                  resolutionResult.getResolvedHolder(),
+                  resolutionResult.getResolvedHolder(),
+                  context,
+                  appView)
               .isPossiblyFalse();
       if (inaccessibleInContext) {
         accessibleInAllContexts = false;

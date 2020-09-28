@@ -37,43 +37,53 @@ public class AccessControl {
 
   public static OptionalBool isMethodAccessible(
       DexEncodedMethod method,
-      DexClass holder,
+      DexClass resolvedHolder,
+      DexClass initialResolutionHolder,
       ProgramMethod context,
       AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return isMethodAccessible(method, holder, context.getHolder(), appView.appInfo());
+    return isMethodAccessible(
+        method, resolvedHolder, initialResolutionHolder, context.getHolder(), appView.appInfo());
   }
 
   public static OptionalBool isMethodAccessible(
       DexEncodedMethod method,
-      DexClass holder,
+      DexClass resolvedHolder,
+      DexClass initialResolutionHolder,
       DexProgramClass context,
       AppInfoWithClassHierarchy appInfo) {
-    return isMemberAccessible(method.accessFlags, holder, context, appInfo);
+    return isMemberAccessible(
+        method.accessFlags, resolvedHolder, initialResolutionHolder, context, appInfo);
   }
 
   public static OptionalBool isFieldAccessible(
       DexEncodedField field,
-      DexClass holder,
+      DexClass resolvedHolder,
+      DexClass initialResolutionHolder,
       ProgramMethod context,
       AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return isFieldAccessible(field, holder, context.getHolder(), appView.appInfo());
+    return isFieldAccessible(
+        field, resolvedHolder, initialResolutionHolder, context.getHolder(), appView.appInfo());
   }
 
   public static OptionalBool isFieldAccessible(
       DexEncodedField field,
-      DexClass holder,
+      DexClass resolvedHolder,
+      DexClass initialResolutionHolder,
       DexProgramClass context,
       AppInfoWithClassHierarchy appInfo) {
-    return isMemberAccessible(field.accessFlags, holder, context, appInfo);
+    return isMemberAccessible(
+        field.accessFlags, resolvedHolder, initialResolutionHolder, context, appInfo);
   }
 
   private static OptionalBool isMemberAccessible(
       AccessFlags<?> memberFlags,
-      DexClass holder,
+      DexClass resolvedHolder,
+      DexClass initialResolutionHolder,
       DexProgramClass context,
       AppInfoWithClassHierarchy appInfo) {
     OptionalBool classAccessibility =
-        isClassAccessible(holder, context, appInfo.options().featureSplitConfiguration);
+        isClassAccessible(
+            initialResolutionHolder, context, appInfo.options().featureSplitConfiguration);
     if (classAccessibility.isFalse()) {
       return OptionalBool.FALSE;
     }
@@ -81,15 +91,16 @@ public class AccessControl {
       return classAccessibility;
     }
     if (memberFlags.isPrivate()) {
-      if (!isNestMate(holder, context)) {
+      if (!isNestMate(resolvedHolder, context)) {
         return OptionalBool.FALSE;
       }
       return classAccessibility;
     }
-    if (holder.getType().isSamePackage(context.getType())) {
+    if (resolvedHolder.getType().isSamePackage(context.getType())) {
       return classAccessibility;
     }
-    if (memberFlags.isProtected() && appInfo.isSubtype(context.getType(), holder.getType())) {
+    if (memberFlags.isProtected()
+        && appInfo.isSubtype(context.getType(), resolvedHolder.getType())) {
       return classAccessibility;
     }
     return OptionalBool.FALSE;

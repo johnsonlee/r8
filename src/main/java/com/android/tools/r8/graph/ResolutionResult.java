@@ -136,6 +136,10 @@ public abstract class ResolutionResult {
           || initialResolutionHolder.type == resolvedMethod.holder();
     }
 
+    public DexClass getInitialResolutionHolder() {
+      return initialResolutionHolder;
+    }
+
     public DexClass getResolvedHolder() {
       return resolvedHolder;
     }
@@ -162,7 +166,7 @@ public abstract class ResolutionResult {
     public OptionalBool isAccessibleFrom(
         DexProgramClass context, AppInfoWithClassHierarchy appInfo) {
       return AccessControl.isMethodAccessible(
-          resolvedMethod, initialResolutionHolder, context, appInfo);
+          resolvedMethod, resolvedHolder, initialResolutionHolder, context, appInfo);
     }
 
     @Override
