@@ -895,6 +895,10 @@ public class AndroidApp {
       return this;
     }
 
+    public Builder addClassProgramData(byte[]... data) {
+      return addClassProgramData(Arrays.asList(data));
+    }
+
     /**
      * Add Java-bytecode program data.
      */

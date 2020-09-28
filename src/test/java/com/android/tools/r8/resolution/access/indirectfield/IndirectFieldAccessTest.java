@@ -57,12 +57,14 @@ public class IndirectFieldAccessTest extends TestBase {
             // Reflecting on B.class.getField("f") will give A.f, so manually create the reference.
             Reference.field(Reference.classFromClass(B.class), "f", Reference.INT),
             appInfo.dexItemFactory());
+    DexProgramClass resolvedHolder =
+        appInfo.definitionFor(buildType(A.class, appInfo.dexItemFactory())).asProgramClass();
     DexClass initialResolutionHolder = appInfo.definitionFor(f.holder);
     DexEncodedField resolutionTarget = appInfo.resolveField(f);
     // TODO(b/145723539): Test access via the resolution result once possible.
     assertTrue(
         AccessControl.isFieldAccessible(
-            resolutionTarget, initialResolutionHolder, cClass, appInfo));
+            resolutionTarget, resolvedHolder, initialResolutionHolder, cClass, appInfo));
   }
 
   @Test

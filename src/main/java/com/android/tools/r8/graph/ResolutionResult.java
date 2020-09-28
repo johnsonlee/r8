@@ -118,7 +118,7 @@ public abstract class ResolutionResult {
     @Override
     public boolean isAccessibleFrom(DexProgramClass context, AppInfoWithSubtyping appInfo) {
       return AccessControl.isMethodAccessible(
-          resolvedMethod, initialResolutionHolder, context, appInfo);
+          resolvedMethod, resolvedHolder, initialResolutionHolder, context, appInfo);
     }
 
     @Override

@@ -2054,7 +2054,7 @@ public class Enqueuer {
     if (contextOrNull != null
         && !resolution.isUnresolved()
         && !AccessControl.isMethodAccessible(
-            resolution.method, holder, contextOrNull.holder, appInfo)) {
+            resolution.method, resolution.holder, holder, contextOrNull.holder, appInfo)) {
       // Not accessible from this context, so this call will cause a runtime exception.
       // Note that the resolution is not cached, as another call context may be valid.
       return;

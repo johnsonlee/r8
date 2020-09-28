@@ -20,41 +20,46 @@ public class AccessControl {
 
   public static boolean isMethodAccessible(
       DexEncodedMethod method,
-      DexClass holder,
+      DexClass resolvedHolder,
+      DexClass initialResolutionHolder,
       DexProgramClass context,
       AppInfoWithSubtyping appInfo) {
-    return isMemberAccessible(method.accessFlags, holder, context, appInfo);
+    return isMemberAccessible(
+        method.accessFlags, resolvedHolder, initialResolutionHolder, context, appInfo);
   }
 
   public static boolean isFieldAccessible(
       DexEncodedField field,
-      DexClass holder,
+      DexClass resolvedHolder,
+      DexClass initialResolutionHolder,
       DexProgramClass context,
       AppInfoWithSubtyping appInfo) {
-    return isMemberAccessible(field.accessFlags, holder, context, appInfo);
+    return isMemberAccessible(
+        field.accessFlags, resolvedHolder, initialResolutionHolder, context, appInfo);
   }
 
   private static boolean isMemberAccessible(
       AccessFlags<?> memberFlags,
-      DexClass holder,
+      DexClass resolvedHolder,
+      DexClass initialResolutionHolder,
       DexProgramClass context,
       AppInfoWithSubtyping appInfo) {
-    if (!isClassAccessible(holder, context)) {
+    if (!isClassAccessible(initialResolutionHolder, context)) {
       return false;
     }
     if (memberFlags.isPublic()) {
       return true;
     }
     if (memberFlags.isPrivate()) {
-      return isNestMate(holder, context);
+      return isNestMate(resolvedHolder, context);
     }
-    if (holder.getType().isSamePackage(context.getType())) {
+    if (resolvedHolder.getType().isSamePackage(context.getType())) {
       return true;
     }
     if (!memberFlags.isProtected()) {
       return false;
     }
-    return appInfo.isSubtype(context.getType(), holder.getType());
+    return appInfo.isSubtype(context.getType(), resolvedHolder.getType());
   }
 
   private static boolean isNestMate(DexClass clazz, DexProgramClass context) {

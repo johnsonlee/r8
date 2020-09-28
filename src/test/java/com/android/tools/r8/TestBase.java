@@ -234,6 +234,11 @@ public class TestBase {
     return ClassFileTransformer.create(clazz);
   }
 
+  public static ClassFileTransformer transformer(Path path, ClassReference classReference)
+      throws IOException {
+    return ClassFileTransformer.create(Files.readAllBytes(path), classReference);
+  }
+
   public static ClassFileTransformer transformer(byte[] bytes, ClassReference classReference) {
     return ClassFileTransformer.create(bytes, classReference);
   }
@@ -425,6 +430,10 @@ public class TestBase {
   protected static AndroidApp readClasses(
       List<Class<?>> programClasses, List<Class<?>> libraryClasses) throws IOException {
     return buildClasses(programClasses, libraryClasses).build();
+  }
+
+  protected static AndroidApp.Builder buildClasses() throws IOException {
+    return buildClasses(Collections.emptyList());
   }
 
   protected static AndroidApp.Builder buildClasses(Collection<Class<?>> programClasses)
@@ -629,6 +638,13 @@ public class TestBase {
         buildType(method.getHolderClass(), factory),
         buildProto(method.getReturnType(), method.getFormalTypes(), factory),
         method.getMethodName());
+  }
+
+  protected static DexMethod buildNullaryVoidMethod(
+      Class<?> clazz, String name, DexItemFactory factory) {
+    return buildMethod(
+        Reference.method(Reference.classFromClass(clazz), name, Collections.emptyList(), null),
+        factory);
   }
 
   protected static DexProto buildProto(
