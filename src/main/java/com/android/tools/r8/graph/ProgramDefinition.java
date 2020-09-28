@@ -6,6 +6,8 @@ package com.android.tools.r8.graph;
 
 public interface ProgramDefinition {
 
+  DexProgramClass getContextClass();
+
   DexType getContextType();
 
   DexDefinition getDefinition();

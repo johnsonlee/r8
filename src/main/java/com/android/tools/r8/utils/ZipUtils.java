@@ -24,12 +24,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -75,19 +80,35 @@ public class ZipUtils {
   }
 
   public static void zip(Path zipFile, Path inputDirectory) throws IOException {
+    List<Path> files =
+        Files.walk(inputDirectory)
+            .filter(path -> !Files.isDirectory(path))
+            .collect(Collectors.toList());
+    zip(zipFile, inputDirectory, files);
+  }
+
+  public static void zip(Path zipFile, Path basePath, Collection<Path> filesToZip)
+      throws IOException {
     try (ZipOutputStream stream =
         new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(zipFile)))) {
-      List<Path> files =
-          Files.walk(inputDirectory)
-              .filter(path -> !Files.isDirectory(path))
-              .collect(Collectors.toList());
-      for (Path path : files) {
-        ZipEntry zipEntry = new ZipEntry(inputDirectory.relativize(path).toString());
+      for (Path path : filesToZip) {
+        ZipEntry zipEntry =
+            new ZipEntry(
+                StreamSupport.stream(
+                        Spliterators.spliteratorUnknownSize(
+                            basePath.relativize(path).iterator(), Spliterator.ORDERED),
+                        false)
+                    .map(Path::toString)
+                    .collect(Collectors.joining("/")));
         stream.putNextEntry(zipEntry);
         Files.copy(path, stream);
         stream.closeEntry();
       }
     }
+  }
+
+  public static void zip(Path zipFile, Path basePath, Path... filesToZip) throws IOException {
+    zip(zipFile, basePath, Arrays.asList(filesToZip));
   }
 
   public static List<File> unzip(String zipFile, File outDirectory) throws IOException {

@@ -9,6 +9,8 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.horizontalclassmerging.policies.DontMergeSynchronizedClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoAnnotations;
+import com.android.tools.r8.horizontalclassmerging.policies.NoClassesOrMembersWithAnnotations;
+import com.android.tools.r8.horizontalclassmerging.policies.NoClassesWithInterfaces;
 import com.android.tools.r8.horizontalclassmerging.policies.NoFields;
 import com.android.tools.r8.horizontalclassmerging.policies.NoInnerClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoInterfaces;
@@ -17,6 +19,7 @@ import com.android.tools.r8.horizontalclassmerging.policies.NoRuntimeTypeChecks;
 import com.android.tools.r8.horizontalclassmerging.policies.NoStaticClassInitializer;
 import com.android.tools.r8.horizontalclassmerging.policies.NotEntryPoint;
 import com.android.tools.r8.horizontalclassmerging.policies.NotMatchedByNoHorizontalClassMerging;
+import com.android.tools.r8.horizontalclassmerging.policies.NotVerticallyMergedIntoSubtype;
 import com.android.tools.r8.horizontalclassmerging.policies.PreventChangingVisibility;
 import com.android.tools.r8.horizontalclassmerging.policies.PreventMergeIntoMainDex;
 import com.android.tools.r8.horizontalclassmerging.policies.RespectPackageBoundaries;
@@ -50,10 +53,13 @@ public class HorizontalClassMerger {
             new NoFields(),
             // TODO(b/166071504): Allow merging of classes that implement interfaces.
             new NoInterfaces(),
+            new NoClassesWithInterfaces(),
             new NoAnnotations(),
+            new NoClassesOrMembersWithAnnotations(),
             new NoInnerClasses(),
             new NoStaticClassInitializer(),
             new NoKeepRules(appView),
+            new NotVerticallyMergedIntoSubtype(appView),
             new NoRuntimeTypeChecks(classMergingEnqueuerExtension),
             new NotEntryPoint(appView.dexItemFactory()),
             new PreventMergeIntoMainDex(appView, mainDexTracingResult),
