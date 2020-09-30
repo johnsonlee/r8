@@ -625,7 +625,20 @@ public class CfSourceCode implements SourceCode {
             locals, stack, getCanonicalDebugPositionAtOffset(currentInstructionIndex));
     // Update the incoming state as well with precise information.
     assert incomingState.get(currentBlockIndex) != null;
-    incomingState.put(currentBlockIndex, snapshot);
+    if (isFirstFrameInBlock()) {
+      incomingState.put(currentBlockIndex, snapshot);
+    }
+  }
+
+  private boolean isFirstFrameInBlock() {
+    for (int i = currentBlockIndex; i < currentInstructionIndex; i++) {
+      CfInstruction cfInstruction = code.getInstructions().get(i);
+      if (cfInstruction.isPosition() || cfInstruction.isLabel()) {
+        continue;
+      }
+      return false;
+    }
+    return true;
   }
 
   private DexType convertUninitialized(FrameType type) {
@@ -716,16 +729,17 @@ public class CfSourceCode implements SourceCode {
           return localVariablesWithRegister.get(0).getLocal().type;
         }
       }
-      appView
-          .options()
-          .reporter
-          .warning(
-              new CfCodeDiagnostics(
-                  origin,
-                  method.getReference(),
-                  "Could not find phi type for register "
-                      + register
-                      + ". This is most likely due to invalid stack maps in input."));
+      // TODO(b/169346184): Delay reporting errors here due to invalid debug info until resolved.
+      // appView
+      //     .options()
+      //     .reporter
+      //     .warning(
+      //         new CfCodeDiagnostics(
+      //             origin,
+      //             method.getReference(),
+      //             "Could not find phi type for register "
+      //                 + register
+      //                 + ". This is most likely due to invalid stack maps in input."));
       return null;
     }
     if (slot.isPrecise()) {

@@ -409,7 +409,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       AppInfoWithLiveness previous,
       DirectMappedDexApplication application,
       Set<DexType> removedClasses,
-      Collection<DexReference> additionalPinnedItems) {
+      Collection<? extends DexReference> additionalPinnedItems) {
     this(
         previous.getSyntheticItems().commitPrunedClasses(application, removedClasses),
         previous.getClassToFeatureSplitMap().withoutPrunedClasses(removedClasses),
@@ -460,7 +460,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   }
 
   private static KeepInfoCollection extendPinnedItems(
-      AppInfoWithLiveness previous, Collection<DexReference> additionalPinnedItems) {
+      AppInfoWithLiveness previous, Collection<? extends DexReference> additionalPinnedItems) {
     if (additionalPinnedItems == null || additionalPinnedItems.isEmpty()) {
       return previous.keepInfo;
     }
@@ -912,6 +912,11 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return keepInfo.getInfo(reference, this).isAccessModificationAllowed(options());
   }
 
+  public boolean isRepackagingAllowed(DexType type) {
+    return options().isRepackagingEnabled()
+        && keepInfo.getClassInfo(type, this).isRepackagingAllowed(options());
+  }
+
   public boolean isPinned(DexReference reference) {
     assert checkIfObsolete();
     return keepInfo.isPinned(reference, this);
@@ -941,7 +946,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   public AppInfoWithLiveness prunedCopyFrom(
       DirectMappedDexApplication application,
       Set<DexType> removedClasses,
-      Collection<DexReference> additionalPinnedItems) {
+      Collection<? extends DexReference> additionalPinnedItems) {
     assert checkIfObsolete();
     if (!removedClasses.isEmpty()) {
       // Rebuild the hierarchy.

@@ -4,6 +4,8 @@
 
 package nesthostexample;
 
+import com.android.tools.r8.NeverInline;
+
 public class NestHostInliningSubclasses {
 
   public static class InnerWithPrivAccess extends NestHostInlining.InnerWithPrivAccess {

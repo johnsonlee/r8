@@ -60,6 +60,7 @@ public class NestClassMergingTest extends TestBase {
 
   @Test
   public void testClassMergeAcrossNestAndNonNest() throws Exception {
+    expectThrowsWithHorizontalClassMerging();
     // Potentially merge classes from a nest with non nest classes.
     testClassMergeAcrossNest(
         new String[] {
@@ -95,7 +96,7 @@ public class NestClassMergingTest extends TestBase {
                   options.enableClassInlining = false;
                   options.enableNestReduction = false;
                 })
-            .enableInliningAnnotations("nesthostexample")
+            .enableInliningAnnotations()
             .addProgramFiles(bothNestsAndOutsideClassToCompile)
             .compile()
             .inspect(NestAttributesUpdateTest::assertNestAttributesCorrect);

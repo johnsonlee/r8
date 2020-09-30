@@ -4,13 +4,18 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary;
 
+import static org.junit.Assert.assertEquals;
+
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
+import java.nio.file.Path;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -28,7 +33,8 @@ public class ConcurrentHashMapSubclassTest extends DesugaredLibraryTestBase {
   @Parameters(name = "{1}, shrinkDesugaredLibrary: {0}")
   public static List<Object[]> data() {
     return buildParameters(
-        BooleanUtils.values(), getTestParameters().withDexRuntimes().withAllApiLevels().build());
+        BooleanUtils.values(),
+        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build());
   }
 
   public ConcurrentHashMapSubclassTest(boolean shrinkDesugaredLibrary, TestParameters parameters) {
@@ -38,6 +44,9 @@ public class ConcurrentHashMapSubclassTest extends DesugaredLibraryTestBase {
 
   @Test
   public void testCustomCollectionD8() throws Exception {
+    expectThrowsWithHorizontalClassMergingIf(
+        shrinkDesugaredLibrary && parameters.getApiLevel().isLessThan(AndroidApiLevel.N));
+    Assume.assumeTrue(parameters.getRuntime().isDex());
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForD8()
         .addInnerClasses(ConcurrentHashMapSubclassTest.class)
@@ -54,7 +63,48 @@ public class ConcurrentHashMapSubclassTest extends DesugaredLibraryTestBase {
   }
 
   @Test
+  public void testCustomCollectionD8CF() throws Exception {
+    KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
+    Path jar =
+        testForD8(Backend.CF)
+            .addInnerClasses(ConcurrentHashMapSubclassTest.class)
+            .setMinApi(parameters.getApiLevel())
+            .enableCoreLibraryDesugaring(parameters.getApiLevel(), keepRuleConsumer)
+            .compile()
+            .writeToZip();
+    String desugaredLibraryKeepRules = "";
+    if (shrinkDesugaredLibrary && keepRuleConsumer.get() != null) {
+      // Collection keep rules is only implemented in the DEX writer.
+      assertEquals(0, keepRuleConsumer.get().length());
+      desugaredLibraryKeepRules = "-keep class * { *; }";
+    }
+    if (parameters.getRuntime().isDex()) {
+      testForD8()
+          .addProgramFiles(jar)
+          .setMinApi(parameters.getApiLevel())
+          .disableDesugaring()
+          .compile()
+          .addDesugaredCoreLibraryRunClassPath(
+              this::buildDesugaredLibrary,
+              parameters.getApiLevel(),
+              desugaredLibraryKeepRules,
+              shrinkDesugaredLibrary)
+          .run(parameters.getRuntime(), Executor.class)
+          .assertSuccessWithOutput(EXPECTED_RESULT);
+    } else {
+      testForJvm()
+          .addProgramFiles(jar)
+          .addRunClasspathFiles(getDesugaredLibraryInCF(parameters, options -> {}))
+          .run(parameters.getRuntime(), Executor.class)
+          .assertSuccessWithOutput(EXPECTED_RESULT);
+    }
+  }
+
+  @Test
   public void testCustomCollectionR8() throws Exception {
+    Assume.assumeTrue(parameters.getRuntime().isDex());
+    expectThrowsWithHorizontalClassMergingIf(
+        shrinkDesugaredLibrary && parameters.getApiLevel().isLessThan(AndroidApiLevel.N));
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForR8(Backend.DEX)
         .addInnerClasses(ConcurrentHashMapSubclassTest.class)

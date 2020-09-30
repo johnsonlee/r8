@@ -6,23 +6,12 @@ package com.android.tools.r8.horizontalclassmerging.policies;
 
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
-import java.util.Collection;
-import java.util.IdentityHashMap;
-import java.util.LinkedList;
-import java.util.Map;
+import com.android.tools.r8.horizontalclassmerging.MultiClassSameReferencePolicy;
 
-public class SameParentClass extends MultiClassPolicy {
+public class SameParentClass extends MultiClassSameReferencePolicy<DexType> {
 
   @Override
-  public Collection<Collection<DexProgramClass>> apply(Collection<DexProgramClass> group) {
-    Map<DexType, Collection<DexProgramClass>> groups = new IdentityHashMap<>();
-    for (DexProgramClass clazz : group) {
-      groups
-          .computeIfAbsent(clazz.superType, ignore -> new LinkedList<DexProgramClass>())
-          .add(clazz);
-    }
-    removeTrivialGroups(groups.values());
-    return groups.values();
+  public DexType getMergeKey(DexProgramClass clazz) {
+    return clazz.superType;
   }
 }

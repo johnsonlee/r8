@@ -6,10 +6,7 @@ package com.android.tools.r8.desugar.desugaredlibrary;
 
 import static org.junit.Assert.assertEquals;
 
-import com.android.tools.r8.CompilationMode;
-import com.android.tools.r8.L8Command;
 import com.android.tools.r8.NeverInline;
-import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.StringResource;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
@@ -139,18 +136,8 @@ public class BufferedReaderTest extends DesugaredLibraryTestBase {
           .assertSuccessWithOutput(expectedOutput());
     } else {
       // Build the desugared library in class file format.
-      Path desugaredLib = temp.newFolder().toPath().resolve("desugar_jdk_libs.jar");
-      L8Command.Builder l8Builder =
-          L8Command.builder()
-              .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
-              .addProgramFiles(ToolHelper.getDesugarJDKLibs())
-              .addProgramFiles(ToolHelper.DESUGAR_LIB_CONVERSIONS)
-              .setMode(CompilationMode.DEBUG)
-              .addDesugaredLibraryConfiguration(
-                  StringResource.fromFile(ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING))
-              .setMinApiLevel(parameters.getApiLevel().getLevel())
-              .setOutput(desugaredLib, OutputMode.ClassFile);
-      ToolHelper.runL8(l8Builder.build(), this::configurationForLibraryCompilation);
+      Path desugaredLib =
+          getDesugaredLibraryInCF(parameters, this::configurationForLibraryCompilation);
 
       // Run on the JVM with desuagred library on classpath.
       testForJvm()
@@ -163,6 +150,8 @@ public class BufferedReaderTest extends DesugaredLibraryTestBase {
 
   @Test
   public void testBufferedReaderD8() throws Exception {
+    expectThrowsWithHorizontalClassMergingIf(
+        shrinkDesugaredLibrary && parameters.getApiLevel().isLessThan(AndroidApiLevel.N));
     Assume.assumeTrue(parameters.getRuntime().isDex());
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForD8()
@@ -191,6 +180,8 @@ public class BufferedReaderTest extends DesugaredLibraryTestBase {
 
   @Test
   public void testBufferedReaderR8() throws Exception {
+    expectThrowsWithHorizontalClassMergingIf(
+        shrinkDesugaredLibrary && parameters.getApiLevel().isLessThan(AndroidApiLevel.N));
     Assume.assumeTrue(parameters.getRuntime().isDex());
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForR8(parameters.getBackend())

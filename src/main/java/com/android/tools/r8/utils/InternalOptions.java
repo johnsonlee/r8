@@ -171,6 +171,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     protoShrinking.enableGeneratedMessageLiteShrinking = true;
     protoShrinking.enableGeneratedMessageLiteBuilderShrinking = true;
     protoShrinking.enableGeneratedExtensionRegistryShrinking = true;
+    protoShrinking.enableEnumLiteProtoShrinking = true;
   }
 
   void disableAllOptimizations() {
@@ -528,6 +529,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   @Override
   public boolean isMinificationEnabled() {
     return isMinifying();
+  }
+
+  @Override
+  public boolean isRepackagingEnabled() {
+    return proguardConfiguration.getPackageObfuscationMode().isSome()
+        && (isShrinking() || isMinifying());
   }
 
   /**
@@ -1107,6 +1114,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean isRepackageClasses() {
       return this == REPACKAGE;
     }
+
+    public boolean isSome() {
+      return !isNone();
+    }
   }
 
   public static class OutlineOptions {
@@ -1176,11 +1187,13 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableGeneratedMessageLiteShrinking = false;
     public boolean enableGeneratedMessageLiteBuilderShrinking = false;
     public boolean traverseOneOfAndRepeatedProtoFields = false;
+    public boolean enableEnumLiteProtoShrinking = false;
 
     public boolean isProtoShrinkingEnabled() {
       return enableGeneratedExtensionRegistryShrinking
           || enableGeneratedMessageLiteShrinking
-          || enableGeneratedMessageLiteBuilderShrinking;
+          || enableGeneratedMessageLiteBuilderShrinking
+          || enableEnumLiteProtoShrinking;
     }
   }
 
@@ -1256,6 +1269,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean assertConsistentRenamingOfSignature = false;
     public boolean allowStaticInterfaceMethodsForPreNApiLevel = false;
     public int verificationSizeLimitInBytesOverride = -1;
+    public boolean forceIRForCfToCfDesugar =
+        System.getProperty("com.android.tools.r8.forceIRForCfToCfDesugar") != null;
 
     // Flag to allow processing of resources in D8. A data resource consumer still needs to be
     // specified.

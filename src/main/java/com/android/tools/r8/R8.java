@@ -410,18 +410,15 @@ public class R8 {
 
           // Recompute the subtyping information.
           Set<DexType> removedClasses = pruner.getRemovedClasses();
-          appView.setAppInfo(
-              appView
-                  .appInfo()
-                  .withLiveness()
-                  .prunedCopyFrom(
-                      prunedApp,
-                      removedClasses,
-                      pruner.getMethodsToKeepForConfigurationDebugging()));
-          appView.setAppServices(appView.appServices().prunedCopy(removedClasses));
+          appView.removePrunedClasses(
+              prunedApp, removedClasses, pruner.getMethodsToKeepForConfigurationDebugging());
           new AbstractMethodRemover(
                   appViewWithLiveness, appViewWithLiveness.appInfo().computeSubtypingInfo())
               .run();
+
+          if (appView.options().protoShrinking().isProtoShrinkingEnabled()) {
+            appView.protoShrinker().enumProtoShrinker.clearDeadEnumLiteMaps();
+          }
 
           AnnotationRemover annotationRemover =
               annotationRemoverBuilder
@@ -571,7 +568,6 @@ public class R8 {
               appView.appInfo().app().asDirect().builder();
           HorizontalClassMergerGraphLens lens = merger.run(appBuilder);
           if (lens != null) {
-            appView.setHorizontallyMergedClasses(lens.getHorizontallyMergedClasses());
             appView.rewriteWithLensAndApplication(lens, appBuilder.build());
           }
           timing.end();
@@ -591,8 +587,6 @@ public class R8 {
       if (options.enableEnumValueOptimization || options.enableEnumUnboxing) {
         appViewWithLiveness.setAppInfo(new EnumValueInfoMapCollector(appViewWithLiveness).run());
       }
-
-      appView.setAppServices(appView.appServices().rewrittenWithLens(appView.graphLens()));
 
       // Collect the already pruned types before creating a new app info without liveness.
       // TODO: we should avoid removing liveness.
@@ -731,14 +725,11 @@ public class R8 {
               ExceptionUtils.withFinishedResourceHandler(
                   options.reporter, options.usageInformationConsumer);
             }
-            appViewWithLiveness.setAppInfo(
-                appViewWithLiveness
-                    .appInfo()
-                    .prunedCopyFrom(
-                        application,
-                        CollectionUtils.mergeSets(prunedTypes, removedClasses),
-                        pruner.getMethodsToKeepForConfigurationDebugging()));
-            appView.setAppServices(appView.appServices().prunedCopy(removedClasses));
+
+            appView.removePrunedClasses(
+                application,
+                CollectionUtils.mergeSets(prunedTypes, removedClasses),
+                pruner.getMethodsToKeepForConfigurationDebugging());
 
             new BridgeHoisting(appViewWithLiveness).run();
 
@@ -779,6 +770,8 @@ public class R8 {
         }
 
         if (appView.options().protoShrinking().isProtoShrinkingEnabled()) {
+          appView.protoShrinker().enumProtoShrinker.verifyDeadEnumLiteMapsAreDead();
+
           IRConverter converter = new IRConverter(appView, timing, null, mainDexTracingResult);
 
           // If proto shrinking is enabled, we need to reprocess every dynamicMethod(). This ensures
@@ -814,8 +807,7 @@ public class R8 {
       appView.setGraphLens(memberRebindingLens);
 
       // Perform repackaging.
-      // TODO(b/165783399): Consider making repacking available without minification.
-      if (options.isMinifying() && options.testing.enableExperimentalRepackaging) {
+      if (options.isRepackagingEnabled() && options.testing.enableExperimentalRepackaging) {
         DirectMappedDexApplication.Builder appBuilder =
             appView.appInfo().app().asDirect().builder();
         // TODO(b/165783399): We need to deal with non-rebound member references in the writer,
