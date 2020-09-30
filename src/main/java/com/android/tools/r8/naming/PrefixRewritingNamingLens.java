@@ -5,13 +5,13 @@
 package com.android.tools.r8.naming;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.InnerClassAttribute;
+import com.android.tools.r8.naming.NamingLens.NonIdentityNamingLens;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.Collections;
 import java.util.HashMap;
@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 // Naming lens for rewriting type prefixes.
-public class PrefixRewritingNamingLens extends NamingLens {
+public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
 
   final NamingLens namingLens;
   final InternalOptions options;
@@ -41,6 +41,7 @@ public class PrefixRewritingNamingLens extends NamingLens {
   }
 
   public PrefixRewritingNamingLens(NamingLens namingLens, AppView<?> appView) {
+    super(appView.dexItemFactory());
     this.appView = appView;
     this.namingLens = namingLens;
     this.options = appView.options();
@@ -69,7 +70,7 @@ public class PrefixRewritingNamingLens extends NamingLens {
   }
 
   @Override
-  public DexString lookupDescriptor(DexType type) {
+  protected DexString internalLookupClassDescriptor(DexType type) {
     DexString renaming = getRenaming(type);
     return renaming != null ? renaming : namingLens.lookupDescriptor(type);
   }
@@ -90,16 +91,6 @@ public class PrefixRewritingNamingLens extends NamingLens {
       return method.name;
     }
     return namingLens.lookupName(method);
-  }
-
-  @Override
-  public DexString lookupMethodName(DexCallSite callSite) {
-    if (callSite.bootstrapMethod.rewrittenTarget != null
-        && isRenamed(callSite.bootstrapMethod.rewrittenTarget.holder)) {
-      // Prefix rewriting does not influence the inner name.
-      return callSite.methodName;
-    }
-    return namingLens.lookupMethodName(callSite);
   }
 
   @Override

@@ -5,20 +5,16 @@
 package com.android.tools.r8.rewrite.serviceloaders;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
-import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import com.android.tools.r8.DataEntryResource;
-import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.rewrite.serviceloaders.MissingServiceImplementationClassTest.Service;
-import com.android.tools.r8.rewrite.serviceloaders.MissingServiceImplementationClassTest.ServiceImpl;
 import com.android.tools.r8.utils.DataResourceConsumerForTesting;
 import com.android.tools.r8.utils.StringUtils;
 import java.util.List;
@@ -60,24 +56,15 @@ public class MissingServiceClassTest extends TestBase {
         .compile()
         .inspectDiagnosticMessages(
             inspector -> {
-              inspector.assertWarningsCount(2);
               inspector.assertAllWarningsMatch(
                   diagnosticMessage(
-                      anyOf(
-                          containsString(
-                              "Unexpected reference to missing service class: "
-                                  + AppServices.SERVICE_DIRECTORY_NAME
-                                  + Service.class.getTypeName()
-                                  + "."),
-                          containsString(
-                              "Unexpected reference to missing service implementation class in "
-                                  + AppServices.SERVICE_DIRECTORY_NAME
-                                  + Service.class.getTypeName()
-                                  + ": "
-                                  + ServiceImpl.class.getTypeName()
-                                  + "."))));
+                      containsString(
+                          "Unexpected reference to missing service class: "
+                              + AppServices.SERVICE_DIRECTORY_NAME
+                              + Service.class.getTypeName()
+                              + ".")));
             })
-        .apply(this::configureRunClasspath)
+        .addRunClasspathClasses(Service.class, ServiceImpl.class)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithEmptyOutput();
 
@@ -89,19 +76,6 @@ public class MissingServiceClassTest extends TestBase {
     assertNotNull(contents);
     assertEquals(1, contents.size());
     assertEquals(ServiceImpl.class.getTypeName(), contents.get(0));
-  }
-
-  private void configureRunClasspath(R8TestCompileResult compileResult) throws Exception {
-    if (parameters.isCfRuntime()) {
-      compileResult.addRunClasspathClasses(Service.class, ServiceImpl.class);
-    } else {
-      compileResult.addRunClasspathFiles(
-          testForD8(temp)
-              .addProgramClasses(Service.class, ServiceImpl.class)
-              .setMinApi(parameters.getApiLevel())
-              .compile()
-              .writeToZip());
-    }
   }
 
   static class TestClass {

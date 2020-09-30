@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -44,11 +45,38 @@ public abstract class NamingLens {
 
   public abstract DexString lookupDescriptor(DexType type);
 
+  public DexString lookupClassDescriptor(DexType type) {
+    assert type.isClassType();
+    return internalLookupClassDescriptor(type);
+  }
+
+  protected abstract DexString internalLookupClassDescriptor(DexType type);
+
   public abstract DexString lookupInnerName(InnerClassAttribute attribute, InternalOptions options);
 
   public abstract DexString lookupName(DexMethod method);
 
-  public abstract DexString lookupMethodName(DexCallSite callSite);
+  public final DexString lookupMethodName(DexCallSite callSite, AppView<?> appView) {
+    if (!appView.appInfo().hasLiveness()) {
+      return callSite.methodName;
+    }
+    Set<DexEncodedMethod> lambdaImplementedMethods =
+        appView.appInfo().withLiveness().lookupLambdaImplementedMethods(callSite);
+    if (lambdaImplementedMethods.isEmpty()) {
+      return callSite.methodName;
+    }
+    DexMethod lambdaImplementedMethodReference =
+        lambdaImplementedMethods.iterator().next().getReference();
+    DexString renamedMethodName =
+        lookupMethod(lambdaImplementedMethodReference, appView.dexItemFactory()).getName();
+    // Verify that all lambda implemented methods are renamed consistently.
+    assert lambdaImplementedMethods.stream()
+        .map(DexEncodedMethod::getReference)
+        .map(reference -> lookupMethod(reference, appView.dexItemFactory()))
+        .map(DexMethod::getName)
+        .allMatch(name -> name == renamedMethodName);
+    return renamedMethodName;
+  }
 
   public abstract DexString lookupName(DexField field);
 
@@ -95,7 +123,7 @@ public abstract class NamingLens {
       return type.replaceBaseType(newBaseType, dexItemFactory);
     }
     assert type.isClassType();
-    return dexItemFactory.createType(lookupDescriptor(type));
+    return dexItemFactory.createType(lookupClassDescriptor(type));
   }
 
   public boolean hasPrefixRewritingLogic() {
@@ -158,7 +186,34 @@ public abstract class NamingLens {
     return true;
   }
 
-  private static class IdentityLens extends NamingLens {
+  public abstract static class NonIdentityNamingLens extends NamingLens {
+
+    private final DexItemFactory dexItemFactory;
+
+    protected NonIdentityNamingLens(DexItemFactory dexItemFactory) {
+      this.dexItemFactory = dexItemFactory;
+    }
+
+    protected DexItemFactory dexItemFactory() {
+      return dexItemFactory;
+    }
+
+    @Override
+    public final DexString lookupDescriptor(DexType type) {
+      if (type.isPrimitiveType() || type.isVoidType() || type.isNullValueType()) {
+        return type.getDescriptor();
+      }
+      if (type.isArrayType()) {
+        DexType baseType = type.toBaseType(dexItemFactory);
+        DexString desc = lookupDescriptor(baseType);
+        return desc.toArrayDescriptor(type.getNumberOfLeadingSquareBrackets(), dexItemFactory);
+      }
+      assert type.isClassType();
+      return lookupClassDescriptor(type);
+    }
+  }
+
+  private static final class IdentityLens extends NamingLens {
 
     private IdentityLens() {
       // Intentionally left empty.
@@ -170,6 +225,11 @@ public abstract class NamingLens {
     }
 
     @Override
+    protected DexString internalLookupClassDescriptor(DexType type) {
+      return type.descriptor;
+    }
+
+    @Override
     public DexString lookupInnerName(InnerClassAttribute attribute, InternalOptions options) {
       return attribute.getInnerName();
     }
@@ -177,11 +237,6 @@ public abstract class NamingLens {
     @Override
     public DexString lookupName(DexMethod method) {
       return method.name;
-    }
-
-    @Override
-    public DexString lookupMethodName(DexCallSite callSite) {
-      return callSite.methodName;
     }
 
     @Override
