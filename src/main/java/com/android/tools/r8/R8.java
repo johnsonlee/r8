@@ -71,12 +71,12 @@ import com.android.tools.r8.naming.ProguardMapSupplier;
 import com.android.tools.r8.naming.SeedMapper;
 import com.android.tools.r8.naming.SourceFileRewriter;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
-import com.android.tools.r8.optimize.BridgeHoisting;
 import com.android.tools.r8.optimize.ClassAndMemberPublicizer;
 import com.android.tools.r8.optimize.MemberRebindingAnalysis;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLensFactory;
 import com.android.tools.r8.optimize.VisibilityBridgeRemover;
+import com.android.tools.r8.optimize.bridgehoisting.BridgeHoisting;
 import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.repackaging.Repackaging;
 import com.android.tools.r8.repackaging.RepackagingLens;
@@ -703,7 +703,7 @@ public class R8 {
                       timing)
                   .withEnumValueInfoMaps(enumValueInfoMapCollection));
           // Rerunning the enqueuer should not give rise to any method rewritings.
-          assert enqueuer.buildGraphLens(appView) == null;
+          assert enqueuer.buildGraphLens() == null;
           appView.withGeneratedMessageLiteBuilderShrinker(
               shrinker ->
                   shrinker.rewriteDeadBuilderReferencesFromDynamicMethods(
@@ -892,12 +892,14 @@ public class R8 {
           || options.getProguardConfiguration().hasApplyMappingFile()) {
         assert appView.rootSet().verifyKeptItemsAreKept(appView);
       }
-      assert appView
-          .graphLens()
-          .verifyMappingToOriginalProgram(
-              appView,
-              new ApplicationReader(inputApp.withoutMainDexList(), options, timing)
-                  .read(executorService));
+
+      assert options.testing.disableMappingToOriginalProgramVerification
+          || appView
+              .graphLens()
+              .verifyMappingToOriginalProgram(
+                  appView,
+                  new ApplicationReader(inputApp.withoutMainDexList(), options, timing)
+                      .read(executorService));
 
       // Report synthetic rules (only for testing).
       // TODO(b/120959039): Move this to being reported through the graph consumer.
@@ -1019,7 +1021,7 @@ public class R8 {
                 options.getProguardConfiguration().getDontWarnPatterns(),
                 executorService,
                 timing));
-    NestedGraphLens lens = enqueuer.buildGraphLens(appView);
+    NestedGraphLens lens = enqueuer.buildGraphLens();
     appView.rewriteWithLens(lens);
     if (InternalOptions.assertionsEnabled()) {
       // Register the dead proto types. These are needed to verify that no new missing types are

@@ -5,8 +5,10 @@ package com.android.tools.r8.graph;
 
 import static com.android.tools.r8.utils.DescriptorUtils.getClassBinaryNameFromDescriptor;
 import static com.android.tools.r8.utils.DescriptorUtils.getDescriptorFromClassBinaryName;
+import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.Reporter;
@@ -14,6 +16,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.reflect.GenericSignatureFormatError;
 import java.nio.CharBuffer;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Internal encoding of the generics signature attribute as defined by JVMS 7 $ 4.3.4.
@@ -216,6 +219,21 @@ public class GenericSignature {
       for (ClassTypeSignature superInterface : superInterfaceSignatures) {
         visitor.visitSuperInterface(superInterface);
       }
+    }
+
+    public String toRenamedString(NamingLens namingLens, Predicate<DexType> isTypeMissing) {
+      if (hasNoSignature()) {
+        return null;
+      }
+      GenericSignaturePrinter genericSignaturePrinter =
+          new GenericSignaturePrinter(namingLens, isTypeMissing);
+      genericSignaturePrinter.visitClassSignature(this);
+      return genericSignaturePrinter.toString();
+    }
+
+    @Override
+    public String toString() {
+      return toRenamedString(NamingLens.getIdentityLens(), alwaysTrue());
     }
   }
 

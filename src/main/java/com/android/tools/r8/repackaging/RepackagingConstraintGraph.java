@@ -54,7 +54,7 @@ public class RepackagingConstraintGraph {
     // package descriptor.
     boolean hasPinnedItem = false;
     for (DexProgramClass clazz : pkg) {
-      boolean isPinned = !appView.appInfo().isRepackagingAllowed(clazz.getType());
+      boolean isPinned = !appView.appInfo().isRepackagingAllowed(clazz);
       Node classNode = createNode(clazz);
       if (isPinned) {
         pinnedNodes.add(classNode);
@@ -135,6 +135,14 @@ public class RepackagingConstraintGraph {
 
     // Trace the type references in the method signature.
     definition.getProto().forEachType(registry::registerTypeReference);
+
+    // Check if this overrides a package-private method.
+    DexProgramClass superClass =
+        appView.programDefinitionFor(method.getHolder().getSuperType(), method.getHolder());
+    if (superClass != null) {
+      registry.registerMemberAccess(
+          appView.appInfo().resolveMethodOn(superClass, method.getReference()));
+    }
 
     // Trace the references in the method and method parameter annotations.
     RepackagingAnnotationTracer annotationTracer =

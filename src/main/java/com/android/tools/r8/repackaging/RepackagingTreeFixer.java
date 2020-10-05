@@ -69,10 +69,11 @@ public class RepackagingTreeFixer {
             fixupType(clazz.superType),
             fixupTypeList(clazz.interfaces),
             clazz.getSourceFile(),
-            fixupNestHost(clazz.getNestHost()),
+            fixupNestHost(clazz.getNestHostClassAttribute()),
             fixupNestMemberAttributes(clazz.getNestMembersClassAttributes()),
             fixupEnclosingMethodAttribute(clazz.getEnclosingMethodAttribute()),
             fixupInnerClassAttributes(clazz.getInnerClasses()),
+            clazz.getClassSignature(),
             clazz.annotations(),
             DexEncodedField.EMPTY_ARRAY,
             DexEncodedField.EMPTY_ARRAY,
@@ -196,8 +197,10 @@ public class RepackagingTreeFixer {
         .createMethod(fixupType(method.holder), fixupProto(method.proto), method.name);
   }
 
-  private NestHostClassAttribute fixupNestHost(DexType type) {
-    return type != null ? new NestHostClassAttribute(fixupType(type)) : null;
+  private NestHostClassAttribute fixupNestHost(NestHostClassAttribute nestHostClassAttribute) {
+    return nestHostClassAttribute != null
+        ? new NestHostClassAttribute(fixupType(nestHostClassAttribute.getNestHost()))
+        : null;
   }
 
   private List<NestMemberClassAttribute> fixupNestMemberAttributes(
