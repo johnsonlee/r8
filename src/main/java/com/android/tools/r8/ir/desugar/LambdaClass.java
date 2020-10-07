@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.ir.desugar;
 
+import static com.android.tools.r8.graph.GenericSignature.NO_FIELD_TYPE_SIGNATURE;
+
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
@@ -234,7 +236,7 @@ public final class LambdaClass {
                 Constants.ACC_PUBLIC | Constants.ACC_FINAL, false),
             DexAnnotationSet.empty(),
             ParameterAnnotationsList.empty(),
-            new LambdaMainMethodSynthesizedCode(this, mainMethod),
+            LambdaMainMethodSourceCode.build(this, mainMethod),
             true);
 
     // Synthesize bridge methods.
@@ -252,7 +254,7 @@ public final class LambdaClass {
                   false),
               DexAnnotationSet.empty(),
               ParameterAnnotationsList.empty(),
-              new LambdaBridgeMethodSynthesizedCode(this, mainMethod, bridgeMethod),
+              LambdaBridgeMethodSourceCode.build(this, bridgeMethod, mainMethod),
               true);
     }
     return methods;
@@ -273,7 +275,7 @@ public final class LambdaClass {
                 true),
             DexAnnotationSet.empty(),
             ParameterAnnotationsList.empty(),
-            new LambdaConstructorSynthesizedCode(this),
+            LambdaConstructorSourceCode.build(this),
             true);
 
     // Class constructor for stateless lambda classes.
@@ -285,7 +287,7 @@ public final class LambdaClass {
                   Constants.ACC_SYNTHETIC | Constants.ACC_STATIC, true),
               DexAnnotationSet.empty(),
               ParameterAnnotationsList.empty(),
-              new LambdaClassConstructorSynthesizedCode(this),
+              LambdaClassConstructorSourceCode.build(this),
               true);
     }
     return methods;
@@ -300,8 +302,13 @@ public final class LambdaClass {
       FieldAccessFlags accessFlags =
           FieldAccessFlags.fromSharedAccessFlags(
               Constants.ACC_FINAL | Constants.ACC_SYNTHETIC | Constants.ACC_PUBLIC);
-      fields[i] = new DexEncodedField(
-          getCaptureField(i), accessFlags, DexAnnotationSet.empty(), null);
+      fields[i] =
+          new DexEncodedField(
+              getCaptureField(i),
+              accessFlags,
+              NO_FIELD_TYPE_SIGNATURE,
+              DexAnnotationSet.empty(),
+              null);
     }
     return fields;
   }
@@ -323,6 +330,7 @@ public final class LambdaClass {
                     | Constants.ACC_FINAL
                     | Constants.ACC_SYNTHETIC
                     | Constants.ACC_STATIC),
+            NO_FIELD_TYPE_SIGNATURE,
             DexAnnotationSet.empty(),
             DexValueNull.NULL);
     return fields;
@@ -748,13 +756,14 @@ public final class LambdaClass {
           MethodAccessFlags.fromSharedAccessFlags(
               Constants.ACC_SYNTHETIC | Constants.ACC_STATIC | Constants.ACC_PUBLIC,
               false);
+
       DexEncodedMethod accessorEncodedMethod =
           new DexEncodedMethod(
               callTarget,
               accessorFlags,
               DexAnnotationSet.empty(),
               ParameterAnnotationsList.empty(),
-              new LambdaAccessorMethodWithSynthesizedCode(LambdaClass.this),
+              AccessorMethodSourceCode.build(LambdaClass.this, callTarget),
               true);
 
       // We may arrive here concurrently so we need must update the methods of the class atomically.

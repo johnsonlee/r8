@@ -207,6 +207,9 @@ public class AnnotationRemover {
   private void processField(DexEncodedField field) {
     field.setAnnotations(
         field.annotations().rewrite(annotation -> rewriteAnnotation(field, annotation)));
+    if (!keep.signature) {
+      field.clearFieldSignature();
+    }
   }
 
   private DexAnnotation rewriteAnnotation(DexDefinition holder, DexAnnotation original) {
@@ -285,9 +288,6 @@ public class AnnotationRemover {
           hasInnerClassesFromSet(clazz, classesToRetainInnerClassAttributeFor);
     }
     if (keptAnyway || keepForThisInnerClass || keepForThisEnclosingClass) {
-      if (!keep.signature) {
-        clazz.clearClassSignature();
-      }
       if (!keep.enclosingMethod) {
         clazz.clearEnclosingMethodAttribute();
       }
@@ -322,6 +322,9 @@ public class AnnotationRemover {
       // reflection. (Note that clearing these attributes can enable more vertical class merging.)
       clazz.clearEnclosingMethodAttribute();
       clazz.clearInnerClasses();
+    }
+    // TODO(b/170077516): Prune attributes.
+    if (!keep.signature) {
       clazz.clearClassSignature();
     }
   }
