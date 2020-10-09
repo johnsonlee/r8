@@ -5,15 +5,18 @@ package com.android.tools.r8.graph;
 
 import static com.android.tools.r8.utils.DescriptorUtils.getClassBinaryNameFromDescriptor;
 import static com.android.tools.r8.utils.DescriptorUtils.getDescriptorFromClassBinaryName;
+import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.errors.Unreachable;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
 import java.lang.reflect.GenericSignatureFormatError;
 import java.nio.CharBuffer;
 import java.util.List;
-import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Internal encoding of the generics signature attribute as defined by JVMS 7 $ 4.3.4.
@@ -95,10 +98,22 @@ import java.util.function.Function;
  */
 public class GenericSignature {
 
-  private static final List<FormalTypeParameter> EMPTY_TYPE_PARAMS = ImmutableList.of();
+  static final List<FormalTypeParameter> EMPTY_TYPE_PARAMS = ImmutableList.of();
+  static final List<FieldTypeSignature> EMPTY_TYPE_ARGUMENTS = ImmutableList.of();
+  static final List<ClassTypeSignature> EMPTY_SUPER_INTERFACES = ImmutableList.of();
+  static final List<TypeSignature> EMPTY_TYPE_SIGNATURES = ImmutableList.of();
 
   interface DexDefinitionSignature<T extends DexDefinition> {
+
     default boolean isClassSignature() {
+      return false;
+    }
+
+    default boolean isFieldTypeSignature() {
+      return false;
+    }
+
+    default boolean isMethodTypeSignature() {
       return false;
     }
 
@@ -106,20 +121,18 @@ public class GenericSignature {
       return null;
     }
 
-    default boolean isFieldTypeSignature() {
-      return false;
-    }
-
     default FieldTypeSignature asFieldTypeSignature() {
       return null;
     }
 
-    default boolean isMethodTypeSignature() {
-      return false;
-    }
-
     default MethodTypeSignature asMethodTypeSignature() {
       return null;
+    }
+
+    boolean hasSignature();
+
+    default boolean hasNoSignature() {
+      return !hasSignature();
     }
   }
 
@@ -147,14 +160,22 @@ public class GenericSignature {
     public List<FieldTypeSignature> getInterfaceBounds() {
       return interfaceBounds;
     }
+
+    public void visit(GenericSignatureVisitor visitor) {
+      visitor.visitClassBound(classBound);
+      if (interfaceBounds == null) {
+        return;
+      }
+      for (FieldTypeSignature interfaceBound : interfaceBounds) {
+        visitor.visitInterfaceBound(interfaceBound);
+      }
+    }
   }
 
   public static class ClassSignature implements DexDefinitionSignature<DexClass> {
-    static final ClassSignature UNKNOWN_CLASS_SIGNATURE =
-        new ClassSignature(
-            ImmutableList.of(),
-            ClassTypeSignature.UNKNOWN_CLASS_TYPE_SIGNATURE,
-            ImmutableList.of());
+
+    public static final ClassSignature NO_CLASS_SIGNATURE =
+        new ClassSignature(EMPTY_TYPE_PARAMS, NO_FIELD_TYPE_SIGNATURE, EMPTY_SUPER_INTERFACES);
 
     final List<FormalTypeParameter> formalTypeParameters;
     final ClassTypeSignature superClassSignature;
@@ -181,6 +202,11 @@ public class GenericSignature {
     }
 
     @Override
+    public boolean hasSignature() {
+      return this != NO_CLASS_SIGNATURE;
+    }
+
+    @Override
     public boolean isClassSignature() {
       return true;
     }
@@ -189,9 +215,37 @@ public class GenericSignature {
     public ClassSignature asClassSignature() {
       return this;
     }
+
+    public void visit(GenericSignatureVisitor visitor) {
+      visitor.visitFormalTypeParameters(formalTypeParameters);
+      visitor.visitSuperClass(superClassSignature);
+      for (ClassTypeSignature superInterface : superInterfaceSignatures) {
+        visitor.visitSuperInterface(superInterface);
+      }
+    }
+
+    public String toRenamedString(NamingLens namingLens, Predicate<DexType> isTypeMissing) {
+      if (hasNoSignature()) {
+        return null;
+      }
+      GenericSignaturePrinter genericSignaturePrinter =
+          new GenericSignaturePrinter(namingLens, isTypeMissing);
+      genericSignaturePrinter.visitClassSignature(this);
+      return genericSignaturePrinter.toString();
+    }
+
+    @Override
+    public String toString() {
+      return toRenamedString(NamingLens.getIdentityLens(), alwaysTrue());
+    }
+
+    public static ClassSignature noSignature() {
+      return NO_CLASS_SIGNATURE;
+    }
   }
 
   public abstract static class TypeSignature {
+
     public boolean isFieldTypeSignature() {
       return false;
     }
@@ -208,11 +262,7 @@ public class GenericSignature {
       return null;
     }
 
-    public TypeSignature toArrayTypeSignature(AppView<?> appView) {
-      return null;
-    }
-
-    public TypeSignature toArrayElementTypeSignature(AppView<?> appView) {
+    public ArrayTypeSignature toArrayTypeSignature() {
       return null;
     }
   }
@@ -275,8 +325,9 @@ public class GenericSignature {
       return null;
     }
 
-    public boolean isUnknown() {
-      return this == ClassTypeSignature.UNKNOWN_CLASS_TYPE_SIGNATURE;
+    @Override
+    public boolean hasSignature() {
+      return this != GenericSignature.NO_FIELD_TYPE_SIGNATURE;
     }
 
     public abstract FieldTypeSignature asArgument(WildcardIndicator indicator);
@@ -284,12 +335,30 @@ public class GenericSignature {
     public boolean isStar() {
       return false;
     }
+
+    public String toRenamedString(NamingLens namingLens, Predicate<DexType> isTypeMissing) {
+      if (hasNoSignature()) {
+        return null;
+      }
+      GenericSignaturePrinter genericSignaturePrinter =
+          new GenericSignaturePrinter(namingLens, isTypeMissing);
+      genericSignaturePrinter.visitTypeSignature(this);
+      return genericSignaturePrinter.toString();
+    }
+
+    @Override
+    public String toString() {
+      return toRenamedString(NamingLens.getIdentityLens(), alwaysTrue());
+    }
+
+    public static FieldTypeSignature noSignature() {
+      return NO_FIELD_TYPE_SIGNATURE;
+    }
   }
 
-  private static final class StarFieldTypeSignature extends FieldTypeSignature {
+  static final class StarFieldTypeSignature extends FieldTypeSignature {
 
-    private static final StarFieldTypeSignature STAR_FIELD_TYPE_SIGNATURE =
-        new StarFieldTypeSignature();
+    static final StarFieldTypeSignature STAR_FIELD_TYPE_SIGNATURE = new StarFieldTypeSignature();
 
     private StarFieldTypeSignature() {
       super(WildcardIndicator.NONE);
@@ -306,11 +375,13 @@ public class GenericSignature {
     }
   }
 
+  private static final ClassTypeSignature NO_FIELD_TYPE_SIGNATURE =
+      new ClassTypeSignature(DexItemFactory.nullValueType, EMPTY_TYPE_ARGUMENTS);
+
   public static class ClassTypeSignature extends FieldTypeSignature {
-    static final ClassTypeSignature UNKNOWN_CLASS_TYPE_SIGNATURE =
-        new ClassTypeSignature(DexItemFactory.nullValueType, ImmutableList.of());
 
     final DexType type;
+
     // E.g., for Map<K, V>, a signature will indicate what types are for K and V.
     // Note that this could be nested, e.g., Map<K, Consumer<V>>.
     final List<FieldTypeSignature> typeArguments;
@@ -320,7 +391,11 @@ public class GenericSignature {
     ClassTypeSignature enclosingTypeSignature;
     ClassTypeSignature innerTypeSignature;
 
-    ClassTypeSignature(DexType type, List<FieldTypeSignature> typeArguments) {
+    public ClassTypeSignature(DexType type) {
+      this(type, EMPTY_TYPE_ARGUMENTS);
+    }
+
+    public ClassTypeSignature(DexType type, List<FieldTypeSignature> typeArguments) {
       this(type, typeArguments, WildcardIndicator.NOT_AN_ARGUMENT);
     }
 
@@ -361,8 +436,12 @@ public class GenericSignature {
       return argument;
     }
 
+    public boolean isNoSignature() {
+      return this == NO_FIELD_TYPE_SIGNATURE;
+    }
+
     @Override
-    public ArrayTypeSignature toArrayTypeSignature(AppView<?> appView) {
+    public ArrayTypeSignature toArrayTypeSignature() {
       return new ArrayTypeSignature(this);
     }
 
@@ -370,6 +449,13 @@ public class GenericSignature {
       assert outer.innerTypeSignature == null && inner.enclosingTypeSignature == null;
       outer.innerTypeSignature = inner;
       inner.enclosingTypeSignature = outer;
+    }
+
+    public void visit(GenericSignatureVisitor visitor) {
+      visitor.visitTypeArguments(typeArguments);
+      if (innerTypeSignature != null) {
+        visitor.visitSimpleClass(innerTypeSignature);
+      }
     }
   }
 
@@ -408,13 +494,12 @@ public class GenericSignature {
     }
 
     @Override
-    public TypeSignature toArrayTypeSignature(AppView<?> appView) {
+    public ArrayTypeSignature toArrayTypeSignature() {
       return new ArrayTypeSignature(this);
     }
 
-    @Override
-    public TypeSignature toArrayElementTypeSignature(AppView<?> appView) {
-      return elementSignature;
+    public void visit(GenericSignatureVisitor visitor) {
+      visitor.visitTypeSignature(elementSignature);
     }
   }
 
@@ -449,7 +534,7 @@ public class GenericSignature {
     }
 
     @Override
-    public ArrayTypeSignature toArrayTypeSignature(AppView<?> appView) {
+    public ArrayTypeSignature toArrayTypeSignature() {
       return new ArrayTypeSignature(this);
     }
 
@@ -479,7 +564,7 @@ public class GenericSignature {
     }
 
     @Override
-    public ArrayTypeSignature toArrayTypeSignature(AppView<?> appView) {
+    public ArrayTypeSignature toArrayTypeSignature() {
       assert !type.isVoidType();
       return new ArrayTypeSignature(this);
     }
@@ -505,14 +590,19 @@ public class GenericSignature {
   }
 
   public static class MethodTypeSignature implements DexDefinitionSignature<DexEncodedMethod> {
-    static final MethodTypeSignature UNKNOWN_METHOD_TYPE_SIGNATURE =
+
+    private static final MethodTypeSignature NO_METHOD_TYPE_SIGNATURE =
         new MethodTypeSignature(
-            ImmutableList.of(), ImmutableList.of(), ReturnType.VOID, ImmutableList.of());
+            EMPTY_TYPE_PARAMS, EMPTY_TYPE_SIGNATURES, ReturnType.VOID, EMPTY_TYPE_SIGNATURES);
 
     final List<FormalTypeParameter> formalTypeParameters;
     final List<TypeSignature> typeSignatures;
     final ReturnType returnType;
     final List<TypeSignature> throwsSignatures;
+
+    public static MethodTypeSignature noSignature() {
+      return NO_METHOD_TYPE_SIGNATURE;
+    }
 
     MethodTypeSignature(
         final List<FormalTypeParameter> formalTypeParameters,
@@ -550,109 +640,100 @@ public class GenericSignature {
     }
 
     @Override
+    public boolean hasSignature() {
+      return this != NO_METHOD_TYPE_SIGNATURE;
+    }
+
+    @Override
     public MethodTypeSignature asMethodTypeSignature() {
       return this;
+    }
+
+    public void visit(GenericSignatureVisitor visitor) {
+      visitor.visitFormalTypeParameters(formalTypeParameters);
+      visitor.visitMethodTypeSignatures(typeSignatures);
+      visitor.visitReturnType(returnType);
+      visitor.visitThrowsSignatures(throwsSignatures);
     }
 
     public List<FormalTypeParameter> getFormalTypeParameters() {
       return formalTypeParameters;
     }
-  }
 
-  enum Kind {
-    CLASS, FIELD, METHOD;
-
-    static Kind fromDexDefinition(DexDefinition definition) {
-      if (definition.isDexClass()) {
-        return CLASS;
+    public String toRenamedString(NamingLens namingLens, Predicate<DexType> isTypeMissing) {
+      if (hasNoSignature()) {
+        return null;
       }
-      if (definition.isDexEncodedField()) {
-        return FIELD;
-      }
-      if (definition.isDexEncodedMethod()) {
-        return METHOD;
-      }
-      throw new Unreachable("Unexpected kind of DexDefinition: " + definition);
+      GenericSignaturePrinter genericSignaturePrinter =
+          new GenericSignaturePrinter(namingLens, isTypeMissing);
+      genericSignaturePrinter.visitMethodSignature(this);
+      return genericSignaturePrinter.toString();
     }
 
-    Function<String, ? extends DexDefinitionSignature<? extends DexDefinition>>
-        parserMethod(Parser parser) {
-      switch (this) {
-        case CLASS:
-          return parser::parseClassSignature;
-        case FIELD:
-          return parser::parseFieldTypeSignature;
-        case METHOD:
-          return parser::parseMethodTypeSignature;
-      }
-      throw new Unreachable("Unexpected kind: " + this);
+    @Override
+    public String toString() {
+      return toRenamedString(NamingLens.getIdentityLens(), alwaysTrue());
+    }
+  }
+
+  public static ClassSignature parseClassSignature(
+      String className,
+      String signature,
+      Origin origin,
+      DexItemFactory factory,
+      Reporter reporter) {
+    if (signature == null || signature.isEmpty()) {
+      return ClassSignature.NO_CLASS_SIGNATURE;
+    }
+    Parser parser = new Parser(factory);
+    try {
+      return parser.parseClassSignature(signature);
+    } catch (GenericSignatureFormatError e) {
+      reporter.warning(
+          GenericSignatureDiagnostic.invalidClassSignature(signature, className, origin, e));
+      return ClassSignature.NO_CLASS_SIGNATURE;
+    }
+  }
+
+  public static FieldTypeSignature parseFieldTypeSignature(
+      String fieldName,
+      String signature,
+      Origin origin,
+      DexItemFactory factory,
+      Reporter reporter) {
+    if (signature == null || signature.isEmpty()) {
+      return NO_FIELD_TYPE_SIGNATURE;
+    }
+    Parser parser = new Parser(factory);
+    try {
+      return parser.parseFieldTypeSignature(signature);
+    } catch (GenericSignatureFormatError e) {
+      reporter.warning(
+          GenericSignatureDiagnostic.invalidFieldSignature(signature, fieldName, origin, e));
+      return GenericSignature.NO_FIELD_TYPE_SIGNATURE;
+    }
+  }
+
+  public static MethodTypeSignature parseMethodSignature(
+      String methodName,
+      String signature,
+      Origin origin,
+      DexItemFactory factory,
+      Reporter reporter) {
+    if (signature == null || signature.isEmpty()) {
+      return MethodTypeSignature.NO_METHOD_TYPE_SIGNATURE;
+    }
+    Parser parser = new Parser(factory);
+    try {
+      return parser.parseMethodTypeSignature(signature);
+    } catch (GenericSignatureFormatError e) {
+      reporter.warning(
+          GenericSignatureDiagnostic.invalidMethodSignature(signature, methodName, origin, e));
+      return MethodTypeSignature.NO_METHOD_TYPE_SIGNATURE;
     }
   }
 
   public static class Parser {
-    // TODO(b/129925954): Can we merge variants of to*Signature below and just expose
-    //  type-parameterized version of this, like
-    //    <T extends DexDefinitionSignature<?>> T toGenericSignature
-    //  without unchecked cast?
-    private static DexDefinitionSignature<? extends DexDefinition> toGenericSignature(
-        DexClass currentClassContext,
-        DexDefinition definition,
-        AppView<AppInfoWithLiveness> appView) {
-      DexAnnotationSet annotations = definition.annotations();
-      if (annotations.annotations.length == 0) {
-        return null;
-      }
-      for (int i = 0; i < annotations.annotations.length; i++) {
-        DexAnnotation annotation = annotations.annotations[i];
-        if (!DexAnnotation.isSignatureAnnotation(annotation, appView.dexItemFactory())) {
-          continue;
-        }
-        Kind kind = Kind.fromDexDefinition(definition);
-        Parser parser = new Parser(currentClassContext, appView);
-        String signature = DexAnnotation.getSignature(annotation);
-        try {
-          return kind.parserMethod(parser).apply(signature);
-        } catch (GenericSignatureFormatError e) {
-          appView.options().warningInvalidSignature(
-              definition, currentClassContext.getOrigin(), signature, e);
-        }
-      }
-      return null;
-    }
-
-    public static ClassSignature toClassSignature(
-        DexClass clazz, AppView<AppInfoWithLiveness> appView) {
-      DexDefinitionSignature<?> signature = toGenericSignature(clazz, clazz, appView);
-      if (signature != null) {
-        assert signature.isClassSignature();
-        return signature.asClassSignature();
-      }
-      return ClassSignature.UNKNOWN_CLASS_SIGNATURE;
-    }
-
-    public static FieldTypeSignature toFieldTypeSignature(
-        DexEncodedField field, AppView<AppInfoWithLiveness> appView) {
-      DexClass currentClassContext = appView.definitionFor(field.holder());
-      DexDefinitionSignature<?> signature =
-          toGenericSignature(currentClassContext, field, appView);
-      if (signature != null) {
-        assert signature.isFieldTypeSignature();
-        return signature.asFieldTypeSignature();
-      }
-      return ClassTypeSignature.UNKNOWN_CLASS_TYPE_SIGNATURE;
-    }
-
-    public static MethodTypeSignature toMethodTypeSignature(
-        DexEncodedMethod method, AppView<AppInfoWithLiveness> appView) {
-      DexClass currentClassContext = appView.definitionFor(method.holder());
-      DexDefinitionSignature<?> signature =
-          toGenericSignature(currentClassContext, method, appView);
-      if (signature != null) {
-        assert signature.isMethodTypeSignature();
-        return signature.asMethodTypeSignature();
-      }
-      return MethodTypeSignature.UNKNOWN_METHOD_TYPE_SIGNATURE;
-    }
 
     /*
      * Parser:
@@ -672,9 +753,8 @@ public class GenericSignature {
 
     private int pos;
 
-    private Parser(DexClass currentClassContext, AppView<AppInfoWithLiveness> appView) {
-      this.currentClassContext = currentClassContext;
-      this.appView = appView;
+    private Parser(DexItemFactory factory) {
+      this.factory = factory;
     }
 
     ClassSignature parseClassSignature(String signature) {
@@ -708,7 +788,7 @@ public class GenericSignature {
     FieldTypeSignature parseFieldTypeSignature(String signature) {
       try {
         setInput(signature);
-        return parseFieldTypeSignature(ParserPosition.MEMBER_ANNOTATION);
+        return parseFieldTypeSignature();
       } catch (GenericSignatureFormatError e) {
         throw e;
       } catch (Throwable t) {
@@ -732,40 +812,11 @@ public class GenericSignature {
     // Action:
     //
 
-    enum ParserPosition {
-      CLASS_SUPER_OR_INTERFACE_ANNOTATION,
-      ENCLOSING_INNER_OR_TYPE_ANNOTATION,
-      MEMBER_ANNOTATION
-    }
+    private final DexItemFactory factory;
 
-    private final AppView<AppInfoWithLiveness> appView;
-    private final DexClass currentClassContext;
-    private DexType lastWrittenType = null;
-
-    private DexType parsedTypeName(String name, ParserPosition parserPosition) {
-      if (parserPosition == ParserPosition.ENCLOSING_INNER_OR_TYPE_ANNOTATION
-          && lastWrittenType == null) {
-        // We are writing type-arguments for a merged class.
-        return null;
-      }
+    private DexType parsedTypeName(String name) {
       String originalDescriptor = getDescriptorFromClassBinaryName(name);
-      DexType type =
-          appView.graphLense().lookupType(appView.dexItemFactory().createType(originalDescriptor));
-      if (appView.appInfo().wasPruned(type)) {
-        type = appView.dexItemFactory().objectType;
-      }
-      if (parserPosition == ParserPosition.CLASS_SUPER_OR_INTERFACE_ANNOTATION
-          && currentClassContext != null) {
-        // We may have merged the type down to the current class type.
-        DexString classDescriptor = currentClassContext.type.descriptor;
-        if (!originalDescriptor.equals(classDescriptor.toString())
-            && type.descriptor.equals(classDescriptor)) {
-          lastWrittenType = null;
-          return type;
-        }
-      }
-      lastWrittenType = type;
-      return type;
+      return factory.createType(originalDescriptor);
     }
 
     private DexType parsedInnerTypeName(DexType enclosingType, String name) {
@@ -775,15 +826,11 @@ public class GenericSignature {
       }
       assert enclosingType.isClassType();
       String enclosingDescriptor = enclosingType.toDescriptorString();
-      DexType type =
-          appView
-              .dexItemFactory()
-              .createType(
-                  getDescriptorFromClassBinaryName(
-                      getClassBinaryNameFromDescriptor(enclosingDescriptor)
-                          + DescriptorUtils.INNER_CLASS_SEPARATOR
-                          + name));
-      return appView.graphLense().lookupType(type);
+      return factory.createType(
+          getDescriptorFromClassBinaryName(
+              getClassBinaryNameFromDescriptor(enclosingDescriptor)
+                  + DescriptorUtils.INNER_CLASS_SEPARATOR
+                  + name));
     }
 
     //
@@ -796,13 +843,12 @@ public class GenericSignature {
       List<FormalTypeParameter> formalTypeParameters = parseOptFormalTypeParameters();
 
       // SuperclassSignature ::= ClassTypeSignature.
-      ClassTypeSignature superClassSignature =
-          parseClassTypeSignature(ParserPosition.CLASS_SUPER_OR_INTERFACE_ANNOTATION);
+      ClassTypeSignature superClassSignature = parseClassTypeSignature();
 
       ImmutableList.Builder<ClassTypeSignature> builder = ImmutableList.builder();
       while (symbol > 0) {
         // SuperinterfaceSignature ::= ClassTypeSignature.
-        builder.add(parseClassTypeSignature(ParserPosition.CLASS_SUPER_OR_INTERFACE_ANNOTATION));
+        builder.add(parseClassTypeSignature());
       }
 
       return new ClassSignature(formalTypeParameters, superClassSignature, builder.build());
@@ -833,9 +879,9 @@ public class GenericSignature {
       // ClassBound ::= ":" FieldTypeSignature?.
       expect(':');
 
-      FieldTypeSignature classBound = ClassTypeSignature.UNKNOWN_CLASS_TYPE_SIGNATURE;
+      FieldTypeSignature classBound = GenericSignature.NO_FIELD_TYPE_SIGNATURE;
       if (symbol == 'L' || symbol == '[' || symbol == 'T') {
-        classBound = parseFieldTypeSignature(ParserPosition.MEMBER_ANNOTATION);
+        classBound = parseFieldTypeSignature();
       }
 
       // Only build the interfacebound builder, which is uncommon, if we actually see an interface.
@@ -846,7 +892,7 @@ public class GenericSignature {
           builder = ImmutableList.builder();
         }
         scanSymbol();
-        builder.add(parseFieldTypeSignature(ParserPosition.MEMBER_ANNOTATION));
+        builder.add(parseFieldTypeSignature());
       }
       if (builder == null) {
         return new FormalTypeParameter(typeParameterIdentifier, classBound, null);
@@ -854,16 +900,16 @@ public class GenericSignature {
       return new FormalTypeParameter(typeParameterIdentifier, classBound, builder.build());
     }
 
-    private FieldTypeSignature parseFieldTypeSignature(ParserPosition parserPosition) {
+    private FieldTypeSignature parseFieldTypeSignature() {
       // FieldTypeSignature ::= ClassTypeSignature | ArrayTypeSignature | TypeVariableSignature.
       switch (symbol) {
         case 'L':
-          return parseClassTypeSignature(parserPosition);
+          return parseClassTypeSignature();
         case '[':
           // ArrayTypeSignature ::= "[" TypeSignature.
           scanSymbol();
-          TypeSignature baseTypeSignature = updateTypeSignature(parserPosition);
-          return baseTypeSignature.toArrayTypeSignature(appView).asFieldTypeSignature();
+          TypeSignature baseTypeSignature = updateTypeSignature();
+          return baseTypeSignature.toArrayTypeSignature().asFieldTypeSignature();
         case 'T':
           return updateTypeVariableSignature();
         default:
@@ -872,7 +918,7 @@ public class GenericSignature {
       throw new Unreachable("Either FieldTypeSignature is returned or a parse error is thrown.");
     }
 
-    private ClassTypeSignature parseClassTypeSignature(ParserPosition parserPosition) {
+    private ClassTypeSignature parseClassTypeSignature() {
       // ClassTypeSignature ::=
       //   "L" (Identifier "/")* Identifier TypeArguments? ("." Identifier TypeArguments?)* ";".
       expect('L');
@@ -888,11 +934,12 @@ public class GenericSignature {
       }
 
       qualIdent.append(this.identifier);
-      DexType parsedEnclosingType = parsedTypeName(qualIdent.toString(), parserPosition);
+      DexType parsedEnclosingType = parsedTypeName(qualIdent.toString());
 
       List<FieldTypeSignature> typeArguments = updateOptTypeArguments();
       ClassTypeSignature outerMostTypeSignature =
-          new ClassTypeSignature(parsedEnclosingType, typeArguments);
+          new ClassTypeSignature(
+              parsedEnclosingType, typeArguments.isEmpty() ? EMPTY_TYPE_ARGUMENTS : typeArguments);
 
       ClassTypeSignature outerTypeSignature = outerMostTypeSignature;
       ClassTypeSignature innerTypeSignature;
@@ -903,7 +950,10 @@ public class GenericSignature {
         assert identifier != null;
         parsedEnclosingType = parsedInnerTypeName(parsedEnclosingType, identifier);
         typeArguments = updateOptTypeArguments();
-        innerTypeSignature = new ClassTypeSignature(parsedEnclosingType, typeArguments);
+        innerTypeSignature =
+            new ClassTypeSignature(
+                parsedEnclosingType,
+                typeArguments.isEmpty() ? EMPTY_TYPE_ARGUMENTS : typeArguments);
         ClassTypeSignature.link(outerTypeSignature, innerTypeSignature);
         outerTypeSignature = innerTypeSignature;
       }
@@ -935,15 +985,12 @@ public class GenericSignature {
         return StarFieldTypeSignature.STAR_FIELD_TYPE_SIGNATURE;
       } else if (symbol == '+') {
         scanSymbol();
-        return parseFieldTypeSignature(ParserPosition.ENCLOSING_INNER_OR_TYPE_ANNOTATION)
-            .asArgument(WildcardIndicator.POSITIVE);
+        return parseFieldTypeSignature().asArgument(WildcardIndicator.POSITIVE);
       } else if (symbol == '-') {
         scanSymbol();
-        return parseFieldTypeSignature(ParserPosition.ENCLOSING_INNER_OR_TYPE_ANNOTATION)
-            .asArgument(WildcardIndicator.NEGATIVE);
+        return parseFieldTypeSignature().asArgument(WildcardIndicator.NEGATIVE);
       } else {
-        return parseFieldTypeSignature(ParserPosition.ENCLOSING_INNER_OR_TYPE_ANNOTATION)
-            .asArgument(WildcardIndicator.NONE);
+        return parseFieldTypeSignature().asArgument(WildcardIndicator.NONE);
       }
     }
 
@@ -958,7 +1005,7 @@ public class GenericSignature {
       return new TypeVariableSignature(identifier);
     }
 
-    private TypeSignature updateTypeSignature(ParserPosition parserPosition) {
+    private TypeSignature updateTypeSignature() {
       switch (symbol) {
         case 'B':
         case 'C':
@@ -968,13 +1015,13 @@ public class GenericSignature {
         case 'J':
         case 'S':
         case 'Z':
-          DexType type = appView.dexItemFactory().createType(String.valueOf(symbol));
+          DexType type = factory.createType(String.valueOf(symbol));
           BaseTypeSignature baseTypeSignature = new BaseTypeSignature(type);
           scanSymbol();
           return baseTypeSignature;
         default:
           // Not an elementary type, but a FieldTypeSignature.
-          return parseFieldTypeSignature(parserPosition);
+          return parseFieldTypeSignature();
       }
     }
 
@@ -987,7 +1034,7 @@ public class GenericSignature {
 
       ImmutableList.Builder<TypeSignature> parameterSignatureBuilder = ImmutableList.builder();
       while (symbol != ')' && (symbol > 0)) {
-        parameterSignatureBuilder.add(updateTypeSignature(ParserPosition.MEMBER_ANNOTATION));
+        parameterSignatureBuilder.add(updateTypeSignature());
       }
 
       expect(')');
@@ -998,12 +1045,11 @@ public class GenericSignature {
       if (symbol == '^') {
         do {
           scanSymbol();
-
           // ThrowsSignature ::= ("^" ClassTypeSignature) | ("^" TypeVariableSignature).
           if (symbol == 'T') {
             throwsSignatureBuilder.add(updateTypeVariableSignature());
           } else {
-            throwsSignatureBuilder.add(parseClassTypeSignature(ParserPosition.MEMBER_ANNOTATION));
+            throwsSignatureBuilder.add(parseClassTypeSignature());
           }
         } while (symbol == '^');
       }
@@ -1018,7 +1064,7 @@ public class GenericSignature {
     private ReturnType updateReturnType() {
       // ReturnType ::= TypeSignature | "V".
       if (symbol != 'V') {
-        return new ReturnType(updateTypeSignature(ParserPosition.MEMBER_ANNOTATION));
+        return new ReturnType(updateTypeSignature());
       } else {
         scanSymbol();
         return ReturnType.VOID;

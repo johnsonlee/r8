@@ -11,11 +11,14 @@ import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.graph.GenericSignature.ClassSignature;
+import com.android.tools.r8.graph.GenericSignature.ClassTypeSignature;
 import com.android.tools.r8.kotlin.KotlinClassLevelInfo;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.TraversalContinuation;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -443,33 +446,71 @@ public class DexProgramClass extends DexClass implements Supplier<DexProgramClas
     methodCollection.addDirectMethod(directMethod);
   }
 
-  public void addExtraInterfaces(List<DexType> extraInterfaces, DexItemFactory factory) {
+  public void replaceInterfaces(List<ClassTypeSignature> newInterfaces, AppView<?> appView) {
+    if (newInterfaces.isEmpty()) {
+      return;
+    }
+    clearInterfaces(appView);
+    addExtraInterfaces(newInterfaces, appView);
+  }
+
+  private void clearInterfaces(AppView<?> appView) {
+    interfaces = DexTypeList.empty();
+    ClassSignature classSignature = getClassSignature(appView);
+    if (classSignature.hasNoSignature()) {
+      return;
+    }
+    replaceSignatureAnnotation(
+        new ClassSignature(
+            classSignature.formalTypeParameters,
+            classSignature.superClassSignature,
+            ImmutableList.of()),
+        appView.dexItemFactory());
+  }
+
+  public void addExtraInterfaces(List<ClassTypeSignature> extraInterfaces, AppView<?> appView) {
     if (extraInterfaces.isEmpty()) {
       return;
     }
     addExtraInterfacesToInterfacesArray(extraInterfaces);
-    addExtraInterfacesToSignatureAnnotationIfPresent(extraInterfaces, factory);
+    addExtraInterfacesToSignatureAnnotationIfPresent(extraInterfaces, appView);
   }
 
-  private void addExtraInterfacesToInterfacesArray(List<DexType> extraInterfaces) {
+  private void addExtraInterfacesToInterfacesArray(List<ClassTypeSignature> extraInterfaces) {
     DexType[] newInterfaces =
         Arrays.copyOf(interfaces.values, interfaces.size() + extraInterfaces.size());
     for (int i = interfaces.size(); i < newInterfaces.length; i++) {
-      newInterfaces[i] = extraInterfaces.get(i - interfaces.size());
+      newInterfaces[i] = extraInterfaces.get(i - interfaces.size()).type();
     }
     interfaces = new DexTypeList(newInterfaces);
   }
 
   private void addExtraInterfacesToSignatureAnnotationIfPresent(
-      List<DexType> extraInterfaces, DexItemFactory factory) {
+      List<ClassTypeSignature> extraInterfaces, AppView<?> appView) {
     // We need to introduce in the dalvik.annotation.Signature annotation the extra interfaces.
-    // At this point we cheat and pretend the extraInterfaces simply don't use any generic types.
+    ClassSignature classSignature = getClassSignature(appView);
+    if (classSignature.hasNoSignature()) {
+      return;
+    }
+    ImmutableList.Builder<ClassTypeSignature> interfacesBuilder =
+        ImmutableList.<ClassTypeSignature>builder().addAll(classSignature.superInterfaceSignatures);
+    interfacesBuilder.addAll(extraInterfaces);
+    replaceSignatureAnnotation(
+        new ClassSignature(
+            classSignature.formalTypeParameters,
+            classSignature.superClassSignature,
+            interfacesBuilder.build()),
+        appView.dexItemFactory());
+  }
+
+  private void replaceSignatureAnnotation(ClassSignature classSignature, DexItemFactory factory) {
     DexAnnotation[] annotations = annotations().annotations;
     for (int i = 0; i < annotations.length; i++) {
       DexAnnotation annotation = annotations[i];
       if (DexAnnotation.isSignatureAnnotation(annotation, factory)) {
         DexAnnotation[] rewrittenAnnotations = annotations.clone();
-        rewrittenAnnotations[i] = rewriteSignatureAnnotation(annotation, extraInterfaces, factory);
+        rewrittenAnnotations[i] =
+            DexAnnotation.createSignatureAnnotation(classSignature.toString(), factory);
         setAnnotations(new DexAnnotationSet(rewrittenAnnotations));
         // There is at most one signature annotation, so we can return here.
         return;
@@ -477,14 +518,16 @@ public class DexProgramClass extends DexClass implements Supplier<DexProgramClas
     }
   }
 
-  private DexAnnotation rewriteSignatureAnnotation(
-      DexAnnotation annotation, List<DexType> extraInterfaces, DexItemFactory factory) {
-    String signature = DexAnnotation.getSignature(annotation);
-    StringBuilder newSignatureBuilder = new StringBuilder(signature);
-    for (DexType extraInterface : extraInterfaces) {
-      newSignatureBuilder.append(extraInterface.descriptor.toString());
+  public void clearAnnotationsButSignature(DexItemFactory factory) {
+    DexAnnotation[] annotations = annotations().annotations;
+    for (DexAnnotation annotation : annotations) {
+      if (DexAnnotation.isSignatureAnnotation(annotation, factory)) {
+        setAnnotations(new DexAnnotationSet(new DexAnnotation[] {annotation}));
+        // There is at most one signature annotation, so we can return here.
+        return;
+      }
     }
-    return DexAnnotation.createSignatureAnnotation(newSignatureBuilder.toString(), factory);
+    clearAnnotations();
   }
 
   @Override

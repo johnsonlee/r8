@@ -329,7 +329,7 @@ public class AnnotationRemover {
 
   public static void clearAnnotations(AppView<?> appView) {
     for (DexProgramClass clazz : appView.appInfo().classes()) {
-      clazz.clearAnnotations();
+      clazz.clearAnnotationsButSignature(appView.dexItemFactory());
       clazz.members().forEach(DexDefinition::clearAnnotations);
     }
   }

@@ -57,9 +57,7 @@ public class LibraryEmptySubclassInterfaceTest extends DesugaredLibraryTestBase 
       return;
     }
     String keepRules = keepRuleConsumer.get();
-    assertThat(keepRules, containsString("-keep class j$.util.Map"));
     assertThat(keepRules, containsString("-keep class j$.util.concurrent.ConcurrentHashMap"));
-    assertThat(keepRules, containsString("-keep class j$.util.concurrent.ConcurrentMap"));
   }
 
   @Test

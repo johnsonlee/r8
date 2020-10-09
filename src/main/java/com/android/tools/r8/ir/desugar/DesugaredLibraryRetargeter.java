@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GenericSignature.ClassTypeSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ResolutionResult;
@@ -324,7 +325,8 @@ public class DesugaredLibraryRetargeter {
       // applies up to 24.
       for (DexMethod method : methods) {
         clazz.addExtraInterfaces(
-            Collections.singletonList(dispatchInterfaceTypeFor(method)), appView.dexItemFactory());
+            Collections.singletonList(new ClassTypeSignature(dispatchInterfaceTypeFor(method))),
+            appView);
         if (clazz.lookupVirtualMethod(method) == null) {
           DexEncodedMethod newMethod = createForwardingMethod(method, clazz);
           clazz.addVirtualMethod(newMethod);
