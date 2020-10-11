@@ -89,12 +89,14 @@ public class AppServices {
     }
     // Check if service is defined feature
     DexProgramClass serviceClass = appView.definitionForProgramType(serviceType);
-    if (appView.options().featureSplitConfiguration.isInFeature(serviceClass)) {
+    if (serviceClass != null
+        && appView.options().featureSplitConfiguration.isInFeature(serviceClass)) {
       return true;
     }
-    for (DexType dexType : featureImplementations.get(FeatureSplit.BASE)) {
-      DexProgramClass implementationClass = appView.definitionForProgramType(dexType);
-      if (appView.options().featureSplitConfiguration.isInFeature(implementationClass)) {
+    for (DexType implementationType : featureImplementations.get(FeatureSplit.BASE)) {
+      DexProgramClass implementationClass = appView.definitionForProgramType(implementationType);
+      if (implementationClass != null
+          && appView.options().featureSplitConfiguration.isInFeature(implementationClass)) {
         return true;
       }
     }
