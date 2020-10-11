@@ -33,4 +33,9 @@ public class UnknownInstanceFieldInitializationInfo implements InstanceFieldInit
       AppView<AppInfoWithLiveness> appView, GraphLense lens) {
     return this;
   }
+
+  @Override
+  public String toString() {
+    return "UnknownInstanceFieldInitializationInfo";
+  }
 }
