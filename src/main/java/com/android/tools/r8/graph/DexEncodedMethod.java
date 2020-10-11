@@ -255,6 +255,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     assert parameterAnnotationsList != null;
   }
 
+  public MethodAccessFlags getAccessFlags() {
+    return accessFlags;
+  }
+
   public DexMethod getReference() {
     return method;
   }
