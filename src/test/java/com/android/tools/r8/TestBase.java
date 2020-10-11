@@ -1508,6 +1508,10 @@ public class TestBase {
     return AndroidApiLevel.N;
   }
 
+  public static AndroidApiLevel apiLevelWithStaticInterfaceMethodsSupport() {
+    return AndroidApiLevel.N;
+  }
+
   public static AndroidApiLevel apiLevelWithInvokeCustomSupport() {
     return AndroidApiLevel.O;
   }
