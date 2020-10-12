@@ -6,6 +6,7 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.kotlin.KotlinClassLevelInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.InternalOptions;
@@ -337,6 +338,20 @@ public abstract class DexClass extends DexDefinition {
     instanceFields = MoreObjects.firstNonNull(fields, DexEncodedField.EMPTY_ARRAY);
     assert verifyCorrectnessOfFieldHolders(instanceFields());
     assert verifyNoDuplicateFields();
+  }
+
+  public ClassSignature getClassSignature(AppView<?> appView) {
+    for (DexAnnotation annotation : annotations().annotations) {
+      if (DexAnnotation.isSignatureAnnotation(annotation, appView.dexItemFactory())) {
+        return GenericSignature.parseClassSignature(
+            type.getName(),
+            DexAnnotation.getSignature(annotation),
+            origin,
+            appView.dexItemFactory(),
+            appView.options().reporter);
+      }
+    }
+    return ClassSignature.NO_CLASS_SIGNATURE;
   }
 
   private boolean verifyCorrectnessOfFieldHolder(DexEncodedField field) {

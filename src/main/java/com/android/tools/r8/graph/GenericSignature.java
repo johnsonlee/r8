@@ -5,8 +5,10 @@ package com.android.tools.r8.graph;
 
 import static com.android.tools.r8.utils.DescriptorUtils.getClassBinaryNameFromDescriptor;
 import static com.android.tools.r8.utils.DescriptorUtils.getDescriptorFromClassBinaryName;
+import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.Reporter;
@@ -14,6 +16,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.reflect.GenericSignatureFormatError;
 import java.nio.CharBuffer;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Internal encoding of the generics signature attribute as defined by JVMS 7 $ 4.3.4.
@@ -125,6 +128,12 @@ public class GenericSignature {
     default MethodTypeSignature asMethodTypeSignature() {
       return null;
     }
+
+    boolean hasSignature();
+
+    default boolean hasNoSignature() {
+      return !hasSignature();
+    }
   }
 
   public static class FormalTypeParameter {
@@ -192,12 +201,9 @@ public class GenericSignature {
       return superInterfaceSignatures;
     }
 
+    @Override
     public boolean hasSignature() {
       return this != NO_CLASS_SIGNATURE;
-    }
-
-    public boolean hasNoSignature() {
-      return !hasSignature();
     }
 
     @Override
@@ -216,6 +222,25 @@ public class GenericSignature {
       for (ClassTypeSignature superInterface : superInterfaceSignatures) {
         visitor.visitSuperInterface(superInterface);
       }
+    }
+
+    public String toRenamedString(NamingLens namingLens, Predicate<DexType> isTypeMissing) {
+      if (hasNoSignature()) {
+        return null;
+      }
+      GenericSignaturePrinter genericSignaturePrinter =
+          new GenericSignaturePrinter(namingLens, isTypeMissing);
+      genericSignaturePrinter.visitClassSignature(this);
+      return genericSignaturePrinter.toString();
+    }
+
+    @Override
+    public String toString() {
+      return toRenamedString(NamingLens.getIdentityLens(), alwaysTrue());
+    }
+
+    public static ClassSignature noSignature() {
+      return NO_CLASS_SIGNATURE;
     }
   }
 
@@ -300,6 +325,7 @@ public class GenericSignature {
       return null;
     }
 
+    @Override
     public boolean hasSignature() {
       return this != GenericSignature.NO_FIELD_TYPE_SIGNATURE;
     }
@@ -308,6 +334,25 @@ public class GenericSignature {
 
     public boolean isStar() {
       return false;
+    }
+
+    public String toRenamedString(NamingLens namingLens, Predicate<DexType> isTypeMissing) {
+      if (hasNoSignature()) {
+        return null;
+      }
+      GenericSignaturePrinter genericSignaturePrinter =
+          new GenericSignaturePrinter(namingLens, isTypeMissing);
+      genericSignaturePrinter.visitTypeSignature(this);
+      return genericSignaturePrinter.toString();
+    }
+
+    @Override
+    public String toString() {
+      return toRenamedString(NamingLens.getIdentityLens(), alwaysTrue());
+    }
+
+    public static FieldTypeSignature noSignature() {
+      return NO_FIELD_TYPE_SIGNATURE;
     }
   }
 
@@ -330,7 +375,7 @@ public class GenericSignature {
     }
   }
 
-  public static final ClassTypeSignature NO_FIELD_TYPE_SIGNATURE =
+  private static final ClassTypeSignature NO_FIELD_TYPE_SIGNATURE =
       new ClassTypeSignature(DexItemFactory.nullValueType, EMPTY_TYPE_ARGUMENTS);
 
   public static class ClassTypeSignature extends FieldTypeSignature {
@@ -346,7 +391,11 @@ public class GenericSignature {
     ClassTypeSignature enclosingTypeSignature;
     ClassTypeSignature innerTypeSignature;
 
-    ClassTypeSignature(DexType type, List<FieldTypeSignature> typeArguments) {
+    public ClassTypeSignature(DexType type) {
+      this(type, EMPTY_TYPE_ARGUMENTS);
+    }
+
+    public ClassTypeSignature(DexType type, List<FieldTypeSignature> typeArguments) {
       this(type, typeArguments, WildcardIndicator.NOT_AN_ARGUMENT);
     }
 
@@ -542,7 +591,7 @@ public class GenericSignature {
 
   public static class MethodTypeSignature implements DexDefinitionSignature<DexEncodedMethod> {
 
-    public static final MethodTypeSignature NO_METHOD_TYPE_SIGNATURE =
+    private static final MethodTypeSignature NO_METHOD_TYPE_SIGNATURE =
         new MethodTypeSignature(
             EMPTY_TYPE_PARAMS, EMPTY_TYPE_SIGNATURES, ReturnType.VOID, EMPTY_TYPE_SIGNATURES);
 
@@ -550,6 +599,10 @@ public class GenericSignature {
     final List<TypeSignature> typeSignatures;
     final ReturnType returnType;
     final List<TypeSignature> throwsSignatures;
+
+    public static MethodTypeSignature noSignature() {
+      return NO_METHOD_TYPE_SIGNATURE;
+    }
 
     MethodTypeSignature(
         final List<FormalTypeParameter> formalTypeParameters,
@@ -586,6 +639,7 @@ public class GenericSignature {
       return true;
     }
 
+    @Override
     public boolean hasSignature() {
       return this != NO_METHOD_TYPE_SIGNATURE;
     }
@@ -604,6 +658,21 @@ public class GenericSignature {
 
     public List<FormalTypeParameter> getFormalTypeParameters() {
       return formalTypeParameters;
+    }
+
+    public String toRenamedString(NamingLens namingLens, Predicate<DexType> isTypeMissing) {
+      if (hasNoSignature()) {
+        return null;
+      }
+      GenericSignaturePrinter genericSignaturePrinter =
+          new GenericSignaturePrinter(namingLens, isTypeMissing);
+      genericSignaturePrinter.visitMethodSignature(this);
+      return genericSignaturePrinter.toString();
+    }
+
+    @Override
+    public String toString() {
+      return toRenamedString(NamingLens.getIdentityLens(), alwaysTrue());
     }
   }
 
@@ -632,6 +701,9 @@ public class GenericSignature {
       Origin origin,
       DexItemFactory factory,
       Reporter reporter) {
+    if (signature == null || signature.isEmpty()) {
+      return NO_FIELD_TYPE_SIGNATURE;
+    }
     Parser parser = new Parser(factory);
     try {
       return parser.parseFieldTypeSignature(signature);
@@ -973,7 +1045,6 @@ public class GenericSignature {
       if (symbol == '^') {
         do {
           scanSymbol();
-
           // ThrowsSignature ::= ("^" ClassTypeSignature) | ("^" TypeVariableSignature).
           if (symbol == 'T') {
             throwsSignatureBuilder.add(updateTypeVariableSignature());
