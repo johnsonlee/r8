@@ -4,12 +4,14 @@
 
 package com.android.tools.r8.retrace;
 
+import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.Keep;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.TypeReference;
+import com.android.tools.r8.retrace.RetraceCommand.ProguardMapProducer;
 
 /** A default implementation for the retrace api using the ClassNameMapper defined in R8. */
 @Keep
@@ -21,8 +23,19 @@ public class Retracer implements RetraceApi {
     this.classNameMapper = classNameMapper;
   }
 
-  public static RetraceApi create(ClassNameMapper classNameMapper) {
-    return new Retracer(classNameMapper);
+  public static RetraceApi create(
+      ProguardMapProducer proguardMapProducer, DiagnosticsHandler diagnosticsHandler) {
+    if (proguardMapProducer instanceof DirectClassNameMapperProguardMapProducer) {
+      return new Retracer(
+          ((DirectClassNameMapperProguardMapProducer) proguardMapProducer).getClassNameMapper());
+    }
+    try {
+      ClassNameMapper classNameMapper =
+          ClassNameMapper.mapperFromString(proguardMapProducer.get(), diagnosticsHandler);
+      return new Retracer(classNameMapper);
+    } catch (Throwable throwable) {
+      throw new InvalidMappingFileException(throwable);
+    }
   }
 
   @Override

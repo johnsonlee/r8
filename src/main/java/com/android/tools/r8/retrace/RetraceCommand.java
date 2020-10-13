@@ -7,7 +7,6 @@ package com.android.tools.r8.retrace;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.Keep;
 import com.android.tools.r8.utils.StringDiagnostic;
-import java.io.IOException;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -153,6 +152,6 @@ public class RetraceCommand {
 
   @Keep
   public interface ProguardMapProducer {
-    String get() throws IOException;
+    String get();
   }
 }
