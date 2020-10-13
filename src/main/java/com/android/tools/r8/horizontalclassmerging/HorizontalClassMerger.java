@@ -7,6 +7,7 @@ package com.android.tools.r8.horizontalclassmerging;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.horizontalclassmerging.policies.DontMergeIntoLessVisible;
 import com.android.tools.r8.horizontalclassmerging.policies.DontMergeSynchronizedClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoAbstractClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoAnnotations;
@@ -48,6 +49,7 @@ public class HorizontalClassMerger {
       MainDexTracingResult mainDexTracingResult,
       ClassMergingEnqueuerExtension classMergingEnqueuerExtension) {
     this.appView = appView;
+    assert appView.options().enableInlining;
 
     List<Policy> policies =
         ImmutableList.of(
@@ -71,7 +73,10 @@ public class HorizontalClassMerger {
             new PreventChangingVisibility(),
             new SameFeatureSplit(appView),
             new RespectPackageBoundaries(appView),
-            new DontMergeSynchronizedClasses(appView)
+            new DontMergeSynchronizedClasses(appView),
+            // TODO(b/166577694): no policies should be run after this policy, as it would
+            // potentially break tests
+            new DontMergeIntoLessVisible()
             // TODO: add policies
             );
 
@@ -91,6 +96,7 @@ public class HorizontalClassMerger {
     Collection<Collection<DexProgramClass>> groups = policyExecutor.run(classes.values());
     // If there are no groups, then end horizontal class merging.
     if (groups.isEmpty()) {
+      appView.setHorizontallyMergedClasses(HorizontallyMergedClasses.empty());
       return null;
     }
 

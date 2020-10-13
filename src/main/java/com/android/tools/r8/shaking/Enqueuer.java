@@ -65,6 +65,7 @@ import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
 import com.android.tools.r8.graph.analysis.DesugaredLibraryConversionWrapperAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerCheckCastAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerExceptionGuardAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerInstanceOfAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerInvokeAnalysis;
 import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
@@ -170,6 +171,10 @@ public class Enqueuer {
     public boolean isTracingMainDex() {
       return this == MAIN_DEX_TRACING;
     }
+
+    public boolean isWhyAreYouKeeping() {
+      return this == WHY_ARE_YOU_KEEPING;
+    }
   }
 
   private final boolean forceProguardCompatibility;
@@ -178,6 +183,7 @@ public class Enqueuer {
   private Set<EnqueuerAnalysis> analyses = Sets.newIdentityHashSet();
   private Set<EnqueuerInvokeAnalysis> invokeAnalyses = Sets.newIdentityHashSet();
   private Set<EnqueuerInstanceOfAnalysis> instanceOfAnalyses = Sets.newIdentityHashSet();
+  private Set<EnqueuerExceptionGuardAnalysis> exceptionGuardAnalyses = Sets.newIdentityHashSet();
   private Set<EnqueuerCheckCastAnalysis> checkCastAnalyses = Sets.newIdentityHashSet();
 
   // Don't hold a direct pointer to app info (use appView).
@@ -263,8 +269,6 @@ public class Enqueuer {
    * Set of direct methods that are the immediate target of an invoke-dynamic.
    */
   private final Set<DexMethod> methodsTargetedByInvokeDynamic = Sets.newIdentityHashSet();
-  /** Set of direct lambda implementation methods that have been desugared, thus they may move. */
-  private final Set<DexMethod> desugaredLambdaImplementationMethods = Sets.newIdentityHashSet();
   /**
    * Set of virtual methods that are the immediate target of an invoke-direct.
    */
@@ -435,6 +439,11 @@ public class Enqueuer {
 
   public Enqueuer registerCheckCastAnalysis(EnqueuerCheckCastAnalysis analysis) {
     checkCastAnalyses.add(analysis);
+    return this;
+  }
+
+  public Enqueuer registerExceptionGuardAnalysis(EnqueuerExceptionGuardAnalysis analysis) {
+    exceptionGuardAnalyses.add(analysis);
     return this;
   }
 
@@ -865,9 +874,6 @@ public class Enqueuer {
           classesWithSerializableLambdas.add(context.getHolder());
         }
       }
-      if (descriptor.delegatesToLambdaImplMethod()) {
-        desugaredLambdaImplementationMethods.add(descriptor.implHandle.asMethod());
-      }
     } else {
       markLambdaAsInstantiated(descriptor, context);
       transitionMethodsForInstantiatedLambda(descriptor);
@@ -1030,6 +1036,11 @@ public class Enqueuer {
   void traceInstanceOf(DexType type, ProgramMethod currentMethod) {
     instanceOfAnalyses.forEach(analysis -> analysis.traceInstanceOf(type, currentMethod));
     traceTypeReference(type, currentMethod);
+  }
+
+  void traceExceptionGuard(DexType guard, ProgramMethod currentMethod) {
+    exceptionGuardAnalyses.forEach(analysis -> analysis.traceExceptionGuard(guard, currentMethod));
+    traceTypeReference(guard, currentMethod);
   }
 
   void traceInvokeDirect(DexMethod invokedMethod, ProgramMethod context) {
@@ -2728,6 +2739,11 @@ public class Enqueuer {
     finalizeLibraryMethodOverrideInformation();
     analyses.forEach(analyses -> analyses.done(this));
     assert verifyKeptGraph();
+    if (mode.isWhyAreYouKeeping()) {
+      // For why are you keeping the information is reported through the kept graph callbacks and
+      // no AppInfo is returned.
+      return null;
+    }
     AppInfoWithLiveness appInfoWithLiveness = createAppInfo(appInfo);
     if (options.testing.enqueuerInspector != null) {
       options.testing.enqueuerInspector.accept(appInfoWithLiveness, mode);
@@ -3088,6 +3104,16 @@ public class Enqueuer {
                 liveMethods.add(accessor, graphReporter.fakeReportShouldNotBeUsed());
               }
             });
+    unpinLambdaMethods();
+  }
+
+  // TODO(b/157700141): Determine if this is the right way to allow modification of pinned lambdas.
+  private void unpinLambdaMethods() {
+    assert lambdaRewriter != null;
+    for (DexMethod method : lambdaRewriter.getForcefullyMovedMethods()) {
+      keepInfo.unsafeUnpinMethod(method);
+      rootSet.prune(method);
+    }
   }
 
   private boolean verifyMissingTypes() {
@@ -3296,7 +3322,6 @@ public class Enqueuer {
     } finally {
       timing.end();
     }
-    unpinLambdaMethods();
   }
 
   private long getNumberOfLiveItems() {
@@ -3390,17 +3415,6 @@ public class Enqueuer {
       }
     }
     action.getAction().accept(builder);
-  }
-
-  // TODO(b/157700141): Determine if this is the right way to avoid modification of pinned lambdas.
-  private void unpinLambdaMethods() {
-    assert desugaredLambdaImplementationMethods.isEmpty()
-        || options.desugarState == DesugarState.ON;
-    for (DexMethod method : desugaredLambdaImplementationMethods) {
-      keepInfo.unsafeUnpinMethod(method);
-      rootSet.prune(method);
-    }
-    desugaredLambdaImplementationMethods.clear();
   }
 
   void retainAnnotationForFinalTreeShaking(List<DexAnnotation> annotations) {

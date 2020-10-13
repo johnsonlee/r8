@@ -33,13 +33,19 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.EnumValueInfoMapCollection;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.classmerging.HorizontallyMergedLambdaClasses;
+import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
+import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.MethodProcessingId;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryConfiguration;
 import com.android.tools.r8.ir.optimize.Inliner;
+import com.android.tools.r8.ir.optimize.lambda.kotlin.KotlinLambdaGroupIdFactory;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.references.Reference;
@@ -1214,6 +1220,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public BiConsumer<AppInfoWithLiveness, Enqueuer.Mode> enqueuerInspector = null;
 
+    public Function<DexProgramClass, KotlinLambdaGroupIdFactory> kotlinLambdaMergerFactoryForClass =
+        KotlinLambdaGroupIdFactory::getFactoryForClass;
+
     public BiConsumer<ProgramMethod, MethodProcessingId> methodProcessingIdConsumer = null;
 
     public Function<AppView<AppInfoWithLiveness>, RepackagingConfiguration>
@@ -1221,6 +1230,18 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
             appView ->
                 new DefaultRepackagingConfiguration(
                     appView.dexItemFactory(), appView.options().getProguardConfiguration());
+
+    public BiConsumer<DexItemFactory, HorizontallyMergedClasses> horizontallyMergedClassesConsumer =
+        ConsumerUtils.emptyBiConsumer();
+
+    public BiConsumer<DexItemFactory, HorizontallyMergedLambdaClasses>
+        horizontallyMergedLambdaClassesConsumer = ConsumerUtils.emptyBiConsumer();
+
+    public BiConsumer<DexItemFactory, EnumValueInfoMapCollection> unboxedEnumsConsumer =
+        ConsumerUtils.emptyBiConsumer();
+
+    public BiConsumer<DexItemFactory, VerticallyMergedClasses> verticallyMergedClassesConsumer =
+        ConsumerUtils.emptyBiConsumer();
 
     public Consumer<Deque<SortedProgramMethodSet>> waveModifier = waves -> {};
 
@@ -1274,6 +1295,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         System.getProperty("com.android.tools.r8.trackDesugaredAPIConversions") != null;
     public boolean forceLibBackportsInL8CfToCf = false;
     public boolean enumUnboxingRewriteJavaCGeneratedMethod = false;
+    // TODO(b/154793333): Enable assertions always when resolved.
     public boolean assertConsistentRenamingOfSignature = false;
     public boolean allowStaticInterfaceMethodsForPreNApiLevel = false;
     public int verificationSizeLimitInBytesOverride = -1;

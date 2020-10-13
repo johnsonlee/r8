@@ -12,6 +12,7 @@ import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.dex.ApplicationWriter;
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Tool;
+import com.android.tools.r8.errors.CheckDiscardDiagnostic;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -559,7 +560,7 @@ public class R8 {
             timing.end();
           }
         }
-        if (options.enableHorizontalClassMerging) {
+        if (options.enableHorizontalClassMerging && options.enableInlining) {
           timing.begin("HorizontalClassMerger");
           HorizontalClassMerger merger =
               new HorizontalClassMerger(
@@ -1082,16 +1083,11 @@ public class R8 {
             timing);
       }
     }
-    for (DexDefinition definition : failed) {
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      whyAreYouKeepingConsumer.printWhyAreYouKeeping(
-          enqueuer.getGraphReporter().getGraphNode(definition.toReference()),
-          new PrintStream(baos));
-      options.reporter.info(
-          new StringDiagnostic(
-              "Item " + definition.toSourceString() + " was not discarded.\n" + baos.toString()));
-    }
-    throw new CompilationError("Discard checks failed.");
+    options.reporter.error(
+        new CheckDiscardDiagnostic.Builder()
+            .addFailedItems(failed, enqueuer.getGraphReporter(), whyAreYouKeepingConsumer)
+            .build());
+    options.reporter.failIfPendingErrors();
   }
 
   private static boolean verifyNoJarApplicationReaders(Collection<DexProgramClass> classes) {

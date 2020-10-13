@@ -7,6 +7,7 @@ package com.android.tools.r8.retrace;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.ProcessResult;
@@ -38,6 +39,8 @@ import org.junit.rules.TemporaryFolder;
 public class RetraceCommandLineTests {
 
   private static final boolean testExternal = false;
+  private static final String WAITING_MESSAGE =
+      "Waiting for stack-trace input..." + StringUtils.LINE_SEPARATOR;
 
   @Rule public TemporaryFolder folder = new TemporaryFolder();
 
@@ -61,6 +64,18 @@ public class RetraceCommandLineTests {
   @Test
   public void testMissingMappingFile() throws IOException {
     runAbortTest(containsString("Could not find mapping file 'foo.txt'"), "foo.txt");
+  }
+
+  @Test
+  public void testInvalidMappingFile() throws IOException {
+    Path mappingFile = folder.newFile("mapping.txt").toPath();
+    Files.write(mappingFile, "foo.bar.baz <- is invalid mapping".getBytes());
+    Path stackTraceFile = folder.newFile("stacktrace.txt").toPath();
+    Files.write(stackTraceFile, new byte[0]);
+    runAbortTest(
+        containsString("Unable to parse mapping file"),
+        mappingFile.toString(),
+        stackTraceFile.toString());
   }
 
   @Test
@@ -135,7 +150,7 @@ public class RetraceCommandLineTests {
   public void testHelp() throws IOException {
     ProcessResult processResult = runRetraceCommandLine(null, Arrays.asList("--help"));
     assertEquals(0, processResult.exitCode);
-    assertEquals(Retrace.USAGE_MESSAGE, processResult.stdout);
+    assertThat(processResult.stdout, containsString(Retrace.USAGE_MESSAGE));
   }
 
   @Test
@@ -155,6 +170,12 @@ public class RetraceCommandLineTests {
     runTest("", SMILEY_EMOJI, true, SMILEY_EMOJI + StringUtils.LINE_SEPARATOR);
   }
 
+  @Test
+  public void testHelpMessageOnStdIn() throws IOException {
+    ProcessResult processResult = runRetrace("", "", true);
+    assertTrue(processResult.stdout.startsWith(WAITING_MESSAGE));
+  }
+
   private final String nonMappableStackTrace =
       StringUtils.lines(
           "com.android.r8.R8Exception: Problem when compiling program",
@@ -171,7 +192,12 @@ public class RetraceCommandLineTests {
       throws IOException {
     ProcessResult result = runRetrace(mapping, stackTrace, stacktraceStdIn, args);
     assertEquals(0, result.exitCode);
-    assertEquals(expected, result.stdout);
+    String stdOut = result.stdout;
+    if (stacktraceStdIn) {
+      assertTrue(result.stdout.startsWith(WAITING_MESSAGE));
+      stdOut = result.stdout.substring(WAITING_MESSAGE.length());
+    }
+    assertEquals(expected, stdOut);
   }
 
   private void runAbortTest(Matcher<String> errorMatch, String... args) throws IOException {

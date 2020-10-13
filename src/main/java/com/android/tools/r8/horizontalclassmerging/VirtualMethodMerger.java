@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -18,6 +19,7 @@ import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.ir.synthetic.AbstractSynthesizedCode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.FieldAccessInfoCollectionModifier;
+import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -106,7 +108,11 @@ public class VirtualMethodMerger {
 
   private MethodAccessFlags getAccessFlags() {
     // TODO(b/164998929): ensure this behaviour is correct, should probably calculate upper bound
-    return methods.iterator().next().getDefinition().getAccessFlags();
+    MethodAccessFlags flags = methods.iterator().next().getDefinition().getAccessFlags().copy();
+    if (flags.isFinal() && Iterables.any(methods, method -> !method.getAccessFlags().isFinal())) {
+      flags.unsetFinal();
+    }
+    return flags;
   }
 
 
@@ -154,12 +160,12 @@ public class VirtualMethodMerger {
     }
 
     // Use the first of the original methods as the original method for the merged constructor.
+    DexMethod templateReference = methods.iterator().next().getReference();
     DexMethod originalMethodReference =
-        appView.graphLens().getOriginalMethodSignature(methods.iterator().next().getReference());
+        appView.graphLens().getOriginalMethodSignature(templateReference);
 
     DexMethod newMethodReference =
-        dexItemFactory.createMethod(
-            target.type, originalMethodReference.proto, originalMethodReference.name);
+        dexItemFactory.createMethod(target.type, templateReference.proto, templateReference.name);
     AbstractSynthesizedCode synthesizedCode =
         new VirtualMethodEntryPointSynthesizedCode(
             classIdToMethodMap,
@@ -171,6 +177,7 @@ public class VirtualMethodMerger {
         new DexEncodedMethod(
             newMethodReference,
             getAccessFlags(),
+            MethodTypeSignature.noSignature(),
             DexAnnotationSet.empty(),
             ParameterAnnotationsList.empty(),
             synthesizedCode,

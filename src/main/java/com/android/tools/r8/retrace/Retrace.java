@@ -10,9 +10,9 @@ import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.Keep;
 import com.android.tools.r8.Version;
-import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.retrace.RetraceCommand.Builder;
 import com.android.tools.r8.retrace.RetraceCommand.ProguardMapProducer;
+import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.android.tools.r8.utils.OptionsParsing;
 import com.android.tools.r8.utils.OptionsParsing.ParseContext;
 import com.android.tools.r8.utils.StringDiagnostic;
@@ -120,7 +120,15 @@ public class Retrace {
           new StringDiagnostic(String.format("Could not find mapping file '%s'.", mappingPath)));
       throw new RetraceAbortException();
     }
-    return () -> new String(Files.readAllBytes(path));
+    return () -> {
+      try {
+        return new String(Files.readAllBytes(path));
+      } catch (IOException e) {
+        diagnosticsHandler.error(
+            new StringDiagnostic(String.format("Could not open mapping file '%s'.", mappingPath)));
+        throw new RuntimeException(e);
+      }
+    };
   }
 
   private static List<String> getStackTraceFromFile(
@@ -142,11 +150,9 @@ public class Retrace {
     try {
       Timing timing = Timing.create("R8 retrace", command.printMemory());
       timing.begin("Read proguard map");
-      ClassNameMapper classNameMapper =
-          ClassNameMapper.mapperFromString(
-              command.proguardMapProducer.get(), command.diagnosticsHandler);
+      RetraceApi retracer =
+          Retracer.create(command.proguardMapProducer, command.diagnosticsHandler);
       timing.end();
-      RetraceApi retracer = Retracer.create(classNameMapper);
       RetraceCommandLineResult result;
       timing.begin("Parse and Retrace");
       if (command.regularExpression != null) {
@@ -171,10 +177,9 @@ public class Retrace {
       if (command.printTimes()) {
         timing.report();
       }
-    } catch (IOException ex) {
-      command.diagnosticsHandler.error(
-          new StringDiagnostic("Could not open mapping input stream: " + ex.getMessage()));
-      throw new RetraceAbortException();
+    } catch (InvalidMappingFileException e) {
+      command.diagnosticsHandler.error(new ExceptionDiagnostic(e));
+      throw e;
     }
   }
 
@@ -207,6 +212,7 @@ public class Retrace {
         return;
       }
       assert Arrays.asList(mappedArgs).contains("--help");
+      System.out.println("Retrace " + Version.getVersionString());
       System.out.print(USAGE_MESSAGE);
       return;
     }
@@ -233,6 +239,7 @@ public class Retrace {
   }
 
   private static List<String> getStackTraceFromStandardInput() {
+    System.out.println("Waiting for stack-trace input...");
     Scanner sc = new Scanner(new InputStreamReader(System.in, Charsets.UTF_8));
     List<String> readLines = new ArrayList<>();
     while (sc.hasNext()) {
@@ -252,9 +259,11 @@ public class Retrace {
       action.run();
     } catch (RetraceAbortException e) {
       // Detail of the errors were already reported
+      System.err.println(StringUtils.LINE_SEPARATOR + USAGE_MESSAGE + StringUtils.LINE_SEPARATOR);
       System.exit(STATUS_ERROR);
     } catch (RuntimeException e) {
       System.err.println("Retrace failed with an internal error.");
+      System.err.println(StringUtils.LINE_SEPARATOR + USAGE_MESSAGE + StringUtils.LINE_SEPARATOR);
       Throwable cause = e.getCause() == null ? e : e.getCause();
       cause.printStackTrace();
       System.exit(STATUS_ERROR);

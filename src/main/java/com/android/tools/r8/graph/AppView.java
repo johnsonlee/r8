@@ -30,6 +30,7 @@ import com.android.tools.r8.shaking.MainDexClasses;
 import com.android.tools.r8.shaking.RootSetBuilder.RootSet;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.InternalOptions.TestingOptions;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.google.common.base.Predicates;
@@ -398,6 +399,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return appInfo.options();
   }
 
+  public TestingOptions testing() {
+    return options().testing;
+  }
+
   public RootSet rootSet() {
     return rootSet;
   }
@@ -440,6 +445,9 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       HorizontallyMergedLambdaClasses horizontallyMergedLambdaClasses) {
     assert this.horizontallyMergedLambdaClasses == null;
     this.horizontallyMergedLambdaClasses = horizontallyMergedLambdaClasses;
+    testing()
+        .horizontallyMergedLambdaClassesConsumer
+        .accept(dexItemFactory(), horizontallyMergedLambdaClasses);
   }
 
   /**
@@ -453,6 +461,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   public void setHorizontallyMergedClasses(HorizontallyMergedClasses horizontallyMergedClasses) {
     assert this.horizontallyMergedClasses == null;
     this.horizontallyMergedClasses = horizontallyMergedClasses;
+    testing().horizontallyMergedClassesConsumer.accept(dexItemFactory(), horizontallyMergedClasses);
   }
 
   /**
@@ -466,6 +475,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   public void setVerticallyMergedClasses(VerticallyMergedClasses verticallyMergedClasses) {
     assert this.verticallyMergedClasses == null;
     this.verticallyMergedClasses = verticallyMergedClasses;
+    testing().verticallyMergedClassesConsumer.accept(dexItemFactory(), verticallyMergedClasses);
   }
 
   public EnumValueInfoMapCollection unboxedEnums() {
@@ -473,7 +483,9 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   public void setUnboxedEnums(EnumValueInfoMapCollection unboxedEnums) {
+    assert this.unboxedEnums.isEmpty();
     this.unboxedEnums = unboxedEnums;
+    testing().unboxedEnumsConsumer.accept(dexItemFactory(), unboxedEnums);
   }
 
   public boolean validateUnboxedEnumsHaveBeenPruned() {

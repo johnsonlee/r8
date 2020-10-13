@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.ir.conversion.ExtraConstantIntParameter;
@@ -90,6 +91,10 @@ public class ConstructorMerger {
 
     DexEncodedMethod encodedMethod = constructor.toTypeSubstitutedMethod(method);
     encodedMethod.getMutableOptimizationInfo().markForceInline();
+    encodedMethod.accessFlags.unsetConstructor();
+    encodedMethod.accessFlags.unsetPublic();
+    encodedMethod.accessFlags.unsetProtected();
+    encodedMethod.accessFlags.setPrivate();
     target.addDirectMethod(encodedMethod);
     return method;
   }
@@ -164,6 +169,7 @@ public class ConstructorMerger {
         new DexEncodedMethod(
             newConstructorReference,
             getAccessFlags(),
+            MethodTypeSignature.noSignature(),
             DexAnnotationSet.empty(),
             ParameterAnnotationsList.empty(),
             synthesizedCode,

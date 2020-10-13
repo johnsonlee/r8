@@ -302,7 +302,6 @@ public class KotlinLambdaMergingTest extends AbstractR8KotlinTestBase {
 
   @Test
   public void testTrivialKs() throws Exception {
-    expectThrowsWithHorizontalClassMergingIf(allowAccessModification);
     final String mainClassName = "lambdas_kstyle_trivial.MainKt";
     runTest(
         "lambdas_kstyle_trivial",
@@ -384,7 +383,6 @@ public class KotlinLambdaMergingTest extends AbstractR8KotlinTestBase {
 
   @Test
   public void testGenericsNoSignatureKs() throws Exception {
-    expectThrowsWithHorizontalClassMerging();
     final String mainClassName = "lambdas_kstyle_generics.MainKt";
     runTest(
         "lambdas_kstyle_generics",
@@ -413,7 +411,6 @@ public class KotlinLambdaMergingTest extends AbstractR8KotlinTestBase {
 
   @Test
   public void testInnerClassesAndEnclosingMethodsKs() throws Exception {
-    expectThrowsWithHorizontalClassMerging();
     final String mainClassName = "lambdas_kstyle_generics.MainKt";
     runTest(
         "lambdas_kstyle_generics",
@@ -478,7 +475,6 @@ public class KotlinLambdaMergingTest extends AbstractR8KotlinTestBase {
 
   @Test
   public void testTrivialJs() throws Exception {
-    expectThrowsWithHorizontalClassMergingIf(allowAccessModification);
     final String mainClassName = "lambdas_jstyle_trivial.MainKt";
     runTest(
         "lambdas_jstyle_trivial",
@@ -528,7 +524,6 @@ public class KotlinLambdaMergingTest extends AbstractR8KotlinTestBase {
 
   @Test
   public void testSingleton() throws Exception {
-    expectThrowsWithHorizontalClassMergingIf(allowAccessModification);
     final String mainClassName = "lambdas_singleton.MainKt";
     runTest(
         "lambdas_singleton",
