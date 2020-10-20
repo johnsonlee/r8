@@ -259,6 +259,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return accessFlags;
   }
 
+  public DexString getName() {
+    return getReference().name;
+  }
+
   public DexMethod getReference() {
     return method;
   }

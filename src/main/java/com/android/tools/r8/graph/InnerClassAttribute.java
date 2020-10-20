@@ -7,6 +7,8 @@ import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
+import java.util.Collections;
+import java.util.List;
 import org.objectweb.asm.ClassWriter;
 
 /** Representation of an entry in the Java InnerClasses attribute table. */
@@ -36,6 +38,10 @@ public class InnerClassAttribute {
     this.inner = inner;
     this.outer = outer;
     this.innerName = innerName;
+  }
+
+  public static List<InnerClassAttribute> emptyList() {
+    return Collections.emptyList();
   }
 
   public boolean isNamed() {

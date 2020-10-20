@@ -252,6 +252,12 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
       return self();
     }
 
+    public Builder addLibraryClasses(Collection<DexLibraryClass> classes) {
+      libraryClasses =
+          ImmutableList.<DexLibraryClass>builder().addAll(libraryClasses).addAll(classes).build();
+      return self();
+    }
+
     @Override
     public DirectMappedDexApplication build() {
       // Rebuild the map. This will fail if keys are not unique.
