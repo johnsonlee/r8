@@ -249,7 +249,7 @@ public class CfInvoke extends CfInstruction {
 
   @Override
   public ConstraintWithTarget inliningConstraint(
-      InliningConstraints inliningConstraints, DexProgramClass context) {
+      InliningConstraints inliningConstraints, ProgramMethod context) {
     GraphLens graphLens = inliningConstraints.getGraphLens();
     AppView<?> appView = inliningConstraints.getAppView();
     DexMethod target = method;
@@ -259,17 +259,17 @@ public class CfInvoke extends CfInstruction {
       case Opcodes.INVOKEINTERFACE:
         // Could have changed to an invoke-virtual instruction due to vertical class merging
         // (if an interface is merged into a class).
-        type = graphLens.lookupMethod(target, null, Type.INTERFACE).getType();
+        type = graphLens.lookupMethod(target, context.getReference(), Type.INTERFACE).getType();
         assert type == Type.INTERFACE || type == Type.VIRTUAL;
         break;
 
       case Opcodes.INVOKESPECIAL:
         if (appView.dexItemFactory().isConstructor(target)) {
           type = Type.DIRECT;
-          assert noNeedToUseGraphLens(target, type, graphLens);
-        } else if (target.holder == context.type) {
+          assert noNeedToUseGraphLens(target, context.getReference(), type, graphLens);
+        } else if (target.holder == context.getHolderType()) {
           // The method could have been publicized.
-          type = graphLens.lookupMethod(target, null, Type.DIRECT).getType();
+          type = graphLens.lookupMethod(target, context.getReference(), Type.DIRECT).getType();
           assert type == Type.DIRECT || type == Type.VIRTUAL;
         } else {
           // This is a super call. Note that the vertical class merger translates some invoke-super
@@ -280,14 +280,15 @@ public class CfInvoke extends CfInstruction {
           // TODO(christofferqa): Consider using graphLens.lookupMethod (to do this, we need the
           // context for the graph lens, though).
           type = Type.SUPER;
-          assert noNeedToUseGraphLens(target, type, graphLens);
+          assert noNeedToUseGraphLens(target, context.getReference(), type, graphLens);
         }
         break;
 
       case Opcodes.INVOKESTATIC:
         {
           // Static invokes may have changed as a result of horizontal class merging.
-          MethodLookupResult lookup = graphLens.lookupMethod(target, null, Type.STATIC);
+          MethodLookupResult lookup =
+              graphLens.lookupMethod(target, context.getReference(), Type.STATIC);
           target = lookup.getReference();
           type = lookup.getType();
         }
@@ -298,7 +299,7 @@ public class CfInvoke extends CfInstruction {
           type = Type.VIRTUAL;
           // Instructions that target a private method in the same class translates to
           // invoke-direct.
-          if (target.holder == context.type) {
+          if (target.holder == context.getHolderType()) {
             DexClass clazz = appView.definitionFor(target.holder);
             if (clazz != null && clazz.lookupDirectMethod(target) != null) {
               type = Type.DIRECT;
@@ -306,7 +307,7 @@ public class CfInvoke extends CfInstruction {
           }
 
           // Virtual invokes may have changed to interface invokes as a result of member rebinding.
-          MethodLookupResult lookup = graphLens.lookupMethod(target, null, type);
+          MethodLookupResult lookup = graphLens.lookupMethod(target, context.getReference(), type);
           target = lookup.getReference();
           type = lookup.getType();
         }
@@ -343,8 +344,8 @@ public class CfInvoke extends CfInstruction {
   }
 
   private static boolean noNeedToUseGraphLens(
-      DexMethod method, Invoke.Type type, GraphLens graphLens) {
-    assert graphLens.lookupMethod(method, null, type).getType() == type;
+      DexMethod method, DexMethod context, Invoke.Type type, GraphLens graphLens) {
+    assert graphLens.lookupMethod(method, context, type).getType() == type;
     return true;
   }
 

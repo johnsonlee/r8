@@ -5,6 +5,8 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import static com.android.tools.r8.TestBase.toDexType;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.graph.DexItemFactory;
@@ -19,6 +21,29 @@ public class HorizontallyMergedClassesInspector {
       DexItemFactory dexItemFactory, HorizontallyMergedClasses horizontallyMergedClasses) {
     this.dexItemFactory = dexItemFactory;
     this.horizontallyMergedClasses = horizontallyMergedClasses;
+  }
+
+  public HorizontallyMergedClassesInspector assertMergedInto(Class<?> from, Class<?> target) {
+    assertEquals(
+        horizontallyMergedClasses.getMergeTargetOrDefault(toDexType(from, dexItemFactory)),
+        toDexType(target, dexItemFactory));
+    return this;
+  }
+
+  public HorizontallyMergedClassesInspector assertNoClassesMerged() {
+    assertTrue(horizontallyMergedClasses.getSources().isEmpty());
+    return this;
+  }
+
+  public HorizontallyMergedClassesInspector assertClassNotMerged(Class<?> clazz) {
+    assertFalse(horizontallyMergedClasses.hasBeenMerged(toDexType(clazz, dexItemFactory)));
+    return this;
+  }
+
+  public HorizontallyMergedClassesInspector assertClassNotMergedIntoDifferentType(Class<?> clazz) {
+    assertFalse(
+        horizontallyMergedClasses.hasBeenMergedIntoDifferentType(toDexType(clazz, dexItemFactory)));
+    return this;
   }
 
   public HorizontallyMergedClassesInspector assertMerged(Class<?> clazz) {

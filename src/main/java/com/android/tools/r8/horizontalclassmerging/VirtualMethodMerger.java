@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -64,7 +65,7 @@ public class VirtualMethodMerger {
           appView
               .withLiveness()
               .appInfo()
-              .resolveMethodOnClass(template, target.superType)
+              .resolveMethodOnClass(template, target.getSuperType())
               .asSingleResolution();
       if (resolutionResult == null) {
         return null;
@@ -72,7 +73,14 @@ public class VirtualMethodMerger {
       if (resolutionResult.getResolvedMethod().isAbstract()) {
         return null;
       }
-      return resolutionResult.getResolvedMethod().method;
+      if (resolutionResult.getResolvedHolder().isInterface()) {
+        // Ensure that invoke virtual isn't called on an interface method.
+        return resolutionResult
+            .getResolvedMethod()
+            .getReference()
+            .withHolder(target.getSuperType(), appView.dexItemFactory());
+      }
+      return resolutionResult.getResolvedMethod().getReference();
     }
 
     public VirtualMethodMerger build(
@@ -147,11 +155,11 @@ public class VirtualMethodMerger {
 
     Int2ReferenceSortedMap<DexMethod> classIdToMethodMap = new Int2ReferenceAVLTreeMap<>();
 
-    int classFileVersion = -1;
+    CfVersion classFileVersion = null;
     for (ProgramMethod method : methods) {
       if (method.getDefinition().hasClassFileVersion()) {
-        classFileVersion =
-            Integer.max(classFileVersion, method.getDefinition().getClassFileVersion());
+        CfVersion methodVersion = method.getDefinition().getClassFileVersion();
+        classFileVersion = CfVersion.maxAllowNull(classFileVersion, methodVersion);
       }
       DexMethod newMethod = moveMethod(method);
       lensBuilder.mapMethod(newMethod, newMethod);

@@ -10,6 +10,7 @@ import static org.objectweb.asm.Opcodes.ASM7;
 
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.ClassAccessFlags;
@@ -241,6 +242,10 @@ public class ClassFileTransformer {
   }
 
   public ClassFileTransformer setVersion(int newVersion) {
+    return setVersion(CfVersion.fromRaw(newVersion));
+  }
+
+  public ClassFileTransformer setVersion(CfVersion newVersion) {
     return addClassTransformer(
         new ClassTransformer() {
           @Override
@@ -251,7 +256,7 @@ public class ClassFileTransformer {
               String signature,
               String superName,
               String[] interfaces) {
-            super.visit(newVersion, access, name, signature, superName, interfaces);
+            super.visit(newVersion.raw(), access, name, signature, superName, interfaces);
           }
         });
   }
@@ -483,11 +488,24 @@ public class ClassFileTransformer {
   @FunctionalInterface
   public interface MethodPredicate {
     boolean test(int access, String name, String descriptor, String signature, String[] exceptions);
+
+    static MethodPredicate onName(String name) {
+      return (access, otherName, descriptor, signature, exceptions) -> name.equals(otherName);
+    }
   }
 
   @FunctionalInterface
   public interface FieldPredicate {
     boolean test(int access, String name, String descriptor, String signature, Object value);
+
+    static FieldPredicate onNameAndSignature(String name, String descriptor) {
+      return (access, otherName, otherDescriptor, signature, value) ->
+          name.equals(otherName) && descriptor.equals(otherDescriptor);
+    }
+
+    static FieldPredicate onName(String name) {
+      return (access, otherName, descriptor, signature, value) -> name.equals(otherName);
+    }
   }
 
   @FunctionalInterface
@@ -518,14 +536,29 @@ public class ClassFileTransformer {
         });
   }
 
-  public ClassFileTransformer renameMethod(String oldName, String newName) {
+  public ClassFileTransformer renameMethod(MethodPredicate predicate, String newName) {
     return addClassTransformer(
         new ClassTransformer() {
           @Override
           public MethodVisitor visitMethod(
               int access, String name, String descriptor, String signature, String[] exceptions) {
-            return super.visitMethod(
-                access, name.equals(oldName) ? newName : name, descriptor, signature, exceptions);
+            if (predicate.test(access, name, descriptor, signature, exceptions)) {
+              return super.visitMethod(access, newName, descriptor, signature, exceptions);
+            }
+            return super.visitMethod(access, name, descriptor, signature, exceptions);
+          }
+        });
+  }
+
+  public ClassFileTransformer setGenericSignature(MethodPredicate predicate, String newSignature) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public MethodVisitor visitMethod(
+              int access, String name, String descriptor, String signature, String[] exceptions) {
+            return predicate.test(access, name, descriptor, signature, exceptions)
+                ? super.visitMethod(access, name, descriptor, newSignature, exceptions)
+                : super.visitMethod(access, name, descriptor, signature, exceptions);
           }
         });
   }
@@ -558,13 +591,13 @@ public class ClassFileTransformer {
         });
   }
 
-  public ClassFileTransformer renameField(FieldSignaturePredicate predicate, String newName) {
+  public ClassFileTransformer renameField(FieldPredicate predicate, String newName) {
     return addClassTransformer(
         new ClassTransformer() {
           @Override
           public FieldVisitor visitField(
               int access, String name, String descriptor, String signature, Object value) {
-            if (predicate.test(name, descriptor)) {
+            if (predicate.test(access, name, descriptor, signature, value)) {
               return super.visitField(access, newName, descriptor, signature, value);
             } else {
               return super.visitField(access, name, descriptor, signature, value);
@@ -576,7 +609,21 @@ public class ClassFileTransformer {
   public ClassFileTransformer renameAndRemapField(String oldName, String newName) {
     FieldSignaturePredicate matchPredicate = (name, signature) -> oldName.equals(name);
     remapField(matchPredicate, newName);
-    return renameField(matchPredicate, newName);
+    return renameField(FieldPredicate.onName(oldName), newName);
+  }
+
+  public ClassFileTransformer setGenericSignature(FieldPredicate predicate, String newSignature) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public FieldVisitor visitField(
+              int access, String name, String descriptor, String signature, Object value) {
+            if (predicate.test(access, name, descriptor, signature, value)) {
+              return super.visitField(access, name, descriptor, newSignature, value);
+            }
+            return super.visitField(access, name, descriptor, signature, value);
+          }
+        });
   }
 
   /** Abstraction of the MethodVisitor.visitMethodInsn method with its sub visitor. */

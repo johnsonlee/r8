@@ -17,13 +17,13 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.LineNumberOptimization;
 import com.android.tools.r8.utils.TestDescriptionWatcher;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
@@ -172,6 +172,10 @@ public abstract class R8RunExamplesCommon {
   }
 
   private boolean shouldCompileFail() {
+    if (input == Input.DX && getFailingCompileDxToDex().contains(mainClass)) {
+      assert output == Output.DEX;
+      return true;
+    }
     if (output == Output.CF && getFailingCompileCf().contains(mainClass)) {
       return true;
     }
@@ -182,7 +186,7 @@ public abstract class R8RunExamplesCommon {
   }
 
   @Test
-  public void outputIsIdentical() throws IOException, InterruptedException, ExecutionException {
+  public void outputIsIdentical() throws IOException {
     if (shouldCompileFail()) {
       // We expected an exception, but got none.
       // Return to ensure that this test fails due to the missing exception.
@@ -260,6 +264,10 @@ public abstract class R8RunExamplesCommon {
   protected abstract Map<String, TestCondition> getFailingRunCf();
 
   protected abstract Set<String> getFailingCompileCfToDex();
+
+  protected Set<String> getFailingCompileDxToDex() {
+    return ImmutableSet.of();
+  }
 
   // TODO(mathiasr): Add CompilerSet for CfToDex so we can fold this into getFailingRun().
   protected abstract Set<String> getFailingRunCfToDex();

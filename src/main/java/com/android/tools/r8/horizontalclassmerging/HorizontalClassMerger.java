@@ -7,16 +7,20 @@ package com.android.tools.r8.horizontalclassmerging;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.horizontalclassmerging.policies.DontInlinePolicy;
 import com.android.tools.r8.horizontalclassmerging.policies.DontMergeIntoLessVisible;
 import com.android.tools.r8.horizontalclassmerging.policies.DontMergeSynchronizedClasses;
+import com.android.tools.r8.horizontalclassmerging.policies.IgnoreSynthetics;
 import com.android.tools.r8.horizontalclassmerging.policies.NoAbstractClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoAnnotations;
 import com.android.tools.r8.horizontalclassmerging.policies.NoClassesOrMembersWithAnnotations;
 import com.android.tools.r8.horizontalclassmerging.policies.NoClassesWithInterfaces;
+import com.android.tools.r8.horizontalclassmerging.policies.NoEnums;
 import com.android.tools.r8.horizontalclassmerging.policies.NoFields;
 import com.android.tools.r8.horizontalclassmerging.policies.NoInnerClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoInterfaces;
 import com.android.tools.r8.horizontalclassmerging.policies.NoKeepRules;
+import com.android.tools.r8.horizontalclassmerging.policies.NoNativeMethods;
 import com.android.tools.r8.horizontalclassmerging.policies.NoRuntimeTypeChecks;
 import com.android.tools.r8.horizontalclassmerging.policies.NoStaticClassInitializer;
 import com.android.tools.r8.horizontalclassmerging.policies.NotEntryPoint;
@@ -29,9 +33,9 @@ import com.android.tools.r8.horizontalclassmerging.policies.SameFeatureSplit;
 import com.android.tools.r8.horizontalclassmerging.policies.SameNestHost;
 import com.android.tools.r8.horizontalclassmerging.policies.SameParentClass;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.ClassMergingEnqueuerExtension;
 import com.android.tools.r8.shaking.FieldAccessInfoCollectionModifier;
 import com.android.tools.r8.shaking.MainDexTracingResult;
+import com.android.tools.r8.shaking.RuntimeTypeCheckInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
@@ -47,7 +51,7 @@ public class HorizontalClassMerger {
   public HorizontalClassMerger(
       AppView<AppInfoWithLiveness> appView,
       MainDexTracingResult mainDexTracingResult,
-      ClassMergingEnqueuerExtension classMergingEnqueuerExtension) {
+      RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     this.appView = appView;
     assert appView.options().enableInlining;
 
@@ -59,14 +63,18 @@ public class HorizontalClassMerger {
             new NoInterfaces(),
             new NoClassesWithInterfaces(),
             new NoAnnotations(),
+            new NoEnums(appView),
             new NoAbstractClasses(),
+            new IgnoreSynthetics(appView),
             new NoClassesOrMembersWithAnnotations(),
             new NoInnerClasses(),
             new NoStaticClassInitializer(),
+            new NoNativeMethods(),
             new NoKeepRules(appView),
             new NotVerticallyMergedIntoSubtype(appView),
-            new NoRuntimeTypeChecks(classMergingEnqueuerExtension),
+            new NoRuntimeTypeChecks(runtimeTypeCheckInfo),
             new NotEntryPoint(appView.dexItemFactory()),
+            new DontInlinePolicy(appView, mainDexTracingResult),
             new PreventMergeIntoMainDex(appView, mainDexTracingResult),
             new SameParentClass(),
             new SameNestHost(),

@@ -8,6 +8,7 @@ import com.android.tools.r8.code.InvokeDirectRange;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -109,6 +110,11 @@ public class InvokeDirect extends InvokeMethodWithReceiver {
   }
 
   @Override
+  public boolean isInvokeConstructor(DexItemFactory dexItemFactory) {
+    return getInvokedMethod().isInstanceInitializer(dexItemFactory);
+  }
+
+  @Override
   public boolean isInvokeDirect() {
     return true;
   }
@@ -140,7 +146,7 @@ public class InvokeDirect extends InvokeMethodWithReceiver {
   @Override
   public ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, ProgramMethod context) {
-    return inliningConstraints.forInvokeDirect(getInvokedMethod(), context.getHolder());
+    return inliningConstraints.forInvokeDirect(getInvokedMethod(), context);
   }
 
   @Override

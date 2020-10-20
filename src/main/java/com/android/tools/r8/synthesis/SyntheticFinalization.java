@@ -111,12 +111,11 @@ public class SyntheticFinalization {
     List<DexProgramClass> finalSyntheticClasses = new ArrayList<>();
     Set<DexType> derivedMainDexTypesToIgnore = Sets.newIdentityHashSet();
     buildLensAndProgram(
-        application,
+        appView,
         equivalences,
         syntheticItems::containsKey,
         mainDexClasses,
         lensBuilder,
-        options,
         newProgramClasses,
         finalSyntheticClasses,
         derivedMainDexTypesToIgnore);
@@ -241,19 +240,19 @@ public class SyntheticFinalization {
   }
 
   private static void buildLensAndProgram(
-      DexApplication app,
+      AppView<?> appView,
       Map<DexType, EquivalenceGroup<SyntheticMethodDefinition>> syntheticMethodGroups,
       Predicate<DexType> isSyntheticType,
       MainDexClasses mainDexClasses,
       Builder lensBuilder,
-      InternalOptions options,
       List<DexProgramClass> normalClasses,
       List<DexProgramClass> newSyntheticClasses,
       Set<DexType> derivedMainDexTypesToIgnore) {
-    DexItemFactory factory = options.itemFactory;
+    DexItemFactory factory = appView.dexItemFactory();
 
-    for (DexProgramClass clazz : app.classes()) {
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
       if (!isSyntheticType.test(clazz.type)) {
+        assert SyntheticItems.verifyNotInternalSynthetic(clazz.type);
         normalClasses.add(clazz);
       }
     }
@@ -264,10 +263,11 @@ public class SyntheticFinalization {
         mainDexType -> {
           derivedMainDexTypes.add(mainDexType);
           DexProgramClass mainDexClass =
-              DexProgramClass.asProgramClassOrNull(app.definitionFor(mainDexType));
+              DexProgramClass.asProgramClassOrNull(
+                  appView.appInfo().definitionForWithoutExistenceAssert(mainDexType));
           if (mainDexClass != null) {
             derivedMainDexTypes.addAll(
-                DexAnnotation.readAnnotationSynthesizedClassMap(mainDexClass, options.itemFactory));
+                DexAnnotation.readAnnotationSynthesizedClassMap(mainDexClass, factory));
           }
         });
 
@@ -275,6 +275,7 @@ public class SyntheticFinalization {
         (syntheticType, syntheticGroup) -> {
           SyntheticMethodDefinition representative = syntheticGroup.getRepresentative();
           SynthesizingContext context = representative.getContext();
+          context.registerPrefixRewriting(syntheticType, appView);
           SyntheticClassBuilder builder =
               new SyntheticClassBuilder(syntheticType, context, factory);
           // TODO(b/158159959): Support grouping multiple methods per synthetic class.
@@ -287,7 +288,7 @@ public class SyntheticFinalization {
                     .setCode(m -> definition.getCode());
               });
           DexProgramClass externalSyntheticClass = builder.build();
-          if (shouldAnnotateSynthetics(options)) {
+          if (shouldAnnotateSynthetics(appView.options())) {
             externalSyntheticClass.setAnnotations(
                 externalSyntheticClass
                     .annotations()
@@ -313,7 +314,10 @@ public class SyntheticFinalization {
             // TODO(b/168584485): Remove this once class-mapping support is removed.
             DexProgramClass from =
                 DexProgramClass.asProgramClassOrNull(
-                    app.definitionFor(member.getContext().getSynthesizingContextType()));
+                    appView
+                        .appInfo()
+                        .definitionForWithoutExistenceAssert(
+                            member.getContext().getSynthesizingContextType()));
             if (from != null) {
               externalSyntheticClass.addSynthesizedFrom(from);
             }
@@ -418,6 +422,10 @@ public class SyntheticFinalization {
       SyntheticMethodDefinition method = (SyntheticMethodDefinition) definition;
       if (SyntheticMethodBuilder.isValidSyntheticMethod(method.getMethod().getDefinition())) {
         methods.add(method);
+      } else {
+        // Failing this check indicates that an optimization has modified the synthetic in a
+        // disruptive way.
+        assert false;
       }
     }
     return methods;

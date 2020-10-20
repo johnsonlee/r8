@@ -269,10 +269,13 @@ public class IRConverter {
             ? new InterfaceMethodRewriter(appView, this)
             : null;
     this.twrCloseResourceRewriter =
-        ((options.desugarState == DesugarState.ON) && enableTwrCloseResourceDesugaring())
+        (options.desugarState == DesugarState.ON && enableTwrCloseResourceDesugaring())
             ? new TwrCloseResourceRewriter(appView, this)
             : null;
-    this.backportedMethodRewriter = new BackportedMethodRewriter(appView);
+    this.backportedMethodRewriter =
+        (options.desugarState == DesugarState.ON && !appView.enableWholeProgramOptimizations())
+            ? new BackportedMethodRewriter(appView)
+            : null;
     this.desugaredLibraryRetargeter =
         options.desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()
             ? null
@@ -655,7 +658,8 @@ public class IRConverter {
     }
 
     // Process the application identifying outlining candidates.
-    GraphLens graphLensForIR = appView.graphLens();
+    GraphLens initialGraphLensForIR = appView.graphLens();
+    GraphLens graphLensForIR = initialGraphLensForIR;
     OptimizationFeedbackDelayed feedback = delayedOptimizationFeedback;
     PostMethodProcessor.Builder postMethodProcessorBuilder =
         new PostMethodProcessor.Builder(getOptimizationsForPostIRProcessing());
@@ -759,7 +763,7 @@ public class IRConverter {
 
     printPhase("Lambda merging finalization");
     // TODO(b/127694949): Adapt to PostOptimization.
-    finalizeLambdaMerging(application, feedback, builder, executorService);
+    finalizeLambdaMerging(application, feedback, builder, executorService, initialGraphLensForIR);
 
     printPhase("Desugared library API Conversion finalization");
     generateDesugaredLibraryAPIWrappers(builder, executorService);
@@ -934,11 +938,12 @@ public class IRConverter {
       DexApplication application,
       OptimizationFeedback feedback,
       Builder<?> builder,
-      ExecutorService executorService)
+      ExecutorService executorService,
+      GraphLens appliedGraphLens)
       throws ExecutionException {
     if (lambdaMerger != null) {
       lambdaMerger.applyLambdaClassMapping(
-          application, this, feedback, builder, executorService);
+          application, this, feedback, builder, executorService, appliedGraphLens);
     } else {
       appView.setHorizontallyMergedLambdaClasses(HorizontallyMergedLambdaClasses.empty());
     }

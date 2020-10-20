@@ -5,6 +5,7 @@ package com.android.tools.r8.synthesis;
 
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -24,6 +25,11 @@ class SyntheticMethodReference extends SyntheticReference {
   }
 
   @Override
+  DexReference getReference() {
+    return method;
+  }
+
+  @Override
   DexType getHolder() {
     return method.holder;
   }
@@ -35,14 +41,23 @@ class SyntheticMethodReference extends SyntheticReference {
       return null;
     }
     assert clazz.isProgramClass();
-    ProgramMethod definition = clazz.asProgramClass().lookupProgramMethod(this.method);
-    return new SyntheticMethodDefinition(getContext(), definition);
+    ProgramMethod definition = clazz.asProgramClass().lookupProgramMethod(method);
+    return definition != null ? new SyntheticMethodDefinition(getContext(), definition) : null;
   }
 
   @Override
   SyntheticReference rewrite(NonIdentityGraphLens lens) {
-    SynthesizingContext context = getContext().rewrite(lens);
     DexMethod rewritten = lens.lookupMethod(method);
+    // If the reference has been non-trivially rewritten the compiler has changed it and it can no
+    // longer be considered a synthetic. The context may or may not have changed.
+    if (method != rewritten && !lens.isSimpleRenaming(method.holder, rewritten.holder)) {
+      // If the referenced item is rewritten, it should be moved to another holder as the
+      // synthetic holder is no longer part of the synthetic collection.
+      assert method.holder != rewritten.holder;
+      assert SyntheticItems.verifyNotInternalSynthetic(rewritten.holder);
+      return null;
+    }
+    SynthesizingContext context = getContext().rewrite(lens);
     return context == getContext() && rewritten == method
         ? this
         : new SyntheticMethodReference(context, rewritten);

@@ -1024,6 +1024,8 @@ public abstract class R8RunArtTestsTest {
           .put("506-verify-aput", TestCondition.match(TestCondition.R8DEX_COMPILER))
           // Test with invalid register usage: returns a register of either long or double.
           .put("510-checker-try-catch", TestCondition.match(TestCondition.R8DEX_COMPILER))
+          // Test with backport method which is still present in DX input.
+          .put("530-checker-lse2", TestCondition.match(TestCondition.tools(DexTool.DX)))
           // Test with invalid register usage: contains an int-to-byte on the result of aget-object.
           .put("518-null-array-get", TestCondition.match(TestCondition.R8DEX_COMPILER))
           // Test with invalid register usage: phi of int and float.
@@ -1032,11 +1034,21 @@ public abstract class R8RunArtTestsTest {
           .put("552-checker-primitive-typeprop", TestCondition.match(TestCondition.R8DEX_COMPILER))
           // Test with invalid register usage: invoke-static {v0,v0}, foo(IL)V
           .put("557-checker-ref-equivalent", TestCondition.match(TestCondition.R8DEX_COMPILER))
+          // Test with smali code that calls a method that needs to be desugared.
+          // The smali code is only present in the non-legacy test distrubution, so this only fails
+          // when running the "default" runtime.
+          .put(
+              "567-checker-compare",
+              TestCondition.or(
+                  TestCondition.match(TestCondition.runtimes(Runtime.ART_DEFAULT)),
+                  TestCondition.match(TestCondition.tools(DexTool.DX))))
           // This test is starting from invalid dex code. It splits up a double value and uses
           // the first register of a double with the second register of another double.
           .put("800-smali", TestCondition.match(TestCondition.R8DEX_COMPILER))
           // Contains a loop in the class hierarchy.
           .put("804-class-extends-itself", TestCondition.any())
+          // Test with backport method which is still present in DX input.
+          .put("912-classes", TestCondition.match(TestCondition.tools(DexTool.DX)))
           // These tests have illegal class flag combinations, so we reject them.
           .put("161-final-abstract-class", TestCondition.any())
           .build();
@@ -2398,7 +2410,7 @@ public abstract class R8RunArtTestsTest {
       CompilationMode compilationMode)
       throws Throwable {
     if (specification.expectedToFailWithX8) {
-      expectException(CompilationError.class);
+      expectedException = true;
       try {
         executeCompilerUnderTest(
             compilerUnderTest,
@@ -2406,7 +2418,8 @@ public abstract class R8RunArtTestsTest {
             resultDir.getCanonicalPath(),
             compilationMode,
             new CompilationOptions(specification));
-      } catch (CompilationFailedException e) {
+      } catch (CompilationFailedException | CompilationError e) {
+        expectException(CompilationError.class);
         throw new CompilationError(e.getMessage(), e);
       }
       System.err.println("Should have failed R8/D8 compilation with a CompilationError.");

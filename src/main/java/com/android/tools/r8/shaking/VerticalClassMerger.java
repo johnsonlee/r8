@@ -380,21 +380,26 @@ public class VerticalClassMerger {
       //     * Have access to the no-arg constructor of its first non-serializable superclass
       return false;
     }
-    TraversalContinuation result =
-        sourceClass.traverseProgramInstanceInitializers(
-            method -> {
-              AbortReason reason = disallowInlining(method, targetClass);
-              if (reason != null) {
-                // Cannot guarantee that markForceInline() will work.
-                if (Log.ENABLED) {
-                  reason.printLogMessageForClass(sourceClass);
+
+    // If there is a constructor in the target, make sure that all source constructors can be
+    // inlined.
+    if (!Iterables.isEmpty(targetClass.programInstanceInitializers())) {
+      TraversalContinuation result =
+          sourceClass.traverseProgramInstanceInitializers(
+              method -> {
+                AbortReason reason = disallowInlining(method, targetClass);
+                if (reason != null) {
+                  // Cannot guarantee that markForceInline() will work.
+                  if (Log.ENABLED) {
+                    reason.printLogMessageForClass(sourceClass);
+                  }
+                  return TraversalContinuation.BREAK;
                 }
-                return TraversalContinuation.BREAK;
-              }
-              return TraversalContinuation.CONTINUE;
-            });
-    if (result.shouldBreak()) {
-      return false;
+                return TraversalContinuation.CONTINUE;
+              });
+      if (result.shouldBreak()) {
+        return false;
+      }
     }
     if (sourceClass.getEnclosingMethodAttribute() != null
         || !sourceClass.getInnerClasses().isEmpty()) {
@@ -1263,7 +1268,7 @@ public class VerticalClassMerger {
               ParameterAnnotationsList.empty(),
               code,
               true,
-              method.hasClassFileVersion() ? method.getClassFileVersion() : -1);
+              method.hasClassFileVersion() ? method.getClassFileVersion() : null);
       bridge.setLibraryMethodOverride(method.isLibraryMethodOverride());
       if (method.accessFlags.isPromotedToPublic()) {
         // The bridge is now the public method serving the role of the original method, and should
@@ -1688,7 +1693,7 @@ public class VerticalClassMerger {
                 method,
                 appView,
                 new SingleTypeMapperGraphLens(method.getHolderType(), context),
-                context);
+                context.programInstanceInitializers().iterator().next());
         if (constraint == ConstraintWithTarget.NEVER) {
           return AbortReason.UNSAFE_INLINING;
         }

@@ -6,7 +6,7 @@ package com.android.tools.r8.utils.codeinspector;
 
 import com.android.tools.r8.naming.MemberNaming.Signature;
 
-public abstract class MemberSubject extends Subject {
+public abstract class MemberSubject extends ClassOrMemberSubject {
 
   public abstract boolean isPublic();
 
@@ -17,8 +17,6 @@ public abstract class MemberSubject extends Subject {
   public abstract boolean isPackagePrivate();
 
   public abstract boolean isStatic();
-
-  public abstract boolean isFinal();
 
   public abstract Signature getOriginalSignature();
 
@@ -47,6 +45,8 @@ public abstract class MemberSubject extends Subject {
     Signature finalSignature = getFinalSignature();
     return finalSignature == null ? null : finalSignature.name;
   }
+
+  public abstract String getFinalSignatureAttribute();
 
   public abstract AnnotationSubject annotation(String name);
 
