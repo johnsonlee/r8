@@ -258,6 +258,14 @@ public class DexEncodedMethod extends KeyedDexItem<DexMethod> {
     assert parameterAnnotationsList != null;
   }
 
+  public DexString getName() {
+    return getReference().name;
+  }
+
+  public DexMethod getReference() {
+    return method;
+  }
+
   public DexAnnotationSet liveAnnotations(AppView<AppInfoWithLiveness> appView) {
     return annotations.keepIf(
         annotation -> AnnotationRemover.shouldKeepAnnotation(appView, this, annotation));

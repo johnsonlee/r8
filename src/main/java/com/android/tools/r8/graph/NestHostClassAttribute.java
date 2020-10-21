@@ -15,6 +15,10 @@ public class NestHostClassAttribute {
     this.nestHost = nestHost;
   }
 
+  public static NestHostClassAttribute none() {
+    return null;
+  }
+
   public DexType getNestHost() {
     return nestHost;
   }

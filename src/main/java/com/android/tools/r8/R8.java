@@ -30,6 +30,7 @@ import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnal
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedExtensionRegistryShrinker;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.desugar.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.R8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.EnumInfoMapCollector;
@@ -262,6 +263,10 @@ public class R8 {
       AppView<AppInfoWithSubtyping> appView =
           AppView.createForR8(new AppInfoWithSubtyping(application), options);
       appView.setAppServices(AppServices.builder(appView).build());
+
+      if (!options.desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()) {
+        application = DesugaredLibraryRetargeter.amendLibraryWithRetargetedMembers(appView);
+      }
 
       List<ProguardConfigurationRule> synthesizedProguardRules = new ArrayList<>();
       timing.begin("Strip unused code");

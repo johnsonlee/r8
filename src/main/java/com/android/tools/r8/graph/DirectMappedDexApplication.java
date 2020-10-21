@@ -191,7 +191,7 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
 
   public static class Builder extends DexApplication.Builder<Builder> {
 
-    private final ImmutableList<DexLibraryClass> libraryClasses;
+    private ImmutableList<DexLibraryClass> libraryClasses;
     private final ImmutableList<DexClasspathClass> classpathClasses;
 
     Builder(LazyLoadedDexApplication application) {
@@ -209,13 +209,19 @@ public class DirectMappedDexApplication extends DexApplication implements DexDef
       classpathClasses = application.classpathClasses;
     }
 
+    public Builder addLibraryClasses(Collection<DexLibraryClass> classes) {
+      libraryClasses =
+          ImmutableList.<DexLibraryClass>builder().addAll(libraryClasses).addAll(classes).build();
+      return self();
+    }
+
     @Override
     Builder self() {
       return this;
     }
 
     @Override
-    public DexApplication build() {
+    public DirectMappedDexApplication build() {
       // Rebuild the map. This will fail if keys are not unique.
       // TODO(zerny): Consider not rebuilding the map if no program classes are added.
       Map<DexType, DexClass> allClasses =

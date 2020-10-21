@@ -6,13 +6,13 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.naming.NamingLens;
-import com.google.common.collect.Maps;
-import java.util.Map;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.references.TypeReference;
+import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class DexMethod extends Descriptor<DexEncodedMethod, DexMethod>
     implements PresortedComparable<DexMethod> {
@@ -231,5 +231,14 @@ public class DexMethod extends Descriptor<DexEncodedMethod, DexMethod>
   synchronized public DexEncodedMethod getSingleVirtualMethodCache(DexType receiverType) {
     assert isSingleVirtualMethodCached(receiverType);
     return singleTargetCache.get(receiverType);
+  }
+
+  public DexMethod withExtraArgumentPrepended(DexType type, DexItemFactory dexItemFactory) {
+    return dexItemFactory.createMethod(
+        holder, dexItemFactory.prependTypeToProto(type, proto), name);
+  }
+
+  public DexMethod withHolder(DexType holder, DexItemFactory dexItemFactory) {
+    return dexItemFactory.createMethod(holder, proto, name);
   }
 }
