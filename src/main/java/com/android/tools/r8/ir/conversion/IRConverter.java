@@ -48,7 +48,6 @@ import com.android.tools.r8.ir.desugar.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.ir.desugar.D8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter.Mode;
-import com.android.tools.r8.ir.desugar.DesugaredLibraryConfiguration;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.InterfaceMethodRewriter.Flavor;
@@ -214,13 +213,18 @@ public class IRConverter {
             .map(options.itemFactory::createString)
             .collect(Collectors.toList());
     if (options.isDesugaredLibraryCompilation()) {
-      // Specific L8 Settings.
-      // DesugaredLibraryRetargeter is needed for retarget core library members and backports.
-      // InterfaceMethodRewriter is needed for emulated interfaces.
-      // LambdaRewriter is needed because if it is missing there are invoke custom on
-      // default/static interface methods, and this is not supported by the compiler.
-      // DesugaredLibraryAPIConverter is here to duplicate APIs.
-      // The rest is nulled out. In addition the rewriting logic fails without lambda rewriting.
+      // Specific L8 Settings, performs all desugaring including L8 specific desugaring.
+      // The following desugaring are required for L8 specific desugaring:
+      // - DesugaredLibraryRetargeter for retarget core library members.
+      // - InterfaceMethodRewriter for emulated interfaces,
+      // - LambdaRewriter since InterfaceMethodDesugaring does not support invokeCustom rewriting,
+      // - DesugaredLibraryAPIConverter to duplicate APIs.
+      // The following desugaring are present so all desugaring is performed cf to cf in L8, and
+      // the second L8 phase can just run with Desugar turned off:
+      // - InterfaceMethodRewriter for non L8 specific interface method desugaring,
+      // - TwrCloseResourceRewriter,
+      // - NestBaseAccessDesugaring.
+      assert options.desugarState == DesugarState.ON;
       this.desugaredLibraryRetargeter =
           options.desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()
               ? null
@@ -232,11 +236,11 @@ public class IRConverter {
       this.lambdaRewriter = new LambdaRewriter(appView);
       this.desugaredLibraryAPIConverter =
           new DesugaredLibraryAPIConverter(appView, Mode.GENERATE_CALLBACKS_AND_WRAPPERS);
-      this.backportedMethodRewriter =
-          options.cfToCfDesugar || options.testing.forceLibBackportsInL8CfToCf
-              ? new BackportedMethodRewriter(appView)
-              : null;
-      this.twrCloseResourceRewriter = null;
+      this.backportedMethodRewriter = new BackportedMethodRewriter(appView);
+      this.twrCloseResourceRewriter =
+          enableTwrCloseResourceDesugaring() ? new TwrCloseResourceRewriter(appView, this) : null;
+      this.d8NestBasedAccessDesugaring =
+          options.shouldDesugarNests() ? new D8NestBasedAccessDesugaring(appView) : null;
       this.lambdaMerger = null;
       this.covariantReturnTypeAnnotationTransformer = null;
       this.dynamicTypeOptimization = null;
@@ -251,7 +255,6 @@ public class IRConverter {
       this.identifierNameStringMarker = null;
       this.devirtualizer = null;
       this.typeChecker = null;
-      this.d8NestBasedAccessDesugaring = null;
       this.stringSwitchRemover = null;
       this.serviceLoaderRewriter = null;
       this.methodOptimizationInfoCollector = null;
@@ -552,13 +555,6 @@ public class IRConverter {
       return true;
     }
     if (options.isDesugaredLibraryCompilation()) {
-      // TODO(b/169035524): Create method for evaluating if a code object needs rewriting for
-      // library desugaring.
-      return true;
-    }
-    if (options.desugaredLibraryConfiguration != DesugaredLibraryConfiguration.empty()) {
-      // TODO(b/169035524): Create method for evaluating if a code object needs rewriting for
-      // library desugaring.
       return true;
     }
 
@@ -569,14 +565,21 @@ public class IRConverter {
       return true;
     }
 
-    NeedsIRDesugarUseRegistry useRegistry =
-        new NeedsIRDesugarUseRegistry(appView, backportedMethodRewriter);
-    method.registerCodeReferences(useRegistry);
-
-    if (useRegistry.needsDesugaring()) {
+    if (desugaredLibraryAPIConverter != null
+        && desugaredLibraryAPIConverter.shouldRegisterCallback(method)) {
       return true;
     }
-    return false;
+
+    NeedsIRDesugarUseRegistry useRegistry =
+        new NeedsIRDesugarUseRegistry(
+            appView,
+            backportedMethodRewriter,
+            desugaredLibraryRetargeter,
+            interfaceMethodRewriter,
+            desugaredLibraryAPIConverter);
+    method.registerCodeReferences(useRegistry);
+
+    return useRegistry.needsDesugaring();
   }
 
   private void checkPrefixMerging(ProgramMethod method) {
