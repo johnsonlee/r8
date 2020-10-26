@@ -57,7 +57,7 @@ public class B126592786 extends TestBase {
         .compile()
         .inspect(
             inspector -> {
-              String genericTypeDescriptor = "Ljava/lang/Object;";
+              String genericTypeDescriptor = "*";
               if (genericTypeLive) {
                 ClassSubject genericType = inspector.clazz(GenericType.class);
                 assertThat(genericType, isPresentAndRenamed(minify));

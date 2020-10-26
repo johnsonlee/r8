@@ -174,7 +174,7 @@ public class GenericSignature {
 
   public static class ClassSignature implements DexDefinitionSignature<DexClass> {
 
-    public static final ClassSignature NO_CLASS_SIGNATURE =
+    private static final ClassSignature NO_CLASS_SIGNATURE =
         new ClassSignature(EMPTY_TYPE_PARAMS, NO_FIELD_TYPE_SIGNATURE, EMPTY_SUPER_INTERFACES);
 
     final List<FormalTypeParameter> formalTypeParameters;
