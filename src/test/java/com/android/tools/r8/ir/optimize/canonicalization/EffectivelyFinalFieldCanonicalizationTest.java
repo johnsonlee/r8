@@ -54,7 +54,7 @@ public class EffectivelyFinalFieldCanonicalizationTest extends TestBase {
     MethodSubject mainMethodSubject = testClassSubject.mainMethod();
     assertThat(mainMethodSubject, isPresent());
     assertEquals(
-        1, mainMethodSubject.streamInstructions().filter(InstructionSubject::isStaticGet).count());
+        2, mainMethodSubject.streamInstructions().filter(InstructionSubject::isStaticGet).count());
   }
 
   static class TestClass {

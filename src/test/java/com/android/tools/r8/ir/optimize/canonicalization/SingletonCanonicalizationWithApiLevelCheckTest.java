@@ -63,15 +63,7 @@ public class SingletonCanonicalizationWithApiLevelCheckTest extends TestBase {
         .compile()
         .addRunClasspathFiles(program)
         .run(parameters.getRuntime(), TestClass.class)
-        .apply(
-            runResult -> {
-              if (parameters.isCfRuntime()) {
-                // Constant canonicalization is disabled for CF.
-                runResult.assertSuccessWithOutput("");
-              } else {
-                runResult.assertFailureWithErrorThatThrows(NoClassDefFoundError.class);
-              }
-            });
+        .assertSuccessWithOutput("");
   }
 
   private List<String> getAssumeValuesRule(int version) {

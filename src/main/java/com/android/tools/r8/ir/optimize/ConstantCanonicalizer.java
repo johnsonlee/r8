@@ -11,6 +11,9 @@ import static com.android.tools.r8.ir.code.Opcodes.STATIC_GET;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
@@ -147,13 +150,22 @@ public class ConstantCanonicalizer {
           continue;
         }
         SingleFieldValue singleFieldValue = abstractValue.asSingleFieldValue();
+        DexType fieldHolderType = singleFieldValue.getField().holder;
         if (context.getDefinition().isClassInitializer()
-            && context.getHolderType() == singleFieldValue.getField().holder) {
+            && context.getHolderType() == fieldHolderType) {
           // Avoid that canonicalization inserts a read before the unique write in the class
           // initializer, as that would change the program behavior.
           continue;
         }
-        if (current.instructionMayHaveSideEffects(appView, context)) {
+        DexClass fieldHolder = appView.definitionFor(fieldHolderType);
+        if (fieldHolder == null) {
+          continue;
+        }
+        DexEncodedField field = fieldHolder.lookupField(singleFieldValue.getField());
+        if (field == null
+            || !field.isEnum()
+            || current.instructionMayHaveSideEffects(appView, context)) {
+          // Only allow canonicalization of enums.
           continue;
         }
       }
