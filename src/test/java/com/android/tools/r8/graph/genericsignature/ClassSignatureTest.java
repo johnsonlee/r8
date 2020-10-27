@@ -5,7 +5,6 @@
 package com.android.tools.r8.graph.genericsignature;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
-import static com.android.tools.r8.graph.GenericSignature.ClassSignature.NO_CLASS_SIGNATURE;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
@@ -171,7 +170,7 @@ public class ClassSignatureTest extends TestBase {
             Origin.unknown(),
             new DexItemFactory(),
             new Reporter(testDiagnosticMessages));
-    assertEquals(NO_CLASS_SIGNATURE, parsed);
+    assertEquals(ClassSignature.noSignature(), parsed);
     return testDiagnosticMessages;
   }
 }

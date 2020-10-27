@@ -55,19 +55,20 @@ public class B126592786 extends TestBase {
             "}",
             "-keepattributes InnerClasses,EnclosingMethod,Signature ")
         .compile()
-        .inspect(inspector -> {
-            String genericTypeDescriptor = "Ljava/lang/Object;";
-            if (genericTypeLive) {
-              ClassSubject genericType = inspector.clazz(GenericType.class);
-              assertThat(genericType, isRenamed(minify));
-              genericTypeDescriptor = genericType.getFinalDescriptor();
-            }
-            String expectedSignature = "Ljava/util/List<" + genericTypeDescriptor + ">;";
-            FieldSubject list = inspector.clazz(A.class).uniqueFieldWithName("list");
-            assertThat(list, isPresent());
-            assertThat(list.getSignatureAnnotation(), isPresent());
-            assertEquals(expectedSignature, list.getSignatureAnnotationValue());
-        })
+        .inspect(
+            inspector -> {
+              String genericTypeDescriptor = "*";
+              if (genericTypeLive) {
+                ClassSubject genericType = inspector.clazz(GenericType.class);
+                assertThat(genericType, isRenamed(minify));
+                genericTypeDescriptor = genericType.getFinalDescriptor();
+              }
+              String expectedSignature = "Ljava/util/List<" + genericTypeDescriptor + ">;";
+              FieldSubject list = inspector.clazz(A.class).uniqueFieldWithName("list");
+              assertThat(list, isPresent());
+              assertThat(list.getSignatureAnnotation(), isPresent());
+              assertEquals(expectedSignature, list.getSignatureAnnotationValue());
+            })
         .run(mainClass)
         .assertSuccess();
   }
