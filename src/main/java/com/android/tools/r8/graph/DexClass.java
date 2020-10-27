@@ -341,7 +341,7 @@ public abstract class DexClass extends DexDefinition {
             appView.options().reporter);
       }
     }
-    return ClassSignature.noSignature();
+    return ClassSignature.NO_CLASS_SIGNATURE;
   }
 
   private boolean verifyCorrectnessOfFieldHolder(DexEncodedField field) {
