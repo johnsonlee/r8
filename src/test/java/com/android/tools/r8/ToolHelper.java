@@ -696,7 +696,7 @@ public class ToolHelper {
     }
   }
 
-  public static String getProguardScript() {
+  public static String getProguard5Script() {
     if (isWindows()) {
       return PROGUARD + ".bat";
     }
@@ -1916,17 +1916,17 @@ public class ToolHelper {
 
   public static ProcessResult runProguardRaw(
       Path inJar, Path outJar, Path lib, Path config, Path map) throws IOException {
-    return runProguardRaw(getProguardScript(), inJar, outJar, lib, ImmutableList.of(config), map);
+    return runProguardRaw(getProguard5Script(), inJar, outJar, lib, ImmutableList.of(config), map);
   }
 
   public static ProcessResult runProguardRaw(Path inJar, Path outJar, List<Path> config, Path map)
       throws IOException {
-    return runProguardRaw(getProguardScript(), inJar, outJar, config, map);
+    return runProguardRaw(getProguard5Script(), inJar, outJar, config, map);
   }
 
   public static ProcessResult runProguardRaw(Path inJar, Path outJar, Path config, Path map)
       throws IOException {
-    return runProguardRaw(getProguardScript(), inJar, outJar, ImmutableList.of(config), map);
+    return runProguardRaw(getProguard5Script(), inJar, outJar, ImmutableList.of(config), map);
   }
 
   public static String runProguard(Path inJar, Path outJar, Path config, Path map)
@@ -1936,7 +1936,7 @@ public class ToolHelper {
 
   public static String runProguard(Path inJar, Path outJar, List<Path> config, Path map)
       throws IOException {
-    return runProguard(getProguardScript(), inJar, outJar, config, map);
+    return runProguard(getProguard5Script(), inJar, outJar, config, map);
   }
 
   public static ProcessResult runProguard6Raw(Path inJar, Path outJar, Path config, Path map)
