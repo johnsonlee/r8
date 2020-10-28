@@ -3384,8 +3384,11 @@ public class Enqueuer {
     }
     DexMember<?, ?> member = reference.asDexMember();
     DexProgramClass holder = DexProgramClass.asProgramClassOrNull(definitionFor(member.holder));
-    ProgramMember<?, ?> programMember = member.lookupOnProgramClass(holder);
-    return programMember != null && isMemberLive(programMember.getDefinition());
+    if (holder == null) {
+      return false;
+    }
+    DexEncodedMember<?, ?> programMember = holder.lookupMember(member);
+    return programMember != null && isMemberLive(programMember);
   }
 
   private ConsequentRootSet computeDelayedInterfaceMethodSyntheticBridges() {
