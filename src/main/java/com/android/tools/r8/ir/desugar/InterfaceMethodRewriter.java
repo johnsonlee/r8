@@ -556,7 +556,9 @@ public final class InterfaceMethodRewriter {
     // TODO(b/134732760): deal with retarget-core-library-member.
     Map<DexType, List<DexType>> emulatedInterfacesHierarchy = new IdentityHashMap<>();
     Set<DexType> processed = Sets.newIdentityHashSet();
-    for (DexType interfaceType : emulatedInterfaces.keySet()) {
+    ArrayList<DexType> emulatedInterfacesSorted = new ArrayList<>(emulatedInterfaces.keySet());
+    emulatedInterfacesSorted.sort(DexType::slowCompareTo);
+    for (DexType interfaceType : emulatedInterfacesSorted) {
       processEmulatedInterfaceHierarchy(interfaceType, processed, emulatedInterfacesHierarchy);
     }
     return emulatedInterfacesHierarchy;
