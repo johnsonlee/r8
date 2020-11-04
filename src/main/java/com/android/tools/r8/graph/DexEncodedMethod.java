@@ -179,6 +179,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     assert !obsolete;
   }
 
+  public CompilationState getCompilationState() {
+    return compilationState;
+  }
+
   public boolean isObsolete() {
     // Do not be cheating. This util can be used only if you're going to do appropriate action,
     // e.g., using GraphLens#mapDexEncodedMethod to look up the correct, up-to-date instance.
@@ -1446,6 +1450,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         parameterAnnotations =
             from.parameterAnnotationsList.withParameterCount(method.proto.parameters.size());
       }
+    }
+
+    public void setCompilationState(CompilationState compilationState) {
+      this.compilationState = compilationState;
     }
 
     public void setMethod(DexMethod method) {

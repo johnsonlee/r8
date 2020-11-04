@@ -156,7 +156,7 @@ public class EnumUnboxer {
         }
         switch (instruction.opcode()) {
           case Opcodes.CONST_CLASS:
-            analyzeConstClass(instruction.asConstClass(), eligibleEnums);
+            analyzeConstClass(instruction.asConstClass(), eligibleEnums, code.context());
             break;
           case Opcodes.CHECK_CAST:
             analyzeCheckCast(instruction.asCheckCast(), eligibleEnums);
@@ -242,7 +242,8 @@ public class EnumUnboxer {
         TypeElement.fromDexType(checkCast.getType(), definitelyNotNull(), appView));
   }
 
-  private void analyzeConstClass(ConstClass constClass, Set<DexType> eligibleEnums) {
+  private void analyzeConstClass(
+      ConstClass constClass, Set<DexType> eligibleEnums, ProgramMethod context) {
     // We are using the ConstClass of an enum, which typically means the enum cannot be unboxed.
     // We however allow unboxing if the ConstClass is used only:
     // - as an argument to Enum#valueOf, to allow unboxing of:
@@ -267,15 +268,18 @@ public class EnumUnboxer {
           && isUnboxableNameMethod(user.asInvokeVirtual().getInvokedMethod())) {
         continue;
       }
-      if (!(user.isInvokeStatic()
-          && user.asInvokeStatic().getInvokedMethod() == factory.enumMembers.valueOf)) {
-        markEnumAsUnboxable(Reason.CONST_CLASS, enumClass);
-        return;
+      if (user.isInvokeStatic()) {
+        DexEncodedMethod singleTarget = user.asInvokeStatic().lookupSingleTarget(appView, context);
+        if (singleTarget != null && singleTarget.getReference() == factory.enumMembers.valueOf) {
+          // The name data is required for the correct mapping from the enum name to the ordinal in
+          // the valueOf utility method.
+          addRequiredNameData(enumType);
+          continue;
+        }
       }
+      markEnumAsUnboxable(Reason.CONST_CLASS, enumClass);
+      return;
     }
-    // The name data is required for the correct mapping from the enum name to the ordinal in the
-    // valueOf utility method.
-    addRequiredNameData(enumType);
     eligibleEnums.add(enumType);
   }
 
@@ -370,6 +374,7 @@ public class EnumUnboxer {
     NestedGraphLens enumUnboxingLens =
         new EnumUnboxingTreeFixer(appView, enumsToUnbox, relocator, enumUnboxerRewriter)
             .fixupTypeReferences();
+    enumUnboxerRewriter.setEnumUnboxingLens(enumUnboxingLens);
     appView.setUnboxedEnums(enumUnboxerRewriter.getEnumsToUnbox());
     GraphLens previousLens = appView.graphLens();
     appView.rewriteWithLensAndApplication(enumUnboxingLens, appBuilder.build());
