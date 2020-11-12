@@ -717,6 +717,10 @@ public class RootSetBuilder {
         }
         out.print(method.holder.toSourceString() + ": ");
         DexEncodedMethod encodedMethod = appInfo.definitionFor(method);
+        if (encodedMethod == null) {
+          assert method.match(appInfo.dexItemFactory().deserializeLambdaMethod);
+          continue;
+        }
         if (encodedMethod.accessFlags.isConstructor()) {
           if (encodedMethod.accessFlags.isStatic()) {
             out.print(Constants.CLASS_INITIALIZER_NAME);
