@@ -1584,7 +1584,7 @@ public class Enqueuer {
     }
 
     // Warn if the class extends an interface or implements a class
-    warnIfLibraryExtendsInterfaceOrImplementsClass(holder);
+    warnIfClassExtendsInterfaceOrImplementsClass(holder);
 
     // If this is an interface that has just become live, then report previously seen but unreported
     // implemented-by edges.
