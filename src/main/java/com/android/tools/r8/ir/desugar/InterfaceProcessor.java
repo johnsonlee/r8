@@ -402,6 +402,15 @@ final class InterfaceProcessor {
     }
 
     @Override
+    public GraphLenseLookupResult lookupMethod(DexMethod method, DexMethod context, Type type) {
+      DexMethod previousContext =
+          originalMethodSignatures != null
+              ? originalMethodSignatures.getOrDefault(context, context)
+              : context;
+      return previousLense.lookupMethod(method, previousContext, type);
+    }
+
+    @Override
     protected Type mapInvocationType(DexMethod newMethod, DexMethod originalMethod, Type type) {
       return Type.STATIC;
     }
