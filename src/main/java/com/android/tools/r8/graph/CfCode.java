@@ -678,7 +678,7 @@ public class CfCode extends Code implements Comparable<CfCode> {
 
   public boolean verifyFrames(
       DexEncodedMethod method, AppView<?> appView, Origin origin, boolean applyProtoTypeChanges) {
-    if (!appView.options().testing.readInputStackMaps
+    if (!appView.options().canUseInputStackMaps()
         || appView.options().testing.disableStackMapVerification) {
       stackMapStatus = StackMapStatus.INVALID_OR_NOT_PRESENT;
       return true;
