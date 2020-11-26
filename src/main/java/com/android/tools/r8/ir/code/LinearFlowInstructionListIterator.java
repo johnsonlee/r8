@@ -77,7 +77,8 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
   }
 
   @Override
-  public BasicBlock split(IRCode code, ListIterator<BasicBlock> blockIterator) {
+  public BasicBlock split(
+      IRCode code, ListIterator<BasicBlock> blockIterator, boolean keepCatchHandlers) {
     return currentBlockIterator.split(code, blockIterator);
   }
 
