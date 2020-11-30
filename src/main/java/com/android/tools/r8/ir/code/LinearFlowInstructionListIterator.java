@@ -88,6 +88,12 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
   }
 
   @Override
+  public BasicBlock splitCopyCatchHandlers(
+      IRCode code, ListIterator<BasicBlock> blockIterator, InternalOptions options) {
+    return currentBlockIterator.splitCopyCatchHandlers(code, blockIterator, options);
+  }
+
+  @Override
   public BasicBlock inlineInvoke(
       AppView<?> appView,
       IRCode code,
