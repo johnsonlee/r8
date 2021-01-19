@@ -46,7 +46,10 @@ public class ConstNumber extends ConstInstruction {
   }
 
   public static ConstNumber asConstNumberOrNull(Instruction instruction) {
-    return (ConstNumber) instruction;
+    if (instruction == null) {
+      return null;
+    }
+    return instruction.asConstNumber();
   }
 
   @Override
