@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.Map;
 import java.util.Set;
@@ -48,6 +49,8 @@ public abstract class PrefixRewritingMapper {
 
   public abstract boolean isRewriting();
 
+  public abstract boolean shouldRewriteTypeName(String typeName);
+
   public abstract void forAllRewrittenTypes(Consumer<DexType> consumer);
 
   public static class DesugarPrefixRewritingMapper extends PrefixRewritingMapper {
@@ -55,6 +58,7 @@ public abstract class PrefixRewritingMapper {
     private final Set<DexType> notRewritten = Sets.newConcurrentHashSet();
     private final Map<DexType, DexType> rewritten = new ConcurrentHashMap<>();
     private final Map<DexString, DexString> initialPrefixes;
+    private final Set<String> initialPrefixStrings;
     private final DexItemFactory factory;
     private final boolean l8Compilation;
 
@@ -62,10 +66,13 @@ public abstract class PrefixRewritingMapper {
       this.factory = options.itemFactory;
       this.l8Compilation = options.isDesugaredLibraryCompilation();
       ImmutableMap.Builder<DexString, DexString> builder = ImmutableMap.builder();
+      ImmutableSet.Builder<String> prefixStringBuilder = ImmutableSet.builder();
       for (String key : prefixes.keySet()) {
+        prefixStringBuilder.add(key);
         builder.put(toDescriptorPrefix(key), toDescriptorPrefix(prefixes.get(key)));
       }
       this.initialPrefixes = builder.build();
+      this.initialPrefixStrings = prefixStringBuilder.build();
       validatePrefixes(prefixes);
     }
 
@@ -184,6 +191,17 @@ public abstract class PrefixRewritingMapper {
     public boolean isRewriting() {
       return true;
     }
+
+    @Override
+    public boolean shouldRewriteTypeName(String typeName) {
+      // TODO(b/154800164): We could use tries instead of looking-up everywhere.
+      for (DexString prefix : initialPrefixes.keySet()) {
+        if (typeName.startsWith(prefix.toString())) {
+          return true;
+        }
+      }
+      return false;
+    }
   }
 
   public static class EmptyPrefixRewritingMapper extends PrefixRewritingMapper {
@@ -198,6 +216,11 @@ public abstract class PrefixRewritingMapper {
 
     @Override
     public boolean isRewriting() {
+      return false;
+    }
+
+    @Override
+    public boolean shouldRewriteTypeName(String typeName) {
       return false;
     }
 
