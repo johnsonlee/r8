@@ -33,6 +33,10 @@ public class DexTypeList extends DexItem implements Iterable<DexType> {
     this.values = values;
   }
 
+  public DexType get(int index) {
+    return values[index];
+  }
+
   public boolean contains(DexType type) {
     return ArrayUtils.contains(values, type);
   }

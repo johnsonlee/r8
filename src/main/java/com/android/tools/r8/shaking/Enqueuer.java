@@ -1680,7 +1680,13 @@ public class Enqueuer {
             for (DexType iface : current.interfaces.values) {
               DexProgramClass definition = getProgramClassOrNull(iface);
               if (definition != null) {
-                worklist.addIfNotSeen(definition);
+                if (definition.isPublic()
+                    || implementer.getType().isSamePackage(definition.getType())) {
+                  worklist.addIfNotSeen(definition);
+                } else {
+                  markTypeAsLive(
+                      current, graphReporter.reportClassReferencedFrom(current, implementer));
+                }
               }
             }
           }
