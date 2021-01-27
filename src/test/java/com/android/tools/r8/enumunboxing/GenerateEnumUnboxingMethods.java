@@ -50,6 +50,11 @@ public class GenerateEnumUnboxingMethods extends MethodGenerationBase {
     return METHOD_TEMPLATE_CLASSES;
   }
 
+  @Override
+  protected int getYear() {
+    return 2020;
+  }
+
   @Test
   public void testEnumUtilityMethodsGenerated() throws Exception {
     ArrayList<Class<?>> sorted = new ArrayList<>(getMethodTemplateClasses());
