@@ -1246,6 +1246,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean forceNameReflectionOptimization = false;
     public boolean enableNarrowAndWideningingChecksInD8 = false;
     public Consumer<IRCode> irModifier = null;
+    public Consumer<IRCode> inlineeIrModifier = null;
     public int basicBlockMuncherIterationLimit = NO_LIMIT;
     public boolean dontReportFailingCheckDiscarded = false;
     public boolean deterministicSortingBasedOnDexType = true;
