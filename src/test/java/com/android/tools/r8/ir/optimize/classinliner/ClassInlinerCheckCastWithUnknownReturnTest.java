@@ -10,9 +10,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import com.google.common.collect.ImmutableSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -20,7 +18,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 // This is a reproduction of b/176381203.
 @RunWith(Parameterized.class)
-public class ClassInlinerDirectWithUnknownReturnTest extends TestBase {
+public class ClassInlinerCheckCastWithUnknownReturnTest extends TestBase {
 
   private final TestParameters parameters;
 
@@ -29,7 +27,7 @@ public class ClassInlinerDirectWithUnknownReturnTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public ClassInlinerDirectWithUnknownReturnTest(TestParameters parameters) {
+  public ClassInlinerCheckCastWithUnknownReturnTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
@@ -39,13 +37,9 @@ public class ClassInlinerDirectWithUnknownReturnTest extends TestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .setMinApi(parameters.getApiLevel())
-        .addOptionsModification(
-            options -> {
-              options.testing.validInliningReasons = ImmutableSet.of(Reason.FORCE);
-            })
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("Hello World 0")
-        .inspect(
+        .assertFailureWithErrorThatThrows(ClassCastException.class)
+        .inspectFailure(
             inspector -> {
               ClassSubject aSubject = inspector.clazz(A.class);
               assertThat(aSubject, isPresent());
@@ -56,16 +50,11 @@ public class ClassInlinerDirectWithUnknownReturnTest extends TestBase {
 
     public int number;
 
-    public A abs() {
-      if (number > 0) {
-        return this;
+    public Object abs() {
+      if (number == 0) {
+        return new Object();
       }
-      return new A();
-    }
-
-    @Override
-    public String toString() {
-      return "Hello World " + number;
+      return this;
     }
   }
 
@@ -74,7 +63,8 @@ public class ClassInlinerDirectWithUnknownReturnTest extends TestBase {
     public static void main(String[] args) {
       A a = new A();
       a.number = args.length;
-      System.out.println(a.abs().toString());
+      A returnedA = (A) (a.abs());
+      System.out.println("Hello World");
     }
   }
 }
