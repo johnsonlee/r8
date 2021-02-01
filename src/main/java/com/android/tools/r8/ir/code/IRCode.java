@@ -680,6 +680,7 @@ public class IRCode {
           values.add(value);
           assert value.uniquePhiUsers().contains(phi);
           assert !phi.hasLocalInfo() || phi.getLocalInfo() == value.getLocalInfo();
+          assert value.isPhi() || value.definition.hasBlock();
         }
       }
       for (Instruction instruction : block.getInstructions()) {
