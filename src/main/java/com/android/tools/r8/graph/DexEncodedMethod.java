@@ -1198,22 +1198,24 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         .setTarget(method)
         .setInvokeType(accessFlags.isStatic() ? Invoke.Type.STATIC : Invoke.Type.DIRECT)
         .setIsInterface(holder.isInterface());
-    builder.setCode(
-        new SynthesizedCode(
-            forwardSourceCodeBuilder::build,
-            registry -> {
-              if (accessFlags.isStatic()) {
-                registry.registerInvokeStatic(method);
-              } else {
-                registry.registerInvokeDirect(method);
-              }
-            }));
-    builder.accessFlags.setSynthetic();
-    builder.accessFlags.setStatic();
-    builder.accessFlags.unsetPrivate();
-    if (holder.isInterface()) {
-      builder.accessFlags.setPublic();
-    }
+    builder
+        .setCode(
+            new SynthesizedCode(
+                forwardSourceCodeBuilder::build,
+                registry -> {
+                  if (accessFlags.isStatic()) {
+                    registry.registerInvokeStatic(method);
+                  } else {
+                    registry.registerInvokeDirect(method);
+                  }
+                }))
+        .setAccessFlags(
+            MethodAccessFlags.builder()
+                .setBridge()
+                .setPublic(holder.isInterface())
+                .setStatic()
+                .setSynthetic()
+                .build());
     return new ProgramMethod(holder, builder.build());
   }
 
@@ -1415,7 +1417,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   public static class Builder {
 
     private DexMethod method;
-    private final MethodAccessFlags accessFlags;
+    private MethodAccessFlags accessFlags;
     private final DexAnnotationSet annotations;
     private OptionalBool isLibraryMethodOverride = OptionalBool.UNKNOWN;
     private ParameterAnnotationsList parameterAnnotations;
@@ -1454,6 +1456,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
     public void setCompilationState(CompilationState compilationState) {
       this.compilationState = compilationState;
+    }
+
+    public Builder setAccessFlags(MethodAccessFlags accessFlags) {
+      this.accessFlags = accessFlags;
+      return this;
     }
 
     public void setMethod(DexMethod method) {
@@ -1523,8 +1530,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       return this;
     }
 
-    public void setCode(Code code) {
+    public Builder setCode(Code code) {
       this.code = code;
+      return this;
     }
 
     public DexEncodedMethod build() {

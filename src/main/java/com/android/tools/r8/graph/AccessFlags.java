@@ -291,4 +291,61 @@ public abstract class AccessFlags<T extends AccessFlags<T>> {
     }
     return builder.toString();
   }
+
+  abstract static class BuilderBase<B extends BuilderBase<B, F>, F extends AccessFlags<F>> {
+
+    protected F flags;
+
+    BuilderBase(F flags) {
+      this.flags = flags;
+    }
+
+    public B setPackagePrivate() {
+      assert flags.isPackagePrivate();
+      return self();
+    }
+
+    public B setPrivate(boolean value) {
+      if (value) {
+        flags.setPrivate();
+      } else {
+        flags.unsetPrivate();
+      }
+      return self();
+    }
+
+    public B setProtected(boolean value) {
+      if (value) {
+        flags.setProtected();
+      } else {
+        flags.unsetProtected();
+      }
+      return self();
+    }
+
+    public B setPublic(boolean value) {
+      if (value) {
+        flags.setPublic();
+      } else {
+        flags.unsetPublic();
+      }
+      return self();
+    }
+
+    public B setStatic() {
+      flags.setStatic();
+      return self();
+    }
+
+    public B setSynthetic() {
+      flags.setSynthetic();
+      return self();
+    }
+
+    public F build() {
+      return flags;
+    }
+
+    public abstract B self();
+  }
 }

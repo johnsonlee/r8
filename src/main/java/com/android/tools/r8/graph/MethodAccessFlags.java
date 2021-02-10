@@ -150,6 +150,10 @@ public class MethodAccessFlags extends AccessFlags<MethodAccessFlags> {
     set(Constants.ACC_NATIVE);
   }
 
+  public void unsetNative() {
+    unset(Constants.ACC_NATIVE);
+  }
+
   public boolean isAbstract() {
     return isSet(Constants.ACC_ABSTRACT);
   }
@@ -168,6 +172,10 @@ public class MethodAccessFlags extends AccessFlags<MethodAccessFlags> {
 
   public void setStrict() {
     set(Constants.ACC_STRICT);
+  }
+
+  public void unsetStrict() {
+    unset(Constants.ACC_STRICT);
   }
 
   public boolean isConstructor() {
@@ -194,5 +202,49 @@ public class MethodAccessFlags extends AccessFlags<MethodAccessFlags> {
 
   private void unsetDeclaredSynchronized() {
     unset(Constants.ACC_DECLARED_SYNCHRONIZED);
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  public static class Builder extends BuilderBase<Builder, MethodAccessFlags> {
+
+    private Builder() {
+      super(MethodAccessFlags.fromSharedAccessFlags(0, false));
+    }
+
+    public Builder setBridge() {
+      flags.setBridge();
+      return this;
+    }
+
+    public Builder setConstructor() {
+      flags.setConstructor();
+      return this;
+    }
+
+    public Builder setStrict(boolean value) {
+      if (value) {
+        flags.setStrict();
+      } else {
+        flags.unsetStrict();
+      }
+      return this;
+    }
+
+    public Builder setSynchronized(boolean value) {
+      if (value) {
+        flags.setSynchronized();
+      } else {
+        flags.unsetSynchronized();
+      }
+      return this;
+    }
+
+    @Override
+    public Builder self() {
+      return this;
+    }
   }
 }
