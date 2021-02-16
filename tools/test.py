@@ -16,6 +16,7 @@ import thread
 import time
 import uuid
 
+import archive_desugar_jdk_libs
 import gradle
 import notify
 import utils
@@ -148,6 +149,8 @@ def ParseOptions():
           ' and empty (for no runtimes).')
   result.add_option('--print-hanging-stacks', '--print_hanging_stacks',
       default=-1, type="int", help='Print hanging stacks after timeout in seconds')
+  result.add_option('--desugared-library', '--desugared_library',
+      help='Build and use desugared library from GitHub.')
   return result.parse_args()
 
 def archive_failures():
@@ -164,6 +167,23 @@ def Main():
 
   if utils.is_bot():
     gradle.RunGradle(['--no-daemon', 'clean'])
+
+  desugar_jdk_libs = None
+  if options.desugared_library:
+    if options.desugared_library != 'HEAD':
+      print("Only value supported for --desugared-library is 'HEAD'")
+      exit(1)
+    desugar_jdk_libs_dir = 'build/desugar_jdk_libs'
+    shutil.rmtree(desugar_jdk_libs_dir, ignore_errors=True)
+    os.makedirs(desugar_jdk_libs_dir)
+    print('Building desugared library.')
+    with utils.TempDir() as checkout_dir:
+      archive_desugar_jdk_libs.CloneDesugaredLibrary('google', checkout_dir)
+      (library_jar, maven_zip) = archive_desugar_jdk_libs.BuildDesugaredLibrary(checkout_dir)
+      desugar_jdk_libs = os.path.join(desugar_jdk_libs_dir, os.path.basename(library_jar))
+      shutil.copyfile(library_jar, desugar_jdk_libs)
+      print('Desugared library for test in ' + desugar_jdk_libs)
+
 
   gradle_args = ['--stacktrace']
   if utils.is_bot():
@@ -239,6 +259,8 @@ def Main():
   if options.worktree:
     gradle_args.append('-g=' + os.path.join(utils.REPO_ROOT, ".gradle_user_home"))
     gradle_args.append('--no-daemon')
+  if desugar_jdk_libs:
+    gradle_args.append('-Pdesugar_jdk_libs=' + desugar_jdk_libs)
 
   # Build an R8 with dependencies for bootstrapping tests before adding test sources.
   gradle_args.append('r8WithDeps')
