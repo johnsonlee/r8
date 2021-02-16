@@ -23,6 +23,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.Assume;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -81,6 +82,7 @@ public class BufferedReaderTest extends DesugaredLibraryTestBase {
   }
 
   @Test
+  @Ignore("ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING_ALTERNATIVE_3 is not supported on 2.2")
   public void testBufferedReaderD8Cf() throws Exception {
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     // Use D8 to desugar with Java classfile output.
@@ -136,6 +138,7 @@ public class BufferedReaderTest extends DesugaredLibraryTestBase {
   }
 
   @Test
+  @Ignore("ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING_ALTERNATIVE_3 is not supported on 2.2")
   public void testBufferedReaderD8() throws Exception {
     expectThrowsWithHorizontalClassMergingIf(
         shrinkDesugaredLibrary && parameters.getApiLevel().isLessThan(AndroidApiLevel.N));
@@ -166,6 +169,7 @@ public class BufferedReaderTest extends DesugaredLibraryTestBase {
   }
 
   @Test
+  @Ignore("ToolHelper.DESUGAR_LIB_JSON_FOR_TESTING_ALTERNATIVE_3 is not supported on 2.2")
   public void testBufferedReaderR8() throws Exception {
     expectThrowsWithHorizontalClassMergingIf(
         shrinkDesugaredLibrary && parameters.getApiLevel().isLessThan(AndroidApiLevel.N));
