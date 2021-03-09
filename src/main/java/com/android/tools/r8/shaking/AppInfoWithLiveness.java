@@ -58,6 +58,7 @@ import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.Visibility;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
@@ -614,9 +615,14 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return clazz == null || !clazz.isProgramClass();
   }
 
-  public Collection<DexClass> computeReachableInterfaces() {
-    Set<DexClass> interfaces = Sets.newIdentityHashSet();
+  public void forEachReachableInterface(Consumer<DexClass> consumer) {
+    forEachReachableInterface(consumer, ImmutableList.of());
+  }
+
+  public void forEachReachableInterface(
+      Consumer<DexClass> consumer, Iterable<DexType> additionalPaths) {
     WorkList<DexType> worklist = WorkList.newIdentityWorkList();
+    worklist.addIfNotSeen(additionalPaths);
     worklist.addIfNotSeen(objectAllocationInfoCollection.getInstantiatedLambdaInterfaces());
     for (DexProgramClass clazz : classes()) {
       worklist.addIfNotSeen(clazz.type);
@@ -628,16 +634,11 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         continue;
       }
       if (definition.isInterface()) {
-        interfaces.add(definition);
+        consumer.accept(definition);
       }
-      if (definition.superType != null) {
-        worklist.addIfNotSeen(definition.superType);
-      }
-      worklist.addIfNotSeen(definition.interfaces.values);
+      definition.forEachImmediateSupertype(worklist::addIfNotSeen);
     }
-    return interfaces;
   }
-
   /**
    * Resolve the methods implemented by the lambda expression that created the {@code callSite}.
    *

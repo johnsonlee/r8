@@ -10,7 +10,6 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
@@ -73,9 +72,7 @@ public final class ClassAndMemberPublicizer {
 
     // Phase 2: Visit classes and promote class/member to public if possible.
     timing.begin("Phase 2: promoteToPublic");
-    for (DexClass iface : appView.appInfo().computeReachableInterfaces()) {
-      publicizeType(iface.type);
-    }
+    appView.appInfo().forEachReachableInterface(clazz -> publicizeType(clazz.getType()));
     publicizeType(appView.dexItemFactory().objectType);
     timing.end();
 

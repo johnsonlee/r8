@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.naming;
 
+import static com.android.tools.r8.utils.IterableUtils.fromMethod;
+
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -47,7 +49,6 @@ import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -96,19 +97,17 @@ public class ProguardMapMinifier {
 
     timing.begin("MappingInterfaces");
     Set<DexClass> interfaces = new TreeSet<>((a, b) -> a.type.slowCompareTo(b.type));
-    Consumer<DexClass> consumer =
-        dexClass -> {
-          if (dexClass.isInterface()) {
-            // Only visit top level interfaces because computeMapping will visit the hierarchy.
-            if (dexClass.interfaces.isEmpty()) {
-              computeMapping(dexClass.type, nonPrivateMembers, notMappedReferences, subtypingInfo);
-            }
-            interfaces.add(dexClass);
-          }
-        };
     // For union-find of interface methods we also need to add the library types above live types.
-    appInfo.forEachTypeInHierarchyOfLiveProgramClasses(consumer);
-    appInfo.forEachReferencedClasspathClass(consumer::accept);
+    appInfo.forEachReachableInterface(
+        iFace -> {
+          assert iFace.isInterface();
+          interfaces.add(iFace);
+          if (iFace.interfaces.isEmpty()) {
+            computeMapping(iFace.type, nonPrivateMembers, notMappedReferences, subtypingInfo);
+          }
+        },
+        fromMethod(appInfo::forEachReferencedClasspathClass, DexClass::getType));
+
     assert nonPrivateMembers.isEmpty();
     timing.end();
 

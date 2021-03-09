@@ -48,7 +48,7 @@ public class Minifier {
     SubtypingInfo subtypingInfo = appView.appInfo().computeSubtypingInfo();
     timing.begin("ComputeInterfaces");
     Set<DexClass> interfaces = new TreeSet<>((a, b) -> a.type.slowCompareTo(b.type));
-    interfaces.addAll(appView.appInfo().computeReachableInterfaces());
+    appView.appInfo().forEachReachableInterface(interfaces::add);
     timing.end();
     timing.begin("MinifyClasses");
     ClassNameMinifier classNameMinifier =

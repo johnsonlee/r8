@@ -7,6 +7,8 @@ package com.android.tools.r8.utils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class IterableUtils {
@@ -48,5 +50,11 @@ public class IterableUtils {
     List<T> result = new ArrayList<>();
     iterable.forEach(result::add);
     return result;
+  }
+
+  public static <T, R> Iterable<R> fromMethod(Consumer<Consumer<T>> method, Function<T, R> mapper) {
+    List<R> ts = new ArrayList<>();
+    method.accept(t -> ts.add(mapper.apply(t)));
+    return ts;
   }
 }
