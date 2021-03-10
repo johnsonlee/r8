@@ -63,7 +63,7 @@ public class ApplyMappingClassPathInterfaceInheritTest extends TestBase {
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
             minifyLibrary,
-            r -> r.assertSuccessWithOutputLines("a.a"),
+            r -> r.assertSuccessWithOutputLines("a.a.a.a.a.a.a"),
             r -> r.assertSuccessWithOutputLines(ClassPathI.class.getTypeName()));
   }
 
@@ -74,11 +74,7 @@ public class ApplyMappingClassPathInterfaceInheritTest extends TestBase {
   public static class Main {
 
     public static void main(String[] args) throws ClassNotFoundException {
-      System.out.println(
-          Class.forName(
-                  "com.android.tools.r8.naming.applymapping"
-                      + ".ApplyMappingClassPathInterfaceInheritTest$ClassPathI")
-              .getName());
+      System.out.println(Class.forName(ClassPathI.class.getName()).getName());
     }
   }
 }
