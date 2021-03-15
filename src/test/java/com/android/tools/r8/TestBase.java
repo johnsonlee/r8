@@ -1482,11 +1482,29 @@ public class TestBase {
     }
     Path path = temp.newFolder().toPath().resolve("classes.jar");
     ArchiveConsumer consumer = new ArchiveConsumer(path);
-    for (Class clazz : classes) {
+    for (Class<?> clazz : classes) {
       consumer.accept(
           ByteDataView.of(ToolHelper.getClassAsBytes(clazz)),
           DescriptorUtils.javaTypeToDescriptor(clazz.getTypeName()),
           null);
+    }
+    consumer.finished(null);
+    return path;
+  }
+
+  public Path buildOnDexRuntime(TestParameters parameters, byte[]... classes)
+      throws IOException, CompilationFailedException {
+    if (parameters.isDexRuntime()) {
+      return testForD8()
+          .addProgramClassFileData(classes)
+          .setMinApi(parameters.getApiLevel())
+          .compile()
+          .writeToZip();
+    }
+    Path path = temp.newFolder().toPath().resolve("classes.jar");
+    ArchiveConsumer consumer = new ArchiveConsumer(path);
+    for (byte[] clazz : classes) {
+      consumer.accept(ByteDataView.of(clazz), extractClassDescriptor(clazz), null);
     }
     consumer.finished(null);
     return path;
