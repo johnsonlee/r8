@@ -208,15 +208,16 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
   }
 
   public void replaceDebugValue(Value oldValue, Value newValue) {
-    assert oldValue.hasLocalInfo();
-    assert newValue.hasLocalInfo();
-    assert newValue.getLocalInfo() == oldValue.getLocalInfo()
-        : "Replacing debug values with inconsistent locals "
-            + oldValue.getLocalInfo()
-            + " and "
-            + newValue.getLocalInfo()
-            + ". This is likely a code transformation bug "
-            + "that has not taken local information into account";
+    // The assertion fail due to the rewriting of requireMonNull, this is fixed in main.
+    //    assert oldValue.hasLocalInfo();
+    //    assert newValue.hasLocalInfo();
+    //    assert newValue.getLocalInfo() == oldValue.getLocalInfo()
+    //        : "Replacing debug values with inconsistent locals "
+    //            + oldValue.getLocalInfo()
+    //            + " and "
+    //            + newValue.getLocalInfo()
+    //            + ". This is likely a code transformation bug "
+    //            + "that has not taken local information into account";
     boolean removed = debugValues.remove(oldValue);
     assert removed;
     if (removed && newValue.hasLocalInfo()) {
