@@ -24,7 +24,6 @@ import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.utils.ComparatorUtils;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Comparator;
 import java.util.List;
 import org.objectweb.asm.Label;
@@ -71,7 +70,7 @@ public class CfSwitch extends CfInstruction {
     return defaultTarget;
   }
 
-  public IntList getKeys() {
+  public List<Integer> getKeys() {
     return new IntArrayList(keys);
   }
 
