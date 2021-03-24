@@ -1789,4 +1789,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean canHaveDalvikIntUsedAsNonIntPrimitiveTypeBug() {
     return isGeneratingClassFiles() || minApiLevel < AndroidApiLevel.L.getLevel();
   }
+
+  // On Dalvik the methods Integer.parseInt and Long.parseLong does not support strings with a '+'
+  // prefix
+  //
+  // See b/182137865.
+  public boolean canParseNumbersWithPlusPrefix() {
+    return minApiLevel > AndroidApiLevel.K.getLevel();
+  }
 }

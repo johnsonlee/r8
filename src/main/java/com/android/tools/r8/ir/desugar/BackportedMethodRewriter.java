@@ -151,10 +151,13 @@ public final class BackportedMethodRewriter {
 
   private static final class RewritableMethods {
 
+    private final AppView<?> appView;
+
     // Map backported method to a provider for creating the actual target method (with code).
     private final Map<DexMethod, MethodProvider> rewritable = new IdentityHashMap<>();
 
     RewritableMethods(InternalOptions options, AppView<?> appView) {
+      this.appView = appView;
 
       if (options.testing.forceLibBackportsInL8CfToCf) {
         DexItemFactory factory = options.itemFactory;
@@ -1048,10 +1051,15 @@ public final class BackportedMethodRewriter {
               factory.intType);
       method = factory.createMethod(type, proto, name);
       addProvider(
-          new MethodGenerator(
-              method,
-              BackportedMethods::IntegerMethods_parseIntSubsequenceWithRadix,
-              "parseIntSubsequenceWithRadix"));
+          appView.options().canParseNumbersWithPlusPrefix()
+              ? new MethodGenerator(
+                  method,
+                  BackportedMethods::IntegerMethods_parseIntSubsequenceWithRadix,
+                  "parseIntSubsequenceWithRadix")
+              : new MethodGenerator(
+                  method,
+                  BackportedMethods::IntegerMethods_parseIntSubsequenceWithRadixDalvik,
+                  "parseIntSubsequenceWithRadix"));
 
       // Long
       type = factory.boxedLongType;
@@ -1066,10 +1074,15 @@ public final class BackportedMethodRewriter {
               factory.intType);
       method = factory.createMethod(type, proto, name);
       addProvider(
-          new MethodGenerator(
-              method,
-              BackportedMethods::LongMethods_parseLongSubsequenceWithRadix,
-              "parseLongSubsequenceWithRadix"));
+          appView.options().canParseNumbersWithPlusPrefix()
+              ? new MethodGenerator(
+                  method,
+                  BackportedMethods::LongMethods_parseLongSubsequenceWithRadix,
+                  "parseLongSubsequenceWithRadix")
+              : new MethodGenerator(
+                  method,
+                  BackportedMethods::LongMethods_parseLongSubsequenceWithRadixDalvik,
+                  "parseLongSubsequenceWithRadix"));
 
       // long Long.parseUnsignedLong(CharSequence s, int beginIndex, int endIndex, int radix)
       name = factory.createString("parseUnsignedLong");
