@@ -93,7 +93,7 @@ public class GenerateBackportMethods extends MethodGenerationBase {
           invoke.getOpcode(),
           itemFactory.createMethod(
               itemFactory.createType("Ljava/lang/Long;"),
-              invoke.getMethod().getProto(),
+              invoke.getMethod().proto,
               itemFactory.createString("parseUnsignedLong")),
           invoke.isInterface());
     } else {
