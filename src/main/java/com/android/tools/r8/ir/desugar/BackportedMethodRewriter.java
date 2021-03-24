@@ -1034,6 +1034,58 @@ public final class BackportedMethodRewriter {
       proto = factory.createProto(factory.intType, factory.shortType, factory.shortType);
       method = factory.createMethod(type, proto, name);
       addProvider(new MethodGenerator(method, BackportedMethods::ShortMethods_compareUnsigned));
+
+      // Integer
+      type = factory.boxedIntType;
+      // long Long.parseLong(CharSequence s, int beginIndex, int endIndex, int radix)
+      name = factory.createString("parseInt");
+      proto =
+          factory.createProto(
+              factory.intType,
+              factory.charSequenceType,
+              factory.intType,
+              factory.intType,
+              factory.intType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodGenerator(
+              method,
+              BackportedMethods::IntegerMethods_parseIntSubsequenceWithRadix,
+              "parseIntSubsequenceWithRadix"));
+
+      // Long
+      type = factory.boxedLongType;
+      // long Long.parseLong(CharSequence s, int beginIndex, int endIndex, int radix)
+      name = factory.createString("parseLong");
+      proto =
+          factory.createProto(
+              factory.longType,
+              factory.charSequenceType,
+              factory.intType,
+              factory.intType,
+              factory.intType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodGenerator(
+              method,
+              BackportedMethods::LongMethods_parseLongSubsequenceWithRadix,
+              "parseLongSubsequenceWithRadix"));
+
+      // long Long.parseUnsignedLong(CharSequence s, int beginIndex, int endIndex, int radix)
+      name = factory.createString("parseUnsignedLong");
+      proto =
+          factory.createProto(
+              factory.longType,
+              factory.charSequenceType,
+              factory.intType,
+              factory.intType,
+              factory.intType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodGenerator(
+              method,
+              BackportedMethods::LongMethods_parseUnsignedLongSubsequenceWithRadix,
+              "parseUnsignedLongSubsequenceWithRadix"));
     }
 
     private void initializeJava10MethodProviders(DexItemFactory factory) {
