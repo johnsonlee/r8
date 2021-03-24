@@ -128,6 +128,9 @@ public abstract class NestBasedAccessDesugaring {
   }
 
   private void processNest(DexClass host, List<DexType> nest) {
+    if (hasLibraryMember(host, nest)) {
+      return;
+    }
     boolean reported = false;
     for (DexType type : nest) {
       DexClass clazz = definitionFor(type);
@@ -147,13 +150,21 @@ public abstract class NestBasedAccessDesugaring {
               ClasspathMethod method = new ClasspathMethod(clazz.asClasspathClass(), definition);
               method.registerCodeReferencesForDesugaring(
                   new NestBasedAccessDesugaringUseRegistry(method));
-            } else {
-              assert false;
             }
           }
         }
       }
     }
+  }
+
+  private boolean hasLibraryMember(DexClass host, List<DexType> nest) {
+    for (DexType memberType : nest) {
+      DexClass memberClass = appView.definitionFor(memberType);
+      if (memberClass != null && memberClass.isLibraryClass()) {
+        return true;
+      }
+    }
+    return host.isLibraryClass();
   }
 
   private void reportDesugarDependencies(DexClass host, DexClass clazz) {
@@ -171,8 +182,11 @@ public abstract class NestBasedAccessDesugaring {
   protected abstract boolean shouldProcessClassInNest(DexClass clazz, List<DexType> nest);
 
   private DexProgramClass createNestAccessConstructor() {
+    String prefix = appView.options().isDesugaredLibraryCompilation() ? "j$/" : "";
     return new DexProgramClass(
-        appView.dexItemFactory().nestConstructorType,
+        appView
+            .dexItemFactory()
+            .createType("L" + prefix + NestBasedAccessDesugaring.NEST_CONSTRUCTOR_NAME + ";"),
         null,
         new SynthesizedOrigin("Nest based access desugaring", getClass()),
         // Make the synthesized class public since shared in the whole program.

@@ -234,6 +234,8 @@ public class IRConverter {
           options.cfToCfDesugar || options.testing.forceLibBackportsInL8CfToCf
               ? new BackportedMethodRewriter(appView)
               : null;
+      this.d8NestBasedAccessDesugaring =
+          options.shouldDesugarNests() ? new D8NestBasedAccessDesugaring(appView) : null;
       this.twrCloseResourceRewriter = null;
       this.lambdaMerger = null;
       this.covariantReturnTypeAnnotationTransformer = null;
@@ -249,7 +251,6 @@ public class IRConverter {
       this.identifierNameStringMarker = null;
       this.devirtualizer = null;
       this.typeChecker = null;
-      this.d8NestBasedAccessDesugaring = null;
       this.stringSwitchRemover = null;
       this.serviceLoaderRewriter = null;
       this.methodOptimizationInfoCollector = null;
