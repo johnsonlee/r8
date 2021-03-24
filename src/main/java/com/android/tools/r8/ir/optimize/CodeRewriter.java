@@ -950,7 +950,10 @@ public class CodeRewriter {
     return rewriteSwitch(code, SwitchCaseAnalyzer.getInstance());
   }
 
-  public boolean rewriteSwitch(IRCode code, SwitchCaseAnalyzer switchCaseAnalyzer) {
+  private boolean rewriteSwitch(IRCode code, SwitchCaseAnalyzer switchCaseAnalyzer) {
+    if (!options.isSwitchRewritingEnabled()) {
+      return false;
+    }
     if (!code.metadata().mayHaveSwitch()) {
       return false;
     }
