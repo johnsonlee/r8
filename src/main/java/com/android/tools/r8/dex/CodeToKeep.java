@@ -79,7 +79,7 @@ public abstract class CodeToKeep {
 
     @Override
     void recordMethod(DexMethod method) {
-      DexType baseType = method.holder.toBaseType(options.dexItemFactory());
+      DexType baseType = method.holder.toBaseType(options.itemFactory);
       if (shouldKeep(baseType)) {
         keepClass(baseType);
         if (!method.holder.isArrayType()) {
@@ -98,7 +98,7 @@ public abstract class CodeToKeep {
 
     @Override
     void recordField(DexField field) {
-      DexType baseType = field.holder.toBaseType(options.dexItemFactory());
+      DexType baseType = field.holder.toBaseType(options.itemFactory);
       if (shouldKeep(baseType)) {
         keepClass(baseType);
         if (!field.holder.isArrayType()) {
