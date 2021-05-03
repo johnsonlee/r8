@@ -615,6 +615,10 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return clazz == null || !clazz.isProgramClass();
   }
 
+  public boolean isMethodTargetedByInvokeDynamic(DexMethod method) {
+    return methodsTargetedByInvokeDynamic.contains(method);
+  }
+
   public void forEachReachableInterface(Consumer<DexClass> consumer) {
     forEachReachableInterface(consumer, ImmutableList.of());
   }
