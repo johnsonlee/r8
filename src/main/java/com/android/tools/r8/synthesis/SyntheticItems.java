@@ -249,7 +249,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   public boolean isSubjectToKeepRules(DexProgramClass clazz) {
     assert isSyntheticClass(clazz);
-    return committed.containsSyntheticInput(clazz.getType());
+    return isSyntheticInput(clazz);
   }
 
   public boolean isSyntheticClass(DexType type) {
@@ -260,20 +260,37 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     return isSyntheticClass(clazz.type);
   }
 
+  boolean isSyntheticInput(DexProgramClass clazz) {
+    return committed.containsSyntheticInput(clazz.getType());
+  }
+
   public FeatureSplit getContextualFeatureSplit(DexType type) {
+    if (pending.legacyClasses.containsKey(type)) {
+      LegacySyntheticDefinition definition = pending.legacyClasses.get(type);
+      return definition.getFeatureSplit();
+    }
+    if (committed.containsLegacyType(type)) {
+      List<LegacySyntheticReference> types = committed.getLegacyTypes(type);
+      if (types.isEmpty()) {
+        return null;
+      }
+      assert verifyAllHaveSameFeature(types, LegacySyntheticReference::getFeatureSplit);
+      return types.get(0).getFeatureSplit();
+    }
     List<SynthesizingContext> contexts = getSynthesizingContexts(type);
     if (contexts.isEmpty()) {
       return null;
     }
-    assert verifyAllContextsHaveSameFeature(contexts);
+    assert verifyAllHaveSameFeature(contexts, SynthesizingContext::getFeatureSplit);
     return contexts.get(0).getFeatureSplit();
   }
 
-  private boolean verifyAllContextsHaveSameFeature(List<SynthesizingContext> contexts) {
-    assert !contexts.isEmpty();
-    FeatureSplit featureSplit = contexts.get(0).getFeatureSplit();
-    for (int i = 1; i < contexts.size(); i++) {
-      assert featureSplit == contexts.get(i).getFeatureSplit();
+  private static <T> boolean verifyAllHaveSameFeature(
+      List<T> items, Function<T, FeatureSplit> getter) {
+    assert !items.isEmpty();
+    FeatureSplit featureSplit = getter.apply(items.get(0));
+    for (int i = 1; i < items.size(); i++) {
+      assert featureSplit == getter.apply(items.get(i));
     }
     return true;
   }
@@ -379,9 +396,10 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   // TODO(b/158159959): Remove the usage of this direct class addition.
-  public void addLegacySyntheticClass(DexProgramClass clazz, ProgramDefinition context) {
+  public void addLegacySyntheticClass(
+      DexProgramClass clazz, ProgramDefinition context, FeatureSplit featureSplit) {
     LegacySyntheticDefinition legacyItem = internalAddLegacySyntheticClass(clazz);
-    legacyItem.addContext(context);
+    legacyItem.addContext(context, featureSplit);
   }
 
   private LegacySyntheticDefinition internalAddLegacySyntheticClass(DexProgramClass clazz) {
