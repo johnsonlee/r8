@@ -2942,8 +2942,12 @@ public class CodeRewriter {
 
         InvokeMethod invoke = instruction.asInvokeMethod();
         DexEncodedMethod singleTarget =
-            invoke.lookupSingleTarget(appView.withLiveness(), code.context());
-        if (singleTarget == null) {
+            invoke.lookupSingleTarget(appViewWithLiveness, code.context());
+        if (singleTarget == null
+            || appViewWithLiveness
+                .appInfo()
+                .noSideEffects
+                .containsKey(singleTarget.getReference())) {
           continue;
         }
 
