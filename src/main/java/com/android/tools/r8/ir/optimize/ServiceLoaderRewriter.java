@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.conversion.MethodProcessingId;
 import com.android.tools.r8.ir.desugar.ServiceLoaderSourceCode;
 import com.android.tools.r8.origin.SynthesizedOrigin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.BooleanBox;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -305,8 +306,20 @@ public class ServiceLoaderRewriter {
     public void perform(InvokeVirtual classLoaderInvoke, DexMethod method) {
       // Remove the ClassLoader call since this can throw and will not be removed otherwise.
       if (classLoaderInvoke != null) {
-        clearGetClassLoader(classLoaderInvoke);
-        iterator.nextUntil(i -> i == serviceLoaderLoad);
+        BooleanBox allClassLoaderUsersAreServiceLoaders =
+            new BooleanBox(!classLoaderInvoke.outValue().hasPhiUsers());
+        classLoaderInvoke
+            .outValue()
+            .uniqueUsers()
+            .forEach(
+                user -> {
+                  assert !user.isAssume();
+                  allClassLoaderUsersAreServiceLoaders.and(user == serviceLoaderLoad);
+                });
+        if (allClassLoaderUsersAreServiceLoaders.get()) {
+          clearGetClassLoader(classLoaderInvoke);
+          iterator.nextUntil(i -> i == serviceLoaderLoad);
+        }
       }
 
       // Remove the ServiceLoader.load call.

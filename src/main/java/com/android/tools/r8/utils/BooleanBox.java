@@ -29,4 +29,8 @@ public class BooleanBox {
   public void unset() {
     set(false);
   }
+
+  public void and(boolean value) {
+    set(value && this.value);
+  }
 }
