@@ -7,6 +7,7 @@ package com.android.tools.r8.classmerging.horizontal.interfaces;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isImplementing;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
@@ -36,6 +37,7 @@ public class CollisionWithDefaultMethodOutsideMergeGroupAfterSubclassMergingTest
     this.parameters = parameters;
   }
 
+  // TODO(b/173990042): Disallow merging of A and B in the first round of class merging.
   @Test
   public void test() throws Exception {
     testForR8(parameters.getBackend())
@@ -45,11 +47,25 @@ public class CollisionWithDefaultMethodOutsideMergeGroupAfterSubclassMergingTest
         // contributes the default method K.m() to A, and the merging of J into I would contribute
         // the default method J.m() to A.
         .addHorizontallyMergedClassesInspector(
-            inspector ->
+            inspector -> {
+              if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
                 inspector
                     .assertIsCompleteMergeGroup(A.class, B.class)
                     .assertMergedInto(B.class, A.class)
-                    .assertClassesNotMerged(I.class, J.class, K.class))
+                    .assertClassesNotMerged(I.class, J.class, K.class);
+              } else {
+                inspector
+                    .assertIsCompleteMergeGroup(A.class, B.class)
+                    .assertMergedInto(B.class, A.class)
+                    .assertIsCompleteMergeGroup(I.class, J.class)
+                    .assertClassesNotMerged(K.class);
+              }
+            })
+        .addOptionsModification(
+            options -> {
+              assertFalse(options.horizontalClassMergerOptions().isInterfaceMergingEnabled());
+              options.horizontalClassMergerOptions().enableInterfaceMerging();
+            })
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
@@ -66,7 +82,13 @@ public class CollisionWithDefaultMethodOutsideMergeGroupAfterSubclassMergingTest
 
               ClassSubject bClassSubject = inspector.clazz(C.class);
               assertThat(bClassSubject, isPresent());
-              assertThat(bClassSubject, isImplementing(inspector.clazz(J.class)));
+              assertThat(
+                  bClassSubject,
+                  isImplementing(
+                      inspector.clazz(
+                          parameters.canUseDefaultAndStaticInterfaceMethods()
+                              ? J.class
+                              : I.class)));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("A", "K", "J");

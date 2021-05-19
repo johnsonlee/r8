@@ -10,7 +10,7 @@ import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinition;
@@ -29,12 +29,14 @@ import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.code.ClassInitializerSynthesizedCode;
 import com.android.tools.r8.ir.analysis.value.NumberFromIntervalValue;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.shaking.KeepClassInfo;
 import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -61,6 +63,7 @@ public class ClassMerger {
   private static final OptimizationFeedback feedback = OptimizationFeedbackSimple.getInstance();
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
+  private final Mode mode;
   private final MergeGroup group;
   private final DexItemFactory dexItemFactory;
   private final ClassInitializerSynthesizedCode classInitializerSynthesizedCode;
@@ -75,12 +78,14 @@ public class ClassMerger {
 
   private ClassMerger(
       AppView<? extends AppInfoWithClassHierarchy> appView,
+      Mode mode,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       MergeGroup group,
       Collection<VirtualMethodMerger> virtualMethodMergers,
       Collection<ConstructorMerger> constructorMergers,
       ClassInitializerSynthesizedCode classInitializerSynthesizedCode) {
     this.appView = appView;
+    this.mode = mode;
     this.lensBuilder = lensBuilder;
     this.group = group;
     this.virtualMethodMergers = virtualMethodMergers;
@@ -112,8 +117,7 @@ public class ClassMerger {
     }
 
     DexMethod newClinit = dexItemFactory.createClassInitializer(group.getTarget().getType());
-
-    CfCode code = classInitializerSynthesizedCode.synthesizeCode(group.getTarget().getType());
+    Code code = classInitializerSynthesizedCode.getOrCreateCode(group.getTarget().getType());
     if (!group.getTarget().hasClassInitializer()) {
       classMethodsBuilder.addDirectMethod(
           new DexEncodedMethod(
@@ -129,9 +133,11 @@ public class ClassMerger {
     } else {
       DexEncodedMethod clinit = group.getTarget().getClassInitializer();
       clinit.setCode(code, appView);
-      CfVersion cfVersion = classInitializerSynthesizedCode.getCfVersion();
-      if (cfVersion != null) {
-        clinit.upgradeClassFileVersion(cfVersion);
+      if (code.isCfCode()) {
+        CfVersion cfVersion = classInitializerSynthesizedCode.getCfVersion();
+        if (cfVersion != null) {
+          clinit.upgradeClassFileVersion(cfVersion);
+        }
       }
       classMethodsBuilder.addDirectMethod(clinit);
     }
@@ -193,6 +199,7 @@ public class ClassMerger {
 
   void appendClassIdField() {
     assert appView.hasLiveness();
+    assert mode.isInitial();
 
     boolean deprecated = false;
     boolean d8R8Synthesized = true;
@@ -234,6 +241,24 @@ public class ClassMerger {
     }
   }
 
+  void fixNestMemberAttributes() {
+    if (group.getTarget().isInANest() && !group.getTarget().hasNestMemberAttributes()) {
+      for (DexProgramClass clazz : group.getSources()) {
+        if (clazz.hasNestMemberAttributes()) {
+          // The nest host has been merged into a nest member.
+          group.getTarget().clearNestHost();
+          group.getTarget().setNestMemberAttributes(clazz.getNestMembersClassAttributes());
+          group
+              .getTarget()
+              .removeNestMemberAttributes(
+                  nestMemberAttribute ->
+                      nestMemberAttribute.getNestMember() == group.getTarget().getType());
+          break;
+        }
+      }
+    }
+  }
+
   private void mergeAnnotations() {
     assert group.getClasses().stream().filter(DexDefinition::hasAnnotations).count() <= 1;
     for (DexProgramClass clazz : group.getSources()) {
@@ -247,10 +272,25 @@ public class ClassMerger {
   private void mergeInterfaces() {
     DexTypeList previousInterfaces = group.getTarget().getInterfaces();
     Set<DexType> interfaces = Sets.newLinkedHashSet(previousInterfaces);
-    group.forEachSource(clazz -> Iterables.addAll(interfaces, clazz.getInterfaces()));
-    if (interfaces.size() > previousInterfaces.size()) {
-      group.getTarget().setInterfaces(new DexTypeList(interfaces));
+    if (group.isInterfaceGroup()) {
+      // Add all implemented interfaces from the merge group to the target class, ignoring
+      // implemented interfaces that are part of the merge group.
+      Set<DexType> groupTypes =
+          SetUtils.newImmutableSet(
+              builder -> group.forEach(clazz -> builder.accept(clazz.getType())));
+      group.forEachSource(
+          clazz -> {
+            for (DexType itf : clazz.getInterfaces()) {
+              if (!groupTypes.contains(itf)) {
+                interfaces.add(itf);
+              }
+            }
+          });
+    } else {
+      // Add all implemented interfaces from the merge group to the target class.
+      group.forEachSource(clazz -> Iterables.addAll(interfaces, clazz.getInterfaces()));
     }
+    group.getTarget().setInterfaces(DexTypeList.create(interfaces));
   }
 
   void mergeInstanceFields() {
@@ -264,6 +304,7 @@ public class ClassMerger {
 
   public void mergeGroup(SyntheticArgumentClass syntheticArgumentClass) {
     fixAccessFlags();
+    fixNestMemberAttributes();
 
     if (group.hasClassIdField()) {
       appendClassIdField();
@@ -282,11 +323,17 @@ public class ClassMerger {
 
   public static class Builder {
     private final AppView<? extends AppInfoWithClassHierarchy> appView;
+    private Mode mode;
     private final MergeGroup group;
 
     public Builder(AppView<? extends AppInfoWithClassHierarchy> appView, MergeGroup group) {
       this.appView = appView;
       this.group = group;
+    }
+
+    Builder setMode(Mode mode) {
+      this.mode = mode;
+      return this;
     }
 
     private void selectTarget() {
@@ -401,6 +448,7 @@ public class ClassMerger {
 
       return new ClassMerger(
           appView,
+          mode,
           lensBuilder,
           group,
           virtualMethodMergers,

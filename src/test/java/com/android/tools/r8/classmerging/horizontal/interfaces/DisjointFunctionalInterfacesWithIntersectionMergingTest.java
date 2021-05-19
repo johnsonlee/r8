@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.classmerging.horizontal.interfaces;
 
+import static org.junit.Assert.assertFalse;
+
 import com.android.tools.r8.NoUnusedInterfaceRemoval;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
@@ -32,11 +34,18 @@ public class DisjointFunctionalInterfacesWithIntersectionMergingTest extends Tes
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
-        // TODO(b/173990042): We should be able to merge I and J.
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertClassesNotMerged(I.class, J.class))
+            inspector -> inspector.assertIsCompleteMergeGroup(I.class, J.class))
+        .addOptionsModification(
+            options -> {
+              assertFalse(options.horizontalClassMergerOptions().isInterfaceMergingEnabled());
+              options.horizontalClassMergerOptions().enableInterfaceMerging();
+            })
         .enableNoUnusedInterfaceRemovalAnnotations()
         .enableNoVerticalClassMergingAnnotations()
+        .noClassInliningOfSynthetics()
+        .noHorizontalClassMergingOfSynthetics()
+        .noInliningOfSynthetics()
         .setMinApi(parameters.getApiLevel())
         .compile()
         .run(parameters.getRuntime(), Main.class)
@@ -46,7 +55,7 @@ public class DisjointFunctionalInterfacesWithIntersectionMergingTest extends Tes
   static class Main {
 
     public static void main(String[] args) {
-      Object o = (I & J) () -> "I & J";
+      Object o = (I & J) () -> System.currentTimeMillis() > 0 ? "I & J" : null;
       System.out.println(((I) o).f());
       System.out.println(((J) o).f());
     }

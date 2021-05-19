@@ -17,6 +17,8 @@ import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexTypeList;
+import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.TreeFixerBase;
 import com.android.tools.r8.ir.conversion.ExtraUnusedNullParameter;
 import com.android.tools.r8.shaking.AnnotationFixer;
@@ -115,8 +117,8 @@ class TreeFixer extends TreeFixerBase {
   public HorizontalClassMergerGraphLens fixupTypeReferences() {
     List<DexProgramClass> classes = appView.appInfo().classesWithDeterministicOrder();
     Iterables.filter(classes, DexProgramClass::isInterface).forEach(this::fixupInterfaceClass);
-
-    classes.forEach(this::fixupProgramClassSuperType);
+    classes.forEach(this::fixupAttributes);
+    classes.forEach(this::fixupProgramClassSuperTypes);
     SubtypingForrestForClasses subtypingForrest = new SubtypingForrestForClasses(appView);
     // TODO(b/170078037): parallelize this code segment.
     for (DexProgramClass root : subtypingForrest.getProgramRoots()) {
@@ -127,8 +129,24 @@ class TreeFixer extends TreeFixerBase {
     return lens;
   }
 
-  private void fixupProgramClassSuperType(DexProgramClass clazz) {
+  private void fixupAttributes(DexProgramClass clazz) {
+    if (clazz.hasEnclosingMethodAttribute()) {
+      EnclosingMethodAttribute enclosingMethodAttribute = clazz.getEnclosingMethodAttribute();
+      if (mergedClasses.hasBeenMergedIntoDifferentType(
+          enclosingMethodAttribute.getEnclosingType())) {
+        clazz.clearEnclosingMethodAttribute();
+      } else {
+        clazz.setEnclosingMethodAttribute(fixupEnclosingMethodAttribute(enclosingMethodAttribute));
+      }
+    }
+    clazz.setInnerClasses(fixupInnerClassAttributes(clazz.getInnerClasses()));
+    clazz.setNestHostAttribute(fixupNestHost(clazz.getNestHostClassAttribute()));
+    clazz.setNestMemberAttributes(fixupNestMemberAttributes(clazz.getNestMembersClassAttributes()));
+  }
+
+  private void fixupProgramClassSuperTypes(DexProgramClass clazz) {
     clazz.superType = fixupType(clazz.superType);
+    clazz.setInterfaces(fixupInterfaces(clazz, clazz.getInterfaces()));
   }
 
   private BiMap<DexMethodSignature, DexMethodSignature> fixupProgramClass(
@@ -197,10 +215,6 @@ class TreeFixer extends TreeFixerBase {
 
   private void fixupInterfaceClass(DexProgramClass iface) {
     Set<DexMethodSignature> newDirectMethods = new LinkedHashSet<>();
-
-    assert iface.superType == dexItemFactory.objectType;
-    iface.superType = mergedClasses.getMergeTargetOrDefault(iface.superType);
-
     iface
         .getMethodCollection()
         .replaceDirectMethods(method -> fixupDirectMethod(newDirectMethods, method));
@@ -208,6 +222,16 @@ class TreeFixer extends TreeFixerBase {
     fixupFields(iface.staticFields(), iface::setStaticField);
     fixupFields(iface.instanceFields(), iface::setInstanceField);
     lensBuilder.commitPendingUpdates();
+  }
+
+  private DexTypeList fixupInterfaces(DexProgramClass clazz, DexTypeList interfaceTypes) {
+    Set<DexType> seen = Sets.newIdentityHashSet();
+    return interfaceTypes.map(
+        interfaceType -> {
+          DexType rewrittenInterfaceType = mapClassType(interfaceType);
+          assert rewrittenInterfaceType != clazz.getType();
+          return seen.add(rewrittenInterfaceType) ? rewrittenInterfaceType : null;
+        });
   }
 
   private DexEncodedMethod fixupProgramMethod(

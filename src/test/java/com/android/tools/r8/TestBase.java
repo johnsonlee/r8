@@ -1715,8 +1715,16 @@ public class TestBase {
     return clazz.getTypeName();
   }
 
-  public static String examplesTypeName(Class<? extends ExamplesClass> clazz) throws Exception {
-    return ReflectiveBuildPathUtils.resolveClassName(clazz);
+  public static ClassReference examplesClassReference(Class<? extends ExamplesClass> clazz) {
+    return Reference.classFromTypeName(examplesTypeName(clazz));
+  }
+
+  public static String examplesTypeName(Class<? extends ExamplesClass> clazz) {
+    try {
+      return ReflectiveBuildPathUtils.resolveClassName(clazz);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public static AndroidApiLevel apiLevelWithDefaultInterfaceMethodsSupport() {
@@ -1744,6 +1752,10 @@ public class TestBase {
 
   public static AndroidApiLevel apiLevelWithTwrCloseResourceSupport() {
     return AndroidApiLevel.K;
+  }
+
+  public static AndroidApiLevel apiLevelWithPcAsLineNumberSupport() {
+    return AndroidApiLevel.O;
   }
 
   public static boolean canUseJavaUtilObjects(TestParameters parameters) {

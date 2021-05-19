@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.GraphLens.NonIdentityGraphLens;
@@ -27,7 +28,9 @@ import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.shaking.MainDexInfo;
+import com.android.tools.r8.synthesis.SyntheticNaming.Phase;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
@@ -150,7 +153,10 @@ public class SyntheticFinalization {
           appView
               .appInfo()
               .rebuildWithMainDexInfo(
-                  appView.appInfo().getMainDexInfo().rewrittenWithLens(result.lens)));
+                  appView
+                      .appInfo()
+                      .getMainDexInfo()
+                      .rewrittenWithLens(appView.getSyntheticItems(), result.lens)));
       appView.setGraphLens(result.lens);
     }
     appView.pruneItems(result.prunedItems);
@@ -167,7 +173,10 @@ public class SyntheticFinalization {
           appView
               .appInfo()
               .rebuildWithMainDexInfo(
-                  appView.appInfo().getMainDexInfo().rewrittenWithLens(result.lens)));
+                  appView
+                      .appInfo()
+                      .getMainDexInfo()
+                      .rewrittenWithLens(appView.getSyntheticItems(), result.lens)));
     }
     appView.pruneItems(result.prunedItems);
   }
@@ -185,7 +194,7 @@ public class SyntheticFinalization {
   }
 
   Result computeFinalSynthetics(AppView<?> appView) {
-    assert verifyNoNestedSynthetics();
+    assert verifyNoNestedSynthetics(appView.dexItemFactory());
     assert verifyOneSyntheticPerSyntheticClass();
     DexApplication application;
     Builder lensBuilder = new Builder();
@@ -285,12 +294,19 @@ public class SyntheticFinalization {
     return !committed.containsNonLegacyType(type);
   }
 
-  private boolean verifyNoNestedSynthetics() {
-    // Check that a context is never itself synthetic class.
+  private boolean verifyNoNestedSynthetics(DexItemFactory dexItemFactory) {
+    // Check that the prefix of each synthetic is never itself synthetic.
     committed.forEachNonLegacyItem(
         item -> {
-          assert isNotSyntheticType(item.getContext().getSynthesizingContextType())
-              || item.getKind().allowSyntheticContext();
+          if (item.getKind().allowSyntheticContext()) {
+            return;
+          }
+          String prefix =
+              SyntheticNaming.getPrefixForExternalSyntheticType(item.getKind(), item.getHolder());
+          assert !prefix.contains(SyntheticNaming.getPhaseSeparator(Phase.INTERNAL));
+          DexType context =
+              dexItemFactory.createType(DescriptorUtils.getDescriptorFromClassBinaryName(prefix));
+          assert isNotSyntheticType(context);
         });
     return true;
   }
@@ -319,6 +335,13 @@ public class SyntheticFinalization {
               assert references.size() == 1;
             });
     return true;
+  }
+
+  private static void ensureSourceFile(
+      DexProgramClass externalSyntheticClass, DexString syntheticSourceFileName) {
+    if (externalSyntheticClass.getSourceFile() == null) {
+      externalSyntheticClass.setSourceFile(syntheticSourceFileName);
+    }
   }
 
   private static DexApplication buildLensAndProgram(
@@ -362,8 +385,7 @@ public class SyntheticFinalization {
           SyntheticMethodDefinition representative = syntheticGroup.getRepresentative();
           SynthesizingContext context = representative.getContext();
           context.registerPrefixRewriting(syntheticType, appView);
-          addSyntheticMarker(
-              representative.getKind(), representative.getHolder(), context, appView);
+          addSyntheticMarker(representative.getKind(), representative.getHolder(), appView);
           if (syntheticGroup.isDerivedFromMainDexList(mainDexInfo)) {
             derivedMainDexSynthetics.add(syntheticType);
           }
@@ -379,8 +401,7 @@ public class SyntheticFinalization {
           SyntheticProgramClassDefinition representative = syntheticGroup.getRepresentative();
           SynthesizingContext context = representative.getContext();
           context.registerPrefixRewriting(syntheticType, appView);
-          addSyntheticMarker(
-              representative.getKind(), representative.getHolder(), context, appView);
+          addSyntheticMarker(representative.getKind(), representative.getHolder(), appView);
           if (syntheticGroup.isDerivedFromMainDexList(mainDexInfo)) {
             derivedMainDexSynthetics.add(syntheticType);
           }
@@ -417,6 +438,11 @@ public class SyntheticFinalization {
       application = builder.build();
     }
 
+    DexString syntheticSourceFileName =
+        appView.enableWholeProgramOptimizations()
+            ? appView.dexItemFactory().createString("R8$$SyntheticClass")
+            : appView.dexItemFactory().createString("D8$$SyntheticClass");
+
     // Add the synthesized from after repackaging which changed class definitions.
     final DexApplication appForLookup = application;
     syntheticClassGroups.forEach(
@@ -424,6 +450,7 @@ public class SyntheticFinalization {
           DexProgramClass externalSyntheticClass = appForLookup.programDefinitionFor(syntheticType);
           assert externalSyntheticClass != null
               : "Expected definition for " + syntheticType.getTypeName();
+          ensureSourceFile(externalSyntheticClass, syntheticSourceFileName);
           SyntheticProgramClassDefinition representative = syntheticGroup.getRepresentative();
           addFinalSyntheticClass.accept(
               externalSyntheticClass,
@@ -435,6 +462,7 @@ public class SyntheticFinalization {
     syntheticMethodGroups.forEach(
         (syntheticType, syntheticGroup) -> {
           DexProgramClass externalSyntheticClass = appForLookup.programDefinitionFor(syntheticType);
+          ensureSourceFile(externalSyntheticClass, syntheticSourceFileName);
           SyntheticMethodDefinition representative = syntheticGroup.getRepresentative();
           assert externalSyntheticClass.getMethodCollection().size() == 1;
           assert externalSyntheticClass.getMethodCollection().hasDirectMethods();
@@ -474,24 +502,16 @@ public class SyntheticFinalization {
   private static void addSyntheticMarker(
       SyntheticKind kind,
       DexProgramClass externalSyntheticClass,
-      SynthesizingContext context,
       AppView<?> appView) {
     if (shouldAnnotateSynthetics(appView.options())) {
-      SyntheticMarker.addMarkerToClass(
-          externalSyntheticClass,
-          kind,
-          context,
-          appView.dexItemFactory(),
-          appView.options().forceAnnotateSynthetics);
+      SyntheticMarker.addMarkerToClass(externalSyntheticClass, kind, appView.options());
     }
   }
 
   private static boolean shouldAnnotateSynthetics(InternalOptions options) {
     // Only intermediate builds have annotated synthetics to allow later sharing.
-    // This is currently also disabled on non-L8 CF to CF desugaring to avoid missing class
-    // references to the annotated classes.
-    // TODO(b/147485959): Find an alternative encoding for synthetics to avoid missing-class refs.
-    return options.intermediate && (!options.cfToCfDesugar || options.forceAnnotateSynthetics);
+    // Also, CF builds are marked in the writer using an attribute.
+    return options.intermediate && options.isGeneratingDex();
   }
 
   private <T extends SyntheticDefinition<?, T, ?>>

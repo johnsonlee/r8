@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.GraphLens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis.InitializedClassesInInstanceMethods;
 import com.android.tools.r8.graph.classmerging.MergedClassesCollection;
 import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
+import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraintFactory;
 import com.android.tools.r8.ir.analysis.proto.EnumLiteProtoShrinker;
@@ -48,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public class AppView<T extends AppInfo> implements DexDefinitionSupplier, LibraryModeledPredicate {
 
@@ -91,7 +93,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   private boolean allCodeProcessed = false;
   private Predicate<DexType> classesEscapingIntoLibrary = Predicates.alwaysTrue();
   private InitializedClassesInInstanceMethods initializedClassesInInstanceMethods;
-  private HorizontallyMergedClasses horizontallyMergedClasses;
+  private HorizontallyMergedClasses horizontallyMergedClasses = HorizontallyMergedClasses.empty();
   private VerticallyMergedClasses verticallyMergedClasses;
   private EnumDataMap unboxedEnums = EnumDataMap.empty();
   // TODO(b/169115389): Remove
@@ -496,13 +498,17 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public MergedClassesCollection allMergedClasses() {
     MergedClassesCollection collection = new MergedClassesCollection();
-    if (horizontallyMergedClasses != null) {
+    if (hasHorizontallyMergedClasses()) {
       collection.add(horizontallyMergedClasses);
     }
     if (verticallyMergedClasses != null) {
       collection.add(verticallyMergedClasses);
     }
     return collection;
+  }
+
+  public boolean hasHorizontallyMergedClasses() {
+    return !horizontallyMergedClasses.isEmpty();
   }
 
   /**
@@ -513,10 +519,15 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return horizontallyMergedClasses;
   }
 
-  public void setHorizontallyMergedClasses(HorizontallyMergedClasses horizontallyMergedClasses) {
-    assert this.horizontallyMergedClasses == null;
-    this.horizontallyMergedClasses = horizontallyMergedClasses;
-    testing().horizontallyMergedClassesConsumer.accept(dexItemFactory(), horizontallyMergedClasses);
+  public void setHorizontallyMergedClasses(
+      HorizontallyMergedClasses horizontallyMergedClasses, HorizontalClassMerger.Mode mode) {
+    assert !hasHorizontallyMergedClasses() || mode.isFinal();
+    this.horizontallyMergedClasses = horizontallyMergedClasses().extend(horizontallyMergedClasses);
+    if (mode.isFinal()) {
+      testing()
+          .horizontallyMergedClassesConsumer
+          .accept(dexItemFactory(), horizontallyMergedClasses());
+    }
   }
 
   /**
@@ -637,7 +648,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public void rewriteWithLens(NonIdentityGraphLens lens) {
     if (lens != null) {
-      rewriteWithLens(lens, appInfo().app().asDirect(), withLiveness(), lens.getPrevious());
+      rewriteWithLens(lens, appInfo().app().asDirect(), withClassHierarchy(), lens.getPrevious());
     }
   }
 
@@ -650,13 +661,13 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       NonIdentityGraphLens lens, DirectMappedDexApplication application, GraphLens appliedLens) {
     assert lens != null;
     assert application != null;
-    rewriteWithLens(lens, application, withLiveness(), appliedLens);
+    rewriteWithLens(lens, application, withClassHierarchy(), appliedLens);
   }
 
   private static void rewriteWithLens(
       NonIdentityGraphLens lens,
       DirectMappedDexApplication application,
-      AppView<AppInfoWithLiveness> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       GraphLens appliedLens) {
     if (lens == null) {
       return;
@@ -688,7 +699,11 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     firstUnappliedLens.withAlternativeParentLens(
         newMemberRebindingLens,
         () -> {
-          appView.setAppInfo(appView.appInfo().rewrittenWithLens(application, lens));
+          if (appView.hasLiveness()) {
+            appView
+                .withLiveness()
+                .setAppInfo(appView.appInfoWithLiveness().rewrittenWithLens(application, lens));
+          }
           appView.setAppServices(appView.appServices().rewrittenWithLens(lens));
           if (appView.hasInitClassLens()) {
             appView.setInitClassLens(appView.initClassLens().rewrittenWithLens(lens));
@@ -714,5 +729,9 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     }
     assert alreadyLibraryDesugared != null;
     return alreadyLibraryDesugared.contains(clazz.getType());
+  }
+
+  public boolean checkForTesting(Supplier<Boolean> test) {
+    return testing().enableTestAssertions ? test.get() : true;
   }
 }

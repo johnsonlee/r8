@@ -21,6 +21,7 @@ import com.android.tools.r8.graph.GraphLens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
+import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.synthesis.SyntheticFinalization.Result;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.IterableUtils;
@@ -30,6 +31,7 @@ import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,6 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.objectweb.asm.ClassWriter;
 
 public class SyntheticItems implements SyntheticDefinitionsProvider {
 
@@ -119,12 +122,8 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     assert synthetics.nextSyntheticId == 0;
     assert synthetics.committed.isEmpty();
     assert synthetics.pending.isEmpty();
-    if (appView.options().intermediate) {
-      // If the compilation is in intermediate mode the synthetics should just be passed through.
-      return;
-    }
     CommittedSyntheticsCollection.Builder builder = synthetics.committed.builder();
-    // TODO(b/158159959): Consider identifying synthetics in the input reader to speed this up.
+    // TODO(b/158159959): Consider populating the input synthetics when identified.
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       SyntheticMarker marker = SyntheticMarker.stripMarkerFromClass(clazz, appView);
       if (marker.isSyntheticMethods()) {
@@ -184,6 +183,10 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     return baseDefinitionFor.apply(type);
   }
 
+  public boolean isFinalized() {
+    return nextSyntheticId == INVALID_ID_AFTER_SYNTHETIC_FINALIZATION;
+  }
+
   public boolean hasPendingSyntheticClasses() {
     return !pending.isEmpty();
   }
@@ -192,12 +195,16 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     return pending.getAllProgramClasses();
   }
 
-  private boolean isCommittedSynthetic(DexType type) {
+  public boolean isCommittedSynthetic(DexType type) {
     return committed.containsType(type);
   }
 
   private boolean isLegacyCommittedSynthetic(DexType type) {
     return committed.containsLegacyType(type);
+  }
+
+  private boolean isNonLegacyCommittedSynthetic(DexType type) {
+    return committed.containsNonLegacyType(type);
   }
 
   public boolean isPendingSynthetic(DexType type) {
@@ -206,6 +213,10 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   private boolean isLegacyPendingSynthetic(DexType type) {
     return pending.legacyClasses.containsKey(type);
+  }
+
+  private boolean isNonLegacyPendingSynthetic(DexType type) {
+    return pending.nonLegacyDefinitions.containsKey(type);
   }
 
   public boolean isLegacySyntheticClass(DexType type) {
@@ -221,15 +232,14 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   public boolean isNonLegacySynthetic(DexType type) {
-    return isCommittedSynthetic(type) || isPendingSynthetic(type);
+    return isNonLegacyCommittedSynthetic(type) || isNonLegacyPendingSynthetic(type);
   }
 
-  public boolean isEligibleForClassMerging(DexProgramClass clazz) {
+  public boolean isEligibleForClassMerging(DexProgramClass clazz, HorizontalClassMerger.Mode mode) {
     assert isSyntheticClass(clazz);
-    return isSyntheticLambda(clazz);
+    return mode.isFinal() || isSyntheticLambda(clazz);
   }
 
-  // TODO(b/186211926): Allow merging of legacy synthetics.
   private boolean isSyntheticLambda(DexProgramClass clazz) {
     if (!isNonLegacySynthetic(clazz)) {
       return false;
@@ -333,6 +343,23 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   public interface SynthesizingContextOracle {
 
     Set<DexReference> getSynthesizingContexts(DexProgramClass clazz);
+  }
+
+  public boolean isSyntheticMethodThatShouldNotBeDoubleProcessed(ProgramMethod method) {
+    for (SyntheticMethodReference reference :
+        committed
+            .getNonLegacyMethods()
+            .getOrDefault(method.getHolderType(), Collections.emptyList())) {
+      if (reference.getKind() == SyntheticKind.STATIC_INTERFACE_CALL) {
+        return true;
+      }
+    }
+    SyntheticDefinition<?, ?, ?> definition =
+        pending.nonLegacyDefinitions.get(method.getHolderType());
+    if (definition != null) {
+      return definition.getKind() == SyntheticKind.STATIC_INTERFACE_CALL;
+    }
+    return false;
   }
 
   // The compiler should not inspect the kind of a synthetic, so this provided only as a assertion
@@ -659,6 +686,23 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       assert app.programDefinitionFor(clazz.type) != null : "Missing synthetic: " + clazz.type;
     }
     return true;
+  }
+
+  public void writeAttributeIfIntermediateSyntheticClass(
+      ClassWriter writer, DexProgramClass clazz, AppView<?> appView) {
+    if (!appView.options().intermediate || !appView.options().isGeneratingClassFiles()) {
+      return;
+    }
+    Iterator<SyntheticReference<?, ?, ?>> it =
+        committed.getNonLegacyItems(clazz.getType()).iterator();
+    if (it.hasNext()) {
+      SyntheticKind kind = it.next().getKind();
+      // When compiling intermediates there should not be any mergings as they may invalidate the
+      // single kind of a synthetic which is required for marking synthetics. This check could be
+      // relaxed to ensure that all kinds are equivalent if merging is possible.
+      assert !it.hasNext();
+      SyntheticMarker.writeMarkerAttribute(writer, kind);
+    }
   }
 
   // Finalization of synthetic items.

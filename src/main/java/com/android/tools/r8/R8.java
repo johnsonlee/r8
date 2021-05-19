@@ -4,6 +4,7 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.R8Command.USAGE_MESSAGE;
+import static com.android.tools.r8.utils.AssertionUtils.forTesting;
 import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException;
 
 import com.android.tools.r8.cf.code.CfInstruction;
@@ -41,8 +42,6 @@ import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnal
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
 import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerResult;
-import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
@@ -282,6 +281,8 @@ public class R8 {
           new StringDiagnostic(
               "Running R8 version " + Version.LABEL + " with assertions enabled."));
     }
+    // Synthetic assertion to check that testing assertions works and can be enabled.
+    assert forTesting(options, () -> !options.testing.testEnableTestAssertions);
     try {
       AppView<AppInfoWithClassHierarchy> appView;
       {
@@ -323,7 +324,7 @@ public class R8 {
       List<ProguardConfigurationRule> synthesizedProguardRules = new ArrayList<>();
       timing.begin("Strip unused code");
       RuntimeTypeCheckInfo.Builder classMergingEnqueuerExtensionBuilder =
-          new RuntimeTypeCheckInfo.Builder(appView.dexItemFactory());
+          new RuntimeTypeCheckInfo.Builder(appView);
       try {
         // Add synthesized -assumenosideeffects from min api if relevant.
         if (options.isGeneratingDex()) {
@@ -453,7 +454,10 @@ public class R8 {
       boolean isKotlinLibraryCompilationWithInlinePassThrough =
           options.enableCfByteCodePassThrough && appView.hasCfByteCodePassThroughMethods();
 
-      RuntimeTypeCheckInfo runtimeTypeCheckInfo = classMergingEnqueuerExtensionBuilder.build();
+      RuntimeTypeCheckInfo runtimeTypeCheckInfo =
+          classMergingEnqueuerExtensionBuilder.build(appView.graphLens());
+      classMergingEnqueuerExtensionBuilder = null;
+
       if (!isKotlinLibraryCompilationWithInlinePassThrough
           && options.getProguardConfiguration().isOptimizing()) {
         if (options.enableVerticalClassMerging) {
@@ -499,33 +503,9 @@ public class R8 {
             timing.end();
           }
         }
-        if (options.horizontalClassMergerOptions().isEnabled()
-            && options.enableInlining
-            && options.isShrinking()) {
-          timing.begin("HorizontalClassMerger");
-          HorizontalClassMerger merger = new HorizontalClassMerger(appViewWithLiveness);
-          HorizontalClassMergerResult horizontalClassMergerResult =
-              merger.run(runtimeTypeCheckInfo, timing);
-          if (horizontalClassMergerResult != null) {
-            // Must rewrite AppInfoWithLiveness before pruning the merged classes, to ensure that
-            // allocations sites, fields accesses, etc. are correctly transferred to the target
-            // classes.
-            appView.rewriteWithLens(horizontalClassMergerResult.getGraphLens());
-            horizontalClassMergerResult
-                .getFieldAccessInfoCollectionModifier()
-                .modify(appViewWithLiveness);
 
-            appView.pruneItems(
-                PrunedItems.builder()
-                    .setPrunedApp(appView.appInfo().app())
-                    .addRemovedClasses(appView.horizontallyMergedClasses().getSources())
-                    .addNoLongerSyntheticItems(appView.horizontallyMergedClasses().getSources())
-                    .build());
-          }
-          timing.end();
-        } else {
-          appView.setHorizontallyMergedClasses(HorizontallyMergedClasses.empty());
-        }
+        HorizontalClassMerger.createForInitialClassMerging(appViewWithLiveness)
+            .runIfNecessary(runtimeTypeCheckInfo, timing);
       }
 
       // Clear traced methods roots to not hold on to the main dex live method set.
@@ -596,6 +576,10 @@ public class R8 {
                   new SubtypingInfo(appView),
                   keptGraphConsumer,
                   prunedTypes);
+          if (options.isClassMergingExtensionRequired(enqueuer.getMode())) {
+            classMergingEnqueuerExtensionBuilder = new RuntimeTypeCheckInfo.Builder(appView);
+            classMergingEnqueuerExtensionBuilder.attach(enqueuer);
+          }
           EnqueuerResult enqueuerResult =
               enqueuer.traceApplication(appView.rootSet(), executorService, timing);
           appView.setAppInfo(enqueuerResult.getAppInfo());
@@ -730,6 +714,15 @@ public class R8 {
         SyntheticFinalization.finalizeWithClassHierarchy(appView);
       }
 
+      // Run horizontal class merging. This runs even if shrinking is disabled to ensure synthetics
+      // are always merged.
+      HorizontalClassMerger.createForFinalClassMerging(appView)
+          .runIfNecessary(
+              classMergingEnqueuerExtensionBuilder != null
+                  ? classMergingEnqueuerExtensionBuilder.build(appView.graphLens())
+                  : null,
+              timing);
+
       // Perform minification.
       NamingLens namingLens;
       if (options.getProguardConfiguration().hasApplyMappingFile()) {
@@ -808,7 +801,6 @@ public class R8 {
           .runIfNecessary(timing);
 
       // Generate the resulting application resources.
-      // TODO(b/165783399): Apply the graph lens to all instructions in the CF and DEX backends.
       writeApplication(
           executorService,
           appView,
@@ -968,7 +960,7 @@ public class R8 {
               appView.dexItemFactory(), OptimizationFeedbackSimple.getInstance()));
     }
 
-    if (options.isClassMergingExtensionRequired()) {
+    if (options.isClassMergingExtensionRequired(enqueuer.getMode())) {
       classMergingEnqueuerExtensionBuilder.attach(enqueuer);
     }
 

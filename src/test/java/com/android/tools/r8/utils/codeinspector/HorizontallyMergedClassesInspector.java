@@ -106,7 +106,14 @@ public class HorizontallyMergedClassesInspector {
   }
 
   public HorizontallyMergedClassesInspector assertNoClassesMerged() {
-    assertTrue(horizontallyMergedClasses.getSources().isEmpty());
+    if (!horizontallyMergedClasses.getSources().isEmpty()) {
+      DexType source = horizontallyMergedClasses.getSources().iterator().next();
+      fail(
+          "Expected no classes to be merged, got: "
+              + source.getTypeName()
+              + " -> "
+              + getTarget(source).getTypeName());
+    }
     return this;
   }
 
@@ -144,6 +151,11 @@ public class HorizontallyMergedClassesInspector {
   public HorizontallyMergedClassesInspector assertIsCompleteMergeGroup(Class<?>... classes) {
     return assertIsCompleteMergeGroup(
         Stream.of(classes).map(Reference::classFromClass).collect(Collectors.toList()));
+  }
+
+  public HorizontallyMergedClassesInspector assertIsCompleteMergeGroup(
+      ClassReference... classReferences) {
+    return assertIsCompleteMergeGroup(Arrays.asList(classReferences));
   }
 
   public HorizontallyMergedClassesInspector assertIsCompleteMergeGroup(String... typeNames) {

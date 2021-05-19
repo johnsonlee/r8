@@ -9,16 +9,20 @@ import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.SingleClassPolicy;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.google.common.collect.Iterables;
 
-public class DontInlinePolicy extends SingleClassPolicy {
+public class NoIllegalInlining extends SingleClassPolicy {
 
   private final AppView<AppInfoWithLiveness> appView;
 
-  public DontInlinePolicy(AppView<AppInfoWithLiveness> appView) {
+  public NoIllegalInlining(AppView<AppInfoWithLiveness> appView, Mode mode) {
+    // This policy is only relevant for the first round of horizontal class merging, since the final
+    // round of horizontal class merging may not require any inlining.
+    assert mode.isInitial();
     this.appView = appView;
   }
 

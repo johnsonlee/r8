@@ -9,8 +9,15 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 
 public class MapUtils {
+
+  public static <K, V> Map<K, V> clone(
+      Map<K, V> mapToClone, Map<K, V> newMap, Function<V, V> valueCloner) {
+    mapToClone.forEach((key, value) -> newMap.put(key, valueCloner.apply(value)));
+    return newMap;
+  }
 
   public static <K, V> K firstKey(Map<K, V> map) {
     return map.keySet().iterator().next();
@@ -18,6 +25,10 @@ public class MapUtils {
 
   public static <K, V> V firstValue(Map<K, V> map) {
     return map.values().iterator().next();
+  }
+
+  public static <T, R> Function<T, R> ignoreKey(Supplier<R> supplier) {
+    return ignore -> supplier.get();
   }
 
   public static <K, V> Map<K, V> map(

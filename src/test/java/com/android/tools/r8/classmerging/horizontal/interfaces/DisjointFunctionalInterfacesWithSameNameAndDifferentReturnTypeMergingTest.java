@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.classmerging.horizontal.interfaces;
 
+import static org.junit.Assert.assertFalse;
+
 import com.android.tools.r8.NoUnusedInterfaceRemoval;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
@@ -34,11 +36,18 @@ public class DisjointFunctionalInterfacesWithSameNameAndDifferentReturnTypeMergi
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
-        // TODO(b/173990042): We should be able to merge I and J.
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertClassesNotMerged(I.class, J.class))
+            inspector -> inspector.assertIsCompleteMergeGroup(I.class, J.class))
+        .addOptionsModification(
+            options -> {
+              assertFalse(options.horizontalClassMergerOptions().isInterfaceMergingEnabled());
+              options.horizontalClassMergerOptions().enableInterfaceMerging();
+            })
         .enableNoUnusedInterfaceRemovalAnnotations()
         .enableNoVerticalClassMergingAnnotations()
+        .noClassInliningOfSynthetics()
+        .noHorizontalClassMergingOfSynthetics()
+        .noInliningOfSynthetics()
         .setMinApi(parameters.getApiLevel())
         .compile()
         .run(parameters.getRuntime(), Main.class)
@@ -48,8 +57,8 @@ public class DisjointFunctionalInterfacesWithSameNameAndDifferentReturnTypeMergi
   static class Main {
 
     public static void main(String[] args) {
-      System.out.println(((I) () -> "I").f());
-      System.out.println(((J) () -> "J").f());
+      System.out.println(((I) () -> System.currentTimeMillis() > 0 ? "I" : null).f());
+      System.out.println(((J) () -> System.currentTimeMillis() > 0 ? "J" : null).f());
     }
   }
 

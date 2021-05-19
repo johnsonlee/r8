@@ -15,7 +15,6 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldResolutionResult.SuccessfulFieldResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
-import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.value.ObjectState;
 import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
@@ -245,8 +244,10 @@ public class RedundantFieldLoadElimination {
               killNonFinalActiveFields(staticPut);
               ExistingValue value = new ExistingValue(staticPut.value());
               if (isFinal(field)) {
-                assert !field.getDefinition().isFinal()
-                    || method.getDefinition().isClassInitializer();
+                assert appView.checkForTesting(
+                    () ->
+                        !field.getDefinition().isFinal()
+                            || method.getDefinition().isClassInitializer());
                 activeState.putFinalStaticField(reference, value);
               } else {
                 activeState.putNonFinalStaticField(reference, value);
@@ -328,11 +329,9 @@ public class RedundantFieldLoadElimination {
 
   private boolean verifyWasInstanceInitializer() {
     VerticallyMergedClasses verticallyMergedClasses = appView.verticallyMergedClasses();
-    HorizontallyMergedClasses horizontallyMergedClasses = appView.horizontallyMergedClasses();
     assert verticallyMergedClasses != null;
-    assert horizontallyMergedClasses != null;
     assert verticallyMergedClasses.isMergeTarget(method.getHolderType())
-        || horizontallyMergedClasses.isMergeTarget(method.getHolderType());
+        || appView.horizontallyMergedClasses().isMergeTarget(method.getHolderType());
     assert appView
         .dexItemFactory()
         .isConstructor(appView.graphLens().getOriginalMethodSignature(method.getReference()));
