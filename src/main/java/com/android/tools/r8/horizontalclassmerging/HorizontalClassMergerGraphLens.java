@@ -149,12 +149,24 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
     }
 
     void moveMethod(DexMethod from, DexMethod to) {
+      moveMethod(from, to, false);
+    }
+
+    void moveMethod(DexMethod from, DexMethod to, boolean isRepresentative) {
       mapMethod(from, to);
-      recordNewMethodSignature(from, to);
+      recordNewMethodSignature(from, to, isRepresentative);
     }
 
     void recordNewMethodSignature(DexMethod oldMethodSignature, DexMethod newMethodSignature) {
+      recordNewMethodSignature(oldMethodSignature, newMethodSignature, false);
+    }
+
+    void recordNewMethodSignature(
+        DexMethod oldMethodSignature, DexMethod newMethodSignature, boolean isRepresentative) {
       newMethodSignatures.put(oldMethodSignature, newMethodSignature);
+      if (isRepresentative) {
+        newMethodSignatures.setRepresentative(newMethodSignature, oldMethodSignature);
+      }
     }
 
     void fixupMethod(DexMethod oldMethodSignature, DexMethod newMethodSignature) {

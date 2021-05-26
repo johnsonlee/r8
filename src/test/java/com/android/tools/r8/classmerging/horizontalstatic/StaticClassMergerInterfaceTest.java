@@ -40,19 +40,21 @@ public class StaticClassMergerInterfaceTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)
-        // TODO(b/173990042): Extend horizontal class merging to interfaces.
         .addHorizontallyMergedClassesInspector(
             inspector -> {
               if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
-                inspector.assertNoClassesMerged();
+                inspector.assertIsCompleteMergeGroup(I.class, J.class).assertNoOtherClassesMerged();
               } else {
                 inspector
+                    .assertClassesNotMerged(I.class, J.class)
                     .assertClassReferencesMerged(
                         SyntheticItemsTestUtils.syntheticCompanionClass(I.class),
                         SyntheticItemsTestUtils.syntheticCompanionClass(J.class))
-                    .assertClassesNotMerged(I.class, J.class);
+                    .assertNoOtherClassesMerged();
               }
             })
+        .addOptionsModification(
+            options -> options.horizontalClassMergerOptions().setEnableInterfaceMergingInFinal())
         .enableInliningAnnotations()
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), TestClass.class)
@@ -62,11 +64,9 @@ public class StaticClassMergerInterfaceTest extends TestBase {
               // We do not allow horizontal class merging of interfaces and classes. Therefore, A
               // should remain in the output.
               assertThat(inspector.clazz(A.class), isPresent());
-
-              // TODO(b/173990042): I and J should be merged.
               if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
                 assertThat(inspector.clazz(I.class), isPresent());
-                assertThat(inspector.clazz(J.class), isPresent());
+                assertThat(inspector.clazz(J.class), isAbsent());
               } else {
                 assertThat(inspector.clazz(syntheticCompanionClass(I.class)), isPresent());
                 assertThat(inspector.clazz(syntheticCompanionClass(J.class)), isAbsent());

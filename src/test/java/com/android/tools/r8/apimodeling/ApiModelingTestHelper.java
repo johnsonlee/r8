@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.apioutlining;
+package com.android.tools.r8.apimodeling;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
@@ -19,36 +19,45 @@ import com.android.tools.r8.utils.codeinspector.CodeMatchers;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.lang.reflect.Method;
 
-public abstract class ApiOutliningTestHelper {
+public abstract class ApiModelingTestHelper {
 
   static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
       ThrowableConsumer<T> setMockApiLevelForMethod(Method method, AndroidApiLevel apiLevel) {
     return compilerBuilder -> {
       compilerBuilder.addOptionsModification(
           options -> {
-            options.methodApiMapping.put(Reference.methodFromMethod(method), apiLevel);
+            options
+                .apiModelingOptions()
+                .methodApiMapping
+                .put(Reference.methodFromMethod(method), apiLevel);
           });
     };
   }
 
-  static ApiOutliningMethodVerificationHelper verifyThat(TestParameters parameters, Method method) {
-    return new ApiOutliningMethodVerificationHelper(parameters, method);
+  static void enableApiCallerIdentification(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
+    compilerBuilder.addOptionsModification(
+        options -> {
+          options.apiModelingOptions().enableApiCallerIdentification = true;
+        });
   }
 
-  public static class ApiOutliningMethodVerificationHelper {
+  static ApiModelingMethodVerificationHelper verifyThat(TestParameters parameters, Method method) {
+    return new ApiModelingMethodVerificationHelper(parameters, method);
+  }
+
+  public static class ApiModelingMethodVerificationHelper {
 
     private final Method methodOfInterest;
     private final TestParameters parameters;
 
-    public ApiOutliningMethodVerificationHelper(
-        TestParameters parameters, Method methodOfInterest) {
+    public ApiModelingMethodVerificationHelper(TestParameters parameters, Method methodOfInterest) {
       this.methodOfInterest = methodOfInterest;
       this.parameters = parameters;
     }
 
     protected ThrowingConsumer<CodeInspector, Exception> inlinedIntoFromApiLevel(
         Method method, AndroidApiLevel apiLevel) {
-      return parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevel)
+      return parameters.isDexRuntime() && parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevel)
           ? inlinedInto(method)
           : notInlinedInto(method);
     }
@@ -63,7 +72,7 @@ public abstract class ApiOutliningTestHelper {
       };
     }
 
-    private ThrowingConsumer<CodeInspector, Exception> inlinedInto(Method method) {
+    public ThrowingConsumer<CodeInspector, Exception> inlinedInto(Method method) {
       return inspector -> {
         MethodSubject candidate = inspector.method(methodOfInterest);
         if (!candidate.isPresent()) {

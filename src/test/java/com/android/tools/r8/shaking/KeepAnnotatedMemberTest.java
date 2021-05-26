@@ -5,6 +5,9 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticException;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.proguardConfigurationRuleDoesNotMatch;
+import static com.android.tools.r8.utils.codeinspector.Matchers.typeVariableNotInScope;
+import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -12,21 +15,26 @@ import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.R8;
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.android.tools.r8.utils.graphinspector.GraphInspector;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -77,9 +85,10 @@ public class KeepAnnotatedMemberTest extends TestBase {
         .addDontWarnGoogle()
         .addDontWarnJavax()
         .addDontWarn("org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement")
+        .allowDiagnosticInfoMessages()
         .compileWithExpectedDiagnostics(
-            diagnostics ->
-                diagnostics.assertErrorsMatch(diagnosticException(AssertionError.class)));
+            diagnostics -> diagnostics.assertErrorsMatch(diagnosticException(AssertionError.class)))
+        .apply(TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation);
   }
 
   @Test
@@ -92,7 +101,9 @@ public class KeepAnnotatedMemberTest extends TestBase {
         .addDontWarnGoogle()
         .addDontWarnJavax()
         .addDontWarn("org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement")
-        .compile();
+        .allowDiagnosticInfoMessages()
+        .compile()
+        .apply(TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation);
   }
 
   @Test
@@ -101,7 +112,11 @@ public class KeepAnnotatedMemberTest extends TestBase {
         .addProgramFiles(R8_JAR)
         .allowUnusedProguardConfigurationRules()
         .addKeepRules("-keepclasseswithmembers class * { @" + ABSENT_ANNOTATION + " *; }")
-        .compile()
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(
+            diagnostics ->
+                diagnostics.assertAllInfosMatch(
+                    anyOf(typeVariableNotInScope(), proguardConfigurationRuleDoesNotMatch())))
         .inspect(inspector -> assertEquals(0, inspector.allClasses().size()));
   }
 
@@ -113,7 +128,9 @@ public class KeepAnnotatedMemberTest extends TestBase {
         .addDontWarnGoogle()
         .addDontWarnJavax()
         .addDontWarn("org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement")
+        .allowDiagnosticInfoMessages()
         .compile()
+        .apply(TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation)
         .inspect(
             inspector -> {
               ClassSubject clazz = inspector.clazz(CLASS_WITH_ANNOTATED_METHOD);
@@ -129,7 +146,9 @@ public class KeepAnnotatedMemberTest extends TestBase {
         // TODO(b/159971974): Technically this rule does not hit anything and should fail due to
         //  missing allowUnusedProguardConfigurationRules()
         .addKeepRules("-keepclassmembers class * { @" + PRESENT_ANNOTATION + " *** *(...); }")
+        .allowDiagnosticInfoMessages()
         .compile()
+        .apply(TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation)
         .inspect(inspector -> assertEquals(0, inspector.allClasses().size()));
   }
 
@@ -139,7 +158,9 @@ public class KeepAnnotatedMemberTest extends TestBase {
         .addProgramFiles(R8_JAR)
         .addKeepClassRules(CLASS_WITH_ANNOTATED_METHOD)
         .addKeepRules("-keepclassmembers class * { @" + PRESENT_ANNOTATION + " *** *(...); }")
+        .allowDiagnosticInfoMessages()
         .compile()
+        .apply(TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation)
         .inspect(
             inspector -> {
               assertEquals(1, inspector.allClasses().size());
@@ -162,7 +183,11 @@ public class KeepAnnotatedMemberTest extends TestBase {
         .addProgramFiles(R8_JAR)
         .allowUnusedProguardConfigurationRules()
         .addKeepRules("-if class * -keep class <1> { @" + PRESENT_ANNOTATION + " *** *(...); }")
-        .compile()
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(
+            diagnostics ->
+                diagnostics.assertAllInfosMatch(
+                    anyOf(typeVariableNotInScope(), proguardConfigurationRuleDoesNotMatch())))
         .inspect(inspector -> assertEquals(0, inspector.allClasses().size()));
   }
 
@@ -172,7 +197,9 @@ public class KeepAnnotatedMemberTest extends TestBase {
         .addProgramFiles(R8_JAR)
         .addKeepClassRules(CLASS_WITH_ANNOTATED_METHOD)
         .addKeepRules("-if class * -keep class <1> { @" + PRESENT_ANNOTATION + " *** *(...); }")
+        .allowDiagnosticInfoMessages()
         .compile()
+        .apply(TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation)
         .inspect(
             inspector -> {
               assertEquals(1, inspector.allClasses().size());
@@ -204,7 +231,10 @@ public class KeepAnnotatedMemberTest extends TestBase {
             .addKeepRules("-keepclassmembers class * { @" + PRESENT_ANNOTATION + " *** *(...); }")
             .addDontWarnGoogle()
             .addDontWarnJavaxNullableAnnotation()
+            .allowDiagnosticInfoMessages()
+            .apply(this::configureHorizontalClassMerging)
             .compile()
+            .apply(TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation)
             .graphInspector();
 
     GraphInspector ifThenKeepClassMembersInspector =
@@ -222,7 +252,10 @@ public class KeepAnnotatedMemberTest extends TestBase {
                     + " *** *(...); }")
             .addDontWarnGoogle()
             .addDontWarnJavaxNullableAnnotation()
+            .apply(this::configureHorizontalClassMerging)
+            .allowDiagnosticInfoMessages()
             .compile()
+            .apply(TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation)
             .graphInspector();
     assertRetainedClassesEqual(referenceInspector, ifThenKeepClassMembersInspector);
 
@@ -241,7 +274,10 @@ public class KeepAnnotatedMemberTest extends TestBase {
                     + " *** *(...); }")
             .addDontWarnGoogle()
             .addDontWarnJavaxNullableAnnotation()
+            .apply(this::configureHorizontalClassMerging)
+            .allowDiagnosticInfoMessages()
             .compile()
+            .apply(TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation)
             .graphInspector();
     assertRetainedClassesEqual(referenceInspector, ifThenKeepClassesWithMembersInspector);
 
@@ -262,9 +298,27 @@ public class KeepAnnotatedMemberTest extends TestBase {
                     + " *** <2>(...); }")
             .addDontWarnGoogle()
             .addDontWarnJavaxNullableAnnotation()
+            .apply(this::configureHorizontalClassMerging)
+            .allowDiagnosticInfoMessages()
             .compile()
+            .apply(TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation)
             .graphInspector();
     assertRetainedClassesEqual(referenceInspector, ifHasMemberThenKeepClassInspector);
+  }
+
+  private void configureHorizontalClassMerging(R8FullTestBuilder testBuilder) {
+    // Attempt to ensure similar class merging across different builds by choosing the merge target
+    // as the class with the lexicographically smallest original name.
+    testBuilder.addOptionsModification(
+        options ->
+            options.testing.horizontalClassMergingTarget =
+                (appView, candidates, target) -> {
+                  List<DexProgramClass> classes = Lists.newArrayList(candidates);
+                  classes.sort(
+                      Comparator.comparing(
+                          clazz -> appView.graphLens().getOriginalType(clazz.getType())));
+                  return ListUtils.first(classes);
+                });
   }
 
   private void assertRetainedClassesEqual(

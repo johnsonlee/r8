@@ -33,7 +33,8 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
-import com.android.tools.r8.graph.GenericSignatureTypeVariableRemover;
+import com.android.tools.r8.graph.GenericSignatureContextBuilder;
+import com.android.tools.r8.graph.GenericSignatureCorrectnessHelper;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.PrunedItems;
@@ -105,7 +106,6 @@ import com.android.tools.r8.shaking.VerticalClassMergerGraphLens;
 import com.android.tools.r8.shaking.WhyAreYouKeepingConsumer;
 import com.android.tools.r8.synthesis.SyntheticFinalization;
 import com.android.tools.r8.synthesis.SyntheticItems;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.CfgPrinter;
 import com.android.tools.r8.utils.CollectionUtils;
@@ -332,7 +332,7 @@ public class R8 {
               options.itemFactory, options.getProguardConfiguration().getRules())) {
             synthesizedProguardRules.add(
                 ProguardConfigurationUtils.buildAssumeNoSideEffectsRuleForApiLevel(
-                    options.itemFactory, AndroidApiLevel.getAndroidApiLevel(options.minApiLevel)));
+                    options.itemFactory, options.minApiLevel));
           }
         }
         SubtypingInfo subtypingInfo = new SubtypingInfo(appView);
@@ -377,9 +377,14 @@ public class R8 {
           appView.withGeneratedExtensionRegistryShrinker(
               shrinker -> shrinker.run(Mode.INITIAL_TREE_SHAKING));
 
-          // Build enclosing information and type-paramter information before pruning.
-          GenericSignatureTypeVariableRemover typeVariableRemover =
-              GenericSignatureTypeVariableRemover.create(appView, appView.appInfo().classes());
+          // Build enclosing information and type-parameter information before pruning.
+          // TODO(b/187922482): Only consider referenced classes.
+          GenericSignatureContextBuilder genericContextBuilder =
+              GenericSignatureContextBuilder.create(appView.appInfo().classes());
+
+          // Compute if all signatures are valid before modifying them.
+          GenericSignatureCorrectnessHelper.createForInitialCheck(appView, genericContextBuilder)
+              .run(appView.appInfo().classes());
 
           TreePruner pruner = new TreePruner(appViewWithLiveness);
           DirectMappedDexApplication prunedApp = pruner.run(executorService);
@@ -404,8 +409,7 @@ public class R8 {
               annotationRemoverBuilder
                   .build(appViewWithLiveness, removedClasses);
           annotationRemover.ensureValid().run();
-          typeVariableRemover.removeDeadGenericSignatureTypeVariables(appView);
-          new GenericSignatureRewriter(appView, NamingLens.getIdentityLens())
+          new GenericSignatureRewriter(appView, NamingLens.getIdentityLens(), genericContextBuilder)
               .run(appView.appInfo().classes(), executorService);
         }
       } finally {
@@ -505,7 +509,7 @@ public class R8 {
         }
 
         HorizontalClassMerger.createForInitialClassMerging(appViewWithLiveness)
-            .runIfNecessary(runtimeTypeCheckInfo, timing);
+            .runIfNecessary(runtimeTypeCheckInfo, executorService, timing);
       }
 
       // Clear traced methods roots to not hold on to the main dex live method set.
@@ -597,8 +601,8 @@ public class R8 {
                     shrinker -> shrinker.run(enqueuer.getMode()),
                     DefaultTreePrunerConfiguration.getInstance());
 
-            GenericSignatureTypeVariableRemover typeVariableRemover =
-                GenericSignatureTypeVariableRemover.create(appView, appView.appInfo().classes());
+            GenericSignatureContextBuilder genericContextBuilder =
+                GenericSignatureContextBuilder.create(appView.appInfo().classes());
 
             TreePruner pruner = new TreePruner(appViewWithLiveness, treePrunerConfiguration);
             DirectMappedDexApplication application = pruner.run(executorService);
@@ -639,7 +643,10 @@ public class R8 {
             AnnotationRemover.builder()
                 .build(appView.withLiveness(), removedClasses)
                 .run();
-            typeVariableRemover.removeDeadGenericSignatureTypeVariables(appView);
+            new GenericSignatureRewriter(
+                    appView, NamingLens.getIdentityLens(), genericContextBuilder)
+                .run(appView.appInfo().classes(), executorService);
+
             // Synthesize fields for triggering class initializers.
             new ClassInitFieldSynthesizer(appViewWithLiveness).run(executorService);
           }
@@ -714,6 +721,10 @@ public class R8 {
         SyntheticFinalization.finalizeWithClassHierarchy(appView);
       }
 
+      // Clear the reference type lattice element cache. This is required since class merging may
+      // need to build IR.
+      appView.dexItemFactory().clearTypeElementsCache();
+
       // Run horizontal class merging. This runs even if shrinking is disabled to ensure synthetics
       // are always merged.
       HorizontalClassMerger.createForFinalClassMerging(appView)
@@ -721,6 +732,7 @@ public class R8 {
               classMergingEnqueuerExtensionBuilder != null
                   ? classMergingEnqueuerExtensionBuilder.build(appView.graphLens())
                   : null,
+              executorService,
               timing);
 
       // Perform minification.
@@ -786,6 +798,16 @@ public class R8 {
       if (options.syntheticProguardRulesConsumer != null) {
         options.syntheticProguardRulesConsumer.accept(synthesizedProguardRules);
       }
+
+      assert appView.checkForTesting(
+              () ->
+                  !options.isShrinking()
+                      || GenericSignatureCorrectnessHelper.createForVerification(
+                              appView,
+                              GenericSignatureContextBuilder.create(appView.appInfo().classes()))
+                          .run(appView.appInfo().classes())
+                          .isValid())
+          : "Could not validate generic signatures";
 
       NamingLens prefixRewritingNamingLens =
           PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView, namingLens);
@@ -892,31 +914,27 @@ public class R8 {
   private static boolean verifyMovedMethodsHaveOriginalMethodPosition(
       AppView<?> appView, DirectMappedDexApplication application) {
     application
-        .classes()
+        .classesWithDeterministicOrder()
         .forEach(
-            clazz -> {
-              clazz.forEachProgramMethod(
-                  method -> {
-                    DexMethod originalMethod =
-                        appView.graphLens().getOriginalMethodSignature(method.getReference());
-                    if (originalMethod != method.getReference()) {
-                      DexMethod originalMethod2 =
+            clazz ->
+                clazz.forEachProgramMethod(
+                    method -> {
+                      DexMethod originalMethod =
                           appView.graphLens().getOriginalMethodSignature(method.getReference());
-                      appView.graphLens().getOriginalMethodSignature(method.getReference());
-                      DexEncodedMethod definition = method.getDefinition();
-                      Code code = definition.getCode();
-                      if (code == null) {
-                        return;
+                      if (originalMethod != method.getReference()) {
+                        DexEncodedMethod definition = method.getDefinition();
+                        Code code = definition.getCode();
+                        if (code == null) {
+                          return;
+                        }
+                        if (code.isCfCode()) {
+                          assert verifyOriginalMethodInPosition(code.asCfCode(), originalMethod);
+                        } else {
+                          assert code.isDexCode();
+                          assert verifyOriginalMethodInDebugInfo(code.asDexCode(), originalMethod);
+                        }
                       }
-                      if (code.isCfCode()) {
-                        assert verifyOriginalMethodInPosition(code.asCfCode(), originalMethod);
-                      } else {
-                        assert code.isDexCode();
-                        assert verifyOriginalMethodInDebugInfo(code.asDexCode(), originalMethod);
-                      }
-                    }
-                  });
-            });
+                    }));
     return true;
   }
 

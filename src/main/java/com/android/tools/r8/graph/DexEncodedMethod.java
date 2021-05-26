@@ -56,6 +56,7 @@ import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.ir.optimize.NestUtils;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.DefaultMethodOptimizationInfo;
+import com.android.tools.r8.ir.optimize.info.DefaultMethodOptimizationWithMinApiInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.info.UpdatableMethodOptimizationInfo;
@@ -97,6 +98,8 @@ import org.objectweb.asm.Opcodes;
 
 public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMethod>
     implements StructuralItem<DexEncodedMethod> {
+
+  public static final boolean D8_R8_SYNTHESIZED = true;
 
   public static final String CONFIGURATION_DEBUGGING_PREFIX = "Shaking error: Missing method in ";
 
@@ -1318,6 +1321,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
             !isAbstract(),
             builder ->
                 builder
+                    .setGenericSignature(MethodTypeSignature.noSignature())
                     .setCode(
                         ForwardMethodBuilder.builder(definitions.dexItemFactory())
                             .setStaticSource(newMethod)
@@ -1379,7 +1383,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         builder(this)
             .promoteToStatic()
             .withoutThisParameter()
-            .adjustOptimizationInfoAfterRemovingThisParameter();
+            .adjustOptimizationInfoAfterRemovingThisParameter()
+            .setGenericSignature(MethodTypeSignature.noSignature());
     DexEncodedMethod method = builder.build();
     method.copyMetadata(this);
     setObsolete();
@@ -1451,13 +1456,18 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
   public synchronized UpdatableMethodOptimizationInfo getMutableOptimizationInfo() {
     checkIfObsolete();
-    if (optimizationInfo == DefaultMethodOptimizationInfo.DEFAULT_INSTANCE) {
-      optimizationInfo = optimizationInfo.mutableCopy();
-    }
-    return (UpdatableMethodOptimizationInfo) optimizationInfo;
+    UpdatableMethodOptimizationInfo updatableMethodOptimizationInfo =
+        optimizationInfo.asUpdatableMethodOptimizationInfo();
+    this.optimizationInfo = updatableMethodOptimizationInfo;
+    return updatableMethodOptimizationInfo;
   }
 
   public void setOptimizationInfo(UpdatableMethodOptimizationInfo info) {
+    checkIfObsolete();
+    optimizationInfo = info;
+  }
+
+  public void setMinApiOptimizationInfo(DefaultMethodOptimizationWithMinApiInfo info) {
     checkIfObsolete();
     optimizationInfo = info;
   }
@@ -1510,7 +1520,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
     private DexMethod method;
     private MethodAccessFlags accessFlags;
-    private final MethodTypeSignature genericSignature;
+    private MethodTypeSignature genericSignature;
     private final DexAnnotationSet annotations;
     private OptionalBool isLibraryMethodOverride = OptionalBool.UNKNOWN;
     private ParameterAnnotationsList parameterAnnotations;
@@ -1709,6 +1719,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       }
       buildConsumer.accept(result);
       return result;
+    }
+
+    public Builder setGenericSignature(MethodTypeSignature methodSignature) {
+      this.genericSignature = methodSignature;
+      return this;
     }
   }
 }

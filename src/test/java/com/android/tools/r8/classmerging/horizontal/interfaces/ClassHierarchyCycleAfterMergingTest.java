@@ -44,11 +44,6 @@ public class ClassHierarchyCycleAfterMergingTest extends TestBase {
         // hierarchy.
         .addHorizontallyMergedClassesInspector(
             HorizontallyMergedClassesInspector::assertNoClassesMerged)
-        .addOptionsModification(
-            options -> {
-              assertFalse(options.horizontalClassMergerOptions().isInterfaceMergingEnabled());
-              options.horizontalClassMergerOptions().enableInterfaceMerging();
-            })
         .enableNoHorizontalClassMergingAnnotations()
         .enableNoUnusedInterfaceRemovalAnnotations()
         .enableNoVerticalClassMergingAnnotations()

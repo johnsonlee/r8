@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.classmerging.horizontal.interfaces;
 
-import static org.junit.Assert.assertFalse;
-
 import com.android.tools.r8.NoUnusedInterfaceRemoval;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
@@ -37,10 +35,7 @@ public class DisjointFunctionalInterfacesMergingTest extends TestBase {
         .addHorizontallyMergedClassesInspector(
             inspector -> inspector.assertIsCompleteMergeGroup(I.class, J.class))
         .addOptionsModification(
-            options -> {
-              assertFalse(options.horizontalClassMergerOptions().isInterfaceMergingEnabled());
-              options.horizontalClassMergerOptions().enableInterfaceMerging();
-            })
+            options -> options.horizontalClassMergerOptions().setEnableInterfaceMergingInFinal())
         .enableNoUnusedInterfaceRemovalAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .noClassInliningOfSynthetics()
