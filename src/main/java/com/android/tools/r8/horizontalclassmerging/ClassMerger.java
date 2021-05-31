@@ -17,7 +17,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.FieldAccessFlags;
@@ -41,7 +40,6 @@ import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,28 +70,22 @@ public class ClassMerger {
   private final ClassStaticFieldsMerger classStaticFieldsMerger;
   private final ClassInstanceFieldsMerger classInstanceFieldsMerger;
   private final Collection<VirtualMethodMerger> virtualMethodMergers;
-  private final Collection<InstanceInitializerMerger> instanceInitializerMergers;
 
   private ClassMerger(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       Mode mode,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       MergeGroup group,
-      Collection<VirtualMethodMerger> virtualMethodMergers,
-      Collection<InstanceInitializerMerger> instanceInitializerMergers,
-      ClassInitializerMerger classInitializerMerger) {
+      Collection<VirtualMethodMerger> virtualMethodMergers) {
     this.appView = appView;
-    this.mode = mode;
-    this.lensBuilder = lensBuilder;
-    this.group = group;
-    this.virtualMethodMergers = virtualMethodMergers;
-    this.instanceInitializerMergers = instanceInitializerMergers;
-
     this.dexItemFactory = appView.dexItemFactory();
-    this.classInitializerMerger = classInitializerMerger;
+    this.group = group;
+    this.lensBuilder = lensBuilder;
+    this.mode = mode;
+    this.virtualMethodMergers = virtualMethodMergers;
+    this.classInitializerMerger = ClassInitializerMerger.create(group);
     this.classStaticFieldsMerger = new ClassStaticFieldsMerger(appView, lensBuilder, group);
     this.classInstanceFieldsMerger = new ClassInstanceFieldsMerger(appView, lensBuilder, group);
-
     buildClassIdentifierMap();
   }
 
@@ -105,10 +97,9 @@ public class ClassMerger {
   void mergeDirectMethods(
       SyntheticArgumentClass syntheticArgumentClass,
       SyntheticClassInitializerConverter.Builder syntheticClassInitializerConverterBuilder) {
+    mergeInstanceInitializers(syntheticArgumentClass);
     mergeStaticClassInitializers(syntheticClassInitializerConverterBuilder);
-    mergeDirectMethods(group.getTarget());
-    group.forEachSource(this::mergeDirectMethods);
-    mergeConstructors(syntheticArgumentClass);
+    group.forEach(this::mergeDirectMethods);
   }
 
   void mergeStaticClassInitializers(
@@ -183,11 +174,21 @@ public class ClassMerger {
         classMethodsBuilder::isFresh);
   }
 
-  void mergeConstructors(SyntheticArgumentClass syntheticArgumentClass) {
+  void mergeInstanceInitializers(SyntheticArgumentClass syntheticArgumentClass) {
+    InstanceInitializerMergerCollection instanceInitializerMergers =
+        InstanceInitializerMergerCollection.create(appView, group, lensBuilder, mode);
     instanceInitializerMergers.forEach(
         merger ->
             merger.merge(
                 classMethodsBuilder, lensBuilder, classIdentifiers, syntheticArgumentClass));
+  }
+
+  void mergeMethods(
+      SyntheticArgumentClass syntheticArgumentClass,
+      SyntheticClassInitializerConverter.Builder syntheticClassInitializerConverterBuilder) {
+    mergeVirtualMethods();
+    mergeDirectMethods(syntheticArgumentClass, syntheticClassInitializerConverterBuilder);
+    classMethodsBuilder.setClassMethods(group.getTarget());
   }
 
   void mergeVirtualMethods() {
@@ -223,12 +224,6 @@ public class ClassMerger {
     feedback.recordFieldHasAbstractValue(classIdField, appView.withLiveness(), abstractValue);
 
     classInstanceFieldsMerger.setClassIdField(classIdField);
-  }
-
-  void mergeStaticFields() {
-    group.forEachSource(classStaticFieldsMerger::addFields);
-    classStaticFieldsMerger.merge(group.getTarget());
-    group.forEachSource(clazz -> clazz.setStaticFields(null));
   }
 
   void fixAccessFlags() {
@@ -291,6 +286,14 @@ public class ClassMerger {
     group.getTarget().setInterfaces(DexTypeList.create(interfaces));
   }
 
+  void mergeFields() {
+    if (group.hasClassIdField()) {
+      appendClassIdField();
+    }
+    mergeInstanceFields();
+    mergeStaticFields();
+  }
+
   void mergeInstanceFields() {
     group.forEachSource(
         clazz -> {
@@ -300,25 +303,21 @@ public class ClassMerger {
     group.getTarget().setInstanceFields(classInstanceFieldsMerger.merge());
   }
 
+  void mergeStaticFields() {
+    group.forEachSource(classStaticFieldsMerger::addFields);
+    classStaticFieldsMerger.merge(group.getTarget());
+    group.forEachSource(clazz -> clazz.setStaticFields(null));
+  }
+
   public void mergeGroup(
       SyntheticArgumentClass syntheticArgumentClass,
       SyntheticClassInitializerConverter.Builder syntheticClassInitializerConverterBuilder) {
     fixAccessFlags();
     fixNestMemberAttributes();
-
-    if (group.hasClassIdField()) {
-      appendClassIdField();
-    }
-
     mergeAnnotations();
     mergeInterfaces();
-
-    mergeVirtualMethods();
-    mergeDirectMethods(syntheticArgumentClass, syntheticClassInitializerConverterBuilder);
-    classMethodsBuilder.setClassMethods(group.getTarget());
-
-    mergeStaticFields();
-    mergeInstanceFields();
+    mergeFields();
+    mergeMethods(syntheticArgumentClass, syntheticClassInitializerConverterBuilder);
   }
 
   public static class Builder {
@@ -357,53 +356,6 @@ public class ClassMerger {
       }
       group.setTarget(
           appView.testing().horizontalClassMergingTarget.apply(appView, candidates, target));
-    }
-
-    private ClassInitializerMerger createClassInitializerMerger() {
-      ClassInitializerMerger.Builder builder = new ClassInitializerMerger.Builder();
-      group.forEach(
-          clazz -> {
-            if (clazz.hasClassInitializer()) {
-              builder.add(clazz.getProgramClassInitializer());
-            }
-          });
-      return builder.build();
-    }
-
-    private List<InstanceInitializerMerger> createInstanceInitializerMergers() {
-      List<InstanceInitializerMerger> instanceInitializerMergers = new ArrayList<>();
-      if (appView.options().horizontalClassMergerOptions().isConstructorMergingEnabled()) {
-        Map<DexProto, InstanceInitializerMerger.Builder> buildersByProto = new LinkedHashMap<>();
-        group.forEach(
-            clazz ->
-                clazz.forEachProgramDirectMethodMatching(
-                    DexEncodedMethod::isInstanceInitializer,
-                    method ->
-                        buildersByProto
-                            .computeIfAbsent(
-                                method.getDefinition().getProto(),
-                                ignore -> new InstanceInitializerMerger.Builder(appView, mode))
-                            .add(method)));
-        for (InstanceInitializerMerger.Builder builder : buildersByProto.values()) {
-          instanceInitializerMergers.addAll(builder.build(group));
-        }
-      } else {
-        group.forEach(
-            clazz ->
-                clazz.forEachProgramDirectMethodMatching(
-                    DexEncodedMethod::isInstanceInitializer,
-                    method ->
-                        instanceInitializerMergers.addAll(
-                            new InstanceInitializerMerger.Builder(appView, mode)
-                                .add(method)
-                                .build(group))));
-      }
-
-      // Try and merge the constructors with the most arguments first, to avoid using synthetic
-      // arguments if possible.
-      instanceInitializerMergers.sort(
-          Comparator.comparing(InstanceInitializerMerger::getArity).reversed());
-      return instanceInitializerMergers;
     }
 
     private List<VirtualMethodMerger> createVirtualMethodMergers() {
@@ -448,14 +400,7 @@ public class ClassMerger {
         createClassIdField();
       }
 
-      return new ClassMerger(
-          appView,
-          mode,
-          lensBuilder,
-          group,
-          virtualMethodMergers,
-          createInstanceInitializerMergers(),
-          createClassInitializerMerger());
+      return new ClassMerger(appView, mode, lensBuilder, group, virtualMethodMergers);
     }
   }
 }

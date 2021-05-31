@@ -615,6 +615,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return proguardConfiguration.getKeepAttributes().innerClasses;
   }
 
+  @Override
+  public boolean isKeepRuntimeVisibleAnnotationsEnabled() {
+    return proguardConfiguration.getKeepAttributes().runtimeVisibleAnnotations;
+  }
+
   /**
    * If any non-static class merging is enabled, information about types referred to by instanceOf
    * and check cast instructions needs to be collected.
@@ -1218,7 +1223,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         !Version.isDevelopmentVersion()
             || System.getProperty("com.android.tools.r8.disableHorizontalClassMerging") == null;
     private boolean enableInterfaceMergingInInitial = false;
-    private boolean enableInterfaceMergingInFinal = false;
     private boolean enableSyntheticMerging = true;
     private boolean ignoreRuntimeTypeChecksForTesting = false;
     private boolean restrictToSynthetics = false;
@@ -1273,7 +1277,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         return enableInterfaceMergingInInitial;
       }
       assert mode.isFinal();
-      return enableInterfaceMergingInFinal;
+      return true;
     }
 
     public boolean isRestrictedToSynthetics() {
@@ -1282,10 +1286,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public void setEnableInterfaceMergingInInitial() {
       enableInterfaceMergingInInitial = true;
-    }
-
-    public void setEnableInterfaceMergingInFinal() {
-      enableInterfaceMergingInFinal = true;
     }
 
     public void setIgnoreRuntimeTypeChecksForTesting() {
