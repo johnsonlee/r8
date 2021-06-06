@@ -1,0 +1,74 @@
+# Copyright (c) 2016, the R8 project authors. Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
+# Keep line numbers to ensure method mappings in the map file.
+-keepattributes LineNumberTable
+
+# Keep the application entry point. Get rid of everything that is not
+# reachable from there.
+-keep public class classmerging.Test {
+  public static void main(...);
+}
+-keep public class classmerging.ArrayTypeCollisionTest {
+  public static void main(...);
+}
+-keep public class classmerging.CallGraphCycleTest {
+  public static void main(...);
+}
+-keep public class classmerging.ClassWithNativeMethodTest {
+  public static void main(...);
+}
+-keep public class classmerging.ConflictInGeneratedNameTest {
+  public static void main(...);
+}
+-keep public class classmerging.ConflictingInterfaceSignaturesTest {
+  public static void main(...);
+}
+-keep public class classmerging.ExceptionTest {
+  public static void main(...);
+}
+-keep public class classmerging.FieldCollisionTest {
+  public static void main(...);
+}
+-keep public class classmerging.MethodCollisionTest {
+  public static void main(...);
+}
+-keep public class classmerging.RewritePinnedMethodTest {
+  public static void main(...);
+}
+-keep public class classmerging.PinnedParameterTypesTest {
+  public static void main(...);
+}
+-keep public class classmerging.PinnedParameterTypesTest$TestClass {
+  public static void method(...);
+}
+-keep public class classmerging.PinnedArrayParameterTypesTest {
+  public static void main(...);
+}
+-keep public class classmerging.PinnedArrayParameterTypesTest$TestClass {
+  public static void method(...);
+}
+-keep public class classmerging.ProguardFieldMapTest {
+  public static void main(...);
+}
+-keep public class classmerging.ProguardMethodMapTest {
+  public static void main(...);
+}
+-keep public class classmerging.SimpleInterfaceAccessTest {
+  public static void main(...);
+}
+-keep public class classmerging.SyntheticBridgeSignaturesTest {
+  public static void main(...);
+}
+-keep public class classmerging.SuperCallRewritingTest {
+  public static void main(...);
+}
+-keep public class classmerging.TemplateMethodTest {
+  public static void main(...);
+}
+
+-neverclassinline @classmerging.NeverClassInline class *
+-neverinline class * {
+  @classmerging.NeverInline <methods>;
+}

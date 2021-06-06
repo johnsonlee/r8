@@ -1,0 +1,22 @@
+# Copyright (c) 2018, the R8 project authors. Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
+# Keep the application entry point. Get rid of everything that is not
+# reachable from there.
+-keep public class classmerging.LambdaRewritingTest {
+  public static void main(...);
+}
+-keep public class classmerging.MergeDefaultMethodIntoClassTest {
+  public static void main(...);
+}
+-keep public class classmerging.NestedDefaultInterfaceMethodsTest {
+  public static void main(...);
+}
+
+-neverinline class * {
+  @classmerging.NeverInline <methods>;
+}
+
+# TODO(herhut): Consider supporting merging of inner-class attributes.
+# -keepattributes *
