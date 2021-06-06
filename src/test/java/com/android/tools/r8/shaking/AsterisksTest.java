@@ -1,0 +1,165 @@
+// Copyright (c) 2018, the R8 project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+package com.android.tools.r8.shaking;
+
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.naming.MemberNaming.MethodSignature;
+import com.android.tools.r8.shaking.forceproguardcompatibility.ProguardCompatibilityTestBase;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.FieldSubject;
+import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import com.google.common.collect.ImmutableList;
+import java.util.Collection;
+import java.util.List;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
+class B111974287 {
+  B111974287 self;
+  B111974287[] clones;
+
+  B111974287() {
+    self = this;
+    clones = new B111974287[1];
+    clones[0] = self;
+  }
+
+  B111974287 fooX() {
+    System.out.println("fooX");
+    return self;
+  }
+
+  B111974287 fooYY() {
+    System.out.println("fooYY");
+    return self;
+  }
+
+  B111974287 fooZZZ() {
+    System.out.println("fooZZZ");
+    return self;
+  }
+}
+
+@RunWith(Parameterized.class)
+public class AsterisksTest extends ProguardCompatibilityTestBase {
+  private static final List<Class<?>> CLASSES = ImmutableList.of(B111974287.class);
+  private final Shrinker shrinker;
+
+  public AsterisksTest(Shrinker shrinker) {
+    this.shrinker = shrinker;
+  }
+
+  @Parameters(name = "shrinker: {0}")
+  public static Collection<Object> data() {
+    return ImmutableList.of(Shrinker.PROGUARD6, Shrinker.R8, Shrinker.R8_CF);
+  }
+
+  @Test
+  public void doubleAsterisksInField() throws Exception {
+    List<String> config = ImmutableList.of(
+        "-keep class **." + B111974287.class.getSimpleName() + "{",
+        "  ** **;",
+        "}"
+    );
+    CodeInspector codeInspector = inspectAfterShrinking(shrinker, CLASSES, config);
+    ClassSubject classSubject = codeInspector.clazz(B111974287.class);
+    assertThat(classSubject, isPresentAndNotRenamed());
+    FieldSubject fieldSubject = classSubject.field(B111974287.class.getTypeName(), "self");
+    assertThat(fieldSubject, isPresentAndNotRenamed());
+    fieldSubject = classSubject.field(B111974287.class.getTypeName() + "[]", "clones");
+    // TODO(b/111974287): Proguard6 kept and renamed the field with array type.
+    if (shrinker == Shrinker.PROGUARD6) {
+      return;
+    }
+    assertThat(fieldSubject, not(isPresent()));
+  }
+
+  @Test
+  public void doubleAsterisksInMethod() throws Exception {
+    List<String> config = ImmutableList.of(
+        "-keep class **." + B111974287.class.getSimpleName() + "{",
+        "  ** foo**(...);",
+        "}"
+    );
+    CodeInspector codeInspector = inspectAfterShrinking(shrinker, CLASSES, config);
+    ClassSubject classSubject = codeInspector.clazz(B111974287.class);
+    assertThat(classSubject, isPresentAndNotRenamed());
+    DexClass clazz = classSubject.getDexProgramClass();
+    assertEquals(3, clazz.getMethodCollection().numberOfVirtualMethods());
+    for (DexEncodedMethod encodedMethod : clazz.virtualMethods()) {
+      assertTrue(encodedMethod.getReference().name.toString().startsWith("foo"));
+      MethodSubject methodSubject =
+          classSubject.method(MethodSignature.fromDexMethod(encodedMethod.getReference()));
+      assertThat(methodSubject, isPresentAndNotRenamed());
+    }
+  }
+
+  @Test
+  public void tripleAsterisksInField() throws Exception {
+    List<String> config = ImmutableList.of(
+        "-keep class **." + B111974287.class.getSimpleName() + "{",
+        "  *** ***;",
+        "}"
+    );
+    CodeInspector codeInspector = inspectAfterShrinking(shrinker, CLASSES, config);
+    ClassSubject classSubject = codeInspector.clazz(B111974287.class);
+    assertThat(classSubject, isPresentAndNotRenamed());
+    FieldSubject fieldSubject = classSubject.field(B111974287.class.getTypeName(), "self");
+    assertThat(fieldSubject, isPresentAndNotRenamed());
+    fieldSubject = classSubject.field(B111974287.class.getTypeName() + "[]", "clones");
+    assertThat(fieldSubject, isPresentAndNotRenamed());
+  }
+
+  @Test
+  public void tripleAsterisksInMethod() throws Exception {
+    List<String> config = ImmutableList.of(
+        "-keep class **." + B111974287.class.getSimpleName() + "{",
+        "  *** foo***(...);",
+        "}"
+    );
+    CodeInspector codeInspector = inspectAfterShrinking(shrinker, CLASSES, config);
+    ClassSubject classSubject = codeInspector.clazz(B111974287.class);
+    assertThat(classSubject, isPresentAndNotRenamed());
+    DexClass clazz = classSubject.getDexProgramClass();
+    assertEquals(3, clazz.getMethodCollection().numberOfVirtualMethods());
+    for (DexEncodedMethod encodedMethod : clazz.virtualMethods()) {
+      assertTrue(encodedMethod.getReference().name.toString().startsWith("foo"));
+      MethodSubject methodSubject =
+          classSubject.method(MethodSignature.fromDexMethod(encodedMethod.getReference()));
+      assertThat(methodSubject, isPresentAndNotRenamed());
+    }
+  }
+
+  @Test
+  public void quadrupleAsterisksInType() throws Exception {
+    List<String> config = ImmutableList.of(
+        "-keep class **** {",
+        "  **** foo***(...);",
+        "}"
+    );
+    CodeInspector codeInspector = inspectAfterShrinking(shrinker, CLASSES, config);
+    ClassSubject classSubject = codeInspector.clazz(B111974287.class);
+    assertThat(classSubject, isPresentAndNotRenamed());
+    DexClass clazz = classSubject.getDexProgramClass();
+    assertEquals(3, clazz.getMethodCollection().numberOfVirtualMethods());
+    for (DexEncodedMethod encodedMethod : clazz.virtualMethods()) {
+      assertTrue(encodedMethod.getReference().name.toString().startsWith("foo"));
+      MethodSubject methodSubject =
+          classSubject.method(MethodSignature.fromDexMethod(encodedMethod.getReference()));
+      assertThat(methodSubject, isPresentAndNotRenamed());
+    }
+  }
+
+}

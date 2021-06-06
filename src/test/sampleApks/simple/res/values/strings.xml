@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Copyright (c) 2018, the R8 project authors. Please see the AUTHORS file
+for details. All rights reserved. Use of this source code is governed by a
+BSD-style license that can be found in the LICENSE file.
+-->
+<resources>
+  <string name="app_name">R8 simple app</string>
+  <string name="referenced_from_layout">Push it</string>
+  <string name="referenced_from_code">code txt</string>
+  <string name="not_used">not used</string>
+</resources>
