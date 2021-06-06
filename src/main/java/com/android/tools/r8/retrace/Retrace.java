@@ -115,7 +115,7 @@ public class Retrace<T, ST extends StackTraceElementProxy<T, ST>> {
     return builder;
   }
 
-  private static ProguardMapProducer getMappingSupplier(
+  public static ProguardMapProducer getMappingSupplier(
       String mappingPath, DiagnosticsHandler diagnosticsHandler) {
     Path path = Paths.get(mappingPath);
     if (!Files.exists(path)) {
@@ -126,7 +126,7 @@ public class Retrace<T, ST extends StackTraceElementProxy<T, ST>> {
     return ProguardMapProducer.fromPath(Paths.get(mappingPath));
   }
 
-  private static List<String> getStackTraceFromFile(
+  public static List<String> getStackTraceFromFile(
       String stackTracePath, DiagnosticsHandler diagnostics) {
     try {
       return Files.readAllLines(Paths.get(stackTracePath), Charsets.UTF_8);
