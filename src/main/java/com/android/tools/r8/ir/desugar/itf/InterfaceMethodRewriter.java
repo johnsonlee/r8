@@ -9,7 +9,6 @@ import static com.android.tools.r8.ir.code.Invoke.Type.INTERFACE;
 import static com.android.tools.r8.ir.code.Invoke.Type.STATIC;
 import static com.android.tools.r8.ir.code.Invoke.Type.SUPER;
 import static com.android.tools.r8.ir.code.Invoke.Type.VIRTUAL;
-import static com.android.tools.r8.ir.desugar.DesugaredLibraryRetargeter.getRetargetPackageAndClassPrefixDescriptor;
 import static com.android.tools.r8.ir.desugar.DesugaredLibraryWrapperSynthesizer.TYPE_WRAPPER_SUFFIX;
 import static com.android.tools.r8.ir.desugar.DesugaredLibraryWrapperSynthesizer.VIVIFIED_TYPE_WRAPPER_SUFFIX;
 
@@ -60,6 +59,7 @@ import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugaredLibraryConfiguration;
+import com.android.tools.r8.ir.desugar.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.FreshLocalProvider;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring;
@@ -150,6 +150,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
 
   // This is used to filter out double desugaring on backported methods.
   private final BackportedMethodRewriter backportedMethodRewriter;
+  private final DesugaredLibraryRetargeter desugaredLibraryRetargeter;
 
   /** Defines a minor variation in desugaring. */
   public enum Flavor {
@@ -160,10 +161,14 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   }
 
   // Constructor for cf to cf desugaring.
-  public InterfaceMethodRewriter(AppView<?> appView, BackportedMethodRewriter rewriter) {
+  public InterfaceMethodRewriter(
+      AppView<?> appView,
+      BackportedMethodRewriter rewriter,
+      DesugaredLibraryRetargeter desugaredLibraryRetargeter) {
     this.appView = appView;
     this.converter = null;
     this.backportedMethodRewriter = rewriter;
+    this.desugaredLibraryRetargeter = desugaredLibraryRetargeter;
     this.options = appView.options();
     this.factory = appView.dexItemFactory();
     this.emulatedInterfaces = options.desugaredLibraryConfiguration.getEmulateLibraryInterface();
@@ -177,6 +182,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     this.appView = appView;
     this.converter = converter;
     this.backportedMethodRewriter = null;
+    this.desugaredLibraryRetargeter = null;
     this.options = appView.options();
     this.factory = appView.dexItemFactory();
     this.emulatedInterfaces = options.desugaredLibraryConfiguration.getEmulateLibraryInterface();
@@ -282,6 +288,17 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     return true;
   }
 
+  private boolean isAlreadyRewritten(
+      DexMethod method, boolean itfBit, boolean isSuper, ProgramMethod context) {
+
+    // In Cf to Cf it is forbidden to desugar twice the same instruction, if the backported
+    // method rewriter or the desugared library retargeter already desugar the instruction, they
+    // take precedence and nothing has to be done here.
+    return (backportedMethodRewriter != null && backportedMethodRewriter.methodIsBackport(method))
+        || (desugaredLibraryRetargeter != null
+            && desugaredLibraryRetargeter.hasNewInvokeTarget(method, itfBit, isSuper, context));
+  }
+
   @Override
   public boolean hasPreciseNeedsDesugaring() {
     return false;
@@ -308,7 +325,11 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       }
       if (instruction.isInvoke()) {
         CfInvoke cfInvoke = instruction.asInvoke();
-        if (backportedMethodRewriter.methodIsBackport(cfInvoke.getMethod())) {
+        if (isAlreadyRewritten(
+            cfInvoke.getMethod(),
+            cfInvoke.isInterface(),
+            cfInvoke.isInvokeSuper(context.getHolderType()),
+            context)) {
           continue;
         }
         if (cfInvoke.isInvokeStatic()) {
@@ -379,6 +400,13 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   public boolean needsDesugaring(CfInstruction instruction, ProgramMethod context) {
     if (instruction.isInvoke()) {
       CfInvoke cfInvoke = instruction.asInvoke();
+      if (isAlreadyRewritten(
+          cfInvoke.getMethod(),
+          cfInvoke.isInterface(),
+          cfInvoke.isInvokeSuper(context.getHolderType()),
+          context)) {
+        return false;
+      }
       return needsRewriting(cfInvoke.getMethod(), cfInvoke.getInvokeType(context), context);
     }
     return false;
@@ -397,7 +425,11 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       return null;
     }
     CfInvoke invoke = instruction.asInvoke();
-    if (backportedMethodRewriter.methodIsBackport(invoke.getMethod())) {
+    if (isAlreadyRewritten(
+        invoke.getMethod(),
+        invoke.isInterface(),
+        invoke.isInvokeSuper(context.getHolderType()),
+        context)) {
       return null;
     }
 
@@ -409,7 +441,12 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     Function<SingleResolutionResult, Collection<CfInstruction>> rewriteToThrow =
         (resolutionResult) ->
             rewriteInvokeToThrowCf(
-                invoke, resolutionResult, eventConsumer, context, methodProcessingContext);
+                invoke,
+                resolutionResult,
+                localStackAllocator,
+                eventConsumer,
+                context,
+                methodProcessingContext);
 
     if (invoke.isInvokeVirtual() || invoke.isInvokeInterface()) {
       AppInfoWithClassHierarchy appInfoForDesugaring = appView.appInfoForDesugaring();
@@ -451,14 +488,15 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   private Collection<CfInstruction> rewriteInvokeToThrowCf(
       CfInvoke invoke,
       SingleResolutionResult resolutionResult,
+      LocalStackAllocator localStackAllocator,
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramMethod context,
       MethodProcessingContext methodProcessingContext) {
-    if (backportedMethodRewriter != null
-        && backportedMethodRewriter.methodIsBackport(invoke.getMethod())) {
-      // In Cf to Cf it is not allowed to desugar twice the same instruction, if the backported
-      // method rewriter already desugars the instruction, it takes precedence and nothing has
-      // to be done here.
+    if (isAlreadyRewritten(
+        invoke.getMethod(),
+        invoke.isInterface(),
+        invoke.isInvokeSuper(context.getHolderType()),
+        context)) {
       return null;
     }
 
@@ -517,6 +555,10 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
           returnType.isPrimitiveType()
               ? new CfConstNumber(0, ValueType.fromDexType(returnType))
               : new CfConstNull());
+    } else {
+      // If the return type is void, the stack may need an extra slot to fit the return type of
+      // the call to the throwing method.
+      localStackAllocator.allocateLocalStack(1);
     }
     return replacement;
   }
@@ -770,11 +812,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
           // to outline again the invoke-static. Just do nothing instead.
           return null;
         }
-        if (backportedMethodRewriter != null
-            && backportedMethodRewriter.methodIsBackport(invokedMethod)) {
-          // In Cf to Cf it is not allowed to desugar twice the same instruction, if the backported
-          // method rewriter already desugars the instruction, it takes precedence and nothing has
-          // to be done here.
+        if (isAlreadyRewritten(invokedMethod, interfaceBit, false, context)) {
           return null;
         }
         ProgramMethod newProgramMethod =
@@ -1216,16 +1254,15 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     }
     appView
         .getSyntheticItems()
-        .ensureDirectMethodOnSyntheticClasspathClassWhileMigrating(
+        .ensureFixedClasspathClassMethod(
+            rewritten.getName(),
+            rewritten.getProto(),
             SyntheticKind.COMPANION_CLASS,
-            rewritten.getHolderType(),
             context,
             appView,
-            rewritten,
-            builder ->
-                builder
-                    .setName(rewritten.name)
-                    .setProto(rewritten.proto)
+            classBuilder -> {},
+            methodBuilder ->
+                methodBuilder
                     .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
                     .setCode(DexEncodedMethod::buildEmptyThrowingCfCode));
   }
@@ -1323,9 +1360,6 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   private Predicate<DexType> getShouldIgnoreFromReportsPredicate(AppView<?> appView) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     InternalOptions options = appView.options();
-    DexString retargetPackageAndClassPrefixDescriptor =
-        dexItemFactory.createString(
-            getRetargetPackageAndClassPrefixDescriptor(options.desugaredLibraryConfiguration));
     DexString typeWrapperClassNameDescriptorSuffix =
         dexItemFactory.createString(TYPE_WRAPPER_SUFFIX + ';');
     DexString vivifiedTypeWrapperClassNameDescriptorSuffix =
@@ -1341,8 +1375,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
           || descriptor.endsWith(companionClassNameDescriptorSuffix)
           || emulatedInterfaces.containsValue(type)
           || options.desugaredLibraryConfiguration.getCustomConversions().containsValue(type)
-          || appView.getDontWarnConfiguration().matches(type)
-          || descriptor.startsWith(retargetPackageAndClassPrefixDescriptor);
+          || appView.getDontWarnConfiguration().matches(type);
     };
   }
 

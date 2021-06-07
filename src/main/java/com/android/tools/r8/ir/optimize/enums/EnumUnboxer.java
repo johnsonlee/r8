@@ -85,9 +85,9 @@ import com.android.tools.r8.ir.optimize.enums.eligibility.Reason.MissingObjectSt
 import com.android.tools.r8.ir.optimize.enums.eligibility.Reason.UnsupportedInstanceFieldValueForEnumInstanceReason;
 import com.android.tools.r8.ir.optimize.enums.eligibility.Reason.UnsupportedLibraryInvokeReason;
 import com.android.tools.r8.ir.optimize.info.MutableFieldOptimizationInfo;
+import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback.OptimizationInfoFixer;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
-import com.android.tools.r8.ir.optimize.info.UpdatableMethodOptimizationInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.FieldAccessInfoCollectionModifier;
 import com.android.tools.r8.shaking.KeepInfoCollection;
@@ -507,7 +507,7 @@ public class EnumUnboxer {
 
           @Override
           public void fixup(
-              DexEncodedMethod method, UpdatableMethodOptimizationInfo optimizationInfo) {
+              DexEncodedMethod method, MutableMethodOptimizationInfo optimizationInfo) {
             optimizationInfo
                 .fixupClassTypeReferences(appView, appView.graphLens())
                 .fixupAbstractReturnValue(appView, appView.graphLens())
@@ -937,7 +937,8 @@ public class EnumUnboxer {
       // We do not unbox enums with invoke custom since it's not clear the accessibility
       // constraints would be correct if the method holding the invoke custom is moved to
       // another class.
-      assert !factory.isLambdaMetafactoryMethod(callSite.bootstrapMethod.asMethod());
+      assert appView.options().isGeneratingClassFiles()
+          || !factory.isLambdaMetafactoryMethod(callSite.bootstrapMethod.asMethod());
       constraint = Constraint.NEVER;
     }
 
