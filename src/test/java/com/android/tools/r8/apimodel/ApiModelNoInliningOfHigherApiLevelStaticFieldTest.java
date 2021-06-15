@@ -2,10 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.apimodeling;
+package com.android.tools.r8.apimodel;
 
-import static com.android.tools.r8.apimodeling.ApiModelingTestHelper.setMockApiLevelForField;
-import static com.android.tools.r8.apimodeling.ApiModelingTestHelper.verifyThat;
+import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForField;
+import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
@@ -50,8 +50,9 @@ public class ApiModelNoInliningOfHigherApiLevelStaticFieldTest extends TestBase 
         .apply(setMockApiLevelForField(apiField, AndroidApiLevel.L_MR1))
         .apply(ApiModelingTestHelper::enableApiCallerIdentification)
         .compile()
-        // TODO(b/138781768): Should not be inlined
-        .inspect(verifyThat(parameters, apiCaller).inlinedInto(apiCallerCaller))
+        .inspect(
+            verifyThat(parameters, apiCaller)
+                .inlinedIntoFromApiLevel(apiCallerCaller, AndroidApiLevel.L_MR1))
         .addRunClasspathClasses(Api.class)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello World!");

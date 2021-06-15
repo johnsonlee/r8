@@ -43,6 +43,8 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
   S(31),
   UNKNOWN(10000);
 
+  // When updating LATEST and a new version goes stable, add a new api-versions.xml to third_party
+  // and update the version and generated jar in AndroidApiDatabaseBuilderGeneratorTest.
   public static final AndroidApiLevel LATEST = S;
 
   public static final int magicApiLevelUsedByAndroidPlatformBuild = 10000;

@@ -27,7 +27,6 @@ import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.Value;
-import com.android.tools.r8.ir.conversion.CodeOptimization;
 import com.android.tools.r8.ir.conversion.PostOptimization;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.ConcreteCallSiteOptimizationInfo;
@@ -38,13 +37,16 @@ import com.android.tools.r8.utils.ForEachable;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.CallSiteOptimizationOptions;
 import com.android.tools.r8.utils.LazyBox;
+import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
 public class CallSiteOptimizationInfoPropagator implements PostOptimization {
 
@@ -93,10 +95,6 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     //   but that may require a separate copy of CallSiteOptimizationInfo.
     if (mode != Mode.COLLECT) {
       return;
-    }
-
-    if (appView.appInfo().isMethodTargetedByInvokeDynamic(code.context().getReference())) {
-      abandonCallSitePropagationForMethodAndOverrides(code.context());
     }
 
     ProgramMethod context = code.context();
@@ -291,6 +289,51 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     }
   }
 
+  public void abandonCallSitePropagationForLambdaImplementationMethods(
+      ExecutorService executorService, Timing timing) throws ExecutionException {
+    if (appView.options().isGeneratingClassFiles()) {
+      timing.begin("Call site optimization: abandon lambda implementation methods");
+      ForEachable<ProgramMethod> lambdaImplementationMethods =
+          consumer ->
+              appView
+                  .appInfo()
+                  .forEachMethod(
+                      method -> {
+                        if (appView
+                            .appInfo()
+                            .isMethodTargetedByInvokeDynamic(method.getReference())) {
+                          consumer.accept(method);
+                        }
+                      });
+      ThreadUtils.processItems(
+          lambdaImplementationMethods,
+          this::abandonCallSitePropagationForMethodAndOverrides,
+          executorService);
+      timing.end();
+    }
+  }
+
+  public void abandonCallSitePropagationForPinnedMethodsAndOverrides(
+      ExecutorService executorService, Timing timing) throws ExecutionException {
+    timing.begin("Call site optimization: abandon pinned methods");
+    ThreadUtils.processItems(
+        this::forEachPinnedNonPrivateVirtualMethod,
+        this::abandonCallSitePropagationForMethodAndOverrides,
+        executorService);
+    timing.end();
+  }
+
+  private void forEachPinnedNonPrivateVirtualMethod(Consumer<ProgramMethod> consumer) {
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      for (ProgramMethod virtualProgramMethod : clazz.virtualProgramMethods()) {
+        if (virtualProgramMethod.getDefinition().isNonPrivateVirtualMethod()
+            && appView.getKeepInfo().isPinned(virtualProgramMethod.getReference(), appView)) {
+          consumer.accept(virtualProgramMethod);
+        }
+      }
+    }
+  }
+
   private void abandonCallSitePropagationForMethodAndOverrides(ProgramMethod method) {
     Set<ProgramMethod> abandonSet = Sets.newIdentityHashSet();
     if (method.getDefinition().isNonPrivateVirtualMethod()) {
@@ -465,12 +508,6 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
       revisitedMethods.addAll(targetsToRevisit);
     }
     return targetsToRevisit;
-  }
-
-  @Override
-  public Collection<CodeOptimization> codeOptimizationsForPostProcessing() {
-    // Run IRConverter#optimize.
-    return null;
   }
 
   private synchronized boolean verifyAllProgramDispatchTargetsHaveBeenAbandoned(

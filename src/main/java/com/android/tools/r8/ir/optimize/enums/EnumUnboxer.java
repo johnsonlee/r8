@@ -38,7 +38,6 @@ import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.ProgramPackageCollection;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues;
@@ -69,6 +68,7 @@ import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.optimize.Inliner.Constraint;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap.EnumData;
@@ -127,10 +127,10 @@ public class EnumUnboxer {
   // Map the enum candidates with their dependencies, i.e., the methods to reprocess for the given
   // enum if the optimization eventually decides to unbox it.
   private final EnumUnboxingCandidateInfoCollection enumUnboxingCandidatesInfo;
-  private final ProgramPackageCollection enumsToUnboxWithPackageRequirement =
-      ProgramPackageCollection.createEmpty();
   private final Map<DexType, EnumStaticFieldValues> staticFieldValuesMap =
       new ConcurrentHashMap<>();
+  private final ProgramMethodSet methodsDependingOnLibraryModelisation =
+      ProgramMethodSet.createConcurrent();
 
   private final DexEncodedField ordinalField;
 
@@ -181,6 +181,10 @@ public class EnumUnboxer {
     return false;
   }
 
+  private void markMethodDependsOnLibraryModelisation(ProgramMethod method) {
+    methodsDependingOnLibraryModelisation.add(method);
+  }
+
   private DexProgramClass getEnumUnboxingCandidateOrNull(TypeElement lattice) {
     if (lattice.isClassType()) {
       DexType classType = lattice.asClassType().getClassType();
@@ -199,7 +203,7 @@ public class EnumUnboxer {
     return enumUnboxingCandidatesInfo.getCandidateClassOrNull(type);
   }
 
-  public void analyzeEnums(IRCode code) {
+  public void analyzeEnums(IRCode code, MutableMethodConversionOptions conversionOptions) {
     Set<DexType> eligibleEnums = Sets.newIdentityHashSet();
     for (BasicBlock block : code.blocks) {
       for (Instruction instruction : block.getInstructions()) {
@@ -261,6 +265,9 @@ public class EnumUnboxer {
       for (DexType eligibleEnum : eligibleEnums) {
         enumUnboxingCandidatesInfo.addMethodDependency(eligibleEnum, code.context());
       }
+    }
+    if (methodsDependingOnLibraryModelisation.contains(code.context())) {
+      conversionOptions.disablePeepholeOptimizations();
     }
   }
 
@@ -365,10 +372,12 @@ public class EnumUnboxer {
             // The name data is required for the correct mapping from the enum name to the ordinal
             // in the valueOf utility method.
             addRequiredNameData(enumClass);
+            markMethodDependsOnLibraryModelisation(context);
             continue;
           }
           if (singleTarget.getReference()
               == factory.javaLangReflectArrayMembers.newInstanceMethodWithDimensions) {
+            markMethodDependsOnLibraryModelisation(context);
             continue;
           }
         }
@@ -469,18 +478,22 @@ public class EnumUnboxer {
     DirectMappedDexApplication.Builder appBuilder = appView.appInfo().app().asDirect().builder();
     FieldAccessInfoCollectionModifier.Builder fieldAccessInfoCollectionModifierBuilder =
         FieldAccessInfoCollectionModifier.builder();
-    UnboxedEnumMemberRelocator relocator =
-        UnboxedEnumMemberRelocator.builder(appView)
+
+    EnumUnboxingUtilityClasses utilityClasses =
+        EnumUnboxingUtilityClasses.builder(appView)
             .synthesizeEnumUnboxingUtilityClasses(
                 enumClassesToUnbox,
-                enumsToUnboxWithPackageRequirement,
+                enumDataMap,
                 appBuilder,
                 fieldAccessInfoCollectionModifierBuilder)
             .build();
+    utilityClasses.forEach(
+        utilityClass -> utilityClass.getDefinition().forEachProgramMethod(postBuilder::add));
+
     fieldAccessInfoCollectionModifierBuilder.build().modify(appView);
-    enumUnboxerRewriter = new EnumUnboxingRewriter(appView, enumDataMap, relocator);
+    enumUnboxerRewriter = new EnumUnboxingRewriter(appView, enumDataMap, utilityClasses);
     EnumUnboxingLens enumUnboxingLens =
-        new EnumUnboxingTreeFixer(appView, enumsToUnbox, relocator, enumUnboxerRewriter)
+        new EnumUnboxingTreeFixer(appView, enumsToUnbox, utilityClasses, enumUnboxerRewriter)
             .fixupTypeReferences();
     enumUnboxerRewriter.setEnumUnboxingLens(enumUnboxingLens);
     appView.setUnboxedEnums(enumDataMap);
@@ -488,6 +501,10 @@ public class EnumUnboxer {
     appView.rewriteWithLensAndApplication(enumUnboxingLens, appBuilder.build());
     updateOptimizationInfos(executorService, feedback);
     postBuilder.put(dependencies);
+    // Methods depending on library modelisation need to be reprocessed so they are peephole
+    // optimized.
+    postBuilder.put(methodsDependingOnLibraryModelisation);
+    methodsDependingOnLibraryModelisation.clear();
     postBuilder.rewrittenWithLens(appView, previousLens);
   }
 
@@ -523,7 +540,6 @@ public class EnumUnboxer {
 
   public EnumDataMap finishAnalysis() {
     analyzeInitializers();
-    analyzeAccessibility();
     EnumDataMap enumDataMap = analyzeEnumInstances();
     if (debugLogEnabled) {
       // Remove all enums that have been reported as being unboxable.
@@ -723,39 +739,6 @@ public class EnumUnboxer {
       return OptionalInt.of(field.asSingleNumberValue().getIntValue());
     }
     return OptionalInt.empty();
-  }
-
-  private void analyzeAccessibility() {
-    // Unboxing an enum will require to move its methods to a different class, which may impact
-    // accessibility. For a quick analysis we simply reuse the inliner analysis.
-    enumUnboxingCandidatesInfo.forEachCandidate(
-        enumClass -> {
-          Constraint classConstraint = analyzeAccessibilityInClass(enumClass);
-          if (classConstraint == Constraint.NEVER) {
-            markEnumAsUnboxable(Reason.ACCESSIBILITY, enumClass);
-          } else if (classConstraint == Constraint.PACKAGE) {
-            enumsToUnboxWithPackageRequirement.addProgramClass(enumClass);
-          }
-        });
-  }
-
-  private Constraint analyzeAccessibilityInClass(DexProgramClass enumClass) {
-    Constraint classConstraint = Constraint.ALWAYS;
-    EnumAccessibilityUseRegistry useRegistry = null;
-    for (DexEncodedMethod method : enumClass.methods()) {
-      // Enum initializer are analyzed in analyzeInitializers instead.
-      if (!method.isInitializer()) {
-        if (useRegistry == null) {
-          useRegistry = new EnumAccessibilityUseRegistry(factory);
-        }
-        Constraint methodConstraint = constraintForEnumUnboxing(method, useRegistry);
-        classConstraint = classConstraint.meet(methodConstraint);
-        if (classConstraint == Constraint.NEVER) {
-          return classConstraint;
-        }
-      }
-    }
-    return classConstraint;
   }
 
   public Constraint constraintForEnumUnboxing(
@@ -1210,6 +1193,25 @@ public class EnumUnboxer {
 
     assert targetHolder.isLibraryClass();
 
+    Reason reason =
+        analyzeLibraryInvoke(
+            invoke, code, context, enumClass, enumValue, singleTargetReference, targetHolder);
+
+    if (reason == Reason.ELIGIBLE) {
+      markMethodDependsOnLibraryModelisation(context);
+    }
+
+    return reason;
+  }
+
+  private Reason analyzeLibraryInvoke(
+      InvokeMethod invoke,
+      IRCode code,
+      ProgramMethod context,
+      DexProgramClass enumClass,
+      Value enumValue,
+      DexMethod singleTargetReference,
+      DexClass targetHolder) {
     if (targetHolder.getType() != factory.enumType) {
       // System.identityHashCode(Object) is supported for proto enums.
       // Object#getClass without outValue and Objects.requireNonNull are supported since R8
@@ -1218,6 +1220,11 @@ public class EnumUnboxer {
         return Reason.ELIGIBLE;
       }
       if (singleTargetReference == factory.stringMembers.valueOf) {
+        addRequiredNameData(enumClass);
+        return Reason.ELIGIBLE;
+      }
+      if (singleTargetReference == factory.stringBuilderMethods.appendObject
+          || singleTargetReference == factory.stringBufferMethods.appendObject) {
         addRequiredNameData(enumClass);
         return Reason.ELIGIBLE;
       }

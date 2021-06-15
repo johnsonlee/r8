@@ -4,6 +4,7 @@
 package com.android.tools.r8.utils;
 
 /** Two value continuation value to indicate the continuation of a loop/traversal. */
+/* This class is used for building up api class member traversals. */
 public enum TraversalContinuation {
   CONTINUE,
   BREAK;

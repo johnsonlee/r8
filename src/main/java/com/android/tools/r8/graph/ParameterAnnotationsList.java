@@ -70,6 +70,13 @@ public class ParameterAnnotationsList extends DexItem
     this.missingParameterAnnotations = missingParameterAnnotations;
   }
 
+  public static ParameterAnnotationsList create(
+      DexAnnotationSet[] values, int missingParameterAnnotations) {
+    return ArrayUtils.isEmpty(values)
+        ? empty()
+        : new ParameterAnnotationsList(values, missingParameterAnnotations);
+  }
+
   @Override
   public ParameterAnnotationsList self() {
     return this;
@@ -187,6 +194,17 @@ public class ParameterAnnotationsList extends DexItem
     return new ParameterAnnotationsList(values, parameterCount - values.length);
   }
 
+  public ParameterAnnotationsList withFakeThisParameter() {
+    // If there are no parameter annotations there is no need to add one for the this parameter.
+    if (isEmpty()) {
+      return this;
+    }
+    DexAnnotationSet[] newValues = new DexAnnotationSet[size() + 1];
+    System.arraycopy(values, 0, newValues, 1, size());
+    newValues[0] = DexAnnotationSet.empty();
+    return new ParameterAnnotationsList(newValues, 0);
+  }
+
   /**
    * Return a new ParameterAnnotationsList that keeps only the annotations matched by {@code
    * filter}.
@@ -215,11 +233,15 @@ public class ParameterAnnotationsList extends DexItem
     return new ParameterAnnotationsList(filtered, missingParameterAnnotations);
   }
 
-  public ParameterAnnotationsList rewrite(Function<DexAnnotationSet, DexAnnotationSet> mapper) {
-    DexAnnotationSet[] rewritten = ArrayUtils.map(DexAnnotationSet[].class, values, mapper);
-    if (rewritten != values) {
-      return new ParameterAnnotationsList(rewritten, missingParameterAnnotations);
+  public ParameterAnnotationsList rewrite(Function<DexAnnotation, DexAnnotation> mapper) {
+    if (isEmpty()) {
+      return this;
     }
-    return this;
+    DexAnnotationSet[] rewritten =
+        ArrayUtils.map(
+            values, annotations -> annotations.rewrite(mapper), DexAnnotationSet.EMPTY_ARRAY);
+    return rewritten != values
+        ? ParameterAnnotationsList.create(rewritten, missingParameterAnnotations)
+        : this;
   }
 }

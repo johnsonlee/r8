@@ -29,6 +29,7 @@ import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.desugar.LambdaClass;
 import com.android.tools.r8.kotlin.Kotlin;
+import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -450,6 +451,8 @@ public class DexItemFactory {
       createStaticallyKnownType("Ljava/util/function/LongConsumer;");
   public final DexType intConsumer = createStaticallyKnownType("Ljava/util/function/IntConsumer;");
 
+  public final DexType retentionType =
+      createStaticallyKnownType("Ljava/lang/annotation/Retention;");
   public final DexType runtimeExceptionType = createStaticallyKnownType(runtimeExceptionDescriptor);
   public final DexType throwableType = createStaticallyKnownType(throwableDescriptor);
   public final DexType illegalAccessErrorType =
@@ -1508,16 +1511,16 @@ public class DexItemFactory {
   }
 
   public class JavaLangSystemMethods {
-    public final DexMethod identityHashCode;
 
-    private JavaLangSystemMethods() {
-      identityHashCode =
-          createMethod(
-              javaLangSystemDescriptor,
-              identityHashCodeName,
-              intDescriptor,
-              new DexString[] {objectDescriptor});
-    }
+    public final DexMethod arraycopy =
+        createMethod(
+            javaLangSystemType,
+            createProto(voidType, objectType, intType, objectType, intType, intType),
+            "arraycopy");
+    public final DexMethod identityHashCode =
+        createMethod(javaLangSystemType, createProto(intType, objectType), identityHashCodeName);
+
+    private JavaLangSystemMethods() {}
   }
 
   public class EnumMembers {
@@ -2242,6 +2245,10 @@ public class DexItemFactory {
     return createMethod(holder, createProto(voidType, parameters), constructorMethodName);
   }
 
+  public DexMethod createInstanceInitializer(DexType holder, DexTypeList parameters) {
+    return createInstanceInitializer(holder, parameters.values);
+  }
+
   public DexMethod createInstanceInitializerWithFreshProto(
       DexMethod method, List<DexType> extraTypes, Predicate<DexMethod> isFresh) {
     assert method.isInstanceInitializer(this);
@@ -2398,6 +2405,13 @@ public class DexItemFactory {
 
   public DexField createField(DexType clazz, DexType type, String name) {
     return createField(clazz, type, createString(name));
+  }
+
+  public DexField createField(FieldReference fieldReference) {
+    return createField(
+        createType(fieldReference.getHolderClass().getDescriptor()),
+        createType(fieldReference.getFieldType().getDescriptor()),
+        fieldReference.getFieldName());
   }
 
   public DexProto createProto(DexType returnType, DexTypeList parameters, DexString shorty) {

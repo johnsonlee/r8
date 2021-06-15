@@ -5,18 +5,18 @@ package com.android.tools.r8.desugaring.interfacemethods;
 
 import static com.android.tools.r8.TestRuntime.getCheckedInJdk;
 import static com.android.tools.r8.TestRuntime.getCheckedInJdk11;
-import static org.hamcrest.CoreMatchers.anyOf;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugaring.interfacemethods.methodparameters.I;
+import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.SupplierUtils;
 import java.nio.file.Path;
+import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -25,6 +25,7 @@ import org.junit.runners.Parameterized;
 public class MethodParametersTest extends TestBase {
 
   private final TestParameters parameters;
+  private final Supplier<Path> compiledWithParameters;
 
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -38,16 +39,46 @@ public class MethodParametersTest extends TestBase {
 
   public MethodParametersTest(TestParameters parameters) {
     this.parameters = parameters;
+    compiledWithParameters =
+        SupplierUtils.memoize(
+            () ->
+                javac(
+                        parameters.isCfRuntime()
+                            ? getCheckedInJdk(parameters.getRuntime().asCf().getVm())
+                            : getCheckedInJdk11())
+                    .addSourceFiles(ToolHelper.getSourceFileForTestClass(I.class))
+                    .addOptions("-parameters")
+                    .compile());
   }
+
+  private final String EXPECTED =
+      StringUtils.lines(
+          "0", "1", "a: 1", "2", "a: 1", "b: 2", "0", "1", "a: 1", "2", "a: 1", "b: 2");
+  private final String EXPECTED_DESUGARED =
+      StringUtils.lines(
+          "1",
+          "2",
+          "_this: 0",
+          "a: 1",
+          "3",
+          "_this: 0",
+          "a: 1",
+          "b: 2",
+          "0",
+          "1",
+          "a: 1",
+          "2",
+          "a: 1",
+          "b: 2");
 
   @Test
   public void testJvm() throws Exception {
     assumeTrue(parameters.isCfRuntime());
     testForJvm()
-        .addProgramClassesAndInnerClasses(I.class)
+        .addProgramFiles(compiledWithParameters.get())
         .addInnerClasses(getClass())
         .run(parameters.getRuntime(), TestRunner.class)
-        .assertSuccessWithOutputLines("0", "1", "2", "0", "1", "2");
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   @Test
@@ -56,18 +87,9 @@ public class MethodParametersTest extends TestBase {
     assumeTrue(
         parameters.isDexRuntime()
             || getCheckedInJdk(parameters.getRuntime().asCf().getVm()) != null);
-    Path compiledWithParameters =
-        javac(
-                parameters.isCfRuntime()
-                    ? getCheckedInJdk(parameters.getRuntime().asCf().getVm())
-                    : getCheckedInJdk11())
-            .addSourceFiles(ToolHelper.getSourceFileForTestClass(I.class))
-            .addOptions("-parameters")
-            .compile();
-
     Path interfaceDesugared =
         testForD8(Backend.CF)
-            .addProgramFiles(compiledWithParameters)
+            .addProgramFiles(compiledWithParameters.get())
             .setMinApi(parameters.getApiLevel())
             .compile()
             .writeToZip();
@@ -77,17 +99,6 @@ public class MethodParametersTest extends TestBase {
             .addProgramFiles(interfaceDesugared)
             .setMinApi(parameters.getApiLevel())
             .compile()
-            // TODO(b/189743726): These warnings should not be there.
-            .applyIf(
-                parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring(),
-                TestCompileResult::assertNoInfoMessages,
-                r ->
-                    r.assertAtLeastOneInfoMessage()
-                        .assertAllInfoMessagesMatch(
-                            anyOf(
-                                containsString(
-                                    "Invalid parameter counts in MethodParameter attributes"),
-                                containsString("Methods with invalid MethodParameter attributes"))))
             .writeToZip();
 
     Path programDesugared =
@@ -103,26 +114,11 @@ public class MethodParametersTest extends TestBase {
         .addProgramFiles(programDesugared)
         .setMinApi(parameters.getApiLevel())
         .compile()
-        // TODO(b/189743726): These warnings should not be there.
-        .applyIf(
-            parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring(),
-            TestCompileResult::assertNoInfoMessages,
-            r ->
-                r.assertAtLeastOneInfoMessage()
-                    .assertAllInfoMessagesMatch(
-                        anyOf(
-                            containsString(
-                                "Invalid parameter counts in MethodParameter attributes"),
-                            containsString("Methods with invalid MethodParameter attributes"))))
         .run(parameters.getRuntime(), TestRunner.class)
         .applyIf(
             parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring(),
-            r -> r.assertSuccessWithOutputLines("0", "1", "2", "0", "1", "2"),
-            // TODO(b/189743726): Should not fail at runtime (but will have different parameter
-            // count for non-static methods when desugared).
-            r ->
-                r.assertFailureWithErrorThatMatches(
-                    containsString("Wrong number of parameters in MethodParameters attribute")));
+            r -> r.assertSuccessWithOutput(EXPECTED),
+            r -> r.assertSuccessWithOutput(EXPECTED_DESUGARED));
   }
 
   static class A implements I {}

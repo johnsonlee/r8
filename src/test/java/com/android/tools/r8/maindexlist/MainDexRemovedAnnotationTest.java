@@ -2,83 +2,84 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.apimodeling;
+package com.android.tools.r8.maindexlist;
 
-import static com.android.tools.r8.apimodeling.ApiModelingTestHelper.setMockApiLevelForType;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.AndroidApiLevel;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
+// This is a reproduction of b/190623364.
 @RunWith(Parameterized.class)
-public class ApiModelVerticalMergingOfSuperClassTest extends TestBase {
+public class MainDexRemovedAnnotationTest extends TestBase {
 
   private final TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+    return getTestParameters()
+        .withDexRuntimes()
+        .withApiLevelsEndingAtExcluding(apiLevelWithNativeMultiDexSupport())
+        .build();
   }
 
-  public ApiModelVerticalMergingOfSuperClassTest(TestParameters parameters) {
+  public MainDexRemovedAnnotationTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
   @Test
-  public void testR8() throws Exception {
+  public void testMainDexTracing() throws Exception {
     testForR8(parameters.getBackend())
-        .addProgramClasses(A.class, B.class, Main.class)
-        .addLibraryClasses(Api.class)
-        .addDefaultRuntimeLibrary(parameters)
+        .addProgramClasses(MainDex.class, Inside.class, Main.class)
+        .addKeepClassAndMembersRules(Main.class)
         .setMinApi(parameters.getApiLevel())
-        .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
-        .enableNeverClassInliningAnnotations()
-        .apply(setMockApiLevelForType(Api.class, AndroidApiLevel.L_MR1))
-        .apply(ApiModelingTestHelper::enableApiCallerIdentification)
+        .addMainDexRules("-keep @" + MainDex.class.getTypeName() + " class * { *; }")
+        .collectMainDexClasses()
         .compile()
-        .inspect(
-            inspector -> {
-              // TODO(b/138781768): We should not merge A into B.
-              assertThat(inspector.clazz(A.class), not(isPresent()));
+        .inspectMainDexClasses(
+            mainDexClasses -> {
+              // TODO(b/190623364): Should not be empty.
+              assertTrue(mainDexClasses.isEmpty());
             })
-        .addRunClasspathClasses(Api.class)
+        .inspect(
+            codeInspector -> {
+              assertThat(codeInspector.clazz(MainDex.class), not(isPresent()));
+            })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello World!");
   }
 
-  public static class Api {}
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target({ElementType.TYPE})
+  public @interface MainDex {}
 
-  public static class A extends Api {
+  @MainDex
+  public static class Inside {
 
     @NeverInline
-    public void bar() {
+    public static void foo() {
       System.out.println("Hello World!");
-    }
-  }
-
-  @NeverClassInline
-  public static class B extends A {
-
-    public void foo() {
-      bar();
     }
   }
 
   public static class Main {
 
     public static void main(String[] args) {
-      new B().foo();
+      Inside.foo();
     }
   }
 }

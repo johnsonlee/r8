@@ -42,6 +42,8 @@ import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.DefaultMethodConversionOptions;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.desugar.CfClassDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfClassDesugaringEventConsumer.D8CfClassDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollection;
@@ -57,6 +59,7 @@ import com.android.tools.r8.ir.desugar.lambda.LambdaDeserializationMethodRemover
 import com.android.tools.r8.ir.desugar.nest.D8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.AssumeInserter;
+import com.android.tools.r8.ir.optimize.CallSiteOptimizationInfoPropagator;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization.ClassInitializerDefaultsResult;
 import com.android.tools.r8.ir.optimize.CodeRewriter;
@@ -670,6 +673,15 @@ public class IRConverter {
     // 2) Revisit DexEncodedMethods for the collected candidates.
 
     printPhase("Primary optimization pass");
+
+    appView.withCallSiteOptimizationInfoPropagator(
+        optimization -> {
+          optimization.abandonCallSitePropagationForLambdaImplementationMethods(
+              executorService, timing);
+          optimization.abandonCallSitePropagationForPinnedMethodsAndOverrides(
+              executorService, timing);
+        });
+
     if (fieldAccessAnalysis != null) {
       fieldAccessAnalysis.fieldAssignmentTracker().initialize();
     }
@@ -678,8 +690,7 @@ public class IRConverter {
     GraphLens initialGraphLensForIR = appView.graphLens();
     GraphLens graphLensForIR = initialGraphLensForIR;
     OptimizationFeedbackDelayed feedback = delayedOptimizationFeedback;
-    PostMethodProcessor.Builder postMethodProcessorBuilder =
-        new PostMethodProcessor.Builder(getOptimizationsForPostIRProcessing());
+    PostMethodProcessor.Builder postMethodProcessorBuilder = new PostMethodProcessor.Builder();
     {
       timing.begin("Build primary method processor");
       PrimaryMethodProcessor primaryMethodProcessor =
@@ -721,9 +732,9 @@ public class IRConverter {
     //   1) Second pass for methods whose collected call site information become more precise.
     //   2) Second inlining pass for dealing with double inline callers.
     printPhase("Post optimization pass");
-    if (appView.callSiteOptimizationInfoPropagator() != null) {
-      postMethodProcessorBuilder.put(appView.callSiteOptimizationInfoPropagator());
-    }
+    appView.withCallSiteOptimizationInfoPropagator(
+        optimization ->
+            postMethodProcessorBuilder.put(appView.callSiteOptimizationInfoPropagator()));
     if (inliner != null) {
       postMethodProcessorBuilder.put(inliner);
     }
@@ -742,7 +753,12 @@ public class IRConverter {
         postMethodProcessorBuilder.build(appView, executorService, timing);
     if (postMethodProcessor != null) {
       assert !options.debug;
-      postMethodProcessor.forEachWaveWithExtension(feedback, executorService);
+      postMethodProcessor.forEachMethod(
+          (method, methodProcessingContext) ->
+              processDesugaredMethod(
+                  method, feedback, postMethodProcessor, methodProcessingContext),
+          feedback,
+          executorService);
       feedback.updateVisibleOptimizationInfo();
       assert graphLensForIR == appView.graphLens();
     }
@@ -832,9 +848,8 @@ public class IRConverter {
     }
 
     if (Log.ENABLED) {
-      if (appView.callSiteOptimizationInfoPropagator() != null) {
-        appView.callSiteOptimizationInfoPropagator().logResults();
-      }
+      appView.withCallSiteOptimizationInfoPropagator(
+          CallSiteOptimizationInfoPropagator::logResults);
       constantCanonicalizer.logResults();
       if (idempotentFunctionCallCanonicalizer != null) {
         idempotentFunctionCallCanonicalizer.logResults();
@@ -981,7 +996,9 @@ public class IRConverter {
     Timing timing = Timing.empty();
     deadCodeRemover.run(code, timing);
     code.traceBlocks();
-    RegisterAllocator registerAllocator = performRegisterAllocation(code, method, timing);
+    RegisterAllocator registerAllocator =
+        performRegisterAllocation(
+            code, method, DefaultMethodConversionOptions.getInstance(), timing);
     method.setCode(code, registerAllocator, appView);
     if (Log.ENABLED) {
       Log.debug(getClass(), "Resulting dex code for %s:\n%s",
@@ -1168,6 +1185,8 @@ public class IRConverter {
     ProgramMethod context = code.context();
     DexEncodedMethod method = context.getDefinition();
     DexProgramClass holder = context.getHolder();
+    MutableMethodConversionOptions conversionOptions =
+        new MutableMethodConversionOptions(methodProcessor);
     assert holder != null;
 
     Timing timing = Timing.create(method.qualifiedName(), options);
@@ -1237,7 +1256,13 @@ public class IRConverter {
       assert appView.enableWholeProgramOptimizations();
       timing.begin("Collect optimization info");
       collectOptimizationInfo(
-          context, code, ClassInitializerDefaultsResult.empty(), feedback, methodProcessor, timing);
+          context,
+          code,
+          ClassInitializerDefaultsResult.empty(),
+          feedback,
+          methodProcessor,
+          conversionOptions,
+          timing);
       timing.end();
       return timing;
     }
@@ -1566,7 +1591,13 @@ public class IRConverter {
     if (appView.enableWholeProgramOptimizations()) {
       timing.begin("Collect optimization info");
       collectOptimizationInfo(
-          context, code, classInitializerDefaultsResult, feedback, methodProcessor, timing);
+          context,
+          code,
+          classInitializerDefaultsResult,
+          feedback,
+          methodProcessor,
+          conversionOptions,
+          timing);
       timing.end();
     }
 
@@ -1593,7 +1624,7 @@ public class IRConverter {
 
     printMethod(code, "Optimized IR (SSA)", previous);
     timing.begin("Finalize IR");
-    finalizeIR(code, feedback, timing);
+    finalizeIR(code, feedback, conversionOptions, timing);
     timing.end();
     return timing;
   }
@@ -1606,9 +1637,11 @@ public class IRConverter {
       ClassInitializerDefaultsResult classInitializerDefaultsResult,
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
+      MutableMethodConversionOptions conversionOptions,
       Timing timing) {
+
     if (enumUnboxer != null && methodProcessor.isPrimaryMethodProcessor()) {
-      enumUnboxer.analyzeEnums(code);
+      enumUnboxer.analyzeEnums(code, conversionOptions);
     }
 
     if (libraryMethodOverrideAnalysis != null) {
@@ -1671,16 +1704,20 @@ public class IRConverter {
       stringSwitchRemover.run(code);
     }
     deadCodeRemover.run(code, timing);
-    finalizeIR(code, feedback, timing);
+    finalizeIR(code, feedback, DefaultMethodConversionOptions.getInstance(), timing);
   }
 
-  public void finalizeIR(IRCode code, OptimizationFeedback feedback, Timing timing) {
+  public void finalizeIR(
+      IRCode code,
+      OptimizationFeedback feedback,
+      MethodConversionOptions conversionOptions,
+      Timing timing) {
     code.traceBlocks();
     if (options.isGeneratingClassFiles()) {
-      finalizeToCf(code, feedback);
+      finalizeToCf(code, feedback, conversionOptions);
     } else {
       assert options.isGeneratingDex();
-      finalizeToDex(code, feedback, timing);
+      finalizeToDex(code, feedback, conversionOptions, timing);
     }
   }
 
@@ -1691,23 +1728,29 @@ public class IRConverter {
     feedback.markProcessed(method, ConstraintWithTarget.ALWAYS);
   }
 
-  private void finalizeToCf(IRCode code, OptimizationFeedback feedback) {
+  private void finalizeToCf(
+      IRCode code, OptimizationFeedback feedback, MethodConversionOptions conversionOptions) {
     DexEncodedMethod method = code.method();
     assert !method.getCode().isDexCode();
     CfBuilder builder = new CfBuilder(appView, method, code);
-    CfCode result = builder.build(deadCodeRemover);
+    CfCode result = builder.build(deadCodeRemover, conversionOptions);
     method.setCode(result, appView);
     markProcessed(code, feedback);
   }
 
-  private void finalizeToDex(IRCode code, OptimizationFeedback feedback, Timing timing) {
+  private void finalizeToDex(
+      IRCode code,
+      OptimizationFeedback feedback,
+      MethodConversionOptions conversionOptions,
+      Timing timing) {
     DexEncodedMethod method = code.method();
     // Workaround massive dex2oat memory use for self-recursive methods.
     CodeRewriter.disableDex2OatInliningForSelfRecursiveMethods(appView, code);
     // Workaround MAX_INT switch issue.
     codeRewriter.rewriteSwitchForMaxInt(code);
     // Perform register allocation.
-    RegisterAllocator registerAllocator = performRegisterAllocation(code, method, timing);
+    RegisterAllocator registerAllocator =
+        performRegisterAllocation(code, method, conversionOptions, timing);
     timing.begin("Build DEX code");
     method.setCode(code, registerAllocator, appView);
     timing.end();
@@ -1759,7 +1802,10 @@ public class IRConverter {
   }
 
   private RegisterAllocator performRegisterAllocation(
-      IRCode code, DexEncodedMethod method, Timing timing) {
+      IRCode code,
+      DexEncodedMethod method,
+      MethodConversionOptions conversionOptions,
+      Timing timing) {
     // Always perform dead code elimination before register allocation. The register allocator
     // does not allow dead code (to make sure that we do not waste registers for unneeded values).
     assert deadCodeRemover.verifyNoDeadCode(code);
@@ -1773,12 +1819,14 @@ public class IRConverter {
       codeRewriter.workaroundExceptionTargetingLoopHeaderBug(code);
     }
     printMethod(code, "After register allocation (non-SSA)", null);
-    timing.begin("Peephole optimize");
-    for (int i = 0; i < PEEPHOLE_OPTIMIZATION_PASSES; i++) {
-      CodeRewriter.collapseTrivialGotos(code);
-      PeepholeOptimizer.optimize(code, registerAllocator);
+    if (conversionOptions.isPeepholeOptimizationsEnabled()) {
+      timing.begin("Peephole optimize");
+      for (int i = 0; i < PEEPHOLE_OPTIMIZATION_PASSES; i++) {
+        CodeRewriter.collapseTrivialGotos(code);
+        PeepholeOptimizer.optimize(code, registerAllocator);
+      }
+      timing.end();
     }
-    timing.end();
     timing.begin("Clean up");
     CodeRewriter.removeUnneededMovesOnExitingPaths(code, registerAllocator);
     CodeRewriter.collapseTrivialGotos(code);

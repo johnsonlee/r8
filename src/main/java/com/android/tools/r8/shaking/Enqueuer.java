@@ -8,7 +8,6 @@ import static com.android.tools.r8.graph.FieldAccessInfoImpl.MISSING_FIELD_ACCES
 import static com.android.tools.r8.ir.desugar.LambdaDescriptor.isLambdaMetafactoryMethod;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.emulateInterfaceLibraryMethod;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.getEmulateLibraryInterfaceClassType;
-import static com.android.tools.r8.ir.optimize.enums.UnboxedEnumMemberRelocator.ENUM_UNBOXING_UTILITY_CLASS_SUFFIX;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.identifyIdentifier;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflectionMethod;
 import static com.android.tools.r8.shaking.AnnotationRemover.shouldKeepAnnotation;
@@ -31,6 +30,7 @@ import com.android.tools.r8.graph.ClassDefinition;
 import com.android.tools.r8.graph.ClasspathOrLibraryClass;
 import com.android.tools.r8.graph.ClasspathOrLibraryDefinition;
 import com.android.tools.r8.graph.DexAnnotation;
+import com.android.tools.r8.graph.DexAnnotation.AnnotatedKind;
 import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexCallSite;
@@ -42,7 +42,6 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexItemFactory.ClassMethods;
 import com.android.tools.r8.graph.DexLibraryClass;
@@ -80,6 +79,7 @@ import com.android.tools.r8.graph.ResolutionResult.FailedResolutionResult;
 import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
+import com.android.tools.r8.graph.analysis.ApiModelAnalysis;
 import com.android.tools.r8.graph.analysis.DesugaredLibraryConversionWrapperAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerCheckCastAnalysis;
@@ -102,8 +102,6 @@ import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer.R8Cf
 import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.LambdaClass;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
-import com.android.tools.r8.ir.optimize.info.DefaultMethodOptimizationInfo;
-import com.android.tools.r8.ir.optimize.info.DefaultMethodOptimizationWithMinApiInfo;
 import com.android.tools.r8.kotlin.KotlinMetadataEnqueuerExtension;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
@@ -171,11 +169,11 @@ import java.util.function.Supplier;
 
 /**
  * Approximates the runtime dependencies for the given set of roots.
- * <p>
+ *
  * <p>The implementation filters the static call-graph with liveness information on classes to
  * remove virtual methods that are reachable by their static type but are unreachable at runtime as
  * they are not visible from any instance.
- * <p>
+ *
  * <p>As result of the analysis, an instance of {@link AppInfoWithLiveness} is returned. See the
  * field descriptions for details.
  */
@@ -395,6 +393,13 @@ public class Enqueuer {
   private final Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations =
       new IdentityHashMap<>();
 
+  /**
+   * A map from annotation classes to parameter annotations that need to be processed should the
+   * classes ever become live.
+   */
+  private final Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>>
+      deferredParameterAnnotations = new IdentityHashMap<>();
+
   /** Map of active if rules to speed up aapt2 generated keep rules. */
   private Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRules;
 
@@ -470,14 +475,7 @@ public class Enqueuer {
     }
     referenceToApiLevelMap = new IdentityHashMap<>();
     if (options.apiModelingOptions().enableApiCallerIdentification) {
-      options
-          .apiModelingOptions()
-          .methodApiMapping
-          .forEach(
-              (methodReference, apiLevel) -> {
-                referenceToApiLevelMap.put(
-                    options.dexItemFactory().createMethod(methodReference), apiLevel);
-              });
+      options.apiModelingOptions().appendToApiLevelMap(referenceToApiLevelMap, dexItemFactory);
     }
   }
 
@@ -1040,6 +1038,11 @@ public class Enqueuer {
     traceConstClassOrCheckCast(type, currentMethod);
   }
 
+  void traceSafeCheckCast(DexType type, ProgramMethod currentMethod) {
+    checkCastAnalyses.forEach(analysis -> analysis.traceSafeCheckCast(type, currentMethod));
+    traceCompilerSynthesizedConstClassOrCheckCast(type, currentMethod);
+  }
+
   void traceConstClass(
       DexType type,
       ProgramMethod currentMethod,
@@ -1100,8 +1103,21 @@ public class Enqueuer {
   }
 
   private void traceConstClassOrCheckCast(DexType type, ProgramMethod currentMethod) {
+    internalTraceConstClassOrCheckCast(type, currentMethod, false);
+  }
+
+  // TODO(b/190487539): Currently only used by traceSafeCheckCast(), but should also be used to
+  //  ensure we don't trigger compat behavior for const-class instructions synthesized for
+  //  synchronized methods.
+  private void traceCompilerSynthesizedConstClassOrCheckCast(
+      DexType type, ProgramMethod currentMethod) {
+    internalTraceConstClassOrCheckCast(type, currentMethod, true);
+  }
+
+  private void internalTraceConstClassOrCheckCast(
+      DexType type, ProgramMethod currentMethod, boolean isCompilerSynthesized) {
     traceTypeReference(type, currentMethod);
-    if (!forceProguardCompatibility) {
+    if (!forceProguardCompatibility || isCompilerSynthesized) {
       return;
     }
     DexType baseType = type.toBaseType(appView.dexItemFactory());
@@ -1688,7 +1704,7 @@ public class Enqueuer {
       return;
     }
     if (!type.isClassType()) {
-      // Ignore primitive types.
+      // Ignore primitive types and void.
       return;
     }
     DexProgramClass clazz = getProgramClassOrNull(type, context);
@@ -1727,7 +1743,6 @@ public class Enqueuer {
     assert !mode.isFinalMainDexTracing()
             || !options.testing.checkForNotExpandingMainDexTracingResult
             || appView.appInfo().getMainDexInfo().isTracedRoot(clazz, appView.getSyntheticItems())
-            || clazz.toSourceString().contains(ENUM_UNBOXING_UTILITY_CLASS_SUFFIX)
         : "Class " + clazz.toSourceString() + " was not a main dex root in the first round";
 
     // Mark types in inner-class attributes referenced.
@@ -1819,16 +1834,9 @@ public class Enqueuer {
 
     // If this type has deferred annotations, we have to process those now, too.
     if (clazz.isAnnotation()) {
-      Map<DexAnnotation, List<ProgramDefinition>> annotations =
-          deferredAnnotations.remove(clazz.getType());
-      if (annotations != null) {
-        assert annotations.keySet().stream()
-            .allMatch(a -> a.getAnnotationType() == clazz.getType());
-        annotations.forEach(
-            (annotation, annotatedItems) ->
-                annotatedItems.forEach(
-                    annotatedItem -> processAnnotation(annotatedItem, annotation)));
-      }
+      processDeferredAnnotations(clazz, deferredAnnotations, AnnotatedKind::from);
+      processDeferredAnnotations(
+          clazz, deferredParameterAnnotations, annotatedItem -> AnnotatedKind.PARAMETER);
     }
 
     rootSet.forEachDependentInstanceConstructor(
@@ -1838,6 +1846,24 @@ public class Enqueuer {
         clazz, rootSet.getDependentKeepClassCompatRule(clazz.getType()));
 
     analyses.forEach(analysis -> analysis.processNewlyLiveClass(clazz, workList));
+  }
+
+  private void processDeferredAnnotations(
+      DexProgramClass clazz,
+      Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations,
+      Function<ProgramDefinition, AnnotatedKind> kindProvider) {
+    Map<DexAnnotation, List<ProgramDefinition>> annotations =
+        deferredAnnotations.remove(clazz.getType());
+    if (annotations != null) {
+      assert annotations.keySet().stream()
+          .allMatch(annotation -> annotation.getAnnotationType() == clazz.getType());
+      annotations.forEach(
+          (annotation, annotatedItems) ->
+              annotatedItems.forEach(
+                  annotatedItem ->
+                      processAnnotation(
+                          annotatedItem, annotation, kindProvider.apply(annotatedItem))));
+    }
   }
 
   private void ensureMethodsContinueToWidenAccess(ClassDefinition clazz) {
@@ -1922,27 +1948,35 @@ public class Enqueuer {
   }
 
   private void processAnnotations(ProgramDefinition annotatedItem) {
-    processAnnotations(annotatedItem, annotatedItem.getDefinition().annotations());
+    processAnnotations(
+        annotatedItem,
+        annotatedItem.getDefinition().annotations(),
+        AnnotatedKind.from(annotatedItem));
   }
 
-  private void processAnnotations(ProgramDefinition annotatedItem, DexAnnotationSet annotations) {
-    processAnnotations(annotatedItem, annotations.annotations);
+  private void processAnnotations(
+      ProgramDefinition annotatedItem, DexAnnotationSet annotations, AnnotatedKind kind) {
+    processAnnotations(annotatedItem, annotations.annotations, kind);
   }
 
-  private void processAnnotations(ProgramDefinition annotatedItem, DexAnnotation[] annotations) {
+  private void processAnnotations(
+      ProgramDefinition annotatedItem, DexAnnotation[] annotations, AnnotatedKind kind) {
     for (DexAnnotation annotation : annotations) {
-      processAnnotation(annotatedItem, annotation);
+      processAnnotation(annotatedItem, annotation, kind);
     }
   }
 
-  private void processAnnotation(ProgramDefinition annotatedItem, DexAnnotation annotation) {
+  private void processAnnotation(
+      ProgramDefinition annotatedItem, DexAnnotation annotation, AnnotatedKind kind) {
     DexType type = annotation.getAnnotationType();
     DexClass clazz = definitionFor(type, annotatedItem);
     boolean annotationTypeIsLibraryClass = clazz == null || clazz.isNotProgramClass();
     boolean isLive = annotationTypeIsLibraryClass || liveTypes.contains(clazz.asProgramClass());
-    if (!shouldKeepAnnotation(appView, annotatedItem.getDefinition(), annotation, isLive)) {
+    if (!shouldKeepAnnotation(appView, annotatedItem, annotation, isLive, kind)) {
       // Remember this annotation for later.
       if (!annotationTypeIsLibraryClass) {
+        Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations =
+            kind.isParameter() ? deferredParameterAnnotations : this.deferredAnnotations;
         Map<DexAnnotation, List<ProgramDefinition>> deferredAnnotationsForAnnotationType =
             deferredAnnotations.computeIfAbsent(type, ignore -> new IdentityHashMap<>());
         deferredAnnotationsForAnnotationType
@@ -1951,11 +1985,14 @@ public class Enqueuer {
       }
       return;
     }
-    KeepReason reason = KeepReason.annotatedOn(annotatedItem.getDefinition());
-    graphReporter.registerAnnotation(annotation, reason);
+
+    // Report that the annotation is retained due to the annotated item.
+    graphReporter.registerAnnotation(annotation, annotatedItem);
+
+    // Report that the items referenced from inside the annotation are retained due to the
+    // annotation.
     AnnotationReferenceMarker referenceMarker =
-        new AnnotationReferenceMarker(
-            annotation.getAnnotationType(), annotatedItem, appView.dexItemFactory(), reason);
+        new AnnotationReferenceMarker(annotation, annotatedItem);
     annotation.annotation.collectIndexedItems(referenceMarker);
   }
 
@@ -2990,6 +3027,9 @@ public class Enqueuer {
         && appView.options().getProguardConfiguration().getKeepAttributes().signature) {
       registerAnalysis(new GenericSignatureEnqueuerAnalysis(enqueuerDefinitionSupplier));
     }
+    if (appView.options().apiModelingOptions().enableApiCallerIdentification) {
+      registerAnalysis(new ApiModelAnalysis(appView, referenceToApiLevelMap));
+    }
     if (mode.isInitialTreeShaking()) {
       // This is simulating the effect of the "root set" applied rules.
       // This is done only in the initial pass, in subsequent passes the "rules" are reapplied
@@ -3870,8 +3910,6 @@ public class Enqueuer {
     // Add all dependent members to the workqueue.
     enqueueRootItems(rootSet.getDependentItems(definition));
 
-    checkDefinitionForSoftPinning(method);
-
     // Notify analyses.
     analyses.forEach(analysis -> analysis.processNewlyLiveMethod(method, context));
   }
@@ -3896,12 +3934,14 @@ public class Enqueuer {
   }
 
   void traceMethodDefinitionExcludingCode(ProgramMethod method) {
+    checkDefinitionForSoftPinning(method);
     markReferencedTypesAsLive(method);
     processAnnotations(method);
     method
         .getDefinition()
         .getParameterAnnotations()
-        .forEachAnnotation(annotation -> processAnnotation(method, annotation));
+        .forEachAnnotation(
+            annotation -> processAnnotation(method, annotation, AnnotatedKind.PARAMETER));
   }
 
   private void traceNonDesugaredCode(ProgramMethod method) {
@@ -3917,19 +3957,8 @@ public class Enqueuer {
     DefaultEnqueuerUseRegistry registry =
         useRegistryFactory.create(appView, method, this, referenceToApiLevelMap);
     method.registerCodeReferences(registry);
-    DexEncodedMethod methodDefinition = method.getDefinition();
-    AndroidApiLevel maxApiReferenceLevel = registry.getMaxApiReferenceLevel();
-    assert maxApiReferenceLevel.isGreaterThanOrEqualTo(options.minApiLevel);
-    // To not have mutable update information for all methods that all has min api level we
-    // swap the default optimization info for one with that marks the api level to be min api.
-    if (methodDefinition.getOptimizationInfo() == DefaultMethodOptimizationInfo.getInstance()
-        && maxApiReferenceLevel == options.minApiLevel) {
-      methodDefinition.setMinApiOptimizationInfo(
-          DefaultMethodOptimizationWithMinApiInfo.getInstance());
-      return;
-    }
-    methodDefinition.setOptimizationInfo(
-        methodDefinition.getMutableOptimizationInfo().setApiReferenceLevel(maxApiReferenceLevel));
+    // Notify analyses.
+    analyses.forEach(analysis -> analysis.processTracedCode(method, registry));
   }
 
   private void checkDefinitionForSoftPinning(ProgramDefinition definition) {
@@ -4490,20 +4519,12 @@ public class Enqueuer {
 
   private class AnnotationReferenceMarker implements IndexedItemCollection {
 
-    private final DexItem annotationHolder;
     private final ProgramDefinition context;
-    private final DexItemFactory dexItemFactory;
     private final KeepReason reason;
 
-    private AnnotationReferenceMarker(
-        DexItem annotationHolder,
-        ProgramDefinition context,
-        DexItemFactory dexItemFactory,
-        KeepReason reason) {
-      this.annotationHolder = annotationHolder;
+    private AnnotationReferenceMarker(DexAnnotation annotation, ProgramDefinition context) {
       this.context = context;
-      this.dexItemFactory = dexItemFactory;
-      this.reason = reason;
+      this.reason = KeepReason.referencedInAnnotation(annotation, context);
     }
 
     @Override
@@ -4533,17 +4554,15 @@ public class Enqueuer {
                 : fieldAccessInfoCollection.extend(
                     fieldReference, new FieldAccessInfoImpl(fieldReference));
         fieldAccessInfo.setReadFromAnnotation();
-        markFieldAsLive(field, context, KeepReason.referencedInAnnotation(annotationHolder));
+        markFieldAsLive(field, context, reason);
         // When an annotation has a field of an enum type the JVM will use the values() method on
         // that enum class if the field is referenced.
         if (options.isGeneratingClassFiles() && field.getHolder().isEnum()) {
-          markEnumValuesAsReachable(
-              field.getHolder(), KeepReason.referencedInAnnotation(annotationHolder));
+          markEnumValuesAsReachable(field.getHolder(), reason);
         }
       } else {
         // There is no dispatch on annotations, so only keep what is directly referenced.
-        workList.enqueueMarkFieldAsReachableAction(
-            field, context, KeepReason.referencedInAnnotation(annotationHolder));
+        workList.enqueueMarkFieldAsReachableAction(field, context, reason);
       }
       return false;
     }
@@ -4560,17 +4579,13 @@ public class Enqueuer {
       if (target != null) {
         // There is no dispatch on annotations, so only keep what is directly referenced.
         if (target.getReference() == method) {
-          markDirectStaticOrConstructorMethodAsLive(
-              new ProgramMethod(holder, target),
-              KeepReason.referencedInAnnotation(annotationHolder));
+          markDirectStaticOrConstructorMethodAsLive(new ProgramMethod(holder, target), reason);
         }
       } else {
         target = holder.lookupVirtualMethod(method);
         // There is no dispatch on annotations, so only keep what is directly referenced.
         if (target != null && target.getReference() == method) {
-          markMethodAsTargeted(
-              new ProgramMethod(holder, target),
-              KeepReason.referencedInAnnotation(annotationHolder));
+          markMethodAsTargeted(new ProgramMethod(holder, target), reason);
         }
       }
       return false;
@@ -4598,11 +4613,7 @@ public class Enqueuer {
 
     @Override
     public boolean addType(DexType type) {
-      // Annotations can also contain the void type, which is not a class type, so filter it out
-      // here.
-      if (type != dexItemFactory.voidType) {
-        markTypeAsLive(type, context, reason);
-      }
+      markTypeAsLive(type, context, reason);
       return false;
     }
   }
