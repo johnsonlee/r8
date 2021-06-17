@@ -4,6 +4,7 @@
 package com.android.tools.r8.desugar.desugaredlibrary.conversiontests;
 
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -50,6 +51,7 @@ public class SuperAPIConversionTest extends DesugaredLibraryTestBase {
     Assume.assumeFalse("TODO(b/189435770): fix", shrinkDesugaredLibrary);
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForD8()
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
         .addInnerClasses(SuperAPIConversionTest.class)
         .setMinApi(parameters.getApiLevel())
         .enableCoreLibraryDesugaring(parameters.getApiLevel(), keepRuleConsumer)
@@ -60,7 +62,7 @@ public class SuperAPIConversionTest extends DesugaredLibraryTestBase {
             keepRuleConsumer.get(),
             shrinkDesugaredLibrary)
         .run(parameters.getRuntime(), Executor.class)
-        .assertSuccessWithOutputLines("$r8$wrapper$java$util$stream$IntStream$-V-WRP");
+        .assertSuccessWithOutputLines("IntStream$VivifiedWrapper");
   }
 
   @Test
@@ -68,6 +70,7 @@ public class SuperAPIConversionTest extends DesugaredLibraryTestBase {
     Assume.assumeFalse("TODO(b/189435770): fix", shrinkDesugaredLibrary);
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForR8(parameters.getBackend())
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
         .addInnerClasses(SuperAPIConversionTest.class)
         .setMinApi(parameters.getApiLevel())
         .addKeepMainRule(Executor.class)
@@ -79,7 +82,7 @@ public class SuperAPIConversionTest extends DesugaredLibraryTestBase {
             keepRuleConsumer.get(),
             shrinkDesugaredLibrary)
         .run(parameters.getRuntime(), Executor.class)
-        .assertSuccessWithOutputLines("$r8$wrapper$java$util$stream$IntStream$-V-WRP");
+        .assertSuccessWithOutputLines("IntStream$VivifiedWrapper");
   }
 
   static class ParallelRandom extends Random {

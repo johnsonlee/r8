@@ -7,6 +7,7 @@ import static org.hamcrest.CoreMatchers.endsWith;
 import static org.hamcrest.core.StringContains.containsString;
 
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -30,7 +31,7 @@ public class APIConversionTest extends DesugaredLibraryTestBase {
 
   private static final AndroidApiLevel MIN_SUPPORTED = AndroidApiLevel.N;
   private static final String EXPECTED_RESULT =
-      StringUtils.lines("[5, 6, 7]", "j$.wrappers.$r8$wrapper$java$util$stream$IntStream$-V-WRP");
+      StringUtils.lines("[5, 6, 7]", "j$.util.stream.IntStream$VivifiedWrapper");
 
   @Parameters(name = "{0}, shrinkDesugaredLibrary: {1}")
   public static List<Object[]> data() {
@@ -63,6 +64,7 @@ public class APIConversionTest extends DesugaredLibraryTestBase {
   public void testAPIConversionDesugaringD8() throws Exception {
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForD8()
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
         .addInnerClasses(APIConversionTest.class)
         .setMinApi(parameters.getApiLevel())
         .enableCoreLibraryDesugaring(parameters.getApiLevel(), keepRuleConsumer)

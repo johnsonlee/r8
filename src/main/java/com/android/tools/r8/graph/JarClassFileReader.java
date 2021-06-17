@@ -610,7 +610,7 @@ public class JarClassFileReader<T extends DexClass> {
             "Multiple annotations of type `" + dupType.toSourceString() + "`");
       }
     }
-    return new DexAnnotationSet(annotations.toArray(DexAnnotation.EMPTY_ARRAY));
+    return DexAnnotationSet.create(annotations.toArray(DexAnnotation.EMPTY_ARRAY));
   }
 
   private static class CreateFieldVisitor extends FieldVisitor {
@@ -885,7 +885,7 @@ public class JarClassFileReader<T extends DexClass> {
         for (int i = 0; i < parameterAnnotationsLists.size(); i++) {
           sets[i] = createAnnotationSet(parameterAnnotationsLists.get(i), options);
         }
-        parameterAnnotationsList = new ParameterAnnotationsList(sets);
+        parameterAnnotationsList = ParameterAnnotationsList.create(sets);
       }
       if (parameterNames != null) {
         assert parameterFlags != null;

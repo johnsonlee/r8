@@ -5,8 +5,8 @@
 package com.android.tools.r8.desugar.desugaredlibrary.conversiontests;
 
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
-import com.android.tools.r8.desugar.desugaredlibrary.conversiontests.SummaryStatisticsConversionTest.CustomLibClass;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
@@ -54,6 +54,7 @@ public class UnwrapConversionTest extends DesugaredLibraryTestBase {
   public void testUnwrapD8() throws Exception {
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForD8()
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
         .setMinApi(parameters.getApiLevel())
         .addProgramClasses(Executor.class)
         .addLibraryClasses(CustomLibClass.class)
@@ -73,6 +74,7 @@ public class UnwrapConversionTest extends DesugaredLibraryTestBase {
   public void testUnwrapR8() throws Exception {
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForR8(parameters.getBackend())
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
         .setMinApi(parameters.getApiLevel())
         .addProgramClasses(Executor.class)
         .addKeepMainRule(Executor.class)

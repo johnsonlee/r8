@@ -98,7 +98,7 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
           instructions.add(
               new CfInvoke(
                   Opcodes.INVOKESTATIC,
-                  converter.createConversionMethod(param, param, vivifiedTypeFor(param)),
+                  converter.ensureConversionMethod(param, param, vivifiedTypeFor(param)),
                   false));
           newParameters[index - 1] = vivifiedTypeFor(param);
         }
@@ -129,7 +129,7 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
         instructions.add(
             new CfInvoke(
                 Opcodes.INVOKESTATIC,
-                converter.createConversionMethod(
+                converter.ensureConversionMethod(
                     returnType, vivifiedTypeFor(returnType), returnType),
                 false));
       }
@@ -185,7 +185,7 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
           instructions.add(
               new CfInvoke(
                   Opcodes.INVOKESTATIC,
-                  converter.createConversionMethod(param, vivifiedTypeFor(param), param),
+                  converter.ensureConversionMethod(param, vivifiedTypeFor(param), param),
                   false));
         }
         if (param == factory.longType || param == factory.doubleType) {
@@ -205,7 +205,7 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
         instructions.add(
             new CfInvoke(
                 Opcodes.INVOKESTATIC,
-                converter.createConversionMethod(
+                converter.ensureConversionMethod(
                     returnType, returnType, vivifiedTypeFor(returnType)),
                 false));
         returnType = vivifiedTypeFor(returnType);
@@ -221,14 +221,12 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
 
   public static class APIConverterWrapperConversionCfCodeProvider extends SyntheticCfCodeProvider {
 
-    DexType argType;
     DexField reverseWrapperField;
     DexField wrapperField;
 
     public APIConverterWrapperConversionCfCodeProvider(
-        AppView<?> appView, DexType argType, DexField reverseWrapperField, DexField wrapperField) {
+        AppView<?> appView, DexField reverseWrapperField, DexField wrapperField) {
       super(appView, wrapperField.holder);
-      this.argType = argType;
       this.reverseWrapperField = reverseWrapperField;
       this.wrapperField = wrapperField;
     }
@@ -238,6 +236,7 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
       DexItemFactory factory = appView.dexItemFactory();
       List<CfInstruction> instructions = new ArrayList<>();
 
+      DexType argType = wrapperField.type;
       ImmutableInt2ReferenceSortedMap<FrameType> locals =
           ImmutableInt2ReferenceSortedMap.<FrameType>builder()
               .put(0, FrameType.initialized(argType))

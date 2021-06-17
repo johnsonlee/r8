@@ -396,7 +396,7 @@ public class DexParser<T extends DexClass> {
     for (int i = 0; i < size; i++) {
       values[i] = annotationSetAt(annotationOffsets[i]);
     }
-    return new ParameterAnnotationsList(values);
+    return ParameterAnnotationsList.create(values);
   }
 
   private DexParameterAnnotation[] parseParameterAnnotations(int size) {
@@ -485,7 +485,7 @@ public class DexParser<T extends DexClass> {
       throw new CompilationError(
           "Multiple annotations of type `" + dupType.toSourceString() + "`");
     }
-    return new DexAnnotationSet(result);
+    return DexAnnotationSet.create(result);
   }
 
   private boolean retainAnnotation(DexAnnotation annotation) {
@@ -1375,7 +1375,7 @@ public class DexParser<T extends DexClass> {
         int size = lazyAnnotations.size();
         return size == 0
             ? DexAnnotationSet.empty()
-            : new DexAnnotationSet(lazyAnnotations.toArray(DexAnnotation.EMPTY_ARRAY));
+            : DexAnnotationSet.create(lazyAnnotations.toArray(DexAnnotation.EMPTY_ARRAY));
       }
       return originalAnnotations;
     }
