@@ -4,16 +4,21 @@
 
 package com.android.tools.r8.apimodel;
 
-import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForType;
+import static com.android.tools.r8.apimodel.ApiModelingTestHelper.addTracedApiReferenceLevelCallBack;
+import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
+import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForDefaultInstanceInitializer;
+import static com.android.tools.r8.utils.AndroidApiLevel.L_MR1;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,13 +49,37 @@ public class ApiModelVerticalMergingOfSuperClassTest extends TestBase {
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
-        .apply(setMockApiLevelForType(Api.class, AndroidApiLevel.L_MR1))
+        .apply(setMockApiLevelForClass(Api.class, AndroidApiLevel.L_MR1))
+        .apply(setMockApiLevelForDefaultInstanceInitializer(Api.class, AndroidApiLevel.L_MR1))
         .apply(ApiModelingTestHelper::enableApiCallerIdentification)
+        .apply(
+            addTracedApiReferenceLevelCallBack(
+                (methodReference, apiLevel) -> {
+                  if (methodReference.getMethodName().equals("<init>")
+                      && methodReference
+                          .getHolderClass()
+                          .equals(Reference.classFromClass(Api.class))) {
+                    assertEquals(AndroidApiLevel.L_MR1, apiLevel);
+                  }
+                }))
+        .addVerticallyMergedClassesInspector(
+            inspector -> {
+              if (parameters.isDexRuntime()
+                  && parameters.getApiLevel().isGreaterThanOrEqualTo(L_MR1)) {
+                inspector.assertMergedIntoSubtype(A.class);
+              } else {
+                inspector.assertNoClassesMerged();
+              }
+            })
         .compile()
         .inspect(
             inspector -> {
-              // TODO(b/138781768): We should not merge A into B.
-              assertThat(inspector.clazz(A.class), not(isPresent()));
+              if (parameters.isDexRuntime()
+                  && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L_MR1)) {
+                assertThat(inspector.clazz(A.class), not(isPresent()));
+              } else {
+                assertThat(inspector.clazz(A.class), isPresent());
+              }
             })
         .addRunClasspathClasses(Api.class)
         .run(parameters.getRuntime(), Main.class)

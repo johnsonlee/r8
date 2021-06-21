@@ -26,7 +26,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class ApiModelNoVerticalMergingTest extends TestBase {
+public class ApiModelNoVerticalMergingSubReferenceApiTest extends TestBase {
 
   private final TestParameters parameters;
 
@@ -35,7 +35,7 @@ public class ApiModelNoVerticalMergingTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public ApiModelNoVerticalMergingTest(TestParameters parameters) {
+  public ApiModelNoVerticalMergingSubReferenceApiTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
@@ -96,7 +96,6 @@ public class ApiModelNoVerticalMergingTest extends TestBase {
 
     public void callApi() {
       System.out.println("Base::callApi");
-      Api.apiLevel22();
     }
   }
 
@@ -107,6 +106,7 @@ public class ApiModelNoVerticalMergingTest extends TestBase {
     public void callCallApi() {
       System.out.println("Sub::callCallApi");
       callApi();
+      Api.apiLevel22();
     }
   }
 
