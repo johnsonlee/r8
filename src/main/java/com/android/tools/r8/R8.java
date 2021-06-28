@@ -46,9 +46,9 @@ import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
-import com.android.tools.r8.ir.desugar.DesugaredLibraryRetargeter;
-import com.android.tools.r8.ir.desugar.RecordRewriter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterLibraryTypeSynthesizor;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
+import com.android.tools.r8.ir.desugar.records.RecordRewriter;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.MethodPoolCollection;
 import com.android.tools.r8.ir.optimize.NestReducer;
@@ -307,8 +307,8 @@ public class R8 {
         MainDexListBuilder.checkForAssumedLibraryTypes(appView.appInfo());
       }
       if (!options.desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()) {
-        DesugaredLibraryRetargeter.checkForAssumedLibraryTypes(appView);
-        DesugaredLibraryRetargeter.amendLibraryWithRetargetedMembers(appView);
+        DesugaredLibraryRetargeterLibraryTypeSynthesizor.checkForAssumedLibraryTypes(appView);
+        DesugaredLibraryRetargeterLibraryTypeSynthesizor.amendLibraryWithRetargetedMembers(appView);
       }
       InterfaceMethodRewriter.checkForAssumedLibraryTypes(appView.appInfo(), options);
       BackportedMethodRewriter.registerAssumedLibraryTypes(options);

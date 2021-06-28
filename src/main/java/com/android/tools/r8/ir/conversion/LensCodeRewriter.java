@@ -26,6 +26,7 @@ import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
 import static com.android.tools.r8.ir.code.Opcodes.MOVE_EXCEPTION;
 import static com.android.tools.r8.ir.code.Opcodes.NEW_ARRAY_EMPTY;
 import static com.android.tools.r8.ir.code.Opcodes.NEW_INSTANCE;
+import static com.android.tools.r8.ir.code.Opcodes.NEW_UNBOXED_ENUM_INSTANCE;
 import static com.android.tools.r8.ir.code.Opcodes.RETURN;
 import static com.android.tools.r8.ir.code.Opcodes.STATIC_GET;
 import static com.android.tools.r8.ir.code.Opcodes.STATIC_PUT;
@@ -139,9 +140,11 @@ public class LensCodeRewriter {
   }
 
   /** Replace type appearances, invoke targets and field accesses with actual definitions. */
-  public void rewrite(IRCode code, ProgramMethod method) {
+  public void rewrite(IRCode code, ProgramMethod method, MethodProcessor methodProcessor) {
     Set<Phi> affectedPhis =
-        enumUnboxer != null ? enumUnboxer.rewriteCode(code) : Sets.newIdentityHashSet();
+        enumUnboxer != null
+            ? enumUnboxer.rewriteCode(code, methodProcessor)
+            : Sets.newIdentityHashSet();
     GraphLens graphLens = appView.graphLens();
     DexItemFactory factory = appView.dexItemFactory();
     // Rewriting types that affects phi can cause us to compute TOP for cyclic phi's. To solve this
@@ -588,6 +591,9 @@ public class LensCodeRewriter {
               new InstructionReplacer(code, current, iterator, affectedPhis)
                   .replaceInstructionIfTypeChanged(type, NewInstance::new);
             }
+            break;
+
+          case NEW_UNBOXED_ENUM_INSTANCE:
             break;
 
           case RETURN:

@@ -38,6 +38,7 @@ import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues;
@@ -62,6 +63,7 @@ import com.android.tools.r8.ir.code.InstanceGet;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeStatic;
+import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.Opcodes;
 import com.android.tools.r8.ir.code.Phi;
@@ -69,6 +71,7 @@ import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.optimize.Inliner.Constraint;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap.EnumData;
@@ -251,7 +254,8 @@ public class EnumUnboxer {
           case Opcodes.INSTANCE_GET:
           case Opcodes.STATIC_PUT:
           case INSTANCE_PUT:
-            analyzeFieldInstruction(instruction.asFieldInstruction(), code);
+            analyzeFieldInstruction(
+                instruction.asFieldInstruction(), eligibleEnums, code.context());
             break;
           default: // Nothing to do for other instructions.
         }
@@ -279,13 +283,15 @@ public class EnumUnboxer {
     }
   }
 
-  private void analyzeFieldInstruction(FieldInstruction fieldInstruction, IRCode code) {
+  private void analyzeFieldInstruction(
+      FieldInstruction fieldInstruction, Set<DexType> eligibleEnums, ProgramMethod context) {
     DexField field = fieldInstruction.getField();
     DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(field.holder);
     if (enumClass != null) {
-      FieldResolutionResult resolutionResult =
-          appView.appInfo().resolveField(field, code.context());
-      if (resolutionResult.isFailedOrUnknownResolution()) {
+      FieldResolutionResult resolutionResult = appView.appInfo().resolveField(field, context);
+      if (resolutionResult.isSuccessfulResolution()) {
+        eligibleEnums.add(enumClass.getType());
+      } else {
         markEnumAsUnboxable(Reason.UNRESOLVABLE_FIELD, enumClass);
       }
     }
@@ -366,34 +372,56 @@ public class EnumUnboxer {
       return;
     }
     for (Instruction user : constClass.outValue().aliasedUsers()) {
-      if (user.isAssume()) {
-        continue;
+      if (!isLegitimateConstClassUser(user, context, enumClass)) {
+        markEnumAsUnboxable(Reason.CONST_CLASS, enumClass);
+        return;
       }
-      if (user.isInvokeVirtual()
-          && isUnboxableNameMethod(user.asInvokeVirtual().getInvokedMethod())) {
-        continue;
-      }
-      if (user.isInvokeStatic()) {
-        DexClassAndMethod singleTarget = user.asInvokeStatic().lookupSingleTarget(appView, context);
-        if (singleTarget != null) {
-          if (singleTarget.getReference() == factory.enumMembers.valueOf) {
-            // The name data is required for the correct mapping from the enum name to the ordinal
-            // in the valueOf utility method.
-            addRequiredNameData(enumClass);
-            markMethodDependsOnLibraryModelisation(context);
-            continue;
-          }
-          if (singleTarget.getReference()
-              == factory.javaLangReflectArrayMembers.newInstanceMethodWithDimensions) {
-            markMethodDependsOnLibraryModelisation(context);
-            continue;
-          }
-        }
-      }
-      markEnumAsUnboxable(Reason.CONST_CLASS, enumClass);
-      return;
     }
     eligibleEnums.add(enumType);
+  }
+
+  private boolean isLegitimateConstClassUser(
+      Instruction user, ProgramMethod context, DexProgramClass enumClass) {
+    if (user.isAssume()) {
+      if (user.outValue().hasPhiUsers()) {
+        return false;
+      }
+      return true;
+    }
+
+    if (user.isInvokeStatic()) {
+      DexClassAndMethod singleTarget = user.asInvokeStatic().lookupSingleTarget(appView, context);
+      if (singleTarget == null) {
+        return false;
+      }
+      if (singleTarget.getReference() == factory.enumMembers.valueOf) {
+        // The name data is required for the correct mapping from the enum name to the ordinal
+        // in the valueOf utility method.
+        addRequiredNameData(enumClass);
+        markMethodDependsOnLibraryModelisation(context);
+        return true;
+      }
+      if (singleTarget.getReference()
+          == factory.javaLangReflectArrayMembers.newInstanceMethodWithDimensions) {
+        markMethodDependsOnLibraryModelisation(context);
+        return true;
+      }
+    }
+
+    if (user.isInvokeVirtual()) {
+      InvokeVirtual invoke = user.asInvokeVirtual();
+      DexMethod invokedMethod = invoke.getInvokedMethod();
+      if (invokedMethod == factory.classMethods.desiredAssertionStatus) {
+        // Only valid in the enum's class initializer, since the class constant must be rewritten
+        // to LocalEnumUtility.class instead of int.class.
+        return context.getDefinition().isClassInitializer() && context.getHolder() == enumClass;
+      }
+      if (isUnboxableNameMethod(invokedMethod)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private void addRequiredNameData(DexProgramClass enumClass) {
@@ -465,6 +493,7 @@ public class EnumUnboxer {
   }
 
   public void unboxEnums(
+      IRConverter converter,
       PostMethodProcessor.Builder postBuilder,
       ExecutorService executorService,
       OptimizationFeedbackDelayed feedback)
@@ -472,12 +501,16 @@ public class EnumUnboxer {
     assert candidatesToRemoveInWave.isEmpty();
     EnumDataMap enumDataMap = finishAnalysis();
     assert candidatesToRemoveInWave.isEmpty();
+
     // At this point the enum unboxing candidates are no longer candidates, they will all be
     // unboxed. We extract the now immutable enums to unbox information and clear the candidate
     // info.
     if (enumUnboxingCandidatesInfo.isEmpty()) {
+      assert enumDataMap.isEmpty();
+      appView.setUnboxedEnums(enumDataMap);
       return;
     }
+
     ImmutableSet<DexType> enumsToUnbox = enumUnboxingCandidatesInfo.candidates();
     ImmutableSet<DexProgramClass> enumClassesToUnbox =
         enumUnboxingCandidatesInfo.candidateClasses();
@@ -501,25 +534,29 @@ public class EnumUnboxer {
         utilityClass -> utilityClass.getDefinition().forEachProgramMethod(postBuilder::add));
 
     fieldAccessInfoCollectionModifierBuilder.build().modify(appView);
-    enumUnboxerRewriter = new EnumUnboxingRewriter(appView, enumDataMap, utilityClasses);
-    EnumUnboxingLens enumUnboxingLens =
-        new EnumUnboxingTreeFixer(appView, enumsToUnbox, utilityClasses, enumUnboxerRewriter)
-            .fixupTypeReferences();
-    enumUnboxerRewriter.setEnumUnboxingLens(enumUnboxingLens);
+    EnumUnboxingTreeFixer.Result treeFixerResult =
+        new EnumUnboxingTreeFixer(appView, enumDataMap, enumClassesToUnbox, utilityClasses)
+            .fixupTypeReferences(converter, executorService);
+    EnumUnboxingLens enumUnboxingLens = treeFixerResult.getLens();
+    enumUnboxerRewriter =
+        new EnumUnboxingRewriter(appView, converter, enumUnboxingLens, enumDataMap, utilityClasses);
     appView.setUnboxedEnums(enumDataMap);
     GraphLens previousLens = appView.graphLens();
     appView.rewriteWithLensAndApplication(enumUnboxingLens, appBuilder.build());
-    updateOptimizationInfos(executorService, feedback);
+    updateOptimizationInfos(executorService, feedback, treeFixerResult.getPrunedItems());
     postBuilder.put(dependencies);
     // Methods depending on library modelisation need to be reprocessed so they are peephole
     // optimized.
     postBuilder.put(methodsDependingOnLibraryModelisation);
     methodsDependingOnLibraryModelisation.clear();
+    postBuilder.removePrunedMethods(treeFixerResult.getPrunedItems().getRemovedMethods());
     postBuilder.rewrittenWithLens(appView, previousLens);
   }
 
   private void updateOptimizationInfos(
-      ExecutorService executorService, OptimizationFeedbackDelayed feedback)
+      ExecutorService executorService,
+      OptimizationFeedbackDelayed feedback,
+      PrunedItems prunedItems)
       throws ExecutionException {
     feedback.fixupOptimizationInfos(
         appView,
@@ -538,7 +575,7 @@ public class EnumUnboxer {
             optimizationInfo
                 .fixupClassTypeReferences(appView, appView.graphLens())
                 .fixupAbstractReturnValue(appView, appView.graphLens())
-                .fixupInstanceInitializerInfo(appView, appView.graphLens());
+                .fixupInstanceInitializerInfo(appView, appView.graphLens(), prunedItems);
           }
         });
   }
@@ -1223,53 +1260,93 @@ public class EnumUnboxer {
       Value enumValue,
       DexMethod singleTargetReference,
       DexClass targetHolder) {
-    if (targetHolder.getType() != factory.enumType) {
-      // System.identityHashCode(Object) is supported for proto enums.
-      // Object#getClass without outValue and Objects.requireNonNull are supported since R8
-      // rewrites explicit null checks to such instructions.
-      if (singleTargetReference == factory.javaLangSystemMethods.identityHashCode) {
+    // Calls to java.lang.Enum.
+    if (targetHolder.getType() == factory.enumType) {
+      // TODO(b/147860220): EnumSet and EnumMap may be interesting to model.
+      if (singleTargetReference == factory.enumMembers.compareTo
+          || singleTargetReference == factory.enumMembers.compareToWithObject) {
+        DexProgramClass otherEnumClass =
+            getEnumUnboxingCandidateOrNull(invoke.getLastArgument().getType());
+        if (otherEnumClass == enumClass || invoke.getLastArgument().getType().isNullType()) {
+          return Reason.ELIGIBLE;
+        }
+      } else if (singleTargetReference == factory.enumMembers.equals) {
         return Reason.ELIGIBLE;
-      }
-      if (singleTargetReference == factory.stringMembers.valueOf) {
+      } else if (singleTargetReference == factory.enumMembers.nameMethod
+          || singleTargetReference == factory.enumMembers.toString) {
+        assert invoke.asInvokeMethodWithReceiver().getReceiver() == enumValue;
         addRequiredNameData(enumClass);
         return Reason.ELIGIBLE;
-      }
-      if (singleTargetReference == factory.stringBuilderMethods.appendObject
-          || singleTargetReference == factory.stringBufferMethods.appendObject) {
-        addRequiredNameData(enumClass);
+      } else if (singleTargetReference == factory.enumMembers.ordinalMethod) {
         return Reason.ELIGIBLE;
+      } else if (singleTargetReference == factory.enumMembers.hashCode) {
+        return Reason.ELIGIBLE;
+      } else if (singleTargetReference == factory.enumMembers.constructor) {
+        // Enum constructor call is allowed only if called from an enum initializer.
+        if (code.method().isInstanceInitializer() && code.context().getHolder() == enumClass) {
+          return Reason.ELIGIBLE;
+        }
       }
-      if (singleTargetReference == factory.objectMembers.getClass
-          && (!invoke.hasOutValue() || !invoke.outValue().hasAnyUsers())) {
+      return new UnsupportedLibraryInvokeReason(singleTargetReference);
+    }
+
+    // Calls to java.lang.Object.
+    if (targetHolder.getType() == factory.objectType) {
+      // Object#getClass without outValue is important since R8 rewrites explicit null checks to
+      // such instructions.
+      if (singleTargetReference == factory.objectMembers.getClass && invoke.hasUnusedOutValue()) {
         // This is a hidden null check.
         return Reason.ELIGIBLE;
       }
+      return new UnsupportedLibraryInvokeReason(singleTargetReference);
+    }
+
+    // Calls to java.lang.Objects.
+    if (targetHolder.getType() == factory.objectsType) {
+      // Objects#requireNonNull is important since R8 rewrites explicit null checks to such
+      // instructions.
       if (singleTargetReference == factory.objectsMethods.requireNonNull
           || singleTargetReference == factory.objectsMethods.requireNonNullWithMessage) {
         return Reason.ELIGIBLE;
       }
       return new UnsupportedLibraryInvokeReason(singleTargetReference);
     }
-    // TODO(b/147860220): EnumSet and EnumMap may be interesting to model.
-    if (singleTargetReference == factory.enumMembers.compareTo) {
-      return Reason.ELIGIBLE;
-    } else if (singleTargetReference == factory.enumMembers.equals) {
-      return Reason.ELIGIBLE;
-    } else if (singleTargetReference == factory.enumMembers.nameMethod
-        || singleTargetReference == factory.enumMembers.toString) {
-      assert invoke.asInvokeMethodWithReceiver().getReceiver() == enumValue;
-      addRequiredNameData(enumClass);
-      return Reason.ELIGIBLE;
-    } else if (singleTargetReference == factory.enumMembers.ordinalMethod) {
-      return Reason.ELIGIBLE;
-    } else if (singleTargetReference == factory.enumMembers.hashCode) {
-      return Reason.ELIGIBLE;
-    } else if (singleTargetReference == factory.enumMembers.constructor) {
-      // Enum constructor call is allowed only if called from an enum initializer.
-      if (code.method().isInstanceInitializer() && code.context().getHolder() == enumClass) {
+
+    // Calls to java.lang.String.
+    if (targetHolder.getType() == factory.stringType) {
+      if (singleTargetReference == factory.stringMembers.valueOf) {
+        addRequiredNameData(enumClass);
         return Reason.ELIGIBLE;
       }
+      return new UnsupportedLibraryInvokeReason(singleTargetReference);
     }
+
+    // Calls to java.lang.StringBuilder and java.lang.StringBuffer.
+    if (targetHolder.getType() == factory.stringBuilderType
+        || targetHolder.getType() == factory.stringBufferType) {
+      if (singleTargetReference == factory.stringBuilderMethods.appendObject
+          || singleTargetReference == factory.stringBufferMethods.appendObject) {
+        addRequiredNameData(enumClass);
+        return Reason.ELIGIBLE;
+      }
+      return new UnsupportedLibraryInvokeReason(singleTargetReference);
+    }
+
+    // Calls to java.lang.System.
+    if (targetHolder.getType() == factory.javaLangSystemType) {
+      if (singleTargetReference == factory.javaLangSystemMethods.arraycopy) {
+        // Important for Kotlin 1.5 enums, which use arraycopy to create a copy of $VALUES instead
+        // of int[].clone().
+        return Reason.ELIGIBLE;
+      }
+      if (singleTargetReference == factory.javaLangSystemMethods.identityHashCode) {
+        // Important for proto enum unboxing.
+        return Reason.ELIGIBLE;
+      }
+      return new UnsupportedLibraryInvokeReason(singleTargetReference);
+    }
+
+    // Unsupported holder.
     return new UnsupportedLibraryInvokeReason(singleTargetReference);
   }
 
@@ -1387,11 +1464,11 @@ public class EnumUnboxer {
     return false;
   }
 
-  public Set<Phi> rewriteCode(IRCode code) {
+  public Set<Phi> rewriteCode(IRCode code, MethodProcessor methodProcessor) {
     // This has no effect during primary processing since the enumUnboxerRewriter is set
     // in between primary and post processing.
     if (enumUnboxerRewriter != null) {
-      return enumUnboxerRewriter.rewriteCode(code);
+      return enumUnboxerRewriter.rewriteCode(code, methodProcessor);
     }
     return Sets.newIdentityHashSet();
   }
@@ -1401,5 +1478,9 @@ public class EnumUnboxer {
     if (enumUnboxerRewriter != null) {
       enumUnboxerRewriter.synthesizeEnumUnboxingUtilityMethods(converter, executorService);
     }
+  }
+
+  public void unsetRewriter() {
+    enumUnboxerRewriter = null;
   }
 }

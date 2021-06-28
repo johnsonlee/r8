@@ -222,7 +222,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     assert defaultInterfaceMethodImplementation == null;
     assert implementation != null;
     assert code != null;
-    assert code == implementation.getCode();
+    // TODO(b/183998768): Once R8 desugars in the enqueuer this should always be invalid code.
+    assert InvalidCode.isInvalidCode(code) || code == implementation.getCode();
     accessFlags.setAbstract();
     removeCode();
     defaultInterfaceMethodImplementation = implementation;
@@ -1586,6 +1587,28 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     public Builder setIsLibraryMethodOverrideIfKnown(OptionalBool isLibraryMethodOverride) {
       return setIsLibraryMethodOverrideIf(
           !isLibraryMethodOverride.isUnknown(), isLibraryMethodOverride);
+    }
+
+    public Builder unsetIsLibraryMethodOverride() {
+      this.isLibraryMethodOverride = OptionalBool.UNKNOWN;
+      return this;
+    }
+
+    public Builder clearAnnotations() {
+      return setAnnotations(DexAnnotationSet.empty());
+    }
+
+    public Builder clearParameterAnnotations() {
+      return setParameterAnnotations(ParameterAnnotationsList.empty());
+    }
+
+    public Builder clearAllAnnotations() {
+      return clearAnnotations().clearParameterAnnotations();
+    }
+
+    public Builder setAnnotations(DexAnnotationSet annotations) {
+      this.annotations = annotations;
+      return this;
     }
 
     public Builder setParameterAnnotations(ParameterAnnotationsList parameterAnnotations) {

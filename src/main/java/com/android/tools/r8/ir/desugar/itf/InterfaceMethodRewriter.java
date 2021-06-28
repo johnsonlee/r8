@@ -25,7 +25,6 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.ClasspathOrLibraryClass;
-import com.android.tools.r8.graph.DexApplication.Builder;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -33,11 +32,11 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DexValue;
+import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.InvalidCode;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -57,10 +56,10 @@ import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.DesugaredLibraryConfiguration;
-import com.android.tools.r8.ir.desugar.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.FreshLocalProvider;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryConfiguration;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.stringconcat.StringConcatInstructionDesugaring;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations;
@@ -75,17 +74,13 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.Pair;
-import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.collections.SortedProgramMethodSet;
 import com.android.tools.r8.utils.structural.Ordered;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
@@ -132,7 +127,6 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   public static final String PRIVATE_METHOD_PREFIX = "$private$";
 
   private final AppView<?> appView;
-  private final IRConverter converter;
   private final InternalOptions options;
   final DexItemFactory factory;
   private final Map<DexType, DexType> emulatedInterfaces;
@@ -165,7 +159,6 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       BackportedMethodRewriter rewriter,
       DesugaredLibraryRetargeter desugaredLibraryRetargeter) {
     this.appView = appView;
-    this.converter = null;
     this.backportedMethodRewriter = rewriter;
     this.desugaredLibraryRetargeter = desugaredLibraryRetargeter;
     this.options = appView.options();
@@ -179,7 +172,6 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   public InterfaceMethodRewriter(AppView<?> appView, IRConverter converter) {
     assert converter != null;
     this.appView = appView;
-    this.converter = converter;
     this.backportedMethodRewriter = null;
     this.desugaredLibraryRetargeter = null;
     this.options = appView.options();
@@ -249,10 +241,17 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   }
 
   void addCompanionClassRewriteRule(DexType interfaceType, String rewrittenType) {
+    addCompanionClassRewriteRule(interfaceType, rewrittenType, appView);
+  }
+
+  static void addCompanionClassRewriteRule(
+      DexType interfaceType, String rewrittenType, AppView<?> appView) {
     appView.rewritePrefix.rewriteType(
-        getCompanionClassType(interfaceType),
-        factory.createType(
-            DescriptorUtils.javaTypeToDescriptor(rewrittenType + COMPANION_CLASS_NAME_SUFFIX)));
+        getCompanionClassType(interfaceType, appView.dexItemFactory()),
+        appView
+            .dexItemFactory()
+            .createType(
+                DescriptorUtils.javaTypeToDescriptor(rewrittenType + COMPANION_CLASS_NAME_SUFFIX)));
   }
 
   boolean isEmulatedInterface(DexType itf) {
@@ -744,7 +743,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
                 // TODO(b/183998768): Why does this not create a stub on the class path?
                 : privateAsMethodOfCompanionClass(directTarget);
       } else {
-        companionMethod = defaultAsMethodOfCompanionClass(directTarget);
+        companionMethod = ensureDefaultAsMethodOfCompanionClassStub(directTarget).getReference();
       }
       return rewriteInvoke.apply(companionMethod);
     } else {
@@ -754,7 +753,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       if (virtualTarget != null) {
         // This is a invoke-direct call to a virtual method.
         assert invokeNeedsRewriting(invokedMethod, DIRECT);
-        return rewriteInvoke.apply(defaultAsMethodOfCompanionClass(virtualTarget));
+        return rewriteInvoke.apply(
+            ensureDefaultAsMethodOfCompanionClassStub(virtualTarget).getReference());
       } else {
         // The below assert is here because a well-type program should have a target, but we
         // cannot throw a compilation error, since we have no knowledge about the input.
@@ -925,7 +925,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
           DexClass holder = target.getHolder();
           if (holder.isLibraryClass() && holder.isInterface()) {
             assert invokeNeedsRewriting(invokedMethod, SUPER);
-            return rewriteInvoke.apply(defaultAsMethodOfCompanionClass(target));
+            return rewriteInvoke.apply(
+                ensureDefaultAsMethodOfCompanionClassStub(target).getReference());
           }
         }
       }
@@ -938,25 +939,23 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     DexClassAndMethod superTarget =
         appView.appInfoForDesugaring().lookupSuperTarget(invokedMethod, context);
     if (superTarget != null && superTarget.isLibraryMethod()) {
+      assert invokeNeedsRewriting(invokedMethod, SUPER);
       // Rewriting is required because the super invoke resolves into a missing
       // method (method is on desugared library). Find out if it needs to be
-      // retarget or if it just calls a companion class method and rewrite.
+      // retargeted or if it just calls a companion class method and rewrite.
       DexMethod retargetMethod =
           options.desugaredLibraryConfiguration.retargetMethod(superTarget, appView);
-      if (retargetMethod == null) {
-        DexMethod originalCompanionMethod = defaultAsMethodOfCompanionClass(superTarget);
-        DexMethod companionMethod =
-            factory.createMethod(
-                getCompanionClassType(emulatedItf),
-                factory.protoWithDifferentFirstParameter(
-                    originalCompanionMethod.proto, emulatedItf),
-                originalCompanionMethod.name);
-        assert invokeNeedsRewriting(invokedMethod, SUPER);
-        return rewriteInvoke.apply(companionMethod);
-      } else {
-        assert invokeNeedsRewriting(invokedMethod, SUPER);
+      if (retargetMethod != null) {
         return rewriteInvoke.apply(retargetMethod);
       }
+      DexClassAndMethod emulatedMethod =
+          superTarget.getReference().lookupMemberOnClass(appView.definitionFor(emulatedItf));
+      if (emulatedMethod == null) {
+        assert false;
+        return null;
+      }
+      DexClassAndMethod companionMethod = ensureDefaultAsMethodOfCompanionClassStub(emulatedMethod);
+      return rewriteInvoke.apply(companionMethod.getReference());
     }
     return null;
   }
@@ -1194,6 +1193,16 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     return factory.createType(interfaceTypeDescriptor);
   }
 
+  DexClassAndMethod ensureDefaultAsMethodOfCompanionClassStub(DexClassAndMethod method) {
+    if (method.isProgramMethod()) {
+      return ensureDefaultAsMethodOfProgramCompanionClassStub(method.asProgramMethod());
+    }
+    ClasspathOrLibraryClass context = method.getHolder().asClasspathOrLibraryClass();
+    DexMethod companionMethodReference =
+        defaultAsMethodOfCompanionClass(method.getReference(), appView.dexItemFactory());
+    return ensureMethodOfClasspathCompanionClassStub(companionMethodReference, context, appView);
+  }
+
   DexClassAndMethod ensureStaticAsMethodOfCompanionClassStub(DexClassAndMethod method) {
     if (method.isProgramMethod()) {
       return ensureStaticAsMethodOfProgramCompanionClassStub(method.asProgramMethod());
@@ -1202,6 +1211,37 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       DexMethod companionMethodReference = staticAsMethodOfCompanionClass(method);
       return ensureMethodOfClasspathCompanionClassStub(companionMethodReference, context, appView);
     }
+  }
+
+  ProgramMethod ensureDefaultAsMethodOfProgramCompanionClassStub(ProgramMethod method) {
+    DexEncodedMethod virtual = method.getDefinition();
+    DexMethod companionMethod =
+        defaultAsMethodOfCompanionClass(method.getReference(), appView.dexItemFactory());
+    return InterfaceProcessor.ensureCompanionMethod(
+        method.getHolder(),
+        companionMethod.getName(),
+        companionMethod.getProto(),
+        appView,
+        methodBuilder -> {
+          MethodAccessFlags newFlags = method.getAccessFlags().copy();
+          newFlags.promoteToStatic();
+          methodBuilder
+              .setAccessFlags(newFlags)
+              .setGenericSignature(MethodTypeSignature.noSignature())
+              .setAnnotations(
+                  virtual
+                      .annotations()
+                      .methodParametersWithFakeThisArguments(appView.dexItemFactory()))
+              .setParameterAnnotationsList(
+                  virtual.getParameterAnnotations().withFakeThisParameter())
+              // TODO(b/183998768): Once R8 desugars in the enqueuer this should set an invalid
+              //  code to ensure it is never used before desugared and installed.
+              .setCode(
+                  ignored ->
+                      appView.enableWholeProgramOptimizations()
+                          ? virtual.getCode()
+                          : InvalidCode.getInstance());
+        });
   }
 
   ProgramMethod ensurePrivateAsMethodOfProgramCompanionClassStub(ProgramMethod method) {
@@ -1222,6 +1262,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
               .setAccessFlags(newFlags)
               .setGenericSignature(definition.getGenericSignature())
               .setAnnotations(definition.annotations())
+              // TODO(b/183998768): Should this not also be updating with a fake 'this'
               .setParameterAnnotationsList(definition.getParameterAnnotations())
               // TODO(b/183998768): Once R8 desugars in the enqueuer this should set an invalid
               //  code to ensure it is never used before desugared and installed.
@@ -1272,13 +1313,6 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     return instanceAsMethodOfCompanionClass(method, DEFAULT_METHOD_PREFIX, factory);
   }
 
-  public final DexMethod defaultAsMethodOfCompanionClass(DexClassAndMethod method) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    DexMethod rewritten = defaultAsMethodOfCompanionClass(method.getReference(), dexItemFactory);
-    recordCompanionClassReference(appView, method, rewritten);
-    return rewritten;
-  }
-
   // Represent a private instance interface method as a method of companion class.
   static DexMethod privateAsMethodOfCompanionClass(DexMethod method, DexItemFactory factory) {
     // Add an implicit argument to represent the receiver.
@@ -1287,17 +1321,6 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
 
   private DexMethod privateAsMethodOfCompanionClass(DexClassAndMethod method) {
     return privateAsMethodOfCompanionClass(method.getReference(), factory);
-  }
-
-  private static DexClassAndMethod recordCompanionClassReference(
-      AppView<?> appView, DexClassAndMethod method, DexMethod rewritten) {
-    ClasspathOrLibraryClass context = method.getHolder().asClasspathOrLibraryClass();
-    // If the interface class is a program class, we shouldn't need to synthesize the companion
-    // class on the classpath.
-    if (context == null) {
-      return null;
-    }
-    return ensureMethodOfClasspathCompanionClassStub(rewritten, context, appView);
   }
 
   private static DexClassAndMethod ensureMethodOfClasspathCompanionClassStub(
@@ -1343,74 +1366,22 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
         });
   }
 
-  /**
-   * Move static and default interface methods to companion classes, add missing methods to forward
-   * to moved default methods implementation.
-   */
-  public void desugarInterfaceMethods(
-      Builder<?> builder, Flavor flavour, ExecutorService executorService)
-      throws ExecutionException {
-    // During L8 compilation, emulated interfaces are processed to be renamed, to have
-    // their interfaces fixed-up and to generate the emulated dispatch code.
-    EmulatedInterfaceProcessor emulatedInterfaceProcessor =
-        new EmulatedInterfaceProcessor(appView, this);
-
-    // Process all classes first. Add missing forwarding methods to
-    // replace desugared default interface methods.
-    ClassProcessor classProcessor = new ClassProcessor(appView, this);
-
-    // Process interfaces, create companion or dispatch class if needed, move static
-    // methods to companion class, copy default interface methods to companion classes,
-    // make original default methods abstract, remove bridge methods, create dispatch
-    // classes if needed.
-    InterfaceProcessor interfaceProcessor = new InterfaceProcessor(appView, this);
-
-    // The interface processors must be ordered so that finalization of the processing is performed
-    // in that order. The emulatedInterfaceProcessor has to be last at this point to avoid renaming
-    // emulated interfaces before the other processing.
-    ImmutableList<InterfaceDesugaringProcessor> orderedInterfaceDesugaringProcessors =
-        ImmutableList.of(classProcessor, interfaceProcessor, emulatedInterfaceProcessor);
-    processClassesConcurrently(
-        orderedInterfaceDesugaringProcessors, builder, flavour, executorService);
-
+  public void finalizeInterfaceMethodRewritingThroughIR(
+      IRConverter converter, ExecutorService executorService) throws ExecutionException {
     SortedProgramMethodSet sortedSynthesizedMethods = SortedProgramMethodSet.create();
     sortedSynthesizedMethods.addAll(synthesizedMethods);
     converter.processMethodsConcurrently(sortedSynthesizedMethods, executorService);
 
     // Cached data is not needed any more.
-    clear();
-  }
-
-  private void clear() {
     this.cache.clear();
     this.synthesizedMethods.clear();
   }
 
-  private boolean shouldProcess(DexProgramClass clazz, Flavor flavour) {
-    if (appView.isAlreadyLibraryDesugared(clazz)) {
-      return false;
-    }
-    return (!clazz.originatesFromDexResource() || flavour == Flavor.IncludeAllResources);
-  }
-
-  private void processClassesConcurrently(
-      List<InterfaceDesugaringProcessor> processors,
-      Builder<?> builder,
-      Flavor flavour,
-      ExecutorService executorService)
+  public void runInterfaceDesugaringProcessors(
+      IRConverter converter, Flavor flavour, ExecutorService executorService)
       throws ExecutionException {
-    ThreadUtils.processItems(
-        Iterables.filter(
-            builder.getProgramClasses(), (DexProgramClass clazz) -> shouldProcess(clazz, flavour)),
-        clazz -> {
-          for (InterfaceDesugaringProcessor processor : processors) {
-            processor.process(clazz, synthesizedMethods);
-          }
-        },
-        executorService);
-    for (InterfaceDesugaringProcessor processor : processors) {
-      processor.finalizeProcessing(builder, synthesizedMethods);
-    }
+    new InterfaceMethodProcessorFacade(appView)
+        .runInterfaceDesugaringProcessors(this, converter, flavour, executorService);
   }
 
   final boolean isDefaultMethod(DexEncodedMethod method) {

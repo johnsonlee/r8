@@ -5,9 +5,8 @@ package com.android.tools.r8.ir.desugar.itf;
 
 import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.emulateInterfaceLibraryMethod;
 
-import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexApplication.Builder;
+import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
@@ -37,6 +36,9 @@ import java.util.Map;
 import java.util.Set;
 
 public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProcessor {
+
+  private static final String JUNK_SUFFIX = "$JUNK";
+
   private final AppView<?> appView;
   private final InterfaceMethodRewriter rewriter;
   private final Map<DexType, DexType> emulatedInterfaces;
@@ -163,20 +165,20 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
 
   private void synthesizeEmulatedInterfaceMethod(
       ProgramMethod method, DexProgramClass theInterface, SyntheticMethodBuilder methodBuilder) {
+    assert !method.getDefinition().isStatic();
     DexMethod libraryMethod =
         method
             .getReference()
             .withHolder(emulatedInterfaces.get(theInterface.type), appView.dexItemFactory());
     DexMethod companionMethod =
-        method.getAccessFlags().isStatic()
-            ? rewriter.staticAsMethodOfCompanionClass(method)
-            : rewriter.defaultAsMethodOfCompanionClass(method);
+        rewriter.ensureDefaultAsMethodOfProgramCompanionClassStub(method).getReference();
     List<Pair<DexType, DexMethod>> extraDispatchCases =
         getDispatchCases(method, theInterface, companionMethod);
     DexMethod emulatedMethod = emulateInterfaceLibraryMethod(method, appView.dexItemFactory());
     methodBuilder
         .setName(emulatedMethod.getName())
         .setProto(emulatedMethod.getProto())
+        .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
         .setCode(
             theMethod ->
                 new EmulateInterfaceSyntheticCfCodeProvider(
@@ -185,10 +187,7 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
                         libraryMethod,
                         extraDispatchCases,
                         appView)
-                    .generateCfCode())
-        .setAccessFlags(
-            MethodAccessFlags.fromSharedAccessFlags(
-                Constants.ACC_SYNTHETIC | Constants.ACC_STATIC | Constants.ACC_PUBLIC, false));
+                    .generateCfCode());
   }
 
   private List<Pair<DexType, DexMethod>> getDispatchCases(
@@ -283,7 +282,7 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
   }
 
   @Override
-  public void finalizeProcessing(Builder<?> builder, ProgramMethodSet synthesizedMethods) {
+  public void finalizeProcessing(ProgramMethodSet synthesizedMethods) {
     warnMissingEmulatedInterfaces();
     if (!appView.options().isDesugaredLibraryCompilation()) {
       return;
@@ -298,24 +297,29 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
         }
       }
     }
-    // TODO(b/183918843): Investigate what to do for the filtering, the minimum would be to make
-    // the rewriting rule explicit instead of using the synthesized class prefix.
-    filterEmulatedInterfaceSubInterfaces(builder);
   }
 
-  private void filterEmulatedInterfaceSubInterfaces(Builder<?> builder) {
+  // TODO(b/183918843): Investigate what to do. The whole method is trying to fill a hole in the
+  //  desugaring library specifications by patching types and classes through questionable renaming.
+  public static void filterEmulatedInterfaceSubInterfaces(
+      AppView<?> appView, DexApplication.Builder<?> builder) {
+    assert appView.options().isDesugaredLibraryCompilation();
     ArrayList<DexProgramClass> filteredProgramClasses = new ArrayList<>();
-    for (DexProgramClass clazz : builder.getProgramClasses()) {
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
       if (clazz.isInterface()
-          && !rewriter.isEmulatedInterface(clazz.type)
+          && !appView
+              .options()
+              .desugaredLibraryConfiguration
+              .getEmulateLibraryInterface()
+              .containsKey(clazz.type)
           && !appView.rewritePrefix.hasRewrittenType(clazz.type, appView)
-          && isEmulatedInterfaceSubInterface(clazz)) {
+          && isEmulatedInterfaceSubInterface(clazz, appView)) {
         String newName =
             appView
                 .options()
                 .desugaredLibraryConfiguration
                 .convertJavaNameToDesugaredLibrary(clazz.type);
-        rewriter.addCompanionClassRewriteRule(clazz.type, newName);
+        InterfaceMethodRewriter.addCompanionClassRewriteRule(clazz.type, newName, appView);
       } else {
         filteredProgramClasses.add(clazz);
       }
@@ -323,12 +327,21 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
     builder.replaceProgramClasses(filteredProgramClasses);
   }
 
-  private boolean isEmulatedInterfaceSubInterface(DexClass subInterface) {
-    assert !rewriter.isEmulatedInterface(subInterface.type);
+  private static boolean isEmulatedInterfaceSubInterface(
+      DexClass subInterface, AppView<?> appView) {
+    assert !appView
+        .options()
+        .desugaredLibraryConfiguration
+        .getEmulateLibraryInterface()
+        .containsKey(subInterface.type);
     LinkedList<DexType> workList = new LinkedList<>(Arrays.asList(subInterface.interfaces.values));
     while (!workList.isEmpty()) {
       DexType next = workList.removeFirst();
-      if (rewriter.isEmulatedInterface(next)) {
+      if (appView
+          .options()
+          .desugaredLibraryConfiguration
+          .getEmulateLibraryInterface()
+          .containsKey(next)) {
         return true;
       }
       DexClass nextClass = appView.definitionFor(next);

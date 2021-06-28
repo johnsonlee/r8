@@ -14,7 +14,6 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexAnnotationSet;
-import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -390,8 +389,7 @@ final class ClassProcessor implements InterfaceDesugaringProcessor {
   // We introduce forwarding methods only once all desugaring has been performed to avoid
   // confusing the look-up with inserted forwarding methods.
   @Override
-  public final void finalizeProcessing(
-      DexApplication.Builder<?> builder, ProgramMethodSet synthesizedMethods) {
+  public final void finalizeProcessing(ProgramMethodSet synthesizedMethods) {
     newSyntheticMethods.forEach(
         (clazz, newForwardingMethods) -> {
           clazz.addVirtualMethods(newForwardingMethods.toDefinitionSet());
@@ -819,7 +817,7 @@ final class ClassProcessor implements InterfaceDesugaringProcessor {
     // In desugared library, emulated interface methods can be overridden by retarget lib members.
     DexMethod forwardMethod =
         target.getHolder().isInterface()
-            ? rewriter.defaultAsMethodOfCompanionClass(target)
+            ? rewriter.ensureDefaultAsMethodOfCompanionClassStub(target).getReference()
             : appView.options().desugaredLibraryConfiguration.retargetMethod(target, appView);
     DexEncodedMethod desugaringForwardingMethod =
         DexEncodedMethod.createDesugaringForwardingMethod(

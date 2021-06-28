@@ -49,10 +49,12 @@ import com.android.tools.r8.ir.desugar.CfClassDesugaringEventConsumer.D8CfClassD
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer.D8CfInstructionDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringCollection;
+import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CovariantReturnTypeAnnotationTransformer;
-import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter;
-import com.android.tools.r8.ir.desugar.DesugaredLibraryAPIConverter.Mode;
-import com.android.tools.r8.ir.desugar.DesugaredLibraryRetargeter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverter.Mode;
+import com.android.tools.r8.ir.desugar.itf.EmulatedInterfaceProcessor;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor;
 import com.android.tools.r8.ir.desugar.lambda.LambdaDeserializationMethodRemover;
@@ -139,7 +141,6 @@ public class IRConverter {
   private final StringBuilderOptimizer stringBuilderOptimizer;
   private final IdempotentFunctionCallCanonicalizer idempotentFunctionCallCanonicalizer;
   private final InterfaceMethodRewriter interfaceMethodRewriter;
-  private final DesugaredLibraryRetargeter desugaredLibraryRetargeter;
   private final ClassInliner classInliner;
   private final ClassStaticizer classStaticizer;
   private final InternalOptions options;
@@ -225,7 +226,6 @@ public class IRConverter {
       assert options.desugarState.isOn();
       this.instructionDesugaring = CfInstructionDesugaringCollection.create(appView);
       this.classDesugaring = instructionDesugaring.createClassDesugaringCollection();
-      this.desugaredLibraryRetargeter = null; // Managed cf to cf.
       this.interfaceMethodRewriter =
           options.desugaredLibraryConfiguration.getEmulateLibraryInterface().isEmpty()
               ? null
@@ -258,11 +258,6 @@ public class IRConverter {
             ? CfInstructionDesugaringCollection.empty()
             : CfInstructionDesugaringCollection.create(appView);
     this.classDesugaring = instructionDesugaring.createClassDesugaringCollection();
-    this.desugaredLibraryRetargeter =
-        options.desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()
-                || !appView.enableWholeProgramOptimizations()
-            ? null
-            : new DesugaredLibraryRetargeter(appView);
     this.interfaceMethodRewriter =
         options.isInterfaceMethodDesugaringEnabled()
             ? new InterfaceMethodRewriter(appView, this)
@@ -372,10 +367,9 @@ public class IRConverter {
         D8NestBasedAccessDesugaring::clearNestAttributes);
   }
 
-  public void finalizeDesugaredLibraryRetargeting(
-      D8CfInstructionDesugaringEventConsumer instructionDesugaringEventConsumer) {
-    instructionDesugaring.withDesugaredLibraryRetargeter(
-        retargeter -> retargeter.finalizeDesugaring(instructionDesugaringEventConsumer));
+  void postProcessDesugaring(CfPostProcessingDesugaringEventConsumer eventConsumer) {
+    CfPostProcessingDesugaringCollection.create(appView, instructionDesugaring.getRetargetingInfo())
+        .postProcessingDesugaring(eventConsumer);
   }
 
   private void staticizeClasses(
@@ -392,24 +386,22 @@ public class IRConverter {
     }
   }
 
-  private void desugarInterfaceMethods(
-      Builder<?> builder,
-      Flavor includeAllResources,
-      ExecutorService executorService)
+  private void finalizeInterfaceMethodRewritingThroughIR(ExecutorService executorService)
       throws ExecutionException {
     assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
     if (interfaceMethodRewriter != null) {
-      interfaceMethodRewriter.desugarInterfaceMethods(
-          builder, includeAllResources, executorService);
+      interfaceMethodRewriter.finalizeInterfaceMethodRewritingThroughIR(this, executorService);
     }
   }
 
-  private void synthesizeRetargetClass(ExecutorService executorService) throws ExecutionException {
-    if (desugaredLibraryRetargeter != null) {
-      desugaredLibraryRetargeter.synthesizeRetargetClasses(this, executorService);
+  private void runInterfaceDesugaringProcessors(
+      Flavor includeAllResources, ExecutorService executorService) throws ExecutionException {
+    assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
+    if (interfaceMethodRewriter != null) {
+      interfaceMethodRewriter.runInterfaceDesugaringProcessors(
+          this, includeAllResources, executorService);
     }
   }
-
 
   private void synthesizeEnumUnboxingUtilityMethods(ExecutorService executorService)
       throws ExecutionException {
@@ -448,7 +440,10 @@ public class IRConverter {
     // Build a new application with jumbo string info,
     Builder<?> builder = application.builder().setHighestSortingString(highestSortingString);
 
-    desugarInterfaceMethods(builder, ExcludeDexResources, executor);
+    runInterfaceDesugaringProcessors(ExcludeDexResources, executor);
+    if (appView.options().isDesugaredLibraryCompilation()) {
+      EmulatedInterfaceProcessor.filterEmulatedInterfaceSubInterfaces(appView, builder);
+    }
     processCovariantReturnTypeAnnotations(builder);
     generateDesugaredLibraryAPIWrappers(builder, executor);
 
@@ -743,7 +738,7 @@ public class IRConverter {
           .run(executorService, feedback, timing);
     }
     if (enumUnboxer != null) {
-      enumUnboxer.unboxEnums(postMethodProcessorBuilder, executorService, feedback);
+      enumUnboxer.unboxEnums(this, postMethodProcessorBuilder, executorService, feedback);
     } else {
       appView.setUnboxedEnums(EnumDataMap.empty());
     }
@@ -763,6 +758,11 @@ public class IRConverter {
       assert graphLensForIR == appView.graphLens();
     }
     timing.end();
+
+    if (enumUnboxer != null) {
+      // TODO(b/190098858): Uncomment when methods are synthesized on-the-fly.
+      // enumUnboxer.unsetRewriter();
+    }
 
     // All the code that should be impacted by the lenses inserted between phase 1 and phase 2
     // have now been processed and rewritten, we clear code lens rewriting so that the class
@@ -793,11 +793,11 @@ public class IRConverter {
     builder.setHighestSortingString(highestSortingString);
 
     printPhase("Interface method desugaring");
-    desugarInterfaceMethods(builder, IncludeAllResources, executorService);
+    finalizeInterfaceMethodRewritingThroughIR(executorService);
+    runInterfaceDesugaringProcessors(IncludeAllResources, executorService);
     feedback.updateVisibleOptimizationInfo();
 
     printPhase("Utility classes synthesis");
-    synthesizeRetargetClass(executorService);
     synthesizeEnumUnboxingUtilityMethods(executorService);
 
     printPhase("Desugared library API Conversion finalization");
@@ -1221,7 +1221,7 @@ public class IRConverter {
     if (appView.graphLens().hasCodeRewritings()) {
       assert lensCodeRewriter != null;
       timing.begin("Lens rewrite");
-      lensCodeRewriter.rewrite(code, context);
+      lensCodeRewriter.rewrite(code, context, methodProcessor);
       timing.end();
     }
 
@@ -1458,14 +1458,6 @@ public class IRConverter {
     if (options.desugarState == DesugarState.ON && options.enableTryWithResourcesDesugaring()) {
       timing.begin("Rewrite Throwable suppresed methods");
       codeRewriter.rewriteThrowableAddAndGetSuppressed(code);
-      timing.end();
-    }
-
-    if (desugaredLibraryRetargeter != null) {
-      // The desugaredLibraryRetargeter should run before backportedMethodRewriter to be able to
-      // perform backport rewriting before the methods can be retargeted.
-      timing.begin("Retarget library methods");
-      desugaredLibraryRetargeter.desugar(code);
       timing.end();
     }
 

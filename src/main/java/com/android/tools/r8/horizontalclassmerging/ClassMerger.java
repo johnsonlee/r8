@@ -312,8 +312,8 @@ public class ClassMerger {
 
   void mergeStaticFields() {
     group.forEachSource(classStaticFieldsMerger::addFields);
-    classStaticFieldsMerger.merge(group.getTarget());
-    group.forEachSource(clazz -> clazz.setStaticFields(null));
+    classStaticFieldsMerger.merge();
+    group.forEachSource(DexClass::clearStaticFields);
   }
 
   public void mergeGroup(

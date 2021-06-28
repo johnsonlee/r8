@@ -98,6 +98,10 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
     return position == null ? "???" : position.toString();
   }
 
+  public Value getOperand(int index) {
+    return inValues().get(index);
+  }
+
   public List<Value> inValues() {
     return inValues;
   }
@@ -1008,6 +1012,14 @@ public abstract class Instruction implements InstructionOrPhi, TypeAndLocalInfoS
   }
 
   public NewInstance asNewInstance() {
+    return null;
+  }
+
+  public boolean isNewUnboxedEnumInstance() {
+    return false;
+  }
+
+  public NewUnboxedEnumInstance asNewUnboxedEnumInstance() {
     return null;
   }
 
