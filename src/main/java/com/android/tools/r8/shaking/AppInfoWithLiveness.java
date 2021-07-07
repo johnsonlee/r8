@@ -1050,7 +1050,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
             .collect(Collectors.toList()));
 
     CommittedItems committedItems = getSyntheticItems().commitRewrittenWithLens(application, lens);
-    DexDefinitionSupplier definitionSupplier = application.getDefinitionsSupplier(committedItems);
+    DexDefinitionSupplier definitionSupplier =
+        committedItems.getApplication().getDefinitionsSupplier(committedItems);
     return new AppInfoWithLiveness(
         committedItems,
         getClassToFeatureSplitMap().rewrittenWithLens(lens),
@@ -1471,5 +1472,14 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   /** Predicate on types that *must* never be merged vertically. */
   public boolean isNoVerticalClassMergingOfType(DexType type) {
     return noClassMerging.contains(type) || noVerticalClassMerging.contains(type);
+  }
+
+  public boolean verifyNoIteratingOverPrunedClasses() {
+    classes()
+        .forEach(
+            clazz -> {
+              assert !wasPruned(clazz.type) : clazz.type + " was not pruned";
+            });
+    return true;
   }
 }

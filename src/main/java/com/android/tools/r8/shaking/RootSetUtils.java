@@ -5,6 +5,8 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.LensUtils.rewriteAndApplyIfNotPrimitiveType;
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+import static java.util.Collections.emptyMap;
 
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.AssumeNoSideEffectsRuleForObjectMembersDiagnostic;
@@ -12,9 +14,14 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.BottomUpClassHierarchyTraversal;
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexAnnotation;
+import com.android.tools.r8.graph.DexAnnotation.AnnotatedKind;
 import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndField;
+import com.android.tools.r8.graph.DexClassAndMember;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -29,6 +36,7 @@ import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.GraphLens;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
@@ -39,7 +47,11 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.shaking.AnnotationMatchResult.AnnotationsIgnoredMatchResult;
 import com.android.tools.r8.shaking.AnnotationMatchResult.ConcreteAnnotationMatchResult;
+import com.android.tools.r8.shaking.AnnotationMatchResult.MatchedAnnotation;
 import com.android.tools.r8.shaking.DelayedRootSetActionItem.InterfaceMethodSyntheticBridgeAction;
+import com.android.tools.r8.shaking.EnqueuerEvent.InstantiatedClassEnqueuerEvent;
+import com.android.tools.r8.shaking.EnqueuerEvent.LiveClassEnqueuerEvent;
+import com.android.tools.r8.shaking.KeepInfo.Joiner;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.Consumer3;
 import com.android.tools.r8.utils.InternalOptions;
@@ -48,6 +60,7 @@ import com.android.tools.r8.utils.OriginWithPosition;
 import com.android.tools.r8.utils.PredicateSet;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.TriConsumer;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -83,6 +96,39 @@ import java.util.stream.Collectors;
 
 public class RootSetUtils {
 
+  static void modifyMinimumKeepInfo(
+      Map<DexReference, KeepInfo.Joiner<?, ?, ?>> minimumKeepInfo,
+      DexDefinition definition,
+      Consumer<Joiner<?, ?, ?>> consumer) {
+    modifyMinimumKeepInfo(minimumKeepInfo, definition.getReference(), consumer);
+  }
+
+  static void modifyMinimumKeepInfo(
+      Map<DexReference, KeepInfo.Joiner<?, ?, ?>> minimumKeepInfo,
+      DexReference reference,
+      Consumer<Joiner<?, ?, ?>> consumer) {
+    Joiner<?, ?, ?> joiner =
+        minimumKeepInfo.computeIfAbsent(
+            reference,
+            key ->
+                key.apply(
+                    clazz -> KeepClassInfo.newEmptyJoiner(),
+                    field -> KeepFieldInfo.newEmptyJoiner(),
+                    method -> KeepMethodInfo.newEmptyJoiner()));
+    consumer.accept(joiner);
+    assert !joiner.isBottom();
+  }
+
+  static void modifyDependentMinimumKeepInfo(
+      Map<EnqueuerEvent, Map<DexReference, KeepInfo.Joiner<?, ?, ?>>> dependentMinimumKeepInfo,
+      EnqueuerEvent event,
+      DexDefinition dependent,
+      Consumer<Joiner<?, ?, ?>> consumer) {
+    Map<DexReference, KeepInfo.Joiner<?, ?, ?>> minimumKeepInfoForDependants =
+        dependentMinimumKeepInfo.computeIfAbsent(event, ignoreKey(IdentityHashMap::new));
+    modifyMinimumKeepInfo(minimumKeepInfoForDependants, dependent, consumer);
+  }
+
   public static class RootSetBuilder {
 
     private final AppView<? extends AppInfoWithClassHierarchy> appView;
@@ -90,8 +136,10 @@ public class RootSetUtils {
     private final DirectMappedDexApplication application;
     private final Iterable<? extends ProguardConfigurationRule> rules;
     private final MutableItemsWithRules noShrinking = new MutableItemsWithRules();
-    private final MutableItemsWithRules softPinned = new MutableItemsWithRules();
-    private final Set<DexReference> noObfuscation = Sets.newIdentityHashSet();
+    private final Map<DexReference, KeepInfo.Joiner<?, ?, ?>> minimumKeepInfo =
+        new IdentityHashMap<>();
+    private final Map<EnqueuerEvent, Map<DexReference, KeepInfo.Joiner<?, ?, ?>>>
+        dependentMinimumKeepInfo = new HashMap<>();
     private final LinkedHashMap<DexReference, DexReference> reasonAsked = new LinkedHashMap<>();
     private final LinkedHashMap<DexReference, DexReference> checkDiscarded = new LinkedHashMap<>();
     private final Set<DexMethod> alwaysInline = Sets.newIdentityHashSet();
@@ -111,8 +159,6 @@ public class RootSetUtils {
     private final Set<DexType> noHorizontalClassMerging = Sets.newIdentityHashSet();
     private final Set<DexReference> neverPropagateValue = Sets.newIdentityHashSet();
     private final Map<DexReference, MutableItemsWithRules> dependentNoShrinking =
-        new IdentityHashMap<>();
-    private final Map<DexReference, MutableItemsWithRules> dependentSoftPinned =
         new IdentityHashMap<>();
     private final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule =
         new IdentityHashMap<>();
@@ -184,7 +230,7 @@ public class RootSetUtils {
       }
 
       Collection<ProguardMemberRule> memberKeepRules = rule.getMemberRules();
-      Map<Predicate<DexDefinition>, DexDefinition> preconditionSupplier;
+      Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier;
       if (rule instanceof ProguardKeepRule) {
         if (clazz.isNotProgramClass()) {
           return;
@@ -192,7 +238,7 @@ public class RootSetUtils {
         switch (((ProguardKeepRule) rule).getType()) {
           case KEEP_CLASS_MEMBERS:
             // Members mentioned at -keepclassmembers always depend on their holder.
-            preconditionSupplier = ImmutableMap.of(definition -> true, clazz);
+            preconditionSupplier = ImmutableMap.of(definition -> true, clazz.asProgramClass());
             markMatchingVisibleMethods(
                 clazz, memberKeepRules, rule, preconditionSupplier, false, ifRule);
             markMatchingVisibleFields(
@@ -210,7 +256,8 @@ public class RootSetUtils {
               // Static members in -keep are pinned no matter what.
               preconditionSupplier.put(DexDefinition::isStaticMember, null);
               // Instance members may need to be kept even though the holder is not instantiated.
-              preconditionSupplier.put(definition -> !definition.isStaticMember(), clazz);
+              preconditionSupplier.put(
+                  definition -> !definition.isStaticMember(), clazz.asProgramClass());
             } else {
               // Members mentioned at -keep should always be pinned as long as that -keep rule is
               // not triggered conditionally.
@@ -231,10 +278,16 @@ public class RootSetUtils {
       if (rule instanceof ProguardIfRule) {
         throw new Unreachable("-if rule will be evaluated separately, not here.");
       } else if (rule instanceof ProguardCheckDiscardRule) {
-        if (memberKeepRules.isEmpty()) {
+        if (!clazz.isProgramClass()) {
+          appView
+              .reporter()
+              .warning(
+                  new StringDiagnostic(
+                      "The rule `" + rule + "` matches a class not in the program."));
+        } else if (memberKeepRules.isEmpty()) {
           markClass(clazz, rule, ifRule);
         } else {
-          preconditionSupplier = ImmutableMap.of((definition -> true), clazz);
+          preconditionSupplier = ImmutableMap.of((definition -> true), clazz.asProgramClass());
           markMatchingVisibleMethods(
               clazz, memberKeepRules, rule, preconditionSupplier, true, ifRule);
           markMatchingVisibleFields(
@@ -346,11 +399,10 @@ public class RootSetUtils {
       assert Sets.intersection(neverInline, alwaysInline).isEmpty()
               && Sets.intersection(neverInline, forceInline).isEmpty()
           : "A method cannot be marked as both -neverinline and -forceinline/-alwaysinline.";
-      assert appView.options().isMinificationEnabled() || noObfuscation.isEmpty();
       return new RootSet(
           noShrinking,
-          softPinned,
-          noObfuscation,
+          minimumKeepInfo,
+          dependentMinimumKeepInfo,
           ImmutableList.copyOf(reasonAsked.values()),
           ImmutableList.copyOf(checkDiscarded.values()),
           alwaysInline,
@@ -373,7 +425,6 @@ public class RootSetUtils {
           noSideEffects,
           assumedValues,
           dependentNoShrinking,
-          dependentSoftPinned,
           dependentKeepClassCompatRule,
           identifierNameStrings,
           ifRules,
@@ -446,23 +497,23 @@ public class RootSetUtils {
           neverInlineDueToSingleCaller,
           neverClassInline,
           noShrinking,
-          softPinned,
-          noObfuscation,
+          minimumKeepInfo,
+          dependentMinimumKeepInfo,
           dependentNoShrinking,
-          dependentSoftPinned,
           dependentKeepClassCompatRule,
           Lists.newArrayList(delayedRootSetActionItems));
     }
 
-    private static DexDefinition testAndGetPrecondition(
+    private static DexProgramClass testAndGetPrecondition(
         DexDefinition definition,
-        Map<Predicate<DexDefinition>, DexDefinition> preconditionSupplier) {
+        Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier) {
       if (preconditionSupplier == null) {
         return null;
       }
-      DexDefinition precondition = null;
+      DexProgramClass precondition = null;
       boolean conditionEverMatched = false;
-      for (Entry<Predicate<DexDefinition>, DexDefinition> entry : preconditionSupplier.entrySet()) {
+      for (Entry<Predicate<DexDefinition>, DexProgramClass> entry :
+          preconditionSupplier.entrySet()) {
         if (entry.getKey().test(definition)) {
           precondition = entry.getValue();
           conditionEverMatched = true;
@@ -479,7 +530,7 @@ public class RootSetUtils {
         DexClass clazz,
         Collection<ProguardMemberRule> memberKeepRules,
         ProguardConfigurationRule rule,
-        Map<Predicate<DexDefinition>, DexDefinition> preconditionSupplier,
+        Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
         boolean includeLibraryClasses,
         ProguardIfRule ifRule) {
       Set<Wrapper<DexMethod>> methodsMarked =
@@ -492,24 +543,17 @@ public class RootSetUtils {
           break;
         }
         // In compat mode traverse all direct methods in the hierarchy.
-        currentClass
-            .getMethodCollection()
-            .forEachDirectMethodMatching(
-                method ->
-                    currentClass == clazz
-                        || (method.isStatic() && !method.isPrivate() && !method.isInitializer())
-                        || options.forceProguardCompatibility,
-                method -> {
-                  DexDefinition precondition = testAndGetPrecondition(method, preconditionSupplier);
-                  markMethod(method, memberKeepRules, methodsMarked, rule, precondition, ifRule);
-                });
-        currentClass
-            .virtualMethods()
-            .forEach(
-                method -> {
-                  DexDefinition precondition = testAndGetPrecondition(method, preconditionSupplier);
-                  markMethod(method, memberKeepRules, methodsMarked, rule, precondition, ifRule);
-                });
+        currentClass.forEachClassMethodMatching(
+            method ->
+                method.belongsToVirtualPool()
+                    || currentClass == clazz
+                    || (method.isStatic() && !method.isPrivate() && !method.isInitializer())
+                    || options.forceProguardCompatibility,
+            method -> {
+              DexProgramClass precondition =
+                  testAndGetPrecondition(method.getDefinition(), preconditionSupplier);
+              markMethod(method, memberKeepRules, methodsMarked, rule, precondition, ifRule);
+            });
         if (currentClass.superType != null) {
           DexClass dexClass = application.definitionFor(currentClass.superType);
           if (dexClass != null) {
@@ -539,7 +583,7 @@ public class RootSetUtils {
       private final DexProgramClass originalClazz;
       private final Collection<ProguardMemberRule> memberKeepRules;
       private final ProguardConfigurationRule context;
-      private final Map<Predicate<DexDefinition>, DexDefinition> preconditionSupplier;
+      private final Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier;
       private final ProguardIfRule ifRule;
       private final Set<Wrapper<DexMethod>> seenMethods = Sets.newHashSet();
       private final Set<DexType> seenTypes = Sets.newIdentityHashSet();
@@ -548,7 +592,7 @@ public class RootSetUtils {
           DexProgramClass originalClazz,
           Collection<ProguardMemberRule> memberKeepRules,
           ProguardConfigurationRule context,
-          Map<Predicate<DexDefinition>, DexDefinition> preconditionSupplier,
+          Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
           ProguardIfRule ifRule) {
         assert context.isProguardKeepRule();
         assert !context.asProguardKeepRule().getModifiers().allowsShrinking;
@@ -582,21 +626,24 @@ public class RootSetUtils {
         if (originalClazz == clazz) {
           return;
         }
-        for (DexEncodedMethod method : clazz.virtualMethods()) {
-          // Check if we already added this.
-          Wrapper<DexMethod> wrapped = MethodSignatureEquivalence.get().wrap(method.getReference());
-          if (!seenMethods.add(wrapped)) {
-            continue;
-          }
-          for (ProguardMemberRule rule : memberKeepRules) {
-            if (rule.matches(method, appView, this::handleMatchedAnnotation, dexStringCache)) {
-              tryAndKeepMethodOnClass(method, rule);
-            }
-          }
-        }
+        clazz.forEachClassMethodMatching(
+            DexEncodedMethod::belongsToVirtualPool,
+            method -> {
+              // Check if we already added this.
+              Wrapper<DexMethod> wrapped =
+                  MethodSignatureEquivalence.get().wrap(method.getReference());
+              if (!seenMethods.add(wrapped)) {
+                return;
+              }
+              for (ProguardMemberRule rule : memberKeepRules) {
+                if (rule.matches(method, appView, this::handleMatchedAnnotation, dexStringCache)) {
+                  tryAndKeepMethodOnClass(method, rule);
+                }
+              }
+            });
       }
 
-      private void tryAndKeepMethodOnClass(DexEncodedMethod method, ProguardMemberRule rule) {
+      private void tryAndKeepMethodOnClass(DexClassAndMethod method, ProguardMemberRule rule) {
         SingleResolutionResult resolutionResult =
             appView
                 .appInfo()
@@ -637,7 +684,7 @@ public class RootSetUtils {
                         context,
                         rule);
                   }
-                  DexDefinition precondition =
+                  DexProgramClass precondition =
                       testAndGetPrecondition(methodToKeep.getDefinition(), preconditionSupplier);
                   rootSetBuilder.addItemToSets(
                       methodToKeep.getDefinition(), context, rule, precondition, ifRule);
@@ -655,7 +702,7 @@ public class RootSetUtils {
         DexClass clazz,
         Collection<ProguardMemberRule> memberKeepRules,
         ProguardConfigurationRule rule,
-        Map<Predicate<DexDefinition>, DexDefinition> preconditionSupplier,
+        Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
         boolean onlyIncludeProgramClasses,
         ProguardIfRule ifRule) {
       Set<DexType> visited = new HashSet<>();
@@ -676,13 +723,13 @@ public class RootSetUtils {
         if (!onlyIncludeProgramClasses && currentClazz.isNotProgramClass()) {
           continue;
         }
-        currentClazz
-            .virtualMethods()
-            .forEach(
-                method -> {
-                  DexDefinition precondition = testAndGetPrecondition(method, preconditionSupplier);
-                  markMethod(method, memberKeepRules, null, rule, precondition, ifRule);
-                });
+        currentClazz.forEachClassMethodMatching(
+            DexEncodedMethod::belongsToVirtualPool,
+            method -> {
+              DexProgramClass precondition =
+                  testAndGetPrecondition(method.getDefinition(), preconditionSupplier);
+              markMethod(method, memberKeepRules, null, rule, precondition, ifRule);
+            });
         worklist.addAll(subtypingInfo.allImmediateSubtypes(currentClazz.type));
       }
     }
@@ -691,11 +738,12 @@ public class RootSetUtils {
         DexClass clazz,
         Collection<ProguardMemberRule> memberKeepRules,
         ProguardConfigurationRule rule,
-        Map<Predicate<DexDefinition>, DexDefinition> preconditionSupplier,
+        Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
         ProguardIfRule ifRule) {
-      clazz.forEachMethod(
+      clazz.forEachClassMethod(
           method -> {
-            DexDefinition precondition = testAndGetPrecondition(method, preconditionSupplier);
+            DexProgramClass precondition =
+                testAndGetPrecondition(method.getDefinition(), preconditionSupplier);
             markMethod(method, memberKeepRules, null, rule, precondition, ifRule);
           });
     }
@@ -704,16 +752,17 @@ public class RootSetUtils {
         DexClass clazz,
         Collection<ProguardMemberRule> memberKeepRules,
         ProguardConfigurationRule rule,
-        Map<Predicate<DexDefinition>, DexDefinition> preconditionSupplier,
+        Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
         boolean includeLibraryClasses,
         ProguardIfRule ifRule) {
       while (clazz != null) {
         if (!includeLibraryClasses && clazz.isNotProgramClass()) {
           return;
         }
-        clazz.forEachField(
+        clazz.forEachClassField(
             field -> {
-              DexDefinition precondition = testAndGetPrecondition(field, preconditionSupplier);
+              DexProgramClass precondition =
+                  testAndGetPrecondition(field.getDefinition(), preconditionSupplier);
               markField(field, memberKeepRules, rule, precondition, ifRule);
             });
         clazz = clazz.superType == null ? null : application.definitionFor(clazz.superType);
@@ -724,11 +773,12 @@ public class RootSetUtils {
         DexClass clazz,
         Collection<ProguardMemberRule> memberKeepRules,
         ProguardConfigurationRule rule,
-        Map<Predicate<DexDefinition>, DexDefinition> preconditionSupplier,
+        Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
         ProguardIfRule ifRule) {
-      clazz.forEachField(
+      clazz.forEachClassField(
           field -> {
-            DexDefinition precondition = testAndGetPrecondition(field, preconditionSupplier);
+            DexProgramClass precondition =
+                testAndGetPrecondition(field.getDefinition(), preconditionSupplier);
             markField(field, memberKeepRules, rule, precondition, ifRule);
           });
     }
@@ -924,15 +974,13 @@ public class RootSetUtils {
      * account.
      */
     private boolean ruleSatisfied(ProguardMemberRule rule, DexClass clazz) {
-      return ruleSatisfiedByMethods(rule, clazz.directMethods())
-          || ruleSatisfiedByMethods(rule, clazz.virtualMethods())
-          || ruleSatisfiedByFields(rule, clazz.staticFields())
-          || ruleSatisfiedByFields(rule, clazz.instanceFields());
+      return ruleSatisfiedByMethods(rule, clazz.classMethods())
+          || ruleSatisfiedByFields(rule, clazz.classFields());
     }
 
-    boolean ruleSatisfiedByMethods(ProguardMemberRule rule, Iterable<DexEncodedMethod> methods) {
+    boolean ruleSatisfiedByMethods(ProguardMemberRule rule, Iterable<DexClassAndMethod> methods) {
       if (rule.getRuleType().includesMethods()) {
-        for (DexEncodedMethod method : methods) {
+        for (DexClassAndMethod method : methods) {
           if (rule.matches(method, appView, this::handleMatchedAnnotation, dexStringCache)) {
             return true;
           }
@@ -941,9 +989,9 @@ public class RootSetUtils {
       return false;
     }
 
-    boolean ruleSatisfiedByFields(ProguardMemberRule rule, Iterable<DexEncodedField> fields) {
+    boolean ruleSatisfiedByFields(ProguardMemberRule rule, Iterable<DexClassAndField> fields) {
       if (rule.getRuleType().includesFields()) {
-        for (DexEncodedField field : fields) {
+        for (DexClassAndField field : fields) {
           if (rule.matches(field, appView, this::handleMatchedAnnotation, dexStringCache)) {
             return true;
           }
@@ -954,25 +1002,34 @@ public class RootSetUtils {
 
     static AnnotationMatchResult containsAllAnnotations(
         List<ProguardTypeMatcher> annotationMatchers, DexClass clazz) {
-      return containsAllAnnotations(annotationMatchers, clazz.annotations());
+      return containsAllAnnotations(
+          annotationMatchers, clazz, clazz.annotations(), AnnotatedKind.TYPE);
     }
 
     static <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>>
         boolean containsAllAnnotations(
             List<ProguardTypeMatcher> annotationMatchers,
-            DexEncodedMember<D, R> member,
+            DexClassAndMember<D, R> member,
             Consumer<AnnotationMatchResult> matchedAnnotationsConsumer) {
       AnnotationMatchResult annotationMatchResult =
-          containsAllAnnotations(annotationMatchers, member.annotations());
+          containsAllAnnotations(
+              annotationMatchers,
+              member,
+              member.getAnnotations(),
+              member.isField() ? AnnotatedKind.FIELD : AnnotatedKind.METHOD);
       if (annotationMatchResult != null) {
         matchedAnnotationsConsumer.accept(annotationMatchResult);
         return true;
       }
-      if (member.isDexEncodedMethod()) {
-        DexEncodedMethod method = member.asDexEncodedMethod();
-        for (int i = 0; i < method.parameterAnnotationsList.size(); i++) {
+      if (member.isMethod()) {
+        DexClassAndMethod method = member.asMethod();
+        for (int i = 0; i < method.getParameterAnnotations().size(); i++) {
           annotationMatchResult =
-              containsAllAnnotations(annotationMatchers, method.parameterAnnotationsList.get(i));
+              containsAllAnnotations(
+                  annotationMatchers,
+                  method,
+                  method.getParameterAnnotation(i),
+                  AnnotatedKind.PARAMETER);
           if (annotationMatchResult != null) {
             matchedAnnotationsConsumer.accept(annotationMatchResult);
             return true;
@@ -983,18 +1040,25 @@ public class RootSetUtils {
     }
 
     private static AnnotationMatchResult containsAllAnnotations(
-        List<ProguardTypeMatcher> annotationMatchers, DexAnnotationSet annotations) {
+        List<ProguardTypeMatcher> annotationMatchers,
+        Definition annotatedItem,
+        DexAnnotationSet annotations,
+        AnnotatedKind annotatedKind) {
       if (annotationMatchers.isEmpty()) {
         return AnnotationsIgnoredMatchResult.getInstance();
       }
-      List<DexAnnotation> matchedAnnotations = new ArrayList<>();
+      List<MatchedAnnotation> matchedAnnotations = new ArrayList<>();
       for (ProguardTypeMatcher annotationMatcher : annotationMatchers) {
         DexAnnotation matchedAnnotation =
             getFirstAnnotationThatMatches(annotationMatcher, annotations);
         if (matchedAnnotation == null) {
           return null;
         }
-        matchedAnnotations.add(matchedAnnotation);
+        if (annotatedItem.isProgramDefinition()) {
+          matchedAnnotations.add(
+              new MatchedAnnotation(
+                  annotatedItem.asProgramDefinition(), matchedAnnotation, annotatedKind));
+        }
       }
       return new ConcreteAnnotationMatchResult(matchedAnnotations);
     }
@@ -1010,11 +1074,11 @@ public class RootSetUtils {
     }
 
     private void markMethod(
-        DexEncodedMethod method,
+        DexClassAndMethod method,
         Collection<ProguardMemberRule> rules,
         Set<Wrapper<DexMethod>> methodsMarked,
         ProguardConfigurationRule context,
-        DexDefinition precondition,
+        DexProgramClass precondition,
         ProguardIfRule ifRule) {
       if (methodsMarked != null
           && methodsMarked.contains(MethodSignatureEquivalence.get().wrap(method.getReference()))) {
@@ -1030,23 +1094,23 @@ public class RootSetUtils {
           if (methodsMarked != null) {
             methodsMarked.add(MethodSignatureEquivalence.get().wrap(method.getReference()));
           }
-          addItemToSets(method, context, rule, precondition, ifRule);
+          addItemToSets(method.getDefinition(), context, rule, precondition, ifRule);
         }
       }
     }
 
     private void markField(
-        DexEncodedField field,
+        DexClassAndField field,
         Collection<ProguardMemberRule> rules,
         ProguardConfigurationRule context,
-        DexDefinition precondition,
+        DexProgramClass precondition,
         ProguardIfRule ifRule) {
       for (ProguardMemberRule rule : rules) {
         if (rule.matches(field, appView, this::handleMatchedAnnotation, dexStringCache)) {
           if (Log.ENABLED) {
             Log.verbose(getClass(), "Marking field `%s` due to `%s { %s }`.", field, context, rule);
           }
-          addItemToSets(field, context, rule, precondition, ifRule);
+          addItemToSets(field.getDefinition(), context, rule, precondition, ifRule);
         }
       }
     }
@@ -1058,7 +1122,12 @@ public class RootSetUtils {
       addItemToSets(clazz, rule, null, null, ifRule);
     }
 
-    private void includeDescriptor(DexDefinition item, DexType type, ProguardKeepRuleBase context) {
+    // TODO(b/192636793): This needs to use the precondition.
+    private void includeDescriptor(
+        DexDefinition item,
+        DexType type,
+        ProguardKeepRuleBase context,
+        DexProgramClass precondition) {
       if (type.isVoidType()) {
         return;
       }
@@ -1068,30 +1137,33 @@ public class RootSetUtils {
       if (type.isPrimitiveType()) {
         return;
       }
-      DexClass definition = appView.definitionFor(type);
-      if (definition == null || definition.isNotProgramClass()) {
+      DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(type));
+      if (clazz == null) {
         return;
       }
+
       // Keep the type if the item is also kept.
       dependentNoShrinking
           .computeIfAbsent(item.getReference(), x -> new MutableItemsWithRules())
           .addClassWithRule(type, context);
-      // Unconditionally add to no-obfuscation, as that is only checked for surviving items.
+
+      // Disable minification for the type.
       if (appView.options().isMinificationEnabled()) {
-        noObfuscation.add(type);
+        modifyMinimumKeepInfo(minimumKeepInfo, clazz, Joiner::disallowMinification);
       }
     }
 
-    private void includeDescriptorClasses(DexDefinition item, ProguardKeepRuleBase context) {
+    private void includeDescriptorClasses(
+        DexDefinition item, ProguardKeepRuleBase context, DexProgramClass precondition) {
       if (item.isDexEncodedMethod()) {
-        DexMethod method = item.asDexEncodedMethod().getReference();
-        includeDescriptor(item, method.proto.returnType, context);
-        for (DexType value : method.proto.parameters.values) {
-          includeDescriptor(item, value, context);
+        DexEncodedMethod method = item.asDexEncodedMethod();
+        includeDescriptor(item, method.getReturnType(), context, precondition);
+        for (DexType value : method.getParameters()) {
+          includeDescriptor(item, value, context, precondition);
         }
       } else if (item.isDexEncodedField()) {
-        DexField field = item.asDexEncodedField().getReference();
-        includeDescriptor(item, field.type, context);
+        DexEncodedField field = item.asDexEncodedField();
+        includeDescriptor(item, field.getType(), context, precondition);
       } else {
         assert item.isDexClass();
       }
@@ -1101,7 +1173,7 @@ public class RootSetUtils {
         DexDefinition item,
         ProguardConfigurationRule context,
         ProguardMemberRule rule,
-        DexDefinition precondition,
+        DexProgramClass precondition,
         ProguardIfRule ifRule) {
       if (context instanceof ProguardKeepRule) {
         if (item.isDexEncodedField()) {
@@ -1150,8 +1222,14 @@ public class RootSetUtils {
 
         // The reason for keeping should link to the conditional rule as a whole, if present.
         ProguardKeepRuleBase keepRule = ifRule != null ? ifRule : (ProguardKeepRuleBase) context;
+
         // The modifiers are specified on the actual keep rule (ie, the consequent/context).
         ProguardKeepRuleModifiers modifiers = ((ProguardKeepRule) context).getModifiers();
+        if (modifiers.isBottom()) {
+          // This rule is a no-op.
+          return;
+        }
+
         // In compatibility mode, for a match on instance members a referenced class becomes live.
         if (options.forceProguardCompatibility
             && !modifiers.allowsShrinking
@@ -1164,6 +1242,10 @@ public class RootSetUtils {
             context.markAsUsed();
           }
         }
+
+        // TODO(b/192636793): Remove the noShrinking and dependentNoShrinking collections. A
+        //  prerequisite for this is that the ProguardKeepRule instances are added to the KeepInfo,
+        //  since this is needed for the -whyareyoukeeping graph.
         if (!modifiers.allowsShrinking) {
           if (precondition != null) {
             dependentNoShrinking
@@ -1173,27 +1255,63 @@ public class RootSetUtils {
             noShrinking.addReferenceWithRule(item.getReference(), keepRule);
           }
           context.markAsUsed();
-        } else if (!modifiers.allowsOptimization) {
-          if (precondition != null) {
-            dependentSoftPinned
-                .computeIfAbsent(precondition.getReference(), x -> new MutableItemsWithRules())
-                .addReferenceWithRule(item.getReference(), keepRule);
-          } else {
-            softPinned.addReferenceWithRule(item.getReference(), keepRule);
-          }
         }
-        if (!modifiers.allowsOptimization) {
-          // The -dontoptimize flag has only effect through the keep all rule, but we still
-          // need to mark the rule as used.
+
+        EnqueuerEvent preconditionEvent;
+        if (precondition != null) {
+          preconditionEvent =
+              item.getAccessFlags().isStatic()
+                  ? new LiveClassEnqueuerEvent(precondition)
+                  : new InstantiatedClassEnqueuerEvent(precondition);
+        } else {
+          preconditionEvent = null;
+        }
+
+        if (appView.options().isAnnotationRemovalEnabled() && !modifiers.allowsAnnotationRemoval) {
+          if (precondition != null) {
+            modifyDependentMinimumKeepInfo(
+                dependentMinimumKeepInfo,
+                preconditionEvent,
+                item,
+                Joiner::disallowAnnotationRemoval);
+          } else {
+            modifyMinimumKeepInfo(minimumKeepInfo, item, Joiner::disallowAnnotationRemoval);
+          }
           context.markAsUsed();
         }
 
         if (appView.options().isMinificationEnabled() && !modifiers.allowsObfuscation) {
-          noObfuscation.add(item.getReference());
+          if (precondition != null) {
+            modifyDependentMinimumKeepInfo(
+                dependentMinimumKeepInfo, preconditionEvent, item, Joiner::disallowMinification);
+          } else {
+            modifyMinimumKeepInfo(minimumKeepInfo, item, Joiner::disallowMinification);
+          }
           context.markAsUsed();
         }
+
+        if (appView.options().isOptimizationEnabled() && !modifiers.allowsOptimization) {
+          if (precondition != null) {
+            modifyDependentMinimumKeepInfo(
+                dependentMinimumKeepInfo, preconditionEvent, item, Joiner::disallowOptimization);
+          } else {
+            modifyMinimumKeepInfo(minimumKeepInfo, item, Joiner::disallowOptimization);
+          }
+          context.markAsUsed();
+        }
+
+        if (appView.options().isShrinking() && !modifiers.allowsShrinking) {
+          if (precondition != null) {
+            modifyDependentMinimumKeepInfo(
+                dependentMinimumKeepInfo, preconditionEvent, item, Joiner::disallowShrinking);
+          } else {
+            modifyMinimumKeepInfo(minimumKeepInfo, item, Joiner::disallowShrinking);
+          }
+          context.markAsUsed();
+        }
+
         if (modifiers.includeDescriptorClasses) {
-          includeDescriptorClasses(item, keepRule);
+          includeDescriptorClasses(item, keepRule, precondition);
           context.markAsUsed();
         }
       } else if (context instanceof ProguardAssumeMayHaveSideEffectsRule) {
@@ -1409,10 +1527,9 @@ public class RootSetUtils {
     final Set<DexMethod> neverInlineDueToSingleCaller;
     final Set<DexType> neverClassInline;
     final MutableItemsWithRules noShrinking;
-    final MutableItemsWithRules softPinned;
-    final Set<DexReference> noObfuscation;
+    final Map<DexReference, KeepInfo.Joiner<?, ?, ?>> minimumKeepInfo;
+    final Map<EnqueuerEvent, Map<DexReference, KeepInfo.Joiner<?, ?, ?>>> dependentMinimumKeepInfo;
     final Map<DexReference, MutableItemsWithRules> dependentNoShrinking;
-    final Map<DexReference, MutableItemsWithRules> dependentSoftPinned;
     final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule;
     final List<DelayedRootSetActionItem> delayedRootSetActionItems;
 
@@ -1421,20 +1538,18 @@ public class RootSetUtils {
         Set<DexMethod> neverInlineDueToSingleCaller,
         Set<DexType> neverClassInline,
         MutableItemsWithRules noShrinking,
-        MutableItemsWithRules softPinned,
-        Set<DexReference> noObfuscation,
+        Map<DexReference, KeepInfo.Joiner<?, ?, ?>> minimumKeepInfo,
+        Map<EnqueuerEvent, Map<DexReference, KeepInfo.Joiner<?, ?, ?>>> dependentMinimumKeepInfo,
         Map<DexReference, MutableItemsWithRules> dependentNoShrinking,
-        Map<DexReference, MutableItemsWithRules> dependentSoftPinned,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems) {
       this.neverInline = neverInline;
       this.neverInlineDueToSingleCaller = neverInlineDueToSingleCaller;
       this.neverClassInline = neverClassInline;
       this.noShrinking = noShrinking;
-      this.softPinned = softPinned;
-      this.noObfuscation = noObfuscation;
+      this.minimumKeepInfo = minimumKeepInfo;
+      this.dependentMinimumKeepInfo = dependentMinimumKeepInfo;
       this.dependentNoShrinking = dependentNoShrinking;
-      this.dependentSoftPinned = dependentSoftPinned;
       this.dependentKeepClassCompatRule = dependentKeepClassCompatRule;
       this.delayedRootSetActionItems = delayedRootSetActionItems;
     }
@@ -1543,6 +1658,54 @@ public class RootSetUtils {
     Set<ProguardKeepRuleBase> getDependentKeepClassCompatRule(DexType type) {
       return dependentKeepClassCompatRule.get(type);
     }
+
+    public void forEachMinimumKeepInfo(
+        AppView<? extends AppInfoWithClassHierarchy> appView,
+        TriConsumer<EnqueuerEvent, DexProgramClass, KeepClassInfo.Joiner> classConsumer,
+        TriConsumer<EnqueuerEvent, ProgramField, KeepFieldInfo.Joiner> fieldConsumer,
+        TriConsumer<EnqueuerEvent, ProgramMethod, KeepMethodInfo.Joiner> methodConsumer) {
+      internalForEachMinimumKeepInfo(
+          appView, minimumKeepInfo, null, classConsumer, fieldConsumer, methodConsumer);
+      dependentMinimumKeepInfo.forEach(
+          (precondition, minimumKeepInfoForDependents) ->
+              internalForEachMinimumKeepInfo(
+                  appView,
+                  minimumKeepInfoForDependents,
+                  precondition,
+                  classConsumer,
+                  fieldConsumer,
+                  methodConsumer));
+    }
+
+    private static void internalForEachMinimumKeepInfo(
+        AppView<? extends AppInfoWithClassHierarchy> appView,
+        Map<DexReference, KeepInfo.Joiner<?, ?, ?>> minimumKeepInfo,
+        EnqueuerEvent precondition,
+        TriConsumer<EnqueuerEvent, DexProgramClass, KeepClassInfo.Joiner> classConsumer,
+        TriConsumer<EnqueuerEvent, ProgramField, KeepFieldInfo.Joiner> fieldConsumer,
+        TriConsumer<EnqueuerEvent, ProgramMethod, KeepMethodInfo.Joiner> methodConsumer) {
+      minimumKeepInfo.forEach(
+          (reference, joiner) -> {
+            DexProgramClass contextClass =
+                asProgramClassOrNull(appView.definitionFor(reference.getContextType()));
+            if (contextClass != null) {
+              reference.accept(
+                  clazz -> classConsumer.accept(precondition, contextClass, joiner.asClassJoiner()),
+                  fieldReference -> {
+                    ProgramField field = contextClass.lookupProgramField(fieldReference);
+                    if (field != null) {
+                      fieldConsumer.accept(precondition, field, joiner.asFieldJoiner());
+                    }
+                  },
+                  methodReference -> {
+                    ProgramMethod method = contextClass.lookupProgramMethod(methodReference);
+                    if (method != null) {
+                      methodConsumer.accept(precondition, method, joiner.asMethodJoiner());
+                    }
+                  });
+            }
+          });
+    }
   }
 
   abstract static class ItemsWithRules {
@@ -1596,8 +1759,7 @@ public class RootSetUtils {
   static class MutableItemsWithRules extends ItemsWithRules {
 
     private static final ItemsWithRules EMPTY =
-        new MutableItemsWithRules(
-            Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+        new MutableItemsWithRules(emptyMap(), emptyMap(), emptyMap());
 
     final Map<DexType, Set<ProguardKeepRuleBase>> classesWithRules;
     final Map<DexField, Set<ProguardKeepRuleBase>> fieldsWithRules;
@@ -1834,8 +1996,8 @@ public class RootSetUtils {
 
     private RootSet(
         MutableItemsWithRules noShrinking,
-        MutableItemsWithRules softPinned,
-        Set<DexReference> noObfuscation,
+        Map<DexReference, KeepInfo.Joiner<?, ?, ?>> minimumKeepInfo,
+        Map<EnqueuerEvent, Map<DexReference, KeepInfo.Joiner<?, ?, ?>>> dependentMinimumKeepInfo,
         ImmutableList<DexReference> reasonAsked,
         ImmutableList<DexReference> checkDiscarded,
         Set<DexMethod> alwaysInline,
@@ -1858,7 +2020,6 @@ public class RootSetUtils {
         Map<DexMember<?, ?>, ProguardMemberRule> noSideEffects,
         Map<DexMember<?, ?>, ProguardMemberRule> assumedValues,
         Map<DexReference, MutableItemsWithRules> dependentNoShrinking,
-        Map<DexReference, MutableItemsWithRules> dependentSoftPinned,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         Set<DexReference> identifierNameStrings,
         Set<ProguardIfRule> ifRules,
@@ -1868,10 +2029,9 @@ public class RootSetUtils {
           neverInlineDueToSingleCaller,
           neverClassInline,
           noShrinking,
-          softPinned,
-          noObfuscation,
+          minimumKeepInfo,
+          dependentMinimumKeepInfo,
           dependentNoShrinking,
-          dependentSoftPinned,
           dependentKeepClassCompatRule,
           delayedRootSetActionItems);
       this.reasonAsked = reasonAsked;
@@ -1916,12 +2076,10 @@ public class RootSetUtils {
       neverInline.addAll(consequentRootSet.neverInline);
       neverInlineDueToSingleCaller.addAll(consequentRootSet.neverInlineDueToSingleCaller);
       neverClassInline.addAll(consequentRootSet.neverClassInline);
-      noObfuscation.addAll(consequentRootSet.noObfuscation);
       if (addNoShrinking) {
         noShrinking.addAll(consequentRootSet.noShrinking);
       }
       addDependentItems(consequentRootSet.dependentNoShrinking, dependentNoShrinking);
-      addDependentItems(consequentRootSet.dependentSoftPinned, dependentSoftPinned);
       consequentRootSet.dependentKeepClassCompatRule.forEach(
           (type, rules) ->
               dependentKeepClassCompatRule
@@ -1939,32 +2097,6 @@ public class RootSetUtils {
               dependentItemsToAddTo
                   .computeIfAbsent(reference, x -> new MutableItemsWithRules())
                   .putAll(dependence));
-    }
-
-    public void copy(DexReference original, DexReference rewritten) {
-      if (noShrinking.containsReference(original)) {
-        noShrinking.putReferenceWithRules(rewritten, noShrinking.getRulesForReference(original));
-      }
-      if (noObfuscation.contains(original)) {
-        noObfuscation.add(rewritten);
-      }
-      if (original.isDexMember()) {
-        assert rewritten.isDexMember();
-        DexMember<?, ?> originalMember = original.asDexMember();
-        if (noSideEffects.containsKey(originalMember)) {
-          noSideEffects.put(rewritten.asDexMember(), noSideEffects.get(originalMember));
-        }
-        if (assumedValues.containsKey(originalMember)) {
-          assumedValues.put(rewritten.asDexMember(), assumedValues.get(originalMember));
-        }
-      }
-    }
-
-    public void prune(DexReference reference) {
-      noShrinking.removeReference(reference);
-      noObfuscation.remove(reference);
-      noSideEffects.remove(reference);
-      assumedValues.remove(reference);
     }
 
     public void pruneDeadItems(DexDefinitionSupplier definitions, Enqueuer enqueuer) {
@@ -2007,13 +2139,8 @@ public class RootSetUtils {
           });
     }
 
-    public void move(DexReference original, DexReference rewritten) {
-      copy(original, rewritten);
-      prune(original);
-    }
-
     void shouldNotBeMinified(DexReference reference) {
-      noObfuscation.add(reference);
+      modifyMinimumKeepInfo(minimumKeepInfo, reference, Joiner::disallowMinification);
     }
 
     public boolean verifyKeptFieldsAreAccessedAndLive(AppInfoWithLiveness appInfo) {
@@ -2154,7 +2281,6 @@ public class RootSetUtils {
       StringBuilder builder = new StringBuilder();
       builder.append("RootSet");
       builder.append("\nnoShrinking: " + noShrinking.size());
-      builder.append("\nnoObfuscation: " + noObfuscation.size());
       builder.append("\nreasonAsked: " + reasonAsked.size());
       builder.append("\ncheckDiscarded: " + checkDiscarded.size());
       builder.append("\nnoSideEffects: " + noSideEffects.size());
@@ -2209,10 +2335,9 @@ public class RootSetUtils {
         Set<DexMethod> neverInlineDueToSingleCaller,
         Set<DexType> neverClassInline,
         MutableItemsWithRules noShrinking,
-        MutableItemsWithRules softPinned,
-        Set<DexReference> noObfuscation,
+        Map<DexReference, KeepInfo.Joiner<?, ?, ?>> minimumKeepInfo,
+        Map<EnqueuerEvent, Map<DexReference, KeepInfo.Joiner<?, ?, ?>>> dependentMinimumKeepInfo,
         Map<DexReference, MutableItemsWithRules> dependentNoShrinking,
-        Map<DexReference, MutableItemsWithRules> dependentSoftPinned,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems) {
       super(
@@ -2220,10 +2345,9 @@ public class RootSetUtils {
           neverInlineDueToSingleCaller,
           neverClassInline,
           noShrinking,
-          softPinned,
-          noObfuscation,
+          minimumKeepInfo,
+          dependentMinimumKeepInfo,
           dependentNoShrinking,
-          dependentSoftPinned,
           dependentKeepClassCompatRule,
           delayedRootSetActionItems);
     }
@@ -2275,8 +2399,8 @@ public class RootSetUtils {
         List<DelayedRootSetActionItem> delayedRootSetActionItems) {
       super(
           noShrinking,
-          new MutableItemsWithRules(),
-          Collections.emptySet(),
+          emptyMap(),
+          emptyMap(),
           reasonAsked,
           checkDiscarded,
           Collections.emptySet(),
@@ -2295,12 +2419,11 @@ public class RootSetUtils {
           Collections.emptySet(),
           Collections.emptySet(),
           Collections.emptySet(),
-          Collections.emptyMap(),
-          Collections.emptyMap(),
-          Collections.emptyMap(),
+          emptyMap(),
+          emptyMap(),
+          emptyMap(),
           dependentNoShrinking,
-          Collections.emptyMap(),
-          Collections.emptyMap(),
+          emptyMap(),
           Collections.emptySet(),
           ifRules,
           delayedRootSetActionItems);

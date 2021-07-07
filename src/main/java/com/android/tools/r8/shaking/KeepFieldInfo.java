@@ -20,6 +20,10 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
     return BOTTOM;
   }
 
+  public static Joiner newEmptyJoiner() {
+    return bottom().joiner();
+  }
+
   private KeepFieldInfo(Builder builder) {
     super(builder);
   }
@@ -73,7 +77,7 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
 
     @Override
     public boolean isEqualTo(KeepFieldInfo other) {
-      return true;
+      return internalIsEqualTo(other);
     }
 
     @Override
@@ -86,6 +90,17 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
 
     public Joiner(KeepFieldInfo info) {
       super(info.builder());
+    }
+
+    @Override
+    public Joiner asFieldJoiner() {
+      return this;
+    }
+
+    @Override
+    public Joiner merge(Joiner joiner) {
+      // Should be extended to merge the fields of this class in case any are added.
+      return super.merge(joiner);
     }
 
     @Override

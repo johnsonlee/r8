@@ -8,12 +8,17 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.OneTimeMethodProcessor;
+import com.android.tools.r8.ir.optimize.enums.EnumDataMap.EnumData;
+import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.FieldAccessInfoCollectionModifier;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableMap;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 public class EnumUnboxingUtilityClasses {
@@ -61,38 +66,63 @@ public class EnumUnboxingUtilityClasses {
     private ImmutableMap<DexType, LocalEnumUnboxingUtilityClass> localUtilityClasses;
     private SharedEnumUnboxingUtilityClass sharedUtilityClass;
 
+    private final FieldAccessInfoCollectionModifier.Builder
+        fieldAccessInfoCollectionModifierBuilder = FieldAccessInfoCollectionModifier.builder();
+
     public Builder(AppView<AppInfoWithLiveness> appView) {
       this.appView = appView;
     }
 
     public Builder synthesizeEnumUnboxingUtilityClasses(
-        Set<DexProgramClass> enumsToUnbox,
-        EnumDataMap enumDataMap,
-        DirectMappedDexApplication.Builder appBuilder,
-        FieldAccessInfoCollectionModifier.Builder fieldAccessInfoCollectionModifierBuilder) {
+        Set<DexProgramClass> enumsToUnbox, EnumDataMap enumDataMap) {
       SharedEnumUnboxingUtilityClass sharedUtilityClass =
           SharedEnumUnboxingUtilityClass.builder(
                   appView, enumDataMap, enumsToUnbox, fieldAccessInfoCollectionModifierBuilder)
               .build();
       ImmutableMap<DexType, LocalEnumUnboxingUtilityClass> localUtilityClasses =
-          createLocalUtilityClasses(enumsToUnbox, appBuilder);
+          createLocalUtilityClasses(enumsToUnbox, enumDataMap);
       this.localUtilityClasses = localUtilityClasses;
       this.sharedUtilityClass = sharedUtilityClass;
       return this;
     }
 
-    public EnumUnboxingUtilityClasses build() {
-      return new EnumUnboxingUtilityClasses(sharedUtilityClass, localUtilityClasses);
+    public EnumUnboxingUtilityClasses build(IRConverter converter, ExecutorService executorService)
+        throws ExecutionException {
+      EnumUnboxingUtilityClasses utilityClasses =
+          new EnumUnboxingUtilityClasses(sharedUtilityClass, localUtilityClasses);
+
+      // Extend the field access info collection with information about synthesized fields.
+      fieldAccessInfoCollectionModifierBuilder.build().modify(appView);
+
+      // Create and process the utility methods.
+      OneTimeMethodProcessor.Builder methodProcessorBuilder =
+          OneTimeMethodProcessor.builder(appView.createProcessorContext());
+      utilityClasses.forEach(
+          utilityClass -> {
+            utilityClass.ensureMethods(appView);
+            utilityClass.getDefinition().forEachProgramMethod(methodProcessorBuilder::add);
+          });
+      OneTimeMethodProcessor methodProcessor = methodProcessorBuilder.build();
+      methodProcessor.forEachWaveWithExtension(
+          (method, methodProcessingContext) ->
+              converter.processDesugaredMethod(
+                  method,
+                  OptimizationFeedbackSimple.getInstance(),
+                  methodProcessor,
+                  methodProcessingContext),
+          executorService);
+      return utilityClasses;
     }
 
     private ImmutableMap<DexType, LocalEnumUnboxingUtilityClass> createLocalUtilityClasses(
-        Set<DexProgramClass> enumsToUnbox, DirectMappedDexApplication.Builder appBuilder) {
+        Set<DexProgramClass> enumsToUnbox, EnumDataMap dataMap) {
       ImmutableMap.Builder<DexType, LocalEnumUnboxingUtilityClass> localUtilityClasses =
           ImmutableMap.builder();
       for (DexProgramClass enumToUnbox : enumsToUnbox) {
+        EnumData data = dataMap.get(enumToUnbox);
         localUtilityClasses.put(
             enumToUnbox.getType(),
-            LocalEnumUnboxingUtilityClass.builder(appView, enumToUnbox).build(appBuilder));
+            LocalEnumUnboxingUtilityClass.builder(appView, enumToUnbox, data).build());
       }
       return localUtilityClasses.build();
     }

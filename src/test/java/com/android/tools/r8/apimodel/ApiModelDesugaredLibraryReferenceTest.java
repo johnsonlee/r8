@@ -41,10 +41,10 @@ public class ApiModelDesugaredLibraryReferenceTest extends DesugaredLibraryTestB
   @Test
   public void testClockR8() throws Exception {
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
-    Method printZone = CustomLibClass.class.getDeclaredMethod("printZone");
+    Method printZone = DesugaredLibUser.class.getDeclaredMethod("printZone");
     Method main = Executor.class.getDeclaredMethod("main", String[].class);
     testForR8(parameters.getBackend())
-        .addProgramClasses(Executor.class, CustomLibClass.class)
+        .addProgramClasses(Executor.class, DesugaredLibUser.class)
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
         .addKeepMainRule(Executor.class)
         .setMinApi(parameters.getApiLevel())
@@ -54,8 +54,7 @@ public class ApiModelDesugaredLibraryReferenceTest extends DesugaredLibraryTestB
             ApiModelingTestHelper.addTracedApiReferenceLevelCallBack(
                 (reference, apiLevel) -> {
                   if (reference.equals(Reference.methodFromMethod(printZone))) {
-                    // TODO(b/191617445): This should probably always be parameters.getApiLevel()
-                    assertEquals(AndroidApiLevel.O.max(parameters.getApiLevel()), apiLevel);
+                    assertEquals(parameters.getApiLevel(), apiLevel);
                   }
                 }))
         .compile()
@@ -66,20 +65,17 @@ public class ApiModelDesugaredLibraryReferenceTest extends DesugaredLibraryTestB
             shrinkDesugaredLibrary)
         .run(parameters.getRuntime(), Executor.class)
         .assertSuccessWithOutputLines("Z")
-        // TODO(b/191617445): We should always be able to inline
-        .inspect(
-            ApiModelingTestHelper.verifyThat(parameters, printZone)
-                .inlinedIntoFromApiLevel(main, AndroidApiLevel.O));
+        .inspect(ApiModelingTestHelper.verifyThat(parameters, printZone).inlinedInto(main));
   }
 
   static class Executor {
 
     public static void main(String[] args) {
-      CustomLibClass.printZone();
+      DesugaredLibUser.printZone();
     }
   }
 
-  static class CustomLibClass {
+  static class DesugaredLibUser {
 
     public static void printZone() {
       System.out.println(Clock.systemUTC().getZone());

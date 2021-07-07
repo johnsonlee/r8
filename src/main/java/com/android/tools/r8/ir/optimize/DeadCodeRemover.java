@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.CatchHandlers.CatchHandler;
+import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
@@ -119,9 +120,20 @@ public class DeadCodeRemover {
     InstructionListIterator iterator = block.listIterator(code, block.getInstructions().size());
     while (iterator.hasPrevious()) {
       Instruction current = iterator.previous();
-      // Remove unused invoke results.
-      if (current.isInvoke() && current.hasOutValue() && !current.outValue().isUsed()) {
-        current.setOutValue(null);
+      if (current.hasOutValue()) {
+        // Replace unnecessary cast values.
+        if (current.isCheckCast()) {
+          CheckCast checkCast = current.asCheckCast();
+          if (!checkCast.isRefiningStaticType(appView.options())
+              && checkCast.outValue().getLocalInfo() == checkCast.object().getLocalInfo()) {
+            checkCast.outValue().replaceUsers(checkCast.object());
+            checkCast.object().uniquePhiUsers().forEach(Phi::removeTrivialPhi);
+          }
+        }
+        // Remove unused invoke results.
+        if (current.isInvoke() && !current.outValue().isUsed()) {
+          current.setOutValue(null);
+        }
       }
       DeadInstructionResult deadInstructionResult = current.canBeDeadCode(appView, code);
       if (deadInstructionResult.isNotDead()) {

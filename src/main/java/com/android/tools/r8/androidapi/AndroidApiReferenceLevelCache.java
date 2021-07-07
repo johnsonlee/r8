@@ -11,29 +11,31 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryConfiguration;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.TraversalContinuation;
-import java.util.IdentityHashMap;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AndroidApiReferenceLevelCache {
 
   private static final int BUILD_CACHE_TRESHOLD = 20;
 
-  private final Map<DexType, AndroidApiClass> apiTypeLookup;
-  private final Map<DexReference, AndroidApiLevel> apiMemberLookup = new IdentityHashMap<>();
+  private final ConcurrentHashMap<DexType, AndroidApiClass> apiTypeLookup;
+  private final ConcurrentHashMap<DexReference, AndroidApiLevel> apiMemberLookup =
+      new ConcurrentHashMap<>();
+  private final DesugaredLibraryConfiguration desugaredLibraryConfiguration;
   private final AppView<?> appView;
 
   private AndroidApiReferenceLevelCache(AppView<?> appView) {
-    this.appView = appView;
-    this.apiTypeLookup = new IdentityHashMap<>();
+    this(appView, new ConcurrentHashMap<>());
   }
 
   private AndroidApiReferenceLevelCache(
-      AppView<?> appView, Map<DexType, AndroidApiClass> apiTypeLookup) {
+      AppView<?> appView, ConcurrentHashMap<DexType, AndroidApiClass> apiTypeLookup) {
     this.appView = appView;
     this.apiTypeLookup = apiTypeLookup;
+    desugaredLibraryConfiguration = appView.options().desugaredLibraryConfiguration;
   }
 
   public static AndroidApiReferenceLevelCache create(AppView<?> appView) {
@@ -49,7 +51,7 @@ public class AndroidApiReferenceLevelCache {
     }
     // The apiTypeLookup is build lazily except for the mocked api types that we define in tests
     // externally.
-    Map<DexType, AndroidApiClass> apiTypeLookup = new IdentityHashMap<>();
+    ConcurrentHashMap<DexType, AndroidApiClass> apiTypeLookup = new ConcurrentHashMap<>();
     appView
         .options()
         .apiModelingOptions()
@@ -76,6 +78,11 @@ public class AndroidApiReferenceLevelCache {
       return AndroidApiLevel.UNKNOWN;
     }
     if (!clazz.isLibraryClass()) {
+      return appView.options().minApiLevel;
+    }
+    if (desugaredLibraryConfiguration.isSupported(reference, appView)) {
+      // If we end up desugaring the reference, the library classes is bridged by j$ which is part
+      // of the program.
       return appView.options().minApiLevel;
     }
     AndroidApiClass androidApiClass =

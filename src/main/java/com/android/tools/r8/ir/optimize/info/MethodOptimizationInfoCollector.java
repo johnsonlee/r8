@@ -83,9 +83,12 @@ import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.optimize.DynamicTypeOptimization;
 import com.android.tools.r8.ir.optimize.classinliner.analysis.ClassInlinerMethodConstraintAnalysis;
 import com.android.tools.r8.ir.optimize.classinliner.constraint.ClassInlinerMethodConstraint;
+import com.android.tools.r8.ir.optimize.enums.classification.EnumUnboxerMethodClassification;
+import com.android.tools.r8.ir.optimize.enums.classification.EnumUnboxerMethodClassificationAnalysis;
 import com.android.tools.r8.ir.optimize.info.bridge.BridgeAnalyzer;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoCollection;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfo;
@@ -129,6 +132,7 @@ public class MethodOptimizationInfoCollector {
       OptimizationFeedback feedback,
       DynamicTypeOptimization dynamicTypeOptimization,
       InstanceFieldInitializationInfoCollection instanceFieldInitializationInfos,
+      MethodProcessor methodProcessor,
       Timing timing) {
     DexEncodedMethod definition = method.getDefinition();
     identifyBridgeInfo(definition, code, feedback, timing);
@@ -136,10 +140,15 @@ public class MethodOptimizationInfoCollector {
     if (options.enableInlining) {
       identifyInvokeSemanticsForInlining(definition, code, feedback, timing);
     }
-    computeClassInlinerMethodConstraint(method, code, feedback, timing);
+    if (options.enableClassInlining) {
+      computeClassInlinerMethodConstraint(method, code, feedback, timing);
+    }
+    computeEnumUnboxerMethodClassification(method, code, feedback, methodProcessor, timing);
     computeSimpleInliningConstraint(method, code, feedback, timing);
     computeDynamicReturnType(dynamicTypeOptimization, feedback, definition, code, timing);
-    computeInitializedClassesOnNormalExit(feedback, definition, code, timing);
+    if (options.enableInitializedClassesAnalysis) {
+      computeInitializedClassesOnNormalExit(feedback, definition, code, timing);
+    }
     computeInstanceInitializerInfo(
         definition, code, feedback, instanceFieldInitializationInfos, timing);
     computeMayHaveSideEffects(feedback, definition, code, timing);
@@ -781,6 +790,27 @@ public class MethodOptimizationInfoCollector {
     ClassInlinerMethodConstraint classInlinerMethodConstraint =
         ClassInlinerMethodConstraintAnalysis.analyze(appView, method, code);
     feedback.setClassInlinerMethodConstraint(method, classInlinerMethodConstraint);
+  }
+
+  private void computeEnumUnboxerMethodClassification(
+      ProgramMethod method,
+      IRCode code,
+      OptimizationFeedback feedback,
+      MethodProcessor methodProcessor,
+      Timing timing) {
+    timing.begin("Compute enum unboxer method classification");
+    computeEnumUnboxerMethodClassification(method, code, feedback, methodProcessor);
+    timing.end();
+  }
+
+  private void computeEnumUnboxerMethodClassification(
+      ProgramMethod method,
+      IRCode code,
+      OptimizationFeedback feedback,
+      MethodProcessor methodProcessor) {
+    EnumUnboxerMethodClassification enumUnboxerMethodClassification =
+        EnumUnboxerMethodClassificationAnalysis.analyze(appView, method, code, methodProcessor);
+    feedback.setEnumUnboxerMethodClassification(method, enumUnboxerMethodClassification);
   }
 
   private void computeSimpleInliningConstraint(

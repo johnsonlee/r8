@@ -389,6 +389,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return getReference().getParameters();
   }
 
+  public DexType getReturnType() {
+    return getReference().getReturnType();
+  }
+
   public DexMethodSignature getSignature() {
     return new DexMethodSignature(getReference());
   }
@@ -846,6 +850,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     checkIfObsolete();
     assert classFileVersion != null;
     return classFileVersion;
+  }
+
+  public CfVersion getClassFileVersionOrElse(CfVersion defaultValue) {
+    return hasClassFileVersion() ? getClassFileVersion() : defaultValue;
   }
 
   public boolean hasClassFileVersion() {

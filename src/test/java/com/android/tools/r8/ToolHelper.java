@@ -5,7 +5,7 @@ package com.android.tools.r8;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_3_72;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_4_20;
-import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_5_0_M2;
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_5_0;
 import static com.android.tools.r8.utils.FileUtils.CLASS_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.JAVA_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.isDexFile;
@@ -124,8 +124,8 @@ public class ToolHelper {
   public static final String JAVA_CLASSES_DIR = BUILD_DIR + "classes/java/";
   public static final String JDK_11_TESTS_CLASSES_DIR = JAVA_CLASSES_DIR + "jdk11Tests/";
 
-  public static final String ASM_JAR = BUILD_DIR + "deps/asm-9.0.jar";
-  public static final String ASM_UTIL_JAR = BUILD_DIR + "deps/asm-util-9.0.jar";
+  public static final String ASM_JAR = BUILD_DIR + "deps/asm-9.2.jar";
+  public static final String ASM_UTIL_JAR = BUILD_DIR + "deps/asm-util-9.2.jar";
 
   public static final Path API_SAMPLE_JAR = Paths.get("tests", "r8_api_usage_sample.jar");
 
@@ -2169,12 +2169,12 @@ public class ToolHelper {
     return new KotlinCompiler(KOTLINC_1_4_20);
   }
 
-  public static KotlinCompiler getKotlinC_1_5_0_m2() {
-    return new KotlinCompiler(KOTLINC_1_5_0_M2);
+  public static KotlinCompiler getKotlinC_1_5_0() {
+    return new KotlinCompiler(KOTLINC_1_5_0);
   }
 
   public static KotlinCompiler[] getKotlinCompilers() {
-    return new KotlinCompiler[] {getKotlinC_1_3_72(), getKotlinC_1_4_20(), getKotlinC_1_5_0_m2()};
+    return new KotlinCompiler[] {getKotlinC_1_3_72(), getKotlinC_1_4_20(), getKotlinC_1_5_0()};
   }
 
   public static void disassemble(AndroidApp app, PrintStream ps) throws IOException {

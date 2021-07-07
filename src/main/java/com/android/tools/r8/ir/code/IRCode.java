@@ -13,7 +13,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
+import com.android.tools.r8.graph.classmerging.MergedClassesCollection;
 import com.android.tools.r8.ir.analysis.TypeChecker;
 import com.android.tools.r8.ir.analysis.VerifyTypesHelper;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
@@ -577,7 +577,8 @@ public class IRCode implements ValueFactory {
   }
 
   public boolean isConsistentSSABeforeTypesAreCorrect() {
-    assert isConsistentGraph();
+    assert isConsistentGraph(true);
+    assert consistentBlockInstructions(true);
     assert consistentDefUseChains();
     assert validThrowingInstructions();
     assert noCriticalEdges();
@@ -585,21 +586,20 @@ public class IRCode implements ValueFactory {
     return true;
   }
 
-  public boolean hasNoVerticallyMergedClasses(
-      AppView<? extends AppInfoWithClassHierarchy> appView) {
-    VerticallyMergedClasses verticallyMergedClasses = appView.verticallyMergedClasses();
-    if (verticallyMergedClasses == null) {
+  public boolean hasNoMergedClasses(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    MergedClassesCollection mergedClasses = appView.allMergedClasses();
+    if (mergedClasses == null) {
       return true;
     }
     for (Instruction instruction : instructions()) {
       if (instruction.outValue != null && instruction.outValue.getType().isClassType()) {
         ClassTypeElement classTypeLattice = instruction.outValue.getType().asClassType();
-        assert !verticallyMergedClasses.hasBeenMergedIntoSubtype(classTypeLattice.getClassType());
+        assert !mergedClasses.hasBeenMergedIntoDifferentType(classTypeLattice.getClassType());
         assert !classTypeLattice
             .getInterfaces()
             .anyMatch(
                 (itf, isKnown) -> {
-                  assert !verticallyMergedClasses.hasBeenMergedIntoSubtype(itf);
+                  assert !mergedClasses.hasBeenMergedIntoDifferentType(itf);
                   return false;
                 });
       }
@@ -608,11 +608,15 @@ public class IRCode implements ValueFactory {
   }
 
   public boolean isConsistentGraph() {
+    return isConsistentGraph(false);
+  }
+
+  public boolean isConsistentGraph(boolean ssa) {
     assert noColorsInUse();
     assert consistentBlockNumbering();
     assert consistentPredecessorSuccessors();
     assert consistentCatchHandlers();
-    assert consistentBlockInstructions();
+    assert consistentBlockInstructions(ssa);
     assert consistentMetadata();
     assert !allThrowingInstructionsHavePositions || computeAllThrowingInstructionsHavePositions();
     return true;
@@ -804,12 +808,13 @@ public class IRCode implements ValueFactory {
     return true;
   }
 
-  private boolean consistentBlockInstructions() {
+  private boolean consistentBlockInstructions(boolean ssa) {
     boolean argumentsAllowed = true;
     for (BasicBlock block : blocks) {
       assert block.consistentBlockInstructions(
           argumentsAllowed,
-          options.debug || method().getOptimizationInfo().isReachabilitySensitive());
+          options.debug || method().getOptimizationInfo().isReachabilitySensitive(),
+          ssa);
       argumentsAllowed = false;
     }
     return true;
@@ -1298,6 +1303,10 @@ public class IRCode implements ValueFactory {
       }
       return result;
     }
+  }
+
+  public LinkedList<BasicBlock> getBlocks() {
+    return blocks;
   }
 
   /**

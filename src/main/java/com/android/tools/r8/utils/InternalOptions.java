@@ -102,6 +102,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // This makes life easier when running R8 in a debugger.
   public static final boolean DETERMINISTIC_DEBUGGING = false;
 
+  // Use a MethodCollection where most interleavings between reading and mutating is caught.
+  public static final boolean USE_METHOD_COLLECTION_CONCURRENCY_CHECKED = false;
+
   public enum LineNumberOptimization {
     OFF,
     ON
@@ -223,6 +226,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     enableValuePropagation = false;
     enableSideEffectAnalysis = false;
     enableTreeShakingOfLibraryMethodOverrides = false;
+    enableInitializedClassesAnalysis = false;
     callSiteOptimizationOptions.disableOptimization();
     horizontalClassMergerOptions.setRestrictToSynthetics();
   }
@@ -584,6 +588,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   @Override
+  public boolean isAnnotationRemovalEnabled() {
+    return !isForceProguardCompatibilityEnabled();
+  }
+
+  @Override
   public boolean isTreeShakingEnabled() {
     return isShrinking();
   }
@@ -591,6 +600,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   @Override
   public boolean isMinificationEnabled() {
     return isMinifying();
+  }
+
+  @Override
+  public boolean isOptimizationEnabled() {
+    return isOptimizing();
   }
 
   @Override

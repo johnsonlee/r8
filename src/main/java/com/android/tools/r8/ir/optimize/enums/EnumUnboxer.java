@@ -20,6 +20,7 @@ import static com.android.tools.r8.ir.code.Opcodes.INVOKE_SUPER;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
 import static com.android.tools.r8.ir.code.Opcodes.RETURN;
 import static com.android.tools.r8.ir.code.Opcodes.STATIC_PUT;
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppView;
@@ -34,7 +35,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -79,6 +79,8 @@ import com.android.tools.r8.ir.optimize.enums.EnumInstanceFieldData.EnumInstance
 import com.android.tools.r8.ir.optimize.enums.EnumInstanceFieldData.EnumInstanceFieldMappingData;
 import com.android.tools.r8.ir.optimize.enums.EnumInstanceFieldData.EnumInstanceFieldOrdinalData;
 import com.android.tools.r8.ir.optimize.enums.EnumInstanceFieldData.EnumInstanceFieldUnknownData;
+import com.android.tools.r8.ir.optimize.enums.classification.CheckNotNullEnumUnboxerMethodClassification;
+import com.android.tools.r8.ir.optimize.enums.classification.EnumUnboxerMethodClassification;
 import com.android.tools.r8.ir.optimize.enums.eligibility.Reason;
 import com.android.tools.r8.ir.optimize.enums.eligibility.Reason.IllegalInvokeWithImpreciseParameterTypeReason;
 import com.android.tools.r8.ir.optimize.enums.eligibility.Reason.MissingContentsForEnumValuesArrayReason;
@@ -92,11 +94,11 @@ import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback.OptimizationInfoFixer;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.FieldAccessInfoCollectionModifier;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.collections.ImmutableInt2ReferenceSortedMap;
+import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
@@ -135,6 +137,10 @@ public class EnumUnboxer {
       new ConcurrentHashMap<>();
   private final ProgramMethodSet methodsDependingOnLibraryModelisation =
       ProgramMethodSet.createConcurrent();
+
+  // Map from checkNotNull() methods to the enums that use the given method.
+  private final ProgramMethodMap<Set<DexProgramClass>> checkNotNullMethods =
+      ProgramMethodMap.createConcurrent();
 
   private final DexEncodedField ordinalField;
 
@@ -518,31 +524,28 @@ public class EnumUnboxer {
     enumUnboxingCandidatesInfo.clear();
     // Update keep info on any of the enum methods of the removed classes.
     updateKeepInfo(enumsToUnbox);
-    DirectMappedDexApplication.Builder appBuilder = appView.appInfo().app().asDirect().builder();
-    FieldAccessInfoCollectionModifier.Builder fieldAccessInfoCollectionModifierBuilder =
-        FieldAccessInfoCollectionModifier.builder();
 
     EnumUnboxingUtilityClasses utilityClasses =
         EnumUnboxingUtilityClasses.builder(appView)
-            .synthesizeEnumUnboxingUtilityClasses(
-                enumClassesToUnbox,
-                enumDataMap,
-                appBuilder,
-                fieldAccessInfoCollectionModifierBuilder)
-            .build();
-    utilityClasses.forEach(
-        utilityClass -> utilityClass.getDefinition().forEachProgramMethod(postBuilder::add));
+            .synthesizeEnumUnboxingUtilityClasses(enumClassesToUnbox, enumDataMap)
+            .build(converter, executorService);
 
-    fieldAccessInfoCollectionModifierBuilder.build().modify(appView);
     EnumUnboxingTreeFixer.Result treeFixerResult =
-        new EnumUnboxingTreeFixer(appView, enumDataMap, enumClassesToUnbox, utilityClasses)
+        new EnumUnboxingTreeFixer(
+                appView, checkNotNullMethods, enumDataMap, enumClassesToUnbox, utilityClasses)
             .fixupTypeReferences(converter, executorService);
     EnumUnboxingLens enumUnboxingLens = treeFixerResult.getLens();
     enumUnboxerRewriter =
-        new EnumUnboxingRewriter(appView, converter, enumUnboxingLens, enumDataMap, utilityClasses);
+        new EnumUnboxingRewriter(
+            appView,
+            treeFixerResult.getCheckNotNullToCheckNotZeroMapping(),
+            converter,
+            enumUnboxingLens,
+            enumDataMap,
+            utilityClasses);
     appView.setUnboxedEnums(enumDataMap);
     GraphLens previousLens = appView.graphLens();
-    appView.rewriteWithLensAndApplication(enumUnboxingLens, appBuilder.build());
+    appView.rewriteWithLens(enumUnboxingLens);
     updateOptimizationInfos(executorService, feedback, treeFixerResult.getPrunedItems());
     postBuilder.put(dependencies);
     // Methods depending on library modelisation need to be reprocessed so they are peephole
@@ -787,11 +790,6 @@ public class EnumUnboxer {
       return OptionalInt.of(field.asSingleNumberValue().getIntValue());
     }
     return OptionalInt.empty();
-  }
-
-  public Constraint constraintForEnumUnboxing(
-      DexEncodedMethod method, EnumAccessibilityUseRegistry useRegistry) {
-    return useRegistry.computeConstraint(method.asProgramMethod(appView));
   }
 
   public void recordEnumState(DexProgramClass clazz, StaticFieldValues staticFieldValues) {
@@ -1218,6 +1216,24 @@ public class EnumUnboxer {
           return Reason.INVALID_INIT;
         }
       }
+
+      // Check if this is a checkNotNull() user. In this case, we can create a copy of the method
+      // that takes an int instead of java.lang.Object and call that method instead.
+      EnumUnboxerMethodClassification classification =
+          singleTarget.getOptimizationInfo().getEnumUnboxerMethodClassification();
+      if (classification.isCheckNotNullClassification()) {
+        CheckNotNullEnumUnboxerMethodClassification checkNotNullClassification =
+            classification.asCheckNotNullClassification();
+        if (checkNotNullClassification.isUseEligibleForUnboxing(
+            invoke.asInvokeStatic(), enumValue)) {
+          checkNotNullMethods
+              .computeIfAbsent(
+                  singleTarget.asProgramMethod(), ignoreKey(Sets::newConcurrentHashSet))
+              .add(enumClass);
+          return Reason.ELIGIBLE;
+        }
+      }
+
       // Check that the enum-value only flows into parameters whose type exactly matches the
       // enum's type.
       for (int i = 0; i < singleTarget.getParameters().size(); i++) {
@@ -1471,13 +1487,6 @@ public class EnumUnboxer {
       return enumUnboxerRewriter.rewriteCode(code, methodProcessor);
     }
     return Sets.newIdentityHashSet();
-  }
-
-  public void synthesizeUtilityMethods(IRConverter converter, ExecutorService executorService)
-      throws ExecutionException {
-    if (enumUnboxerRewriter != null) {
-      enumUnboxerRewriter.synthesizeEnumUnboxingUtilityMethods(converter, executorService);
-    }
   }
 
   public void unsetRewriter() {

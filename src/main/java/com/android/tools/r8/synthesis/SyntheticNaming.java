@@ -25,7 +25,8 @@ public class SyntheticNaming {
    */
   public enum SyntheticKind {
     // Class synthetics.
-    ENUM_UNBOXING_SHARED_UTILITY_CLASS("$EnumUnboxingSharedUtility", 24, false, true),
+    ENUM_UNBOXING_LOCAL_UTILITY_CLASS("$EnumUnboxingLocalUtility", 24, false, true),
+    ENUM_UNBOXING_SHARED_UTILITY_CLASS("$EnumUnboxingSharedUtility", 25, false, true),
     RECORD_TAG("", 1, false, true, true),
     COMPANION_CLASS("$-CC", 2, false, true),
     EMULATED_INTERFACE_CLASS("$-EL", 3, false, true),
@@ -39,6 +40,7 @@ public class SyntheticNaming {
     HORIZONTAL_INIT_TYPE_ARGUMENT_2(SYNTHETIC_CLASS_SEPARATOR + "IA$2", 7, false, true),
     HORIZONTAL_INIT_TYPE_ARGUMENT_3(SYNTHETIC_CLASS_SEPARATOR + "IA$3", 8, false, true),
     // Method synthetics.
+    ENUM_UNBOXING_CHECK_NOT_ZERO_METHOD("CheckNotZero", 27, true),
     RECORD_HELPER("Record", 9, true),
     BACKPORT("Backport", 10, true),
     STATIC_INTERFACE_CALL("StaticInterfaceCall", 11, true),
@@ -49,7 +51,8 @@ public class SyntheticNaming {
     THROW_NSME("ThrowNSME", 16, true),
     TWR_CLOSE_RESOURCE("TwrCloseResource", 17, true),
     SERVICE_LOADER("ServiceLoad", 18, true),
-    OUTLINE("Outline", 19, true);
+    OUTLINE("Outline", 19, true),
+    API_CONVERSION("APIConversion", 26, true);
 
     static {
       assert verifyNoOverlappingIds();

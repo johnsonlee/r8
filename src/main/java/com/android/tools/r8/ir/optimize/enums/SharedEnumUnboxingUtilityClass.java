@@ -25,6 +25,8 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
@@ -34,11 +36,9 @@ import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.ValueType;
-import com.android.tools.r8.ir.conversion.IRConverter;
-import com.android.tools.r8.ir.conversion.MethodProcessor;
-import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.FieldAccessInfoCollectionModifier;
+import com.android.tools.r8.synthesis.SyntheticMethodBuilder.SyntheticCodeGenerator;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.google.common.collect.ImmutableList;
@@ -51,15 +51,14 @@ import org.objectweb.asm.Opcodes;
 public class SharedEnumUnboxingUtilityClass extends EnumUnboxingUtilityClass {
 
   private final DexProgramClass sharedUtilityClass;
-  private final DexProgramClass synthesizingContext;
   private final ProgramMethod valuesMethod;
 
   public SharedEnumUnboxingUtilityClass(
       DexProgramClass sharedUtilityClass,
       DexProgramClass synthesizingContext,
       ProgramMethod valuesMethod) {
+    super(synthesizingContext);
     this.sharedUtilityClass = sharedUtilityClass;
-    this.synthesizingContext = synthesizingContext;
     this.valuesMethod = valuesMethod;
   }
 
@@ -72,11 +71,69 @@ public class SharedEnumUnboxingUtilityClass extends EnumUnboxingUtilityClass {
         appView, enumDataMap, enumsToUnbox, fieldAccessInfoCollectionModifierBuilder);
   }
 
-  public ProgramMethod ensureCompareToMethod(
-      AppView<AppInfoWithLiveness> appView,
-      IRConverter converter,
-      MethodProcessor methodProcessor) {
+  @Override
+  public void ensureMethods(AppView<AppInfoWithLiveness> appView) {
+    ensureCheckNotZeroMethod(appView);
+    ensureCheckNotZeroWithMessageMethod(appView);
+    ensureCompareToMethod(appView);
+    ensureEqualsMethod(appView);
+    ensureOrdinalMethod(appView);
+  }
+
+  public ProgramMethod ensureCheckNotZeroMethod(AppView<AppInfoWithLiveness> appView) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
+    return internalEnsureMethod(
+        appView,
+        dexItemFactory.createString("checkNotZero"),
+        dexItemFactory.createProto(dexItemFactory.voidType, dexItemFactory.intType),
+        method -> EnumUnboxingCfMethods.EnumUnboxingMethods_zeroCheck(appView.options(), method));
+  }
+
+  public ProgramMethod ensureCheckNotZeroWithMessageMethod(AppView<AppInfoWithLiveness> appView) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    return internalEnsureMethod(
+        appView,
+        dexItemFactory.createString("checkNotZero"),
+        dexItemFactory.createProto(
+            dexItemFactory.voidType, dexItemFactory.intType, dexItemFactory.stringType),
+        method ->
+            EnumUnboxingCfMethods.EnumUnboxingMethods_zeroCheckMessage(appView.options(), method));
+  }
+
+  public ProgramMethod ensureCompareToMethod(AppView<AppInfoWithLiveness> appView) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    return internalEnsureMethod(
+        appView,
+        dexItemFactory.enumMembers.compareTo.getName(),
+        dexItemFactory.createProto(
+            dexItemFactory.intType, dexItemFactory.intType, dexItemFactory.intType),
+        method -> EnumUnboxingCfMethods.EnumUnboxingMethods_compareTo(appView.options(), method));
+  }
+
+  public ProgramMethod ensureEqualsMethod(AppView<AppInfoWithLiveness> appView) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    return internalEnsureMethod(
+        appView,
+        dexItemFactory.enumMembers.equals.getName(),
+        dexItemFactory.createProto(
+            dexItemFactory.booleanType, dexItemFactory.intType, dexItemFactory.intType),
+        method -> EnumUnboxingCfMethods.EnumUnboxingMethods_equals(appView.options(), method));
+  }
+
+  public ProgramMethod ensureOrdinalMethod(AppView<AppInfoWithLiveness> appView) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    return internalEnsureMethod(
+        appView,
+        dexItemFactory.enumMembers.ordinalMethod.getName(),
+        dexItemFactory.createProto(dexItemFactory.intType, dexItemFactory.intType),
+        method -> EnumUnboxingCfMethods.EnumUnboxingMethods_ordinal(appView.options(), method));
+  }
+
+  private ProgramMethod internalEnsureMethod(
+      AppView<AppInfoWithLiveness> appView,
+      DexString methodName,
+      DexProto methodProto,
+      SyntheticCodeGenerator codeGenerator) {
     // TODO(b/191957637): Consider creating free flowing static methods instead. The synthetic
     //  infrastructure needs to be augmented with a new method ensureFixedMethod() or
     //  ensureFixedFreeFlowingMethod() for this, if we want to create only one utility method (and
@@ -84,27 +141,17 @@ public class SharedEnumUnboxingUtilityClass extends EnumUnboxingUtilityClass {
     return appView
         .getSyntheticItems()
         .ensureFixedClassMethod(
-            dexItemFactory.enumMembers.compareTo.getName(),
-            dexItemFactory.createProto(
-                dexItemFactory.intType, dexItemFactory.intType, dexItemFactory.intType),
+            methodName,
+            methodProto,
             SyntheticKind.ENUM_UNBOXING_SHARED_UTILITY_CLASS,
-            synthesizingContext,
+            getSynthesizingContext(),
             appView,
             ConsumerUtils.emptyConsumer(),
             methodBuilder ->
                 methodBuilder
                     .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
-                    .setCode(
-                        method ->
-                            EnumUnboxingCfMethods.EnumUnboxingMethods_compareTo(
-                                appView.options(), method))
-                    .setClassFileVersion(CfVersion.V1_6),
-            newMethod ->
-                converter.processDesugaredMethod(
-                    newMethod,
-                    OptimizationFeedbackSimple.getInstance(),
-                    methodProcessor,
-                    methodProcessor.createMethodProcessingContext(newMethod)));
+                    .setCode(codeGenerator)
+                    .setClassFileVersion(CfVersion.V1_6));
   }
 
   @Override
@@ -146,8 +193,10 @@ public class SharedEnumUnboxingUtilityClass extends EnumUnboxingUtilityClass {
 
     SharedEnumUnboxingUtilityClass build() {
       DexProgramClass clazz = createClass();
-      return new SharedEnumUnboxingUtilityClass(
-          clazz, synthesizingContext, new ProgramMethod(clazz, valuesMethod));
+      SharedEnumUnboxingUtilityClass sharedUtilityClass =
+          new SharedEnumUnboxingUtilityClass(
+              clazz, synthesizingContext, new ProgramMethod(clazz, valuesMethod));
+      return sharedUtilityClass;
     }
 
     private DexProgramClass createClass() {
@@ -166,7 +215,8 @@ public class SharedEnumUnboxingUtilityClass extends EnumUnboxingUtilityClass {
                             ImmutableList.of(
                                 createClassInitializer(sharedUtilityClassType, valuesField),
                                 createValuesMethod(sharedUtilityClassType, valuesField)))
-                        .setStaticFields(ImmutableList.of(valuesField));
+                        .setStaticFields(ImmutableList.of(valuesField))
+                        .setUseSortedMethodBacking(true);
                   });
       assert clazz.getAccessFlags().equals(ClassAccessFlags.createPublicFinalSynthetic());
       return clazz;

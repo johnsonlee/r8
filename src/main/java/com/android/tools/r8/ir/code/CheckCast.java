@@ -18,12 +18,14 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.VerifyTypesHelper;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.InternalOptions;
 
 public class CheckCast extends Instruction {
 
@@ -40,6 +42,27 @@ public class CheckCast extends Instruction {
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  public boolean isRefiningStaticType(InternalOptions options) {
+    TypeElement inType = object().getType();
+    if (inType.isNullType()) {
+      // If the in-value is `null` and the cast-type is a float-array type, then trivial check-cast
+      // elimination may lead to verification errors. See b/123269162.
+      if (options.canHaveArtCheckCastVerifierBug()
+          && getType().isArrayType()
+          && getType().toBaseType(options.dexItemFactory()).isFloatType()) {
+        return true;
+      }
+      return false;
+    }
+    if (!inType.isClassType()) {
+      // Conservatively return true.
+      assert inType.isArrayType();
+      return true;
+    }
+    ClassTypeElement inClassType = inType.asClassType();
+    return type != inClassType.getClassType();
   }
 
   @Override

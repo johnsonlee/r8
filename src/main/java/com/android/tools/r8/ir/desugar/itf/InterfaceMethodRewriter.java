@@ -467,6 +467,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
             eventConsumer.acceptInvokeStaticInterfaceOutliningMethod(
                 staticOutliningMethod, context);
           };
+      // TODO(b/192439456): Make a test to prove resolution is needed here and fix it.
       return rewriteInvokeStatic(
           invoke.getMethod(),
           invoke.isInterface(),
@@ -671,6 +672,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
                   methodProcessor,
                   methodProcessingContext);
       if (instruction.isInvokeStatic()) {
+        // TODO(b/192439456): Make a test to prove resolution is needed here and fix it.
         rewriteInvokeStatic(
             invoke.getInvokedMethod(),
             invoke.getInterfaceBit(),
@@ -1377,11 +1379,15 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     this.synthesizedMethods.clear();
   }
 
-  public void runInterfaceDesugaringProcessors(
+  public void runInterfaceDesugaringProcessorsForR8(
       IRConverter converter, Flavor flavour, ExecutorService executorService)
       throws ExecutionException {
-    new InterfaceMethodProcessorFacade(appView)
-        .runInterfaceDesugaringProcessors(this, converter, flavour, executorService);
+    getPostProcessingDesugaring(flavour)
+        .runInterfaceDesugaringProcessorsForR8(converter, executorService);
+  }
+
+  public InterfaceMethodProcessorFacade getPostProcessingDesugaring(Flavor flavour) {
+    return new InterfaceMethodProcessorFacade(appView, flavour, this);
   }
 
   final boolean isDefaultMethod(DexEncodedMethod method) {

@@ -47,7 +47,7 @@ public abstract class DexClass extends DexDefinition implements ClassDefinition 
   }
 
   public final Origin origin;
-  public DexType type;
+  public final DexType type;
   public final ClassAccessFlags accessFlags;
   public DexType superType;
   public DexTypeList interfaces;
@@ -109,7 +109,7 @@ public abstract class DexClass extends DexDefinition implements ClassDefinition 
     this.type = type;
     setStaticFields(staticFields);
     setInstanceFields(instanceFields);
-    this.methodCollection = new MethodCollection(this, directMethods, virtualMethods);
+    this.methodCollection = MethodCollection.create(this, directMethods, virtualMethods);
     this.nestHost = nestHost;
     this.nestMembers = nestMembers;
     assert nestMembers != null;
@@ -181,6 +181,10 @@ public abstract class DexClass extends DexDefinition implements ClassDefinition 
     this.sourceFile = sourceFile;
   }
 
+  public Iterable<DexClassAndField> classFields() {
+    return Iterables.transform(fields(), field -> DexClassAndField.create(this, field));
+  }
+
   public Iterable<DexEncodedField> fields() {
     return fields(Predicates.alwaysTrue());
   }
@@ -202,6 +206,10 @@ public abstract class DexClass extends DexDefinition implements ClassDefinition 
   @Override
   public MethodCollection getMethodCollection() {
     return methodCollection;
+  }
+
+  public Iterable<DexClassAndMethod> classMethods() {
+    return Iterables.transform(methods(), method -> DexClassAndMethod.create(this, method));
   }
 
   public Iterable<DexEncodedMethod> methods() {
