@@ -120,11 +120,11 @@ import java.util.function.Predicate;
 //
 public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
 
-  // Public for testing.
-  public static final String EMULATE_LIBRARY_CLASS_NAME_SUFFIX = "$-EL";
-  public static final String COMPANION_CLASS_NAME_SUFFIX = "$-CC";
-  public static final String DEFAULT_METHOD_PREFIX = "$default$";
-  public static final String PRIVATE_METHOD_PREFIX = "$private$";
+  // Use InterfaceDesugaringForTesting for public accesses in tests.
+  static final String EMULATE_LIBRARY_CLASS_NAME_SUFFIX = "$-EL";
+  static final String COMPANION_CLASS_NAME_SUFFIX = "$-CC";
+  static final String DEFAULT_METHOD_PREFIX = "$default$";
+  static final String PRIVATE_METHOD_PREFIX = "$private$";
 
   private final AppView<?> appView;
   private final InternalOptions options;
@@ -1155,7 +1155,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     }
   }
 
-  public static String getCompanionClassDescriptor(String descriptor) {
+  // Use InterfaceDesugaringForTesting for public accesses in tests.
+  static String getCompanionClassDescriptor(String descriptor) {
     return descriptor.substring(0, descriptor.length() - 1) + COMPANION_CLASS_NAME_SUFFIX + ";";
   }
 
@@ -1165,10 +1166,6 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     String descriptor = type.descriptor.toString();
     String ccTypeDescriptor = getCompanionClassDescriptor(descriptor);
     return factory.createSynthesizedType(ccTypeDescriptor);
-  }
-
-  public DexType getCompanionClassType(DexType type) {
-    return getCompanionClassType(type, factory);
   }
 
   // Checks if `type` is a companion class.
@@ -1379,15 +1376,11 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     this.synthesizedMethods.clear();
   }
 
-  public void runInterfaceDesugaringProcessorsForR8(
+  public void runInterfaceDesugaringProcessors(
       IRConverter converter, Flavor flavour, ExecutorService executorService)
       throws ExecutionException {
-    getPostProcessingDesugaring(flavour)
-        .runInterfaceDesugaringProcessorsForR8(converter, executorService);
-  }
-
-  public InterfaceMethodProcessorFacade getPostProcessingDesugaring(Flavor flavour) {
-    return new InterfaceMethodProcessorFacade(appView, flavour, this);
+    new InterfaceMethodProcessorFacade(appView)
+        .runInterfaceDesugaringProcessors(this, converter, flavour, executorService);
   }
 
   final boolean isDefaultMethod(DexEncodedMethod method) {

@@ -19,6 +19,7 @@ import com.android.tools.r8.synthesis.SyntheticMethodBuilder;
 import com.android.tools.r8.synthesis.SyntheticNaming;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
@@ -88,7 +89,7 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
   }
 
   DexProgramClass ensureEmulateInterfaceLibrary(
-      DexProgramClass emulatedInterface, InterfaceProcessingDesugaringEventConsumer eventConsumer) {
+      DexProgramClass emulatedInterface, ProgramMethodSet synthesizedMethods) {
     assert rewriter.isEmulatedInterface(emulatedInterface.type);
     DexProgramClass emulateInterfaceClass =
         appView
@@ -106,7 +107,7 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
                                     synthesizeEmulatedInterfaceMethod(
                                         method, emulatedInterface, methodBuilder))),
                 ignored -> {});
-    emulateInterfaceClass.forEachProgramMethod(eventConsumer::acceptEmulatedInterfaceMethod);
+    emulateInterfaceClass.forEachProgramMethod(synthesizedMethods::add);
     assert emulateInterfaceClass.getType()
         == InterfaceMethodRewriter.getEmulateLibraryInterfaceClassType(
             emulatedInterface.type, appView.dexItemFactory());
@@ -130,10 +131,9 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
         .setProto(emulatedMethod.getProto())
         .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
         .setCode(
-            emulatedInterfaceMethod ->
+            theMethod ->
                 new EmulateInterfaceSyntheticCfCodeProvider(
-                        emulatedInterfaceMethod.getHolderType(),
-                        method.getHolderType(),
+                        theMethod.getHolderType(),
                         companionMethod,
                         libraryMethod,
                         extraDispatchCases,
@@ -177,22 +177,17 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
       for (int i = subInterfaces.size() - 1; i >= 0; i--) {
         DexClass subInterfaceClass = appView.definitionFor(subInterfaces.get(i));
         assert subInterfaceClass != null;
+        assert subInterfaceClass.isProgramClass();
         // Else computation of subInterface would have failed.
         // if the method is implemented, extra dispatch is required.
         DexEncodedMethod result = subInterfaceClass.lookupVirtualMethod(method.getReference());
         if (result != null && !result.isAbstract()) {
+          assert result.isDefaultMethod();
           extraDispatchCases.add(
               new Pair<>(
                   subInterfaceClass.type,
-                  appView
-                      .dexItemFactory()
-                      .createMethod(
-                          rewriter.getCompanionClassType(subInterfaceClass.type),
-                          appView
-                              .dexItemFactory()
-                              .protoWithDifferentFirstParameter(
-                                  companionMethod.proto, subInterfaceClass.type),
-                          companionMethod.name)));
+                  InterfaceMethodRewriter.defaultAsMethodOfCompanionClass(
+                      result.getReference(), appView.dexItemFactory())));
         }
       }
     } else {
@@ -217,15 +212,14 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
   }
 
   @Override
-  public void process(
-      DexProgramClass emulatedInterface, InterfaceProcessingDesugaringEventConsumer eventConsumer) {
+  public void process(DexProgramClass emulatedInterface, ProgramMethodSet synthesizedMethods) {
     if (!appView.options().isDesugaredLibraryCompilation()
         || !rewriter.isEmulatedInterface(emulatedInterface.type)
         || appView.isAlreadyLibraryDesugared(emulatedInterface)) {
       return;
     }
     if (needsEmulateInterfaceLibrary(emulatedInterface)) {
-      ensureEmulateInterfaceLibrary(emulatedInterface, eventConsumer);
+      ensureEmulateInterfaceLibrary(emulatedInterface, synthesizedMethods);
     }
   }
 
@@ -234,7 +228,7 @@ public final class EmulatedInterfaceProcessor implements InterfaceDesugaringProc
   }
 
   @Override
-  public void finalizeProcessing(InterfaceProcessingDesugaringEventConsumer eventConsumer) {
+  public void finalizeProcessing(ProgramMethodSet synthesizedMethods) {
     warnMissingEmulatedInterfaces();
   }
 

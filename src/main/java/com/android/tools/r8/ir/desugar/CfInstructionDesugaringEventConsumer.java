@@ -15,7 +15,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.ClassConverterResult;
 import com.android.tools.r8.ir.conversion.D8MethodProcessor;
 import com.android.tools.r8.ir.desugar.backports.BackportedMethodDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverterEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterInstructionEventConsumer;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialBridgeInfo;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialToSelfDesugaringEventConsumer;
@@ -26,7 +25,6 @@ import com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaringEventConsum
 import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.twr.TwrCloseResourceDesugaringEventConsumer;
 import com.android.tools.r8.shaking.Enqueuer.SyntheticAdditions;
-import com.android.tools.r8.utils.collections.SortedProgramMethodSet;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,7 +33,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -51,8 +48,7 @@ public abstract class CfInstructionDesugaringEventConsumer
         RecordDesugaringEventConsumer,
         TwrCloseResourceDesugaringEventConsumer,
         InterfaceMethodDesugaringEventConsumer,
-        DesugaredLibraryRetargeterInstructionEventConsumer,
-        DesugaredLibraryAPIConverterEventConsumer {
+        DesugaredLibraryRetargeterInstructionEventConsumer {
 
   public static D8CfInstructionDesugaringEventConsumer createForD8(
       D8MethodProcessor methodProcessor) {
@@ -70,26 +66,6 @@ public abstract class CfInstructionDesugaringEventConsumer
 
   public static CfInstructionDesugaringEventConsumer createForDesugaredCode() {
     return new CfInstructionDesugaringEventConsumer() {
-
-      @Override
-      public void acceptWrapperProgramClass(DexProgramClass clazz) {
-        assert false;
-      }
-
-      @Override
-      public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
-        assert false;
-      }
-
-      @Override
-      public void acceptAPIConversion(ProgramMethod method) {
-        assert false;
-      }
-
-      @Override
-      public void acceptSuperAPIConversion(ProgramMethod method) {
-        assert false;
-      }
 
       @Override
       public void acceptDesugaredLibraryRetargeterDispatchProgramClass(DexProgramClass clazz) {
@@ -171,8 +147,6 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     private final Map<DexReference, InvokeSpecialBridgeInfo> pendingInvokeSpecialBridges =
         new LinkedHashMap<>();
-    private final Map<DexProgramClass, SortedProgramMethodSet> pendingSuperAPIConversions =
-        new ConcurrentHashMap<>();
     private final List<LambdaClass> synthesizedLambdaClasses = new ArrayList<>();
 
     private D8CfInstructionDesugaringEventConsumer(D8MethodProcessor methodProcessor) {
@@ -226,17 +200,17 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptNestFieldGetBridge(ProgramField target, ProgramMethod bridge) {
-      methodProcessor.scheduleDesugaredMethodForProcessing(bridge);
+      assert false;
     }
 
     @Override
     public void acceptNestFieldPutBridge(ProgramField target, ProgramMethod bridge) {
-      methodProcessor.scheduleDesugaredMethodForProcessing(bridge);
+      assert false;
     }
 
     @Override
     public void acceptNestMethodBridge(ProgramMethod target, ProgramMethod bridge) {
-      methodProcessor.scheduleDesugaredMethodForProcessing(bridge);
+      assert false;
     }
 
     @Override
@@ -255,46 +229,12 @@ public abstract class CfInstructionDesugaringEventConsumer
       methodProcessor.scheduleDesugaredMethodForProcessing(method);
     }
 
-    @Override
-    public void acceptWrapperProgramClass(DexProgramClass clazz) {
-      methodProcessor.scheduleDesugaredMethodsForProcessing(clazz.programMethods());
-    }
-
-    @Override
-    public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
-      // Intentionally empty.
-    }
-
-    @Override
-    public void acceptAPIConversion(ProgramMethod method) {
-      methodProcessor.scheduleDesugaredMethodForProcessing(method);
-    }
-
-    @Override
-    public void acceptSuperAPIConversion(ProgramMethod method) {
-      SortedProgramMethodSet superAPIConversions =
-          pendingSuperAPIConversions.computeIfAbsent(
-              method.getHolder(), ignored -> SortedProgramMethodSet.createConcurrent());
-      superAPIConversions.add(method);
-    }
-
     public List<ProgramMethod> finalizeDesugaring(
         AppView<?> appView, ClassConverterResult.Builder classConverterResultBuilder) {
       List<ProgramMethod> needsProcessing = new ArrayList<>();
       finalizeInvokeSpecialDesugaring(appView, needsProcessing::add);
       finalizeLambdaDesugaring(classConverterResultBuilder, needsProcessing::add);
-      finalizeSuperAPIConversionDesugaring(needsProcessing::add);
       return needsProcessing;
-    }
-
-    private void finalizeSuperAPIConversionDesugaring(Consumer<ProgramMethod> needsProcessing) {
-      for (SortedProgramMethodSet superAPIConversions : pendingSuperAPIConversions.values()) {
-        for (ProgramMethod superAPIConversion : superAPIConversions) {
-          superAPIConversion.getHolder().addDirectMethod(superAPIConversion.getDefinition());
-          needsProcessing.accept(superAPIConversion);
-        }
-      }
-      pendingSuperAPIConversions.clear();
     }
 
     private void finalizeInvokeSpecialDesugaring(
@@ -408,30 +348,6 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
-    public void acceptWrapperProgramClass(DexProgramClass clazz) {
-      // TODO(b/189912077): There should be nothing to do.
-      assert false;
-    }
-
-    @Override
-    public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
-      // TODO(b/189912077): Should be added to live non program types.
-      assert false;
-    }
-
-    @Override
-    public void acceptAPIConversion(ProgramMethod method) {
-      // TODO(b/189912077): There should be nothing to do.
-      assert false;
-    }
-
-    @Override
-    public void acceptSuperAPIConversion(ProgramMethod method) {
-      // TODO(b/189912077): Manage pending conversions.
-      assert false;
-    }
-
-    @Override
     public void acceptBackportedMethod(ProgramMethod backportedMethod, ProgramMethod context) {
       // Intentionally empty. The backported method will be hit by the tracing in R8 as if it was
       // present in the input code, and thus nothing needs to be done.
@@ -456,20 +372,17 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptNestFieldGetBridge(ProgramField target, ProgramMethod bridge) {
-      // Intentionally empty. These bridges will be hit by the tracing in R8 as if they were present
-      // in the input code, and thus nothing needs to be done.
+      assert false;
     }
 
     @Override
     public void acceptNestFieldPutBridge(ProgramField target, ProgramMethod bridge) {
-      // Intentionally empty. These bridges will be hit by the tracing in R8 as if they were present
-      // in the input code, and thus nothing needs to be done.
+      assert false;
     }
 
     @Override
     public void acceptNestMethodBridge(ProgramMethod target, ProgramMethod bridge) {
-      // Intentionally empty. These bridges will be hit by the tracing in R8 as if they were present
-      // in the input code, and thus nothing needs to be done.
+      assert false;
     }
 
     @Override
