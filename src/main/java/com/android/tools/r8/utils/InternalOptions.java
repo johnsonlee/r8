@@ -618,6 +618,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return forceProguardCompatibility;
   }
 
+  public boolean parseSignatureAttribute() {
+    return proguardConfiguration == null || isKeepAttributesSignatureEnabled();
+  }
+
   @Override
   public boolean isKeepAttributesSignatureEnabled() {
     return proguardConfiguration.getKeepAttributes().signature;
@@ -1342,6 +1346,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public BiConsumer<MethodReference, AndroidApiLevel> tracedMethodApiLevelCallback = null;
 
     public boolean enableApiCallerIdentification = false;
+    public boolean checkAllApiReferencesAreSet = true;
 
     public void visitMockedApiReferences(BiConsumer<ClassReference, AndroidApiClass> consumer) {
       if (methodApiMapping.isEmpty() && fieldApiMapping.isEmpty() && classApiMapping.isEmpty()) {
@@ -1543,6 +1548,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableTestAssertions =
         System.getProperty("com.android.tools.r8.enableTestAssertions") != null;
     public boolean testEnableTestAssertions = false;
+    public boolean keepMetadataInR8IfNotRewritten = true;
 
     public boolean allowConflictingSyntheticTypes = false;
 

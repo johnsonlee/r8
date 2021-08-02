@@ -52,6 +52,11 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
   private final String packageName;
   private final KotlinLocalDelegatedPropertyInfo localDelegatedProperties;
   private final int[] metadataVersion;
+  private final String inlineClassUnderlyingPropertyName;
+  private final KotlinTypeInfo inlineClassUnderlyingType;
+
+  // List of tracked assignments of kotlin metadata.
+  private final KotlinMetadataMembersTracker originalMembersWithKotlinInfo;
 
   private KotlinClassInfo(
       int flags,
@@ -69,7 +74,10 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
       KotlinTypeReference anonymousObjectOrigin,
       String packageName,
       KotlinLocalDelegatedPropertyInfo localDelegatedProperties,
-      int[] metadataVersion) {
+      int[] metadataVersion,
+      String inlineClassUnderlyingPropertyName,
+      KotlinTypeInfo inlineClassUnderlyingType,
+      KotlinMetadataMembersTracker originalMembersWithKotlinInfo) {
     this.flags = flags;
     this.name = name;
     this.nameCanBeSynthesizedFromClassOrAnonymousObjectOrigin =
@@ -87,6 +95,9 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     this.packageName = packageName;
     this.localDelegatedProperties = localDelegatedProperties;
     this.metadataVersion = metadataVersion;
+    this.inlineClassUnderlyingPropertyName = inlineClassUnderlyingPropertyName;
+    this.inlineClassUnderlyingType = inlineClassUnderlyingType;
+    this.originalMembersWithKotlinInfo = originalMembersWithKotlinInfo;
   }
 
   public static KotlinClassInfo create(
@@ -112,6 +123,8 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     }
     ImmutableList.Builder<KotlinConstructorInfo> notBackedConstructors = ImmutableList.builder();
     int constructorIndex = 0;
+    KotlinMetadataMembersTracker originalMembersWithKotlinInfo =
+        new KotlinMetadataMembersTracker(appView);
     for (KmConstructor kmConstructor : kmClass.getConstructors()) {
       boolean readConstructorSignature =
           extensionInformation.hasJvmMethodSignatureExtensionForConstructor(constructorIndex++);
@@ -122,6 +135,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
         DexEncodedMethod method = methodMap.get(signature.asString());
         if (method != null) {
           method.setKotlinMemberInfo(constructorInfo);
+          originalMembersWithKotlinInfo.add(method.getReference());
           continue;
         }
       }
@@ -130,7 +144,14 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     }
     KotlinDeclarationContainerInfo container =
         KotlinDeclarationContainerInfo.create(
-            kmClass, methodMap, fieldMap, factory, reporter, keepByteCode, extensionInformation);
+            kmClass,
+            methodMap,
+            fieldMap,
+            factory,
+            reporter,
+            keepByteCode,
+            extensionInformation,
+            originalMembersWithKotlinInfo);
     setCompanionObject(kmClass, hostClass, reporter);
     KotlinTypeReference anonymousObjectOrigin = getAnonymousObjectOrigin(kmClass, factory);
     boolean nameCanBeDeducedFromClassOrOrigin =
@@ -156,7 +177,10 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
         packageName,
         KotlinLocalDelegatedPropertyInfo.create(
             JvmExtensionsKt.getLocalDelegatedProperties(kmClass), factory, reporter),
-        metadataVersion);
+        metadataVersion,
+        kmClass.getInlineClassUnderlyingPropertyName(),
+        KotlinTypeInfo.create(kmClass.getInlineClassUnderlyingType(), factory, reporter),
+        originalMembersWithKotlinInfo);
   }
 
   private static KotlinTypeReference getAnonymousObjectOrigin(
@@ -269,10 +293,12 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
       rewritten |= constructorInfo.rewrite(kmClass, null, appView, namingLens);
     }
     // Find all constructors.
+    KotlinMetadataMembersTracker rewrittenReferences = new KotlinMetadataMembersTracker(appView);
     for (DexEncodedMethod method : clazz.methods()) {
       if (method.getKotlinInfo().isConstructor()) {
         KotlinConstructorInfo constructorInfo = method.getKotlinInfo().asConstructor();
         rewritten |= constructorInfo.rewrite(kmClass, method, appView, namingLens);
+        rewrittenReferences.add(method.getReference());
       }
     }
     // Rewrite functions, type-aliases and type-parameters.
@@ -283,7 +309,8 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
             kmClass::visitTypeAlias,
             clazz,
             appView,
-            namingLens);
+            namingLens,
+            rewrittenReferences);
     // Rewrite type parameters.
     for (KotlinTypeParameterInfo typeParameter : typeParameters) {
       rewritten |= typeParameter.rewrite(kmClass::visitTypeParameter, appView, namingLens);
@@ -334,6 +361,12 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     // TODO(b/154347404): Understand enum entries.
     kmClass.getEnumEntries().addAll(enumEntries);
     rewritten |= versionRequirements.rewrite(kmClass::visitVersionRequirement);
+    if (inlineClassUnderlyingPropertyName != null && inlineClassUnderlyingType != null) {
+      kmClass.setInlineClassUnderlyingPropertyName(inlineClassUnderlyingPropertyName);
+      rewritten |=
+          inlineClassUnderlyingType.rewrite(
+              kmClass::visitInlineClassUnderlyingType, appView, namingLens);
+    }
     JvmClassExtensionVisitor extensionVisitor =
         (JvmClassExtensionVisitor) kmClass.visitExtensions(JvmClassExtensionVisitor.TYPE);
     extensionVisitor.visitModuleName(moduleName);
@@ -355,7 +388,9 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     extensionVisitor.visitEnd();
     KotlinClassMetadata.Class.Writer writer = new KotlinClassMetadata.Class.Writer();
     kmClass.accept(writer);
-    return Pair.create(writer.write().getHeader(), rewritten);
+    return Pair.create(
+        writer.write().getHeader(),
+        rewritten || !originalMembersWithKotlinInfo.isEqual(rewrittenReferences, appView));
   }
 
   @Override

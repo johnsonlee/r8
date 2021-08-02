@@ -8,6 +8,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestDiagnosticMessagesImpl;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
@@ -17,8 +18,12 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.GenericSignatureContextBuilder;
 import com.android.tools.r8.graph.GenericSignatureCorrectnessHelper;
 import com.android.tools.r8.graph.GenericSignatureCorrectnessHelper.SignatureEvaluationResult;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.ProguardConfiguration;
+import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.junit.Test;
@@ -41,12 +46,18 @@ public class GenericSignatureCorrectnessHelperTests extends TestBase {
   @Test
   public void testAllValid() throws Exception {
     AppView<AppInfoWithClassHierarchy> appView =
-        computeAppViewWithClassHierachy(
+        computeAppViewWithClassHierarchy(
             buildInnerClasses(GenericSignatureCorrectnessHelperTests.class)
                 .addLibraryFile(ToolHelper.getJava8RuntimeJar())
-                .build());
-    GenericSignatureContextBuilder contextBuilder =
-        GenericSignatureContextBuilder.create(appView.appInfo().classes());
+                .build(),
+            factory -> {
+              ProguardConfiguration.Builder builder =
+                  ProguardConfiguration.builder(
+                      factory, new Reporter(new TestDiagnosticMessagesImpl()));
+              builder.addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE));
+              return builder.build();
+            });
+    GenericSignatureContextBuilder contextBuilder = GenericSignatureContextBuilder.create(appView);
     GenericSignatureCorrectnessHelper.createForVerification(appView, contextBuilder)
         .run(appView.appInfo().classes());
   }
@@ -178,14 +189,20 @@ public class GenericSignatureCorrectnessHelperTests extends TestBase {
       Class<?> classToVerify,
       SignatureEvaluationResult expected)
       throws Exception {
-    AppView<AppInfoWithClassHierarchy> appView =
-        computeAppViewWithClassHierachy(
+    AppView<AppInfoWithLiveness> appView =
+        computeAppViewWithLiveness(
             buildClasses(classes)
                 .addClassProgramData(transformations)
                 .addLibraryFile(ToolHelper.getJava8RuntimeJar())
-                .build());
-    GenericSignatureContextBuilder contextBuilder =
-        GenericSignatureContextBuilder.create(appView.appInfo().classes());
+                .build(),
+            factory -> {
+              ProguardConfiguration.Builder builder =
+                  ProguardConfiguration.builder(
+                      factory, new Reporter(new TestDiagnosticMessagesImpl()));
+              builder.addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE));
+              return builder.build();
+            });
+    GenericSignatureContextBuilder contextBuilder = GenericSignatureContextBuilder.create(appView);
     GenericSignatureCorrectnessHelper check =
         GenericSignatureCorrectnessHelper.createForInitialCheck(appView, contextBuilder);
     DexProgramClass clazz =

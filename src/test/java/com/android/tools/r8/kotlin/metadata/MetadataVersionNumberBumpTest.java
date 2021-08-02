@@ -5,11 +5,11 @@
 package com.android.tools.r8.kotlin.metadata;
 
 import static com.android.tools.r8.ToolHelper.getKotlinAnnotationJar;
-import static com.android.tools.r8.ToolHelper.getKotlinC_1_3_72;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.objectweb.asm.Opcodes.ASM7;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
@@ -40,12 +40,12 @@ public class MetadataVersionNumberBumpTest extends KotlinMetadataTestBase {
 
   private final TestParameters parameters;
 
-  @Parameters(name = "{0}")
+  @Parameters(name = "{0}, {1}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
         getKotlinTestParameters()
-            .withCompiler(getKotlinC_1_3_72())
+            .withCompiler(KotlinCompilerVersion.KOTLINC_1_3_72)
             .withTargetVersion(KotlinTargetVersion.JAVA_8)
             .build());
   }
@@ -63,7 +63,8 @@ public class MetadataVersionNumberBumpTest extends KotlinMetadataTestBase {
     testBuilder
         .addProgramFiles(getKotlinAnnotationJar(kotlinc))
         .setMinApi(parameters.getApiLevel())
-        .addKeepAllClassesRule()
+        .addOptionsModification(options -> options.testing.keepMetadataInR8IfNotRewritten = false)
+        .addKeepAllClassesRuleWithAllowObfuscation()
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .compile()
         .inspect(inspector -> inspectMetadataVersion(inspector, "1.4.0"));
@@ -76,7 +77,7 @@ public class MetadataVersionNumberBumpTest extends KotlinMetadataTestBase {
     testBuilder
         .addProgramFiles(getKotlinAnnotationJar(kotlinc))
         .setMinApi(parameters.getApiLevel())
-        .addKeepAllClassesRule()
+        .addKeepAllClassesRuleWithAllowObfuscation()
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .compile()
         .inspect(inspector -> inspectMetadataVersion(inspector, "1.4.0"));
@@ -89,7 +90,7 @@ public class MetadataVersionNumberBumpTest extends KotlinMetadataTestBase {
     testBuilder
         .addProgramFiles(getKotlinAnnotationJar(kotlinc))
         .setMinApi(parameters.getApiLevel())
-        .addKeepAllClassesRule()
+        .addKeepAllClassesRuleWithAllowObfuscation()
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .compile()
         .inspect(inspector -> inspectMetadataVersion(inspector, "1.4.2"));

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.apimodel;
 
+import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForDefaultInstanceInitializer;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForField;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
@@ -47,12 +48,17 @@ public class ApiModelNoClassInliningFieldTest extends TestBase {
         .enableInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
         .apply(setMockApiLevelForField(apiField, AndroidApiLevel.L_MR1))
+        .apply(setMockApiLevelForDefaultInstanceInitializer(Api.class, AndroidApiLevel.L_MR1))
         .apply(ApiModelingTestHelper::enableApiCallerIdentification)
         .compile()
         .inspect(
             inspector -> {
-              // TODO(b/138781768): Should not be class inlined.
-              assertThat(inspector.clazz(ApiCaller.class), not(isPresent()));
+              if (parameters.isDexRuntime()
+                  && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L_MR1)) {
+                assertThat(inspector.clazz(ApiCaller.class), not(isPresent()));
+              } else {
+                assertThat(inspector.clazz(ApiCaller.class), isPresent());
+              }
             })
         .addRunClasspathClasses(Api.class)
         .run(parameters.getRuntime(), Main.class)

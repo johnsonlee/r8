@@ -12,7 +12,9 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.ToolHelper.ProcessResult;
+import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.structural.Ordered;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,15 +30,21 @@ import org.junit.rules.TemporaryFolder;
 
 public class KotlinCompilerTool {
 
-  public enum KotlinCompilerVersion {
+  public enum KotlinCompilerVersion implements Ordered<KotlinCompilerVersion> {
     KOTLINC_1_3_72("kotlin-compiler-1.3.72"),
     KOTLINC_1_4_20("kotlin-compiler-1.4.20"),
     KOTLINC_1_5_0("kotlin-compiler-1.5.0");
+
+    public static final KotlinCompilerVersion MIN_SUPPORTED_VERSION = KOTLINC_1_4_20;
 
     private final String folder;
 
     KotlinCompilerVersion(String folder) {
       this.folder = folder;
+    }
+
+    public static KotlinCompilerVersion latest() {
+      return ArrayUtils.last(values());
     }
   }
 

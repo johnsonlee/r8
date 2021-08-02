@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.optimize.classinliner;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+import static com.android.tools.r8.utils.AndroidApiLevelUtils.isApiSafeForInlining;
 
 import com.android.tools.r8.errors.InternalCompilerError;
 import com.android.tools.r8.errors.Unreachable;
@@ -879,7 +880,10 @@ final class InlineCandidateProcessor {
     if (instanceInitializerInfo.receiverMayEscapeOutsideConstructorChain()) {
       return null;
     }
-
+    // Check the api level is allowed to be inlined.
+    if (isApiSafeForInlining(method, singleTarget, appView.options()).isPossiblyFalse()) {
+      return null;
+    }
     // Check that the entire constructor chain can be inlined into the current context.
     DexMethod parent = instanceInitializerInfo.getParent();
     while (parent != dexItemFactory.objectMembers.constructor) {
@@ -904,6 +908,10 @@ final class InlineCandidateProcessor {
           Reason.ALWAYS,
           appView.appInfo(),
           NopWhyAreYouNotInliningReporter.getInstance())) {
+        return null;
+      }
+      // Check the api level is allowed to be inlined.
+      if (isApiSafeForInlining(method, encodedParent, appView.options()).isPossiblyFalse()) {
         return null;
       }
       parent =
