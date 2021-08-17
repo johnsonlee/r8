@@ -25,10 +25,17 @@ public final class CfVersion implements StructuralItem<CfVersion> {
   public static final CfVersion V9 = new CfVersion(Opcodes.V9);
   public static final CfVersion V10 = new CfVersion(Opcodes.V10);
   public static final CfVersion V11 = new CfVersion(Opcodes.V11);
+  public static final CfVersion V11_PREVIEW = new CfVersion(Opcodes.V11 | Opcodes.V_PREVIEW);
   public static final CfVersion V12 = new CfVersion(Opcodes.V12);
+  public static final CfVersion V12_PREVIEW = new CfVersion(Opcodes.V12 | Opcodes.V_PREVIEW);
   public static final CfVersion V13 = new CfVersion(Opcodes.V13);
+  public static final CfVersion V13_PREVIEW = new CfVersion(Opcodes.V13 | Opcodes.V_PREVIEW);
   public static final CfVersion V14 = new CfVersion(Opcodes.V14);
+  public static final CfVersion V14_PREVIEW = new CfVersion(Opcodes.V14 | Opcodes.V_PREVIEW);
   public static final CfVersion V15 = new CfVersion(Opcodes.V15);
+  public static final CfVersion V15_PREVIEW = new CfVersion(Opcodes.V15 | Opcodes.V_PREVIEW);
+  public static final CfVersion V16 = new CfVersion(Opcodes.V16);
+  public static final CfVersion V16_PREVIEW = new CfVersion(Opcodes.V16 | Opcodes.V_PREVIEW);
 
   private final int version;
 
@@ -47,7 +54,8 @@ public final class CfVersion implements StructuralItem<CfVersion> {
     CfVersion.V12,
     CfVersion.V13,
     CfVersion.V14,
-    CfVersion.V15
+    CfVersion.V15,
+    CfVersion.V16
   };
 
   // Private constructor in case we want to canonicalize versions.
@@ -64,11 +72,15 @@ public final class CfVersion implements StructuralItem<CfVersion> {
   }
 
   public int minor() {
-    return version >> 16;
+    return version >>> 16;
   }
 
   public int raw() {
     return version;
+  }
+
+  public boolean isPreview() {
+    return minor() == Opcodes.V_PREVIEW >>> 16;
   }
 
   private static void specify(StructuralSpecification<CfVersion, ?> spec) {
@@ -77,6 +89,8 @@ public final class CfVersion implements StructuralItem<CfVersion> {
 
   public static Iterable<CfVersion> rangeInclusive(CfVersion from, CfVersion to) {
     assert from.isLessThanOrEqualTo(to);
+    assert !from.isPreview() : "This method does not handle preview versions";
+    assert !to.isPreview() : "This method does not handle preview versions";
     return Arrays.stream(versions)
         .filter(version -> version.isGreaterThanOrEqualTo(from))
         .filter(version -> version.isLessThanOrEqualTo(to))

@@ -117,6 +117,7 @@ import com.android.tools.r8.ir.code.ValueTypeConstraint;
 import com.android.tools.r8.ir.code.Xor;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
+import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorIROptimizer;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.Pair;
@@ -734,9 +735,23 @@ public class IRBuilder {
     // will be passed during (double) inlining. Instead of adding assumptions and removing invalid
     // ones, it's better not to insert assumptions for inlinee in the beginning.
     CallSiteOptimizationInfo callSiteOptimizationInfo = getMethod().getCallSiteOptimizationInfo();
-    if (method == context && appView.callSiteOptimizationInfoPropagator() != null) {
-      appView.callSiteOptimizationInfoPropagator()
-          .applyCallSiteOptimizationInfo(ir, callSiteOptimizationInfo);
+    if (callSiteOptimizationInfo.isConcreteCallSiteOptimizationInfo() && method == context) {
+      // TODO(b/190154391): Consider pruning all argument information from the optimization info
+      //  after the second optimization pass. That way we save memory and can assert here that
+      //  !appView.hasLiveness() (which currently may happen due to the reflective behavior
+      //  handling in the final round of tree shaking).
+      if (appView.hasLiveness()) {
+        if (appView
+                .options()
+                .callSiteOptimizationOptions()
+                .isExperimentalArgumentPropagationEnabled()
+            || appView.callSiteOptimizationInfoPropagator().getMode().isRevisit()) {
+          ArgumentPropagatorIROptimizer.optimize(
+              appView.withLiveness(),
+              ir,
+              callSiteOptimizationInfo.asConcreteCallSiteOptimizationInfo());
+        }
+      }
     }
 
     if (appView.options().isStringSwitchConversionEnabled()) {

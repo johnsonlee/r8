@@ -6,7 +6,7 @@ package com.android.tools.r8.shaking;
 import static com.android.tools.r8.graph.DexEncodedMethod.asProgramMethodOrNull;
 import static com.android.tools.r8.graph.DexEncodedMethod.toMethodDefinitionOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
-import static com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult.isOverriding;
+import static com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult.isOverriding;
 
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
@@ -37,18 +37,20 @@ import com.android.tools.r8.graph.InstantiatedSubTypeInfo;
 import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
 import com.android.tools.r8.graph.LookupTarget;
 import com.android.tools.r8.graph.MethodAccessInfoCollection;
+import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollectionImpl;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
-import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverter;
-import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
+import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
+import com.android.tools.r8.shaking.KeepInfo.Joiner;
 import com.android.tools.r8.synthesis.CommittedItems;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -371,7 +373,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   }
 
   private boolean verify() {
-    assert keepInfo.verifyPinnedTypesAreLive(liveTypes);
+    assert keepInfo.verifyPinnedTypesAreLive(liveTypes, options());
     assert objectAllocationInfoCollection.verifyAllocatedTypesAreLive(
         liveTypes, getMissingClasses(), this);
     return true;
@@ -435,7 +437,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
               DexProgramClass clazz =
                   asProgramClassOrNull(previous.definitionFor(reference.asDexType()));
               if (clazz != null) {
-                collection.pinClass(clazz);
+                collection.joinClass(clazz, Joiner::disallowShrinking);
               }
             } else if (reference.isDexMethod()) {
               DexMethod method = reference.asDexMethod();
@@ -443,7 +445,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
               if (clazz != null) {
                 ProgramMethod definition = clazz.lookupProgramMethod(method);
                 if (definition != null) {
-                  collection.pinMethod(definition);
+                  collection.joinMethod(definition, Joiner::disallowShrinking);
                 }
               }
             } else {
@@ -452,7 +454,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
               if (clazz != null) {
                 ProgramField definition = clazz.lookupProgramField(field);
                 if (definition != null) {
-                  collection.pinField(definition);
+                  collection.joinField(definition, Joiner::disallowShrinking);
                 }
               }
             }
@@ -519,8 +521,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
             || deadProtoTypes.contains(type)
             || getMissingClasses().contains(type)
             // TODO(b/150693139): Remove these exceptions once fixed.
-            || InterfaceMethodRewriter.isCompanionClassType(type)
-            || InterfaceMethodRewriter.isEmulatedLibraryClassType(type)
+            || InterfaceDesugaringSyntheticHelper.isCompanionClassType(type)
+            || InterfaceDesugaringSyntheticHelper.isEmulatedLibraryClassType(type)
             // TODO(b/150736225): Not sure how to remove these.
             || DesugaredLibraryAPIConverter.isVivifiedType(type)
         : "Failed lookup of non-missing type: " + type;
@@ -599,6 +601,10 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
 
   public boolean isMethodTargetedByInvokeDynamic(DexMethod method) {
     return methodsTargetedByInvokeDynamic.contains(method);
+  }
+
+  public boolean isMethodTargetedByInvokeDynamic(ProgramMethod method) {
+    return isMethodTargetedByInvokeDynamic(method.getReference());
   }
 
   public Set<DexMethod> getVirtualMethodsTargetedByInvokeDirect() {
@@ -807,6 +813,19 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return isInstantiatedDirectly(clazz) || isInstantiatedIndirectly(clazz);
   }
 
+  public boolean isReachableOrReferencedField(DexEncodedField field) {
+    assert checkIfObsolete();
+    DexField reference = field.getReference();
+    FieldAccessInfo info = getFieldAccessInfoCollection().get(reference);
+    if (info != null) {
+      assert info.isRead() || info.isWritten();
+      return true;
+    }
+    // TODO(b/192924387): When we enqueue a field as a root item, we should maybe create a
+    //  FieldAccessInfo that describes the field is read and written using reflection.
+    return !getKeepInfo().getFieldInfo(reference, this).isShrinkingAllowed(options());
+  }
+
   public boolean isFieldRead(DexEncodedField encodedField) {
     assert checkIfObsolete();
     DexField field = encodedField.getReference();
@@ -814,7 +833,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     if (info != null && info.isRead()) {
       return true;
     }
-    if (keepInfo.isPinned(field, this)) {
+    if (isPinned(field)) {
       return true;
     }
     // For library classes we don't know whether a field is read.
@@ -890,7 +909,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return method.getDefinition().hasCode()
         && !method.getDefinition().isLibraryMethodOverride().isPossiblyTrue()
         && !neverReprocess.contains(reference)
-        && !keepInfo.getMethodInfo(method).isPinned();
+        && !keepInfo.getMethodInfo(method).isPinned(options());
   }
 
   public boolean mayPropagateValueFor(DexClassAndMember<?, ?> member) {
@@ -951,6 +970,10 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         && keepInfo.getInfo(reference, this).isMinificationAllowed(options());
   }
 
+  public boolean isAccessModificationAllowed(ProgramDefinition definition) {
+    return isAccessModificationAllowed(definition.getReference());
+  }
+
   public boolean isAccessModificationAllowed(DexReference reference) {
     assert options().getProguardConfiguration().isAccessModificationAllowed();
     return keepInfo.getInfo(reference, this).isAccessModificationAllowed(options());
@@ -960,7 +983,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     if (!options().isRepackagingEnabled()) {
       return false;
     }
-    if (!keepInfo.getInfo(clazz).isRepackagingAllowed(options())) {
+    if (!keepInfo.getInfo(clazz).isRepackagingAllowed(clazz, options())) {
       return false;
     }
     for (DexType superType : clazz.allImmediateSupertypes()) {
@@ -971,7 +994,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return clazz
         .traverseProgramMembers(
             member -> {
-              if (keepInfo.getInfo(member).isRepackagingAllowed(options())) {
+              if (keepInfo.getInfo(member).isRepackagingAllowed(member, options())) {
                 return TraversalContinuation.CONTINUE;
               }
               return TraversalContinuation.BREAK;
@@ -981,7 +1004,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
 
   public boolean isPinned(DexReference reference) {
     assert checkIfObsolete();
-    return keepInfo.isPinned(reference, this);
+    return keepInfo.isPinned(reference, this, options());
   }
 
   public boolean isPinned(DexDefinition definition) {
@@ -1070,7 +1093,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         methodAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens),
         objectAllocationInfoCollection.rewrittenWithLens(definitionSupplier, lens),
         lens.rewriteCallSites(callSites, definitionSupplier),
-        keepInfo.rewrite(lens, application.options),
+        keepInfo.rewrite(definitionSupplier, lens, application.options),
         // Take any rule in case of collisions.
         lens.rewriteReferenceKeys(mayHaveSideEffects, ListUtils::first),
         // Drop assume rules in case of collisions.

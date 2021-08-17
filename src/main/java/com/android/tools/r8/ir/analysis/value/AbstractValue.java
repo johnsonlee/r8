@@ -11,6 +11,14 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
 public abstract class AbstractValue {
 
+  public static BottomValue bottom() {
+    return BottomValue.getInstance();
+  }
+
+  public static UnknownValue unknown() {
+    return UnknownValue.getInstance();
+  }
+
   public abstract boolean isNonTrivial();
 
   public boolean isSingleBoolean() {
@@ -142,13 +150,15 @@ public abstract class AbstractValue {
   }
 
   public AbstractValue join(AbstractValue other, AbstractValueFactory factory, DexType type) {
-    return join(other, factory, type, false);
+    return join(other, factory, type.isReferenceType(), false);
   }
 
+  // TODO(b/196321452): Clean this up, in particular, replace the "allow" parameters by a
+  //  configuration object.
   public AbstractValue join(
       AbstractValue other,
       AbstractValueFactory factory,
-      DexType type,
+      boolean allowNullOrAbstractValue,
       boolean allowNonConstantNumbers) {
     if (isBottom() || other.isUnknown()) {
       return other;
@@ -159,7 +169,7 @@ public abstract class AbstractValue {
     if (equals(other)) {
       return this;
     }
-    if (type.isReferenceType()) {
+    if (allowNullOrAbstractValue) {
       if (isNull()) {
         return NullOrAbstractValue.create(other);
       }

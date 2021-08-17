@@ -199,13 +199,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   }
 
   public DexType getArgumentType(int argumentIndex) {
-    if (isStatic()) {
-      return getReference().getParameter(argumentIndex);
-    }
-    if (argumentIndex == 0) {
-      return getHolderType();
-    }
-    return getReference().getParameter(argumentIndex - 1);
+    return getReference().getArgumentType(argumentIndex, isStatic());
   }
 
   public int getNumberOfArguments() {
@@ -993,9 +987,15 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     assert !accessFlags.isFinal();
     // static abstract is an invalid access combination and we should never create that.
     assert !accessFlags.isStatic();
-    accessFlags.setAbstract();
-    this.code = null;
-    return this;
+    return builder(this)
+        .modifyAccessFlags(MethodAccessFlags::setAbstract)
+        .setIsLibraryMethodOverrideIf(
+            isNonPrivateVirtualMethod() && !isLibraryMethodOverride().isUnknown(),
+            isLibraryMethodOverride())
+        .unsetCode()
+        .addBuildConsumer(
+            method -> OptimizationFeedbackSimple.getInstance().unsetBridgeInfo(method))
+        .build();
   }
 
   /**
@@ -1585,7 +1585,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
                       new ProgramMethod(holder, newMethod), simpleInliningConstraint));
     }
 
-    private Builder addBuildConsumer(Consumer<DexEncodedMethod> consumer) {
+    public Builder addBuildConsumer(Consumer<DexEncodedMethod> consumer) {
       this.buildConsumer = this.buildConsumer.andThen(consumer);
       return this;
     }
@@ -1719,6 +1719,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     public Builder setCode(Code code) {
       this.code = code;
       return this;
+    }
+
+    public Builder unsetCode() {
+      return setCode(null);
     }
 
     public DexEncodedMethod build() {

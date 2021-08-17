@@ -3,13 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar;
 
-import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.D8MethodProcessor;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverterEventConsumer.DesugaredLibraryAPIConverterPostProcessingEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterInstructionEventConsumer.DesugaredLibraryRetargeterPostProcessingEventConsumer;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessingDesugaringEventConsumer;
 import com.android.tools.r8.shaking.Enqueuer.SyntheticAdditions;
@@ -23,21 +22,16 @@ import java.util.concurrent.ExecutionException;
  */
 public abstract class CfPostProcessingDesugaringEventConsumer
     implements DesugaredLibraryRetargeterPostProcessingEventConsumer,
-        InterfaceProcessingDesugaringEventConsumer {
-  protected DesugaredLibraryAPIConverter desugaredLibraryAPIConverter;
-
-  protected CfPostProcessingDesugaringEventConsumer(AppView<?> appView) {
-    this.desugaredLibraryAPIConverter = new DesugaredLibraryAPIConverter(appView, null);
-  }
+        InterfaceProcessingDesugaringEventConsumer,
+        DesugaredLibraryAPIConverterPostProcessingEventConsumer {
 
   public static D8CfPostProcessingDesugaringEventConsumer createForD8(
-      D8MethodProcessor methodProcessor, AppView<?> appView) {
-    return new D8CfPostProcessingDesugaringEventConsumer(methodProcessor, appView);
+      D8MethodProcessor methodProcessor) {
+    return new D8CfPostProcessingDesugaringEventConsumer(methodProcessor);
   }
 
-  public static R8PostProcessingDesugaringEventConsumer createForR8(
-      AppView<?> appView, SyntheticAdditions additions) {
-    return new R8PostProcessingDesugaringEventConsumer(appView, additions);
+  public static R8PostProcessingDesugaringEventConsumer createForR8(SyntheticAdditions additions) {
+    return new R8PostProcessingDesugaringEventConsumer(additions);
   }
 
   public abstract void finalizeDesugaring() throws ExecutionException;
@@ -49,9 +43,7 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     // concurrently processing other methods.
     private final ProgramMethodSet methodsToReprocess = ProgramMethodSet.createConcurrent();
 
-    private D8CfPostProcessingDesugaringEventConsumer(
-        D8MethodProcessor methodProcessor, AppView<?> appView) {
-      super(appView);
+    private D8CfPostProcessingDesugaringEventConsumer(D8MethodProcessor methodProcessor) {
       this.methodProcessor = methodProcessor;
     }
 
@@ -92,21 +84,24 @@ public abstract class CfPostProcessingDesugaringEventConsumer
       methodProcessor.scheduleDesugaredMethodsForProcessing(methodsToReprocess);
       methodProcessor.awaitMethodProcessing();
     }
+
+    @Override
+    public void acceptAPIConversionCallback(ProgramMethod method) {
+      methodsToReprocess.add(method);
+    }
   }
 
   public static class R8PostProcessingDesugaringEventConsumer
       extends CfPostProcessingDesugaringEventConsumer {
     private final SyntheticAdditions additions;
 
-    protected R8PostProcessingDesugaringEventConsumer(
-        AppView<?> appView, SyntheticAdditions additions) {
-      super(appView);
+    R8PostProcessingDesugaringEventConsumer(SyntheticAdditions additions) {
       this.additions = additions;
     }
 
     @Override
     public void finalizeDesugaring() throws ExecutionException {
-      desugaredLibraryAPIConverter.generateTrackingWarnings();
+      // Intentionally empty.
     }
 
     @Override
@@ -127,10 +122,6 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     @Override
     public void acceptForwardingMethod(ProgramMethod method) {
       additions.addLiveMethod(method);
-      ProgramMethod callback = desugaredLibraryAPIConverter.generateCallbackIfRequired(method);
-      if (callback != null) {
-        additions.addLiveMethod(callback);
-      }
     }
 
     @Override
@@ -141,6 +132,11 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     @Override
     public void acceptEmulatedInterfaceMethod(ProgramMethod method) {
       assert false : "TODO(b/183998768): Support Interface processing in R8";
+    }
+
+    @Override
+    public void acceptAPIConversionCallback(ProgramMethod method) {
+      additions.addLiveMethod(method);
     }
   }
 }

@@ -20,6 +20,7 @@ import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.google.common.collect.Maps;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -44,16 +45,19 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
 
   @Override
   public void postProcessingDesugaring(
-      CfPostProcessingDesugaringEventConsumer eventConsumer, ExecutorService executorService)
+      Collection<DexProgramClass> programClasses,
+      CfPostProcessingDesugaringEventConsumer eventConsumer,
+      ExecutorService executorService)
       throws ExecutionException {
     if (appView.options().isDesugaredLibraryCompilation()) {
       ensureEmulatedDispatchMethodsSynthesized(eventConsumer);
     } else {
-      ensureInterfacesAndForwardingMethodsSynthesized(eventConsumer);
+      ensureInterfacesAndForwardingMethodsSynthesized(programClasses, eventConsumer);
     }
   }
 
   private void ensureInterfacesAndForwardingMethodsSynthesized(
+      Collection<DexProgramClass> programClasses,
       DesugaredLibraryRetargeterPostProcessingEventConsumer eventConsumer) {
     assert !appView.options().isDesugaredLibraryCompilation();
     Map<DexType, List<DexClassAndMethod>> map = Maps.newIdentityHashMap();
@@ -61,7 +65,7 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
       map.putIfAbsent(emulatedDispatchMethod.getHolderType(), new ArrayList<>(1));
       map.get(emulatedDispatchMethod.getHolderType()).add(emulatedDispatchMethod);
     }
-    for (DexProgramClass clazz : appView.appInfo().classes()) {
+    for (DexProgramClass clazz : programClasses) {
       if (clazz.superType == null) {
         assert clazz.type == appView.dexItemFactory().objectType : clazz.type.toSourceString();
         continue;
@@ -110,6 +114,9 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
     // methods.
     // We cannot use the ClassProcessor since this applies up to 26, while the ClassProcessor
     // applies up to 24.
+    if (appView.isAlreadyLibraryDesugared(clazz)) {
+      return;
+    }
     for (DexClassAndMethod method : methods) {
       DexClass newInterface =
           syntheticHelper.ensureEmulatedInterfaceDispatchMethod(method, eventConsumer);

@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.BottomUpClassHierarchyTraversal;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.Code;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -22,8 +23,8 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessInfoCollection;
+import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.info.bridge.BridgeInfo;
@@ -34,6 +35,7 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -120,7 +122,7 @@ public class BridgeHoisting {
 
   private void processClass(DexProgramClass clazz, SubtypingInfo subtypingInfo) {
     Set<DexType> subtypes = subtypingInfo.allImmediateSubtypes(clazz.type);
-    Set<DexProgramClass> subclasses = new TreeSet<>((x, y) -> x.type.compareTo(y.type));
+    Set<DexProgramClass> subclasses = new TreeSet<>(Comparator.comparing(DexClass::getType));
     for (DexType subtype : subtypes) {
       DexProgramClass subclass = asProgramClassOrNull(appView.definitionFor(subtype));
       if (subclass == null) {
@@ -225,7 +227,7 @@ public class BridgeHoisting {
         appView.dexItemFactory().createMethod(clazz.type, invokedMethod.proto, invokedMethod.name);
 
     // The targeted method must be present on the new holder class for this to be feasible.
-    ResolutionResult resolutionResult =
+    MethodResolutionResult resolutionResult =
         appView.appInfo().resolveMethodOnClass(methodToInvoke, clazz);
     if (!resolutionResult.isSingleResolution()) {
       return;

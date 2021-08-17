@@ -251,6 +251,10 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     this.classInlinerConstraint = classInlinerConstraint;
   }
 
+  void unsetClassInlinerMethodConstraint() {
+    this.classInlinerConstraint = ClassInlinerMethodConstraint.alwaysFalse();
+  }
+
   @Override
   public EnumUnboxerMethodClassification getEnumUnboxerMethodClassification() {
     return enumUnboxerMethodClassification;
@@ -336,6 +340,10 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
 
   void setBridgeInfo(BridgeInfo bridgeInfo) {
     this.bridgeInfo = bridgeInfo;
+  }
+
+  void unsetBridgeInfo() {
+    this.bridgeInfo = null;
   }
 
   @Override

@@ -12,21 +12,13 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.LookupResult;
+import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
-import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
-import com.android.tools.r8.ir.analysis.type.TypeElement;
-import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.ir.analysis.value.SingleValue;
-import com.android.tools.r8.ir.code.Assume;
-import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
-import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.PostOptimization;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.ConcreteCallSiteOptimizationInfo;
@@ -41,8 +33,6 @@ import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -55,25 +45,37 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
   // For now, before revisiting methods with more precise argument info, we switch the mode.
   // Then, revisiting a target at a certain level will not improve call site information of
   // callees in lower levels.
-  private enum Mode {
-    COLLECT, // Set until the end of the 1st round of IR processing. CallSiteOptimizationInfo will
-             // be updated in this mode only.
-    REVISIT  // Set once the all methods are processed. IRBuilder will add other instructions that
-             // reflect collected CallSiteOptimizationInfo.
+  public enum Mode {
+    // Set until the end of the 1st round of IR processing. CallSiteOptimizationInfo will be updated
+    // in this mode only.
+    COLLECT,
+    // Set once the all methods are processed. IRBuilder will add other instructions that reflect
+    // collected CallSiteOptimizationInfo.
+    REVISIT;
+
+    public boolean isRevisit() {
+      return this == REVISIT;
+    }
   }
 
   private final AppView<AppInfoWithLiveness> appView;
-  private final CallSiteOptimizationOptions options;
+  private final InternalOptions options;
+  private final CallSiteOptimizationOptions optimizationOptions;
   private ProgramMethodSet revisitedMethods = null;
   private Mode mode = Mode.COLLECT;
 
   public CallSiteOptimizationInfoPropagator(AppView<AppInfoWithLiveness> appView) {
     assert appView.enableWholeProgramOptimizations();
     this.appView = appView;
-    this.options = appView.options().callSiteOptimizationOptions();
+    this.options = appView.options();
+    this.optimizationOptions = appView.options().callSiteOptimizationOptions();
     if (Log.isLoggingEnabledFor(CallSiteOptimizationInfoPropagator.class)) {
       revisitedMethods = ProgramMethodSet.create();
     }
+  }
+
+  public Mode getMode() {
+    return mode;
   }
 
   public void logResults() {
@@ -189,7 +191,7 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
       return;
     }
 
-    if (targets.size() > options.getMaxNumberOfDispatchTargetsBeforeAbandoning()) {
+    if (targets.size() > optimizationOptions.getMaxNumberOfDispatchTargetsBeforeAbandoning()) {
       // If the number of targets exceed the threshold, abandon call site optimization for all
       // targets.
       abandonCallSitePropagation(invoke, resolutionResult, targets, context);
@@ -327,7 +329,9 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       for (ProgramMethod virtualProgramMethod : clazz.virtualProgramMethods()) {
         if (virtualProgramMethod.getDefinition().isNonPrivateVirtualMethod()
-            && appView.getKeepInfo().isPinned(virtualProgramMethod.getReference(), appView)) {
+            && appView
+                .getKeepInfo()
+                .isPinned(virtualProgramMethod.getReference(), appView, options)) {
           consumer.accept(virtualProgramMethod);
         }
       }
@@ -373,110 +377,6 @@ public class CallSiteOptimizationInfoPropagator implements PostOptimization {
     }
     timing.end();
     return callSiteOptimizationInfo;
-  }
-
-  // If collected call site optimization info has something useful, e.g., non-null argument,
-  // insert corresponding assume instructions for arguments.
-  public void applyCallSiteOptimizationInfo(
-      IRCode code, CallSiteOptimizationInfo callSiteOptimizationInfo) {
-    if (mode != Mode.REVISIT) {
-      return;
-    }
-    // TODO(b/139246447): Assert no BOTTOM left.
-    if (!callSiteOptimizationInfo.hasUsefulOptimizationInfo(appView, code.method())) {
-      return;
-    }
-    Set<Value> affectedValues = Sets.newIdentityHashSet();
-    List<Assume> assumeInstructions = new LinkedList<>();
-    List<Instruction> constants = new LinkedList<>();
-    int argumentsSeen = 0;
-    InstructionListIterator iterator = code.entryBlock().listIterator(code);
-    while (iterator.hasNext()) {
-      Instruction instr = iterator.next();
-      if (!instr.isArgument()) {
-        break;
-      }
-      argumentsSeen++;
-      Value originalArg = instr.asArgument().outValue();
-      if (originalArg.hasLocalInfo() || !originalArg.getType().isReferenceType()) {
-        continue;
-      }
-      int argIndex = argumentsSeen - 1;
-      AbstractValue abstractValue = callSiteOptimizationInfo.getAbstractArgumentValue(argIndex);
-      if (abstractValue.isSingleValue()) {
-        assert options.isConstantPropagationEnabled();
-        SingleValue singleValue = abstractValue.asSingleValue();
-        if (singleValue.isMaterializableInContext(appView, code.context())) {
-          Instruction replacement =
-              singleValue.createMaterializingInstruction(appView, code, instr);
-          replacement.setPosition(instr.getPosition());
-          affectedValues.addAll(originalArg.affectedValues());
-          originalArg.replaceUsers(replacement.outValue());
-          constants.add(replacement);
-          continue;
-        }
-      }
-      TypeElement dynamicUpperBoundType =
-          callSiteOptimizationInfo.getDynamicUpperBoundType(argIndex);
-      if (dynamicUpperBoundType == null) {
-        continue;
-      }
-      if (dynamicUpperBoundType.isDefinitelyNull()) {
-        ConstNumber nullInstruction = code.createConstNull();
-        nullInstruction.setPosition(instr.getPosition());
-        affectedValues.addAll(originalArg.affectedValues());
-        originalArg.replaceUsers(nullInstruction.outValue());
-        constants.add(nullInstruction);
-        continue;
-      }
-      Value specializedArg;
-      if (dynamicUpperBoundType.strictlyLessThan(originalArg.getType(), appView)) {
-        specializedArg = code.createValue(originalArg.getType());
-        affectedValues.addAll(originalArg.affectedValues());
-        originalArg.replaceUsers(specializedArg);
-        Assume assumeType =
-            Assume.createAssumeDynamicTypeInstruction(
-                dynamicUpperBoundType, null, specializedArg, originalArg, instr, appView);
-        assumeType.setPosition(instr.getPosition());
-        assumeInstructions.add(assumeType);
-      } else {
-        specializedArg = originalArg;
-      }
-      assert specializedArg != null && specializedArg.getType().isReferenceType();
-      if (dynamicUpperBoundType.isDefinitelyNotNull()) {
-        // If we already knew `arg` is never null, e.g., receiver, skip adding non-null.
-        if (!specializedArg.getType().isDefinitelyNotNull()) {
-          Value nonNullArg =
-              code.createValue(specializedArg.getType().asReferenceType().asMeetWithNotNull());
-          affectedValues.addAll(specializedArg.affectedValues());
-          specializedArg.replaceUsers(nonNullArg);
-          Assume assumeNotNull =
-              Assume.createAssumeNonNullInstruction(nonNullArg, specializedArg, instr, appView);
-          assumeNotNull.setPosition(instr.getPosition());
-          assumeInstructions.add(assumeNotNull);
-        }
-      }
-    }
-    assert argumentsSeen
-            == code.method().getReference().getArity() + (code.method().isStatic() ? 0 : 1)
-        : "args: "
-            + argumentsSeen
-            + " != "
-            + "arity: "
-            + code.method().getReference().getArity()
-            + ", static: "
-            + code.method().isStatic();
-    // After packed Argument instructions, add Assume and constant instructions.
-    assert !iterator.peekPrevious().isArgument();
-    iterator.previous();
-    assert iterator.peekPrevious().isArgument();
-    assumeInstructions.forEach(iterator::add);
-    // TODO(b/69963623): Can update method signature and save more on call sites.
-    constants.forEach(iterator::add);
-
-    if (!affectedValues.isEmpty()) {
-      new TypeAnalysis(appView).narrowing(affectedValues);
-    }
   }
 
   @Override

@@ -4,10 +4,13 @@
 package com.android.tools.r8.ir.desugar;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPICallbackSynthesizor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterPostProcessor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.RetargetingInfo;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -30,7 +33,9 @@ public abstract class CfPostProcessingDesugaringCollection {
   }
 
   public abstract void postProcessingDesugaring(
-      CfPostProcessingDesugaringEventConsumer eventConsumer, ExecutorService executorService)
+      Collection<DexProgramClass> programClasses,
+      CfPostProcessingDesugaringEventConsumer eventConsumer,
+      ExecutorService executorService)
       throws ExecutionException;
 
   public static class NonEmptyCfPostProcessingDesugaringCollection
@@ -47,10 +52,6 @@ public abstract class CfPostProcessingDesugaringCollection {
         AppView<?> appView,
         InterfaceMethodProcessorFacade interfaceMethodProcessorFacade,
         RetargetingInfo retargetingInfo) {
-      if (appView.options().desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()
-          && interfaceMethodProcessorFacade == null) {
-        return empty();
-      }
       ArrayList<CfPostProcessingDesugaring> desugarings = new ArrayList<>();
       if (!appView.options().desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()) {
         desugarings.add(new DesugaredLibraryRetargeterPostProcessor(appView, retargetingInfo));
@@ -58,15 +59,29 @@ public abstract class CfPostProcessingDesugaringCollection {
       if (interfaceMethodProcessorFacade != null) {
         desugarings.add(interfaceMethodProcessorFacade);
       }
+      DesugaredLibraryAPICallbackSynthesizor apiCallbackSynthesizor =
+          appView.rewritePrefix.isRewriting()
+              ? new DesugaredLibraryAPICallbackSynthesizor(appView)
+              : null;
+      // At this point the desugaredLibraryAPIConverter is required to be last to generate
+      // call-backs on the forwarding methods.
+      if (apiCallbackSynthesizor != null) {
+        desugarings.add(apiCallbackSynthesizor);
+      }
+      if (desugarings.isEmpty()) {
+        return empty();
+      }
       return new NonEmptyCfPostProcessingDesugaringCollection(desugarings);
     }
 
     @Override
     public void postProcessingDesugaring(
-        CfPostProcessingDesugaringEventConsumer eventConsumer, ExecutorService executorService)
+        Collection<DexProgramClass> programClasses,
+        CfPostProcessingDesugaringEventConsumer eventConsumer,
+        ExecutorService executorService)
         throws ExecutionException {
       for (CfPostProcessingDesugaring desugaring : desugarings) {
-        desugaring.postProcessingDesugaring(eventConsumer, executorService);
+        desugaring.postProcessingDesugaring(programClasses, eventConsumer, executorService);
       }
     }
   }
@@ -85,7 +100,9 @@ public abstract class CfPostProcessingDesugaringCollection {
 
     @Override
     public void postProcessingDesugaring(
-        CfPostProcessingDesugaringEventConsumer eventConsumer, ExecutorService executorService)
+        Collection<DexProgramClass> programClasses,
+        CfPostProcessingDesugaringEventConsumer eventConsumer,
+        ExecutorService executorService)
         throws ExecutionException {
       // Intentionally empty.
     }

@@ -123,7 +123,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
   }
 
-  public static final CfVersion SUPPORTED_CF_VERSION = CfVersion.V15;
+  public static final CfVersion SUPPORTED_CF_VERSION = CfVersion.V16_PREVIEW;
   public static final CfVersion EXPERIMENTAL_CF_VERSION = CfVersion.V12;
 
   public static final int SUPPORTED_DEX_VERSION =
@@ -609,8 +609,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   @Override
   public boolean isRepackagingEnabled() {
-    return proguardConfiguration.getPackageObfuscationMode().isSome()
-        && (isMinifying() || testing.repackageWithNoMinification);
+    return proguardConfiguration.getPackageObfuscationMode().isSome() && isMinifying();
   }
 
   @Override
@@ -1221,6 +1220,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     // TODO(b/69963623): enable if everything is ready, including signature rewriting at call sites.
     private boolean enableConstantPropagation = false;
+    private boolean enableExperimentalArgumentPropagation = false;
     private boolean enableTypePropagation = true;
 
     private void disableOptimization() {
@@ -1247,12 +1247,26 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       return enableConstantPropagation || enableTypePropagation;
     }
 
+    public boolean isExperimentalArgumentPropagationEnabled() {
+      return enableExperimentalArgumentPropagation;
+    }
+
     public boolean isConstantPropagationEnabled() {
       return enableConstantPropagation;
     }
 
     public boolean isTypePropagationEnabled() {
       return enableTypePropagation;
+    }
+
+    public void setEnableConstantPropagation() {
+      assert !isConstantPropagationEnabled();
+      enableConstantPropagation = true;
+    }
+
+    public void setEnableExperimentalArgumentPropagation() {
+      assert !isExperimentalArgumentPropagationEnabled();
+      enableExperimentalArgumentPropagation = true;
     }
   }
 
@@ -1403,6 +1417,22 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
                     }
                     return TraversalContinuation.CONTINUE;
                   }
+
+                  @Override
+                  protected TraversalContinuation visitFields(
+                      BiFunction<FieldReference, AndroidApiLevel, TraversalContinuation> visitor,
+                      ClassReference holder,
+                      int minApi) {
+                    return null;
+                  }
+
+                  @Override
+                  protected TraversalContinuation visitMethods(
+                      BiFunction<MethodReference, AndroidApiLevel, TraversalContinuation> visitor,
+                      ClassReference holder,
+                      int minApi) {
+                    return null;
+                  }
                 });
           });
     }
@@ -1544,7 +1574,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     // TODO(b/177333791): Set to true
     public boolean checkForNotExpandingMainDexTracingResult = false;
     public Set<String> allowedUnusedDontWarnPatterns = new HashSet<>();
-    public boolean repackageWithNoMinification = false;
     public boolean enableTestAssertions =
         System.getProperty("com.android.tools.r8.enableTestAssertions") != null;
     public boolean testEnableTestAssertions = false;

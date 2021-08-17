@@ -45,10 +45,10 @@ import com.android.tools.r8.graph.GraphLens.MethodLookupResult;
 import com.android.tools.r8.graph.GraphLens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
 import com.android.tools.r8.graph.MethodAccessFlags;
+import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.ResolutionResult;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
@@ -68,6 +68,7 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.FieldSignatureEquivalence;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Timing;
@@ -213,6 +214,7 @@ public class VerticalClassMerger {
   private final DexApplication application;
   private final AppInfoWithLiveness appInfo;
   private final AppView<AppInfoWithLiveness> appView;
+  private final InternalOptions options;
   private final SubtypingInfo subtypingInfo;
   private final ExecutorService executorService;
   private final MethodPoolCollection methodPoolCollection;
@@ -248,6 +250,7 @@ public class VerticalClassMerger {
     this.application = application;
     this.appInfo = appView.appInfo();
     this.appView = appView;
+    this.options = appView.options();
     this.mainDexInfo = appInfo.getMainDexInfo();
     this.subtypingInfo = appInfo.computeSubtypingInfo();
     this.executorService = executorService;
@@ -291,9 +294,9 @@ public class VerticalClassMerger {
     // the return type and the parameter types of the method.
     // TODO(b/156715504): Compute referenced-by-pinned in the keep info objects.
     List<DexReference> pinnedItems = new ArrayList<>();
-    appInfo.getKeepInfo().forEachPinnedType(pinnedItems::add);
-    appInfo.getKeepInfo().forEachPinnedMethod(pinnedItems::add);
-    appInfo.getKeepInfo().forEachPinnedField(pinnedItems::add);
+    appInfo.getKeepInfo().forEachPinnedType(pinnedItems::add, options);
+    appInfo.getKeepInfo().forEachPinnedMethod(pinnedItems::add, options);
+    appInfo.getKeepInfo().forEachPinnedField(pinnedItems::add, options);
     extractPinnedItems(pinnedItems, AbortReason.PINNED_SOURCE);
 
     for (DexProgramClass clazz : classes) {
@@ -728,7 +731,7 @@ public class VerticalClassMerger {
     // that `invoke-super A.method` instructions, which are in one of the methods from C, needs to
     // be rewritten to `invoke-direct C.method$B`. This is valid even though A.method() is actually
     // pinned, because this rewriting does not affect A.method() in any way.
-    assert graphLens.assertPinnedNotModified(appInfo.getKeepInfo());
+    assert graphLens.assertPinnedNotModified(appInfo.getKeepInfo(), options);
 
     for (DexProgramClass clazz : appInfo.classes()) {
       for (DexEncodedMethod encodedMethod : clazz.methods()) {
@@ -1136,19 +1139,26 @@ public class VerticalClassMerger {
           interfaces.isEmpty()
               ? DexTypeList.empty()
               : new DexTypeList(interfaces.toArray(DexType.EMPTY_ARRAY));
-      // Step 2: replace fields and methods.
+      // Step 2: ensure -if rules cannot target the members that were merged into the target class.
+      directMethods.values().forEach(feedback::markMethodCannotBeKept);
+      virtualMethods.values().forEach(feedback::markMethodCannotBeKept);
+      for (int i = 0; i < source.instanceFields().size(); i++) {
+        feedback.markFieldCannotBeKept(mergedInstanceFields[i]);
+      }
+      for (int i = 0; i < source.staticFields().size(); i++) {
+        feedback.markFieldCannotBeKept(mergedStaticFields[i]);
+      }
+      // Step 3: replace fields and methods.
       target.addDirectMethods(directMethods.values());
       target.addVirtualMethods(virtualMethods.values());
       target.setInstanceFields(mergedInstanceFields);
       target.setStaticFields(mergedStaticFields);
-      target.forEachField(feedback::markFieldCannotBeKept);
-      target.forEachMethod(feedback::markMethodCannotBeKept);
-      // Step 3: Clear the members of the source class since they have now been moved to the target.
+      // Step 4: Clear the members of the source class since they have now been moved to the target.
       source.getMethodCollection().clearDirectMethods();
       source.getMethodCollection().clearVirtualMethods();
       source.clearInstanceFields();
       source.clearStaticFields();
-      // Step 4: Record merging.
+      // Step 5: Record merging.
       mergedClasses.put(source.type, target.type);
       assert !abortMerge;
       assert GenericSignatureCorrectnessHelper.createForVerification(
@@ -1454,7 +1464,8 @@ public class VerticalClassMerger {
 
     // Returns the method that shadows the given method, or null if method is not shadowed.
     private DexEncodedMethod findMethodInTarget(DexEncodedMethod method) {
-      ResolutionResult resolutionResult = appInfo.resolveMethodOn(target, method.getReference());
+      MethodResolutionResult resolutionResult =
+          appInfo.resolveMethodOn(target, method.getReference());
       if (!resolutionResult.isSingleResolution()) {
         // May happen in case of missing classes, or if multiple implementations were found.
         abortMerge = true;
@@ -2018,7 +2029,7 @@ public class VerticalClassMerger {
           for (DexType type : method.proto.parameters.values) {
             checkTypeReference(type);
           }
-          ResolutionResult resolutionResult =
+          MethodResolutionResult resolutionResult =
               isInterface.isUnknown()
                   ? appView.appInfo().unsafeResolveMethodDueToDexFormat(method)
                   : appView.appInfo().resolveMethod(method, isInterface.isTrue());

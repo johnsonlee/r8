@@ -10,8 +10,8 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.ResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRConverter;
@@ -141,6 +141,7 @@ public class CheckCastAndInstanceOfMethodSpecialization implements Action {
       converter.markProcessed(code, feedback);
       // Fixup method optimization info (the method no longer returns a constant).
       feedback.unsetAbstractReturnValue(parentMethod.getDefinition());
+      feedback.unsetClassInlinerMethodConstraint(parentMethod);
     } else {
       return;
     }
