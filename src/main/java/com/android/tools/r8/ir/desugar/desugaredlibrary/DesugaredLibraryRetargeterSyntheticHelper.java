@@ -11,6 +11,8 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterInstructionEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterL8SynthesizerEventConsumer;
 import com.android.tools.r8.ir.synthetic.EmulateInterfaceSyntheticCfCodeProvider;
 import com.android.tools.r8.synthesis.SyntheticClassBuilder;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
@@ -28,91 +30,99 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
   public DexClass ensureEmulatedHolderDispatchMethod(
       DexClassAndMethod emulatedDispatchMethod,
       DesugaredLibraryRetargeterInstructionEventConsumer eventConsumer) {
-    assert eventConsumer != null || appView.enableWholeProgramOptimizations();
+    assert eventConsumer != null;
+    if (appView.options().isDesugaredLibraryCompilation()) {
+      return appView
+          .getSyntheticItems()
+          .getExistingFixedClass(
+              SyntheticKind.RETARGET_CLASS, emulatedDispatchMethod.getHolder(), appView);
+    }
     DexClass interfaceClass =
         ensureEmulatedInterfaceDispatchMethod(emulatedDispatchMethod, eventConsumer);
     DexMethod itfMethod =
         interfaceClass.lookupMethod(emulatedDispatchMethod.getReference()).getReference();
-    DexClass holderDispatch;
-    if (appView.options().isDesugaredLibraryCompilation()) {
-      holderDispatch =
-          appView
-              .getSyntheticItems()
-              .ensureFixedClass(
-                  SyntheticKind.RETARGET_CLASS,
-                  emulatedDispatchMethod.getHolder(),
-                  appView,
-                  classBuilder ->
-                      buildHolderDispatchMethod(classBuilder, emulatedDispatchMethod, itfMethod),
-                  clazz -> {
-                    if (eventConsumer != null) {
-                      eventConsumer.acceptDesugaredLibraryRetargeterDispatchProgramClass(clazz);
-                    }
-                  });
-    } else {
-      ClasspathOrLibraryClass context =
-          emulatedDispatchMethod.getHolder().asClasspathOrLibraryClass();
-      assert context != null;
-      holderDispatch =
-          appView
-              .getSyntheticItems()
-              .ensureFixedClasspathClass(
-                  SyntheticKind.RETARGET_CLASS,
-                  context,
-                  appView,
-                  classBuilder ->
-                      buildHolderDispatchMethod(classBuilder, emulatedDispatchMethod, itfMethod),
-                  clazz -> {
-                    if (eventConsumer != null) {
-                      eventConsumer.acceptDesugaredLibraryRetargeterDispatchClasspathClass(clazz);
-                    }
-                  });
-    }
-    rewriteType(holderDispatch.type);
-    return holderDispatch;
+    ClasspathOrLibraryClass context =
+        emulatedDispatchMethod.getHolder().asClasspathOrLibraryClass();
+    assert context != null;
+    return appView
+        .getSyntheticItems()
+        .ensureFixedClasspathClass(
+            SyntheticKind.RETARGET_CLASS,
+            context,
+            appView,
+            classBuilder ->
+                buildHolderDispatchMethod(classBuilder, emulatedDispatchMethod, itfMethod),
+            clazz -> {
+              eventConsumer.acceptDesugaredLibraryRetargeterDispatchClasspathClass(clazz);
+              rewriteType(clazz.type);
+            });
+  }
+
+  public void ensureProgramEmulatedHolderDispatchMethod(
+      DexClassAndMethod emulatedDispatchMethod,
+      DesugaredLibraryRetargeterL8SynthesizerEventConsumer eventConsumer) {
+    assert eventConsumer != null;
+    assert appView.options().isDesugaredLibraryCompilation();
+    DexClass interfaceClass =
+        ensureEmulatedInterfaceDispatchMethod(emulatedDispatchMethod, eventConsumer);
+    DexMethod itfMethod =
+        interfaceClass.lookupMethod(emulatedDispatchMethod.getReference()).getReference();
+    appView
+        .getSyntheticItems()
+        .ensureFixedClass(
+            SyntheticKind.RETARGET_CLASS,
+            emulatedDispatchMethod.getHolder(),
+            appView,
+            classBuilder ->
+                buildHolderDispatchMethod(classBuilder, emulatedDispatchMethod, itfMethod),
+            clazz -> {
+              eventConsumer.acceptDesugaredLibraryRetargeterDispatchProgramClass(clazz);
+              rewriteType(clazz.type);
+            });
   }
 
   public DexClass ensureEmulatedInterfaceDispatchMethod(
       DexClassAndMethod emulatedDispatchMethod,
       DesugaredLibraryRetargeterInstructionEventConsumer eventConsumer) {
-    assert eventConsumer != null || appView.enableWholeProgramOptimizations();
-    DexClass interfaceDispatch;
+    assert eventConsumer != null;
     if (appView.options().isDesugaredLibraryCompilation()) {
-      interfaceDispatch =
-          appView
-              .getSyntheticItems()
-              .ensureFixedClass(
-                  SyntheticKind.RETARGET_INTERFACE,
-                  emulatedDispatchMethod.getHolder(),
-                  appView,
-                  classBuilder ->
-                      buildInterfaceDispatchMethod(classBuilder, emulatedDispatchMethod),
-                  clazz -> {
-                    if (eventConsumer != null) {
-                      eventConsumer.acceptDesugaredLibraryRetargeterDispatchProgramClass(clazz);
-                    }
-                  });
-    } else {
-      ClasspathOrLibraryClass context =
-          emulatedDispatchMethod.getHolder().asClasspathOrLibraryClass();
-      assert context != null;
-      interfaceDispatch =
-          appView
-              .getSyntheticItems()
-              .ensureFixedClasspathClass(
-                  SyntheticKind.RETARGET_INTERFACE,
-                  context,
-                  appView,
-                  classBuilder ->
-                      buildInterfaceDispatchMethod(classBuilder, emulatedDispatchMethod),
-                  clazz -> {
-                    if (eventConsumer != null) {
-                      eventConsumer.acceptDesugaredLibraryRetargeterDispatchClasspathClass(clazz);
-                    }
-                  });
+      return appView
+          .getSyntheticItems()
+          .getExistingFixedClass(
+              SyntheticKind.RETARGET_INTERFACE, emulatedDispatchMethod.getHolder(), appView);
     }
-    rewriteType(interfaceDispatch.type);
-    return interfaceDispatch;
+    ClasspathOrLibraryClass context =
+        emulatedDispatchMethod.getHolder().asClasspathOrLibraryClass();
+    assert context != null;
+    return appView
+        .getSyntheticItems()
+        .ensureFixedClasspathClass(
+            SyntheticKind.RETARGET_INTERFACE,
+            context,
+            appView,
+            classBuilder -> buildInterfaceDispatchMethod(classBuilder, emulatedDispatchMethod),
+            clazz -> {
+              eventConsumer.acceptDesugaredLibraryRetargeterDispatchClasspathClass(clazz);
+              rewriteType(clazz.type);
+            });
+  }
+
+  public DexClass ensureEmulatedInterfaceDispatchMethod(
+      DexClassAndMethod emulatedDispatchMethod,
+      DesugaredLibraryRetargeterL8SynthesizerEventConsumer eventConsumer) {
+    assert appView.options().isDesugaredLibraryCompilation();
+    assert eventConsumer != null;
+    return appView
+        .getSyntheticItems()
+        .ensureFixedClass(
+            SyntheticKind.RETARGET_INTERFACE,
+            emulatedDispatchMethod.getHolder(),
+            appView,
+            classBuilder -> buildInterfaceDispatchMethod(classBuilder, emulatedDispatchMethod),
+            clazz -> {
+              eventConsumer.acceptDesugaredLibraryRetargeterDispatchProgramClass(clazz);
+              rewriteType(clazz.type);
+            });
   }
 
   private void buildInterfaceDispatchMethod(
@@ -149,14 +159,16 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
               .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
               .setCode(
                   methodSig ->
-                      new EmulateInterfaceSyntheticCfCodeProvider(
-                              methodSig.getHolderType(),
-                              emulatedDispatchMethod.getHolderType(),
-                              desugarMethod,
-                              itfMethod,
-                              Collections.emptyList(),
-                              appView)
-                          .generateCfCode());
+                      appView.options().isDesugaredLibraryCompilation()
+                          ? new EmulateInterfaceSyntheticCfCodeProvider(
+                                  methodSig.getHolderType(),
+                                  emulatedDispatchMethod.getHolderType(),
+                                  desugarMethod,
+                                  itfMethod,
+                                  Collections.emptyList(),
+                                  appView)
+                              .generateCfCode()
+                          : null);
         });
   }
 

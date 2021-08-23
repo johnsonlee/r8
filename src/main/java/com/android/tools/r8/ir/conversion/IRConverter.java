@@ -49,6 +49,8 @@ import com.android.tools.r8.ir.desugar.CfClassDesugaringEventConsumer.D8CfClassD
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer.D8CfInstructionDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.CfL8ClassSynthesizerCollection;
+import com.android.tools.r8.ir.desugar.CfL8ClassSynthesizerEventConsumer;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer.D8CfPostProcessingDesugaringEventConsumer;
@@ -355,13 +357,6 @@ public class IRConverter {
         D8NestBasedAccessDesugaring::clearNestAttributes);
   }
 
-  public void ensureWrappersForL8(
-      D8CfInstructionDesugaringEventConsumer instructionDesugaringEventConsumer) {
-    assert appView.options().isDesugaredLibraryCompilation();
-    instructionDesugaring.withDesugaredLibraryAPIConverter(
-        converter -> converter.ensureWrappersForL8(instructionDesugaringEventConsumer));
-  }
-
   private void staticizeClasses(
       OptimizationFeedback feedback, ExecutorService executorService, GraphLens applied)
       throws ExecutionException {
@@ -414,11 +409,11 @@ public class IRConverter {
     reportNestDesugarDependencies();
     clearNestAttributes();
 
-    application = commitPendingSyntheticItems(appView, application);
+    application = commitPendingSyntheticItemsD8(appView, application);
 
     postProcessingDesugaringForD8(methodProcessor, executor);
 
-    application = commitPendingSyntheticItems(appView, application);
+    application = commitPendingSyntheticItemsD8(appView, application);
 
     // Build a new application with jumbo string info,
     Builder<?> builder = application.builder().setHighestSortingString(highestSortingString);
@@ -437,7 +432,7 @@ public class IRConverter {
             appView.appInfo().getMainDexInfo()));
   }
 
-  private DexApplication commitPendingSyntheticItems(
+  private DexApplication commitPendingSyntheticItemsD8(
       AppView<AppInfo> appView, DexApplication application) {
     if (appView.getSyntheticItems().hasPendingSyntheticClasses()) {
       appView.setAppInfo(
@@ -447,6 +442,23 @@ public class IRConverter {
       application = appView.appInfo().app();
     }
     return application;
+  }
+
+  private static void commitPendingSyntheticItemsR8(AppView<AppInfoWithLiveness> appView) {
+    if (appView.getSyntheticItems().hasPendingSyntheticClasses()) {
+      appView.setAppInfo(
+          appView
+              .appInfo()
+              .rebuildWithLiveness(appView.getSyntheticItems().commit(appView.appInfo().app())));
+    }
+  }
+
+  public void l8ClassSynthesis(
+      ExecutorService executorService,
+      CfL8ClassSynthesizerEventConsumer l8ClassSynthesizerEventConsumer)
+      throws ExecutionException {
+    new CfL8ClassSynthesizerCollection(appView, instructionDesugaring.getRetargetingInfo())
+        .synthesizeClasses(executorService, l8ClassSynthesizerEventConsumer);
   }
 
   private void postProcessingDesugaringForD8(
@@ -726,6 +738,9 @@ public class IRConverter {
     // lenses with code rewriting are added.
     appView.clearCodeRewritings();
 
+    // Commit synthetics from the primary optimization pass.
+    commitPendingSyntheticItemsR8(appView);
+
     // Analyze the data collected by the argument propagator, use the analysis result to update
     // the parameter optimization infos, and rewrite the application.
     appView.withArgumentPropagator(
@@ -797,12 +812,8 @@ public class IRConverter {
 
     // Commit synthetics before creating a builder (otherwise the builder will not include the
     // synthetics.)
-    if (appView.getSyntheticItems().hasPendingSyntheticClasses()) {
-      appView.setAppInfo(
-          appView
-              .appInfo()
-              .rebuildWithLiveness(appView.getSyntheticItems().commit(appView.appInfo().app())));
-    }
+    commitPendingSyntheticItemsR8(appView);
+
     // Build a new application with jumbo string info.
     Builder<?> builder = appView.appInfo().app().builder();
     builder.setHighestSortingString(highestSortingString);
@@ -1538,7 +1549,7 @@ public class IRConverter {
         printMethod(code, "IR after idempotent function call canonicalization (SSA)", previous);
 
     // Insert code to log arguments if requested.
-    if (options.methodMatchesLogArgumentsFilter(method)) {
+    if (options.methodMatchesLogArgumentsFilter(method) && !method.isProcessed()) {
       codeRewriter.logArgumentTypes(method, code);
       assert code.isConsistentSSA();
     }

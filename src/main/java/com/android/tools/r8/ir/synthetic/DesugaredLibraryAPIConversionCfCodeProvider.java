@@ -32,8 +32,8 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverter;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverterEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryWrapperSynthesizer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryClasspathWrapperSynthesizeEventConsumer;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.collections.ImmutableDeque;
 import com.android.tools.r8.utils.collections.ImmutableInt2ReferenceSortedMap;
@@ -58,21 +58,18 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
     private final DexMethod forwardMethod;
     private final DesugaredLibraryWrapperSynthesizer wrapperSynthesizer;
     private final boolean itfCall;
-    private final DesugaredLibraryAPIConverterEventConsumer eventConsumer;
 
     public APIConverterVivifiedWrapperCfCodeProvider(
         AppView<?> appView,
         DexMethod forwardMethod,
         DexField wrapperField,
         DesugaredLibraryWrapperSynthesizer wrapperSynthesizer,
-        boolean itfCall,
-        DesugaredLibraryAPIConverterEventConsumer eventConsumer) {
+        boolean itfCall) {
       super(appView, wrapperField.holder);
       this.forwardMethod = forwardMethod;
       this.wrapperField = wrapperField;
       this.wrapperSynthesizer = wrapperSynthesizer;
       this.itfCall = itfCall;
-      this.eventConsumer = eventConsumer;
     }
 
     @Override
@@ -93,8 +90,8 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
           instructions.add(
               new CfInvoke(
                   Opcodes.INVOKESTATIC,
-                  wrapperSynthesizer.ensureConversionMethod(
-                      param, param, vivifiedTypeFor(param), eventConsumer),
+                  wrapperSynthesizer.getExistingProgramConversionMethod(
+                      param, param, vivifiedTypeFor(param)),
                   false));
           newParameters[index - 1] = vivifiedTypeFor(param);
         }
@@ -125,8 +122,8 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
         instructions.add(
             new CfInvoke(
                 Opcodes.INVOKESTATIC,
-                wrapperSynthesizer.ensureConversionMethod(
-                    returnType, vivifiedTypeFor(returnType), returnType, eventConsumer),
+                wrapperSynthesizer.getExistingProgramConversionMethod(
+                    returnType, vivifiedTypeFor(returnType), returnType),
                 false));
       }
       if (returnType == factory.voidType) {
@@ -138,30 +135,28 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
     }
   }
 
-  public static class APIConverterWrapperCfCodeProvider
+  public abstract static class AbstractAPIConverterWrapperCfCodeProvider
       extends DesugaredLibraryAPIConversionCfCodeProvider {
 
-    DexField wrapperField;
     DexMethod forwardMethod;
     DesugaredLibraryWrapperSynthesizer wrapperSynthesizor;
     boolean itfCall;
-    private final DesugaredLibraryAPIConverterEventConsumer eventConsumer;
 
-    public APIConverterWrapperCfCodeProvider(
+    public AbstractAPIConverterWrapperCfCodeProvider(
         AppView<?> appView,
+        DexType holder,
         DexMethod forwardMethod,
-        DexField wrapperField,
         DesugaredLibraryWrapperSynthesizer wrapperSynthesizor,
-        boolean itfCall,
-        DesugaredLibraryAPIConverterEventConsumer eventConsumer) {
-      //  Var wrapperField is null if should forward to receiver.
-      super(appView, wrapperField == null ? forwardMethod.holder : wrapperField.holder);
+        boolean itfCall) {
+      super(appView, holder);
       this.forwardMethod = forwardMethod;
-      this.wrapperField = wrapperField;
       this.wrapperSynthesizor = wrapperSynthesizor;
       this.itfCall = itfCall;
-      this.eventConsumer = eventConsumer;
     }
+
+    abstract void generatePushReceiver(List<CfInstruction> instructions);
+
+    abstract DexMethod ensureConversionMethod(DexType type, DexType srcType, DexType destType);
 
     @Override
     public CfCode generateCfCode() {
@@ -170,13 +165,7 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
       // Wrapped value is a type. Method uses vivifiedTypes as external. Forward method should
       // use types.
 
-      // Var wrapperField is null if should forward to receiver.
-      if (wrapperField == null) {
-        instructions.add(new CfLoad(ValueType.fromDexType(forwardMethod.holder), 0));
-      } else {
-        instructions.add(new CfLoad(ValueType.fromDexType(wrapperField.holder), 0));
-        instructions.add(new CfFieldInstruction(Opcodes.GETFIELD, wrapperField, wrapperField));
-      }
+      generatePushReceiver(instructions);
       int stackIndex = 1;
       for (DexType param : forwardMethod.proto.parameters.values) {
         instructions.add(new CfLoad(ValueType.fromDexType(param), stackIndex));
@@ -184,8 +173,7 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
           instructions.add(
               new CfInvoke(
                   Opcodes.INVOKESTATIC,
-                  wrapperSynthesizor.ensureConversionMethod(
-                      param, vivifiedTypeFor(param), param, eventConsumer),
+                  ensureConversionMethod(param, vivifiedTypeFor(param), param),
                   false));
         }
         if (param == factory.longType || param == factory.doubleType) {
@@ -205,8 +193,7 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
         instructions.add(
             new CfInvoke(
                 Opcodes.INVOKESTATIC,
-                wrapperSynthesizor.ensureConversionMethod(
-                    returnType, returnType, vivifiedTypeFor(returnType), eventConsumer),
+                ensureConversionMethod(returnType, returnType, vivifiedTypeFor(returnType)),
                 false));
         returnType = vivifiedTypeFor(returnType);
       }
@@ -216,6 +203,59 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
         instructions.add(new CfReturn(ValueType.fromDexType(returnType)));
       }
       return standardCfCodeFromInstructions(instructions);
+    }
+  }
+
+  public static class APICallbackWrapperCfCodeProvider
+      extends AbstractAPIConverterWrapperCfCodeProvider {
+
+    private final DesugaredLibraryClasspathWrapperSynthesizeEventConsumer eventConsumer;
+
+    public APICallbackWrapperCfCodeProvider(
+        AppView<?> appView,
+        DexMethod forwardMethod,
+        DesugaredLibraryWrapperSynthesizer wrapperSynthesizor,
+        boolean itfCall,
+        DesugaredLibraryClasspathWrapperSynthesizeEventConsumer eventConsumer) {
+      super(appView, forwardMethod.holder, forwardMethod, wrapperSynthesizor, itfCall);
+      this.eventConsumer = eventConsumer;
+    }
+
+    @Override
+    void generatePushReceiver(List<CfInstruction> instructions) {
+      instructions.add(new CfLoad(ValueType.fromDexType(forwardMethod.holder), 0));
+    }
+
+    @Override
+    DexMethod ensureConversionMethod(DexType type, DexType srcType, DexType destType) {
+      return wrapperSynthesizor.ensureConversionMethod(type, srcType, destType, eventConsumer);
+    }
+  }
+
+  public static class APIConverterWrapperCfCodeProvider
+      extends AbstractAPIConverterWrapperCfCodeProvider {
+
+    private final DexField wrapperField;
+
+    public APIConverterWrapperCfCodeProvider(
+        AppView<?> appView,
+        DexMethod forwardMethod,
+        DexField wrapperField,
+        DesugaredLibraryWrapperSynthesizer wrapperSynthesizor,
+        boolean itfCall) {
+      super(appView, wrapperField.holder, forwardMethod, wrapperSynthesizor, itfCall);
+      this.wrapperField = wrapperField;
+    }
+
+    @Override
+    void generatePushReceiver(List<CfInstruction> instructions) {
+      instructions.add(new CfLoad(ValueType.fromDexType(wrapperField.holder), 0));
+      instructions.add(new CfFieldInstruction(Opcodes.GETFIELD, wrapperField, wrapperField));
+    }
+
+    @Override
+    DexMethod ensureConversionMethod(DexType type, DexType srcType, DexType destType) {
+      return wrapperSynthesizor.getExistingProgramConversionMethod(type, srcType, destType);
     }
   }
 

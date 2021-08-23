@@ -11,7 +11,6 @@ import static com.android.tools.r8.graph.DexEncodedMethod.CompilationState.PROCE
 import static com.android.tools.r8.graph.DexEncodedMethod.CompilationState.PROCESSED_NOT_INLINING_CANDIDATE;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getNoKotlinInfo;
-import static com.android.tools.r8.utils.AndroidApiLevelUtils.MIN_API_LEVEL;
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 
 import com.android.tools.r8.cf.CfVersion;
@@ -57,7 +56,6 @@ import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.ir.optimize.NestUtils;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.DefaultMethodOptimizationInfo;
-import com.android.tools.r8.ir.optimize.info.DefaultMethodOptimizationWithMinApiInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
@@ -158,9 +156,12 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   // TODO(b/128967328): towards finer-grained inlining constraints,
   //   we need to maintain a set of states with (potentially different) contexts.
   private CompilationState compilationState = CompilationState.NOT_PROCESSED;
-  private MethodOptimizationInfo optimizationInfo = DefaultMethodOptimizationInfo.DEFAULT_INSTANCE;
+  private MethodOptimizationInfo optimizationInfo = DefaultMethodOptimizationInfo.getInstance();
   private CallSiteOptimizationInfo callSiteOptimizationInfo = CallSiteOptimizationInfo.bottom();
   private CfVersion classFileVersion;
+  /** The apiLevelForCode describes the api level needed for knowing all references in the code */
+  private AndroidApiLevel apiLevelForCode;
+
   private KotlinMethodLevelInfo kotlinMemberInfo = getNoKotlinInfo();
   /** Generic signature information if the attribute is present in the input */
   private MethodTypeSignature genericSignature;
@@ -316,28 +317,18 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       AndroidApiLevel apiLevelForDefinition,
       AndroidApiLevel apiLevelForCode,
       boolean deprecated) {
-    super(method, annotations, d8R8Synthesized);
+    super(method, annotations, d8R8Synthesized, apiLevelForDefinition);
     this.accessFlags = accessFlags;
     this.deprecated = deprecated;
     this.genericSignature = genericSignature;
     this.parameterAnnotationsList = parameterAnnotationsList;
     this.code = code;
     this.classFileVersion = classFileVersion;
-    if (apiLevelForDefinition == AndroidApiLevel.UNKNOWN
-        && apiLevelForCode == AndroidApiLevel.UNKNOWN) {
-      optimizationInfo = DefaultMethodOptimizationInfo.getInstance();
-    } else if (apiLevelForDefinition == MIN_API_LEVEL && apiLevelForCode == MIN_API_LEVEL) {
-      optimizationInfo = DefaultMethodOptimizationWithMinApiInfo.getInstance();
-    } else {
-      MutableMethodOptimizationInfo optimizationInfo =
-          DefaultMethodOptimizationInfo.getInstance().toMutableOptimizationInfo();
-      optimizationInfo.setApiReferenceLevelForDefinition(apiLevelForDefinition);
-      optimizationInfo.setApiReferenceLevelForCode(apiLevelForCode);
-      this.optimizationInfo = optimizationInfo;
-    }
+    this.apiLevelForCode = apiLevelForCode;
     assert accessFlags != null;
     assert code == null || !shouldNotHaveCode();
     assert parameterAnnotationsList != null;
+    assert apiLevelForCode != null && apiLevelForDefinition != null;
   }
 
   public static DexEncodedMethod toMethodDefinitionOrNull(DexClassAndMethod method) {
@@ -1117,11 +1108,17 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   }
 
   public DexEncodedMethod toMethodThatLogsError(AppView<?> appView) {
-    if (appView.options().isGeneratingDex()) {
-      return toMethodThatLogsErrorDexCode(appView.dexItemFactory());
-    } else {
-      return toMethodThatLogsErrorCfCode(appView.dexItemFactory());
-    }
+    Builder builder =
+        builder(this)
+            .setCode(
+                appView.options().isGeneratingClassFiles()
+                    ? toCfCodeThatLogsError(appView.dexItemFactory())
+                    : toDexCodeThatLogsError(appView.dexItemFactory()))
+            .setIsLibraryMethodOverrideIf(
+                belongsToVirtualPool() && !isLibraryMethodOverride().isUnknown(),
+                isLibraryMethodOverride());
+    setObsolete();
+    return builder.build();
   }
 
   public static void setDebugInfoWithFakeThisParameter(Code code, int arity, AppView<?> appView) {
@@ -1136,8 +1133,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       cfCode.addFakeThisParameter(appView.dexItemFactory());
     }
   }
-  
-  private DexEncodedMethod toMethodThatLogsErrorDexCode(DexItemFactory itemFactory) {
+
+  private DexCode toDexCodeThatLogsError(DexItemFactory itemFactory) {
     checkIfObsolete();
     Signature signature = MethodSignature.fromDexMethod(getReference());
     DexString message =
@@ -1158,23 +1155,18 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
             exceptionType,
             itemFactory.createProto(itemFactory.voidType, itemFactory.stringType),
             itemFactory.constructorMethodName);
-    DexCode code =
-        generateCodeFromTemplate(
-            2,
-            2,
-            new ConstString(0, tag),
-            new ConstString(1, message),
-            new InvokeStatic(2, logMethod, 0, 1, 0, 0, 0),
-            new NewInstance(0, exceptionType),
-            new InvokeDirect(2, exceptionInitMethod, 0, 1, 0, 0, 0),
-            new Throw(0));
-    Builder builder = builder(this);
-    builder.setCode(code);
-    setObsolete();
-    return builder.build();
+    return generateCodeFromTemplate(
+        2,
+        2,
+        new ConstString(0, tag),
+        new ConstString(1, message),
+        new InvokeStatic(2, logMethod, 0, 1, 0, 0, 0),
+        new NewInstance(0, exceptionType),
+        new InvokeDirect(2, exceptionInitMethod, 0, 1, 0, 0, 0),
+        new Throw(0));
   }
 
-  private DexEncodedMethod toMethodThatLogsErrorCfCode(DexItemFactory itemFactory) {
+  private CfCode toCfCodeThatLogsError(DexItemFactory itemFactory) {
     checkIfObsolete();
     Signature signature = MethodSignature.fromDexMethod(getReference());
     DexString message =
@@ -1219,18 +1211,13 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         .add(new CfConstString(message))
         .add(new CfInvoke(Opcodes.INVOKESPECIAL, exceptionInitMethod, false))
         .add(new CfThrow());
-    CfCode code =
-        new CfCode(
-            getReference().holder,
-            3,
-            locals,
-            instructionBuilder.build(),
-            Collections.emptyList(),
-            Collections.emptyList());
-    Builder builder = builder(this);
-    builder.setCode(code);
-    setObsolete();
-    return builder.build();
+    return new CfCode(
+        getReference().holder,
+        3,
+        locals,
+        instructionBuilder.build(),
+        Collections.emptyList(),
+        Collections.emptyList());
   }
 
   public DexEncodedMethod toTypeSubstitutedMethod(DexMethod method) {
@@ -1328,7 +1315,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
                                                 .getHolderType()
                                                 .isInterface(definitions)))
                             .build())
-                    .modifyAccessFlags(MethodAccessFlags::setBridge))
+                    .modifyAccessFlags(MethodAccessFlags::setBridge)
+                    .setIsLibraryMethodOverrideIf(
+                        !isStatic() && !isLibraryMethodOverride().isUnknown(),
+                        isLibraryMethodOverride()))
         .build();
   }
 
@@ -1431,18 +1421,19 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return optimizationInfo;
   }
 
-  public AndroidApiLevel getApiReferenceLevelForDefinition(AndroidApiLevel minApiLevel) {
-    return optimizationInfo.getApiReferenceLevelForDefinition(minApiLevel);
+  public AndroidApiLevel getApiLevelForCode() {
+    return apiLevelForCode;
   }
 
-  public AndroidApiLevel getApiReferenceLevelForCode(AndroidApiLevel minApiLevel) {
-    return optimizationInfo.getApiReferenceLevelForCode(minApiLevel);
+  public void setApiLevelForCode(AndroidApiLevel apiLevel) {
+    assert apiLevel != null;
+    this.apiLevelForCode = apiLevel;
   }
 
   @Override
-  public AndroidApiLevel getApiReferenceLevel(AndroidApiLevel minApiLevel) {
-    return getApiReferenceLevelForDefinition(minApiLevel)
-        .max(getApiReferenceLevelForCode(minApiLevel));
+  public AndroidApiLevel getApiLevel() {
+    return (isAbstract() ? AndroidApiLevel.B : getApiLevelForCode())
+        .max(getApiLevelForDefinition());
   }
 
   public synchronized MutableMethodOptimizationInfo getMutableOptimizationInfo() {
@@ -1453,11 +1444,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   }
 
   public void setOptimizationInfo(MutableMethodOptimizationInfo info) {
-    checkIfObsolete();
-    optimizationInfo = info;
-  }
-
-  public void setMinApiOptimizationInfo(DefaultMethodOptimizationWithMinApiInfo info) {
     checkIfObsolete();
     optimizationInfo = info;
   }
@@ -1525,6 +1511,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     private MethodOptimizationInfo optimizationInfo = DefaultMethodOptimizationInfo.getInstance();
     private KotlinMethodLevelInfo kotlinInfo = getNoKotlinInfo();
     private CfVersion classFileVersion = null;
+    private AndroidApiLevel apiLevelForDefinition = null;
+    private AndroidApiLevel apiLevelForCode = null;
     private boolean d8R8Synthesized = false;
 
     private Consumer<DexEncodedMethod> buildConsumer = ConsumerUtils.emptyConsumer();
@@ -1542,6 +1530,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       genericSignature = from.getGenericSignature();
       annotations = from.annotations();
       code = from.getCode();
+      apiLevelForDefinition = from.getApiLevelForDefinition();
+      apiLevelForCode = from.getApiLevelForCode();
       optimizationInfo =
           from.getOptimizationInfo().isMutableOptimizationInfo()
               ? from.getOptimizationInfo().asMutableMethodOptimizationInfo().mutableCopy()
@@ -1732,6 +1722,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       assert parameterAnnotations != null;
       assert parameterAnnotations.isEmpty()
           || parameterAnnotations.size() == method.proto.parameters.size();
+      assert apiLevelForDefinition != null;
+      assert apiLevelForCode != null;
       DexEncodedMethod result =
           new DexEncodedMethod(
               method,
@@ -1742,8 +1734,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
               code,
               d8R8Synthesized,
               classFileVersion,
-              AndroidApiLevel.UNKNOWN,
-              AndroidApiLevel.UNKNOWN);
+              apiLevelForDefinition,
+              apiLevelForCode);
       result.setKotlinMemberInfo(kotlinInfo);
       result.compilationState = compilationState;
       result.optimizationInfo = optimizationInfo;
@@ -1756,6 +1748,16 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
     public Builder setGenericSignature(MethodTypeSignature methodSignature) {
       this.genericSignature = methodSignature;
+      return this;
+    }
+
+    public Builder setApiLevelForDefinition(AndroidApiLevel apiLevelForDefinition) {
+      this.apiLevelForDefinition = apiLevelForDefinition;
+      return this;
+    }
+
+    public Builder setApiLevelForCode(AndroidApiLevel apiLevelForCode) {
+      this.apiLevelForCode = apiLevelForCode;
       return this;
     }
   }

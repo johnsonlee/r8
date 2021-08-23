@@ -274,16 +274,25 @@ public class Repackaging {
     }
 
     // Always repackage outer classes first, if any.
-    InnerClassAttribute innerClassAttribute = classToRepackage.getInnerClassAttributeForThisClass();
     DexProgramClass outerClass = null;
-    if (innerClassAttribute != null && innerClassAttribute.getOuter() != null) {
-      outerClass = asProgramClassOrNull(appView.definitionFor(innerClassAttribute.getOuter()));
-      if (outerClass != null) {
-        if (pkg.contains(outerClass)) {
-          processClass(outerClass, pkg, newPackageDescriptor, mappings);
-        } else {
-          outerClass = null;
-        }
+    if (classToRepackage.hasEnclosingMethodAttribute()) {
+      DexType enclosingClass = classToRepackage.getEnclosingMethodAttribute().getEnclosingClass();
+      if (enclosingClass != null) {
+        outerClass = asProgramClassOrNull(appView.definitionFor(enclosingClass));
+      }
+    }
+    if (outerClass == null) {
+      InnerClassAttribute innerClassAttribute =
+          classToRepackage.getInnerClassAttributeForThisClass();
+      if (innerClassAttribute != null && innerClassAttribute.getOuter() != null) {
+        outerClass = asProgramClassOrNull(appView.definitionFor(innerClassAttribute.getOuter()));
+      }
+    }
+    if (outerClass != null) {
+      if (pkg.contains(outerClass)) {
+        processClass(outerClass, pkg, newPackageDescriptor, mappings);
+      } else {
+        outerClass = null;
       }
     }
     mappings.put(
@@ -318,13 +327,13 @@ public class Repackaging {
 
   public static class DefaultRepackagingConfiguration implements RepackagingConfiguration {
 
-    private final AppView<?> appView;
+    private final AppView<AppInfoWithLiveness> appView;
     private final DexItemFactory dexItemFactory;
     private final InternalOptions options;
     private final ProguardConfiguration proguardConfiguration;
     private final MinificationPackageNamingStrategy packageMinificationStrategy;
 
-    public DefaultRepackagingConfiguration(AppView<?> appView) {
+    public DefaultRepackagingConfiguration(AppView<AppInfoWithLiveness> appView) {
       this.appView = appView;
       this.dexItemFactory = appView.dexItemFactory();
       this.options = appView.options();
@@ -342,7 +351,7 @@ public class Repackaging {
         return newPackageDescriptor;
       } else if (packageObfuscationMode.isMinification()) {
         assert !proguardConfiguration.hasApplyMappingFile();
-        // Always keep top-level classes since there packages can never be minified.
+        // Always keep top-level classes since their packages can never be minified.
         if (pkg.getPackageDescriptor().equals("")
             || proguardConfiguration.getKeepPackageNamesPatterns().matches(pkg)
             || mayHavePinnedPackagePrivateOrProtectedItem(pkg)) {
@@ -383,15 +392,21 @@ public class Repackaging {
 
     private boolean mayHavePinnedPackagePrivateOrProtectedItem(ProgramPackage pkg) {
       // Go through all package classes and members to see if there is a pinned package-private
-      // item, in which case we cannot move it because there may be a reflective access to it.
+      // item, in which case we cannot move it because there could be an access to it from outside
+      // the program, which would be rewritten with -applymapping.
       for (DexProgramClass clazz : pkg.classesInPackage()) {
         if (clazz.getAccessFlags().isPackagePrivateOrProtected()
-            && appView.getKeepInfo().getClassInfo(clazz).isPinned(options)) {
+            && !appView.getKeepInfo().getClassInfo(clazz).isShrinkingAllowed(options)) {
           return true;
         }
         for (DexEncodedMember<?, ?> member : clazz.members()) {
+          // Skip the class initializer. Even if it is kept, it cannot be invoked, and thus we don't
+          // need any special handling to make sure it is always accessible to callers from tests.
+          if (member.isDexEncodedMethod() && member.asDexEncodedMethod().isClassInitializer()) {
+            continue;
+          }
           if (member.getAccessFlags().isPackagePrivateOrProtected()
-              && appView.getKeepInfo().getMemberInfo(member, clazz).isPinned(options)) {
+              && !appView.getKeepInfo().getMemberInfo(member, clazz).isShrinkingAllowed(options)) {
             return true;
           }
         }
@@ -427,17 +442,19 @@ public class Repackaging {
       }
       // Ensure that the generated name is unique.
       DexType finalRepackagedDexType = repackagedDexType;
-      for (int i = 1; isRepackageTypeUsed(finalRepackagedDexType, mappings, appView); i++) {
+      for (int i = 1; isRepackageTypeUsed(finalRepackagedDexType, mappings); i++) {
         finalRepackagedDexType = repackagedDexType.addSuffix(i + "", dexItemFactory);
       }
       return finalRepackagedDexType;
     }
-  }
 
-  private static boolean isRepackageTypeUsed(
-      DexType type, BiMap<DexType, DexType> mappings, AppView<?> appView) {
-    return mappings.inverse().containsKey(type)
-        || (appView.hasLiveness() && appView.withLiveness().appInfo().wasPruned(type));
+    private boolean isRepackageTypeUsed(DexType type, BiMap<DexType, DexType> mappings) {
+      if (mappings.inverse().containsKey(type)) {
+        return true;
+      }
+      return appView.appInfo().wasPruned(type)
+          || appView.appInfo().getMissingClasses().contains(type);
+    }
   }
 
   /** Testing only. */

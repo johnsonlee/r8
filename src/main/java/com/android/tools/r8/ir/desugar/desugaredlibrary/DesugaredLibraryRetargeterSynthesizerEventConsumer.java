@@ -9,16 +9,19 @@ import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 
-public interface DesugaredLibraryRetargeterInstructionEventConsumer {
+public interface DesugaredLibraryRetargeterSynthesizerEventConsumer {
 
-  void acceptDesugaredLibraryRetargeterDispatchProgramClass(DexProgramClass clazz);
+  interface DesugaredLibraryRetargeterL8SynthesizerEventConsumer {
+    void acceptDesugaredLibraryRetargeterDispatchProgramClass(DexProgramClass clazz);
+  }
 
-  void acceptDesugaredLibraryRetargeterDispatchClasspathClass(DexClasspathClass clazz);
-
-  void acceptInterfaceInjection(DexProgramClass clazz, DexClass newInterface);
+  interface DesugaredLibraryRetargeterInstructionEventConsumer {
+    void acceptDesugaredLibraryRetargeterDispatchClasspathClass(DexClasspathClass clazz);
+  }
 
   interface DesugaredLibraryRetargeterPostProcessingEventConsumer
       extends DesugaredLibraryRetargeterInstructionEventConsumer {
+    void acceptInterfaceInjection(DexProgramClass clazz, DexClass newInterface);
 
     void acceptForwardingMethod(ProgramMethod method);
   }

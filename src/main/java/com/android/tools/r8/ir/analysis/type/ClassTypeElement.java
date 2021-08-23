@@ -140,6 +140,16 @@ public class ClassTypeElement extends ReferenceTypeElement {
   }
 
   @Override
+  public ClassTypeElement joinNullability(Nullability nullability) {
+    return getOrCreateVariant(nullability().join(nullability));
+  }
+
+  @Override
+  public ClassTypeElement meetNullability(Nullability nullability) {
+    return getOrCreateVariant(nullability().meet(nullability));
+  }
+
+  @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
     builder.append(nullability);

@@ -19,8 +19,8 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverterEventConsumer.DesugaredLibraryAPIConverterPostProcessingEventConsumer;
-import com.android.tools.r8.ir.synthetic.DesugaredLibraryAPIConversionCfCodeProvider.APIConverterWrapperCfCodeProvider;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryAPICallbackSynthesizorEventConsumer;
+import com.android.tools.r8.ir.synthetic.DesugaredLibraryAPIConversionCfCodeProvider.APICallbackWrapperCfCodeProvider;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.Sets;
@@ -190,17 +190,16 @@ public class DesugaredLibraryAPICallbackSynthesizor implements CfPostProcessingD
   private ProgramMethod generateCallbackMethod(
       DexEncodedMethod originalMethod,
       DexProgramClass clazz,
-      DesugaredLibraryAPIConverterPostProcessingEventConsumer eventConsumer) {
+      DesugaredLibraryAPICallbackSynthesizorEventConsumer eventConsumer) {
     DexMethod methodToInstall =
         methodWithVivifiedTypeInSignature(originalMethod.getReference(), clazz.type, appView);
     CfCode cfCode =
-        new APIConverterWrapperCfCodeProvider(
+        new APICallbackWrapperCfCodeProvider(
                 appView,
                 originalMethod.getReference(),
-                null,
                 wrapperSynthesizor,
                 clazz.isInterface(),
-                null)
+                eventConsumer)
             .generateCfCode();
     DexEncodedMethod newMethod =
         wrapperSynthesizor.newSynthesizedMethod(methodToInstall, originalMethod, cfCode);
@@ -209,11 +208,8 @@ public class DesugaredLibraryAPICallbackSynthesizor implements CfPostProcessingD
       newMethod.setLibraryMethodOverride(OptionalBool.TRUE);
     }
     ProgramMethod callback = new ProgramMethod(clazz, newMethod);
-    if (eventConsumer != null) {
-      eventConsumer.acceptAPIConversionCallback(callback);
-    } else {
-      assert appView.enableWholeProgramOptimizations();
-    }
+    assert eventConsumer != null;
+    eventConsumer.acceptAPIConversionCallback(callback);
     return callback;
   }
 

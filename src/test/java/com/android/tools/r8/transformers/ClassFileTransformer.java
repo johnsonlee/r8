@@ -7,6 +7,7 @@ import static com.android.tools.r8.references.Reference.classFromTypeName;
 import static com.android.tools.r8.utils.DescriptorUtils.getBinaryNameFromDescriptor;
 import static com.android.tools.r8.utils.StringUtils.replaceAll;
 import static org.objectweb.asm.Opcodes.ASM7;
+import static org.objectweb.asm.Opcodes.ASM9;
 
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
@@ -736,6 +737,57 @@ public class ClassFileTransformer {
           public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
             return super.visitAnnotation(
                 descriptor.equals(oldDescriptor) ? newDescriptor : descriptor, visible);
+          }
+        });
+  }
+
+  public ClassFileTransformer replaceClassDescriptorInMembers(
+      String oldDescriptor, String newDescriptor) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public FieldVisitor visitField(
+              int access, String name, String descriptor, String signature, Object value) {
+            return super.visitField(
+                access,
+                name,
+                replaceAll(descriptor, oldDescriptor, newDescriptor),
+                signature,
+                value);
+          }
+
+          @Override
+          public MethodVisitor visitMethod(
+              int access, String name, String descriptor, String signature, String[] exceptions) {
+            return super.visitMethod(
+                access,
+                name,
+                replaceAll(descriptor, oldDescriptor, newDescriptor),
+                signature,
+                exceptions);
+          }
+        });
+  }
+
+  public ClassFileTransformer replaceClassDescriptorInAnnotationDefault(
+      String oldDescriptor, String newDescriptor) {
+    return addMethodTransformer(
+        new MethodTransformer() {
+
+          @Override
+          public AnnotationVisitor visitAnnotationDefault() {
+            return new AnnotationVisitor(ASM9, super.visitAnnotationDefault()) {
+              @Override
+              public void visit(String name, Object value) {
+                super.visit(name, value);
+              }
+
+              @Override
+              public void visitEnum(String name, String descriptor, String value) {
+                super.visitEnum(
+                    name, descriptor.equals(oldDescriptor) ? newDescriptor : descriptor, value);
+              }
+            };
           }
         });
   }

@@ -8,8 +8,8 @@ import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.D8MethodProcessor;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverterEventConsumer.DesugaredLibraryAPIConverterPostProcessingEventConsumer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterInstructionEventConsumer.DesugaredLibraryRetargeterPostProcessingEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterPostProcessingEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryAPICallbackSynthesizorEventConsumer;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessingDesugaringEventConsumer;
 import com.android.tools.r8.shaking.Enqueuer.SyntheticAdditions;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -23,7 +23,7 @@ import java.util.concurrent.ExecutionException;
 public abstract class CfPostProcessingDesugaringEventConsumer
     implements DesugaredLibraryRetargeterPostProcessingEventConsumer,
         InterfaceProcessingDesugaringEventConsumer,
-        DesugaredLibraryAPIConverterPostProcessingEventConsumer {
+        DesugaredLibraryAPICallbackSynthesizorEventConsumer {
 
   public static D8CfPostProcessingDesugaringEventConsumer createForD8(
       D8MethodProcessor methodProcessor) {
@@ -38,6 +38,7 @@ public abstract class CfPostProcessingDesugaringEventConsumer
 
   public static class D8CfPostProcessingDesugaringEventConsumer
       extends CfPostProcessingDesugaringEventConsumer {
+
     private final D8MethodProcessor methodProcessor;
     // Methods cannot be processed directly because we cannot add method to classes while
     // concurrently processing other methods.
@@ -45,11 +46,6 @@ public abstract class CfPostProcessingDesugaringEventConsumer
 
     private D8CfPostProcessingDesugaringEventConsumer(D8MethodProcessor methodProcessor) {
       this.methodProcessor = methodProcessor;
-    }
-
-    @Override
-    public void acceptDesugaredLibraryRetargeterDispatchProgramClass(DexProgramClass clazz) {
-      methodsToReprocess.addAll(clazz.programMethods());
     }
 
     @Override
@@ -73,11 +69,6 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     }
 
     @Override
-    public void acceptEmulatedInterfaceMethod(ProgramMethod method) {
-      methodsToReprocess.add(method);
-    }
-
-    @Override
     public void finalizeDesugaring() throws ExecutionException {
       assert methodProcessor.verifyNoPendingMethodProcessing();
       methodProcessor.newWave();
@@ -89,10 +80,16 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     public void acceptAPIConversionCallback(ProgramMethod method) {
       methodsToReprocess.add(method);
     }
+
+    @Override
+    public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
+      // Intentionally empty.
+    }
   }
 
   public static class R8PostProcessingDesugaringEventConsumer
       extends CfPostProcessingDesugaringEventConsumer {
+
     private final SyntheticAdditions additions;
 
     R8PostProcessingDesugaringEventConsumer(SyntheticAdditions additions) {
@@ -102,11 +99,6 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     @Override
     public void finalizeDesugaring() throws ExecutionException {
       // Intentionally empty.
-    }
-
-    @Override
-    public void acceptDesugaredLibraryRetargeterDispatchProgramClass(DexProgramClass clazz) {
-      additions.addLiveMethods(clazz.programMethods());
     }
 
     @Override
@@ -130,13 +122,13 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     }
 
     @Override
-    public void acceptEmulatedInterfaceMethod(ProgramMethod method) {
-      assert false : "TODO(b/183998768): Support Interface processing in R8";
+    public void acceptAPIConversionCallback(ProgramMethod method) {
+      additions.addLiveMethod(method);
     }
 
     @Override
-    public void acceptAPIConversionCallback(ProgramMethod method) {
-      additions.addLiveMethod(method);
+    public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
+      additions.addLiveClasspathClass(clazz);
     }
   }
 }

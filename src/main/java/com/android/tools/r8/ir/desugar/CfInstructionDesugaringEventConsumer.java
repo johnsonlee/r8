@@ -6,7 +6,6 @@ package com.android.tools.r8.ir.desugar;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
@@ -15,8 +14,8 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.ClassConverterResult;
 import com.android.tools.r8.ir.conversion.D8MethodProcessor;
 import com.android.tools.r8.ir.desugar.backports.BackportedMethodDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverterEventConsumer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterInstructionEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterInstructionEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryAPIConverterEventConsumer;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialBridgeInfo;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialToSelfDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringEventConsumer;
@@ -70,11 +69,6 @@ public abstract class CfInstructionDesugaringEventConsumer
     return new CfInstructionDesugaringEventConsumer() {
 
       @Override
-      public void acceptWrapperProgramClass(DexProgramClass clazz) {
-        assert false;
-      }
-
-      @Override
       public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
         assert false;
       }
@@ -85,17 +79,7 @@ public abstract class CfInstructionDesugaringEventConsumer
       }
 
       @Override
-      public void acceptDesugaredLibraryRetargeterDispatchProgramClass(DexProgramClass clazz) {
-        assert false;
-      }
-
-      @Override
       public void acceptDesugaredLibraryRetargeterDispatchClasspathClass(DexClasspathClass clazz) {
-        assert false;
-      }
-
-      @Override
-      public void acceptInterfaceInjection(DexProgramClass clazz, DexClass newInterface) {
         assert false;
       }
 
@@ -154,6 +138,11 @@ public abstract class CfInstructionDesugaringEventConsumer
       public void acceptTwrCloseResourceMethod(ProgramMethod closeMethod, ProgramMethod context) {
         assert false;
       }
+
+      @Override
+      public void acceptCompanionClassClinit(ProgramMethod method) {
+        assert false;
+      }
     };
   }
 
@@ -171,17 +160,7 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
-    public void acceptDesugaredLibraryRetargeterDispatchProgramClass(DexProgramClass clazz) {
-      methodProcessor.scheduleDesugaredMethodsForProcessing(clazz.programMethods());
-    }
-
-    @Override
     public void acceptDesugaredLibraryRetargeterDispatchClasspathClass(DexClasspathClass clazz) {
-      // Intentionally empty.
-    }
-
-    @Override
-    public void acceptInterfaceInjection(DexProgramClass clazz, DexClass newInterface) {
       // Intentionally empty.
     }
 
@@ -247,17 +226,17 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
-    public void acceptWrapperProgramClass(DexProgramClass clazz) {
-      methodProcessor.scheduleDesugaredMethodsForProcessing(clazz.programMethods());
-    }
-
-    @Override
     public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
       // Intentionally empty.
     }
 
     @Override
     public void acceptAPIConversion(ProgramMethod method) {
+      methodProcessor.scheduleDesugaredMethodForProcessing(method);
+    }
+
+    @Override
+    public void acceptCompanionClassClinit(ProgramMethod method) {
       methodProcessor.scheduleDesugaredMethodForProcessing(method);
     }
 
@@ -342,19 +321,13 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
-    public void acceptDesugaredLibraryRetargeterDispatchProgramClass(DexProgramClass clazz) {
-      // Called only in Desugared library compilation which is D8.
-      assert false;
-    }
-
-    @Override
-    public void acceptInterfaceInjection(DexProgramClass clazz, DexClass newInterface) {
-      additions.injectInterface(clazz, newInterface);
-    }
-
-    @Override
     public void acceptDesugaredLibraryRetargeterDispatchClasspathClass(DexClasspathClass clazz) {
       additions.addLiveClasspathClass(clazz);
+    }
+
+    @Override
+    public void acceptCompanionClassClinit(ProgramMethod method) {
+      // TODO(b/183998768): Update this once desugaring is moved to the enqueuer.
     }
 
     @Override
@@ -377,12 +350,6 @@ public abstract class CfInstructionDesugaringEventConsumer
     public void acceptInvokeStaticInterfaceOutliningMethod(
         ProgramMethod method, ProgramMethod context) {
       assert false : "TODO(b/183998768): To be implemented";
-    }
-
-    @Override
-    public void acceptWrapperProgramClass(DexProgramClass clazz) {
-      // Called only in Desugared library compilation which is D8.
-      assert false;
     }
 
     @Override

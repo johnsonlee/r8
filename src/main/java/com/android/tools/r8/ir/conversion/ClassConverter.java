@@ -13,7 +13,9 @@ import com.android.tools.r8.ir.desugar.CfClassDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfClassDesugaringEventConsumer.D8CfClassDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer.D8CfInstructionDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.CfL8ClassSynthesizerEventConsumer;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,6 +55,17 @@ public abstract class ClassConverter {
       throws ExecutionException {
     List<DexProgramClass> classes = appView.appInfo().classes();
 
+    if (appView.options().isDesugaredLibraryCompilation()) {
+      CfL8ClassSynthesizerEventConsumer l8ClassSynthesizerEventConsumer =
+          new CfL8ClassSynthesizerEventConsumer();
+      converter.l8ClassSynthesis(executorService, l8ClassSynthesizerEventConsumer);
+      classes =
+          ImmutableList.<DexProgramClass>builder()
+              .addAll(classes)
+              .addAll(l8ClassSynthesizerEventConsumer.getSynthesizedClasses())
+              .build();
+    }
+
     D8CfClassDesugaringEventConsumer classDesugaringEventConsumer =
         CfClassDesugaringEventConsumer.createForD8(methodProcessor);
     converter.desugarClassesForD8(classes, classDesugaringEventConsumer, executorService);
@@ -75,11 +88,6 @@ public abstract class ClassConverter {
 
       D8CfInstructionDesugaringEventConsumer instructionDesugaringEventConsumer =
           CfInstructionDesugaringEventConsumer.createForD8(methodProcessor);
-
-      // TODO(b/191656218): Move upfront the loop and use maybe the class event consumer.
-      if (appView.options().isDesugaredLibraryCompilation()) {
-        converter.ensureWrappersForL8(instructionDesugaringEventConsumer);
-      }
 
       // Process the wave and wait for all IR processing to complete.
       methodProcessor.newWave();
