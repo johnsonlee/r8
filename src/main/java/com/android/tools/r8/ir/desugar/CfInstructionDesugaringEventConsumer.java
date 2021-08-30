@@ -18,11 +18,12 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetarget
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryAPIConverterEventConsumer;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialBridgeInfo;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialToSelfDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.itf.EmulatedInterfaceSynthesizerEventConsumer.ClasspathEmulatedInterfaceSynthesizerEventConsumer;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.lambda.LambdaDeserializationMethodRemover;
 import com.android.tools.r8.ir.desugar.lambda.LambdaDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer.RecordInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.twr.TwrCloseResourceDesugaringEventConsumer;
 import com.android.tools.r8.shaking.Enqueuer.SyntheticAdditions;
 import com.google.common.collect.Sets;
@@ -45,11 +46,12 @@ public abstract class CfInstructionDesugaringEventConsumer
         InvokeSpecialToSelfDesugaringEventConsumer,
         LambdaDesugaringEventConsumer,
         NestBasedAccessDesugaringEventConsumer,
-        RecordDesugaringEventConsumer,
+        RecordInstructionDesugaringEventConsumer,
         TwrCloseResourceDesugaringEventConsumer,
         InterfaceMethodDesugaringEventConsumer,
         DesugaredLibraryRetargeterInstructionEventConsumer,
-        DesugaredLibraryAPIConverterEventConsumer {
+        DesugaredLibraryAPIConverterEventConsumer,
+        ClasspathEmulatedInterfaceSynthesizerEventConsumer {
 
   public static D8CfInstructionDesugaringEventConsumer createForD8(
       D8MethodProcessor methodProcessor) {
@@ -67,6 +69,11 @@ public abstract class CfInstructionDesugaringEventConsumer
 
   public static CfInstructionDesugaringEventConsumer createForDesugaredCode() {
     return new CfInstructionDesugaringEventConsumer() {
+
+      @Override
+      public void acceptClasspathEmulatedInterface(DexClasspathClass clazz) {
+        assert false;
+      }
 
       @Override
       public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
@@ -161,6 +168,11 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptDesugaredLibraryRetargeterDispatchClasspathClass(DexClasspathClass clazz) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void acceptClasspathEmulatedInterface(DexClasspathClass clazz) {
       // Intentionally empty.
     }
 
@@ -326,19 +338,24 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
+    public void acceptClasspathEmulatedInterface(DexClasspathClass clazz) {
+      additions.addLiveClasspathClass(clazz);
+    }
+
+    @Override
     public void acceptCompanionClassClinit(ProgramMethod method) {
       // TODO(b/183998768): Update this once desugaring is moved to the enqueuer.
     }
 
     @Override
     public void acceptRecordClass(DexProgramClass recordClass) {
-      // This is called each time an instruction or a class is found to require the record class.
-      assert false : "TODO(b/179146128): To be implemented";
+      // Intentionally empty. The class will be hit by tracing if required.
     }
 
     @Override
     public void acceptRecordMethod(ProgramMethod method) {
-      assert false : "TODO(b/179146128): To be implemented";
+      // Intentionally empty. The method will be hit by the tracing in R8 as if it was
+      // present in the input code, and thus nothing needs to be done.
     }
 
     @Override

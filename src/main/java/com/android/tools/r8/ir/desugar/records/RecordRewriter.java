@@ -4,11 +4,15 @@
 
 package com.android.tools.r8.ir.desugar.records;
 
+import static com.android.tools.r8.cf.code.CfStackInstruction.Opcode.Dup;
+import static com.android.tools.r8.cf.code.CfStackInstruction.Opcode.Swap;
+
 import com.android.tools.r8.cf.code.CfConstString;
 import com.android.tools.r8.cf.code.CfFieldInstruction;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfInvokeDynamic;
+import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.cf.code.CfTypeInstruction;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.dex.Constants;
@@ -35,14 +39,20 @@ import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.desugar.CfClassDesugaring;
-import com.android.tools.r8.ir.desugar.CfClassDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaring;
+import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
+import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.FreshLocalProvider;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
+import com.android.tools.r8.ir.desugar.ProgramAdditions;
+import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer.RecordInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.synthetic.CallObjectInitCfCodeProvider;
-import com.android.tools.r8.ir.synthetic.RecordGetFieldsAsObjectsCfCodeProvider;
+import com.android.tools.r8.ir.synthetic.RecordCfCodeProvider.RecordEqualsCfCodeProvider;
+import com.android.tools.r8.ir.synthetic.RecordCfCodeProvider.RecordGetFieldsAsObjectsCfCodeProvider;
+import com.android.tools.r8.ir.synthetic.SyntheticCfCodeProvider;
 import com.android.tools.r8.naming.dexitembasedstring.ClassNameComputationInfo;
 import com.android.tools.r8.synthesis.SyntheticNaming;
 import com.android.tools.r8.utils.InternalOptions;
@@ -51,18 +61,21 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import org.objectweb.asm.Opcodes;
 
-public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugaring {
+public class RecordRewriter
+    implements CfInstructionDesugaring, CfClassSynthesizerDesugaring, CfPostProcessingDesugaring {
 
   private final AppView<?> appView;
   private final DexItemFactory factory;
   private final DexProto recordToStringHelperProto;
-  private final DexProto recordEqualsHelperProto;
   private final DexProto recordHashCodeHelperProto;
 
   public static final String GET_FIELDS_AS_OBJECTS_METHOD_NAME = "$record$getFieldsAsObjects";
+  public static final String EQUALS_RECORD_METHOD_NAME = "$record$equals";
 
   public static RecordRewriter create(AppView<?> appView) {
     return appView.options().shouldDesugarRecords() ? new RecordRewriter(appView) : null;
@@ -71,6 +84,7 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
   public static void registerSynthesizedCodeReferences(DexItemFactory factory) {
     RecordCfMethods.registerSynthesizedCodeReferences(factory);
     RecordGetFieldsAsObjectsCfCodeProvider.registerSynthesizedCodeReferences(factory);
+    RecordEqualsCfCodeProvider.registerSynthesizedCodeReferences(factory);
   }
 
   private RecordRewriter(AppView<?> appView) {
@@ -78,10 +92,34 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
     factory = appView.dexItemFactory();
     recordToStringHelperProto =
         factory.createProto(
-            factory.stringType, factory.recordType, factory.stringType, factory.stringType);
-    recordEqualsHelperProto =
-        factory.createProto(factory.booleanType, factory.recordType, factory.objectType);
-    recordHashCodeHelperProto = factory.createProto(factory.intType, factory.recordType);
+            factory.stringType, factory.objectArrayType, factory.stringType, factory.stringType);
+    recordHashCodeHelperProto =
+        factory.createProto(factory.intType, factory.classType, factory.objectArrayType);
+  }
+
+  @Override
+  public void prepare(ProgramMethod method, ProgramAdditions programAdditions) {
+    CfCode cfCode = method.getDefinition().getCode().asCfCode();
+    for (CfInstruction instruction : cfCode.getInstructions()) {
+      if (instruction.isInvokeDynamic() && needsDesugaring(instruction, method)) {
+        prepareInvokeDynamicOnRecord(instruction.asInvokeDynamic(), method, programAdditions);
+      }
+    }
+  }
+
+  private void prepareInvokeDynamicOnRecord(
+      CfInvokeDynamic invokeDynamic, ProgramMethod context, ProgramAdditions programAdditions) {
+    RecordInvokeDynamic recordInvokeDynamic = parseInvokeDynamicOnRecord(invokeDynamic, context);
+    if (recordInvokeDynamic.getMethodName() == factory.toStringMethodName
+        || recordInvokeDynamic.getMethodName() == factory.hashCodeMethodName) {
+      ensureGetFieldsAsObjects(recordInvokeDynamic, programAdditions);
+      return;
+    }
+    if (recordInvokeDynamic.getMethodName() == factory.equalsMethodName) {
+      ensureEqualsRecord(recordInvokeDynamic, programAdditions);
+      return;
+    }
+    throw new Unreachable("Invoke dynamic needs record desugaring but could not be desugared.");
   }
 
   @Override
@@ -103,21 +141,21 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
     if (instruction.isInvoke()) {
       CfInvoke cfInvoke = instruction.asInvoke();
       if (refersToRecord(cfInvoke.getMethod())) {
-        requiresRecordClass(eventConsumer);
+        ensureRecordClass(eventConsumer);
       }
       return;
     }
     if (instruction.isFieldInstruction()) {
       CfFieldInstruction fieldInstruction = instruction.asFieldInstruction();
       if (refersToRecord(fieldInstruction.getField())) {
-        requiresRecordClass(eventConsumer);
+        ensureRecordClass(eventConsumer);
       }
       return;
     }
     if (instruction.isTypeInstruction()) {
       CfTypeInstruction typeInstruction = instruction.asTypeInstruction();
       if (refersToRecord(typeInstruction.getType())) {
-        requiresRecordClass(eventConsumer);
+        ensureRecordClass(eventConsumer);
       }
       return;
     }
@@ -134,7 +172,10 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
       MethodProcessingContext methodProcessingContext,
       DexItemFactory dexItemFactory) {
     assert !instruction.isInitClass();
-    if (instruction.isInvokeDynamic() && needsDesugaring(instruction.asInvokeDynamic(), context)) {
+    if (!needsDesugaring(instruction, context)) {
+      return null;
+    }
+    if (instruction.isInvokeDynamic()) {
       return desugarInvokeDynamicOnRecord(
           instruction.asInvokeDynamic(),
           localStackAllocator,
@@ -142,24 +183,52 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
           eventConsumer,
           methodProcessingContext);
     }
-    if (instruction.isInvoke()) {
-      CfInvoke cfInvoke = instruction.asInvoke();
-      DexMethod newMethod =
-          rewriteMethod(cfInvoke.getMethod(), cfInvoke.isInvokeSuper(context.getHolderType()));
-      if (newMethod != cfInvoke.getMethod()) {
-        return Collections.singletonList(
-            new CfInvoke(cfInvoke.getOpcode(), newMethod, cfInvoke.isInterface()));
-      }
-    }
-    return null;
+    assert instruction.isInvoke();
+    CfInvoke cfInvoke = instruction.asInvoke();
+    DexMethod newMethod =
+        rewriteMethod(cfInvoke.getMethod(), cfInvoke.isInvokeSuper(context.getHolderType()));
+    assert newMethod != cfInvoke.getMethod();
+    return Collections.singletonList(
+        new CfInvoke(cfInvoke.getOpcode(), newMethod, cfInvoke.isInterface()));
   }
 
-  public List<CfInstruction> desugarInvokeDynamicOnRecord(
-      CfInvokeDynamic invokeDynamic,
-      LocalStackAllocator localStackAllocator,
-      ProgramMethod context,
-      CfInstructionDesugaringEventConsumer eventConsumer,
-      MethodProcessingContext methodProcessingContext) {
+  static class RecordInvokeDynamic {
+
+    private final DexString methodName;
+    private final DexString fieldNames;
+    private final DexField[] fields;
+    private final DexProgramClass recordClass;
+
+    private RecordInvokeDynamic(
+        DexString methodName,
+        DexString fieldNames,
+        DexField[] fields,
+        DexProgramClass recordClass) {
+      this.methodName = methodName;
+      this.fieldNames = fieldNames;
+      this.fields = fields;
+      this.recordClass = recordClass;
+    }
+
+    DexField[] getFields() {
+      return fields;
+    }
+
+    DexProgramClass getRecordClass() {
+      return recordClass;
+    }
+
+    DexString getFieldNames() {
+      return fieldNames;
+    }
+
+    DexString getMethodName() {
+      return methodName;
+    }
+  }
+
+  private RecordInvokeDynamic parseInvokeDynamicOnRecord(
+      CfInvokeDynamic invokeDynamic, ProgramMethod context) {
     assert needsDesugaring(invokeDynamic, context);
     DexCallSite callSite = invokeDynamic.getCallSite();
     DexValueType recordValueType = callSite.bootstrapArgs.get(0).asDexValueType();
@@ -172,34 +241,53 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
     }
     DexProgramClass recordClass =
         appView.definitionFor(recordValueType.getValue()).asProgramClass();
-    if (callSite.methodName == factory.toStringMethodName) {
-      DexString simpleName =
-          ClassNameComputationInfo.ClassNameMapping.SIMPLE_NAME.map(
-              recordValueType.getValue().toDescriptorString(), context.getHolder(), factory);
+    return new RecordInvokeDynamic(callSite.methodName, fieldNames, fields, recordClass);
+  }
+
+  private List<CfInstruction> desugarInvokeDynamicOnRecord(
+      CfInvokeDynamic invokeDynamic,
+      LocalStackAllocator localStackAllocator,
+      ProgramMethod context,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      MethodProcessingContext methodProcessingContext) {
+    RecordInvokeDynamic recordInvokeDynamic = parseInvokeDynamicOnRecord(invokeDynamic, context);
+    if (recordInvokeDynamic.getMethodName() == factory.toStringMethodName) {
       return desugarInvokeRecordToString(
-          recordClass,
-          fieldNames,
-          fields,
-          simpleName,
+          recordInvokeDynamic,
           localStackAllocator,
+          context,
           eventConsumer,
           methodProcessingContext);
     }
-    if (callSite.methodName == factory.hashCodeMethodName) {
+    if (recordInvokeDynamic.getMethodName() == factory.hashCodeMethodName) {
       return desugarInvokeRecordHashCode(
-          recordClass, fields, eventConsumer, methodProcessingContext);
+          recordInvokeDynamic, localStackAllocator, eventConsumer, methodProcessingContext);
     }
-    if (callSite.methodName == factory.equalsMethodName) {
-      return desugarInvokeRecordEquals(recordClass, fields, eventConsumer, methodProcessingContext);
+    if (recordInvokeDynamic.getMethodName() == factory.equalsMethodName) {
+      return desugarInvokeRecordEquals(recordInvokeDynamic);
     }
     throw new Unreachable("Invoke dynamic needs record desugaring but could not be desugared.");
   }
 
+  private ProgramMethod synthesizeEqualsRecordMethod(
+      DexProgramClass clazz, DexMethod getFieldsAsObjects, DexMethod method) {
+    return synthesizeMethod(
+        clazz, new RecordEqualsCfCodeProvider(appView, clazz.type, getFieldsAsObjects), method);
+  }
+
   private ProgramMethod synthesizeGetFieldsAsObjectsMethod(
       DexProgramClass clazz, DexField[] fields, DexMethod method) {
+    return synthesizeMethod(
+        clazz,
+        new RecordGetFieldsAsObjectsCfCodeProvider(appView, factory.recordTagType, fields),
+        method);
+  }
+
+  private ProgramMethod synthesizeMethod(
+      DexProgramClass clazz, SyntheticCfCodeProvider provider, DexMethod method) {
     MethodAccessFlags methodAccessFlags =
         MethodAccessFlags.fromSharedAccessFlags(
-            Constants.ACC_SYNTHETIC | Constants.ACC_PUBLIC, false);
+            Constants.ACC_SYNTHETIC | Constants.ACC_PRIVATE, false);
     DexEncodedMethod encodedMethod =
         new DexEncodedMethod(
             method,
@@ -209,31 +297,42 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
             ParameterAnnotationsList.empty(),
             null,
             true);
-    encodedMethod.setCode(
-        new RecordGetFieldsAsObjectsCfCodeProvider(appView, factory.recordTagType, fields)
-            .generateCfCode(),
-        appView);
+    encodedMethod.setCode(provider.generateCfCode(), appView);
     return new ProgramMethod(clazz, encodedMethod);
   }
 
-  private void ensureGetFieldsAsObjects(
-      DexProgramClass clazz, DexField[] fields, RecordDesugaringEventConsumer eventConsumer) {
+  private DexMethod ensureEqualsRecord(
+      RecordInvokeDynamic recordInvokeDynamic, ProgramAdditions programAdditions) {
+    DexMethod getFieldsAsObjects = ensureGetFieldsAsObjects(recordInvokeDynamic, programAdditions);
+    DexProgramClass clazz = recordInvokeDynamic.getRecordClass();
+    DexMethod method = equalsRecordMethod(clazz.type);
+    assert clazz.lookupProgramMethod(method) == null;
+    programAdditions.accept(
+        method, () -> synthesizeEqualsRecordMethod(clazz, getFieldsAsObjects, method));
+    return method;
+  }
+
+  private DexMethod ensureGetFieldsAsObjects(
+      RecordInvokeDynamic recordInvokeDynamic, ProgramAdditions programAdditions) {
+    DexProgramClass clazz = recordInvokeDynamic.getRecordClass();
     DexMethod method = getFieldsAsObjectsMethod(clazz.type);
-    synchronized (clazz.getMethodCollection()) {
-      ProgramMethod getFieldsAsObjects = clazz.lookupProgramMethod(method);
-      if (getFieldsAsObjects == null) {
-        getFieldsAsObjects = synthesizeGetFieldsAsObjectsMethod(clazz, fields, method);
-        clazz.addVirtualMethod(getFieldsAsObjects.getDefinition());
-        if (eventConsumer != null) {
-          eventConsumer.acceptRecordMethod(getFieldsAsObjects);
-        }
-      }
-    }
+    assert clazz.lookupProgramMethod(method) == null;
+    programAdditions.accept(
+        method,
+        () -> synthesizeGetFieldsAsObjectsMethod(clazz, recordInvokeDynamic.getFields(), method));
+    return method;
   }
 
   private DexMethod getFieldsAsObjectsMethod(DexType holder) {
     return factory.createMethod(
         holder, factory.createProto(factory.objectArrayType), GET_FIELDS_AS_OBJECTS_METHOD_NAME);
+  }
+
+  private DexMethod equalsRecordMethod(DexType holder) {
+    return factory.createMethod(
+        holder,
+        factory.createProto(factory.booleanType, factory.objectType),
+        EQUALS_RECORD_METHOD_NAME);
   }
 
   private ProgramMethod synthesizeRecordHelper(
@@ -254,50 +353,54 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
   }
 
   private List<CfInstruction> desugarInvokeRecordHashCode(
-      DexProgramClass recordClass,
-      DexField[] fields,
-      CfInstructionDesugaringEventConsumer eventConsumer,
+      RecordInvokeDynamic recordInvokeDynamic,
+      LocalStackAllocator localStackAllocator,
+      RecordInstructionDesugaringEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext) {
-    ensureGetFieldsAsObjects(recordClass, fields, eventConsumer);
+    localStackAllocator.allocateLocalStack(1);
+    DexMethod getFieldsAsObjects =
+        getFieldsAsObjectsMethod(recordInvokeDynamic.getRecordClass().type);
+    assert recordInvokeDynamic.getRecordClass().lookupProgramMethod(getFieldsAsObjects) != null;
+    ArrayList<CfInstruction> instructions = new ArrayList<>();
+    instructions.add(new CfStackInstruction(Dup));
+    instructions.add(new CfInvoke(Opcodes.INVOKEVIRTUAL, factory.objectMembers.getClass, false));
+    instructions.add(new CfStackInstruction(Swap));
+    instructions.add(new CfInvoke(Opcodes.INVOKESPECIAL, getFieldsAsObjects, false));
     ProgramMethod programMethod =
         synthesizeRecordHelper(
             recordHashCodeHelperProto,
             RecordCfMethods::RecordMethods_hashCode,
             methodProcessingContext);
     eventConsumer.acceptRecordMethod(programMethod);
-    return ImmutableList.of(
-        new CfInvoke(Opcodes.INVOKESTATIC, programMethod.getReference(), false));
+    instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, programMethod.getReference(), false));
+    return instructions;
   }
 
-  private List<CfInstruction> desugarInvokeRecordEquals(
-      DexProgramClass recordClass,
-      DexField[] fields,
-      CfInstructionDesugaringEventConsumer eventConsumer,
-      MethodProcessingContext methodProcessingContext) {
-    ensureGetFieldsAsObjects(recordClass, fields, eventConsumer);
-    ProgramMethod programMethod =
-        synthesizeRecordHelper(
-            recordEqualsHelperProto,
-            RecordCfMethods::RecordMethods_equals,
-            methodProcessingContext);
-    eventConsumer.acceptRecordMethod(programMethod);
-    return ImmutableList.of(
-        new CfInvoke(Opcodes.INVOKESTATIC, programMethod.getReference(), false));
+  private List<CfInstruction> desugarInvokeRecordEquals(RecordInvokeDynamic recordInvokeDynamic) {
+    DexMethod equalsRecord = equalsRecordMethod(recordInvokeDynamic.getRecordClass().type);
+    assert recordInvokeDynamic.getRecordClass().lookupProgramMethod(equalsRecord) != null;
+    return Collections.singletonList(new CfInvoke(Opcodes.INVOKESPECIAL, equalsRecord, false));
   }
 
   private List<CfInstruction> desugarInvokeRecordToString(
-      DexProgramClass recordClass,
-      DexString fieldNames,
-      DexField[] fields,
-      DexString simpleName,
+      RecordInvokeDynamic recordInvokeDynamic,
       LocalStackAllocator localStackAllocator,
-      CfInstructionDesugaringEventConsumer eventConsumer,
+      ProgramMethod context,
+      RecordInstructionDesugaringEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext) {
-    ensureGetFieldsAsObjects(recordClass, fields, eventConsumer);
-    ArrayList<CfInstruction> instructions = new ArrayList<>();
-    instructions.add(new CfConstString(simpleName));
-    instructions.add(new CfConstString(fieldNames));
+    DexString simpleName =
+        ClassNameComputationInfo.ClassNameMapping.SIMPLE_NAME.map(
+            recordInvokeDynamic.getRecordClass().type.toDescriptorString(),
+            context.getHolder(),
+            factory);
     localStackAllocator.allocateLocalStack(2);
+    DexMethod getFieldsAsObjects =
+        getFieldsAsObjectsMethod(recordInvokeDynamic.getRecordClass().type);
+    assert recordInvokeDynamic.getRecordClass().lookupProgramMethod(getFieldsAsObjects) != null;
+    ArrayList<CfInstruction> instructions = new ArrayList<>();
+    instructions.add(new CfInvoke(Opcodes.INVOKESPECIAL, getFieldsAsObjects, false));
+    instructions.add(new CfConstString(simpleName));
+    instructions.add(new CfConstString(recordInvokeDynamic.getFieldNames()));
     ProgramMethod programMethod =
         synthesizeRecordHelper(
             recordToStringHelperProto,
@@ -321,24 +424,35 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
     return false;
   }
 
-  private void requiresRecordClass(RecordDesugaringEventConsumer eventConsumer) {
-    DexProgramClass recordClass = synthesizeR8Record();
-    if (recordClass != null) {
-      eventConsumer.acceptRecordClass(recordClass);
-    }
+  private void ensureRecordClass(RecordDesugaringEventConsumer eventConsumer) {
+    DexItemFactory factory = appView.dexItemFactory();
+    checkRecordTagNotPresent(factory);
+    appView
+        .getSyntheticItems()
+        .ensureFixedClassFromType(
+            SyntheticNaming.SyntheticKind.RECORD_TAG,
+            factory.recordType,
+            appView,
+            builder -> {
+              DexEncodedMethod init = synthesizeRecordInitMethod();
+              builder
+                  .setAbstract()
+                  .setDirectMethods(ImmutableList.of(init));
+            },
+            eventConsumer::acceptRecordClass);
   }
 
-  @Override
-  public boolean needsDesugaring(DexProgramClass clazz) {
-    return clazz.isRecord();
-  }
-
-  @Override
-  public void desugar(DexProgramClass clazz, CfClassDesugaringEventConsumer eventConsumer) {
-    if (clazz.isRecord()) {
-      assert clazz.superType == factory.recordType;
-      requiresRecordClass(eventConsumer);
-      clazz.accessFlags.unsetRecord();
+  private void checkRecordTagNotPresent(DexItemFactory factory) {
+    DexClass r8RecordClass =
+        appView.appInfo().definitionForWithoutExistenceAssert(factory.recordTagType);
+    if (r8RecordClass != null && r8RecordClass.isProgramClass()) {
+      appView
+          .options()
+          .reporter
+          .error(
+              "D8/R8 is compiling a mix of desugared and non desugared input using"
+                  + " java.lang.Record, but the application reader did not import correctly "
+                  + factory.recordTagType);
     }
   }
 
@@ -471,65 +585,6 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
     return factory.objectMembers.toString;
   }
 
-  private DexProgramClass synthesizeR8Record() {
-    DexItemFactory factory = appView.dexItemFactory();
-    DexClass r8RecordClass =
-        appView.appInfo().definitionForWithoutExistenceAssert(factory.recordTagType);
-    if (r8RecordClass != null && r8RecordClass.isProgramClass()) {
-      appView
-          .options()
-          .reporter
-          .error(
-              "D8/R8 is compiling a mix of desugared and non desugared input using"
-                  + " java.lang.Record, but the application reader did not import correctly "
-                  + factory.recordTagType.toString());
-    }
-    DexClass recordClass =
-        appView.appInfo().definitionForWithoutExistenceAssert(factory.recordType);
-    if (recordClass != null && recordClass.isProgramClass()) {
-      return null;
-    }
-    return synchronizedSynthesizeR8Record();
-  }
-
-  private synchronized DexProgramClass synchronizedSynthesizeR8Record() {
-    DexItemFactory factory = appView.dexItemFactory();
-    DexClass recordClass =
-        appView.appInfo().definitionForWithoutExistenceAssert(factory.recordType);
-    if (recordClass != null && recordClass.isProgramClass()) {
-      return null;
-    }
-    DexEncodedMethod init = synthesizeRecordInitMethod();
-    DexEncodedMethod abstractGetFieldsAsObjectsMethod =
-        synthesizeAbstractGetFieldsAsObjectsMethod();
-    return appView
-        .getSyntheticItems()
-        .createFixedClassFromType(
-            SyntheticNaming.SyntheticKind.RECORD_TAG,
-            factory.recordType,
-            factory,
-            builder ->
-                builder
-                    .setAbstract()
-                    .setVirtualMethods(ImmutableList.of(abstractGetFieldsAsObjectsMethod))
-                    .setDirectMethods(ImmutableList.of(init)));
-  }
-
-  private DexEncodedMethod synthesizeAbstractGetFieldsAsObjectsMethod() {
-    MethodAccessFlags methodAccessFlags =
-        MethodAccessFlags.fromSharedAccessFlags(
-            Constants.ACC_SYNTHETIC | Constants.ACC_PUBLIC | Constants.ACC_ABSTRACT, false);
-    DexMethod fieldsAsObjectsMethod = getFieldsAsObjectsMethod(factory.recordType);
-    return new DexEncodedMethod(
-        fieldsAsObjectsMethod,
-        methodAccessFlags,
-        MethodTypeSignature.noSignature(),
-        DexAnnotationSet.empty(),
-        ParameterAnnotationsList.empty(),
-        null,
-        true);
-  }
-
   private DexEncodedMethod synthesizeRecordInitMethod() {
     MethodAccessFlags methodAccessFlags =
         MethodAccessFlags.fromSharedAccessFlags(
@@ -546,5 +601,26 @@ public class RecordRewriter implements CfInstructionDesugaring, CfClassDesugarin
     init.setCode(
         new CallObjectInitCfCodeProvider(appView, factory.recordTagType).generateCfCode(), appView);
     return init;
+  }
+
+  @Override
+  public void synthesizeClasses(CfClassSynthesizerDesugaringEventConsumer eventConsumer) {
+    if (appView.appInfo().app().getFlags().hasReadProgramRecord()) {
+      ensureRecordClass(eventConsumer);
+    }
+  }
+
+  @Override
+  public void postProcessingDesugaring(
+      Collection<DexProgramClass> programClasses,
+      CfPostProcessingDesugaringEventConsumer eventConsumer,
+      ExecutorService executorService)
+      throws ExecutionException {
+    for (DexProgramClass clazz : programClasses) {
+      if (clazz.isRecord()) {
+        assert clazz.superType == factory.recordType;
+        clazz.accessFlags.unsetRecord();
+      }
+    }
   }
 }

@@ -12,7 +12,7 @@ public class DynamicTypeWithLowerBound extends DynamicType {
 
   private final ClassTypeElement dynamicLowerBoundType;
 
-  DynamicTypeWithLowerBound(
+  private DynamicTypeWithLowerBound(
       ClassTypeElement dynamicUpperBoundType, ClassTypeElement dynamicLowerBoundType) {
     super(dynamicUpperBoundType);
     assert !dynamicUpperBoundType.equals(dynamicLowerBoundType);
@@ -34,6 +34,11 @@ public class DynamicTypeWithLowerBound extends DynamicType {
   }
 
   @Override
+  public ClassTypeElement getDynamicUpperBoundType() {
+    return super.getDynamicUpperBoundType().asClassType();
+  }
+
+  @Override
   public boolean hasDynamicLowerBoundType() {
     return true;
   }
@@ -41,11 +46,6 @@ public class DynamicTypeWithLowerBound extends DynamicType {
   @Override
   public ClassTypeElement getDynamicLowerBoundType() {
     return dynamicLowerBoundType;
-  }
-
-  @Override
-  public boolean isTrivial(TypeElement staticType) {
-    return false;
   }
 
   @Override
@@ -61,5 +61,15 @@ public class DynamicTypeWithLowerBound extends DynamicType {
   @Override
   public int hashCode() {
     return Objects.hash(getDynamicUpperBoundType(), getDynamicLowerBoundType());
+  }
+
+  @Override
+  public DynamicType withNullability(Nullability nullability) {
+    if (getDynamicUpperBoundType().nullability() == nullability) {
+      return this;
+    }
+    return new DynamicTypeWithLowerBound(
+        getDynamicUpperBoundType().getOrCreateVariant(nullability),
+        getDynamicLowerBoundType().getOrCreateVariant(nullability));
   }
 }

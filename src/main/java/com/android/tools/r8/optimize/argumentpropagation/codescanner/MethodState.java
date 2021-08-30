@@ -5,8 +5,9 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 public interface MethodState {
 
@@ -28,10 +29,25 @@ public interface MethodState {
 
   ConcreteMonomorphicMethodState asMonomorphic();
 
+  ConcreteMonomorphicMethodStateOrBottom asMonomorphicOrBottom();
+
+  boolean isPolymorphic();
+
+  ConcretePolymorphicMethodState asPolymorphic();
+
+  ConcretePolymorphicMethodStateOrBottom asPolymorphicOrBottom();
+
   boolean isUnknown();
 
-  MethodState mutableJoin(AppView<AppInfoWithLiveness> appView, MethodState methodState);
+  MethodState mutableCopy();
 
   MethodState mutableJoin(
-      AppView<AppInfoWithLiveness> appView, Supplier<MethodState> methodStateSupplier);
+      AppView<AppInfoWithLiveness> appView,
+      DexMethodSignature methodSignature,
+      MethodState methodState);
+
+  MethodState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      DexMethodSignature methodSignature,
+      Function<MethodState, MethodState> methodStateSupplier);
 }

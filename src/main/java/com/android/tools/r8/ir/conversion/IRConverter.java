@@ -44,13 +44,11 @@ import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.DefaultMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
-import com.android.tools.r8.ir.desugar.CfClassDesugaringCollection;
-import com.android.tools.r8.ir.desugar.CfClassDesugaringEventConsumer.D8CfClassDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringCollection;
+import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer.D8CfInstructionDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.CfL8ClassSynthesizerCollection;
-import com.android.tools.r8.ir.desugar.CfL8ClassSynthesizerEventConsumer;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer.D8CfPostProcessingDesugaringEventConsumer;
@@ -99,7 +97,6 @@ import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator;
 import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.naming.IdentifierNameStringMarker;
-import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagator;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.LibraryMethodOverrideAnalysis;
@@ -135,7 +132,6 @@ public class IRConverter {
   private final Timing timing;
   private final Outliner outliner;
   private final ClassInitializerDefaultsOptimization classInitializerDefaultsOptimization;
-  private final CfClassDesugaringCollection classDesugaring;
   private final CfInstructionDesugaringCollection instructionDesugaring;
   private final FieldAccessAnalysis fieldAccessAnalysis;
   private final LibraryMethodOverrideAnalysis libraryMethodOverrideAnalysis;
@@ -226,7 +222,6 @@ public class IRConverter {
       // - invoke-special desugaring.
       assert options.desugarState.isOn();
       this.instructionDesugaring = CfInstructionDesugaringCollection.create(appView);
-      this.classDesugaring = CfClassDesugaringCollection.create(appView);
       this.interfaceMethodRewriter = null;
       this.covariantReturnTypeAnnotationTransformer = null;
       this.dynamicTypeOptimization = null;
@@ -253,10 +248,6 @@ public class IRConverter {
         appView.enableWholeProgramOptimizations()
             ? CfInstructionDesugaringCollection.empty()
             : CfInstructionDesugaringCollection.create(appView);
-    this.classDesugaring =
-        appView.enableWholeProgramOptimizations()
-            ? CfClassDesugaringCollection.empty()
-            : CfClassDesugaringCollection.create(appView);
     this.interfaceMethodRewriter =
         options.isInterfaceMethodDesugaringEnabled() && appView.enableWholeProgramOptimizations()
             ? new InterfaceMethodRewriter(appView, this)
@@ -453,19 +444,20 @@ public class IRConverter {
     }
   }
 
-  public void l8ClassSynthesis(
+  public void classSynthesisDesugaring(
       ExecutorService executorService,
-      CfL8ClassSynthesizerEventConsumer l8ClassSynthesizerEventConsumer)
+      CfClassSynthesizerDesugaringEventConsumer classSynthesizerEventConsumer)
       throws ExecutionException {
-    new CfL8ClassSynthesizerCollection(appView, instructionDesugaring.getRetargetingInfo())
-        .synthesizeClasses(executorService, l8ClassSynthesizerEventConsumer);
+    CfClassSynthesizerDesugaringCollection.create(
+            appView, instructionDesugaring.getRetargetingInfo())
+        .synthesizeClasses(executorService, classSynthesizerEventConsumer);
   }
 
   private void postProcessingDesugaringForD8(
       D8MethodProcessor methodProcessor, ExecutorService executorService)
       throws ExecutionException {
     D8CfPostProcessingDesugaringEventConsumer eventConsumer =
-        CfPostProcessingDesugaringEventConsumer.createForD8(methodProcessor);
+        CfPostProcessingDesugaringEventConsumer.createForD8(methodProcessor, instructionDesugaring);
     methodProcessor.newWave();
     InterfaceMethodProcessorFacade interfaceDesugaring =
         instructionDesugaring.getInterfaceMethodPostProcessingDesugaring(ExcludeDexResources);
@@ -493,26 +485,6 @@ public class IRConverter {
 
     instructionDesugaring.withDesugaredLibraryAPIConverter(
         DesugaredLibraryAPIConverter::generateTrackingWarnings);
-  }
-
-  public void desugarClassesForD8(
-      List<DexProgramClass> classes,
-      D8CfClassDesugaringEventConsumer desugaringEventConsumer,
-      ExecutorService executorService)
-      throws ExecutionException {
-    if (classDesugaring.isEmpty()) {
-      return;
-    }
-    // Currently the classes can be processed in any order and do not require to be sorted.
-    ThreadUtils.processItems(
-        classes, clazz -> desugarClassForD8(clazz, desugaringEventConsumer), executorService);
-  }
-
-  private void desugarClassForD8(
-      DexProgramClass clazz, D8CfClassDesugaringEventConsumer desugaringEventConsumer) {
-    if (classDesugaring.needsDesugaring(clazz)) {
-      classDesugaring.desugar(clazz, desugaringEventConsumer);
-    }
   }
 
   public void prepareDesugaringForD8(ExecutorService executorService) throws ExecutionException {
@@ -686,7 +658,8 @@ public class IRConverter {
     printPhase("Primary optimization pass");
 
     // Setup the argument propagator for the primary optimization pass.
-    appView.withArgumentPropagator(ArgumentPropagator::initializeCodeScanner);
+    appView.withArgumentPropagator(
+        argumentPropagator -> argumentPropagator.initializeCodeScanner(executorService, timing));
     appView.withCallSiteOptimizationInfoPropagator(
         optimization -> {
           optimization.abandonCallSitePropagationForLambdaImplementationMethods(
@@ -744,11 +717,9 @@ public class IRConverter {
     // Analyze the data collected by the argument propagator, use the analysis result to update
     // the parameter optimization infos, and rewrite the application.
     appView.withArgumentPropagator(
-        argumentPropagator -> {
-          argumentPropagator.populateParameterOptimizationInfo(executorService);
-          argumentPropagator.optimizeMethodParameters();
-          argumentPropagator.enqueueMethodsForProcessing(postMethodProcessorBuilder);
-        });
+        argumentPropagator ->
+            argumentPropagator.tearDownCodeScanner(
+                postMethodProcessorBuilder, executorService, timing));
 
     if (libraryMethodOverrideAnalysis != null) {
       libraryMethodOverrideAnalysis.finish();
@@ -1618,7 +1589,7 @@ public class IRConverter {
       MutableMethodConversionOptions conversionOptions,
       Timing timing) {
     appView.withArgumentPropagator(
-        argumentPropagator -> argumentPropagator.scan(method, code, methodProcessor));
+        argumentPropagator -> argumentPropagator.scan(method, code, methodProcessor, timing));
 
     if (enumUnboxer != null && methodProcessor.isPrimaryMethodProcessor()) {
       enumUnboxer.analyzeEnums(code, conversionOptions);

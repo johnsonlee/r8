@@ -5,11 +5,12 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
-public class UnknownParameterState extends ParameterState {
+public class UnknownParameterState extends NonEmptyParameterState {
 
   private static final UnknownParameterState INSTANCE = new UnknownParameterState();
 
@@ -20,7 +21,7 @@ public class UnknownParameterState extends ParameterState {
   }
 
   @Override
-  public AbstractValue getAbstractValue() {
+  public AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
     return AbstractValue.unknown();
   }
 
@@ -30,8 +31,16 @@ public class UnknownParameterState extends ParameterState {
   }
 
   @Override
+  public ParameterState mutableCopy() {
+    return this;
+  }
+
+  @Override
   public ParameterState mutableJoin(
-      AppView<AppInfoWithLiveness> appView, ParameterState parameterState, Action onChangedAction) {
+      AppView<AppInfoWithLiveness> appView,
+      ParameterState parameterState,
+      DexType parameterType,
+      Action onChangedAction) {
     return this;
   }
 }

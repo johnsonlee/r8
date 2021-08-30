@@ -4,4 +4,8 @@
 
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
-public interface ConcreteMonomorphicMethodStateOrUnknown extends MethodState {}
+public interface ConcreteMonomorphicMethodStateOrUnknown extends MethodState {
+
+  @Override
+  ConcreteMonomorphicMethodStateOrUnknown mutableCopy();
+}

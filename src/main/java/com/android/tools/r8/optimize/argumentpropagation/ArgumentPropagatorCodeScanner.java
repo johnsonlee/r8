@@ -4,13 +4,14 @@
 
 package com.android.tools.r8.optimize.argumentpropagation;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
-import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
@@ -27,8 +28,10 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodStateOrBottom;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodStateOrUnknown;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePolymorphicMethodState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePolymorphicMethodStateOrBottom;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteReceiverParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
@@ -36,12 +39,16 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.UnknownMethodState;
+import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Analyzes each {@link IRCode} during the primary optimization to collect information about the
@@ -49,64 +56,68 @@ import java.util.Map;
  *
  * <p>State pruning is applied on-the-fly to avoid storing redundant information.
  */
-class ArgumentPropagatorCodeScanner {
+public class ArgumentPropagatorCodeScanner {
 
   private static AliasedValueConfiguration aliasedValueConfiguration =
       AssumeAndCheckCastAliasedValueConfiguration.getInstance();
 
   private final AppView<AppInfoWithLiveness> appView;
 
+  private final Set<DexMethod> monomorphicVirtualMethods = Sets.newIdentityHashSet();
+
   /**
-   * Maps each non-interface method to the upper most method in the super class chain with the same
-   * method signature. This only contains an entry for non-private virtual methods that override
-   * another method in the program.
+   * Maps each non-private virtual method to the upper most method in the class hierarchy with the
+   * same method signature. Virtual methods that do not override other virtual methods are mapped to
+   * themselves.
    */
-  private final Map<DexMethod, DexMethod> classMethodRoots;
+  private final Map<DexMethod, DexMethod> virtualRootMethods = new IdentityHashMap<>();
 
   /**
    * The abstract program state for this optimization. Intuitively maps each parameter to its
    * abstract value and dynamic type.
    */
-  private final MethodStateCollectionByReference methodStates;
+  private final MethodStateCollectionByReference methodStates =
+      MethodStateCollectionByReference.createConcurrent();
 
   ArgumentPropagatorCodeScanner(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
-    this.classMethodRoots = computeClassMethodRoots();
-    this.methodStates = computeInitialMethodStates();
   }
 
-  private Map<DexMethod, DexMethod> computeClassMethodRoots() {
-    // TODO(b/190154391): Group methods related by overriding to enable more effective pruning.
-    Map<DexMethod, DexMethod> roots = new IdentityHashMap<>();
-    for (DexProgramClass clazz : appView.appInfo().classes()) {
-      clazz.forEachProgramVirtualMethod(
-          method -> roots.put(method.getReference(), method.getReference()));
-    }
-    return roots;
+  public synchronized void addMonomorphicVirtualMethods(Set<DexMethod> extension) {
+    monomorphicVirtualMethods.addAll(extension);
   }
 
-  private MethodStateCollectionByReference computeInitialMethodStates() {
-    // TODO(b/190154391): There is no need to track an abstract value for receivers; we only care
-    //  about the dynamic type for such parameters. Consider initializing the initial state to have
-    //  unknown abstract values for all receivers.
-    return MethodStateCollectionByReference.createConcurrent();
+  public synchronized void addVirtualRootMethods(Map<DexMethod, DexMethod> extension) {
+    virtualRootMethods.putAll(extension);
   }
 
   MethodStateCollectionByReference getMethodStates() {
     return methodStates;
   }
 
-  void scan(ProgramMethod method, IRCode code) {
+  DexMethod getVirtualRootMethod(ProgramMethod method) {
+    return virtualRootMethods.get(method.getReference());
+  }
+
+  boolean isMonomorphicVirtualMethod(ProgramMethod method) {
+    boolean isMonomorphicVirtualMethod = monomorphicVirtualMethods.contains(method.getReference());
+    assert method.getDefinition().belongsToVirtualPool() || !isMonomorphicVirtualMethod;
+    return isMonomorphicVirtualMethod;
+  }
+
+  void scan(ProgramMethod method, IRCode code, Timing timing) {
+    timing.begin("Argument propagation scanner");
     for (Invoke invoke : code.<Invoke>instructions(Instruction::isInvoke)) {
       if (invoke.isInvokeMethod()) {
-        scan(invoke.asInvokeMethod(), method);
+        scan(invoke.asInvokeMethod(), method, timing);
       } else if (invoke.isInvokeCustom()) {
         scan(invoke.asInvokeCustom(), method);
       }
     }
+    timing.end();
   }
 
-  private void scan(InvokeMethod invoke, ProgramMethod context) {
+  private void scan(InvokeMethod invoke, ProgramMethod context, Timing timing) {
     List<Value> arguments = invoke.arguments();
     if (arguments.isEmpty()) {
       // Nothing to propagate.
@@ -115,7 +126,13 @@ class ArgumentPropagatorCodeScanner {
 
     DexMethod invokedMethod = invoke.getInvokedMethod();
     if (invokedMethod.getHolderType().isArrayType()) {
-      // Nothing to propagate.
+      // Nothing to propagate; the targeted method is not a program method.
+      return;
+    }
+
+    if (invoke.isInvokeMethodWithReceiver()
+        && invoke.asInvokeMethodWithReceiver().getReceiver().isAlwaysNull(appView)) {
+      // Nothing to propagate; the invoke instruction always fails.
       return;
     }
 
@@ -126,7 +143,6 @@ class ArgumentPropagatorCodeScanner {
       return;
     }
 
-    // TODO(b/190154391): Also bail out if the method is an unoptimizable program method.
     if (!resolutionResult.getResolvedHolder().isProgramClass()) {
       // Nothing to propagate; this could dispatch to a program method, but we cannot optimize
       // methods that override non-program methods.
@@ -147,6 +163,28 @@ class ArgumentPropagatorCodeScanner {
       return;
     }
 
+    if (invoke.isInvokeSuper()) {
+      // Use the super target instead of the resolved method to ensure that we propagate the
+      // argument information to the targeted method.
+      DexClassAndMethod target =
+          resolutionResult.lookupInvokeSuperTarget(context.getHolder(), appView.appInfo());
+      if (target == null) {
+        // Nothing to propagate; the invoke instruction fails.
+        return;
+      }
+      if (!target.isProgramMethod()) {
+        throw new Unreachable(
+            "Expected super target of a non-library override to be a program method ("
+                + "resolved program method: "
+                + resolvedMethod
+                + ", "
+                + "super non-program method: "
+                + target
+                + ")");
+      }
+      resolvedMethod = target.asProgramMethod();
+    }
+
     // Find the method where to store the information about the arguments from this invoke.
     // If the invoke may dispatch to more than one method, we intentionally do not compute all
     // possible dispatch targets and propagate the information to these methods (this is expensive).
@@ -155,53 +193,147 @@ class ArgumentPropagatorCodeScanner {
     DexMethod representativeMethodReference =
         getRepresentativeForPolymorphicInvokeOrElse(
             invoke, resolvedMethod, resolvedMethod.getReference());
-    methodStates.addMethodState(
+    ProgramMethod finalResolvedMethod = resolvedMethod;
+    timing.begin("Add method state");
+    methodStates.addTemporaryMethodState(
         appView,
         representativeMethodReference,
-        () -> computeMethodState(invoke, resolvedMethod, context));
+        existingMethodState ->
+            computeMethodState(invoke, finalResolvedMethod, context, existingMethodState, timing),
+        timing);
+    timing.end();
   }
 
   private MethodState computeMethodState(
-      InvokeMethod invoke, ProgramMethod resolvedMethod, ProgramMethod context) {
+      InvokeMethod invoke,
+      ProgramMethod resolvedMethod,
+      ProgramMethod context,
+      MethodState existingMethodState,
+      Timing timing) {
+    assert !existingMethodState.isUnknown();
+
     // If this invoke may target at most one method, then we compute a state that maps each
     // parameter to the abstract value and dynamic type provided by this call site. Otherwise, we
     // compute a polymorphic method state, which includes information about the receiver's dynamic
     // type bounds.
+    timing.begin("Compute method state for invoke");
     boolean isPolymorphicInvoke =
         getRepresentativeForPolymorphicInvokeOrElse(invoke, resolvedMethod, null) != null;
-    return isPolymorphicInvoke
-        ? computePolymorphicMethodState(invoke.asInvokeMethodWithReceiver(), context)
-        : computeMonomorphicMethodState(invoke, context);
+    MethodState result;
+    if (isPolymorphicInvoke) {
+      assert existingMethodState.isBottom() || existingMethodState.isPolymorphic();
+      result =
+          computePolymorphicMethodState(
+              invoke.asInvokeMethodWithReceiver(),
+              resolvedMethod,
+              context,
+              existingMethodState.asPolymorphicOrBottom());
+    } else {
+      assert existingMethodState.isBottom() || existingMethodState.isMonomorphic();
+      result =
+          computeMonomorphicMethodState(
+              invoke, resolvedMethod, context, existingMethodState.asMonomorphicOrBottom());
+    }
+    timing.end();
+    return result;
   }
 
   // TODO(b/190154391): Add a strategy that widens the dynamic receiver type to allow easily
   //  experimenting with the performance/size trade-off between precise/imprecise handling of
   //  dynamic dispatch.
   private MethodState computePolymorphicMethodState(
-      InvokeMethodWithReceiver invoke, ProgramMethod context) {
+      InvokeMethodWithReceiver invoke,
+      ProgramMethod resolvedMethod,
+      ProgramMethod context,
+      ConcretePolymorphicMethodStateOrBottom existingMethodState) {
     DynamicType dynamicReceiverType = invoke.getReceiver().getDynamicType(appView);
-    ConcretePolymorphicMethodState methodState =
-        new ConcretePolymorphicMethodState(
-            dynamicReceiverType,
-            computeMonomorphicMethodState(invoke, context, dynamicReceiverType));
-    // TODO(b/190154391): If the receiver type is effectively unknown, and the computed monomorphic
-    //  method state is also unknown (i.e., we have "unknown receiver type" -> "unknown method
-    //  state"), then return the canonicalized UnknownMethodState instance instead.
-    return methodState;
+    assert !dynamicReceiverType.getDynamicUpperBoundType().nullability().isDefinitelyNull();
+
+    DynamicType bounds =
+        computeBoundsForPolymorphicMethodState(
+            invoke, resolvedMethod, context, dynamicReceiverType);
+    MethodState existingMethodStateForBounds =
+        existingMethodState.isPolymorphic()
+            ? existingMethodState.asPolymorphic().getMethodStateForBounds(bounds)
+            : MethodState.bottom();
+
+    if (existingMethodStateForBounds.isPolymorphic()) {
+      assert false;
+      return MethodState.unknown();
+    }
+
+    // If we already don't know anything about the parameters for the given type bounds, then don't
+    // compute a method state.
+    if (existingMethodStateForBounds.isUnknown()) {
+      return MethodState.unknown();
+    }
+
+    ConcreteMonomorphicMethodStateOrUnknown methodStateForBounds =
+        computeMonomorphicMethodState(
+            invoke,
+            resolvedMethod,
+            context,
+            existingMethodStateForBounds.asMonomorphicOrBottom(),
+            dynamicReceiverType);
+    return ConcretePolymorphicMethodState.create(bounds, methodStateForBounds);
+  }
+
+  private DynamicType computeBoundsForPolymorphicMethodState(
+      InvokeMethodWithReceiver invoke,
+      ProgramMethod resolvedMethod,
+      ProgramMethod context,
+      DynamicType dynamicReceiverType) {
+    ProgramMethod singleTarget = invoke.lookupSingleProgramTarget(appView, context);
+    DynamicType bounds =
+        singleTarget != null
+            ? DynamicType.createExact(
+                singleTarget.getHolderType().toTypeElement(appView).asClassType())
+            : dynamicReceiverType.withNullability(Nullability.maybeNull());
+
+    // We intentionally drop the nullability for the type bounds. This increases the number of
+    // collisions in the polymorphic method states, which does not change the precision (since the
+    // nullability does not have any impact on the possible dispatch targets) and is good for state
+    // pruning.
+    assert bounds.getDynamicUpperBoundType().nullability().isMaybeNull();
+
+    // If the bounds are trivial (i.e., the upper bound is equal to the holder of the virtual root
+    // method), then widen the type bounds to 'unknown'.
+    DexMethod virtualRootMethod = getVirtualRootMethod(resolvedMethod);
+    if (virtualRootMethod == null) {
+      assert false : "Unexpected virtual method without root: " + resolvedMethod;
+      return bounds;
+    }
+
+    DynamicType trivialBounds =
+        DynamicType.create(
+            appView, virtualRootMethod.getHolderType().toTypeElement(appView).asClassType());
+    if (bounds.equals(trivialBounds)) {
+      return DynamicType.unknown();
+    }
+    return bounds;
   }
 
   private ConcreteMonomorphicMethodStateOrUnknown computeMonomorphicMethodState(
-      InvokeMethod invoke, ProgramMethod context) {
+      InvokeMethod invoke,
+      ProgramMethod resolvedMethod,
+      ProgramMethod context,
+      ConcreteMonomorphicMethodStateOrBottom existingMethodState) {
     return computeMonomorphicMethodState(
         invoke,
+        resolvedMethod,
         context,
+        existingMethodState,
         invoke.isInvokeMethodWithReceiver()
             ? invoke.getFirstArgument().getDynamicType(appView)
             : null);
   }
 
   private ConcreteMonomorphicMethodStateOrUnknown computeMonomorphicMethodState(
-      InvokeMethod invoke, ProgramMethod context, DynamicType dynamicReceiverType) {
+      InvokeMethod invoke,
+      ProgramMethod resolvedMethod,
+      ProgramMethod context,
+      ConcreteMonomorphicMethodStateOrBottom existingMethodState,
+      DynamicType dynamicReceiverType) {
     List<ParameterState> parameterStates = new ArrayList<>(invoke.arguments().size());
 
     int argumentIndex = 0;
@@ -209,14 +341,21 @@ class ArgumentPropagatorCodeScanner {
       assert dynamicReceiverType != null;
       parameterStates.add(
           computeParameterStateForReceiver(
-              invoke.asInvokeMethodWithReceiver(), dynamicReceiverType));
+              invoke.asInvokeMethodWithReceiver(),
+              resolvedMethod,
+              dynamicReceiverType,
+              existingMethodState));
       argumentIndex++;
     }
 
     for (; argumentIndex < invoke.arguments().size(); argumentIndex++) {
       parameterStates.add(
           computeParameterStateForNonReceiver(
-              invoke, argumentIndex, invoke.getArgument(argumentIndex), context));
+              invoke,
+              argumentIndex,
+              invoke.getArgument(argumentIndex),
+              context,
+              existingMethodState));
     }
 
     // If all parameter states are unknown, then return a canonicalized unknown method state that
@@ -233,27 +372,39 @@ class ArgumentPropagatorCodeScanner {
   // TODO(b/190154391): Consider validating the above hypothesis by using
   //  computeParameterStateForNonReceiver() for receivers.
   private ParameterState computeParameterStateForReceiver(
-      InvokeMethodWithReceiver invoke, DynamicType dynamicReceiverType) {
-    ClassTypeElement staticReceiverType =
-        invoke
-            .getInvokedMethod()
-            .getHolderType()
-            .toTypeElement(appView)
-            .asClassType()
-            .asMeetWithNotNull();
-    return dynamicReceiverType.isTrivial(staticReceiverType)
+      InvokeMethodWithReceiver invoke,
+      ProgramMethod resolvedMethod,
+      DynamicType dynamicReceiverType,
+      ConcreteMonomorphicMethodStateOrBottom existingMethodState) {
+    // Don't compute a state for this parameter if the stored state is already unknown.
+    if (existingMethodState.isMonomorphic()
+        && existingMethodState.asMonomorphic().getParameterState(0).isUnknown()) {
+      return ParameterState.unknown();
+    }
+
+    DynamicType widenedDynamicReceiverType =
+        WideningUtils.widenDynamicReceiverType(appView, resolvedMethod, dynamicReceiverType);
+    return widenedDynamicReceiverType.isUnknown()
         ? ParameterState.unknown()
         : new ConcreteReceiverParameterState(dynamicReceiverType);
   }
 
   private ParameterState computeParameterStateForNonReceiver(
-      InvokeMethod invoke, int argumentIndex, Value argument, ProgramMethod context) {
+      InvokeMethod invoke,
+      int argumentIndex,
+      Value argument,
+      ProgramMethod context,
+      ConcreteMonomorphicMethodStateOrBottom existingMethodState) {
+    // Don't compute a state for this parameter if the stored state is already unknown.
+    if (existingMethodState.isMonomorphic()
+        && existingMethodState.asMonomorphic().getParameterState(argumentIndex).isUnknown()) {
+      return ParameterState.unknown();
+    }
+
     Value argumentRoot = argument.getAliasedValue(aliasedValueConfiguration);
-    TypeElement parameterType =
-        invoke
-            .getInvokedMethod()
-            .getArgumentType(argumentIndex, invoke.isInvokeStatic())
-            .toTypeElement(appView);
+    DexType parameterType =
+        invoke.getInvokedMethod().getArgumentType(argumentIndex, invoke.isInvokeStatic());
+    TypeElement parameterTypeElement = parameterType.toTypeElement(appView);
 
     // If the value is an argument of the enclosing method, then clearly we have no information
     // about its abstract value. Instead of treating this as having an unknown runtime value, we
@@ -264,18 +415,18 @@ class ArgumentPropagatorCodeScanner {
       MethodParameter forwardedParameter =
           new MethodParameter(
               context.getReference(), argumentRoot.getDefinition().asArgument().getIndex());
-      if (parameterType.isClassType()) {
+      if (parameterTypeElement.isClassType()) {
         return new ConcreteClassTypeParameterState(forwardedParameter);
-      } else if (parameterType.isArrayType()) {
+      } else if (parameterTypeElement.isArrayType()) {
         return new ConcreteArrayTypeParameterState(forwardedParameter);
       } else {
-        assert parameterType.isPrimitiveType();
+        assert parameterTypeElement.isPrimitiveType();
         return new ConcretePrimitiveTypeParameterState(forwardedParameter);
       }
     }
 
     // Only track the nullability for array types.
-    if (parameterType.isArrayType()) {
+    if (parameterTypeElement.isArrayType()) {
       Nullability nullability = argument.getType().nullability();
       return nullability.isMaybeNull()
           ? ParameterState.unknown()
@@ -286,16 +437,18 @@ class ArgumentPropagatorCodeScanner {
 
     // For class types, we track both the abstract value and the dynamic type. If both are unknown,
     // then use UnknownParameterState.
-    if (parameterType.isClassType()) {
+    if (parameterTypeElement.isClassType()) {
       DynamicType dynamicType = argument.getDynamicType(appView);
-      return abstractValue.isUnknown() && dynamicType.isTrivial(parameterType)
+      DynamicType widenedDynamicType =
+          WideningUtils.widenDynamicNonReceiverType(appView, dynamicType, parameterType);
+      return abstractValue.isUnknown() && widenedDynamicType.isUnknown()
           ? ParameterState.unknown()
-          : new ConcreteClassTypeParameterState(abstractValue, dynamicType);
+          : new ConcreteClassTypeParameterState(abstractValue, widenedDynamicType);
     }
 
     // For primitive types, we only track the abstract value, thus if the abstract value is unknown,
     // we use UnknownParameterState.
-    assert parameterType.isPrimitiveType();
+    assert parameterTypeElement.isPrimitiveType();
     return abstractValue.isUnknown()
         ? ParameterState.unknown()
         : new ConcretePrimitiveTypeParameterState(abstractValue);
@@ -303,16 +456,24 @@ class ArgumentPropagatorCodeScanner {
 
   private DexMethod getRepresentativeForPolymorphicInvokeOrElse(
       InvokeMethod invoke, ProgramMethod resolvedMethod, DexMethod defaultValue) {
-    DexMethod resolvedMethodReference = resolvedMethod.getReference();
+    if (resolvedMethod.getDefinition().belongsToDirectPool()) {
+      return defaultValue;
+    }
+
     if (invoke.isInvokeInterface()) {
-      return resolvedMethodReference;
+      assert !isMonomorphicVirtualMethod(resolvedMethod);
+      return getVirtualRootMethod(resolvedMethod);
     }
-    DexMethod rootMethod = classMethodRoots.get(resolvedMethodReference);
-    if (rootMethod != null) {
-      assert invoke.isInvokeVirtual();
-      return rootMethod;
+
+    assert invoke.isInvokeSuper() || invoke.isInvokeVirtual();
+
+    if (isMonomorphicVirtualMethod(resolvedMethod)) {
+      return defaultValue;
     }
-    return defaultValue;
+
+    DexMethod rootMethod = getVirtualRootMethod(resolvedMethod);
+    assert rootMethod != null;
+    return rootMethod;
   }
 
   private void scan(InvokeCustom invoke, ProgramMethod context) {

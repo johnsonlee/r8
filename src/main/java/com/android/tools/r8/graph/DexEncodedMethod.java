@@ -403,7 +403,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   }
 
   public DexMethodSignature getSignature() {
-    return new DexMethodSignature(getReference());
+    return DexMethodSignature.create(getReference());
   }
 
   public DexType returnType() {
@@ -1469,6 +1469,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     if (from.hasClassFileVersion()) {
       upgradeClassFileVersion(from.getClassFileVersion());
     }
+    apiLevelForCode = getApiLevelForCode().max(from.getApiLevelForCode());
   }
 
   public MethodTypeSignature getGenericSignature() {

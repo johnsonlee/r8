@@ -10,6 +10,7 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
@@ -17,6 +18,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePar
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ParameterState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
@@ -91,9 +93,12 @@ public class InParameterFlowPropagator {
   private void propagate(
       ParameterNode parameterNode, Consumer<ParameterNode> affectedNodeConsumer) {
     ParameterState parameterState = parameterNode.getState();
+    if (parameterState.isBottom()) {
+      return;
+    }
     for (ParameterNode successorNode : parameterNode.getSuccessors()) {
       successorNode.addState(
-          appView, parameterState, () -> affectedNodeConsumer.accept(successorNode));
+          appView, parameterState.asNonEmpty(), () -> affectedNodeConsumer.accept(successorNode));
     }
   }
 
@@ -112,12 +117,20 @@ public class InParameterFlowPropagator {
       return;
     }
     assert methodState.isMonomorphic();
+    boolean allUnknown = true;
     for (ParameterState parameterState : methodState.asMonomorphic().getParameterStates()) {
-      if (!parameterState.isUnknown()) {
+      if (parameterState.isBottom()) {
+        methodStates.set(method, MethodState.bottom());
         return;
       }
+      if (!parameterState.isUnknown()) {
+        assert parameterState.isConcrete();
+        allUnknown = false;
+      }
     }
-    methodStates.set(method, MethodState.unknown());
+    if (allUnknown) {
+      methodStates.set(method, MethodState.unknown());
+    }
   }
 
   private class FlowGraph {
@@ -145,8 +158,7 @@ public class InParameterFlowPropagator {
       }
 
       // Add nodes for the parameters for which we have non-trivial information.
-      ConcreteMonomorphicMethodState monomorphicMethodState =
-          methodState.asConcrete().asMonomorphic();
+      ConcreteMonomorphicMethodState monomorphicMethodState = methodState.asMonomorphic();
       List<ParameterState> parameterStates = monomorphicMethodState.getParameterStates();
       for (int parameterIndex = 0; parameterIndex < parameterStates.size(); parameterIndex++) {
         ParameterState parameterState = parameterStates.get(parameterIndex);
@@ -159,8 +171,9 @@ public class InParameterFlowPropagator {
         int parameterIndex,
         ConcreteMonomorphicMethodState methodState,
         ParameterState parameterState) {
-      // No need to create nodes for parameters we don't know anything about.
-      if (parameterState.isUnknown()) {
+      // No need to create nodes for parameters with no in-parameters and parameters we don't know
+      // anything about.
+      if (parameterState.isBottom() || parameterState.isUnknown()) {
         return;
       }
 
@@ -172,10 +185,10 @@ public class InParameterFlowPropagator {
         return;
       }
 
-      ParameterNode node =
-          getOrCreateParameterNode(method.getReference(), parameterIndex, methodState);
+      ParameterNode node = getOrCreateParameterNode(method, parameterIndex, methodState);
       for (MethodParameter inParameter : concreteParameterState.getInParameters()) {
-        MethodState enclosingMethodState = getEnclosingMethodStateForParameter(inParameter);
+        ProgramMethod enclosingMethod = getEnclosingMethod(inParameter);
+        MethodState enclosingMethodState = getMethodState(enclosingMethod);
         if (enclosingMethodState.isBottom()) {
           // The current method is called from a dead method; no need to propagate any information
           // from the dead call site.
@@ -194,32 +207,38 @@ public class InParameterFlowPropagator {
 
         ParameterNode predecessor =
             getOrCreateParameterNode(
-                inParameter.getMethod(),
+                enclosingMethod,
                 inParameter.getIndex(),
                 enclosingMethodState.asConcrete().asMonomorphic());
         node.addPredecessor(predecessor);
       }
-      concreteParameterState.clearInParameters();
+
+      if (!node.getState().isUnknown()) {
+        assert node.getState() == concreteParameterState;
+        node.setState(concreteParameterState.clearInParameters());
+      }
     }
 
     private ParameterNode getOrCreateParameterNode(
-        DexMethod key, int parameterIndex, ConcreteMonomorphicMethodState methodState) {
+        ProgramMethod method, int parameterIndex, ConcreteMonomorphicMethodState methodState) {
       Int2ReferenceMap<ParameterNode> parameterNodesForMethod =
-          nodes.computeIfAbsent(key, ignoreKey(Int2ReferenceOpenHashMap::new));
+          nodes.computeIfAbsent(method.getReference(), ignoreKey(Int2ReferenceOpenHashMap::new));
       return parameterNodesForMethod.compute(
           parameterIndex,
           (ignore, parameterNode) ->
               parameterNode != null
                   ? parameterNode
-                  : new ParameterNode(methodState, parameterIndex));
+                  : new ParameterNode(
+                      methodState, parameterIndex, method.getArgumentType(parameterIndex)));
     }
 
-    private MethodState getEnclosingMethodStateForParameter(MethodParameter methodParameter) {
+    private ProgramMethod getEnclosingMethod(MethodParameter methodParameter) {
       DexMethod methodReference = methodParameter.getMethod();
-      ProgramMethod method =
-          methodReference.lookupOnProgramClass(
-              asProgramClassOrNull(
-                  appView.definitionFor(methodParameter.getMethod().getHolderType())));
+      return methodReference.lookupOnProgramClass(
+          asProgramClassOrNull(appView.definitionFor(methodParameter.getMethod().getHolderType())));
+    }
+
+    private MethodState getMethodState(ProgramMethod method) {
       if (method == null) {
         // Conservatively return unknown if for some reason we can't find the method.
         assert false;
@@ -233,15 +252,18 @@ public class InParameterFlowPropagator {
 
     private final ConcreteMonomorphicMethodState methodState;
     private final int parameterIndex;
+    private final DexType parameterType;
 
     private final Set<ParameterNode> predecessors = Sets.newIdentityHashSet();
     private final Set<ParameterNode> successors = Sets.newIdentityHashSet();
 
     private boolean pending = true;
 
-    ParameterNode(ConcreteMonomorphicMethodState methodState, int parameterIndex) {
+    ParameterNode(
+        ConcreteMonomorphicMethodState methodState, int parameterIndex, DexType parameterType) {
       this.methodState = methodState;
       this.parameterIndex = parameterIndex;
+      this.parameterType = parameterType;
     }
 
     void addPredecessor(ParameterNode predecessor) {
@@ -274,11 +296,12 @@ public class InParameterFlowPropagator {
 
     void addState(
         AppView<AppInfoWithLiveness> appView,
-        ParameterState parameterStateToAdd,
+        NonEmptyParameterState parameterStateToAdd,
         Action onChangedAction) {
       ParameterState oldParameterState = getState();
       ParameterState newParameterState =
-          oldParameterState.mutableJoin(appView, parameterStateToAdd, onChangedAction);
+          oldParameterState.mutableJoin(
+              appView, parameterStateToAdd, parameterType, onChangedAction);
       if (newParameterState != oldParameterState) {
         setState(newParameterState);
         onChangedAction.execute();

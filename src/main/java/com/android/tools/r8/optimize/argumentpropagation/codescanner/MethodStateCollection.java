@@ -5,10 +5,13 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.Timing;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 abstract class MethodStateCollection<K> {
@@ -16,10 +19,13 @@ abstract class MethodStateCollection<K> {
   private final Map<K, MethodState> methodStates;
 
   MethodStateCollection(Map<K, MethodState> methodStates) {
+    assert methodStates.values().stream().noneMatch(MethodState::isBottom);
     this.methodStates = methodStates;
   }
 
   abstract K getKey(ProgramMethod method);
+
+  abstract DexMethodSignature getSignature(K method);
 
   public void addMethodState(
       AppView<AppInfoWithLiveness> appView, ProgramMethod method, MethodState methodState) {
@@ -34,10 +40,15 @@ abstract class MethodStateCollection<K> {
       methodStates.compute(
           method,
           (ignore, existingMethodState) -> {
+            MethodState newMethodState;
             if (existingMethodState == null) {
-              return methodState;
+              newMethodState = methodState.mutableCopy();
+            } else {
+              newMethodState =
+                  existingMethodState.mutableJoin(appView, getSignature(method), methodState);
             }
-            return existingMethodState.mutableJoin(appView, methodState);
+            assert !newMethodState.isBottom();
+            return newMethodState;
           });
     }
   }
@@ -46,22 +57,26 @@ abstract class MethodStateCollection<K> {
    * This intentionally takes a {@link Supplier<MethodState>} to avoid computing the method state
    * for a given call site when nothing is known about the arguments of the method.
    */
-  public void addMethodState(
+  public void addTemporaryMethodState(
       AppView<AppInfoWithLiveness> appView,
-      ProgramMethod method,
-      Supplier<MethodState> methodStateSupplier) {
-    addMethodState(appView, getKey(method), methodStateSupplier);
-  }
-
-  public void addMethodState(
-      AppView<AppInfoWithLiveness> appView, K method, Supplier<MethodState> methodStateSupplier) {
+      K method,
+      Function<MethodState, MethodState> methodStateSupplier,
+      Timing timing) {
     methodStates.compute(
         method,
         (ignore, existingMethodState) -> {
           if (existingMethodState == null) {
-            return methodStateSupplier.get();
+            MethodState newMethodState = methodStateSupplier.apply(MethodState.bottom());
+            assert !newMethodState.isBottom();
+            return newMethodState;
           }
-          return existingMethodState.mutableJoin(appView, methodStateSupplier);
+          assert !existingMethodState.isBottom();
+          timing.begin("Join temporary method state");
+          MethodState joinResult =
+              existingMethodState.mutableJoin(appView, getSignature(method), methodStateSupplier);
+          assert !joinResult.isBottom();
+          timing.end();
+          return joinResult;
         });
   }
 
@@ -76,7 +91,11 @@ abstract class MethodStateCollection<K> {
   }
 
   public MethodState get(ProgramMethod method) {
-    return methodStates.getOrDefault(getKey(method), MethodState.bottom());
+    return get(getKey(method));
+  }
+
+  public MethodState get(K method) {
+    return methodStates.getOrDefault(method, MethodState.bottom());
   }
 
   public boolean isEmpty() {
@@ -84,11 +103,23 @@ abstract class MethodStateCollection<K> {
   }
 
   public MethodState remove(ProgramMethod method) {
+    return removeOrElse(method, MethodState.bottom());
+  }
+
+  public MethodState removeOrElse(ProgramMethod method, MethodState defaultValue) {
     MethodState removed = methodStates.remove(getKey(method));
-    return removed != null ? removed : MethodState.bottom();
+    return removed != null ? removed : defaultValue;
   }
 
   public void set(ProgramMethod method, MethodState methodState) {
-    methodStates.put(getKey(method), methodState);
+    set(getKey(method), methodState);
+  }
+
+  private void set(K method, MethodState methodState) {
+    if (methodState.isBottom()) {
+      methodStates.remove(method);
+    } else {
+      methodStates.put(method, methodState);
+    }
   }
 }
