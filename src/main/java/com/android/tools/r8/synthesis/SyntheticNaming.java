@@ -39,6 +39,7 @@ public class SyntheticNaming {
     HORIZONTAL_INIT_TYPE_ARGUMENT_1(SYNTHETIC_CLASS_SEPARATOR + "IA$1", 6, false, true),
     HORIZONTAL_INIT_TYPE_ARGUMENT_2(SYNTHETIC_CLASS_SEPARATOR + "IA$2", 7, false, true),
     HORIZONTAL_INIT_TYPE_ARGUMENT_3(SYNTHETIC_CLASS_SEPARATOR + "IA$3", 8, false, true),
+    CONST_DYNAMIC("$Condy", 30, false),
     // Method synthetics.
     ENUM_UNBOXING_CHECK_NOT_ZERO_METHOD("CheckNotZero", 27, true),
     RECORD_HELPER("Record", 9, true),
@@ -53,7 +54,8 @@ public class SyntheticNaming {
     SERVICE_LOADER("ServiceLoad", 18, true),
     OUTLINE("Outline", 19, true),
     API_CONVERSION("APIConversion", 26, true),
-    API_CONVERSION_PARAMETERS("APIConversionParameters", 28, true);
+    API_CONVERSION_PARAMETERS("APIConversionParameters", 28, true),
+    EMULATED_INTERFACE_MARKER_CLASS("", 29, false, true, true);
 
     static {
       assert verifyNoOverlappingIds();

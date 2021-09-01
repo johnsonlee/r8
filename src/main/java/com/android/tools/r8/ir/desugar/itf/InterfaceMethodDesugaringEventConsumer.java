@@ -6,13 +6,10 @@ package com.android.tools.r8.ir.desugar.itf;
 
 import com.android.tools.r8.graph.ProgramMethod;
 
-public interface InterfaceMethodDesugaringEventConsumer {
+public interface InterfaceMethodDesugaringEventConsumer
+    extends InterfaceMethodDesugaringBaseEventConsumer {
 
   void acceptThrowMethod(ProgramMethod method, ProgramMethod context);
 
   void acceptInvokeStaticInterfaceOutliningMethod(ProgramMethod method, ProgramMethod context);
-
-  void acceptCompanionClassClinit(ProgramMethod method);
-
-  // TODO(b/183998768): Add acceptCompanionClass and acceptEmulatedInterface.
 }

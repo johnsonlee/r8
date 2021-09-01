@@ -14,6 +14,8 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.ClassConverterResult;
 import com.android.tools.r8.ir.conversion.D8MethodProcessor;
 import com.android.tools.r8.ir.desugar.backports.BackportedMethodDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicClass;
+import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterInstructionEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryAPIConverterEventConsumer;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialBridgeInfo;
@@ -45,6 +47,7 @@ public abstract class CfInstructionDesugaringEventConsumer
     implements BackportedMethodDesugaringEventConsumer,
         InvokeSpecialToSelfDesugaringEventConsumer,
         LambdaDesugaringEventConsumer,
+        ConstantDynamicDesugaringEventConsumer,
         NestBasedAccessDesugaringEventConsumer,
         RecordInstructionDesugaringEventConsumer,
         TwrCloseResourceDesugaringEventConsumer,
@@ -61,14 +64,30 @@ public abstract class CfInstructionDesugaringEventConsumer
   public static R8CfInstructionDesugaringEventConsumer createForR8(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       BiConsumer<LambdaClass, ProgramMethod> lambdaClassConsumer,
+      BiConsumer<ConstantDynamicClass, ProgramMethod> constantDynamicClassConsumer,
       BiConsumer<ProgramMethod, ProgramMethod> twrCloseResourceMethodConsumer,
-      SyntheticAdditions additions) {
+      SyntheticAdditions additions,
+      BiConsumer<ProgramMethod, ProgramMethod> companionMethodConsumer) {
     return new R8CfInstructionDesugaringEventConsumer(
-        appView, lambdaClassConsumer, twrCloseResourceMethodConsumer, additions);
+        appView,
+        lambdaClassConsumer,
+        constantDynamicClassConsumer,
+        twrCloseResourceMethodConsumer,
+        additions,
+        companionMethodConsumer);
   }
 
+  // TODO(b/183998768): Remove this event consumer. It should be unneeded for R8 and for D8 the
+  //  desugaring of interface methods should be able to happen up front too avoiding the companion
+  //  callback on nest accessors.
   public static CfInstructionDesugaringEventConsumer createForDesugaredCode() {
     return new CfInstructionDesugaringEventConsumer() {
+
+      @Override
+      public void acceptCompanionMethod(ProgramMethod method, ProgramMethod companionMethod) {
+        // A synthesized nest based accessor may itself be defined on an interface, in which case
+        // desugaring the accessor will result in a rewrite to the companion method.
+      }
 
       @Override
       public void acceptClasspathEmulatedInterface(DexClasspathClass clazz) {
@@ -127,6 +146,12 @@ public abstract class CfInstructionDesugaringEventConsumer
       }
 
       @Override
+      public void acceptConstantDynamicClass(
+          ConstantDynamicClass constantDynamicClass, ProgramMethod context) {
+        assert false;
+      }
+
+      @Override
       public void acceptNestFieldGetBridge(ProgramField target, ProgramMethod bridge) {
         assert false;
       }
@@ -161,9 +186,15 @@ public abstract class CfInstructionDesugaringEventConsumer
     private final Map<DexReference, InvokeSpecialBridgeInfo> pendingInvokeSpecialBridges =
         new LinkedHashMap<>();
     private final List<LambdaClass> synthesizedLambdaClasses = new ArrayList<>();
+    private final List<ConstantDynamicClass> synthesizedConstantDynamicClasses = new ArrayList<>();
 
     private D8CfInstructionDesugaringEventConsumer(D8MethodProcessor methodProcessor) {
       this.methodProcessor = methodProcessor;
+    }
+
+    @Override
+    public void acceptCompanionMethod(ProgramMethod method, ProgramMethod companionMethod) {
+      // Intentionally empty. Methods are moved when processing the interface definition.
     }
 
     @Override
@@ -203,6 +234,14 @@ public abstract class CfInstructionDesugaringEventConsumer
     public void acceptLambdaClass(LambdaClass lambdaClass, ProgramMethod context) {
       synchronized (synthesizedLambdaClasses) {
         synthesizedLambdaClasses.add(lambdaClass);
+      }
+    }
+
+    @Override
+    public void acceptConstantDynamicClass(
+        ConstantDynamicClass constantDynamicClass, ProgramMethod context) {
+      synchronized (synthesizedConstantDynamicClasses) {
+        synthesizedConstantDynamicClasses.add(constantDynamicClass);
       }
     }
 
@@ -257,6 +296,7 @@ public abstract class CfInstructionDesugaringEventConsumer
       List<ProgramMethod> needsProcessing = new ArrayList<>();
       finalizeInvokeSpecialDesugaring(appView, needsProcessing::add);
       finalizeLambdaDesugaring(classConverterResultBuilder, needsProcessing::add);
+      finalizeConstantDynamicDesugaring(needsProcessing::add);
       return needsProcessing;
     }
 
@@ -299,6 +339,13 @@ public abstract class CfInstructionDesugaringEventConsumer
       synthesizedLambdaClasses.clear();
     }
 
+    private void finalizeConstantDynamicDesugaring(Consumer<ProgramMethod> needsProcessing) {
+      for (ConstantDynamicClass constantDynamicClass : synthesizedConstantDynamicClasses) {
+        constantDynamicClass.getConstantDynamicProgramClass().forEachProgramMethod(needsProcessing);
+      }
+      synthesizedLambdaClasses.clear();
+    }
+
     public boolean verifyNothingToFinalize() {
       assert pendingInvokeSpecialBridges.isEmpty();
       assert synthesizedLambdaClasses.isEmpty();
@@ -311,25 +358,39 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     private final AppView<? extends AppInfoWithClassHierarchy> appView;
 
-    // TODO(b/180091213): Remove these two consumers when synthesizing contexts are accessible from
+    // TODO(b/180091213): Remove these three consumers when synthesizing contexts are accessible
+    // from
     //  synthetic items.
     private final BiConsumer<LambdaClass, ProgramMethod> lambdaClassConsumer;
+    private final BiConsumer<ConstantDynamicClass, ProgramMethod> constantDynamicClassConsumer;
     private final BiConsumer<ProgramMethod, ProgramMethod> twrCloseResourceMethodConsumer;
     private final SyntheticAdditions additions;
 
     private final Map<LambdaClass, ProgramMethod> synthesizedLambdaClasses =
         new IdentityHashMap<>();
     private final List<InvokeSpecialBridgeInfo> pendingInvokeSpecialBridges = new ArrayList<>();
+    private final List<ConstantDynamicClass> synthesizedConstantDynamicClasses = new ArrayList<>();
+
+    private final BiConsumer<ProgramMethod, ProgramMethod> onCompanionMethodCallback;
 
     public R8CfInstructionDesugaringEventConsumer(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         BiConsumer<LambdaClass, ProgramMethod> lambdaClassConsumer,
+        BiConsumer<ConstantDynamicClass, ProgramMethod> constantDynamicClassConsumer,
         BiConsumer<ProgramMethod, ProgramMethod> twrCloseResourceMethodConsumer,
-        SyntheticAdditions additions) {
+        SyntheticAdditions additions,
+        BiConsumer<ProgramMethod, ProgramMethod> onCompanionMethodCallback) {
       this.appView = appView;
       this.lambdaClassConsumer = lambdaClassConsumer;
+      this.constantDynamicClassConsumer = constantDynamicClassConsumer;
       this.twrCloseResourceMethodConsumer = twrCloseResourceMethodConsumer;
       this.additions = additions;
+      this.onCompanionMethodCallback = onCompanionMethodCallback;
+    }
+
+    @Override
+    public void acceptCompanionMethod(ProgramMethod method, ProgramMethod companionMethod) {
+      onCompanionMethodCallback.accept(method, companionMethod);
     }
 
     @Override
@@ -344,7 +405,7 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptCompanionClassClinit(ProgramMethod method) {
-      // TODO(b/183998768): Update this once desugaring is moved to the enqueuer.
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
@@ -354,19 +415,19 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptRecordMethod(ProgramMethod method) {
-      // Intentionally empty. The method will be hit by the tracing in R8 as if it was
-      // present in the input code, and thus nothing needs to be done.
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
     public void acceptThrowMethod(ProgramMethod method, ProgramMethod context) {
-      assert false : "TODO(b/183998768): To be implemented";
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
     public void acceptInvokeStaticInterfaceOutliningMethod(
         ProgramMethod method, ProgramMethod context) {
-      assert false : "TODO(b/183998768): To be implemented";
+      // Intentionally empty. The method will be hit by tracing if required.
+      additions.addNeverInlineMethod(method);
     }
 
     @Override
@@ -376,14 +437,12 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptAPIConversion(ProgramMethod method) {
-      // Intentionally empty. The method will be hit by the tracing in R8 as if it was
-      // present in the input code, and thus nothing needs to be done.
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
     public void acceptBackportedMethod(ProgramMethod backportedMethod, ProgramMethod context) {
-      // Intentionally empty. The backported method will be hit by the tracing in R8 as if it was
-      // present in the input code, and thus nothing needs to be done.
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
@@ -404,6 +463,17 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
+    public void acceptConstantDynamicClass(
+        ConstantDynamicClass constantDynamicClass, ProgramMethod context) {
+      synchronized (synthesizedConstantDynamicClasses) {
+        synthesizedConstantDynamicClasses.add(constantDynamicClass);
+      }
+      // TODO(b/180091213): Remove the recording of the synthesizing context when this is accessible
+      //  from synthetic items.
+      constantDynamicClassConsumer.accept(constantDynamicClass, context);
+    }
+
+    @Override
     public void acceptNestFieldGetBridge(ProgramField target, ProgramMethod bridge) {
       assert false;
     }
@@ -420,8 +490,6 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptTwrCloseResourceMethod(ProgramMethod closeMethod, ProgramMethod context) {
-      // Intentionally empty. The close method will be hit by the tracing in R8 as if they were
-      // present in the input code, and thus nothing needs to be done.
       // TODO(b/180091213): Remove the recording of the synthesizing context when this is accessible
       //  from synthetic items.
       twrCloseResourceMethodConsumer.accept(closeMethod, context);

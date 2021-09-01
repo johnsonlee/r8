@@ -3,16 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming.applymapping.desugar;
 
-import static com.android.tools.r8.references.Reference.classFromClass;
-import static org.junit.Assert.assertTrue;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringForTesting;
-import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -73,26 +72,21 @@ public class DefaultInterfaceMethodTest extends TestBase {
 
   @Test
   public void testLibraryLinkedWithProgram() throws Throwable {
-    String ruleContent = "-keep class " + LibraryInterface.class.getTypeName() + " { *; }";
     R8TestCompileResult libraryResult =
         testForR8(parameters.getBackend())
             .addProgramClasses(LibraryInterface.class)
-            .addKeepRules(ruleContent)
+            .addKeepClassAndMembersRules(LibraryInterface.class)
             .setMinApi(parameters.getApiLevel())
             .compile();
     CodeInspector inspector = libraryResult.inspector();
-    assertTrue(inspector.clazz(LibraryInterface.class).isPresent());
-    assertTrue(inspector.method(LibraryInterface.class.getMethod("foo")).isPresent());
-    if (willDesugarDefaultInterfaceMethods(parameters.getApiLevel())) {
+    assertThat(inspector.clazz(LibraryInterface.class), isPresent());
+    assertThat(inspector.method(LibraryInterface.class.getMethod("foo")), isPresent());
+    if (!parameters.canUseDefaultAndStaticInterfaceMethods()) {
       ClassSubject companion =
-          inspector.clazz(
-              Reference.classFromDescriptor(
-                  InterfaceDesugaringForTesting.getCompanionClassDescriptor(
-                      classFromClass(LibraryInterface.class).getDescriptor())));
-      // Check that we included the companion class.
-      assertTrue(companion.isPresent());
-      // TODO(b/129223905): Check the method is also present on the companion class.
-      assertTrue(inspector.method(LibraryInterface.class.getMethod("foo")).isPresent());
+          inspector.clazz(SyntheticItemsTestUtils.syntheticCompanionClass(LibraryInterface.class));
+      // Check that we included the companion class and method.
+      assertThat(companion, isPresent());
+      assertEquals(1, companion.allMethods().size());
     }
 
     testForR8(parameters.getBackend())
@@ -106,9 +100,5 @@ public class DefaultInterfaceMethodTest extends TestBase {
         .addRunClasspathFiles(libraryResult.writeToZip())
         .run(parameters.getRuntime(), ProgramClass.class)
         .assertSuccessWithOutput(EXPECTED);
-  }
-
-  private static boolean willDesugarDefaultInterfaceMethods(AndroidApiLevel apiLevel) {
-    return apiLevel != null && apiLevel.getLevel() < AndroidApiLevel.N.getLevel();
   }
 }

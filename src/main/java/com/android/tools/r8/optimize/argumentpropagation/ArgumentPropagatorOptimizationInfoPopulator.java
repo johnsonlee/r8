@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.optimize.argumentpropagation;
 
-import static com.android.tools.r8.optimize.argumentpropagation.utils.StronglyConnectedProgramClasses.computeStronglyConnectedProgramClasses;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -23,6 +22,8 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ParameterSt
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InParameterFlowPropagator;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InterfaceMethodArgumentPropagator;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.VirtualDispatchMethodArgumentPropagator;
+import com.android.tools.r8.optimize.argumentpropagation.reprocessingcriteria.ArgumentPropagatorReprocessingCriteriaCollection;
+import com.android.tools.r8.optimize.argumentpropagation.reprocessingcriteria.MethodReprocessingCriteria;
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -42,20 +43,22 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final MethodStateCollectionByReference methodStates;
+  private final ArgumentPropagatorReprocessingCriteriaCollection reprocessingCriteriaCollection;
 
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
-  private final List<Set<DexProgramClass>> stronglyConnectedComponents;
+  private final List<Set<DexProgramClass>> stronglyConnectedProgramComponents;
 
   ArgumentPropagatorOptimizationInfoPopulator(
-      AppView<AppInfoWithLiveness> appView, MethodStateCollectionByReference methodStates) {
+      AppView<AppInfoWithLiveness> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
+      MethodStateCollectionByReference methodStates,
+      ArgumentPropagatorReprocessingCriteriaCollection reprocessingCriteriaCollection,
+      List<Set<DexProgramClass>> stronglyConnectedProgramComponents) {
     this.appView = appView;
-    this.methodStates = methodStates;
-
-    ImmediateProgramSubtypingInfo immediateSubtypingInfo =
-        ImmediateProgramSubtypingInfo.create(appView);
     this.immediateSubtypingInfo = immediateSubtypingInfo;
-    this.stronglyConnectedComponents =
-        computeStronglyConnectedProgramClasses(appView, immediateSubtypingInfo);
+    this.methodStates = methodStates;
+    this.reprocessingCriteriaCollection = reprocessingCriteriaCollection;
+    this.stronglyConnectedProgramComponents = stronglyConnectedProgramComponents;
   }
 
   /**
@@ -74,7 +77,9 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
     //  that the method returns the constant.
     timing.begin("Propagate argument information for virtual methods");
     ThreadUtils.processItems(
-        stronglyConnectedComponents, this::processStronglyConnectedComponent, executorService);
+        stronglyConnectedProgramComponents,
+        this::processStronglyConnectedComponent,
+        executorService);
     timing.end();
 
     // Solve the parameter flow constraints.
@@ -189,6 +194,14 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
                   == WideningUtils.widenDynamicNonReceiverType(appView, dynamicType, staticType);
               return true;
             });
+
+    // If we have any reprocessing criteria for the given method, check that they are satisfied
+    // before reenqueing.
+    MethodReprocessingCriteria reprocessingCriteria =
+        reprocessingCriteriaCollection.getReprocessingCriteria(method);
+    if (!reprocessingCriteria.shouldReprocess(appView, method, monomorphicMethodState)) {
+      return;
+    }
 
     method
         .getDefinition()

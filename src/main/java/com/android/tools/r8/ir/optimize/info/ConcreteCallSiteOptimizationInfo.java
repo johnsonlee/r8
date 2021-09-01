@@ -116,7 +116,7 @@ public class ConcreteCallSiteOptimizationInfo extends CallSiteOptimizationInfo {
       if (dynamicUpperBoundType == null) {
         continue;
       }
-      assert appView.options().callSiteOptimizationOptions().isTypePropagationEnabled();
+      assert appView.options().callSiteOptimizationOptions().isDynamicTypePropagationEnabled();
       // To avoid the full join of type lattices below, separately check if the nullability of
       // arguments is improved, and if so, we can eagerly conclude that we've collected useful
       // call site information for this method.
@@ -255,8 +255,6 @@ public class ConcreteCallSiteOptimizationInfo extends CallSiteOptimizationInfo {
             newCallSiteInfo.dynamicUpperBoundTypes.put(
                 argumentIndex, dynamicType.getDynamicUpperBoundType());
             isTop = false;
-          } else {
-            newCallSiteInfo.dynamicUpperBoundTypes.put(argumentIndex, staticTypeElement);
           }
         }
       }
