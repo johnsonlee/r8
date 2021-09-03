@@ -63,13 +63,13 @@ public class RetraceApiTestHelper {
             classPaths,
             "org.junit.runner.JUnitCore",
             StringUtils.join(" ", tests, Class::getTypeName));
-    assertEquals(0, processResult.exitCode);
+    assertEquals(processResult.toString(), 0, processResult.exitCode);
     assertThat(processResult.stdout, containsString("OK (" + tests.size() + " test"));
   }
 
   private static Path getJunitDependency() {
     String junitPath =
-        Arrays.stream(System.getProperty("java.class.path").split(":"))
+        Arrays.stream(System.getProperty("java.class.path").split(File.pathSeparator))
             .filter(cp -> cp.endsWith(JUNIT_JAR))
             .collect(Collectors.toSingle());
     return Paths.get(junitPath);
@@ -77,7 +77,7 @@ public class RetraceApiTestHelper {
 
   private static Path getHamcrest() {
     String junitPath =
-        Arrays.stream(System.getProperty("java.class.path").split(":"))
+        Arrays.stream(System.getProperty("java.class.path").split(File.pathSeparator))
             .filter(cp -> cp.endsWith(HAMCREST))
             .collect(Collectors.toSingle());
     return Paths.get(junitPath);

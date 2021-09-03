@@ -9,7 +9,6 @@ import static com.google.common.base.Predicates.not;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -21,10 +20,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.FieldAccessFlags;
-import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
-import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
-import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
@@ -131,17 +127,14 @@ public class ClassMerger {
 
     AndroidApiLevel apiReferenceLevel = classInitializerMerger.getApiReferenceLevel(appView);
     DexEncodedMethod definition =
-        new DexEncodedMethod(
-            newMethodReference,
-            MethodAccessFlags.createForClassInitializer(),
-            MethodTypeSignature.noSignature(),
-            DexAnnotationSet.empty(),
-            ParameterAnnotationsList.empty(),
-            classInitializerMerger.getCode(syntheticMethodReference),
-            DexEncodedMethod.D8_R8_SYNTHESIZED,
-            classInitializerMerger.getCfVersion(),
-            apiReferenceLevel,
-            apiReferenceLevel);
+        DexEncodedMethod.syntheticBuilder()
+            .setMethod(newMethodReference)
+            .setAccessFlags(MethodAccessFlags.createForClassInitializer())
+            .setCode(classInitializerMerger.getCode(syntheticMethodReference))
+            .setClassFileVersion(classInitializerMerger.getCfVersion())
+            .setApiLevelForDefinition(apiReferenceLevel)
+            .setApiLevelForCode(apiReferenceLevel)
+            .build();
     classMethodsBuilder.addDirectMethod(definition);
 
     // In case we didn't synthesize CF code, we register the class initializer for conversion to dex
@@ -218,18 +211,12 @@ public class ClassMerger {
     assert appView.hasLiveness();
     assert mode.isInitial();
 
-    boolean deprecated = false;
-    boolean d8R8Synthesized = true;
     DexEncodedField classIdField =
-        new DexEncodedField(
-            group.getClassIdField(),
-            FieldAccessFlags.createPublicFinalSynthetic(),
-            FieldTypeSignature.noSignature(),
-            DexAnnotationSet.empty(),
-            null,
-            deprecated,
-            d8R8Synthesized,
-            minApiLevelIfEnabledOrUnknown(appView));
+        DexEncodedField.syntheticBuilder()
+            .setField(group.getClassIdField())
+            .setAccessFlags(FieldAccessFlags.createPublicFinalSynthetic())
+            .setApiLevel(minApiLevelIfEnabledOrUnknown(appView))
+            .build();
 
     // For the $r8$classId synthesized fields, we try to over-approximate the set of values it may
     // have. For example, for a merge group of size 4, we may compute the set {0, 2, 3}, if the

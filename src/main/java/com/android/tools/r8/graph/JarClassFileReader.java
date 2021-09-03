@@ -668,13 +668,14 @@ public class JarClassFileReader<T extends DexClass> {
             createAnnotationSet(annotations, parent.application.options);
         DexValue staticValue = flags.isStatic() ? getStaticValue(value, dexField.type) : null;
         DexEncodedField field =
-            new DexEncodedField(
-                dexField,
-                flags,
-                fieldSignature,
-                annotationSet,
-                staticValue,
-                AsmUtils.isDeprecated(access));
+            DexEncodedField.builder()
+                .setField(dexField)
+                .setAccessFlags(flags)
+                .setGenericSignature(fieldSignature)
+                .setAnnotations(annotationSet)
+                .setStaticValue(staticValue)
+                .setDeprecated(AsmUtils.isDeprecated(access))
+                .build();
         if (flags.isStatic()) {
           parent.staticFields.add(field);
         } else {
@@ -902,18 +903,19 @@ public class JarClassFileReader<T extends DexClass> {
             parent.application.getFactory()));
       }
       DexEncodedMethod dexMethod =
-          new DexEncodedMethod(
-              method,
-              flags,
-              genericSignature,
-              createAnnotationSet(annotations, options),
-              parameterAnnotationsList,
-              code,
-              false,
-              parent.version,
-              AndroidApiLevel.UNKNOWN,
-              AndroidApiLevel.UNKNOWN,
-              deprecated);
+          DexEncodedMethod.builder()
+              .setMethod(method)
+              .setAccessFlags(flags)
+              .setGenericSignature(genericSignature)
+              .setAnnotations(createAnnotationSet(annotations, options))
+              .setParameterAnnotations(parameterAnnotationsList)
+              .setCode(code)
+              .setClassFileVersion(parent.version)
+              .setApiLevelForDefinition(AndroidApiLevel.UNKNOWN)
+              .setApiLevelForCode(AndroidApiLevel.UNKNOWN)
+              .setDeprecated(deprecated)
+              .disableParameterAnnotationListCheck()
+              .build();
       Wrapper<DexMethod> signature = MethodSignatureEquivalence.get().wrap(method);
       if (parent.methodSignatures.add(signature)) {
         parent.hasReachabilitySensitiveMethod |= isReachabilitySensitive();

@@ -32,9 +32,6 @@ import java.util.function.Function;
 public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     implements StructuralItem<DexEncodedField> {
 
-  public static final boolean D8_R8_SYNTHESIZED = true;
-  public static final boolean NOT_DEPRECATED = false;
-  public static final DexValue NO_STATIC_VALUE = null;
   public static final DexEncodedField[] EMPTY_ARRAY = {};
 
   public final FieldAccessFlags accessFlags;
@@ -56,38 +53,7 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     // TODO(b/171867022): Should the optimization info and member info be part of the definition?
   }
 
-  public DexEncodedField(DexField field, FieldAccessFlags accessFlags) {
-    this(field, accessFlags, FieldTypeSignature.noSignature(), DexAnnotationSet.empty(), null);
-  }
-
-  public DexEncodedField(
-      DexField field,
-      FieldAccessFlags accessFlags,
-      FieldTypeSignature genericSignature,
-      DexAnnotationSet annotations,
-      DexValue staticValue) {
-    this(field, accessFlags, genericSignature, annotations, staticValue, false);
-  }
-
-  public DexEncodedField(
-      DexField field,
-      FieldAccessFlags accessFlags,
-      FieldTypeSignature genericSignature,
-      DexAnnotationSet annotations,
-      DexValue staticValue,
-      boolean deprecated) {
-    this(
-        field,
-        accessFlags,
-        genericSignature,
-        annotations,
-        staticValue,
-        deprecated,
-        false,
-        AndroidApiLevel.UNKNOWN);
-  }
-
-  public DexEncodedField(
+  private DexEncodedField(
       DexField field,
       FieldAccessFlags accessFlags,
       FieldTypeSignature genericSignature,
@@ -375,11 +341,15 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
   }
 
   public static Builder builder() {
-    return new Builder();
+    return new Builder(false);
   }
 
   private static Builder builder(DexEncodedField from) {
-    return new Builder(from);
+    return new Builder(from.isD8R8Synthesized(), from);
+  }
+
+  public static Builder syntheticBuilder() {
+    return new Builder(true);
   }
 
   public static class Builder {
@@ -388,16 +358,18 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     private DexAnnotationSet annotations = DexAnnotationSet.empty();
     private FieldAccessFlags accessFlags;
     private FieldTypeSignature genericSignature = FieldTypeSignature.noSignature();
-    private DexValue staticValue;
-    private AndroidApiLevel apiLevel;
+    private DexValue staticValue = null;
+    private AndroidApiLevel apiLevel = AndroidApiLevel.UNKNOWN;
     private FieldOptimizationInfo optimizationInfo = DefaultFieldOptimizationInfo.getInstance();
     private boolean deprecated;
-    private boolean d8R8Synthesized;
+    private final boolean d8R8Synthesized;
     private Consumer<DexEncodedField> buildConsumer = ConsumerUtils.emptyConsumer();
 
-    Builder() {}
+    private Builder(boolean d8R8Synthesized) {
+      this.d8R8Synthesized = d8R8Synthesized;
+    }
 
-    Builder(DexEncodedField from) {
+    private Builder(boolean d8R8Synthesized, DexEncodedField from) {
       // Copy all the mutable state of a DexEncodedField here.
       field = from.getReference();
       accessFlags = from.accessFlags.copy();
@@ -411,7 +383,7 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
               ? from.optimizationInfo.asMutableFieldOptimizationInfo().mutableCopy()
               : from.optimizationInfo;
       deprecated = from.isDeprecated();
-      d8R8Synthesized = from.isD8R8Synthesized();
+      this.d8R8Synthesized = d8R8Synthesized;
     }
 
     public Builder apply(Consumer<Builder> consumer) {
@@ -456,13 +428,23 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
       return this;
     }
 
-    public Builder setD8R8Synthesized() {
-      this.d8R8Synthesized = true;
+    public Builder setApiLevel(AndroidApiLevel apiLevel) {
+      this.apiLevel = apiLevel;
       return this;
     }
 
-    public Builder setApiLevel(AndroidApiLevel apiLevel) {
-      this.apiLevel = apiLevel;
+    public Builder setGenericSignature(FieldTypeSignature genericSignature) {
+      this.genericSignature = genericSignature;
+      return this;
+    }
+
+    public Builder setStaticValue(DexValue staticValue) {
+      this.staticValue = staticValue;
+      return this;
+    }
+
+    public Builder setDeprecated(boolean deprecated) {
+      this.deprecated = deprecated;
       return this;
     }
 
@@ -471,7 +453,6 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
       assert accessFlags != null;
       assert genericSignature != null;
       assert annotations != null;
-      assert apiLevel != null;
       DexEncodedField dexEncodedField =
           new DexEncodedField(
               field,

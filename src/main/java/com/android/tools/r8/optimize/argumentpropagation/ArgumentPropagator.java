@@ -7,7 +7,6 @@ package com.android.tools.r8.optimize.argumentpropagation;
 import static com.android.tools.r8.optimize.argumentpropagation.utils.StronglyConnectedProgramClasses.computeStronglyConnectedProgramClasses;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -15,7 +14,6 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
-import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.VirtualRootMethodsAnalysis;
@@ -128,15 +126,30 @@ public class ArgumentPropagator {
       throws ExecutionException {
     assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
     timing.begin("Argument propagator");
+
+    // Compute the strongly connected program components for parallel execution.
     ImmediateProgramSubtypingInfo immediateSubtypingInfo =
         ImmediateProgramSubtypingInfo.create(appView);
     List<Set<DexProgramClass>> stronglyConnectedProgramComponents =
         computeStronglyConnectedProgramClasses(appView, immediateSubtypingInfo);
+
+    // Set the optimization info on each method.
     populateParameterOptimizationInfo(
         immediateSubtypingInfo, stronglyConnectedProgramComponents, executorService, timing);
-    optimizeMethodParameters(
-        immediateSubtypingInfo, stronglyConnectedProgramComponents, executorService);
-    enqueueMethodsForProcessing(postMethodProcessorBuilder);
+
+    // Using the computed optimization info, build a graph lens that describes the mapping from
+    // methods with constant parameters to methods with the constant parameters removed.
+    ArgumentPropagatorGraphLens graphLens =
+        optimizeMethodParameters(stronglyConnectedProgramComponents, executorService);
+
+    // Find all the code objects that need reprocessing.
+    new ArgumentPropagatorMethodReprocessingEnqueuer(appView)
+        .enqueueMethodForReprocessing(graphLens, postMethodProcessorBuilder, executorService);
+
+    // Finally, apply the graph lens to the program (i.e., remove constant parameters from method
+    // definitions).
+    new ArgumentPropagatorApplicationFixer(appView, graphLens).fixupApplication(executorService);
+
     timing.end();
   }
 
@@ -169,47 +182,20 @@ public class ArgumentPropagator {
   }
 
   /** Called by {@link IRConverter} to optimize method definitions. */
-  private void optimizeMethodParameters(
-      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
+  private ArgumentPropagatorGraphLens optimizeMethodParameters(
       List<Set<DexProgramClass>> stronglyConnectedProgramComponents,
       ExecutorService executorService)
       throws ExecutionException {
     Collection<ArgumentPropagatorGraphLens.Builder> partialGraphLensBuilders =
         ThreadUtils.processItemsWithResults(
             stronglyConnectedProgramComponents,
-            classes ->
-                new ArgumentPropagatorProgramOptimizer(appView, immediateSubtypingInfo)
-                    .optimize(classes),
+            classes -> new ArgumentPropagatorProgramOptimizer(appView).optimize(classes),
             executorService);
 
     // Merge all the partial, disjoint graph lens builders into a single graph lens.
     ArgumentPropagatorGraphLens.Builder graphLensBuilder =
         ArgumentPropagatorGraphLens.builder(appView);
     partialGraphLensBuilders.forEach(graphLensBuilder::mergeDisjoint);
-
-    ArgumentPropagatorGraphLens graphLens = graphLensBuilder.build();
-    if (graphLens != null) {
-      appView.setGraphLens(graphLens);
-    }
-  }
-
-  /**
-   * Called by {@link IRConverter} to add all methods that require reprocessing to {@param
-   * postMethodProcessorBuilder}.
-   */
-  private void enqueueMethodsForProcessing(PostMethodProcessor.Builder postMethodProcessorBuilder) {
-    for (DexProgramClass clazz : appView.appInfo().classes()) {
-      clazz.forEachProgramMethodMatching(
-          DexEncodedMethod::hasCode,
-          method -> {
-            CallSiteOptimizationInfo callSiteOptimizationInfo =
-                method.getDefinition().getCallSiteOptimizationInfo();
-            if (callSiteOptimizationInfo.isConcreteCallSiteOptimizationInfo()
-                && !appView.appInfo().isNeverReprocessMethod(method.getReference())) {
-              postMethodProcessorBuilder.add(method);
-              appView.testing().callSiteOptimizationInfoInspector.accept(method);
-            }
-          });
-    }
+    return graphLensBuilder.build();
   }
 }

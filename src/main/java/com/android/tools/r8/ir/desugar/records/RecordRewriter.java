@@ -20,7 +20,6 @@ import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
-import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -35,9 +34,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue.DexValueMethodHandle;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.DexValue.DexValueType;
-import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
-import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaring;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
@@ -289,14 +286,11 @@ public class RecordRewriter
         MethodAccessFlags.fromSharedAccessFlags(
             Constants.ACC_SYNTHETIC | Constants.ACC_PRIVATE, false);
     DexEncodedMethod encodedMethod =
-        new DexEncodedMethod(
-            method,
-            methodAccessFlags,
-            MethodTypeSignature.noSignature(),
-            DexAnnotationSet.empty(),
-            ParameterAnnotationsList.empty(),
-            null,
-            true);
+        DexEncodedMethod.syntheticBuilder()
+            .setMethod(method)
+            .setAccessFlags(methodAccessFlags)
+            .setCode(null)
+            .build();
     encodedMethod.setCode(provider.generateCfCode(), appView);
     return new ProgramMethod(clazz, encodedMethod);
   }
@@ -589,14 +583,11 @@ public class RecordRewriter
         MethodAccessFlags.fromSharedAccessFlags(
             Constants.ACC_SYNTHETIC | Constants.ACC_PROTECTED, true);
     DexEncodedMethod init =
-        new DexEncodedMethod(
-            factory.recordMembers.init,
-            methodAccessFlags,
-            MethodTypeSignature.noSignature(),
-            DexAnnotationSet.empty(),
-            ParameterAnnotationsList.empty(),
-            null,
-            true);
+        DexEncodedMethod.syntheticBuilder()
+            .setMethod(factory.recordMembers.init)
+            .setAccessFlags(methodAccessFlags)
+            .setCode(null)
+            .build();
     init.setCode(
         new CallObjectInitCfCodeProvider(appView, factory.recordTagType).generateCfCode(), appView);
     return init;

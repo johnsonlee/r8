@@ -47,11 +47,9 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
-import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.MethodAccessFlags;
-import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.IRCode;
@@ -856,13 +854,11 @@ public class MainDexListTests extends TestBase {
             new SynthesizedCode(
                 (ignored, callerPosition) -> new ReturnVoidCode(voidReturnMethod, callerPosition));
         DexEncodedMethod method =
-            new DexEncodedMethod(
-                voidReturnMethod,
-                access,
-                MethodTypeSignature.noSignature(),
-                DexAnnotationSet.empty(),
-                ParameterAnnotationsList.empty(),
-                code);
+            DexEncodedMethod.builder()
+                .setMethod(voidReturnMethod)
+                .setAccessFlags(access)
+                .setCode(code)
+                .build();
         ProgramMethod programMethod = new ProgramMethod(programClass, method);
         IRCode ir = code.buildIR(programMethod, appView, Origin.unknown());
         RegisterAllocator allocator = new LinearScanRegisterAllocator(appView, ir);

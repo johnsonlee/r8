@@ -4,11 +4,10 @@
 
 package com.android.tools.r8.optimize.argumentpropagation;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
@@ -24,7 +23,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class StaticMethodWithConstantArgumentThroughCallChainTest extends TestBase {
+public class UnboxedEnumUserInMethodWithConstantArgumentTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -44,6 +43,7 @@ public class StaticMethodWithConstantArgumentThroughCallChainTest extends TestBa
                 options
                     .callSiteOptimizationOptions()
                     .setEnableExperimentalArgumentPropagation(true))
+        .addEnumUnboxingInspector(inspector -> inspector.assertUnboxed(MyEnum.class))
         .enableInliningAnnotations()
         // TODO(b/173398086): uniqueMethodWithName() does not work with argument removal.
         .noMinification()
@@ -54,70 +54,40 @@ public class StaticMethodWithConstantArgumentThroughCallChainTest extends TestBa
               ClassSubject mainClassSubject = inspector.clazz(Main.class);
               assertThat(mainClassSubject, isPresent());
 
-              // The test1(), test2(), and test3() methods have been optimized.
-              for (int i = 1; i <= 3; i++) {
-                MethodSubject testMethodSubject = mainClassSubject.uniqueMethodWithName("test" + i);
-                assertThat(testMethodSubject, isPresent());
-                assertEquals(0, testMethodSubject.getProgramMethod().getParameters().size());
-                assertTrue(
-                    testMethodSubject.streamInstructions().noneMatch(InstructionSubject::isIf));
-              }
+              MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
+              assertThat(mainMethodSubject, isPresent());
+              assertTrue(
+                  mainMethodSubject
+                      .streamInstructions()
+                      .noneMatch(InstructionSubject::isConstNumber));
 
-              assertThat(mainClassSubject.uniqueMethodWithName("dead"), isAbsent());
+              MethodSubject testMethodSubject = mainClassSubject.uniqueMethodWithName("test");
+              assertThat(testMethodSubject, isPresent());
+              assertEquals(0, testMethodSubject.getProgramMethod().getReference().getArity());
             })
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines(
-            "Hello from test1()",
-            "Hello from test2()",
-            "Hello from test3()",
-            "Hello from test1()",
-            "Hello from test2()",
-            "Hello from test3()",
-            "Hello from test1()",
-            "Hello from test2()",
-            "Hello from test3()");
+        .assertSuccessWithOutputLines("A");
   }
 
   static class Main {
 
     public static void main(String[] args) {
-      test1(42);
-      test1(42);
-      test1(42);
+      test(true);
     }
 
     @NeverInline
-    static void test1(int x) {
-      if (x == 42) {
-        System.out.println("Hello from test1()");
-      } else {
-        dead();
-      }
-      test2(x);
-    }
-
-    @NeverInline
-    static void test2(int x) {
-      if (x == 42) {
-        System.out.println("Hello from test2()");
-      } else {
-        dead();
-      }
-      test3(x);
-    }
-
-    @NeverInline
-    static void test3(int x) {
-      if (x == 42) {
-        System.out.println("Hello from test3()");
-      } else {
-        dead();
+    static void test(boolean alwaysTrue) {
+      if (alwaysTrue) {
+        // Failure to reprocess this method after the unboxing of MyEnum will lead to runtime
+        // errors.
+        MyEnum myEnum = System.currentTimeMillis() > 0 ? MyEnum.A : MyEnum.B;
+        System.out.println(myEnum.name());
       }
     }
+  }
 
-    @NeverInline
-    static void dead() {
-      System.out.println("Unreachable");
-    }
+  enum MyEnum {
+    A,
+    B
   }
 }

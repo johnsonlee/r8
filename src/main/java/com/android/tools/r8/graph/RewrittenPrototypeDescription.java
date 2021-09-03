@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.graph;
 
+import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.ir.analysis.value.SingleValue;
 import com.android.tools.r8.ir.code.ConstInstruction;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Position;
@@ -11,12 +13,13 @@ import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.ir.conversion.ExtraUnusedNullParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceRBTreeMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
 import it.unimi.dsi.fastutil.ints.IntBidirectionalIterator;
+import it.unimi.dsi.fastutil.ints.IntSortedSet;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
@@ -68,11 +71,11 @@ public class RewrittenPrototypeDescription {
 
     public static class Builder {
 
-      private boolean isAlwaysNull = false;
-      private DexType type = null;
+      private SingleValue singleValue;
+      private DexType type;
 
-      public Builder setIsAlwaysNull() {
-        this.isAlwaysNull = true;
+      public Builder setSingleValue(SingleValue singleValue) {
+        this.singleValue = singleValue;
         return this;
       }
 
@@ -83,15 +86,15 @@ public class RewrittenPrototypeDescription {
 
       public RemovedArgumentInfo build() {
         assert type != null;
-        return new RemovedArgumentInfo(isAlwaysNull, type);
+        return new RemovedArgumentInfo(singleValue, type);
       }
     }
 
-    private final boolean isAlwaysNull;
+    private final SingleValue singleValue;
     private final DexType type;
 
-    private RemovedArgumentInfo(boolean isAlwaysNull, DexType type) {
-      this.isAlwaysNull = isAlwaysNull;
+    private RemovedArgumentInfo(SingleValue singleValue, DexType type) {
+      this.singleValue = singleValue;
       this.type = type;
     }
 
@@ -99,16 +102,20 @@ public class RewrittenPrototypeDescription {
       return new Builder();
     }
 
+    public boolean hasSingleValue() {
+      return singleValue != null;
+    }
+
+    public SingleValue getSingleValue() {
+      return singleValue;
+    }
+
     public DexType getType() {
       return type;
     }
 
-    public boolean isAlwaysNull() {
-      return isAlwaysNull;
-    }
-
     public boolean isNeverUsed() {
-      return !isAlwaysNull;
+      return !hasSingleValue();
     }
 
     @Override
@@ -140,6 +147,16 @@ public class RewrittenPrototypeDescription {
     public RewrittenTypeInfo(DexType oldType, DexType newType) {
       this.oldType = oldType;
       this.newType = newType;
+    }
+
+    public RewrittenTypeInfo combine(RewrittenPrototypeDescription other) {
+      return other.hasRewrittenReturnInfo() ? combine(other.getRewrittenReturnInfo()) : this;
+    }
+
+    public RewrittenTypeInfo combine(RewrittenTypeInfo other) {
+      assert !getNewType().isVoidType();
+      assert getNewType() == other.getOldType();
+      return new RewrittenTypeInfo(getOldType(), other.getNewType());
     }
 
     public DexType getNewType() {
@@ -197,6 +214,10 @@ public class RewrittenPrototypeDescription {
       return EMPTY;
     }
 
+    public IntSortedSet getKeys() {
+      return argumentInfos.keySet();
+    }
+
     public boolean isEmpty() {
       return this == EMPTY;
     }
@@ -224,6 +245,10 @@ public class RewrittenPrototypeDescription {
       return argumentInfos.getOrDefault(argumentIndex, ArgumentInfo.NO_INFO);
     }
 
+    public int size() {
+      return argumentInfos.size();
+    }
+
     public static Builder builder() {
       return new Builder();
     }
@@ -246,6 +271,24 @@ public class RewrittenPrototypeDescription {
         }
         return new ArgumentInfoCollection(argumentInfos);
       }
+    }
+
+    public DexMethod rewriteMethod(ProgramMethod method, DexItemFactory dexItemFactory) {
+      if (isEmpty()) {
+        return method.getReference();
+      }
+      DexProto rewrittenProto = rewriteProto(method, dexItemFactory);
+      return method.getReference().withProto(rewrittenProto, dexItemFactory);
+    }
+
+    public DexProto rewriteProto(ProgramMethod method, DexItemFactory dexItemFactory) {
+      return isEmpty()
+          ? method.getProto()
+          : dexItemFactory.createProto(method.getReturnType(), rewriteParameters(method));
+    }
+
+    public DexType[] rewriteParameters(ProgramMethod method) {
+      return rewriteParameters(method.getDefinition());
     }
 
     public DexType[] rewriteParameters(DexEncodedMethod encodedMethod) {
@@ -382,13 +425,38 @@ public class RewrittenPrototypeDescription {
     return NONE;
   }
 
+  public RewrittenPrototypeDescription combine(RewrittenPrototypeDescription other) {
+    if (isEmpty()) {
+      return other;
+    }
+    if (other.isEmpty()) {
+      return this;
+    }
+    // We currently don't have any passes that remove extra parameters inserted by previous passes.
+    // If the input prototype changes have removed some of the extra parameters, we would need to
+    // adapt the merging of prototype changes below.
+    List<ExtraParameter> newExtraParameters =
+        ImmutableList.<ExtraParameter>builder()
+            .addAll(getExtraParameters())
+            .addAll(other.getExtraParameters())
+            .build();
+    RewrittenTypeInfo newRewrittenTypeInfo =
+        hasRewrittenReturnInfo()
+            ? getRewrittenReturnInfo().combine(other)
+            : other.getRewrittenReturnInfo();
+    ArgumentInfoCollection newArgumentInfoCollection =
+        getArgumentInfoCollection().combine(other.getArgumentInfoCollection());
+    return new RewrittenPrototypeDescription(
+        newExtraParameters, newRewrittenTypeInfo, newArgumentInfoCollection);
+  }
+
   public boolean isEmpty() {
     return extraParameters.isEmpty()
         && rewrittenReturnInfo == null
         && argumentInfoCollection.isEmpty();
   }
 
-  public Collection<ExtraParameter> getExtraParameters() {
+  public List<ExtraParameter> getExtraParameters() {
     return extraParameters;
   }
 
@@ -463,6 +531,18 @@ public class RewrittenPrototypeDescription {
     }
     return new RewrittenPrototypeDescription(
         extraParameters, rewrittenReturnInfo, argumentInfoCollection.combine(other));
+  }
+
+  public RewrittenPrototypeDescription withRewrittenReturnInfo(
+      RewrittenTypeInfo rewrittenReturnInfo) {
+    if (rewrittenReturnInfo == null) {
+      return this;
+    }
+    if (!hasRewrittenReturnInfo()) {
+      return new RewrittenPrototypeDescription(
+          extraParameters, rewrittenReturnInfo, argumentInfoCollection);
+    }
+    throw new Unreachable();
   }
 
   public RewrittenPrototypeDescription withExtraUnusedNullParameter() {

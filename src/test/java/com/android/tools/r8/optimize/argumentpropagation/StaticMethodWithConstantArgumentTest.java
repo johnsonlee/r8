@@ -14,7 +14,6 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.InternalOptions.CallSiteOptimizationOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -41,13 +40,13 @@ public class StaticMethodWithConstantArgumentTest extends TestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addOptionsModification(
-            options -> {
-              CallSiteOptimizationOptions callSiteOptimizationOptions =
-                  options.callSiteOptimizationOptions();
-              callSiteOptimizationOptions.setEnableExperimentalArgumentPropagation(true);
-              callSiteOptimizationOptions.setEnableConstantPropagation();
-            })
+            options ->
+                options
+                    .callSiteOptimizationOptions()
+                    .setEnableExperimentalArgumentPropagation(true))
         .enableInliningAnnotations()
+        // TODO(b/173398086): uniqueMethodWithName() does not work with argument removal.
+        .noMinification()
         .setMinApi(parameters.getApiLevel())
         .compile()
         .inspect(
@@ -58,8 +57,7 @@ public class StaticMethodWithConstantArgumentTest extends TestBase {
               // The test() method has been optimized.
               MethodSubject testMethodSubject = mainClassSubject.uniqueMethodWithName("test");
               assertThat(testMethodSubject, isPresent());
-              // TODO(b/190154391): The parameter x should be removed.
-              assertEquals(1, testMethodSubject.getProgramMethod().getParameters().size());
+              assertEquals(0, testMethodSubject.getProgramMethod().getParameters().size());
               assertTrue(
                   testMethodSubject.streamInstructions().noneMatch(InstructionSubject::isIf));
 

@@ -9,12 +9,12 @@ import static com.android.tools.r8.ir.code.Invoke.Type.DIRECT;
 import static com.android.tools.r8.ir.code.Invoke.Type.STATIC;
 
 import com.android.tools.r8.androidapi.AndroidApiReferenceLevelCache;
+import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.Code;
-import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -46,7 +46,6 @@ import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
-import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.SubtypingInfo;
@@ -1440,18 +1439,17 @@ public class VerticalClassMerger {
       // be updated by the end of vertical class merging.
       synthesizedBridges.add(code);
 
+      CfVersion classFileVersion =
+          method.hasClassFileVersion() ? method.getClassFileVersion() : null;
       DexEncodedMethod bridge =
-          new DexEncodedMethod(
-              newMethod,
-              accessFlags,
-              MethodTypeSignature.noSignature(),
-              DexAnnotationSet.empty(),
-              ParameterAnnotationsList.empty(),
-              code,
-              true,
-              method.hasClassFileVersion() ? method.getClassFileVersion() : null,
-              method.getApiLevelForDefinition(),
-              method.getApiLevelForDefinition());
+          DexEncodedMethod.syntheticBuilder()
+              .setMethod(newMethod)
+              .setAccessFlags(accessFlags)
+              .setCode(code)
+              .setClassFileVersion(classFileVersion)
+              .setApiLevelForDefinition(method.getApiLevelForDefinition())
+              .setApiLevelForCode(method.getApiLevelForDefinition())
+              .build();
       bridge.setLibraryMethodOverride(method.isLibraryMethodOverride());
       if (method.accessFlags.isPromotedToPublic()) {
         // The bridge is now the public method serving the role of the original method, and should

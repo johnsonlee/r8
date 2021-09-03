@@ -13,7 +13,6 @@ import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
-import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -25,11 +24,9 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GenericSignature;
 import com.android.tools.r8.graph.GenericSignature.ClassTypeSignature;
-import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.LibraryMethod;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
-import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.utils.BooleanBox;
@@ -51,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -295,10 +293,15 @@ final class ClassProcessor implements InterfaceDesugaringProcessor {
 
     final DexClass directSubClass;
     final DexProgramClass closestProgramSubClass;
+    final BiConsumer<DexProgramClass, DexType> reportMissingTypeCallback;
 
-    public ReportingContext(DexClass directSubClass, DexProgramClass closestProgramSubClass) {
+    public ReportingContext(
+        DexClass directSubClass,
+        DexProgramClass closestProgramSubClass,
+        BiConsumer<DexProgramClass, DexType> reportMissingTypeCallback) {
       this.directSubClass = directSubClass;
       this.closestProgramSubClass = closestProgramSubClass;
+      this.reportMissingTypeCallback = reportMissingTypeCallback;
     }
 
     ReportingContext forClass(DexClass directSubClass) {
@@ -306,15 +309,16 @@ final class ClassProcessor implements InterfaceDesugaringProcessor {
           directSubClass,
           directSubClass.isProgramClass()
               ? directSubClass.asProgramClass()
-              : closestProgramSubClass);
+              : closestProgramSubClass,
+          reportMissingTypeCallback);
     }
 
     public DexClass definitionFor(DexType type, AppView<?> appView) {
       return appView.appInfo().definitionForDesugarDependency(directSubClass, type);
     }
 
-    public void reportMissingType(DexType missingType, InterfaceDesugaringSyntheticHelper helper) {
-      helper.warnMissingInterface(closestProgramSubClass, closestProgramSubClass, missingType);
+    public void reportMissingType(DexType missingType) {
+      reportMissingTypeCallback.accept(closestProgramSubClass, missingType);
     }
   }
 
@@ -324,7 +328,7 @@ final class ClassProcessor implements InterfaceDesugaringProcessor {
     static final LibraryReportingContext LIBRARY_CONTEXT = new LibraryReportingContext();
 
     LibraryReportingContext() {
-      super(null, null);
+      super(null, null, null);
     }
 
     @Override
@@ -338,7 +342,7 @@ final class ClassProcessor implements InterfaceDesugaringProcessor {
     }
 
     @Override
-    public void reportMissingType(DexType missingType, InterfaceDesugaringSyntheticHelper helper) {
+    public void reportMissingType(DexType missingType) {
       // Ignore missing types in the library.
     }
   }
@@ -400,7 +404,12 @@ final class ClassProcessor implements InterfaceDesugaringProcessor {
   public void process(
       DexProgramClass clazz, InterfaceProcessingDesugaringEventConsumer eventConsumer) {
     if (!clazz.isInterface()) {
-      visitClassInfo(clazz, new ReportingContext(clazz, clazz));
+      visitClassInfo(
+          clazz,
+          new ReportingContext(
+              clazz,
+              clazz,
+              (context, missing) -> eventConsumer.warnMissingInterface(context, missing, helper)));
     }
   }
 
@@ -788,14 +797,12 @@ final class ClassProcessor implements InterfaceDesugaringProcessor {
     MethodAccessFlags accessFlags = MethodAccessFlags.builder().setPublic().build();
     DexMethod newMethod = method.withHolder(clazz.getType(), dexItemFactory);
     DexEncodedMethod newEncodedMethod =
-        new DexEncodedMethod(
-            newMethod,
-            accessFlags,
-            MethodTypeSignature.noSignature(),
-            DexAnnotationSet.empty(),
-            ParameterAnnotationsList.empty(),
-            createExceptionThrowingCfCode(newMethod, accessFlags, errorType, dexItemFactory),
-            true);
+        DexEncodedMethod.syntheticBuilder()
+            .setMethod(newMethod)
+            .setAccessFlags(accessFlags)
+            .setCode(
+                createExceptionThrowingCfCode(newMethod, accessFlags, errorType, dexItemFactory))
+            .build();
     addSyntheticMethod(clazz.asProgramClass(), newEncodedMethod);
   }
 
@@ -864,7 +871,7 @@ final class ClassProcessor implements InterfaceDesugaringProcessor {
     }
     DexClass clazz = context.definitionFor(type, appView);
     if (clazz == null) {
-      context.reportMissingType(type, helper);
+      context.reportMissingType(type);
       return null;
     }
     return clazz;

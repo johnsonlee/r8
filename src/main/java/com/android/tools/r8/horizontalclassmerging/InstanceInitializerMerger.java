@@ -11,15 +11,12 @@ import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
-import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeUtils;
-import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
-import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.code.ConstructorEntryPointSynthesizedCode;
@@ -362,17 +359,15 @@ public class InstanceInitializerMerger {
 
     DexEncodedMethod representativeMethod = representative.getDefinition();
     DexEncodedMethod newInstanceInitializer =
-        new DexEncodedMethod(
-            newMethodReference,
-            getNewAccessFlags(),
-            MethodTypeSignature.noSignature(),
-            DexAnnotationSet.empty(),
-            ParameterAnnotationsList.empty(),
-            getNewCode(newMethodReference, syntheticMethodReference, needsClassId, extraNulls),
-            true,
-            getNewClassFileVersion(),
-            representativeMethod.getApiLevelForDefinition(),
-            representativeMethod.getApiLevelForCode());
+        DexEncodedMethod.syntheticBuilder()
+            .setMethod(newMethodReference)
+            .setAccessFlags(getNewAccessFlags())
+            .setCode(
+                getNewCode(newMethodReference, syntheticMethodReference, needsClassId, extraNulls))
+            .setClassFileVersion(getNewClassFileVersion())
+            .setApiLevelForDefinition(representativeMethod.getApiLevelForDefinition())
+            .setApiLevelForCode(representativeMethod.getApiLevelForCode())
+            .build();
     classMethodsBuilder.addDirectMethod(newInstanceInitializer);
 
     if (mode.isFinal()) {

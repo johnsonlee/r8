@@ -124,28 +124,25 @@ public class ConstantDynamicClass {
   private void synthesizeStaticFields(SyntheticProgramClassBuilder builder) {
     builder.setStaticFields(
         ImmutableList.of(
-            DexEncodedField.builder()
+            DexEncodedField.syntheticBuilder()
                 .setField(this.initializedValueField)
                 .setAccessFlags(FieldAccessFlags.createPrivateStaticSynthetic())
                 .setApiLevel(AndroidApiLevel.minApiLevelIfEnabledOrUnknown(appView))
-                .setD8R8Synthesized()
                 .build(),
-            DexEncodedField.builder()
+            DexEncodedField.syntheticBuilder()
                 .setField(this.constantValueField)
                 .setAccessFlags(FieldAccessFlags.createPrivateStaticSynthetic())
                 .setApiLevel(AndroidApiLevel.minApiLevelIfEnabledOrUnknown(appView))
-                .setD8R8Synthesized()
                 .build()));
   }
 
   private void synthesizeDirectMethods(SyntheticProgramClassBuilder builder) {
     builder.setDirectMethods(
         ImmutableList.of(
-            DexEncodedMethod.builder()
+            DexEncodedMethod.syntheticBuilder()
                 .setMethod(getConstMethod)
                 .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
                 .setCode(generateGetterCode(builder))
-                .setD8R8Synthesized()
                 .setApiLevelForDefinition(AndroidApiLevel.S)
                 .setApiLevelForCode(AndroidApiLevel.S)
                 .build()));

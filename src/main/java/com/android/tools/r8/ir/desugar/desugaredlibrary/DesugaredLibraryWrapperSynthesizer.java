@@ -9,7 +9,6 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.ClasspathOrLibraryClass;
 import com.android.tools.r8.graph.Code;
-import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -21,10 +20,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldAccessFlags;
-import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
-import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
-import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaring;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryClasspathWrapperSynthesizeEventConsumer;
@@ -561,14 +557,11 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
     // TODO(b/146114533): Fix inlining in synthetic methods and remove unsetBridge.
     newFlags.unsetBridge();
     newFlags.setSynthetic();
-    return new DexEncodedMethod(
-        methodToInstall,
-        newFlags,
-        MethodTypeSignature.noSignature(),
-        DexAnnotationSet.empty(),
-        ParameterAnnotationsList.empty(),
-        code,
-        true);
+    return DexEncodedMethod.syntheticBuilder()
+        .setMethod(methodToInstall)
+        .setAccessFlags(newFlags)
+        .setCode(code)
+        .build();
   }
 
   private List<DexEncodedMethod> allImplementedMethods(DexClass clazz) {
@@ -624,8 +617,10 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
     // Field is package private to be accessible from convert methods without a getter.
     FieldAccessFlags fieldAccessFlags =
         FieldAccessFlags.fromCfAccessFlags(Constants.ACC_FINAL | Constants.ACC_SYNTHETIC);
-    return new DexEncodedField(
-        field, fieldAccessFlags, FieldTypeSignature.noSignature(), DexAnnotationSet.empty(), null);
+    return DexEncodedField.syntheticBuilder()
+        .setField(field)
+        .setAccessFlags(fieldAccessFlags)
+        .build();
   }
 
   // Program wrappers are harder to deal with than classpath wrapper because generating a method's

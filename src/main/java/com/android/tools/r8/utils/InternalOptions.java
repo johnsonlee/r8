@@ -307,7 +307,13 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public int classInliningInstructionLimit = 10;
   public int classInliningInstructionAllowance = 50;
   // This defines the limit of instructions in the inlinee
-  public int inliningInstructionLimit = 3;
+  public int inliningInstructionLimit =
+      !Version.isDevelopmentVersion()
+          ? 3
+          : System.getProperty("com.android.tools.r8.inliningInstructionLimit") != null
+              ? Integer.parseInt(
+                  System.getProperty("com.android.tools.r8.inliningInstructionLimit"))
+              : 3;
   // This defines how many instructions of inlinees we can inlinee overall.
   public int inliningInstructionAllowance = 1500;
   // Maximum number of distinct values in a method that may be used in a monitor-enter instruction.
@@ -1212,12 +1218,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     private final int maxNumberOfDispatchTargetsBeforeAbandoning = 10;
 
     // TODO(b/69963623): enable if everything is ready, including signature rewriting at call sites.
-    private boolean enableConstantPropagation = false;
+    private boolean enableLegacyConstantPropagation = false;
     private boolean enableExperimentalArgumentPropagation = false;
     private boolean enableDynamicTypePropagation = true;
 
     public void disableOptimization() {
-      enableConstantPropagation = false;
+      enableLegacyConstantPropagation = false;
       enableDynamicTypePropagation = false;
     }
 
@@ -1233,7 +1239,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       if (!isOptimizing()) {
         return false;
       }
-      return enableConstantPropagation || enableDynamicTypePropagation;
+      return enableLegacyConstantPropagation || enableDynamicTypePropagation;
     }
 
     public boolean isExperimentalArgumentPropagationEnabled() {
@@ -1241,16 +1247,17 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
 
     public boolean isConstantPropagationEnabled() {
-      return enableConstantPropagation;
+      return enableLegacyConstantPropagation || isExperimentalArgumentPropagationEnabled();
     }
 
     public boolean isDynamicTypePropagationEnabled() {
       return enableDynamicTypePropagation;
     }
 
-    public void setEnableConstantPropagation() {
+    public CallSiteOptimizationOptions setEnableLegacyConstantPropagation() {
       assert !isConstantPropagationEnabled();
-      enableConstantPropagation = true;
+      enableLegacyConstantPropagation = true;
+      return this;
     }
 
     public CallSiteOptimizationOptions setEnableExperimentalArgumentPropagation(
@@ -1258,13 +1265,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       this.enableExperimentalArgumentPropagation = enableExperimentalArgumentPropagation;
       return this;
     }
-  }
-
-  // TODO(b/69963623): Remove this once enabled.
-  @VisibleForTesting
-  public static void enableConstantArgumentPropagationForTesting(InternalOptions options) {
-    assert !options.callSiteOptimizationOptions().isConstantPropagationEnabled();
-    options.callSiteOptimizationOptions().enableConstantPropagation = true;
   }
 
   public class HorizontalClassMergerOptions {

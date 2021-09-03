@@ -651,8 +651,13 @@ public class DexParser<T extends DexClass> {
         }
       }
       fields[i] =
-          new DexEncodedField(
-              field, accessFlags, fieldTypeSignature, fieldAnnotations, staticValue);
+          DexEncodedField.builder()
+              .setField(field)
+              .setAccessFlags(accessFlags)
+              .setGenericSignature(fieldTypeSignature)
+              .setAnnotations(fieldAnnotations)
+              .setStaticValue(staticValue)
+              .build();
     }
     return fields;
   }
@@ -696,13 +701,14 @@ public class DexParser<T extends DexClass> {
         }
       }
       methods[i] =
-          new DexEncodedMethod(
-              method,
-              accessFlags,
-              methodTypeSignature,
-              methodAnnotations,
-              parameterAnnotationsIterator.getNextFor(method),
-              code);
+          DexEncodedMethod.builder()
+              .setMethod(method)
+              .setAccessFlags(accessFlags)
+              .setGenericSignature(methodTypeSignature)
+              .setAnnotations(methodAnnotations)
+              .setParameterAnnotations(parameterAnnotationsIterator.getNextFor(method))
+              .setCode(code)
+              .build();
     }
     return methods;
   }
