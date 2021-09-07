@@ -3051,6 +3051,8 @@ public class Enqueuer {
     DexClassAndMethod target = resolution.lookupInvokeSuperTarget(from.getHolder(), appInfo);
     if (target == null) {
       failedMethodResolutionTargets.add(resolution.getResolvedMethod().getReference());
+      analyses.forEach(
+          analyses -> analyses.notifyFailedMethodResolutionTarget(resolution.getResolvedMethod()));
       return;
     }
 
@@ -3117,9 +3119,7 @@ public class Enqueuer {
         && appView.options().getProguardConfiguration().getKeepAttributes().signature) {
       registerAnalysis(new GenericSignatureEnqueuerAnalysis(enqueuerDefinitionSupplier));
     }
-    if (appView.options().apiModelingOptions().enableApiCallerIdentification) {
-      registerAnalysis(new ApiModelAnalysis(appView, apiReferenceLevelCache));
-    }
+    registerAnalysis(new ApiModelAnalysis(appView, apiReferenceLevelCache));
 
     // Transfer the minimum keep info from the root set into the Enqueuer state.
     includeMinimumKeepInfo(rootSet);
@@ -3482,7 +3482,10 @@ public class Enqueuer {
   private boolean addToPendingDesugaring(ProgramMethod method) {
     if (options.isInterfaceMethodDesugaringEnabled()) {
       if (mustMoveToInterfaceCompanionMethod(method)) {
-        pendingMethodMove.add(method);
+        // TODO(b/199043500): Once "live moved methods" are tracked this can avoid the code check.
+        if (!InvalidCode.isInvalidCode(method.getDefinition().getCode())) {
+          pendingMethodMove.add(method);
+        }
         return true;
       }
       ProgramMethod nonMovedMethod = pendingMethodMoveInverse.get(method);
@@ -3552,6 +3555,7 @@ public class Enqueuer {
               .ensureMethodOfProgramCompanionClassStub(method, eventConsumer);
       interfaceProcessor.finalizeMoveToCompanionMethod(method, companion);
       pendingMethodMoveInverse.remove(companion);
+      // TODO(b/199043500): Once "live moved methods" are tracked this can be removed.
       if (!isMethodLive(companion)) {
         additions.addLiveMethod(companion);
       }
