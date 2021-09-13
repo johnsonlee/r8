@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.conversion;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor.ExcludeDexResources;
 import static com.android.tools.r8.ir.desugar.lambda.D8LambdaDesugaring.rewriteEnclosingLambdaMethodAttributes;
 
+import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
@@ -72,7 +73,6 @@ import com.android.tools.r8.ir.optimize.IdempotentFunctionCallCanonicalizer;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.MemberValuePropagation;
-import com.android.tools.r8.ir.optimize.Outliner;
 import com.android.tools.r8.ir.optimize.PeepholeOptimizer;
 import com.android.tools.r8.ir.optimize.RedundantFieldLoadElimination;
 import com.android.tools.r8.ir.optimize.ReflectionOptimizer;
@@ -87,6 +87,7 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoCollection;
+import com.android.tools.r8.ir.optimize.outliner.Outliner;
 import com.android.tools.r8.ir.optimize.staticizer.ClassStaticizer;
 import com.android.tools.r8.ir.optimize.string.StringBuilderOptimizer;
 import com.android.tools.r8.ir.optimize.string.StringOptimizer;
@@ -140,7 +141,7 @@ public class IRConverter {
   private final ClassStaticizer classStaticizer;
   private final InternalOptions options;
   private final CfgPrinter printer;
-  private final CodeRewriter codeRewriter;
+  public final CodeRewriter codeRewriter;
   private final ConstantCanonicalizer constantCanonicalizer;
   private final MemberValuePropagation memberValuePropagation;
   private final LensCodeRewriter lensCodeRewriter;
@@ -158,7 +159,7 @@ public class IRConverter {
   private final DynamicTypeOptimization dynamicTypeOptimization;
 
   final AssertionsRewriter assertionsRewriter;
-  final DeadCodeRemover deadCodeRemover;
+  public final DeadCodeRemover deadCodeRemover;
 
   private final MethodOptimizationInfoCollector methodOptimizationInfoCollector;
 
@@ -201,6 +202,7 @@ public class IRConverter {
             .map(prefix -> "L" + DescriptorUtils.getPackageBinaryNameFromJavaType(prefix))
             .map(options.itemFactory::createString)
             .collect(Collectors.toList());
+    AndroidApiLevelCompute apiLevelCompute = AndroidApiLevelCompute.create(appView);
     if (options.isDesugaredLibraryCompilation()) {
       // Specific L8 Settings, performs all desugaring including L8 specific desugaring.
       //
@@ -218,7 +220,8 @@ public class IRConverter {
       // - nest based access desugaring,
       // - invoke-special desugaring.
       assert options.desugarState.isOn();
-      this.instructionDesugaring = CfInstructionDesugaringCollection.create(appView);
+      this.instructionDesugaring =
+          CfInstructionDesugaringCollection.create(appView, apiLevelCompute);
       this.covariantReturnTypeAnnotationTransformer = null;
       this.dynamicTypeOptimization = null;
       this.classInliner = null;
@@ -226,7 +229,7 @@ public class IRConverter {
       this.fieldAccessAnalysis = null;
       this.libraryMethodOverrideAnalysis = null;
       this.inliner = null;
-      this.outliner = null;
+      this.outliner = Outliner.empty();
       this.memberValuePropagation = null;
       this.lensCodeRewriter = null;
       this.identifierNameStringMarker = null;
@@ -243,7 +246,7 @@ public class IRConverter {
     this.instructionDesugaring =
         appView.enableWholeProgramOptimizations()
             ? CfInstructionDesugaringCollection.empty()
-            : CfInstructionDesugaringCollection.create(appView);
+            : CfInstructionDesugaringCollection.create(appView, apiLevelCompute);
     this.covariantReturnTypeAnnotationTransformer =
         options.processCovariantReturnTypeAnnotations
             ? new CovariantReturnTypeAnnotationTransformer(this, appView.dexItemFactory())
@@ -267,7 +270,7 @@ public class IRConverter {
       this.enumUnboxer = options.enableEnumUnboxing ? new EnumUnboxer(appViewWithLiveness) : null;
       this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness, enumUnboxer);
       this.inliner = new Inliner(appViewWithLiveness, lensCodeRewriter);
-      this.outliner = new Outliner(appViewWithLiveness);
+      this.outliner = Outliner.create(appViewWithLiveness);
       this.memberValuePropagation =
           options.enableValuePropagation ? new MemberValuePropagation(appViewWithLiveness) : null;
       this.methodOptimizationInfoCollector =
@@ -282,7 +285,7 @@ public class IRConverter {
       this.typeChecker = new TypeChecker(appViewWithLiveness, VerifyTypesHelper.create(appView));
       this.serviceLoaderRewriter =
           options.enableServiceLoaderRewriting
-              ? new ServiceLoaderRewriter(appViewWithLiveness)
+              ? new ServiceLoaderRewriter(appViewWithLiveness, apiLevelCompute)
               : null;
       this.enumValueOptimizer =
           options.enableEnumValueOptimization ? new EnumValueOptimizer(appViewWithLiveness) : null;
@@ -294,7 +297,7 @@ public class IRConverter {
       this.fieldAccessAnalysis = null;
       this.libraryMethodOverrideAnalysis = null;
       this.inliner = null;
-      this.outliner = null;
+      this.outliner = Outliner.empty();
       this.memberValuePropagation = null;
       this.lensCodeRewriter = null;
       this.identifierNameStringMarker = null;
@@ -648,6 +651,7 @@ public class IRConverter {
     ConsumerUtils.acceptIfNotNull(
         inliner,
         inliner -> inliner.initializeDoubleInlineCallers(graphLensForPrimaryOptimizationPass));
+    outliner.prepareForPrimaryOptimizationPass(graphLensForPrimaryOptimizationPass);
 
     if (fieldAccessAnalysis != null) {
       fieldAccessAnalysis.fieldAssignmentTracker().initialize();
@@ -664,9 +668,6 @@ public class IRConverter {
               appView.withLiveness(), postMethodProcessorBuilder, executorService, timing);
       timing.end();
       timing.begin("IR conversion phase 1");
-      if (outliner != null) {
-        outliner.createOutlineMethodIdentifierGenerator();
-      }
       assert appView.graphLens() == graphLensForPrimaryOptimizationPass;
       primaryMethodProcessor.forEachMethod(
           (method, methodProcessingContext) ->
@@ -724,6 +725,7 @@ public class IRConverter {
     }
 
     if (enumUnboxer != null) {
+      outliner.rewriteWithLens();
       enumUnboxer.unboxEnums(this, postMethodProcessorBuilder, executorService, feedback);
     } else {
       appView.setUnboxedEnums(EnumDataMap.empty());
@@ -736,6 +738,7 @@ public class IRConverter {
         classStaticizer ->
             classStaticizer.prepareForSecondaryOptimizationPass(
                 graphLensForSecondaryOptimizationPass));
+    outliner.rewriteWithLens();
 
     timing.begin("IR conversion phase 2");
     PostMethodProcessor postMethodProcessor =
@@ -791,35 +794,7 @@ public class IRConverter {
     feedback.updateVisibleOptimizationInfo();
 
     // TODO(b/127694949): Adapt to PostOptimization.
-    if (outliner != null) {
-      printPhase("Outlining");
-      timing.begin("IR conversion phase 3");
-      ProgramMethodSet methodsSelectedForOutlining = outliner.selectMethodsForOutlining();
-      if (!methodsSelectedForOutlining.isEmpty()) {
-        forEachSelectedOutliningMethod(
-            methodsSelectedForOutlining,
-            code -> {
-              printMethod(code, "IR before outlining (SSA)", null);
-              outliner.identifyOutlineSites(code);
-            },
-            executorService);
-        List<ProgramMethod> outlineMethods = outliner.buildOutlineMethods();
-        optimizeSynthesizedMethods(outlineMethods, executorService);
-        forEachSelectedOutliningMethod(
-            methodsSelectedForOutlining,
-            code -> {
-              outliner.applyOutliningCandidate(code);
-              printMethod(code, "IR after outlining (SSA)", null);
-              removeDeadCodeAndFinalizeIR(
-                  code, OptimizationFeedbackIgnore.getInstance(), Timing.empty());
-            },
-            executorService);
-        feedback.updateVisibleOptimizationInfo();
-        assert outliner.checkAllOutlineSitesFoundAgain();
-        outlineMethods.forEach(m -> m.getDefinition().markNotProcessed());
-      }
-      timing.end();
-    }
+    outliner.performOutlining(this, feedback, executorService, timing);
     clearDexMethodCompilationState();
 
     if (identifierNameStringMarker != null) {
@@ -1460,12 +1435,7 @@ public class IRConverter {
 
     // TODO(b/140766440): an ideal solution would be puttting CodeOptimization for this into
     //  the list for primary processing only.
-    if (options.outline.enabled && outliner != null && methodProcessor.isPrimaryMethodProcessor()) {
-      timing.begin("Identify outlines");
-      outliner.getOutlineMethodIdentifierGenerator().accept(code);
-      timing.end();
-      assert code.isConsistentSSA();
-    }
+    outliner.collectOutlineSites(code, timing);
 
     assert code.verifyTypes(appView);
 
@@ -1954,13 +1924,13 @@ public class IRConverter {
     }
   }
 
-  private void printPhase(String phase) {
+  public void printPhase(String phase) {
     if (!options.extensiveLoggingFilter.isEmpty()) {
       System.out.println("Entering phase: " + phase);
     }
   }
 
-  private String printMethod(IRCode code, String title, String previous) {
+  public String printMethod(IRCode code, String title, String previous) {
     if (printer != null) {
       printer.resetUnusedValue();
       printer.begin("cfg");

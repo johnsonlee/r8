@@ -13,6 +13,7 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getNoKotlinInfo;
 import static com.android.tools.r8.utils.AndroidApiLevel.NOT_SET;
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+import static java.util.Objects.requireNonNull;
 
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.cf.code.CfConstNull;
@@ -46,7 +47,6 @@ import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.InternalCompilerError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexAnnotation.AnnotatedKind;
-import com.android.tools.r8.graph.DexEncodedMethod.CompilationState;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraint;
 import com.android.tools.r8.ir.code.IRCode;
@@ -57,6 +57,7 @@ import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.ir.optimize.NestUtils;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
+import com.android.tools.r8.ir.optimize.info.ConcreteCallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.DefaultMethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
@@ -151,6 +152,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
           NOT_SET,
           NOT_SET,
           null,
+          CallSiteOptimizationInfo.top(),
+          DefaultMethodOptimizationInfo.getInstance(),
           false);
   public static final Int2ReferenceMap<DebugLocalInfo> NO_PARAMETER_INFO =
       new Int2ReferenceArrayMap<>(0);
@@ -162,8 +165,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   // TODO(b/128967328): towards finer-grained inlining constraints,
   //   we need to maintain a set of states with (potentially different) contexts.
   private CompilationState compilationState = CompilationState.NOT_PROCESSED;
-  private MethodOptimizationInfo optimizationInfo = DefaultMethodOptimizationInfo.getInstance();
-  private CallSiteOptimizationInfo callSiteOptimizationInfo = CallSiteOptimizationInfo.bottom();
+  private MethodOptimizationInfo optimizationInfo;
+  private CallSiteOptimizationInfo callSiteOptimizationInfo;
   private CfVersion classFileVersion;
   /** The apiLevelForCode describes the api level needed for knowing all references in the code */
   private AndroidApiLevel apiLevelForCode;
@@ -243,6 +246,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       AndroidApiLevel apiLevelForDefinition,
       AndroidApiLevel apiLevelForCode,
       CfVersion classFileVersion,
+      CallSiteOptimizationInfo callSiteOptimizationInfo,
+      MethodOptimizationInfo optimizationInfo,
       boolean deprecated) {
     super(method, annotations, d8R8Synthesized, apiLevelForDefinition);
     this.accessFlags = accessFlags;
@@ -252,6 +257,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     this.code = code;
     this.classFileVersion = classFileVersion;
     this.apiLevelForCode = apiLevelForCode;
+    this.callSiteOptimizationInfo = requireNonNull(callSiteOptimizationInfo);
+    this.optimizationInfo = requireNonNull(optimizationInfo);
     assert accessFlags != null;
     assert code == null || !shouldNotHaveCode();
     assert parameterAnnotationsList != null;
@@ -1243,10 +1250,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
                                                 .getHolderType()
                                                 .isInterface(definitions)))
                             .build())
-                    .modifyAccessFlags(MethodAccessFlags::setBridge)
-                    .setIsLibraryMethodOverrideIf(
-                        !isStatic() && !isLibraryMethodOverride().isUnknown(),
-                        isLibraryMethodOverride()))
+                    .modifyAccessFlags(MethodAccessFlags::setBridge))
+        .setIsLibraryMethodOverrideIf(
+            !isStatic() && !isLibraryMethodOverride().isUnknown(), isLibraryMethodOverride())
         .build();
   }
 
@@ -1262,6 +1268,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     newFlags.setSynthetic();
     newFlags.unsetAbstract();
     // Holder is companion class, or retarget method, not an interface.
+    boolean isInterfaceMethodReference = false;
     return syntheticBuilder()
         .setMethod(newMethod)
         .setAccessFlags(newFlags)
@@ -1270,8 +1277,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         .setCode(
             ForwardMethodBuilder.builder(factory)
                 .setNonStaticSource(newMethod)
-                // Holder is companion class, or retarget method, not an interface.
-                .setStaticTarget(forwardMethod, false)
+                .setStaticTarget(forwardMethod, isInterfaceMethodReference)
                 .build())
         .setApiLevelForDefinition(target.getDefinition().getApiLevelForDefinition())
         .setApiLevelForCode(target.getDefinition().getApiLevelForCode())
@@ -1395,6 +1401,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     callSiteOptimizationInfo = callSiteOptimizationInfo.join(other, appView, this);
   }
 
+  public synchronized void setCallSiteOptimizationInfo(
+      CallSiteOptimizationInfo callSiteOptimizationInfo) {
+    this.callSiteOptimizationInfo = callSiteOptimizationInfo;
+  }
+
   public void copyMetadata(DexEncodedMethod from) {
     checkIfObsolete();
     if (from.hasClassFileVersion()) {
@@ -1443,6 +1454,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     private OptionalBool isLibraryMethodOverride = OptionalBool.UNKNOWN;
     private ParameterAnnotationsList parameterAnnotations = ParameterAnnotationsList.empty();
     private CompilationState compilationState = CompilationState.NOT_PROCESSED;
+    // TODO(b/190154391): We should set this to top, but the old call site optimization requires
+    //  this to be bottom.
+    private CallSiteOptimizationInfo callSiteOptimizationInfo = CallSiteOptimizationInfo.bottom();
     private MethodOptimizationInfo optimizationInfo = DefaultMethodOptimizationInfo.getInstance();
     private KotlinMethodLevelInfo kotlinInfo = getNoKotlinInfo();
     private CfVersion classFileVersion = null;
@@ -1472,6 +1486,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       code = from.getCode();
       apiLevelForDefinition = from.getApiLevelForDefinition();
       apiLevelForCode = from.getApiLevelForCode();
+      callSiteOptimizationInfo = from.getCallSiteOptimizationInfo();
       optimizationInfo =
           from.getOptimizationInfo().isMutableOptimizationInfo()
               ? from.getOptimizationInfo().asMutableMethodOptimizationInfo().mutableCopy()
@@ -1491,6 +1506,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       }
     }
 
+    public Builder apply(Consumer<Builder> consumer) {
+      consumer.accept(this);
+      return this;
+    }
+
     public Builder applyIf(boolean condition, Consumer<Builder> thenConsumer) {
       return applyIf(condition, thenConsumer, emptyConsumer());
     }
@@ -1501,6 +1521,15 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         thenConsumer.accept(this);
       } else {
         elseConsumer.accept(this);
+      }
+      return this;
+    }
+
+    public Builder fixupCallSiteOptimizationInfo(
+        Function<ConcreteCallSiteOptimizationInfo, ? extends CallSiteOptimizationInfo> fn) {
+      if (callSiteOptimizationInfo.isConcreteCallSiteOptimizationInfo()) {
+        callSiteOptimizationInfo =
+            fn.apply(callSiteOptimizationInfo.asConcreteCallSiteOptimizationInfo());
       }
       return this;
     }
@@ -1634,9 +1663,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
     public Builder adjustOptimizationInfoAfterRemovingThisParameter(
         AppView<AppInfoWithLiveness> appView) {
-      return modifyOptimizationInfo(
-          (newMethod, optimizationInfo) ->
-              optimizationInfo.adjustOptimizationInfoAfterRemovingThisParameter(appView));
+      return fixupCallSiteOptimizationInfo(
+              callSiteOptimizationInfo -> callSiteOptimizationInfo.fixupAfterParameterRemoval(0))
+          .modifyOptimizationInfo(
+              (newMethod, optimizationInfo) ->
+                  optimizationInfo.adjustOptimizationInfoAfterRemovingThisParameter(appView));
     }
 
     public Builder modifyOptimizationInfo(
@@ -1720,10 +1751,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
               apiLevelForDefinition,
               apiLevelForCode,
               classFileVersion,
+              callSiteOptimizationInfo,
+              optimizationInfo,
               deprecated);
       result.setKotlinMemberInfo(kotlinInfo);
       result.compilationState = compilationState;
-      result.optimizationInfo = optimizationInfo;
       if (!isLibraryMethodOverride.isUnknown()) {
         result.setLibraryMethodOverride(isLibraryMethodOverride);
       }

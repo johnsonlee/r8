@@ -41,7 +41,9 @@ import com.android.tools.r8.retrace.stacktraces.NoObfuscationRangeMappingWithSta
 import com.android.tools.r8.retrace.stacktraces.NullStackTrace;
 import com.android.tools.r8.retrace.stacktraces.ObfucatedExceptionClassStackTrace;
 import com.android.tools.r8.retrace.stacktraces.ObfuscatedRangeToSingleLineStackTrace;
+import com.android.tools.r8.retrace.stacktraces.OverloadSameLineTest;
 import com.android.tools.r8.retrace.stacktraces.RetraceAssertionErrorStackTrace;
+import com.android.tools.r8.retrace.stacktraces.SingleLineNoLineNumberStackTrace;
 import com.android.tools.r8.retrace.stacktraces.SourceFileNameSynthesizeStackTrace;
 import com.android.tools.r8.retrace.stacktraces.SourceFileWithNumberAndEmptyStackTrace;
 import com.android.tools.r8.retrace.stacktraces.StackTraceForTest;
@@ -262,6 +264,16 @@ public class RetraceTests extends TestBase {
   @Test
   public void testNoObfuscatedLineNumberWithOverrideTest() throws Exception {
     runRetraceTest(new NoObfuscatedLineNumberWithOverrideTest());
+  }
+
+  @Test
+  public void testOverloadSameLineTest() throws Exception {
+    runRetraceTest(new OverloadSameLineTest());
+  }
+
+  @Test
+  public void testSingleLineNoLineNumberStackTrace() throws Exception {
+    runRetraceTest(new SingleLineNoLineNumberStackTrace());
   }
 
   private void inspectRetraceTest(

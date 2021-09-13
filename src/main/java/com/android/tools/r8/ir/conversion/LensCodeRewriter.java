@@ -631,6 +631,7 @@ public class LensCodeRewriter {
                 TypeElement substituted = type.rewrittenWithLens(appView, graphLens);
                 if (substituted != type) {
                   assert type.isArrayType() || type.isClassType();
+                  affectedPhis.addAll(assume.outValue().uniquePhiUsers());
                   if (substituted.isPrimitiveType()) {
                     assert type.isClassType();
                     assert appView.unboxedEnums().isUnboxedEnum(type.asClassType().getClassType());
@@ -644,16 +645,15 @@ public class LensCodeRewriter {
                     // array type remains, but dynamic type becomes irrelevant.
                     assume.unsetDynamicTypeAssumption();
                     if (assume.hasNonNullAssumption()) {
-                      current.outValue().setType(substituted);
-                      affectedPhis.addAll(current.outValue().uniquePhiUsers());
+                      assume.outValue().setType(substituted);
                     } else {
+                      assume.outValue().replaceUsers(assume.src());
                       iterator.removeOrReplaceByDebugLocalRead();
                     }
                   } else {
                     assert !substituted.isPrimitiveType();
                     assert !substituted.isPrimitiveArrayType();
                     current.outValue().setType(substituted);
-                    affectedPhis.addAll(current.outValue().uniquePhiUsers());
                   }
                 }
               }

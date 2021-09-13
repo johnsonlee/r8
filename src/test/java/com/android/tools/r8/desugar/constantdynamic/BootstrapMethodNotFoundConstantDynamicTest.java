@@ -49,7 +49,7 @@ public class BootstrapMethodNotFoundConstantDynamicTest extends TestBase {
   }
 
   @Test
-  public void TestD8Cf() throws Exception {
+  public void testDesugaring() throws Exception {
     testForDesugaring(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .run(parameters.getRuntime(), MAIN_CLASS)
@@ -70,17 +70,6 @@ public class BootstrapMethodNotFoundConstantDynamicTest extends TestBase {
   }
 
   @Test
-  public void testD8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
-
-    testForD8(parameters.getBackend())
-        .addProgramClassFileData(getTransformedClasses())
-        .setMinApi(parameters.getApiLevel())
-        .run(parameters.getRuntime(), MAIN_CLASS)
-        .assertFailureWithErrorThatThrows(NoSuchMethodError.class);
-  }
-
-  @Test
   public void testR8() throws Exception {
     assumeTrue(parameters.isDexRuntime() || parameters.getApiLevel().isEqualTo(AndroidApiLevel.B));
 
@@ -88,11 +77,6 @@ public class BootstrapMethodNotFoundConstantDynamicTest extends TestBase {
         .addProgramClassFileData(getTransformedClasses())
         .setMinApi(parameters.getApiLevel())
         .addKeepMainRule(A.class)
-        // TODO(b/198142613): There should not be a warnings on class references which are
-        //  desugared away.
-        .applyIf(
-            parameters.getApiLevel().isLessThan(AndroidApiLevel.O),
-            b -> b.addDontWarn("java.lang.invoke.MethodHandles$Lookup"))
         // TODO(b/198142625): Support CONSTANT_Dynamic output for class files.
         .applyIf(
             parameters.isCfRuntime(),

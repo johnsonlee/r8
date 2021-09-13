@@ -620,13 +620,14 @@ public abstract class DexClass extends DexDefinition implements ClassDefinition 
     return signaturePolymorphicMethod;
   }
 
-  private boolean isSignaturePolymorphicMethod(DexEncodedMethod method, DexItemFactory factory) {
+  public static boolean isSignaturePolymorphicMethod(
+      DexEncodedMethod method, DexItemFactory factory) {
     assert method.getHolderType() == factory.methodHandleType
         || method.getHolderType() == factory.varHandleType;
     return method.accessFlags.isVarargs()
         && method.accessFlags.isNative()
         && method.getReference().proto.parameters.size() == 1
-        && method.getReference().proto.parameters.values[0] != factory.objectArrayType;
+        && method.getReference().proto.parameters.values[0] == factory.objectArrayType;
   }
 
   private <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>> D lookupTarget(

@@ -43,7 +43,7 @@ public final class LambdaDescriptor {
   public final DexMethodHandle implHandle;
 
   public final List<DexType> interfaces = new ArrayList<>();
-  final Set<DexProto> bridges = Sets.newIdentityHashSet();
+  public final Set<DexProto> bridges = Sets.newIdentityHashSet();
   public final DexTypeList captures;
 
   // Used for accessibility analysis and few assertions only.
@@ -180,6 +180,10 @@ public final class LambdaDescriptor {
   /** If the lambda delegates to lambda$ method. */
   public boolean delegatesToLambdaImplMethod(DexItemFactory factory) {
     return implHandle.asMethod().getName().startsWith(factory.javacLambdaMethodPrefix);
+  }
+
+  public Iterable<DexType> getReferencedBaseTypes(DexItemFactory dexItemFactory) {
+    return enforcedProto.getBaseTypes(dexItemFactory);
   }
 
   /** Is a stateless lambda, i.e. lambda does not capture any values */

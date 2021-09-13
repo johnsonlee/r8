@@ -520,7 +520,15 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return !canUseNestBasedAccess();
   }
 
+  public boolean enableExperimentalRecordDesugaring() {
+    // TODO(b/169645628): Remove when records are supported.
+    return testing.enableExperimentalRecordDesugaring;
+  }
+
   public boolean shouldDesugarRecords() {
+    if (!enableExperimentalRecordDesugaring()) {
+      return false;
+    }
     return desugarState.isOn() && !canUseRecords();
   }
 
@@ -1236,7 +1244,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
 
     public boolean isEnabled() {
-      if (!isOptimizing()) {
+      if (!isOptimizing() || !isShrinking()) {
         return false;
       }
       return enableLegacyConstantPropagation || enableDynamicTypePropagation;
@@ -1545,6 +1553,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableEnumUnboxingDebugLogs = false;
     public boolean forceRedundantConstNumberRemoval = false;
     public boolean enableExperimentalDesugaredLibraryKeepRuleGenerator = false;
+    public boolean enableExperimentalRecordDesugaring = false;
     public boolean invertConditionals = false;
     public boolean placeExceptionalBlocksLast = false;
     public boolean dontCreateMarkerInD8 = false;

@@ -26,11 +26,10 @@ import youtube_data
 import chrome_data
 import r8_data
 import iosched_data
-import tachiyomi_data
 
 TYPES = ['dex', 'deploy', 'proguarded']
 APPS = [
-  'gmscore', 'nest', 'youtube', 'gmail', 'chrome', 'r8', 'iosched', 'tachiyomi']
+  'gmscore', 'nest', 'youtube', 'gmail', 'chrome', 'r8', 'iosched']
 COMPILERS = ['d8', 'r8']
 COMPILER_BUILDS = ['full', 'lib']
 
@@ -228,7 +227,6 @@ def get_permutations():
       'gmail': gmail_data,
       'r8': r8_data,
       'iosched': iosched_data,
-      'tachiyomi': tachiyomi_data
   }
   # Check to ensure that we add all variants here.
   assert len(APPS) == len(data_providers)
@@ -410,9 +408,6 @@ def get_version_and_data(options):
   elif options.app == 'iosched':
     version = options.version or '2019'
     data = iosched_data
-  elif options.app == 'tachiyomi':
-    version = options.version or 'b15d2fe16864645055af6a745a62cc5566629798'
-    data = tachiyomi_data
   else:
     raise Exception("You need to specify '--app={}'".format('|'.join(APPS)))
   return version, data
@@ -597,6 +592,11 @@ def run_with_options(options, args, extra_args=None, stdout=None, quiet=False):
             sanitized_lib_path, values['libraries'], values['inputs'])
           libraries = [sanitized_lib_path]
       app_provided_pg_conf = True
+      if 'pgconf_extra' in values:
+        extra_conf = os.path.join(os.path.abspath(outdir), 'pgconf_extra')
+        with open(extra_conf, 'w') as extra_f:
+          extra_f.write(values['pgconf_extra'])
+        args.extend(['--pg-conf', extra_conf])
     if options.k:
       args.extend(['--pg-conf', options.k])
     if 'maindexrules' in values:
