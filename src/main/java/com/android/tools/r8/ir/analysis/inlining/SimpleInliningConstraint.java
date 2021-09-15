@@ -4,9 +4,11 @@
 
 package com.android.tools.r8.ir.analysis.inlining;
 
+import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
 import com.android.tools.r8.ir.code.InvokeMethod;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.google.common.collect.ImmutableList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.function.Supplier;
 
 public abstract class SimpleInliningConstraint {
@@ -90,9 +92,8 @@ public abstract class SimpleInliningConstraint {
     return new SimpleInliningConstraintDisjunction(ImmutableList.of(this, other));
   }
 
-  public abstract SimpleInliningConstraint fixupAfterRemovingThisParameter(
+  public abstract SimpleInliningConstraint fixupAfterParametersChanged(
+      AppView<AppInfoWithLiveness> appView,
+      ArgumentInfoCollection changes,
       SimpleInliningConstraintFactory factory);
-
-  public abstract SimpleInliningConstraint rewrittenWithUnboxedArguments(
-      IntList unboxedArgumentIndices, SimpleInliningConstraintFactory factory);
 }

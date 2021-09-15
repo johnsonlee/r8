@@ -4,8 +4,10 @@
 
 package com.android.tools.r8.ir.analysis.inlining;
 
+import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
 import com.android.tools.r8.ir.code.InvokeMethod;
-import it.unimi.dsi.fastutil.ints.IntList;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
 /** Constraint that is never satisfied. */
 public class NeverSimpleInliningConstraint extends SimpleInliningConstraint {
@@ -29,14 +31,10 @@ public class NeverSimpleInliningConstraint extends SimpleInliningConstraint {
   }
 
   @Override
-  public SimpleInliningConstraint fixupAfterRemovingThisParameter(
+  public SimpleInliningConstraint fixupAfterParametersChanged(
+      AppView<AppInfoWithLiveness> appView,
+      ArgumentInfoCollection changes,
       SimpleInliningConstraintFactory factory) {
-    return this;
-  }
-
-  @Override
-  public SimpleInliningConstraint rewrittenWithUnboxedArguments(
-      IntList unboxedArgumentIndices, SimpleInliningConstraintFactory factory) {
     return this;
   }
 }

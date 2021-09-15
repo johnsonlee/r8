@@ -36,7 +36,7 @@ public final class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder,
   }
 
   public boolean isArgumentPropagationAllowed(GlobalKeepInfoConfiguration configuration) {
-    return isOptimizationAllowed(configuration);
+    return isParameterRemovalAllowed(configuration);
   }
 
   public Joiner joiner() {
@@ -52,6 +52,10 @@ public final class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder,
   @Override
   public boolean isBottom() {
     return this.equals(bottom());
+  }
+
+  public boolean isInliningAllowed(GlobalKeepInfoConfiguration configuration) {
+    return isOptimizationAllowed(configuration);
   }
 
   public static class Builder extends KeepInfo.Builder<Builder, KeepMethodInfo> {

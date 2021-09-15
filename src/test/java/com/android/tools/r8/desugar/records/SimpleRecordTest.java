@@ -11,7 +11,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.utils.InternalOptions.TestingOptions;
 import com.android.tools.r8.utils.StringUtils;
-import java.nio.file.Path;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,8 +55,10 @@ public class SimpleRecordTest extends TestBase {
         .addProgramClassFileData(PROGRAM_DATA)
         .setMinApi(parameters.getApiLevel())
         .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
-        .addOptionsModification(opt -> opt.testing.enableExperimentalRecordDesugaring = true)
         .compile()
+        .inspectWithOptions(
+            RecordTestUtils::assertNoJavaLangRecord,
+            options -> options.testing.disableRecordApplicationReaderMap = true)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
@@ -65,21 +66,16 @@ public class SimpleRecordTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     if (parameters.isCfRuntime()) {
-      Path output =
-          testForR8(parameters.getBackend())
-              .addProgramClassFileData(PROGRAM_DATA)
-              .setMinApi(parameters.getApiLevel())
-              .addKeepRules(RECORD_KEEP_RULE)
-              .addKeepMainRule(MAIN_TYPE)
-              .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
-              .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
-              .addOptionsModification(opt -> opt.testing.enableExperimentalRecordDesugaring = true)
-              .compile()
-              .writeToZip();
-      RecordTestUtils.assertRecordsAreRecords(output);
-      testForJvm()
-          .addRunClasspathFiles(output)
-          .enablePreview()
+      testForR8(parameters.getBackend())
+          .addProgramClassFileData(PROGRAM_DATA)
+          .setMinApi(parameters.getApiLevel())
+          .addKeepRules(RECORD_KEEP_RULE)
+          .addKeepMainRule(MAIN_TYPE)
+          .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
+          .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
+          .compile()
+          .inspect(RecordTestUtils::assertRecordsAreRecords)
+          .enableJVMPreview()
           .run(parameters.getRuntime(), MAIN_TYPE)
           .assertSuccessWithOutput(EXPECTED_RESULT);
       return;
@@ -90,8 +86,43 @@ public class SimpleRecordTest extends TestBase {
         .addKeepRules(RECORD_KEEP_RULE)
         .addKeepMainRule(MAIN_TYPE)
         .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
-        .addOptionsModification(opt -> opt.testing.enableExperimentalRecordDesugaring = true)
         .compile()
+        .inspectWithOptions(
+            RecordTestUtils::assertNoJavaLangRecord,
+            options -> options.testing.disableRecordApplicationReaderMap = true)
+        .run(parameters.getRuntime(), MAIN_TYPE)
+        .assertSuccessWithOutput(EXPECTED_RESULT);
+  }
+
+  @Test
+  public void testR8NoMinification() throws Exception {
+    if (parameters.isCfRuntime()) {
+      testForR8(parameters.getBackend())
+          .addProgramClassFileData(PROGRAM_DATA)
+          .noMinification()
+          .setMinApi(parameters.getApiLevel())
+          .addKeepRules(RECORD_KEEP_RULE)
+          .addKeepMainRule(MAIN_TYPE)
+          .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
+          .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
+          .compile()
+          .inspect(RecordTestUtils::assertRecordsAreRecords)
+          .enableJVMPreview()
+          .run(parameters.getRuntime(), MAIN_TYPE)
+          .assertSuccessWithOutput(EXPECTED_RESULT);
+      return;
+    }
+    testForR8(parameters.getBackend())
+        .addProgramClassFileData(PROGRAM_DATA)
+        .noMinification()
+        .setMinApi(parameters.getApiLevel())
+        .addKeepRules(RECORD_KEEP_RULE)
+        .addKeepMainRule(MAIN_TYPE)
+        .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
+        .compile()
+        .inspectWithOptions(
+            RecordTestUtils::assertNoJavaLangRecord,
+            options -> options.testing.disableRecordApplicationReaderMap = true)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
