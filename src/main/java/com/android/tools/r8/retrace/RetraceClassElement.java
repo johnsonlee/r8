@@ -4,26 +4,31 @@
 package com.android.tools.r8.retrace;
 
 import com.android.tools.r8.Keep;
+import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.TypeReference;
 import java.util.List;
+import java.util.Optional;
 
 @Keep
 public interface RetraceClassElement extends RetraceElement<RetraceClassResult> {
 
   RetracedClassReference getRetracedClass();
 
-  RetraceSourceFileResult getSourceFile();
+  RetracedSourceFile getSourceFile();
 
   RetraceFieldResult lookupField(String fieldName);
 
   RetraceMethodResult lookupMethod(String methodName);
 
-  RetraceFrameResult lookupFrame(String methodName);
-
-  RetraceFrameResult lookupFrame(String methodName, int position);
+  RetraceFrameResult lookupFrame(Optional<Integer> position, String methodName);
 
   RetraceFrameResult lookupFrame(
-      String methodName, int position, List<TypeReference> formalTypes, TypeReference returnType);
+      Optional<Integer> position,
+      String methodName,
+      List<TypeReference> formalTypes,
+      TypeReference returnType);
+
+  RetraceFrameResult lookupFrame(Optional<Integer> position, MethodReference methodReference);
 
   RetraceUnknownJsonMappingInformationResult getUnknownJsonMappingInformation();
 }

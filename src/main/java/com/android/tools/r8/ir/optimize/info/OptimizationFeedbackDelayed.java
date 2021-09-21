@@ -272,6 +272,11 @@ public class OptimizationFeedbackDelayed extends OptimizationFeedback {
   }
 
   @Override
+  public void unsetEnumUnboxerMethodClassification(ProgramMethod method) {
+    getMethodOptimizationInfoForUpdating(method).unsetEnumUnboxerMethodClassification();
+  }
+
+  @Override
   public synchronized void setInstanceInitializerInfoCollection(
       DexEncodedMethod method,
       InstanceInitializerInfoCollection instanceInitializerInfoCollection) {
@@ -303,5 +308,10 @@ public class OptimizationFeedbackDelayed extends OptimizationFeedback {
   @Override
   public synchronized void classInitializerMayBePostponed(DexEncodedMethod method) {
     getMethodOptimizationInfoForUpdating(method).markClassInitializerMayBePostponed();
+  }
+
+  @Override
+  public synchronized void setUnusedArguments(ProgramMethod method, BitSet unusedArguments) {
+    getMethodOptimizationInfoForUpdating(method).setUnusedArguments(unusedArguments);
   }
 }

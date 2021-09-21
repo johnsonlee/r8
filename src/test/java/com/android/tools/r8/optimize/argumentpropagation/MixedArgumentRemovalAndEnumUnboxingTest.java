@@ -84,7 +84,7 @@ public class MixedArgumentRemovalAndEnumUnboxingTest extends TestBase {
     }
 
     @NeverInline
-    static void test(Object alwaysNull, MyEnum alwaysA, Object alsoAlwaysNull, MyEnum alwaysB) {
+    static void test(Main alwaysNull, MyEnum alwaysA, Main alsoAlwaysNull, MyEnum alwaysB) {
       if (alwaysNull == null && alsoAlwaysNull == null) {
         System.out.println(alwaysA.name());
         System.out.println(alwaysB.name());

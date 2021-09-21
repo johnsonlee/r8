@@ -18,6 +18,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePol
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionBySignature;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.StateCloner;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Collection;
 import java.util.IdentityHashMap;
@@ -130,7 +131,7 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
                   if (resolutionResult.isFailedResolution()) {
                     // TODO(b/190154391): Do we need to propagate argument information to the first
                     //  virtual method above the inaccessible method in the class hierarchy?
-                    assert resolutionResult.isIllegalAccessErrorResult(subclass, appView.appInfo());
+                    assert resolutionResult.asFailedResolution().hasMethodsCausingError();
                     return;
                   }
 
@@ -185,7 +186,8 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
               }
               return null;
             },
-            resolvedMethod.getMethodSignature());
+            resolvedMethod.getMethodSignature(),
+            StateCloner.getCloner());
 
     // If the resolved method is a virtual method that does not override any methods and are not
     // overridden by any methods, then we use a monomorphic method state for it. Therefore, we

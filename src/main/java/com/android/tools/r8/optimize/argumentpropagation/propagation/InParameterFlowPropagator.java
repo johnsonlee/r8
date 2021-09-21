@@ -20,6 +20,8 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.StateCloner;
+import com.android.tools.r8.optimize.argumentpropagation.utils.BidirectedGraph;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -27,6 +29,7 @@ import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -52,23 +55,26 @@ public class InParameterFlowPropagator {
     // must be included in the argument information for p'.
     FlowGraph flowGraph = new FlowGraph(appView.appInfo().classes());
 
+    List<Set<ParameterNode>> stronglyConnectedComponents =
+        flowGraph.computeStronglyConnectedComponents();
+    ThreadUtils.processItems(stronglyConnectedComponents, this::process, executorService);
+
+    // The algorithm only changes the parameter states of each monomorphic method state. In case any
+    // of these method states have effectively become unknown, we replace them by the canonicalized
+    // unknown method state.
+    postProcessMethodStates(executorService);
+  }
+
+  private void process(Set<ParameterNode> stronglyConnectedComponent) {
     // Build a worklist containing all the parameter nodes.
-    Deque<ParameterNode> worklist = new ArrayDeque<>();
-    flowGraph.forEachNode(worklist::add);
+    Deque<ParameterNode> worklist = new ArrayDeque<>(stronglyConnectedComponent);
 
     // Repeatedly propagate argument information through edges in the flow graph until there are no
     // more changes.
-    // TODO(b/190154391): Consider parallelizing the flow propagation. There are a few scenarios
-    //  that need to be covered, such as (i) two threads could race to update the same parameter
-    //  state, (ii) a thread may try to propagate a parameter state to its successors while
-    //  another thread is trying to update the state of the parameter itself.
     // TODO(b/190154391): Consider a path p1 -> p2 -> p3 in the graph. If we process p2 first, then
     //  p3, and then p1, then the processing of p1 could cause p2 to change, which means that we
     //  need to reprocess p2 and then p3. If we always process leaves in the graph first, we would
     //  process p1, then p2, then p3, and then be done.
-    // TODO(b/190154391): Prune the graph on-the-fly. If the argument information for a parameter
-    //  becomes unknown, we could consider clearing its predecessors since none of the predecessors
-    //  could contribute any information even if they change.
     while (!worklist.isEmpty()) {
       ParameterNode parameterNode = worklist.removeLast();
       parameterNode.unsetPending();
@@ -83,11 +89,6 @@ public class InParameterFlowPropagator {
             }
           });
     }
-
-    // The algorithm only changes the parameter states of each monomorphic method state. In case any
-    // of these method states have effectively become unknown, we replace them by the canonicalized
-    // unknown method state.
-    postProcessMethodStates(executorService);
   }
 
   private void propagate(
@@ -96,9 +97,19 @@ public class InParameterFlowPropagator {
     if (parameterState.isBottom()) {
       return;
     }
+    List<ParameterNode> newlyUnknownParameterNodes = new ArrayList<>();
     for (ParameterNode successorNode : parameterNode.getSuccessors()) {
-      successorNode.addState(
-          appView, parameterState.asNonEmpty(), () -> affectedNodeConsumer.accept(successorNode));
+      ParameterState newParameterState =
+          successorNode.addState(
+              appView,
+              parameterState.asNonEmpty(),
+              () -> affectedNodeConsumer.accept(successorNode));
+      if (newParameterState.isUnknown()) {
+        newlyUnknownParameterNodes.add(successorNode);
+      }
+    }
+    for (ParameterNode newlyUnknownParameterNode : newlyUnknownParameterNodes) {
+      newlyUnknownParameterNode.clearPredecessors();
     }
   }
 
@@ -133,7 +144,7 @@ public class InParameterFlowPropagator {
     }
   }
 
-  private class FlowGraph {
+  public class FlowGraph extends BidirectedGraph<ParameterNode> {
 
     private final Map<DexMethod, Int2ReferenceMap<ParameterNode>> nodes = new IdentityHashMap<>();
 
@@ -141,7 +152,14 @@ public class InParameterFlowPropagator {
       classes.forEach(this::add);
     }
 
-    void forEachNode(Consumer<? super ParameterNode> consumer) {
+    @Override
+    public void forEachNeighbor(ParameterNode node, Consumer<? super ParameterNode> consumer) {
+      node.getPredecessors().forEach(consumer);
+      node.getSuccessors().forEach(consumer);
+    }
+
+    @Override
+    public void forEachNode(Consumer<? super ParameterNode> consumer) {
       nodes.values().forEach(nodesForMethod -> nodesForMethod.values().forEach(consumer));
     }
 
@@ -278,6 +296,10 @@ public class InParameterFlowPropagator {
       predecessors.clear();
     }
 
+    Set<ParameterNode> getPredecessors() {
+      return predecessors;
+    }
+
     ParameterState getState() {
       return methodState.getParameterState(parameterIndex);
     }
@@ -294,18 +316,23 @@ public class InParameterFlowPropagator {
       return pending;
     }
 
-    void addState(
+    ParameterState addState(
         AppView<AppInfoWithLiveness> appView,
         NonEmptyParameterState parameterStateToAdd,
         Action onChangedAction) {
       ParameterState oldParameterState = getState();
       ParameterState newParameterState =
           oldParameterState.mutableJoin(
-              appView, parameterStateToAdd, parameterType, onChangedAction);
+              appView,
+              parameterStateToAdd,
+              parameterType,
+              StateCloner.getCloner(),
+              onChangedAction);
       if (newParameterState != oldParameterState) {
         setState(newParameterState);
         onChangedAction.execute();
       }
+      return newParameterState;
     }
 
     void setPending() {

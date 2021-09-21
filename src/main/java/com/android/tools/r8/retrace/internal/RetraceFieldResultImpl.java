@@ -10,7 +10,8 @@ import com.android.tools.r8.naming.MemberNaming.FieldSignature;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.retrace.RetraceFieldElement;
 import com.android.tools.r8.retrace.RetraceFieldResult;
-import com.android.tools.r8.retrace.RetraceSourceFileResult;
+import com.android.tools.r8.retrace.RetraceStackTraceContext;
+import com.android.tools.r8.retrace.RetracedSourceFile;
 import com.android.tools.r8.retrace.Retracer;
 import com.android.tools.r8.retrace.internal.RetraceClassResultImpl.RetraceClassElementImpl;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -113,6 +114,11 @@ public class RetraceFieldResultImpl implements RetraceFieldResult {
     }
 
     @Override
+    public RetraceStackTraceContext getContext() {
+      return RetraceStackTraceContext.getInitialContext();
+    }
+
+    @Override
     public boolean isUnknown() {
       return fieldReference.isUnknown();
     }
@@ -133,7 +139,7 @@ public class RetraceFieldResultImpl implements RetraceFieldResult {
     }
 
     @Override
-    public RetraceSourceFileResult getSourceFile() {
+    public RetracedSourceFile getSourceFile() {
       return classElement.getSourceFile();
     }
   }

@@ -4,8 +4,9 @@
 
 package com.android.tools.r8.desugar.records;
 
-import static com.android.tools.r8.desugar.records.RecordTestUtils.RECORD_KEEP_RULE;
+import static com.android.tools.r8.desugar.records.RecordTestUtils.RECORD_KEEP_RULE_R8_CF_TO_CF;
 
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfRuntime;
@@ -33,10 +34,10 @@ public class SimpleRecordTest extends TestBase {
 
   @Parameterized.Parameters(name = "{0}")
   public static List<Object[]> data() {
-    // TODO(b/174431251): This should be replaced with .withCfRuntimes(start = jdk16).
+    // TODO(b/174431251): This should be replaced with .withCfRuntimes(start = jdk17).
     return buildParameters(
         getTestParameters()
-            .withCustomRuntime(CfRuntime.getCheckedInJdk16())
+            .withCustomRuntime(CfRuntime.getCheckedInJdk17())
             .withDexRuntimes()
             .withAllApiLevelsAlsoForCf()
             .build());
@@ -47,7 +48,6 @@ public class SimpleRecordTest extends TestBase {
     if (parameters.isCfRuntime()) {
       testForJvm()
           .addProgramClassFileData(PROGRAM_DATA)
-          .enablePreview()
           .run(parameters.getRuntime(), MAIN_TYPE)
           .assertSuccessWithOutput(EXPECTED_RESULT);
     }
@@ -65,27 +65,23 @@ public class SimpleRecordTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
+    R8FullTestBuilder builder =
+        testForR8(parameters.getBackend())
+            .addProgramClassFileData(PROGRAM_DATA)
+            .setMinApi(parameters.getApiLevel())
+            .addKeepMainRule(MAIN_TYPE)
+            .addOptionsModification(TestingOptions::allowExperimentClassFileVersion);
     if (parameters.isCfRuntime()) {
-      testForR8(parameters.getBackend())
-          .addProgramClassFileData(PROGRAM_DATA)
-          .setMinApi(parameters.getApiLevel())
-          .addKeepRules(RECORD_KEEP_RULE)
-          .addKeepMainRule(MAIN_TYPE)
+      builder
+          .addKeepRules(RECORD_KEEP_RULE_R8_CF_TO_CF)
           .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
-          .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
           .compile()
           .inspect(RecordTestUtils::assertRecordsAreRecords)
-          .enableJVMPreview()
           .run(parameters.getRuntime(), MAIN_TYPE)
           .assertSuccessWithOutput(EXPECTED_RESULT);
       return;
     }
-    testForR8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
-        .setMinApi(parameters.getApiLevel())
-        .addKeepRules(RECORD_KEEP_RULE)
-        .addKeepMainRule(MAIN_TYPE)
-        .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
+    builder
         .compile()
         .inspectWithOptions(
             RecordTestUtils::assertNoJavaLangRecord,
@@ -96,29 +92,24 @@ public class SimpleRecordTest extends TestBase {
 
   @Test
   public void testR8NoMinification() throws Exception {
+    R8FullTestBuilder builder =
+        testForR8(parameters.getBackend())
+            .addProgramClassFileData(PROGRAM_DATA)
+            .noMinification()
+            .setMinApi(parameters.getApiLevel())
+            .addKeepMainRule(MAIN_TYPE)
+            .addOptionsModification(TestingOptions::allowExperimentClassFileVersion);
     if (parameters.isCfRuntime()) {
-      testForR8(parameters.getBackend())
-          .addProgramClassFileData(PROGRAM_DATA)
-          .noMinification()
-          .setMinApi(parameters.getApiLevel())
-          .addKeepRules(RECORD_KEEP_RULE)
-          .addKeepMainRule(MAIN_TYPE)
+      builder
+          .addKeepRules(RECORD_KEEP_RULE_R8_CF_TO_CF)
           .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
-          .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
           .compile()
           .inspect(RecordTestUtils::assertRecordsAreRecords)
-          .enableJVMPreview()
           .run(parameters.getRuntime(), MAIN_TYPE)
           .assertSuccessWithOutput(EXPECTED_RESULT);
       return;
     }
-    testForR8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
-        .noMinification()
-        .setMinApi(parameters.getApiLevel())
-        .addKeepRules(RECORD_KEEP_RULE)
-        .addKeepMainRule(MAIN_TYPE)
-        .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
+    builder
         .compile()
         .inspectWithOptions(
             RecordTestUtils::assertNoJavaLangRecord,

@@ -10,7 +10,7 @@ import static com.android.tools.r8.retrace.internal.StackTraceElementStringProxy
 
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.retrace.RetraceStackTraceProxy;
+import com.android.tools.r8.retrace.RetraceStackTraceElementProxy;
 import com.android.tools.r8.retrace.RetracedClassReference;
 import com.android.tools.r8.retrace.RetracedFieldReference;
 import com.android.tools.r8.retrace.RetracedTypeReference;
@@ -69,7 +69,7 @@ public final class StackTraceElementStringProxy
   }
 
   @Override
-  public boolean hasFileName() {
+  public boolean hasSourceFile() {
     return sourceFile.hasIndex();
   }
 
@@ -104,8 +104,8 @@ public final class StackTraceElementStringProxy
   }
 
   @Override
-  public String getFileName() {
-    return hasFileName() ? getEntryInLine(sourceFile) : null;
+  public String getSourceFile() {
+    return hasSourceFile() ? getEntryInLine(sourceFile) : null;
   }
 
   @Override
@@ -141,7 +141,8 @@ public final class StackTraceElementStringProxy
 
   @Override
   public String toRetracedItem(
-      RetraceStackTraceProxy<String, StackTraceElementStringProxy> retracedProxy, boolean verbose) {
+      RetraceStackTraceElementProxy<String, StackTraceElementStringProxy> retracedProxy,
+      boolean verbose) {
     StringBuilder sb = new StringBuilder();
     int lastSeenIndex = 0;
     for (StringIndex index : orderedIndices) {
@@ -225,7 +226,7 @@ public final class StackTraceElementStringProxy
               startIndex,
               endIndex,
               (retraced, original, verbose) ->
-                  retraced.hasSourceFile() ? retraced.getSourceFile() : original.getFileName());
+                  retraced.hasSourceFile() ? retraced.getSourceFile() : original.getSourceFile());
       orderedIndices.add(sourceFile);
       return this;
     }
@@ -333,14 +334,17 @@ public final class StackTraceElementStringProxy
     protected final int startIndex;
     protected final int endIndex;
     private final TriFunction<
-            RetraceStackTraceProxy<String, ?>, StackTraceElementStringProxy, Boolean, String>
+            RetraceStackTraceElementProxy<String, ?>, StackTraceElementStringProxy, Boolean, String>
         retracedString;
 
     private StringIndex(
         int startIndex,
         int endIndex,
         TriFunction<
-                RetraceStackTraceProxy<String, ?>, StackTraceElementStringProxy, Boolean, String>
+                RetraceStackTraceElementProxy<String, ?>,
+                StackTraceElementStringProxy,
+                Boolean,
+                String>
             retracedString) {
       this.startIndex = startIndex;
       this.endIndex = endIndex;
@@ -363,7 +367,10 @@ public final class StackTraceElementStringProxy
         int startIndex,
         int endIndex,
         TriFunction<
-                RetraceStackTraceProxy<String, ?>, StackTraceElementStringProxy, Boolean, String>
+                RetraceStackTraceElementProxy<String, ?>,
+                StackTraceElementStringProxy,
+                Boolean,
+                String>
             retracedString,
         ClassNameType classNameType) {
       super(startIndex, endIndex, retracedString);

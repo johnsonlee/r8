@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.desugar.records;
 
-import static com.android.tools.r8.desugar.records.RecordTestUtils.RECORD_KEEP_RULE;
+import static com.android.tools.r8.desugar.records.RecordTestUtils.RECORD_KEEP_RULE_R8_CF_TO_CF;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -42,16 +42,15 @@ public class RecordReflectionTest extends TestBase {
 
   @Parameterized.Parameters(name = "{0}")
   public static List<Object[]> data() {
-    // TODO(b/174431251): This should be replaced with .withCfRuntimes(start = jdk16).
+    // TODO(b/174431251): This should be replaced with .withCfRuntimes(start = jdk17).
     return buildParameters(
-        getTestParameters().withCustomRuntime(CfRuntime.getCheckedInJdk16()).build());
+        getTestParameters().withCustomRuntime(CfRuntime.getCheckedInJdk17()).build());
   }
 
   @Test
   public void testJvm() throws Exception {
     testForJvm()
         .addProgramClassFileData(PROGRAM_DATA)
-        .enablePreview()
         .run(parameters.getRuntime(), MAIN_TYPE)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
@@ -61,8 +60,8 @@ public class RecordReflectionTest extends TestBase {
     testForR8(parameters.getBackend())
         .addProgramClassFileData(PROGRAM_DATA)
         .setMinApi(parameters.getApiLevel())
-        .addKeepRules(RECORD_KEEP_RULE)
         .addKeepMainRule(MAIN_TYPE)
+        .addKeepRules(RECORD_KEEP_RULE_R8_CF_TO_CF)
         .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
         .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
         .compile()

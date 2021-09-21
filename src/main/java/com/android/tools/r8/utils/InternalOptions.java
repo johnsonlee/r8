@@ -124,7 +124,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
   }
 
-  public static final CfVersion SUPPORTED_CF_VERSION = CfVersion.V16_PREVIEW;
+  public static final CfVersion SUPPORTED_CF_VERSION = CfVersion.V17;
   public static final CfVersion EXPERIMENTAL_CF_VERSION = CfVersion.V12;
 
   public static final int SUPPORTED_DEX_VERSION =
@@ -1219,7 +1219,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     // TODO(b/69963623): enable if everything is ready, including signature rewriting at call sites.
     private boolean enableLegacyConstantPropagation = false;
-    private boolean enableExperimentalArgumentPropagation = false;
+    private boolean enableExperimentalArgumentPropagation = true;
     private boolean enableDynamicTypePropagation = true;
 
     public void disableOptimization() {
@@ -1233,6 +1233,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public int getMaxNumberOfDispatchTargetsBeforeAbandoning() {
       return maxNumberOfDispatchTargetsBeforeAbandoning;
+    }
+
+    public int getMaxNumberOfInParameters() {
+      return 10;
     }
 
     public boolean isEnabled() {
@@ -1255,7 +1259,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
 
     public CallSiteOptimizationOptions setEnableLegacyConstantPropagation() {
-      assert !isConstantPropagationEnabled();
+      assert !enableLegacyConstantPropagation;
       enableLegacyConstantPropagation = true;
       return this;
     }

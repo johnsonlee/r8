@@ -66,6 +66,8 @@ public interface MethodOptimizationFeedback {
   void setEnumUnboxerMethodClassification(
       ProgramMethod method, EnumUnboxerMethodClassification enumUnboxerMethodClassification);
 
+  void unsetEnumUnboxerMethodClassification(ProgramMethod method);
+
   void setInstanceInitializerInfoCollection(
       DexEncodedMethod method, InstanceInitializerInfoCollection instanceInitializerInfoCollection);
 
@@ -78,4 +80,6 @@ public interface MethodOptimizationFeedback {
   void setSimpleInliningConstraint(ProgramMethod method, SimpleInliningConstraint constraint);
 
   void classInitializerMayBePostponed(DexEncodedMethod method);
+
+  void setUnusedArguments(ProgramMethod method, BitSet unusedArguments);
 }

@@ -33,10 +33,28 @@ public class AmbiguousWithSignatureVerboseStackTrace implements StackTraceForTes
     return Arrays.asList(
         "java.lang.IndexOutOfBoundsException",
         "\tat java.util.ArrayList.get(ArrayList.java:411)",
+        "\tat com.android.tools.r8.Internal.foo(Internal.java)");
+  }
+
+  @Override
+  public List<String> retraceVerboseStackTrace() {
+    return Arrays.asList(
+        "There are 4 ambiguous stack traces.",
+        "java.lang.IndexOutOfBoundsException",
+        "\tat java.util.ArrayList.get(ArrayList.java:411)",
         "\tat com.android.tools.r8.Internal.boolean foo(int,int)(Internal.java)",
-        "\t<OR> at com.android.tools.r8.Internal.void foo(int)(Internal.java)",
-        "\t<OR> at com.android.tools.r8.Internal.void foo(int,boolean)(Internal.java)",
-        "\t<OR> at com.android.tools.r8.Internal.void foo(int,int)(Internal.java)");
+        "< OR >",
+        "java.lang.IndexOutOfBoundsException",
+        "\tat java.util.ArrayList.get(ArrayList.java:411)",
+        "\tat com.android.tools.r8.Internal.void foo(int)(Internal.java)",
+        "< OR >",
+        "java.lang.IndexOutOfBoundsException",
+        "\tat java.util.ArrayList.get(ArrayList.java:411)",
+        "\tat com.android.tools.r8.Internal.void foo(int,boolean)(Internal.java)",
+        "< OR >",
+        "java.lang.IndexOutOfBoundsException",
+        "\tat java.util.ArrayList.get(ArrayList.java:411)",
+        "\tat com.android.tools.r8.Internal.void foo(int,int)(Internal.java)");
   }
 
   @Override

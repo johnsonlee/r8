@@ -194,6 +194,16 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
   }
 
   @Override
+  public void unsetEnumUnboxerMethodClassification(ProgramMethod method) {
+    if (method.getOptimizationInfo().isMutableOptimizationInfo()) {
+      method
+          .getOptimizationInfo()
+          .asMutableMethodOptimizationInfo()
+          .unsetEnumUnboxerMethodClassification();
+    }
+  }
+
+  @Override
   public void setInstanceInitializerInfoCollection(
       DexEncodedMethod method,
       InstanceInitializerInfoCollection instanceInitializerInfoCollection) {
@@ -226,5 +236,10 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
   @Override
   public void classInitializerMayBePostponed(DexEncodedMethod method) {
     method.getMutableOptimizationInfo().markClassInitializerMayBePostponed();
+  }
+
+  @Override
+  public void setUnusedArguments(ProgramMethod method, BitSet unusedArguments) {
+    method.getDefinition().getMutableOptimizationInfo().setUnusedArguments(unusedArguments);
   }
 }

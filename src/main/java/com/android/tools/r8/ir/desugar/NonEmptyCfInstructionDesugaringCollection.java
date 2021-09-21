@@ -16,6 +16,7 @@ import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicInstructio
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.RetargetingInfo;
+import com.android.tools.r8.ir.desugar.icce.AlwaysThrowingInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialToSelfDesugaring;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
@@ -29,8 +30,10 @@ import com.android.tools.r8.ir.desugar.stringconcat.StringConcatInstructionDesug
 import com.android.tools.r8.ir.desugar.twr.TwrInstructionDesugaring;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThrowingConsumer;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,6 +58,13 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
       AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
     this.appView = appView;
     this.apiLevelCompute = apiLevelCompute;
+    AlwaysThrowingInstructionDesugaring alwaysThrowingInstructionDesugaring =
+        appView.enableWholeProgramOptimizations()
+            ? new AlwaysThrowingInstructionDesugaring(appView.withClassHierarchy())
+            : null;
+    if (alwaysThrowingInstructionDesugaring != null) {
+      desugarings.add(alwaysThrowingInstructionDesugaring);
+    }
     if (appView.options().desugarState.isOff()) {
       this.nestBasedAccessDesugaring = null;
       this.recordRewriter = null;
@@ -75,14 +85,17 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     if (appView.options().enableBackportedMethodRewriting()) {
       backportedMethodRewriter = new BackportedMethodRewriter(appView);
     }
-    // Place TWR before Interface desugaring to eliminate potential $closeResource interface calls.
     if (appView.options().enableTryWithResourcesDesugaring()) {
       desugarings.add(new TwrInstructionDesugaring(appView));
     }
     if (appView.options().isInterfaceMethodDesugaringEnabled()) {
       interfaceMethodRewriter =
           new InterfaceMethodRewriter(
-              appView, backportedMethodRewriter, desugaredLibraryRetargeter);
+              appView,
+              SetUtils.newImmutableSetExcludingNullItems(
+                  alwaysThrowingInstructionDesugaring,
+                  backportedMethodRewriter,
+                  desugaredLibraryRetargeter));
       desugarings.add(interfaceMethodRewriter);
     } else {
       interfaceMethodRewriter = null;
@@ -91,9 +104,11 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
         appView.rewritePrefix.isRewriting()
             ? new DesugaredLibraryAPIConverter(
                 appView,
-                interfaceMethodRewriter,
-                desugaredLibraryRetargeter,
-                backportedMethodRewriter)
+                SetUtils.newImmutableSetExcludingNullItems(
+                    interfaceMethodRewriter, desugaredLibraryRetargeter, backportedMethodRewriter),
+                interfaceMethodRewriter != null
+                    ? interfaceMethodRewriter.getEmulatedMethods()
+                    : ImmutableSet.of())
             : null;
     if (desugaredLibraryAPIConverter != null) {
       desugarings.add(desugaredLibraryAPIConverter);
