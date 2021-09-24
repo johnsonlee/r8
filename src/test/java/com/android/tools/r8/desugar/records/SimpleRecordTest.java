@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.desugar.records;
 
-import static com.android.tools.r8.desugar.records.RecordTestUtils.RECORD_KEEP_RULE_R8_CF_TO_CF;
 
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
@@ -12,7 +11,9 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.utils.InternalOptions.TestingOptions;
 import com.android.tools.r8.utils.StringUtils;
+import java.nio.file.Path;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -64,6 +65,25 @@ public class SimpleRecordTest extends TestBase {
   }
 
   @Test
+  public void testD8Intermediate() throws Exception {
+    Assume.assumeTrue(parameters.isDexRuntime());
+    Path path =
+        testForD8(Backend.DEX)
+            .addProgramClassFileData(PROGRAM_DATA)
+            .setMinApi(parameters.getApiLevel())
+            .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
+            .setIntermediate(true)
+            .compile()
+            .writeToZip();
+    testForD8()
+        .addProgramFiles(path)
+        .setMinApi(parameters.getApiLevel())
+        .compile()
+        .run(parameters.getRuntime(), MAIN_TYPE)
+        .assertSuccessWithOutput(EXPECTED_RESULT);
+  }
+
+  @Test
   public void testR8() throws Exception {
     R8FullTestBuilder builder =
         testForR8(parameters.getBackend())
@@ -73,7 +93,6 @@ public class SimpleRecordTest extends TestBase {
             .addOptionsModification(TestingOptions::allowExperimentClassFileVersion);
     if (parameters.isCfRuntime()) {
       builder
-          .addKeepRules(RECORD_KEEP_RULE_R8_CF_TO_CF)
           .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
           .compile()
           .inspect(RecordTestUtils::assertRecordsAreRecords)
@@ -101,7 +120,6 @@ public class SimpleRecordTest extends TestBase {
             .addOptionsModification(TestingOptions::allowExperimentClassFileVersion);
     if (parameters.isCfRuntime()) {
       builder
-          .addKeepRules(RECORD_KEEP_RULE_R8_CF_TO_CF)
           .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
           .compile()
           .inspect(RecordTestUtils::assertRecordsAreRecords)

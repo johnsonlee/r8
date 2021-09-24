@@ -30,6 +30,7 @@ import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
+import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
 import com.android.tools.r8.ir.desugar.FreshLocalProvider;
@@ -248,6 +249,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramMethod context,
       MethodProcessingContext methodProcessingContext,
+      CfInstructionDesugaringCollection desugaringCollection,
       DexItemFactory dexItemFactory) {
     assert !isSyntheticMethodThatShouldNotBeDoubleProcessed(context);
     return computeDescription(instruction, context)
@@ -907,8 +909,9 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     return singleCandidate != null ? singleCandidate : method;
   }
 
-  public InterfaceMethodProcessorFacade getPostProcessingDesugaringD8(Flavor flavour) {
-    return new InterfaceMethodProcessorFacade(appView, flavour, m -> true);
+  public InterfaceMethodProcessorFacade getPostProcessingDesugaringD8(
+      Flavor flavour, InterfaceProcessor interfaceProcessor) {
+    return new InterfaceMethodProcessorFacade(appView, flavour, m -> true, interfaceProcessor);
   }
 
   public InterfaceMethodProcessorFacade getPostProcessingDesugaringR8(

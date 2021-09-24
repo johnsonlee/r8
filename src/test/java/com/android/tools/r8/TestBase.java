@@ -17,10 +17,10 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.DataResourceProvider.Visitor;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
+import com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.ToolHelper.ArtCommandBuilder;
 import com.android.tools.r8.ToolHelper.DexVm;
-import com.android.tools.r8.ToolHelper.KotlinTargetVersion;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.code.Instruction;
@@ -1153,9 +1153,7 @@ public class TestBase {
    * specified class and add rules to inline methods with the inlining annotation.
    */
   public static String keepMainProguardConfigurationWithInliningAnnotation(Class<?> clazz) {
-    return "-forceinline class * { @com.android.tools.r8.ForceInline *; }"
-        + System.lineSeparator()
-        + "-neverinline class * { @com.android.tools.r8.NeverInline *; }"
+    return "-neverinline class * { @com.android.tools.r8.NeverInline *; }"
         + System.lineSeparator()
         + keepMainProguardConfiguration(clazz);
   }
