@@ -739,7 +739,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       IRCode inlinee,
       ListIterator<BasicBlock> blocksIterator,
       Set<BasicBlock> blocksToRemove,
-      DexType downcast) {
+      DexProgramClass downcast) {
     assert blocksToRemove != null;
     ProgramMethod callerContext = code.context();
     ProgramMethod calleeContext = inlinee.context();
@@ -783,9 +783,9 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       //  instruction if the program still type checks without the cast.
       Value receiver = invoke.inValues().get(0);
       TypeElement castTypeLattice =
-          TypeElement.fromDexType(downcast, receiver.getType().nullability(), appView);
+          TypeElement.fromDexType(downcast.getType(), receiver.getType().nullability(), appView);
       CheckCast castInstruction =
-          new CheckCast(code.createValue(castTypeLattice), receiver, downcast);
+          new CheckCast(code.createValue(castTypeLattice), receiver, downcast.getType());
       castInstruction.setPosition(invoke.getPosition());
 
       // Splice in the check cast operation.

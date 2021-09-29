@@ -441,7 +441,7 @@ final class InlineCandidateProcessor {
               throw new IllegalClassInlinerStateException();
             }
 
-            directMethodCalls.put(invoke, new InliningInfo(singleTarget, eligibleClass.type));
+            directMethodCalls.put(invoke, new InliningInfo(singleTarget, eligibleClass));
             break;
           }
         }
@@ -900,7 +900,7 @@ final class InlineCandidateProcessor {
               .getParent();
     }
 
-    return new InliningInfo(singleTarget, eligibleClass.type);
+    return new InliningInfo(singleTarget, eligibleClass);
   }
 
   // An invoke is eligible for inlining in the following cases:
