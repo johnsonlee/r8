@@ -58,8 +58,7 @@ public class InterfaceTypeToClassTypeLensCodeRewriterHelperImpl
     DexMethod originalInvokedMethod = originalInvoke.getInvokedMethod();
     DexMethod rewrittenInvokedMethod = rewrittenInvoke.getInvokedMethod();
     if (lookupResult.getPrototypeChanges().getArgumentInfoCollection().hasRemovedArguments()) {
-      // There is no argument removal before the primary optimization pass.
-      assert false;
+      // Invokes with removed arguments are not handled in R8 3.1.
       return;
     }
 

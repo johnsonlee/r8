@@ -388,6 +388,10 @@ public class RewrittenPrototypeDescription {
         && argumentInfoCollection.isEmpty();
   }
 
+  public boolean hasExtraParameters() {
+    return !extraParameters.isEmpty();
+  }
+
   public Collection<ExtraParameter> getExtraParameters() {
     return extraParameters;
   }
