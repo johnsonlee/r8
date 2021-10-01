@@ -37,6 +37,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
@@ -61,10 +62,10 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 import com.android.tools.r8.ir.code.Assume;
 import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.ConstClass;
-import com.android.tools.r8.ir.code.ConstInstruction;
 import com.android.tools.r8.ir.code.ConstMethodHandle;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.IRCode;
@@ -97,12 +98,12 @@ import com.android.tools.r8.ir.optimize.enums.EnumUnboxer;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.optimize.MemberRebindingAnalysis;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.verticalclassmerging.InterfaceTypeToClassTypeLensCodeRewriterHelper;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -122,7 +123,7 @@ public class LensCodeRewriter {
   }
 
   private Value makeOutValue(Instruction insn, IRCode code) {
-    if (insn.outValue() != null) {
+    if (insn.hasOutValue()) {
       TypeElement oldType = insn.getOutType();
       TypeElement newType = oldType.rewrittenWithLens(appView, appView.graphLens());
       return code.createValue(newType, insn.getLocalInfo());
@@ -149,7 +150,9 @@ public class LensCodeRewriter {
     DexItemFactory factory = appView.dexItemFactory();
     // Rewriting types that affects phi can cause us to compute TOP for cyclic phi's. To solve this
     // we track all phi's that needs to be re-computed.
-    ListIterator<BasicBlock> blocks = code.listIterator();
+    BasicBlockIterator blocks = code.listIterator();
+    InterfaceTypeToClassTypeLensCodeRewriterHelper interfaceTypeToClassTypeRewriterHelper =
+        InterfaceTypeToClassTypeLensCodeRewriterHelper.create(appView, code, methodProcessor);
     boolean mayHaveUnreachableBlocks = false;
     while (blocks.hasNext()) {
       BasicBlock block = blocks.next();
@@ -250,7 +253,11 @@ public class LensCodeRewriter {
                 ArgumentInfoCollection argumentInfoCollection =
                     prototypeChanges.getArgumentInfoCollection();
                 if (argumentInfoCollection.isEmpty()) {
-                  newInValues = invoke.inValues();
+                  if (prototypeChanges.hasExtraParameters()) {
+                    newInValues = new ArrayList<>(invoke.inValues());
+                  } else {
+                    newInValues = invoke.inValues();
+                  }
                 } else {
                   if (argumentInfoCollection.hasRemovedArguments()) {
                     if (Log.ENABLED) {
@@ -282,11 +289,29 @@ public class LensCodeRewriter {
                   }
                 }
 
-                ConstInstruction constantReturnMaterializingInstruction = null;
-                if (prototypeChanges.hasBeenChangedToReturnVoid(appView.dexItemFactory())
-                    && invoke.outValue() != null) {
+                Instruction constantReturnMaterializingInstruction = null;
+                if (prototypeChanges.hasBeenChangedToReturnVoid() && invoke.hasOutValue()) {
+                  TypeAndLocalInfoSupplier typeAndLocalInfo =
+                      new TypeAndLocalInfoSupplier() {
+                        @Override
+                        public DebugLocalInfo getLocalInfo() {
+                          return invoke.getLocalInfo();
+                        }
+
+                        @Override
+                        public TypeElement getOutType() {
+                          return graphLens
+                              .lookupType(invokedMethod.getReturnType())
+                              .toTypeElement(appView);
+                        }
+                      };
                   constantReturnMaterializingInstruction =
-                      prototypeChanges.getConstantReturn(code, invoke.getPosition());
+                      prototypeChanges.getConstantReturn(
+                          appView.withLiveness(),
+                          code,
+                          method,
+                          invoke.getPosition(),
+                          typeAndLocalInfo);
                   if (invoke.outValue().hasLocalInfo()) {
                     constantReturnMaterializingInstruction
                         .outValue()
@@ -300,7 +325,7 @@ public class LensCodeRewriter {
                 }
 
                 Value newOutValue =
-                    prototypeChanges.hasBeenChangedToReturnVoid(appView.dexItemFactory())
+                    prototypeChanges.hasBeenChangedToReturnVoid()
                         ? null
                         : makeOutValue(invoke, code);
 
@@ -352,15 +377,17 @@ public class LensCodeRewriter {
                 boolean isInterface =
                     getBooleanOrElse(
                         appView.definitionFor(actualTarget.holder), DexClass::isInterface, false);
-                Invoke newInvoke =
-                    Invoke.create(
-                        actualInvokeType,
-                        actualTarget,
-                        null,
-                        newOutValue,
-                        newInValues,
-                        isInterface);
+                InvokeMethod newInvoke =
+                    InvokeMethod.create(
+                        actualInvokeType, actualTarget, newOutValue, newInValues, isInterface);
+
                 iterator.replaceCurrentInstruction(newInvoke);
+
+                // Insert casts for the program to type check if interfaces has been vertically
+                // merged into their unique (non-interface) subclass. See also b/199561570.
+                interfaceTypeToClassTypeRewriterHelper.insertCastsForOperandsIfNeeded(
+                    invoke, newInvoke, lensLookup, blocks, block, iterator);
+
                 if (newOutValue != null && newOutValue.getType() != current.getOutType()) {
                   affectedPhis.addAll(newOutValue.uniquePhiUsers());
                 }
@@ -379,7 +406,7 @@ public class LensCodeRewriter {
 
                 DexType actualReturnType = actualTarget.proto.returnType;
                 DexType expectedReturnType = graphLens.lookupType(invokedMethod.proto.returnType);
-                if (newInvoke.outValue() != null && actualReturnType != expectedReturnType) {
+                if (newInvoke.hasOutValue() && actualReturnType != expectedReturnType) {
                   throw new Unreachable(
                       "Unexpected need to insert a cast. Possibly related to resolving"
                           + " b/79143143.\n"
@@ -444,8 +471,11 @@ public class LensCodeRewriter {
               DexMethod replacementMethod =
                   graphLens.lookupPutFieldForMethod(rewrittenField, method.getReference());
               if (replacementMethod != null) {
-                iterator.replaceCurrentInstruction(
-                    new InvokeStatic(replacementMethod, null, instancePut.inValues()));
+                InvokeStatic replacement =
+                    new InvokeStatic(replacementMethod, null, instancePut.inValues());
+                iterator.replaceCurrentInstruction(replacement);
+                interfaceTypeToClassTypeRewriterHelper.insertCastsForOperandsIfNeeded(
+                    instancePut, replacement, blocks, block, iterator);
               } else if (rewrittenField != field) {
                 Value rewrittenValue =
                     rewriteValueIfDefault(
@@ -454,6 +484,8 @@ public class LensCodeRewriter {
                     InstancePut.createPotentiallyInvalid(
                         rewrittenField, instancePut.object(), rewrittenValue);
                 iterator.replaceCurrentInstruction(newInstancePut);
+                interfaceTypeToClassTypeRewriterHelper.insertCastsForOperandsIfNeeded(
+                    instancePut, newInstancePut, blocks, block, iterator);
               }
             }
             break;
@@ -507,15 +539,21 @@ public class LensCodeRewriter {
               DexField actualField = rewriteFieldReference(lookup, method);
               DexMethod replacementMethod =
                   graphLens.lookupPutFieldForMethod(actualField, method.getReference());
+
               if (replacementMethod != null) {
-                iterator.replaceCurrentInstruction(
-                    new InvokeStatic(
-                        replacementMethod, staticPut.outValue(), staticPut.inValues()));
+                InvokeStatic replacement =
+                    new InvokeStatic(replacementMethod, staticPut.outValue(), staticPut.inValues());
+                iterator.replaceCurrentInstruction(replacement);
+                interfaceTypeToClassTypeRewriterHelper.insertCastsForOperandsIfNeeded(
+                    staticPut, replacement, blocks, block, iterator);
               } else if (actualField != field) {
                 Value rewrittenValue =
                     rewriteValueIfDefault(
                         code, iterator, field.type, actualField.type, staticPut.value());
-                iterator.replaceCurrentInstruction(new StaticPut(rewrittenValue, actualField));
+                StaticPut replacement = new StaticPut(rewrittenValue, actualField);
+                iterator.replaceCurrentInstruction(replacement);
+                interfaceTypeToClassTypeRewriterHelper.insertCastsForOperandsIfNeeded(
+                    staticPut, replacement, blocks, block, iterator);
               }
             }
             break;
@@ -602,7 +640,7 @@ public class LensCodeRewriter {
               if (ret.isReturnVoid()) {
                 break;
               }
-              DexType returnType = code.method().getReference().proto.returnType;
+              DexType returnType = code.context().getReturnType();
               Value retValue = ret.returnValue();
               DexType initialType =
                   retValue.getType().isPrimitiveType()
@@ -610,10 +648,18 @@ public class LensCodeRewriter {
                       : factory.objectType; // Place holder, any reference type will do.
               Value rewrittenValue =
                   rewriteValueIfDefault(code, iterator, initialType, returnType, retValue);
+              Return rewrittenReturn;
               if (retValue != rewrittenValue) {
-                Return newReturn = new Return(rewrittenValue);
-                iterator.replaceCurrentInstruction(newReturn);
+                rewrittenReturn = new Return(rewrittenValue);
+                iterator.replaceCurrentInstruction(rewrittenReturn);
+              } else {
+                rewrittenReturn = ret;
               }
+
+              // Insert casts for the program to type check if interfaces has been vertically
+              // merged into their unique (non-interface) subclass. See also b/199561570.
+              interfaceTypeToClassTypeRewriterHelper.insertCastsForOperandsIfNeeded(
+                  rewrittenReturn, blocks, block, iterator);
             }
             break;
 
@@ -680,6 +726,10 @@ public class LensCodeRewriter {
     if (!affectedPhis.isEmpty()) {
       new DestructivePhiTypeUpdater(appView).recomputeAndPropagateTypes(code, affectedPhis);
     }
+
+    // Finalize cast insertion.
+    interfaceTypeToClassTypeRewriterHelper.processWorklist();
+
     assert code.isConsistentSSABeforeTypesAreCorrect();
     assert code.hasNoMergedClasses(appView);
   }

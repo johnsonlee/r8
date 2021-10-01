@@ -26,7 +26,6 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexDebugEvent;
-import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -37,6 +36,7 @@ import com.android.tools.r8.graph.GenericSignatureContextBuilder;
 import com.android.tools.r8.graph.GenericSignatureCorrectnessHelper;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
@@ -50,13 +50,10 @@ import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterLibraryTypeSynthesizer;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
-import com.android.tools.r8.ir.desugar.records.RecordRewriter;
+import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
-import com.android.tools.r8.ir.optimize.MethodPoolCollection;
 import com.android.tools.r8.ir.optimize.NestReducer;
 import com.android.tools.r8.ir.optimize.SwitchMapCollector;
-import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization;
-import com.android.tools.r8.ir.optimize.UninstantiatedTypeOptimization.UninstantiatedTypeOptimizationGraphLens;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxingCfMethods;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.templates.CfUtilityMethodsForCodeOptimizations;
@@ -318,7 +315,7 @@ public class R8 {
         EnumUnboxingCfMethods.registerSynthesizedCodeReferences(appView.dexItemFactory());
       }
       if (options.shouldDesugarRecords()) {
-        RecordRewriter.registerSynthesizedCodeReferences(appView.dexItemFactory());
+        RecordDesugaring.registerSynthesizedCodeReferences(appView.dexItemFactory());
       }
       CfUtilityMethodsForCodeOptimizations.registerSynthesizedCodeReferences(
           appView.dexItemFactory());
@@ -509,17 +506,6 @@ public class R8 {
           appView.setVerticallyMergedClasses(VerticallyMergedClasses.empty());
         }
         assert appView.verticallyMergedClasses() != null;
-
-        if (options.enableUninstantiatedTypeOptimization) {
-          timing.begin("UninstantiatedTypeOptimization");
-          UninstantiatedTypeOptimizationGraphLens lens =
-              new UninstantiatedTypeOptimization(appViewWithLiveness)
-                  .strenghtenOptimizationInfo()
-                  .run(new MethodPoolCollection(appViewWithLiveness), executorService, timing);
-          assert lens == null || getDirectApp(appView).verifyNothingToRewrite(appView, lens);
-          appView.rewriteWithLens(lens);
-          timing.end();
-        }
 
         HorizontalClassMerger.createForInitialClassMerging(appViewWithLiveness)
             .runIfNecessary(runtimeTypeCheckInfo, executorService, timing);
@@ -1060,11 +1046,12 @@ public class R8 {
             enqueuer.getGraphReporter().getGraphNode(reference), System.out);
       }
     }
-    if (rootSet.checkDiscarded.isEmpty()
-        || appView.options().testing.dontReportFailingCheckDiscarded) {
+    if (appView.options().testing.dontReportFailingCheckDiscarded) {
       return;
     }
-    List<DexDefinition> failed = new DiscardedChecker(rootSet, classes.get()).run();
+    DiscardedChecker discardedChecker =
+        forMainDex ? DiscardedChecker.createForMainDex(appView) : DiscardedChecker.create(appView);
+    List<ProgramDefinition> failed = discardedChecker.run(classes.get(), executorService);
     if (failed.isEmpty()) {
       return;
     }

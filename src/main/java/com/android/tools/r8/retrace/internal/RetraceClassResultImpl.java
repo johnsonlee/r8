@@ -25,7 +25,7 @@ import com.android.tools.r8.utils.Pair;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
@@ -45,10 +45,6 @@ public class RetraceClassResultImpl implements RetraceClassResult {
   static RetraceClassResultImpl create(
       ClassReference obfuscatedReference, ClassNamingForNameMapper mapper, RetracerImpl retracer) {
     return new RetraceClassResultImpl(obfuscatedReference, mapper, retracer);
-  }
-
-  RetracerImpl getRetracerImpl() {
-    return retracer;
   }
 
   @Override
@@ -124,25 +120,32 @@ public class RetraceClassResultImpl implements RetraceClassResult {
 
   @Override
   public RetraceFrameResultImpl lookupFrame(
-      RetraceStackTraceContext context, Optional<Integer> position, String methodName) {
-    return lookupFrame(MethodDefinition.create(obfuscatedReference, methodName), position);
+      RetraceStackTraceContext context, OptionalInt position, String methodName) {
+    return lookupFrame(context, position, MethodDefinition.create(obfuscatedReference, methodName));
   }
 
   @Override
   public RetraceFrameResultImpl lookupFrame(
       RetraceStackTraceContext context,
-      Optional<Integer> position,
+      OptionalInt position,
       String methodName,
       List<TypeReference> formalTypes,
       TypeReference returnType) {
     return lookupFrame(
+        context,
+        position,
         MethodDefinition.create(
-            Reference.method(obfuscatedReference, methodName, formalTypes, returnType)),
-        position);
+            Reference.method(obfuscatedReference, methodName, formalTypes, returnType)));
+  }
+
+  @Override
+  public RetraceThrownExceptionResultImpl lookupThrownException(RetraceStackTraceContext context) {
+    return new RetraceThrownExceptionResultImpl(
+        (RetraceStackTraceContextImpl) context, obfuscatedReference, mapper);
   }
 
   private RetraceFrameResultImpl lookupFrame(
-      MethodDefinition definition, Optional<Integer> position) {
+      RetraceStackTraceContext context, OptionalInt position, MethodDefinition definition) {
     List<Pair<RetraceClassElementImpl, List<MappedRange>>> mappings = new ArrayList<>();
     internalStream()
         .forEach(
@@ -153,11 +156,12 @@ public class RetraceClassResultImpl implements RetraceClassResult {
                         mappings.add(new Pair<>(element, mappedRanges));
                       });
             });
-    return new RetraceFrameResultImpl(this, mappings, definition, position, retracer);
+    return new RetraceFrameResultImpl(
+        this, mappings, definition, position, retracer, (RetraceStackTraceContextImpl) context);
   }
 
   private List<List<MappedRange>> getMappedRangesForFrame(
-      RetraceClassElementImpl element, MethodDefinition definition, Optional<Integer> position) {
+      RetraceClassElementImpl element, MethodDefinition definition, OptionalInt position) {
     List<List<MappedRange>> overloadedRanges = new ArrayList<>();
     if (mapper == null) {
       overloadedRanges.add(null);
@@ -170,8 +174,8 @@ public class RetraceClassResultImpl implements RetraceClassResult {
       return overloadedRanges;
     }
     List<MappedRange> mappedRangesForPosition = null;
-    if (position.isPresent() && position.get() >= 0) {
-      mappedRangesForPosition = mappedRanges.allRangesForLine(position.get(), false);
+    if (position.isPresent() && position.getAsInt() >= 0) {
+      mappedRangesForPosition = mappedRanges.allRangesForLine(position.getAsInt(), false);
     }
     if (mappedRangesForPosition == null || mappedRangesForPosition.isEmpty()) {
       mappedRangesForPosition = mappedRanges.getMappedRanges();
@@ -228,7 +232,7 @@ public class RetraceClassResultImpl implements RetraceClassResult {
     private final RetracedClassReferenceImpl classReference;
     private final ClassNamingForNameMapper mapper;
 
-    public RetraceClassElementImpl(
+    private RetraceClassElementImpl(
         RetraceClassResultImpl classResult,
         RetracedClassReferenceImpl classReference,
         ClassNamingForNameMapper mapper) {
@@ -244,8 +248,8 @@ public class RetraceClassResultImpl implements RetraceClassResult {
 
     @Override
     public RetracedSourceFile getSourceFile() {
-      if (classResult.mapper != null) {
-        for (MappingInformation info : classResult.mapper.getAdditionalMappingInfo()) {
+      if (mapper != null) {
+        for (MappingInformation info : mapper.getAdditionalMappingInfo()) {
           if (info.isFileNameInformation()) {
             return new RetracedSourceFileImpl(info.asFileNameInformation().getFileName());
           }
@@ -269,13 +273,6 @@ public class RetraceClassResultImpl implements RetraceClassResult {
         }
       }
       return false;
-    }
-
-    @Override
-    public RetraceStackTraceContext getContextWhereClassWasThrown() {
-      return RetraceStackTraceContextImpl.builder()
-          .setSeenException(getRetracedClass().getClassReference())
-          .build();
     }
 
     @Override
@@ -332,18 +329,23 @@ public class RetraceClassResultImpl implements RetraceClassResult {
     }
 
     @Override
-    public RetraceFrameResultImpl lookupFrame(Optional<Integer> position, String methodName) {
+    public RetraceFrameResultImpl lookupFrame(
+        RetraceStackTraceContext context, OptionalInt position, String methodName) {
       return lookupFrame(
-          position, MethodDefinition.create(classReference.getClassReference(), methodName));
+          context,
+          position,
+          MethodDefinition.create(classReference.getClassReference(), methodName));
     }
 
     @Override
     public RetraceFrameResult lookupFrame(
-        Optional<Integer> position,
+        RetraceStackTraceContext context,
+        OptionalInt position,
         String methodName,
         List<TypeReference> formalTypes,
         TypeReference returnType) {
       return lookupFrame(
+          context,
           position,
           MethodDefinition.create(
               Reference.method(
@@ -352,8 +354,8 @@ public class RetraceClassResultImpl implements RetraceClassResult {
 
     @Override
     public RetraceFrameResult lookupFrame(
-        Optional<Integer> position, MethodReference methodReference) {
-      return lookupFrame(position, MethodDefinition.create(methodReference));
+        RetraceStackTraceContext context, OptionalInt position, MethodReference methodReference) {
+      return lookupFrame(context, position, MethodDefinition.create(methodReference));
     }
 
     @Override
@@ -363,7 +365,7 @@ public class RetraceClassResultImpl implements RetraceClassResult {
     }
 
     private RetraceFrameResultImpl lookupFrame(
-        Optional<Integer> position, MethodDefinition definition) {
+        RetraceStackTraceContext context, OptionalInt position, MethodDefinition definition) {
       MethodDefinition methodDefinition =
           MethodDefinition.create(classReference.getClassReference(), definition.getName());
       ImmutableList.Builder<Pair<RetraceClassElementImpl, List<MappedRange>>> builder =
@@ -375,7 +377,12 @@ public class RetraceClassResultImpl implements RetraceClassResult {
                 builder.add(new Pair<>(this, mappedRanges));
               });
       return new RetraceFrameResultImpl(
-          classResult, builder.build(), methodDefinition, position, classResult.retracer);
+          classResult,
+          builder.build(),
+          methodDefinition,
+          position,
+          classResult.retracer,
+          (RetraceStackTraceContextImpl) context);
     }
   }
 }

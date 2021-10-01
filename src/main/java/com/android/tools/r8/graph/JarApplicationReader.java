@@ -4,11 +4,10 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.graph.DexMethodHandle.MethodHandleType;
-import com.android.tools.r8.ir.desugar.records.RecordRewriter;
+import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.objectweb.asm.Type;
 
@@ -25,13 +24,13 @@ public class JarApplicationReader {
   private final ConcurrentHashMap<String, Type> asmObjectTypeCache = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, Type> asmTypeCache = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, DexString> stringCache = new ConcurrentHashMap<>();
-  private final Map<String, String> typeDescriptorMap;
+  private final ApplicationReaderMap applicationReaderMap;
 
   private boolean hasReadRecordReferenceFromProgramClass = false;
 
   public JarApplicationReader(InternalOptions options) {
     this.options = options;
-    typeDescriptorMap = ApplicationReaderMap.getDescriptorMap(options);
+    applicationReaderMap = ApplicationReaderMap.getInstance(options);
   }
 
   public Type getAsmObjectType(String name) {
@@ -61,7 +60,7 @@ public class JarApplicationReader {
 
   public DexType getTypeFromDescriptor(String desc) {
     assert isValidDescriptor(desc);
-    String actualDesc = typeDescriptorMap.getOrDefault(desc, desc);
+    String actualDesc = applicationReaderMap.getDescriptor(desc);
     return options.itemFactory.createType(getString(actualDesc));
   }
 
@@ -162,13 +161,14 @@ public class JarApplicationReader {
   }
 
   public void checkFieldForRecord(DexField dexField) {
-    if (options.shouldDesugarRecords() && RecordRewriter.refersToRecord(dexField, getFactory())) {
+    if (options.shouldDesugarRecords() && RecordDesugaring.refersToRecord(dexField, getFactory())) {
       setHasReadRecordReferenceFromProgramClass();
     }
   }
 
   public void checkMethodForRecord(DexMethod dexMethod) {
-    if (options.shouldDesugarRecords() && RecordRewriter.refersToRecord(dexMethod, getFactory())) {
+    if (options.shouldDesugarRecords()
+        && RecordDesugaring.refersToRecord(dexMethod, getFactory())) {
       setHasReadRecordReferenceFromProgramClass();
     }
   }

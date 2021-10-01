@@ -13,10 +13,10 @@ import com.android.tools.r8.retrace.ProguardMapProducer;
 import com.android.tools.r8.retrace.RetraceFrameElement;
 import com.android.tools.r8.retrace.RetraceStackTraceContext;
 import com.android.tools.r8.retrace.RetracedMethodReference;
+import com.android.tools.r8.retrace.RetracedSingleFrame;
 import com.android.tools.r8.retrace.Retracer;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,17 +50,24 @@ public class RetraceApiSynthesizedInnerFrameTest extends RetraceApiTestBase {
                   ProguardMapProducer.fromString(mapping), new DiagnosticsHandler() {})
               .retraceClass(Reference.classFromTypeName("a"))
               .stream()
-              .flatMap(element -> element.lookupFrame(Optional.of(3), "a").stream())
+              .flatMap(
+                  element ->
+                      element
+                          .lookupFrame(RetraceStackTraceContext.empty(), OptionalInt.of(3), "a")
+                          .stream())
               .collect(Collectors.toList());
       assertEquals(1, frameResults.size());
       RetraceFrameElement retraceFrameElement = frameResults.get(0);
-      List<RetracedMethodReference> allFrames = new ArrayList<>();
-      retraceFrameElement.visitAllFrames((method, ignored) -> allFrames.add(method));
+      List<RetracedMethodReference> allFrames =
+          retraceFrameElement.stream()
+              .map(RetracedSingleFrame::getMethodReference)
+              .collect(Collectors.toList());
       assertEquals(2, allFrames.size());
-      List<RetracedMethodReference> nonSyntheticFrames = new ArrayList<>();
-      retraceFrameElement.visitRewrittenFrames(
-          RetraceStackTraceContext.getInitialContext(),
-          (method, ignored) -> nonSyntheticFrames.add(method));
+      List<RetracedMethodReference> nonSyntheticFrames =
+          retraceFrameElement
+              .streamRewritten(RetraceStackTraceContext.empty())
+              .map(RetracedSingleFrame::getMethodReference)
+              .collect(Collectors.toList());
       assertEquals(allFrames, nonSyntheticFrames);
     }
   }

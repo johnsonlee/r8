@@ -204,9 +204,9 @@ public class ClassStaticizerTest extends TestBase {
 
     assertEquals(
         Lists.newArrayList(
-            "STATIC: SimpleWithThrowingGetter SimpleWithThrowingGetter.getInstance()",
-            "STATIC: SimpleWithThrowingGetter SimpleWithThrowingGetter.getInstance()",
             "STATIC: String TrivialTestClass.next()",
+            "STATIC: void SimpleWithThrowingGetter.getInstance()",
+            "STATIC: void SimpleWithThrowingGetter.getInstance()",
             "SimpleWithThrowingGetter SimpleWithThrowingGetter.INSTANCE",
             "VIRTUAL: String SimpleWithThrowingGetter.bar(String)",
             "VIRTUAL: String SimpleWithThrowingGetter.foo()"),
@@ -399,7 +399,6 @@ public class ClassStaticizerTest extends TestBase {
 
   private void configure(InternalOptions options) {
     options.enableClassInlining = false;
-    options.enableUninstantiatedTypeOptimization = false;
   }
 
   @Test

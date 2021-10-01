@@ -28,6 +28,7 @@ import com.android.tools.r8.retrace.stacktraces.AmbiguousWithSignatureVerboseSta
 import com.android.tools.r8.retrace.stacktraces.AutoStackTrace;
 import com.android.tools.r8.retrace.stacktraces.CircularReferenceStackTrace;
 import com.android.tools.r8.retrace.stacktraces.ColonInFileNameStackTrace;
+import com.android.tools.r8.retrace.stacktraces.DifferentLineNumberSpanStackTrace;
 import com.android.tools.r8.retrace.stacktraces.FileNameExtensionStackTrace;
 import com.android.tools.r8.retrace.stacktraces.FoundMethodVerboseStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineFileNameStackTrace;
@@ -39,6 +40,7 @@ import com.android.tools.r8.retrace.stacktraces.InvalidStackTrace;
 import com.android.tools.r8.retrace.stacktraces.MemberFieldOverlapStackTrace;
 import com.android.tools.r8.retrace.stacktraces.MultipleDotsInFileNameStackTrace;
 import com.android.tools.r8.retrace.stacktraces.MultipleLinesNoLineNumberStackTrace;
+import com.android.tools.r8.retrace.stacktraces.MultipleOriginalLinesNoLineNumberStackTrace;
 import com.android.tools.r8.retrace.stacktraces.NamedModuleStackTrace;
 import com.android.tools.r8.retrace.stacktraces.NoObfuscatedLineNumberWithOverrideTest;
 import com.android.tools.r8.retrace.stacktraces.NoObfuscationRangeMappingWithStackTrace;
@@ -313,6 +315,16 @@ public class RetraceTests extends TestBase {
   @Test
   public void testNpeInlineRetraceStackTrace() throws Exception {
     runExperimentalRetraceTest(new NpeInlineRetraceStackTrace());
+  }
+
+  @Test
+  public void testMultipleOriginalLinesNoLineNumberStackTrace() throws Exception {
+    runRetraceTest(new MultipleOriginalLinesNoLineNumberStackTrace());
+  }
+
+  @Test
+  public void testDifferentLineNumberSpanStackTrace() throws Exception {
+    runRetraceTest(new DifferentLineNumberSpanStackTrace());
   }
 
   private void inspectRetraceTest(

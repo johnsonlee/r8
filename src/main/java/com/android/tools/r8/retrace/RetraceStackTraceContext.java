@@ -10,7 +10,7 @@ import com.android.tools.r8.retrace.internal.RetraceStackTraceContextImpl;
 @Keep
 public interface RetraceStackTraceContext {
 
-  static RetraceStackTraceContext getInitialContext() {
+  static RetraceStackTraceContext empty() {
     return RetraceStackTraceContextImpl.builder().build();
   }
 }
