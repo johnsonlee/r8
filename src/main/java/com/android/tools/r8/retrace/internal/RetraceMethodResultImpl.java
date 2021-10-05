@@ -7,6 +7,7 @@ package com.android.tools.r8.retrace.internal;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.naming.ClassNamingForNameMapper.MappedRange;
 import com.android.tools.r8.naming.ClassNamingForNameMapper.MappedRangesOfName;
+import com.android.tools.r8.naming.mappinginformation.OutlineCallsiteMappingInformation;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.retrace.RetraceMethodElement;
 import com.android.tools.r8.retrace.RetraceMethodResult;
@@ -14,11 +15,13 @@ import com.android.tools.r8.retrace.RetraceStackTraceContext;
 import com.android.tools.r8.retrace.RetracedMethodReference;
 import com.android.tools.r8.retrace.RetracedSourceFile;
 import com.android.tools.r8.retrace.internal.RetraceClassResultImpl.RetraceClassElementImpl;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Pair;
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public class RetraceMethodResultImpl implements RetraceMethodResult {
@@ -62,38 +65,69 @@ public class RetraceMethodResultImpl implements RetraceMethodResult {
   }
 
   @Override
-  public RetraceFrameResultImpl narrowByPosition(RetraceStackTraceContext context, int position) {
+  public boolean isEmpty() {
+    return mappedRanges == null || mappedRanges.isEmpty();
+  }
+
+  @Override
+  public RetraceFrameResultImpl narrowByPosition(
+      RetraceStackTraceContext context, OptionalInt position) {
     List<Pair<RetraceClassElementImpl, List<MappedRange>>> narrowedRanges = new ArrayList<>();
-    List<Pair<RetraceClassElementImpl, List<MappedRange>>> noMappingRanges = new ArrayList<>();
+    RetraceStackTraceContextImpl stackTraceContext = null;
+    if (context instanceof RetraceStackTraceContextImpl) {
+      stackTraceContext = (RetraceStackTraceContextImpl) context;
+    }
     for (Pair<RetraceClassElementImpl, List<MappedRange>> mappedRange : mappedRanges) {
       if (mappedRange.getSecond() == null) {
-        noMappingRanges.add(new Pair<>(mappedRange.getFirst(), null));
+        narrowedRanges.add(new Pair<>(mappedRange.getFirst(), null));
         continue;
       }
-      List<MappedRange> ranges =
-          new MappedRangesOfName(mappedRange.getSecond()).allRangesForLine(position, false);
-      boolean hasAddedRanges = false;
-      if (!ranges.isEmpty()) {
-        narrowedRanges.add(new Pair<>(mappedRange.getFirst(), ranges));
-        hasAddedRanges = true;
-      } else {
-        narrowedRanges = new ArrayList<>();
-        for (MappedRange mapped : mappedRange.getSecond()) {
-          if (mapped.minifiedRange == null) {
-            narrowedRanges.add(new Pair<>(mappedRange.getFirst(), ImmutableList.of(mapped)));
-            hasAddedRanges = true;
+      MappedRangesOfName mappedRangesOfElement = new MappedRangesOfName(mappedRange.getSecond());
+      List<MappedRange> mappedRangesForPosition = null;
+      boolean hasPosition = position.isPresent() && position.getAsInt() >= 0;
+      if (hasPosition) {
+        mappedRangesForPosition =
+            mappedRangesOfElement.allRangesForLine(position.getAsInt(), false);
+      }
+      if (mappedRangesForPosition == null || mappedRangesForPosition.isEmpty()) {
+        mappedRangesForPosition =
+            hasPosition
+                ? ListUtils.filter(
+                    mappedRangesOfElement.getMappedRanges(), range -> range.minifiedRange == null)
+                : mappedRangesOfElement.getMappedRanges();
+      }
+      if (mappedRangesForPosition != null && !mappedRangesForPosition.isEmpty()) {
+        if (stackTraceContext != null && stackTraceContext.hasRewritePosition()) {
+          List<OutlineCallsiteMappingInformation> outlineCallsiteInformation =
+              ListUtils.last(mappedRangesForPosition).getOutlineCallsiteInformation();
+          if (!outlineCallsiteInformation.isEmpty()) {
+            assert outlineCallsiteInformation.size() == 1
+                : "There can only be one outline entry for a line";
+            return narrowByPosition(
+                stackTraceContext.buildFromThis().clearRewritePosition().build(),
+                OptionalInt.of(
+                    outlineCallsiteInformation
+                        .get(0)
+                        .rewritePosition(stackTraceContext.getRewritePosition())));
           }
         }
-      }
-      if (!hasAddedRanges) {
-        narrowedRanges.add(new Pair<>(mappedRange.getFirst(), null));
+        // Mapped ranges can have references to overloaded signatures. We distinguish those by
+        // looking at the cardinal mapping range.
+        for (MappedRange mappedRangeForPosition : mappedRangesForPosition) {
+          if (narrowedRanges.isEmpty()
+              || mappedRangeForPosition.originalRange == null
+              || !mappedRangeForPosition.originalRange.isCardinal) {
+            narrowedRanges.add(new Pair<>(mappedRange.getFirst(), new ArrayList<>()));
+          }
+          ListUtils.last(narrowedRanges).getSecond().add(mappedRangeForPosition);
+        }
       }
     }
     return new RetraceFrameResultImpl(
         classResult,
-        narrowedRanges.isEmpty() ? noMappingRanges : narrowedRanges,
+        narrowedRanges,
         methodDefinition,
-        OptionalInt.of(position),
+        position,
         retracer,
         (RetraceStackTraceContextImpl) context);
   }
@@ -114,17 +148,19 @@ public class RetraceMethodResultImpl implements RetraceMethodResult {
                             methodDefinition.substituteHolder(
                                 classElement.getRetracedClass().getClassReference()))));
               }
-              return mappedRanges.stream()
-                  .map(
-                      mappedRange -> {
-                        MethodReference methodReference =
-                            RetraceUtils.methodReferenceFromMappedRange(
-                                mappedRange, classElement.getRetracedClass().getClassReference());
-                        return new ElementImpl(
-                            this,
-                            classElement,
-                            RetracedMethodReferenceImpl.create(methodReference));
-                      });
+              List<ElementImpl> results = new ArrayList<>();
+              Set<MethodReference> seenMethodReferences = new HashSet<>();
+              for (MappedRange mappedRange : mappedRanges) {
+                MethodReference methodReference =
+                    RetraceUtils.methodReferenceFromMappedRange(
+                        mappedRange, classElement.getRetracedClass().getClassReference());
+                if (seenMethodReferences.add(methodReference)) {
+                  results.add(
+                      new ElementImpl(
+                          this, classElement, RetracedMethodReferenceImpl.create(methodReference)));
+                }
+              }
+              return results.stream();
             });
   }
 

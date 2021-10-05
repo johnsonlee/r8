@@ -273,8 +273,6 @@ def r8DesugaredPath = "$buildDir/libs/r8desugared.jar"
 def r8LibGeneratedKeepRulesPath = "$buildDir/generated/keep.txt"
 def r8LibTestPath = "$buildDir/classes/r8libtest"
 def java11ClassFiles = "$buildDir/classes/java/mainJava11"
-def r8RetracePath = "$buildDir/libs/r8retrace.jar"
-def r8RetraceExludeDepsPath = "$buildDir/libs/r8retrace-exclude-deps.jar"
 
 def osString = OperatingSystem.current().isLinux() ? "linux" :
         OperatingSystem.current().isMacOsX() ? "mac" : "windows"
@@ -303,6 +301,7 @@ def cloudDependencies = [
                 "android_jar/api-versions",
                 "android_jar/api-database",
                 "api-outlining/simple-app-dump",
+                "binary_compatibility_tests/compiler_api_tests",
                 "core-lambda-stubs",
                 "dart-sdk",
                 "ddmlib",
@@ -1106,30 +1105,6 @@ task R8Desugared(type: Exec) {
     outputs.file r8DesugaredPath
 }
 
-task R8Retrace {
-    dependsOn R8Lib
-    dependsOn r8LibCreateTask(
-            "Retrace",
-            ["src/main/keep_retrace.txt"],
-            R8Lib,
-            r8RetracePath,
-    ).dependsOn(R8Lib)
-    outputs.file r8RetracePath
-}
-
-task R8RetraceNoDeps {
-    dependsOn R8LibNoDeps
-    dependsOn r8LibCreateTask(
-            "RetraceNoDeps",
-            ["src/main/keep_retrace.txt"],
-            R8LibNoDeps,
-            r8RetraceExludeDepsPath,
-            "--release",
-            repackageDeps.outputs.files
-    ).dependsOn(R8LibNoDeps)
-    outputs.file r8RetraceExludeDepsPath
-}
-
 task sourceJar(type: Jar, dependsOn: classes) {
     classifier = 'src'
     from sourceSets.main.allSource
@@ -1183,42 +1158,6 @@ task buildR8ApiUsageSample(type: Jar) {
 
 task buildApiSampleJars {
     dependsOn buildR8ApiUsageSample
-}
-
-task buildDebugInfoExamplesDex {
-    def examplesDir = file("src/test/java")
-    def hostJar = "debuginfo_examples.jar"
-    def hostDexJar = "debuginfo_examples_dex.jar"
-    task "compile_debuginfo_examples"(type: JavaCompile) {
-        source = fileTree(dir: examplesDir, include: "com/android/tools/r8/debuginfo/*Test.java")
-        destinationDir = file("build/test/debuginfo_examples/classes")
-        classpath = sourceSets.main.compileClasspath
-        sourceCompatibility = JavaVersion.VERSION_1_7
-        targetCompatibility = JavaVersion.VERSION_1_7
-        options.compilerArgs += ["-Xlint:-options"]
-    }
-    task "jar_debuginfo_examples"(type: Jar, dependsOn: "compile_debuginfo_examples") {
-        archiveName = hostJar
-        destinationDir = file("build/test/")
-        from "build/test/debuginfo_examples/classes"
-        include "**/*.class"
-    }
-    task "dex_debuginfo_examples"(type: Exec,
-            dependsOn: ["jar_debuginfo_examples", "downloadDeps"]) {
-        if (OperatingSystem.current().isWindows()) {
-            executable file("tools/windows/dx/bin/dx.bat")
-        } else if (OperatingSystem.current().isMacOsX()) {
-            executable file("tools/mac/dx/bin/dx");
-        } else {
-            executable file("tools/linux/dx/bin/dx");
-        }
-        args "--dex"
-        args "--output=build/test/${hostDexJar}"
-        args "build/test/${hostJar}"
-        inputs.files files("build/test/${hostJar}")
-        outputs.file file("build/test/${hostDexJar}")
-    }
-    dependsOn dex_debuginfo_examples
 }
 
 task buildDebugTestResourcesJars {
@@ -2379,7 +2318,6 @@ test { task ->
         dependsOn buildSmali
         dependsOn jctfCommonJar
         dependsOn jctfTestsClasses
-        dependsOn buildDebugInfoExamplesDex
         dependsOn buildPreNJdwpTestsJar
         dependsOn buildPreNJdwpTestsDex
         dependsOn compileTestNGRunner

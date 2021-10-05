@@ -7,6 +7,7 @@ package com.android.tools.r8.retrace;
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
@@ -23,8 +24,7 @@ import com.android.tools.r8.retrace.stacktraces.AmbiguousMethodVerboseStackTrace
 import com.android.tools.r8.retrace.stacktraces.AmbiguousMissingLineStackTrace;
 import com.android.tools.r8.retrace.stacktraces.AmbiguousStackTrace;
 import com.android.tools.r8.retrace.stacktraces.AmbiguousWithMultipleLineMappingsStackTrace;
-import com.android.tools.r8.retrace.stacktraces.AmbiguousWithSignatureNonVerboseStackTrace;
-import com.android.tools.r8.retrace.stacktraces.AmbiguousWithSignatureVerboseStackTrace;
+import com.android.tools.r8.retrace.stacktraces.AmbiguousWithSignatureStackTrace;
 import com.android.tools.r8.retrace.stacktraces.AutoStackTrace;
 import com.android.tools.r8.retrace.stacktraces.CircularReferenceStackTrace;
 import com.android.tools.r8.retrace.stacktraces.ColonInFileNameStackTrace;
@@ -33,6 +33,7 @@ import com.android.tools.r8.retrace.stacktraces.FileNameExtensionStackTrace;
 import com.android.tools.r8.retrace.stacktraces.FoundMethodVerboseStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineFileNameStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineFileNameWithInnerClassesStackTrace;
+import com.android.tools.r8.retrace.stacktraces.InlineInOutlineStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineNoLineNumberStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineSourceFileContextStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineWithLineNumbersStackTrace;
@@ -48,6 +49,10 @@ import com.android.tools.r8.retrace.stacktraces.NpeInlineRetraceStackTrace;
 import com.android.tools.r8.retrace.stacktraces.NullStackTrace;
 import com.android.tools.r8.retrace.stacktraces.ObfucatedExceptionClassStackTrace;
 import com.android.tools.r8.retrace.stacktraces.ObfuscatedRangeToSingleLineStackTrace;
+import com.android.tools.r8.retrace.stacktraces.OutlineInOutlineStackTrace;
+import com.android.tools.r8.retrace.stacktraces.OutlineSimpleStackTrace;
+import com.android.tools.r8.retrace.stacktraces.OutlineWithInliningStackTrace;
+import com.android.tools.r8.retrace.stacktraces.OutsideLineRangeStackTraceTest;
 import com.android.tools.r8.retrace.stacktraces.OverloadSameLineTest;
 import com.android.tools.r8.retrace.stacktraces.RetraceAssertionErrorStackTrace;
 import com.android.tools.r8.retrace.stacktraces.SingleLineNoLineNumberStackTrace;
@@ -177,8 +182,8 @@ public class RetraceTests extends TestBase {
   }
 
   @Test
-  public void testAmbiguousMissingLineNotVerbose() throws Exception {
-    runRetraceTest(new AmbiguousWithSignatureNonVerboseStackTrace());
+  public void testAmbiguousMissingLine() throws Exception {
+    runRetraceTest(new AmbiguousWithSignatureStackTrace());
   }
 
   @Test
@@ -308,11 +313,6 @@ public class RetraceTests extends TestBase {
   }
 
   @Test
-  public void testAmbiguousMissingLineVerbose() throws Exception {
-    runRetraceTest(new AmbiguousWithSignatureVerboseStackTrace());
-  }
-
-  @Test
   public void testNpeInlineRetraceStackTrace() throws Exception {
     runExperimentalRetraceTest(new NpeInlineRetraceStackTrace());
   }
@@ -325,6 +325,31 @@ public class RetraceTests extends TestBase {
   @Test
   public void testDifferentLineNumberSpanStackTrace() throws Exception {
     runRetraceTest(new DifferentLineNumberSpanStackTrace());
+  }
+
+  @Test
+  public void testOutlineSimpleStackTrace() throws Exception {
+    runExperimentalRetraceTest(new OutlineSimpleStackTrace());
+  }
+
+  @Test
+  public void testOutlineWithInliningStackTrace() throws Exception {
+    runExperimentalRetraceTest(new OutlineWithInliningStackTrace());
+  }
+
+  @Test
+  public void testOutlineInOutlineStackTrace() throws Exception {
+    runExperimentalRetraceTest(new OutlineInOutlineStackTrace());
+  }
+
+  @Test
+  public void testInlineInOutlineStackTrace() throws Exception {
+    runExperimentalRetraceTest(new InlineInOutlineStackTrace());
+  }
+
+  @Test
+  public void testOutsideLineRangeStackTraceTest() throws Exception {
+    runRetraceTest(new OutsideLineRangeStackTraceTest());
   }
 
   private void inspectRetraceTest(
@@ -356,7 +381,8 @@ public class RetraceTests extends TestBase {
       assumeTrue(testParameters.isCfRuntime());
       // The external dependency is built on top of R8Lib. If test.py is run with
       // no r8lib, do not try and run the external R8 Retrace since it has not been built.
-      assumeTrue(Files.exists(ToolHelper.R8LIB_JAR));
+      assumeTrue(ToolHelper.isTestingR8Lib());
+      assertTrue(Files.exists(ToolHelper.R8LIB_JAR));
       Path path = temp.newFolder().toPath();
       Path mappingFile = path.resolve("mapping");
       Files.write(mappingFile, stackTraceForTest.mapping().getBytes());
@@ -370,7 +396,7 @@ public class RetraceTests extends TestBase {
       command.add(testParameters.getRuntime().asCf().getJavaExecutable().toString());
       command.add("-ea");
       command.add("-cp");
-      command.add(ToolHelper.R8_RETRACE_JAR.toString());
+      command.add(ToolHelper.R8LIB_JAR.toString());
       if (allowExperimentalMapping) {
         command.add("-Dcom.android.tools.r8.experimentalmapping");
       }

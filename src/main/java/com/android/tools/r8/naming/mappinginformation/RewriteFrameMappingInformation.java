@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.naming.mappinginformation;
 
+import static com.android.tools.r8.naming.mappinginformation.RewriteFrameMappingInformation.RemoveInnerFramesAction.REMOVE_INNER_FRAMES_NAME;
+
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.naming.MapVersion;
@@ -15,6 +17,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -99,6 +102,11 @@ public class RewriteFrameMappingInformation extends MappingInformation {
     return this;
   }
 
+  public static RewriteFrameMappingInformation create(
+      List<Condition> conditions, List<RewriteAction> actions) {
+    return new RewriteFrameMappingInformation(conditions, actions);
+  }
+
   public abstract static class Condition {
 
     protected abstract JsonPrimitive serialize();
@@ -114,7 +122,7 @@ public class RewriteFrameMappingInformation extends MappingInformation {
       if (ThrowsCondition.FUNCTION_NAME.equals(functionName)) {
         return ThrowsCondition.deserialize(contents);
       }
-      throw new Unimplemented("Unexpected condition: " + elementString);
+      throw new CompilationError("Unexpected condition: " + elementString);
     }
 
     public boolean isThrowsCondition() {
@@ -173,21 +181,7 @@ public class RewriteFrameMappingInformation extends MappingInformation {
 
   public abstract static class RewriteAction {
 
-    static final String REMOVE_INNER_FRAMES_SERIALIZED_NAME = "removeInnerFrames";
-
-    private static final String FUNCTION_KEY = "function";
-    private static final String ARGUMENTS_KEY = "arguments";
-
-    abstract String serializeName();
-
-    abstract JsonArray getArguments();
-
-    JsonElement serialize() {
-      JsonObject jsonObject = new JsonObject();
-      jsonObject.add(FUNCTION_KEY, new JsonPrimitive(serializeName()));
-      jsonObject.add(ARGUMENTS_KEY, getArguments());
-      return jsonObject;
-    }
+    abstract JsonElement serialize();
 
     private static RewriteAction deserialize(JsonElement element) {
       String functionString = element.getAsString();
@@ -198,8 +192,8 @@ public class RewriteFrameMappingInformation extends MappingInformation {
       }
       String functionName = functionString.substring(0, startArgsIndex);
       String args = functionString.substring(startArgsIndex + 1, endArgsIndex);
-      if (REMOVE_INNER_FRAMES_SERIALIZED_NAME.equals(functionName)) {
-        return RemoveInnerFramesAction.create(args);
+      if (REMOVE_INNER_FRAMES_NAME.equals(functionName)) {
+        return RemoveInnerFramesAction.deserialize(args);
       }
       assert false : "Unknown function " + functionName;
       throw new Unimplemented("Unexpected action: " + functionName);
@@ -218,6 +212,8 @@ public class RewriteFrameMappingInformation extends MappingInformation {
 
   public static class RemoveInnerFramesAction extends RewriteAction {
 
+    static final String REMOVE_INNER_FRAMES_NAME = "removeInnerFrames";
+
     private final int numberOfFrames;
 
     public RemoveInnerFramesAction(int numberOfFrames) {
@@ -229,19 +225,8 @@ public class RewriteFrameMappingInformation extends MappingInformation {
     }
 
     @Override
-    String serializeName() {
-      return REMOVE_INNER_FRAMES_SERIALIZED_NAME;
-    }
-
-    @Override
-    JsonArray getArguments() {
-      JsonArray arguments = new JsonArray();
-      arguments.add(numberOfFrames);
-      return arguments;
-    }
-
-    static RemoveInnerFramesAction create(String args) {
-      return new RemoveInnerFramesAction(Integer.parseInt(args));
+    JsonElement serialize() {
+      return new JsonPrimitive(REMOVE_INNER_FRAMES_NAME + "(" + numberOfFrames + ")");
     }
 
     @Override
@@ -257,6 +242,42 @@ public class RewriteFrameMappingInformation extends MappingInformation {
     @Override
     public void evaluate(RetraceStackTraceCurrentEvaluationInformation.Builder builder) {
       builder.incrementRemoveInnerFramesCount(numberOfFrames);
+    }
+
+    static RemoveInnerFramesAction create(int numberOfFrames) {
+      return new RemoveInnerFramesAction(numberOfFrames);
+    }
+
+    public static RemoveInnerFramesAction deserialize(String contents) {
+      try {
+        return create(Integer.parseInt(contents));
+      } catch (NumberFormatException nfe) {
+        throw new CompilationError(
+            "Unexpected number for " + REMOVE_INNER_FRAMES_NAME + ": " + contents);
+      }
+    }
+  }
+
+  public static class RewritePreviousObfuscatedPosition extends RewriteAction {
+
+    private final Int2IntMap rewriteMap;
+
+    private RewritePreviousObfuscatedPosition(Int2IntMap rewriteMap) {
+      this.rewriteMap = rewriteMap;
+    }
+
+    @Override
+    JsonElement serialize() {
+      throw new CompilationError("Do not serialize this");
+    }
+
+    @Override
+    public void evaluate(RetraceStackTraceCurrentEvaluationInformation.Builder builder) {
+      builder.setPosition(rewriteMap.getOrDefault(builder.getPosition(), builder.getPosition()));
+    }
+
+    public static RewritePreviousObfuscatedPosition create(Int2IntMap rewriteMap) {
+      return new RewritePreviousObfuscatedPosition(rewriteMap);
     }
   }
 }

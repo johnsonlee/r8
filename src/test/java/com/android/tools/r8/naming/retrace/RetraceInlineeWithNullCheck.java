@@ -7,7 +7,6 @@ import static com.android.tools.r8.naming.retrace.StackTrace.isSame;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -53,7 +52,6 @@ public class RetraceInlineeWithNullCheck extends TestBase {
         .addKeepAttributeSourceFile()
         .setMinApi(parameters.getApiLevel())
         .enableInliningAnnotations()
-        .enableNeverClassInliningAnnotations()
         .run(parameters.getRuntime(), Caller.class)
         .assertFailureWithErrorThatThrows(NullPointerException.class)
         // TODO(b/197936862): The two should be the same
@@ -75,7 +73,6 @@ public class RetraceInlineeWithNullCheck extends TestBase {
     }
   }
 
-  @NeverClassInline
   static class Caller {
     @NeverInline
     static void caller(Foo f) {

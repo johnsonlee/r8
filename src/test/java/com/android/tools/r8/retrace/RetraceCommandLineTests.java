@@ -297,12 +297,13 @@ public class RetraceCommandLineTests {
     if (testExternal) {
       // The external dependency is built on top of R8Lib. If test.py is run with
       // no r8lib, do not try and run the external R8 Retrace since it has not been built.
-      assumeTrue(Files.exists(ToolHelper.R8LIB_JAR));
+      assumeTrue(ToolHelper.isTestingR8Lib());
+      assertTrue(Files.exists(ToolHelper.R8LIB_JAR));
       List<String> command = new ArrayList<>();
       command.add(ToolHelper.getSystemJavaExecutable());
       command.add("-ea");
       command.add("-cp");
-      command.add(ToolHelper.R8_RETRACE_JAR.toString());
+      command.add(ToolHelper.R8LIB_JAR.toString());
       command.add("com.android.tools.r8.retrace.Retrace");
       command.addAll(args);
       ProcessBuilder builder = new ProcessBuilder(command);
