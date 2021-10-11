@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.optimize.Inliner.InlineAction;
+import com.android.tools.r8.ir.optimize.Inliner.InlineResult;
 import com.android.tools.r8.ir.optimize.Inliner.InlineeWithReason;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
@@ -61,7 +62,7 @@ final class ForcedInliningOracle implements InliningOracle, InliningStrategy {
   }
 
   @Override
-  public InlineAction computeInlining(
+  public InlineResult computeInlining(
       InvokeMethod invoke,
       SingleResolutionResult resolutionResult,
       ProgramMethod singleTarget,
@@ -79,12 +80,7 @@ final class ForcedInliningOracle implements InliningOracle, InliningStrategy {
     if (info == null) {
       return null;
     }
-
     assert method.getDefinition() != info.target.getDefinition();
-    // Even though call to Inliner::performForcedInlining is supposed to be controlled by
-    // the caller, it's still suspicious if we want to force inline something that is marked
-    // with neverInline() flag.
-    assert !info.target.getDefinition().getOptimizationInfo().neverInline();
     assert passesInliningConstraints(
         invoke, resolutionResult, info.target, Reason.FORCE, whyAreYouNotInliningReporter);
     return new InlineAction(info.target, invoke, Reason.FORCE);

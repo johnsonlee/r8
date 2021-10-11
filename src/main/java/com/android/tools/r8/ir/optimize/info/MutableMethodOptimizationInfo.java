@@ -361,6 +361,10 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     return isFlagSet(HAS_BEEN_INLINED_INTO_SINGLE_CALL_SITE_FLAG);
   }
 
+  void unsetInlinedIntoSingleCallSite() {
+    clearFlag(HAS_BEEN_INLINED_INTO_SINGLE_CALL_SITE_FLAG);
+  }
+
   void markInlinedIntoSingleCallSite() {
     setFlag(HAS_BEEN_INLINED_INTO_SINGLE_CALL_SITE_FLAG);
   }
@@ -453,11 +457,6 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   @Override
   public boolean forceInline() {
     return inlining == InlinePreference.ForceInline;
-  }
-
-  @Override
-  public boolean neverInline() {
-    return inlining == InlinePreference.NeverInline;
   }
 
   @Override
@@ -594,13 +593,6 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     // For concurrent scenarios we should allow the flag to be already unset
     assert inlining == InlinePreference.Default || inlining == InlinePreference.ForceInline;
     inlining = InlinePreference.Default;
-  }
-
-  // TODO(b/140214568): Should be package-private.
-  public void markNeverInline() {
-    // For concurrent scenarios we should allow the flag to be already set
-    assert inlining == InlinePreference.Default || inlining == InlinePreference.NeverInline;
-    inlining = InlinePreference.NeverInline;
   }
 
   void markCheckNullReceiverBeforeAnySideEffect(boolean mark) {

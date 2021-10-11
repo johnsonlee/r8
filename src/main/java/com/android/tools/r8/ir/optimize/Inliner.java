@@ -86,8 +86,11 @@ public class Inliner {
   private final LensCodeRewriter lensCodeRewriter;
   final MainDexInfo mainDexInfo;
 
+  // The set of callers of single caller methods where the single caller method could not be inlined
+  // due to not being processed at the time of inlining.
+  private final LongLivedProgramMethodSetBuilder<ProgramMethodSet> singleInlineCallers;
+
   // State for inlining methods which are known to be called twice.
-  private boolean applyDoubleInlining = false;
   private LongLivedProgramMethodSetBuilder<ProgramMethodSet> doubleInlineCallers;
   private final ProgramMethodSet doubleInlineSelectedTargets = ProgramMethodSet.create();
   private final Map<DexEncodedMethod, ProgramMethod> doubleInlineeCandidates =
@@ -106,6 +109,8 @@ public class Inliner {
             : ImmutableSet.of(intrinsics.throwNpe, intrinsics.throwParameterIsNullException);
     this.lensCodeRewriter = lensCodeRewriter;
     this.mainDexInfo = appView.appInfo().getMainDexInfo();
+    this.singleInlineCallers =
+        LongLivedProgramMethodSetBuilder.createConcurrentForIdentitySet(appView.graphLens());
     availableApiExceptions =
         appView.options().canHaveDalvikCatchHandlerVerificationBug()
             ? new AvailableApiExceptions(appView.options())
@@ -149,8 +154,8 @@ public class Inliner {
     return false;
   }
 
-  boolean isDoubleInliningEnabled() {
-    return applyDoubleInlining;
+  boolean isDoubleInliningEnabled(MethodProcessor methodProcessor) {
+    return methodProcessor.isPostMethodProcessor();
   }
 
   private ConstraintWithTarget instructionAllowedForInlining(
@@ -210,19 +215,20 @@ public class Inliner {
   }
 
   synchronized boolean satisfiesRequirementsForDoubleInlining(
-      ProgramMethod method, ProgramMethod target) {
-    if (applyDoubleInlining) {
+      ProgramMethod method, ProgramMethod target, MethodProcessor methodProcessor) {
+    if (isDoubleInliningEnabled(methodProcessor)) {
       // Don't perform the actual inlining if this was not selected.
       return doubleInlineSelectedTargets.contains(target);
     }
 
     // Just preparing for double inlining.
-    recordDoubleInliningCandidate(method, target);
+    recordDoubleInliningCandidate(method, target, methodProcessor);
     return false;
   }
 
-  synchronized void recordDoubleInliningCandidate(ProgramMethod method, ProgramMethod target) {
-    if (applyDoubleInlining) {
+  synchronized void recordDoubleInliningCandidate(
+      ProgramMethod method, ProgramMethod target, MethodProcessor methodProcessor) {
+    if (isDoubleInliningEnabled(methodProcessor)) {
       return;
     }
 
@@ -250,9 +256,23 @@ public class Inliner {
     // The double inline callers are always rewritten up until the graph lens of the primary
     // optimization pass, so we can safely merge them into the methods to reprocess (which may be
     // rewritten with a newer graph lens).
-    postMethodProcessorBuilder.getMethodsToReprocessBuilder().merge(doubleInlineCallers);
+    postMethodProcessorBuilder
+        .getMethodsToReprocessBuilder()
+        .rewrittenWithLens(appView)
+        .merge(
+            doubleInlineCallers
+                .rewrittenWithLens(appView)
+                .removeIf(
+                    appView,
+                    method -> method.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite()))
+        .merge(
+            singleInlineCallers
+                .rewrittenWithLens(appView)
+                .removeIf(
+                    appView,
+                    method -> method.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite()));
     doubleInlineCallers = null;
-    applyDoubleInlining = true;
+    singleInlineCallers.clear();
   }
 
   /**
@@ -571,7 +591,18 @@ public class Inliner {
     }
   }
 
-  public static class InlineAction {
+  public abstract static class InlineResult {
+
+    InlineAction asInlineAction() {
+      return null;
+    }
+
+    boolean isRetryAction() {
+      return false;
+    }
+  }
+
+  public static class InlineAction extends InlineResult {
 
     public final ProgramMethod target;
     public final Invoke invoke;
@@ -584,6 +615,11 @@ public class Inliner {
       this.target = target;
       this.invoke = invoke;
       this.reason = reason;
+    }
+
+    @Override
+    InlineAction asInlineAction() {
+      return this;
     }
 
     void setShouldSynthesizeInitClass() {
@@ -799,6 +835,14 @@ public class Inliner {
     }
   }
 
+  public static class RetryAction extends InlineResult {
+
+    @Override
+    boolean isRetryAction() {
+      return true;
+    }
+  }
+
   static class InlineeWithReason {
 
     final Reason reason;
@@ -1004,7 +1048,7 @@ public class Inliner {
               oracle.isForcedInliningOracle()
                   ? NopWhyAreYouNotInliningReporter.getInstance()
                   : WhyAreYouNotInliningReporter.createFor(singleTarget, appView, context);
-          InlineAction action =
+          InlineResult inlineResult =
               oracle.computeInlining(
                   invoke,
                   resolutionResult,
@@ -1012,10 +1056,17 @@ public class Inliner {
                   context,
                   classInitializationAnalysis,
                   whyAreYouNotInliningReporter);
-          if (action == null) {
+          if (inlineResult == null) {
             assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
             continue;
           }
+
+          if (inlineResult.isRetryAction()) {
+            enqueueMethodForReprocessing(context);
+            continue;
+          }
+
+          InlineAction action = inlineResult.asInlineAction();
 
           DexProgramClass downcastClass = getDowncastTypeIfNeeded(strategy, invoke, singleTarget);
           if (downcastClass != null
@@ -1238,6 +1289,14 @@ public class Inliner {
       // Do nothing.
     }
     assert IteratorUtils.peekNext(blockIterator) == firstInlineeBlock;
+  }
+
+  public void enqueueMethodForReprocessing(ProgramMethod method) {
+    singleInlineCallers.add(method, appView.graphLens());
+  }
+
+  public void pruneMethod(ProgramMethod method) {
+    singleInlineCallers.remove(method.getReference(), appView.graphLens());
   }
 
   public static boolean verifyNoMethodsInlinedDueToSingleCallSite(AppView<?> appView) {

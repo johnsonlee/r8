@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -52,6 +53,7 @@ import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.graph.TreeFixerBase;
 import com.android.tools.r8.graph.UseRegistry;
+import com.android.tools.r8.graph.UseRegistryWithResult;
 import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
 import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
@@ -440,19 +442,6 @@ public class VerticalClassMerger {
       }
       return false;
     }
-    // Only merge if api reference level of source class is equal to target class.
-    if (appView.options().apiModelingOptions().enableApiCallerIdentification) {
-      AndroidApiLevel sourceApiLevel =
-          sourceClass.getApiReferenceLevel(appView, apiReferenceLevelCache::lookupMax);
-      AndroidApiLevel targetApiLevel =
-          targetClass.getApiReferenceLevel(appView, apiReferenceLevelCache::lookupMax);
-      if (sourceApiLevel != targetApiLevel) {
-        if (Log.ENABLED) {
-          AbortReason.API_REFERENCE_LEVEL.printLogMessageForClass(sourceClass);
-        }
-        return false;
-      }
-    }
     return true;
   }
 
@@ -518,6 +507,20 @@ public class VerticalClassMerger {
       }
       return false;
     }
+    // Only merge if api reference level of source class is equal to target class. The check is
+    // somewhat expensive.
+    if (appView.options().apiModelingOptions().enableApiCallerIdentification) {
+      AndroidApiLevel sourceApiLevel =
+          sourceClass.getApiReferenceLevel(appView, apiReferenceLevelCache::lookupMax);
+      AndroidApiLevel targetApiLevel =
+          targetClass.getApiReferenceLevel(appView, apiReferenceLevelCache::lookupMax);
+      if (sourceApiLevel != targetApiLevel) {
+        if (Log.ENABLED) {
+          AbortReason.API_REFERENCE_LEVEL.printLogMessageForClass(sourceClass);
+        }
+        return false;
+      }
+    }
     return true;
   }
 
@@ -559,13 +562,13 @@ public class VerticalClassMerger {
     // Check that all accesses from [source] to classes or members from the current package of
     // [source] will continue to work. This is guaranteed if the methods of [source] do not access
     // any private or protected classes or members from the current package of [source].
-    IllegalAccessDetector registry = new IllegalAccessDetector(appView, source);
     TraversalContinuation result =
         source.traverseProgramMethods(
             method -> {
-              registry.setContext(method);
-              method.registerCodeReferences(registry);
-              if (registry.foundIllegalAccess()) {
+              boolean foundIllegalAccess =
+                  method.registerCodeReferencesWithResult(
+                      new IllegalAccessDetector(appView, method));
+              if (foundIllegalAccess) {
                 return TraversalContinuation.BREAK;
               }
               return TraversalContinuation.CONTINUE;
@@ -1977,78 +1980,66 @@ public class VerticalClassMerger {
 
   // Searches for a reference to a non-public class, field or method declared in the same package
   // as [source].
-  public static class IllegalAccessDetector extends UseRegistry {
-
-    private boolean foundIllegalAccess;
-    private ProgramMethod context;
+  public static class IllegalAccessDetector extends UseRegistryWithResult<Boolean, ProgramMethod> {
 
     private final AppView<? extends AppInfoWithClassHierarchy> appView;
-    private final DexClass source;
 
     public IllegalAccessDetector(
-        AppView<? extends AppInfoWithClassHierarchy> appView, DexClass source) {
-      super(appView.dexItemFactory());
+        AppView<? extends AppInfoWithClassHierarchy> appView, ProgramMethod context) {
+      super(context, appView.dexItemFactory(), false);
       this.appView = appView;
-      this.source = source;
     }
 
-    public boolean foundIllegalAccess() {
-      return foundIllegalAccess;
-    }
+    private boolean checkFieldReference(DexField field) {
+      DexType baseType =
+          appView.graphLens().lookupType(field.holder.toBaseType(appView.dexItemFactory()));
+      if (baseType.isClassType() && baseType.isSamePackage(getContext().getHolderType())) {
+        if (checkTypeReference(field.holder) || checkTypeReference(field.type)) {
+          return true;
+        }
 
-    public void setContext(ProgramMethod context) {
-      this.context = context;
-    }
-
-    private void checkFieldReference(DexField field) {
-      if (!foundIllegalAccess) {
-        DexType baseType =
-            appView.graphLens().lookupType(field.holder.toBaseType(appView.dexItemFactory()));
-        if (baseType.isClassType() && baseType.isSamePackage(source.type)) {
-          checkTypeReference(field.holder);
-          checkTypeReference(field.type);
-
-          DexEncodedField definition = appView.appInfo().resolveField(field).getResolvedField();
-          if (definition == null || !definition.accessFlags.isPublic()) {
-            foundIllegalAccess = true;
-          }
+        DexEncodedField definition = appView.appInfo().resolveField(field).getResolvedField();
+        if (definition == null || !definition.accessFlags.isPublic()) {
+          setResult(true);
+          return true;
         }
       }
+      return false;
     }
 
-    private void checkMethodReference(DexMethod method, OptionalBool isInterface) {
-      if (!foundIllegalAccess) {
-        DexType baseType =
-            appView.graphLens().lookupType(method.holder.toBaseType(appView.dexItemFactory()));
-        if (baseType.isClassType() && baseType.isSamePackage(source.type)) {
-          checkTypeReference(method.holder);
-          checkTypeReference(method.proto.returnType);
-          for (DexType type : method.proto.parameters.values) {
-            checkTypeReference(type);
-          }
-          MethodResolutionResult resolutionResult =
-              isInterface.isUnknown()
-                  ? appView.appInfo().unsafeResolveMethodDueToDexFormat(method)
-                  : appView.appInfo().resolveMethod(method, isInterface.isTrue());
-          if (!resolutionResult.isSingleResolution()
-              || !resolutionResult.asSingleResolution().getResolvedMethod().isPublic()) {
-            foundIllegalAccess = true;
-          }
+    private boolean checkMethodReference(DexMethod method, OptionalBool isInterface) {
+      DexType baseType =
+          appView.graphLens().lookupType(method.holder.toBaseType(appView.dexItemFactory()));
+      if (baseType.isClassType() && baseType.isSamePackage(getContext().getHolderType())) {
+        if (checkTypeReference(method.holder)
+            || checkTypeReference(method.proto.returnType)
+            || Iterables.any(method.getParameters(), this::checkTypeReference)) {
+          return true;
+        }
+
+        MethodResolutionResult resolutionResult =
+            isInterface.isUnknown()
+                ? appView.appInfo().unsafeResolveMethodDueToDexFormat(method)
+                : appView.appInfo().resolveMethod(method, isInterface.isTrue());
+        if (!resolutionResult.isSingleResolution()
+            || !resolutionResult.asSingleResolution().getResolvedMethod().isPublic()) {
+          setResult(true);
+          return true;
         }
       }
+      return false;
     }
 
-    private void checkTypeReference(DexType type) {
-      if (!foundIllegalAccess) {
-        DexType baseType =
-            appView.graphLens().lookupType(type.toBaseType(appView.dexItemFactory()));
-        if (baseType.isClassType() && baseType.isSamePackage(source.type)) {
-          DexClass clazz = appView.definitionFor(baseType);
-          if (clazz == null || !clazz.accessFlags.isPublic()) {
-            foundIllegalAccess = true;
-          }
+    private boolean checkTypeReference(DexType type) {
+      DexType baseType = appView.graphLens().lookupType(type.toBaseType(appView.dexItemFactory()));
+      if (baseType.isClassType() && baseType.isSamePackage(getContext().getHolderType())) {
+        DexClass clazz = appView.definitionFor(baseType);
+        if (clazz == null || !clazz.accessFlags.isPublic()) {
+          setResult(true);
+          return true;
         }
       }
+      return false;
     }
 
     @Override
@@ -2058,41 +2049,36 @@ public class VerticalClassMerger {
 
     @Override
     public void registerInvokeVirtual(DexMethod method) {
-      assert context != null;
       MethodLookupResult lookup =
-          appView.graphLens().lookupMethod(method, context.getReference(), Type.VIRTUAL);
+          appView.graphLens().lookupMethod(method, getContext().getReference(), Type.VIRTUAL);
       checkMethodReference(lookup.getReference(), OptionalBool.FALSE);
     }
 
     @Override
     public void registerInvokeDirect(DexMethod method) {
-      assert context != null;
       MethodLookupResult lookup =
-          appView.graphLens().lookupMethod(method, context.getReference(), Type.DIRECT);
+          appView.graphLens().lookupMethod(method, getContext().getReference(), Type.DIRECT);
       checkMethodReference(lookup.getReference(), OptionalBool.UNKNOWN);
     }
 
     @Override
     public void registerInvokeStatic(DexMethod method) {
-      assert context != null;
       MethodLookupResult lookup =
-          appView.graphLens().lookupMethod(method, context.getReference(), Type.STATIC);
+          appView.graphLens().lookupMethod(method, getContext().getReference(), Type.STATIC);
       checkMethodReference(lookup.getReference(), OptionalBool.UNKNOWN);
     }
 
     @Override
     public void registerInvokeInterface(DexMethod method) {
-      assert context != null;
       MethodLookupResult lookup =
-          appView.graphLens().lookupMethod(method, context.getReference(), Type.INTERFACE);
+          appView.graphLens().lookupMethod(method, getContext().getReference(), Type.INTERFACE);
       checkMethodReference(lookup.getReference(), OptionalBool.TRUE);
     }
 
     @Override
     public void registerInvokeSuper(DexMethod method) {
-      assert context != null;
       MethodLookupResult lookup =
-          appView.graphLens().lookupMethod(method, context.getReference(), Type.SUPER);
+          appView.graphLens().lookupMethod(method, getContext().getReference(), Type.SUPER);
       checkMethodReference(lookup.getReference(), OptionalBool.UNKNOWN);
     }
 
@@ -2184,7 +2170,7 @@ public class VerticalClassMerger {
     }
 
     @Override
-    public Consumer<UseRegistry> getRegistryCallback() {
+    public Consumer<UseRegistry> getRegistryCallback(DexClassAndMethod method) {
       return registry -> {
         assert registry.getTraversalContinuation().shouldContinue();
         switch (type) {

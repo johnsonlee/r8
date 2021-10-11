@@ -27,10 +27,12 @@ import com.android.tools.r8.retrace.stacktraces.AmbiguousWithMultipleLineMapping
 import com.android.tools.r8.retrace.stacktraces.AmbiguousWithSignatureStackTrace;
 import com.android.tools.r8.retrace.stacktraces.AutoStackTrace;
 import com.android.tools.r8.retrace.stacktraces.CircularReferenceStackTrace;
+import com.android.tools.r8.retrace.stacktraces.ClassWithDashStackTrace;
 import com.android.tools.r8.retrace.stacktraces.ColonInFileNameStackTrace;
 import com.android.tools.r8.retrace.stacktraces.DifferentLineNumberSpanStackTrace;
 import com.android.tools.r8.retrace.stacktraces.FileNameExtensionStackTrace;
 import com.android.tools.r8.retrace.stacktraces.FoundMethodVerboseStackTrace;
+import com.android.tools.r8.retrace.stacktraces.IdentityMappingStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineFileNameStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineFileNameWithInnerClassesStackTrace;
 import com.android.tools.r8.retrace.stacktraces.InlineInOutlineStackTrace;
@@ -97,6 +99,11 @@ public class RetraceTests extends TestBase {
     this.testParameters = parameters;
     this.external = external;
     this.verbose = verbose;
+  }
+
+  @Test
+  public void testClassWithDashStackTrace() throws Exception {
+    runRetraceTest(new ClassWithDashStackTrace());
   }
 
   @Test
@@ -350,6 +357,11 @@ public class RetraceTests extends TestBase {
   @Test
   public void testOutsideLineRangeStackTraceTest() throws Exception {
     runRetraceTest(new OutsideLineRangeStackTraceTest());
+  }
+
+  @Test
+  public void testIdentityMappingStackTrace() throws Exception {
+    runRetraceTest(new IdentityMappingStackTrace());
   }
 
   private void inspectRetraceTest(

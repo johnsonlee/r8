@@ -11,10 +11,11 @@ import com.android.tools.r8.DexFilePerClassFileConsumer;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DumpOptions;
 import com.android.tools.r8.FeatureSplit;
+import com.android.tools.r8.MapIdProvider;
 import com.android.tools.r8.ProgramConsumer;
 import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.Version;
-import com.android.tools.r8.androidapi.AndroidApiClass;
+import com.android.tools.r8.androidapi.AndroidApiForHashingClass;
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Backend;
@@ -33,6 +34,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexLibraryClass;
@@ -85,12 +87,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -281,6 +281,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public BiPredicate<String, Long> dexClassChecksumFilter = (name, checksum) -> true;
   public boolean cfToCfDesugar = false;
   public boolean forceAnnotateSynthetics = false;
+  public boolean readDebugSetFileEvent = false;
 
   public int callGraphLikelySpuriousCallEdgeThreshold = 50;
 
@@ -866,6 +867,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public Consumer<List<ProguardConfigurationRule>> syntheticProguardRulesConsumer = null;
 
+  public MapIdProvider mapIdProvider = null;
+
   public static boolean assertionsEnabled() {
     boolean assertionsEnabled = false;
     assert assertionsEnabled = true; // Intentional side-effect.
@@ -1370,8 +1373,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public boolean enableApiCallerIdentification = false;
     public boolean checkAllApiReferencesAreSet = true;
+    public boolean useHashingDatabase = true;
 
-    public void visitMockedApiReferences(BiConsumer<ClassReference, AndroidApiClass> consumer) {
+    public void visitMockedApiLevelsForReferences(
+        DexItemFactory factory, Consumer<AndroidApiForHashingClass> consumer) {
       if (methodApiMapping.isEmpty() && fieldApiMapping.isEmpty() && classApiMapping.isEmpty()) {
         return;
       }
@@ -1385,62 +1390,37 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       classReferences.forEach(
           classReference -> {
             consumer.accept(
-                classReference,
-                new AndroidApiClass(classReference) {
+                new AndroidApiForHashingClass() {
+                  @Override
+                  public DexType getType() {
+                    return factory.createType(classReference.getDescriptor());
+                  }
+
                   @Override
                   public AndroidApiLevel getApiLevel() {
-                    return classApiMapping.getOrDefault(classReference, AndroidApiLevel.B);
+                    return classApiMapping.getOrDefault(classReference, AndroidApiLevel.UNKNOWN);
                   }
 
                   @Override
-                  public int getMemberCount() {
-                    return 0;
+                  public void visitMethodsWithApiLevels(
+                      BiConsumer<DexMethod, AndroidApiLevel> consumer) {
+                    methodApiMapping.forEach(
+                        (methodReference, apiLevel) -> {
+                          if (methodReference.getHolderClass().equals(classReference)) {
+                            consumer.accept(factory.createMethod(methodReference), apiLevel);
+                          }
+                        });
                   }
 
                   @Override
-                  public TraversalContinuation visitFields(
-                      BiFunction<FieldReference, AndroidApiLevel, TraversalContinuation> visitor) {
-                    for (Entry<FieldReference, AndroidApiLevel> entry :
-                        fieldApiMapping.entrySet()) {
-                      if (!entry.getKey().getHolderClass().equals(classReference)) {
-                        continue;
-                      }
-                      if (EntryUtils.accept(entry, visitor).shouldBreak()) {
-                        return TraversalContinuation.BREAK;
-                      }
-                    }
-                    return TraversalContinuation.CONTINUE;
-                  }
-
-                  @Override
-                  public TraversalContinuation visitMethods(
-                      BiFunction<MethodReference, AndroidApiLevel, TraversalContinuation> visitor) {
-                    for (Entry<MethodReference, AndroidApiLevel> entry :
-                        methodApiMapping.entrySet()) {
-                      if (!entry.getKey().getHolderClass().equals(classReference)) {
-                        continue;
-                      }
-                      if (EntryUtils.accept(entry, visitor).shouldBreak()) {
-                        return TraversalContinuation.BREAK;
-                      }
-                    }
-                    return TraversalContinuation.CONTINUE;
-                  }
-
-                  @Override
-                  protected TraversalContinuation visitFields(
-                      BiFunction<FieldReference, AndroidApiLevel, TraversalContinuation> visitor,
-                      ClassReference holder,
-                      int minApi) {
-                    return null;
-                  }
-
-                  @Override
-                  protected TraversalContinuation visitMethods(
-                      BiFunction<MethodReference, AndroidApiLevel, TraversalContinuation> visitor,
-                      ClassReference holder,
-                      int minApi) {
-                    return null;
+                  public void visitFieldsWithApiLevels(
+                      BiConsumer<DexField, AndroidApiLevel> consumer) {
+                    fieldApiMapping.forEach(
+                        (fieldReference, apiLevel) -> {
+                          if (fieldReference.getHolderClass().equals(classReference)) {
+                            consumer.accept(factory.createField(fieldReference), apiLevel);
+                          }
+                        });
                   }
                 });
           });

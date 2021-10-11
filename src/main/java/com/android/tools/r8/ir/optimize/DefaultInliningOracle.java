@@ -12,7 +12,6 @@ import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexEncodedField;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
@@ -33,9 +32,10 @@ import com.android.tools.r8.ir.code.Monitor;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.optimize.Inliner.InlineAction;
+import com.android.tools.r8.ir.optimize.Inliner.InlineResult;
 import com.android.tools.r8.ir.optimize.Inliner.InlineeWithReason;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
-import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
+import com.android.tools.r8.ir.optimize.Inliner.RetryAction;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.inliner.InliningReasonStrategy;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
@@ -123,13 +123,6 @@ public final class DefaultInliningOracle implements InliningOracle, InliningStra
       ProgramMethod singleTarget,
       Reason reason,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
-    DexEncodedMethod singleTargetMethod = singleTarget.getDefinition();
-    MethodOptimizationInfo targetOptimizationInfo = singleTargetMethod.getOptimizationInfo();
-    if (targetOptimizationInfo.neverInline()) {
-      whyAreYouNotInliningReporter.reportMarkedAsNeverInline();
-      return false;
-    }
-
     // Do not inline if the inlinee is greater than the api caller level.
     // TODO(b/188498051): We should not force inline lower api method calls.
     if (reason != Reason.FORCE
@@ -147,10 +140,10 @@ public final class DefaultInliningOracle implements InliningOracle, InliningStra
       return false;
     }
 
-    if (method.getDefinition() == singleTargetMethod) {
+    if (method.isStructurallyEqualTo(singleTarget)) {
       // Cannot handle recursive inlining at this point.
       // Force inlined method should never be recursive.
-      assert !targetOptimizationInfo.forceInline();
+      assert !singleTarget.getOptimizationInfo().forceInline();
       whyAreYouNotInliningReporter.reportRecursiveMethod();
       return false;
     }
@@ -188,20 +181,22 @@ public final class DefaultInliningOracle implements InliningOracle, InliningStra
     }
 
     if (reason == Reason.DUAL_CALLER) {
+      assert methodProcessor.isPrimaryMethodProcessor() || methodProcessor.isPostMethodProcessor();
       if (satisfiesRequirementsForSimpleInlining(invoke, singleTarget)) {
         // When we have a method with two call sites, we simply inline the method as we normally do
         // when the method is small. We still need to ensure that the other call site is also
         // inlined, though. Therefore, we record here that we have seen one of the two call sites
         // as we normally do.
-        inliner.recordDoubleInliningCandidate(method, singleTarget);
-      } else if (inliner.isDoubleInliningEnabled()) {
-        if (!inliner.satisfiesRequirementsForDoubleInlining(method, singleTarget)) {
+        inliner.recordDoubleInliningCandidate(method, singleTarget, methodProcessor);
+      } else if (inliner.isDoubleInliningEnabled(methodProcessor)) {
+        if (!inliner.satisfiesRequirementsForDoubleInlining(
+            method, singleTarget, methodProcessor)) {
           whyAreYouNotInliningReporter.reportInvalidDoubleInliningCandidate();
           return false;
         }
       } else {
         // TODO(b/142300882): Should in principle disallow inlining in this case.
-        inliner.recordDoubleInliningCandidate(method, singleTarget);
+        inliner.recordDoubleInliningCandidate(method, singleTarget, methodProcessor);
       }
     } else if (reason == Reason.SIMPLE
         && !satisfiesRequirementsForSimpleInlining(invoke, singleTarget)) {
@@ -265,7 +260,7 @@ public final class DefaultInliningOracle implements InliningOracle, InliningStra
   }
 
   @Override
-  public InlineAction computeInlining(
+  public InlineResult computeInlining(
       InvokeMethod invoke,
       SingleResolutionResult resolutionResult,
       ProgramMethod singleTarget,
@@ -288,9 +283,19 @@ public final class DefaultInliningOracle implements InliningOracle, InliningStra
       return null;
     }
 
-    Reason reason = reasonStrategy.computeInliningReason(invoke, singleTarget, context);
+    Reason reason =
+        reasonStrategy.computeInliningReason(invoke, singleTarget, context, methodProcessor);
     if (reason == Reason.NEVER) {
       return null;
+    }
+
+    if (reason == Reason.SIMPLE
+        && !singleTarget.getDefinition().isProcessed()
+        && methodProcessor.isPrimaryMethodProcessor()) {
+      // The single target has this method as single caller, but the single target is not yet
+      // processed. Enqueue the context for processing in the secondary optimization pass to allow
+      // the single caller inlining to happen.
+      return new RetryAction();
     }
 
     if (!singleTarget
