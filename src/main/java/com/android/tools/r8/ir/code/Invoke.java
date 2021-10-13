@@ -16,12 +16,16 @@ import com.android.tools.r8.code.MoveResultWide;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle.MethodHandleType;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GraphLens;
+import com.android.tools.r8.graph.GraphLens.MethodLookupResult;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.DexBuilder;
@@ -53,12 +57,103 @@ public abstract class Invoke extends Instruction {
       this.dexOpcodeRange = dexOpcodeRange;
     }
 
+    public static Type fromCfOpcode(
+        int opcode, DexMethod invokedMethod, DexClassAndMethod context, AppView<?> appView) {
+      return fromCfOpcode(opcode, invokedMethod, context, appView, appView.codeLens());
+    }
+
+    public static Type fromCfOpcode(
+        int opcode,
+        DexMethod invokedMethod,
+        DexClassAndMethod context,
+        AppView<?> appView,
+        GraphLens codeLens) {
+      switch (opcode) {
+        case Opcodes.INVOKEINTERFACE:
+          return Type.INTERFACE;
+        case Opcodes.INVOKESPECIAL:
+          return fromInvokeSpecial(invokedMethod, context, appView, codeLens);
+        case Opcodes.INVOKESTATIC:
+          return Type.STATIC;
+        case Opcodes.INVOKEVIRTUAL:
+          return appView.dexItemFactory().polymorphicMethods.isPolymorphicInvoke(invokedMethod)
+              ? Type.POLYMORPHIC
+              : Type.VIRTUAL;
+        default:
+          throw new Unreachable("unknown CfInvoke opcode " + opcode);
+      }
+    }
+
+    public static Type fromInvokeSpecial(
+        DexMethod invokedMethod, DexClassAndMethod context, AppView<?> appView) {
+      return fromInvokeSpecial(invokedMethod, context, appView, appView.codeLens());
+    }
+
+    public static Type fromInvokeSpecial(
+        DexMethod invokedMethod,
+        DexClassAndMethod context,
+        AppView<?> appView,
+        GraphLens codeLens) {
+      if (invokedMethod.isInstanceInitializer(appView.dexItemFactory())) {
+        return Type.DIRECT;
+      }
+
+      GraphLens graphLens = appView.graphLens();
+      DexMethod originalContext =
+          graphLens.getOriginalMethodSignature(context.getReference(), codeLens);
+      if (invokedMethod.getHolderType() != originalContext.getHolderType()) {
+        return Type.SUPER;
+      }
+
+      MethodLookupResult lookupResult =
+          graphLens.lookupMethod(invokedMethod, context.getReference(), Type.DIRECT);
+      if (lookupResult.getType().isVirtual()) {
+        // This method has been publicized. The original invoke-type is DIRECT.
+        return Type.DIRECT;
+      }
+
+      DexEncodedMethod definition = context.getHolder().lookupMethod(lookupResult.getReference());
+      if (definition == null) {
+        return Type.SUPER;
+      }
+
+      // If the definition was moved to the current context from a super class due to vertical class
+      // merging, then this used to be an invoke-super.
+      DexType originalHolderOfDefinition =
+          graphLens.getOriginalMethodSignature(definition.getReference(), codeLens).getHolderType();
+      if (originalHolderOfDefinition != originalContext.getHolderType()) {
+        return Type.SUPER;
+      }
+
+      boolean originalContextIsInterface =
+          context.getHolder().isInterface()
+              || (appView.hasVerticallyMergedClasses()
+                  && appView
+                      .verticallyMergedClasses()
+                      .hasInterfaceBeenMergedIntoSubtype(originalContext.getHolderType()));
+      if (originalContextIsInterface) {
+        // On interfaces invoke-special should be mapped to invoke-super if the invoke-special
+        // instruction is used to target a default interface method.
+        if (definition.belongsToVirtualPool()) {
+          return Type.SUPER;
+        }
+      } else {
+        // Due to desugaring of invoke-special instructions that target virtual methods, this should
+        // never target a virtual method.
+        assert definition.isPrivate() || lookupResult.getType().isVirtual();
+      }
+
+      return Type.DIRECT;
+    }
+
     public int getCfOpcode() {
       switch (this) {
         case DIRECT:
           return Opcodes.INVOKESPECIAL;
         case INTERFACE:
           return Opcodes.INVOKEINTERFACE;
+        case POLYMORPHIC:
+          return Opcodes.INVOKEVIRTUAL;
         case STATIC:
           return Opcodes.INVOKESTATIC;
         case SUPER:
@@ -67,7 +162,6 @@ public abstract class Invoke extends Instruction {
           return Opcodes.INVOKEVIRTUAL;
         case NEW_ARRAY:
         case MULTI_NEW_ARRAY:
-        case POLYMORPHIC:
         default:
           throw new Unreachable();
       }

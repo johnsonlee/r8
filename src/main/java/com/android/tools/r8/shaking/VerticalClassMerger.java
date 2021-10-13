@@ -231,6 +231,9 @@ public class VerticalClassMerger {
   private final MutableBidirectionalManyToOneMap<DexType, DexType> mergedClasses =
       BidirectionalManyToOneHashMap.newIdentityHashMap();
 
+  private final MutableBidirectionalManyToOneMap<DexType, DexType> mergedInterfaces =
+      BidirectionalManyToOneHashMap.newIdentityHashMap();
+
   // Set of types that must not be merged into their subtype.
   private final Set<DexType> pinnedTypes = Sets.newIdentityHashSet();
 
@@ -441,6 +444,22 @@ public class VerticalClassMerger {
         AbortReason.MERGE_ACROSS_NESTS.printLogMessageForClass(sourceClass);
       }
       return false;
+    }
+
+    // If there is an invoke-special to a default interface method and we are not merging into an
+    // interface, then abort, since invoke-special to a virtual class method requires desugaring.
+    if (sourceClass.isInterface() && !targetClass.isInterface()) {
+      TraversalContinuation result =
+          sourceClass.traverseProgramMethods(
+              method -> {
+                boolean foundInvokeSpecialToDefaultLibraryMethod =
+                    method.registerCodeReferencesWithResult(
+                        new InvokeSpecialToDefaultLibraryMethodUseRegistry(appView, method));
+                return TraversalContinuation.breakIf(foundInvokeSpecialToDefaultLibraryMethod);
+              });
+      if (result.shouldBreak()) {
+        return false;
+      }
     }
     return true;
   }
@@ -685,7 +704,8 @@ public class VerticalClassMerger {
     }
     timing.end();
 
-    VerticallyMergedClasses verticallyMergedClasses = new VerticallyMergedClasses(mergedClasses);
+    VerticallyMergedClasses verticallyMergedClasses =
+        new VerticallyMergedClasses(mergedClasses, mergedInterfaces);
     appView.setVerticallyMergedClasses(verticallyMergedClasses);
     if (verticallyMergedClasses.isEmpty()) {
       return null;
@@ -1161,6 +1181,9 @@ public class VerticalClassMerger {
       source.clearStaticFields();
       // Step 5: Record merging.
       mergedClasses.put(source.type, target.type);
+      if (source.isInterface()) {
+        mergedInterfaces.put(source.type, target.type);
+      }
       assert !abortMerge;
       assert GenericSignatureCorrectnessHelper.createForVerification(
               appView, GenericSignatureContextBuilder.createForSingleClass(appView, target))
@@ -1860,7 +1883,7 @@ public class VerticalClassMerger {
         // Constructors can have references beyond the root main dex classes. This can increase the
         // size of the main dex dependent classes and we should bail out.
         if (mainDexInfo.disallowInliningIntoContext(
-            appView.appInfo(), context, method, appView.getSyntheticItems())) {
+            appView, context, method, appView.getSyntheticItems())) {
           return AbortReason.MAIN_DEX_ROOT_OUTSIDE_REFERENCE;
         }
         return null;
@@ -1893,11 +1916,6 @@ public class VerticalClassMerger {
 
     @Override
     public DexField getOriginalFieldSignature(DexField field) {
-      throw new Unreachable();
-    }
-
-    @Override
-    public DexMethod getOriginalMethodSignature(DexMethod method) {
       throw new Unreachable();
     }
 
@@ -1986,7 +2004,7 @@ public class VerticalClassMerger {
 
     public IllegalAccessDetector(
         AppView<? extends AppInfoWithClassHierarchy> appView, ProgramMethod context) {
-      super(context, appView.dexItemFactory(), false);
+      super(appView, context, false);
       this.appView = appView;
     }
 
@@ -2116,6 +2134,62 @@ public class VerticalClassMerger {
     public void registerInstanceOf(DexType type) {
       checkTypeReference(type);
     }
+  }
+
+  public static class InvokeSpecialToDefaultLibraryMethodUseRegistry
+      extends UseRegistryWithResult<Boolean, ProgramMethod> {
+
+    InvokeSpecialToDefaultLibraryMethodUseRegistry(
+        AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
+      super(appView, context, false);
+      assert context.getHolder().isInterface();
+    }
+
+    @Override
+    public void registerInvokeSpecial(DexMethod method) {
+      ProgramMethod context = getContext();
+      if (method.getHolderType() != context.getHolderType()) {
+        return;
+      }
+
+      DexEncodedMethod definition = context.getHolder().lookupMethod(method);
+      if (definition != null && definition.belongsToVirtualPool()) {
+        setResult(true);
+      }
+    }
+
+    @Override
+    public void registerInitClass(DexType type) {}
+
+    @Override
+    public void registerInvokeDirect(DexMethod method) {}
+
+    @Override
+    public void registerInvokeInterface(DexMethod method) {}
+
+    @Override
+    public void registerInvokeStatic(DexMethod method) {}
+
+    @Override
+    public void registerInvokeSuper(DexMethod method) {}
+
+    @Override
+    public void registerInvokeVirtual(DexMethod method) {}
+
+    @Override
+    public void registerInstanceFieldRead(DexField field) {}
+
+    @Override
+    public void registerInstanceFieldWrite(DexField field) {}
+
+    @Override
+    public void registerStaticFieldRead(DexField field) {}
+
+    @Override
+    public void registerStaticFieldWrite(DexField field) {}
+
+    @Override
+    public void registerTypeReference(DexType type) {}
   }
 
   protected static class SynthesizedBridgeCode extends AbstractSynthesizedCode {

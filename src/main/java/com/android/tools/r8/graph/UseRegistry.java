@@ -4,13 +4,14 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.code.CfOrDexInstruction;
+import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.ListIterator;
 
 public abstract class UseRegistry<T extends Definition> {
 
+  private final AppView<?> appView;
   private final T context;
-  private final DexItemFactory factory;
 
   private TraversalContinuation continuation = TraversalContinuation.CONTINUE;
 
@@ -19,9 +20,9 @@ public abstract class UseRegistry<T extends Definition> {
     NOT_ARGUMENT_TO_LAMBDA_METAFACTORY
   }
 
-  public UseRegistry(T context, DexItemFactory factory) {
+  public UseRegistry(AppView<?> appView, T context) {
+    this.appView = appView;
     this.context = context;
-    this.factory = factory;
   }
 
   public final void accept(ProgramMethod method) {
@@ -29,7 +30,7 @@ public abstract class UseRegistry<T extends Definition> {
   }
 
   public DexItemFactory dexItemFactory() {
-    return factory;
+    return appView.dexItemFactory();
   }
 
   public void doBreak() {
@@ -41,6 +42,11 @@ public abstract class UseRegistry<T extends Definition> {
     return context;
   }
 
+  public final DexClassAndMethod getMethodContext() {
+    assert context.isMethod();
+    return context.asMethod();
+  }
+
   public TraversalContinuation getTraversalContinuation() {
     return continuation;
   }
@@ -50,6 +56,21 @@ public abstract class UseRegistry<T extends Definition> {
   public abstract void registerInvokeVirtual(DexMethod method);
 
   public abstract void registerInvokeDirect(DexMethod method);
+
+  public void registerInvokeSpecial(DexMethod method, boolean itf) {
+    registerInvokeSpecial(method);
+  }
+
+  public void registerInvokeSpecial(DexMethod method) {
+    DexClassAndMethod context = getMethodContext();
+    Invoke.Type type = Invoke.Type.fromInvokeSpecial(method, context, appView);
+    if (type.isDirect()) {
+      registerInvokeDirect(method);
+    } else {
+      assert type.isSuper();
+      registerInvokeSuper(method);
+    }
+  }
 
   public abstract void registerInvokeStatic(DexMethod method);
 
@@ -100,16 +121,18 @@ public abstract class UseRegistry<T extends Definition> {
   }
 
   public void registerConstClass(
-      DexType type, ListIterator<? extends CfOrDexInstruction> iterator) {
+      DexType type,
+      ListIterator<? extends CfOrDexInstruction> iterator,
+      boolean ignoreCompatRules) {
     registerTypeReference(type);
   }
 
-  public void registerCheckCast(DexType type) {
+  public void registerCheckCast(DexType type, boolean ignoreCompatRules) {
     registerTypeReference(type);
   }
 
   public void registerSafeCheckCast(DexType type) {
-    registerCheckCast(type);
+    registerCheckCast(type, true);
   }
 
   public void registerExceptionGuard(DexType guard) {
@@ -157,7 +180,7 @@ public abstract class UseRegistry<T extends Definition> {
 
   public void registerCallSite(DexCallSite callSite) {
     boolean isLambdaMetaFactory =
-        factory.isLambdaMetafactoryMethod(callSite.bootstrapMethod.asMethod());
+        dexItemFactory().isLambdaMetafactoryMethod(callSite.bootstrapMethod.asMethod());
 
     if (!isLambdaMetaFactory) {
       registerMethodHandle(

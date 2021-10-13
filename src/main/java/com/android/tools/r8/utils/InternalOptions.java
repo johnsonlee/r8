@@ -13,6 +13,7 @@ import com.android.tools.r8.DumpOptions;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.MapIdProvider;
 import com.android.tools.r8.ProgramConsumer;
+import com.android.tools.r8.SourceFileProvider;
 import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.Version;
 import com.android.tools.r8.androidapi.AndroidApiForHashingClass;
@@ -179,23 +180,39 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   // Constructor for R8.
-  public InternalOptions(ProguardConfiguration proguardConfiguration, Reporter reporter) {
+  public InternalOptions(
+      CompilationMode mode, ProguardConfiguration proguardConfiguration, Reporter reporter) {
     assert reporter != null;
     assert proguardConfiguration != null;
+    this.debug = mode == CompilationMode.DEBUG;
     this.reporter = reporter;
     this.proguardConfiguration = proguardConfiguration;
     itemFactory = proguardConfiguration.getDexItemFactory();
     enableTreeShaking = proguardConfiguration.isShrinking();
     enableMinification = proguardConfiguration.isObfuscating();
-    // TODO(b/171457102): Avoid the need for this.
-    // -dontoptimize disables optimizations by flipping related flags.
     if (!proguardConfiguration.isOptimizing()) {
+      // TODO(b/171457102): Avoid the need for this.
+      // -dontoptimize disables optimizations by flipping related flags.
       disableAllOptimizations();
+    }
+    if (debug) {
+      assert !isMinifying();
+      assert !isOptimizing();
+      keepDebugRelatedInformation();
     }
     configurationDebugging = proguardConfiguration.isConfigurationDebugging();
     if (proguardConfiguration.isProtoShrinkingEnabled()) {
       enableProtoShrinking();
     }
+  }
+
+  private void keepDebugRelatedInformation() {
+    assert !proguardConfiguration.isObfuscating();
+    getProguardConfiguration().getKeepAttributes().sourceFile = true;
+    getProguardConfiguration().getKeepAttributes().sourceDebugExtension = true;
+    getProguardConfiguration().getKeepAttributes().lineNumberTable = true;
+    getProguardConfiguration().getKeepAttributes().localVariableTable = true;
+    getProguardConfiguration().getKeepAttributes().localVariableTypeTable = true;
   }
 
   void enableProtoShrinking() {
@@ -832,7 +849,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return usageInformationConsumer != null;
   }
 
-  // If null, no proguad seeds info needs to be computed.
+  // If null, no proguard seeds info needs to be computed.
   // If non null it must be and passed to the consumer.
   public StringConsumer proguardSeedsConsumer = null;
 
@@ -868,6 +885,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public Consumer<List<ProguardConfigurationRule>> syntheticProguardRulesConsumer = null;
 
   public MapIdProvider mapIdProvider = null;
+  public SourceFileProvider sourceFileProvider = null;
 
   public static boolean assertionsEnabled() {
     boolean assertionsEnabled = false;

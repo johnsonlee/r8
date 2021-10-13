@@ -285,7 +285,21 @@ public abstract class GraphLens {
 
   public abstract DexField getOriginalFieldSignature(DexField field);
 
-  public abstract DexMethod getOriginalMethodSignature(DexMethod method);
+  public final DexMethod getOriginalMethodSignature(DexMethod method) {
+    return getOriginalMethodSignature(method, null);
+  }
+
+  public final DexMethod getOriginalMethodSignature(DexMethod method, GraphLens atGraphLens) {
+    GraphLens current = this;
+    DexMethod original = method;
+    while (current.isNonIdentityLens() && current != atGraphLens) {
+      NonIdentityGraphLens nonIdentityLens = current.asNonIdentityLens();
+      original = nonIdentityLens.internalGetPreviousMethodSignature(original);
+      current = nonIdentityLens.getPrevious();
+    }
+    assert atGraphLens == null ? current.isIdentityLens() : (current == atGraphLens);
+    return original;
+  }
 
   public abstract DexField getRenamedFieldSignature(DexField originalField);
 
@@ -452,6 +466,10 @@ public abstract class GraphLens {
   }
 
   public boolean isAppliedLens() {
+    return false;
+  }
+
+  public boolean isClearCodeRewritingLens() {
     return false;
   }
 
@@ -856,11 +874,6 @@ public abstract class GraphLens {
     }
 
     @Override
-    public DexMethod getOriginalMethodSignature(DexMethod method) {
-      return method;
-    }
-
-    @Override
     public DexField getRenamedFieldSignature(DexField originalField) {
       return originalField;
     }
@@ -950,11 +963,6 @@ public abstract class GraphLens {
     }
 
     @Override
-    public DexMethod getOriginalMethodSignature(DexMethod method) {
-      return getPrevious().getOriginalMethodSignature(method);
-    }
-
-    @Override
     public DexField getRenamedFieldSignature(DexField originalField) {
       return getPrevious().getRenamedFieldSignature(originalField);
     }
@@ -964,6 +972,11 @@ public abstract class GraphLens {
       return this != applied
           ? getPrevious().getRenamedMethodSignature(originalMethod, applied)
           : originalMethod;
+    }
+
+    @Override
+    public boolean isClearCodeRewritingLens() {
+      return true;
     }
 
     @Override
