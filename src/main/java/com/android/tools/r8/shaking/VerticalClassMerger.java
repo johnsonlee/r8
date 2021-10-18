@@ -48,6 +48,7 @@ import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
@@ -717,7 +718,10 @@ public class VerticalClassMerger {
                 appView, lensBuilder, verticallyMergedClasses, synthesizedBridges)
             .fixupTypeReferences();
     KeepInfoCollection keepInfo = appView.appInfo().getKeepInfo();
-    keepInfo.mutate(mutator -> mutator.removeKeepInfoForPrunedItems(mergedClasses.keySet()));
+    keepInfo.mutate(
+        mutator ->
+            mutator.removeKeepInfoForPrunedItems(
+                PrunedItems.builder().setRemovedClasses(mergedClasses.keySet()).build()));
     timing.end();
 
     assert lens != null;
@@ -1867,7 +1871,7 @@ public class VerticalClassMerger {
   }
 
   private AbortReason disallowInlining(ProgramMethod method, DexProgramClass context) {
-    if (appView.options().enableInlining) {
+    if (appView.options().inlinerOptions().enableInlining) {
       Code code = method.getDefinition().getCode();
       if (code.isCfCode()) {
         CfCode cfCode = code.asCfCode();

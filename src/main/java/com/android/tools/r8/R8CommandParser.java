@@ -6,6 +6,8 @@ package com.android.tools.r8;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.FlagFile;
+import com.android.tools.r8.utils.MapIdTemplateProvider;
+import com.android.tools.r8.utils.SourceFileTemplateProvider;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -34,6 +36,8 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
           "--pg-map-output",
           "--desugared-lib",
           "--desugared-lib-pg-conf-output",
+          "--map-id-template",
+          "--source-file-template",
           THREAD_COUNT_FLAG);
 
   private static final Set<String> OPTIONS_WITH_TWO_PARAMETERS = ImmutableSet.of("--feature");
@@ -262,6 +266,11 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
         builder.setDesugaredLibraryKeepRuleConsumer(consumer);
       } else if (arg.equals("--no-data-resources")) {
         state.includeDataResources = false;
+      } else if (arg.equals("--map-id-template")) {
+        builder.setMapIdProvider(MapIdTemplateProvider.create(nextArg, builder.getReporter()));
+      } else if (arg.equals("--source-file-template")) {
+        builder.setSourceFileProvider(
+            SourceFileTemplateProvider.create(nextArg, builder.getReporter()));
       } else if (arg.startsWith("--")) {
         if (tryParseAssertionArgument(builder, arg, argsOrigin)) {
           continue;

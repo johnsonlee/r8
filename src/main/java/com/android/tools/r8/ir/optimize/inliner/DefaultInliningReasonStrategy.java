@@ -11,23 +11,21 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.conversion.CallSiteInformation;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
-import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 
 public class DefaultInliningReasonStrategy implements InliningReasonStrategy {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final CallSiteInformation callSiteInformation;
-  private final Inliner inliner;
+  private final InlinerOptions options;
 
   public DefaultInliningReasonStrategy(
-      AppView<AppInfoWithLiveness> appView,
-      CallSiteInformation callSiteInformation,
-      Inliner inliner) {
+      AppView<AppInfoWithLiveness> appView, CallSiteInformation callSiteInformation) {
     this.appView = appView;
     this.callSiteInformation = callSiteInformation;
-    this.inliner = inliner;
+    this.options = appView.options().inlinerOptions();
   }
 
   @Override
@@ -46,7 +44,7 @@ public class DefaultInliningReasonStrategy implements InliningReasonStrategy {
         && appView.withLiveness().appInfo().isAlwaysInlineMethod(targetReference)) {
       return Reason.ALWAYS;
     }
-    if (appView.options().disableInliningOfLibraryMethodOverrides
+    if (options.disableInliningOfLibraryMethodOverrides
         && targetMethod.isLibraryMethodOverride().isTrue()) {
       // This method will always have an implicit call site from the library, so we won't be able to
       // remove it after inlining even if we have single or dual call site information from the
@@ -56,7 +54,8 @@ public class DefaultInliningReasonStrategy implements InliningReasonStrategy {
     if (isSingleCallerInliningTarget(target)) {
       return Reason.SINGLE_CALLER;
     }
-    if (isDoubleInliningTarget(target, methodProcessor)) {
+    if (isDoubleInliningTarget(target)) {
+      assert methodProcessor.isPrimaryMethodProcessor();
       return Reason.DUAL_CALLER;
     }
     return Reason.SIMPLE;
@@ -69,21 +68,18 @@ public class DefaultInliningReasonStrategy implements InliningReasonStrategy {
     if (appView.appInfo().isNeverInlineDueToSingleCallerMethod(method)) {
       return false;
     }
-    if (appView.options().testing.validInliningReasons != null
-        && !appView.options().testing.validInliningReasons.contains(Reason.SINGLE_CALLER)) {
+    if (appView.testing().validInliningReasons != null
+        && !appView.testing().validInliningReasons.contains(Reason.SINGLE_CALLER)) {
       return false;
     }
     return true;
   }
 
-  private boolean isDoubleInliningTarget(ProgramMethod candidate, MethodProcessor methodProcessor) {
-    if (methodProcessor.isPrimaryMethodProcessor() || methodProcessor.isPostMethodProcessor()) {
-      if (callSiteInformation.hasDoubleCallSite(candidate)
-          || inliner.isDoubleInlineSelectedTarget(candidate)) {
-        // 10 is found from measuring.
-        return candidate.getDefinition().getCode().estimatedSizeForInliningAtMost(10);
-      }
-    }
-    return false;
+  private boolean isDoubleInliningTarget(ProgramMethod candidate) {
+    return callSiteInformation.hasDoubleCallSite(candidate)
+        && candidate
+            .getDefinition()
+            .getCode()
+            .estimatedSizeForInliningAtMost(options.getDoubleInliningInstructionLimit());
   }
 }

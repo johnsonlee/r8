@@ -258,7 +258,9 @@ public class IRConverter {
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       assumeInserter = new AssumeInserter(appViewWithLiveness);
       this.classInliner =
-          options.enableClassInlining && options.enableInlining ? new ClassInliner() : null;
+          options.enableClassInlining && options.inlinerOptions().enableInlining
+              ? new ClassInliner()
+              : null;
       this.classStaticizer =
           options.enableClassStaticizer ? new ClassStaticizer(appViewWithLiveness, this) : null;
       this.dynamicTypeOptimization = new DynamicTypeOptimization(appViewWithLiveness);
@@ -654,9 +656,6 @@ public class IRConverter {
         classStaticizer,
         classStaticizer ->
             classStaticizer.prepareForPrimaryOptimizationPass(graphLensForPrimaryOptimizationPass));
-    ConsumerUtils.acceptIfNotNull(
-        inliner,
-        inliner -> inliner.initializeDoubleInlineCallers(graphLensForPrimaryOptimizationPass));
     outliner.prepareForPrimaryOptimizationPass(graphLensForPrimaryOptimizationPass);
 
     if (fieldAccessAnalysis != null) {
@@ -1257,7 +1256,7 @@ public class IRConverter {
 
     previous = printMethod(code, "IR after generated message lite shrinking (SSA)", previous);
 
-    if (!isDebugMode && options.enableInlining && inliner != null) {
+    if (!isDebugMode && options.inlinerOptions().enableInlining && inliner != null) {
       timing.begin("Inlining");
       inliner.performInlining(code.context(), code, feedback, methodProcessor, timing);
       timing.end();
@@ -1408,7 +1407,7 @@ public class IRConverter {
       timing.begin("Inline classes");
       // Class inliner should work before lambda merger, so if it inlines the
       // lambda, it does not get collected by merger.
-      assert options.enableInlining && inliner != null;
+      assert options.inlinerOptions().enableInlining && inliner != null;
       classInliner.processMethodCode(
           appView.withLiveness(),
           codeRewriter,
@@ -1425,7 +1424,6 @@ public class IRConverter {
                   inliner.createDefaultOracle(
                       code.context(),
                       methodProcessor,
-                      options.classInliningInstructionLimit,
                       // Inlining instruction allowance is not needed for the class inliner since it
                       // always uses a force inlining oracle for inlining.
                       -1)));
@@ -1684,7 +1682,7 @@ public class IRConverter {
   }
 
   private boolean shouldComputeInliningConstraint(ProgramMethod method) {
-    if (!options.enableInlining || inliner == null) {
+    if (!options.inlinerOptions().enableInlining || inliner == null) {
       return false;
     }
     DexEncodedMethod definition = method.getDefinition();
@@ -1957,12 +1955,30 @@ public class IRConverter {
    * Called when a method is pruned as a result of optimizations during IR processing in R8, to
    * allow optimizations that track sets of methods to fixup their state.
    */
-  public void pruneMethod(ProgramMethod method) {
+  public void onMethodPruned(ProgramMethod method) {
     assert appView.enableWholeProgramOptimizations();
     assert method.getHolder().lookupMethod(method.getReference()) == null;
-    appView.withArgumentPropagator(argumentPropagator -> argumentPropagator.pruneMethod(method));
+    appView.withArgumentPropagator(argumentPropagator -> argumentPropagator.onMethodPruned(method));
+    enumUnboxer.onMethodPruned(method);
+    outliner.onMethodPruned(method);
     if (inliner != null) {
-      inliner.pruneMethod(method);
+      inliner.onMethodPruned(method);
+    }
+  }
+
+  /**
+   * Called when a method is transformed into an abstract or "throw null" method as a result of
+   * optimizations during IR processing in R8.
+   */
+  public void onMethodCodePruned(ProgramMethod method) {
+    assert appView.enableWholeProgramOptimizations();
+    assert method.getHolder().lookupMethod(method.getReference()) != null;
+    appView.withArgumentPropagator(
+        argumentPropagator -> argumentPropagator.onMethodCodePruned(method));
+    enumUnboxer.onMethodCodePruned(method);
+    outliner.onMethodCodePruned(method);
+    if (inliner != null) {
+      inliner.onMethodCodePruned(method);
     }
   }
 }

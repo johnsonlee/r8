@@ -63,6 +63,7 @@ import com.android.tools.r8.kotlin.Kotlin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
@@ -75,7 +76,6 @@ import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -94,13 +94,9 @@ public class Inliner {
   // due to not being processed at the time of inlining.
   private final LongLivedProgramMethodSetBuilder<ProgramMethodSet> singleInlineCallers;
 
-  // State for inlining methods which are known to be called twice.
-  private LongLivedProgramMethodSetBuilder<ProgramMethodSet> doubleInlineCallers;
-  private final ProgramMethodSet doubleInlineSelectedTargets = ProgramMethodSet.create();
-  private final Map<DexEncodedMethod, ProgramMethod> doubleInlineeCandidates =
-      new IdentityHashMap<>();
-
-  private final Map<DexProgramClass, ProgramMethodSet> singleCallerInlinedMethods =
+  // The set of methods that have been single caller inlined in the current wave. These need to be
+  // pruned when the wave ends.
+  private final Map<DexProgramClass, ProgramMethodSet> singleCallerInlinedMethodsInWave =
       new ConcurrentHashMap<>();
 
   private final AvailableApiExceptions availableApiExceptions;
@@ -219,47 +215,6 @@ public class Inliner {
     return false;
   }
 
-  public synchronized boolean isDoubleInlineSelectedTarget(ProgramMethod method) {
-    return doubleInlineSelectedTargets.contains(method);
-  }
-
-  synchronized boolean satisfiesRequirementsForDoubleInlining(
-      ProgramMethod method, ProgramMethod target, MethodProcessor methodProcessor) {
-    if (isDoubleInliningEnabled(methodProcessor)) {
-      // Don't perform the actual inlining if this was not selected.
-      return doubleInlineSelectedTargets.contains(target);
-    }
-
-    // Just preparing for double inlining.
-    recordDoubleInliningCandidate(method, target, methodProcessor);
-    return false;
-  }
-
-  synchronized void recordDoubleInliningCandidate(
-      ProgramMethod method, ProgramMethod target, MethodProcessor methodProcessor) {
-    if (isDoubleInliningEnabled(methodProcessor)) {
-      return;
-    }
-
-    if (doubleInlineeCandidates.containsKey(target.getDefinition())) {
-      // Both calls can be inlined.
-      GraphLens currentGraphLens = appView.graphLens();
-      ProgramMethod doubleInlineeCandidate = doubleInlineeCandidates.get(target.getDefinition());
-      doubleInlineCallers.add(doubleInlineeCandidate, currentGraphLens);
-      doubleInlineCallers.add(method, currentGraphLens);
-      doubleInlineSelectedTargets.add(target);
-    } else {
-      // First call can be inlined.
-      doubleInlineeCandidates.put(target.getDefinition(), method);
-    }
-  }
-
-  public void initializeDoubleInlineCallers(GraphLens graphLensForPrimaryOptimizationPass) {
-    assert appView.graphLens() == graphLensForPrimaryOptimizationPass;
-    doubleInlineCallers =
-        LongLivedProgramMethodSetBuilder.createForIdentitySet(graphLensForPrimaryOptimizationPass);
-  }
-
   public void enqueueMethodsForReprocessing(
       PostMethodProcessor.Builder postMethodProcessorBuilder) {
     // The double inline callers are always rewritten up until the graph lens of the primary
@@ -268,19 +223,7 @@ public class Inliner {
     postMethodProcessorBuilder
         .getMethodsToReprocessBuilder()
         .rewrittenWithLens(appView)
-        .merge(
-            doubleInlineCallers
-                .rewrittenWithLens(appView)
-                .removeIf(
-                    appView,
-                    method -> method.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite()))
-        .merge(
-            singleInlineCallers
-                .rewrittenWithLens(appView)
-                .removeIf(
-                    appView,
-                    method -> method.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite()));
-    doubleInlineCallers = null;
+        .merge(singleInlineCallers);
     singleInlineCallers.clear();
   }
 
@@ -953,12 +896,11 @@ public class Inliner {
       MethodProcessor methodProcessor,
       Timing timing,
       InliningReasonStrategy inliningReasonStrategy) {
-    InternalOptions options = appView.options();
+    InlinerOptions options = appView.options().inlinerOptions();
     DefaultInliningOracle oracle =
         createDefaultOracle(
             method,
             methodProcessor,
-            options.inliningInstructionLimit,
             options.inliningInstructionAllowance - numberOfInstructions(code),
             inliningReasonStrategy);
     InliningIRProvider inliningIRProvider =
@@ -970,7 +912,7 @@ public class Inliner {
   public InliningReasonStrategy createDefaultInliningReasonStrategy(
       MethodProcessor methodProcessor) {
     DefaultInliningReasonStrategy defaultInliningReasonStrategy =
-        new DefaultInliningReasonStrategy(appView, methodProcessor.getCallSiteInformation(), this);
+        new DefaultInliningReasonStrategy(appView, methodProcessor.getCallSiteInformation());
     return appView.withGeneratedMessageLiteShrinker(
         ignore -> new ProtoInliningReasonStrategy(appView, defaultInliningReasonStrategy),
         defaultInliningReasonStrategy);
@@ -979,12 +921,10 @@ public class Inliner {
   public DefaultInliningOracle createDefaultOracle(
       ProgramMethod method,
       MethodProcessor methodProcessor,
-      int inliningInstructionLimit,
       int inliningInstructionAllowance) {
     return createDefaultOracle(
         method,
         methodProcessor,
-        inliningInstructionLimit,
         inliningInstructionAllowance,
         createDefaultInliningReasonStrategy(methodProcessor));
   }
@@ -992,7 +932,6 @@ public class Inliner {
   public DefaultInliningOracle createDefaultOracle(
       ProgramMethod method,
       MethodProcessor methodProcessor,
-      int inliningInstructionLimit,
       int inliningInstructionAllowance,
       InliningReasonStrategy inliningReasonStrategy) {
     return new DefaultInliningOracle(
@@ -1001,7 +940,6 @@ public class Inliner {
         inliningReasonStrategy,
         method,
         methodProcessor,
-        inliningInstructionLimit,
         inliningInstructionAllowance);
   }
 
@@ -1019,7 +957,7 @@ public class Inliner {
     ClassInitializationAnalysis classInitializationAnalysis =
         new ClassInitializationAnalysis(appView, code);
     Deque<BasicBlock> inlineeStack = new ArrayDeque<>();
-    InternalOptions options = appView.options();
+    InlinerOptions options = appView.options().inlinerOptions();
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
       if (!inlineeStack.isEmpty() && inlineeStack.peekFirst() == block) {
@@ -1141,10 +1079,10 @@ public class Inliner {
           if (inlinee.reason == Reason.SINGLE_CALLER) {
             assert converter.isInWave();
             feedback.markInlinedIntoSingleCallSite(singleTargetMethod);
-            if (singleCallerInlinedMethods.isEmpty()) {
+            if (singleCallerInlinedMethodsInWave.isEmpty()) {
               converter.addWaveDoneAction(this::onWaveDone);
             }
-            singleCallerInlinedMethods
+            singleCallerInlinedMethodsInWave
                 .computeIfAbsent(
                     singleTarget.getHolder(), ignoreKey(ProgramMethodSet::createConcurrent))
                 .add(singleTarget);
@@ -1317,18 +1255,23 @@ public class Inliner {
     singleInlineCallers.add(method, appView.graphLens());
   }
 
-  public void pruneMethod(ProgramMethod method) {
+  public void onMethodPruned(ProgramMethod method) {
+    onMethodCodePruned(method);
+  }
+
+  public void onMethodCodePruned(ProgramMethod method) {
     singleInlineCallers.remove(method.getReference(), appView.graphLens());
   }
 
   private void onWaveDone() {
-    singleCallerInlinedMethods.forEach(
+    singleCallerInlinedMethodsInWave.forEach(
         (clazz, singleCallerInlinedMethodsForClass) -> {
           // Convert and remove virtual single caller inlined methods to abstract or throw null.
           singleCallerInlinedMethodsForClass.removeIf(
               singleCallerInlinedMethod -> {
                 if (singleCallerInlinedMethod.getDefinition().belongsToVirtualPool() || true) {
                   singleCallerInlinedMethod.convertToAbstractOrThrowNullMethod(appView);
+                  converter.onMethodCodePruned(singleCallerInlinedMethod);
                   return true;
                 }
                 return false;
@@ -1341,10 +1284,10 @@ public class Inliner {
                 .removeMethods(
                     singleCallerInlinedMethodsForClass.toDefinitionSet(
                         SetUtils::newIdentityHashSet));
-            singleCallerInlinedMethodsForClass.forEach(converter::pruneMethod);
+            singleCallerInlinedMethodsForClass.forEach(converter::onMethodPruned);
           }
         });
-    singleCallerInlinedMethods.clear();
+    singleCallerInlinedMethodsInWave.clear();
   }
 
   public static boolean verifyAllSingleCallerMethodsHaveBeenPruned(

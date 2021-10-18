@@ -41,6 +41,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues.EnumStaticFieldValues;
 import com.android.tools.r8.ir.analysis.type.ArrayTypeElement;
@@ -642,17 +643,11 @@ public class EnumUnboxerImpl extends EnumUnboxer {
         .merge(
             dependencies
                 .rewrittenWithLens(appView)
-                .removeAll(treeFixerResult.getPrunedItems().getRemovedMethods())
-                .removeIf(
-                    appView,
-                    method -> method.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite()))
+                .removeAll(treeFixerResult.getPrunedItems().getRemovedMethods()))
         .merge(
             methodsDependingOnLibraryModelisation
                 .rewrittenWithLens(appView)
-                .removeAll(treeFixerResult.getPrunedItems().getRemovedMethods())
-                .removeIf(
-                    appView,
-                    method -> method.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite()));
+                .removeAll(treeFixerResult.getPrunedItems().getRemovedMethods()));
     methodsDependingOnLibraryModelisation.clear();
 
     updateOptimizationInfos(executorService, feedback, treeFixerResult);
@@ -705,7 +700,10 @@ public class EnumUnboxerImpl extends EnumUnboxer {
 
   private void updateKeepInfo(Set<DexType> enumsToUnbox) {
     KeepInfoCollection keepInfo = appView.appInfo().getKeepInfo();
-    keepInfo.mutate(mutator -> mutator.removeKeepInfoForPrunedItems(enumsToUnbox));
+    keepInfo.mutate(
+        mutator ->
+            mutator.removeKeepInfoForPrunedItems(
+                PrunedItems.builder().setRemovedClasses(enumsToUnbox).build()));
   }
 
   public EnumDataMap finishAnalysis() {
@@ -1409,6 +1407,17 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       return true;
     }
     return false;
+  }
+
+  @Override
+  public void onMethodPruned(ProgramMethod method) {
+    onMethodCodePruned(method);
+  }
+
+  @Override
+  public void onMethodCodePruned(ProgramMethod method) {
+    enumUnboxingCandidatesInfo.addPrunedMethod(method);
+    methodsDependingOnLibraryModelisation.remove(method.getReference(), appView.graphLens());
   }
 
   @Override

@@ -64,10 +64,11 @@ public class Regress69825683Test extends TestBase {
 
     // Check that the synthetic class is still present.
     assertEquals(3, classes.size());
-    assertEquals(1,
+    assertEquals(
+        1,
         classes.stream()
             .map(FoundClassSubject::getOriginalName)
-            .filter(name  -> name.endsWith("$1"))
+            .filter(name -> name.endsWith("$1"))
             .count());
   }
 
@@ -95,10 +96,11 @@ public class Regress69825683Test extends TestBase {
 
     // Check that the synthetic class is still present.
     assertEquals(3, classes.size());
-    assertEquals(1,
+    assertEquals(
+        1,
         classes.stream()
             .map(FoundClassSubject::getOriginalName)
-            .filter(name  -> name.endsWith("$1"))
+            .filter(name -> name.endsWith("$1"))
             .count());
   }
 }

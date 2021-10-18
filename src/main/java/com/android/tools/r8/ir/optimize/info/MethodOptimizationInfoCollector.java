@@ -8,6 +8,7 @@ import static com.android.tools.r8.ir.code.DominatorTree.Assumption.MAY_HAVE_UNR
 import static com.android.tools.r8.ir.code.Opcodes.ADD;
 import static com.android.tools.r8.ir.code.Opcodes.AND;
 import static com.android.tools.r8.ir.code.Opcodes.ARGUMENT;
+import static com.android.tools.r8.ir.code.Opcodes.ARRAY_GET;
 import static com.android.tools.r8.ir.code.Opcodes.ARRAY_LENGTH;
 import static com.android.tools.r8.ir.code.Opcodes.ASSUME;
 import static com.android.tools.r8.ir.code.Opcodes.CHECK_CAST;
@@ -138,7 +139,7 @@ public class MethodOptimizationInfoCollector {
     DexEncodedMethod definition = method.getDefinition();
     identifyBridgeInfo(definition, code, feedback, timing);
     analyzeReturns(code, feedback, methodProcessor, timing);
-    if (options.enableInlining) {
+    if (options.inlinerOptions().enableInlining) {
       identifyInvokeSemanticsForInlining(definition, code, feedback, timing);
     }
     if (options.enableClassInlining) {
@@ -470,6 +471,12 @@ public class MethodOptimizationInfoCollector {
               }
             }
             break;
+
+          case ARRAY_GET:
+            {
+              builder.setMayHaveOtherSideEffectsThanInstanceFieldAssignments();
+              break;
+            }
 
           default:
             builder
