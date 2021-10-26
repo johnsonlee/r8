@@ -4,9 +4,11 @@
 package com.android.tools.r8.references;
 
 import com.android.tools.r8.Keep;
+import com.android.tools.r8.KeepForRetraceApi;
 import com.android.tools.r8.utils.DescriptorUtils;
 
 @Keep
+@KeepForRetraceApi
 public interface TypeReference {
 
   /**

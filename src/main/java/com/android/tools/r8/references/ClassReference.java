@@ -4,10 +4,12 @@
 package com.android.tools.r8.references;
 
 import com.android.tools.r8.Keep;
+import com.android.tools.r8.KeepForRetraceApi;
 import com.android.tools.r8.utils.DescriptorUtils;
 
 /** Reference to a class type or interface type. */
 @Keep
+@KeepForRetraceApi
 public final class ClassReference implements TypeReference {
 
   private final String descriptor;

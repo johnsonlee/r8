@@ -4,6 +4,7 @@
 package com.android.tools.r8.references;
 
 import com.android.tools.r8.Keep;
+import com.android.tools.r8.KeepForRetraceApi;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Constructor;
@@ -22,6 +23,7 @@ import java.util.List;
  * <p>No guarantees are made on identity and all references must be compared by {@code equals}.
  */
 @Keep
+@KeepForRetraceApi
 public final class Reference {
 
   public static PrimitiveReference BOOL = PrimitiveReference.BOOL;
