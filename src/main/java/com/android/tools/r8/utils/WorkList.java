@@ -20,6 +20,12 @@ public class WorkList<T> {
     return new WorkList<T>(EqualityTest.HASH);
   }
 
+  public static <T> WorkList<T> newEqualityWorkList(T item) {
+    WorkList<T> workList = new WorkList<>(EqualityTest.HASH);
+    workList.addIfNotSeen(item);
+    return workList;
+  }
+
   public static <T> WorkList<T> newEqualityWorkList(Iterable<T> items) {
     WorkList<T> workList = new WorkList<>(EqualityTest.HASH);
     workList.addIfNotSeen(items);
