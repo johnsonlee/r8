@@ -406,6 +406,12 @@ public class Enqueuer {
   private final Map<DexType, Visibility> initClassReferences = new IdentityHashMap<>();
 
   /**
+   * A map from seen init-class references to the minimum required visibility of the corresponding
+   * static field.
+   */
+  private final Set<DexMethod> recordFieldValuesReferences = Sets.newIdentityHashSet();
+
+  /**
    * A map from annotation classes to annotations that need to be processed should the classes ever
    * become live.
    */
@@ -1121,6 +1127,14 @@ public class Enqueuer {
     }
   }
 
+  void traceRecordFieldValues(DexField[] fields, ProgramMethod currentMethod) {
+    // TODO(b/203377129): Consider adding an enqueuer extension instead of growing the
+    //  number of fields in appInfoWithLiveness.
+    if (mode.isFinalTreeShaking()) {
+      recordFieldValuesReferences.add(currentMethod.getReference());
+    }
+  }
+
   void traceInitClass(DexType type, ProgramMethod currentMethod) {
     assert type.isClassType();
 
@@ -1406,15 +1420,25 @@ public class Enqueuer {
   }
 
   void traceInstanceFieldRead(DexField field, ProgramMethod currentMethod) {
-    traceInstanceFieldRead(field, currentMethod, false);
+    traceInstanceFieldRead(field, currentMethod, FieldReadType.READ);
   }
 
   void traceInstanceFieldReadFromMethodHandle(DexField field, ProgramMethod currentMethod) {
-    traceInstanceFieldRead(field, currentMethod, true);
+    traceInstanceFieldRead(field, currentMethod, FieldReadType.READ_FROM_METHOD_HANDLE);
+  }
+
+  void traceInstanceFieldReadFromRecordMethodHandle(DexField field, ProgramMethod currentMethod) {
+    traceInstanceFieldRead(field, currentMethod, FieldReadType.READ_FROM_RECORD_METHOD_HANDLE);
+  }
+
+  private enum FieldReadType {
+    READ,
+    READ_FROM_METHOD_HANDLE,
+    READ_FROM_RECORD_METHOD_HANDLE
   }
 
   private void traceInstanceFieldRead(
-      DexField fieldReference, ProgramMethod currentMethod, boolean fromMethodHandle) {
+      DexField fieldReference, ProgramMethod currentMethod, FieldReadType readType) {
     if (!registerFieldRead(fieldReference, currentMethod)) {
       return;
     }
@@ -1440,8 +1464,10 @@ public class Enqueuer {
             + "` to field marked dead: "
             + field.getReference().toSourceString();
 
-    if (fromMethodHandle) {
+    if (readType == FieldReadType.READ_FROM_METHOD_HANDLE) {
       fieldAccessInfoCollection.get(field.getReference()).setReadFromMethodHandle();
+    } else if (readType == FieldReadType.READ_FROM_RECORD_METHOD_HANDLE) {
+      fieldAccessInfoCollection.get(field.getReference()).setReadFromRecordInvokeDynamic();
     }
 
     if (Log.ENABLED) {
@@ -3733,7 +3759,8 @@ public class Enqueuer {
             emptySet(),
             Collections.emptyMap(),
             lockCandidates,
-            initClassReferences);
+            initClassReferences,
+            recordFieldValuesReferences);
     appInfo.markObsolete();
     if (options.testing.enqueuerInspector != null) {
       options.testing.enqueuerInspector.accept(appInfoWithLiveness, mode);

@@ -51,6 +51,7 @@ import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterLibraryTypeSynthesizer;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
+import com.android.tools.r8.ir.desugar.records.RecordFieldValuesRewriter;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.NestReducer;
@@ -282,6 +283,15 @@ public class R8 {
     }
     // Synthetic assertion to check that testing assertions works and can be enabled.
     assert forTesting(options, () -> !options.testing.testEnableTestAssertions);
+    if (options.printMemory) {
+      // Run GC twice to remove objects with finalizers.
+      System.gc();
+      System.gc();
+      Runtime runtime = Runtime.getRuntime();
+      System.out.println("R8 is running with total memory:" + runtime.totalMemory());
+      System.out.println("R8 is running with free memory:" + runtime.freeMemory());
+      System.out.println("R8 is running with max memory:" + runtime.maxMemory());
+    }
     try {
       AppView<AppInfoWithClassHierarchy> appView;
       {
@@ -687,6 +697,14 @@ public class R8 {
       }
 
       performFinalMainDexTracing(appView, executorService);
+
+      if (appView.appInfo().hasLiveness()) {
+        RecordFieldValuesRewriter recordFieldArrayRemover =
+            RecordFieldValuesRewriter.create(appView.withLiveness());
+        if (recordFieldArrayRemover != null) {
+          recordFieldArrayRemover.rewriteRecordFieldValues();
+        }
+      }
 
       // Remove unneeded visibility bridges that have been inserted for member rebinding.
       // This can only be done if we have AppInfoWithLiveness.

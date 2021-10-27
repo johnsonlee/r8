@@ -3,6 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.rewrite.arrays;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
+
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
@@ -17,15 +21,12 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
-
 @RunWith(Parameterized.class)
 public class ArrayLengthRewriteTest extends TestBase {
   @Parameters(name = "{0}, debug = {1}")
   public static Iterable<?> data() {
-    return buildParameters(getTestParameters().withAllRuntimes().build(), BooleanUtils.values());
+    return buildParameters(
+        getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
   }
 
   private final TestParameters parameters;
@@ -62,7 +63,7 @@ public class ArrayLengthRewriteTest extends TestBase {
     assumeTrue(parameters.isDexRuntime());
 
     testForD8()
-        .setMinApi(parameters.getRuntime())
+        .setMinApi(parameters.getApiLevel())
         .setMode(debugMode ? CompilationMode.DEBUG : CompilationMode.RELEASE)
         .addProgramClasses(Main.class)
         .run(parameters.getRuntime(), Main.class)
@@ -72,7 +73,7 @@ public class ArrayLengthRewriteTest extends TestBase {
 
   @Test public void r8() throws Exception {
     testForR8(parameters.getBackend())
-        .setMinApi(parameters.getRuntime())
+        .setMinApi(parameters.getApiLevel())
         .setMode(debugMode ? CompilationMode.DEBUG : CompilationMode.RELEASE)
         .addProgramClasses(Main.class)
         .addKeepMainRule(Main.class)

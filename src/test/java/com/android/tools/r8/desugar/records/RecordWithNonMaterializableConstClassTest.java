@@ -4,14 +4,10 @@
 
 package com.android.tools.r8.desugar.records;
 
-import static org.junit.Assert.assertEquals;
-
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.InternalOptions.TestingOptions;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.Test;
@@ -19,33 +15,46 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class RecordShrinkFieldTest extends TestBase {
+public class RecordWithNonMaterializableConstClassTest extends TestBase {
 
-  private static final String RECORD_NAME = "RecordShrinkField";
+  private static final String RECORD_NAME = "RecordWithConstClass";
+  private static final String PRIVATE_CLASS_NAME =
+      "records.differentpackage.PrivateConstClass$PrivateClass";
   private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
+  private static final byte[][] EXTRA_DATA =
+      RecordTestUtils.getProgramData("differentpackage/PrivateConstClass");
   private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
-  private static final String EXPECTED_RESULT =
-      StringUtils.lines("%s[unused=-1, name=Jane Doe, age=42]", "%s[unused=-1, name=Bob, age=42]");
+  private static final String EXPECTED_RESULT_FORMAT =
+      StringUtils.lines("%s[%s=class " + PRIVATE_CLASS_NAME + "]");
   private static final String EXPECTED_RESULT_D8 =
-      String.format(EXPECTED_RESULT, "Person", "Person");
-  private static final String EXPECTED_RESULT_R8 = StringUtils.lines("a[a=Jane Doe]", "a[a=Bob]");
+      String.format(EXPECTED_RESULT_FORMAT, "MyRecordWithConstClass", "theClass");
+  private static final String EXPECTED_RESULT_R8 = String.format(EXPECTED_RESULT_FORMAT, "a", "a");
 
   private final TestParameters parameters;
 
-  public RecordShrinkFieldTest(TestParameters parameters) {
+  public RecordWithNonMaterializableConstClassTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
   @Parameterized.Parameters(name = "{0}")
   public static List<Object[]> data() {
+    // TODO(b/174431251): This should be replaced with .withCfRuntimes(start = jdk17).
     return buildParameters(
         getTestParameters().withDexRuntimes().withAllApiLevelsAlsoForCf().build());
   }
 
   @Test
-  public void testD8() throws Exception {
+  public void testD8AndJvm() throws Exception {
+    if (parameters.isCfRuntime()) {
+      testForJvm()
+          .addProgramClassFileData(PROGRAM_DATA)
+          .addProgramClassFileData(EXTRA_DATA)
+          .run(parameters.getRuntime(), MAIN_TYPE)
+          .assertSuccessWithOutput(EXPECTED_RESULT_D8);
+    }
     testForD8(parameters.getBackend())
         .addProgramClassFileData(PROGRAM_DATA)
+        .addProgramClassFileData(EXTRA_DATA)
         .setMinApi(parameters.getApiLevel())
         .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
         .compile()
@@ -57,11 +66,12 @@ public class RecordShrinkFieldTest extends TestBase {
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramClassFileData(PROGRAM_DATA)
+        .addProgramClassFileData(EXTRA_DATA)
         .setMinApi(parameters.getApiLevel())
         .addKeepMainRule(MAIN_TYPE)
+        .addKeepRules("-keep class " + PRIVATE_CLASS_NAME)
         .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
         .compile()
-        .inspect(this::assertSingleField)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .assertSuccessWithOutput(EXPECTED_RESULT_R8);
   }
@@ -71,8 +81,10 @@ public class RecordShrinkFieldTest extends TestBase {
     Path desugared =
         testForR8(Backend.CF)
             .addProgramClassFileData(PROGRAM_DATA)
+            .addProgramClassFileData(EXTRA_DATA)
             .setMinApi(parameters.getApiLevel())
             .addKeepMainRule(MAIN_TYPE)
+            .addKeepRules("-keep class " + PRIVATE_CLASS_NAME)
             .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
             .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
             .compile()
@@ -81,17 +93,10 @@ public class RecordShrinkFieldTest extends TestBase {
         .addProgramFiles(desugared)
         .setMinApi(parameters.getApiLevel())
         .addKeepMainRule(MAIN_TYPE)
+        .addKeepRules("-keep class " + PRIVATE_CLASS_NAME)
         .addOptionsModification(TestingOptions::allowExperimentClassFileVersion)
         .compile()
-        .inspect(this::assertSingleField)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .assertSuccessWithOutput(EXPECTED_RESULT_R8);
-  }
-
-  private void assertSingleField(CodeInspector inspector) {
-    ClassSubject recordClass = inspector.clazz("records.a");
-    assertEquals(1, recordClass.allInstanceFields().size());
-    assertEquals(
-        "java.lang.String", recordClass.allInstanceFields().get(0).getField().type().toString());
   }
 }

@@ -1647,7 +1647,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean noLocalsTableOnInput = false;
     public boolean forceNameReflectionOptimization = false;
     public boolean enableNarrowAndWideningingChecksInD8 = false;
-    public Consumer<IRCode> irModifier = null;
+    public BiConsumer<IRCode, AppView<?>> irModifier = null;
     public Consumer<IRCode> inlineeIrModifier = null;
     public int basicBlockMuncherIterationLimit = NO_LIMIT;
     public boolean dontReportFailingCheckDiscarded = false;
@@ -1671,12 +1671,16 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public Set<String> allowedUnusedDontWarnPatterns = new HashSet<>();
     public boolean enableTestAssertions =
         System.getProperty("com.android.tools.r8.enableTestAssertions") != null;
+    public boolean disableMarkingMethodsFinal =
+        System.getProperty("com.android.tools.r8.disableMarkingMethodsFinal") != null;
+    public boolean disableMarkingClassesFinal =
+        System.getProperty("com.android.tools.r8.disableMarkingClassesFinal") != null;
     public boolean testEnableTestAssertions = false;
     public boolean keepMetadataInR8IfNotRewritten = true;
 
     // If set, pruned record fields are not used in hashCode/equals/toString and toString prints
     // minified field names instead of original field names.
-    public boolean enableRecordModeling = false;
+    public boolean enableRecordModeling = true;
 
     public boolean allowConflictingSyntheticTypes = false;
 
