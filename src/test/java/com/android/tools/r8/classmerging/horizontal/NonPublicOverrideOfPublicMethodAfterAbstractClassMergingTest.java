@@ -2,20 +2,19 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.classmerging.horizontal.interfaces;
+package com.android.tools.r8.classmerging.horizontal;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isExtending;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isImplementing;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPackagePrivate;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPublic;
 import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
-import com.android.tools.r8.NoUnusedInterfaceRemoval;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -29,7 +28,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class IllegalSiblingAfterInterfaceMergingTest extends TestBase {
+public class NonPublicOverrideOfPublicMethodAfterAbstractClassMergingTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -49,7 +48,6 @@ public class IllegalSiblingAfterInterfaceMergingTest extends TestBase {
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
-        .enableNoUnusedInterfaceRemovalAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters.getApiLevel())
         .compile()
@@ -57,49 +55,34 @@ public class IllegalSiblingAfterInterfaceMergingTest extends TestBase {
             inspector -> {
               ClassSubject iClassSubject = inspector.clazz(I.class);
               assertThat(iClassSubject, isPresent());
-              assertThat(iClassSubject.uniqueMethodWithName("m"), isAbsent());
-
-              ClassSubject a0ClassSubject = inspector.clazz(A0.class);
-              assertThat(a0ClassSubject, isPresent());
-              assertThat(
-                  a0ClassSubject.uniqueMethodWithName("m"), allOf(isPresent(), isPackagePrivate()));
+              assertThat(iClassSubject.uniqueMethodWithName("m"), allOf(isPresent(), isPublic()));
 
               ClassSubject aClassSubject = inspector.clazz(A.class);
               assertThat(aClassSubject, isPresent());
-              assertThat(aClassSubject, isExtending(a0ClassSubject));
-              assertThat(aClassSubject, isImplementing(iClassSubject));
+              assertThat(aClassSubject, not(isImplementing(iClassSubject)));
+              assertThat(
+                  aClassSubject.uniqueMethodWithName("m"), allOf(isPresent(), isPackagePrivate()));
             })
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("A.m()", "B.m()");
+        .assertSuccessWithOutputLines("A.m()", "Y.m()");
   }
 
   static class Main {
 
     public static void main(String[] args) {
-      new A().m();
-      (System.currentTimeMillis() > 0 ? new B() : new C()).m();
+      new B().m();
+      (System.currentTimeMillis() > 0 ? new Y() : new Z()).m();
     }
   }
 
-  @NoUnusedInterfaceRemoval
-  @NoVerticalClassMerging
-  interface I {}
-
-  // Should not be merged into I, since I has a subclass with a package private method signature
-  // `void m()`.
-  @NoUnusedInterfaceRemoval
-  @NoVerticalClassMerging
-  interface J {
+  interface I {
 
     void m();
   }
 
-  @NoHorizontalClassMerging
   @NoVerticalClassMerging
-  static class A0 {
+  abstract static class A {
 
-    // Intentionally package private. If J is merged into I then this is an illegal override of
-    // I.m().
     @NeverInline
     void m() {
       System.out.println("A.m()");
@@ -108,23 +91,26 @@ public class IllegalSiblingAfterInterfaceMergingTest extends TestBase {
 
   @NeverClassInline
   @NoHorizontalClassMerging
-  static class A extends A0 implements I {}
+  static class B extends A {}
+
+  @NoVerticalClassMerging
+  abstract static class X implements I {}
 
   @NoHorizontalClassMerging
-  static class B implements J {
+  static class Y extends X {
 
     @Override
     public void m() {
-      System.out.println("B.m()");
+      System.out.println("Y.m()");
     }
   }
 
   @NoHorizontalClassMerging
-  static class C implements J {
+  static class Z implements I {
 
     @Override
     public void m() {
-      System.out.println("C.m()");
+      System.out.println("Z.m()");
     }
   }
 }
