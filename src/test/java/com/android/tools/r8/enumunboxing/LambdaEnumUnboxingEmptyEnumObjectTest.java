@@ -15,7 +15,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class LambdaEnumUnboxingEmptyEnumTest extends EnumUnboxingTestBase {
+public class LambdaEnumUnboxingEmptyEnumObjectTest extends EnumUnboxingTestBase {
 
   private final TestParameters parameters;
   private final boolean enumValueOptimization;
@@ -26,7 +26,7 @@ public class LambdaEnumUnboxingEmptyEnumTest extends EnumUnboxingTestBase {
     return enumUnboxingTestParameters(getTestParameters().withAllRuntimesAndApiLevels().build());
   }
 
-  public LambdaEnumUnboxingEmptyEnumTest(
+  public LambdaEnumUnboxingEmptyEnumObjectTest(
       TestParameters parameters, boolean enumValueOptimization, EnumKeepRules enumKeepRules) {
     this.parameters = parameters;
     this.enumValueOptimization = enumValueOptimization;
@@ -58,19 +58,19 @@ public class LambdaEnumUnboxingEmptyEnumTest extends EnumUnboxingTestBase {
   enum MyEnum {}
 
   @NoVerticalClassMerging
-  interface MyEnumConsumer {
+  interface ObjectConsumer<T> {
 
-    void accept(MyEnum e);
+    void accept(T o);
   }
 
   static class Main {
 
     public static void main(String[] args) {
-      execute(e -> System.out.println(String.valueOf(e)));
+      executeObject(e -> System.out.println(String.valueOf(e)));
     }
 
     @NeverInline
-    static void execute(MyEnumConsumer consumer) {
+    static void executeObject(ObjectConsumer<MyEnum> consumer) {
       consumer.accept(null);
     }
   }

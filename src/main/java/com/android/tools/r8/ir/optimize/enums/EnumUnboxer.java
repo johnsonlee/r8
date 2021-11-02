@@ -32,7 +32,9 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.FieldResolutionResult;
@@ -61,6 +63,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.InstanceGet;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.MemberType;
@@ -71,6 +74,7 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
+import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.optimize.Inliner.Constraint;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap.EnumData;
 import com.android.tools.r8.ir.optimize.enums.EnumInstanceFieldData.EnumInstanceFieldKnownData;
@@ -118,6 +122,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -247,6 +252,9 @@ public class EnumUnboxer {
           case Opcodes.CHECK_CAST:
             analyzeCheckCast(instruction.asCheckCast(), eligibleEnums);
             break;
+          case Opcodes.INVOKE_CUSTOM:
+            analyzeInvokeCustom(instruction.asInvokeCustom(), eligibleEnums, code.context());
+            break;
           case INVOKE_STATIC:
             analyzeInvokeStatic(instruction.asInvokeStatic(), eligibleEnums, code.context());
             break;
@@ -280,6 +288,70 @@ public class EnumUnboxer {
     if (methodsDependingOnLibraryModelisation.contains(code.context())) {
       conversionOptions.disablePeepholeOptimizations();
     }
+  }
+
+  private void markEnumEligible(DexType type, Set<DexType> eligibleEnums) {
+    DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(type);
+    if (enumClass != null) {
+      eligibleEnums.add(enumClass.getType());
+    }
+  }
+
+  private void invalidateEnum(DexType type) {
+    DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(type);
+    if (enumClass != null) {
+      markEnumAsUnboxable(Reason.INVALID_INVOKE_CUSTOM, enumClass);
+    }
+  }
+
+  private void analyzeInvokeCustom(
+      InvokeCustom invoke, Set<DexType> eligibleEnums, ProgramMethod context) {
+    invoke.getCallSite().methodProto.forEachType(t -> markEnumEligible(t, eligibleEnums));
+    LambdaDescriptor lambdaDescriptor =
+        LambdaDescriptor.tryInfer(invoke.getCallSite(), appView.appInfo(), context);
+    if (lambdaDescriptor == null) {
+      // Based on lambda we can see that enums cannot be unboxed if used in call site bootstrap
+      // arguments, since there might be expectations on overrides. Enums used directly in the
+      // method proto should be fine.
+      analyzeInvokeCustomParameters(invoke, this::invalidateEnum);
+      return;
+    }
+
+    analyzeInvokeCustomParameters(invoke, t -> markEnumEligible(t, eligibleEnums));
+
+    lambdaDescriptor.forEachErasedAndEnforcedTypes(
+        (erasedType, enforcedType) -> {
+          if (erasedType != enforcedType) {
+            invalidateEnum(erasedType);
+            invalidateEnum(enforcedType);
+          }
+        });
+  }
+
+  private void analyzeInvokeCustomParameters(InvokeCustom invoke, Consumer<DexType> nonHolder) {
+    invoke
+        .getCallSite()
+        .bootstrapArgs
+        .forEach(
+            bootstrapArgument -> {
+              if (bootstrapArgument.isDexValueMethodHandle()) {
+                DexMethodHandle methodHandle =
+                    bootstrapArgument.asDexValueMethodHandle().getValue();
+                if (methodHandle.isMethodHandle()) {
+                  DexMethod method = methodHandle.asMethod();
+                  invalidateEnum(method.getHolderType());
+                  method.getProto().forEachType(nonHolder);
+                } else {
+                  assert methodHandle.isFieldHandle();
+                  DexField field = methodHandle.asField();
+                  invalidateEnum(field.getHolderType());
+                  nonHolder.accept(field.type);
+                }
+              } else if (bootstrapArgument.isDexValueMethodType()) {
+                DexProto proto = bootstrapArgument.asDexValueMethodType().getValue();
+                proto.forEachType(nonHolder);
+              }
+            });
   }
 
   private void analyzeFieldInstruction(FieldInstruction fieldInstruction, IRCode code) {

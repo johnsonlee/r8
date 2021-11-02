@@ -97,8 +97,8 @@ public class LensCodeRewriterUtils {
     if (!isLambdaMetaFactory) {
       return callSite.methodName;
     }
-    assert callSite.getBootstrapArgs().size() > 0;
-    assert callSite.getBootstrapArgs().get(0).isDexValueMethodType();
+    assert callSite.bootstrapArgs.size() > 0;
+    assert callSite.bootstrapArgs.get(0).isDexValueMethodType();
     // The targeted method may have been renamed, we need to update the name if that is the case.
     DexMethod method =
         LambdaDescriptor.getMainFunctionalInterfaceMethodReference(

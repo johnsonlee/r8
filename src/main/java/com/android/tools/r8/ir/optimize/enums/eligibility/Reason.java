@@ -24,6 +24,7 @@ public abstract class Reason {
   public static final Reason INVALID_INIT = new StringReason("INVALID_INIT");
   public static final Reason INVALID_CLINIT = new StringReason("INVALID_CLINIT");
   public static final Reason INVALID_INVOKE = new StringReason("INVALID_INVOKE");
+  public static final Reason INVALID_INVOKE_CUSTOM = new StringReason("INVALID_INVOKE_CUSTOM");
   public static final Reason INVALID_INVOKE_CLASSPATH =
       new StringReason("INVALID_INVOKE_CLASSPATH");
   public static final Reason INVALID_INVOKE_ON_ARRAY = new StringReason("INVALID_INVOKE_ON_ARRAY");
