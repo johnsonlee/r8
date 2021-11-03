@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexMethodHandle.MethodHandleType;
 import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.DexValue.DexValueMethodHandle;
@@ -26,6 +27,8 @@ import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.GraphLens.MethodLookupResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
+import com.android.tools.r8.ir.code.Invoke;
+import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class LensCodeRewriterUtils {
 
-  private final AppView<?> appView;
   private final DexDefinitionSupplier definitions;
   private final GraphLens graphLens;
 
@@ -44,25 +46,19 @@ public class LensCodeRewriterUtils {
   private final Map<DexCallSite, DexCallSite> rewrittenCallSiteCache;
 
   public LensCodeRewriterUtils(AppView<?> appView) {
-    this(appView, false);
+    this(appView, appView.graphLens());
   }
 
   public LensCodeRewriterUtils(AppView<?> appView, boolean enableCallSiteCaching) {
-    this.appView = appView;
     this.definitions = appView;
-    this.graphLens = null;
+    this.graphLens = appView.graphLens();
     this.rewrittenCallSiteCache = enableCallSiteCaching ? new ConcurrentHashMap<>() : null;
   }
 
   public LensCodeRewriterUtils(DexDefinitionSupplier definitions, GraphLens graphLens) {
-    this.appView = null;
     this.definitions = definitions;
     this.graphLens = graphLens;
     this.rewrittenCallSiteCache = null;
-  }
-
-  private GraphLens graphLens() {
-    return appView != null ? appView.graphLens() : graphLens;
   }
 
   public DexCallSite rewriteCallSite(DexCallSite callSite, ProgramMethod context) {
@@ -85,13 +81,32 @@ public class LensCodeRewriterUtils {
         isLambdaMetaFactory ? ARGUMENT_TO_LAMBDA_METAFACTORY : NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
     List<DexValue> newArgs =
         rewriteBootstrapArguments(callSite.bootstrapArgs, methodHandleUse, context);
+    DexString newMethodName = computeNewMethodName(callSite, context, isLambdaMetaFactory);
     if (!newMethodProto.equals(callSite.methodProto)
+        || newMethodName != callSite.methodName
         || newBootstrapMethod != callSite.bootstrapMethod
         || !newArgs.equals(callSite.bootstrapArgs)) {
       return dexItemFactory.createCallSite(
-          callSite.methodName, newMethodProto, newBootstrapMethod, newArgs);
+          newMethodName, newMethodProto, newBootstrapMethod, newArgs);
     }
     return callSite;
+  }
+
+  private DexString computeNewMethodName(
+      DexCallSite callSite, ProgramMethod context, boolean isLambdaMetaFactory) {
+    if (!isLambdaMetaFactory) {
+      return callSite.methodName;
+    }
+    assert callSite.getBootstrapArgs().size() > 0;
+    assert callSite.getBootstrapArgs().get(0).isDexValueMethodType();
+    // The targeted method may have been renamed, we need to update the name if that is the case.
+    DexMethod method =
+        LambdaDescriptor.getMainFunctionalInterfaceMethodReference(
+            callSite, definitions.dexItemFactory());
+    return graphLens
+        .lookupMethod(method, context.getReference(), Invoke.Type.INTERFACE)
+        .getReference()
+        .getName();
   }
 
   public DexMethodHandle rewriteDexMethodHandle(
@@ -100,7 +115,7 @@ public class LensCodeRewriterUtils {
       DexMethod invokedMethod = methodHandle.asMethod();
       MethodHandleType oldType = methodHandle.type;
       MethodLookupResult lensLookup =
-          graphLens().lookupMethod(invokedMethod, context.getReference(), oldType.toInvokeType());
+          graphLens.lookupMethod(invokedMethod, context.getReference(), oldType.toInvokeType());
       DexMethod rewrittenTarget = lensLookup.getReference();
       DexMethod actualTarget;
       MethodHandleType newType;
@@ -120,7 +135,7 @@ public class LensCodeRewriterUtils {
             definitions
                 .dexItemFactory()
                 .createMethod(
-                    graphLens().lookupType(invokedMethod.holder),
+                    graphLens.lookupType(invokedMethod.holder),
                     rewrittenTarget.proto,
                     rewrittenTarget.name);
         newType = oldType;
@@ -147,7 +162,7 @@ public class LensCodeRewriterUtils {
       }
     } else {
       DexField field = methodHandle.asField();
-      DexField actualField = graphLens().lookupField(field);
+      DexField actualField = graphLens.lookupField(field);
       if (actualField != field) {
         return definitions
             .dexItemFactory()
@@ -192,7 +207,7 @@ public class LensCodeRewriterUtils {
         return rewriteDexMethodType(value.asDexValueMethodType());
       case TYPE:
         DexType oldType = value.asDexValueType().value;
-        DexType newType = graphLens().lookupType(oldType);
+        DexType newType = graphLens.lookupType(oldType);
         return newType != oldType ? new DexValueType(newType) : value;
       default:
         return value;
@@ -202,7 +217,7 @@ public class LensCodeRewriterUtils {
   public DexProto rewriteProto(DexProto proto) {
     return definitions
         .dexItemFactory()
-        .applyClassMappingToProto(proto, graphLens()::lookupType, protoFixupCache);
+        .applyClassMappingToProto(proto, graphLens::lookupType, protoFixupCache);
   }
 
   private DexValueMethodHandle rewriteDexValueMethodHandle(
@@ -210,5 +225,9 @@ public class LensCodeRewriterUtils {
     DexMethodHandle oldHandle = methodHandle.value;
     DexMethodHandle newHandle = rewriteDexMethodHandle(oldHandle, use, context);
     return newHandle != oldHandle ? new DexValueMethodHandle(newHandle) : methodHandle;
+  }
+
+  public boolean hasGraphLens(GraphLens graphLens) {
+    return this.graphLens == graphLens;
   }
 }

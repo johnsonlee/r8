@@ -23,6 +23,7 @@ import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 // Represents the lambda descriptor inferred from calls site.
@@ -182,6 +183,13 @@ public final class LambdaDescriptor {
     return implHandle.asMethod().getName().startsWith(factory.javacLambdaMethodPrefix);
   }
 
+  public void forEachErasedAndEnforcedTypes(BiConsumer<DexType, DexType> consumer) {
+    consumer.accept(erasedProto.returnType, enforcedProto.returnType);
+    for (int i = 0; i < enforcedProto.getArity(); i++) {
+      consumer.accept(erasedProto.getParameter(i), enforcedProto.getParameter(i));
+    }
+  }
+
   public Iterable<DexType> getReferencedBaseTypes(DexItemFactory dexItemFactory) {
     return enforcedProto.getBaseTypes(dexItemFactory);
   }
@@ -257,6 +265,15 @@ public final class LambdaDescriptor {
       DexCallSite callSite, AppInfoWithClassHierarchy appInfo, ProgramMethod context) {
     LambdaDescriptor descriptor = infer(callSite, appInfo, context);
     return descriptor == MATCH_FAILED ? null : descriptor;
+  }
+
+  public static DexMethod getMainFunctionalInterfaceMethodReference(
+      DexCallSite callSite, DexItemFactory factory) {
+    DexProto proto = callSite.getBootstrapArgs().get(0).asDexValueMethodType().value;
+    DexProto lambdaFactoryProto = callSite.methodProto;
+    DexType mainInterface = lambdaFactoryProto.returnType;
+    DexString funcMethodName = callSite.methodName;
+    return factory.createMethod(mainInterface, proto, funcMethodName);
   }
 
   public static boolean isLambdaMetafactoryMethod(
