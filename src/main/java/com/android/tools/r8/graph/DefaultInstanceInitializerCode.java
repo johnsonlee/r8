@@ -1,0 +1,404 @@
+// Copyright (c) 2021, the R8 project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+package com.android.tools.r8.graph;
+
+import com.android.tools.r8.cf.CfVersion;
+import com.android.tools.r8.cf.code.CfInstruction;
+import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfLoad;
+import com.android.tools.r8.cf.code.CfReturnVoid;
+import com.android.tools.r8.code.InvokeDirect;
+import com.android.tools.r8.code.ReturnVoid;
+import com.android.tools.r8.dex.CodeToKeep;
+import com.android.tools.r8.dex.IndexedItemCollection;
+import com.android.tools.r8.dex.MixedSectionCollection;
+import com.android.tools.r8.graph.DexCode.Try;
+import com.android.tools.r8.graph.DexCode.TryHandler;
+import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.NumberGenerator;
+import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.Position.SyntheticPosition;
+import com.android.tools.r8.ir.code.ValueType;
+import com.android.tools.r8.ir.conversion.IRBuilder;
+import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
+import com.android.tools.r8.ir.conversion.SyntheticStraightLineSourceCode;
+import com.android.tools.r8.naming.ClassNameMapper;
+import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.IteratorUtils;
+import com.android.tools.r8.utils.structural.HashingVisitor;
+import com.google.common.collect.ImmutableList;
+import java.nio.ShortBuffer;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+
+/**
+ * A piece of code on the form:
+ *
+ * <pre>
+ *   aload_0
+ *   invoke-special LSuperClass;-><init>()V
+ *   return
+ * </pre>
+ *
+ * <p>Note that (i) {@code SuperClass} may be different from {@link java.lang.Object} and (ii) the
+ * method holding this code object may have a non-empty proto.
+ */
+public class DefaultInstanceInitializerCode extends Code
+    implements CfWritableCode, DexWritableCode {
+
+  private static final DefaultInstanceInitializerCode INSTANCE =
+      new DefaultInstanceInitializerCode();
+
+  private DefaultInstanceInitializerCode() {}
+
+  public static DefaultInstanceInitializerCode get() {
+    return INSTANCE;
+  }
+
+  public static boolean canonicalizeCodeIfPossible(AppView<?> appView, ProgramMethod method) {
+    if (hasDefaultInstanceInitializerCode(method, appView)) {
+      method.getDefinition().setCode(get(), appView);
+      return true;
+    }
+    return false;
+  }
+
+  public static void uncanonicalizeCode(AppView<?> appView, ProgramMethod method) {
+    uncanonicalizeCode(appView, method, method.getHolder().getSuperType());
+  }
+
+  public static void uncanonicalizeCode(
+      AppView<?> appView, ProgramMethod method, DexType superType) {
+    DexEncodedMethod definition = method.getDefinition();
+    assert definition.getCode().isDefaultInstanceInitializerCode();
+    definition.setCode(get().toCfCode(method, appView.dexItemFactory(), superType), appView);
+  }
+
+  private static boolean hasDefaultInstanceInitializerCode(
+      ProgramMethod method, AppView<?> appView) {
+    if (!method.getDefinition().isInstanceInitializer()) {
+      return false;
+    }
+    Code code = method.getDefinition().getCode();
+    if (!code.isCfCode()) {
+      return false;
+    }
+    CfCode cfCode = code.asCfCode();
+    if (!method.getDefinition().isInstanceInitializer()
+        || !cfCode.getLocalVariables().isEmpty()
+        || !cfCode.getTryCatchRanges().isEmpty()) {
+      return false;
+    }
+    if (cfCode.getInstructions().size() > 6) {
+      // Default instance initializers typically have the following instruction sequence:
+      // [CfLabel, CfPosition, CfLoad, CfInvoke, CfReturnVoid, CfLabel].
+      return false;
+    }
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    Iterator<CfInstruction> instructionIterator = cfCode.getInstructions().iterator();
+    // Allow skipping CfPosition instructions in instance initializers that only call Object.<init>.
+    Predicate<CfInstruction> instructionOfInterest =
+        method.getHolder().getSuperType() == dexItemFactory.objectType
+            ? instruction -> !instruction.isLabel() && !instruction.isPosition()
+            : instruction -> !instruction.isLabel();
+    CfLoad load = IteratorUtils.nextUntil(instructionIterator, instructionOfInterest).asLoad();
+    if (load == null || load.getLocalIndex() != 0) {
+      return false;
+    }
+    CfInvoke invoke = instructionIterator.next().asInvoke();
+    if (invoke == null
+        || !invoke.isInvokeConstructor(dexItemFactory)
+        || invoke.getMethod() != getParentConstructor(method, dexItemFactory)) {
+      return false;
+    }
+    return instructionIterator.next().isReturnVoid();
+  }
+
+  @Override
+  public void acceptHashing(HashingVisitor visitor) {
+    visitor.visitInt(getCfWritableCodeKind().hashCode());
+  }
+
+  @Override
+  public IRCode buildIR(ProgramMethod method, AppView<?> appView, Origin origin) {
+    DefaultInstanceInitializerSourceCode source = new DefaultInstanceInitializerSourceCode(method);
+    return IRBuilder.create(method, appView, source, origin).build(method);
+  }
+
+  @Override
+  public IRCode buildInliningIR(
+      ProgramMethod context,
+      ProgramMethod method,
+      AppView<?> appView,
+      GraphLens codeLens,
+      NumberGenerator valueNumberGenerator,
+      Position callerPosition,
+      Origin origin,
+      RewrittenPrototypeDescription protoChanges) {
+    DefaultInstanceInitializerSourceCode source =
+        new DefaultInstanceInitializerSourceCode(method, callerPosition);
+    return IRBuilder.createForInlining(
+            method, appView, codeLens, source, origin, valueNumberGenerator, protoChanges)
+        .build(context);
+  }
+
+  @Override
+  public int codeSizeInBytes() {
+    return InvokeDirect.SIZE + ReturnVoid.SIZE;
+  }
+
+  @Override
+  public void collectIndexedItems(
+      IndexedItemCollection indexedItems,
+      ProgramMethod context,
+      GraphLens graphLens,
+      LensCodeRewriterUtils rewriter) {
+    getParentConstructor(context, rewriter.dexItemFactory()).collectIndexedItems(indexedItems);
+  }
+
+  @Override
+  public void collectMixedSectionItems(MixedSectionCollection mixedItems) {
+    // Intentionally empty.
+  }
+
+  @Override
+  protected int computeHashCode() {
+    return System.identityHashCode(this);
+  }
+
+  @Override
+  protected boolean computeEquals(Object other) {
+    return this == other;
+  }
+
+  @Override
+  public int estimatedDexCodeSizeUpperBoundInBytes() {
+    return codeSizeInBytes();
+  }
+
+  @Override
+  public CfWritableCodeKind getCfWritableCodeKind() {
+    return CfWritableCodeKind.DEFAULT_INSTANCE_INITIALIZER;
+  }
+
+  @Override
+  public DexWritableCodeKind getDexWritableCodeKind() {
+    return DexWritableCodeKind.DEFAULT_INSTANCE_INITIALIZER;
+  }
+
+  @Override
+  public DexDebugInfoForWriting getDebugInfoForWriting() {
+    return null;
+  }
+
+  @Override
+  public TryHandler[] getHandlers() {
+    return new TryHandler[0];
+  }
+
+  @Override
+  public DexString getHighestSortingString() {
+    return null;
+  }
+
+  @Override
+  public int getIncomingRegisterSize(ProgramMethod method) {
+    return getMaxLocals(method);
+  }
+
+  static DexMethod getParentConstructor(DexClassAndMethod method, DexItemFactory dexItemFactory) {
+    return dexItemFactory.createInstanceInitializer(method.getHolder().getSuperType());
+  }
+
+  private int getMaxLocals(ProgramMethod method) {
+    int maxLocals = method.getAccessFlags().isStatic() ? 0 : 1;
+    for (DexType parameter : method.getParameters()) {
+      maxLocals += parameter.getRequiredRegisters();
+    }
+    return maxLocals;
+  }
+
+  private int getMaxStack() {
+    return 1;
+  }
+
+  @Override
+  public int getOutgoingRegisterSize() {
+    return 1;
+  }
+
+  @Override
+  public int getRegisterSize(ProgramMethod method) {
+    return getIncomingRegisterSize(method);
+  }
+
+  @Override
+  public Try[] getTries() {
+    return new Try[0];
+  }
+
+  @Override
+  public boolean isCfWritableCode() {
+    return true;
+  }
+
+  @Override
+  public CfWritableCode asCfWritableCode() {
+    return this;
+  }
+
+  @Override
+  public boolean isDexWritableCode() {
+    return true;
+  }
+
+  @Override
+  public DexWritableCode asDexWritableCode() {
+    return this;
+  }
+
+  @Override
+  public boolean isEmptyVoidMethod() {
+    return false;
+  }
+
+  @Override
+  public boolean isDefaultInstanceInitializerCode() {
+    return true;
+  }
+
+  @Override
+  public DefaultInstanceInitializerCode asDefaultInstanceInitializerCode() {
+    return this;
+  }
+
+  @Override
+  public boolean isSharedCodeObject() {
+    return true;
+  }
+
+  @Override
+  public void registerCodeReferences(ProgramMethod method, UseRegistry registry) {
+    internalRegisterCodeReferences(method, registry);
+  }
+
+  @Override
+  public void registerCodeReferencesForDesugaring(ClasspathMethod method, UseRegistry registry) {
+    internalRegisterCodeReferences(method, registry);
+  }
+
+  private void internalRegisterCodeReferences(DexClassAndMethod method, UseRegistry<?> registry) {
+    registry.registerInvokeDirect(getParentConstructor(method, registry.dexItemFactory()));
+  }
+
+  @Override
+  public DexWritableCode rewriteCodeWithJumboStrings(
+      ProgramMethod method, ObjectToOffsetMapping mapping, DexItemFactory factory, boolean force) {
+    // Intentionally empty. This piece of code does not have any const-string instructions.
+    return this;
+  }
+
+  @Override
+  public void setCallSiteContexts(ProgramMethod method) {
+    // Intentionally empty. This piece of code does not have any call sites.
+  }
+
+  public CfCode toCfCode(ProgramMethod method, DexItemFactory dexItemFactory) {
+    return toCfCode(method, dexItemFactory, method.getHolder().getSuperType());
+  }
+
+  public CfCode toCfCode(ProgramMethod method, DexItemFactory dexItemFactory, DexType supertype) {
+    List<CfInstruction> instructions =
+        Arrays.asList(
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                Opcodes.INVOKESPECIAL, dexItemFactory.createInstanceInitializer(supertype), false),
+            new CfReturnVoid());
+    return new CfCode(method.getHolderType(), getMaxStack(), getMaxLocals(method), instructions);
+  }
+
+  @Override
+  public void writeCf(
+      ProgramMethod method,
+      CfVersion classFileVersion,
+      AppView<?> appView,
+      NamingLens namingLens,
+      LensCodeRewriterUtils rewriter,
+      MethodVisitor visitor) {
+    visitor.visitVarInsn(Opcodes.ALOAD, 0);
+    visitor.visitMethodInsn(
+        Opcodes.INVOKESPECIAL,
+        namingLens.lookupInternalName(method.getHolder().getSuperType()),
+        "<init>",
+        "()V",
+        false);
+    visitor.visitInsn(Opcodes.RETURN);
+    visitor.visitEnd();
+    visitor.visitMaxs(getMaxStack(), getMaxLocals(method));
+  }
+
+  @Override
+  public void writeDex(
+      ShortBuffer shortBuffer,
+      ProgramMethod context,
+      GraphLens graphLens,
+      LensCodeRewriterUtils lensCodeRewriter,
+      ObjectToOffsetMapping mapping) {
+    new InvokeDirect(1, getParentConstructor(context, mapping.dexItemFactory()), 0, 0, 0, 0, 0)
+        .write(shortBuffer, context, graphLens, mapping, lensCodeRewriter);
+    new ReturnVoid().write(shortBuffer, context, graphLens, mapping, lensCodeRewriter);
+  }
+
+  @Override
+  public void writeKeepRulesForDesugaredLibrary(CodeToKeep codeToKeep) {
+    // Intentionally empty.
+  }
+
+  @Override
+  public String toString() {
+    return "DefaultInstanceInitializerCode";
+  }
+
+  @Override
+  public String toString(DexEncodedMethod method, ClassNameMapper naming) {
+    return toString();
+  }
+
+  static class DefaultInstanceInitializerSourceCode extends SyntheticStraightLineSourceCode {
+
+    DefaultInstanceInitializerSourceCode(ProgramMethod method) {
+      this(method, null);
+    }
+
+    DefaultInstanceInitializerSourceCode(ProgramMethod method, Position callerPosition) {
+      super(
+          getInstructionBuilders(),
+          SyntheticPosition.builder()
+              .setLine(0)
+              .setMethod(method.getReference())
+              .setCallerPosition(callerPosition)
+              .build());
+    }
+
+    private static List<Consumer<IRBuilder>> getInstructionBuilders() {
+      return ImmutableList.of(
+          builder ->
+              builder.add(
+                  com.android.tools.r8.ir.code.InvokeDirect.builder()
+                      .setMethod(
+                          getParentConstructor(
+                              builder.getProgramMethod(), builder.dexItemFactory()))
+                      .setSingleArgument(builder.getReceiverValue())
+                      .build()),
+          IRBuilder::addReturn);
+    }
+  }
+}

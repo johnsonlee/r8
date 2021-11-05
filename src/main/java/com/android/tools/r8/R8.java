@@ -979,9 +979,10 @@ public class R8 {
                         }
                         if (code.isCfCode()) {
                           assert verifyOriginalMethodInPosition(code.asCfCode(), originalMethod);
-                        } else {
-                          assert code.isDexCode();
+                        } else if (code.isDexCode()) {
                           assert verifyOriginalMethodInDebugInfo(code.asDexCode(), originalMethod);
+                        } else {
+                          assert code.isDefaultInstanceInitializerCode() || code.isThrowNullCode();
                         }
                       }
                     }));
@@ -994,7 +995,7 @@ public class R8 {
         continue;
       }
       CfPosition position = instruction.asPosition();
-      assert position.getPosition().getOutermostCaller().method == originalMethod;
+      assert position.getPosition().getOutermostCaller().getMethod() == originalMethod;
     }
     return true;
   }

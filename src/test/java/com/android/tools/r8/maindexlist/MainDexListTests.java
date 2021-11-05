@@ -53,10 +53,12 @@ import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
+import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Phi.RegisterReadType;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.ir.code.ValueTypeConstraint;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.SourceCode;
@@ -870,7 +872,7 @@ public class MainDexListTests extends TestBase {
         ProgramMethod programMethod = new ProgramMethod(programClass, method);
         IRCode ir = code.buildIR(programMethod, appView, Origin.unknown());
         RegisterAllocator allocator = new LinearScanRegisterAllocator(appView, ir);
-        method.setCode(ir, allocator, appView);
+        method.setCode(ir, BytecodeMetadataProvider.empty(), allocator, appView);
         directMethods[i] = method;
       }
       programClass.getMethodCollection().addDirectMethods(Arrays.asList(directMethods));
@@ -902,7 +904,12 @@ public class MainDexListTests extends TestBase {
     private final Position position;
 
     public ReturnVoidCode(DexMethod method, Position callerPosition) {
-      this.position = Position.synthetic(0, method, callerPosition);
+      this.position =
+          SyntheticPosition.builder()
+              .setLine(0)
+              .setMethod(method)
+              .setCallerPosition(callerPosition)
+              .build();
     }
 
     @Override

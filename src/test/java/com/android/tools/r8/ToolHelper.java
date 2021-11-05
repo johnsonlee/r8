@@ -252,9 +252,9 @@ public class ToolHelper {
     ART_6_0_1_HOST(Version.V6_0_1, Kind.HOST),
     ART_7_0_0_TARGET(Version.V7_0_0, Kind.TARGET),
     ART_7_0_0_HOST(Version.V7_0_0, Kind.HOST),
+    ART_DEFAULT(Version.DEFAULT, Kind.HOST),
     ART_8_1_0_TARGET(Version.V8_1_0, Kind.TARGET),
     ART_8_1_0_HOST(Version.V8_1_0, Kind.HOST),
-    ART_DEFAULT(Version.DEFAULT, Kind.HOST),
     ART_9_0_0_TARGET(Version.V9_0_0, Kind.TARGET),
     ART_9_0_0_HOST(Version.V9_0_0, Kind.HOST),
     ART_10_0_0_TARGET(Version.V10_0_0, Kind.TARGET),
@@ -273,10 +273,15 @@ public class ToolHelper {
       V6_0_1("6.0.1"),
       V7_0_0("7.0.0"),
       V8_1_0("8.1.0"),
+      // TODO(b//204855476): Remove DEFAULT.
       DEFAULT("default"),
       V9_0_0("9.0.0"),
       V10_0_0("10.0.0"),
       V12_0_0("12.0.0");
+
+      /** This should generally be the latest DEX VM fully supported. */
+      // TODO(b/204855476): Rename to DEFAULT alias once the checked in VM is removed.
+      public static final Version NEW_DEFAULT = DEFAULT;
 
       Version(String shortName) {
         this.shortName = shortName;
@@ -287,7 +292,7 @@ public class ToolHelper {
       }
 
       public boolean isDefault() {
-        return this == DEFAULT;
+        return this == NEW_DEFAULT;
       }
 
       public boolean isLatest() {
@@ -995,8 +1000,6 @@ public class ToolHelper {
 
   public static AndroidApiLevel getMinApiLevelForDexVm(DexVm dexVm) {
     switch (dexVm.version) {
-      case DEFAULT:
-        return AndroidApiLevel.O;
       case V12_0_0:
         return AndroidApiLevel.S;
       case V10_0_0:
@@ -1005,6 +1008,8 @@ public class ToolHelper {
         return AndroidApiLevel.P;
       case V8_1_0:
         return AndroidApiLevel.O_MR1;
+      case DEFAULT:
+        return AndroidApiLevel.O;
       case V7_0_0:
         return AndroidApiLevel.N;
       case V6_0_1:
@@ -1377,21 +1382,24 @@ public class ToolHelper {
     return pb;
   }
 
+  @Deprecated
   public static ProcessResult runJava(Class clazz) throws Exception {
     String main = clazz.getTypeName();
     Path path = getClassPathForTests();
     return runJava(path, main);
   }
 
+  @Deprecated
   public static ProcessResult runJava(Path classpath, String... args) throws IOException {
     return runJava(ImmutableList.of(classpath), args);
   }
 
+  @Deprecated
   public static ProcessResult runJava(List<Path> classpath, String... args) throws IOException {
     return runJava(ImmutableList.of(), classpath, args);
   }
 
-  public static ProcessResult runJava(List<String> vmArgs, List<Path> classpath, String... args)
+  private static ProcessResult runJava(List<String> vmArgs, List<Path> classpath, String... args)
       throws IOException {
     return runJava(TestRuntime.getSystemRuntime().asCf(), vmArgs, classpath, args);
   }

@@ -20,6 +20,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
@@ -49,7 +50,6 @@ import com.android.tools.r8.utils.collections.BidirectionalOneToOneHashMap;
 import com.android.tools.r8.utils.collections.LongLivedProgramMethodSetBuilder;
 import com.android.tools.r8.utils.collections.MutableBidirectionalOneToOneMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
-import com.android.tools.r8.utils.collections.SortedProgramMethodSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -74,7 +74,7 @@ final class StaticizingProcessor {
   private final ClassStaticizer classStaticizer;
   private final IRConverter converter;
 
-  private final SortedProgramMethodSet methodsToReprocess = SortedProgramMethodSet.create();
+  private final ProgramMethodSet methodsToReprocess = ProgramMethodSet.create();
 
   // Optimization order matters, hence a collection that preserves orderings.
   private final Map<DexEncodedMethod, ImmutableList.Builder<BiConsumer<IRCode, MethodProcessor>>>
@@ -237,9 +237,6 @@ final class StaticizingProcessor {
         referencedFrom =
             referencedFromBuilder
                 .rewrittenWithLens(appView)
-                .removeIf(
-                    appView,
-                    method -> method.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite())
                 .build(appView);
         materializedReferencedFromCollections.put(info, referencedFrom);
       } else {
@@ -414,6 +411,7 @@ final class StaticizingProcessor {
             feedback,
             methodProcessor,
             new MutableMethodConversionOptions(methodProcessor),
+            BytecodeMetadataProvider.builder(),
             Timing.empty());
   }
 

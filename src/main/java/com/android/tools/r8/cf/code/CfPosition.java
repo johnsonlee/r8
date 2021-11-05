@@ -28,8 +28,6 @@ public class CfPosition extends CfInstruction {
   private final CfLabel label;
   private final Position position;
 
-
-
   public CfPosition(CfLabel label, Position position) {
     this.label = label;
     this.position = position;
@@ -47,7 +45,7 @@ public class CfPosition extends CfInstruction {
         this,
         (CfPosition) other,
         spec ->
-            spec.withInt(p -> p.position.line)
+            spec.withInt(p -> p.position.getLine())
                 .withCustomItem(p -> p.label, helper.labelAcceptor()));
   }
 
@@ -61,7 +59,7 @@ public class CfPosition extends CfInstruction {
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    visitor.visitLineNumber(position.line, label.getLabel());
+    visitor.visitLineNumber(position.getLine(), label.getLabel());
   }
 
   @Override

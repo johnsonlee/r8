@@ -57,6 +57,7 @@ import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.Monitor;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.Position.SourcePosition;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.origin.Origin;
@@ -120,6 +121,11 @@ public class LazyCfCode extends Code {
   }
 
   @Override
+  public boolean isCfWritableCode() {
+    return true;
+  }
+
+  @Override
   public LazyCfCode asLazyCfCode() {
     return this;
   }
@@ -131,6 +137,11 @@ public class LazyCfCode extends Code {
     }
     assert code != null;
     return code;
+  }
+
+  @Override
+  public CfWritableCode asCfWritableCode() {
+    return asCfCode();
   }
 
   private void internalParseCode() {
@@ -781,7 +792,7 @@ public class LazyCfCode extends Code {
           factory.createField(createTypeFromInternalType(owner), factory.createType(desc), name);
       // TODO(mathiasr): Don't require CfFieldInstruction::declaringField. It is needed for proper
       // renaming in the backend, but it is not available here in the frontend.
-      instructions.add(new CfFieldInstruction(opcode, field, field));
+      instructions.add(CfFieldInstruction.create(opcode, field, field));
     }
 
     @Override
@@ -1007,7 +1018,7 @@ public class LazyCfCode extends Code {
       if (debugParsingOptions.lineInfo) {
         instructions.add(
             new CfPosition(
-                getLabel(start), Position.builder().setLine(line).setMethod(method).build()));
+                getLabel(start), SourcePosition.builder().setLine(line).setMethod(method).build()));
       }
     }
 

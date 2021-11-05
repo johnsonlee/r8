@@ -70,7 +70,7 @@ import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.utils.IROrdering.IdentityIROrdering;
 import com.android.tools.r8.utils.IROrdering.NondeterministicIROrdering;
 import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
-import com.android.tools.r8.utils.collections.SortedProgramMethodSet;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.structural.Ordered;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Equivalence.Wrapper;
@@ -239,7 +239,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     enableEnumUnboxing = false;
     outline.enabled = false;
     enableEnumValueOptimization = false;
-    enableValuePropagation = false;
     enableSideEffectAnalysis = false;
     enableTreeShakingOfLibraryMethodOverrides = false;
     enableInitializedClassesAnalysis = false;
@@ -267,7 +266,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean libraryInterfacesMayHaveStaticInitialization = false;
 
   // Optimization-related flags. These should conform to -dontoptimize and disableAllOptimizations.
-  public boolean enableFieldAssignmentTracker = true;
   public boolean enableFieldBitAccessAnalysis =
       System.getProperty("com.android.tools.r8.fieldBitAccessAnalysis") != null;
   public boolean enableVerticalClassMerging = true;
@@ -317,7 +315,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public final OutlineOptions outline = new OutlineOptions();
   public boolean enableInitializedClassesInInstanceMethodsAnalysis = true;
   public boolean enableRedundantFieldLoadElimination = true;
-  public boolean enableValuePropagation = true;
   // Currently disabled, see b/146957343.
   public boolean enableUninstantiatedTypeOptimizationForInterfaces = false;
   // TODO(b/138917494): Disable until we have numbers on potential performance penalties.
@@ -1207,6 +1204,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public int minSize = 3;
     public int maxSize = 99;
     public int threshold = 20;
+    public int maxNumberOfInstructionsToBeConsidered = 100;
   }
 
   public static class KotlinOptimizationOptions {
@@ -1606,7 +1604,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public BiConsumer<DexItemFactory, VerticallyMergedClasses> verticallyMergedClassesConsumer =
         ConsumerUtils.emptyBiConsumer();
 
-    public Consumer<Deque<SortedProgramMethodSet>> waveModifier = waves -> {};
+    public Consumer<Deque<ProgramMethodSet>> waveModifier = waves -> {};
 
     /**
      * If this flag is enabled, we will also compute the set of possible targets for invoke-

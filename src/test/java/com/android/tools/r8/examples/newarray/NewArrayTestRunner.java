@@ -8,9 +8,8 @@ import static org.junit.Assume.assumeTrue;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestRuntime;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -23,7 +22,39 @@ public class NewArrayTestRunner extends TestBase {
   private final TestParameters parameters;
   private final CompilationMode mode;
 
-  private static String referenceOut;
+  private static final List<String> EXPECTED =
+      ImmutableList.of(
+          "[]",
+          "[0]",
+          "[0,1]",
+          "[0,1,2]",
+          "[0,1,2,3]",
+          "[0,1,2,3,4]",
+          "[0,1,2,3,4,5]",
+          "[0,1,2,3,4,5,6]",
+          "[0,1,2,3,4,5,6,7]",
+          "[0,1,2,3,4,5,6,7]",
+          "[]",
+          "[0]",
+          "[0,1]",
+          "[0,1,2]",
+          "[0,1,2,3]",
+          "[0,1,2,3,4]",
+          "[0,1,2,3,4,5]",
+          "[0,1,2,3,4,5,6,7,8,9,10]",
+          "[]",
+          "[0]",
+          "[0,1]",
+          "[0,1,2]",
+          "[0,1,2,3]",
+          "[0,1,2,3,4]",
+          "[0,1,2,3,4,5]",
+          "[0,1,2,3,4,5,6]",
+          "[0,1,2,3,4,5,6,7]",
+          "6,6,6,6,6",
+          "1,1,1,1,1,1",
+          "8,8,8,8",
+          "2,4,6,8,10,12,14,16,false,0,0,0,0,0.0,0.0,null");
 
   @Parameterized.Parameters(name = "{0}, {1}")
   public static List<Object[]> data() {
@@ -36,14 +67,13 @@ public class NewArrayTestRunner extends TestBase {
     this.mode = mode;
   }
 
-  @BeforeClass
-  public static void runReference() throws Exception {
-    referenceOut =
-        testForJvm(getStaticTemp())
-            .addProgramClassesAndInnerClasses(CLASS)
-            .run(TestRuntime.getDefaultJavaRuntime(), CLASS)
-            .assertSuccess()
-            .getStdOut();
+  @Test
+  public void runReference() throws Exception {
+    assumeTrue(parameters.isCfRuntime() && mode == CompilationMode.DEBUG);
+    testForJvm(getStaticTemp())
+        .addProgramClassesAndInnerClasses(CLASS)
+        .run(parameters.getRuntime(), CLASS)
+        .assertSuccessWithOutputLines(EXPECTED);
   }
 
   @Test
@@ -54,7 +84,7 @@ public class NewArrayTestRunner extends TestBase {
         .setMinApi(parameters.getApiLevel())
         .setMode(mode)
         .run(parameters.getRuntime(), CLASS)
-        .assertSuccessWithOutput(referenceOut);
+        .assertSuccessWithOutputLines(EXPECTED);
   }
 
   @Test
@@ -65,6 +95,6 @@ public class NewArrayTestRunner extends TestBase {
         .setMinApi(parameters.getApiLevel())
         .setMode(mode)
         .run(parameters.getRuntime(), CLASS)
-        .assertSuccessWithOutput(referenceOut);
+        .assertSuccessWithOutputLines(EXPECTED);
   }
 }

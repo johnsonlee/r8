@@ -35,6 +35,7 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.AndroidApp.Builder;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -241,6 +242,7 @@ public class VerticalClassMergerTest extends TestBase {
     String main = "classmerging.ConflictInGeneratedNameTest";
     Path[] programFiles =
         new Path[] {
+          CF_DIR.resolve("NeverPropagateValue.class"),
           CF_DIR.resolve("ConflictInGeneratedNameTest.class"),
           CF_DIR.resolve("ConflictInGeneratedNameTest$A.class"),
           CF_DIR.resolve("ConflictInGeneratedNameTest$B.class")
@@ -254,7 +256,6 @@ public class VerticalClassMergerTest extends TestBase {
                 testForR8(parameters.getBackend())
                     .addKeepRules(getProguardConfig(EXAMPLE_KEEP))
                     .addOptionsModification(this::configure)
-                    .addOptionsModification(options -> options.enableValuePropagation = false)
                     .addOptionsModification(
                         options ->
                             options.testing.validInliningReasons = ImmutableSet.of(Reason.FORCE))
@@ -1065,15 +1066,17 @@ public class VerticalClassMergerTest extends TestBase {
         };
     // SimpleInterface cannot be merged into SimpleInterfaceImpl because SimpleInterfaceImpl
     // is in a different package and is not public.
-    ImmutableSet<String> preservedClassNames =
-        ImmutableSet.of(
+    Set<String> preservedClassNames =
+        SetUtils.newHashSet(
             "classmerging.SimpleInterfaceAccessTest",
-            "classmerging.SimpleInterfaceAccessTest$1",
             "classmerging.SimpleInterfaceAccessTest$SimpleInterface",
             "classmerging.SimpleInterfaceAccessTest$OtherSimpleInterface",
             "classmerging.SimpleInterfaceAccessTest$OtherSimpleInterfaceImpl",
             "classmerging.pkg.SimpleInterfaceImplRetriever",
             "classmerging.pkg.SimpleInterfaceImplRetriever$SimpleInterfaceImpl");
+    if (parameters.isCfRuntime()) {
+      preservedClassNames.add("classmerging.SimpleInterfaceAccessTest$1");
+    }
     runTest(
         testForR8(parameters.getBackend())
             .addKeepRules(getProguardConfig(EXAMPLE_KEEP))

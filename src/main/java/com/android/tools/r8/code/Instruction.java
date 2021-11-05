@@ -133,6 +133,10 @@ public abstract class Instruction implements CfOrDexInstruction, StructuralItem<
     write32BitValue(item.getOffset(mapping), dest);
   }
 
+  public boolean hasOffset() {
+    return offset >= 0;
+  }
+
   public int getOffset() {
     return offset;
   }
@@ -149,6 +153,11 @@ public abstract class Instruction implements CfOrDexInstruction, StructuralItem<
   @Override
   public boolean isCfInstruction() {
     return false;
+  }
+
+  @Override
+  public Instruction asDexInstruction() {
+    return this;
   }
 
   public CheckCast asCheckCast() {

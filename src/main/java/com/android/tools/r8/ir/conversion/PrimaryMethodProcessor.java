@@ -16,14 +16,12 @@ import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Timing.TimingMerger;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
-import com.android.tools.r8.utils.collections.SortedProgramMethodSet;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Consumer;
 
 /**
  * A {@link MethodProcessor} that processes methods in the whole program in a bottom-up manner,
@@ -36,9 +34,15 @@ class PrimaryMethodProcessor extends MethodProcessorWithWave {
     void notifyWaveStart(ProgramMethodSet wave);
   }
 
+  interface WaveDoneAction {
+
+    void notifyWaveDone(ProgramMethodSet wave, ExecutorService executorService)
+        throws ExecutionException;
+  }
+
   private final AppView<?> appView;
   private final CallSiteInformation callSiteInformation;
-  private final Deque<SortedProgramMethodSet> waves;
+  private final Deque<ProgramMethodSet> waves;
 
   private ProcessorContext processorContext;
 
@@ -80,13 +84,13 @@ class PrimaryMethodProcessor extends MethodProcessorWithWave {
     return callSiteInformation;
   }
 
-  private Deque<SortedProgramMethodSet> createWaves(AppView<?> appView, CallGraph callGraph) {
+  private Deque<ProgramMethodSet> createWaves(AppView<?> appView, CallGraph callGraph) {
     InternalOptions options = appView.options();
-    Deque<SortedProgramMethodSet> waves = new ArrayDeque<>();
+    Deque<ProgramMethodSet> waves = new ArrayDeque<>();
     Set<Node> nodes = callGraph.nodes;
     int waveCount = 1;
     while (!nodes.isEmpty()) {
-      SortedProgramMethodSet wave = callGraph.extractLeaves();
+      ProgramMethodSet wave = callGraph.extractLeaves();
       waves.addLast(wave);
       if (Log.ENABLED && Log.isLoggingEnabledFor(PrimaryMethodProcessor.class)) {
         Log.info(getClass(), "Wave #%d: %d", waveCount++, wave.size());
@@ -110,7 +114,7 @@ class PrimaryMethodProcessor extends MethodProcessorWithWave {
   <E extends Exception> void forEachMethod(
       MethodAction<E> consumer,
       WaveStartAction waveStartAction,
-      Consumer<ProgramMethodSet> waveDone,
+      WaveDoneAction waveDoneAction,
       Timing timing,
       ExecutorService executorService)
       throws ExecutionException {
@@ -133,7 +137,7 @@ class PrimaryMethodProcessor extends MethodProcessorWithWave {
                 },
                 executorService);
         merger.add(timings);
-        waveDone.accept(wave);
+        waveDoneAction.notifyWaveDone(wave, executorService);
         prepareForWaveExtensionProcessing();
       } while (!wave.isEmpty());
     }

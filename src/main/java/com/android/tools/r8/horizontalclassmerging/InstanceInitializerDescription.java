@@ -9,7 +9,7 @@ import com.android.tools.r8.cf.code.CfConstNull;
 import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfConstString;
 import com.android.tools.r8.cf.code.CfDexItemBasedConstString;
-import com.android.tools.r8.cf.code.CfFieldInstruction;
+import com.android.tools.r8.cf.code.CfInstanceFieldWrite;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfLabel;
@@ -28,6 +28,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.value.SingleConstValue;
 import com.android.tools.r8.ir.analysis.value.SingleDexItemBasedStringValue;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfo;
 import com.android.tools.r8.utils.IntBox;
@@ -110,8 +111,14 @@ public class InstanceInitializerDescription {
     ImmutableList.Builder<CfInstruction> instructionBuilder = ImmutableList.builder();
 
     // Set position.
-    Position callerPosition = Position.synthetic(0, syntheticMethodReference, null);
-    Position calleePosition = Position.synthetic(0, originalMethodReference, callerPosition);
+    Position callerPosition =
+        SyntheticPosition.builder().setLine(0).setMethod(syntheticMethodReference).build();
+    Position calleePosition =
+        SyntheticPosition.builder()
+            .setLine(0)
+            .setMethod(originalMethodReference)
+            .setCallerPosition(callerPosition)
+            .build();
     CfPosition position = new CfPosition(new CfLabel(), calleePosition);
     instructionBuilder.add(position);
     instructionBuilder.add(position.getLabel());
@@ -122,7 +129,7 @@ public class InstanceInitializerDescription {
       int classIdLocalIndex = maxLocals - 1;
       instructionBuilder.add(new CfLoad(ValueType.OBJECT, 0));
       instructionBuilder.add(new CfLoad(ValueType.INT, classIdLocalIndex));
-      instructionBuilder.add(new CfFieldInstruction(Opcodes.PUTFIELD, group.getClassIdField()));
+      instructionBuilder.add(new CfInstanceFieldWrite(group.getClassIdField()));
       maxStack.set(2);
     } else {
       assert !hasClassId;
@@ -180,7 +187,7 @@ public class InstanceInitializerDescription {
           int stackSizeForInitializationInfo =
               addCfInstructionsForInitializationInfo(
                   instructionBuilder, initializationInfo, argumentToLocalIndex, field.getType());
-          instructionBuilder.add(new CfFieldInstruction(Opcodes.PUTFIELD, field));
+          instructionBuilder.add(new CfInstanceFieldWrite(field));
           maxStack.setMax(stackSizeForInitializationInfo + 1);
         });
   }

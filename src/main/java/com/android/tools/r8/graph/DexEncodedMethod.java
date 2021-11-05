@@ -40,8 +40,6 @@ import com.android.tools.r8.code.NewInstance;
 import com.android.tools.r8.code.Return;
 import com.android.tools.r8.code.Throw;
 import com.android.tools.r8.code.XorIntLit8;
-import com.android.tools.r8.dex.Constants;
-import com.android.tools.r8.dex.JumboStringRewriter;
 import com.android.tools.r8.dex.MethodToCodeObjectMapping;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.InternalCompilerError;
@@ -50,6 +48,7 @@ import com.android.tools.r8.graph.DexAnnotation.AnnotatedKind;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
+import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraint;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.NumericType;
@@ -305,21 +304,22 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   }
 
   private static int compareCodeObject(Code code1, Code code2, CompareToVisitor visitor) {
-    if (code1.isCfCode() && code2.isCfCode()) {
-      return code1.asCfCode().acceptCompareTo(code2.asCfCode(), visitor);
+    if (code1.isCfWritableCode() && code2.isCfWritableCode()) {
+      return code1.asCfWritableCode().acceptCompareTo(code2.asCfWritableCode(), visitor);
     }
-    if (code1.isDexCode() && code2.isDexCode()) {
-      return code1.asDexCode().acceptCompareTo(code2.asDexCode(), visitor);
+    if (code1.isDexWritableCode() && code2.isDexWritableCode()) {
+      return code1.asDexWritableCode().acceptCompareTo(code2.asDexWritableCode(), visitor);
     }
     throw new Unreachable(
         "Unexpected attempt to compare incompatible synthetic objects: " + code1 + " and " + code2);
   }
 
   private static void hashCodeObject(Code code, HashingVisitor visitor) {
-    if (code.isCfCode()) {
-      code.asCfCode().acceptHashing(visitor);
+    if (code.isCfWritableCode()) {
+      code.asCfWritableCode().acceptHashing(visitor);
     } else {
-      code.asDexCode().acceptHashing(visitor);
+      assert code.isDexWritableCode();
+      code.asDexWritableCode().acceptHashing(visitor);
     }
   }
 
@@ -393,6 +393,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       return DexClassAndMethod.create(clazz, this);
     }
     return null;
+  }
+
+  public ProgramMethod asProgramMethod(DexProgramClass holder) {
+    assert getHolderType() == holder.getType();
+    return new ProgramMethod(holder, this);
   }
 
   public ProgramMethod asProgramMethod(DexDefinitionSupplier definitions) {
@@ -727,9 +732,13 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     code = newCode;
   }
 
-  public void setCode(IRCode ir, RegisterAllocator registerAllocator, AppView<?> appView) {
+  public void setCode(
+      IRCode ir,
+      BytecodeMetadataProvider bytecodeMetadataProvider,
+      RegisterAllocator registerAllocator,
+      AppView<?> appView) {
     checkIfObsolete();
-    DexBuilder builder = new DexBuilder(ir, registerAllocator);
+    DexBuilder builder = new DexBuilder(ir, bytecodeMetadataProvider, registerAllocator);
     setCode(builder.build(), appView);
   }
 
@@ -771,8 +780,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
   public void collectMixedSectionItemsWithCodeMapping(
       MixedSectionCollection mixedItems, MethodToCodeObjectMapping mapping) {
-    DexCode code = mapping.getCode(this);
-    if (code != null) {
+    DexWritableCode code = mapping.getCode(this);
+    if (code != null && mixedItems.add(this, code)) {
       code.collectMixedSectionItems(mixedItems);
     }
     annotations().collectMixedSectionItems(mixedItems);
@@ -790,11 +799,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   public Code getCode() {
     checkIfObsolete();
     return code;
-  }
-
-  public void removeCode() {
-    checkIfObsolete();
-    code = null;
   }
 
   public CfVersion getClassFileVersion() {
@@ -1291,34 +1295,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     method.copyMetadata(this);
     setObsolete();
     return method;
-  }
-
-  /** Rewrites the code in this method to have JumboString bytecode if required by mapping. */
-  public DexCode rewriteCodeWithJumboStrings(
-      ObjectToOffsetMapping mapping, DexItemFactory factory, boolean force) {
-    checkIfObsolete();
-    assert code == null || code.isDexCode();
-    if (code == null) {
-      return null;
-    }
-    DexCode code = this.code.asDexCode();
-    DexString firstJumboString = null;
-    if (force) {
-      firstJumboString = mapping.getFirstString();
-    } else {
-      assert code.highestSortingString != null
-          || Arrays.stream(code.instructions).noneMatch(Instruction::isConstString);
-      assert Arrays.stream(code.instructions).noneMatch(Instruction::isDexItemBasedConstString);
-      if (code.highestSortingString != null
-          && mapping.getOffsetFor(code.highestSortingString) > Constants.MAX_NON_JUMBO_INDEX) {
-        firstJumboString = mapping.getFirstJumboString();
-      }
-    }
-    if (firstJumboString != null) {
-      JumboStringRewriter rewriter = new JumboStringRewriter(this, firstJumboString, factory);
-      return rewriter.rewrite();
-    }
-    return code;
   }
 
   public String codeToString() {
