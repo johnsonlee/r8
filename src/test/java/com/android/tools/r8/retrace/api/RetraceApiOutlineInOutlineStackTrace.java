@@ -44,7 +44,7 @@ public class RetraceApiOutlineInOutlineStackTrace extends RetraceApiTestBase {
     private final ClassReference callsiteRenamed = Reference.classFromTypeName("c");
 
     private final String mapping =
-        "# { id: 'com.android.tools.r8.mapping', version: 'experimental' }\n"
+        "# { id: 'com.android.tools.r8.mapping', version: '2.0' }\n"
             + "outline1.Class -> "
             + outline1Renamed.getTypeName()
             + ":\n"
@@ -92,9 +92,9 @@ public class RetraceApiOutlineInOutlineStackTrace extends RetraceApiTestBase {
       List<RetraceFrameElement> retraceOutlineCallee =
           retracer
               .retraceFrame(
-                  Reference.methodFromDescriptor(callsiteRenamed, "s", "(I)V"),
+                  outlineContext,
                   OptionalInt.of(28),
-                  outlineContext)
+                  Reference.methodFromDescriptor(callsiteRenamed, "s", "(I)V"))
               .stream()
               .collect(Collectors.toList());
       assertEquals(1, retraceOutlineCallee.size());
@@ -113,7 +113,7 @@ public class RetraceApiOutlineInOutlineStackTrace extends RetraceApiTestBase {
         int position,
         RetraceStackTraceContext context) {
       List<RetraceFrameElement> outlineRetraced =
-          retracer.retraceFrame(reference, OptionalInt.of(position), context).stream()
+          retracer.retraceFrame(context, OptionalInt.of(position), reference).stream()
               .collect(Collectors.toList());
       // The retrace result should not be ambiguous or empty.
       assertEquals(1, outlineRetraced.size());

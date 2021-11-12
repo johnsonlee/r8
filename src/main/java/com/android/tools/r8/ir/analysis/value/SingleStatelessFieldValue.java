@@ -15,8 +15,13 @@ public class SingleStatelessFieldValue extends SingleFieldValue {
   }
 
   @Override
-  public ObjectState getState() {
+  public ObjectState getObjectState() {
     return ObjectState.empty();
+  }
+
+  @Override
+  public boolean hasObjectState() {
+    return false;
   }
 
   @Override
@@ -26,7 +31,7 @@ public class SingleStatelessFieldValue extends SingleFieldValue {
 
   @Override
   public boolean equals(Object o) {
-    if (getClass() != o.getClass()) {
+    if (o == null || getClass() != o.getClass()) {
       return false;
     }
     SingleStatelessFieldValue singleFieldValue = (SingleStatelessFieldValue) o;

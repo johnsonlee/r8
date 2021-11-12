@@ -8,10 +8,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -116,16 +118,11 @@ public class R8InliningTest extends TestBase {
         .addOptionsModification(
             o -> {
               // Disable class inlining to prevent that the instantiation of Nullability is removed,
-              // and
-              // that the class is therefore made abstract.
+              // and that the class is therefore made abstract.
               o.enableClassInlining = false;
               o.inlinerOptions().enableInlining = inlining;
               o.inlinerOptions().enableInliningOfInvokesWithNullableReceivers = false;
               o.inlinerOptions().simpleInliningInstructionLimit = 6;
-              // Tests depend on nullability of receiver and argument in general. Learning very
-              // accurate
-              // nullability from actual usage in tests bothers what we want to test.
-              o.callSiteOptimizationOptions().disableDynamicTypePropagationForTesting();
               o.testing.horizontallyMergedClassesConsumer = this::fixInliningNullabilityClass;
               o.testing.horizontalClassMergingTarget =
                   (appView, candidates, target) -> {
@@ -152,6 +149,8 @@ public class R8InliningTest extends TestBase {
 
   @Before
   public void generateR8Version() throws Exception {
+    // Triggers ART failure. See also b/205481246.
+    assumeFalse(parameters.isDexRuntimeVersion(Version.V6_0_1));
     outputDir = temp.newFolder().toPath();
     Path mapFile = outputDir.resolve(DEFAULT_MAP_FILENAME);
     generateR8Version(outputDir, mapFile, true);

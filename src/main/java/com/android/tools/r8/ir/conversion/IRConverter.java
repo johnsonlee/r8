@@ -64,7 +64,6 @@ import com.android.tools.r8.ir.desugar.lambda.LambdaDeserializationMethodRemover
 import com.android.tools.r8.ir.desugar.nest.D8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.AssumeInserter;
-import com.android.tools.r8.ir.optimize.CallSiteOptimizationInfoPropagator;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization;
 import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization.ClassInitializerDefaultsResult;
 import com.android.tools.r8.ir.optimize.CodeRewriter;
@@ -132,7 +131,7 @@ public class IRConverter {
   public final AppView<?> appView;
 
   private final Timing timing;
-  private final Outliner outliner;
+  public final Outliner outliner;
   private final ClassInitializerDefaultsOptimization classInitializerDefaultsOptimization;
   private final CfInstructionDesugaringCollection instructionDesugaring;
   private final FieldAccessAnalysis fieldAccessAnalysis;
@@ -146,7 +145,7 @@ public class IRConverter {
   private final CfgPrinter printer;
   public final CodeRewriter codeRewriter;
   private final ConstantCanonicalizer constantCanonicalizer;
-  private final MemberValuePropagation memberValuePropagation;
+  public final MemberValuePropagation memberValuePropagation;
   private final LensCodeRewriter lensCodeRewriter;
   private final Inliner inliner;
   private final IdentifierNameStringMarker identifierNameStringMarker;
@@ -652,13 +651,6 @@ public class IRConverter {
     // Setup optimizations for the primary optimization pass.
     appView.withArgumentPropagator(
         argumentPropagator -> argumentPropagator.initializeCodeScanner(executorService, timing));
-    appView.withCallSiteOptimizationInfoPropagator(
-        optimization -> {
-          optimization.abandonCallSitePropagationForLambdaImplementationMethods(
-              executorService, timing);
-          optimization.abandonCallSitePropagationForPinnedMethodsAndOverrides(
-              executorService, timing);
-        });
     enumUnboxer.prepareForPrimaryOptimizationPass(graphLensForPrimaryOptimizationPass);
     ConsumerUtils.acceptIfNotNull(
         classStaticizer,
@@ -719,10 +711,6 @@ public class IRConverter {
         argumentPropagator ->
             argumentPropagator.tearDownCodeScanner(
                 this, postMethodProcessorBuilder, executorService, timing));
-    appView.withCallSiteOptimizationInfoPropagator(
-        callSiteOptimizationInfoPropagator ->
-            callSiteOptimizationInfoPropagator.enqueueMethodsForReprocessing(
-                postMethodProcessorBuilder));
 
     if (libraryMethodOverrideAnalysis != null) {
       libraryMethodOverrideAnalysis.finish();
@@ -815,8 +803,6 @@ public class IRConverter {
     }
 
     if (Log.ENABLED) {
-      appView.withCallSiteOptimizationInfoPropagator(
-          CallSiteOptimizationInfoPropagator::logResults);
       constantCanonicalizer.logResults();
       if (idempotentFunctionCallCanonicalizer != null) {
         idempotentFunctionCallCanonicalizer.logResults();
@@ -1573,15 +1559,6 @@ public class IRConverter {
       if (classInitializerDefaultsResult != null) {
         fieldAccessAnalysis.acceptClassInitializerDefaultsResult(classInitializerDefaultsResult);
       }
-      timing.end();
-    }
-
-    // Arguments can be changed during the debug mode.
-    boolean isDebugMode =
-        options.debug || method.getDefinition().getOptimizationInfo().isReachabilitySensitive();
-    if (!isDebugMode && appView.callSiteOptimizationInfoPropagator() != null) {
-      timing.begin("Collect call-site info");
-      appView.callSiteOptimizationInfoPropagator().collectCallSiteOptimizationInfo(code, timing);
       timing.end();
     }
 

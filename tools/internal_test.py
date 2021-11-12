@@ -341,6 +341,10 @@ def execute(cmd, archive, env=None):
   if cmd == []:
     return
 
+  assert(cmd[0].endswith('.py'))
+  cmd = [sys.executable] + cmd
+
+
   utils.PrintCmd(cmd)
   with utils.TempDir() as temp:
     try:
