@@ -93,6 +93,10 @@ public abstract class MethodResolutionResult
     return null;
   }
 
+  public DexClass getResolvedHolder() {
+    return null;
+  }
+
   public ProgramMethod getResolvedProgramMethod() {
     return null;
   }

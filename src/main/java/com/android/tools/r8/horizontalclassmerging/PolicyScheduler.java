@@ -16,6 +16,7 @@ import com.android.tools.r8.horizontalclassmerging.policies.LimitClassGroups;
 import com.android.tools.r8.horizontalclassmerging.policies.MinimizeInstanceFieldCasts;
 import com.android.tools.r8.horizontalclassmerging.policies.NoAnnotationClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoClassAnnotationCollisions;
+import com.android.tools.r8.horizontalclassmerging.policies.NoClassInitializerCycles;
 import com.android.tools.r8.horizontalclassmerging.policies.NoClassInitializerWithObservableSideEffects;
 import com.android.tools.r8.horizontalclassmerging.policies.NoConstructorCollisions;
 import com.android.tools.r8.horizontalclassmerging.policies.NoDeadEnumLiteMaps;
@@ -215,7 +216,7 @@ public class PolicyScheduler {
   private static void addMultiClassPoliciesForMergingNonSyntheticClasses(
       AppView<AppInfoWithLiveness> appView,
       ImmutableList.Builder<Policy> builder) {
-    builder.add(new NoDeadLocks(appView));
+    builder.add(new NoClassInitializerCycles(appView), new NoDeadLocks(appView));
   }
 
   private static void addMultiClassPoliciesForInterfaceMerging(

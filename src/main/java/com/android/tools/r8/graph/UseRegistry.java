@@ -23,6 +23,10 @@ public abstract class UseRegistry {
     method.registerCodeReferences(this);
   }
 
+  public void doBreak() {
+    // Added in R8 3.2.
+  }
+
   public abstract void registerInitClass(DexType type);
 
   public abstract void registerInvokeVirtual(DexMethod method);
