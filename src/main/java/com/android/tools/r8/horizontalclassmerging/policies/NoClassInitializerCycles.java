@@ -485,7 +485,8 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
 
       @Override
       public void registerInitClass(DexType type) {
-        triggerClassInitializerIfNotAlreadyTriggeredInContext(type);
+        DexType rewrittenType = appView.graphLens().lookupType(type);
+        triggerClassInitializerIfNotAlreadyTriggeredInContext(rewrittenType);
       }
 
       @Override
