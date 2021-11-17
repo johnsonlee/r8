@@ -70,6 +70,7 @@ public class PolicyScheduler {
             .addAll(getSingleClassPolicies(appView, mode, runtimeTypeCheckInfo))
             .addAll(getMultiClassPolicies(appView, codeProvider, mode, runtimeTypeCheckInfo))
             .build();
+    policies = appView.options().testing.horizontalClassMergingPolicyRewriter.apply(policies);
     assert verifyPolicyOrderingConstraints(policies);
     return policies;
   }
