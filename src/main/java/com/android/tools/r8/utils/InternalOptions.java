@@ -569,6 +569,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final boolean enableTreeShaking;
   private final boolean enableMinification;
 
+  public AndroidApiLevel getMinApiLevel() {
+    return minApiLevel;
+  }
+
   public boolean isOptimizing() {
     return hasProguardConfiguration() && getProguardConfiguration().isOptimizing();
   }
