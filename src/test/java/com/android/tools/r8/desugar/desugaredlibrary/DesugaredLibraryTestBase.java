@@ -87,6 +87,12 @@ public class DesugaredLibraryTestBase extends TestBase {
     throw new Error("Unsupported conversion parameters");
   }
 
+  protected Path getLibraryFile() {
+    return isJDK11DesugaredLibrary()
+        ? ToolHelper.getAndroidJar(AndroidApiLevel.S)
+        : ToolHelper.getAndroidJar(AndroidApiLevel.P);
+  }
+
   protected boolean requiresEmulatedInterfaceCoreLibDesugaring(TestParameters parameters) {
     return parameters.getApiLevel().isLessThan(apiLevelWithDefaultInterfaceMethodsSupport());
   }
@@ -138,7 +144,7 @@ public class DesugaredLibraryTestBase extends TestBase {
     try {
       return testForL8(apiLevel)
           .addProgramFiles(additionalProgramFiles)
-          .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
+          .addLibraryFiles(getLibraryFile())
           .applyIf(
               release,
               builder -> {
@@ -204,7 +210,7 @@ public class DesugaredLibraryTestBase extends TestBase {
     Path desugaredLib = temp.newFolder().toPath().resolve("desugar_jdk_libs.jar");
     L8Command.Builder l8Builder =
         L8Command.builder()
-            .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
+            .addLibraryFiles(getLibraryFile())
             .addProgramFiles(ToolHelper.getDesugarJDKLibs())
             .addProgramFiles(ToolHelper.DESUGAR_LIB_CONVERSIONS)
             .setMode(CompilationMode.DEBUG)
@@ -243,7 +249,7 @@ public class DesugaredLibraryTestBase extends TestBase {
     desugaredLib = temp.newFolder().toPath().resolve("desugar_jdk_libs.jar");
     L8Command.Builder l8Builder =
         L8Command.builder()
-            .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
+            .addLibraryFiles(getLibraryFile())
             .addProgramFiles(ToolHelper.getDesugarJDKLibs())
             .addProgramFiles(ToolHelper.DESUGAR_LIB_CONVERSIONS)
             .setMode(CompilationMode.DEBUG)
@@ -262,7 +268,7 @@ public class DesugaredLibraryTestBase extends TestBase {
     TraceReferences.run(
         "--keep-rules",
         "--lib",
-        ToolHelper.getAndroidJar(AndroidApiLevel.P).toString(),
+        getLibraryFile().toString(),
         "--target",
         desugaredLibraryClassFile.toString(),
         "--source",

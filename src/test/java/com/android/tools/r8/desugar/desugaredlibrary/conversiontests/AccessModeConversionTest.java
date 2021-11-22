@@ -1,4 +1,4 @@
-// Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2021, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -6,29 +6,30 @@ package com.android.tools.r8.desugar.desugaredlibrary.conversiontests;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryConfiguration;
+import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringUtils;
+import java.nio.file.AccessMode;
 import java.nio.file.Path;
-import java.time.MonthDay;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-// Longs and double take two stack indexes, this had to be dealt with in
-// CfAPIConverter*WrapperCodeProvider (See stackIndex vs index), this class tests that the
-// synthetic Cf code is correct.
 @RunWith(Parameterized.class)
-public class BasicLongDoubleConversionTest extends DesugaredLibraryTestBase {
+public class AccessModeConversionTest extends DesugaredLibraryTestBase {
 
   private final TestParameters parameters;
   private final boolean shrinkDesugaredLibrary;
 
   private static final AndroidApiLevel MIN_SUPPORTED = AndroidApiLevel.O;
-  private static final String EXPECTED_RESULT = StringUtils.lines("--01-16");
+  private static final String EXPECTED_RESULT = StringUtils.lines("WRITE", "WRITE");
 
   private static Path CUSTOM_LIB;
 
@@ -38,7 +39,7 @@ public class BasicLongDoubleConversionTest extends DesugaredLibraryTestBase {
         getConversionParametersUpToExcluding(MIN_SUPPORTED), BooleanUtils.values());
   }
 
-  public BasicLongDoubleConversionTest(TestParameters parameters, boolean shrinkDesugaredLibrary) {
+  public AccessModeConversionTest(TestParameters parameters, boolean shrinkDesugaredLibrary) {
     this.shrinkDesugaredLibrary = shrinkDesugaredLibrary;
     this.parameters = parameters;
   }
@@ -53,15 +54,25 @@ public class BasicLongDoubleConversionTest extends DesugaredLibraryTestBase {
             .writeToZip();
   }
 
+  private void configureDesugaredLibrary(InternalOptions options) {
+    options.desugaredLibraryConfiguration =
+        DesugaredLibraryConfiguration.builder(
+                options.itemFactory, options.reporter, Origin.unknown())
+            .putRewritePrefix("java.nio.file.AccessMode", "j$.nio.file.AccessMode")
+            .addWrapperConversion("java.nio.file.AccessMode")
+            .build();
+  }
+
   @Test
-  public void testRewrittenAPICallsD8() throws Exception {
+  public void testD8() throws Exception {
+    Assume.assumeTrue(false);
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForD8()
         .addLibraryFiles(getLibraryFile())
         .setMinApi(parameters.getApiLevel())
         .addProgramClasses(Executor.class)
         .addLibraryClasses(CustomLibClass.class)
-        .enableCoreLibraryDesugaring(parameters.getApiLevel(), keepRuleConsumer)
+        .addOptionsModification(this::configureDesugaredLibrary)
         .compile()
         .addDesugaredCoreLibraryRunClassPath(
             this::buildDesugaredLibrary,
@@ -74,15 +85,17 @@ public class BasicLongDoubleConversionTest extends DesugaredLibraryTestBase {
   }
 
   @Test
-  public void testRewrittenAPICallsR8() throws Exception {
+  public void testR8() throws Exception {
+    Assume.assumeTrue(false);
     KeepRuleConsumer keepRuleConsumer = createKeepRuleConsumer(parameters);
     testForR8(parameters.getBackend())
         .addLibraryFiles(getLibraryFile())
         .setMinApi(parameters.getApiLevel())
-        .addProgramClasses(Executor.class)
         .addKeepMainRule(Executor.class)
+        .addProgramClasses(Executor.class)
         .addLibraryClasses(CustomLibClass.class)
         .enableCoreLibraryDesugaring(parameters.getApiLevel(), keepRuleConsumer)
+        .addOptionsModification(this::configureDesugaredLibrary)
         .compile()
         .addDesugaredCoreLibraryRunClassPath(
             this::buildDesugaredLibrary,
@@ -97,8 +110,8 @@ public class BasicLongDoubleConversionTest extends DesugaredLibraryTestBase {
   static class Executor {
 
     public static void main(String[] args) {
-      System.out.println(
-          CustomLibClass.mix(3L, 4L, MonthDay.of(1, 2), 5.0, 6.0, MonthDay.of(10, 20)));
+      System.out.println(CustomLibClass.get(AccessMode.READ));
+      System.out.println(CustomLibClass.get(new AccessMode[] {AccessMode.READ})[0]);
     }
   }
 
@@ -107,9 +120,12 @@ public class BasicLongDoubleConversionTest extends DesugaredLibraryTestBase {
   // platform APIs for which argument/return values need conversion.
   static class CustomLibClass {
 
-    public static MonthDay mix(
-        long l1, long l2, MonthDay monthDay1, double d1, double d2, MonthDay monthDay2) {
-      return monthDay1.withDayOfMonth((int) (monthDay2.getDayOfMonth() + l1 - d1 + l2 - d2));
+    public static AccessMode get(AccessMode mode) {
+      return AccessMode.WRITE;
+    }
+
+    public static AccessMode[] get(AccessMode[] modes) {
+      return new AccessMode[] {AccessMode.WRITE};
     }
   }
 }
