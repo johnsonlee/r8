@@ -6,6 +6,7 @@ package com.android.tools.r8.androidapi;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryConfiguration;
@@ -16,85 +17,89 @@ import java.util.List;
 public class AndroidApiReferenceLevelCache {
 
   private final DesugaredLibraryConfiguration desugaredLibraryConfiguration;
+  private final AndroidApiLevelCompute apiLevelCompute;
   private final AndroidApiLevelDatabase androidApiLevelDatabase;
   private final AppView<?> appView;
-
-  private AndroidApiReferenceLevelCache(AppView<?> appView) {
-    this(appView, ImmutableList.of());
-  }
+  private final DexItemFactory factory;
 
   private AndroidApiReferenceLevelCache(
-      AppView<?> appView, List<AndroidApiForHashingClass> predefinedApiTypeLookupForHashing) {
+      AppView<?> appView,
+      AndroidApiLevelCompute apiLevelCompute,
+      List<AndroidApiForHashingClass> predefinedApiTypeLookupForHashing) {
     this.appView = appView;
+    this.apiLevelCompute = apiLevelCompute;
+    factory = appView.dexItemFactory();
     androidApiLevelDatabase =
-        new AndroidApiLevelHashingDatabaseImpl(
-            appView.dexItemFactory(), predefinedApiTypeLookupForHashing);
+        new AndroidApiLevelHashingDatabaseImpl(predefinedApiTypeLookupForHashing);
     desugaredLibraryConfiguration = appView.options().desugaredLibraryConfiguration;
   }
 
-  public static AndroidApiReferenceLevelCache create(AppView<?> appView) {
-    if (!appView.options().apiModelingOptions().enableApiCallerIdentification) {
-      // If enableApiCallerIdentification is not enabled then override lookup to always return
-      // AndroidApiLevel.B.
-      return new AndroidApiReferenceLevelCache(appView) {
-        @Override
-        public AndroidApiLevel lookup(DexReference reference) {
-          return AndroidApiLevel.B;
-        }
-      };
-    }
+  public static AndroidApiReferenceLevelCache create(
+      AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
+    assert appView.options().apiModelingOptions().enableApiCallerIdentification;
     ImmutableList.Builder<AndroidApiForHashingClass> builder = ImmutableList.builder();
     appView
         .options()
         .apiModelingOptions()
         .visitMockedApiLevelsForReferences(appView.dexItemFactory(), builder::add);
-    return new AndroidApiReferenceLevelCache(appView, builder.build());
+    return new AndroidApiReferenceLevelCache(appView, apiLevelCompute, builder.build());
   }
 
-  public AndroidApiLevel lookupMax(DexReference reference, AndroidApiLevel minApiLevel) {
-    return lookup(reference).max(minApiLevel);
+  public ComputedApiLevel lookupMax(
+      DexReference reference, ComputedApiLevel minApiLevel, ComputedApiLevel unknownValue) {
+    assert !minApiLevel.isNotSetApiLevel();
+    return lookup(reference, unknownValue).max(minApiLevel);
   }
 
-  public AndroidApiLevel lookup(DexReference reference) {
+  public ComputedApiLevel lookup(DexReference reference, ComputedApiLevel unknownValue) {
     DexType contextType = reference.getContextType();
     if (contextType.isArrayType()) {
-      if (reference.isDexMethod()
-          && reference.asDexMethod().match(appView.dexItemFactory().objectMembers.clone)) {
-        return appView.options().getMinApiLevel();
+      if (reference.isDexMethod() && reference.asDexMethod().match(factory.objectMembers.clone)) {
+        return appView.computedMinApiLevel();
       }
-      return lookup(contextType.toBaseType(appView.dexItemFactory()));
+      return lookup(contextType.toBaseType(factory), unknownValue);
     }
     if (contextType.isPrimitiveType() || contextType.isVoidType()) {
-      return appView.options().getMinApiLevel();
+      return appView.computedMinApiLevel();
     }
     DexClass clazz = appView.definitionFor(contextType);
     if (clazz == null) {
-      return AndroidApiLevel.UNKNOWN;
+      return unknownValue;
     }
     if (!clazz.isLibraryClass()) {
-      return appView.options().getMinApiLevel();
+      return appView.computedMinApiLevel();
     }
-    if (isReferenceToJavaLangObject(reference)) {
-      return appView.options().getMinApiLevel();
+    if (reference.getContextType() == factory.objectType) {
+      return appView.computedMinApiLevel();
     }
     if (desugaredLibraryConfiguration.isSupported(reference, appView)) {
       // If we end up desugaring the reference, the library classes is bridged by j$ which is part
       // of the program.
-      return appView.options().getMinApiLevel();
+      return appView.computedMinApiLevel();
     }
-    return reference
-        .apply(
+    if (reference.isDexMethod()
+        && !reference.asDexMethod().isInstanceInitializer(factory)
+        && factory.objectMembers.isObjectMember(reference.asDexMethod())) {
+      // If we can lookup the method it was introduced/overwritten later. Take for example
+      // a default toString that was not available before some api level. If unknown we default
+      // back to the static holder.
+      AndroidApiLevel methodApiLevel =
+          androidApiLevelDatabase.getMethodApiLevel(reference.asDexMethod());
+      if (methodApiLevel != null) {
+        return apiLevelCompute.of(methodApiLevel);
+      }
+      AndroidApiLevel typeApiLevel =
+          androidApiLevelDatabase.getTypeApiLevel(reference.getContextType());
+      // TODO(b/207452750): Investigate if we can return minApi here.
+      return typeApiLevel == null ? ComputedApiLevel.unknown() : apiLevelCompute.of(typeApiLevel);
+    }
+    AndroidApiLevel foundApiLevel =
+        reference.apply(
             androidApiLevelDatabase::getTypeApiLevel,
             androidApiLevelDatabase::getFieldApiLevel,
-            androidApiLevelDatabase::getMethodApiLevel)
-        .max(appView.options().getMinApiLevel());
-  }
-
-  private boolean isReferenceToJavaLangObject(DexReference reference) {
-    if (reference.getContextType() == appView.dexItemFactory().objectType) {
-      return true;
-    }
-    return reference.isDexMethod()
-        && appView.dexItemFactory().objectMembers.isObjectMember(reference.asDexMethod());
+            androidApiLevelDatabase::getMethodApiLevel);
+    return (foundApiLevel == null)
+        ? unknownValue
+        : apiLevelCompute.of(foundApiLevel.max(appView.options().getMinApiLevel()));
   }
 }
