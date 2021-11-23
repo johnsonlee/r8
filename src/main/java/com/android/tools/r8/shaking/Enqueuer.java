@@ -79,8 +79,10 @@ import com.android.tools.r8.graph.analysis.ApiModelAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerCheckCastAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerExceptionGuardAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerFieldAccessAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerInstanceOfAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerInvokeAnalysis;
+import com.android.tools.r8.graph.analysis.GetArrayOfMissingTypeVerifyErrorWorkaround;
 import com.android.tools.r8.graph.analysis.InvokeVirtualToInterfaceVerifyErrorWorkaround;
 import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoEnqueuerExtension;
@@ -232,11 +234,12 @@ public class Enqueuer {
   private final boolean forceProguardCompatibility;
   private final Mode mode;
 
-  private Set<EnqueuerAnalysis> analyses = new LinkedHashSet<>();
-  private Set<EnqueuerInvokeAnalysis> invokeAnalyses = new LinkedHashSet<>();
-  private Set<EnqueuerInstanceOfAnalysis> instanceOfAnalyses = new LinkedHashSet<>();
-  private Set<EnqueuerExceptionGuardAnalysis> exceptionGuardAnalyses = new LinkedHashSet<>();
-  private Set<EnqueuerCheckCastAnalysis> checkCastAnalyses = new LinkedHashSet<>();
+  private final Set<EnqueuerAnalysis> analyses = new LinkedHashSet<>();
+  private final Set<EnqueuerFieldAccessAnalysis> fieldAccessAnalyses = new LinkedHashSet<>();
+  private final Set<EnqueuerInvokeAnalysis> invokeAnalyses = new LinkedHashSet<>();
+  private final Set<EnqueuerInstanceOfAnalysis> instanceOfAnalyses = new LinkedHashSet<>();
+  private final Set<EnqueuerExceptionGuardAnalysis> exceptionGuardAnalyses = new LinkedHashSet<>();
+  private final Set<EnqueuerCheckCastAnalysis> checkCastAnalyses = new LinkedHashSet<>();
 
   // Don't hold a direct pointer to app info (use appView).
   private AppInfoWithClassHierarchy appInfo;
@@ -471,6 +474,7 @@ public class Enqueuer {
             : null;
 
     if (mode.isInitialOrFinalTreeShaking()) {
+      GetArrayOfMissingTypeVerifyErrorWorkaround.register(appView, this);
       InvokeVirtualToInterfaceVerifyErrorWorkaround.register(appView, this);
       if (options.protoShrinking().enableGeneratedMessageLiteShrinking) {
         registerAnalysis(new ProtoEnqueuerExtension(appView));
@@ -527,6 +531,11 @@ public class Enqueuer {
 
   public Enqueuer registerAnalysis(EnqueuerAnalysis analysis) {
     analyses.add(analysis);
+    return this;
+  }
+
+  public Enqueuer registerFieldAccessAnalysis(EnqueuerFieldAccessAnalysis analysis) {
+    fieldAccessAnalyses.add(analysis);
     return this;
   }
 
@@ -1432,6 +1441,10 @@ public class Enqueuer {
     }
 
     FieldResolutionResult resolutionResult = resolveField(fieldReference, currentMethod);
+    fieldAccessAnalyses.forEach(
+        analysis ->
+            analysis.traceInstanceFieldRead(fieldReference, resolutionResult, currentMethod));
+
     if (resolutionResult.isFailedOrUnknownResolution()) {
       // Must trace the types from the field reference even if it does not exist.
       traceFieldReference(fieldReference, resolutionResult, currentMethod);
@@ -1484,6 +1497,10 @@ public class Enqueuer {
     }
 
     FieldResolutionResult resolutionResult = resolveField(fieldReference, currentMethod);
+    fieldAccessAnalyses.forEach(
+        analysis ->
+            analysis.traceInstanceFieldWrite(fieldReference, resolutionResult, currentMethod));
+
     if (resolutionResult.isFailedOrUnknownResolution()) {
       // Must trace the types from the field reference even if it does not exist.
       traceFieldReference(fieldReference, resolutionResult, currentMethod);
@@ -1536,6 +1553,9 @@ public class Enqueuer {
     }
 
     FieldResolutionResult resolutionResult = resolveField(fieldReference, currentMethod);
+    fieldAccessAnalyses.forEach(
+        analysis -> analysis.traceStaticFieldRead(fieldReference, resolutionResult, currentMethod));
+
     if (resolutionResult.isFailedOrUnknownResolution()) {
       // Must trace the types from the field reference even if it does not exist.
       traceFieldReference(fieldReference, resolutionResult, currentMethod);
@@ -1604,6 +1624,10 @@ public class Enqueuer {
     }
 
     FieldResolutionResult resolutionResult = resolveField(fieldReference, currentMethod);
+    fieldAccessAnalyses.forEach(
+        analysis ->
+            analysis.traceStaticFieldWrite(fieldReference, resolutionResult, currentMethod));
+
     if (resolutionResult.isFailedOrUnknownResolution()) {
       // Must trace the types from the field reference even if it does not exist.
       traceFieldReference(fieldReference, resolutionResult, currentMethod);
