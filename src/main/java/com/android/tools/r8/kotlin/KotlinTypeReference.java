@@ -4,11 +4,14 @@
 
 package com.android.tools.r8.kotlin;
 
+import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getKotlinLocalOrAnonymousNameFromDescriptor;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
+import com.android.tools.r8.kotlin.Kotlin.ClassClassifiers;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -22,28 +25,33 @@ import java.util.function.Consumer;
 class KotlinTypeReference implements EnqueuerMetadataTraceable {
 
   private final DexType known;
-  private final String unknown;
+  private final String originalName;
 
-  private KotlinTypeReference(DexType known) {
+  private KotlinTypeReference(String originalName, DexType known) {
+    this.originalName = originalName;
     this.known = known;
-    this.unknown = null;
     assert known != null;
   }
 
-  private KotlinTypeReference(String unknown) {
+  private KotlinTypeReference(String originalName) {
     this.known = null;
-    this.unknown = unknown;
-    assert unknown != null;
+    this.originalName = originalName;
+    assert originalName != null;
   }
 
   public DexType getKnown() {
     return known;
   }
 
-  static KotlinTypeReference fromBinaryName(String binaryName, DexItemFactory factory) {
+  public String getOriginalName() {
+    return originalName;
+  }
+
+  static KotlinTypeReference fromBinaryName(
+      String binaryName, DexItemFactory factory, String originalName) {
     if (DescriptorUtils.isValidBinaryName(binaryName)) {
       return fromDescriptor(
-          DescriptorUtils.getDescriptorFromClassBinaryName(binaryName), factory, binaryName);
+          DescriptorUtils.getDescriptorFromClassBinaryName(binaryName), factory, originalName);
     }
     return new KotlinTypeReference(binaryName);
   }
@@ -53,12 +61,12 @@ class KotlinTypeReference implements EnqueuerMetadataTraceable {
   }
 
   static KotlinTypeReference fromDescriptor(
-      String descriptor, DexItemFactory factory, String unknownValue) {
+      String descriptor, DexItemFactory factory, String originalName) {
     if (DescriptorUtils.isDescriptor(descriptor)) {
       DexType type = factory.createType(descriptor);
-      return new KotlinTypeReference(type);
+      return new KotlinTypeReference(originalName, type);
     }
-    return new KotlinTypeReference(unknownValue);
+    return new KotlinTypeReference(originalName);
   }
 
   boolean toRenamedDescriptorOrDefault(
@@ -66,19 +74,34 @@ class KotlinTypeReference implements EnqueuerMetadataTraceable {
       AppView<?> appView,
       NamingLens namingLens,
       String defaultValue) {
-    if (unknown != null) {
-      rewrittenConsumer.accept(unknown);
+    if (known == null) {
+      rewrittenConsumer.accept(originalName);
       return false;
     }
-    assert known != null;
     DexType rewrittenType = toRewrittenTypeOrNull(appView, known);
     if (rewrittenType == null) {
-      rewrittenConsumer.accept(defaultValue);
-      return true;
+      String knownDescriptor = known.toDescriptorString();
+      // Static known kotlin types can be pruned without rewriting to Any since the types are known
+      // by kotlinc and kotlin reflect.
+      if (ClassClassifiers.kotlinStaticallyKnownTypes.contains(knownDescriptor)) {
+        rewrittenConsumer.accept(knownDescriptor);
+        return false;
+      } else {
+        rewrittenConsumer.accept(defaultValue);
+        return true;
+      }
     }
     String renamedString = namingLens.lookupDescriptor(rewrittenType).toString();
     rewrittenConsumer.accept(renamedString);
     return !known.toDescriptorString().equals(renamedString);
+  }
+
+  String toKotlinClassifier(boolean isLocalOrAnonymous) {
+    if (known == null) {
+      return originalName;
+    }
+    return getKotlinLocalOrAnonymousNameFromDescriptor(
+        known.toDescriptorString(), isLocalOrAnonymous);
   }
 
   boolean toRenamedBinaryNameOrDefault(
@@ -86,9 +109,9 @@ class KotlinTypeReference implements EnqueuerMetadataTraceable {
       AppView<?> appView,
       NamingLens namingLens,
       String defaultValue) {
-    if (unknown != null) {
+    if (known == null) {
       // Unknown values are always on the input form, so we can just return it.
-      rewrittenConsumer.accept(unknown);
+      rewrittenConsumer.accept(originalName);
       return false;
     }
     return toRenamedDescriptorOrDefault(
@@ -126,7 +149,7 @@ class KotlinTypeReference implements EnqueuerMetadataTraceable {
 
   @Override
   public String toString() {
-    return known != null ? known.descriptor.toString() : unknown;
+    return known != null ? known.descriptor.toString() : originalName;
   }
 
   @Override

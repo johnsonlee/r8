@@ -2171,7 +2171,7 @@ public class ToolHelper {
   }
 
   public static KotlinCompiler[] getKotlinCompilers() {
-    return new KotlinCompiler[] {getKotlinC_1_3_72(), getKotlinC_1_4_20(), getKotlinC_1_5_0_m2()};
+    return new KotlinCompiler[] {getKotlinC_1_4_20(), getKotlinC_1_5_0_m2()};
   }
 
   public static void disassemble(AndroidApp app, PrintStream ps) throws IOException {

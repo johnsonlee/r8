@@ -34,7 +34,8 @@ public class KotlinAnnotationInfo implements EnqueuerMetadataTraceable {
 
   static KotlinAnnotationInfo create(KmAnnotation annotation, DexItemFactory factory) {
     return new KotlinAnnotationInfo(
-        KotlinTypeReference.fromBinaryName(annotation.getClassName(), factory),
+        KotlinTypeReference.fromBinaryName(
+            annotation.getClassName(), factory, annotation.getClassName()),
         KotlinAnnotationArgumentInfo.create(annotation.getArguments(), factory));
   }
 
@@ -63,7 +64,7 @@ public class KotlinAnnotationInfo implements EnqueuerMetadataTraceable {
                 return;
               }
               String classifier = DescriptorUtils.descriptorToKotlinClassifier(renamedDescriptor);
-              Map<String, KmAnnotationArgument<?>> rewrittenArguments = new LinkedHashMap<>();
+              Map<String, KmAnnotationArgument> rewrittenArguments = new LinkedHashMap<>();
               arguments.forEach(
                   (key, arg) ->
                       rewritten.or(

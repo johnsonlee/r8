@@ -167,14 +167,14 @@ public class MetadataRewriteAnnotationTest extends KotlinMetadataTestBase {
     assertEquals(
         DescriptorUtils.getBinaryNameFromJavaType(PKG_LIB) + "/AnnoWithClassArr",
         annotation.getClassName());
-    Map<String, KmAnnotationArgument<?>> arguments = annotation.getArguments();
+    Map<String, KmAnnotationArgument> arguments = annotation.getArguments();
     assertEquals(1, arguments.size());
     ArrayValue classes = (ArrayValue) arguments.get("classes");
     assertEquals(
-        "KClassValue(value=" + foo.getFinalBinaryName() + ")",
-        classes.getValue().get(0).toString());
+        "KClassValue(className=" + foo.getFinalBinaryName() + ", arrayDimensionCount=0)",
+        classes.getElements().get(0).toString());
     assertEquals(
-        "KClassValue(value=" + bar.getFinalBinaryName() + ")",
-        classes.getValue().get(1).toString());
+        "KClassValue(className=" + bar.getFinalBinaryName() + ", arrayDimensionCount=0)",
+        classes.getElements().get(1).toString());
   }
 }

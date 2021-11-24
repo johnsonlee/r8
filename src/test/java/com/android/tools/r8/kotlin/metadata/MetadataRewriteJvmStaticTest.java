@@ -94,6 +94,7 @@ public class MetadataRewriteJvmStaticTest extends KotlinMetadataTestBase {
             .addClasspathFiles(getKotlinStdlibJar(kotlinc), getKotlinAnnotationJar(kotlinc))
             .addKeepAllClassesRule()
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
+            .addKeepAttributeInnerClassesAndEnclosingMethod()
             .compile()
             .inspect(this::inspect)
             .writeToZip();

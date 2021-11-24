@@ -16,6 +16,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.Reporter;
@@ -37,6 +38,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
 
   private final int flags;
   private final String name;
+  private final boolean nameCanBeSynthesizedFromClassOrAnonymousObjectOrigin;
   private final String moduleName;
   private final List<KotlinConstructorInfo> constructorsWithNoBacking;
   private final KotlinDeclarationContainerInfo declarationContainerInfo;
@@ -50,10 +52,16 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
   private final String packageName;
   private final KotlinLocalDelegatedPropertyInfo localDelegatedProperties;
   private final int[] metadataVersion;
+  private final String inlineClassUnderlyingPropertyName;
+  private final KotlinTypeInfo inlineClassUnderlyingType;
+
+  // List of tracked assignments of kotlin metadata.
+  private final KotlinMetadataMembersTracker originalMembersWithKotlinInfo;
 
   private KotlinClassInfo(
       int flags,
       String name,
+      boolean nameCanBeSynthesizedFromClassOrAnonymousObjectOrigin,
       String moduleName,
       KotlinDeclarationContainerInfo declarationContainerInfo,
       List<KotlinTypeParameterInfo> typeParameters,
@@ -66,9 +74,14 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
       KotlinTypeReference anonymousObjectOrigin,
       String packageName,
       KotlinLocalDelegatedPropertyInfo localDelegatedProperties,
-      int[] metadataVersion) {
+      int[] metadataVersion,
+      String inlineClassUnderlyingPropertyName,
+      KotlinTypeInfo inlineClassUnderlyingType,
+      KotlinMetadataMembersTracker originalMembersWithKotlinInfo) {
     this.flags = flags;
     this.name = name;
+    this.nameCanBeSynthesizedFromClassOrAnonymousObjectOrigin =
+        nameCanBeSynthesizedFromClassOrAnonymousObjectOrigin;
     this.moduleName = moduleName;
     this.declarationContainerInfo = declarationContainerInfo;
     this.typeParameters = typeParameters;
@@ -82,6 +95,9 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     this.packageName = packageName;
     this.localDelegatedProperties = localDelegatedProperties;
     this.metadataVersion = metadataVersion;
+    this.inlineClassUnderlyingPropertyName = inlineClassUnderlyingPropertyName;
+    this.inlineClassUnderlyingType = inlineClassUnderlyingType;
+    this.originalMembersWithKotlinInfo = originalMembersWithKotlinInfo;
   }
 
   public static KotlinClassInfo create(
@@ -107,6 +123,8 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     }
     ImmutableList.Builder<KotlinConstructorInfo> notBackedConstructors = ImmutableList.builder();
     int constructorIndex = 0;
+    KotlinMetadataMembersTracker originalMembersWithKotlinInfo =
+        new KotlinMetadataMembersTracker(appView);
     for (KmConstructor kmConstructor : kmClass.getConstructors()) {
       boolean readConstructorSignature =
           extensionInformation.hasJvmMethodSignatureExtensionForConstructor(constructorIndex++);
@@ -117,6 +135,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
         DexEncodedMethod method = methodMap.get(signature.asString());
         if (method != null) {
           method.setKotlinMemberInfo(constructorInfo);
+          originalMembersWithKotlinInfo.add(method.getReference());
           continue;
         }
       }
@@ -125,11 +144,26 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     }
     KotlinDeclarationContainerInfo container =
         KotlinDeclarationContainerInfo.create(
-            kmClass, methodMap, fieldMap, factory, reporter, keepByteCode, extensionInformation);
+            kmClass,
+            methodMap,
+            fieldMap,
+            factory,
+            reporter,
+            keepByteCode,
+            extensionInformation,
+            originalMembersWithKotlinInfo);
     setCompanionObject(kmClass, hostClass, reporter);
+    KotlinTypeReference anonymousObjectOrigin = getAnonymousObjectOrigin(kmClass, factory);
+    boolean nameCanBeDeducedFromClassOrOrigin =
+        kmClass.name.equals(
+                KotlinMetadataUtils.getKotlinClassName(
+                    hostClass, hostClass.getType().toDescriptorString()))
+            || (anonymousObjectOrigin != null
+                && kmClass.name.equals(anonymousObjectOrigin.toKotlinClassifier(true)));
     return new KotlinClassInfo(
         kmClass.getFlags(),
         kmClass.name,
+        nameCanBeDeducedFromClassOrOrigin,
         JvmExtensionsKt.getModuleName(kmClass),
         container,
         KotlinTypeParameterInfo.create(kmClass.getTypeParameters(), factory, reporter),
@@ -139,18 +173,22 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
         getNestedClasses(hostClass, kmClass.getNestedClasses(), factory),
         kmClass.getEnumEntries(),
         KotlinVersionRequirementInfo.create(kmClass.getVersionRequirements()),
-        getAnonymousObjectOrigin(kmClass, factory),
+        anonymousObjectOrigin,
         packageName,
         KotlinLocalDelegatedPropertyInfo.create(
             JvmExtensionsKt.getLocalDelegatedProperties(kmClass), factory, reporter),
-        metadataVersion);
+        metadataVersion,
+        kmClass.getInlineClassUnderlyingPropertyName(),
+        KotlinTypeInfo.create(kmClass.getInlineClassUnderlyingType(), factory, reporter),
+        originalMembersWithKotlinInfo);
   }
 
   private static KotlinTypeReference getAnonymousObjectOrigin(
       KmClass kmClass, DexItemFactory factory) {
     String anonymousObjectOriginName = JvmExtensionsKt.getAnonymousObjectOriginName(kmClass);
     if (anonymousObjectOriginName != null) {
-      return KotlinTypeReference.fromBinaryName(anonymousObjectOriginName, factory);
+      return KotlinTypeReference.fromBinaryName(
+          anonymousObjectOriginName, factory, anonymousObjectOriginName);
     }
     return null;
   }
@@ -161,7 +199,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     for (String nestedClass : nestedClasses) {
       String binaryName =
           clazz.type.toBinaryName() + DescriptorUtils.INNER_CLASS_SEPARATOR + nestedClass;
-      nestedTypes.add(KotlinTypeReference.fromBinaryName(binaryName, factory));
+      nestedTypes.add(KotlinTypeReference.fromBinaryName(binaryName, factory, nestedClass));
     }
     return nestedTypes.build();
   }
@@ -173,7 +211,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
       String binaryName =
           sealedSubClass.replace(
               DescriptorUtils.JAVA_PACKAGE_SEPARATOR, DescriptorUtils.INNER_CLASS_SEPARATOR);
-      sealedTypes.add(KotlinTypeReference.fromBinaryName(binaryName, factory));
+      sealedTypes.add(KotlinTypeReference.fromBinaryName(binaryName, factory, sealedSubClass));
     }
     return sealedTypes.build();
   }
@@ -221,14 +259,29 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     // Set potentially renamed class name.
     DexString originalDescriptor = clazz.type.descriptor;
     DexString rewrittenDescriptor = namingLens.lookupDescriptor(clazz.type);
-    // If the original descriptor equals the rewritten descriptor, we pick the original name
-    // to preserve potential errors in the original name. As an example, the kotlin stdlib has
-    // name: .kotlin/collections/CollectionsKt___CollectionsKt$groupingBy$1, which seems incorrect.
     boolean rewritten = !originalDescriptor.equals(rewrittenDescriptor);
-    kmClass.setName(
-        !rewritten
-            ? this.name
-            : DescriptorUtils.getBinaryNameFromDescriptor(rewrittenDescriptor.toString()));
+    if (!nameCanBeSynthesizedFromClassOrAnonymousObjectOrigin) {
+      kmClass.setName(this.name);
+    } else {
+      String rewrittenName = null;
+      // When the class has an anonymousObjectOrigin and the name equals the identifier there, we
+      // keep the name tied to the anonymousObjectOrigin.
+      if (anonymousObjectOrigin != null
+          && name.equals(anonymousObjectOrigin.toKotlinClassifier(true))) {
+        Box<String> rewrittenOrigin = new Box<>();
+        anonymousObjectOrigin.toRenamedBinaryNameOrDefault(
+            rewrittenOrigin::set, appView, namingLens, null);
+        if (rewrittenOrigin.isSet()) {
+          rewrittenName = "." + rewrittenOrigin.get();
+        }
+      }
+      if (rewrittenName == null) {
+        rewrittenName =
+            KotlinMetadataUtils.getKotlinClassName(clazz, rewrittenDescriptor.toString());
+      }
+      kmClass.setName(rewrittenName);
+      rewritten |= !name.equals(rewrittenName);
+    }
     // Find a companion object.
     for (DexEncodedField field : clazz.fields()) {
       if (field.getKotlinInfo().isCompanion()) {
@@ -241,10 +294,12 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
       rewritten |= constructorInfo.rewrite(kmClass, null, appView, namingLens);
     }
     // Find all constructors.
+    KotlinMetadataMembersTracker rewrittenReferences = new KotlinMetadataMembersTracker(appView);
     for (DexEncodedMethod method : clazz.methods()) {
       if (method.getKotlinInfo().isConstructor()) {
         KotlinConstructorInfo constructorInfo = method.getKotlinInfo().asConstructor();
         rewritten |= constructorInfo.rewrite(kmClass, method, appView, namingLens);
+        rewrittenReferences.add(method.getReference());
       }
     }
     // Rewrite functions, type-aliases and type-parameters.
@@ -255,7 +310,8 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
             kmClass::visitTypeAlias,
             clazz,
             appView,
-            namingLens);
+            namingLens,
+            rewrittenReferences);
     // Rewrite type parameters.
     for (KotlinTypeParameterInfo typeParameter : typeParameters) {
       rewritten |= typeParameter.rewrite(kmClass::visitTypeParameter, appView, namingLens);
@@ -271,30 +327,31 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     }
     // Rewrite nested classes.
     for (KotlinTypeReference nestedClass : nestedClasses) {
-      rewritten |=
+      Box<String> nestedDescriptorBox = new Box<>();
+      boolean nestedClassRewritten =
           nestedClass.toRenamedBinaryNameOrDefault(
-              nestedDescriptor -> {
-                if (nestedDescriptor != null) {
-                  // If the class is a nested class, it should be on the form Foo.Bar$Baz, where Baz
-                  // is the
-                  // name we should record.
-                  int innerClassIndex =
-                      nestedDescriptor.lastIndexOf(DescriptorUtils.INNER_CLASS_SEPARATOR);
-                  kmClass.visitNestedClass(nestedDescriptor.substring(innerClassIndex + 1));
-                }
-              },
-              appView,
-              namingLens,
-              null);
+              nestedDescriptorBox::set, appView, namingLens, null);
+      if (nestedDescriptorBox.isSet()) {
+        if (nestedClassRewritten) {
+          // If the class is a nested class, it should be on the form Foo.Bar$Baz, where Baz
+          // is the name we should record.
+          String nestedDescriptor = nestedDescriptorBox.get();
+          int innerClassIndex = nestedDescriptor.lastIndexOf(DescriptorUtils.INNER_CLASS_SEPARATOR);
+          kmClass.visitNestedClass(nestedDescriptor.substring(innerClassIndex + 1));
+        } else {
+          kmClass.visitNestedClass(nestedClass.getOriginalName());
+        }
+      }
+      rewritten |= nestedClassRewritten;
     }
     // Rewrite sealed sub classes.
     for (KotlinTypeReference sealedSubClass : sealedSubClasses) {
       rewritten |=
           sealedSubClass.toRenamedBinaryNameOrDefault(
-              sealedDescriptor -> {
-                if (sealedDescriptor != null) {
+              sealedName -> {
+                if (sealedName != null) {
                   kmClass.visitSealedSubclass(
-                      sealedDescriptor.replace(
+                      sealedName.replace(
                           DescriptorUtils.INNER_CLASS_SEPARATOR,
                           DescriptorUtils.JAVA_PACKAGE_SEPARATOR));
                 }
@@ -306,6 +363,12 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     // TODO(b/154347404): Understand enum entries.
     kmClass.getEnumEntries().addAll(enumEntries);
     rewritten |= versionRequirements.rewrite(kmClass::visitVersionRequirement);
+    if (inlineClassUnderlyingPropertyName != null && inlineClassUnderlyingType != null) {
+      kmClass.setInlineClassUnderlyingPropertyName(inlineClassUnderlyingPropertyName);
+      rewritten |=
+          inlineClassUnderlyingType.rewrite(
+              kmClass::visitInlineClassUnderlyingType, appView, namingLens);
+    }
     JvmClassExtensionVisitor extensionVisitor =
         (JvmClassExtensionVisitor) kmClass.visitExtensions(JvmClassExtensionVisitor.TYPE);
     extensionVisitor.visitModuleName(moduleName);
@@ -327,7 +390,9 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     extensionVisitor.visitEnd();
     KotlinClassMetadata.Class.Writer writer = new KotlinClassMetadata.Class.Writer();
     kmClass.accept(writer);
-    return Pair.create(writer.write().getHeader(), rewritten);
+    return Pair.create(
+        writer.write().getHeader(),
+        rewritten || !originalMembersWithKotlinInfo.isEqual(rewrittenReferences, appView));
   }
 
   @Override
@@ -346,7 +411,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     declarationContainerInfo.trace(definitionSupplier);
     forEachApply(typeParameters, param -> param::trace, definitionSupplier);
     forEachApply(superTypes, type -> type::trace, definitionSupplier);
-    forEachApply(sealedSubClasses, sealed -> sealed::trace, definitionSupplier);
+    forEachApply(sealedSubClasses, sealedClass -> sealedClass::trace, definitionSupplier);
     forEachApply(nestedClasses, nested -> nested::trace, definitionSupplier);
     localDelegatedProperties.trace(definitionSupplier);
     // TODO(b/154347404): trace enum entries.
