@@ -71,15 +71,17 @@ public class IfRuleEvaluator {
             ifRules.entrySet().iterator();
         while (it.hasNext()) {
           Map.Entry<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRuleEntry = it.next();
-          ProguardIfRule ifRule = ifRuleEntry.getKey().get();
+          ProguardIfRule ifRuleKey = ifRuleEntry.getKey().get();
+          Set<ProguardIfRule> ifRulesInEquivalence = ifRuleEntry.getValue();
           ProguardIfRuleEvaluationData ifRuleEvaluationData =
               appView.options().testing.proguardIfRuleEvaluationData;
+          List<ProguardIfRule> toRemove = new ArrayList<>();
 
           // Depending on which types that trigger the -if rule, the application of the subsequent
           // -keep rule may vary (due to back references). So, we need to try all pairs of -if
           // rule and live types.
           for (DexProgramClass clazz :
-              ifRule.relevantCandidatesForRule(
+              ifRuleKey.relevantCandidatesForRule(
                   appView, subtypingInfo, appView.appInfo().classes())) {
             if (!isEffectivelyLive(clazz)) {
               continue;
@@ -89,21 +91,21 @@ public class IfRuleEvaluator {
             if (appView.options().testing.measureProguardIfRuleEvaluations) {
               ifRuleEvaluationData.numberOfProguardIfRuleClassEvaluations++;
             }
-            if (evaluateClassForIfRule(ifRule, clazz)) {
+            if (evaluateClassForIfRule(ifRuleKey, clazz)) {
               // When matching an if rule against a type, the if-rule are filled with the current
               // capture of wildcards. Propagate this down to member rules with same class part
               // equivalence.
-              ifRuleEntry
-                  .getValue()
-                  .removeIf(
-                      memberRule -> {
-                        registerClassCapture(memberRule, clazz, clazz);
-                        if (appView.options().testing.measureProguardIfRuleEvaluations) {
-                          ifRuleEvaluationData.numberOfProguardIfRuleMemberEvaluations++;
-                        }
-                        return evaluateIfRuleMembersAndMaterialize(memberRule, clazz, clazz)
-                            && canRemoveSubsequentKeepRule(memberRule);
-                      });
+              ifRulesInEquivalence.forEach(
+                  ifRule -> {
+                    registerClassCapture(ifRule, clazz, clazz);
+                    if (appView.options().testing.measureProguardIfRuleEvaluations) {
+                      ifRuleEvaluationData.numberOfProguardIfRuleMemberEvaluations++;
+                    }
+                    boolean matched = evaluateIfRuleMembersAndMaterialize(ifRule, clazz, clazz);
+                    if (matched && canRemoveSubsequentKeepRule(ifRule)) {
+                      toRemove.add(ifRule);
+                    }
+                  });
             }
 
             // Check if one of the types that have been merged into `clazz` satisfies the if-rule.
@@ -123,25 +125,26 @@ public class IfRuleEvaluator {
                 if (appView.options().testing.measureProguardIfRuleEvaluations) {
                   ifRuleEvaluationData.numberOfProguardIfRuleClassEvaluations++;
                 }
-                if (evaluateClassForIfRule(ifRule, sourceClass)) {
-                  ifRuleEntry
-                      .getValue()
-                      .removeIf(
-                          memberRule -> {
-                            registerClassCapture(memberRule, sourceClass, clazz);
-                            if (appView.options().testing.measureProguardIfRuleEvaluations) {
-                              ifRuleEvaluationData.numberOfProguardIfRuleMemberEvaluations++;
-                            }
-                            return evaluateIfRuleMembersAndMaterialize(
-                                    memberRule, sourceClass, clazz)
-                                && canRemoveSubsequentKeepRule(memberRule);
-                          });
+                if (evaluateClassForIfRule(ifRuleKey, sourceClass)) {
+                  ifRulesInEquivalence.forEach(
+                      ifRule -> {
+                        registerClassCapture(ifRule, sourceClass, clazz);
+                        if (appView.options().testing.measureProguardIfRuleEvaluations) {
+                          ifRuleEvaluationData.numberOfProguardIfRuleMemberEvaluations++;
+                        }
+                        if (evaluateIfRuleMembersAndMaterialize(ifRule, sourceClass, clazz)
+                            && canRemoveSubsequentKeepRule(ifRule)) {
+                          toRemove.add(ifRule);
+                        }
+                      });
                 }
               }
             }
           }
-          if (ifRuleEntry.getValue().isEmpty()) {
+          if (ifRulesInEquivalence.size() == toRemove.size()) {
             it.remove();
+          } else if (!toRemove.isEmpty()) {
+            ifRulesInEquivalence.removeAll(toRemove);
           }
         }
         ThreadUtils.awaitFutures(futures);
@@ -153,10 +156,7 @@ public class IfRuleEvaluator {
   }
 
   private boolean canRemoveSubsequentKeepRule(ProguardIfRule rule) {
-    // We cannot remove an if-rule if there is a kept graph consumer, otherwise we would not record
-    // all edges.
-    return Iterables.isEmpty(rule.subsequentRule.getWildcards())
-        && appView.options().keptGraphConsumer == null;
+    return Iterables.isEmpty(rule.subsequentRule.getWildcards());
   }
 
   /**
@@ -227,18 +227,27 @@ public class IfRuleEvaluator {
       return true;
     }
 
+    List<DexClassAndField> fieldsInlinedByJavaC = new ArrayList<>();
     Set<DexDefinition> filteredMembers = Sets.newIdentityHashSet();
     Iterables.addAll(
         filteredMembers,
         targetClass.fields(
-            f ->
-                // Fields referenced only by -keep may not be referenced, we therefore have to
-                // filter on both live and referenced.
-                (enqueuer.isFieldLive(f)
-                        || enqueuer.isFieldReferenced(f)
-                        || f.getOptimizationInfo().valueHasBeenPropagated())
-                    && appView.graphLens().getOriginalFieldSignature(f.getReference()).holder
-                        == sourceClass.type));
+            f -> {
+              // Fields that are javac inlined are unsound as predicates for conditional rules.
+              // Ignore any such field members and record it for possible reporting later.
+              if (isFieldInlinedByJavaC(f)) {
+                f.markAsInlinableByJavaC();
+                fieldsInlinedByJavaC.add(DexClassAndField.create(targetClass, f));
+                return false;
+              }
+              // Fields referenced only by -keep may not be referenced, we therefore have to
+              // filter on both live and referenced.
+              return (enqueuer.isFieldLive(f)
+                      || enqueuer.isFieldReferenced(f)
+                      || f.getOptimizationInfo().valueHasBeenPropagated())
+                  && (appView.graphLens().getOriginalFieldSignature(f.getReference()).holder
+                      == sourceClass.type);
+            }));
     Iterables.addAll(
         filteredMembers,
         targetClass.methods(
@@ -249,6 +258,21 @@ public class IfRuleEvaluator {
                     && appView.graphLens().getOriginalMethodSignature(m.getReference()).holder
                         == sourceClass.type));
 
+    // Check if the rule could hypothetically have matched a javac inlined field.
+    // If so mark the rule. Reporting happens only if the rule is otherwise unused.
+    if (!fieldsInlinedByJavaC.isEmpty()) {
+      for (ProguardMemberRule memberRule : memberKeepRules) {
+        if (!memberRule.getRuleType().includesFields()) {
+          continue;
+        }
+        for (DexClassAndField field : fieldsInlinedByJavaC) {
+          if (rootSetBuilder.sideEffectFreeIsRuleSatisfiedByField(memberRule, field)) {
+            rule.addInlinableFieldMatchingPrecondition(field.getReference());
+          }
+        }
+      }
+    }
+
     // If the number of member rules to hold is more than live members, we can't make it.
     if (filteredMembers.size() < memberKeepRules.size()) {
       return false;
@@ -258,6 +282,7 @@ public class IfRuleEvaluator {
     // -keep rule may vary (due to back references). So, we need to try literally all
     // combinations of live members. But, we can at least limit the number of elements per
     // combination as the size of member rules to satisfy.
+    // TODO(b/206086945): Consider ways of reducing the size of this set computation.
     for (Set<DexDefinition> combination :
         Sets.combinations(filteredMembers, memberKeepRules.size())) {
       Collection<DexClassAndField> fieldsInCombination =
@@ -285,6 +310,27 @@ public class IfRuleEvaluator {
       }
     }
     return false;
+  }
+
+  private boolean isFieldInlinedByJavaC(DexEncodedField field) {
+    if (enqueuer.getMode().isFinalTreeShaking()) {
+      // Ignore any field value in the final tree shaking pass so it remains consistent with the
+      // initial pass.
+      return field.isInlinableByJavaC();
+    }
+    if (!field.isStatic() || !field.isFinal()) {
+      return false;
+    }
+    if (!field.hasExplicitStaticValue()) {
+      return false;
+    }
+    if (field.getType().isPrimitiveType()) {
+      return true;
+    }
+    if (field.getType() != appView.dexItemFactory().stringType) {
+      return false;
+    }
+    return field.getStaticValue().isDexValueString();
   }
 
   private void materializeIfRule(ProguardIfRule rule, Set<DexReference> preconditions) {

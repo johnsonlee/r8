@@ -5,6 +5,7 @@
 package com.android.tools.r8.kotlin;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_5_0;
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_6_0;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -370,22 +371,31 @@ public class R8KotlinAccessorTest extends AbstractR8KotlinTestBase {
               }
 
               ClassSubject classSubject = checkClassIsKept(inspector, testedClass.getClassName());
+
+              // For kotlin 1.6 we completely remove the field and accessors. We are unable to
+              // remove the entire class because we are not reprocessing TestMain.main.
               String propertyName = "property";
+              if (kotlinParameters.isNewerThanOrEqualTo(KOTLINC_1_6_0)) {
+                FieldSubject field = classSubject.field(JAVA_LANG_STRING, propertyName);
+                assertFalse(field.isPresent());
+                return;
+              }
+
               FieldSubject fieldSubject =
                   checkFieldIsKept(classSubject, JAVA_LANG_STRING, propertyName);
               assertFalse(fieldSubject.getField().accessFlags.isStatic());
+              assertTrue(fieldSubject.getField().accessFlags.isPrivate());
 
               AccessorKind accessorKind =
-                  kotlinc.getCompilerVersion() == KOTLINC_1_5_0
+                  kotlinc.getCompilerVersion().isGreaterThanOrEqualTo(KOTLINC_1_5_0)
                       ? AccessorKind.FROM_INNER
                       : AccessorKind.FROM_LAMBDA;
               MemberNaming.MethodSignature getterAccessor =
                   testedClass.getGetterAccessorForProperty(propertyName, accessorKind);
               MemberNaming.MethodSignature setterAccessor =
                   testedClass.getSetterAccessorForProperty(propertyName, accessorKind);
-                assertTrue(fieldSubject.getField().accessFlags.isPrivate());
-                checkMethodIsKept(classSubject, getterAccessor);
-                checkMethodIsKept(classSubject, setterAccessor);
+              checkMethodIsKept(classSubject, getterAccessor);
+              checkMethodIsKept(classSubject, setterAccessor);
             });
   }
 

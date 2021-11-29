@@ -16,6 +16,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.kotlin.metadata.KotlinMetadataTestBase;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import java.io.File;
@@ -59,6 +60,7 @@ public class KotlinReflectTest extends KotlinTestBase {
         .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinReflectJar())
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
         .run(parameters.getRuntime(), PKG + ".SimpleReflectKt")
         .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
   }
@@ -90,6 +92,7 @@ public class KotlinReflectTest extends KotlinTestBase {
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinReflectJar())
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
         .setMinApi(parameters.getApiLevel())
         .addKeepAllClassesRule()
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)

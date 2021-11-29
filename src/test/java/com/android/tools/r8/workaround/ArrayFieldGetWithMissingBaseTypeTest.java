@@ -51,7 +51,6 @@ public class ArrayFieldGetWithMissingBaseTypeTest extends TestBase {
                                 UsedDuringLaunch.class, NotUsedDuringLaunch.class))
                     .assertNoOtherClassesMerged())
         .enableInliningAnnotations()
-        .addOptionsModification(o -> o.apiModelingOptions().disableApiCallerIdentification())
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters.getApiLevel())
         .compile()

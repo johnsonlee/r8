@@ -10,6 +10,7 @@ import static java.util.Collections.emptyMap;
 
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.AssumeNoSideEffectsRuleForObjectMembersDiagnostic;
+import com.android.tools.r8.errors.InlinableStaticFinalFieldPreconditionDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -262,6 +263,8 @@ public class RootSetUtils {
         markMatchingOverriddenMethods(
             appView.appInfo(), clazz, memberKeepRules, rule, null, true, ifRule);
         markMatchingVisibleFields(clazz, memberKeepRules, rule, null, true, ifRule);
+      } else if (rule instanceof NoFieldTypeStrengtheningRule) {
+        markMatchingFields(clazz, memberKeepRules, rule, null, ifRule);
       } else if (rule instanceof InlineRule
           || rule instanceof ConstantArgumentRule
           || rule instanceof UnusedArgumentRule
@@ -957,6 +960,10 @@ public class RootSetUtils {
       return false;
     }
 
+    boolean sideEffectFreeIsRuleSatisfiedByField(ProguardMemberRule rule, DexClassAndField field) {
+      return rule.matches(field, appView, ignore -> {}, dexStringCache);
+    }
+
     static AnnotationMatchResult containsAllAnnotations(
         List<ProguardTypeMatcher> annotationMatchers, DexClass clazz) {
       return containsAllAnnotations(
@@ -1219,6 +1226,13 @@ public class RootSetUtils {
           default:
             throw new Unreachable();
         }
+        context.markAsUsed();
+      } else if (context instanceof NoFieldTypeStrengtheningRule) {
+        assert item.isProgramField();
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asFieldJoiner()
+            .disallowFieldTypeStrengthening();
         context.markAsUsed();
       } else if (context instanceof NoUnusedInterfaceRemovalRule) {
         noUnusedInterfaceRemoval.add(item.asClass().type);
@@ -1675,16 +1689,25 @@ public class RootSetUtils {
 
     public void checkAllRulesAreUsed(InternalOptions options) {
       List<ProguardConfigurationRule> rules = options.getProguardConfiguration().getRules();
-      if (rules != null) {
-        for (ProguardConfigurationRule rule : rules) {
-          if (!rule.isUsed()) {
-            String message =
-                "Proguard configuration rule does not match anything: `" + rule.toString() + "`";
-            StringDiagnostic diagnostic = new StringDiagnostic(message, rule.getOrigin());
-            if (options.testing.reportUnusedProguardConfigurationRules) {
-              options.reporter.info(diagnostic);
-            }
+      if (rules == null) {
+        return;
+      }
+      for (ProguardConfigurationRule rule : rules) {
+        if (rule.isProguardIfRule()) {
+          ProguardIfRule ifRule = rule.asProguardIfRule();
+          Set<DexField> unorderedFields = ifRule.getAndClearInlinableFieldsMatchingPrecondition();
+          if (!unorderedFields.isEmpty()) {
+            List<DexField> fields = new ArrayList<>(unorderedFields);
+            fields.sort(DexField::compareTo);
+            options.reporter.warning(
+                new InlinableStaticFinalFieldPreconditionDiagnostic(ifRule, fields));
+            continue;
           }
+        }
+        if (!rule.isUsed() && options.testing.reportUnusedProguardConfigurationRules) {
+          String message = "Proguard configuration rule does not match anything: `" + rule + "`";
+          StringDiagnostic diagnostic = new StringDiagnostic(message, rule.getOrigin());
+          options.reporter.info(diagnostic);
         }
       }
     }

@@ -61,10 +61,11 @@ public class KotlinCompilerTool {
     KOTLINC_1_3_72("kotlin-compiler-1.3.72"),
     KOTLINC_1_4_20("kotlin-compiler-1.4.20"),
     KOTLINC_1_5_0("kotlin-compiler-1.5.0"),
+    KOTLINC_1_6_0("kotlin-compiler-1.6.0"),
     KOTLIN_DEV("kotlin-compiler-dev");
 
     public static final KotlinCompilerVersion MIN_SUPPORTED_VERSION = KOTLINC_1_4_20;
-    public static final KotlinCompilerVersion MAX_SUPPORTED_VERSION = KOTLINC_1_5_0;
+    public static final KotlinCompilerVersion MAX_SUPPORTED_VERSION = KOTLINC_1_6_0;
 
     private final String folder;
 
@@ -78,6 +79,15 @@ public class KotlinCompilerTool {
 
     public KotlinCompiler getCompiler() {
       return new KotlinCompiler(this);
+    }
+
+    public static List<KotlinCompilerVersion> getSupported() {
+      return Arrays.stream(KotlinCompilerVersion.values())
+          .filter(
+              compiler ->
+                  compiler.isGreaterThanOrEqualTo(MIN_SUPPORTED_VERSION)
+                      && compiler.isLessThanOrEqualTo(MAX_SUPPORTED_VERSION))
+          .collect(Collectors.toList());
     }
   }
 
