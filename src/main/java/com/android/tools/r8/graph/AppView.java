@@ -33,6 +33,7 @@ import com.android.tools.r8.naming.SeedMapper;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepClassInfo;
+import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.shaking.LibraryModeledPredicate;
@@ -211,6 +212,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public SimpleInliningConstraintFactory simpleInliningConstraintFactory() {
     return simpleInliningConstraintFactory;
+  }
+
+  public DexApplication app() {
+    return appInfo().app();
   }
 
   public T appInfo() {
@@ -531,6 +536,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public KeepClassInfo getKeepInfo(DexProgramClass clazz) {
     return getKeepInfo().getClassInfo(clazz);
+  }
+
+  public KeepFieldInfo getKeepInfo(ProgramField field) {
+    return getKeepInfo().getFieldInfo(field);
   }
 
   public KeepMethodInfo getKeepInfo(ProgramMethod method) {

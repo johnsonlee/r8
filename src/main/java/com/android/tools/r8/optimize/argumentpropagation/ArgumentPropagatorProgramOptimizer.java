@@ -9,23 +9,32 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.RewrittenTypeInfo;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
+import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.SingleValue;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.ConcreteCallSiteOptimizationInfo;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorGraphLens.Builder;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepFieldInfo;
+import com.android.tools.r8.utils.AccessUtils;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IntBox;
@@ -197,10 +206,7 @@ public class ArgumentPropagatorProgramOptimizer {
       this.options = appView.options();
     }
 
-    // TODO(b/190154391): Remove unused parameters by simulating they are constant.
     // TODO(b/190154391): Strengthen the static type of parameters.
-    // TODO(b/190154391): If we learn that a method returns a constant, then consider changing its
-    //  return type to void.
     // TODO(b/69963623): If we optimize a method to be unconditionally throwing (because it has a
     //  bottom parameter), then for each caller that becomes unconditionally throwing, we could
     //  also enqueue the caller's callers for reprocessing. This would propagate the throwing
@@ -435,6 +441,15 @@ public class ArgumentPropagatorProgramOptimizer {
         DexMethodSignatureSet interfaceDispatchOutsideProgram,
         ArgumentPropagatorGraphLens.Builder partialGraphLensBuilder) {
       BooleanBox affected = new BooleanBox();
+      clazz.forEachProgramFieldMatching(
+          field -> field.getType().isClassType(),
+          field -> {
+            DexField newFieldSignature = getNewFieldSignature(field);
+            if (newFieldSignature != field.getReference()) {
+              partialGraphLensBuilder.recordMove(field.getReference(), newFieldSignature);
+              affected.set();
+            }
+          });
       DexMethodSignatureSet instanceInitializerSignatures = DexMethodSignatureSet.create();
       clazz.forEachProgramInstanceInitializer(instanceInitializerSignatures::add);
       clazz.forEachProgramMethod(
@@ -452,6 +467,71 @@ public class ArgumentPropagatorProgramOptimizer {
             }
           });
       return affected.get();
+    }
+
+    private DexField getNewFieldSignature(ProgramField field) {
+      DynamicType dynamicType = field.getOptimizationInfo().getDynamicType();
+      if (dynamicType.isUnknown()) {
+        return field.getReference();
+      }
+
+      KeepFieldInfo keepInfo = appView.getKeepInfo(field);
+
+      // We don't have dynamic type information for fields that are kept.
+      assert !keepInfo.isPinned(options);
+
+      if (!keepInfo.isFieldTypeStrengtheningAllowed(options)) {
+        return field.getReference();
+      }
+
+      if (dynamicType.isNullType()) {
+        // Don't optimize always null fields; these will be optimized anyway.
+        return field.getReference();
+      }
+
+      if (dynamicType.isNotNullType()) {
+        // We don't have a more specific type.
+        return field.getReference();
+      }
+
+      DynamicTypeWithUpperBound dynamicTypeWithUpperBound =
+          dynamicType.asDynamicTypeWithUpperBound();
+      TypeElement dynamicUpperBoundType = dynamicTypeWithUpperBound.getDynamicUpperBoundType();
+      assert dynamicUpperBoundType.isReferenceType();
+
+      ClassTypeElement staticFieldType = field.getType().toTypeElement(appView).asClassType();
+      if (dynamicUpperBoundType.equalUpToNullability(staticFieldType)) {
+        // We don't have more precise type information.
+        return field.getReference();
+      }
+
+      if (!dynamicUpperBoundType.strictlyLessThan(staticFieldType, appView)) {
+        assert options.testing.allowTypeErrors;
+        return field.getReference();
+      }
+
+      DexType newStaticFieldType;
+      if (dynamicUpperBoundType.isClassType()) {
+        ClassTypeElement dynamicUpperBoundClassType = dynamicUpperBoundType.asClassType();
+        if (dynamicUpperBoundClassType.getClassType() == dexItemFactory.objectType) {
+          if (dynamicUpperBoundClassType.getInterfaces().hasSingleKnownInterface()) {
+            newStaticFieldType =
+                dynamicUpperBoundClassType.getInterfaces().getSingleKnownInterface();
+          } else {
+            return field.getReference();
+          }
+        } else {
+          newStaticFieldType = dynamicUpperBoundClassType.getClassType();
+        }
+      } else {
+        newStaticFieldType = dynamicUpperBoundType.asArrayType().toDexType(dexItemFactory);
+      }
+
+      if (!AccessUtils.isAccessibleInSameContextsAs(newStaticFieldType, field.getType(), appView)) {
+        return field.getReference();
+      }
+
+      return field.getReference().withType(newStaticFieldType, dexItemFactory);
     }
 
     private DexMethod getNewMethodSignature(

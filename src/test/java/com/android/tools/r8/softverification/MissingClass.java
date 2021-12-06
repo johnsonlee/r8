@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.softverification;
 
-public class MissingClass {
+public class MissingClass extends RuntimeException {
 
   public static int staticField = 42;
 

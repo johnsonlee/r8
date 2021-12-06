@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.graph.FieldResolutionResult.SuccessfulFieldResolutionResult;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.origin.Origin;
@@ -13,7 +12,6 @@ import com.android.tools.r8.synthesis.CommittedItems;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.IterableUtils;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -123,26 +121,6 @@ public class AppInfo implements DexDefinitionSupplier {
   public SyntheticItems getSyntheticItems() {
     assert checkIfObsolete();
     return syntheticItems;
-  }
-
-  public void addSynthesizedClassForLibraryDesugaring(DexProgramClass clazz) {
-    assert checkIfObsolete();
-    assert options().desugaredLibraryConfiguration != null;
-    syntheticItems.addLegacySyntheticClassForLibraryDesugaring(clazz);
-  }
-
-  public void addSynthesizedClass(DexProgramClass clazz, ProgramDefinition context) {
-    assert checkIfObsolete();
-    assert context != null;
-    syntheticItems.addLegacySyntheticClass(clazz, context, FeatureSplit.BASE);
-  }
-
-  public void addSynthesizedClassToBase(DexProgramClass clazz, Iterable<DexProgramClass> contexts) {
-    assert checkIfObsolete();
-    assert !IterableUtils.isEmpty(contexts);
-    SyntheticItems syntheticItems = getSyntheticItems();
-    contexts.forEach(
-        context -> syntheticItems.addLegacySyntheticClass(clazz, context, FeatureSplit.BASE));
   }
 
   public List<DexProgramClass> classes() {

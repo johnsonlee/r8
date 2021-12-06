@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
@@ -978,10 +979,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   private boolean isInstantiatedDirectly(DexProgramClass clazz) {
     assert checkIfObsolete();
     DexType type = clazz.type;
-    return
-    // TODO(b/165224388): Synthetic classes should be represented in the allocation info.
-    getSyntheticItems().isLegacySyntheticClass(clazz)
-        || (!clazz.isInterface() && objectAllocationInfoCollection.isInstantiatedDirectly(clazz))
+    return (!clazz.isInterface() && objectAllocationInfoCollection.isInstantiatedDirectly(clazz))
         // TODO(b/145344105): Model annotations in the object allocation info.
         || (clazz.isAnnotation() && liveTypes.contains(type));
   }
@@ -1058,6 +1056,10 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return fieldAccessInfo != null
         && fieldAccessInfo.isWritten()
         && !fieldAccessInfo.isWrittenOutside(method);
+  }
+
+  public boolean isInstanceFieldWrittenOnlyInInstanceInitializers(DexClassAndField field) {
+    return isInstanceFieldWrittenOnlyInInstanceInitializers(field.getDefinition());
   }
 
   public boolean isInstanceFieldWrittenOnlyInInstanceInitializers(DexEncodedField field) {
@@ -1269,7 +1271,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         getClassToFeatureSplitMap().rewrittenWithLens(lens),
         getMainDexInfo().rewrittenWithLens(getSyntheticItems(), lens),
         deadProtoTypes,
-        getMissingClasses().commitSyntheticItems(committedItems),
+        getMissingClasses(),
         lens.rewriteReferences(liveTypes),
         lens.rewriteReferences(targetedMethods),
         lens.rewriteReferences(failedMethodResolutionTargets),

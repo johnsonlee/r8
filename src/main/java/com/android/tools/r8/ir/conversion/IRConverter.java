@@ -114,7 +114,6 @@ import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -819,18 +818,7 @@ public class IRConverter {
 
     // Assure that no more optimization feedback left after post processing.
     assert feedback.noUpdatesLeft();
-    assert checkLegacySyntheticsAreInBuilder(appView, builder);
     return builder.build();
-  }
-
-  private boolean checkLegacySyntheticsAreInBuilder(
-      AppView<AppInfoWithLiveness> appView, Builder<?> builder) {
-    Collection<DexProgramClass> inAppInfo =
-        appView.appInfo().getSyntheticItems().getLegacyPendingClasses();
-    Collection<DexProgramClass> inBuilder = builder.getSynthesizedClasses();
-    assert inAppInfo.containsAll(inBuilder);
-    assert inBuilder.containsAll(inAppInfo);
-    return true;
   }
 
   private void waveStart(ProgramMethodSet wave) {

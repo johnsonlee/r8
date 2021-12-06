@@ -45,8 +45,8 @@ ext {
     mockitoVersion = '2.10.0'
     // The kotlin version is only here to specify the kotlin language level,
     // all kotlin compilations are done in tests.
-    kotlinVersion = '1.5.0'
-    kotlinExtMetadataJVMVersion = '0.3.0'
+    kotlinVersion = '1.6.0'
+    kotlinExtMetadataJVMVersion = '0.4.1'
     smaliVersion = '2.2b4'
     errorproneVersion = '2.3.2'
     testngVersion = '6.10'
@@ -2201,6 +2201,13 @@ test { task ->
         systemProperty 'test_git_HEAD_sha1', project.property('HEAD_sha1')
     }
 
+    if (project.hasProperty('kotlin_compiler_dev')) {
+        systemProperty 'com.android.tools.r8.kotlincompilerdev', '1';
+    }
+
+    if (project.hasProperty('kotlin_compiler_old')) {
+        systemProperty 'com.android.tools.r8.kotlincompilerold', '1';
+    }
 
     if (!useTestingState) {
         testLogging.exceptionFormat = 'full'

@@ -21,7 +21,6 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramDerivedContext;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.synthesis.CommittedItems;
 import com.android.tools.r8.synthesis.SyntheticItems.SynthesizingContextOracle;
 import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.ImmutableSet;
@@ -49,13 +48,6 @@ public class MissingClasses {
 
   public static MissingClasses empty() {
     return new MissingClasses(Sets.newIdentityHashSet());
-  }
-
-  public MissingClasses commitSyntheticItems(CommittedItems committedItems) {
-    return builder()
-        // TODO(b/175542052): Synthetic types should not be reported as missing in the first place.
-        .removeAlreadyMissingClasses(committedItems.getLegacySyntheticTypes())
-        .build();
   }
 
   public void forEach(Consumer<DexType> missingClassConsumer) {
