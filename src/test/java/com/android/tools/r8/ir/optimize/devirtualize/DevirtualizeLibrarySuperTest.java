@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.optimize.devirtualize;
 
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithHolderAndName;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverInline;
@@ -45,15 +46,11 @@ public class DevirtualizeLibrarySuperTest extends TestBase {
         .compile()
         .inspect(
             inspector -> {
-              if (parameters.isCfRuntime()) {
-                return;
-              }
               MethodSubject fooMethod = inspector.clazz(Main.class).uniqueMethodWithName("foo");
               assertThat(fooMethod, isPresent());
-              // TODO(b/209060415): Should not have a static holder of `LibraryOverride`.
               assertThat(
                   fooMethod,
-                  invokesMethodWithHolderAndName(LibraryOverride.class.getTypeName(), "foo"));
+                  not(invokesMethodWithHolderAndName(LibraryOverride.class.getTypeName(), "foo")));
             })
         .applyIf(
             hasNewLibraryHierarchyOnClassPath,
@@ -70,15 +67,7 @@ public class DevirtualizeLibrarySuperTest extends TestBase {
                         .transform()))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLinesIf(hasNewLibraryHierarchyOnClassPath, "LibraryOverride::foo")
-        // TODO(b/209060415): Should not fail.
-        .applyIf(
-            !hasNewLibraryHierarchyOnClassPath,
-            result -> {
-              result.assertFailureWithErrorThatThrows(
-                  (parameters.getDexRuntimeVersion().isDalvik()
-                      ? NoClassDefFoundError.class
-                      : VerifyError.class));
-            });
+        .assertSuccessWithOutputLinesIf(!hasNewLibraryHierarchyOnClassPath, "Library::foo");
   }
 
   public static class Library {
