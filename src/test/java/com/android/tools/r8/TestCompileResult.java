@@ -22,6 +22,7 @@ import com.android.tools.r8.debug.CfDebugTestConfig;
 import com.android.tools.r8.debug.DebugTestConfig;
 import com.android.tools.r8.debug.DexDebugTestConfig;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -38,6 +39,7 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -223,6 +225,67 @@ public abstract class TestCompileResult<
       }
       consumer.finished(null);
       additionalRunClassPath.addAll(Collections.singletonList(path));
+      return self();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public CR addRunClasspathClassFileData(byte[]... classes) throws Exception {
+    return addRunClasspathClassFileData(Arrays.asList(classes));
+  }
+
+  public CR addRunClasspathClassFileData(Collection<byte[]> classes) throws Exception {
+    if (getBackend() == Backend.DEX) {
+      additionalRunClassPath.add(
+          testForD8(state.getTempFolder())
+              .addProgramClassFileData(classes)
+              .setMinApi(minApiLevel)
+              .compile()
+              .writeToZip());
+      return self();
+    }
+    assert getBackend() == Backend.CF;
+    try {
+      AndroidApp.Builder appBuilder = AndroidApp.builder();
+      for (byte[] clazz : classes) {
+        appBuilder.addClassProgramData(clazz, Origin.unknown());
+      }
+      Path path = state.getNewTempFolder().resolve("runtime-classes.jar");
+      appBuilder.build().writeToZip(path, OutputMode.ClassFile);
+      additionalRunClassPath.add(path);
+      return self();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public CR addBootClasspathClasses(Class<?>... classes) throws Exception {
+    return addBootClasspathClasses(Arrays.asList(classes));
+  }
+
+  public CR addBootClasspathClasses(List<Class<?>> classes) throws Exception {
+    if (getBackend() == Backend.DEX) {
+      additionalRunClassPath.add(
+          testForD8(state.getTempFolder())
+              .addProgramClasses(classes)
+              .setMinApi(minApiLevel)
+              .compile()
+              .writeToZip());
+      return self();
+    }
+    assert getBackend() == Backend.CF;
+    try {
+      Path path = state.getNewTempFolder().resolve("runtime-classes.jar");
+      ArchiveConsumer consumer = new ArchiveConsumer(path);
+      for (Class<?> clazz : classes) {
+        consumer.accept(
+            ByteDataView.of(ToolHelper.getClassAsBytes(clazz)),
+            DescriptorUtils.javaTypeToDescriptor(clazz.getTypeName()),
+            null);
+      }
+      consumer.finished(null);
+      additionalRunClassPath.add(path);
       return self();
     } catch (IOException e) {
       throw new RuntimeException(e);
