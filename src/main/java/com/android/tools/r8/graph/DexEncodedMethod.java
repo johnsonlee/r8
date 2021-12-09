@@ -38,7 +38,6 @@ import com.android.tools.r8.code.NewInstance;
 import com.android.tools.r8.code.Return;
 import com.android.tools.r8.code.Throw;
 import com.android.tools.r8.code.XorIntLit8;
-import com.android.tools.r8.dex.MethodToCodeObjectMapping;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.InternalCompilerError;
 import com.android.tools.r8.errors.Unreachable;
@@ -286,7 +285,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         .withBool(DexEncodedMember::isD8R8Synthesized)
         // TODO(b/171867022): Make signatures structural and include it in the definition.
         .withAssert(m -> m.genericSignature.hasNoSignature())
-        .withAssert(DexEncodedMethod::hasCode)
         .withCustomItem(
             DexEncodedMethod::getCode,
             DexEncodedMethod::compareCodeObject,
@@ -294,6 +292,13 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   }
 
   private static int compareCodeObject(Code code1, Code code2, CompareToVisitor visitor) {
+    if (code1 == code2) {
+      return 0;
+    }
+    if (code1 == null || code2 == null) {
+      // This call is to remain order consistent with the 'withNullableItem' code.
+      return visitor.visitBool(code1 != null, code2 != null);
+    }
     if (code1.isCfWritableCode() && code2.isCfWritableCode()) {
       return code1.asCfWritableCode().acceptCompareTo(code2.asCfWritableCode(), visitor);
     }
@@ -305,7 +310,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   }
 
   private static void hashCodeObject(Code code, HashingVisitor visitor) {
-    if (code.isCfWritableCode()) {
+    if (code == null) {
+      // The null code does not contribute to the hash. This should be distinct from non-null as
+      // code otherwise has a non-empty instruction payload.
+    } else if (code.isCfWritableCode()) {
       code.asCfWritableCode().acceptHashing(visitor);
     } else {
       assert code.isDexWritableCode();
@@ -768,9 +776,8 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     mixedItems.visit(this);
   }
 
-  public void collectMixedSectionItemsWithCodeMapping(
-      MixedSectionCollection mixedItems, MethodToCodeObjectMapping mapping) {
-    DexWritableCode code = mapping.getCode(this);
+  public void collectMixedSectionItemsWithCodeMapping(MixedSectionCollection mixedItems) {
+    DexWritableCode code = getDexWritableCodeOrNull();
     if (code != null && mixedItems.add(this, code)) {
       code.collectMixedSectionItems(mixedItems);
     }
@@ -1313,6 +1320,12 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   @Override
   public void clearGenericSignature() {
     this.genericSignature = MethodTypeSignature.noSignature();
+  }
+
+  public DexWritableCode getDexWritableCodeOrNull() {
+    Code code = getCode();
+    assert code == null || code.isDexWritableCode();
+    return code == null ? null : code.asDexWritableCode();
   }
 
   public static Builder syntheticBuilder() {
