@@ -1,7 +1,7 @@
 // Copyright (c) 2021, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.desugar.desugaredlibrary;
+package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.AppView;
@@ -11,8 +11,8 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterInstructionEventConsumer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterL8SynthesizerEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterInstructionEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterL8SynthesizerEventConsumer;
 import com.android.tools.r8.ir.synthetic.EmulateInterfaceSyntheticCfCodeProvider;
 import com.android.tools.r8.synthesis.SyntheticClassBuilder;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
@@ -151,7 +151,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
           DexMethod desugarMethod =
               appView
                   .options()
-                  .desugaredLibraryConfiguration
+                  .desugaredLibrarySpecification
                   .retargetMethod(emulatedDispatchMethod, appView);
           assert desugarMethod
               != null; // This method is reached only for retarget core lib members.
@@ -178,7 +178,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
 
   private void rewriteType(DexType type) {
     String newName =
-        appView.options().desugaredLibraryConfiguration.convertJavaNameToDesugaredLibrary(type);
+        appView.options().desugaredLibrarySpecification.convertJavaNameToDesugaredLibrary(type);
     DexType newType =
         appView.dexItemFactory().createType(DescriptorUtils.javaTypeToDescriptor(newName));
     appView.rewritePrefix.rewriteType(type, newType);

@@ -1,7 +1,7 @@
 // Copyright (c) 2021, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.desugar.desugaredlibrary;
+package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyDesugaredLibrarySpecification;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.google.common.collect.ImmutableMap;
@@ -66,10 +67,10 @@ public class RetargetingInfo {
     }
 
     private RetargetingInfo computeRetargetingInfo() {
-      DesugaredLibraryConfiguration desugaredLibraryConfiguration =
-          appView.options().desugaredLibraryConfiguration;
+      LegacyDesugaredLibrarySpecification desugaredLibrarySpecification =
+          appView.options().desugaredLibrarySpecification;
       Map<DexString, Map<DexType, DexType>> retargetCoreLibMember =
-          desugaredLibraryConfiguration.getRetargetCoreLibMember();
+          desugaredLibrarySpecification.getRetargetCoreLibMember();
       if (retargetCoreLibMember.isEmpty()) {
         return new RetargetingInfo(
             ImmutableMap.of(), ImmutableMap.of(), DexClassAndMethodSet.empty());
@@ -108,7 +109,7 @@ public class RetargetingInfo {
           }
         }
       }
-      if (desugaredLibraryConfiguration.isLibraryCompilation()) {
+      if (desugaredLibrarySpecification.isLibraryCompilation()) {
         // TODO(b/177977763): This is only a workaround rewriting invokes of j.u.Arrays.deepEquals0
         // to j.u.DesugarArrays.deepEquals0.
         DexItemFactory itemFactory = appView.options().dexItemFactory();
@@ -152,7 +153,7 @@ public class RetargetingInfo {
     private boolean isEmulatedInterfaceDispatch(DexClassAndMethod method) {
       // Answers true if this method is already managed through emulated interface dispatch.
       Map<DexType, DexType> emulateLibraryInterface =
-          appView.options().desugaredLibraryConfiguration.getEmulateLibraryInterface();
+          appView.options().desugaredLibrarySpecification.getEmulateLibraryInterface();
       if (emulateLibraryInterface.isEmpty()) {
         return false;
       }

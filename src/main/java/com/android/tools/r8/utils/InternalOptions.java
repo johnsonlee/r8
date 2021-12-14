@@ -53,7 +53,7 @@ import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.horizontalclassmerging.Policy;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryConfiguration;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.nest.Nest;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
@@ -294,6 +294,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean cfToCfDesugar = false;
   public boolean forceAnnotateSynthetics = false;
   public boolean readDebugSetFileEvent = false;
+  public boolean disableL8AnnotationRemoval =
+      System.getProperty("com.android.tools.r8.disableL8AnnotationRemoval") != null;
 
   public int callGraphLikelySpuriousCallEdgeThreshold = 50;
 
@@ -385,8 +387,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     if (isGeneratingDex() || desugarState == DesugarState.ON) {
       marker.setMinApi(getMinApiLevel().getLevel());
     }
-    if (desugaredLibraryConfiguration.getIdentifier() != null) {
-      marker.setDesugaredLibraryIdentifiers(desugaredLibraryConfiguration.getIdentifier());
+    if (desugaredLibrarySpecification.getIdentifier() != null) {
+      marker.setDesugaredLibraryIdentifiers(desugaredLibrarySpecification.getIdentifier());
     }
     if (Version.isDevelopmentVersion()) {
       marker.setSha1(VersionProperties.INSTANCE.getSha());
@@ -433,7 +435,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean isDesugaredLibraryCompilation() {
-    return desugaredLibraryConfiguration.isLibraryCompilation();
+    return desugaredLibrarySpecification.isLibraryCompilation();
   }
 
   public boolean isRelocatorCompilation() {
@@ -737,9 +739,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public LineNumberOptimization lineNumberOptimization = LineNumberOptimization.ON;
 
-  // TODO(b/207765416): Enable and remove this once fixed.
-  public boolean enablePcBasedMappingFile = false;
-
   public CallSiteOptimizationOptions callSiteOptimizationOptions() {
     return callSiteOptimizationOptions;
   }
@@ -882,8 +881,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // If null, no desugaring of library is performed.
   // If non null it contains flags describing library desugaring.
-  public DesugaredLibraryConfiguration desugaredLibraryConfiguration =
-      DesugaredLibraryConfiguration.empty();
+  public LegacyDesugaredLibrarySpecification desugaredLibrarySpecification =
+      LegacyDesugaredLibrarySpecification.empty();
 
   public boolean relocatorCompilation = false;
 
@@ -1872,10 +1871,17 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return !isDesugaring() || hasMinApi(AndroidApiLevel.N);
   }
 
+  // Debug entries may be dropped only if the source file content allows being omitted from
+  // stack traces, or if the VM will report the source file even with a null valued debug info.
+  public boolean allowDiscardingResidualDebugInfo() {
+    // TODO(b/146565491): We can drop debug info once fixed at a known min-api.
+    return sourceFileProvider != null && sourceFileProvider.allowDiscardingSourceFile();
+  }
+
   public boolean canUseDexPcAsDebugInformation() {
-    return enablePcBasedMappingFile
-        && lineNumberOptimization == LineNumberOptimization.ON
-        && hasMinApi(AndroidApiLevel.O);
+    return lineNumberOptimization == LineNumberOptimization.ON
+        && hasMinApi(AndroidApiLevel.O)
+        && allowDiscardingResidualDebugInfo();
   }
 
   public boolean isInterfaceMethodDesugaringEnabled() {

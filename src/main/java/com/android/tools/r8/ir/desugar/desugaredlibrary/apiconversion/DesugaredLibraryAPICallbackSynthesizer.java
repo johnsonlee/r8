@@ -2,11 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.ir.desugar.desugaredlibrary;
+package com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion;
 
-import static com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverter.generateTrackDesugaredAPIWarnings;
-import static com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverter.isAPIConversionSyntheticType;
-import static com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPIConverter.methodWithVivifiedTypeInSignature;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.generateTrackDesugaredAPIWarnings;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.isAPIConversionSyntheticType;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.methodWithVivifiedTypeInSignature;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -19,7 +19,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryAPICallbackSynthesizorEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryAPICallbackSynthesizorEventConsumer;
 import com.android.tools.r8.ir.synthetic.DesugaredLibraryAPIConversionCfCodeProvider.APICallbackWrapperCfCodeProvider;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.WorkList;
@@ -109,7 +109,7 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
     if (!appView.rewritePrefix.hasRewrittenTypeInSignature(definition.getProto(), appView)
         || appView
             .options()
-            .desugaredLibraryConfiguration
+            .desugaredLibrarySpecification
             .getEmulateLibraryInterface()
             .containsKey(method.getHolderType())) {
       return false;
@@ -127,7 +127,7 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
         return false;
       }
     }
-    if (!appView.options().desugaredLibraryConfiguration.supportAllCallbacksFromLibrary
+    if (!appView.options().desugaredLibrarySpecification.supportAllCallbacksFromLibrary()
         && appView.options().isDesugaredLibraryCompilation()) {
       return false;
     }
@@ -178,11 +178,11 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
   }
 
   private boolean shouldGenerateCallbacksForEmulateInterfaceAPIs(DexClass dexClass) {
-    if (appView.options().desugaredLibraryConfiguration.supportAllCallbacksFromLibrary) {
+    if (appView.options().desugaredLibrarySpecification.supportAllCallbacksFromLibrary()) {
       return true;
     }
     Map<DexType, DexType> emulateLibraryInterfaces =
-        appView.options().desugaredLibraryConfiguration.getEmulateLibraryInterface();
+        appView.options().desugaredLibrarySpecification.getEmulateLibraryInterface();
     return !(emulateLibraryInterfaces.containsKey(dexClass.type)
         || emulateLibraryInterfaces.containsValue(dexClass.type));
   }

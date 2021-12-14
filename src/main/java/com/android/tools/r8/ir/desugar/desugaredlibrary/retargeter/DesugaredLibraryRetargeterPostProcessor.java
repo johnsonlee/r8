@@ -1,7 +1,7 @@
 // Copyright (c) 2021, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.desugar.desugaredlibrary;
+package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -15,7 +15,7 @@ import com.android.tools.r8.graph.GenericSignature.ClassTypeSignature;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterPostProcessingEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterPostProcessingEventConsumer;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.google.common.collect.Maps;
@@ -123,7 +123,7 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
       }
       if (appView
           .options()
-          .desugaredLibraryConfiguration
+          .desugaredLibrarySpecification
           .getDontRetargetLibMember()
           .contains(clazz.getType())) {
         continue;
@@ -144,7 +144,7 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
     // even if this results in invalid code, these classes are never desugared.
     // In desugared library, emulated interface methods can be overridden by retarget lib members.
     DexMethod forwardMethod =
-        appView.options().desugaredLibraryConfiguration.retargetMethod(target, appView);
+        appView.options().desugaredLibrarySpecification.retargetMethod(target, appView);
     assert forwardMethod != null && forwardMethod != target.getReference();
     DexEncodedMethod desugaringForwardingMethod =
         DexEncodedMethod.createDesugaringForwardingMethod(

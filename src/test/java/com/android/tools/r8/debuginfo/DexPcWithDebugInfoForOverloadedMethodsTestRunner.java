@@ -23,7 +23,6 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.retrace.RetraceFrameResult;
-import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -68,9 +67,7 @@ public class DexPcWithDebugInfoForOverloadedMethodsTestRunner extends TestBase {
         .addKeepMainRule(MAIN)
         .addKeepMethodRules(MAIN, "void overloaded(...)")
         .addKeepAttributeLineNumberTable()
-        .addKeepAttributes(ProguardKeepAttributes.SOURCE_FILE)
         .setMinApi(parameters.getApiLevel())
-        .addOptionsModification(o -> o.enablePcBasedMappingFile = true)
         .run(parameters.getRuntime(), MAIN)
         .assertFailureWithErrorThatMatches(containsString(EXPECTED))
         .inspectOriginalStackTrace(

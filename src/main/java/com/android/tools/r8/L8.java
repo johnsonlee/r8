@@ -19,6 +19,7 @@ import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.PrefixRewritingNamingLens;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
 import com.android.tools.r8.origin.CommandLineOrigin;
+import com.android.tools.r8.shaking.AnnotationRemover;
 import com.android.tools.r8.shaking.L8TreePruner;
 import com.android.tools.r8.synthesis.SyntheticFinalization;
 import com.android.tools.r8.utils.AndroidApp;
@@ -134,6 +135,10 @@ public class L8 {
 
       AppView<AppInfo> appView = readApp(inputApp, options, executor, timing);
 
+      if (!options.disableL8AnnotationRemoval) {
+        AnnotationRemover.clearAnnotations(appView);
+      }
+
       new IRConverter(appView, timing).convert(appView, executor);
 
       SyntheticFinalization.finalize(appView, executor);
@@ -141,8 +146,7 @@ public class L8 {
       NamingLens namingLens = PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView);
       new GenericSignatureRewriter(appView, namingLens).run(appView.appInfo().classes(), executor);
 
-      new CfApplicationWriter(
-              appView, options.getMarker(Tool.L8), appView.graphLens(), namingLens, null)
+      new CfApplicationWriter(appView, options.getMarker(Tool.L8), appView.graphLens(), namingLens)
           .write(options.getClassFileConsumer());
       options.printWarnings();
     } catch (ExecutionException e) {
@@ -163,7 +167,7 @@ public class L8 {
         new ApplicationReader(inputApp, options, timing).read(executor);
 
     PrefixRewritingMapper rewritePrefix =
-        options.desugaredLibraryConfiguration.getPrefixRewritingMapper();
+        options.desugaredLibrarySpecification.getPrefixRewritingMapper();
 
     DexApplication app = new L8TreePruner(options).prune(lazyApp, rewritePrefix);
     return AppView.createForL8(AppInfo.createInitialAppInfo(app), rewritePrefix);

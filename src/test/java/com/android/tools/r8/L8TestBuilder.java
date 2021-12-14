@@ -40,7 +40,7 @@ public class L8TestBuilder {
   private Consumer<InternalOptions> optionsModifier = ConsumerUtils.emptyConsumer();
   private Path desugarJDKLibs = ToolHelper.getDesugarJDKLibs();
   private Path desugarJDKLibsConfiguration = null;
-  private StringResource desugaredLibraryConfiguration =
+  private StringResource desugaredLibrarySpecification =
       StringResource.fromFile(ToolHelper.getDesugarLibJsonForTesting());
   private List<Path> libraryFiles = new ArrayList<>();
 
@@ -130,13 +130,18 @@ public class L8TestBuilder {
   }
 
   public L8TestBuilder setDesugaredLibraryConfiguration(Path path) {
-    this.desugaredLibraryConfiguration = StringResource.fromFile(path);
+    this.desugaredLibrarySpecification = StringResource.fromFile(path);
     return this;
   }
 
   public L8TestBuilder setDesugaredLibraryConfiguration(StringResource configuration) {
-    this.desugaredLibraryConfiguration = configuration;
+    this.desugaredLibrarySpecification = configuration;
     return this;
+  }
+
+  public L8TestBuilder setDisableL8AnnotationRemoval(boolean disableL8AnnotationRemoval) {
+    return addOptionsModifier(
+        options -> options.disableL8AnnotationRemoval = disableL8AnnotationRemoval);
   }
 
   public L8TestCompileResult compile()
@@ -148,7 +153,7 @@ public class L8TestBuilder {
             .addProgramFiles(getProgramFiles())
             .addLibraryFiles(getLibraryFiles())
             .setMode(mode)
-            .addDesugaredLibraryConfiguration(desugaredLibraryConfiguration)
+            .addDesugaredLibraryConfiguration(desugaredLibrarySpecification)
             .setMinApiLevel(apiLevel.getLevel())
             .setProgramConsumer(
                 backend.isCf()

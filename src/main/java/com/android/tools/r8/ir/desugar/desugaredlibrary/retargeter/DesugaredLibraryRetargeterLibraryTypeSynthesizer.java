@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.ir.desugar.desugaredlibrary;
+package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.dex.Constants;
@@ -40,7 +40,7 @@ public class DesugaredLibraryRetargeterLibraryTypeSynthesizer {
 
   public static void checkForAssumedLibraryTypes(AppView<?> appView) {
     Map<DexString, Map<DexType, DexType>> retargetCoreLibMember =
-        appView.options().desugaredLibraryConfiguration.getRetargetCoreLibMember();
+        appView.options().desugaredLibrarySpecification.getRetargetCoreLibMember();
     for (DexString methodName : retargetCoreLibMember.keySet()) {
       for (DexType inType : retargetCoreLibMember.get(methodName).keySet()) {
         DexClass typeClass = appView.definitionFor(inType);
@@ -53,7 +53,7 @@ public class DesugaredLibraryRetargeterLibraryTypeSynthesizer {
 
   public static void amendLibraryWithRetargetedMembers(AppView<AppInfoWithClassHierarchy> appView) {
     Map<DexString, Map<DexType, DexType>> retargetCoreLibMember =
-        appView.options().desugaredLibraryConfiguration.getRetargetCoreLibMember();
+        appView.options().desugaredLibrarySpecification.getRetargetCoreLibMember();
     Map<DexType, DexLibraryClass> synthesizedLibraryClasses =
         synthesizeLibraryClassesForRetargetedMembers(appView, retargetCoreLibMember);
     Map<DexLibraryClass, Set<DexEncodedMethod>> synthesizedLibraryMethods =

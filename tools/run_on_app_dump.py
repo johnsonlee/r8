@@ -553,10 +553,13 @@ def build_app_and_run_with_shrinker(app, options, temp_dir, app_dir, shrinker,
     shrinker))
   print('To compile locally: '
         'tools/run_on_app_dump.py --shrinker {} --r8-compilation-steps {} '
-        '--app {}'.format(
+        '--app {} --minify {} --optimize {} --shrink {}'.format(
     shrinker,
     options.r8_compilation_steps,
-    app.name))
+    app.name,
+    options.minify,
+    options.optimize,
+    options.shrink))
   print('HINT: use --shrinker r8-nolib --no-build if you have a local R8.jar')
   recomp_jar = None
   status = 'success'
@@ -652,6 +655,9 @@ def get_jdk_home(options, app):
 def build_app_with_shrinker(app, options, temp_dir, app_dir, shrinker,
                             compilation_step_index, compilation_steps,
                             prev_recomp_jar):
+  def config_file_consumer(file):
+    compiledump.clean_config(file, options)
+    remove_print_lines(file)
   args = AttrDict({
     'dump': dump_for_app(app_dir, app),
     'r8_jar': get_r8_jar(options, temp_dir, shrinker),
@@ -662,7 +668,7 @@ def build_app_with_shrinker(app, options, temp_dir, app_dir, shrinker,
     'debug_agent': options.debug_agent,
     'program_jar': prev_recomp_jar,
     'nolib': not is_minified_r8(shrinker),
-    'config_file_consumer': remove_print_lines,
+    'config_file_consumer': config_file_consumer,
     'properties': app.compiler_properties,
     'disable_desugared_lib': False,
     'print_times': options.print_times,
@@ -704,6 +710,7 @@ def build_test_with_shrinker(app, options, temp_dir, app_dir, shrinker,
                              compilation_step_index, mapping):
 
   def rewrite_file(file):
+    compiledump.clean_config(file, options)
     remove_print_lines(file)
     with open(file) as f:
       lines = f.readlines()
@@ -723,7 +730,7 @@ def build_test_with_shrinker(app, options, temp_dir, app_dir, shrinker,
     'nolib': not is_minified_r8(shrinker),
     # The config file will have an -applymapping reference to an old map.
     # Update it to point to mapping file build in the compilation of the app.
-    'config_file_consumer': rewrite_file
+    'config_file_consumer': rewrite_file,
   })
 
   test_jar = os.path.join(
@@ -894,6 +901,11 @@ def parse_options(argv):
   result.add_argument('--keystore-password', '--keystore_password',
                       help='Password for app.keystore',
                       default='android')
+  result.add_argument('--minify',
+                      help='Force enable/disable minification' +
+                           ' (defaults to app proguard config)',
+                      choices=['default', 'force-enable', 'force-disable'],
+                      default='default')
   result.add_argument('--monkey',
                       help='Whether to install and run app(s) with monkey',
                       default=False,
@@ -910,6 +922,11 @@ def parse_options(argv):
                       help='Disable logging except for errors',
                       default=False,
                       action='store_true')
+  result.add_argument('--optimize',
+                      help='Force enable/disable optimizations' +
+                           ' (defaults to app proguard config)',
+                      choices=['default', 'force-enable', 'force-disable'],
+                      default='default')
   result.add_argument('--print-times',
                       help='Print timing information from r8',
                       default=False,
@@ -938,6 +955,11 @@ def parse_options(argv):
                       help='Whether to run instrumentation tests',
                       default=False,
                       action='store_true')
+  result.add_argument('--shrink',
+                      help='Force enable/disable shrinking' +
+                           ' (defaults to app proguard config)',
+                      choices=['default', 'force-enable', 'force-disable'],
+                      default='default')
   result.add_argument('--sign-apks', '--sign_apks',
                       help='Whether the APKs should be signed',
                       default=False,
@@ -1016,6 +1038,8 @@ def print_golem_config(options):
   print('')
   print('createOpenSourceAppBenchmarks() {')
   print_indented('final cpus = ["Lenovo M90"];', 2)
+  print_indented('final targetsCompat = ["R8"];', 2)
+  print_indented('final targetsFull = ["R8-full-minify-optimize-shrink"];', 2)
   # Avoid calculating this for every app
   jdk_gz = jdk.GetJdkHome() + '.tar.gz'
   download_sha(jdk_gz + '.sha1', False, quiet=True)
@@ -1031,26 +1055,44 @@ def print_golem_config(options):
       print_indented(
           'new StandardBenchmark(name, [Metric.RunTimeRaw, Metric.CodeSize]);',
           indentation + 4)
-      print_indented(
-          'final options = benchmark.addTargets(noImplementation, ["R8"]);',
-          indentation)
-      print_indented('options.cpus = cpus;', indentation)
-      print_indented('options.isScript = true;', indentation)
-      print_indented('options.fromRevision = 9700;', indentation);
-      print_indented('options.mainFile = "tools/run_on_app_dump.py "',
-                     indentation)
-      print_indented('"--golem --quiet --shrinker r8 --app %s";' % app.name,
-                     indentation + 4)
-
       app_gz = os.path.join(utils.OPENSOURCE_DUMPS_DIR, app.folder + '.tar.gz')
       name = 'appResource'
       add_golem_resource(indentation, app_gz, name)
-      print_indented('options.resources.add(appResource);', indentation)
-      print_indented('options.resources.add(openjdk);', indentation)
+      print_golem_config_target('Compat', 'r8', app, indentation)
+      print_golem_config_target(
+        'Full',
+        'r8-full',
+        app,
+        indentation,
+        minify='force-enable',
+        optimize='force-enable',
+        shrink='force-enable')
       print_indented('dumpsSuite.addBenchmark(name);', indentation)
       indentation = 2
       print_indented('}', indentation)
   print('}')
+
+def print_golem_config_target(
+    target, shrinker, app, indentation,
+    minify='default', optimize='default', shrink='default'):
+  options="options" + target
+  print_indented(
+      'final %s = benchmark.addTargets(noImplementation, targets%s);'
+        % (options, target),
+      indentation)
+  print_indented('%s.cpus = cpus;' % options, indentation)
+  print_indented('%s.isScript = true;' % options, indentation)
+  print_indented('%s.fromRevision = 9700;' % options, indentation);
+  print_indented('%s.mainFile = "tools/run_on_app_dump.py "' % options,
+                 indentation)
+  print_indented('"--golem --quiet --shrinker %s --app %s "'
+                   % (shrinker, app.name),
+                 indentation + 4)
+  print_indented('"--minify %s --optimize %s --shrink %s";'
+                   % (minify, optimize, shrink),
+                 indentation + 4)
+  print_indented('%s.resources.add(appResource);' % options, indentation)
+  print_indented('%s.resources.add(openjdk);' % options, indentation)
 
 def add_golem_resource(indentation, gz, name, sha256=None):
   sha = gz + '.sha1'

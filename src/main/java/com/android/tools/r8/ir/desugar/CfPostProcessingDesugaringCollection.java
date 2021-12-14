@@ -6,9 +6,9 @@ package com.android.tools.r8.ir.desugar;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAPICallbackSynthesizer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterPostProcessor;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.RetargetingInfo;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPICallbackSynthesizer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterPostProcessor;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.RetargetingInfo;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
 import java.util.ArrayList;
@@ -57,7 +57,7 @@ public abstract class CfPostProcessingDesugaringCollection {
         InterfaceMethodProcessorFacade interfaceMethodProcessorFacade,
         RetargetingInfo retargetingInfo) {
       ArrayList<CfPostProcessingDesugaring> desugarings = new ArrayList<>();
-      if (!appView.options().desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()
+      if (!appView.options().desugaredLibrarySpecification.getRetargetCoreLibMember().isEmpty()
           && !appView.options().isDesugaredLibraryCompilation()) {
         desugarings.add(new DesugaredLibraryRetargeterPostProcessor(appView, retargetingInfo));
       }

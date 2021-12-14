@@ -7,6 +7,7 @@ import static com.android.tools.r8.R8Command.USAGE_MESSAGE;
 import static com.android.tools.r8.utils.AssertionUtils.forTesting;
 import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException;
 
+import com.android.tools.r8.androidapi.ApiReferenceStubber;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfPosition;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryKeepRuleGenerator;
@@ -48,7 +49,7 @@ import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeterLibraryTypeSynthesizer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterLibraryTypeSynthesizer;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
 import com.android.tools.r8.ir.desugar.records.RecordFieldValuesRewriter;
@@ -62,12 +63,10 @@ import com.android.tools.r8.ir.optimize.templates.CfUtilityMethodsForCodeOptimiz
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.kotlin.KotlinMetadataRewriter;
 import com.android.tools.r8.kotlin.KotlinMetadataUtils;
-import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.naming.Minifier;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.PrefixRewritingNamingLens;
 import com.android.tools.r8.naming.ProguardMapMinifier;
-import com.android.tools.r8.naming.ProguardMapSupplier;
 import com.android.tools.r8.naming.RecordRewritingNamingLens;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
 import com.android.tools.r8.optimize.ClassAndMemberPublicizer;
@@ -109,7 +108,6 @@ import com.android.tools.r8.utils.CfgPrinter;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.LineNumberOptimizer;
 import com.android.tools.r8.utils.SelfRetraceTest;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
@@ -217,7 +215,7 @@ public class R8 {
       InitClassLens initClassLens,
       NamingLens namingLens,
       InternalOptions options,
-      ProguardMapSupplier proguardMapSupplier)
+      AndroidApp inputApp)
       throws ExecutionException {
     InspectorImpl.runInspections(options.outputInspections, appView.appInfo().classes());
     try {
@@ -228,8 +226,8 @@ public class R8 {
       Set<Marker> markers = new HashSet<>(options.itemFactory.extractMarkers());
       markers.remove(marker);
       if (options.isGeneratingClassFiles()) {
-        new CfApplicationWriter(appView, marker, graphLens, namingLens, proguardMapSupplier)
-            .write(options.getClassFileConsumer());
+        new CfApplicationWriter(appView, marker, graphLens, namingLens)
+            .write(options.getClassFileConsumer(), inputApp);
       } else {
         new ApplicationWriter(
                 appView,
@@ -237,9 +235,8 @@ public class R8 {
                 ImmutableList.<Marker>builder().add(marker).addAll(markers).build(),
                 graphLens,
                 initClassLens,
-                namingLens,
-                proguardMapSupplier)
-            .write(executorService);
+                namingLens)
+            .write(executorService, inputApp);
       }
     } catch (IOException e) {
       throw new RuntimeException("Cannot write application", e);
@@ -313,7 +310,7 @@ public class R8 {
       if (!options.mainDexKeepRules.isEmpty()) {
         MainDexListBuilder.checkForAssumedLibraryTypes(appView.appInfo());
       }
-      if (!options.desugaredLibraryConfiguration.getRetargetCoreLibMember().isEmpty()) {
+      if (!options.desugaredLibrarySpecification.getRetargetCoreLibMember().isEmpty()) {
         DesugaredLibraryRetargeterLibraryTypeSynthesizer.checkForAssumedLibraryTypes(appView);
         DesugaredLibraryRetargeterLibraryTypeSynthesizer.amendLibraryWithRetargetedMembers(appView);
       }
@@ -786,14 +783,6 @@ public class R8 {
 
       assert verifyMovedMethodsHaveOriginalMethodPosition(appView, getDirectApp(appView));
 
-      timing.begin("Line number remapping");
-      // When line number optimization is turned off the identity mapping for line numbers is
-      // used. We still run the line number optimizer to collect line numbers and inline frame
-      // information for the mapping file.
-      ClassNameMapper classNameMapper =
-          LineNumberOptimizer.run(appView, getDirectApp(appView), inputApp, namingLens);
-      timing.end();
-
       // If a method filter is present don't produce output since the application is likely partial.
       if (options.hasMethodsFilter()) {
         System.out.println("Finished compilation with method filter: ");
@@ -827,6 +816,8 @@ public class R8 {
       namingLens = PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView, namingLens);
       namingLens = RecordRewritingNamingLens.createRecordRewritingNamingLens(appView, namingLens);
 
+      new ApiReferenceStubber(appView).run(executorService);
+
       timing.begin("MinifyKotlinMetadata");
       new KotlinMetadataRewriter(appView, namingLens).runForR8(executorService);
       timing.end();
@@ -853,7 +844,7 @@ public class R8 {
           appView.initClassLens(),
           namingLens,
           options,
-          ProguardMapSupplier.create(classNameMapper, options));
+          inputApp);
 
       assert appView.getDontWarnConfiguration().validate(options);
 
