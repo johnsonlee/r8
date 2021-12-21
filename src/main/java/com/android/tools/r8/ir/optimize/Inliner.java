@@ -8,7 +8,6 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static com.google.common.base.Predicates.not;
 
 import com.android.tools.r8.androidapi.AvailableApiExceptions;
-import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -61,6 +60,7 @@ import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.MainDexInfo;
+import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 import com.android.tools.r8.utils.IteratorUtils;
@@ -79,6 +79,9 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
 public class Inliner {
 
@@ -90,6 +93,8 @@ public class Inliner {
   // The set of callers of single caller methods where the single caller method could not be inlined
   // due to not being processed at the time of inlining.
   private final LongLivedProgramMethodSetBuilder<ProgramMethodSet> singleInlineCallers;
+
+  private final MultiCallerInliner multiCallerInliner;
 
   // The set of methods that have been single caller inlined in the current wave. These need to be
   // pruned when the wave ends.
@@ -108,47 +113,13 @@ public class Inliner {
     this.converter = converter;
     this.lensCodeRewriter = lensCodeRewriter;
     this.mainDexInfo = appView.appInfo().getMainDexInfo();
+    this.multiCallerInliner = new MultiCallerInliner(appView);
     this.singleInlineCallers =
         LongLivedProgramMethodSetBuilder.createConcurrentForIdentitySet(appView.graphLens());
     availableApiExceptions =
         appView.options().canHaveDalvikCatchHandlerVerificationBug()
             ? new AvailableApiExceptions(appView.options())
             : null;
-  }
-
-  boolean neverInline(
-      InvokeMethod invoke,
-      SingleResolutionResult resolutionResult,
-      ProgramMethod singleTarget,
-      WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
-    AppInfoWithLiveness appInfo = appView.appInfo();
-    DexMethod singleTargetReference = singleTarget.getReference();
-    if (!appView.getKeepInfo(singleTarget).isInliningAllowed(appView.options())) {
-      whyAreYouNotInliningReporter.reportPinned();
-      return true;
-    }
-
-    if (appInfo.isNeverInlineMethod(singleTargetReference)) {
-      whyAreYouNotInliningReporter.reportMarkedAsNeverInline();
-      return true;
-    }
-
-    if (appInfo.noSideEffects.containsKey(invoke.getInvokedMethod())
-        || appInfo.noSideEffects.containsKey(resolutionResult.getResolvedMethod().getReference())
-        || appInfo.noSideEffects.containsKey(singleTargetReference)) {
-      return !singleTarget.getDefinition().getOptimizationInfo().forceInline();
-    }
-
-    if (!appView.testing().allowInliningOfSynthetics
-        && appView.getSyntheticItems().isSyntheticClass(singleTarget.getHolder())) {
-      return true;
-    }
-
-    return false;
-  }
-
-  boolean isDoubleInliningEnabled(MethodProcessor methodProcessor) {
-    return methodProcessor.isPostMethodProcessor();
   }
 
   private ConstraintWithTarget instructionAllowedForInlining(
@@ -203,16 +174,9 @@ public class Inliner {
     return false;
   }
 
-  public void enqueueMethodsForReprocessing(
-      PostMethodProcessor.Builder postMethodProcessorBuilder) {
-    // The double inline callers are always rewritten up until the graph lens of the primary
-    // optimization pass, so we can safely merge them into the methods to reprocess (which may be
-    // rewritten with a newer graph lens).
-    postMethodProcessorBuilder
-        .getMethodsToReprocessBuilder()
-        .rewrittenWithLens(appView)
-        .merge(singleInlineCallers);
-    singleInlineCallers.clear();
+  public void recordCallEdgesForMultiCallerInlining(
+      ProgramMethod method, IRCode code, MethodProcessor methodProcessor, Timing timing) {
+    multiCallerInliner.recordCallEdgesForMultiCallerInlining(method, code, methodProcessor, timing);
   }
 
   /**
@@ -521,12 +485,14 @@ public class Inliner {
     FORCE,         // Inlinee is marked for forced inlining (bridge method or renamed constructor).
     ALWAYS,        // Inlinee is marked for inlining due to alwaysinline directive.
     SINGLE_CALLER, // Inlinee has precisely one caller.
-    DUAL_CALLER,   // Inlinee has precisely two callers.
+    // Inlinee has multiple callers and should not be inlined. Only used during the primary
+    // optimization pass.
+    MULTI_CALLER_CANDIDATE,
     SIMPLE,        // Inlinee has simple code suitable for inlining.
     NEVER;         // Inlinee must not be inlined.
 
     public boolean mustBeInlined() {
-      // TODO(118734615): Include SINGLE_CALLER and DUAL_CALLER here as well?
+      // TODO(118734615): Include SINGLE_CALLER here as well?
       return this == FORCE || this == ALWAYS;
     }
   }
@@ -551,6 +517,8 @@ public class Inliner {
     private boolean shouldSynthesizeInitClass;
     private boolean shouldSynthesizeNullCheckForReceiver;
 
+    private DexProgramClass downcastClass;
+
     InlineAction(ProgramMethod target, Invoke invoke, Reason reason) {
       this.target = target;
       this.invoke = invoke;
@@ -560,6 +528,14 @@ public class Inliner {
     @Override
     InlineAction asInlineAction() {
       return this;
+    }
+
+    DexProgramClass getDowncastClass() {
+      return downcastClass;
+    }
+
+    void setDowncastClass(DexProgramClass downcastClass) {
+      this.downcastClass = downcastClass;
     }
 
     void setShouldSynthesizeInitClass() {
@@ -850,6 +826,7 @@ public class Inliner {
       IRCode code,
       Map<? extends InvokeMethod, InliningInfo> invokesToInline,
       InliningIRProvider inliningIRProvider,
+      MethodProcessor methodProcessor,
       Timing timing) {
     ForcedInliningOracle oracle = new ForcedInliningOracle(appView, method, invokesToInline);
     performInliningImpl(
@@ -859,6 +836,7 @@ public class Inliner {
         code,
         OptimizationFeedbackIgnore.getInstance(),
         inliningIRProvider,
+        methodProcessor,
         timing);
   }
 
@@ -894,7 +872,8 @@ public class Inliner {
     InliningIRProvider inliningIRProvider =
         new InliningIRProvider(appView, method, code, methodProcessor);
     assert inliningIRProvider.verifyIRCacheIsEmpty();
-    performInliningImpl(oracle, oracle, method, code, feedback, inliningIRProvider, timing);
+    performInliningImpl(
+        oracle, oracle, method, code, feedback, inliningIRProvider, methodProcessor, timing);
   }
 
   public InliningReasonStrategy createDefaultInliningReasonStrategy(
@@ -924,7 +903,6 @@ public class Inliner {
       InliningReasonStrategy inliningReasonStrategy) {
     return new DefaultInliningOracle(
         appView,
-        this,
         inliningReasonStrategy,
         method,
         methodProcessor,
@@ -938,6 +916,7 @@ public class Inliner {
       IRCode code,
       OptimizationFeedback feedback,
       InliningIRProvider inliningIRProvider,
+      MethodProcessor methodProcessor,
       Timing timing) {
     AssumeRemover assumeRemover = new AssumeRemover(appView, code);
     Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
@@ -990,11 +969,13 @@ public class Inliner {
                   : WhyAreYouNotInliningReporter.createFor(singleTarget, appView, context);
           InlineResult inlineResult =
               oracle.computeInlining(
+                  code,
                   invoke,
                   resolutionResult,
                   singleTarget,
                   context,
                   classInitializationAnalysis,
+                  inliningIRProvider,
                   whyAreYouNotInliningReporter);
           if (inlineResult == null) {
             assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
@@ -1007,11 +988,8 @@ public class Inliner {
           }
 
           InlineAction action = inlineResult.asInlineAction();
-
-          DexProgramClass downcastClass = getDowncastTypeIfNeeded(strategy, invoke, singleTarget);
-          if (downcastClass != null
-              && AccessControl.isClassAccessible(downcastClass, context, appView)
-                  .isPossiblyFalse()) {
+          if (action.reason == Reason.MULTI_CALLER_CANDIDATE) {
+            assert methodProcessor.isPrimaryMethodProcessor();
             continue;
           }
 
@@ -1036,18 +1014,8 @@ public class Inliner {
             continue;
           }
 
-          // If this code did not go through the full pipeline, apply inlining to make sure
-          // that force inline targets get processed.
-          strategy.ensureMethodProcessed(singleTarget, inlinee.code, feedback);
-
-          // Make sure constructor inlining is legal.
-          assert !singleTargetMethod.isClassInitializer();
-          if (singleTargetMethod.isInstanceInitializer()
-              && !strategy.canInlineInstanceInitializer(
-                  code, inlinee.code, invoke.asInvokeDirect(), whyAreYouNotInliningReporter)) {
-            assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
-            continue;
-          }
+          // Verify this code went through the full pipeline.
+          assert singleTarget.getDefinition().isProcessed();
 
           // Mark AssumeDynamicType instruction for the out-value for removal, if any.
           Value outValue = invoke.outValue();
@@ -1062,7 +1030,12 @@ public class Inliner {
           iterator.previous();
           strategy.markInlined(inlinee);
           iterator.inlineInvoke(
-              appView, code, inlinee.code, blockIterator, blocksToRemove, downcastClass);
+              appView,
+              code,
+              inlinee.code,
+              blockIterator,
+              blocksToRemove,
+              action.getDowncastClass());
 
           if (inlinee.reason == Reason.SINGLE_CALLER) {
             assert converter.isInWave();
@@ -1077,7 +1050,7 @@ public class Inliner {
           }
 
           classInitializationAnalysis.notifyCodeHasChanged();
-          postProcessInlineeBlocks(code, inlinee.code, blockIterator, block, timing);
+          postProcessInlineeBlocks(code, blockIterator, block, blocksToRemove, timing);
 
           // The synthetic and bridge flags are maintained only if the inlinee has also these flags.
           if (context.getDefinition().isBridge() && !inlinee.code.method().isBridge()) {
@@ -1180,33 +1153,38 @@ public class Inliner {
   /** Applies member rebinding to the inlinee and inserts assume instructions. */
   private void postProcessInlineeBlocks(
       IRCode code,
-      IRCode inlinee,
       BasicBlockIterator blockIterator,
       BasicBlock block,
+      Set<BasicBlock> blocksToRemove,
       Timing timing) {
     BasicBlock state = IteratorUtils.peekNext(blockIterator);
 
-    Set<BasicBlock> inlineeBlocks = SetUtils.newIdentityHashSet(inlinee.blocks);
+    Set<BasicBlock> inlineeBlocks = Sets.newIdentityHashSet();
 
     // Run member value propagation on the inlinee blocks.
-    rewindBlockIteratorToFirstInlineeBlock(blockIterator, block);
-    applyMemberValuePropagationToInlinee(code, blockIterator, block, inlineeBlocks);
+    rewindBlockIterator(
+        blockIterator,
+        block,
+        inlineeBlock -> {
+          if (!blocksToRemove.contains(inlineeBlock)) {
+            inlineeBlocks.add(inlineeBlock);
+          }
+        });
+    applyMemberValuePropagationToInlinee(code, blockIterator, inlineeBlocks);
 
     // Add non-null IRs only to the inlinee blocks.
-    insertAssumeInstructions(code, blockIterator, block, inlineeBlocks, timing);
+    rewindBlockIterator(blockIterator, block);
+    insertAssumeInstructions(code, blockIterator, inlineeBlocks, timing);
 
     // Restore the old state of the iterator.
-    rewindBlockIteratorToFirstInlineeBlock(blockIterator, state);
-    // TODO(b/72693244): need a test where refined env in inlinee affects the caller.
+    rewindBlockIterator(blockIterator, state);
   }
 
   private void insertAssumeInstructions(
       IRCode code,
       BasicBlockIterator blockIterator,
-      BasicBlock block,
       Set<BasicBlock> inlineeBlocks,
       Timing timing) {
-    rewindBlockIteratorToFirstInlineeBlock(blockIterator, block);
     new AssumeInserter(appView)
         .insertAssumeInstructionsInBlocks(code, blockIterator, inlineeBlocks::contains, timing);
     assert !blockIterator.hasNext();
@@ -1215,9 +1193,7 @@ public class Inliner {
   private void applyMemberValuePropagationToInlinee(
       IRCode code,
       ListIterator<BasicBlock> blockIterator,
-      BasicBlock block,
       Set<BasicBlock> inlineeBlocks) {
-    assert IteratorUtils.peekNext(blockIterator) == block;
     Set<Value> affectedValues = Sets.newIdentityHashSet();
     new MemberValuePropagation(appView)
         .run(code, blockIterator, affectedValues, inlineeBlocks::contains);
@@ -1227,13 +1203,23 @@ public class Inliner {
     assert !blockIterator.hasNext();
   }
 
-  private void rewindBlockIteratorToFirstInlineeBlock(
-      ListIterator<BasicBlock> blockIterator, BasicBlock firstInlineeBlock) {
+  private void rewindBlockIterator(ListIterator<BasicBlock> blockIterator, BasicBlock callerBlock) {
+    rewindBlockIterator(blockIterator, callerBlock, ConsumerUtils.emptyConsumer());
+  }
+
+  private void rewindBlockIterator(
+      ListIterator<BasicBlock> blockIterator,
+      BasicBlock callerBlock,
+      Consumer<BasicBlock> consumer) {
     // Move the cursor back to where the first inlinee block was added.
-    while (blockIterator.hasPrevious() && blockIterator.previous() != firstInlineeBlock) {
-      // Do nothing.
+    while (blockIterator.hasPrevious()) {
+      BasicBlock previous = blockIterator.previous();
+      if (previous == callerBlock) {
+        break;
+      }
+      consumer.accept(previous);
     }
-    assert IteratorUtils.peekNext(blockIterator) == firstInlineeBlock;
+    assert IteratorUtils.peekNext(blockIterator) == callerBlock;
   }
 
   public void enqueueMethodForReprocessing(ProgramMethod method) {
@@ -1242,6 +1228,7 @@ public class Inliner {
 
   public void onMethodPruned(ProgramMethod method) {
     onMethodCodePruned(method);
+    multiCallerInliner.onMethodPruned(method);
   }
 
   public void onMethodCodePruned(ProgramMethod method) {
@@ -1281,6 +1268,24 @@ public class Inliner {
     singleCallerInlinedMethodsInWave.clear();
   }
 
+  public void onLastWaveDone(
+      PostMethodProcessor.Builder postMethodProcessorBuilder,
+      ExecutorService executorService,
+      Timing timing)
+      throws ExecutionException {
+    postMethodProcessorBuilder
+        .getMethodsToReprocessBuilder()
+        .rewrittenWithLens(appView)
+        .merge(
+            singleInlineCallers
+                .rewrittenWithLens(appView)
+                .removeIf(
+                    appView,
+                    method -> method.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite()));
+    singleInlineCallers.clear();
+    multiCallerInliner.onLastWaveDone(postMethodProcessorBuilder, executorService, timing);
+  }
+
   public static boolean verifyAllSingleCallerMethodsHaveBeenPruned(
       AppView<AppInfoWithLiveness> appView) {
     for (DexProgramClass clazz : appView.appInfo().classesWithDeterministicOrder()) {
@@ -1296,6 +1301,18 @@ public class Inliner {
 
   public boolean verifyIsPrunedDueToSingleCallerInlining(DexMethod method) {
     assert singleCallerInlinedPrunedMethodsForTesting.contains(method);
+    return true;
+  }
+
+  public static boolean verifyAllMultiCallerInlinedMethodsHaveBeenPruned(AppView<?> appView) {
+    for (DexProgramClass clazz : appView.appInfo().classesWithDeterministicOrder()) {
+      for (DexEncodedMethod method : clazz.methods()) {
+        if (method.hasCode() && method.getOptimizationInfo().isMultiCallerMethod()) {
+          // TODO(b/142300882): Ensure soundness of multi caller inlining.
+          // assert false;
+        }
+      }
+    }
     return true;
   }
 }

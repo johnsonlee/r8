@@ -15,7 +15,10 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.conversion.CallGraph.Node;
+import com.android.tools.r8.ir.conversion.callgraph.CallGraph;
+import com.android.tools.r8.ir.conversion.callgraph.CallGraphBuilder;
+import com.android.tools.r8.ir.conversion.callgraph.Node;
+import com.android.tools.r8.ir.conversion.callgraph.PartialCallGraphBuilder;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.ProguardConfigurationParser;
 import com.android.tools.r8.utils.AndroidApp;
@@ -58,12 +61,12 @@ public class PartialCallGraphTest extends CallGraphTestBase {
   @Test
   public void testFullGraph() throws Exception {
     CallGraph cg = new CallGraphBuilder(appView).build(executorService, Timing.empty());
-    Node m1 = findNode(cg.nodes, "m1");
-    Node m2 = findNode(cg.nodes, "m2");
-    Node m3 = findNode(cg.nodes, "m3");
-    Node m4 = findNode(cg.nodes, "m4");
-    Node m5 = findNode(cg.nodes, "m5");
-    Node m6 = findNode(cg.nodes, "m6");
+    Node m1 = findNode(cg.getNodes(), "m1");
+    Node m2 = findNode(cg.getNodes(), "m2");
+    Node m3 = findNode(cg.getNodes(), "m3");
+    Node m4 = findNode(cg.getNodes(), "m4");
+    Node m5 = findNode(cg.getNodes(), "m5");
+    Node m6 = findNode(cg.getNodes(), "m6");
     assertNotNull(m1);
     assertNotNull(m2);
     assertNotNull(m3);
@@ -85,7 +88,7 @@ public class PartialCallGraphTest extends CallGraphTestBase {
     wave = cg.extractLeaves().toDefinitionSet();
     assertEquals(1, wave.size());
     assertThat(wave, hasItem(m1.getMethod()));
-    assertTrue(cg.nodes.isEmpty());
+    assertTrue(cg.isEmpty());
   }
 
   @Test
@@ -107,10 +110,10 @@ public class PartialCallGraphTest extends CallGraphTestBase {
     CallGraph pg =
         new PartialCallGraphBuilder(appView, seeds).build(executorService, Timing.empty());
 
-    Node m1 = findNode(pg.nodes, "m1");
-    Node m2 = findNode(pg.nodes, "m2");
-    Node m4 = findNode(pg.nodes, "m4");
-    Node m5 = findNode(pg.nodes, "m5");
+    Node m1 = findNode(pg.getNodes(), "m1");
+    Node m2 = findNode(pg.getNodes(), "m2");
+    Node m4 = findNode(pg.getNodes(), "m4");
+    Node m5 = findNode(pg.getNodes(), "m5");
     assertNotNull(m1);
     assertNotNull(m2);
     assertNotNull(m4);
@@ -132,7 +135,7 @@ public class PartialCallGraphTest extends CallGraphTestBase {
     wave.addAll(pg.extractRoots().toDefinitionSet());
     assertEquals(1, wave.size());
     assertThat(wave, hasItem(m4.getMethod()));
-    assertTrue(pg.nodes.isEmpty());
+    assertTrue(pg.isEmpty());
   }
 
   private Node findNode(Iterable<Node> nodes, String name) {

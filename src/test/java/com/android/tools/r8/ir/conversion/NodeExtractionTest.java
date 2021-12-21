@@ -9,8 +9,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.ir.conversion.CallGraph.Node;
-import com.android.tools.r8.ir.conversion.CallGraphBuilderBase.CycleEliminator;
+import com.android.tools.r8.ir.conversion.callgraph.CallGraph;
+import com.android.tools.r8.ir.conversion.callgraph.CycleEliminator;
+import com.android.tools.r8.ir.conversion.callgraph.Node;
 import java.util.Set;
 import java.util.TreeSet;
 import org.junit.Test;
@@ -46,7 +47,7 @@ public class NodeExtractionTest extends CallGraphTestBase {
     nodes.add(n5);
     nodes.add(n6);
 
-    CallGraph cg = new CallGraph(nodes);
+    CallGraph cg = CallGraph.createForTesting(nodes);
     Set<DexEncodedMethod> wave = cg.extractLeaves().toDefinitionSet();
     assertEquals(3, wave.size());
     assertThat(wave, hasItem(n3.getMethod()));
@@ -61,7 +62,7 @@ public class NodeExtractionTest extends CallGraphTestBase {
     wave = cg.extractLeaves().toDefinitionSet();
     assertEquals(1, wave.size());
     assertThat(wave, hasItem(n1.getMethod()));
-    assertTrue(nodes.isEmpty());
+    assertTrue(cg.isEmpty());
   }
 
   @Test
@@ -95,7 +96,7 @@ public class NodeExtractionTest extends CallGraphTestBase {
     CycleEliminator cycleEliminator = new CycleEliminator();
     assertEquals(1, cycleEliminator.breakCycles(nodes).numberOfRemovedCallEdges());
 
-    CallGraph cg = new CallGraph(nodes);
+    CallGraph cg = CallGraph.createForTesting(nodes);
     Set<DexEncodedMethod> wave = cg.extractLeaves().toDefinitionSet();
     assertEquals(3, wave.size());
     assertThat(wave, hasItem(n3.getMethod()));
@@ -112,7 +113,7 @@ public class NodeExtractionTest extends CallGraphTestBase {
     wave = cg.extractLeaves().toDefinitionSet();
     assertEquals(1, wave.size());
     assertThat(wave, hasItem(n1.getMethod()));
-    assertTrue(nodes.isEmpty());
+    assertTrue(cg.isEmpty());
   }
 
   @Test
@@ -141,7 +142,7 @@ public class NodeExtractionTest extends CallGraphTestBase {
     nodes.add(n5);
     nodes.add(n6);
 
-    CallGraph callGraph = new CallGraph(nodes, null);
+    CallGraph callGraph = CallGraph.createForTesting(nodes);
     Set<DexEncodedMethod> wave = callGraph.extractRoots().toDefinitionSet();
     assertEquals(2, wave.size());
     assertThat(wave, hasItem(n1.getMethod()));
@@ -156,7 +157,7 @@ public class NodeExtractionTest extends CallGraphTestBase {
     assertEquals(2, wave.size());
     assertThat(wave, hasItem(n3.getMethod()));
     assertThat(wave, hasItem(n4.getMethod()));
-    assertTrue(nodes.isEmpty());
+    assertTrue(callGraph.isEmpty());
   }
 
   @Test
@@ -190,7 +191,7 @@ public class NodeExtractionTest extends CallGraphTestBase {
     CycleEliminator cycleEliminator = new CycleEliminator();
     assertEquals(1, cycleEliminator.breakCycles(nodes).numberOfRemovedCallEdges());
 
-    CallGraph callGraph = new CallGraph(nodes, null);
+    CallGraph callGraph = CallGraph.createForTesting(nodes);
     Set<DexEncodedMethod> wave = callGraph.extractRoots().toDefinitionSet();
     assertEquals(2, wave.size());
     assertThat(wave, hasItem(n1.getMethod()));
@@ -205,6 +206,6 @@ public class NodeExtractionTest extends CallGraphTestBase {
     assertEquals(2, wave.size());
     assertThat(wave, hasItem(n3.getMethod()));
     assertThat(wave, hasItem(n4.getMethod()));
-    assertTrue(nodes.isEmpty());
+    assertTrue(callGraph.isEmpty());
   }
 }

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.conversion;
 
+import static com.android.tools.r8.ir.optimize.info.OptimizationFeedback.getSimpleFeedback;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -12,8 +13,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.ir.conversion.CallGraph.Node;
-import com.android.tools.r8.ir.conversion.CallGraphBuilderBase.CycleEliminator;
+import com.android.tools.r8.ir.conversion.callgraph.CycleEliminator;
+import com.android.tools.r8.ir.conversion.callgraph.Node;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
@@ -163,7 +164,7 @@ public class CycleEliminationTest extends CallGraphTestBase {
         if (configuration.forceInline.contains(node)) {
           node.getMethod().getMutableOptimizationInfo().markForceInline();
         } else {
-          node.getMethod().getMutableOptimizationInfo().unsetForceInline();
+          getSimpleFeedback().unsetForceInline(node.getProgramMethod());
         }
       }
 

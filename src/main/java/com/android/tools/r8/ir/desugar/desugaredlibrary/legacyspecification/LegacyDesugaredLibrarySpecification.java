@@ -68,6 +68,14 @@ public class LegacyDesugaredLibrarySpecification {
                 rewritingFlags.getRewritePrefix(), factory, libraryCompilation);
   }
 
+  public LegacyTopLevelFlags getTopLevelFlags() {
+    return topLevelFlags;
+  }
+
+  public LegacyRewritingFlags getRewritingFlags() {
+    return rewritingFlags;
+  }
+
   public boolean supportAllCallbacksFromLibrary() {
     return topLevelFlags.supportAllCallbacksFromLibrary();
   }

@@ -8,7 +8,9 @@ import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.conversion.CallGraph.Node;
+import com.android.tools.r8.ir.conversion.callgraph.CallGraph;
+import com.android.tools.r8.ir.conversion.callgraph.CallSiteInformation;
+import com.android.tools.r8.ir.conversion.callgraph.Node;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
@@ -19,7 +21,6 @@ import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -27,7 +28,7 @@ import java.util.concurrent.ExecutorService;
  * A {@link MethodProcessor} that processes methods in the whole program in a bottom-up manner,
  * i.e., from leaves to roots.
  */
-class PrimaryMethodProcessor extends MethodProcessorWithWave {
+public class PrimaryMethodProcessor extends MethodProcessorWithWave {
 
   interface WaveStartAction {
 
@@ -46,9 +47,7 @@ class PrimaryMethodProcessor extends MethodProcessorWithWave {
 
   private ProcessorContext processorContext;
 
-  private PrimaryMethodProcessor(
-      AppView<AppInfoWithLiveness> appView,
-      CallGraph callGraph) {
+  private PrimaryMethodProcessor(AppView<AppInfoWithLiveness> appView, CallGraph callGraph) {
     this.appView = appView;
     this.callSiteInformation = callGraph.createCallSiteInformation(appView);
     this.waves = createWaves(appView, callGraph);
@@ -74,6 +73,11 @@ class PrimaryMethodProcessor extends MethodProcessorWithWave {
   }
 
   @Override
+  public PrimaryMethodProcessor asPrimaryMethodProcessor() {
+    return this;
+  }
+
+  @Override
   public boolean shouldApplyCodeRewritings(ProgramMethod method) {
     assert !wave.contains(method);
     return !method.getDefinition().isProcessed();
@@ -87,7 +91,7 @@ class PrimaryMethodProcessor extends MethodProcessorWithWave {
   private Deque<ProgramMethodSet> createWaves(AppView<?> appView, CallGraph callGraph) {
     InternalOptions options = appView.options();
     Deque<ProgramMethodSet> waves = new ArrayDeque<>();
-    Set<Node> nodes = callGraph.nodes;
+    Collection<Node> nodes = callGraph.getNodes();
     int waveCount = 1;
     while (!nodes.isEmpty()) {
       ProgramMethodSet wave = callGraph.extractLeaves();

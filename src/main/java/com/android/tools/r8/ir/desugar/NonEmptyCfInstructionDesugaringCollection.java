@@ -31,6 +31,7 @@ import com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
 import com.android.tools.r8.ir.desugar.stringconcat.StringConcatInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.twr.TwrInstructionDesugaring;
+import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
@@ -49,6 +50,8 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
 
   private final AppView<?> appView;
   private final List<CfInstructionDesugaring> desugarings = new ArrayList<>();
+  // A special collection of desugarings that yield to all other desugarings.
+  private final List<CfInstructionDesugaring> yieldingDesugarings = new ArrayList<>();
 
   private final NestBasedAccessDesugaring nestBasedAccessDesugaring;
   private final RecordDesugaring recordRewriter;
@@ -89,7 +92,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
       backportedMethodRewriter = new BackportedMethodRewriter(appView);
     }
     if (appView.options().apiModelingOptions().enableOutliningOfMethods) {
-      desugarings.add(new ApiInvokeOutlinerDesugaring(appView, apiLevelCompute));
+      yieldingDesugarings.add(new ApiInvokeOutlinerDesugaring(appView, apiLevelCompute));
     }
     if (appView.options().enableTryWithResourcesDesugaring()) {
       desugarings.add(new TwrInstructionDesugaring(appView));
@@ -167,7 +170,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
               new StringDiagnostic(
                   "Unsupported attempt to desugar non-CF code",
                   method.getOrigin(),
-                  method.getPosition()));
+                  MethodPosition.create(method)));
     }
   }
 
@@ -267,7 +270,38 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
       ProgramMethod context,
       MethodProcessingContext methodProcessingContext) {
     // TODO(b/177810578): Migrate other cf-to-cf based desugaring here.
-    Iterator<CfInstructionDesugaring> iterator = desugarings.iterator();
+    Collection<CfInstruction> replacement =
+        applyDesugaring(
+            instruction,
+            freshLocalProvider,
+            localStackAllocator,
+            eventConsumer,
+            context,
+            methodProcessingContext,
+            desugarings.iterator());
+    if (replacement != null) {
+      return replacement;
+    }
+    // If we made it here there it is because a yielding desugaring reported that it needs
+    // desugaring and no other desugaring happened.
+    return applyDesugaring(
+        instruction,
+        freshLocalProvider,
+        localStackAllocator,
+        eventConsumer,
+        context,
+        methodProcessingContext,
+        yieldingDesugarings.iterator());
+  }
+
+  private Collection<CfInstruction> applyDesugaring(
+      CfInstruction instruction,
+      FreshLocalProvider freshLocalProvider,
+      LocalStackAllocator localStackAllocator,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      ProgramMethod context,
+      MethodProcessingContext methodProcessingContext,
+      Iterator<CfInstructionDesugaring> iterator) {
     while (iterator.hasNext()) {
       CfInstructionDesugaring desugaring = iterator.next();
       Collection<CfInstruction> replacement =
@@ -310,7 +344,9 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
 
   private boolean needsDesugaring(CfInstruction instruction, ProgramMethod context) {
     return Iterables.any(
-        desugarings, desugaring -> desugaring.needsDesugaring(instruction, context));
+            desugarings, desugaring -> desugaring.needsDesugaring(instruction, context))
+        || Iterables.any(
+            yieldingDesugarings, desugaring -> desugaring.needsDesugaring(instruction, context));
   }
 
   private boolean verifyNoOtherDesugaringNeeded(

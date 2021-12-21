@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.ir.conversion;
+package com.android.tools.r8.ir.conversion.callgraph;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 
@@ -15,9 +15,9 @@ import com.android.tools.r8.utils.ThreadUtils;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
-public class CallGraphBuilder extends CallGraphBuilderBase {
+public class CallGraphBuilder extends IRProcessingCallGraphBuilderBase {
 
-  CallGraphBuilder(AppView<AppInfoWithLiveness> appView) {
+  public CallGraphBuilder(AppView<AppInfoWithLiveness> appView) {
     super(appView);
   }
 
@@ -31,7 +31,14 @@ public class CallGraphBuilder extends CallGraphBuilderBase {
   }
 
   private void processMethod(ProgramMethod method) {
-    method.registerCodeReferences(new InvokeExtractor(getOrCreateNode(method), alwaysTrue()));
+    IRProcessingCallGraphUseRegistry<Node> registry =
+        new IRProcessingCallGraphUseRegistry<>(
+            appView,
+            getOrCreateNode(method),
+            this::getOrCreateNode,
+            possibleProgramTargetsCache,
+            alwaysTrue());
+    method.registerCodeReferences(registry);
   }
 
   @Override
