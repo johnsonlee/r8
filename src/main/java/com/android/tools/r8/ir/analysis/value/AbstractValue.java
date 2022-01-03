@@ -176,7 +176,17 @@ public abstract class AbstractValue {
       if (other.isNull()) {
         return NullOrAbstractValue.create(this);
       }
+      if (isNullOrAbstractValue() && asNullOrAbstractValue().getNonNullValue().equals(other)) {
+        return this;
+      }
+      if (other.isNullOrAbstractValue()
+          && other.asNullOrAbstractValue().getNonNullValue().equals(this)) {
+        return other;
+      }
+      return unknown();
     }
+    assert !isNullOrAbstractValue();
+    assert !other.isNullOrAbstractValue();
     if (allowNonConstantNumbers
         && isConstantOrNonConstantNumberValue()
         && other.isConstantOrNonConstantNumberValue()) {
@@ -195,7 +205,7 @@ public abstract class AbstractValue {
       }
       return numberFromSetValueBuilder.build(factory);
     }
-    return UnknownValue.getInstance();
+    return unknown();
   }
 
   public abstract AbstractValue rewrittenWithLens(
