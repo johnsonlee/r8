@@ -124,12 +124,12 @@ public class MemberRebindingAnalysis {
 
   private static DexType firstLibraryClass(
       DexDefinitionSupplier definitions, DexType top, DexType bottom) {
-    assert definitions.definitionFor(top).isNotProgramClass();
-    DexClass searchClass = definitions.definitionFor(bottom);
-    while (searchClass.isProgramClass()) {
-      searchClass = definitions.definitionFor(searchClass.superType);
+    DexClass searchClass = definitions.contextIndependentDefinitionFor(bottom);
+    while (searchClass != null && searchClass.isProgramClass()) {
+      searchClass =
+          definitions.definitionFor(searchClass.getSuperType(), searchClass.asProgramClass());
     }
-    return searchClass.type;
+    return searchClass != null ? searchClass.getType() : null;
   }
 
   private DexEncodedMethod classLookup(DexMethod method) {
