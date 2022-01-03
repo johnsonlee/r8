@@ -7,13 +7,15 @@ package com.android.tools.r8.apimodel;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForDefaultInstanceInitializer;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assume.assumeFalse;
 
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.testing.AndroidBuildVersion;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -22,7 +24,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class ApiModelMockInheritedClassTest extends TestBase {
+public class ApiModelMockClassInstanceInitTest extends TestBase {
 
   private final AndroidApiLevel mockLevel = AndroidApiLevel.M;
 
@@ -41,47 +43,55 @@ public class ApiModelMockInheritedClassTest extends TestBase {
     boolean isMockApiLevel =
         parameters.isDexRuntime() && parameters.getApiLevel().isGreaterThanOrEqualTo(mockLevel);
     testForR8(parameters.getBackend())
-        .addProgramClasses(Main.class, ProgramClass.class)
+        .addProgramClasses(Main.class, TestClass.class)
         .addLibraryClasses(LibraryClass.class)
         .addDefaultRuntimeLibrary(parameters)
         .setMinApi(parameters.getApiLevel())
         .addKeepMainRule(Main.class)
-        .addKeepClassRules(ProgramClass.class)
         .addAndroidBuildVersion()
         .apply(ApiModelingTestHelper::enableStubbingOfClasses)
         .apply(setMockApiLevelForClass(LibraryClass.class, mockLevel))
         .apply(setMockApiLevelForDefaultInstanceInitializer(LibraryClass.class, mockLevel))
+        .enableInliningAnnotations()
         .compile()
-        .applyIf(
-            parameters.isDexRuntime()
-                && parameters.getRuntime().maxSupportedApiLevel().isGreaterThanOrEqualTo(mockLevel),
-            b -> b.addBootClasspathClasses(LibraryClass.class))
+        .applyIf(isMockApiLevel, b -> b.addBootClasspathClasses(LibraryClass.class))
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLinesIf(isMockApiLevel, "ProgramClass::foo")
-        .assertSuccessWithOutputLinesIf(!isMockApiLevel, "Hello World")
+        .assertSuccessWithOutputLinesIf(isMockApiLevel, "LibraryClass::foo")
+        .assertSuccessWithOutputLinesIf(!isMockApiLevel, "NoClassDefFoundError")
         .inspect(
             inspector ->
-                verifyThat(inspector, parameters, LibraryClass.class).stubbedUntil(mockLevel));
+                verifyThat(inspector, parameters, LibraryClass.class).stubbedUntil(mockLevel))
+        .applyIf(
+            !isMockApiLevel
+                && parameters.isDexRuntime()
+                && parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V7_0_0),
+            result -> result.assertStderrMatches(not(containsString("This dex file is invalid"))));
   }
 
   // Only present from api level 23.
-  public static class LibraryClass {}
-
-  public static class ProgramClass extends LibraryClass {
+  public static class LibraryClass {
 
     public void foo() {
-      System.out.println("ProgramClass::foo");
+      System.out.println("LibraryClass::foo");
+    }
+  }
+
+  public static class TestClass {
+
+    @NeverInline
+    public static void test() {
+      try {
+        new LibraryClass().foo();
+      } catch (ExceptionInInitializerError | NoClassDefFoundError er) {
+        System.out.println("NoClassDefFoundError");
+      }
     }
   }
 
   public static class Main {
 
     public static void main(String[] args) {
-      if (AndroidBuildVersion.VERSION >= 23) {
-        new ProgramClass().foo();
-      } else {
-        System.out.println("Hello World");
-      }
+      TestClass.test();
     }
   }
 }
