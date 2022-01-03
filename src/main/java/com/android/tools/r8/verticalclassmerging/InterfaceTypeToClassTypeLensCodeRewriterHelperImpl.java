@@ -162,8 +162,9 @@ public class InterfaceTypeToClassTypeLensCodeRewriterHelperImpl
                   operand, block, originalType, rewrittenType, isCodeFullyRewrittenWithLens);
           assert !needsCastForOperand.isUnknown();
           if (needsCastForOperand.isTrue()) {
-            insertCastForOperand(
-                operand, rewrittenType, instruction, blockIterator, block, instructionIterator);
+            instructionIterator =
+                insertCastForOperand(
+                    operand, rewrittenType, instruction, blockIterator, block, instructionIterator);
           }
         }
       }
@@ -180,7 +181,7 @@ public class InterfaceTypeToClassTypeLensCodeRewriterHelperImpl
         .addLast(new WorklistItem(operandIndex, originalType, rewrittenType));
   }
 
-  private void insertCastForOperand(
+  private InstructionListIterator insertCastForOperand(
       Value operand,
       DexType castType,
       Instruction rewrittenUser,
@@ -198,10 +199,11 @@ public class InterfaceTypeToClassTypeLensCodeRewriterHelperImpl
             .setPosition(rewrittenUser)
             .build();
     if (block.hasCatchHandlers()) {
-      instructionIterator
-          .splitCopyCatchHandlers(code, blockIterator, appView.options())
-          .listIterator(code)
-          .add(checkCast);
+      BasicBlock splitBlock =
+          instructionIterator.splitCopyCatchHandlers(code, blockIterator, appView.options());
+      instructionIterator.previous();
+      instructionIterator.add(checkCast);
+      instructionIterator = splitBlock.listIterator(code);
     } else {
       instructionIterator.add(checkCast);
     }
@@ -209,6 +211,7 @@ public class InterfaceTypeToClassTypeLensCodeRewriterHelperImpl
 
     Instruction next = instructionIterator.next();
     assert next == rewrittenUser;
+    return instructionIterator;
   }
 
   private boolean isOperandRewrittenWithLens(
