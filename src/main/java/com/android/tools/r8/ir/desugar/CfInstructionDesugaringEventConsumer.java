@@ -341,6 +341,7 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     private void finalizeConstantDynamicDesugaring(Consumer<ProgramMethod> needsProcessing) {
       for (ConstantDynamicClass constantDynamicClass : synthesizedConstantDynamicClasses) {
+        constantDynamicClass.rewriteBootstrapMethodSignatureIfNeeded();
         constantDynamicClass.getConstantDynamicProgramClass().forEachProgramMethod(needsProcessing);
       }
       synthesizedLambdaClasses.clear();
@@ -498,6 +499,7 @@ public abstract class CfInstructionDesugaringEventConsumer
     public void finalizeDesugaring() {
       finalizeInvokeSpecialDesugaring();
       finalizeLambdaDesugaring();
+      // TODO(b/210485236): Finalize constant dynamic desugaring by rewriting signature if needed.
     }
 
     private void finalizeInvokeSpecialDesugaring() {
