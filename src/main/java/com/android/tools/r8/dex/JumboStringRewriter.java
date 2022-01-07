@@ -37,6 +37,7 @@ import com.android.tools.r8.graph.DexDebugEvent;
 import com.android.tools.r8.graph.DexDebugEvent.AdvancePC;
 import com.android.tools.r8.graph.DexDebugEvent.Default;
 import com.android.tools.r8.graph.DexDebugInfo;
+import com.android.tools.r8.graph.DexDebugInfo.EventBasedDebugInfo;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
@@ -93,8 +94,8 @@ public class JumboStringRewriter {
   private final DexString firstJumboString;
   private final DexItemFactory factory;
   private final Map<Instruction, List<Instruction>> instructionTargets = new IdentityHashMap<>();
-  private final Int2ReferenceMap<Instruction> debugEventTargets
-      = new Int2ReferenceOpenHashMap<>();
+  private EventBasedDebugInfo debugEventBasedInfo = null;
+  private final Int2ReferenceMap<Instruction> debugEventTargets = new Int2ReferenceOpenHashMap<>();
   private final Map<Instruction, Instruction> payloadToSwitch = new IdentityHashMap<>();
   private final Map<Try, TryTargets> tryTargets = new IdentityHashMap<>();
   private final Int2ReferenceMap<Instruction> tryRangeStartAndEndTargets
@@ -216,11 +217,12 @@ public class JumboStringRewriter {
 
   private DexDebugInfo rewriteDebugInfoOffsets() {
     DexCode code = method.getCode().asDexCode();
-    if (debugEventTargets.size() != 0) {
+    if (!debugEventTargets.isEmpty()) {
+      assert debugEventBasedInfo != null;
       int lastOriginalOffset = 0;
       int lastNewOffset = 0;
       List<DexDebugEvent> events = new ArrayList<>();
-      for (DexDebugEvent event : code.getDebugInfo().events) {
+      for (DexDebugEvent event : debugEventBasedInfo.events) {
         if (event instanceof AdvancePC) {
           AdvancePC advance = (AdvancePC) event;
           lastOriginalOffset += advance.delta;
@@ -240,9 +242,9 @@ public class JumboStringRewriter {
           events.add(event);
         }
       }
-      return new DexDebugInfo(
-          code.getDebugInfo().startLine,
-          code.getDebugInfo().parameters,
+      return new EventBasedDebugInfo(
+          debugEventBasedInfo.startLine,
+          debugEventBasedInfo.parameters,
           events.toArray(DexDebugEvent.EMPTY_ARRAY));
     }
     return code.getDebugInfo();
@@ -479,23 +481,30 @@ public class JumboStringRewriter {
   }
 
   private void recordDebugEventTargets(Int2ReferenceMap<Instruction> offsetToInstruction) {
-    DexDebugInfo debugInfo = method.getCode().asDexCode().getDebugInfo();
-    if (debugInfo != null) {
-      int address = 0;
-      for (DexDebugEvent event : debugInfo.events) {
-        if (event instanceof AdvancePC) {
-          AdvancePC advance = (AdvancePC) event;
-          address += advance.delta;
-          Instruction target = offsetToInstruction.get(address);
-          assert target != null;
-          debugEventTargets.put(address, target);
-        } else if (event instanceof Default) {
-          Default defaultEvent = (Default) event;
-          address += defaultEvent.getPCDelta();
-          Instruction target = offsetToInstruction.get(address);
-          assert target != null;
-          debugEventTargets.put(address, target);
-        }
+    // TODO(b/213411850): Merging pc based D8 builds will map out of PC for any jumbo processed
+    //  method. Instead we should rather retain the PC encoding by bumping the max-pc and recording
+    //  the line number translation. We actually need to do so to support merging with native PC
+    //  support as in that case we can't reflect the change in the line table, only in the mapping.
+    EventBasedDebugInfo eventBasedInfo =
+        DexDebugInfo.convertToEventBased(method.getCode().asDexCode(), factory);
+    if (eventBasedInfo == null) {
+      return;
+    }
+    debugEventBasedInfo = eventBasedInfo;
+    int address = 0;
+    for (DexDebugEvent event : eventBasedInfo.events) {
+      if (event instanceof AdvancePC) {
+        AdvancePC advance = (AdvancePC) event;
+        address += advance.delta;
+        Instruction target = offsetToInstruction.get(address);
+        assert target != null;
+        debugEventTargets.put(address, target);
+      } else if (event instanceof Default) {
+        Default defaultEvent = (Default) event;
+        address += defaultEvent.getPCDelta();
+        Instruction target = offsetToInstruction.get(address);
+        assert target != null;
+        debugEventTargets.put(address, target);
       }
     }
   }

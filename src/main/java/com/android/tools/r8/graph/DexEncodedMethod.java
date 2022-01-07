@@ -992,9 +992,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   public static void setDebugInfoWithFakeThisParameter(Code code, int arity, AppView<?> appView) {
     if (code.isDexCode()) {
       DexCode dexCode = code.asDexCode();
-      dexCode.setDebugInfo(dexCode.debugInfoWithFakeThisParameter(appView.dexItemFactory()));
-      assert (dexCode.getDebugInfo() == null)
-          || (arity == dexCode.getDebugInfo().parameters.length);
+      DexDebugInfo newDebugInfo = dexCode.debugInfoWithFakeThisParameter(appView.dexItemFactory());
+      assert (newDebugInfo == null) || (arity == newDebugInfo.getParameterCount());
+      dexCode.setDebugInfo(newDebugInfo);
     } else {
       assert code.isCfCode();
       CfCode cfCode = code.asCfCode();
@@ -1222,7 +1222,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     Builder builder =
         builder(this)
             .promoteToStatic()
-            .withoutThisParameter()
+            .withoutThisParameter(appView.dexItemFactory())
             .fixupOptimizationInfo(appView, prototypeChanges.createMethodOptimizationInfoFixer())
             .setGenericSignature(MethodTypeSignature.noSignature());
     DexEncodedMethod method = builder.build();
@@ -1524,10 +1524,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       return this;
     }
 
-    public Builder withoutThisParameter() {
+    public Builder withoutThisParameter(DexItemFactory factory) {
       assert code != null;
       if (code.isDexCode()) {
-        code = code.asDexCode().withoutThisParameter();
+        code = code.asDexCode().withoutThisParameter(factory);
       } else {
         throw new Unreachable("Code " + code.getClass().getSimpleName() + " is not supported.");
       }

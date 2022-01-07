@@ -26,7 +26,7 @@ import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationDirectory;
 import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexApplication;
-import com.android.tools.r8.graph.DexDebugInfo;
+import com.android.tools.r8.graph.DexDebugInfoForWriting;
 import com.android.tools.r8.graph.DexEncodedArray;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -132,7 +132,7 @@ public class ApplicationWriter {
     }
 
     @Override
-    public boolean add(DexDebugInfo dexDebugInfo) {
+    public boolean add(DexDebugInfoForWriting dexDebugInfo) {
       return true;
     }
 
@@ -488,7 +488,7 @@ public class ApplicationWriter {
     timing.end();
 
     timing.begin("Write bytes");
-    ByteBufferResult result = writeDexFile(objectMapping, byteBufferProvider);
+    ByteBufferResult result = writeDexFile(objectMapping, byteBufferProvider, timing);
     ByteDataView data =
         new ByteDataView(result.buffer.array(), result.buffer.arrayOffset(), result.length);
     timing.end();
@@ -789,8 +789,7 @@ public class ApplicationWriter {
   }
 
   private ByteBufferResult writeDexFile(
-      ObjectToOffsetMapping objectMapping,
-      ByteBufferProvider provider) {
+      ObjectToOffsetMapping objectMapping, ByteBufferProvider provider, Timing timing) {
     FileWriter fileWriter =
         new FileWriter(
             provider,
@@ -800,9 +799,9 @@ public class ApplicationWriter {
             namingLens,
             desugaredLibraryCodeToKeep);
     // Collect the non-fixed sections.
-    fileWriter.collect();
+    timing.scope("collect", () -> fileWriter.collect());
     // Generate and write the bytes.
-    return fileWriter.generate();
+    return timing.scope("generate", () -> fileWriter.generate());
   }
 
   private static String mapMainDexListName(DexType type, NamingLens namingLens) {

@@ -16,6 +16,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexCode.TryHandler.TypeAddrPair;
 import com.android.tools.r8.graph.DexDebugEvent.SetInlineFrame;
 import com.android.tools.r8.graph.DexDebugEvent.StartLocal;
+import com.android.tools.r8.graph.DexDebugInfo.EventBasedDebugInfo;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeInstructionMetadata;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadata;
 import com.android.tools.r8.ir.code.IRCode;
@@ -27,6 +28,7 @@ import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.structural.Equatable;
 import com.android.tools.r8.utils.structural.HashCodeVisitor;
@@ -170,7 +172,7 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
     }
   }
 
-  public DexCode withoutThisParameter() {
+  public DexCode withoutThisParameter(DexItemFactory factory) {
     // Note that we assume the original code has a register associated with 'this'
     // argument of the (former) instance method. We also assume (but do not check)
     // that 'this' register is never used, so when we decrease incoming register size
@@ -184,7 +186,7 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
         instructions,
         tries,
         handlers,
-        debugInfoWithoutFirstParameter());
+        debugInfoWithoutFirstParameter(factory));
   }
 
   @Override
@@ -229,16 +231,17 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
   }
 
   public DexDebugInfo debugInfoWithFakeThisParameter(DexItemFactory factory) {
-    if (debugInfo == null) {
-      return null;
+    EventBasedDebugInfo eventBasedInfo = DexDebugInfo.convertToEventBased(this, factory);
+    if (eventBasedInfo == null) {
+      return eventBasedInfo;
     }
     // User code may already have variables named '_*this'. Use one more than the largest number of
     // underscores present as a prefix to 'this'.
     int largestPrefix = 0;
-    for (DexString parameter : debugInfo.parameters) {
+    for (DexString parameter : eventBasedInfo.parameters) {
       largestPrefix = Integer.max(largestPrefix, getLargestPrefix(factory, parameter));
     }
-    for (DexDebugEvent event : debugInfo.events) {
+    for (DexDebugEvent event : eventBasedInfo.events) {
       if (event instanceof DexDebugEvent.StartLocal) {
         DexString name = ((StartLocal) event).name;
         largestPrefix = Integer.max(largestPrefix, getLargestPrefix(factory, name));
@@ -246,15 +249,15 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
     }
 
     String fakeThisName = Strings.repeat(FAKE_THIS_PREFIX, largestPrefix + 1) + FAKE_THIS_SUFFIX;
-    DexString[] parameters = debugInfo.parameters;
+    DexString[] parameters = eventBasedInfo.parameters;
     DexString[] newParameters = new DexString[parameters.length + 1];
     newParameters[0] = factory.createString(fakeThisName);
     System.arraycopy(parameters, 0, newParameters, 1, parameters.length);
-    return new DexDebugInfo(debugInfo.startLine, newParameters, debugInfo.events);
+    return new EventBasedDebugInfo(eventBasedInfo.startLine, newParameters, eventBasedInfo.events);
   }
 
   @Override
-  public Code getCodeAsInlining(DexMethod caller, DexMethod callee) {
+  public Code getCodeAsInlining(DexMethod caller, DexMethod callee, DexItemFactory factory) {
     return new DexCode(
         registerSize,
         incomingRegisterSize,
@@ -262,24 +265,25 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
         instructions,
         tries,
         handlers,
-        debugInfoAsInlining(caller, callee));
+        debugInfoAsInlining(caller, callee, factory));
   }
 
-  private DexDebugInfo debugInfoAsInlining(DexMethod caller, DexMethod callee) {
+  private DexDebugInfo debugInfoAsInlining(
+      DexMethod caller, DexMethod callee, DexItemFactory factory) {
     Position callerPosition = SyntheticPosition.builder().setLine(0).setMethod(caller).build();
-    if (debugInfo == null) {
+    EventBasedDebugInfo eventBasedInfo = DexDebugInfo.convertToEventBased(this, factory);
+    if (eventBasedInfo == null) {
       // If the method has no debug info we generate a preamble position to denote the inlining.
       // This is consistent with the building IR for inlining which will always ensure the method
       // has a position.
-      return new DexDebugInfo(
+      return new EventBasedDebugInfo(
           0,
           new DexString[callee.getArity()],
           new DexDebugEvent[] {
-            new DexDebugEvent.SetInlineFrame(callee, callerPosition),
-            DexDebugEvent.ZERO_CHANGE_DEFAULT_EVENT
+            new DexDebugEvent.SetInlineFrame(callee, callerPosition), factory.zeroChangeDefaultEvent
           });
     }
-    DexDebugEvent[] oldEvents = debugInfo.events;
+    DexDebugEvent[] oldEvents = eventBasedInfo.events;
     DexDebugEvent[] newEvents = new DexDebugEvent[oldEvents.length + 1];
     int i = 0;
     newEvents[i++] = new DexDebugEvent.SetInlineFrame(callee, callerPosition);
@@ -296,7 +300,7 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
         newEvents[i++] = event;
       }
     }
-    return new DexDebugInfo(debugInfo.startLine, debugInfo.parameters, newEvents);
+    return new EventBasedDebugInfo(eventBasedInfo.startLine, eventBasedInfo.parameters, newEvents);
   }
 
   public static int getLargestPrefix(DexItemFactory factory, DexString name) {
@@ -311,17 +315,18 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
     return 0;
   }
 
-  public DexDebugInfo debugInfoWithoutFirstParameter() {
-    if (debugInfo == null) {
-      return null;
+  public DexDebugInfo debugInfoWithoutFirstParameter(DexItemFactory factory) {
+    EventBasedDebugInfo eventBasedInfo = DexDebugInfo.convertToEventBased(this, factory);
+    if (eventBasedInfo == null) {
+      return eventBasedInfo;
     }
-    DexString[] parameters = debugInfo.parameters;
+    DexString[] parameters = eventBasedInfo.parameters;
     if(parameters.length == 0) {
-      return debugInfo;
+      return eventBasedInfo;
     }
     DexString[] newParameters = new DexString[parameters.length - 1];
     System.arraycopy(parameters, 1, newParameters, 0, parameters.length - 1);
-    return new DexDebugInfo(debugInfo.startLine, newParameters, debugInfo.events);
+    return new EventBasedDebugInfo(eventBasedInfo.startLine, newParameters, eventBasedInfo.events);
   }
 
   @Override
@@ -362,7 +367,8 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
             this,
             method,
             appView.graphLens().getOriginalMethodSignature(method.getReference()),
-            null);
+            null,
+            appView.dexItemFactory());
     return IRBuilder.create(method, appView, source, origin).build(method);
   }
 
@@ -381,7 +387,8 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
             this,
             method,
             appView.graphLens().getOriginalMethodSignature(method.getReference()),
-            callerPosition);
+            callerPosition,
+            appView.dexItemFactory());
     return IRBuilder.createForInlining(
             method, appView, codeLens, source, origin, valueNumberGenerator, protoChanges)
         .build(context);
@@ -443,13 +450,15 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
 
     DexDebugEntry debugInfo = null;
     Iterator<DexDebugEntry> debugInfoIterator = Collections.emptyIterator();
-    if (getDebugInfo() != null && method != null) {
+    boolean isPcBasedInfo = getDebugInfo() != null && getDebugInfo().isPcBasedInfo();
+    if (!isPcBasedInfo && getDebugInfo() != null && method != null) {
       debugInfoIterator = new DexDebugEntryBuilder(method, new DexItemFactory()).build().iterator();
       debugInfo = debugInfoIterator.hasNext() ? debugInfoIterator.next() : null;
     }
     int instructionNumber = 0;
     Map<Integer, DebugLocalInfo> locals = Collections.emptyMap();
     for (Instruction insn : instructions) {
+      debugInfo = advanceToOffset(insn.getOffset() - 1, debugInfo, debugInfoIterator);
       while (debugInfo != null && debugInfo.address == insn.getOffset()) {
         if (debugInfo.lineEntry || !locals.equals(debugInfo.locals)) {
           builder.append("         ").append(debugInfo.toString(false)).append("\n");
@@ -467,8 +476,16 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
       }
       builder.append('\n');
     }
-    if (debugInfoIterator.hasNext()) {
-      throw new Unreachable("Could not print all debug information.");
+    if (isPcBasedInfo) {
+      builder.append(getDebugInfo()).append("\n");
+    } else if (debugInfoIterator.hasNext()) {
+      Instruction lastInstruction = ArrayUtils.last(instructions);
+      debugInfo = advanceToOffset(lastInstruction.getOffset(), debugInfo, debugInfoIterator);
+      if (debugInfo != null) {
+        throw new Unreachable("Could not print all debug information.");
+      } else {
+        builder.append("(has debug events past last pc)\n");
+      }
     }
     if (tries.length > 0) {
       builder.append("Tries (numbers are offsets)\n");
@@ -486,6 +503,14 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
       }
     }
     return builder.toString();
+  }
+
+  DexDebugEntry advanceToOffset(
+      int offset, DexDebugEntry current, Iterator<DexDebugEntry> iterator) {
+    while (current != null && current.address <= offset) {
+      current = iterator.hasNext() ? iterator.next() : null;
+    }
+    return current;
   }
 
   public String toSmaliString(ClassNameMapper naming) {
@@ -566,18 +591,15 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
     if (debugInfo != null) {
       getDebugInfoForWriting().collectIndexedItems(indexedItems, graphLens);
     }
-      for (TryHandler handler : handlers) {
-        handler.collectIndexedItems(indexedItems, graphLens);
-      }
+    for (TryHandler handler : handlers) {
+      handler.collectIndexedItems(indexedItems, graphLens);
+    }
   }
 
   @Override
   public DexDebugInfoForWriting getDebugInfoForWriting() {
-    if (debugInfo == null) {
-      return null;
-    }
     if (debugInfoForWriting == null) {
-      debugInfoForWriting = DexDebugInfoForWriting.create(debugInfo);
+      debugInfoForWriting = DexDebugInfo.convertToWritable(debugInfo);
     }
     return debugInfoForWriting;
   }
@@ -617,10 +639,6 @@ public class DexCode extends Code implements DexWritableCode, StructuralItem<Dex
     if (highestSortingString == null || highestSortingString.compareTo(candidate) < 0) {
       highestSortingString = candidate;
     }
-  }
-
-  public boolean usesExceptionHandling() {
-    return tries.length != 0;
   }
 
   @Override
