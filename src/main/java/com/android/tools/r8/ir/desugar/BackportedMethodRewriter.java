@@ -34,6 +34,7 @@ import com.android.tools.r8.ir.desugar.backports.OptionalMethodRewrites;
 import com.android.tools.r8.ir.desugar.backports.SparseArrayMethodRewrites;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryRetargeter;
 import com.android.tools.r8.synthesis.SyntheticNaming;
+import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
@@ -85,10 +86,13 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
             invoke, appView, eventConsumer, methodProcessingContext, localStackAllocator)
         : null;
   }
-
   @Override
   public boolean needsDesugaring(CfInstruction instruction, ProgramMethod context) {
-    return instruction.isInvoke() && methodIsBackport(instruction.asInvoke().getMethod());
+    return instruction.isInvoke()
+        && methodIsBackport(instruction.asInvoke().getMethod())
+        && !appView
+            .getSyntheticItems()
+            .isSyntheticOfKind(context.getContextType(), SyntheticKind.BACKPORT_WITH_FORWARDING);
   }
 
   public boolean methodIsBackport(DexMethod method) {
@@ -122,7 +126,6 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     // TODO(b/150693139): Remove the pre-registration once fixed.
     BackportedMethods.registerSynthesizedCodeReferences(options.itemFactory);
   }
-
 
   private MethodProvider getMethodProviderOrNull(DexMethod method) {
     DexMethod original = appView.graphLens().getOriginalMethodSignature(method);
@@ -183,6 +186,9 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       }
       if (options.minApiLevel.isLessThan(AndroidApiLevel.S)) {
         initializeAndroidSMethodProviders(factory);
+      }
+      if (options.getMinApiLevel().isLessThan(AndroidApiLevel.Sv2)) {
+        initializeAndroidSv2MethodProviders(factory);
       }
 
       // The following providers are currently not implemented at any API level in Android.
@@ -1086,6 +1092,30 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
               factory.androidUtilSparseArrayMembers.set, SparseArrayMethodRewrites.rewriteSet()));
     }
 
+    private void initializeAndroidSv2MethodProviders(DexItemFactory factory) {
+      DexString name;
+      DexProto proto;
+      DexMethod method;
+      // sun.misc.Unsafe
+
+      // compareAndSwapObject(Object receiver, long offset, Object expect, Object update)
+      name = factory.createString("compareAndSwapObject");
+      proto =
+          factory.createProto(
+              factory.booleanType,
+              factory.objectType,
+              factory.longType,
+              factory.objectType,
+              factory.objectType);
+      method = factory.createMethod(factory.unsafeType, proto, name);
+      addProvider(
+          new StatifyingMethodWithForwardingGenerator(
+              method,
+              BackportedMethods::UnsafeMethods_compareAndSwapObject,
+              "compareAndSwapObject",
+              factory.unsafeType));
+    }
+
     private void initializeJava9MethodProviders(DexItemFactory factory) {
       // Integer
       DexType type = factory.boxedIntType;
@@ -1448,6 +1478,10 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       this.methodName = methodName;
     }
 
+    protected SyntheticKind getSyntheticKind() {
+      return SyntheticNaming.SyntheticKind.BACKPORT;
+    }
+
     @Override
     public Collection<CfInstruction> rewriteInvoke(
         CfInvoke invoke,
@@ -1465,7 +1499,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       return appView
           .getSyntheticItems()
           .createMethod(
-              SyntheticNaming.SyntheticKind.BACKPORT,
+              getSyntheticKind(),
               methodProcessingContext.createUniqueContext(),
               appView,
               builder ->
@@ -1500,6 +1534,20 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     @Override
     public DexProto getProto(DexItemFactory itemFactory) {
       return itemFactory.prependTypeToProto(receiverType, super.getProto(itemFactory));
+    }
+  }
+
+  // Version of StatifyingMethodGenerator for backports which will call the method they backport.
+  // Such backports will not go through backporting again as that would cause infinite recursion.
+  private static class StatifyingMethodWithForwardingGenerator extends StatifyingMethodGenerator {
+    StatifyingMethodWithForwardingGenerator(
+        DexMethod method, TemplateMethodFactory factory, String methodName, DexType receiverType) {
+      super(method, factory, methodName, receiverType);
+    }
+
+    @Override
+    protected SyntheticKind getSyntheticKind() {
+      return SyntheticKind.BACKPORT_WITH_FORWARDING;
     }
   }
 
