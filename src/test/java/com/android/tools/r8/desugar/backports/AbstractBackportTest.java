@@ -42,34 +42,26 @@ abstract class AbstractBackportTest extends TestBase {
   private final Set<String> ignoredInvokes = new HashSet<>();
 
   private static class ClassInfo {
-    private final String name;
     private final Class<?> clazz;
     private final List<byte[]> classFileData;
 
-    private ClassInfo(String name) {
-      this.name = name;
-      this.clazz = null;
-      this.classFileData = null;
-    }
-
     private ClassInfo(Class<?> clazz) {
-      this.name = clazz.getName();
       this.clazz = clazz;
       this.classFileData = null;
     }
 
     private ClassInfo(byte[] classFileData) {
-      this(ImmutableList.of(classFileData));
+      this.clazz = null;
+      this.classFileData = ImmutableList.of(classFileData);
     }
 
     private ClassInfo(List<byte[]> classFileData) {
-      this.name = extractClassName(classFileData.get(0));
       this.clazz = null;
       this.classFileData = classFileData;
     }
 
     String getName() {
-      return name;
+      return clazz != null ? clazz.getName() : extractClassName(classFileData.get(0));
     }
 
     TestBuilder<?, ?> addAsProgramClass(TestBuilder<?, ?> builder) throws IOException {
@@ -84,11 +76,6 @@ abstract class AbstractBackportTest extends TestBase {
   AbstractBackportTest(TestParameters parameters, Class<?> targetClass,
       Class<?> testClass) {
     this(parameters, new ClassInfo(targetClass), new ClassInfo(testClass), null, null);
-  }
-
-  AbstractBackportTest(
-      TestParameters parameters, String className, List<byte[]> testClassFileData) {
-    this(parameters, new ClassInfo(className), new ClassInfo(testClassFileData), null, null);
   }
 
   AbstractBackportTest(
