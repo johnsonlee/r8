@@ -34,20 +34,12 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
         getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build());
   }
 
-  private static final String EXPECTED_OUTPUT_WITH_METHOD_HANDLES =
+  private static final String EXPECTED_OUTPUT =
       StringUtils.lines(
           "Hello, world!",
           "myConstant",
           "3",
           "java.lang.invoke.MethodHandles$Lookup",
-          "java.lang.String",
-          "java.lang.Class");
-  private static final String EXPECTED_OUTPUT_WITHOUT_METHOD_HANDLES =
-      StringUtils.lines(
-          "Hello, world!",
-          "myConstant",
-          "3",
-          "java.lang.Object",
           "java.lang.String",
           "java.lang.Class");
   private static final String EXPECTED_OUTPUT_R8 =
@@ -64,7 +56,7 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
     testForJvm()
         .addProgramClassFileData(getTransformedClasses())
         .run(parameters.getRuntime(), MAIN_CLASS)
-        .assertSuccessWithOutput(EXPECTED_OUTPUT_WITH_METHOD_HANDLES);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
@@ -72,22 +64,24 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
     testForDesugaring(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .run(parameters.getRuntime(), MAIN_CLASS)
+        // TODO(b/210485236): This should never fail.
         .applyIf(
             // When not desugaring the CF code requires JDK 11.
             DesugarTestConfiguration::isNotDesugared,
             r -> {
               if (parameters.isCfRuntime()
                   && parameters.getRuntime().asCf().isNewerThanOrEqual(CfVm.JDK11)) {
-                r.assertSuccessWithOutput(EXPECTED_OUTPUT_WITH_METHOD_HANDLES);
+                r.assertSuccessWithOutput(EXPECTED_OUTPUT);
               } else {
                 r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class);
               }
             },
             c ->
                 DesugarTestConfiguration.isDesugared(c)
-                    && parameters.getApiLevel().isLessThan(AndroidApiLevel.O),
-            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT_WITHOUT_METHOD_HANDLES),
-            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT_WITH_METHOD_HANDLES));
+                    && parameters.isDexRuntime()
+                    && parameters.asDexRuntime().getVersion().isOlderThan(Version.V8_1_0),
+            r -> r.assertFailureWithErrorThatThrows(ClassNotFoundException.class),
+            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT));
   }
 
   @Test
@@ -116,10 +110,11 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
             parameters.getApiLevel().isLessThan(AndroidApiLevel.O),
             b -> b.addDontWarn(MethodHandles.Lookup.class))
         .run(parameters.getRuntime(), MAIN_CLASS)
+        // TODO(b/210485236): This should never fail.
         .applyIf(
             parameters.getDexRuntimeVersion().isOlderThan(Version.V8_1_0),
             b -> b.assertFailureWithErrorThatThrows(ClassNotFoundException.class),
-            b -> b.assertSuccessWithOutput(EXPECTED_OUTPUT_WITH_METHOD_HANDLES));
+            b -> b.assertSuccessWithOutput(EXPECTED_OUTPUT));
   }
 
   private byte[] getTransformedClasses() throws IOException {
