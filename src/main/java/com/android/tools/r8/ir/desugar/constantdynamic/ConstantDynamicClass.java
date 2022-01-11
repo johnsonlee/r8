@@ -54,7 +54,6 @@ import com.android.tools.r8.ir.code.Monitor;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.FreshLocalProvider;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
-import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations.MethodSynthesizerConsumer;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations.UtilityMethodForCodeOptimizations;
@@ -86,9 +85,8 @@ public class ConstantDynamicClass {
   public final DexField constantValueField;
   private final DexMethod getConstMethod;
   private final Behaviour behaviour;
-  private DexMethod bootstrapMethodReference;
+  private DexEncodedMethod bootstrapMethodImpl;
   private DexMethod finalBootstrapMethodReference;
-  private boolean isFinalBootstrapMethodReferenceOnInterface;
 
   // Considered final but is set after due to circularity in allocation.
   private DexProgramClass clazz = null;
@@ -117,7 +115,7 @@ public class ConstantDynamicClass {
             factory.createString("get"));
 
     DexMethodHandle bootstrapMethodHandle = reference.getBootstrapMethod();
-    bootstrapMethodReference = bootstrapMethodHandle.asMethod();
+    DexMethod bootstrapMethodReference = bootstrapMethodHandle.asMethod();
     MethodResolutionResult resolution =
         appView
             .appInfoForDesugaring()
@@ -125,34 +123,22 @@ public class ConstantDynamicClass {
     if (resolution.isSingleResolution()
         && resolution.asSingleResolution().getResolvedMethod().isStatic()) {
       SingleResolutionResult result = resolution.asSingleResolution();
-      if (bootstrapMethodHandle.isInterface
-          && appView.options().isInterfaceMethodDesugaringEnabled()) {
-        bootstrapMethodReference =
-            bootstrapMethodReference.withHolder(
-                InterfaceDesugaringSyntheticHelper.getCompanionClassType(
-                    bootstrapMethodReference.getHolderType(), factory),
-                factory);
-        isFinalBootstrapMethodReferenceOnInterface = false;
-      } else {
-        assert bootstrapMethodReference.getHolderType() == resolution.getResolvedHolder().getType();
-        isFinalBootstrapMethodReferenceOnInterface = bootstrapMethodHandle.isInterface;
-      }
+      bootstrapMethodImpl = result.getResolvedMethod();
       if (shouldRewriteBootstrapMethodSignature()) {
         // The bootstrap method will have its signature modified to have type Object as its first
         // argument.
         this.finalBootstrapMethodReference =
             factory.createMethod(
-                bootstrapMethodReference.getHolderType(),
+                result.getResolvedHolder().getType(),
                 factory.createProto(
                     bootstrapMethodReference.getReturnType(),
                     factory.objectType,
                     factory.stringType,
                     factory.classType),
-                bootstrapMethodReference.getName());
+                bootstrapMethodImpl.getName());
       } else {
         this.finalBootstrapMethodReference = bootstrapMethodReference;
         // Ensure that the bootstrap method is accessible from the generated class.
-        DexEncodedMethod bootstrapMethodImpl = result.getResolvedMethod();
         MethodAccessFlags flags = bootstrapMethodImpl.getAccessFlags();
         flags.unsetPrivate();
         flags.setPublic();
@@ -267,11 +253,7 @@ public class ConstantDynamicClass {
     instructions.add(new CfConstNull());
     instructions.add(new CfConstString(reference.getName()));
     instructions.add(new CfConstClass(reference.getType()));
-    instructions.add(
-        new CfInvoke(
-            INVOKESTATIC,
-            finalBootstrapMethodReference,
-            isFinalBootstrapMethodReferenceOnInterface));
+    instructions.add(new CfInvoke(INVOKESTATIC, finalBootstrapMethodReference, false));
     instructions.add(new CfCheckCast(reference.getType()));
   }
 
@@ -374,12 +356,12 @@ public class ConstantDynamicClass {
       return;
     }
     DexProgramClass bootstrapMethodHolder =
-        appView.definitionFor(bootstrapMethodReference.getHolderType()).asProgramClass();
+        appView.definitionFor(bootstrapMethodImpl.getHolderType()).asProgramClass();
     DexEncodedMethod replacement =
         bootstrapMethodHolder
             .getMethodCollection()
             .replaceDirectMethod(
-                bootstrapMethodReference,
+                bootstrapMethodImpl.getReference(),
                 encodedMethod -> {
                   MethodAccessFlags newAccessFlags = encodedMethod.accessFlags.copy();
                   // Ensure that the bootstrap method is accessible from the generated class.

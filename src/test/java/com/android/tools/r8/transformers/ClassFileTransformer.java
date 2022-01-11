@@ -976,7 +976,7 @@ public class ClassFileTransformer {
                           DescriptorUtils.getClassBinaryName(bootstrapMethodHolder),
                           bootstrapMethodName,
                           bootstrapMethodSignature,
-                          bootstrapMethodHolder.isInterface()),
+                          false),
                       new Object[] {}));
             } else {
               super.visitLdcInsn(value);

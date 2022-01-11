@@ -156,7 +156,7 @@ public class InterfaceDesugaringSyntheticHelper {
   }
 
   // Gets the companion class for the interface `type`.
-  public static DexType getCompanionClassType(DexType type, DexItemFactory factory) {
+  static DexType getCompanionClassType(DexType type, DexItemFactory factory) {
     assert type.isClassType();
     String descriptor = type.descriptor.toString();
     String ccTypeDescriptor = getCompanionClassDescriptor(descriptor);
