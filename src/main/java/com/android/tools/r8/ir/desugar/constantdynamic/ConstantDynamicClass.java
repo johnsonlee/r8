@@ -54,6 +54,7 @@ import com.android.tools.r8.ir.code.Monitor;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.FreshLocalProvider;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
+import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations.MethodSynthesizerConsumer;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations.UtilityMethodForCodeOptimizations;
@@ -126,26 +127,11 @@ public class ConstantDynamicClass {
       SingleResolutionResult result = resolution.asSingleResolution();
       if (bootstrapMethodHandle.isInterface
           && appView.options().isInterfaceMethodDesugaringEnabled()) {
-        // The code below is commented out when merged to the 3.1 branch, as
-        //
-        // commit 4831b55933564ba346c5b87c9d13320d2bb3b203
-        // Author: Ian Zerny <zerny@google.com>
-        // Date:   Thu Sep 23 13:59:53 2021 +0200
-        //
-        // Process interface methods per-method during conversion.
-        //
-        // Bug: 199134556
-        // Change-Id: Ia83148354aec5431aaf2b653cb9334fcf3f0cee0
-        //
-        // did not land on 3.1. Therefore, the default interface method is still
-        // present in its original place during conversion. The move to the
-        // companion class happens later.
-        //
-        // bootstrapMethodReference =
-        //     bootstrapMethodReference.withHolder(
-        //         InterfaceDesugaringSyntheticHelper.getCompanionClassType(
-        //             bootstrapMethodReference.getHolderType(), factory),
-        //         factory);
+        bootstrapMethodReference =
+            bootstrapMethodReference.withHolder(
+                InterfaceDesugaringSyntheticHelper.getCompanionClassType(
+                    bootstrapMethodReference.getHolderType(), factory),
+                factory);
         isFinalBootstrapMethodReferenceOnInterface = false;
       } else {
         assert bootstrapMethodReference.getHolderType() == resolution.getResolvedHolder().getType();
