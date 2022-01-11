@@ -79,7 +79,12 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
             c ->
                 DesugarTestConfiguration.isDesugared(c)
                     && parameters.isDexRuntime()
-                    && parameters.asDexRuntime().getVersion().isOlderThan(Version.V8_1_0),
+                    && parameters
+                        .getRuntime()
+                        .asDex()
+                        .getVm()
+                        .getVersion()
+                        .isOlderThan(Version.V8_1_0),
             r -> r.assertFailureWithErrorThatThrows(ClassNotFoundException.class),
             r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT));
   }
