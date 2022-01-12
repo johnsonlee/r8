@@ -1804,7 +1804,7 @@ task buildPreNJdwpTestsJar(type: Jar) {
 
 task buildPreNJdwpTestsDex(type: Exec, dependsOn: "buildPreNJdwpTestsJar") {
     def inFile = buildPreNJdwpTestsJar.archivePath
-    def outFile = new File(buildPreNJdwpTestsJar.destinationDir, buildPreNJdwpTestsJar.baseName + '-dex.jar')
+    def outFile = new File(buildPreNJdwpTestsJar.destinationDir, 'jdwp-tests-preN-dex.jar')
     inputs.files files(inFile)
     outputs.file outFile
     if (OperatingSystem.current().isWindows()) {
