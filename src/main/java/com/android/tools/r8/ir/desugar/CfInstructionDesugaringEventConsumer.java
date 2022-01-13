@@ -28,6 +28,7 @@ import com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaringEventConsum
 import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer.RecordInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.twr.TwrCloseResourceDesugaringEventConsumer;
 import com.android.tools.r8.shaking.Enqueuer.SyntheticAdditions;
+import com.android.tools.r8.shaking.KeepMethodInfo.Joiner;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -161,7 +162,7 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptTwrCloseResourceMethod(ProgramMethod closeMethod, ProgramMethod context) {
-      methodProcessor.scheduleDesugaredMethodForProcessing(closeMethod);
+      methodProcessor.scheduleMethodForProcessing(closeMethod, this);
     }
 
     @Override
@@ -333,7 +334,7 @@ public abstract class CfInstructionDesugaringEventConsumer
     public void acceptInvokeStaticInterfaceOutliningMethod(
         ProgramMethod method, ProgramMethod context) {
       // Intentionally empty. The method will be hit by tracing if required.
-      additions.addNeverInlineMethod(method);
+      additions.addMinimumKeepInfo(method, Joiner::disallowInlining);
     }
 
     @Override

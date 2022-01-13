@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.conversion;
 import static com.android.tools.r8.graph.UseRegistry.MethodHandleUse.NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
 import static com.android.tools.r8.ir.code.Invoke.Type.STATIC;
 import static com.android.tools.r8.ir.code.Invoke.Type.VIRTUAL;
+import static com.android.tools.r8.ir.code.Opcodes.ARGUMENT;
 import static com.android.tools.r8.ir.code.Opcodes.ASSUME;
 import static com.android.tools.r8.ir.code.Opcodes.CHECK_CAST;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_CLASS;
@@ -33,7 +34,6 @@ import static com.android.tools.r8.ir.code.Opcodes.STATIC_PUT;
 import static com.android.tools.r8.utils.ObjectUtils.getBooleanOrElse;
 
 import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -60,7 +60,7 @@ import com.android.tools.r8.ir.analysis.type.DestructivePhiTypeUpdater;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
-import com.android.tools.r8.ir.code.Assume;
+import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.CatchHandlers;
@@ -105,7 +105,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -256,6 +255,9 @@ public class LensCodeRewriter {
               DexMethod actualTarget = lensLookup.getReference();
               Invoke.Type actualInvokeType = lensLookup.getType();
 
+              iterator =
+                  insertCastsForInvokeArgumentsIfNeeded(code, blocks, iterator, invoke, lensLookup);
+
               RewrittenPrototypeDescription prototypeChanges = lensLookup.getPrototypeChanges();
               if (prototypeChanges.requiresRewritingAtCallSite()
                   || invoke.getType() != actualInvokeType
@@ -335,10 +337,22 @@ public class LensCodeRewriter {
                   }
                 }
 
-                Value newOutValue =
-                    prototypeChanges.hasBeenChangedToReturnVoid()
-                        ? null
-                        : makeOutValue(invoke, code);
+                Value newOutValue;
+                if (prototypeChanges.hasRewrittenReturnInfo()) {
+                  if (invoke.hasOutValue() && !prototypeChanges.hasBeenChangedToReturnVoid()) {
+                    TypeElement newReturnType =
+                        prototypeChanges
+                            .getRewrittenReturnInfo()
+                            .getNewType()
+                            .toTypeElement(appView);
+                    newOutValue = code.createValue(newReturnType, invoke.getLocalInfo());
+                    affectedPhis.addAll(invoke.outValue().uniquePhiUsers());
+                  } else {
+                    newOutValue = null;
+                  }
+                } else {
+                  newOutValue = makeOutValue(invoke, code);
+                }
 
                 Map<SingleNumberValue, Map<DexType, Value>> parameterMap = new IdentityHashMap<>();
 
@@ -414,19 +428,6 @@ public class LensCodeRewriter {
                   } else {
                     iterator.add(constantReturnMaterializingInstruction);
                   }
-                }
-
-                DexType actualReturnType = actualTarget.proto.returnType;
-                DexType expectedReturnType = graphLens.lookupType(invokedMethod.proto.returnType);
-                if (newInvoke.hasOutValue() && actualReturnType != expectedReturnType) {
-                  throw new Unreachable(
-                      "Unexpected need to insert a cast. Possibly related to resolving"
-                          + " b/79143143.\n"
-                          + invokedMethod
-                          + " type changed from "
-                          + expectedReturnType
-                          + " to "
-                          + actualReturnType);
                 }
               }
             }
@@ -660,6 +661,9 @@ public class LensCodeRewriter {
               if (ret.isReturnVoid()) {
                 break;
               }
+
+              insertCastForReturnIfNeeded(code, blocks, iterator, ret);
+
               DexType returnType = code.context().getReturnType();
               Value retValue = ret.returnValue();
               DexType initialType =
@@ -683,47 +687,28 @@ public class LensCodeRewriter {
             }
             break;
 
-          case ASSUME:
+          case ARGUMENT:
             {
-              // TODO(b/174543992): It's not clear we should rewrite the assumes here. The code
-              // present fixes the problem for enum unboxing, but not for lambda merging.
-              // The LensCodeRewriter is run before most assume instructions are inserted, however,
-              // the call site optimization may propagate assumptions at IR building time, and such
-              // assumes are already present.
-              // R8 clears the assumes if the type is rewritten to a primitive type.
-              Assume assume = current.asAssume();
-              if (assume.hasOutValue()) {
-                TypeElement type = assume.getOutType();
-                TypeElement substituted = type.rewrittenWithLens(appView, graphLens);
-                if (substituted != type) {
-                  assert type.isArrayType() || type.isClassType();
-                  affectedPhis.addAll(assume.outValue().uniquePhiUsers());
-                  if (substituted.isPrimitiveType()) {
-                    assert type.isClassType();
-                    assert appView.unboxedEnums().isUnboxedEnum(type.asClassType().getClassType());
-                    // Any assumption of a class type being converted to a primitive type is
-                    // invalid. Dynamic type is irrelevant and non null is incorrect.
-                    assume.outValue().replaceUsers(assume.src());
-                    iterator.removeOrReplaceByDebugLocalRead();
-                  } else if (substituted.isPrimitiveArrayType()) {
-                    assert type.isArrayType();
-                    // Non-null assumptions on a class array type being converted to a primitive
-                    // array type remains, but dynamic type becomes irrelevant.
-                    assume.unsetDynamicTypeAssumption();
-                    if (assume.hasNonNullAssumption()) {
-                      assume.outValue().setType(substituted);
-                    } else {
-                      assume.outValue().replaceUsers(assume.src());
-                      iterator.removeOrReplaceByDebugLocalRead();
-                    }
-                  } else {
-                    assert !substituted.isPrimitiveType();
-                    assert !substituted.isPrimitiveArrayType();
-                    current.outValue().setType(substituted);
-                  }
-                }
+              Argument argument = current.asArgument();
+              TypeElement currentArgumentType = argument.getOutType();
+              TypeElement newArgumentType =
+                  method
+                      .getArgumentType(argument.getIndex())
+                      .toTypeElement(appView, currentArgumentType.nullability());
+              if (!newArgumentType.equals(currentArgumentType)) {
+                affectedPhis.addAll(argument.outValue().uniquePhiUsers());
+                iterator.replaceCurrentInstruction(
+                    Argument.builder()
+                        .setIndex(argument.getIndex())
+                        .setFreshOutValue(code, newArgumentType)
+                        .setPosition(argument)
+                        .build());
               }
             }
+            break;
+
+          case ASSUME:
+            assert false;
             break;
 
           default:
@@ -756,7 +741,7 @@ public class LensCodeRewriter {
 
   private InstructionListIterator insertCastForFieldAssignmentIfNeeded(
       IRCode code,
-      ListIterator<BasicBlock> blocks,
+      BasicBlockIterator blocks,
       InstructionListIterator iterator,
       FieldPut fieldPut,
       FieldLookupResult lookup) {
@@ -770,12 +755,109 @@ public class LensCodeRewriter {
               .setPosition(fieldPut.getPosition())
               .build();
       iterator.add(checkCast);
-      iterator =
-          iterator.splitCopyCatchHandlers(code, blocks, appView.options()).listIterator(code);
       fieldPut.setValue(checkCast.outValue());
+
+      if (checkCast.getBlock().hasCatchHandlers()) {
+        // Split the block and reset the block iterator.
+        BasicBlock splitBlock = iterator.splitCopyCatchHandlers(code, blocks, appView.options());
+        BasicBlock previousBlock = blocks.previousUntil(block -> block == splitBlock);
+        assert previousBlock == splitBlock;
+        blocks.next();
+        iterator = splitBlock.listIterator(code);
+      }
+
       Instruction next = iterator.next();
       assert next == fieldPut;
     }
+    return iterator;
+  }
+
+  private InstructionListIterator insertCastsForInvokeArgumentsIfNeeded(
+      IRCode code,
+      BasicBlockIterator blocks,
+      InstructionListIterator iterator,
+      InvokeMethod invoke,
+      MethodLookupResult lookup) {
+    RewrittenPrototypeDescription prototypeChanges = lookup.getPrototypeChanges();
+    if (prototypeChanges.isEmpty()) {
+      return iterator;
+    }
+    for (int argumentIndex = 0; argumentIndex < invoke.arguments().size(); argumentIndex++) {
+      RewrittenTypeInfo rewrittenTypeInfo =
+          prototypeChanges
+              .getArgumentInfoCollection()
+              .getArgumentInfo(argumentIndex)
+              .asRewrittenTypeInfo();
+      if (rewrittenTypeInfo != null && rewrittenTypeInfo.hasCastType()) {
+        iterator.previous();
+        Value object = invoke.getArgument(argumentIndex);
+        CheckCast checkCast =
+            SafeCheckCast.builder()
+                .setObject(object)
+                .setFreshOutValue(
+                    code,
+                    rewrittenTypeInfo
+                        .getCastType()
+                        .toTypeElement(appView, object.getType().nullability()))
+                .setCastType(rewrittenTypeInfo.getCastType())
+                .setPosition(invoke.getPosition())
+                .build();
+        iterator.add(checkCast);
+        invoke.replaceValue(argumentIndex, checkCast.outValue());
+
+        if (checkCast.getBlock().hasCatchHandlers()) {
+          // Split the block and reset the block iterator.
+          BasicBlock splitBlock = iterator.splitCopyCatchHandlers(code, blocks, appView.options());
+          BasicBlock previousBlock = blocks.previousUntil(block -> block == splitBlock);
+          assert previousBlock == splitBlock;
+          blocks.next();
+          iterator = splitBlock.listIterator(code);
+        }
+
+        Instruction next = iterator.next();
+        assert next == invoke;
+      }
+    }
+    return iterator;
+  }
+
+  private InstructionListIterator insertCastForReturnIfNeeded(
+      IRCode code, BasicBlockIterator blocks, InstructionListIterator iterator, Return ret) {
+    RewrittenPrototypeDescription prototypeChanges =
+        appView
+            .graphLens()
+            .lookupPrototypeChangesForMethodDefinition(code.context().getReference());
+    if (!prototypeChanges.hasRewrittenReturnInfo()
+        || !prototypeChanges.getRewrittenReturnInfo().hasCastType()) {
+      return iterator;
+    }
+
+    iterator.previous();
+
+    // Split the block and reset the block iterator.
+    if (ret.getBlock().hasCatchHandlers()) {
+      BasicBlock splitBlock = iterator.splitCopyCatchHandlers(code, blocks, options);
+      BasicBlock previousBlock = blocks.previousUntil(block -> block == splitBlock);
+      assert previousBlock != null;
+      blocks.next();
+      iterator = splitBlock.listIterator(code);
+    }
+
+    DexType castType = prototypeChanges.getRewrittenReturnInfo().getCastType();
+    Value returnValue = ret.returnValue();
+    CheckCast checkCast =
+        SafeCheckCast.builder()
+            .setObject(returnValue)
+            .setFreshOutValue(
+                code, castType.toTypeElement(appView, returnValue.getType().nullability()))
+            .setCastType(castType)
+            .setPosition(ret.getPosition())
+            .build();
+    iterator.add(checkCast);
+    ret.replaceValue(0, checkCast.outValue());
+
+    Instruction next = iterator.next();
+    assert next == ret;
     return iterator;
   }
 

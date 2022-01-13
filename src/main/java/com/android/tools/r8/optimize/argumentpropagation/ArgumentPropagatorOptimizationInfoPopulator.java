@@ -14,6 +14,8 @@ import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.optimize.info.ConcreteCallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
@@ -22,17 +24,16 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArr
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodStateOrUnknown;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.StateCloner;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InParameterFlowPropagator;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InterfaceMethodArgumentPropagator;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.VirtualDispatchMethodArgumentPropagator;
 import com.android.tools.r8.optimize.argumentpropagation.reprocessingcriteria.ArgumentPropagatorReprocessingCriteriaCollection;
-import com.android.tools.r8.optimize.argumentpropagation.reprocessingcriteria.MethodReprocessingCriteria;
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
@@ -45,7 +46,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
-import java.util.stream.IntStream;
 
 /**
  * Propagates the argument flow information collected by the {@link ArgumentPropagatorCodeScanner}.
@@ -187,6 +187,14 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
 
     ConcreteMonomorphicMethodState monomorphicMethodState = concreteMethodState.asMonomorphic();
 
+    // Widen the dynamic type information so that we don't store any trivial dynamic types.
+    // Note that all dynamic types are already being widened when the method states are created, but
+    // this does not guarantee that they are non-trivial at this point, since we may refine the
+    // object allocation info collection during the primary optimization pass.
+    if (!widenDynamicTypes(method, monomorphicMethodState)) {
+      return;
+    }
+
     // Verify that there is no parameter with bottom info.
     assert monomorphicMethodState.getParameterStates().stream().noneMatch(ParameterState::isBottom);
 
@@ -196,50 +204,18 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
         .map(ParameterState::asConcrete)
         .noneMatch(ConcreteParameterState::hasInParameters);
 
-    // Verify that the dynamic type information is correct.
-    assert IntStream.range(0, monomorphicMethodState.getParameterStates().size())
-        .filter(
-            index -> {
-              ParameterState parameterState = monomorphicMethodState.getParameterState(index);
-              return parameterState.isConcrete() && parameterState.asConcrete().isClassParameter();
-            })
-        .allMatch(
-            index -> {
-              DynamicType dynamicType =
-                  monomorphicMethodState
-                      .getParameterState(index)
-                      .asConcrete()
-                      .asClassParameter()
-                      .getDynamicType();
-              DexType staticType = method.getArgumentType(index);
-              assert dynamicType.isUnknown()
-                  || !WideningUtils.widenDynamicNonReceiverType(appView, dynamicType, staticType)
-                      .isUnknown();
-              return true;
-            });
-
-    // If we have any reprocessing criteria for the given method, check that they are satisfied
-    // before reenqueing.
-    MethodReprocessingCriteria reprocessingCriteria =
-        reprocessingCriteriaCollection.getReprocessingCriteria(method);
-    ConcreteMonomorphicMethodStateOrUnknown widenedMethodState =
-        reprocessingCriteria.widenMethodState(appView, method, monomorphicMethodState);
-    if (widenedMethodState.isUnknown()) {
-      return;
-    }
-
-    ConcreteMonomorphicMethodState finalMethodState = widenedMethodState.asMonomorphic();
     getSimpleFeedback()
         .setArgumentInfos(
             method,
-            ConcreteCallSiteOptimizationInfo.fromMethodState(appView, method, finalMethodState));
+            ConcreteCallSiteOptimizationInfo.fromMethodState(
+                appView, method, monomorphicMethodState));
 
     // Strengthen the return value of the method if the method is known to return one of the
     // arguments.
     MethodOptimizationInfo optimizationInfo = method.getOptimizationInfo();
     if (optimizationInfo.returnsArgument()) {
       ParameterState returnedArgumentState =
-          finalMethodState.getParameterState(optimizationInfo.getReturnedArgument());
+          monomorphicMethodState.getParameterState(optimizationInfo.getReturnedArgument());
       OptimizationFeedback.getSimple()
           .methodReturnsAbstractValue(
               method.getDefinition(), appView, returnedArgumentState.getAbstractValue(appView));
@@ -327,5 +303,45 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
       return new ConcretePrimitiveTypeParameterState(
           appView.abstractValueFactory().createZeroValue());
     }
+  }
+
+  private boolean widenDynamicTypes(
+      ProgramMethod method, ConcreteMonomorphicMethodState methodState) {
+    for (int argumentIndex = 0;
+        argumentIndex < methodState.getParameterStates().size();
+        argumentIndex++) {
+      ConcreteParameterState parameterState =
+          methodState.getParameterState(argumentIndex).asConcrete();
+      if (parameterState == null || !parameterState.isClassParameter()) {
+        continue;
+      }
+      DynamicType dynamicType = parameterState.asClassParameter().getDynamicType();
+      DexType staticType = method.getArgumentType(argumentIndex);
+      if (shouldWidenDynamicTypeToUnknown(dynamicType, staticType)) {
+        methodState.setParameterState(
+            argumentIndex,
+            parameterState.mutableJoin(
+                appView,
+                new ConcreteClassTypeParameterState(AbstractValue.bottom(), DynamicType.unknown()),
+                staticType,
+                StateCloner.getIdentity()));
+      }
+    }
+    return !methodState.isEffectivelyUnknown();
+  }
+
+  private boolean shouldWidenDynamicTypeToUnknown(DynamicType dynamicType, DexType staticType) {
+    if (dynamicType.isUnknown()) {
+      return false;
+    }
+    if (WideningUtils.widenDynamicNonReceiverType(appView, dynamicType, staticType).isUnknown()) {
+      return true;
+    }
+    TypeElement staticTypeElement = staticType.toTypeElement(appView);
+    TypeElement dynamicUpperBoundType = dynamicType.getDynamicUpperBoundType(staticTypeElement);
+    if (!dynamicUpperBoundType.lessThanOrEqual(staticTypeElement, appView)) {
+      return true;
+    }
+    return false;
   }
 }

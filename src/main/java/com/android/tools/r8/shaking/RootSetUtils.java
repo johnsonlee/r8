@@ -267,6 +267,9 @@ public class RootSetUtils {
         markMatchingFields(clazz, memberKeepRules, rule, null, ifRule);
       } else if (rule instanceof InlineRule
           || rule instanceof ConstantArgumentRule
+          || rule instanceof NoMethodStaticizingRule
+          || rule instanceof NoParameterTypeStrengtheningRule
+          || rule instanceof NoReturnTypeStrengtheningRule
           || rule instanceof UnusedArgumentRule
           || rule instanceof ReprocessMethodRule
           || rule instanceof WhyAreYouNotInliningRule) {
@@ -1189,7 +1192,16 @@ public class RootSetUtils {
               alwaysInline.add(reference);
               break;
             case NEVER:
-              neverInline.add(reference);
+              dependentMinimumKeepInfo
+                  .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+                  .asMethodJoiner()
+                  .disallowInlining();
+              break;
+            case NEVER_CLASS_INLINE:
+              dependentMinimumKeepInfo
+                  .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+                  .asMethodJoiner()
+                  .disallowClassInlining();
               break;
             case NEVER_SINGLE_CALLER:
               neverInlineDueToSingleCaller.add(reference);
@@ -1242,6 +1254,27 @@ public class RootSetUtils {
         context.markAsUsed();
       } else if (context instanceof NoHorizontalClassMergingRule) {
         noHorizontalClassMerging.add(item.asClass().type);
+        context.markAsUsed();
+      } else if (context instanceof NoMethodStaticizingRule) {
+        assert item.isProgramMethod();
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asMethodJoiner()
+            .disallowMethodStaticizing();
+        context.markAsUsed();
+      } else if (context instanceof NoParameterTypeStrengtheningRule) {
+        assert item.isProgramMethod();
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asMethodJoiner()
+            .disallowParameterTypeStrengthening();
+        context.markAsUsed();
+      } else if (context instanceof NoReturnTypeStrengtheningRule) {
+        assert item.isProgramMethod();
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asMethodJoiner()
+            .disallowReturnTypeStrengthening();
         context.markAsUsed();
       } else if (context instanceof MemberValuePropagationRule) {
         switch (((MemberValuePropagationRule) context).getType()) {
@@ -1578,7 +1611,6 @@ public class RootSetUtils {
 
   abstract static class RootSetBase {
 
-    final Set<DexMethod> neverInline;
     final Set<DexMethod> neverInlineDueToSingleCaller;
     final Set<DexType> neverClassInline;
     private final DependentMinimumKeepInfoCollection dependentMinimumKeepInfo;
@@ -1587,14 +1619,12 @@ public class RootSetUtils {
     public final ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse;
 
     RootSetBase(
-        Set<DexMethod> neverInline,
         Set<DexMethod> neverInlineDueToSingleCaller,
         Set<DexType> neverClassInline,
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
-      this.neverInline = neverInline;
       this.neverInlineDueToSingleCaller = neverInlineDueToSingleCaller;
       this.neverClassInline = neverClassInline;
       this.dependentMinimumKeepInfo = dependentMinimumKeepInfo;
@@ -1660,7 +1690,6 @@ public class RootSetUtils {
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
       super(
-          neverInline,
           neverInlineDueToSingleCaller,
           neverClassInline,
           dependentMinimumKeepInfo,
@@ -1713,7 +1742,6 @@ public class RootSetUtils {
     }
 
     void addConsequentRootSet(ConsequentRootSet consequentRootSet) {
-      neverInline.addAll(consequentRootSet.neverInline);
       neverInlineDueToSingleCaller.addAll(consequentRootSet.neverInlineDueToSingleCaller);
       neverClassInline.addAll(consequentRootSet.neverClassInline);
       consequentRootSet.dependentKeepClassCompatRule.forEach(
@@ -1999,7 +2027,6 @@ public class RootSetUtils {
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
       super(
-          neverInline,
           neverInlineDueToSingleCaller,
           neverClassInline,
           dependentMinimumKeepInfo,

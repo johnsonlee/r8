@@ -36,7 +36,6 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.utils.AccessUtils;
 import com.android.tools.r8.utils.BooleanBox;
-import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Pair;
@@ -47,7 +46,11 @@ import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMaps;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
 import java.util.ArrayList;
@@ -57,11 +60,13 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
 
 public class ArgumentPropagatorProgramOptimizer {
@@ -69,22 +74,45 @@ public class ArgumentPropagatorProgramOptimizer {
   static class AllowedPrototypeChanges {
 
     private static final AllowedPrototypeChanges EMPTY =
-        new AllowedPrototypeChanges(false, IntSets.EMPTY_SET);
+        new AllowedPrototypeChanges(null, Int2ReferenceMaps.emptyMap(), IntSets.EMPTY_SET);
 
-    boolean canRewriteToVoid;
+    DexType newReturnType;
+    Int2ReferenceMap<DexType> newParameterTypes;
     IntSet removableParameterIndices;
 
-    AllowedPrototypeChanges(boolean canRewriteToVoid, IntSet removableParameterIndices) {
-      this.canRewriteToVoid = canRewriteToVoid;
+    AllowedPrototypeChanges(
+        DexType newReturnType,
+        Int2ReferenceMap<DexType> newParameterTypes,
+        IntSet removableParameterIndices) {
+      this.newReturnType = newReturnType;
+      this.newParameterTypes = newParameterTypes;
       this.removableParameterIndices = removableParameterIndices;
     }
 
     public static AllowedPrototypeChanges create(RewrittenPrototypeDescription prototypeChanges) {
-      return prototypeChanges.isEmpty()
-          ? empty()
-          : new AllowedPrototypeChanges(
-              prototypeChanges.hasBeenChangedToReturnVoid(),
-              prototypeChanges.getArgumentInfoCollection().getKeys());
+      if (prototypeChanges.isEmpty()) {
+        return empty();
+      }
+      DexType newReturnType =
+          prototypeChanges.hasRewrittenReturnInfo()
+              ? prototypeChanges.getRewrittenReturnInfo().getNewType()
+              : null;
+      Int2ReferenceMap<DexType> newParameterTypes = new Int2ReferenceOpenHashMap<>();
+      IntSet removableParameterIndices = new IntOpenHashSet();
+      prototypeChanges
+          .getArgumentInfoCollection()
+          .forEach(
+              (argumentIndex, argumentInfo) -> {
+                if (argumentInfo.isRemovedArgumentInfo()) {
+                  removableParameterIndices.add(argumentIndex);
+                } else {
+                  assert argumentInfo.isRewrittenTypeInfo();
+                  RewrittenTypeInfo rewrittenTypeInfo = argumentInfo.asRewrittenTypeInfo();
+                  newParameterTypes.put(argumentIndex, rewrittenTypeInfo.getNewType());
+                }
+              });
+      return new AllowedPrototypeChanges(
+          newReturnType, newParameterTypes, removableParameterIndices);
     }
 
     public static AllowedPrototypeChanges empty() {
@@ -93,7 +121,7 @@ public class ArgumentPropagatorProgramOptimizer {
 
     @Override
     public int hashCode() {
-      return BooleanUtils.intValue(canRewriteToVoid) | (removableParameterIndices.hashCode() << 1);
+      return Objects.hash(newReturnType, newParameterTypes, removableParameterIndices);
     }
 
     @Override
@@ -102,7 +130,8 @@ public class ArgumentPropagatorProgramOptimizer {
         return false;
       }
       AllowedPrototypeChanges other = (AllowedPrototypeChanges) obj;
-      return canRewriteToVoid == other.canRewriteToVoid
+      return newReturnType == other.newReturnType
+          && newParameterTypes.equals(other.newParameterTypes)
           && removableParameterIndices.equals(other.removableParameterIndices);
     }
   }
@@ -308,31 +337,46 @@ public class ArgumentPropagatorProgramOptimizer {
               return;
             }
 
-            // Find the parameters that are constant or unused in all methods.
+            if (containsImmediateInterfaceOfInstantiatedLambda(methods)) {
+              return;
+            }
+
+            // Find the parameters that are either (i) the same constant, (ii) all unused, or (iii)
+            // all possible to strengthen to the same stronger type, in all methods.
+            Int2ReferenceMap<DexType> newParameterTypes = new Int2ReferenceOpenHashMap<>();
             IntSet removableVirtualMethodParametersInAllMethods = new IntArraySet();
             for (int parameterIndex = 1;
                 parameterIndex < signature.getProto().getArity() + 1;
                 parameterIndex++) {
-              if (canRemoveParameterFromVirtualMethods(parameterIndex, methods)) {
+              if (canRemoveParameterFromVirtualMethods(methods, parameterIndex)) {
                 removableVirtualMethodParametersInAllMethods.add(parameterIndex);
+              } else {
+                DexType newParameterType =
+                    getNewParameterTypeForVirtualMethods(methods, parameterIndex);
+                if (newParameterType != null) {
+                  newParameterTypes.put(parameterIndex, newParameterType);
+                }
               }
             }
 
             // If any prototype changes can be made, record it.
             SingleValue returnValueForVirtualMethods =
-                getReturnValueForVirtualMethods(signature, methods);
-            boolean canRewriteVirtualMethodsToVoid = returnValueForVirtualMethods != null;
-            if (canRewriteVirtualMethodsToVoid
+                getReturnValueForVirtualMethods(methods, signature);
+            DexType newReturnType =
+                getNewReturnTypeForVirtualMethods(methods, returnValueForVirtualMethods);
+            if (newReturnType != null
+                || !newParameterTypes.isEmpty()
                 || !removableVirtualMethodParametersInAllMethods.isEmpty()) {
               allowedPrototypeChangesForVirtualMethods.put(
                   signature,
                   new AllowedPrototypeChanges(
-                      canRewriteVirtualMethodsToVoid,
+                      newReturnType,
+                      newParameterTypes,
                       removableVirtualMethodParametersInAllMethods));
             }
 
             // Also record the found return value for abstract virtual methods.
-            if (canRewriteVirtualMethodsToVoid) {
+            if (newReturnType == dexItemFactory.voidType) {
               for (ProgramMethod method : methods) {
                 if (method.getAccessFlags().isAbstract()) {
                   returnValuesForVirtualMethods.put(method, returnValueForVirtualMethods);
@@ -370,7 +414,7 @@ public class ArgumentPropagatorProgramOptimizer {
     }
 
     private SingleValue getReturnValueForVirtualMethods(
-        DexMethodSignature signature, ProgramMethodSet methods) {
+        ProgramMethodSet methods, DexMethodSignature signature) {
       if (signature.getReturnType().isVoidType()) {
         return null;
       }
@@ -378,14 +422,6 @@ public class ArgumentPropagatorProgramOptimizer {
       SingleValue returnValue = null;
       for (ProgramMethod method : methods) {
         if (method.getDefinition().isAbstract()) {
-          DexProgramClass holder = method.getHolder();
-          if (holder.isInterface()) {
-            ObjectAllocationInfoCollection objectAllocationInfoCollection =
-                appView.appInfo().getObjectAllocationInfoCollection();
-            if (objectAllocationInfoCollection.isImmediateInterfaceOfInstantiatedLambda(holder)) {
-              return null;
-            }
-          }
           // OK, this can be rewritten to have void return type.
           continue;
         }
@@ -403,18 +439,24 @@ public class ArgumentPropagatorProgramOptimizer {
       return returnValue;
     }
 
+    private boolean containsImmediateInterfaceOfInstantiatedLambda(ProgramMethodSet methods) {
+      for (ProgramMethod method : methods) {
+        DexProgramClass holder = method.getHolder();
+        if (holder.isInterface()) {
+          ObjectAllocationInfoCollection objectAllocationInfoCollection =
+              appView.appInfo().getObjectAllocationInfoCollection();
+          if (objectAllocationInfoCollection.isImmediateInterfaceOfInstantiatedLambda(holder)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
     private boolean canRemoveParameterFromVirtualMethods(
-        int parameterIndex, ProgramMethodSet methods) {
+        ProgramMethodSet methods, int parameterIndex) {
       for (ProgramMethod method : methods) {
         if (method.getDefinition().isAbstract()) {
-          DexProgramClass holder = method.getHolder();
-          if (holder.isInterface()) {
-            ObjectAllocationInfoCollection objectAllocationInfoCollection =
-                appView.appInfo().getObjectAllocationInfoCollection();
-            if (objectAllocationInfoCollection.isImmediateInterfaceOfInstantiatedLambda(holder)) {
-              return false;
-            }
-          }
           // OK, this parameter can be removed.
           continue;
         }
@@ -433,6 +475,48 @@ public class ArgumentPropagatorProgramOptimizer {
         return false;
       }
       return true;
+    }
+
+    private DexType getNewReturnTypeForVirtualMethods(
+        ProgramMethodSet methods, SingleValue returnValue) {
+      if (returnValue != null) {
+        return dexItemFactory.voidType;
+      }
+      DexType newReturnType = null;
+      for (ProgramMethod method : methods) {
+        if (method.getDefinition().isAbstract()) {
+          // OK, this method can have any return type.
+          continue;
+        }
+        DexType newReturnTypeForMethod = getNewReturnType(method, null);
+        if (newReturnTypeForMethod == null
+            || (newReturnType != null && newReturnType != newReturnTypeForMethod)) {
+          return null;
+        }
+        newReturnType = newReturnTypeForMethod;
+      }
+      assert newReturnType == null || newReturnType != methods.getFirst().getReturnType();
+      return newReturnType;
+    }
+
+    private DexType getNewParameterTypeForVirtualMethods(
+        ProgramMethodSet methods, int parameterIndex) {
+      DexType newParameterType = null;
+      for (ProgramMethod method : methods) {
+        if (method.getAccessFlags().isAbstract()) {
+          // OK, this parameter can have any type.
+          continue;
+        }
+        DexType newParameterTypeForMethod = getNewParameterType(method, parameterIndex);
+        if (newParameterTypeForMethod == null
+            || (newParameterType != null && newParameterType != newParameterTypeForMethod)) {
+          return null;
+        }
+        newParameterType = newParameterTypeForMethod;
+      }
+      assert newParameterType == null
+          || newParameterType != methods.getFirst().getArgumentType(parameterIndex);
+      return newParameterType;
     }
 
     // Returns true if the class was changed as a result of argument propagation.
@@ -654,84 +738,107 @@ public class ArgumentPropagatorProgramOptimizer {
       }
 
       IntSet removableParameterIndices = allowedPrototypeChanges.removableParameterIndices;
-
+      Int2ReferenceMap<DexType> newParameterTypes = allowedPrototypeChanges.newParameterTypes;
       if (method.getAccessFlags().isAbstract()) {
-        // Treat the parameters as unused.
-        ArgumentInfoCollection.Builder removableParametersBuilder =
-            ArgumentInfoCollection.builder();
-        for (int removableParameterIndex : removableParameterIndices) {
-          removableParametersBuilder.addArgumentInfo(
-              removableParameterIndex,
-              RemovedArgumentInfo.builder()
-                  .setType(method.getArgumentType(removableParameterIndex))
-                  .build());
-        }
-        return RewrittenPrototypeDescription.create(
-            Collections.emptyList(),
-            computeReturnChangesForMethod(method, allowedPrototypeChanges.canRewriteToVoid),
-            removableParametersBuilder.build());
+        return computePrototypeChangesForAbstractVirtualMethod(
+            method,
+            allowedPrototypeChanges.newReturnType,
+            newParameterTypes,
+            removableParameterIndices);
       }
 
       RewrittenPrototypeDescription prototypeChanges =
           computePrototypeChangesForMethod(
               method,
-              allowedPrototypeChanges.canRewriteToVoid,
+              allowedPrototypeChanges.newReturnType,
+              newParameterTypes::get,
               removableParameterIndices::contains);
-      assert prototypeChanges.getArgumentInfoCollection().size()
+      assert prototypeChanges.getArgumentInfoCollection().numberOfRemovedArguments()
           == removableParameterIndices.size();
       return prototypeChanges;
     }
 
-    private RewrittenPrototypeDescription computePrototypeChangesForMethod(ProgramMethod method) {
-      return computePrototypeChangesForMethod(method, true, parameterIndex -> true);
-    }
-
-    private RewrittenPrototypeDescription computePrototypeChangesForMethod(
+    private RewrittenPrototypeDescription computePrototypeChangesForAbstractVirtualMethod(
         ProgramMethod method,
-        boolean allowToVoidRewriting,
-        IntPredicate removableParameterIndices) {
-      return RewrittenPrototypeDescription.create(
-          Collections.emptyList(),
-          computeReturnChangesForMethod(method, allowToVoidRewriting),
-          computeParameterChangesForMethod(method, removableParameterIndices));
-    }
-
-    private ArgumentInfoCollection computeParameterChangesForMethod(
-        ProgramMethod method, IntPredicate removableParameterIndices) {
-      ConcreteCallSiteOptimizationInfo optimizationInfo =
-          method.getOptimizationInfo().getArgumentInfos().asConcreteCallSiteOptimizationInfo();
-      if (optimizationInfo == null) {
-        return ArgumentInfoCollection.empty();
-      }
-
-      ArgumentInfoCollection.Builder removableParametersBuilder = ArgumentInfoCollection.builder();
-      for (int argumentIndex = method.getDefinition().getFirstNonReceiverArgumentIndex();
+        DexType newReturnType,
+        Int2ReferenceMap<DexType> newParameterTypes,
+        IntSet removableParameterIndices) {
+      // Treat the parameters as unused.
+      ArgumentInfoCollection.Builder argumentInfoCollectionBuilder =
+          ArgumentInfoCollection.builder();
+      for (int argumentIndex = 0;
           argumentIndex < method.getDefinition().getNumberOfArguments();
           argumentIndex++) {
-        if (!removableParameterIndices.test(argumentIndex)) {
-          continue;
-        }
-        AbstractValue abstractValue = optimizationInfo.getAbstractArgumentValue(argumentIndex);
-        if (abstractValue.isSingleValue()
-            && abstractValue.asSingleValue().isMaterializableInContext(appView, method)) {
-          removableParametersBuilder.addArgumentInfo(
+        if (removableParameterIndices.contains(argumentIndex)) {
+          argumentInfoCollectionBuilder.addArgumentInfo(
               argumentIndex,
-              RemovedArgumentInfo.builder()
-                  .setSingleValue(abstractValue.asSingleValue())
-                  .setType(method.getArgumentType(argumentIndex))
+              RemovedArgumentInfo.builder().setType(method.getArgumentType(argumentIndex)).build());
+        } else if (newParameterTypes.containsKey(argumentIndex)) {
+          DexType newParameterType = newParameterTypes.get(argumentIndex);
+          argumentInfoCollectionBuilder.addArgumentInfo(
+              argumentIndex,
+              RewrittenTypeInfo.builder()
+                  .setCastType(newParameterType)
+                  .setOldType(method.getArgumentType(argumentIndex))
+                  .setNewType(newParameterType)
                   .build());
         }
       }
-      return removableParametersBuilder.build();
+      return RewrittenPrototypeDescription.create(
+          Collections.emptyList(),
+          computeReturnChangesForMethod(method, newReturnType),
+          argumentInfoCollectionBuilder.build());
     }
 
-    private RewrittenTypeInfo computeReturnChangesForMethod(
-        ProgramMethod method, boolean allowToVoidRewriting) {
-      if (!allowToVoidRewriting) {
-        assert !returnValuesForVirtualMethods.containsKey(method);
+    private RewrittenPrototypeDescription computePrototypeChangesForMethod(ProgramMethod method) {
+      IntFunction<DexType> parameterIndexToParameterType =
+          appView.getKeepInfo(method).isParameterTypeStrengtheningAllowed(options)
+              ? parameterIndex -> getNewParameterType(method, parameterIndex)
+              : parameterIndex -> null;
+      return computePrototypeChangesForMethod(
+          method, getNewReturnType(method), parameterIndexToParameterType, parameterIndex -> true);
+    }
+
+    private DexType getNewReturnType(ProgramMethod method) {
+      return getNewReturnType(method, getReturnValue(method));
+    }
+
+    private DexType getNewReturnType(ProgramMethod method, SingleValue returnValue) {
+      DexType staticType = method.getReturnType();
+      if (staticType.isVoidType()
+          || !appView.getKeepInfo(method).isReturnTypeStrengtheningAllowed(options)) {
         return null;
       }
+      if (returnValue != null) {
+        return dexItemFactory.voidType;
+      }
+      TypeElement newReturnTypeElement =
+          method
+              .getOptimizationInfo()
+              .getDynamicType()
+              .getDynamicUpperBoundType(staticType.toTypeElement(appView));
+      assert newReturnTypeElement.isTop()
+          || newReturnTypeElement.lessThanOrEqual(staticType.toTypeElement(appView), appView);
+      if (!newReturnTypeElement.isClassType()) {
+        assert newReturnTypeElement.isArrayType()
+            || newReturnTypeElement.isNullType()
+            || newReturnTypeElement.isTop();
+        return null;
+      }
+      DexType newReturnType = newReturnTypeElement.asClassType().toDexType(dexItemFactory);
+      if (newReturnType == staticType) {
+        return null;
+      }
+      if (!appView.appInfo().isSubtype(newReturnType, staticType)) {
+        return null;
+      }
+      return AccessUtils.isAccessibleInSameContextsAs(
+              newReturnType, method.getReturnType(), appView)
+          ? newReturnType
+          : null;
+    }
 
+    private SingleValue getReturnValue(ProgramMethod method) {
       AbstractValue returnValue;
       if (method.getReturnType().isAlwaysNull(appView)) {
         returnValue = appView.abstractValueFactory().createNullValue();
@@ -743,13 +850,118 @@ public class ArgumentPropagatorProgramOptimizer {
         returnValue = method.getOptimizationInfo().getAbstractReturnValue();
       }
 
-      if (!returnValue.isSingleValue()
-          || !returnValue.asSingleValue().isMaterializableInAllContexts(appView)) {
+      return returnValue.isSingleValue()
+              && returnValue.asSingleValue().isMaterializableInAllContexts(appView)
+          ? returnValue.asSingleValue()
+          : null;
+    }
+
+    private DexType getNewParameterType(ProgramMethod method, int parameterIndex) {
+      if (!appView.getKeepInfo(method).isParameterTypeStrengtheningAllowed(options)) {
         return null;
       }
+      DexType staticType = method.getArgumentType(parameterIndex);
+      if (!staticType.isClassType()) {
+        return null;
+      }
+      DynamicType dynamicType =
+          method.getOptimizationInfo().getArgumentInfos().getDynamicType(parameterIndex);
+      if (dynamicType == null || dynamicType.isUnknown()) {
+        return null;
+      }
+      TypeElement staticTypeElement = staticType.toTypeElement(appView);
+      TypeElement dynamicUpperBoundType = dynamicType.getDynamicUpperBoundType(staticTypeElement);
+      assert dynamicUpperBoundType.lessThanOrEqual(staticTypeElement, appView);
+      assert dynamicUpperBoundType.isReferenceType();
+      if (dynamicUpperBoundType.isNullType()) {
+        return null;
+      }
+      if (dynamicUpperBoundType.isArrayType()) {
+        return null;
+      }
+      assert dynamicUpperBoundType.isClassType();
+      DexType newParameterType = dynamicUpperBoundType.asClassType().toDexType(dexItemFactory);
+      if (newParameterType == staticType) {
+        return null;
+      }
+      if (!appView.appInfo().isSubtype(newParameterType, staticType)) {
+        return null;
+      }
+      return AccessUtils.isAccessibleInSameContextsAs(newParameterType, staticType, appView)
+          ? newParameterType
+          : null;
+    }
 
-      SingleValue singleValue = returnValue.asSingleValue();
-      return RewrittenTypeInfo.toVoid(method.getReturnType(), dexItemFactory, singleValue);
+    private RewrittenPrototypeDescription computePrototypeChangesForMethod(
+        ProgramMethod method,
+        DexType newReturnType,
+        IntFunction<DexType> newParameterTypes,
+        IntPredicate removableParameterIndices) {
+      return RewrittenPrototypeDescription.create(
+          Collections.emptyList(),
+          computeReturnChangesForMethod(method, newReturnType),
+          computeParameterChangesForMethod(method, newParameterTypes, removableParameterIndices));
+    }
+
+    private ArgumentInfoCollection computeParameterChangesForMethod(
+        ProgramMethod method,
+        IntFunction<DexType> newParameterTypes,
+        IntPredicate removableParameterIndices) {
+      ConcreteCallSiteOptimizationInfo optimizationInfo =
+          method.getOptimizationInfo().getArgumentInfos().asConcreteCallSiteOptimizationInfo();
+      if (optimizationInfo == null) {
+        return ArgumentInfoCollection.empty();
+      }
+
+      ArgumentInfoCollection.Builder parameterChangesBuilder = ArgumentInfoCollection.builder();
+      for (int argumentIndex = method.getDefinition().getFirstNonReceiverArgumentIndex();
+          argumentIndex < method.getDefinition().getNumberOfArguments();
+          argumentIndex++) {
+        if (removableParameterIndices.test(argumentIndex)) {
+          AbstractValue abstractValue = optimizationInfo.getAbstractArgumentValue(argumentIndex);
+          if (abstractValue.isSingleValue()
+              && abstractValue.asSingleValue().isMaterializableInContext(appView, method)) {
+            parameterChangesBuilder.addArgumentInfo(
+                argumentIndex,
+                RemovedArgumentInfo.builder()
+                    .setSingleValue(abstractValue.asSingleValue())
+                    .setType(method.getArgumentType(argumentIndex))
+                    .build());
+            continue;
+          }
+        }
+
+        DexType dynamicType = newParameterTypes.apply(argumentIndex);
+        if (dynamicType != null) {
+          DexType staticType = method.getArgumentType(argumentIndex);
+          assert dynamicType != staticType;
+          parameterChangesBuilder.addArgumentInfo(
+              argumentIndex,
+              RewrittenTypeInfo.builder()
+                  .setCastType(dynamicType)
+                  .setOldType(staticType)
+                  .setNewType(dynamicType)
+                  .build());
+        }
+      }
+      return parameterChangesBuilder.build();
+    }
+
+    private RewrittenTypeInfo computeReturnChangesForMethod(
+        ProgramMethod method, DexType newReturnType) {
+      if (newReturnType == null) {
+        assert !returnValuesForVirtualMethods.containsKey(method);
+        return null;
+      }
+      assert newReturnType != method.getReturnType();
+      return RewrittenTypeInfo.builder()
+          .applyIf(
+              newReturnType == dexItemFactory.voidType,
+              builder -> builder.setSingleValue(getReturnValue(method)))
+          .setCastType(newReturnType)
+          .setOldType(method.getReturnType())
+          .setNewType(newReturnType)
+          .build();
     }
   }
 }
