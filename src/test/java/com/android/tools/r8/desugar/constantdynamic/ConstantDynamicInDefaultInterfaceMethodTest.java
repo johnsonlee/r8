@@ -102,11 +102,6 @@ public class ConstantDynamicInDefaultInterfaceMethodTest extends TestBase {
                                         "Unsupported dynamic constant (not desugaring)")));
                           }));
             },
-            // TODO(b/210485236): This should not fail for R8.
-            !parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring(),
-            b ->
-                b.run(parameters.getRuntime(), MAIN_CLASS)
-                    .assertFailureWithErrorThatThrows(NoSuchMethodError.class),
             b ->
                 b.run(parameters.getRuntime(), MAIN_CLASS)
                     .assertSuccessWithOutput(EXPECTED_OUTPUT));
