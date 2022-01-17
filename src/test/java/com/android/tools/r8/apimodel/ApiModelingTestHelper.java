@@ -85,7 +85,7 @@ public abstract class ApiModelingTestHelper {
     };
   }
 
-  static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
+  public static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
       ThrowableConsumer<T> setMockApiLevelForClass(Class<?> clazz, AndroidApiLevel apiLevel) {
     return compilerBuilder -> {
       compilerBuilder.addOptionsModification(
@@ -98,7 +98,8 @@ public abstract class ApiModelingTestHelper {
     };
   }
 
-  static void enableApiCallerIdentification(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
+  public static void enableApiCallerIdentification(
+      TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
         options -> {
           options.apiModelingOptions().enableApiCallerIdentification = true;
