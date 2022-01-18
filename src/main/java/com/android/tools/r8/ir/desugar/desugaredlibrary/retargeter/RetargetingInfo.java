@@ -12,55 +12,64 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyDesugaredLibrarySpecification;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.DerivedMethod;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedDispatchMethodDescriptor;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineRewritingFlags;
+import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.WorkList;
-import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class RetargetingInfo {
 
-  private final Map<DexMethod, DexMethod> retargetLibraryMember;
-  // Map nonFinalRewrite hold a methodName -> method mapping for methods which are rewritten while
-  // the holder is non final. In this case d8 needs to force resolution of given methods to see if
-  // the invoke needs to be rewritten.
-  private final Map<DexString, List<DexMethod>> nonFinalHolderRewrites;
-  // Non final virtual library methods requiring generation of emulated dispatch.
-  private final DexClassAndMethodSet emulatedDispatchMethods;
+  private final Map<DexMethod, DexMethod> staticRetarget;
+  private final Map<DexMethod, DexMethod> nonEmulatedVirtualRetarget;
+  private final Map<DexMethod, EmulatedDispatchMethodDescriptor> emulatedVirtualRetarget;
 
   RetargetingInfo(
-      Map<DexMethod, DexMethod> retargetLibraryMember,
-      Map<DexString, List<DexMethod>> nonFinalHolderRewrites,
-      DexClassAndMethodSet emulatedDispatchMethods) {
-    this.retargetLibraryMember = retargetLibraryMember;
-    this.nonFinalHolderRewrites = nonFinalHolderRewrites;
-    this.emulatedDispatchMethods = emulatedDispatchMethods;
+      Map<DexMethod, DexMethod> staticRetarget,
+      Map<DexMethod, DexMethod> nonEmulatedVirtualRetarget,
+      Map<DexMethod, EmulatedDispatchMethodDescriptor> emulatedVirtualRetarget) {
+    this.staticRetarget = staticRetarget;
+    this.nonEmulatedVirtualRetarget = nonEmulatedVirtualRetarget;
+    this.emulatedVirtualRetarget = emulatedVirtualRetarget;
   }
 
-  public static synchronized RetargetingInfo get(AppView<?> appView) {
+  public static RetargetingInfo get(AppView<?> appView) {
+    if (appView.options().testing.machineDesugaredLibrarySpecification != null) {
+      MachineRewritingFlags rewritingFlags =
+          appView.options().testing.machineDesugaredLibrarySpecification.getRewritingFlags();
+      return new RetargetingInfo(
+          rewritingFlags.getStaticRetarget(),
+          rewritingFlags.getNonEmulatedVirtualRetarget(),
+          rewritingFlags.getEmulatedVirtualRetarget());
+    }
     return new RetargetingInfoBuilder(appView).computeRetargetingInfo();
   }
 
-  public Map<DexMethod, DexMethod> getRetargetLibraryMember() {
-    return retargetLibraryMember;
+  public Map<DexMethod, DexMethod> getStaticRetarget() {
+    return staticRetarget;
   }
 
-  public Map<DexString, List<DexMethod>> getNonFinalHolderRewrites() {
-    return nonFinalHolderRewrites;
+  public Map<DexMethod, DexMethod> getNonEmulatedVirtualRetarget() {
+    return nonEmulatedVirtualRetarget;
   }
 
-  public DexClassAndMethodSet getEmulatedDispatchMethods() {
-    return emulatedDispatchMethods;
+  public Map<DexMethod, EmulatedDispatchMethodDescriptor> getEmulatedVirtualRetarget() {
+    return emulatedVirtualRetarget;
   }
 
   private static class RetargetingInfoBuilder {
 
     private final AppView<?> appView;
-    private final Map<DexMethod, DexMethod> retargetLibraryMember = new IdentityHashMap<>();
-    private final Map<DexString, List<DexMethod>> nonFinalHolderRewrites = new IdentityHashMap<>();
-    private final DexClassAndMethodSet emulatedDispatchMethods = DexClassAndMethodSet.create();
+    private final Map<DexMethod, DexMethod> staticRetarget = new IdentityHashMap<>();
+    private final Map<DexMethod, DexMethod> nonEmulatedVirtualRetarget = new IdentityHashMap<>();
+    private final Map<DexMethod, EmulatedDispatchMethodDescriptor> emulatedVirtualRetarget =
+        new IdentityHashMap<>();
 
     public RetargetingInfoBuilder(AppView<?> appView) {
       this.appView = appView;
@@ -72,8 +81,7 @@ public class RetargetingInfo {
       Map<DexString, Map<DexType, DexType>> retargetCoreLibMember =
           desugaredLibrarySpecification.getRetargetCoreLibMember();
       if (retargetCoreLibMember.isEmpty()) {
-        return new RetargetingInfo(
-            ImmutableMap.of(), ImmutableMap.of(), DexClassAndMethodSet.empty());
+        return new RetargetingInfo(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
       }
       for (DexString methodName : retargetCoreLibMember.keySet()) {
         for (DexType inType : retargetCoreLibMember.get(methodName).keySet()) {
@@ -82,28 +90,41 @@ public class RetargetingInfo {
             DexType newHolder = retargetCoreLibMember.get(methodName).get(inType);
             List<DexClassAndMethod> found = findMethodsWithName(methodName, typeClass);
             for (DexClassAndMethod method : found) {
-              boolean emulatedDispatch = false;
               DexMethod methodReference = method.getReference();
-              if (!typeClass.isFinal()) {
-                nonFinalHolderRewrites.putIfAbsent(method.getName(), new ArrayList<>());
-                nonFinalHolderRewrites.get(method.getName()).add(methodReference);
-                if (!method.getAccessFlags().isStatic()) {
-                  if (isEmulatedInterfaceDispatch(method)) {
-                    // In this case interface method rewriter takes care of it.
-                    continue;
-                  } else if (!method.getAccessFlags().isFinal()) {
-                    // Virtual rewrites require emulated dispatch for inheritance.
-                    // The call is rewritten to the dispatch holder class instead.
-                    emulatedDispatchMethods.add(method);
-                    emulatedDispatch = true;
-                  }
-                }
-              }
-              if (!emulatedDispatch) {
-                retargetLibraryMember.put(
+              if (method.getAccessFlags().isStatic()) {
+                staticRetarget.put(
                     methodReference,
                     computeRetargetMethod(
                         methodReference, method.getAccessFlags().isStatic(), newHolder));
+                continue;
+              }
+              if (isEmulatedInterfaceDispatch(method)) {
+                continue;
+              }
+              if (typeClass.isFinal() || method.getAccessFlags().isFinal()) {
+                nonEmulatedVirtualRetarget.put(
+                    methodReference,
+                    computeRetargetMethod(
+                        methodReference, method.getAccessFlags().isStatic(), newHolder));
+              } else {
+                // Virtual rewrites require emulated dispatch for inheritance.
+                // The call is rewritten to the dispatch holder class instead.
+                DexProto newProto = appView.dexItemFactory().prependHolderToProto(methodReference);
+                DexMethod forwardingDexMethod =
+                    appView.dexItemFactory().createMethod(newHolder, newProto, methodName);
+                DerivedMethod forwardingMethod = new DerivedMethod(forwardingDexMethod);
+                DerivedMethod interfaceMethod =
+                    new DerivedMethod(methodReference, SyntheticKind.RETARGET_INTERFACE);
+                DexMethod dispatchDexMethod =
+                    appView
+                        .dexItemFactory()
+                        .createMethod(methodReference.getHolderType(), newProto, methodName);
+                DerivedMethod dispatchMethod =
+                    new DerivedMethod(dispatchDexMethod, SyntheticKind.RETARGET_CLASS);
+                emulatedVirtualRetarget.put(
+                    methodReference,
+                    new EmulatedDispatchMethodDescriptor(
+                        interfaceMethod, dispatchMethod, forwardingMethod, new LinkedHashMap<>()));
               }
             }
           }
@@ -123,7 +144,7 @@ public class RetargetingInfo {
         DexMethod target =
             computeRetargetMethod(
                 source, true, itemFactory.createType("Ljava/util/DesugarArrays;"));
-        retargetLibraryMember.put(source, target);
+        staticRetarget.put(source, target);
         // TODO(b/181629049): This is only a workaround rewriting invokes of
         //  j.u.TimeZone.getTimeZone taking a java.time.ZoneId.
         name = itemFactory.createString("getTimeZone");
@@ -136,12 +157,12 @@ public class RetargetingInfo {
         target =
             computeRetargetMethod(
                 source, true, itemFactory.createType("Ljava/util/DesugarTimeZone;"));
-        retargetLibraryMember.put(source, target);
+        staticRetarget.put(source, target);
       }
       return new RetargetingInfo(
-          ImmutableMap.copyOf(retargetLibraryMember),
-          ImmutableMap.copyOf(nonFinalHolderRewrites),
-          emulatedDispatchMethods);
+          ImmutableMap.copyOf(staticRetarget),
+          ImmutableMap.copyOf(nonEmulatedVirtualRetarget),
+          emulatedVirtualRetarget);
     }
 
     DexMethod computeRetargetMethod(DexMethod method, boolean isStatic, DexType newHolder) {

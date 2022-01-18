@@ -54,6 +54,7 @@ import com.android.tools.r8.horizontalclassmerging.Policy;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyDesugaredLibrarySpecification;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.nest.Nest;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
@@ -74,7 +75,6 @@ import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.utils.IROrdering.IdentityIROrdering;
 import com.android.tools.r8.utils.IROrdering.NondeterministicIROrdering;
-import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.structural.Ordered;
 import com.google.common.annotations.VisibleForTesting;
@@ -1037,7 +1037,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       DexType libraryType,
       DexType invalidSuperType,
       String message,
-      DexClassAndMethodSet retarget) {
+      Set<DexMethod> retarget) {
     if (invalidLibraryClasses.add(invalidSuperType)) {
       reporter.warning(
           new InvalidLibrarySuperclassDiagnostic(
@@ -1046,8 +1046,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
               Reference.classFromDescriptor(invalidSuperType.toDescriptorString()),
               message,
               Lists.newArrayList(
-                  Iterables.transform(
-                      retarget, method -> method.getReference().asMethodReference()))));
+                  Iterables.transform(retarget, method -> method.asMethodReference()))));
     }
   }
 
@@ -1614,6 +1613,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         ConsumerUtils.emptyBiConsumer();
 
     public Consumer<Deque<ProgramMethodSet>> waveModifier = waves -> {};
+
+    // Meant to replace desugaredLibrarySpecification, set only from tests at the moment.
+    public MachineDesugaredLibrarySpecification machineDesugaredLibrarySpecification = null;
 
     /**
      * If this flag is enabled, we will also compute the set of possible targets for invoke-
