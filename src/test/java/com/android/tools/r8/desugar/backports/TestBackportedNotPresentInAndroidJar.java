@@ -9,6 +9,8 @@ import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
@@ -24,8 +26,33 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 
+@RunWith(Parameterized.class)
 public class TestBackportedNotPresentInAndroidJar extends TestBase {
+
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameterized.Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withNoneRuntime().build();
+  }
+
+  private boolean expectedToAlwaysBePresentInAndroidJar(DexMethod method) {
+    return method
+            .holder
+            .toSourceString()
+            .equals("java.util.concurrent.atomic.AtomicReferenceFieldUpdater")
+        && method.name.toSourceString().equals("compareAndSet")
+        && method.proto.returnType.toSourceString().equals("boolean")
+        && method.proto.parameters.values.length == 3
+        && method.proto.parameters.values[0].toSourceString().equals("java.lang.Object")
+        && method.proto.parameters.values[1].toSourceString().equals("java.lang.Object")
+        && method.proto.parameters.values[2].toSourceString().equals("java.lang.Object");
+  }
 
   @Test
   public void testBackportedMethodsPerAPILevel() throws Exception {
@@ -54,6 +81,10 @@ public class TestBackportedNotPresentInAndroidJar extends TestBase {
                 Arrays.stream(method.proto.parameters.values)
                     .map(DexType::toSourceString)
                     .collect(Collectors.toList()));
+        if (expectedToAlwaysBePresentInAndroidJar(method)) {
+          assertThat(foundInAndroidJar, isPresent());
+          continue;
+        }
         assertThat(
             foundInAndroidJar + " present in " + apiLevel, foundInAndroidJar, not(isPresent()));
       }
