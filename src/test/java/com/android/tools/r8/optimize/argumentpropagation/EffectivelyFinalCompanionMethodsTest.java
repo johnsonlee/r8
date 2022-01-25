@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.optimize.argumentpropagation;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isStatic;
-import static com.android.tools.r8.utils.codeinspector.Matchers.onlyIf;
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -16,9 +16,7 @@ import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -26,7 +24,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class CompanionConstructorShakingTest extends TestBase {
+public class EffectivelyFinalCompanionMethodsTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -44,37 +42,30 @@ public class CompanionConstructorShakingTest extends TestBase {
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
+        .noMinification()
         .setMinApi(parameters.getApiLevel())
         .compile()
         .inspect(
             inspector -> {
-              boolean isCf = parameters.isCfRuntime();
-
               ClassSubject hostClassSubject = inspector.clazz(Host.class);
-              assertThat(hostClassSubject, isPresent());
-              assertEquals(1 + BooleanUtils.intValue(isCf), hostClassSubject.allMethods().size());
-              assertThat(hostClassSubject.clinit(), onlyIf(isCf, isPresent()));
-              assertThat(hostClassSubject.uniqueMethodWithName("keepHost"), isPresent());
+              assertThat(hostClassSubject, isAbsent());
 
               ClassSubject companionClassSubject = inspector.clazz(Host.Companion.class);
               assertThat(companionClassSubject, isPresent());
-              assertEquals(
-                  1 + BooleanUtils.intValue(isCf), companionClassSubject.allMethods().size());
-              assertThat(companionClassSubject.init(), onlyIf(isCf, isPresent()));
-
-              MethodSubject greetMethodSubject =
-                  companionClassSubject.uniqueMethodWithName("greet");
-              assertThat(greetMethodSubject, isStatic());
+              assertEquals(4, companionClassSubject.allMethods().size());
+              assertThat(companionClassSubject.uniqueMethodWithName("foo"), isStatic());
+              assertThat(companionClassSubject.uniqueMethodWithName("bar"), isStatic());
+              assertThat(companionClassSubject.uniqueMethodWithName("baz"), isStatic());
+              assertThat(companionClassSubject.uniqueMethodWithName("qux"), isStatic());
             })
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("Hello world!");
+        .assertSuccessWithOutputLines("Foo!", "Bar!", "Baz!", "Qux!", "Baz!");
   }
 
   static class Main {
 
     public static void main(String[] args) {
-      Host.companion.greet();
-      Host.keepHost();
+      Host.companion.foo();
     }
   }
 
@@ -82,18 +73,34 @@ public class CompanionConstructorShakingTest extends TestBase {
 
     static final Companion companion = new Companion();
 
-    @NeverInline
-    static void keepHost() {
-      System.out.println();
-    }
-
     @NeverClassInline
     @NoHorizontalClassMerging
     static class Companion {
 
       @NeverInline
-      void greet() {
-        System.out.print("Hello world!");
+      void foo() {
+        System.out.println("Foo!");
+        bar();
+      }
+
+      @NeverInline
+      void bar() {
+        System.out.println("Bar!");
+        baz(true);
+      }
+
+      @NeverInline
+      void baz(boolean doQux) {
+        System.out.println("Baz!");
+        if (doQux) {
+          qux();
+        }
+      }
+
+      @NeverInline
+      void qux() {
+        System.out.println("Qux!");
+        baz(false);
       }
     }
   }
