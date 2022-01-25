@@ -324,9 +324,8 @@ public class VerticalClassMerger {
 
     // The set of targets that must remain for proper resolution error cases should not be merged.
     // TODO(b/192821424): Can be removed if handled.
-    for (DexMethod method : appInfo.getFailedMethodResolutionTargets()) {
-      markTypeAsPinned(method.holder, AbortReason.RESOLUTION_FOR_METHODS_MAY_CHANGE);
-    }
+    extractPinnedItems(
+        appInfo.getFailedMethodResolutionTargets(), AbortReason.RESOLUTION_FOR_METHODS_MAY_CHANGE);
   }
 
   private <T extends DexReference> void extractPinnedItems(Iterable<T> items, AbortReason reason) {
@@ -1129,7 +1128,7 @@ public class VerticalClassMerger {
         return false;
       }
 
-      // Rewrite generic signatures before we merge fields.
+      // Rewrite generic signatures before we merge a base with a generic signature.
       rewriteGenericSignatures(target, source, directMethods.values(), virtualMethods.values());
 
       // Convert out of DefaultInstanceInitializerCode, since this piece of code will require lens
@@ -1333,16 +1332,18 @@ public class VerticalClassMerger {
         assert false : "Type should be present in generic signature";
         return null;
       }
+      Map<String, FieldTypeSignature> substitutionMap = new HashMap<>();
       List<FormalTypeParameter> formals = source.getClassSignature().getFormalTypeParameters();
       if (genericArgumentsToSuperType.size() != formals.size()) {
-        // TODO(b/214509535): Correctly rewrite signature when type arguments is empty.
-        assert genericArgumentsToSuperType.isEmpty() : "Invalid argument count to formals";
-        return null;
-      }
-      Map<String, FieldTypeSignature> substitutionMap = new HashMap<>();
-      for (int i = 0; i < formals.size(); i++) {
-        // It is OK to override a generic type variable so we just use put.
-        substitutionMap.put(formals.get(i).getName(), genericArgumentsToSuperType.get(i));
+        if (!genericArgumentsToSuperType.isEmpty()) {
+          assert false : "Invalid argument count to formals";
+          return null;
+        }
+      } else {
+        for (int i = 0; i < formals.size(); i++) {
+          // It is OK to override a generic type variable so we just use put.
+          substitutionMap.put(formals.get(i).getName(), genericArgumentsToSuperType.get(i));
+        }
       }
       return GenericSignaturePartialTypeArgumentApplier.build(
           appView,
@@ -1512,6 +1513,7 @@ public class VerticalClassMerger {
               .setApiLevelForDefinition(method.getApiLevelForDefinition())
               .setApiLevelForCode(method.getApiLevelForDefinition())
               .setIsLibraryMethodOverride(method.isLibraryMethodOverride())
+              .setGenericSignature(method.getGenericSignature())
               .build();
       if (method.accessFlags.isPromotedToPublic()) {
         // The bridge is now the public method serving the role of the original method, and should
@@ -1966,7 +1968,7 @@ public class VerticalClassMerger {
     }
 
     @Override
-    public DexField getRenamedFieldSignature(DexField originalField) {
+    public DexField getRenamedFieldSignature(DexField originalField, GraphLens codeLens) {
       throw new Unreachable();
     }
 
@@ -1981,7 +1983,7 @@ public class VerticalClassMerger {
     }
 
     @Override
-    protected DexMethod internalGetPreviousMethodSignature(DexMethod method) {
+    public DexMethod getPreviousMethodSignature(DexMethod method) {
       throw new Unreachable();
     }
 
@@ -2022,7 +2024,7 @@ public class VerticalClassMerger {
 
     @Override
     public RewrittenPrototypeDescription lookupPrototypeChangesForMethodDefinition(
-        DexMethod method) {
+        DexMethod method, GraphLens codeLens) {
       throw new Unreachable();
     }
 

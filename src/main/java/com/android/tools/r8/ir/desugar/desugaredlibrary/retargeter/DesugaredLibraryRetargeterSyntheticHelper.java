@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.ClasspathOrLibraryClass;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.DerivedMethod;
@@ -18,7 +19,6 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibr
 import com.android.tools.r8.ir.synthetic.EmulateDispatchSyntheticCfCodeProvider;
 import com.android.tools.r8.synthesis.SyntheticClassBuilder;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
-import com.android.tools.r8.utils.DescriptorUtils;
 import java.util.LinkedHashMap;
 
 public class DesugaredLibraryRetargeterSyntheticHelper {
@@ -37,7 +37,8 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
 
   private DexMethod emulatedHolderDispatchMethod(DexType holder, DerivedMethod method) {
     assert method.getHolderKind() == SyntheticKind.RETARGET_CLASS;
-    return appView.dexItemFactory().createMethod(holder, method.getProto(), method.getName());
+    DexProto newProto = appView.dexItemFactory().prependHolderToProto(method.getMethod());
+    return appView.dexItemFactory().createMethod(holder, newProto, method.getName());
   }
 
   DexMethod emulatedInterfaceDispatchMethod(DexType holder, DerivedMethod method) {
@@ -83,10 +84,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
                   context,
                   appView,
                   classBuilder -> buildHolderDispatchMethod(classBuilder, itfClass, descriptor),
-                  clazz -> {
-                    eventConsumer.acceptDesugaredLibraryRetargeterDispatchClasspathClass(clazz);
-                    rewriteType(clazz.type);
-                  });
+                  eventConsumer::acceptDesugaredLibraryRetargeterDispatchClasspathClass);
     }
     DexMethod dispatchMethod =
         emulatedHolderDispatchMethod(syntheticClass.type, emulatedDispatchMethod);
@@ -110,10 +108,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
             holderContext,
             appView,
             classBuilder -> buildHolderDispatchMethod(classBuilder, itfClass, descriptor),
-            clazz -> {
-              eventConsumer.acceptDesugaredLibraryRetargeterDispatchProgramClass(clazz);
-              rewriteType(clazz.type);
-            });
+            eventConsumer::acceptDesugaredLibraryRetargeterDispatchProgramClass);
   }
 
   public DexClass ensureEmulatedInterfaceDispatchMethod(
@@ -136,10 +131,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
             context,
             appView,
             classBuilder -> buildInterfaceDispatchMethod(classBuilder, descriptor),
-            clazz -> {
-              eventConsumer.acceptDesugaredLibraryRetargeterDispatchClasspathClass(clazz);
-              rewriteType(clazz.type);
-            });
+            eventConsumer::acceptDesugaredLibraryRetargeterDispatchClasspathClass);
   }
 
   public DexClass ensureEmulatedInterfaceDispatchMethod(
@@ -156,10 +148,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
             itfContext,
             appView,
             classBuilder -> buildInterfaceDispatchMethod(classBuilder, descriptor),
-            clazz -> {
-              eventConsumer.acceptDesugaredLibraryRetargeterDispatchProgramClass(clazz);
-              rewriteType(clazz.type);
-            });
+            eventConsumer::acceptDesugaredLibraryRetargeterDispatchProgramClass);
   }
 
   private void buildInterfaceDispatchMethod(
@@ -213,13 +202,5 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
     return new EmulateDispatchSyntheticCfCodeProvider(
             methodSig.getHolderType(), forwardingMethod, itfMethod, new LinkedHashMap<>(), appView)
         .generateCfCode();
-  }
-
-  private void rewriteType(DexType type) {
-    String newName =
-        appView.options().desugaredLibrarySpecification.convertJavaNameToDesugaredLibrary(type);
-    DexType newType =
-        appView.dexItemFactory().createType(DescriptorUtils.javaTypeToDescriptor(newName));
-    appView.rewritePrefix.rewriteType(type, newType);
   }
 }

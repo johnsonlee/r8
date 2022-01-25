@@ -45,7 +45,7 @@ public class ArgumentPropagatorGraphLens extends NestedGraphLens {
   }
 
   public boolean isAffected(DexMethod method) {
-    return method != internalGetPreviousMethodSignature(method) || hasPrototypeChanges(method);
+    return method != getPreviousMethodSignature(method) || hasPrototypeChanges(method);
   }
 
   @Override
@@ -70,7 +70,7 @@ public class ArgumentPropagatorGraphLens extends NestedGraphLens {
   @Override
   protected RewrittenPrototypeDescription internalDescribePrototypeChanges(
       RewrittenPrototypeDescription prototypeChanges, DexMethod method) {
-    DexMethod previous = internalGetPreviousMethodSignature(method);
+    DexMethod previous = getPreviousMethodSignature(method);
     if (!hasPrototypeChanges(method)) {
       return prototypeChanges;
     }
@@ -83,8 +83,8 @@ public class ArgumentPropagatorGraphLens extends NestedGraphLens {
   }
 
   @Override
-  public DexMethod internalGetPreviousMethodSignature(DexMethod method) {
-    return super.internalGetPreviousMethodSignature(method);
+  public DexMethod getPreviousMethodSignature(DexMethod method) {
+    return super.getPreviousMethodSignature(method);
   }
 
   @Override
@@ -177,7 +177,8 @@ public class ArgumentPropagatorGraphLens extends NestedGraphLens {
       for (Entry<DexMethod, RewrittenPrototypeDescription> entry : prototypeChanges.entrySet()) {
         RewrittenPrototypeDescription prototypeChangesForMethod = entry.getValue();
         RewrittenPrototypeDescription rewrittenPrototypeChangesForMethod =
-            prototypeChangesForMethod.rewrittenWithLens(appView, argumentPropagatorGraphLens);
+            prototypeChangesForMethod.rewrittenWithLens(
+                appView, argumentPropagatorGraphLens, argumentPropagatorGraphLens.getPrevious());
         if (rewrittenPrototypeChangesForMethod != prototypeChangesForMethod) {
           entry.setValue(rewrittenPrototypeChangesForMethod);
         }

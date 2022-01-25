@@ -53,6 +53,8 @@ import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.horizontalclassmerging.Policy;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.desugar.PrefixRewritingMapper;
+import com.android.tools.r8.ir.desugar.PrefixRewritingMapper.MachineDesugarPrefixRewritingMapper;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.nest.Nest;
@@ -892,6 +894,15 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public LegacyDesugaredLibrarySpecification desugaredLibrarySpecification =
       LegacyDesugaredLibrarySpecification.empty();
 
+  public PrefixRewritingMapper getPrefixRewritingMapper() {
+    if (testing.machineDesugaredLibrarySpecification != null) {
+      return new MachineDesugarPrefixRewritingMapper(
+          desugaredLibrarySpecification.getPrefixRewritingMapper(),
+          testing.machineDesugaredLibrarySpecification.getRewritingFlags());
+    }
+    return desugaredLibrarySpecification.getPrefixRewritingMapper();
+  }
+
   public boolean relocatorCompilation = false;
 
   // If null, no keep rules are recorded.
@@ -1264,6 +1275,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     private boolean enabled = true;
     private boolean enableMethodStaticizing = true;
 
+    private boolean forceSyntheticsForInstanceInitializers = false;
+
     public void disableOptimization() {
       enabled = false;
     }
@@ -1279,6 +1292,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       return enabled;
     }
 
+    public boolean isForceSyntheticsForInstanceInitializersEnabled() {
+      return forceSyntheticsForInstanceInitializers;
+    }
+
     public boolean isMethodStaticizingEnabled() {
       return enableMethodStaticizing;
     }
@@ -1289,6 +1306,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       } else {
         disableOptimization();
       }
+      return this;
+    }
+
+    public CallSiteOptimizationOptions setForceSyntheticsForInstanceInitializers(
+        boolean forceSyntheticsForInstanceInitializers) {
+      this.forceSyntheticsForInstanceInitializers = forceSyntheticsForInstanceInitializers;
       return this;
     }
 
@@ -2314,5 +2337,13 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // See b/182137865.
   public boolean canParseNumbersWithPlusPrefix() {
     return getMinApiLevel().isGreaterThan(AndroidApiLevel.K);
+  }
+
+  // Lollipop and Marshmallow devices do not correctly handle invoke-super when the static holder
+  // is higher up in the hierarchy than the method that the invoke-super should resolve to.
+  //
+  // See b/215573892.
+  public boolean canHaveSuperInvokeBug() {
+    return getMinApiLevel().isLessThan(AndroidApiLevel.N);
   }
 }

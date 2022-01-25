@@ -31,6 +31,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntLists;
 import it.unimi.dsi.fastutil.ints.IntSortedSet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -51,8 +52,13 @@ public class RewrittenPrototypeDescription {
           }
 
           @Override
+          public boolean isNone() {
+            return true;
+          }
+
+          @Override
           public ArgumentInfo rewrittenWithLens(
-              AppView<AppInfoWithLiveness> appView, GraphLens graphLens) {
+              AppView<AppInfoWithLiveness> appView, GraphLens graphLens, GraphLens codeLens) {
             return this;
           }
 
@@ -80,6 +86,10 @@ public class RewrittenPrototypeDescription {
       return arg1.combine(arg2);
     }
 
+    public boolean isNone() {
+      return false;
+    }
+
     public boolean isRemovedArgumentInfo() {
       return false;
     }
@@ -100,7 +110,7 @@ public class RewrittenPrototypeDescription {
     public abstract ArgumentInfo combine(ArgumentInfo info);
 
     public abstract ArgumentInfo rewrittenWithLens(
-        AppView<AppInfoWithLiveness> appView, GraphLens graphLens);
+        AppView<AppInfoWithLiveness> appView, GraphLens graphLens, GraphLens codeLens);
 
     @Override
     public abstract boolean equals(Object obj);
@@ -113,8 +123,14 @@ public class RewrittenPrototypeDescription {
 
     public static class Builder {
 
+      private boolean checkNullOrZero;
       private SingleValue singleValue;
       private DexType type;
+
+      public Builder setCheckNullOrZero(boolean checkNullOrZero) {
+        this.checkNullOrZero = checkNullOrZero;
+        return this;
+      }
 
       public Builder setSingleValue(SingleValue singleValue) {
         this.singleValue = singleValue;
@@ -128,14 +144,16 @@ public class RewrittenPrototypeDescription {
 
       public RemovedArgumentInfo build() {
         assert type != null;
-        return new RemovedArgumentInfo(singleValue, type);
+        return new RemovedArgumentInfo(checkNullOrZero, singleValue, type);
       }
     }
 
+    private final boolean checkNullOrZero;
     private final SingleValue singleValue;
     private final DexType type;
 
-    private RemovedArgumentInfo(SingleValue singleValue, DexType type) {
+    private RemovedArgumentInfo(boolean checkNullOrZero, SingleValue singleValue, DexType type) {
+      this.checkNullOrZero = checkNullOrZero;
       this.singleValue = singleValue;
       this.type = type;
     }
@@ -156,8 +174,8 @@ public class RewrittenPrototypeDescription {
       return type;
     }
 
-    public boolean isNeverUsed() {
-      return !hasSingleValue();
+    public boolean isCheckNullOrZeroSet() {
+      return checkNullOrZero;
     }
 
     @Override
@@ -178,12 +196,12 @@ public class RewrittenPrototypeDescription {
 
     @Override
     public RemovedArgumentInfo rewrittenWithLens(
-        AppView<AppInfoWithLiveness> appView, GraphLens graphLens) {
+        AppView<AppInfoWithLiveness> appView, GraphLens graphLens, GraphLens codeLens) {
       SingleValue rewrittenSingleValue =
-          hasSingleValue() ? singleValue.rewrittenWithLens(appView, graphLens) : null;
-      DexType rewrittenType = graphLens.lookupType(type);
+          hasSingleValue() ? singleValue.rewrittenWithLens(appView, graphLens, codeLens) : null;
+      DexType rewrittenType = graphLens.lookupType(type, codeLens);
       if (rewrittenSingleValue != singleValue || rewrittenType != type) {
-        return new RemovedArgumentInfo(rewrittenSingleValue, rewrittenType);
+        return new RemovedArgumentInfo(checkNullOrZero, rewrittenSingleValue, rewrittenType);
       }
       return this;
     }
@@ -194,12 +212,14 @@ public class RewrittenPrototypeDescription {
         return false;
       }
       RemovedArgumentInfo other = (RemovedArgumentInfo) obj;
-      return type == other.type && Objects.equals(singleValue, other.singleValue);
+      return checkNullOrZero == other.checkNullOrZero
+          && type == other.type
+          && Objects.equals(singleValue, other.singleValue);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(singleValue, type);
+      return Objects.hash(checkNullOrZero, singleValue, type);
     }
   }
 
@@ -212,12 +232,6 @@ public class RewrittenPrototypeDescription {
 
     public static Builder builder() {
       return new Builder();
-    }
-
-    public static RewrittenTypeInfo toVoid(
-        DexType oldReturnType, DexItemFactory dexItemFactory, SingleValue singleValue) {
-      assert singleValue != null;
-      return new RewrittenTypeInfo(oldReturnType, dexItemFactory.voidType, null, singleValue);
     }
 
     public RewrittenTypeInfo(DexType oldType, DexType newType) {
@@ -293,11 +307,14 @@ public class RewrittenPrototypeDescription {
 
     @Override
     public RewrittenTypeInfo rewrittenWithLens(
-        AppView<AppInfoWithLiveness> appView, GraphLens graphLens) {
-      DexType rewrittenCastType = castType != null ? graphLens.lookupType(castType) : null;
-      DexType rewrittenNewType = graphLens.lookupType(newType);
+        AppView<AppInfoWithLiveness> appView, GraphLens graphLens, GraphLens codeLens) {
+      DexType rewrittenCastType =
+          castType != null ? graphLens.lookupType(castType, codeLens) : null;
+      DexType rewrittenNewType = graphLens.lookupType(newType, codeLens);
       SingleValue rewrittenSingleValue =
-          hasSingleValue() ? getSingleValue().rewrittenWithLens(appView, graphLens) : null;
+          hasSingleValue()
+              ? getSingleValue().rewrittenWithLens(appView, graphLens, codeLens)
+              : null;
       if (rewrittenCastType != castType
           || rewrittenNewType != newType
           || rewrittenSingleValue != singleValue) {
@@ -322,12 +339,6 @@ public class RewrittenPrototypeDescription {
     @Override
     public int hashCode() {
       return Objects.hash(oldType, newType, singleValue);
-    }
-
-    public boolean verifyIsDueToUnboxing(DexItemFactory dexItemFactory) {
-      assert oldType.toBaseType(dexItemFactory).isClassType();
-      assert newType.toBaseType(dexItemFactory).isIntType();
-      return true;
     }
 
     public static class Builder {
@@ -451,9 +462,9 @@ public class RewrittenPrototypeDescription {
       return removed;
     }
 
-    public int numberOfRemovedNonReceiverArguments(DexEncodedMethod method) {
+    public int numberOfRemovedNonReceiverArguments(ProgramMethod method) {
       return numberOfRemovedArguments()
-          - BooleanUtils.intValue(method.isInstance() && isArgumentRemoved(0));
+          - BooleanUtils.intValue(method.getDefinition().isInstance() && isArgumentRemoved(0));
     }
 
     public boolean hasArgumentInfo(int argumentIndex) {
@@ -469,11 +480,12 @@ public class RewrittenPrototypeDescription {
     }
 
     public ArgumentInfoCollection rewrittenWithLens(
-        AppView<AppInfoWithLiveness> appView, GraphLens graphLens) {
+        AppView<AppInfoWithLiveness> appView, GraphLens graphLens, GraphLens codeLens) {
       Int2ObjectSortedMap<ArgumentInfo> rewrittenArgumentInfos = new Int2ObjectRBTreeMap<>();
       for (Int2ObjectMap.Entry<ArgumentInfo> entry : argumentInfos.int2ObjectEntrySet()) {
         ArgumentInfo argumentInfo = entry.getValue();
-        ArgumentInfo rewrittenArgumentInfo = argumentInfo.rewrittenWithLens(appView, graphLens);
+        ArgumentInfo rewrittenArgumentInfo =
+            argumentInfo.rewrittenWithLens(appView, graphLens, codeLens);
         if (rewrittenArgumentInfo != argumentInfo) {
           rewrittenArgumentInfos.put(entry.getIntKey(), rewrittenArgumentInfo);
         }
@@ -527,46 +539,6 @@ public class RewrittenPrototypeDescription {
         }
         return new ArgumentInfoCollection(argumentInfos);
       }
-    }
-
-    public DexMethod rewriteMethod(ProgramMethod method, DexItemFactory dexItemFactory) {
-      if (isEmpty()) {
-        return method.getReference();
-      }
-      DexProto rewrittenProto = rewriteProto(method, dexItemFactory);
-      return method.getReference().withProto(rewrittenProto, dexItemFactory);
-    }
-
-    public DexProto rewriteProto(ProgramMethod method, DexItemFactory dexItemFactory) {
-      return isEmpty()
-          ? method.getProto()
-          : dexItemFactory.createProto(method.getReturnType(), rewriteParameters(method));
-    }
-
-    public DexType[] rewriteParameters(ProgramMethod method) {
-      return rewriteParameters(method.getDefinition());
-    }
-
-    public DexType[] rewriteParameters(DexEncodedMethod encodedMethod) {
-      DexType[] params = encodedMethod.getParameters().values;
-      if (isEmpty()) {
-        return params;
-      }
-      DexType[] newParams =
-          new DexType[params.length - numberOfRemovedNonReceiverArguments(encodedMethod)];
-      int offset = encodedMethod.getFirstNonReceiverArgumentIndex();
-      int newParamIndex = 0;
-      for (int oldParamIndex = 0; oldParamIndex < params.length; oldParamIndex++) {
-        ArgumentInfo argInfo = argumentInfos.get(oldParamIndex + offset);
-        if (argInfo == null) {
-          newParams[newParamIndex++] = params[oldParamIndex];
-        } else if (argInfo.isRewrittenTypeInfo()) {
-          RewrittenTypeInfo rewrittenTypeInfo = argInfo.asRewrittenTypeInfo();
-          assert params[oldParamIndex] == rewrittenTypeInfo.oldType;
-          newParams[newParamIndex++] = rewrittenTypeInfo.newType;
-        }
-      }
-      return newParams;
     }
 
     public ArgumentInfoCollection combine(ArgumentInfoCollection info) {
@@ -782,44 +754,80 @@ public class RewrittenPrototypeDescription {
   public Instruction getConstantReturn(
       AppView<AppInfoWithLiveness> appView,
       IRCode code,
-      ProgramMethod method,
       Position position,
       TypeAndLocalInfoSupplier info) {
     assert rewrittenReturnInfo != null;
     assert rewrittenReturnInfo.hasSingleValue();
-    assert rewrittenReturnInfo.getSingleValue().isMaterializableInContext(appView, method);
     Instruction instruction =
         rewrittenReturnInfo.getSingleValue().createMaterializingInstruction(appView, code, info);
     instruction.setPosition(position);
     return instruction;
   }
 
+  public boolean verifyConstantReturnAccessibleInContext(
+      AppView<AppInfoWithLiveness> appView, ProgramMethod method, GraphLens codeLens) {
+    SingleValue rewrittenSingleValue =
+        rewrittenReturnInfo
+            .getSingleValue()
+            .rewrittenWithLens(appView, appView.graphLens(), codeLens);
+    assert rewrittenSingleValue.isMaterializableInContext(appView, method);
+    return true;
+  }
+
   public DexMethod rewriteMethod(ProgramMethod method, DexItemFactory dexItemFactory) {
     if (isEmpty()) {
       return method.getReference();
     }
-    DexProto rewrittenProto = rewriteProto(method.getDefinition(), dexItemFactory);
+    DexProto rewrittenProto = rewriteProto(method, dexItemFactory);
     return method.getReference().withProto(rewrittenProto, dexItemFactory);
   }
 
-  public DexProto rewriteProto(DexEncodedMethod encodedMethod, DexItemFactory dexItemFactory) {
+  public DexProto rewriteProto(ProgramMethod method, DexItemFactory dexItemFactory) {
     if (isEmpty()) {
-      return encodedMethod.getReference().proto;
+      return method.getProto();
     }
     DexType newReturnType =
-        rewrittenReturnInfo != null
-            ? rewrittenReturnInfo.newType
-            : encodedMethod.getReference().proto.returnType;
-    DexType[] newParameters = argumentInfoCollection.rewriteParameters(encodedMethod);
+        rewrittenReturnInfo != null ? rewrittenReturnInfo.getNewType() : method.getReturnType();
+    DexType[] newParameters = rewriteParameters(method, dexItemFactory);
     return dexItemFactory.createProto(newReturnType, newParameters);
   }
 
+  public DexType[] rewriteParameters(ProgramMethod method, DexItemFactory dexItemFactory) {
+    DexType[] params = method.getParameters().values;
+    if (isEmpty()) {
+      return params;
+    }
+    DexType[] newParams =
+        new DexType
+            [params.length
+                - argumentInfoCollection.numberOfRemovedNonReceiverArguments(method)
+                + extraParameters.size()];
+    int offset = method.getDefinition().getFirstNonReceiverArgumentIndex();
+    int newParamIndex = 0;
+    for (int oldParamIndex = 0; oldParamIndex < params.length; oldParamIndex++) {
+      ArgumentInfo argInfo = argumentInfoCollection.getArgumentInfo(oldParamIndex + offset);
+      if (argInfo.isNone()) {
+        newParams[newParamIndex++] = params[oldParamIndex];
+      } else if (argInfo.isRewrittenTypeInfo()) {
+        RewrittenTypeInfo rewrittenTypeInfo = argInfo.asRewrittenTypeInfo();
+        assert params[oldParamIndex] == rewrittenTypeInfo.oldType;
+        newParams[newParamIndex++] = rewrittenTypeInfo.newType;
+      }
+    }
+    for (ExtraParameter extraParameter : extraParameters) {
+      newParams[newParamIndex++] = extraParameter.getType(dexItemFactory);
+    }
+    return newParams;
+  }
+
   public RewrittenPrototypeDescription rewrittenWithLens(
-      AppView<AppInfoWithLiveness> appView, GraphLens graphLens) {
+      AppView<AppInfoWithLiveness> appView, GraphLens graphLens, GraphLens codeLens) {
     ArgumentInfoCollection newArgumentInfoCollection =
-        argumentInfoCollection.rewrittenWithLens(appView, graphLens);
+        argumentInfoCollection.rewrittenWithLens(appView, graphLens, codeLens);
     RewrittenTypeInfo newRewrittenReturnInfo =
-        hasRewrittenReturnInfo() ? rewrittenReturnInfo.rewrittenWithLens(appView, graphLens) : null;
+        hasRewrittenReturnInfo()
+            ? rewrittenReturnInfo.rewrittenWithLens(appView, graphLens, codeLens)
+            : null;
     if (newArgumentInfoCollection != argumentInfoCollection
         || newRewrittenReturnInfo != rewrittenReturnInfo) {
       return new RewrittenPrototypeDescription(
@@ -842,6 +850,10 @@ public class RewrittenPrototypeDescription {
     List<ExtraParameter> parameters =
         Collections.nCopies(numberOfExtraUnusedNullParameters, new ExtraUnusedNullParameter());
     return withExtraParameters(parameters);
+  }
+
+  public RewrittenPrototypeDescription withExtraParameters(ExtraParameter... parameters) {
+    return withExtraParameters(Arrays.asList(parameters));
   }
 
   public RewrittenPrototypeDescription withExtraParameters(List<ExtraParameter> parameters) {

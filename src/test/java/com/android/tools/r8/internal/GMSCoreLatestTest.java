@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.internal;
 
+import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.startsWith;
 import static org.hamcrest.core.AnyOf.anyOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -122,6 +124,11 @@ public class GMSCoreLatestTest extends GMSCoreCompilationTestBase {
         .assertAllWarningMessagesMatch(
             anyOf(
                 containsString("Expected stack map table for method with non-linear control flow."),
-                containsString("Ignoring option: -outjars")));
+                containsString("Ignoring option: -outjars"),
+                allOf(
+                    startsWith(
+                        "Rule matches the static final field "
+                            + "`java.lang.String com.google.protobuf."),
+                    containsString("which may have been inlined: -identifiernamestring"))));
   }
 }

@@ -14,6 +14,9 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
+import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
+import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.MethodCollection;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
@@ -75,8 +78,14 @@ public class ArgumentPropagatorApplicationFixer extends TreeFixerBase {
   }
 
   private void fixupFields(DexProgramClass clazz) {
-    clazz.setInstanceFields(fixupFields(clazz.instanceFields()));
-    clazz.setStaticFields(fixupFields(clazz.staticFields()));
+    clazz.setInstanceFields(
+        fixupFields(
+            clazz.instanceFields(),
+            builder -> builder.setGenericSignature(FieldTypeSignature.noSignature())));
+    clazz.setStaticFields(
+        fixupFields(
+            clazz.staticFields(),
+            builder -> builder.setGenericSignature(FieldTypeSignature.noSignature())));
   }
 
   private void fixupMethods(DexProgramClass clazz) {
@@ -97,8 +106,9 @@ public class ArgumentPropagatorApplicationFixer extends TreeFixerBase {
                 if (graphLens.hasPrototypeChanges(methodReferenceAfterParameterRemoval)) {
                   RewrittenPrototypeDescription prototypeChanges =
                       graphLens.getPrototypeChanges(methodReferenceAfterParameterRemoval);
-                  builder.apply(prototypeChanges.createParameterAnnotationsRemover(method));
-
+                  builder
+                      .apply(prototypeChanges.createParameterAnnotationsRemover(method))
+                      .setGenericSignature(MethodTypeSignature.noSignature());
                   if (method.isInstance()
                       && prototypeChanges.getArgumentInfoCollection().isArgumentRemoved(0)) {
                     builder
@@ -111,6 +121,7 @@ public class ArgumentPropagatorApplicationFixer extends TreeFixerBase {
   }
 
   private void fixupOptimizationInfos(ExecutorService executorService) throws ExecutionException {
+    GraphLens codeLens = graphLens.getPrevious();
     PrunedItems prunedItems = PrunedItems.empty(appView.app());
     getSimpleFeedback()
         .fixupOptimizationInfos(
@@ -120,7 +131,7 @@ public class ArgumentPropagatorApplicationFixer extends TreeFixerBase {
               @Override
               public void fixup(
                   DexEncodedField field, MutableFieldOptimizationInfo optimizationInfo) {
-                optimizationInfo.fixupAbstractValue(appView, graphLens);
+                optimizationInfo.fixupAbstractValue(appView, graphLens, codeLens);
               }
 
               @Override
@@ -129,8 +140,8 @@ public class ArgumentPropagatorApplicationFixer extends TreeFixerBase {
                 // Fixup the return value in case the method returns a field that had its signature
                 // changed.
                 optimizationInfo
-                    .fixupAbstractReturnValue(appView, graphLens)
-                    .fixupInstanceInitializerInfo(appView, graphLens, prunedItems);
+                    .fixupAbstractReturnValue(appView, graphLens, codeLens)
+                    .fixupInstanceInitializerInfo(appView, graphLens, codeLens, prunedItems);
 
                 // Rewrite the optimization info to account for method signature changes.
                 if (graphLens.hasPrototypeChanges(method.getReference())) {

@@ -100,7 +100,10 @@ public class MemberRebindingIdentityLens extends NonIdentityGraphLens {
   }
 
   @Override
-  public DexField getRenamedFieldSignature(DexField originalField) {
+  public DexField getRenamedFieldSignature(DexField originalField, GraphLens codeLens) {
+    if (this == codeLens) {
+      return originalField;
+    }
     return getPrevious().getRenamedFieldSignature(originalField);
   }
 
@@ -115,13 +118,17 @@ public class MemberRebindingIdentityLens extends NonIdentityGraphLens {
   }
 
   @Override
-  protected DexMethod internalGetPreviousMethodSignature(DexMethod method) {
+  public DexMethod getPreviousMethodSignature(DexMethod method) {
     return method;
   }
 
   @Override
-  public RewrittenPrototypeDescription lookupPrototypeChangesForMethodDefinition(DexMethod method) {
-    return getPrevious().lookupPrototypeChangesForMethodDefinition(method);
+  public RewrittenPrototypeDescription lookupPrototypeChangesForMethodDefinition(
+      DexMethod method, GraphLens codeLens) {
+    if (this == codeLens) {
+      return getIdentityLens().lookupPrototypeChangesForMethodDefinition(method, codeLens);
+    }
+    return getPrevious().lookupPrototypeChangesForMethodDefinition(method, codeLens);
   }
 
   @Override

@@ -105,7 +105,7 @@ public class SingleConstClassValue extends SingleConstValue {
   public boolean isMaterializableInAllContexts(AppView<AppInfoWithLiveness> appView) {
     DexType baseType = type.toBaseType(appView.dexItemFactory());
     if (baseType.isClassType()) {
-      DexClass clazz = appView.definitionFor(type);
+      DexClass clazz = appView.definitionFor(baseType);
       if (clazz == null || !clazz.isPublic() || !clazz.isResolvable(appView)) {
         return false;
       }
@@ -128,8 +128,9 @@ public class SingleConstClassValue extends SingleConstValue {
   }
 
   @Override
-  public SingleValue rewrittenWithLens(AppView<AppInfoWithLiveness> appView, GraphLens lens) {
-    assert lens.lookupType(type) == type;
+  public SingleValue rewrittenWithLens(
+      AppView<AppInfoWithLiveness> appView, GraphLens lens, GraphLens codeLens) {
+    assert lens.lookupType(type, codeLens) == type;
     return this;
   }
 }

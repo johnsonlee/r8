@@ -40,8 +40,10 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.GraphLens;
+import com.android.tools.r8.graph.GraphLens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues.EnumStaticFieldValues;
 import com.android.tools.r8.ir.analysis.type.ArrayTypeElement;
@@ -62,7 +64,6 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.InstanceGet;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeStatic;
@@ -627,6 +628,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       return;
     }
 
+    GraphLens previousLens = appView.graphLens();
     ImmutableSet<DexType> enumsToUnbox = enumUnboxingCandidatesInfo.candidates();
     ImmutableSet<DexProgramClass> enumClassesToUnbox =
         enumUnboxingCandidatesInfo.candidateClasses();
@@ -646,14 +648,18 @@ public class EnumUnboxerImpl extends EnumUnboxer {
         checkNotNullMethodsBuilder
             .rewrittenWithLens(appView, (enumClasses, appliedGraphLens) -> enumClasses)
             .build(appView, builder -> builder.build(appView));
+    checkNotNullMethods.removeIf(
+        (checkNotNullMethod, ignore) ->
+            !checkNotNullMethod
+                .getOptimizationInfo()
+                .getEnumUnboxerMethodClassification()
+                .isCheckNotNullClassification());
+
     EnumUnboxingTreeFixer.Result treeFixerResult =
         new EnumUnboxingTreeFixer(
                 appView, checkNotNullMethods, enumDataMap, enumClassesToUnbox, utilityClasses)
             .fixupTypeReferences(converter, executorService);
     EnumUnboxingLens enumUnboxingLens = treeFixerResult.getLens();
-
-    // Update the graph lens.
-    appView.rewriteWithLens(enumUnboxingLens);
 
     // Enqueue the (lens rewritten) methods that require reprocessing.
     //
@@ -674,13 +680,12 @@ public class EnumUnboxerImpl extends EnumUnboxer {
                 .removeAll(treeFixerResult.getPrunedItems().getRemovedMethods()));
     methodsDependingOnLibraryModelisation.clear();
 
-    updateOptimizationInfos(executorService, feedback, treeFixerResult);
+    updateOptimizationInfos(executorService, feedback, treeFixerResult, previousLens);
 
     enumUnboxerRewriter =
         new EnumUnboxingRewriter(
             appView,
             treeFixerResult.getCheckNotNullToCheckNotZeroMapping(),
-            converter,
             enumUnboxingLens,
             enumDataMap,
             utilityClasses);
@@ -689,8 +694,15 @@ public class EnumUnboxerImpl extends EnumUnboxer {
   private void updateOptimizationInfos(
       ExecutorService executorService,
       OptimizationFeedbackDelayed feedback,
-      EnumUnboxingTreeFixer.Result treeFixerResult)
+      EnumUnboxingTreeFixer.Result treeFixerResult,
+      GraphLens previousLens)
       throws ExecutionException {
+    NonIdentityGraphLens graphLens = appView.graphLens().asNonIdentityLens();
+    assert graphLens.isEnumUnboxerLens();
+
+    GraphLens codeLens = graphLens.getPrevious();
+    assert codeLens == previousLens;
+
     feedback.fixupOptimizationInfos(
         appView,
         executorService,
@@ -698,18 +710,18 @@ public class EnumUnboxerImpl extends EnumUnboxer {
           @Override
           public void fixup(DexEncodedField field, MutableFieldOptimizationInfo optimizationInfo) {
             optimizationInfo
-                .fixupClassTypeReferences(appView, appView.graphLens())
-                .fixupAbstractValue(appView, appView.graphLens());
+                .fixupClassTypeReferences(appView, graphLens)
+                .fixupAbstractValue(appView, graphLens, codeLens);
           }
 
           @Override
           public void fixup(
               DexEncodedMethod method, MutableMethodOptimizationInfo optimizationInfo) {
             optimizationInfo
-                .fixupClassTypeReferences(appView, appView.graphLens())
-                .fixupAbstractReturnValue(appView, appView.graphLens())
+                .fixupClassTypeReferences(appView, graphLens)
+                .fixupAbstractReturnValue(appView, graphLens, codeLens)
                 .fixupInstanceInitializerInfo(
-                    appView, appView.graphLens(), treeFixerResult.getPrunedItems());
+                    appView, graphLens, codeLens, treeFixerResult.getPrunedItems());
 
             // Clear the enum unboxer method classification for check-not-null methods (these
             // classifications are transferred to the synthesized check-not-zero methods by now).
@@ -1448,20 +1460,16 @@ public class EnumUnboxerImpl extends EnumUnboxer {
   }
 
   @Override
-  public Set<Phi> rewriteCode(IRCode code, MethodProcessor methodProcessor) {
+  public Set<Phi> rewriteCode(
+      IRCode code,
+      MethodProcessor methodProcessor,
+      RewrittenPrototypeDescription prototypeChanges) {
     // This has no effect during primary processing since the enumUnboxerRewriter is set
     // in between primary and post processing.
     if (enumUnboxerRewriter != null) {
-      return enumUnboxerRewriter.rewriteCode(code, methodProcessor);
+      return enumUnboxerRewriter.rewriteCode(code, methodProcessor, prototypeChanges);
     }
     return Sets.newIdentityHashSet();
-  }
-
-  @Override
-  public void rewriteNullCheck(InstructionListIterator iterator, InvokeMethod invoke) {
-    if (enumUnboxerRewriter != null) {
-      enumUnboxerRewriter.rewriteNullCheck(iterator, invoke);
-    }
   }
 
   @Override

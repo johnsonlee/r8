@@ -120,7 +120,10 @@ public final class AppliedGraphLens extends NonIdentityGraphLens {
   }
 
   @Override
-  public DexField getRenamedFieldSignature(DexField originalField) {
+  public DexField getRenamedFieldSignature(DexField originalField, GraphLens codeLens) {
+    if (this == codeLens) {
+      return originalField;
+    }
     return originalFieldSignatures.inverse().getOrDefault(originalField, originalField);
   }
 
@@ -132,8 +135,9 @@ public final class AppliedGraphLens extends NonIdentityGraphLens {
   }
 
   @Override
-  public RewrittenPrototypeDescription lookupPrototypeChangesForMethodDefinition(DexMethod method) {
-    return GraphLens.getIdentityLens().lookupPrototypeChangesForMethodDefinition(method);
+  public RewrittenPrototypeDescription lookupPrototypeChangesForMethodDefinition(
+      DexMethod method, GraphLens codeLens) {
+    return GraphLens.getIdentityLens().lookupPrototypeChangesForMethodDefinition(method, codeLens);
   }
 
   @Override
@@ -153,7 +157,7 @@ public final class AppliedGraphLens extends NonIdentityGraphLens {
   }
 
   @Override
-  protected DexMethod internalGetPreviousMethodSignature(DexMethod method) {
+  public DexMethod getPreviousMethodSignature(DexMethod method) {
     if (extraOriginalMethodSignatures.containsKey(method)) {
       return extraOriginalMethodSignatures.get(method);
     }

@@ -34,6 +34,7 @@ import static com.android.tools.r8.ir.code.Opcodes.STATIC_PUT;
 import static com.android.tools.r8.utils.ObjectUtils.getBooleanOrElse;
 
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -50,16 +51,19 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.GraphLens.FieldLookupResult;
 import com.android.tools.r8.graph.GraphLens.MethodLookupResult;
+import com.android.tools.r8.graph.GraphLens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfo;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
+import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
 import com.android.tools.r8.graph.RewrittenPrototypeDescription.RewrittenTypeInfo;
 import com.android.tools.r8.graph.classmerging.VerticallyMergedClasses;
 import com.android.tools.r8.ir.analysis.type.DestructivePhiTypeUpdater;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
+import com.android.tools.r8.ir.analysis.value.SingleValue;
 import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
@@ -82,25 +86,30 @@ import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMultiNewArray;
 import com.android.tools.r8.ir.code.InvokeNewArray;
-import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.MoveException;
 import com.android.tools.r8.ir.code.NewArrayEmpty;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.Position.SourcePosition;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.SafeCheckCast;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.TypeAndLocalInfoSupplier;
+import com.android.tools.r8.ir.code.UnusedArgument;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxer;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.optimize.MemberRebindingAnalysis;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.verticalclassmerging.InterfaceTypeToClassTypeLensCodeRewriterHelper;
+import com.google.common.collect.Sets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -110,30 +119,48 @@ import java.util.function.BiFunction;
 
 public class LensCodeRewriter {
 
+  private static class GraphLensInterval {
+
+    private final NonIdentityGraphLens graphLens;
+    private final GraphLens codeLens;
+    private final DexMethod method;
+
+    GraphLensInterval(NonIdentityGraphLens graphLens, GraphLens codeLens, DexMethod method) {
+      this.graphLens = graphLens;
+      this.codeLens = codeLens;
+      this.method = method;
+    }
+
+    public NonIdentityGraphLens getGraphLens() {
+      return graphLens;
+    }
+
+    public GraphLens getCodeLens() {
+      return codeLens;
+    }
+
+    public DexMethod getMethod() {
+      return method;
+    }
+  }
+
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
+  private final DexItemFactory factory;
   private final EnumUnboxer enumUnboxer;
-  private LensCodeRewriterUtils helper = null;
   private final InternalOptions options;
 
   LensCodeRewriter(AppView<? extends AppInfoWithClassHierarchy> appView, EnumUnboxer enumUnboxer) {
     this.appView = appView;
+    this.factory = appView.dexItemFactory();
     this.enumUnboxer = enumUnboxer;
     this.options = appView.options();
   }
 
-  private LensCodeRewriterUtils getHelper() {
-    // The LensCodeRewriterUtils uses internal caches that are not valid if the graphLens changes.
-    if (helper != null && helper.hasGraphLens(appView.graphLens())) {
-      return helper;
-    }
-    helper = new LensCodeRewriterUtils(appView);
-    return helper;
-  }
-
-  private Value makeOutValue(Instruction insn, IRCode code) {
+  private Value makeOutValue(
+      Instruction insn, IRCode code, NonIdentityGraphLens graphLens, GraphLens codeLens) {
     if (insn.hasOutValue()) {
       TypeElement oldType = insn.getOutType();
-      TypeElement newType = oldType.rewrittenWithLens(appView, appView.graphLens());
+      TypeElement newType = oldType.rewrittenWithLens(appView, graphLens, codeLens);
       return code.createValue(newType, insn.getLocalInfo());
     }
     return null;
@@ -150,21 +177,71 @@ public class LensCodeRewriter {
 
   /** Replace type appearances, invoke targets and field accesses with actual definitions. */
   public void rewrite(IRCode code, ProgramMethod method, MethodProcessor methodProcessor) {
-    Set<Phi> affectedPhis = enumUnboxer.rewriteCode(code, methodProcessor);
-    GraphLens graphLens = appView.graphLens();
-    DexItemFactory factory = appView.dexItemFactory();
+    Deque<GraphLensInterval> unappliedLenses = getUnappliedLenses(method);
+    DexMethod originalMethodReference =
+        appView.graphLens().getOriginalMethodSignature(method.getReference());
+    while (!unappliedLenses.isEmpty()) {
+      GraphLensInterval unappliedLens = unappliedLenses.removeLast();
+      RewrittenPrototypeDescription prototypeChanges =
+          unappliedLens
+              .getGraphLens()
+              .lookupPrototypeChangesForMethodDefinition(
+                  unappliedLens.getMethod(), unappliedLens.getCodeLens());
+      rewritePartial(
+          code,
+          method,
+          originalMethodReference,
+          methodProcessor,
+          unappliedLens.getGraphLens(),
+          unappliedLens.getCodeLens(),
+          prototypeChanges);
+    }
+    assert code.hasNoMergedClasses(appView);
+  }
+
+  private void rewritePartial(
+      IRCode code,
+      ProgramMethod method,
+      DexMethod originalMethodReference,
+      MethodProcessor methodProcessor,
+      NonIdentityGraphLens graphLens,
+      GraphLens codeLens,
+      RewrittenPrototypeDescription prototypeChanges) {
     // Rewriting types that affects phi can cause us to compute TOP for cyclic phi's. To solve this
     // we track all phi's that needs to be re-computed.
+    Set<Phi> affectedPhis = Sets.newIdentityHashSet();
+    Set<UnusedArgument> unusedArguments = Sets.newIdentityHashSet();
+    rewriteArguments(
+        code, originalMethodReference, prototypeChanges, affectedPhis, unusedArguments);
+    if (graphLens.hasCustomCodeRewritings()) {
+      assert graphLens.isEnumUnboxerLens();
+      assert graphLens.getPrevious() == codeLens;
+      affectedPhis.addAll(enumUnboxer.rewriteCode(code, methodProcessor, prototypeChanges));
+    }
+    rewritePartialDefault(
+        code, method, graphLens, codeLens, prototypeChanges, affectedPhis, unusedArguments);
+  }
+
+  private void rewritePartialDefault(
+      IRCode code,
+      ProgramMethod method,
+      NonIdentityGraphLens graphLens,
+      GraphLens codeLens,
+      RewrittenPrototypeDescription prototypeChangesForMethod,
+      Set<Phi> affectedPhis,
+      Set<UnusedArgument> unusedArguments) {
     BasicBlockIterator blocks = code.listIterator();
+    LazyBox<LensCodeRewriterUtils> helper =
+        new LazyBox<>(() -> new LensCodeRewriterUtils(appView, graphLens, codeLens));
     InterfaceTypeToClassTypeLensCodeRewriterHelper interfaceTypeToClassTypeRewriterHelper =
-        InterfaceTypeToClassTypeLensCodeRewriterHelper.create(appView, code, methodProcessor);
+        InterfaceTypeToClassTypeLensCodeRewriterHelper.create(appView, code, graphLens, codeLens);
     boolean mayHaveUnreachableBlocks = false;
     while (blocks.hasNext()) {
       BasicBlock block = blocks.next();
       if (block.hasCatchHandlers() && options.enableVerticalClassMerging) {
-        boolean anyGuardsRenamed = block.renameGuardsInCatchHandlers(graphLens);
+        boolean anyGuardsRenamed = block.renameGuardsInCatchHandlers(graphLens, codeLens);
         if (anyGuardsRenamed) {
-          mayHaveUnreachableBlocks |= unlinkDeadCatchHandlers(block);
+          mayHaveUnreachableBlocks |= unlinkDeadCatchHandlers(block, graphLens, codeLens);
         }
       }
       InstructionListIterator iterator = block.listIterator(code);
@@ -175,9 +252,9 @@ public class LensCodeRewriter {
             {
               InvokeCustom invokeCustom = current.asInvokeCustom();
               DexCallSite callSite = invokeCustom.getCallSite();
-              DexCallSite newCallSite = getHelper().rewriteCallSite(callSite, method);
+              DexCallSite newCallSite = helper.computeIfAbsent().rewriteCallSite(callSite, method);
               if (newCallSite != callSite) {
-                Value newOutValue = makeOutValue(invokeCustom, code);
+                Value newOutValue = makeOutValue(invokeCustom, code, graphLens, codeLens);
                 InvokeCustom newInvokeCustom =
                     new InvokeCustom(newCallSite, newOutValue, invokeCustom.inValues());
                 iterator.replaceCurrentInstruction(newInvokeCustom);
@@ -192,10 +269,11 @@ public class LensCodeRewriter {
             {
               DexMethodHandle handle = current.asConstMethodHandle().getValue();
               DexMethodHandle newHandle =
-                  getHelper()
+                  helper
+                      .computeIfAbsent()
                       .rewriteDexMethodHandle(handle, NOT_ARGUMENT_TO_LAMBDA_METAFACTORY, method);
               if (newHandle != handle) {
-                Value newOutValue = makeOutValue(current, code);
+                Value newOutValue = makeOutValue(current, code, graphLens, codeLens);
                 iterator.replaceCurrentInstruction(new ConstMethodHandle(newOutValue, newHandle));
                 if (newOutValue != null && newOutValue.getType() != current.getOutType()) {
                   affectedPhis.addAll(newOutValue.uniquePhiUsers());
@@ -209,7 +287,10 @@ public class LensCodeRewriter {
               InitClass initClass = current.asInitClass();
               new InstructionReplacer(code, current, iterator, affectedPhis)
                   .replaceInstructionIfTypeChanged(
-                      initClass.getClassValue(), (t, v) -> new InitClass(v, t));
+                      initClass.getClassValue(),
+                      (t, v) -> new InitClass(v, t),
+                      graphLens,
+                      codeLens);
             }
             break;
 
@@ -236,7 +317,9 @@ public class LensCodeRewriter {
                               factory.createMethod(
                                   mappedHolder, invokedMethod.proto, invokedMethod.name);
                           return Invoke.create(VIRTUAL, actualTarget, null, v, invoke.inValues());
-                        });
+                        },
+                        graphLens,
+                        codeLens);
                 continue;
               }
               if (!invokedHolder.isClassType()) {
@@ -247,7 +330,8 @@ public class LensCodeRewriter {
                 checkInvokeDirect(method.getReference(), invoke.asInvokeDirect());
               }
               MethodLookupResult lensLookup =
-                  graphLens.lookupMethod(invokedMethod, method.getReference(), invoke.getType());
+                  graphLens.lookupMethod(
+                      invokedMethod, method.getReference(), invoke.getType(), codeLens);
               DexMethod actualTarget = lensLookup.getReference();
               Invoke.Type actualInvokeType = lensLookup.getType();
 
@@ -313,15 +397,16 @@ public class LensCodeRewriter {
                         @Override
                         public TypeElement getOutType() {
                           return graphLens
-                              .lookupType(invokedMethod.getReturnType())
+                              .lookupType(invokedMethod.getReturnType(), codeLens)
                               .toTypeElement(appView);
                         }
                       };
+                  prototypeChanges.verifyConstantReturnAccessibleInContext(
+                      appView.withLiveness(), method, graphLens);
                   constantReturnMaterializingInstruction =
                       prototypeChanges.getConstantReturn(
                           appView.withLiveness(),
                           code,
-                          method,
                           invoke.getPosition(),
                           typeAndLocalInfo);
                   if (invoke.outValue().hasLocalInfo()) {
@@ -350,7 +435,7 @@ public class LensCodeRewriter {
                     newOutValue = null;
                   }
                 } else {
-                  newOutValue = makeOutValue(invoke, code);
+                  newOutValue = makeOutValue(invoke, code, graphLens, codeLens);
                 }
 
                 Map<SingleNumberValue, Map<DexType, Value>> parameterMap = new IdentityHashMap<>();
@@ -436,16 +521,10 @@ public class LensCodeRewriter {
             {
               InstanceGet instanceGet = current.asInstanceGet();
               DexField field = instanceGet.getField();
-              FieldLookupResult lookup = graphLens.lookupFieldResult(field);
+              FieldLookupResult lookup = graphLens.lookupFieldResult(field, codeLens);
               DexField rewrittenField = rewriteFieldReference(lookup, method);
-              DexMethod replacementMethod =
-                  graphLens.lookupGetFieldForMethod(rewrittenField, method.getReference());
               Value newOutValue = null;
-              if (replacementMethod != null) {
-                newOutValue = makeOutValue(instanceGet, code, rewrittenField);
-                iterator.replaceCurrentInstruction(
-                    new InvokeStatic(replacementMethod, newOutValue, instanceGet.inValues()));
-              } else if (rewrittenField != field) {
+              if (rewrittenField != field) {
                 newOutValue = makeOutValue(instanceGet, code, rewrittenField);
                 iterator.replaceCurrentInstruction(
                     new InstanceGet(newOutValue, instanceGet.object(), rewrittenField));
@@ -478,20 +557,12 @@ public class LensCodeRewriter {
             {
               InstancePut instancePut = current.asInstancePut();
               DexField field = instancePut.getField();
-              FieldLookupResult lookup = graphLens.lookupFieldResult(field);
+              FieldLookupResult lookup = graphLens.lookupFieldResult(field, codeLens);
               iterator =
                   insertCastForFieldAssignmentIfNeeded(code, blocks, iterator, instancePut, lookup);
 
               DexField rewrittenField = rewriteFieldReference(lookup, method);
-              DexMethod replacementMethod =
-                  graphLens.lookupPutFieldForMethod(rewrittenField, method.getReference());
-              if (replacementMethod != null) {
-                InvokeStatic replacement =
-                    new InvokeStatic(replacementMethod, null, instancePut.inValues());
-                iterator.replaceCurrentInstruction(replacement);
-                interfaceTypeToClassTypeRewriterHelper.insertCastsForOperandsIfNeeded(
-                    instancePut, replacement, blocks, block, iterator);
-              } else if (rewrittenField != field) {
+              if (rewrittenField != field) {
                 Value rewrittenValue =
                     rewriteValueIfDefault(
                         code, iterator, field.type, rewrittenField.type, instancePut.value());
@@ -509,16 +580,10 @@ public class LensCodeRewriter {
             {
               StaticGet staticGet = current.asStaticGet();
               DexField field = staticGet.getField();
-              FieldLookupResult lookup = graphLens.lookupFieldResult(field);
+              FieldLookupResult lookup = graphLens.lookupFieldResult(field, codeLens);
               DexField rewrittenField = rewriteFieldReference(lookup, method);
-              DexMethod replacementMethod =
-                  graphLens.lookupGetFieldForMethod(rewrittenField, method.getReference());
               Value newOutValue = null;
-              if (replacementMethod != null) {
-                newOutValue = makeOutValue(staticGet, code, rewrittenField);
-                iterator.replaceCurrentInstruction(
-                    new InvokeStatic(replacementMethod, newOutValue, staticGet.inValues()));
-              } else if (rewrittenField != field) {
+              if (rewrittenField != field) {
                 newOutValue = makeOutValue(staticGet, code, rewrittenField);
                 iterator.replaceCurrentInstruction(new StaticGet(newOutValue, rewrittenField));
               }
@@ -550,21 +615,12 @@ public class LensCodeRewriter {
             {
               StaticPut staticPut = current.asStaticPut();
               DexField field = staticPut.getField();
-              FieldLookupResult lookup = graphLens.lookupFieldResult(field);
+              FieldLookupResult lookup = graphLens.lookupFieldResult(field, codeLens);
               iterator =
                   insertCastForFieldAssignmentIfNeeded(code, blocks, iterator, staticPut, lookup);
 
               DexField actualField = rewriteFieldReference(lookup, method);
-              DexMethod replacementMethod =
-                  graphLens.lookupPutFieldForMethod(actualField, method.getReference());
-
-              if (replacementMethod != null) {
-                InvokeStatic replacement =
-                    new InvokeStatic(replacementMethod, staticPut.outValue(), staticPut.inValues());
-                iterator.replaceCurrentInstruction(replacement);
-                interfaceTypeToClassTypeRewriterHelper.insertCastsForOperandsIfNeeded(
-                    staticPut, replacement, blocks, block, iterator);
-              } else if (actualField != field) {
+              if (actualField != field) {
                 Value rewrittenValue =
                     rewriteValueIfDefault(
                         code, iterator, field.type, actualField.type, staticPut.value());
@@ -583,7 +639,9 @@ public class LensCodeRewriter {
                   .replaceInstructionIfTypeChanged(
                       checkCast.getType(),
                       (t, v) ->
-                          new CheckCast(v, checkCast.object(), t, checkCast.ignoreCompatRules()));
+                          new CheckCast(v, checkCast.object(), t, checkCast.ignoreCompatRules()),
+                      graphLens,
+                      codeLens);
             }
             break;
 
@@ -592,7 +650,7 @@ public class LensCodeRewriter {
               ConstClass constClass = current.asConstClass();
               new InstructionReplacer(code, current, iterator, affectedPhis)
                   .replaceInstructionIfTypeChanged(
-                      constClass.getValue(), (t, v) -> new ConstClass(v, t));
+                      constClass.getValue(), (t, v) -> new ConstClass(v, t), graphLens, codeLens);
             }
             break;
 
@@ -601,7 +659,10 @@ public class LensCodeRewriter {
               InstanceOf instanceOf = current.asInstanceOf();
               new InstructionReplacer(code, current, iterator, affectedPhis)
                   .replaceInstructionIfTypeChanged(
-                      instanceOf.type(), (t, v) -> new InstanceOf(v, instanceOf.value(), t));
+                      instanceOf.type(),
+                      (t, v) -> new InstanceOf(v, instanceOf.value(), t),
+                      graphLens,
+                      codeLens);
             }
             break;
 
@@ -611,7 +672,9 @@ public class LensCodeRewriter {
               new InstructionReplacer(code, current, iterator, affectedPhis)
                   .replaceInstructionIfTypeChanged(
                       multiNewArray.getArrayType(),
-                      (t, v) -> new InvokeMultiNewArray(t, v, multiNewArray.inValues()));
+                      (t, v) -> new InvokeMultiNewArray(t, v, multiNewArray.inValues()),
+                      graphLens,
+                      codeLens);
             }
             break;
 
@@ -621,7 +684,9 @@ public class LensCodeRewriter {
               new InstructionReplacer(code, current, iterator, affectedPhis)
                   .replaceInstructionIfTypeChanged(
                       newArray.getArrayType(),
-                      (t, v) -> new InvokeNewArray(t, v, newArray.inValues()));
+                      (t, v) -> new InvokeNewArray(t, v, newArray.inValues()),
+                      graphLens,
+                      codeLens);
             }
             break;
 
@@ -630,7 +695,10 @@ public class LensCodeRewriter {
               MoveException moveException = current.asMoveException();
               new InstructionReplacer(code, current, iterator, affectedPhis)
                   .replaceInstructionIfTypeChanged(
-                      moveException.getExceptionType(), (t, v) -> new MoveException(v, t, options));
+                      moveException.getExceptionType(),
+                      (t, v) -> new MoveException(v, t, options),
+                      graphLens,
+                      codeLens);
             }
             break;
 
@@ -639,7 +707,10 @@ public class LensCodeRewriter {
               NewArrayEmpty newArrayEmpty = current.asNewArrayEmpty();
               new InstructionReplacer(code, current, iterator, affectedPhis)
                   .replaceInstructionIfTypeChanged(
-                      newArrayEmpty.type, (t, v) -> new NewArrayEmpty(v, newArrayEmpty.size(), t));
+                      newArrayEmpty.type,
+                      (t, v) -> new NewArrayEmpty(v, newArrayEmpty.size(), t),
+                      graphLens,
+                      codeLens);
             }
             break;
 
@@ -647,7 +718,7 @@ public class LensCodeRewriter {
             {
               DexType type = current.asNewInstance().clazz;
               new InstructionReplacer(code, current, iterator, affectedPhis)
-                  .replaceInstructionIfTypeChanged(type, NewInstance::new);
+                  .replaceInstructionIfTypeChanged(type, NewInstance::new, graphLens, codeLens);
             }
             break;
 
@@ -661,7 +732,7 @@ public class LensCodeRewriter {
                 break;
               }
 
-              insertCastForReturnIfNeeded(code, blocks, iterator, ret);
+              insertCastForReturnIfNeeded(code, blocks, iterator, ret, prototypeChangesForMethod);
 
               DexType returnType = code.context().getReturnType();
               Value retValue = ret.returnValue();
@@ -687,23 +758,6 @@ public class LensCodeRewriter {
             break;
 
           case ARGUMENT:
-            {
-              Argument argument = current.asArgument();
-              TypeElement currentArgumentType = argument.getOutType();
-              TypeElement newArgumentType =
-                  method
-                      .getArgumentType(argument.getIndex())
-                      .toTypeElement(appView, currentArgumentType.nullability());
-              if (!newArgumentType.equals(currentArgumentType)) {
-                affectedPhis.addAll(argument.outValue().uniquePhiUsers());
-                iterator.replaceCurrentInstruction(
-                    Argument.builder()
-                        .setIndex(argument.getIndex())
-                        .setFreshOutValue(code, newArgumentType)
-                        .setPosition(argument)
-                        .build());
-              }
-            }
             break;
 
           case ASSUME:
@@ -714,7 +768,7 @@ public class LensCodeRewriter {
             if (current.hasOutValue()) {
               // For all other instructions, substitute any changed type.
               TypeElement type = current.getOutType();
-              TypeElement substituted = type.rewrittenWithLens(appView, graphLens);
+              TypeElement substituted = type.rewrittenWithLens(appView, graphLens, codeLens);
               if (substituted != type) {
                 current.outValue().setType(substituted);
                 affectedPhis.addAll(current.outValue().uniquePhiUsers());
@@ -728,14 +782,173 @@ public class LensCodeRewriter {
       code.removeUnreachableBlocks();
     }
     if (!affectedPhis.isEmpty()) {
-      new DestructivePhiTypeUpdater(appView).recomputeAndPropagateTypes(code, affectedPhis);
+      new DestructivePhiTypeUpdater(appView, graphLens, codeLens)
+          .recomputeAndPropagateTypes(code, affectedPhis);
     }
+    code.removeAllDeadAndTrivialPhis();
+    removeUnusedArguments(method, code, unusedArguments);
 
     // Finalize cast insertion.
     interfaceTypeToClassTypeRewriterHelper.processWorklist();
 
     assert code.isConsistentSSABeforeTypesAreCorrect();
-    assert code.hasNoMergedClasses(appView);
+  }
+
+  // Applies the prototype changes of the current method to the argument instructions:
+  // - Replaces constant arguments by their constant value and then removes the (now unused)
+  //   argument instruction
+  // - Removes unused arguments
+  // - Updates the type of arguments whose type has been strengthened
+  private void rewriteArguments(
+      IRCode code,
+      DexMethod originalMethodReference,
+      RewrittenPrototypeDescription prototypeChanges,
+      Set<Phi> affectedPhis,
+      Set<UnusedArgument> unusedArguments) {
+    List<Instruction> argumentPostlude = new ArrayList<>();
+    int oldArgumentIndex = 0;
+    int newArgumentIndex = 0;
+    InstructionListIterator instructionIterator = code.entryBlock().listIterator(code);
+    while (instructionIterator.hasNext()) {
+      Instruction instruction = instructionIterator.next();
+      if (!instruction.isArgument()) {
+        break;
+      }
+
+      Argument argument = instruction.asArgument();
+      ArgumentInfo argumentInfo =
+          prototypeChanges.getArgumentInfoCollection().getArgumentInfo(oldArgumentIndex);
+      if (argumentInfo.isRemovedArgumentInfo()) {
+        rewriteRemovedArgument(
+            code,
+            instructionIterator,
+            originalMethodReference,
+            argument,
+            argumentInfo.asRemovedArgumentInfo(),
+            affectedPhis,
+            argumentPostlude,
+            unusedArguments);
+      } else {
+        if (argumentInfo.isRewrittenTypeInfo()) {
+          rewriteArgumentType(
+              code,
+              instructionIterator,
+              argument,
+              argumentInfo.asRewrittenTypeInfo(),
+              affectedPhis,
+              newArgumentIndex);
+        } else if (newArgumentIndex != oldArgumentIndex) {
+          instructionIterator.replaceCurrentInstruction(
+              Argument.builder()
+                  .setIndex(newArgumentIndex)
+                  .setFreshOutValue(code, argument.getOutType(), argument.getLocalInfo())
+                  .setPosition(argument.getPosition())
+                  .build());
+        }
+        newArgumentIndex++;
+      }
+      oldArgumentIndex++;
+    }
+
+    instructionIterator.previous();
+
+    if (!argumentPostlude.isEmpty()) {
+      for (Instruction instruction : argumentPostlude) {
+        instructionIterator.add(instruction);
+      }
+    }
+  }
+
+  private void rewriteRemovedArgument(
+      IRCode code,
+      InstructionListIterator instructionIterator,
+      DexMethod originalMethodReference,
+      Argument argument,
+      RemovedArgumentInfo removedArgumentInfo,
+      Set<Phi> affectedPhis,
+      List<Instruction> argumentPostlude,
+      Set<UnusedArgument> unusedArguments) {
+    Instruction replacement;
+    if (removedArgumentInfo.hasSingleValue()) {
+      SingleValue singleValue = removedArgumentInfo.getSingleValue();
+      TypeElement type =
+          removedArgumentInfo.getType().isReferenceType() && singleValue.isNull()
+              ? TypeElement.getNull()
+              : removedArgumentInfo.getType().toTypeElement(appView);
+      replacement =
+          singleValue.createMaterializingInstruction(
+              appView, code, TypeAndLocalInfoSupplier.create(type, argument.getLocalInfo()));
+      replacement.setPosition(
+          SourcePosition.builder().setLine(0).setMethod(originalMethodReference).build());
+    } else {
+      TypeElement unusedArgumentType = removedArgumentInfo.getType().toTypeElement(appView);
+      replacement = new UnusedArgument(code.createValue(unusedArgumentType));
+      replacement.setPosition(Position.none());
+      unusedArguments.add(replacement.asUnusedArgument());
+    }
+    argument.outValue().replaceUsers(replacement.outValue());
+    affectedPhis.addAll(replacement.outValue().uniquePhiUsers());
+    argumentPostlude.add(replacement);
+    instructionIterator.removeOrReplaceByDebugLocalRead();
+  }
+
+  private void rewriteArgumentType(
+      IRCode code,
+      InstructionListIterator instructionIterator,
+      Argument argument,
+      RewrittenTypeInfo rewrittenTypeInfo,
+      Set<Phi> affectedPhis,
+      int newArgumentIndex) {
+    TypeElement rewrittenType = rewrittenTypeInfo.getNewType().toTypeElement(appView);
+    Argument replacement =
+        Argument.builder()
+            .setIndex(newArgumentIndex)
+            .setFreshOutValue(code, rewrittenType, argument.getLocalInfo())
+            .setPosition(argument.getPosition())
+            .build();
+    instructionIterator.replaceCurrentInstruction(replacement);
+    affectedPhis.addAll(replacement.outValue().uniquePhiUsers());
+  }
+
+  private void removeUnusedArguments(
+      ProgramMethod method, IRCode code, Set<UnusedArgument> unusedArguments) {
+    for (UnusedArgument unusedArgument : unusedArguments) {
+      if (unusedArgument.outValue().hasAnyUsers()) {
+        throw new Unreachable("Unused argument with users in " + method.toSourceString());
+      }
+      InstructionListIterator instructionIterator = unusedArgument.getBlock().listIterator(code);
+      instructionIterator.nextUntil(instruction -> instruction == unusedArgument);
+      instructionIterator.removeOrReplaceByDebugLocalRead();
+    }
+  }
+
+  private Deque<GraphLensInterval> getUnappliedLenses(ProgramMethod method) {
+    Deque<GraphLensInterval> unappliedLenses = new ArrayDeque<>(8);
+    GraphLens codeLens = appView.codeLens();
+    GraphLens currentLens = appView.graphLens();
+    DexMethod currentMethod = method.getReference();
+    while (currentLens != codeLens) {
+      assert currentLens.isNonIdentityLens();
+      NonIdentityGraphLens currentNonIdentityLens = currentLens.asNonIdentityLens();
+      NonIdentityGraphLens fromInclusiveLens = currentNonIdentityLens;
+      if (!currentNonIdentityLens.hasCustomCodeRewritings()) {
+        GraphLens fromInclusiveLensPredecessor = fromInclusiveLens.getPrevious();
+        while (fromInclusiveLensPredecessor.isNonIdentityLens()
+            && !fromInclusiveLensPredecessor.hasCustomCodeRewritings()
+            && fromInclusiveLensPredecessor != codeLens) {
+          fromInclusiveLens = fromInclusiveLensPredecessor.asNonIdentityLens();
+          fromInclusiveLensPredecessor = fromInclusiveLens.getPrevious();
+        }
+      }
+      GraphLensInterval unappliedLens =
+          new GraphLensInterval(
+              currentNonIdentityLens, fromInclusiveLens.getPrevious(), currentMethod);
+      unappliedLenses.addLast(unappliedLens);
+      currentLens = unappliedLens.getCodeLens();
+      currentMethod = currentNonIdentityLens.getOriginalMethodSignature(currentMethod, currentLens);
+    }
+    assert unappliedLenses.size() <= 8;
+    return unappliedLenses;
   }
 
   private InstructionListIterator insertCastForFieldAssignmentIfNeeded(
@@ -778,9 +991,18 @@ public class LensCodeRewriter {
       InvokeMethod invoke,
       MethodLookupResult lookup) {
     // If the invoke has been staticized, then synthesize a null check for the receiver.
-    if (!invoke.isInvokeMethodWithReceiver() || !lookup.getType().isStatic()) {
+    if (!invoke.isInvokeMethodWithReceiver()) {
       return iterator;
     }
+
+    ArgumentInfo receiverArgumentInfo =
+        lookup.getPrototypeChanges().getArgumentInfoCollection().getArgumentInfo(0);
+    if (!receiverArgumentInfo.isRemovedArgumentInfo()
+        || !receiverArgumentInfo.asRemovedArgumentInfo().isCheckNullOrZeroSet()) {
+      return iterator;
+    }
+
+    assert lookup.getType().isStatic();
 
     TypeElement receiverType = invoke.asInvokeMethodWithReceiver().getReceiver().getType();
     if (receiverType.isDefinitelyNotNull()) {
@@ -797,15 +1019,6 @@ public class LensCodeRewriter {
     InvokeMethod nullCheck =
         iterator.insertNullCheckInstruction(
             appView, code, blocks, invoke.getFirstArgument(), nullCheckPosition);
-
-    // TODO(b/199864962): Lens code rewriting should follow the order of graph lenses, i.e., enum
-    //  unboxing rewriting should happen after method staticizing.
-    if (receiverType.isClassType()
-        && appView.unboxedEnums().isUnboxedEnum(receiverType.asClassType().getClassType())) {
-      iterator.previousUntil(instruction -> instruction == nullCheck);
-      iterator.next();
-      enumUnboxer.rewriteNullCheck(iterator, nullCheck);
-    }
 
     // Reset the block iterator.
     if (invoke.getBlock().hasCatchHandlers()) {
@@ -871,11 +1084,11 @@ public class LensCodeRewriter {
   }
 
   private InstructionListIterator insertCastForReturnIfNeeded(
-      IRCode code, BasicBlockIterator blocks, InstructionListIterator iterator, Return ret) {
-    RewrittenPrototypeDescription prototypeChanges =
-        appView
-            .graphLens()
-            .lookupPrototypeChangesForMethodDefinition(code.context().getReference());
+      IRCode code,
+      BasicBlockIterator blocks,
+      InstructionListIterator iterator,
+      Return ret,
+      RewrittenPrototypeDescription prototypeChanges) {
     if (!prototypeChanges.hasRewrittenReturnInfo()
         || !prototypeChanges.getRewrittenReturnInfo().hasCastType()) {
       return iterator;
@@ -982,7 +1195,7 @@ public class LensCodeRewriter {
       return;
     }
     DexMethod invokedMethod = invoke.getInvokedMethod();
-    if (invokedMethod.name != appView.dexItemFactory().constructorMethodName) {
+    if (invokedMethod.name != factory.constructorMethodName) {
       // Not a constructor call.
       return;
     }
@@ -1020,7 +1233,8 @@ public class LensCodeRewriter {
    *
    * @return true if any dead catch handlers were removed.
    */
-  private boolean unlinkDeadCatchHandlers(BasicBlock block) {
+  private boolean unlinkDeadCatchHandlers(
+      BasicBlock block, NonIdentityGraphLens graphLens, GraphLens codeLens) {
     assert block.hasCatchHandlers();
     CatchHandlers<BasicBlock> catchHandlers = block.getCatchHandlers();
     List<DexType> guards = catchHandlers.getGuards();
@@ -1030,7 +1244,7 @@ public class LensCodeRewriter {
     List<BasicBlock> deadCatchHandlers = new ArrayList<>();
     for (int i = 0; i < guards.size(); i++) {
       // The type may have changed due to class merging.
-      DexType guard = appView.graphLens().lookupType(guards.get(i));
+      DexType guard = graphLens.lookupType(guards.get(i), codeLens);
       boolean guardSeenBefore = !previouslySeenGuards.add(guard);
       if (guardSeenBefore) {
         deadCatchHandlers.add(targets.get(i));
@@ -1060,10 +1274,13 @@ public class LensCodeRewriter {
     }
 
     void replaceInstructionIfTypeChanged(
-        DexType type, BiFunction<DexType, Value, Instruction> constructor) {
-      DexType newType = appView.graphLens().lookupType(type);
+        DexType type,
+        BiFunction<DexType, Value, Instruction> constructor,
+        NonIdentityGraphLens graphLens,
+        GraphLens codeLens) {
+      DexType newType = graphLens.lookupType(type, codeLens);
       if (newType != type) {
-        Value newOutValue = makeOutValue(current, code);
+        Value newOutValue = makeOutValue(current, code, graphLens, codeLens);
         Instruction newInstruction = constructor.apply(newType, newOutValue);
         iterator.replaceCurrentInstruction(newInstruction);
         if (newOutValue != null) {
