@@ -8,8 +8,10 @@ import static com.android.tools.r8.ToolHelper.R8_JAR;
 import static com.android.tools.r8.ToolHelper.isTestingR8Lib;
 
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.compilerapi.assertionconfiguration.AssertionConfigurationTest;
 import com.android.tools.r8.compilerapi.mapid.CustomMapIdTest;
 import com.android.tools.r8.compilerapi.mockdata.MockClass;
+import com.android.tools.r8.compilerapi.mockdata.MockClassWithAssertion;
 import com.android.tools.r8.compilerapi.sourcefile.CustomSourceFileTest;
 import com.android.tools.r8.compilerapi.testsetup.ApiTestingSetUpTest;
 import com.google.common.collect.ImmutableList;
@@ -26,10 +28,13 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
       Paths.get(ToolHelper.THIRD_PARTY_DIR, "binary_compatibility_tests", DIRNAME, "tests.jar");
 
   private static final List<Class<? extends CompilerApiTest>> CLASSES_FOR_BINARY_COMPATIBILITY =
-      ImmutableList.of(ApiTestingSetUpTest.ApiTest.class);
+      ImmutableList.of(
+          ApiTestingSetUpTest.ApiTest.class,
+          CustomMapIdTest.ApiTest.class,
+          CustomSourceFileTest.ApiTest.class);
 
   private static final List<Class<? extends CompilerApiTest>> CLASSES_PENDING_BINARY_COMPATIBILITY =
-      ImmutableList.of(CustomMapIdTest.ApiTest.class, CustomSourceFileTest.ApiTest.class);
+      ImmutableList.of(AssertionConfigurationTest.ApiTest.class);
 
   private final TemporaryFolder temp;
 
@@ -54,7 +59,7 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
 
   @Override
   public List<Class<?>> getAdditionalClassesForTests() {
-    return ImmutableList.of(CompilerApiTest.class, MockClass.class);
+    return ImmutableList.of(CompilerApiTest.class, MockClass.class, MockClassWithAssertion.class);
   }
 
   @Override

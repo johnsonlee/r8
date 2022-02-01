@@ -4,7 +4,6 @@
 package com.android.tools.r8.naming.retrace;
 
 import static com.android.tools.r8.naming.retrace.StackTrace.isSame;
-import static com.android.tools.r8.naming.retrace.StackTrace.isSameExceptForLineNumbers;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -13,12 +12,10 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.naming.retrace.StackTrace.StackTraceLine;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.util.List;
-import java.util.Objects;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -70,31 +67,9 @@ public class RetraceInlineeWithNullCheckInlinedTest extends TestBase {
             (stackTrace, inspector) -> {
               ClassSubject callerClass = inspector.clazz(Caller.class);
               assertThat(callerClass, isPresent());
-              MethodSubject staticized = callerClass.uniqueMethodWithName("outerCaller");
-              assertThat(staticized, isPresentAndRenamed());
-              // TODO(b/214377135): The stack traces should be the same (when 206427323) is
-              //  resolved.
-              if (throwReceiverNpe && canUseJavaUtilObjectsRequireNonNull(parameters)) {
-                StackTrace requireNonNullFrame =
-                    StackTrace.builder().add(stackTrace.get(0)).build();
-                assertThat(
-                    requireNonNullFrame,
-                    isSameExceptForLineNumbers(
-                        StackTrace.builder()
-                            .add(
-                                StackTraceLine.builder()
-                                    .setClassName(Objects.class.getTypeName())
-                                    .setMethodName("requireNonNull")
-                                    .setFileName("Objects.java")
-                                    .build())
-                            .build()));
-
-                StackTrace stackTraceWithoutRequireNonNull =
-                    StackTrace.builder().add(stackTrace).remove(0).build();
-                assertThat(stackTraceWithoutRequireNonNull, isSame(expectedStackTrace));
-              } else {
-                assertThat(stackTrace, isSame(expectedStackTrace));
-              }
+              MethodSubject outerCaller = callerClass.uniqueMethodWithName("outerCaller");
+              assertThat(outerCaller, isPresentAndRenamed());
+              assertThat(stackTrace, isSame(expectedStackTrace));
             });
   }
 
@@ -119,7 +94,7 @@ public class RetraceInlineeWithNullCheckInlinedTest extends TestBase {
 
     static void caller(Foo f) {
       Object inlinable = f.inlinable();
-      System.out.println(inlinable);
+      System.out.println(inlinable == null ? "null" : "some");
     }
 
     @NeverInline
