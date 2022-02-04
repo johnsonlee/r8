@@ -43,7 +43,7 @@ import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.GraphLens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
-import com.android.tools.r8.graph.RewrittenPrototypeDescription;
+import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues.EnumStaticFieldValues;
 import com.android.tools.r8.ir.analysis.type.ArrayTypeElement;
@@ -605,6 +605,12 @@ public class EnumUnboxerImpl extends EnumUnboxer {
   }
 
   @Override
+  public void rewriteWithLens() {
+    methodsDependingOnLibraryModelisation =
+        methodsDependingOnLibraryModelisation.rewrittenWithLens(appView.graphLens());
+  }
+
+  @Override
   public void unboxEnums(
       AppView<AppInfoWithLiveness> appView,
       IRConverter converter,
@@ -667,7 +673,6 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     // the builders with the methods removed by the tree fixer (since these methods references are
     // already fully lens rewritten).
     postMethodProcessorBuilder
-        .getMethodsToReprocessBuilder()
         .rewrittenWithLens(appView)
         .removeAll(treeFixerResult.getPrunedItems().getRemovedMethods())
         .merge(

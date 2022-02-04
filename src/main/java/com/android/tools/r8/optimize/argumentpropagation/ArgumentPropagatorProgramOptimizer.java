@@ -20,10 +20,10 @@ import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.RewrittenPrototypeDescription;
-import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
-import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
-import com.android.tools.r8.graph.RewrittenPrototypeDescription.RewrittenTypeInfo;
+import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
+import com.android.tools.r8.graph.proto.RemovedArgumentInfo;
+import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
+import com.android.tools.r8.graph.proto.RewrittenTypeInfo;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
@@ -44,6 +44,7 @@ import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.CallSiteOptimizationOptions;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
@@ -389,14 +390,10 @@ public class ArgumentPropagatorProgramOptimizer {
             }
 
             // Also record the found return value for abstract virtual methods.
-            if (newReturnType == dexItemFactory.voidType) {
+            if (newReturnType == dexItemFactory.voidType && returnValueForVirtualMethods != null) {
               for (ProgramMethod method : methods) {
                 if (method.getAccessFlags().isAbstract()) {
                   returnValuesForVirtualMethods.put(method, returnValueForVirtualMethods);
-                } else {
-                  AbstractValue returnValueForVirtualMethod =
-                      method.getOptimizationInfo().getAbstractReturnValue();
-                  assert returnValueForVirtualMethod.equals(returnValueForVirtualMethods);
                 }
               }
             }
@@ -441,7 +438,10 @@ public class ArgumentPropagatorProgramOptimizer {
         if (!appView.appInfo().mayPropagateValueFor(method)) {
           return null;
         }
-        AbstractValue returnValueForMethod = method.getOptimizationInfo().getAbstractReturnValue();
+        AbstractValue returnValueForMethod =
+            method.getReturnType().isAlwaysNull(appView)
+                ? appView.abstractValueFactory().createNullValue()
+                : method.getOptimizationInfo().getAbstractReturnValue();
         if (!returnValueForMethod.isSingleValue()
             || !returnValueForMethod.asSingleValue().isMaterializableInAllContexts(appView)
             || (returnValue != null && !returnValueForMethod.equals(returnValue))) {
@@ -510,16 +510,17 @@ public class ArgumentPropagatorProgramOptimizer {
 
     private DexType getNewReturnTypeForVirtualMethods(
         ProgramMethodSet methods, SingleValue returnValue) {
-      if (returnValue != null) {
+      if (returnValue != null || isReturnValueUnusedForVirtualMethods(methods)) {
         return dexItemFactory.voidType;
       }
+
       DexType newReturnType = null;
       for (ProgramMethod method : methods) {
         if (method.getDefinition().isAbstract()) {
           // OK, this method can have any return type.
           continue;
         }
-        DexType newReturnTypeForMethod = getNewReturnType(method, null);
+        DexType newReturnTypeForMethod = getNewReturnType(method, OptionalBool.UNKNOWN, null);
         if (newReturnTypeForMethod == null
             || (newReturnType != null && newReturnType != newReturnTypeForMethod)) {
           return null;
@@ -528,6 +529,16 @@ public class ArgumentPropagatorProgramOptimizer {
       }
       assert newReturnType == null || newReturnType != methods.getFirst().getReturnType();
       return newReturnType;
+    }
+
+    private boolean isReturnValueUnusedForVirtualMethods(ProgramMethodSet methods) {
+      ProgramMethod representative = methods.getFirst();
+      return !representative.getReturnType().isVoidType()
+          && Iterables.all(
+              methods,
+              method ->
+                  appView.getKeepInfo(method).isUnusedReturnValueOptimizationAllowed(options)
+                      && method.getOptimizationInfo().isReturnValueUsed().isFalse());
     }
 
     private DexType getNewParameterTypeForVirtualMethods(
@@ -850,7 +861,8 @@ public class ArgumentPropagatorProgramOptimizer {
         IntSet removableParameterIndices) {
       // Treat the parameters as unused.
       ArgumentInfoCollection.Builder argumentInfoCollectionBuilder =
-          ArgumentInfoCollection.builder();
+          ArgumentInfoCollection.builder()
+              .setArgumentInfosSize(method.getDefinition().getNumberOfArguments());
       for (int argumentIndex = 0;
           argumentIndex < method.getDefinition().getNumberOfArguments();
           argumentIndex++) {
@@ -885,17 +897,25 @@ public class ArgumentPropagatorProgramOptimizer {
     }
 
     private DexType getNewReturnType(ProgramMethod method) {
-      return getNewReturnType(method, getReturnValue(method));
+      return getNewReturnType(
+          method, method.getOptimizationInfo().isReturnValueUsed(), getReturnValue(method));
     }
 
-    private DexType getNewReturnType(ProgramMethod method, SingleValue returnValue) {
+    private DexType getNewReturnType(
+        ProgramMethod method, OptionalBool isReturnValueUsed, SingleValue returnValue) {
       DexType staticType = method.getReturnType();
-      if (staticType.isVoidType()
-          || !appView.getKeepInfo(method).isReturnTypeStrengtheningAllowed(options)) {
+      if (staticType.isVoidType()) {
         return null;
       }
       if (returnValue != null) {
         return dexItemFactory.voidType;
+      }
+      KeepMethodInfo keepInfo = appView.getKeepInfo(method);
+      if (keepInfo.isUnusedReturnValueOptimizationAllowed(options) && isReturnValueUsed.isFalse()) {
+        return dexItemFactory.voidType;
+      }
+      if (!keepInfo.isReturnTypeStrengtheningAllowed(options)) {
+        return null;
       }
       TypeElement newReturnTypeElement =
           method
@@ -992,7 +1012,9 @@ public class ArgumentPropagatorProgramOptimizer {
         ProgramMethod method,
         IntFunction<DexType> newParameterTypes,
         IntPredicate removableParameterIndices) {
-      ArgumentInfoCollection.Builder parameterChangesBuilder = ArgumentInfoCollection.builder();
+      ArgumentInfoCollection.Builder parameterChangesBuilder =
+          ArgumentInfoCollection.builder()
+              .setArgumentInfosSize(method.getDefinition().getNumberOfArguments());
       if (method.getDefinition().isInstance()
           && removableParameterIndices.test(0)
           && method.getOptimizationInfo().hasUnusedArguments()

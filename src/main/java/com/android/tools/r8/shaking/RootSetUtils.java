@@ -111,12 +111,9 @@ public class RootSetUtils {
         new DependentMinimumKeepInfoCollection();
     private final LinkedHashMap<DexReference, DexReference> reasonAsked = new LinkedHashMap<>();
     private final Set<DexMethod> alwaysInline = Sets.newIdentityHashSet();
-    private final Set<DexMethod> neverInline = Sets.newIdentityHashSet();
     private final Set<DexMethod> neverInlineDueToSingleCaller = Sets.newIdentityHashSet();
     private final Set<DexMethod> bypassClinitforInlining = Sets.newIdentityHashSet();
     private final Set<DexMethod> whyAreYouNotInlining = Sets.newIdentityHashSet();
-    private final Set<DexMethod> keepParametersWithConstantValue = Sets.newIdentityHashSet();
-    private final Set<DexMethod> keepUnusedArguments = Sets.newIdentityHashSet();
     private final Set<DexMethod> reprocess = Sets.newIdentityHashSet();
     private final Set<DexMethod> neverReprocess = Sets.newIdentityHashSet();
     private final PredicateSet<DexType> alwaysClassInline = new PredicateSet<>();
@@ -267,11 +264,12 @@ public class RootSetUtils {
       } else if (rule instanceof NoFieldTypeStrengtheningRule) {
         markMatchingFields(clazz, memberKeepRules, rule, null, ifRule);
       } else if (rule instanceof InlineRule
-          || rule instanceof ConstantArgumentRule
+          || rule instanceof KeepConstantArgumentRule
+          || rule instanceof KeepUnusedReturnValueRule
           || rule instanceof NoMethodStaticizingRule
           || rule instanceof NoParameterTypeStrengtheningRule
           || rule instanceof NoReturnTypeStrengtheningRule
-          || rule instanceof UnusedArgumentRule
+          || rule instanceof KeepUnusedArgumentRule
           || rule instanceof ReprocessMethodRule
           || rule instanceof WhyAreYouNotInliningRule) {
         markMatchingMethods(clazz, memberKeepRules, rule, null, ifRule);
@@ -364,18 +362,13 @@ public class RootSetUtils {
             alwaysInline,
             bypassClinitforInlining);
       }
-      assert Sets.intersection(neverInline, alwaysInline).isEmpty()
-          : "A method cannot be marked as both -neverinline and -alwaysinline.";
       return new RootSet(
           dependentMinimumKeepInfo,
           ImmutableList.copyOf(reasonAsked.values()),
           alwaysInline,
-          neverInline,
           neverInlineDueToSingleCaller,
           bypassClinitforInlining,
           whyAreYouNotInlining,
-          keepParametersWithConstantValue,
-          keepUnusedArguments,
           reprocess,
           neverReprocess,
           alwaysClassInline,
@@ -456,7 +449,6 @@ public class RootSetUtils {
 
     ConsequentRootSet buildConsequentRootSet() {
       return new ConsequentRootSet(
-          neverInline,
           neverInlineDueToSingleCaller,
           neverClassInline,
           dependentMinimumKeepInfo,
@@ -1301,11 +1293,6 @@ public class RootSetUtils {
         }
       } else if (context instanceof ProguardIdentifierNameStringRule) {
         evaluateIdentifierNameStringRule(item, context, ifRule);
-      } else if (context instanceof ConstantArgumentRule) {
-        if (item.isMethod()) {
-          keepParametersWithConstantValue.add(item.asMethod().getReference());
-          context.markAsUsed();
-        }
       } else if (context instanceof ReprocessClassInitializerRule) {
         DexProgramClass clazz = item.asProgramClass();
         if (clazz != null && clazz.hasClassInitializer()) {
@@ -1336,11 +1323,27 @@ public class RootSetUtils {
           }
           context.markAsUsed();
         }
-      } else if (context instanceof UnusedArgumentRule) {
-        if (item.isMethod()) {
-          keepUnusedArguments.add(item.asMethod().getReference());
-          context.markAsUsed();
-        }
+      } else if (context instanceof KeepConstantArgumentRule) {
+        assert item.isProgramMethod();
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asMethodJoiner()
+            .disallowConstantArgumentOptimization();
+        context.markAsUsed();
+      } else if (context instanceof KeepUnusedArgumentRule) {
+        assert item.isProgramMethod();
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asMethodJoiner()
+            .disallowUnusedArgumentOptimization();
+        context.markAsUsed();
+      } else if (context instanceof KeepUnusedReturnValueRule) {
+        assert item.isProgramMethod();
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asMethodJoiner()
+            .disallowUnusedReturnValueOptimization();
+        context.markAsUsed();
       } else {
         throw new Unreachable();
       }
@@ -1356,7 +1359,8 @@ public class RootSetUtils {
       }
     }
 
-    private void evaluateCheckDiscardRule(DexProgramClass clazz, ProguardCheckDiscardRule rule) {
+    private synchronized void evaluateCheckDiscardRule(
+        DexProgramClass clazz, ProguardCheckDiscardRule rule) {
       if (rule.getMemberRules().isEmpty()) {
         evaluateCheckDiscardClassAndAllMembersRule(clazz, rule);
       } else if (clazz.hasFields() || clazz.hasMethods()) {
@@ -1673,8 +1677,6 @@ public class RootSetUtils {
     public final Set<DexMethod> alwaysInline;
     public final Set<DexMethod> bypassClinitForInlining;
     public final Set<DexMethod> whyAreYouNotInlining;
-    public final Set<DexMethod> keepConstantArguments;
-    public final Set<DexMethod> keepUnusedArguments;
     public final Set<DexMethod> reprocess;
     public final Set<DexMethod> neverReprocess;
     public final PredicateSet<DexType> alwaysClassInline;
@@ -1692,12 +1694,9 @@ public class RootSetUtils {
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         ImmutableList<DexReference> reasonAsked,
         Set<DexMethod> alwaysInline,
-        Set<DexMethod> neverInline,
         Set<DexMethod> neverInlineDueToSingleCaller,
         Set<DexMethod> bypassClinitForInlining,
         Set<DexMethod> whyAreYouNotInlining,
-        Set<DexMethod> keepConstantArguments,
-        Set<DexMethod> keepUnusedArguments,
         Set<DexMethod> reprocess,
         Set<DexMethod> neverReprocess,
         PredicateSet<DexType> alwaysClassInline,
@@ -1725,8 +1724,6 @@ public class RootSetUtils {
       this.alwaysInline = alwaysInline;
       this.bypassClinitForInlining = bypassClinitForInlining;
       this.whyAreYouNotInlining = whyAreYouNotInlining;
-      this.keepConstantArguments = keepConstantArguments;
-      this.keepUnusedArguments = keepUnusedArguments;
       this.reprocess = reprocess;
       this.neverReprocess = neverReprocess;
       this.alwaysClassInline = alwaysClassInline;
@@ -1827,6 +1824,35 @@ public class RootSetUtils {
       }
     }
 
+    public RootSet rewrittenWithLens(GraphLens graphLens) {
+      if (graphLens.isIdentityLens()) {
+        return this;
+      }
+      return new RootSet(
+          getDependentMinimumKeepInfo().rewrittenWithLens(graphLens),
+          reasonAsked,
+          alwaysInline,
+          neverInlineDueToSingleCaller,
+          bypassClinitForInlining,
+          whyAreYouNotInlining,
+          reprocess,
+          neverReprocess,
+          alwaysClassInline,
+          neverClassInline,
+          noUnusedInterfaceRemoval,
+          noVerticalClassMerging,
+          noHorizontalClassMerging,
+          neverPropagateValue,
+          mayHaveSideEffects,
+          noSideEffects,
+          assumedValues,
+          dependentKeepClassCompatRule,
+          identifierNameStrings,
+          ifRules,
+          delayedRootSetActionItems,
+          pendingMethodMoveInverse);
+    }
+
     void shouldNotBeMinified(ProgramDefinition definition) {
       getDependentMinimumKeepInfo()
           .getOrCreateUnconditionalMinimumKeepInfoFor(definition.getReference())
@@ -1911,7 +1937,6 @@ public class RootSetUtils {
 
     public boolean verifyKeptItemsAreKept(AppView<? extends AppInfoWithClassHierarchy> appView) {
       AppInfoWithClassHierarchy appInfo = appView.appInfo();
-      GraphLens lens = appView.graphLens();
       // Create a mapping from each required type to the set of required members on that type.
       Map<DexType, Set<DexMember<?, ?>>> requiredMembersPerType = new IdentityHashMap<>();
       getDependentMinimumKeepInfo()
@@ -1921,21 +1946,16 @@ public class RootSetUtils {
               (reference, minimumKeepInfo) -> {
                 if (reference.isDexType()) {
                   DexType type = reference.asDexType();
-                  DexType rewrittenType = lens.lookupType(type);
-                  assert !appInfo.hasLiveness() || appInfo.withLiveness().isPinned(rewrittenType)
-                      : "Expected reference `" + rewrittenType.toSourceString() + "` to be pinned";
-                  requiredMembersPerType.computeIfAbsent(
-                      rewrittenType, key -> Sets.newIdentityHashSet());
+                  assert !appInfo.hasLiveness() || appInfo.withLiveness().isPinned(type)
+                      : "Expected reference `" + type.toSourceString() + "` to be pinned";
+                  requiredMembersPerType.computeIfAbsent(type, key -> Sets.newIdentityHashSet());
                 } else {
                   DexMember<?, ?> member = reference.asDexMember();
-                  DexMember<?, ?> rewrittenMember = lens.getRenamedMemberSignature(member);
-                  assert !appInfo.hasLiveness() || appInfo.withLiveness().isPinned(rewrittenMember)
-                      : "Expected reference `"
-                          + rewrittenMember.toSourceString()
-                          + "` to be pinned";
+                  assert !appInfo.hasLiveness() || appInfo.withLiveness().isPinned(member)
+                      : "Expected reference `" + member.toSourceString() + "` to be pinned";
                   requiredMembersPerType
-                      .computeIfAbsent(rewrittenMember.holder, key -> Sets.newIdentityHashSet())
-                      .add(rewrittenMember);
+                      .computeIfAbsent(member.holder, key -> Sets.newIdentityHashSet())
+                      .add(member);
                 }
               });
 
@@ -2044,7 +2064,6 @@ public class RootSetUtils {
   public static class ConsequentRootSet extends RootSetBase {
 
     ConsequentRootSet(
-        Set<DexMethod> neverInline,
         Set<DexMethod> neverInlineDueToSingleCaller,
         Set<DexType> neverClassInline,
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
@@ -2110,9 +2129,6 @@ public class RootSetUtils {
           Collections.emptySet(),
           Collections.emptySet(),
           Collections.emptySet(),
-          Collections.emptySet(),
-          Collections.emptySet(),
-          Collections.emptySet(),
           PredicateSet.empty(),
           Collections.emptySet(),
           Collections.emptySet(),
@@ -2141,6 +2157,7 @@ public class RootSetUtils {
       // Do nothing.
     }
 
+    @Override
     public MainDexRootSet rewrittenWithLens(GraphLens graphLens) {
       if (graphLens.isIdentityLens()) {
         return this;

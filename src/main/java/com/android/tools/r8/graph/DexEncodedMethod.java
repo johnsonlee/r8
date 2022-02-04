@@ -43,8 +43,6 @@ import com.android.tools.r8.errors.InternalCompilerError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexAnnotation.AnnotatedKind;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
-import com.android.tools.r8.graph.RewrittenPrototypeDescription.ArgumentInfoCollection;
-import com.android.tools.r8.graph.RewrittenPrototypeDescription.RemovedArgumentInfo;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.NumericType;
@@ -408,6 +406,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   public static DexClassAndMethod asDexClassAndMethodOrNull(
       DexEncodedMethod method, DexDefinitionSupplier definitions) {
     return method != null ? method.asDexClassAndMethod(definitions) : null;
+  }
+
+  public static ProgramMethod asProgramMethodOrNull(
+      DexEncodedMethod method, DexProgramClass holder) {
+    return method != null ? method.asProgramMethod(holder) : null;
   }
 
   public static ProgramMethod asProgramMethodOrNull(
@@ -1208,26 +1211,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         .build();
   }
 
-  public DexEncodedMethod toStaticMethodWithoutThis(AppView<AppInfoWithLiveness> appView) {
-    checkIfObsolete();
-    assert !accessFlags.isStatic();
-
-    ArgumentInfoCollection prototypeChanges =
-        ArgumentInfoCollection.builder()
-            .addArgumentInfo(0, RemovedArgumentInfo.builder().setType(getHolderType()).build())
-            .build();
-    Builder builder =
-        builder(this)
-            .promoteToStatic()
-            .withoutThisParameter(appView.dexItemFactory())
-            .fixupOptimizationInfo(appView, prototypeChanges.createMethodOptimizationInfoFixer())
-            .setGenericSignature(MethodTypeSignature.noSignature());
-    DexEncodedMethod method = builder.build();
-    method.copyMetadata(appView, this);
-    setObsolete();
-    return method;
-  }
-
   public String codeToString() {
     checkIfObsolete();
     return code == null ? "<no code>" : code.toString(this, null);
@@ -1514,21 +1497,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
           ParameterAnnotationsList.create(
               newParameterAnnotations.toArray(DexAnnotationSet.EMPTY_ARRAY),
               newNumberOfMissingParameterAnnotations));
-    }
-
-    public Builder promoteToStatic() {
-      this.accessFlags.promoteToStatic();
-      return this;
-    }
-
-    public Builder withoutThisParameter(DexItemFactory factory) {
-      assert code != null;
-      if (code.isDexCode()) {
-        code = code.asDexCode().withoutThisParameter(factory);
-      } else {
-        throw new Unreachable("Code " + code.getClass().getSimpleName() + " is not supported.");
-      }
-      return this;
     }
 
     public Builder setOptimizationInfo(MethodOptimizationInfo optimizationInfo) {
