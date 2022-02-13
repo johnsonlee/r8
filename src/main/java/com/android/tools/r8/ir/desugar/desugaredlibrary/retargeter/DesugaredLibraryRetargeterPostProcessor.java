@@ -36,11 +36,11 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
   private final DesugaredLibraryRetargeterSyntheticHelper syntheticHelper;
   private final Map<DexMethod, EmulatedDispatchMethodDescriptor> emulatedDispatchMethods;
 
-  public DesugaredLibraryRetargeterPostProcessor(
-      AppView<?> appView, RetargetingInfo retargetingInfo) {
+  public DesugaredLibraryRetargeterPostProcessor(AppView<?> appView) {
     this.appView = appView;
     this.syntheticHelper = new DesugaredLibraryRetargeterSyntheticHelper(appView);
-    emulatedDispatchMethods = retargetingInfo.getEmulatedVirtualRetarget();
+    emulatedDispatchMethods =
+        appView.options().machineDesugaredLibrarySpecification.getEmulatedVirtualRetarget();
   }
 
   @Override
@@ -127,8 +127,8 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
       }
       if (appView
           .options()
-          .desugaredLibrarySpecification
-          .getDontRetargetLibMember()
+          .machineDesugaredLibrarySpecification
+          .getDontRetarget()
           .contains(clazz.getType())) {
         continue;
       }
@@ -136,7 +136,7 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
           Collections.singletonList(new ClassTypeSignature(newInterface.type)));
       eventConsumer.acceptInterfaceInjection(clazz, newInterface);
       DexMethod itfMethod =
-          syntheticHelper.getEmulatedInterfaceDispatchMethod(newInterface, descriptor);
+          syntheticHelper.emulatedInterfaceDispatchMethod(newInterface, descriptor);
       if (clazz.lookupVirtualMethod(method) == null) {
         DexEncodedMethod newMethod = createForwardingMethod(itfMethod, descriptor, clazz);
         clazz.addVirtualMethod(newMethod);
@@ -150,7 +150,7 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
     // NOTE: Never add a forwarding method to methods of classes unknown or coming from android.jar
     // even if this results in invalid code, these classes are never desugared.
     // In desugared library, emulated interface methods can be overridden by retarget lib members.
-    DexMethod forwardMethod = syntheticHelper.ensureForwardingMethod(descriptor);
+    DexMethod forwardMethod = syntheticHelper.forwardingMethod(descriptor);
     assert forwardMethod != null && forwardMethod != target;
     DexEncodedMethod resolvedMethod =
         appView.appInfoForDesugaring().resolveMethod(target, true).getResolvedMethod();

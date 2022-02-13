@@ -5,16 +5,16 @@
 package com.android.tools.r8.optimize.proto;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.MethodMatchers.hasParameters;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import com.android.tools.r8.utils.codeinspector.TypeSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -22,7 +22,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class NormalizeTest extends TestBase {
+public class ProtoNormalizationWithoutSharingTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -47,27 +47,14 @@ public class NormalizeTest extends TestBase {
         .compile()
         .inspect(
             inspector -> {
-              ClassSubject aClassSubject = inspector.clazz(A.class);
-              assertThat(aClassSubject, isPresent());
+              TypeSubject aTypeSubject = inspector.clazz(A.class).asTypeSubject();
+              TypeSubject bTypeSubject = inspector.clazz(B.class).asTypeSubject();
 
-              ClassSubject bClassSubject = inspector.clazz(B.class);
-              assertThat(bClassSubject, isPresent());
-
+              // Should not be normalized as there is no sharing of protos.
               MethodSubject fooMethodSubject =
                   inspector.clazz(Main.class).uniqueMethodWithName("foo");
               assertThat(fooMethodSubject, isPresent());
-
-              String expectedMethodSignature =
-                  "void "
-                      + fooMethodSubject.getFinalName()
-                      + "("
-                      + aClassSubject.getFinalName()
-                      + ", "
-                      + bClassSubject.getFinalName()
-                      + ")";
-              assertEquals(
-                  expectedMethodSignature,
-                  fooMethodSubject.getProgramMethod().getMethodSignature().toString());
+              assertThat(fooMethodSubject, hasParameters(bTypeSubject, aTypeSubject));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("A", "B");

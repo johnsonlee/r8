@@ -26,7 +26,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.FieldResolutionResult.SuccessfulFieldResolutionResult;
+import com.android.tools.r8.graph.FieldResolutionResult.SingleProgramFieldResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerUtils;
 import com.android.tools.r8.ir.analysis.equivalence.BasicBlockBehavioralSubsumption;
@@ -70,6 +70,7 @@ import com.android.tools.r8.ir.code.InstructionOrPhi;
 import com.android.tools.r8.ir.code.IntSwitch;
 import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.InvokeDirect;
+import com.android.tools.r8.ir.code.InvokeInterface;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.InvokeNewArray;
@@ -286,10 +287,8 @@ public class CodeRewriter {
 
           Throw throwInstruction = valueIsNullTarget.exit().asThrow();
           Value exceptionValue = throwInstruction.exception().getAliasedValue();
-          Value message;
-          if (exceptionValue.isConstZero()) {
-            message = null;
-          } else if (exceptionValue.isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
+          if (!exceptionValue.isConstZero()
+              && exceptionValue.isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
             NewInstance newInstance = exceptionValue.definition.asNewInstance();
             if (newInstance.clazz != dexItemFactory.npeType) {
               continue;
@@ -301,18 +300,10 @@ public class CodeRewriter {
             if (constructorCall == null) {
               continue;
             }
-            DexMethod invokedMethod = constructorCall.getInvokedMethod();
-            if (invokedMethod == dexItemFactory.npeMethods.init) {
-              message = null;
-            } else if (invokedMethod == dexItemFactory.npeMethods.initWithMessage) {
-              if (!appView.options().canUseJavaUtilObjectsRequireNonNull()) {
-                continue;
-              }
-              message = constructorCall.getArgument(1);
-            } else {
+            if (constructorCall.getInvokedMethod() != dexItemFactory.npeMethods.init) {
               continue;
             }
-          } else {
+          } else if (!exceptionValue.isConstZero()) {
             continue;
           }
 
@@ -327,26 +318,12 @@ public class CodeRewriter {
             continue;
           }
 
-          if (message != null) {
-            Instruction definition = message.definition;
-            if (message.definition.getBlock() == valueIsNullTarget) {
-              it.previous();
-              Instruction entry;
-              do {
-                entry = valueIsNullTarget.getInstructions().removeFirst();
-                it.add(entry);
-              } while (entry != definition);
-              it.next();
-            }
-          }
-
-          rewriteIfToRequireNonNull(
+          insertNotNullCheck(
               block,
               it,
               ifInstruction,
               ifInstruction.targetFromCondition(1),
               valueIsNullTarget,
-              message,
               throwInstruction.getPosition());
           shouldRemoveUnreachableBlocks = true;
         }
@@ -1207,8 +1184,8 @@ public class CodeRewriter {
       return false;
     }
     InstanceGet instanceGet = switchValue.getDefinition().asInstanceGet();
-    SuccessfulFieldResolutionResult resolutionResult =
-        appInfo.resolveField(instanceGet.getField()).asSuccessfulResolution();
+    SingleProgramFieldResolutionResult resolutionResult =
+        appInfo.resolveField(instanceGet.getField()).asSingleProgramFieldResolutionResult();
     if (resolutionResult == null) {
       return false;
     }
@@ -3363,33 +3340,19 @@ public class CodeRewriter {
     assert block.exit().asGoto().getTarget() == target;
   }
 
-  private void rewriteIfToRequireNonNull(
+  private void insertNotNullCheck(
       BasicBlock block,
       InstructionListIterator iterator,
       If theIf,
       BasicBlock target,
       BasicBlock deadTarget,
-      Value message,
       Position position) {
     deadTarget.unlinkSinglePredecessorSiblingsAllowed();
     assert theIf == block.exit();
     iterator.previous();
     Instruction instruction;
-    if (appView.options().canUseJavaUtilObjectsRequireNonNull()) {
-      if (message != null) {
-        DexMethod requireNonNullMethod =
-            appView.dexItemFactory().objectsMethods.requireNonNullWithMessage;
-        instruction =
-            new InvokeStatic(requireNonNullMethod, null, ImmutableList.of(theIf.lhs(), message));
-      } else {
-        DexMethod requireNonNullMethod = appView.dexItemFactory().objectsMethods.requireNonNull;
-        instruction = new InvokeStatic(requireNonNullMethod, null, ImmutableList.of(theIf.lhs()));
-      }
-    } else {
-      assert message == null;
-      DexMethod getClassMethod = appView.dexItemFactory().objectMembers.getClass;
-      instruction = new InvokeVirtual(getClassMethod, null, ImmutableList.of(theIf.lhs()));
-    }
+    DexMethod getClassMethod = appView.dexItemFactory().objectMembers.getClass;
+    instruction = new InvokeVirtual(getClassMethod, null, ImmutableList.of(theIf.lhs()));
     instruction.setPosition(position);
     iterator.add(instruction);
     iterator.next();
@@ -3806,6 +3769,26 @@ public class CodeRewriter {
                 "Failed to remove trivial phis between new-instance and <init>");
           }
           newInstance.markNoSpilling();
+        }
+      }
+    }
+  }
+
+  // The javac fix for JDK-8272564 has to be rewritten back to invoke-virtual on Object if the
+  // method with an Object signature is not defined on the interface. See
+  // https://bugs.openjdk.java.net/browse/JDK-8272564
+  public static void rewriteJdk8272564Fix(IRCode code, AppView<?> appView) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    InstructionListIterator it = code.instructionListIterator();
+    while (it.hasNext()) {
+      Instruction instruction = it.next();
+      if (instruction.isInvokeInterface()) {
+        InvokeInterface invoke = instruction.asInvokeInterface();
+        DexMethod method = invoke.getInvokedMethod();
+        DexMethod objectMember = dexItemFactory.objectMembers.matchingPublicObjectMember(method);
+        if (objectMember != null && appView.definitionFor(method) == null) {
+          it.replaceCurrentInstruction(
+              new InvokeVirtual(objectMember, invoke.outValue(), invoke.arguments()));
         }
       }
     }

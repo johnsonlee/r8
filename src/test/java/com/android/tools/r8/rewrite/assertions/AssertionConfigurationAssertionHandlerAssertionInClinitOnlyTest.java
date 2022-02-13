@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.rewrite.assertions;
 
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.rewrite.assertions.assertionhandler.AssertionHandlers;
@@ -34,5 +35,10 @@ public class AssertionConfigurationAssertionHandlerAssertionInClinitOnlyTest
   @Override
   List<Class<?>> getTestClasses() {
     return ImmutableList.of(AssertionsInClinit.class);
+  }
+
+  @Override
+  protected void configure(R8TestBuilder<?> builder) {
+    builder.allowUnusedProguardConfigurationRules();
   }
 }

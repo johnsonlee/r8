@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.SubtypingInfo;
@@ -18,27 +19,33 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.Emu
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineRewritingFlags;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.TraversalContinuation;
+import com.google.common.collect.Sets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 
 public class HumanToMachineRetargetConverter {
 
   private final AppInfoWithClassHierarchy appInfo;
-  private SubtypingInfo subtypingInfo;
+  private final SubtypingInfo subtypingInfo;
+  private final Set<DexMethod> missingMethods = Sets.newIdentityHashSet();
 
   public HumanToMachineRetargetConverter(AppInfoWithClassHierarchy appInfo) {
     this.appInfo = appInfo;
+    subtypingInfo = SubtypingInfo.create(appInfo);
   }
 
   public void convertRetargetFlags(
-      HumanRewritingFlags rewritingFlags, MachineRewritingFlags.Builder builder) {
-    subtypingInfo = SubtypingInfo.create(appInfo);
+      HumanRewritingFlags rewritingFlags,
+      MachineRewritingFlags.Builder builder,
+      BiConsumer<String, Set<? extends DexReference>> warnConsumer) {
     rewritingFlags
         .getRetargetCoreLibMember()
         .forEach(
             (method, type) ->
                 convertRetargetCoreLibMemberFlag(builder, rewritingFlags, method, type));
+    warnConsumer.accept("Cannot retarget missing methods: ", missingMethods);
   }
 
   private void convertRetargetCoreLibMemberFlag(
@@ -48,7 +55,16 @@ public class HumanToMachineRetargetConverter {
       DexType type) {
     DexClass holder = appInfo.definitionFor(method.holder);
     DexEncodedMethod foundMethod = holder.lookupMethod(method);
-    assert foundMethod != null;
+    if (foundMethod == null && method.getName().toString().equals("deepEquals0")) {
+      // TODO(b/184026720): Temporary work-around (the method is missing).
+      DexMethod dest = method.withHolder(type, appInfo.dexItemFactory());
+      builder.putStaticRetarget(method, dest);
+      return;
+    }
+    if (foundMethod == null) {
+      missingMethods.add(foundMethod.getReference());
+      return;
+    }
     if (foundMethod.isStatic()) {
       convertStaticRetarget(builder, foundMethod, type);
       return;
@@ -65,14 +81,16 @@ public class HumanToMachineRetargetConverter {
       HumanRewritingFlags rewritingFlags,
       DexEncodedMethod src,
       DexType type) {
-    if (isEmulatedInterfaceDispatch(src, appInfo, rewritingFlags)) {
-      // Handled by emulated interface dispatch.
-      return;
-    }
-    // TODO(b/184026720): Implement library boundaries.
     DexProto newProto = appInfo.dexItemFactory().prependHolderToProto(src.getReference());
     DexMethod forwardingDexMethod =
         appInfo.dexItemFactory().createMethod(type, newProto, src.getName());
+    if (isEmulatedInterfaceDispatch(src, appInfo, rewritingFlags)) {
+      // Handled by emulated interface dispatch.
+      builder.putEmulatedVirtualRetargetThroughEmulatedInterface(
+          src.getReference(), forwardingDexMethod);
+      return;
+    }
+    // TODO(b/184026720): Implement library boundaries.
     DerivedMethod forwardingMethod = new DerivedMethod(forwardingDexMethod);
     DerivedMethod interfaceMethod =
         new DerivedMethod(src.getReference(), SyntheticKind.RETARGET_INTERFACE);
@@ -92,10 +110,14 @@ public class HumanToMachineRetargetConverter {
       DexClass subclass = appInfo.definitionFor(subtype);
       MethodResolutionResult resolutionResult =
           appInfo.resolveMethodOn(subclass, src.getReference());
-      if (resolutionResult.isSuccessfulMemberResolutionResult()
-          && resolutionResult.getResolvedMethod().getReference() != src.getReference()) {
-        assert false; // Unsupported.
-      }
+      // The resolution is not successful when compiling to dex if the method rewritten is missing
+      // in Android.jar.
+      assert !resolutionResult.isSuccessfulMemberResolutionResult()
+          || resolutionResult.getResolvedMethod().getReference() == src.getReference()
+          // There is a difference in the sql library between Android.jar and the JDK which leads
+          // to this resolution when compiling Cf to Cf while the methods do not exist in Android.
+          || (resolutionResult.getResolvedMethod().getHolderType().toString().contains("java.sql")
+              && resolutionResult.getResolvedMethod().getName().toString().equals("toInstant"));
     }
     return true;
   }

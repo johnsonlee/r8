@@ -5,16 +5,16 @@
 package com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification;
 
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.utils.Pair;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class MachineRewritingFlags {
 
@@ -28,16 +28,19 @@ public class MachineRewritingFlags {
       Map<DexMethod, DexMethod> staticRetarget,
       Map<DexMethod, DexMethod> nonEmulatedVirtualRetarget,
       Map<DexMethod, EmulatedDispatchMethodDescriptor> emulatedVirtualRetarget,
+      Map<DexMethod, DexMethod> emulatedVirtualRetargetThroughEmulatedInterface,
       Map<DexType, EmulatedInterfaceDescriptor> emulatedInterfaces,
       Map<DexType, List<DexMethod>> wrappers,
       Map<DexType, DexType> legacyBackport,
       Set<DexType> dontRetarget,
-      Map<DexType, Pair<DexType, DexString>> customConversions) {
+      Map<DexType, CustomConversionDescriptor> customConversions) {
     this.rewriteType = rewriteType;
     this.rewriteDerivedTypeOnly = rewriteDerivedTypeOnly;
     this.staticRetarget = staticRetarget;
     this.nonEmulatedVirtualRetarget = nonEmulatedVirtualRetarget;
     this.emulatedVirtualRetarget = emulatedVirtualRetarget;
+    this.emulatedVirtualRetargetThroughEmulatedInterface =
+        emulatedVirtualRetargetThroughEmulatedInterface;
     this.emulatedInterfaces = emulatedInterfaces;
     this.wrappers = wrappers;
     this.legacyBackport = legacyBackport;
@@ -63,6 +66,9 @@ public class MachineRewritingFlags {
 
   // Virtual methods to retarget through emulated dispatch.
   private final Map<DexMethod, EmulatedDispatchMethodDescriptor> emulatedVirtualRetarget;
+  // Virtual methods to retarget through emulated dispatch but handled through emulated interface
+  // dispatch. The method has to override an emulated interface method.
+  private final Map<DexMethod, DexMethod> emulatedVirtualRetargetThroughEmulatedInterface;
 
   // Emulated interface descriptors.
   private final Map<DexType, EmulatedInterfaceDescriptor> emulatedInterfaces;
@@ -72,7 +78,7 @@ public class MachineRewritingFlags {
 
   private final Map<DexType, DexType> legacyBackport;
   private final Set<DexType> dontRetarget;
-  private final Map<DexType, Pair<DexType, DexString>> customConversions;
+  private final Map<DexType, CustomConversionDescriptor> customConversions;
 
   public Map<DexType, DexType> getRewriteType() {
     return rewriteType;
@@ -94,6 +100,16 @@ public class MachineRewritingFlags {
     return emulatedVirtualRetarget;
   }
 
+  public Map<DexMethod, DexMethod> getEmulatedVirtualRetargetThroughEmulatedInterface() {
+    return emulatedVirtualRetargetThroughEmulatedInterface;
+  }
+
+  public void forEachRetargetHolder(Consumer<DexType> consumer) {
+    staticRetarget.keySet().forEach(m -> consumer.accept(m.getHolderType()));
+    nonEmulatedVirtualRetarget.keySet().forEach(m -> consumer.accept(m.getHolderType()));
+    emulatedVirtualRetarget.keySet().forEach(m -> consumer.accept(m.getHolderType()));
+  }
+
   public Map<DexType, EmulatedInterfaceDescriptor> getEmulatedInterfaces() {
     return emulatedInterfaces;
   }
@@ -110,8 +126,39 @@ public class MachineRewritingFlags {
     return dontRetarget;
   }
 
-  public Map<DexType, Pair<DexType, DexString>> getCustomConversions() {
+  public boolean isCustomConversionRewrittenType(DexType type) {
+    return Iterables.any(
+        customConversions.values(),
+        descriptor ->
+            descriptor.getFrom().getHolderType() == type
+                || descriptor.getTo().getHolderType() == type);
+  }
+
+  public Map<DexType, CustomConversionDescriptor> getCustomConversions() {
     return customConversions;
+  }
+
+  public boolean hasRetargeting() {
+    return !staticRetarget.isEmpty()
+        || !nonEmulatedVirtualRetarget.isEmpty()
+        || !emulatedVirtualRetarget.isEmpty();
+  }
+
+  public boolean isEmulatedInterfaceRewrittenType(DexType type) {
+    return Iterables.any(
+        emulatedInterfaces.values(), descriptor -> descriptor.getRewrittenType() == type);
+  }
+
+  public boolean hasEmulatedInterfaces() {
+    return !emulatedInterfaces.isEmpty();
+  }
+
+  EmulatedDispatchMethodDescriptor getEmulatedInterfaceEmulatedDispatchMethodDescriptor(
+      DexMethod method) {
+    if (!emulatedInterfaces.containsKey(method.getHolderType())) {
+      return null;
+    }
+    return emulatedInterfaces.get(method.getHolderType()).getEmulatedMethods().get(method);
   }
 
   public static class Builder {
@@ -126,17 +173,21 @@ public class MachineRewritingFlags {
         ImmutableMap.builder();
     private final ImmutableMap.Builder<DexMethod, EmulatedDispatchMethodDescriptor>
         emulatedVirtualRetarget = ImmutableMap.builder();
+    private final ImmutableMap.Builder<DexMethod, DexMethod>
+        emulatedVirtualRetargetThroughEmulatedInterface = ImmutableMap.builder();
     private final ImmutableMap.Builder<DexType, EmulatedInterfaceDescriptor> emulatedInterfaces =
         ImmutableMap.builder();
     private final ImmutableMap.Builder<DexType, List<DexMethod>> wrappers = ImmutableMap.builder();
     private final ImmutableMap.Builder<DexType, DexType> legacyBackport = ImmutableMap.builder();
     private final ImmutableSet.Builder<DexType> dontRetarget = ImmutableSet.builder();
-    private final ImmutableMap.Builder<DexType, Pair<DexType, DexString>> customConversions =
+    private final ImmutableMap.Builder<DexType, CustomConversionDescriptor> customConversions =
         ImmutableMap.builder();
 
     public void rewriteType(DexType src, DexType target) {
       assert src != null;
       assert target != null;
+      assert src != target;
+      assert !rewriteType.containsKey(src) || rewriteType.get(src) == target;
       rewriteType.put(src, target);
     }
 
@@ -160,6 +211,10 @@ public class MachineRewritingFlags {
       emulatedVirtualRetarget.put(src, dest);
     }
 
+    public void putEmulatedVirtualRetargetThroughEmulatedInterface(DexMethod src, DexMethod dest) {
+      emulatedVirtualRetargetThroughEmulatedInterface.put(src, dest);
+    }
+
     public void addWrapper(DexType wrapperConversion, List<DexMethod> methods) {
       wrappers.put(wrapperConversion, ImmutableList.copyOf(methods));
     }
@@ -172,8 +227,12 @@ public class MachineRewritingFlags {
       dontRetarget.add(type);
     }
 
-    public void putCustomConversion(DexType src, DexType conversionType, DexString conversionName) {
-      customConversions.put(src, new Pair<>(conversionType, conversionName));
+    public void putCustomConversion(DexType src, CustomConversionDescriptor descriptor) {
+      customConversions.put(src, descriptor);
+    }
+
+    public DexType getRewrittenType(DexType type) {
+      return rewriteType.get(type);
     }
 
     public MachineRewritingFlags build() {
@@ -183,6 +242,7 @@ public class MachineRewritingFlags {
           staticRetarget.build(),
           nonEmulatedVirtualRetarget.build(),
           emulatedVirtualRetarget.build(),
+          emulatedVirtualRetargetThroughEmulatedInterface.build(),
           emulatedInterfaces.build(),
           wrappers.build(),
           legacyBackport.build(),

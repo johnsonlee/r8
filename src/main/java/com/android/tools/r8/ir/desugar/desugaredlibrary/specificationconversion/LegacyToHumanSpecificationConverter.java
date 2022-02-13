@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.specificationconversion;
 
+import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.StringResource;
 import com.android.tools.r8.dex.ApplicationReader;
@@ -44,6 +45,8 @@ import java.util.concurrent.ExecutorService;
 
 public class LegacyToHumanSpecificationConverter {
 
+  private AndroidApiLevel legacyHackLevel = AndroidApiLevel.N_MR1;
+
   public void convertAllAPILevels(
       StringResource inputSpecification, Path androidLib, StringConsumer output)
       throws IOException {
@@ -65,7 +68,9 @@ public class LegacyToHumanSpecificationConverter {
       InternalOptions options)
       throws IOException {
     Origin origin = legacySpec.getOrigin();
-    DexApplication app = readApp(androidLib, options);
+    AndroidApp androidApp = AndroidApp.builder().addLibraryFile(androidLib).build();
+    DexApplication app = readApp(androidApp, options);
+    LibraryValidator.validate(app, legacySpec.getTopLevelFlags().getRequiredCompilationAPILevel());
     HumanTopLevelFlags humanTopLevelFlags = convertTopLevelFlags(legacySpec.getTopLevelFlags());
     Int2ObjectArrayMap<HumanRewritingFlags> commonFlags =
         convertRewritingFlagMap(legacySpec.getCommonFlags(), app, origin);
@@ -81,33 +86,60 @@ public class LegacyToHumanSpecificationConverter {
   }
 
   public HumanDesugaredLibrarySpecification convert(
+      LegacyDesugaredLibrarySpecification legacySpec,
+      List<ClassFileResourceProvider> library,
+      InternalOptions options)
+      throws IOException {
+    AndroidApp.Builder builder = AndroidApp.builder();
+    for (ClassFileResourceProvider classFileResourceProvider : library) {
+      builder.addLibraryResourceProvider(classFileResourceProvider);
+    }
+    return internalConvert(legacySpec, builder.build(), options);
+  }
+
+  public HumanDesugaredLibrarySpecification convert(
       LegacyDesugaredLibrarySpecification legacySpec, Path androidLib, InternalOptions options)
       throws IOException {
-    DexApplication app = readApp(androidLib, options);
-    HumanTopLevelFlags humanTopLevelFlags = convertTopLevelFlags(legacySpec.getTopLevelFlags());
+    AndroidApp androidApp = AndroidApp.builder().addLibraryFile(androidLib).build();
+    return internalConvert(legacySpec, androidApp, options);
+  }
 
+  public HumanDesugaredLibrarySpecification internalConvert(
+      LegacyDesugaredLibrarySpecification legacySpec, AndroidApp inputApp, InternalOptions options)
+      throws IOException {
+    DexApplication app = readApp(inputApp, options);
+    LibraryValidator.validate(app, legacySpec.getTopLevelFlags().getRequiredCompilationAPILevel());
+    HumanTopLevelFlags humanTopLevelFlags = convertTopLevelFlags(legacySpec.getTopLevelFlags());
     // The origin is not maintained in non multi-level specifications.
     // It should not matter since the origin is used to report invalid specifications, and
     // converting non multi-level specifications should be performed only with *valid*
     // specifications in practical cases.
     Origin origin = Origin.unknown();
-
     HumanRewritingFlags humanRewritingFlags =
         convertRewritingFlags(legacySpec.getRewritingFlags(), app, origin);
+    if (options.getMinApiLevel().isLessThanOrEqualTo(legacyHackLevel)
+        && legacySpec.isLibraryCompilation()) {
+      HumanRewritingFlags.Builder builder =
+          humanRewritingFlags.newBuilder(app.dexItemFactory(), app.options.reporter, origin);
+      legacyLibraryFlagHacks(app.dexItemFactory(), builder);
+      humanRewritingFlags = builder.build();
+    }
     return new HumanDesugaredLibrarySpecification(
-        humanTopLevelFlags,
-        humanRewritingFlags,
-        legacySpec.isLibraryCompilation(),
-        app.dexItemFactory());
+        humanTopLevelFlags, humanRewritingFlags, legacySpec.isLibraryCompilation());
   }
 
   private void legacyLibraryFlagHacks(
       Int2ObjectArrayMap<HumanRewritingFlags> libraryFlags, DexApplication app, Origin origin) {
-    int level = AndroidApiLevel.N_MR1.getLevel();
+    int level = legacyHackLevel.getLevel();
     HumanRewritingFlags humanRewritingFlags = libraryFlags.get(level);
     HumanRewritingFlags.Builder builder =
         humanRewritingFlags.newBuilder(app.dexItemFactory(), app.options.reporter, origin);
-    DexItemFactory itemFactory = app.dexItemFactory();
+    legacyLibraryFlagHacks(app.dexItemFactory(), builder);
+    libraryFlags.put(level, builder.build());
+  }
+
+  private void legacyLibraryFlagHacks(
+      DexItemFactory itemFactory, HumanRewritingFlags.Builder builder) {
 
     // TODO(b/177977763): This is only a workaround rewriting invokes of j.u.Arrays.deepEquals0
     // to j.u.DesugarArrays.deepEquals0.
@@ -130,14 +162,10 @@ public class LegacyToHumanSpecificationConverter {
     source = itemFactory.createMethod(itemFactory.createType("Ljava/util/TimeZone;"), proto, name);
     target = itemFactory.createType("Ljava/util/DesugarTimeZone;");
     builder.putRetargetCoreLibMember(source, target);
-
-    libraryFlags.put(level, builder.build());
   }
 
-  private DexApplication readApp(Path androidLib, InternalOptions options) throws IOException {
-    AndroidApp androidApp = AndroidApp.builder().addLibraryFile(androidLib).build();
-    ApplicationReader applicationReader =
-        new ApplicationReader(androidApp, options, Timing.empty());
+  private DexApplication readApp(AndroidApp inputApp, InternalOptions options) throws IOException {
+    ApplicationReader applicationReader = new ApplicationReader(inputApp, options, Timing.empty());
     ExecutorService executorService = ThreadUtils.getExecutorService(options);
     return applicationReader.read(executorService).toDirect();
   }

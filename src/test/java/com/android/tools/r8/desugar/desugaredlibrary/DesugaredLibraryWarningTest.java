@@ -4,6 +4,9 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.L8Command;
 import com.android.tools.r8.OutputMode;
@@ -12,6 +15,7 @@ import com.android.tools.r8.TestDiagnosticMessagesImpl;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -65,6 +69,19 @@ public class DesugaredLibraryWarningTest extends DesugaredLibraryTestBase {
           Arrays.asList(FUNCTION_KEEP.split(System.lineSeparator())), Origin.unknown());
     }
     ToolHelper.runL8(l8Builder.build(), options -> {});
-    diagnosticsHandler.assertNoMessages();
+    assertEquals(
+        (isJDK11DesugaredLibrary() && parameters.getApiLevel().isLessThan(AndroidApiLevel.O))
+            ? 2
+            : 1,
+        diagnosticsHandler.getWarnings().size());
+    diagnosticsHandler.assertNoErrors();
+    assertTrue(
+        diagnosticsHandler
+            .getWarnings()
+            .get(0)
+            .getDiagnosticMessage()
+            .contains(
+                "The following library types, prefixed by java., are present both as library and"
+                    + " non library classes:"));
   }
 }

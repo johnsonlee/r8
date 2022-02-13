@@ -1,13 +1,11 @@
 #!/usr/bin/env lucicfg
 
-lucicfg.check_version("1.28.0", "Please use newer `lucicfg` binary")
+lucicfg.check_version("1.30.9", "Please use newer `lucicfg` binary")
 
-# Enable LUCI Realms support.
-lucicfg.enable_experiment("crbug.com/1085650")
+# Use LUCI Scheduler BBv2 names and add Scheduler realms configs.
+lucicfg.enable_experiment("crbug.com/1182002")
 
-# Launch 0% of Builds in "realms-aware mode"
 luci.builder.defaults.experiments.set({
-    "luci.use_realms": 100,
     "luci.recipes.use_python3": 100
 })
 
@@ -111,11 +109,26 @@ luci.gitiles_poller(
 )
 
 luci.gitiles_poller(
+  name = "branch-gitiles-3.3-forward",
+  bucket = "ci",
+  repo = "https://r8.googlesource.com/r8",
+  refs = ["refs/heads//([3]\\.[3-9]+(\\.[0-9]+)?|[4-9]\\.[0-9]+(\\.[0-9]+)?)"],
+  path_regexps = ["src/main/java/com/android/tools/r8/Version.java"]
+)
+
+luci.gitiles_poller(
+  name = "branch-gitiles-3.2-forward",
+  bucket = "ci",
+  repo = "https://r8.googlesource.com/r8",
+  refs = ["refs/heads//([3]\\.[2-9]+(\\.[0-9]+)?|[4-9]\\.[0-9]+(\\.[0-9]+)?)"],
+  path_regexps = ["src/main/java/com/android/tools/r8/Version.java"]
+)
+
+luci.gitiles_poller(
   name = "branch-gitiles-trigger",
   bucket = "ci",
   repo = "https://r8.googlesource.com/r8",
-  # Version branches are named d8-x.y (up until d8-1.5) or just x.y (from 1.6)
-  refs = ["refs/heads/(?:d8-)?[0-9]+\\.[0-9]+(\\.[0-9]+)?"],
+  refs = ["refs/heads/[0-9]+\\.[0-9]+(\\.[0-9]+)?"],
   path_regexps = ["src/main/java/com/android/tools/r8/Version.java"]
 )
 
@@ -167,10 +180,14 @@ def get_dimensions(windows=False, jctf=False, internal=False, normal=False):
   return dimensions
 
 def r8_builder(name, priority=26, trigger=True, category=None,
-               triggering_policy=None, **kwargs):
+               triggering_policy=None, release_trigger=None, **kwargs):
   release = name.endswith("release")
-  triggered = None if not trigger else ["branch-gitiles-trigger"] if release\
-      else ["main-gitiles-trigger"]
+  triggered = None
+  if trigger:
+    if release:
+      triggered = release_trigger if release_trigger else ["branch-gitiles-trigger"]
+    else:
+      triggered = ["main-gitiles-trigger"]
   triggering_policy = triggering_policy or scheduler.policy(
       kind = scheduler.GREEDY_BATCHING_KIND,
       max_batch_size = 1 if release else None,
@@ -199,7 +216,8 @@ def r8_tester(name,
     dimensions = None,
     execution_timeout = time.hour * 6,
     expiration_timeout = time.hour * 35,
-    category=None):
+    category=None,
+    release_trigger=None):
   dimensions = dimensions if dimensions else get_dimensions(normal=True)
   for name in [name, name + "_release"]:
     r8_builder(
@@ -208,15 +226,20 @@ def r8_tester(name,
         execution_timeout = execution_timeout,
         expiration_timeout = expiration_timeout,
         dimensions = dimensions,
+        release_trigger=release_trigger,
         properties = {
             "test_options" : test_options,
             "builder_group" : "internal.client.r8"
         }
     )
 
-def r8_tester_with_default(name, test_options, dimensions=None, category=None):
+def r8_tester_with_default(name,
+    test_options,
+    dimensions=None,
+    category=None,
+    release_trigger=None):
   r8_tester(name, test_options + common_test_options,
-            dimensions = dimensions, category = category)
+            dimensions = dimensions, category = category, release_trigger=release_trigger)
 
 def archivers():
   for name in ["archive", "archive_release", "lib_desugar-archive"]:
@@ -265,7 +288,11 @@ r8_tester_with_default("linux-android-9.0.0",
 r8_tester_with_default("linux-android-10.0.0",
     ["--dex_vm=10.0.0", "--all_tests"])
 r8_tester_with_default("linux-android-12.0.0",
-    ["--dex_vm=12.0.0", "--all_tests"])
+    ["--dex_vm=12.0.0", "--all_tests"],
+    release_trigger=["branch-gitiles-3.2-forward"])
+r8_tester_with_default("linux-android-13.0.0",
+    ["--dex_vm=13.0.0", "--all_tests"],
+    release_trigger=["branch-gitiles-3.3-forward"])
 
 r8_tester_with_default("windows", ["--all_tests"],
     dimensions=get_dimensions(windows=True))

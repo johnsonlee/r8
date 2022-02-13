@@ -39,7 +39,6 @@ import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.InvokeMethod;
-import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Monitor;
 import com.android.tools.r8.ir.code.MoveException;
@@ -515,7 +514,7 @@ public class Inliner {
     public final Invoke invoke;
     final Reason reason;
 
-    private boolean shouldSynthesizeInitClass;
+    private boolean shouldEnsureStaticInitialization;
 
     private DexProgramClass downcastClass;
 
@@ -538,13 +537,14 @@ public class Inliner {
       this.downcastClass = downcastClass;
     }
 
-    void setShouldSynthesizeInitClass() {
-      shouldSynthesizeInitClass = true;
+    void setShouldEnsureStaticInitialization() {
+      shouldEnsureStaticInitialization = true;
     }
 
     InlineeWithReason buildInliningIR(
         AppView<AppInfoWithLiveness> appView,
         InvokeMethod invoke,
+        ProgramMethod context,
         InliningIRProvider inliningIRProvider,
         LensCodeRewriter lensCodeRewriter) {
       DexItemFactory dexItemFactory = appView.dexItemFactory();
@@ -555,8 +555,13 @@ public class Inliner {
 
       // Insert a init class instruction if this is needed to preserve class initialization
       // semantics.
-      if (shouldSynthesizeInitClass) {
-        synthesizeInitClass(code);
+      if (shouldEnsureStaticInitialization) {
+        handleSimpleEffectAnalysisResult(
+            SimpleDominatingEffectAnalysis.triggersClassInitializationBeforeAnyStaticRead(
+                appView, code, context),
+            code.entryBlock(),
+            ConsumerUtils.emptyConsumer(),
+            failingBlock -> synthesizeInitClass(code, failingBlock));
       }
 
       // Insert a null check if this is needed to preserve the implicit null check for the receiver.
@@ -573,19 +578,11 @@ public class Inliner {
       if (invoke.isInvokeMethodWithReceiver()
           && invoke.asInvokeMethodWithReceiver().getReceiver().isMaybeNull()
           && !isSynthesizingNullCheckForReceiverUsingMonitorEnter) {
-        SimpleEffectAnalysisResult checksReceiverBeingNull =
-            canInlineWithoutSynthesizingNullCheckForReceiver(appView, code);
-        if (checksReceiverBeingNull.isNotSatisfied()
-            || (checksReceiverBeingNull.isPartial()
-                && checksReceiverBeingNull.topMostNotSatisfiedBlockSize() > 1)) {
-          synthesizeNullCheckForReceiver(appView, code, invoke, code.entryBlock());
-        } else {
-          checksReceiverBeingNull.forEachSatisfyingInstruction(
-              this::setRemoveInnerFramePositionForReceiverUse);
-          // Also add a null check on failing paths
-          checksReceiverBeingNull.forEachTopMostNotSatisfiedBlock(
-              block -> synthesizeNullCheckForReceiver(appView, code, invoke, block));
-        }
+        handleSimpleEffectAnalysisResult(
+            canInlineWithoutSynthesizingNullCheckForReceiver(appView, code),
+            code.entryBlock(),
+            this::setRemoveInnerFramePositionForReceiverUse,
+            failingBlock -> synthesizeNullCheckForReceiver(appView, code, invoke, failingBlock));
       }
       // Insert monitor-enter and monitor-exit instructions if the method is synchronized.
       if (shouldSynthesizeMonitorEnterExit) {
@@ -711,12 +708,32 @@ public class Inliner {
       return new InlineeWithReason(code, reason);
     }
 
-    private void synthesizeInitClass(IRCode code) {
-      List<Value> arguments = code.collectArguments();
-      BasicBlock block = code.entryBlock();
+    private void handleSimpleEffectAnalysisResult(
+        SimpleEffectAnalysisResult result,
+        BasicBlock entryBlock,
+        Consumer<Instruction> satisfyingInstructionConsumer,
+        Consumer<BasicBlock> failingPathConsumer) {
+      List<BasicBlock> topmostNotSatisfiedBlocks = result.getTopmostNotSatisfiedBlocks();
+      if (result.isNotSatisfied()
+          // We should only handle partial results if the number of failing paths are small (1) and
+          // if the failing blocks that root the failing paths do not have catch handlers.
+          || (result.isPartial() && topmostNotSatisfiedBlocks.size() > 1)
+          || (result.isPartial() && topmostNotSatisfiedBlocks.get(0).hasCatchHandlers())) {
+        failingPathConsumer.accept(entryBlock);
+      } else {
+        result.forEachSatisfyingInstruction(satisfyingInstructionConsumer);
+        topmostNotSatisfiedBlocks.forEach(failingPathConsumer);
+      }
+    }
+
+    private void synthesizeInitClass(IRCode code, BasicBlock block) {
       // Insert a new block between the last argument instruction and the first actual instruction
-      // of the method.
-      BasicBlock initClassBlock = block.listIterator(code, arguments.size()).split(code, 0, null);
+      // of the method, or the first instruction if not entry block.
+      assert !block.hasCatchHandlers();
+      BasicBlock initClassBlock =
+          block
+              .listIterator(code, block.isEntry() ? code.collectArguments().size() : 0)
+              .split(code, 0, null);
       assert !initClassBlock.hasCatchHandlers();
 
       InstructionListIterator iterator = initClassBlock.listIterator(code);
@@ -738,13 +755,8 @@ public class Inliner {
 
         InstructionListIterator iterator = throwBlock.listIterator(code);
         iterator.setInsertionPosition(invoke.getPosition());
-        if (appView.options().canUseJavaUtilObjectsRequireNonNull()) {
-          DexMethod requireNonNullMethod = appView.dexItemFactory().objectsMethods.requireNonNull;
-          iterator.add(new InvokeStatic(requireNonNullMethod, null, ImmutableList.of(receiver)));
-        } else {
-          DexMethod getClassMethod = appView.dexItemFactory().objectMembers.getClass;
-          iterator.add(new InvokeVirtual(getClassMethod, null, ImmutableList.of(receiver)));
-        }
+        DexMethod getClassMethod = appView.dexItemFactory().objectMembers.getClass;
+        iterator.add(new InvokeVirtual(getClassMethod, null, ImmutableList.of(receiver)));
       } else {
         assert false : "Unable to synthesize a null check for the receiver";
       }
@@ -1014,7 +1026,8 @@ public class Inliner {
           }
 
           InlineeWithReason inlinee =
-              action.buildInliningIR(appView, invoke, inliningIRProvider, lensCodeRewriter);
+              action.buildInliningIR(
+                  appView, invoke, context, inliningIRProvider, lensCodeRewriter);
           if (strategy.willExceedBudget(
               code, invoke, inlinee, block, whyAreYouNotInliningReporter)) {
             assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();

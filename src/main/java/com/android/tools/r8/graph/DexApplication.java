@@ -66,8 +66,17 @@ public abstract class DexApplication implements DexDefinitionSupplier {
     DexApplication self = this;
     return new DexDefinitionSupplier() {
       @Override
+      public ClassResolutionResult contextIndependentDefinitionForWithResolutionResult(
+          DexType type) {
+        return syntheticDefinitionsProvider.definitionFor(
+            type, self::contextIndependentDefinitionForWithResolutionResult);
+      }
+
+      @Override
       public DexClass definitionFor(DexType type) {
-        return syntheticDefinitionsProvider.definitionFor(type, self::definitionFor);
+        return syntheticDefinitionsProvider
+            .definitionFor(type, self::contextIndependentDefinitionForWithResolutionResult)
+            .toSingleClassWithProgramOverLibrary();
       }
 
       @Override
@@ -117,13 +126,14 @@ public abstract class DexApplication implements DexDefinitionSupplier {
     return classesWithDeterministicOrder(new ArrayList<>(programClasses()));
   }
 
-  public static <T extends DexClass> List<T> classesWithDeterministicOrder(Collection<T> classes) {
+  public static <T extends ClassDefinition> List<T> classesWithDeterministicOrder(
+      Collection<T> classes) {
     return classesWithDeterministicOrder(new ArrayList<>(classes));
   }
 
-  public static <T extends DexClass> List<T> classesWithDeterministicOrder(List<T> classes) {
+  public static <T extends ClassDefinition> List<T> classesWithDeterministicOrder(List<T> classes) {
     // To keep the order deterministic, we sort the classes by their type, which is a unique key.
-    classes.sort(Comparator.comparing(DexClass::getType));
+    classes.sort(Comparator.comparing(ClassDefinition::getType));
     return classes;
   }
 

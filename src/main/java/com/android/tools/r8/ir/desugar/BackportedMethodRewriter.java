@@ -100,14 +100,14 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
   public static List<DexMethod> generateListOfBackportedMethods(
       AndroidApp androidApp, InternalOptions options, ExecutorService executor) throws IOException {
     List<DexMethod> methods = new ArrayList<>();
-    PrefixRewritingMapper rewritePrefix = options.getPrefixRewritingMapper();
+    TypeRewriter typeRewriter = options.getTypeRewriter();
     AppInfo appInfo = null;
     if (androidApp != null) {
       DexApplication app =
           new ApplicationReader(androidApp, options, Timing.empty()).read(executor);
       appInfo = AppInfo.createInitialAppInfo(app);
     }
-    AppView<?> appView = AppView.createForD8(appInfo, rewritePrefix);
+    AppView<?> appView = AppView.createForD8(appInfo, typeRewriter);
     BackportedMethodRewriter.RewritableMethods rewritableMethods =
         new BackportedMethodRewriter.RewritableMethods(options, appView);
     rewritableMethods.visit(methods::add);
@@ -128,24 +128,16 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     DexMethod original = appView.graphLens().getOriginalMethodSignature(method);
     assert original != null;
     MethodProvider provider = rewritableMethods.getProvider(original);
-    // TODO(b/150693139): Since the DesugarLibraryRetargeter is run during IR processing while the
-    // backported method rewriter is run in cf to cf, we need here to compute if the method is
-    // actually going to be retargeted through desugared library backports, and compute the
-    // corresponding backported method if so. This can be removed once the DesugarLibraryRetargeter
-    // has been moved as a cf to cf transformation.
+    // Old versions of desugared library have in the jar file pre-desugared code. This is used
+    // to undesugar pre-desugared code, then the code is re-desugared with D8/R8. This is
+    // maintained for legacy only, recent desugared library should not be shipped with
+    // pre-desugared code.
+    Map<DexType, DexType> legacyBackport =
+        appView.options().machineDesugaredLibrarySpecification.getLegacyBackport();
     if (provider == null
         && appView.options().isDesugaredLibraryCompilation()
-        && appView
-            .options()
-            .desugaredLibrarySpecification
-            .getBackportCoreLibraryMember()
-            .containsKey(method.holder)) {
-      DexType newHolder =
-          appView
-              .options()
-              .desugaredLibrarySpecification
-              .getBackportCoreLibraryMember()
-              .get(method.holder);
+        && legacyBackport.containsKey(method.holder)) {
+      DexType newHolder = legacyBackport.get(method.holder);
       DexMethod backportedMethod =
           appView.dexItemFactory().createMethod(newHolder, method.proto, method.name);
       provider = rewritableMethods.getProvider(backportedMethod);
@@ -188,22 +180,25 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
         initializeAndroidSv2MethodProviders(factory);
       }
 
-      // The following providers are currently not implemented at any API level in Android.
-      // They however require the Optional/Stream class to be present, either through desugared
-      // libraries or natively. If Optional/Stream class is not present, we do not desugar to
-      // avoid confusion in error messages.
-      if (appView.rewritePrefix.hasRewrittenType(factory.optionalType, appView)
-          || options.getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N)) {
-        initializeJava9OptionalMethodProviders(factory);
-        initializeJava10OptionalMethodProviders(factory);
-        initializeJava11OptionalMethodProviders(factory);
+      // The following providers are implemented at API level T. For backporting they require
+      // the java.util.Optional class to be present, either through library desugaring or natively.
+      // If the java.util.Optional class is not present, we do not backport to avoid confusion in
+      // error messages.
+      if (appView.typeRewriter.hasRewrittenType(factory.optionalType, appView)
+          || options.getMinApiLevel().betweenBothIncluded(AndroidApiLevel.N, AndroidApiLevel.Sv2)) {
+        initializeAndroidOptionalTMethodProviders(factory);
       }
-      if (appView.rewritePrefix.hasRewrittenType(factory.streamType, appView)
+
+      // The following providers are currently not implemented at any API level in Android. For
+      // backporting they require the java.util.stream.Stream class to be present, either through
+      // library desugaring or natively. If the java.util.stream.Stream class is not present, we do
+      // not desugar to avoid confusion in error messages.
+      if (appView.typeRewriter.hasRewrittenType(factory.streamType, appView)
           || options.getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N)) {
         initializeStreamMethodProviders(factory);
       }
 
-      if (appView.rewritePrefix.hasRewrittenType(factory.supplierType, appView)) {
+      if (appView.typeRewriter.hasRewrittenType(factory.supplierType, appView)) {
         // TODO(b/191188594): Consider adding the Objects method from R here, or instead
         //  rely on desugared library to support them.
         initializeObjectsMethodProviders(factory);
@@ -1163,6 +1158,122 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       }
     }
 
+    private void initializeAndroidOptionalTMethodProviders(DexItemFactory factory) {
+      DexType optionalType = factory.optionalType;
+      DexType[] optionalTypes =
+          new DexType[] {
+            factory.optionalType,
+            factory.optionalDoubleType,
+            factory.optionalLongType,
+            factory.optionalIntType,
+          };
+
+      // or (added in Java 9).
+      {
+        DexString name = factory.createString("or");
+        DexProto proto = factory.createProto(optionalType, factory.supplierType);
+        DexMethod method = factory.createMethod(optionalType, proto, name);
+        addProvider(
+            new StatifyingMethodGenerator(
+                method, BackportedMethods::OptionalMethods_or, "or", optionalType));
+      }
+
+      // stream (added in Java 9).
+      {
+        DexType[] streamReturnTypes =
+            new DexType[] {
+              factory.streamType,
+              factory.createType(factory.createString("Ljava/util/stream/DoubleStream;")),
+              factory.createType(factory.createString("Ljava/util/stream/LongStream;")),
+              factory.createType(factory.createString("Ljava/util/stream/IntStream;")),
+            };
+        TemplateMethodFactory[] streamMethodFactories =
+            new TemplateMethodFactory[] {
+              BackportedMethods::OptionalMethods_stream,
+              BackportedMethods::OptionalMethods_streamDouble,
+              BackportedMethods::OptionalMethods_streamLong,
+              BackportedMethods::OptionalMethods_streamInt,
+            };
+        DexString name = factory.createString("stream");
+        for (int i = 0; i < optionalTypes.length; i++) {
+          DexType optional = optionalTypes[i];
+          DexType streamReturnType = streamReturnTypes[i];
+          DexProto proto = factory.createProto(streamReturnType);
+          DexMethod method = factory.createMethod(optional, proto, name);
+          addProvider(
+              new StatifyingMethodGenerator(method, streamMethodFactories[i], "stream", optional));
+        }
+      }
+
+      // ifPresentOrElse (added in Java 9).
+      {
+        DexType[] consumerTypes =
+            new DexType[] {
+              factory.consumerType,
+              factory.doubleConsumer,
+              factory.longConsumer,
+              factory.intConsumer
+            };
+        TemplateMethodFactory[] methodFactories =
+            new TemplateMethodFactory[] {
+              BackportedMethods::OptionalMethods_ifPresentOrElse,
+              BackportedMethods::OptionalMethods_ifPresentOrElseDouble,
+              BackportedMethods::OptionalMethods_ifPresentOrElseLong,
+              BackportedMethods::OptionalMethods_ifPresentOrElseInt
+            };
+        for (int i = 0; i < optionalTypes.length; i++) {
+          DexType optional = optionalTypes[i];
+          DexType consumer = consumerTypes[i];
+          DexString name = factory.createString("ifPresentOrElse");
+          DexProto proto = factory.createProto(factory.voidType, consumer, factory.runnableType);
+          DexMethod method = factory.createMethod(optional, proto, name);
+          addProvider(
+              new StatifyingMethodGenerator(
+                  method, methodFactories[i], "ifPresentOrElse", optional));
+        }
+      }
+
+      // orElseThrow (added in Java 10).
+      {
+        DexType[] returnTypes =
+            new DexType[] {
+              factory.objectType, factory.doubleType, factory.longType, factory.intType,
+            };
+        MethodInvokeRewriter[] rewriters =
+            new MethodInvokeRewriter[] {
+              OptionalMethodRewrites.rewriteOrElseGet(),
+              OptionalMethodRewrites.rewriteDoubleOrElseGet(),
+              OptionalMethodRewrites.rewriteLongOrElseGet(),
+              OptionalMethodRewrites.rewriteIntOrElseGet(),
+            };
+        DexString name = factory.createString("orElseThrow");
+        for (int i = 0; i < optionalTypes.length; i++) {
+          DexProto proto = factory.createProto(returnTypes[i]);
+          DexMethod method = factory.createMethod(optionalTypes[i], proto, name);
+          addProvider(new InvokeRewriter(method, rewriters[i]));
+        }
+      }
+
+      // isEmpty (added in Java 11).
+      {
+        TemplateMethodFactory[] methodFactories =
+            new TemplateMethodFactory[] {
+              BackportedMethods::OptionalMethods_isEmpty,
+              BackportedMethods::OptionalMethods_isEmptyDouble,
+              BackportedMethods::OptionalMethods_isEmptyLong,
+              BackportedMethods::OptionalMethods_isEmptyInt
+            };
+        DexString name = factory.createString("isEmpty");
+        for (int i = 0; i < optionalTypes.length; i++) {
+          DexProto proto = factory.createProto(factory.booleanType);
+          DexMethod method = factory.createMethod(optionalTypes[i], proto, name);
+          addProvider(
+              new StatifyingMethodGenerator(
+                  method, methodFactories[i], "isEmpty", optionalTypes[i]));
+        }
+      }
+    }
+
     private void initializeJava9MethodProviders(DexItemFactory factory) {
       // Integer
       DexType type = factory.boxedIntType;
@@ -1298,127 +1409,6 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
               method, BackportedMethods::StringMethods_stripTrailing, "stripTrailing", type));
     }
 
-    private void initializeJava9OptionalMethodProviders(DexItemFactory factory) {
-      // Optional
-      DexType optionalType = factory.optionalType;
-
-      // Optional.or(supplier)
-      DexString name = factory.createString("or");
-      DexProto proto = factory.createProto(optionalType, factory.supplierType);
-      DexMethod method = factory.createMethod(optionalType, proto, name);
-      addProvider(
-          new StatifyingMethodGenerator(
-              method, BackportedMethods::OptionalMethods_or, "or", optionalType));
-
-      // Optional{void,Int,Long,Double}.stream()
-      DexType[] optionalTypes =
-          new DexType[] {
-            optionalType,
-            factory.optionalDoubleType,
-            factory.optionalLongType,
-            factory.optionalIntType,
-          };
-      DexType[] streamReturnTypes =
-          new DexType[] {
-            factory.streamType,
-            factory.createType(factory.createString("Ljava/util/stream/DoubleStream;")),
-            factory.createType(factory.createString("Ljava/util/stream/LongStream;")),
-            factory.createType(factory.createString("Ljava/util/stream/IntStream;")),
-          };
-      TemplateMethodFactory[] streamMethodFactories =
-          new TemplateMethodFactory[] {
-            BackportedMethods::OptionalMethods_stream,
-            BackportedMethods::OptionalMethods_streamDouble,
-            BackportedMethods::OptionalMethods_streamLong,
-            BackportedMethods::OptionalMethods_streamInt,
-          };
-      name = factory.createString("stream");
-      for (int i = 0; i < optionalTypes.length; i++) {
-        DexType optional = optionalTypes[i];
-        DexType streamReturnType = streamReturnTypes[i];
-        proto = factory.createProto(streamReturnType);
-        method = factory.createMethod(optional, proto, name);
-        addProvider(
-            new StatifyingMethodGenerator(method, streamMethodFactories[i], "stream", optional));
-      }
-
-      // Optional{void,Int,Long,Double}.ifPresentOrElse(consumer,runnable)
-      DexType[] consumerTypes =
-          new DexType[] {
-            factory.consumerType, factory.doubleConsumer, factory.longConsumer, factory.intConsumer
-          };
-      TemplateMethodFactory[] methodFactories =
-          new TemplateMethodFactory[] {
-            BackportedMethods::OptionalMethods_ifPresentOrElse,
-            BackportedMethods::OptionalMethods_ifPresentOrElseDouble,
-            BackportedMethods::OptionalMethods_ifPresentOrElseLong,
-            BackportedMethods::OptionalMethods_ifPresentOrElseInt
-          };
-      for (int i = 0; i < optionalTypes.length; i++) {
-        DexType optional = optionalTypes[i];
-        DexType consumer = consumerTypes[i];
-        name = factory.createString("ifPresentOrElse");
-        proto = factory.createProto(factory.voidType, consumer, factory.runnableType);
-        method = factory.createMethod(optional, proto, name);
-        addProvider(
-            new StatifyingMethodGenerator(method, methodFactories[i], "ifPresentOrElse", optional));
-      }
-    }
-
-    private void initializeJava10OptionalMethodProviders(DexItemFactory factory) {
-      // Optional{void,Int,Long,Double}.orElseThrow()
-      DexType[] optionalTypes =
-          new DexType[] {
-            factory.optionalType,
-            factory.optionalDoubleType,
-            factory.optionalLongType,
-            factory.optionalIntType,
-          };
-      DexType[] returnTypes =
-          new DexType[] {
-            factory.objectType, factory.doubleType, factory.longType, factory.intType,
-          };
-      MethodInvokeRewriter[] rewriters =
-          new MethodInvokeRewriter[] {
-            OptionalMethodRewrites.rewriteOrElseGet(),
-            OptionalMethodRewrites.rewriteDoubleOrElseGet(),
-            OptionalMethodRewrites.rewriteLongOrElseGet(),
-            OptionalMethodRewrites.rewriteIntOrElseGet(),
-          };
-      DexString name = factory.createString("orElseThrow");
-      for (int i = 0; i < optionalTypes.length; i++) {
-        DexProto proto = factory.createProto(returnTypes[i]);
-        DexMethod method = factory.createMethod(optionalTypes[i], proto, name);
-        addProvider(new InvokeRewriter(method, rewriters[i]));
-      }
-    }
-
-    private void initializeJava11OptionalMethodProviders(DexItemFactory factory) {
-      // Optional{void,Int,Long,Double}.isEmpty()
-      DexType[] optionalTypes =
-          new DexType[] {
-            factory.optionalType,
-            factory.optionalDoubleType,
-            factory.optionalLongType,
-            factory.optionalIntType,
-          };
-      TemplateMethodFactory[] methodFactories =
-          new TemplateMethodFactory[] {
-            BackportedMethods::OptionalMethods_isEmpty,
-            BackportedMethods::OptionalMethods_isEmptyDouble,
-            BackportedMethods::OptionalMethods_isEmptyLong,
-            BackportedMethods::OptionalMethods_isEmptyInt
-          };
-      DexString name = factory.createString("isEmpty");
-      for (int i = 0; i < optionalTypes.length; i++) {
-        DexType optionalType = optionalTypes[i];
-        DexProto proto = factory.createProto(factory.booleanType);
-        DexMethod method = factory.createMethod(optionalType, proto, name);
-        addProvider(
-            new StatifyingMethodGenerator(method, methodFactories[i], "isEmpty", optionalType));
-      }
-    }
-
     private void initializeStreamMethodProviders(DexItemFactory factory) {
       // Stream
       DexType streamType = factory.streamType;
@@ -1445,7 +1435,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
 
     private void addProvider(MethodProvider generator) {
-      if (appView.options().desugaredLibrarySpecification.isSupported(generator.method, appView)) {
+      if (appView.options().machineDesugaredLibrarySpecification.isSupported(generator.method)) {
         // TODO(b/174453232): Remove this after the configuration file format has bee updated
         // with the "rewrite_method" section.
         if (generator.method.getHolderType() == appView.dexItemFactory().objectsType) {

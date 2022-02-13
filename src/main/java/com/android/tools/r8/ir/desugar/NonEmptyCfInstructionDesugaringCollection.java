@@ -18,7 +18,6 @@ import com.android.tools.r8.ir.desugar.apimodel.ApiInvokeOutlinerDesugaring;
 import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeter;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.RetargetingInfo;
 import com.android.tools.r8.ir.desugar.icce.AlwaysThrowingInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialToSelfDesugaring;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
@@ -82,9 +81,9 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     this.nestBasedAccessDesugaring = NestBasedAccessDesugaring.create(appView);
     BackportedMethodRewriter backportedMethodRewriter = null;
     desugaredLibraryRetargeter =
-        appView.options().desugaredLibrarySpecification.getRetargetCoreLibMember().isEmpty()
-            ? null
-            : new DesugaredLibraryRetargeter(appView);
+        appView.options().machineDesugaredLibrarySpecification.hasRetargeting()
+            ? new DesugaredLibraryRetargeter(appView)
+            : null;
     if (desugaredLibraryRetargeter != null) {
       desugarings.add(desugaredLibraryRetargeter);
     }
@@ -112,7 +111,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
       interfaceMethodRewriter = null;
     }
     desugaredLibraryAPIConverter =
-        appView.rewritePrefix.isRewriting()
+        appView.typeRewriter.isRewriting()
             ? new DesugaredLibraryAPIConverter(
                 appView,
                 SetUtils.newImmutableSetExcludingNullItems(
@@ -402,14 +401,6 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     return interfaceMethodRewriter != null
         ? interfaceMethodRewriter.getPostProcessingDesugaringR8(flavor, isLiveMethod, processor)
         : null;
-  }
-
-  @Override
-  public RetargetingInfo getRetargetingInfo() {
-    if (desugaredLibraryRetargeter != null) {
-      return desugaredLibraryRetargeter.getRetargetingInfo();
-    }
-    return null;
   }
 
   @Override

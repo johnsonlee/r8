@@ -415,8 +415,7 @@ public class IRConverter {
       ExecutorService executorService,
       CfClassSynthesizerDesugaringEventConsumer classSynthesizerEventConsumer)
       throws ExecutionException {
-    CfClassSynthesizerDesugaringCollection.create(
-            appView, instructionDesugaring.getRetargetingInfo())
+    CfClassSynthesizerDesugaringCollection.create(appView)
         .synthesizeClasses(executorService, classSynthesizerEventConsumer);
   }
 
@@ -431,8 +430,7 @@ public class IRConverter {
     InterfaceMethodProcessorFacade interfaceDesugaring =
         instructionDesugaring.getInterfaceMethodPostProcessingDesugaringD8(
             ExcludeDexResources, interfaceProcessor);
-    CfPostProcessingDesugaringCollection.create(
-            appView, interfaceDesugaring, instructionDesugaring.getRetargetingInfo())
+    CfPostProcessingDesugaringCollection.create(appView, interfaceDesugaring)
         .postProcessingDesugaring(
             appView.appInfo().classes(), m -> true, eventConsumer, executorService);
     methodProcessor.awaitMethodProcessing();
@@ -590,7 +588,24 @@ public class IRConverter {
               .append("'")
               .append(i < neverMergePrefixes.size() - 1 ? ", " : "");
         }
-        message.append(" with classes with any other prefixes is not allowed.");
+        message.append(" with classes with any other prefixes is not allowed: ");
+        boolean first = true;
+        int limit = 11;
+        for (DexProgramClass clazz : appView.appInfo().classesWithDeterministicOrder()) {
+          if (!clazz.type.descriptor.startsWith(neverMergePrefix)) {
+            if (limit-- < 0) {
+              message.append("..");
+              break;
+            }
+            if (first) {
+              first = false;
+            } else {
+              message.append(", ");
+            }
+            message.append(clazz.type);
+          }
+        }
+        message.append(".");
         throw new CompilationError(message.toString());
       }
     }
@@ -1089,6 +1104,12 @@ public class IRConverter {
     if (options.canHaveArtStringNewInitBug()) {
       timing.begin("Check for new-init issue");
       CodeRewriter.ensureDirectStringNewToInit(code, appView.dexItemFactory());
+      timing.end();
+    }
+
+    if (options.canHaveInvokeInterfaceToObjectMethodBug()) {
+      timing.begin("JDK-8272564 fix rewrite");
+      CodeRewriter.rewriteJdk8272564Fix(code, appView);
       timing.end();
     }
 

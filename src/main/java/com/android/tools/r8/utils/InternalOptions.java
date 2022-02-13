@@ -52,10 +52,13 @@ import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.horizontalclassmerging.Policy;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.desugar.PrefixRewritingMapper;
-import com.android.tools.r8.ir.desugar.PrefixRewritingMapper.MachineDesugarPrefixRewritingMapper;
+import com.android.tools.r8.ir.desugar.TypeRewriter;
+import com.android.tools.r8.ir.desugar.TypeRewriter.MachineDesugarPrefixRewritingMapper;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.specificationconversion.HumanToMachineSpecificationConverter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.specificationconversion.LegacyToHumanSpecificationConverter;
 import com.android.tools.r8.ir.desugar.nest.Nest;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
@@ -85,7 +88,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -390,8 +395,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     if (isGeneratingDex() || desugarState == DesugarState.ON) {
       marker.setMinApi(getMinApiLevel().getLevel());
     }
-    if (desugaredLibrarySpecification.getIdentifier() != null) {
-      marker.setDesugaredLibraryIdentifiers(desugaredLibrarySpecification.getIdentifier());
+    if (machineDesugaredLibrarySpecification.getIdentifier() != null) {
+      marker.setDesugaredLibraryIdentifiers(machineDesugaredLibrarySpecification.getIdentifier());
     }
     if (Version.isDevelopmentVersion()) {
       marker.setSha1(VersionProperties.INSTANCE.getSha());
@@ -438,7 +443,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean isDesugaredLibraryCompilation() {
-    return desugaredLibrarySpecification.isLibraryCompilation();
+    return machineDesugaredLibrarySpecification.isLibraryCompilation();
   }
 
   public boolean isRelocatorCompilation() {
@@ -883,18 +888,49 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // If non-null, configuration must be passed to the consumer.
   public StringConsumer configurationConsumer = null;
 
-  // If null, no desugaring of library is performed.
-  // If non null it contains flags describing library desugaring.
-  public LegacyDesugaredLibrarySpecification desugaredLibrarySpecification =
-      LegacyDesugaredLibrarySpecification.empty();
-
-  public PrefixRewritingMapper getPrefixRewritingMapper() {
-    if (testing.machineDesugaredLibrarySpecification != null) {
-      return new MachineDesugarPrefixRewritingMapper(
-          desugaredLibrarySpecification.getPrefixRewritingMapper(),
-          testing.machineDesugaredLibrarySpecification.getRewritingFlags());
+  public void setDesugaredLibrarySpecification(
+      LegacyDesugaredLibrarySpecification specification, AndroidApp app) {
+    if (specification.isEmptyConfiguration()) {
+      return;
     }
-    return desugaredLibrarySpecification.getPrefixRewritingMapper();
+    try {
+      HumanDesugaredLibrarySpecification human =
+          new LegacyToHumanSpecificationConverter()
+              .convert(specification, app.getLibraryResourceProviders(), this);
+      machineDesugaredLibrarySpecification =
+          new HumanToMachineSpecificationConverter()
+              .convert(
+                  human,
+                  specification.isLibraryCompilation() ? app.getProgramResourceProviders() : null,
+                  app.getLibraryResourceProviders(),
+                  this);
+    } catch (IOException e) {
+      reporter.error(new ExceptionDiagnostic(e, Origin.unknown()));
+    }
+  }
+
+  public void setDesugaredLibrarySpecificationForTesting(
+      LegacyDesugaredLibrarySpecification specification, Path desugaredJDKLib, Path library)
+      throws IOException {
+    HumanDesugaredLibrarySpecification human =
+        new LegacyToHumanSpecificationConverter().convert(specification, library, this);
+    machineDesugaredLibrarySpecification =
+        new HumanToMachineSpecificationConverter()
+            .convert(
+                human,
+                specification.isLibraryCompilation() ? desugaredJDKLib : null,
+                library,
+                this);
+  }
+
+  // Contains flags describing library desugaring.
+  public MachineDesugaredLibrarySpecification machineDesugaredLibrarySpecification =
+      MachineDesugaredLibrarySpecification.empty();
+
+  public TypeRewriter getTypeRewriter() {
+    return machineDesugaredLibrarySpecification.getRewriteType().isEmpty()
+        ? TypeRewriter.empty()
+        : new MachineDesugarPrefixRewritingMapper(machineDesugaredLibrarySpecification);
   }
 
   public boolean relocatorCompilation = false;
@@ -1599,9 +1635,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public Consumer<Deque<ProgramMethodSet>> waveModifier = waves -> {};
 
-    // Meant to replace desugaredLibrarySpecification, set only from tests at the moment.
-    public MachineDesugaredLibrarySpecification machineDesugaredLibrarySpecification = null;
-
     /**
      * If this flag is enabled, we will also compute the set of possible targets for invoke-
      * interface and invoke-virtual instructions that target a library method, and add the
@@ -1901,10 +1934,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public boolean canUseJavaUtilObjectsIsNull() {
     return isGeneratingDex() && hasMinApi(AndroidApiLevel.N);
-  }
-
-  public boolean canUseJavaUtilObjectsRequireNonNull() {
-    return isGeneratingDex() && hasMinApi(AndroidApiLevel.K);
   }
 
   public boolean canUseSuppressedExceptions() {
@@ -2308,5 +2337,17 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // See b/215573892.
   public boolean canHaveSuperInvokeBug() {
     return getMinApiLevel().isLessThan(AndroidApiLevel.N);
+  }
+
+  // Some Dalvik and Art MVs does not support interface invokes to Object
+  // members not explicitly defined on the symbolic reference of the
+  // interface invoke. In these cases rewrite to a virtual invoke with
+  // the symbolic reference java.lang.Object.
+  //
+  // javac started generating code like this with the fix for JDK-8272564.
+  //
+  // See b/218298666.
+  public boolean canHaveInvokeInterfaceToObjectMethodBug() {
+    return isGeneratingDex() && getMinApiLevel().isLessThan(AndroidApiLevel.O);
   }
 }
