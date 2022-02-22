@@ -4,8 +4,12 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification;
 
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecificationParser.CONFIGURATION_FORMAT_VERSION_KEY;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecificationParser.isHumanSpecification;
+
 import com.android.tools.r8.StringResource;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.TopLevelFlagsBuilder;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
@@ -26,7 +30,6 @@ public class LegacyDesugaredLibrarySpecificationParser {
   public static final int MAX_SUPPORTED_VERSION = 4;
   public static final SemanticVersion MIN_SUPPORTED_VERSION = new SemanticVersion(1, 0, 9);
 
-  static final String CONFIGURATION_FORMAT_VERSION_KEY = "configuration_format_version";
   static final String VERSION_KEY = "version";
   static final String GROUP_ID_KEY = "group_id";
   static final String ARTIFACT_ID_KEY = "artifact_id";
@@ -97,13 +100,26 @@ public class LegacyDesugaredLibrarySpecificationParser {
   }
 
   public LegacyDesugaredLibrarySpecification parse(StringResource stringResource) {
-    return parse(stringResource, builder -> {});
+    String jsonConfigString = parseJson(stringResource);
+    return parse(origin, jsonConfigString, jsonConfig, ignored -> {});
   }
 
   public LegacyDesugaredLibrarySpecification parse(
-      StringResource stringResource, Consumer<LegacyTopLevelFlags.Builder> topLevelFlagAmender) {
-    String jsonConfigString = parseJson(stringResource);
+      Origin origin, String jsonConfigString, JsonObject jsonConfig) {
+    return parse(origin, jsonConfigString, jsonConfig, ignored -> {});
+  }
 
+  public LegacyDesugaredLibrarySpecification parse(
+      Origin origin,
+      String jsonConfigString,
+      JsonObject jsonConfig,
+      Consumer<TopLevelFlagsBuilder<?>> topLevelFlagAmender) {
+    if (isHumanSpecification(jsonConfig, reporter, origin)) {
+      reporter.error(
+          "Attempt to parse a desugared library human specification as a legacy specification.");
+    }
+    this.origin = origin;
+    this.jsonConfig = jsonConfig;
     LegacyTopLevelFlags topLevelFlags = parseTopLevelFlags(jsonConfigString, topLevelFlagAmender);
 
     LegacyRewritingFlags legacyRewritingFlags = parseRewritingFlags();
@@ -111,7 +127,7 @@ public class LegacyDesugaredLibrarySpecificationParser {
     LegacyDesugaredLibrarySpecification config =
         new LegacyDesugaredLibrarySpecification(
             topLevelFlags, legacyRewritingFlags, libraryCompilation);
-    origin = null;
+    this.origin = null;
     return config;
   }
 
@@ -147,7 +163,7 @@ public class LegacyDesugaredLibrarySpecificationParser {
   }
 
   LegacyTopLevelFlags parseTopLevelFlags(
-      String jsonConfigString, Consumer<LegacyTopLevelFlags.Builder> topLevelFlagAmender) {
+      String jsonConfigString, Consumer<TopLevelFlagsBuilder<?>> topLevelFlagAmender) {
     LegacyTopLevelFlags.Builder builder = LegacyTopLevelFlags.builder();
 
     builder.setJsonSource(jsonConfigString);

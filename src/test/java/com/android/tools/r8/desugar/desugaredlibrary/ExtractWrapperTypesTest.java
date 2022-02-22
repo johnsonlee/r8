@@ -10,20 +10,22 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.GenerateLintFiles;
 import com.android.tools.r8.StringResource;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyDesugaredLibrarySpecification;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyDesugaredLibrarySpecificationParser;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecificationParser;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.naming.MemberNaming.MethodSignature;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -46,7 +48,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class ExtractWrapperTypesTest extends TestBase {
+public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
 
   // Filter on types that do not need to be considered for wrapping.
   private static boolean doesNotNeedWrapper(String type, Set<String> customConversions) {
@@ -128,11 +130,22 @@ public class ExtractWrapperTypesTest extends TestBase {
     CodeInspector desugaredApiJar = getDesugaredApiJar();
     Set<ClassReference> preDesugarTypes = getPreDesugarTypes();
 
-    LegacyDesugaredLibrarySpecification spec = getDesugaredLibraryConfiguration();
+    DexItemFactory factory = new DexItemFactory();
+    DesugaredLibrarySpecification spec =
+        DesugaredLibrarySpecificationParser.parseDesugaredLibrarySpecification(
+            StringResource.fromFile(ToolHelper.getDesugarLibJsonForTesting()),
+            factory,
+            null,
+            false,
+            minApi.getLevel());
+    MachineDesugaredLibrarySpecification specification =
+        spec.toMachineSpecification(new InternalOptions(factory, new Reporter()), getLibraryFile());
     Set<String> wrappersInSpec =
-        spec.getWrapperConversions().stream().map(DexType::toString).collect(Collectors.toSet());
+        specification.getWrappers().keySet().stream()
+            .map(DexType::toString)
+            .collect(Collectors.toSet());
     Set<String> customConversionsInSpec =
-        spec.getCustomConversions().keySet().stream()
+        specification.getCustomConversions().keySet().stream()
             .map(DexType::toString)
             .collect(Collectors.toSet());
     assertEquals(
@@ -189,13 +202,6 @@ public class ExtractWrapperTypesTest extends TestBase {
       }
     }
     return missingWrappers;
-  }
-
-  private LegacyDesugaredLibrarySpecification getDesugaredLibraryConfiguration() {
-    LegacyDesugaredLibrarySpecificationParser parser =
-        new LegacyDesugaredLibrarySpecificationParser(
-            new DexItemFactory(), null, true, minApi.getLevel());
-    return parser.parse(StringResource.fromFile(ToolHelper.getDesugarLibJsonForTesting()));
   }
 
   private Map<ClassReference, Set<MethodReference>> getDirectlyReferencedWrapperTypes(

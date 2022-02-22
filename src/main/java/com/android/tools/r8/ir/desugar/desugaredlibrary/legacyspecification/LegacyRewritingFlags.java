@@ -10,7 +10,6 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DescriptorUtils;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
@@ -69,13 +68,6 @@ public class LegacyRewritingFlags {
         ImmutableSet.of());
   }
 
-  public static LegacyRewritingFlags withOnlyRewritePrefixForTesting(
-      Map<String, String> prefix, InternalOptions options) {
-    Builder builder = builder(options.dexItemFactory(), options.reporter, Origin.unknown());
-    prefix.forEach(builder::putRewritePrefix);
-    return builder.build();
-  }
-
   public static Builder builder(DexItemFactory dexItemFactory, Reporter reporter, Origin origin) {
     return new Builder(dexItemFactory, reporter, origin);
   }
@@ -127,6 +119,12 @@ public class LegacyRewritingFlags {
     return wrapperConversions;
   }
 
+  public boolean isEmpty() {
+    return rewritePrefix.isEmpty()
+        && emulateLibraryInterface.isEmpty()
+        && retargetCoreLibMember.isEmpty();
+  }
+
   public static class Builder {
 
     private final DexItemFactory factory;
@@ -172,14 +170,16 @@ public class LegacyRewritingFlags {
       this.factory = factory;
       this.reporter = reporter;
       this.origin = origin;
-      this.rewritePrefix = rewritePrefix;
-      this.emulateLibraryInterface = emulateLibraryInterface;
-      this.retargetCoreLibMember = retargetCoreLibMember;
-      this.backportCoreLibraryMember = backportCoreLibraryMember;
-      this.customConversions = customConversions;
-      this.dontRewriteInvocation = dontRewriteInvocation;
-      this.dontRetargetLibMember = dontRetargetLibMember;
-      this.wrapperConversions = wrapperConversions;
+      this.rewritePrefix = new HashMap<>(rewritePrefix);
+      this.emulateLibraryInterface = new IdentityHashMap<>(emulateLibraryInterface);
+      this.retargetCoreLibMember = new IdentityHashMap<>(retargetCoreLibMember);
+      this.backportCoreLibraryMember = new IdentityHashMap<>(backportCoreLibraryMember);
+      this.customConversions = new IdentityHashMap<>(customConversions);
+      this.dontRewriteInvocation = new ArrayList<>(dontRewriteInvocation);
+      this.dontRetargetLibMember = Sets.newIdentityHashSet();
+      this.dontRetargetLibMember.addAll(dontRetargetLibMember);
+      this.wrapperConversions = Sets.newIdentityHashSet();
+      this.wrapperConversions.addAll(wrapperConversions);
     }
 
     // Utility to set values. Currently assumes the key is fresh.

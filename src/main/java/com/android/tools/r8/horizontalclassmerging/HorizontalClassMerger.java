@@ -4,17 +4,24 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
+
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.graph.GraphLens.MethodLookupResult;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
+import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.FieldAccessInfoCollectionModifier;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.shaking.RuntimeTypeCheckInfo;
 import com.android.tools.r8.utils.InternalOptions.HorizontalClassMergerOptions;
+import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.ArrayList;
@@ -23,6 +30,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
 public class HorizontalClassMerger {
 
@@ -103,9 +111,13 @@ public class HorizontalClassMerger {
             : null;
     SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder =
         SyntheticInitializerConverter.builder(appView, codeProvider);
+    List<VirtuallyMergedMethodsKeepInfo> virtuallyMergedMethodsKeepInfos = new ArrayList<>();
     PrunedItems prunedItems =
         applyClassMergers(
-            classMergers, syntheticArgumentClass, syntheticInitializerConverterBuilder);
+            classMergers,
+            syntheticArgumentClass,
+            syntheticInitializerConverterBuilder,
+            virtuallyMergedMethodsKeepInfos::add);
 
     SyntheticInitializerConverter syntheticInitializerConverter =
         syntheticInitializerConverterBuilder.build();
@@ -136,12 +148,44 @@ public class HorizontalClassMerger {
     // Record where the synthesized $r8$classId fields are read and written.
     if (mode.isInitial()) {
       createFieldAccessInfoCollectionModifier(groups).modify(appView.withLiveness());
+      transformIncompleteCode(groups, horizontalClassMergerGraphLens, executorService);
     } else {
       assert groups.stream().noneMatch(MergeGroup::hasClassIdField);
     }
 
     appView.pruneItems(
         prunedItems.toBuilder().setPrunedApp(appView.app()).build(), executorService);
+
+    amendKeepInfo(horizontalClassMergerGraphLens, virtuallyMergedMethodsKeepInfos);
+  }
+
+  private void amendKeepInfo(
+      HorizontalClassMergerGraphLens horizontalClassMergerGraphLens,
+      List<VirtuallyMergedMethodsKeepInfo> virtuallyMergedMethodsKeepInfos) {
+    appView
+        .getKeepInfo()
+        .mutate(
+            keepInfo -> {
+              for (VirtuallyMergedMethodsKeepInfo virtuallyMergedMethodsKeepInfo :
+                  virtuallyMergedMethodsKeepInfos) {
+                DexMethod representative = virtuallyMergedMethodsKeepInfo.getRepresentative();
+                MethodLookupResult lookupResult =
+                    horizontalClassMergerGraphLens.lookupMethod(
+                        representative,
+                        null,
+                        Type.VIRTUAL,
+                        horizontalClassMergerGraphLens.getPrevious());
+                ProgramMethod mergedMethod =
+                    asProgramMethodOrNull(appView.definitionFor(lookupResult.getReference()));
+                if (mergedMethod != null) {
+                  keepInfo.joinMethod(
+                      mergedMethod,
+                      info -> info.merge(virtuallyMergedMethodsKeepInfo.getKeepInfo()));
+                  continue;
+                }
+                assert false;
+              }
+            });
   }
 
   private FieldAccessInfoCollectionModifier createFieldAccessInfoCollectionModifier(
@@ -162,6 +206,32 @@ public class HorizontalClassMerger {
       }
     }
     return builder.build();
+  }
+
+  private void transformIncompleteCode(
+      Collection<MergeGroup> groups,
+      HorizontalClassMergerGraphLens horizontalClassMergerGraphLens,
+      ExecutorService executorService)
+      throws ExecutionException {
+    ThreadUtils.processItems(
+        groups,
+        group -> {
+          if (group.hasClassIdField()) {
+            DexProgramClass target = group.getTarget();
+            target.forEachProgramVirtualMethodMatching(
+                definition ->
+                    definition.hasCode()
+                        && definition.getCode() instanceof IncompleteVirtuallyMergedMethodCode,
+                method -> {
+                  IncompleteVirtuallyMergedMethodCode code =
+                      (IncompleteVirtuallyMergedMethodCode) method.getDefinition().getCode();
+                  method
+                      .getDefinition()
+                      .setCode(code.toCfCode(method, horizontalClassMergerGraphLens), appView);
+                });
+          }
+        },
+        executorService);
   }
 
   private DirectMappedDexApplication getNewApplication(HorizontallyMergedClasses mergedClasses) {
@@ -217,11 +287,15 @@ public class HorizontalClassMerger {
   private PrunedItems applyClassMergers(
       Collection<ClassMerger> classMergers,
       SyntheticArgumentClass syntheticArgumentClass,
-      SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder) {
+      SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder,
+      Consumer<VirtuallyMergedMethodsKeepInfo> virtuallyMergedMethodsKeepInfoConsumer) {
     PrunedItems.Builder prunedItemsBuilder = PrunedItems.builder().setPrunedApp(appView.app());
     for (ClassMerger merger : classMergers) {
       merger.mergeGroup(
-          prunedItemsBuilder, syntheticArgumentClass, syntheticInitializerConverterBuilder);
+          prunedItemsBuilder,
+          syntheticArgumentClass,
+          syntheticInitializerConverterBuilder,
+          virtuallyMergedMethodsKeepInfoConsumer);
     }
     return prunedItemsBuilder.build();
   }

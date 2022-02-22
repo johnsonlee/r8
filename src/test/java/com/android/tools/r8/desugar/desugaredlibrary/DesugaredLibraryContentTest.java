@@ -5,16 +5,15 @@
 package com.android.tools.r8.desugar.desugaredlibrary;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.fail;
 
+import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.L8Command;
-import com.android.tools.r8.L8TestBuilder;
+import com.android.tools.r8.LibraryDesugaringTestConfiguration;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.StringResource;
 import com.android.tools.r8.TestDiagnosticMessages;
@@ -29,7 +28,6 @@ import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,22 +48,22 @@ public class DesugaredLibraryContentTest extends DesugaredLibraryTestBase {
   }
 
   @Test
-  public void testInvalidLibrary() throws Exception {
+  public void testInvalidLibrary() {
     Assume.assumeTrue(requiresAnyCoreLibDesugaring(parameters));
-    L8TestBuilder l8TestBuilder =
-        testForL8(parameters.getApiLevel())
-            .addProgramFiles(Collections.singleton(ToolHelper.getDesugarJDKLibs()))
+    D8TestBuilder testBuilder =
+        testForD8()
+            .setMinApi(parameters.getApiLevel())
+            .addProgramClasses(GuineaPig.class)
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.L))
-            .setDesugarJDKLibsConfiguration(ToolHelper.DESUGAR_LIB_CONVERSIONS);
+            .enableCoreLibraryDesugaring(
+                LibraryDesugaringTestConfiguration.forApiLevel(parameters.getApiLevel()));
     try {
-      l8TestBuilder.compile();
-      fail();
-    } catch (AssertionError ae) {
-      // Expected since the library is invalid.
+      testBuilder.compile();
+    } catch (Throwable t) {
+      // Expected since we are compiling with an invalid set-up.
     }
-    TestDiagnosticMessages diagnosticMessages = l8TestBuilder.getDiagnosticMessages();
+    TestDiagnosticMessages diagnosticMessages = testBuilder.getState().getDiagnosticsMessages();
     diagnosticMessages.assertOnlyWarnings();
-    assertEquals(diagnosticMessages.getWarnings().size(), 1);
     assertTrue(
         diagnosticMessages
             .getWarnings()
@@ -121,21 +119,7 @@ public class DesugaredLibraryContentTest extends DesugaredLibraryTestBase {
     ToolHelper.runL8(l8Builder.build(), options -> {});
     CodeInspector codeInspector = new CodeInspector(desugaredLib);
     assertCorrect(codeInspector);
-    assertOneWarning(diagnosticsHandler);
-  }
-
-  private void assertOneWarning(TestDiagnosticMessagesImpl diagnosticsHandler) {
-    assertEquals(
-        (isJDK11DesugaredLibrary() && parameters.getApiLevel().isLessThan(AndroidApiLevel.O))
-            ? 2
-            : 1,
-        diagnosticsHandler.getWarnings().size());
-    String msg = diagnosticsHandler.getWarnings().get(0).getDiagnosticMessage();
-    assertTrue(
-        msg.contains(
-            "The following library types, prefixed by java., are present both as library and non"
-                + " library classes"));
-    assertTrue(diagnosticsHandler.getErrors().isEmpty());
+    diagnosticsHandler.assertNoMessages();
   }
 
   private void assertCorrect(CodeInspector inspector) {
@@ -166,4 +150,8 @@ public class DesugaredLibraryContentTest extends DesugaredLibraryTestBase {
     }
   }
 
+  static class GuineaPig {
+
+    public static void main(String[] args) {}
+  }
 }

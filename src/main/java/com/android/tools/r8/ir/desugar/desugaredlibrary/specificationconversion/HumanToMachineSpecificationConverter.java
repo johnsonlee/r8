@@ -16,6 +16,8 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAmender;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanRewritingFlags;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanTopLevelFlags;
@@ -27,6 +29,7 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
+import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 public class HumanToMachineSpecificationConverter {
 
   private AppView<?> appView;
+  private final Set<DexType> missingCustomConversions = Sets.newIdentityHashSet();
 
   public MachineDesugaredLibrarySpecification convert(
       HumanDesugaredLibrarySpecification humanSpec,
@@ -77,7 +81,10 @@ public class HumanToMachineSpecificationConverter {
       throws IOException {
     DexApplication app = readApp(inputApp, options);
     appView = AppView.createForD8(AppInfo.createInitialAppInfo(app));
-    LibraryValidator.validate(app, humanSpec.getTopLevelFlags().getRequiredCompilationAPILevel());
+    LibraryValidator.validate(
+        app,
+        humanSpec.isLibraryCompilation(),
+        humanSpec.getTopLevelFlags().getRequiredCompilationAPILevel());
     MachineRewritingFlags machineRewritingFlags =
         convertRewritingFlags(
             humanSpec.getSynthesizedLibraryClassesPackagePrefix(), humanSpec.getRewritingFlags());
@@ -100,12 +107,13 @@ public class HumanToMachineSpecificationConverter {
       String synthesizedPrefix, HumanRewritingFlags rewritingFlags) {
     AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
     MachineRewritingFlags.Builder builder = MachineRewritingFlags.builder();
+    DesugaredLibraryAmender.run(appView, rewritingFlags.getAmendLibraryMethod());
+    rewritingFlags.getAmendLibraryMethod().forEach(builder::amendLibraryMethod);
     new HumanToMachineRetargetConverter(appInfo)
         .convertRetargetFlags(rewritingFlags, builder, this::warnMissingReferences);
     new HumanToMachineEmulatedInterfaceConverter(appInfo)
         .convertEmulatedInterfaces(rewritingFlags, appInfo, builder, this::warnMissingReferences);
-    new HumanToMachinePrefixConverter(
-            appInfo, builder, synthesizedPrefix, rewritingFlags.getRewritePrefix())
+    new HumanToMachinePrefixConverter(appInfo, builder, synthesizedPrefix, rewritingFlags)
         .convertPrefixFlags(rewritingFlags, this::warnMissingDexString);
     new HumanToMachineWrapperConverter(appInfo)
         .convertWrappers(rewritingFlags, builder, this::warnMissingReferences);
@@ -114,8 +122,10 @@ public class HumanToMachineSpecificationConverter {
         .forEach(
             (type, conversionType) ->
                 convertCustomConversion(appInfo, builder, type, conversionType));
-    rewritingFlags.getDontRetargetLibMember().forEach(builder::addDontRetarget);
-    rewritingFlags.getBackportCoreLibraryMember().forEach(builder::putLegacyBackport);
+    warnMissingReferences(
+        "Cannot register custom conversion due to missing type: ", missingCustomConversions);
+    rewritingFlags.getDontRetarget().forEach(builder::addDontRetarget);
+    rewritingFlags.getLegacyBackport().forEach(builder::putLegacyBackport);
     return builder.build();
   }
 
@@ -125,6 +135,10 @@ public class HumanToMachineSpecificationConverter {
       DexType type,
       DexType conversionType) {
     DexType rewrittenType = builder.getRewrittenType(type);
+    if (rewrittenType == null) {
+      missingCustomConversions.add(type);
+      return;
+    }
     DexProto fromProto = appInfo.dexItemFactory().createProto(rewrittenType, type);
     DexMethod fromMethod =
         appInfo
@@ -141,7 +155,11 @@ public class HumanToMachineSpecificationConverter {
   private DexApplication readApp(AndroidApp inputApp, InternalOptions options) throws IOException {
     ApplicationReader applicationReader = new ApplicationReader(inputApp, options, Timing.empty());
     ExecutorService executorService = ThreadUtils.getExecutorService(options);
-    return applicationReader.read(executorService).toDirect();
+    assert !options.ignoreJavaLibraryOverride;
+    options.ignoreJavaLibraryOverride = true;
+    DirectMappedDexApplication app = applicationReader.read(executorService).toDirect();
+    options.ignoreJavaLibraryOverride = false;
+    return app;
   }
 
   void warnMissingReferences(String message, Set<? extends DexReference> missingReferences) {

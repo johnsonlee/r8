@@ -57,7 +57,6 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
-import com.android.tools.r8.graph.DirectMappedDexApplication.Builder;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldAccessInfoImpl;
@@ -355,10 +354,6 @@ public class Enqueuer {
    * Set of program methods that are used as the bootstrap method for an invoke-dynamic instruction.
    */
   private final Set<DexMethod> bootstrapMethods = Sets.newIdentityHashSet();
-  /**
-   * Set of direct methods that are the immediate target of an invoke-dynamic.
-   */
-  private final Set<DexMethod> methodsTargetedByInvokeDynamic = Sets.newIdentityHashSet();
   /**
    * Set of virtual methods that are the immediate target of an invoke-direct.
    */
@@ -701,13 +696,17 @@ public class Enqueuer {
   private void addLiveNonProgramType(
       ClasspathOrLibraryClass clazz,
       // TODO(b/216576191): Remove when tracking live library members.
-      boolean visitMembers,
+      boolean markProgramSuperTypesAsLiveAndVisitMemberReferences,
       BiConsumer<DexType, ClasspathOrLibraryDefinition> missingClassConsumer) {
     WorkList<ClasspathOrLibraryClass> worklist =
         WorkList.newIdentityWorkList(clazz, liveNonProgramTypes);
     while (worklist.hasNext()) {
       ClasspathOrLibraryClass definition = worklist.next();
-      processNewLiveNonProgramType(definition, worklist, missingClassConsumer, visitMembers);
+      processNewLiveNonProgramType(
+          definition,
+          worklist,
+          missingClassConsumer,
+          markProgramSuperTypesAsLiveAndVisitMemberReferences);
     }
   }
 
@@ -715,13 +714,14 @@ public class Enqueuer {
       ClasspathOrLibraryClass clazz,
       WorkList<ClasspathOrLibraryClass> worklist,
       BiConsumer<DexType, ClasspathOrLibraryDefinition> missingClassConsumer,
-      boolean visitMembers) {
+      boolean markProgramSuperTypesAsLiveAndVisitMemberReferences) {
     ensureMethodsContinueToWidenAccess(clazz);
-    if (clazz.isLibraryClass()) {
-      // Only libraries must not derive program. Classpath classes can, assuming correct keep rules.
-      warnIfLibraryTypeInheritsFromProgramType(clazz.asLibraryClass());
-    }
-    if (visitMembers) {
+    if (markProgramSuperTypesAsLiveAndVisitMemberReferences) {
+      if (clazz.isLibraryClass()) {
+        // Only libraries must not derive program. Classpath classes can, assuming correct keep
+        // rules.
+        handleLibraryTypeInheritingFromProgramType(clazz.asLibraryClass());
+      }
       clazz.forEachClassField(
           field ->
               addNonProgramClassToWorklist(
@@ -792,7 +792,7 @@ public class Enqueuer {
     return asProgramClassOrNull(getClassOrNullFromReflectiveAccess(type, context));
   }
 
-  private void warnIfLibraryTypeInheritsFromProgramType(DexLibraryClass clazz) {
+  private void handleLibraryTypeInheritingFromProgramType(DexLibraryClass clazz) {
     if (clazz.superType != null) {
       ensureFromLibraryOrThrow(clazz.superType, clazz);
     }
@@ -1026,7 +1026,7 @@ public class Enqueuer {
         if (bootstrapArgument.isDexValueMethodHandle()) {
           DexMethodHandle method = bootstrapArgument.asDexValueMethodHandle().getValue();
           if (method.isMethodHandle()) {
-            methodsTargetedByInvokeDynamic.add(method.asMethod());
+            disableClosedWorldReasoning(method.asMethod(), context);
           }
         }
       }
@@ -1047,10 +1047,6 @@ public class Enqueuer {
     assert implHandle != null;
 
     DexMethod method = implHandle.asMethod();
-    if (!methodsTargetedByInvokeDynamic.add(method)) {
-      return;
-    }
-
     switch (implHandle.type) {
       case INVOKE_STATIC:
         traceInvokeStaticFromLambda(method, context);
@@ -1069,6 +1065,18 @@ public class Enqueuer {
         break;
       default:
         throw new Unreachable();
+    }
+
+    disableClosedWorldReasoning(method, context);
+  }
+
+  private void disableClosedWorldReasoning(DexMethod reference, ProgramMethod context) {
+    SingleResolutionResult resolutionResult =
+        resolveMethod(reference, context, KeepReason.methodHandleReferencedIn(context));
+    if (resolutionResult != null && resolutionResult.getResolvedHolder().isProgramClass()) {
+      applyMinimumKeepInfoWhenLiveOrTargeted(
+          resolutionResult.getResolvedProgramMethod(),
+          KeepMethodInfo.newEmptyJoiner().disallowClosedWorldReasoning());
     }
   }
 
@@ -3420,9 +3428,8 @@ public class Enqueuer {
     }
   }
 
-  private void applyMinimumKeepInfoWhenLiveOrTargeted(
-      ProgramMethod method,
-      KeepMethodInfo.Joiner minimumKeepInfo) {
+  public void applyMinimumKeepInfoWhenLiveOrTargeted(
+      ProgramMethod method, KeepMethodInfo.Joiner minimumKeepInfo) {
     applyMinimumKeepInfoWhenLiveOrTargeted(method, minimumKeepInfo, EnqueuerEvent.unconditional());
   }
 
@@ -3801,10 +3808,14 @@ public class Enqueuer {
 
     // Add just referenced non-program types. We can't replace the program classes at this point as
     // they are needed in tree pruning.
-    Builder appBuilder = appInfo.app().asDirect().builder();
-    appBuilder.replaceLibraryClasses(libraryClasses);
-    appBuilder.replaceClasspathClasses(classpathClasses);
-    DirectMappedDexApplication app = appBuilder.build();
+    DirectMappedDexApplication app =
+        appInfo
+            .app()
+            .asDirect()
+            .builder()
+            .replaceLibraryClasses(libraryClasses)
+            .replaceClasspathClasses(classpathClasses)
+            .build();
 
     // Verify the references on the pruned application after type synthesis.
     assert verifyReferences(app);
@@ -3832,7 +3843,6 @@ public class Enqueuer {
             failedMethodResolutionTargets,
             failedFieldResolutionTargets,
             bootstrapMethods,
-            methodsTargetedByInvokeDynamic,
             virtualMethodsTargetedByInvokeDirect,
             toDescriptorSet(liveMethods.getItems()),
             // Filter out library fields and pinned fields, because these are read by default.
@@ -4347,7 +4357,7 @@ public class Enqueuer {
     }
 
     // Notify analyses.
-    analyses.forEach(analysis -> analysis.processNewlyLiveMethod(method, context, workList));
+    analyses.forEach(analysis -> analysis.processNewlyLiveMethod(method, context, this, workList));
   }
 
   private void markMethodAsTargeted(ProgramMethod method, KeepReason reason) {

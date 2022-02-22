@@ -8,12 +8,19 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.specificationconversion.HumanToMachineSpecificationConverter;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.InternalOptions;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class HumanDesugaredLibrarySpecification {
+public class HumanDesugaredLibrarySpecification implements DesugaredLibrarySpecification {
 
   private final boolean libraryCompilation;
   private final HumanTopLevelFlags topLevelFlags;
@@ -28,18 +35,36 @@ public class HumanDesugaredLibrarySpecification {
     this.rewritingFlags = rewritingFlags;
   }
 
+  @Override
+  public boolean isEmpty() {
+    return rewritingFlags.isEmpty();
+  }
+
+  @Override
+  public boolean isHuman() {
+    return true;
+  }
+
+  @Override
+  public HumanDesugaredLibrarySpecification asHumanDesugaredLibrarySpecification() {
+    return this;
+  }
+
   public boolean supportAllCallbacksFromLibrary() {
     return topLevelFlags.supportAllCallbacksFromLibrary();
   }
 
+  @Override
   public AndroidApiLevel getRequiredCompilationApiLevel() {
     return topLevelFlags.getRequiredCompilationAPILevel();
   }
 
+  @Override
   public boolean isLibraryCompilation() {
     return libraryCompilation;
   }
 
+  @Override
   public String getSynthesizedLibraryClassesPackagePrefix() {
     return topLevelFlags.getSynthesizedLibraryClassesPackagePrefix();
   }
@@ -65,12 +90,12 @@ public class HumanDesugaredLibrarySpecification {
   }
 
   public Map<DexType, DexType> getEmulateLibraryInterface() {
-    return rewritingFlags.getEmulateLibraryInterface();
+    return rewritingFlags.getEmulatedInterfaces();
   }
 
   // If the method is retargeted, answers the retargeted method, else null.
   public DexMethod retargetMethod(DexEncodedMethod method, AppView<?> appView) {
-    Map<DexMethod, DexType> retargetCoreLibMember = rewritingFlags.getRetargetCoreLibMember();
+    Map<DexMethod, DexType> retargetCoreLibMember = rewritingFlags.getRetargetMethod();
     DexType dexType = retargetCoreLibMember.get(method.getReference());
     if (dexType != null) {
       return appView
@@ -88,11 +113,11 @@ public class HumanDesugaredLibrarySpecification {
   }
 
   public Map<DexMethod, DexType> getRetargetCoreLibMember() {
-    return rewritingFlags.getRetargetCoreLibMember();
+    return rewritingFlags.getRetargetMethod();
   }
 
   public Map<DexType, DexType> getBackportCoreLibraryMember() {
-    return rewritingFlags.getBackportCoreLibraryMember();
+    return rewritingFlags.getLegacyBackport();
   }
 
   public Map<DexType, DexType> getCustomConversions() {
@@ -108,18 +133,38 @@ public class HumanDesugaredLibrarySpecification {
   }
 
   public Set<DexType> getDontRetargetLibMember() {
-    return rewritingFlags.getDontRetargetLibMember();
+    return rewritingFlags.getDontRetarget();
   }
 
+  @Override
   public List<String> getExtraKeepRules() {
     return topLevelFlags.getExtraKeepRules();
   }
 
+  @Override
   public String getJsonSource() {
     return topLevelFlags.getJsonSource();
   }
 
   public boolean isEmptyConfiguration() {
-    return false;
+    return rewritingFlags.isEmpty();
+  }
+
+  @Override
+  public MachineDesugaredLibrarySpecification toMachineSpecification(
+      InternalOptions options, AndroidApp app) throws IOException {
+    return new HumanToMachineSpecificationConverter()
+        .convert(
+            this,
+            isLibraryCompilation() ? app.getProgramResourceProviders() : null,
+            app.getLibraryResourceProviders(),
+            options);
+  }
+
+  @Override
+  public MachineDesugaredLibrarySpecification toMachineSpecification(
+      InternalOptions options, Path library, Path desugaredJDKLib) throws IOException {
+    return new HumanToMachineSpecificationConverter()
+        .convert(this, isLibraryCompilation() ? desugaredJDKLib : null, library, options);
   }
 }

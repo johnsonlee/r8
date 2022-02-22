@@ -3,22 +3,28 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
-from HTMLParser import HTMLParser
+import utils
+if utils.is_python3():
+  from html.parser import HTMLParser
+  import urllib.request
+  url_request = urllib.request
+else:
+  from HTMLParser import HTMLParser
+  import urllib
+  url_request = urllib
 import os
 import sys
-import urllib
-import utils
 
 JETBRAINS_KOTLIN_MAVEN_URL = "https://maven.pkg.jetbrains.space/kotlin/p/" \
                              "kotlin/bootstrap/org/jetbrains/kotlin/"
 KOTLIN_RELEASE_URL = JETBRAINS_KOTLIN_MAVEN_URL + "kotlin-compiler/"
 
 def download_newest():
-  response = urllib.urlopen(KOTLIN_RELEASE_URL)
+  response = url_request.urlopen(KOTLIN_RELEASE_URL)
   if response.getcode() != 200:
     raise Exception('Url: %s \n returned %s'
                     % (KOTLIN_RELEASE_URL, response.getcode()))
-  content = response.read()
+  content = str(response.read())
   release_candidates = []
 
   class HTMLContentParser(HTMLParser):
@@ -70,7 +76,7 @@ def download_newest():
 
 def download_and_save(url, path, name):
   print('Downloading: ' + url)
-  urllib.urlretrieve(url, os.path.join(path, name))
+  url_request.urlretrieve(url, os.path.join(path, name))
 
 
 if __name__ == '__main__':

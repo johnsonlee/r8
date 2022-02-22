@@ -7,6 +7,7 @@ package com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import java.util.List;
 import java.util.Map;
@@ -98,8 +99,8 @@ public class MachineDesugaredLibrarySpecification {
     return rewritingFlags.getEmulatedVirtualRetargetThroughEmulatedInterface();
   }
 
-  public void forEachRetargetHolder(Consumer<DexType> consumer) {
-    rewritingFlags.forEachRetargetHolder(consumer);
+  public void forEachRetargetMethod(Consumer<DexMethod> consumer) {
+    rewritingFlags.forEachRetargetMethod(consumer);
   }
 
   public Map<DexType, EmulatedInterfaceDescriptor> getEmulatedInterfaces() {
@@ -135,6 +136,10 @@ public class MachineDesugaredLibrarySpecification {
     return rewritingFlags.getCustomConversions();
   }
 
+  public Map<DexMethod, MethodAccessFlags> getAmendLibraryMethods() {
+    return rewritingFlags.getAmendLibraryMethod();
+  }
+
   public boolean hasRetargeting() {
     return rewritingFlags.hasRetargeting();
   }
@@ -165,5 +170,9 @@ public class MachineDesugaredLibrarySpecification {
       }
     }
     return false;
+  }
+
+  public AndroidApiLevel getRequiredCompilationApiLevel() {
+    return topLevelFlags.getRequiredCompilationAPILevel();
   }
 }

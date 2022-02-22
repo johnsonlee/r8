@@ -8,10 +8,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.StringResource;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanRewritingFlags;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanTopLevelFlags;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.MultiAPILevelHumanDesugaredLibrarySpecification;
@@ -31,9 +31,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class ConvertExportReadTest extends TestBase {
-
-  private final TestParameters parameters;
+public class ConvertExportReadTest extends DesugaredLibraryTestBase {
 
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -41,7 +39,7 @@ public class ConvertExportReadTest extends TestBase {
   }
 
   public ConvertExportReadTest(TestParameters parameters) {
-    this.parameters = parameters;
+    assert parameters.isNoneRuntime();
   }
 
   @Test
@@ -98,25 +96,27 @@ public class ConvertExportReadTest extends TestBase {
       HumanRewritingFlags humanRewritingFlags1, HumanRewritingFlags humanRewritingFlags2) {
     assertEquals(humanRewritingFlags1.getRewritePrefix(), humanRewritingFlags2.getRewritePrefix());
     assertEquals(
-        humanRewritingFlags1.getBackportCoreLibraryMember(),
-        humanRewritingFlags2.getBackportCoreLibraryMember());
+        humanRewritingFlags1.getRewriteDerivedPrefix(),
+        humanRewritingFlags2.getRewriteDerivedPrefix());
+
+    assertEquals(
+        humanRewritingFlags1.getLegacyBackport(), humanRewritingFlags2.getLegacyBackport());
     assertEquals(
         humanRewritingFlags1.getCustomConversions(), humanRewritingFlags2.getCustomConversions());
     assertEquals(
-        humanRewritingFlags1.getEmulateLibraryInterface(),
-        humanRewritingFlags2.getEmulateLibraryInterface());
+        humanRewritingFlags1.getEmulatedInterfaces(), humanRewritingFlags2.getEmulatedInterfaces());
     assertEquals(
-        humanRewritingFlags1.getRetargetCoreLibMember(),
-        humanRewritingFlags2.getRetargetCoreLibMember());
+        humanRewritingFlags1.getRetargetMethod(), humanRewritingFlags2.getRetargetMethod());
 
-    assertEquals(
-        humanRewritingFlags1.getDontRetargetLibMember(),
-        humanRewritingFlags2.getDontRetargetLibMember());
+    assertEquals(humanRewritingFlags1.getDontRetarget(), humanRewritingFlags2.getDontRetarget());
     assertEquals(
         humanRewritingFlags1.getDontRewriteInvocation(),
         humanRewritingFlags2.getDontRewriteInvocation());
     assertEquals(
         humanRewritingFlags1.getWrapperConversions(), humanRewritingFlags2.getWrapperConversions());
+
+    assertEquals(
+        humanRewritingFlags1.getAmendLibraryMethod(), humanRewritingFlags2.getAmendLibraryMethod());
   }
 
   private void assertTopLevelFlagsEquals(

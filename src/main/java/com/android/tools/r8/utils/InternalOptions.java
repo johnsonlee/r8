@@ -54,11 +54,8 @@ import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.desugar.TypeRewriter;
 import com.android.tools.r8.ir.desugar.TypeRewriter.MachineDesugarPrefixRewritingMapper;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecification;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyDesugaredLibrarySpecification;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.specificationconversion.HumanToMachineSpecificationConverter;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.specificationconversion.LegacyToHumanSpecificationConverter;
 import com.android.tools.r8.ir.desugar.nest.Nest;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
@@ -352,6 +349,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean invalidDebugInfoStrict =
       System.getProperty("com.android.tools.r8.strictdebuginfo") != null;
 
+  public boolean ignoreJavaLibraryOverride = false;
+
   // When dexsplitting we ignore main dex classes missing in the application. These will be
   // fused together by play store when shipped for pre-L devices.
   public boolean ignoreMainDexMissingClasses = false;
@@ -562,6 +561,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // TODO(120884788): Leave this system property as a stop-gap for some time.
   // public boolean lookupLibraryBeforeProgram =
   //     System.getProperty("com.android.tools.r8.lookupProgramBeforeLibrary") == null;
+
+  public boolean loadAllClassDefinitions = false;
 
   // Whether or not to check for valid multi-dex builds.
   //
@@ -889,38 +890,25 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public StringConsumer configurationConsumer = null;
 
   public void setDesugaredLibrarySpecification(
-      LegacyDesugaredLibrarySpecification specification, AndroidApp app) {
-    if (specification.isEmptyConfiguration()) {
+      DesugaredLibrarySpecification specification, AndroidApp app) {
+    if (specification.isEmpty()) {
       return;
     }
     try {
-      HumanDesugaredLibrarySpecification human =
-          new LegacyToHumanSpecificationConverter()
-              .convert(specification, app.getLibraryResourceProviders(), this);
-      machineDesugaredLibrarySpecification =
-          new HumanToMachineSpecificationConverter()
-              .convert(
-                  human,
-                  specification.isLibraryCompilation() ? app.getProgramResourceProviders() : null,
-                  app.getLibraryResourceProviders(),
-                  this);
+      machineDesugaredLibrarySpecification = specification.toMachineSpecification(this, app);
     } catch (IOException e) {
       reporter.error(new ExceptionDiagnostic(e, Origin.unknown()));
     }
   }
 
   public void setDesugaredLibrarySpecificationForTesting(
-      LegacyDesugaredLibrarySpecification specification, Path desugaredJDKLib, Path library)
+      DesugaredLibrarySpecification specification, Path desugaredJDKLib, Path library)
       throws IOException {
-    HumanDesugaredLibrarySpecification human =
-        new LegacyToHumanSpecificationConverter().convert(specification, library, this);
+    if (specification.isEmpty()) {
+      return;
+    }
     machineDesugaredLibrarySpecification =
-        new HumanToMachineSpecificationConverter()
-            .convert(
-                human,
-                specification.isLibraryCompilation() ? desugaredJDKLib : null,
-                library,
-                this);
+        specification.toMachineSpecification(this, library, desugaredJDKLib);
   }
 
   // Contains flags describing library desugaring.
