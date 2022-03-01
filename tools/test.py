@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (c) 2016, the R8 project authors. Please see the AUTHORS file
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
@@ -219,6 +219,7 @@ def Main():
 
   if utils.is_bot():
     gradle.RunGradle(['--no-daemon', 'clean'])
+    print('Running with python ' + str(sys.version_info))
 
   desugar_jdk_json_dir = None
   if options.desugared_library_configuration:

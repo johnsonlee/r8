@@ -3,16 +3,20 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.helloworld;
 
-import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
 import com.android.tools.r8.benchmarks.BenchmarkConfig;
+import com.android.tools.r8.benchmarks.BenchmarkDependency;
+import com.android.tools.r8.benchmarks.BenchmarkEnvironment;
 import com.android.tools.r8.benchmarks.BenchmarkMethod;
 import com.android.tools.r8.benchmarks.BenchmarkTarget;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import org.junit.runner.RunWith;
@@ -41,22 +45,23 @@ public class HelloWorldBenchmark extends BenchmarkBase {
   }
 
   // Options/parameter setup to define variants of the benchmark above.
+  // Other benchmarks may not need this kind of options. It is just to help create the variants.
   private static class Options {
     final BenchmarkTarget target;
     final Backend backend;
-    final boolean includeLibrary;
+    final BenchmarkDependency library;
     final AndroidApiLevel minApi = AndroidApiLevel.B;
 
     public Options(BenchmarkTarget target, Backend backend, boolean includeLibrary) {
       this.target = target;
       this.backend = backend;
-      this.includeLibrary = includeLibrary;
+      library = includeLibrary ? BenchmarkDependency.getRuntimeJarJava8() : null;
     }
 
     public String getName() {
       // The name include each non-target option for the variants to ensure unique benchmarks.
       String backendString = backend.isCf() ? "Cf" : "Dex";
-      String libraryString = includeLibrary ? "" : "NoLib";
+      String libraryString = library != null ? "" : "NoLib";
       return "HelloWorld" + backendString + libraryString;
     }
   }
@@ -68,63 +73,75 @@ public class HelloWorldBenchmark extends BenchmarkBase {
     for (boolean includeLibrary : BooleanUtils.values()) {
       for (Backend backend : Backend.values()) {
         Options options = new Options(target, backend, includeLibrary);
-        benchmarks.add(
+        BenchmarkConfig.Builder builder =
             BenchmarkConfig.builder()
                 // The benchmark is required to have a unique combination of name and target.
                 .setName(options.getName())
                 .setTarget(target)
                 // The benchmark is required to have at least one metric.
-                .measureRunTimeRaw()
+                .measureRunTime()
                 .measureCodeSize()
                 // The benchmark is required to have a runner method which defines the actual
                 // execution.
                 .setMethod(method.apply(options))
                 // The benchmark is required to set a "golem from revision".
                 // Find this value by looking at the current revision on golem.
-                .setFromRevision(11900)
+                .setFromRevision(12150)
                 // The benchmark can optionally time the warmup. This is not needed to use a warmup
                 // in the actual run, only to include it as its own benchmark entry on golem.
-                .timeWarmupRuns()
-                .build());
+                .measureWarmup();
+        // If compiling with a library it needs to be added as a dependency.
+        if (options.library != null) {
+          builder.addDependency(options.library);
+        }
+        benchmarks.add(builder.build());
       }
     }
   }
 
   public static BenchmarkMethod benchmarkD8(Options options) {
-    return (config, temp) ->
-        runner(config)
+    return environment ->
+        runner(environment.getConfig())
             .setWarmupIterations(1)
             .setBenchmarkIterations(100)
             .reportResultSum()
             .run(
                 results ->
-                    testForD8(temp, options.backend)
+                    testForD8(environment.getTemp(), options.backend)
                         .setMinApi(options.minApi)
-                        .applyIf(!options.includeLibrary, TestBuilder::addLibraryFiles)
+                        .addLibraryFiles(getLibraryFiles(options, environment))
                         .addProgramClasses(TestClass.class)
-                        // Compile and emit RunTimeRaw measure.
+                        // Compile and measure the run time.
                         .benchmarkCompile(results)
                         // Measure the output size.
                         .benchmarkCodeSize(results));
   }
 
   public static BenchmarkMethod benchmarkR8(Options options) {
-    return (config, temp) ->
-        runner(config)
+    return environment ->
+        runner(environment.getConfig())
             .setWarmupIterations(1)
             .setBenchmarkIterations(4)
             .reportResultSum()
             .run(
                 results ->
-                    testForR8(temp, options.backend)
-                        .applyIf(!options.includeLibrary, b -> b.addLibraryFiles().addDontWarn("*"))
+                    testForR8(environment.getTemp(), options.backend)
+                        .addLibraryFiles(getLibraryFiles(options, environment))
+                        .applyIf(options.library == null, b -> b.addDontWarn("*"))
                         .setMinApi(options.minApi)
                         .addProgramClasses(TestClass.class)
                         .addKeepMainRule(TestClass.class)
-                        // Compile and emit RunTimeRaw measure.
+                        // Compile and measure the run time.
                         .benchmarkCompile(results)
                         // Measure the output size.
                         .benchmarkCodeSize(results));
+  }
+
+  private static Collection<Path> getLibraryFiles(
+      Options options, BenchmarkEnvironment environment) {
+    return options.library != null
+        ? Collections.singletonList(options.library.getRoot(environment).resolve("rt.jar"))
+        : Collections.emptyList();
   }
 
   static class TestClass {

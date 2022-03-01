@@ -34,7 +34,6 @@ import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class InstanceInitializerMerger {
@@ -143,11 +142,11 @@ public class InstanceInitializerMerger {
    * synthesized constructor all-though it by construction doesn't have any unused arguments.
    */
   private DexMethod getSyntheticMethodReference(
-      ClassMethodsBuilder classMethodsBuilder, ProgramMethod representative) {
+      ClassMethodsBuilder classMethodsBuilder, DexMethod newMethodReference) {
     return dexItemFactory.createFreshMethodNameWithoutHolder(
-        "$r8$init$synthetic",
-        representative.getProto(),
-        representative.getHolderType(),
+        Constants.SYNTHETIC_INSTANCE_INITIALIZER_PREFIX,
+        newMethodReference.getProto(),
+        newMethodReference.getHolderType(),
         classMethodsBuilder::isFresh);
   }
 
@@ -276,7 +275,6 @@ public class InstanceInitializerMerger {
       int extraNulls) {
     if (hasInstanceInitializerDescription()) {
       return instanceInitializerDescription.createCfCode(
-          newMethodReference,
           getOriginalMethodReference(),
           syntheticMethodReference,
           group,
@@ -318,7 +316,11 @@ public class InstanceInitializerMerger {
             newMethodReferenceTemplate,
             mode.isInitial() ? syntheticArgumentClass.getArgumentClasses() : ImmutableList.of(),
             classMethodsBuilder::isFresh);
-    int extraNulls = newMethodReference.getArity() - newMethodReferenceTemplate.getArity();
+
+    // Compute the extra unused null parameters.
+    List<ExtraUnusedNullParameter> extraUnusedNullParameters =
+        ExtraUnusedNullParameter.computeExtraUnusedNullParameters(
+            newMethodReferenceTemplate, newMethodReference);
 
     // Verify that the merge is a simple renaming in the final round of merging.
     assert mode.isInitial() || newMethodReference == newMethodReferenceTemplate;
@@ -340,7 +342,7 @@ public class InstanceInitializerMerger {
 
     // Add a mapping from a synthetic name to the synthetic constructor.
     DexMethod syntheticMethodReference =
-        getSyntheticMethodReference(classMethodsBuilder, representative);
+        getSyntheticMethodReference(classMethodsBuilder, newMethodReference);
     if (!isSingleton() || group.hasClassIdField()) {
       lensBuilder.recordNewMethodSignature(syntheticMethodReference, newMethodReference, true);
     }
@@ -352,7 +354,7 @@ public class InstanceInitializerMerger {
         int classIdentifier = classIdentifiers.getInt(instanceInitializer.getHolderType());
         extraParameters.add(new ExtraConstantIntParameter(classIdentifier));
       }
-      extraParameters.addAll(Collections.nCopies(extraNulls, new ExtraUnusedNullParameter()));
+      extraParameters.addAll(extraUnusedNullParameters);
       lensBuilder.mapMergedConstructor(
           instanceInitializer.getReference(), newMethodReference, extraParameters);
     }
@@ -363,7 +365,11 @@ public class InstanceInitializerMerger {
             .setMethod(newMethodReference)
             .setAccessFlags(getNewAccessFlags())
             .setCode(
-                getNewCode(newMethodReference, syntheticMethodReference, needsClassId, extraNulls))
+                getNewCode(
+                    newMethodReference,
+                    syntheticMethodReference,
+                    needsClassId,
+                    extraUnusedNullParameters.size()))
             .setClassFileVersion(getNewClassFileVersion())
             .setApiLevelForDefinition(representativeMethod.getApiLevelForDefinition())
             .setApiLevelForCode(representativeMethod.getApiLevelForCode())
@@ -372,11 +378,12 @@ public class InstanceInitializerMerger {
 
     if (mode.isFinal()) {
       if (appView.options().isGeneratingDex() && !newInstanceInitializer.getCode().isDexCode()) {
-        syntheticInitializerConverterBuilder.add(
+        syntheticInitializerConverterBuilder.addInstanceInitializer(
             new ProgramMethod(group.getTarget(), newInstanceInitializer));
       } else {
         assert appView.options().isGeneratingDex()
-            || newInstanceInitializer.getCode().isCfWritableCode();
+            || newInstanceInitializer.getCode().isCfWritableCode()
+            || newInstanceInitializer.getCode().isIncompleteHorizontalClassMergerCode();
       }
     }
   }

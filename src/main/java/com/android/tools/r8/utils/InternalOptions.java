@@ -298,6 +298,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean readDebugSetFileEvent = false;
   public boolean disableL8AnnotationRemoval =
       System.getProperty("com.android.tools.r8.disableL8AnnotationRemoval") != null;
+  public boolean enableVisibilityBridgeRemoval = true;
 
   public int callGraphLikelySpuriousCallEdgeThreshold = 50;
 
@@ -895,7 +896,13 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       return;
     }
     try {
-      machineDesugaredLibrarySpecification = specification.toMachineSpecification(this, app);
+      // TODO(b/221224178): Move the timing to top level timing in D8, R8 and L8.
+      Timing timing = Timing.create("Desugared library specification conversion", this);
+      machineDesugaredLibrarySpecification =
+          specification.toMachineSpecification(this, app, timing);
+      if (printTimes) {
+        timing.report();
+      }
     } catch (IOException e) {
       reporter.error(new ExceptionDiagnostic(e, Origin.unknown()));
     }
@@ -907,8 +914,13 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     if (specification.isEmpty()) {
       return;
     }
+    // TODO(b/221224178): Move the timing to top level timing in D8, R8 and L8.
+    Timing timing = Timing.create("Desugared library specification conversion", this);
     machineDesugaredLibrarySpecification =
-        specification.toMachineSpecification(this, library, desugaredJDKLib);
+        specification.toMachineSpecification(this, library, timing, desugaredJDKLib);
+    if (printTimes) {
+      timing.report();
+    }
   }
 
   // Contains flags describing library desugaring.
@@ -1658,11 +1670,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableEnumUnboxingDebugLogs = false;
     public boolean forceRedundantConstNumberRemoval = false;
     public boolean enableExperimentalDesugaredLibraryKeepRuleGenerator = false;
-    public boolean enableExperimentalProtoNormalization = false;
     public boolean invertConditionals = false;
     public boolean placeExceptionalBlocksLast = false;
     public boolean dontCreateMarkerInD8 = false;
     public boolean forceJumboStringProcessing = false;
+    public boolean forcePcBasedEncoding = false;
     public Set<Inliner.Reason> validInliningReasons = null;
     public boolean noLocalsTableOnInput = false;
     public boolean forceNameReflectionOptimization = false;
@@ -1884,7 +1896,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean canUseDexPc2PcAsDebugInformation() {
-    return lineNumberOptimization == LineNumberOptimization.ON;
+    return isGeneratingDex() && lineNumberOptimization == LineNumberOptimization.ON;
   }
 
   public boolean canUseNativeDexPcInsteadOfDebugInfo() {

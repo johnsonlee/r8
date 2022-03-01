@@ -314,6 +314,10 @@ public class ToolHelper {
         return compareTo(other) == 0;
       }
 
+      public boolean isEqualToOneOf(Version... versions) {
+        return Arrays.stream(versions).anyMatch(this::isEqualTo);
+      }
+
       public boolean isNewerThan(Version other) {
         return compareTo(other) > 0;
       }
@@ -1288,7 +1292,7 @@ public class ToolHelper {
     R8.runForTesting(command.getInputApp(), internalOptions);
     if (benchmarkResults != null) {
       long end = System.nanoTime();
-      benchmarkResults.addRuntimeRawResult(end - start);
+      benchmarkResults.addRuntimeResult(end - start);
     }
   }
 
@@ -1368,20 +1372,20 @@ public class ToolHelper {
       BenchmarkResults benchmarkResults)
       throws CompilationFailedException {
     AndroidAppConsumers compatSink = new AndroidAppConsumers(builder);
+    long start = 0;
+    if (benchmarkResults != null) {
+      start = System.nanoTime();
+    }
     D8Command command = builder.build();
     InternalOptions options = command.getInternalOptions();
     if (optionsConsumer != null) {
       ExceptionUtils.withD8CompilationHandler(
           options.reporter, () -> optionsConsumer.accept(options));
     }
-    long start = 0;
-    if (benchmarkResults != null) {
-      start = System.nanoTime();
-    }
     D8.runForTesting(command.getInputApp(), options);
     if (benchmarkResults != null) {
       long end = System.nanoTime();
-      benchmarkResults.addRuntimeRawResult(end - start);
+      benchmarkResults.addRuntimeResult(end - start);
     }
     return compatSink.build();
   }

@@ -1,16 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (c) 2017, the R8 project authors. Please see the AUTHORS file
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
 # Run ProGuard, Google's internal version
 
-from __future__ import print_function
-
 import os
 import subprocess
 import sys
-from exceptions import ValueError
 
 import jdk
 import utils

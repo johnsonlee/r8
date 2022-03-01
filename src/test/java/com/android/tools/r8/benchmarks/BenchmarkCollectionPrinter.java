@@ -110,7 +110,6 @@ public class BenchmarkCollectionPrinter {
       throws IOException {
     // Common properties that must be consistent among all the benchmark variants.
     String suite = BenchmarkConfig.getCommonSuite(benchmarkVariants).getDartName();
-    boolean hasWarmup = BenchmarkConfig.getCommonTimeWarmupRuns(benchmarkVariants);
     List<String> metrics =
         new ArrayList<>(
             ListUtils.map(
@@ -118,12 +117,12 @@ public class BenchmarkCollectionPrinter {
     metrics.sort(String::compareTo);
     printSemi("final name = " + quote(benchmarkName));
     printSemi("final metrics = " + StringUtils.join(", ", metrics, BraceType.SQUARE));
-    printSemi("final group = new GroupBenchmark(name + \"Group\", metrics)");
+    printSemi("final benchmark = new StandardBenchmark(name, metrics)");
     for (BenchmarkConfig benchmark : benchmarkVariants) {
       scopeBraces(
           () -> {
             printSemi("final target = " + quote(benchmark.getTarget().getGolemName()));
-            printSemi("final options = group.addTargets(noImplementation, [target])");
+            printSemi("final options = benchmark.addTargets(noImplementation, [target])");
             printSemi("options.cpus = cpus");
             printSemi("options.isScript = true");
             printSemi("options.fromRevision = " + benchmark.getFromRevision());
@@ -139,15 +138,16 @@ public class BenchmarkCollectionPrinter {
                                 + " --benchmark "
                                 + benchmark.getName())));
             printSemi("options.resources.add(openjdk)");
+            for (BenchmarkDependency dependency : benchmark.getDependencies()) {
+              scopeBraces(
+                  () -> {
+                    addGolemResource("dependency", dependency.getTarball());
+                    printSemi("options.resources.add(dependency)");
+                  });
+            }
           });
     }
-    printSemi("group.addBenchmark(name, metrics)");
     printSemi(suite + ".addBenchmark(name)");
-    if (hasWarmup) {
-      printSemi("final warmupName = name + \"Warmup\"");
-      printSemi("group.addBenchmark(warmupName, [Metric.RunTimeRaw])");
-      printSemi(suite + ".addBenchmark(warmupName)");
-    }
   }
 
   private void addGolemResource(String name, Path tarball) throws IOException {
@@ -173,7 +173,7 @@ public class BenchmarkCollectionPrinter {
   }
 
   private static Path getJdkHome() throws IOException {
-    ProcessBuilder builder = new ProcessBuilder("python", "tools/jdk.py");
+    ProcessBuilder builder = new ProcessBuilder("python3", "tools/jdk.py");
     ProcessResult result = ToolHelper.runProcess(builder, QUIET);
     if (result.exitCode != 0) {
       throw new BenchmarkConfigError("Unexpected failure to determine jdk home: " + result);

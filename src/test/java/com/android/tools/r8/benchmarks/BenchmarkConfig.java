@@ -5,10 +5,11 @@ package com.android.tools.r8.benchmarks;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.google.common.collect.ImmutableSet;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.junit.rules.TemporaryFolder;
 
 public class BenchmarkConfig {
 
@@ -38,10 +39,6 @@ public class BenchmarkConfig {
     return getConsistentRepresentative(variants).getSuite();
   }
 
-  public static boolean getCommonTimeWarmupRuns(List<BenchmarkConfig> variants) {
-    return getConsistentRepresentative(variants).hasTimeWarmupRuns();
-  }
-
   private static BenchmarkConfig getConsistentRepresentative(List<BenchmarkConfig> variants) {
     if (variants.isEmpty()) {
       throw new BenchmarkConfigError("Unexpected attempt to check consistency of empty collection");
@@ -60,9 +57,8 @@ public class BenchmarkConfig {
     private BenchmarkTarget target = null;
     private Set<BenchmarkMetric> metrics = new HashSet<>();
     private BenchmarkSuite suite = BenchmarkSuite.getDefault();
+    private Collection<BenchmarkDependency> dependencies = new ArrayList<>();
     private int fromRevision = -1;
-
-    private boolean timeWarmupRuns = false;
 
     private Builder() {}
 
@@ -85,11 +81,14 @@ public class BenchmarkConfig {
       if (fromRevision < 0) {
         throw new Unreachable("Benchmark must specify from which golem revision it is valid");
       }
-      if (timeWarmupRuns && !metrics.contains(BenchmarkMetric.RunTimeRaw)) {
-        throw new Unreachable("Benchmark with warmup time must measure RunTimeRaw");
-      }
       return new BenchmarkConfig(
-          name, method, target, ImmutableSet.copyOf(metrics), suite, fromRevision, timeWarmupRuns);
+          name,
+          method,
+          target,
+          ImmutableSet.copyOf(metrics),
+          suite,
+          fromRevision,
+          dependencies);
     }
 
     public Builder setName(String name) {
@@ -107,13 +106,18 @@ public class BenchmarkConfig {
       return this;
     }
 
-    public Builder measureRunTimeRaw() {
+    public Builder measureRunTime() {
       metrics.add(BenchmarkMetric.RunTimeRaw);
       return this;
     }
 
     public Builder measureCodeSize() {
       metrics.add(BenchmarkMetric.CodeSize);
+      return this;
+    }
+
+    public Builder measureWarmup() {
+      metrics.add(BenchmarkMetric.StartupTime);
       return this;
     }
 
@@ -127,8 +131,8 @@ public class BenchmarkConfig {
       return this;
     }
 
-    public Builder timeWarmupRuns() {
-      this.timeWarmupRuns = true;
+    public Builder addDependency(BenchmarkDependency dependency) {
+      dependencies.add(dependency);
       return this;
     }
   }
@@ -141,8 +145,8 @@ public class BenchmarkConfig {
   private final BenchmarkMethod method;
   private final ImmutableSet<BenchmarkMetric> metrics;
   private final BenchmarkSuite suite;
+  private final Collection<BenchmarkDependency> dependencies;
   private final int fromRevision;
-  private final boolean timeWarmupRuns;
 
   private BenchmarkConfig(
       String name,
@@ -151,13 +155,13 @@ public class BenchmarkConfig {
       ImmutableSet<BenchmarkMetric> metrics,
       BenchmarkSuite suite,
       int fromRevision,
-      boolean timeWarmupRuns) {
+      Collection<BenchmarkDependency> dependencies) {
     this.id = new BenchmarkIdentifier(name, target);
     this.method = benchmarkMethod;
     this.metrics = metrics;
     this.suite = suite;
     this.fromRevision = fromRevision;
-    this.timeWarmupRuns = timeWarmupRuns;
+    this.dependencies = dependencies;
   }
 
   public BenchmarkIdentifier getIdentifier() {
@@ -166,13 +170,6 @@ public class BenchmarkConfig {
 
   public String getName() {
     return id.getName();
-  }
-
-  public String getWarmupName() {
-    if (!timeWarmupRuns) {
-      throw new BenchmarkConfigError("Invalid attempt at getting warmup benchmark name");
-    }
-    return getName() + "Warmup";
   }
 
   public BenchmarkTarget getTarget() {
@@ -196,11 +193,15 @@ public class BenchmarkConfig {
   }
 
   public boolean hasTimeWarmupRuns() {
-    return timeWarmupRuns;
+    return hasMetric(BenchmarkMetric.StartupTime);
   }
 
-  public void run(TemporaryFolder temp) throws Exception {
-    method.run(this, temp);
+  public Collection<BenchmarkDependency> getDependencies() {
+    return dependencies;
+  }
+
+  public void run(BenchmarkEnvironment environment) throws Exception {
+    method.run(environment);
   }
 
   @Override

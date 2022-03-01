@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (c) 2018, the R8 project authors. Please see the AUTHORS file
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
@@ -166,7 +166,7 @@ def restart_if_new_version(original_contents):
 
 def ensure_git_clean():
   # Ensure clean git repo.
-  diff = subprocess.check_output(['git', 'diff'])
+  diff = subprocess.check_output(['git', 'diff']).decode('utf-8')
   if len(diff) > 0:
     log('Local modifications to the git repo, exiting')
     sys.exit(1)
@@ -328,13 +328,13 @@ def handle_output(archive, stderr, stdout, exitcode, timed_out, cmd):
   if archive:
     archive_log(stdout, stderr, exitcode, timed_out, cmd)
   else:
-    print 'Execution of %s resulted in:' % cmd
-    print 'exit code: %s ' % exitcode
-    print 'timeout: %s ' % timed_out
+    print('Execution of %s resulted in:' % cmd)
+    print('exit code: %s ' % exitcode)
+    print('timeout: %s ' % timed_out)
     with open(stderr, 'r') as f:
-      print 'stderr: %s' % f.read()
+      print('stderr: %s' % f.read())
     with open(stdout, 'r') as f:
-      print 'stdout: %s' % f.read()
+      print('stdout: %s' % f.read())
 
 def execute(cmd, archive, env=None):
   if cmd == []:
