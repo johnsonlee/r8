@@ -9,6 +9,7 @@ import static com.android.tools.r8.ToolHelper.isTestingR8Lib;
 
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.compilerapi.assertionconfiguration.AssertionConfigurationTest;
+import com.android.tools.r8.compilerapi.inputdependencies.InputDependenciesTest;
 import com.android.tools.r8.compilerapi.mapid.CustomMapIdTest;
 import com.android.tools.r8.compilerapi.mockdata.MockClass;
 import com.android.tools.r8.compilerapi.mockdata.MockClassWithAssertion;
@@ -34,7 +35,8 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
           CustomSourceFileTest.ApiTest.class);
 
   private static final List<Class<? extends CompilerApiTest>> CLASSES_PENDING_BINARY_COMPATIBILITY =
-      ImmutableList.of(AssertionConfigurationTest.ApiTest.class);
+      ImmutableList.of(
+          AssertionConfigurationTest.ApiTest.class, InputDependenciesTest.ApiTest.class);
 
   private final TemporaryFolder temp;
 
@@ -73,6 +75,7 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
   }
 
   // The API tests always link against the jar that the test runner is using.
+  @Override
   public Path getTargetJar() {
     return isTestingR8Lib() ? R8LIB_JAR : R8_JAR;
   }

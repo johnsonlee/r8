@@ -13,16 +13,30 @@
       }
     },
     {
+      "api_level_below_or_equal": 32,
+      "rewrite_prefix": {
+        "java.io.DesugarInputStream": "j$.io.DesugarInputStream"
+      },
+      "retarget_method_with_emulated_dispatch": {
+        "long java.io.InputStream#transferTo(java.io.OutputStream)": "java.io.DesugarInputStream"
+      },
+      "amend_library_method": [
+        "public long java.io.InputStream#transferTo(java.io.OutputStream)"
+      ]
+    },
+    {
       "api_level_below_or_equal": 30,
       "rewrite_prefix": {
         "java.time.": "j$.time.",
         "java.util.Desugar": "j$.util.Desugar"
       },
       "retarget_method": {
+        "java.util.TimeZone java.util.TimeZone#getTimeZone(java.time.ZoneId)": "java.util.DesugarTimeZone"
+      },
+      "retarget_method_with_emulated_dispatch": {
         "java.time.Instant java.util.Date#toInstant()": "java.util.DesugarDate",
         "java.time.ZoneId java.util.TimeZone#toZoneId()": "java.util.DesugarTimeZone",
-        "java.time.ZonedDateTime java.util.GregorianCalendar#toZonedDateTime()": "java.util.DesugarGregorianCalendar",
-        "java.util.TimeZone java.util.TimeZone#getTimeZone(java.time.ZoneId)": "java.util.DesugarTimeZone"
+        "java.time.ZonedDateTime java.util.GregorianCalendar#toZonedDateTime()": "java.util.DesugarGregorianCalendar"
       },
       "wrapper_conversion": [
         "java.time.Clock"
@@ -73,7 +87,6 @@
       "retarget_method": {
         "java.util.Spliterator java.util.Arrays#spliterator(java.lang.Object[])": "java.util.DesugarArrays",
         "java.util.Spliterator java.util.Arrays#spliterator(java.lang.Object[], int, int)": "java.util.DesugarArrays",
-        "java.util.Spliterator java.util.LinkedHashSet#spliterator()": "java.util.DesugarLinkedHashSet",
         "java.util.Spliterator$OfDouble java.util.Arrays#spliterator(double[])": "java.util.DesugarArrays",
         "java.util.Spliterator$OfDouble java.util.Arrays#spliterator(double[], int, int)": "java.util.DesugarArrays",
         "java.util.Spliterator$OfInt java.util.Arrays#spliterator(int[])": "java.util.DesugarArrays",
@@ -86,9 +99,12 @@
         "java.util.stream.IntStream java.util.Arrays#stream(int[], int, int)": "java.util.DesugarArrays",
         "java.util.stream.LongStream java.util.Arrays#stream(long[])": "java.util.DesugarArrays",
         "java.util.stream.LongStream java.util.Arrays#stream(long[], int, int)": "java.util.DesugarArrays",
-        "java.util.stream.Stream java.io.BufferedReader#lines()": "java.io.DesugarBufferedReader",
         "java.util.stream.Stream java.util.Arrays#stream(java.lang.Object[])": "java.util.DesugarArrays",
         "java.util.stream.Stream java.util.Arrays#stream(java.lang.Object[], int, int)": "java.util.DesugarArrays"
+      },
+      "retarget_method_with_emulated_dispatch": {
+        "java.util.stream.Stream java.io.BufferedReader#lines()": "java.io.DesugarBufferedReader",
+        "java.util.Spliterator java.util.LinkedHashSet#spliterator()": "java.util.DesugarLinkedHashSet"
       },
       "wrapper_conversion": [
         "java.util.function.IntUnaryOperator",
@@ -115,7 +131,6 @@
         "java.util.stream.Stream",
         "java.util.function.ObjLongConsumer",
         "java.util.function.ToDoubleFunction",
-        "java.util.Spliterator",
         "java.util.stream.IntStream",
         "java.util.function.LongBinaryOperator",
         "java.util.Spliterator$OfDouble",
@@ -142,6 +157,12 @@
         "java.util.stream.BaseStream",
         "java.util.function.DoublePredicate"
       ],
+      "wrapper_conversion_excluding": {
+        "java.util.Spliterator": [
+          "boolean java.util.Spliterator#hasCharacteristics(int)",
+          "long java.util.Spliterator#getExactSizeIfKnown()"
+        ]
+      },
       "custom_conversion": {
         "java.util.DoubleSummaryStatistics": "java.util.DoubleSummaryStatisticsConversions",
         "java.util.IntSummaryStatistics": "java.util.IntSummaryStatisticsConversions",
@@ -259,7 +280,9 @@
         "sun.util.PreHashedMap": "j$.sun.util.PreHashedMap"
       },
       "retarget_method": {
-        "boolean java.util.Arrays#deepEquals0(java.lang.Object, java.lang.Object)": "java.util.DesugarArrays",
+        "boolean java.util.Arrays#deepEquals0(java.lang.Object, java.lang.Object)": "java.util.DesugarArrays"
+      },
+      "retarget_method_with_emulated_dispatch": {
         "java.nio.file.Path java.io.File#toPath()": "java.io.DesugarFile"
       },
       "backport": {
@@ -275,7 +298,6 @@
     {
       "api_level_below_or_equal": 23,
       "rewrite_prefix": {
-        "java.io.DesugarInputStream": "j$.io.DesugarInputStream",
         "java.lang.FunctionalInterface": "j$.lang.FunctionalInterface",
         "java.nio.channels.SeekableByteChannel": "j$.nio.channels.SeekableByteChannel",
         "java.util.AbstractList": "j$.util.AbstractList",
@@ -300,13 +322,7 @@
         "java.util.Optional": {
           "j$.util.Optional": "java.util.Optional"
         }
-      },
-      "retarget_method": {
-        "long java.io.InputStream#transferTo(java.io.OutputStream)": "java.io.DesugarInputStream"
-      },
-      "amend_library_method": [
-        "public long java.io.InputStream#transferTo(java.io.OutputStream)"
-      ]
+      }
     }
   ],
   "shrinker_config": [
@@ -322,6 +338,7 @@
     "-keepattributes Signature",
     "-keepattributes EnclosingMethod",
     "-keepattributes InnerClasses",
-    "-dontwarn sun.misc.Unsafe"
+    "-dontwarn sun.misc.Unsafe",
+    "-dontwarn wrapper.**"
   ]
 }

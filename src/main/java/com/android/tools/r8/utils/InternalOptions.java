@@ -11,7 +11,6 @@ import com.android.tools.r8.DataResourceConsumer;
 import com.android.tools.r8.DesugarGraphConsumer;
 import com.android.tools.r8.DexFilePerClassFileConsumer;
 import com.android.tools.r8.DexIndexedConsumer;
-import com.android.tools.r8.DumpOptions;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.MapIdProvider;
 import com.android.tools.r8.ProgramConsumer;
@@ -23,6 +22,7 @@ import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Backend;
 import com.android.tools.r8.dex.Marker.Tool;
+import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.ExperimentalClassFileVersionDiagnostic;
 import com.android.tools.r8.errors.IncompleteNestNestDesugarDiagnosic;
@@ -34,7 +34,9 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.experimental.startup.StartupConfiguration;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -51,6 +53,7 @@ import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.horizontalclassmerging.Policy;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.desugar.TypeRewriter;
 import com.android.tools.r8.ir.desugar.TypeRewriter.MachineDesugarPrefixRewritingMapper;
@@ -87,7 +90,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -176,7 +178,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     enableMinification = false;
   }
 
-  // Constructor for D8.
+  // Constructor for D8, L8, Lint and other non-shrinkers.
   public InternalOptions(DexItemFactory factory, Reporter reporter) {
     assert reporter != null;
     assert factory != null;
@@ -329,8 +331,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public final OutlineOptions outline = new OutlineOptions();
   public boolean enableInitializedClassesInInstanceMethodsAnalysis = true;
   public boolean enableRedundantFieldLoadElimination = true;
-  // Currently disabled, see b/146957343.
-  public boolean enableUninstantiatedTypeOptimizationForInterfaces = false;
   // TODO(b/138917494): Disable until we have numbers on potential performance penalties.
   public boolean enableRedundantConstNumberOptimization = false;
 
@@ -734,6 +734,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final InlinerOptions inlinerOptions = new InlinerOptions();
   private final HorizontalClassMergerOptions horizontalClassMergerOptions =
       new HorizontalClassMergerOptions();
+  private final OpenClosedInterfacesOptions openClosedInterfacesOptions =
+      new OpenClosedInterfacesOptions();
   private final ProtoShrinkingOptions protoShrinking = new ProtoShrinkingOptions();
   private final KotlinOptimizationOptions kotlinOptimizationOptions =
       new KotlinOptimizationOptions();
@@ -784,6 +786,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public DesugarSpecificOptions desugarSpecificOptions() {
     return desugarSpecificOptions;
+  }
+
+  public OpenClosedInterfacesOptions getOpenClosedInterfacesOptions() {
+    return openClosedInterfacesOptions;
   }
 
   private static Set<String> getExtensiveLoggingFilter() {
@@ -890,37 +896,27 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // If non-null, configuration must be passed to the consumer.
   public StringConsumer configurationConsumer = null;
 
-  public void setDesugaredLibrarySpecification(
-      DesugaredLibrarySpecification specification, AndroidApp app) {
+  public void setDesugaredLibrarySpecification(DesugaredLibrarySpecification specification) {
     if (specification.isEmpty()) {
       return;
     }
-    try {
-      // TODO(b/221224178): Move the timing to top level timing in D8, R8 and L8.
-      Timing timing = Timing.create("Desugared library specification conversion", this);
-      machineDesugaredLibrarySpecification =
-          specification.toMachineSpecification(this, app, timing);
-      if (printTimes) {
-        timing.report();
-      }
-    } catch (IOException e) {
-      reporter.error(new ExceptionDiagnostic(e, Origin.unknown()));
-    }
+    loadMachineDesugaredLibrarySpecification =
+        (timing, app) ->
+            machineDesugaredLibrarySpecification =
+                specification.toMachineSpecification(app, timing);
   }
 
-  public void setDesugaredLibrarySpecificationForTesting(
-      DesugaredLibrarySpecification specification, Path desugaredJDKLib, Path library)
+  private ThrowingBiConsumer<Timing, DexApplication, IOException>
+      loadMachineDesugaredLibrarySpecification = null;
+
+  public void loadMachineDesugaredLibrarySpecification(Timing timing, DexApplication app)
       throws IOException {
-    if (specification.isEmpty()) {
+    if (loadMachineDesugaredLibrarySpecification == null) {
       return;
     }
-    // TODO(b/221224178): Move the timing to top level timing in D8, R8 and L8.
-    Timing timing = Timing.create("Desugared library specification conversion", this);
-    machineDesugaredLibrarySpecification =
-        specification.toMachineSpecification(this, library, timing, desugaredJDKLib);
-    if (printTimes) {
-      timing.report();
-    }
+    timing.begin("Load machine specification");
+    loadMachineDesugaredLibrarySpecification.accept(timing, app);
+    timing.end();
   }
 
   // Contains flags describing library desugaring.
@@ -1515,6 +1511,77 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public void setRestrictToSynthetics() {
       restrictToSynthetics = true;
+    }
+  }
+
+  public static class OpenClosedInterfacesOptions {
+
+    public interface OpenInterfaceWitnessSuppression {
+
+      boolean isSuppressed(
+          AppView<? extends AppInfoWithClassHierarchy> appView,
+          TypeElement valueType,
+          DexClass openInterface);
+    }
+
+    // Allow open interfaces by default. This is set to false in testing.
+    private boolean allowOpenInterfaces = true;
+
+    // When open interfaces are not allowed, compilation fails with an assertion error unless each
+    // open interface witness is expected according to some suppression.
+    private List<OpenInterfaceWitnessSuppression> suppressions = new ArrayList<>();
+
+    public void disallowOpenInterfaces() {
+      allowOpenInterfaces = false;
+    }
+
+    public void suppressAllOpenInterfaces() {
+      assert !allowOpenInterfaces;
+      suppressions.add((appView, valueType, openInterface) -> true);
+    }
+
+    public void suppressAllOpenInterfacesDueToMissingClasses() {
+      assert !allowOpenInterfaces;
+      suppressions.add(
+          (appView, valueType, openInterface) -> valueType.isBasedOnMissingClass(appView));
+    }
+
+    public void suppressArrayAssignmentsToJavaLangSerializable() {
+      assert !allowOpenInterfaces;
+      suppressions.add(
+          (appView, valueType, openInterface) ->
+              valueType.isArrayType()
+                  && openInterface.getTypeName().equals("java.io.Serializable"));
+    }
+
+    public void suppressZipFileAssignmentsToJavaLangAutoCloseable() {
+      assert !allowOpenInterfaces;
+      suppressions.add(
+          (appView, valueType, openInterface) ->
+              valueType.isClassType()
+                  && valueType
+                      .asClassType()
+                      .getClassType()
+                      .getTypeName()
+                      .equals("java.util.zip.ZipFile")
+                  && openInterface.getTypeName().equals("java.lang.AutoCloseable"));
+    }
+
+    public boolean isOpenInterfacesAllowed() {
+      return allowOpenInterfaces;
+    }
+
+    public boolean hasSuppressions() {
+      return !suppressions.isEmpty();
+    }
+
+    public boolean isSuppressed(
+        AppView<? extends AppInfoWithClassHierarchy> appView,
+        TypeElement valueType,
+        DexClass openInterface) {
+      return allowOpenInterfaces
+          || suppressions.stream()
+              .anyMatch(suppression -> suppression.isSuppressed(appView, valueType, openInterface));
     }
   }
 

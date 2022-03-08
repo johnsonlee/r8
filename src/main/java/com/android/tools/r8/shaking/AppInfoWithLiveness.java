@@ -48,6 +48,9 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
+import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Invoke.Type;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
@@ -1035,28 +1038,33 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         && !keepInfo.getMethodInfo(method).isPinned(options());
   }
 
-  public boolean mayPropagateValueFor(DexClassAndMember<?, ?> member) {
+  public boolean mayPropagateValueFor(
+      AppView<AppInfoWithLiveness> appView, DexClassAndMember<?, ?> member) {
     assert checkIfObsolete();
-    return member.getReference().apply(this::mayPropagateValueFor, this::mayPropagateValueFor);
+    return member
+        .getReference()
+        .apply(
+            field -> mayPropagateValueFor(appView, field),
+            method -> mayPropagateValueFor(appView, method));
   }
 
-  public boolean mayPropagateValueFor(DexField field) {
+  public boolean mayPropagateValueFor(AppView<AppInfoWithLiveness> appView, DexField field) {
     assert checkIfObsolete();
     if (neverPropagateValue.contains(field)) {
       return false;
     }
-    if (isPinned(field) && !field.getType().isAlwaysNull(this)) {
+    if (isPinned(field) && !field.getType().isAlwaysNull(appView)) {
       return false;
     }
     return true;
   }
 
-  public boolean mayPropagateValueFor(DexMethod method) {
+  public boolean mayPropagateValueFor(AppView<AppInfoWithLiveness> appView, DexMethod method) {
     assert checkIfObsolete();
     if (neverPropagateValue.contains(method)) {
       return false;
     }
-    if (!method.getReturnType().isAlwaysNull(this)
+    if (!method.getReturnType().isAlwaysNull(appView)
         && !getKeepInfo().getMethodInfo(method, this).isOptimizationAllowed(options())) {
       return false;
     }
@@ -1285,6 +1293,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   }
 
   public DexEncodedMethod lookupSingleTarget(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       Type type,
       DexMethod target,
       ProgramMethod context,
@@ -1296,9 +1305,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     }
     switch (type) {
       case VIRTUAL:
-        return lookupSingleVirtualTarget(target, context, false, modeledPredicate);
+        return lookupSingleVirtualTarget(appView, target, context, false, modeledPredicate);
       case INTERFACE:
-        return lookupSingleVirtualTarget(target, context, true, modeledPredicate);
+        return lookupSingleVirtualTarget(appView, target, context, true, modeledPredicate);
       case DIRECT:
         return lookupDirectTarget(target, context);
       case STATIC:
@@ -1311,56 +1320,67 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   }
 
   public ProgramMethod lookupSingleProgramTarget(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       Type type,
       DexMethod target,
       ProgramMethod context,
       LibraryModeledPredicate modeledPredicate) {
-    return asProgramMethodOrNull(lookupSingleTarget(type, target, context, modeledPredicate), this);
+    return asProgramMethodOrNull(
+        lookupSingleTarget(appView, type, target, context, modeledPredicate), this);
   }
 
   /** For mapping invoke virtual instruction to single target method. */
   public DexEncodedMethod lookupSingleVirtualTarget(
-      DexMethod method, ProgramMethod context, boolean isInterface) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      DexMethod method,
+      ProgramMethod context,
+      boolean isInterface) {
     assert checkIfObsolete();
-    return lookupSingleVirtualTarget(
-        method, context, isInterface, type -> false, method.holder, null);
+    return lookupSingleVirtualTarget(appView, method, context, isInterface, type -> false);
   }
 
   /** For mapping invoke virtual instruction to single target method. */
   public DexEncodedMethod lookupSingleVirtualTarget(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       DexMethod method,
       ProgramMethod context,
       boolean isInterface,
       LibraryModeledPredicate modeledPredicate) {
     assert checkIfObsolete();
     return lookupSingleVirtualTarget(
-        method, context, isInterface, modeledPredicate, method.holder, null);
+        appView, method, context, isInterface, modeledPredicate, DynamicType.unknown());
   }
 
   public DexEncodedMethod lookupSingleVirtualTarget(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       DexMethod method,
       ProgramMethod context,
       boolean isInterface,
       LibraryModeledPredicate modeledPredicate,
-      DexType refinedReceiverType,
-      ClassTypeElement receiverLowerBoundType) {
+      DynamicType dynamicReceiverType) {
     assert checkIfObsolete();
-    assert refinedReceiverType != null;
-    if (!refinedReceiverType.isClassType()) {
-      // The refined receiver is not of class type and we will not be able to find a single target
-      // (it is either primitive or array).
+    assert dynamicReceiverType != null;
+    if (method.getHolderType().isArrayType()) {
+      return null;
+    }
+    TypeElement staticReceiverType = method.getHolderType().toTypeElement(appView);
+    if (!appView
+        .getOpenClosedInterfacesCollection()
+        .isDefinitelyInstanceOfStaticType(appView, () -> dynamicReceiverType, staticReceiverType)) {
       return null;
     }
     DexClass initialResolutionHolder = definitionFor(method.holder);
     if (initialResolutionHolder == null || initialResolutionHolder.isInterface() != isInterface) {
       return null;
     }
+    DexType refinedReceiverType =
+        TypeAnalysis.toRefinedReceiverType(dynamicReceiverType, method, appView);
     DexClass refinedReceiverClass = definitionFor(refinedReceiverType);
     if (refinedReceiverClass == null) {
       // The refined receiver is not defined in the program and we cannot determine the target.
       return null;
     }
-    if (receiverLowerBoundType == null
+    if (!dynamicReceiverType.hasDynamicLowerBoundType()
         && singleTargetLookupCache.hasCachedItem(refinedReceiverType, method)) {
       DexEncodedMethod cachedItem =
           singleTargetLookupCache.getCachedItem(refinedReceiverType, method);
@@ -1383,7 +1403,10 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     }
     DexEncodedMethod exactTarget =
         getMethodTargetFromExactRuntimeInformation(
-            refinedReceiverType, receiverLowerBoundType, resolution, refinedReceiverClass);
+            refinedReceiverType,
+            dynamicReceiverType.getDynamicLowerBoundType(),
+            resolution,
+            refinedReceiverClass);
     if (exactTarget != null) {
       // We are not caching single targets here because the cache does not include the
       // lower bound dimension.
@@ -1405,8 +1428,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     }
     DexEncodedMethod singleMethodTarget = null;
     DexProgramClass refinedLowerBound = null;
-    if (receiverLowerBoundType != null) {
-      DexClass refinedLowerBoundClass = definitionFor(receiverLowerBoundType.getClassType());
+    if (dynamicReceiverType.hasDynamicLowerBoundType()) {
+      DexClass refinedLowerBoundClass =
+          definitionFor(dynamicReceiverType.getDynamicLowerBoundType().getClassType());
       if (refinedLowerBoundClass != null) {
         refinedLowerBound = refinedLowerBoundClass.asProgramClass();
         // TODO(b/154822960): Check if the lower bound is a subtype of the upper bound.
@@ -1426,7 +1450,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         singleMethodTarget = singleTarget.asMethodTarget().getDefinition();
       }
     }
-    if (receiverLowerBoundType == null) {
+    if (!dynamicReceiverType.hasDynamicLowerBoundType()) {
       singleTargetLookupCache.addToCache(refinedReceiverType, method, singleMethodTarget);
     }
     return singleMethodTarget;

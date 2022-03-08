@@ -16,7 +16,6 @@ import com.android.tools.r8.ProguardTestRunResult;
 import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRunResult;
-import com.android.tools.r8.TestRuntime;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.jasmin.JasminBuilder;
 import com.android.tools.r8.jasmin.JasminBuilder.ClassBuilder;
@@ -40,8 +39,7 @@ public class InvalidTypesTest extends JasminTestBase {
     D8,
     JAVAC,
     PROGUARD,
-    R8,
-    R8_ENABLE_UNININSTANTATED_TYPE_OPTIMIZATION_FOR_INTERFACES
+    R8
   }
 
   private enum Mode {
@@ -49,7 +47,7 @@ public class InvalidTypesTest extends JasminTestBase {
 
       @Override
       public String getExpectedOutput(
-          Compiler compiler, TestRuntime runtime, boolean useInterface) {
+          Compiler compiler, TestParameters parameters, boolean useInterface) {
         return StringUtils.joinLines("Hello!", "Goodbye!", "");
       }
 
@@ -62,20 +60,36 @@ public class InvalidTypesTest extends JasminTestBase {
 
       @Override
       public String getExpectedOutput(
-          Compiler compiler, TestRuntime runtime, boolean useInterface) {
+          Compiler compiler, TestParameters parameters, boolean useInterface) {
         if (!useInterface) {
           return StringUtils.joinLines("Hello!", "");
         }
 
         switch (compiler) {
-          case D8:
+          case JAVAC:
+            return StringUtils.joinLines("Hello!", "Goodbye!", "");
+
           case DX:
-            switch (runtime.asDex().getVm().getVersion()) {
+          case D8:
+          case R8:
+            if (parameters.isCfRuntime()) {
+              assert compiler == Compiler.R8;
+              return StringUtils.joinLines("Hello!", "Goodbye!", "");
+            }
+            switch (parameters.getDexRuntimeVersion()) {
               case V4_0_4:
               case V4_4_4:
               case V10_0_0:
               case V12_0_0:
                 return StringUtils.joinLines("Hello!", "Goodbye!", "");
+
+              case V5_1_1:
+              case V6_0_1:
+              case V8_1_0:
+              case V9_0_0:
+              case DEFAULT:
+                return StringUtils.joinLines(
+                    "Hello!", "Unexpected outcome of checkcast", "Goodbye!", "");
 
               case V7_0_0:
               case V13_MASTER:
@@ -87,24 +101,12 @@ public class InvalidTypesTest extends JasminTestBase {
                     "");
 
               default:
-                // Fallthrough.
+                throw new Unreachable();
             }
 
-          case R8:
           case PROGUARD:
             return StringUtils.joinLines(
                 "Hello!", "Unexpected outcome of checkcast", "Goodbye!", "");
-
-          case R8_ENABLE_UNININSTANTATED_TYPE_OPTIMIZATION_FOR_INTERFACES:
-            return StringUtils.joinLines(
-                "Hello!",
-                "Unexpected outcome of getstatic",
-                "Unexpected outcome of checkcast",
-                "Goodbye!",
-                "");
-
-          case JAVAC:
-            return StringUtils.joinLines("Hello!", "Goodbye!", "");
 
           default:
             throw new Unreachable();
@@ -120,14 +122,13 @@ public class InvalidTypesTest extends JasminTestBase {
 
       @Override
       public String getExpectedOutput(
-          Compiler compiler, TestRuntime runtime, boolean useInterface) {
+          Compiler compiler, TestParameters parameters, boolean useInterface) {
         if (useInterface) {
           return StringUtils.joinLines("Hello!", "In verifiable method!", "Goodbye!", "");
         }
 
         switch (compiler) {
           case R8:
-          case R8_ENABLE_UNININSTANTATED_TYPE_OPTIMIZATION_FOR_INTERFACES:
           case PROGUARD:
             // The unverifiable method has been removed as a result of tree shaking, so the code
             // does not fail with a verification error when trying to load class UnverifiableClass.
@@ -147,7 +148,7 @@ public class InvalidTypesTest extends JasminTestBase {
     };
 
     public abstract String getExpectedOutput(
-        Compiler compiler, TestRuntime runtime, boolean useInterface);
+        Compiler compiler, TestParameters parameters, boolean useInterface);
 
     public abstract String instruction();
   }
@@ -301,7 +302,10 @@ public class InvalidTypesTest extends JasminTestBase {
             .addOptionsModification(
                 options -> {
                   if (mode == Mode.INVOKE_UNVERIFIABLE_METHOD) {
+                    options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces();
                     options.testing.allowTypeErrors = true;
+                  } else if (mode == Mode.INVOKE_VERIFIABLE_METHOD_ON_UNVERIFIABLE_CLASS) {
+                    options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces();
                   }
                 })
             .allowDiagnosticWarningMessages(allowDiagnosticWarningMessages)
@@ -316,36 +320,6 @@ public class InvalidTypesTest extends JasminTestBase {
                                 + " type check and will be assumed to be unreachable.")))
             .run(parameters.getRuntime(), mainClass.name);
     checkTestRunResult(r8Result, Compiler.R8);
-
-    R8TestRunResult r8ResultWithUninstantiatedTypeOptimizationForInterfaces =
-        testForR8(parameters.getBackend())
-            .addProgramFiles(inputJar)
-            .addKeepMainRule(mainClass.name)
-            .addKeepRules(
-                "-keep class TestClass { public static I g; }",
-                "-neverinline class TestClass { public static void m(); }")
-            .enableProguardTestOptions()
-            .addOptionsModification(
-                options -> {
-                  if (mode == Mode.INVOKE_UNVERIFIABLE_METHOD) {
-                    options.testing.allowTypeErrors = true;
-                  }
-                  options.enableUninstantiatedTypeOptimizationForInterfaces = true;
-                })
-            .allowDiagnosticWarningMessages(allowDiagnosticWarningMessages)
-            .setMinApi(parameters.getApiLevel())
-            .compile()
-            .applyIf(
-                allowDiagnosticWarningMessages,
-                result ->
-                    result.assertAllWarningMessagesMatch(
-                        equalTo(
-                            "The method `void UnverifiableClass.unverifiableMethod()` does not"
-                                + " type check and will be assumed to be unreachable.")))
-            .run(parameters.getRuntime(), mainClass.name);
-    checkTestRunResult(
-        r8ResultWithUninstantiatedTypeOptimizationForInterfaces,
-        Compiler.R8_ENABLE_UNININSTANTATED_TYPE_OPTIMIZATION_FOR_INTERFACES);
   }
 
   private void checkTestRunResult(TestRunResult<?> result, Compiler compiler) {
@@ -359,7 +333,6 @@ public class InvalidTypesTest extends JasminTestBase {
           result.assertSuccessWithOutput(getExpectedOutput(compiler));
         } else {
           if (compiler == Compiler.R8
-              || compiler == Compiler.R8_ENABLE_UNININSTANTATED_TYPE_OPTIMIZATION_FOR_INTERFACES
               || compiler == Compiler.PROGUARD) {
             result.assertSuccessWithOutput(getExpectedOutput(compiler));
           } else {
@@ -374,8 +347,7 @@ public class InvalidTypesTest extends JasminTestBase {
         if (useInterface) {
           result.assertSuccessWithOutput(getExpectedOutput(compiler));
         } else {
-          if (compiler == Compiler.R8
-              || compiler == Compiler.R8_ENABLE_UNININSTANTATED_TYPE_OPTIMIZATION_FOR_INTERFACES) {
+          if (compiler == Compiler.R8) {
             result
                 .assertFailureWithOutput(getExpectedOutput(compiler))
                 .assertFailureWithErrorThatMatches(
@@ -396,7 +368,7 @@ public class InvalidTypesTest extends JasminTestBase {
   }
 
   private String getExpectedOutput(Compiler compiler) {
-    return mode.getExpectedOutput(compiler, parameters.getRuntime(), useInterface);
+    return mode.getExpectedOutput(compiler, parameters, useInterface);
   }
 
   private Matcher<String> getMatcherForExpectedError() {

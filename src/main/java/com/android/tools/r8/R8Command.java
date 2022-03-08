@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.InternalOptions.DETERMINISTIC_DEBUGGING
 import com.android.tools.r8.AssertionsConfiguration.AssertionTransformation;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.dex.Marker.Tool;
+import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.experimental.startup.StartupConfiguration;
@@ -110,6 +111,7 @@ public final class R8Command extends BaseCompilerCommand {
     private StringConsumer proguardConfigurationConsumer = null;
     private GraphConsumer keptGraphConsumer = null;
     private GraphConsumer mainDexKeptGraphConsumer = null;
+    private InputDependencyGraphConsumer inputDependencyGraphConsumer = null;
     private final List<FeatureSplit> featureSplits = new ArrayList<>();
     private String synthesizedClassPrefix = "";
     private boolean skipDump = false;
@@ -327,6 +329,19 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     /**
+     * Set a consumer for receiving dependency edges for files referenced from inputs.
+     *
+     * <p>Note that these dependency edges are for files read when reading/parsing other input
+     * files, such as the proguard configuration files. For compilation dependencies for incremental
+     * desugaring see {@code setDesugarGraphConsumer}.
+     */
+    public Builder setInputDependencyGraphConsumer(
+        InputDependencyGraphConsumer inputDependencyGraphConsumer) {
+      this.inputDependencyGraphConsumer = inputDependencyGraphConsumer;
+      return self();
+    }
+
+    /**
      * Set the output path-and-mode.
      *
      * <p>Setting the output path-and-mode will override any previous set consumer or any previous
@@ -479,7 +494,8 @@ public final class R8Command extends BaseCompilerCommand {
           getDesugaredLibraryConfiguration(factory, false);
 
       ProguardConfigurationParser parser =
-          new ProguardConfigurationParser(factory, reporter, allowTestProguardOptions);
+          new ProguardConfigurationParser(
+              factory, reporter, inputDependencyGraphConsumer, allowTestProguardOptions);
       if (!proguardConfigs.isEmpty()) {
         parser.parse(proguardConfigs);
       }
@@ -592,6 +608,10 @@ public final class R8Command extends BaseCompilerCommand {
               getDumpInputFlags(),
               getMapIdProvider(),
               getSourceFileProvider());
+
+      if (inputDependencyGraphConsumer != null) {
+        inputDependencyGraphConsumer.finished();
+      }
       return command;
     }
 
@@ -943,7 +963,7 @@ public final class R8Command extends BaseCompilerCommand {
 
     internal.enableInheritanceClassInDexDistributor = isOptimizeMultidexForLinearAlloc();
 
-    internal.setDesugaredLibrarySpecification(desugaredLibrarySpecification, getInputApp());
+    internal.setDesugaredLibrarySpecification(desugaredLibrarySpecification);
     internal.synthesizedClassPrefix = synthesizedClassPrefix;
     internal.desugaredLibraryKeepRuleConsumer = desugaredLibraryKeepRuleConsumer;
 
@@ -991,7 +1011,7 @@ public final class R8Command extends BaseCompilerCommand {
   }
 
   private DumpOptions dumpOptions() {
-    DumpOptions.Builder builder = DumpOptions.builder(Tool.R8);
+    DumpOptions.Builder builder = DumpOptions.builder(Tool.R8).readCurrentSystemProperties();
     dumpBaseCommandOptions(builder);
     return builder
         .setIncludeDataResources(includeDataResources)

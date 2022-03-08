@@ -40,7 +40,7 @@ public class OpenUninstantiatedInterfaceInstanceofTest extends TestBase {
         .addProgramClasses(getProgramClasses())
         .addProgramClassFileData(getTransformedMainClass())
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines(getExpectedOutputLines(false));
+        .assertSuccessWithOutputLines(getExpectedOutputLines());
   }
 
   @Test
@@ -51,7 +51,7 @@ public class OpenUninstantiatedInterfaceInstanceofTest extends TestBase {
         .addProgramClassFileData(getTransformedMainClass())
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines(getExpectedOutputLines(false));
+        .assertSuccessWithOutputLines(getExpectedOutputLines());
   }
 
   @Test
@@ -60,10 +60,12 @@ public class OpenUninstantiatedInterfaceInstanceofTest extends TestBase {
         .addProgramClasses(getProgramClasses())
         .addProgramClassFileData(getTransformedMainClass())
         .addKeepMainRule(Main.class)
+        .addOptionsModification(
+            options -> options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces())
         .enableInliningAnnotations()
         .setMinApi(parameters.getApiLevel())
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines(getExpectedOutputLines(true));
+        .assertSuccessWithOutputLines(getExpectedOutputLines());
   }
 
   private List<Class<?>> getProgramClasses() {
@@ -90,11 +92,7 @@ public class OpenUninstantiatedInterfaceInstanceofTest extends TestBase {
         .transform();
   }
 
-  private List<String> getExpectedOutputLines(boolean isR8) {
-    if (isR8) {
-      // TODO(b/214496607): R8 should not optimize the instanceof instruction since I is open.
-      return ImmutableList.of("true");
-    }
+  private List<String> getExpectedOutputLines() {
     if (parameters.isDexRuntime()) {
       if (parameters.getDexRuntimeVersion().isEqualTo(Version.V7_0_0)
           || parameters.getDexRuntimeVersion().isEqualTo(Version.V13_MASTER)) {

@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -26,11 +27,12 @@ public class HumanRewritingFlags {
   private final Map<String, Map<String, String>> rewriteDerivedPrefix;
   private final Map<DexType, DexType> emulatedInterfaces;
   private final Map<DexMethod, DexType> retargetMethod;
+  private final Map<DexMethod, DexType> retargetMethodEmulatedDispatch;
   private final Map<DexType, DexType> legacyBackport;
   private final Map<DexType, DexType> customConversions;
   private final Set<DexMethod> dontRewriteInvocation;
   private final Set<DexType> dontRetarget;
-  private final Set<DexType> wrapperConversions;
+  private final Map<DexType, Set<DexMethod>> wrapperConversions;
   private final Map<DexMethod, MethodAccessFlags> amendLibraryMethod;
 
   HumanRewritingFlags(
@@ -38,16 +40,18 @@ public class HumanRewritingFlags {
       Map<String, Map<String, String>> rewriteDerivedPrefix,
       Map<DexType, DexType> emulateLibraryInterface,
       Map<DexMethod, DexType> retargetMethod,
+      Map<DexMethod, DexType> retargetMethodEmulatedDispatch,
       Map<DexType, DexType> legacyBackport,
       Map<DexType, DexType> customConversion,
       Set<DexMethod> dontRewriteInvocation,
       Set<DexType> dontRetarget,
-      Set<DexType> wrapperConversion,
+      Map<DexType, Set<DexMethod>> wrapperConversion,
       Map<DexMethod, MethodAccessFlags> amendLibraryMethod) {
     this.rewritePrefix = rewritePrefix;
     this.rewriteDerivedPrefix = rewriteDerivedPrefix;
     this.emulatedInterfaces = emulateLibraryInterface;
     this.retargetMethod = retargetMethod;
+    this.retargetMethodEmulatedDispatch = retargetMethodEmulatedDispatch;
     this.legacyBackport = legacyBackport;
     this.customConversions = customConversion;
     this.dontRewriteInvocation = dontRewriteInvocation;
@@ -64,9 +68,10 @@ public class HumanRewritingFlags {
         ImmutableMap.of(),
         ImmutableMap.of(),
         ImmutableMap.of(),
+        ImmutableMap.of(),
         ImmutableSet.of(),
         ImmutableSet.of(),
-        ImmutableSet.of(),
+        ImmutableMap.of(),
         ImmutableMap.of());
   }
 
@@ -82,6 +87,7 @@ public class HumanRewritingFlags {
         rewriteDerivedPrefix,
         emulatedInterfaces,
         retargetMethod,
+        retargetMethodEmulatedDispatch,
         legacyBackport,
         customConversions,
         dontRewriteInvocation,
@@ -106,6 +112,10 @@ public class HumanRewritingFlags {
     return retargetMethod;
   }
 
+  public Map<DexMethod, DexType> getRetargetMethodEmulatedDispatch() {
+    return retargetMethodEmulatedDispatch;
+  }
+
   public Map<DexType, DexType> getLegacyBackport() {
     return legacyBackport;
   }
@@ -122,7 +132,7 @@ public class HumanRewritingFlags {
     return dontRetarget;
   }
 
-  public Set<DexType> getWrapperConversions() {
+  public Map<DexType, Set<DexMethod>> getWrapperConversions() {
     return wrapperConversions;
   }
 
@@ -146,11 +156,12 @@ public class HumanRewritingFlags {
     private final Map<String, Map<String, String>> rewriteDerivedPrefix;
     private final Map<DexType, DexType> emulatedInterfaces;
     private final Map<DexMethod, DexType> retargetMethod;
+    private final Map<DexMethod, DexType> retargetMethodEmulatedDispatch;
     private final Map<DexType, DexType> legacyBackport;
     private final Map<DexType, DexType> customConversions;
     private final Set<DexMethod> dontRewriteInvocation;
     private final Set<DexType> dontRetarget;
-    private final Set<DexType> wrapperConversions;
+    private final Map<DexType, Set<DexMethod>> wrapperConversions;
     private final Map<DexMethod, MethodAccessFlags> amendLibraryMethod;
 
     Builder(Reporter reporter, Origin origin) {
@@ -163,9 +174,10 @@ public class HumanRewritingFlags {
           new IdentityHashMap<>(),
           new IdentityHashMap<>(),
           new IdentityHashMap<>(),
+          new IdentityHashMap<>(),
           Sets.newIdentityHashSet(),
           Sets.newIdentityHashSet(),
-          Sets.newIdentityHashSet(),
+          new IdentityHashMap<>(),
           new IdentityHashMap<>());
     }
 
@@ -175,27 +187,28 @@ public class HumanRewritingFlags {
         Map<String, String> rewritePrefix,
         Map<String, Map<String, String>> rewriteDerivedPrefix,
         Map<DexType, DexType> emulateLibraryInterface,
-        Map<DexMethod, DexType> retargetCoreLibMember,
+        Map<DexMethod, DexType> retargetMethod,
+        Map<DexMethod, DexType> retargetMethodEmulatedDispatch,
         Map<DexType, DexType> backportCoreLibraryMember,
         Map<DexType, DexType> customConversions,
         Set<DexMethod> dontRewriteInvocation,
         Set<DexType> dontRetargetLibMember,
-        Set<DexType> wrapperConversions,
+        Map<DexType, Set<DexMethod>> wrapperConversions,
         Map<DexMethod, MethodAccessFlags> amendLibrary) {
       this.reporter = reporter;
       this.origin = origin;
       this.rewritePrefix = new HashMap<>(rewritePrefix);
       this.rewriteDerivedPrefix = new HashMap<>(rewriteDerivedPrefix);
       this.emulatedInterfaces = new IdentityHashMap<>(emulateLibraryInterface);
-      this.retargetMethod = new IdentityHashMap<>(retargetCoreLibMember);
+      this.retargetMethod = new IdentityHashMap<>(retargetMethod);
+      this.retargetMethodEmulatedDispatch = new IdentityHashMap<>(retargetMethodEmulatedDispatch);
       this.legacyBackport = new IdentityHashMap<>(backportCoreLibraryMember);
       this.customConversions = new IdentityHashMap<>(customConversions);
       this.dontRewriteInvocation = Sets.newIdentityHashSet();
       this.dontRewriteInvocation.addAll(dontRewriteInvocation);
       this.dontRetarget = Sets.newIdentityHashSet();
       this.dontRetarget.addAll(dontRetargetLibMember);
-      this.wrapperConversions = Sets.newIdentityHashSet();
-      this.wrapperConversions.addAll(wrapperConversions);
+      this.wrapperConversions = new IdentityHashMap<>(wrapperConversions);
       this.amendLibraryMethod = new IdentityHashMap<>(amendLibrary);
     }
 
@@ -255,7 +268,11 @@ public class HumanRewritingFlags {
     }
 
     public Builder addWrapperConversion(DexType dexType) {
-      wrapperConversions.add(dexType);
+      return addWrapperConversion(dexType, Collections.emptySet());
+    }
+
+    public Builder addWrapperConversion(DexType dexType, Set<DexMethod> excludedMethods) {
+      wrapperConversions.put(dexType, excludedMethods);
       return this;
     }
 
@@ -265,6 +282,15 @@ public class HumanRewritingFlags {
           key,
           rewrittenType,
           HumanDesugaredLibrarySpecificationParser.RETARGET_METHOD_KEY);
+      return this;
+    }
+
+    public Builder retargetMethodEmulatedDispatch(DexMethod key, DexType rewrittenType) {
+      put(
+          retargetMethodEmulatedDispatch,
+          key,
+          rewrittenType,
+          HumanDesugaredLibrarySpecificationParser.RETARGET_METHOD_EMULATED_DISPATCH_KEY);
       return this;
     }
 
@@ -299,16 +325,18 @@ public class HumanRewritingFlags {
           ImmutableMap.copyOf(rewriteDerivedPrefix),
           ImmutableMap.copyOf(emulatedInterfaces),
           ImmutableMap.copyOf(retargetMethod),
+          ImmutableMap.copyOf(retargetMethodEmulatedDispatch),
           ImmutableMap.copyOf(legacyBackport),
           ImmutableMap.copyOf(customConversions),
           ImmutableSet.copyOf(dontRewriteInvocation),
           ImmutableSet.copyOf(dontRetarget),
-          ImmutableSet.copyOf(wrapperConversions),
+          ImmutableMap.copyOf(wrapperConversions),
           ImmutableMap.copyOf(amendLibraryMethod));
     }
 
     private void validate() {
-      SetView<DexType> dups = Sets.intersection(customConversions.keySet(), wrapperConversions);
+      SetView<DexType> dups =
+          Sets.intersection(customConversions.keySet(), wrapperConversions.keySet());
       if (!dups.isEmpty()) {
         throw reporter.fatalError(
             new StringDiagnostic(

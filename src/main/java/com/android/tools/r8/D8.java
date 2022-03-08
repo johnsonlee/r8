@@ -7,6 +7,7 @@ import static com.android.tools.r8.D8Command.USAGE_MESSAGE;
 import static com.android.tools.r8.utils.AssertionUtils.forTesting;
 import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException;
 
+import com.android.tools.r8.androidapi.ApiReferenceStubber;
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.dex.ApplicationWriter;
 import com.android.tools.r8.dex.Marker;
@@ -169,9 +170,10 @@ public final class D8 {
   private static AppView<AppInfo> readApp(
       AndroidApp inputApp, InternalOptions options, ExecutorService executor, Timing timing)
       throws IOException {
-    TypeRewriter typeRewriter = options.getTypeRewriter();
     ApplicationReader applicationReader = new ApplicationReader(inputApp, options, timing);
     LazyLoadedDexApplication app = applicationReader.read(executor);
+    options.loadMachineDesugaredLibrarySpecification(timing, app);
+    TypeRewriter typeRewriter = options.getTypeRewriter();
     AppInfo appInfo = AppInfo.createInitialAppInfo(app, applicationReader.readMainDexClasses(app));
     return AppView.createForD8(appInfo, typeRewriter);
   }
@@ -189,9 +191,6 @@ public final class D8 {
     }
     Timing timing = Timing.create("D8", options);
     try {
-      // Disable global optimizations.
-      options.disableGlobalOptimizations();
-
       // Synthetic assertion to check that testing assertions works and can be enabled.
       assert forTesting(options, () -> !options.testing.testEnableTestAssertions);
 
@@ -267,7 +266,7 @@ public final class D8 {
       namingLens = RecordRewritingNamingLens.createRecordRewritingNamingLens(appView, namingLens);
 
       if (options.isGeneratingClassFiles()) {
-        finalizeApplication(inputApp, appView, executor, namingLens);
+        finalizeApplication(appView, executor);
         new CfApplicationWriter(appView, marker, GraphLens.getIdentityLens(), namingLens)
             .write(options.getClassFileConsumer(), inputApp);
       } else {
@@ -310,7 +309,12 @@ public final class D8 {
                       executor, appView.appInfo().app(), appView.appInfo().getMainDexInfo());
           appView.setAppInfo(appView.appInfo().rebuildWithMainDexInfo(mainDexInfo));
         }
-        finalizeApplication(inputApp, appView, executor, namingLens);
+
+        finalizeApplication(appView, executor);
+
+        if (options.apiModelingOptions().enableStubbingOfClasses && !appView.options().debug) {
+          new ApiReferenceStubber(appView).run(executor);
+        }
 
         new ApplicationWriter(
                 appView,
@@ -332,11 +336,7 @@ public final class D8 {
     }
   }
 
-  private static void finalizeApplication(
-      AndroidApp inputApp,
-      AppView<AppInfo> appView,
-      ExecutorService executorService,
-      NamingLens namingLens)
+  private static void finalizeApplication(AppView<AppInfo> appView, ExecutorService executorService)
       throws ExecutionException {
     SyntheticFinalization.finalize(appView, executorService);
   }

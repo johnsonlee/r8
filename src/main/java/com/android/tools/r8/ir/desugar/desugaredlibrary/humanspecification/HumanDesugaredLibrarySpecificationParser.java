@@ -18,6 +18,7 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.google.common.collect.Sets;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.Consumer;
 
 public class HumanDesugaredLibrarySpecificationParser {
@@ -43,9 +45,12 @@ public class HumanDesugaredLibrarySpecificationParser {
 
   static final String API_LEVEL_BELOW_OR_EQUAL_KEY = "api_level_below_or_equal";
   static final String WRAPPER_CONVERSION_KEY = "wrapper_conversion";
+  static final String WRAPPER_CONVERSION_EXCLUDING_KEY = "wrapper_conversion_excluding";
   static final String CUSTOM_CONVERSION_KEY = "custom_conversion";
   static final String REWRITE_PREFIX_KEY = "rewrite_prefix";
   static final String RETARGET_METHOD_KEY = "retarget_method";
+  static final String RETARGET_METHOD_EMULATED_DISPATCH_KEY =
+      "retarget_method_with_emulated_dispatch";
   static final String REWRITE_DERIVED_PREFIX_KEY = "rewrite_derived_prefix";
   static final String EMULATE_INTERFACE_KEY = "emulate_interface";
   static final String DONT_REWRITE_KEY = "dont_rewrite";
@@ -248,6 +253,14 @@ public class HumanDesugaredLibrarySpecificationParser {
             stringDescriptorToDexType(retarget.getValue().getAsString()));
       }
     }
+    if (jsonFlagSet.has(RETARGET_METHOD_EMULATED_DISPATCH_KEY)) {
+      for (Map.Entry<String, JsonElement> retarget :
+          jsonFlagSet.get(RETARGET_METHOD_EMULATED_DISPATCH_KEY).getAsJsonObject().entrySet()) {
+        builder.retargetMethodEmulatedDispatch(
+            parseMethod(retarget.getKey()),
+            stringDescriptorToDexType(retarget.getValue().getAsString()));
+      }
+    }
     if (jsonFlagSet.has(BACKPORT_KEY)) {
       for (Map.Entry<String, JsonElement> backport :
           jsonFlagSet.get(BACKPORT_KEY).getAsJsonObject().entrySet()) {
@@ -277,6 +290,14 @@ public class HumanDesugaredLibrarySpecificationParser {
         builder.addWrapperConversion(stringDescriptorToDexType(wrapper.getAsString()));
       }
     }
+    if (jsonFlagSet.has(WRAPPER_CONVERSION_EXCLUDING_KEY)) {
+      for (Map.Entry<String, JsonElement> wrapper :
+          jsonFlagSet.get(WRAPPER_CONVERSION_EXCLUDING_KEY).getAsJsonObject().entrySet()) {
+        builder.addWrapperConversion(
+            stringDescriptorToDexType(wrapper.getKey()),
+            parseMethods(wrapper.getValue().getAsJsonArray()));
+      }
+    }
     if (jsonFlagSet.has(DONT_REWRITE_KEY)) {
       JsonArray dontRewrite = jsonFlagSet.get(DONT_REWRITE_KEY).getAsJsonArray();
       for (JsonElement rewrite : dontRewrite) {
@@ -296,6 +317,14 @@ public class HumanDesugaredLibrarySpecificationParser {
         builder.amendLibraryMethod(methodParser.getMethod(), methodParser.getFlags());
       }
     }
+  }
+
+  private Set<DexMethod> parseMethods(JsonArray array) {
+    Set<DexMethod> methods = Sets.newIdentityHashSet();
+    for (JsonElement method : array) {
+      methods.add(parseMethod(method.getAsString()));
+    }
+    return methods;
   }
 
   private DexMethod parseMethod(String signature) {

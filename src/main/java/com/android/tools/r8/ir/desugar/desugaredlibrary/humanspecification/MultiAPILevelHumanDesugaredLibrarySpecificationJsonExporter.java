@@ -18,12 +18,14 @@ import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecificatio
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.LIBRARY_FLAGS_KEY;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.PROGRAM_FLAGS_KEY;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.REQUIRED_COMPILATION_API_LEVEL_KEY;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.RETARGET_METHOD_EMULATED_DISPATCH_KEY;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.RETARGET_METHOD_KEY;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.REWRITE_DERIVED_PREFIX_KEY;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.REWRITE_PREFIX_KEY;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.SHRINKER_CONFIG_KEY;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.SUPPORT_ALL_CALLBACKS_FROM_LIBRARY_KEY;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.SYNTHESIZED_LIBRARY_CLASSES_PACKAGE_PREFIX_KEY;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.WRAPPER_CONVERSION_EXCLUDING_KEY;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecificationParser.WRAPPER_CONVERSION_KEY;
 
 import com.android.tools.r8.DiagnosticsHandler;
@@ -33,7 +35,6 @@ import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
-import com.google.common.collect.Sets;
 import com.google.gson.Gson;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayList;
@@ -107,6 +108,11 @@ public class MultiAPILevelHumanDesugaredLibrarySpecificationJsonExporter {
       if (!flags.getRetargetMethod().isEmpty()) {
         toJson.put(RETARGET_METHOD_KEY, mapToString(flags.getRetargetMethod()));
       }
+      if (!flags.getRetargetMethodEmulatedDispatch().isEmpty()) {
+        toJson.put(
+            RETARGET_METHOD_EMULATED_DISPATCH_KEY,
+            mapToString(flags.getRetargetMethodEmulatedDispatch()));
+      }
       if (!flags.getDontRetarget().isEmpty()) {
         toJson.put(DONT_RETARGET_KEY, setToString(flags.getDontRetarget()));
       }
@@ -114,7 +120,7 @@ public class MultiAPILevelHumanDesugaredLibrarySpecificationJsonExporter {
         toJson.put(BACKPORT_KEY, mapToString(flags.getLegacyBackport()));
       }
       if (!flags.getWrapperConversions().isEmpty()) {
-        toJson.put(WRAPPER_CONVERSION_KEY, setToString(flags.getWrapperConversions()));
+        registerWrapperConversions(toJson, flags.getWrapperConversions());
       }
       if (!flags.getCustomConversions().isEmpty()) {
         toJson.put(CUSTOM_CONVERSION_KEY, mapToString(flags.getCustomConversions()));
@@ -127,15 +133,31 @@ public class MultiAPILevelHumanDesugaredLibrarySpecificationJsonExporter {
     return list;
   }
 
-  private Set<String> amendLibraryToString(Map<DexMethod, MethodAccessFlags> amendLibraryMembers) {
-    Set<String> stringSet = Sets.newHashSet();
+  private void registerWrapperConversions(
+      Map<String, Object> toJson, Map<DexType, Set<DexMethod>> wrapperConversions) {
+    List<String> stringSet = new ArrayList<>();
+    Map<String, List<String>> stringMap = new TreeMap<>();
+    wrapperConversions.forEach(
+        (k, v) -> {
+          if (v.isEmpty()) {
+            stringSet.add(toString(k));
+          } else {
+            stringMap.put(toString(k), setToString(v));
+          }
+        });
+    toJson.put(WRAPPER_CONVERSION_KEY, stringSet);
+    toJson.put(WRAPPER_CONVERSION_EXCLUDING_KEY, stringMap);
+  }
+
+  private List<String> amendLibraryToString(Map<DexMethod, MethodAccessFlags> amendLibraryMembers) {
+    List<String> stringSet = new ArrayList<>();
     amendLibraryMembers.forEach(
         (member, flags) -> stringSet.add(flags.toString() + " " + toString(member)));
     return stringSet;
   }
 
-  private Set<String> setToString(Set<? extends DexItem> set) {
-    Set<String> stringSet = Sets.newHashSet();
+  private List<String> setToString(Set<? extends DexItem> set) {
+    List<String> stringSet = new ArrayList<>();
     set.forEach(e -> stringSet.add(toString(e)));
     return stringSet;
   }
