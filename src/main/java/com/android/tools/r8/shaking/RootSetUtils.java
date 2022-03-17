@@ -1403,7 +1403,7 @@ public class RootSetUtils {
           dependentMinimumKeepInfo.getUnconditionalMinimumKeepInfoOrDefault(
               MinimumKeepInfoCollection.empty());
       for (DexProgramClass clazz : classesWithCheckDiscardedMembers) {
-        TraversalContinuation continueIfAllMembersMarkedAsCheckDiscarded =
+        TraversalContinuation<?> continueIfAllMembersMarkedAsCheckDiscarded =
             clazz.traverseProgramMembers(
                 member ->
                     TraversalContinuation.continueIf(
@@ -1529,6 +1529,13 @@ public class RootSetUtils {
         dependentMinimumKeepInfo
             .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
             .disallowAnnotationRemoval();
+        context.markAsUsed();
+      }
+
+      if (appView.options().isKeepAttributesSignatureEnabled()) {
+        dependentMinimumKeepInfo
+            .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
+            .disallowSignatureRemoval();
         context.markAsUsed();
       }
 

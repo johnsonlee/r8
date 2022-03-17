@@ -673,6 +673,44 @@ public class StackTraceRegularExpressionParserTests extends TestBase {
         });
   }
 
+  @Test()
+  public void testSourceFileBeforeClassStackTrace() {
+    runRetraceTest(
+        "\\S* \\(%s: 70\\) %c.%m",
+        new StackTraceForTest() {
+          @Override
+          public List<String> obfuscatedStackTrace() {
+            return Collections.singletonList(
+                "0xffffffffffffffff (some-bundle.aab-canary-42: 70) ii2.p");
+          }
+
+          @Override
+          public String mapping() {
+            return StringUtils.lines(
+                "com.android.tools.r8.naming.retrace.Main -> ii2:", "  void test() -> p");
+          }
+
+          @Override
+          public List<String> retracedStackTrace() {
+            return Collections.singletonList(
+                "0xffffffffffffffff (Main.java: 70)"
+                    + " com.android.tools.r8.naming.retrace.Main.test");
+          }
+
+          @Override
+          public List<String> retraceVerboseStackTrace() {
+            return Collections.singletonList(
+                "0xffffffffffffffff (Main.java: 70)"
+                    + " com.android.tools.r8.naming.retrace.Main.void test()");
+          }
+
+          @Override
+          public int expectedWarnings() {
+            return 0;
+          }
+        });
+  }
+
   @Test
   @Ignore("b/165782924")
   public void useReturnTypeToNarrowMethodMatches() {

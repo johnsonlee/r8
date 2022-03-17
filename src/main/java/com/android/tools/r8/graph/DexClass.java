@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.GenericSignature.ClassTypeSignature;
 import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
 import com.android.tools.r8.graph.GenericSignature.FormalTypeParameter;
+import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.kotlin.KotlinClassLevelInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.ClassReference;
@@ -90,8 +91,7 @@ public abstract class DexClass extends DexDefinition
       DexType type,
       DexEncodedField[] staticFields,
       DexEncodedField[] instanceFields,
-      DexEncodedMethod[] directMethods,
-      DexEncodedMethod[] virtualMethods,
+      MethodCollectionFactory methodCollectionFactory,
       NestHostClassAttribute nestHost,
       List<NestMemberClassAttribute> nestMembers,
       EnclosingMethodAttribute enclosingMethod,
@@ -110,7 +110,7 @@ public abstract class DexClass extends DexDefinition
     this.type = type;
     setStaticFields(staticFields);
     setInstanceFields(instanceFields);
-    this.methodCollection = MethodCollection.create(this, directMethods, virtualMethods);
+    this.methodCollection = methodCollectionFactory.create(this);
     this.nestHost = nestHost;
     this.nestMembers = nestMembers;
     assert nestMembers != null;
@@ -356,13 +356,14 @@ public abstract class DexClass extends DexDefinition
     staticFields(predicate).forEach(consumer);
   }
 
-  public TraversalContinuation traverseFields(Function<DexEncodedField, TraversalContinuation> fn) {
+  public TraversalContinuation<?> traverseFields(
+      Function<DexEncodedField, TraversalContinuation<?>> fn) {
     for (DexEncodedField field : fields()) {
       if (fn.apply(field).shouldBreak()) {
-        return TraversalContinuation.BREAK;
+        return TraversalContinuation.doBreak();
       }
     }
-    return TraversalContinuation.CONTINUE;
+    return TraversalContinuation.doContinue();
   }
 
   public List<DexEncodedField> staticFields() {

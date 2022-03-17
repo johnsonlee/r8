@@ -11,11 +11,13 @@ import com.android.tools.r8.benchmarks.BenchmarkConfigError;
 import com.android.tools.r8.benchmarks.BenchmarkDependency;
 import com.android.tools.r8.benchmarks.BenchmarkEnvironment;
 import com.android.tools.r8.benchmarks.BenchmarkMethod;
+import com.android.tools.r8.benchmarks.BenchmarkSuite;
 import com.android.tools.r8.benchmarks.BenchmarkTarget;
 import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.dump.DumpOptions;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 
 public class AppDumpBenchmarkBuilder {
 
@@ -47,7 +49,9 @@ public class AppDumpBenchmarkBuilder {
   public AppDumpBenchmarkBuilder setDumpDependencyPath(Path dumpDependencyPath) {
     return setDumpDependency(
         new BenchmarkDependency(
-            dumpDependencyPath.getFileName().toString(), dumpDependencyPath.getParent()));
+            "appdump",
+            dumpDependencyPath.getFileName().toString(),
+            dumpDependencyPath.getParent()));
   }
 
   public AppDumpBenchmarkBuilder setDumpDependency(BenchmarkDependency dependency) {
@@ -65,11 +69,13 @@ public class AppDumpBenchmarkBuilder {
     return BenchmarkConfig.builder()
         .setName(name)
         .setTarget(BenchmarkTarget.R8_NON_COMPAT)
+        .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
         .setMethod(run(this))
         .setFromRevision(fromRevision)
         .addDependency(dumpDependency)
         .measureRunTime()
         .measureCodeSize()
+        .setTimeout(10, TimeUnit.MINUTES)
         .build();
   }
 

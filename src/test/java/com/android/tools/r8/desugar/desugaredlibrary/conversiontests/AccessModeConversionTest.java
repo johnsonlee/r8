@@ -79,6 +79,7 @@ public class AccessModeConversionTest extends DesugaredLibraryTestBase {
         .setMinApi(parameters.getApiLevel())
         .addProgramClasses(Executor.class)
         .addLibraryClasses(CustomLibClass.class)
+        .addOptionsModification(opt -> opt.desugaredLibraryKeepRuleConsumer = keepRuleConsumer)
         .addOptionsModification(opt -> this.configureDesugaredLibrary(opt, false))
         .compile()
         .addDesugaredCoreLibraryRunClassPath(
@@ -107,6 +108,7 @@ public class AccessModeConversionTest extends DesugaredLibraryTestBase {
         .addKeepMainRule(Executor.class)
         .addProgramClasses(Executor.class)
         .addLibraryClasses(CustomLibClass.class)
+        .addOptionsModification(opt -> opt.desugaredLibraryKeepRuleConsumer = keepRuleConsumer)
         .addOptionsModification(opt -> this.configureDesugaredLibrary(opt, false))
         .compile()
         .addDesugaredCoreLibraryRunClassPath(

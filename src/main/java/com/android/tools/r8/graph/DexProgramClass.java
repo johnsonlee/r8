@@ -14,6 +14,7 @@ import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.GenericSignature.ClassTypeSignature;
+import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.kotlin.KotlinClassLevelInfo;
 import com.android.tools.r8.naming.NamingLens;
@@ -72,8 +73,7 @@ public class DexProgramClass extends DexClass
       DexAnnotationSet classAnnotations,
       DexEncodedField[] staticFields,
       DexEncodedField[] instanceFields,
-      DexEncodedMethod[] directMethods,
-      DexEncodedMethod[] virtualMethods,
+      MethodCollectionFactory methodCollectionFactory,
       boolean skipNameValidationForTesting,
       ChecksumSupplier checksumSupplier,
       SyntheticMarker syntheticMarker) {
@@ -85,8 +85,7 @@ public class DexProgramClass extends DexClass
         type,
         staticFields,
         instanceFields,
-        directMethods,
-        virtualMethods,
+        methodCollectionFactory,
         nestHost,
         nestMembers,
         enclosingMember,
@@ -118,8 +117,7 @@ public class DexProgramClass extends DexClass
       DexAnnotationSet classAnnotations,
       DexEncodedField[] staticFields,
       DexEncodedField[] instanceFields,
-      DexEncodedMethod[] directMethods,
-      DexEncodedMethod[] virtualMethods,
+      MethodCollectionFactory methodCollectionFactory,
       boolean skipNameValidationForTesting,
       ChecksumSupplier checksumSupplier) {
     this(
@@ -138,8 +136,7 @@ public class DexProgramClass extends DexClass
         classAnnotations,
         staticFields,
         instanceFields,
-        directMethods,
-        virtualMethods,
+        methodCollectionFactory,
         skipNameValidationForTesting,
         checksumSupplier,
         null);
@@ -327,38 +324,38 @@ public class DexProgramClass extends DexClass
     return null;
   }
 
-  public TraversalContinuation traverseProgramMembers(
-      Function<ProgramMember<?, ?>, TraversalContinuation> fn) {
-    TraversalContinuation continuation = traverseProgramFields(fn);
+  public TraversalContinuation<?> traverseProgramMembers(
+      Function<ProgramMember<?, ?>, TraversalContinuation<?>> fn) {
+    TraversalContinuation<?> continuation = traverseProgramFields(fn);
     if (continuation.shouldContinue()) {
       return traverseProgramMethods(fn);
     }
-    return TraversalContinuation.BREAK;
+    return TraversalContinuation.doBreak();
   }
 
-  public TraversalContinuation traverseProgramFields(
-      Function<? super ProgramField, TraversalContinuation> fn) {
+  public TraversalContinuation<?> traverseProgramFields(
+      Function<? super ProgramField, TraversalContinuation<?>> fn) {
     return traverseFields(field -> fn.apply(new ProgramField(this, field)));
   }
 
-  public TraversalContinuation traverseProgramMethods(
-      Function<? super ProgramMethod, TraversalContinuation> fn) {
+  public TraversalContinuation<?> traverseProgramMethods(
+      Function<? super ProgramMethod, TraversalContinuation<?>> fn) {
     return getMethodCollection().traverse(method -> fn.apply(new ProgramMethod(this, method)));
   }
 
-  public TraversalContinuation traverseProgramInstanceInitializers(
-      Function<ProgramMethod, TraversalContinuation> fn) {
+  public TraversalContinuation<?> traverseProgramInstanceInitializers(
+      Function<ProgramMethod, TraversalContinuation<?>> fn) {
     return traverseProgramMethods(fn, DexEncodedMethod::isInstanceInitializer);
   }
 
-  public TraversalContinuation traverseProgramMethods(
-      Function<ProgramMethod, TraversalContinuation> fn, Predicate<DexEncodedMethod> predicate) {
+  public TraversalContinuation<?> traverseProgramMethods(
+      Function<ProgramMethod, TraversalContinuation<?>> fn, Predicate<DexEncodedMethod> predicate) {
     return getMethodCollection()
         .traverse(
             method ->
                 predicate.test(method)
                     ? fn.apply(new ProgramMethod(this, method))
-                    : TraversalContinuation.CONTINUE);
+                    : TraversalContinuation.doContinue());
   }
 
   public Kind getOriginKind() {

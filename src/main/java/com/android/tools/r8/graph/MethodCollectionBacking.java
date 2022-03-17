@@ -18,6 +18,8 @@ public abstract class MethodCollectionBacking {
 
   abstract boolean verify();
 
+  abstract String getDescriptionString();
+
   boolean belongsToDirectPool(DexEncodedMethod method) {
     return method.belongsToDirectPool();
   }
@@ -36,7 +38,16 @@ public abstract class MethodCollectionBacking {
 
   // Traversal methods.
 
-  abstract TraversalContinuation traverse(Function<DexEncodedMethod, TraversalContinuation> fn);
+  abstract TraversalContinuation<?> traverse(
+      Function<DexEncodedMethod, TraversalContinuation<?>> fn);
+
+  /**
+   * Return a new backing mapped by the given function.
+   *
+   * <p>The backing must maintain order and also consider any 'key' changes as a result of the
+   * mapping function.
+   */
+  abstract MethodCollectionBacking map(Function<DexEncodedMethod, DexEncodedMethod> fn);
 
   void forEachMethod(Consumer<DexEncodedMethod> fn) {
     forEachMethod(fn, alwaysTrue());
@@ -48,7 +59,7 @@ public abstract class MethodCollectionBacking {
           if (predicate.test(method)) {
             fn.accept(method);
           }
-          return TraversalContinuation.CONTINUE;
+          return TraversalContinuation.doContinue();
         });
   }
 
@@ -126,4 +137,5 @@ public abstract class MethodCollectionBacking {
       DexMethod method, Function<DexEncodedMethod, DexEncodedMethod> replacement);
 
   abstract void virtualizeMethods(Set<DexEncodedMethod> privateInstanceMethods);
+
 }

@@ -282,6 +282,7 @@ public class DexItemFactory {
   public final DexString comparatorDescriptor = createString("Ljava/util/Comparator;");
   public final DexString callableDescriptor = createString("Ljava/util/concurrent/Callable;");
   public final DexString supplierDescriptor = createString("Ljava/util/function/Supplier;");
+  public final DexString predicateDescriptor = createString("Ljava/util/function/Predicate;");
   public final DexString consumerDescriptor = createString("Ljava/util/function/Consumer;");
   public final DexString runnableDescriptor = createString("Ljava/lang/Runnable;");
   public final DexString optionalDescriptor = createString("Ljava/util/Optional;");
@@ -435,6 +436,7 @@ public class DexItemFactory {
   public final DexType comparatorType = createStaticallyKnownType(comparatorDescriptor);
   public final DexType callableType = createStaticallyKnownType(callableDescriptor);
   public final DexType supplierType = createStaticallyKnownType(supplierDescriptor);
+  public final DexType predicateType = createStaticallyKnownType(predicateDescriptor);
   public final DexType consumerType = createStaticallyKnownType(consumerDescriptor);
   public final DexType runnableType = createStaticallyKnownType(runnableDescriptor);
   public final DexType optionalType = createStaticallyKnownType(optionalDescriptor);
@@ -490,46 +492,6 @@ public class DexItemFactory {
   public final DexType reflectiveOperationExceptionType =
       createStaticallyKnownType(reflectiveOperationExceptionDescriptor);
   public final DexType kotlinMetadataType = createStaticallyKnownType(kotlinMetadataDescriptor);
-
-  public final DexType doubleSummaryStatisticsConversionsType =
-      createStaticallyKnownType("Ljava/util/DoubleSummaryStatisticsConversions;");
-  public final DexType intSummaryStatisticsConversionsType =
-      createStaticallyKnownType("Ljava/util/IntSummaryStatisticsConversions;");
-  public final DexType longSummaryStatisticsConversionsType =
-      createStaticallyKnownType("Ljava/util/LongSummaryStatisticsConversions;");
-  public final DexType optionalConversionsType =
-      createStaticallyKnownType("Ljava/util/OptionalConversions;");
-  public final DexType timeConversionsType =
-      createStaticallyKnownType("Ljava/time/TimeConversions;");
-
-  public final DexType doubleSummaryStatisticsConversionsJ$Type =
-      createStaticallyKnownType("Lj$/util/DoubleSummaryStatisticsConversions;");
-  public final DexType intSummaryStatisticsConversionsJ$Type =
-      createStaticallyKnownType("Lj$/util/IntSummaryStatisticsConversions;");
-  public final DexType longSummaryStatisticsConversionsJ$Type =
-      createStaticallyKnownType("Lj$/util/LongSummaryStatisticsConversions;");
-  public final DexType optionalConversionsJ$Type =
-      createStaticallyKnownType("Lj$/util/OptionalConversions;");
-  public final DexType timeConversionsJ$Type =
-      createStaticallyKnownType("Lj$/time/TimeConversions;");
-
-  public Iterable<DexType> getJavaConversionTypes() {
-    return ImmutableList.of(
-        doubleSummaryStatisticsConversionsType,
-        intSummaryStatisticsConversionsType,
-        longSummaryStatisticsConversionsType,
-        optionalConversionsType,
-        timeConversionsType);
-  }
-
-  public Iterable<DexType> getJ$ConversionTypes() {
-    return ImmutableList.of(
-        doubleSummaryStatisticsConversionsJ$Type,
-        intSummaryStatisticsConversionsJ$Type,
-        longSummaryStatisticsConversionsJ$Type,
-        optionalConversionsJ$Type,
-        timeConversionsJ$Type);
-  }
 
   public final DexType javaIoFileType = createStaticallyKnownType("Ljava/io/File;");
   public final DexType javaMathBigIntegerType = createStaticallyKnownType("Ljava/math/BigInteger;");

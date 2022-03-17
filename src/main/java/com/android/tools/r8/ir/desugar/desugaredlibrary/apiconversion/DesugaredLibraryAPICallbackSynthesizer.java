@@ -8,6 +8,8 @@ import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.Des
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.isAPIConversionSyntheticType;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.methodWithVivifiedTypeInSignature;
 
+import com.android.tools.r8.contexts.CompilationContext.MainThreadContext;
+import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexClass;
@@ -55,6 +57,8 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
       ExecutorService executorService) {
+    ProcessorContext processorContext = appView.createProcessorContext();
+    MainThreadContext mainThreadContext = processorContext.createMainThreadContext();
     assert noPendingWrappersOrConversions();
     for (DexProgramClass clazz : programClasses) {
       if (!appView.isAlreadyLibraryDesugared(clazz)) {
@@ -70,7 +74,8 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
                 generateCallbackMethod(
                     virtualProgramMethod.getDefinition(),
                     virtualProgramMethod.getHolder(),
-                    eventConsumer);
+                    eventConsumer,
+                    mainThreadContext);
             callbacks.add(callback.getDefinition());
           }
         }
@@ -190,7 +195,8 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
   private ProgramMethod generateCallbackMethod(
       DexEncodedMethod originalMethod,
       DexProgramClass clazz,
-      DesugaredLibraryAPICallbackSynthesizorEventConsumer eventConsumer) {
+      DesugaredLibraryAPICallbackSynthesizorEventConsumer eventConsumer,
+      MainThreadContext context) {
     DexMethod methodToInstall =
         methodWithVivifiedTypeInSignature(originalMethod.getReference(), clazz.type, appView);
     CfCode cfCode =
@@ -199,7 +205,8 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
                 originalMethod.getReference(),
                 wrapperSynthesizor,
                 clazz.isInterface(),
-                eventConsumer)
+                eventConsumer,
+                () -> context.createUniqueContext(clazz))
             .generateCfCode();
     DexEncodedMethod newMethod = wrapperSynthesizor.newSynthesizedMethod(methodToInstall, cfCode);
     newMethod.setCode(cfCode, appView);

@@ -33,6 +33,7 @@ import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.cf.code.CfStaticFieldRead;
 import com.android.tools.r8.cf.code.CfStore;
 import com.android.tools.r8.cf.code.CfThrow;
+import com.android.tools.r8.contexts.CompilationContext.UniqueContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -49,12 +50,14 @@ import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryWrapperSynthesizer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryClasspathWrapperSynthesizeEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryL8ProgramWrapperSynthesizerEventConsumer;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.collections.ImmutableDeque;
 import com.android.tools.r8.utils.collections.ImmutableInt2ReferenceSortedMap;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 import org.objectweb.asm.Opcodes;
 
 public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends SyntheticCfCodeProvider {
@@ -74,18 +77,24 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
     private final DexMethod forwardMethod;
     private final DesugaredLibraryWrapperSynthesizer wrapperSynthesizer;
     private final boolean itfCall;
+    private final DesugaredLibraryL8ProgramWrapperSynthesizerEventConsumer eventConsumer;
+    private final Supplier<UniqueContext> contextSupplier;
 
     public APIConverterVivifiedWrapperCfCodeProvider(
         AppView<?> appView,
         DexMethod forwardMethod,
         DexField wrapperField,
         DesugaredLibraryWrapperSynthesizer wrapperSynthesizer,
-        boolean itfCall) {
+        boolean itfCall,
+        DesugaredLibraryL8ProgramWrapperSynthesizerEventConsumer eventConsumer,
+        Supplier<UniqueContext> contextSupplier) {
       super(appView, wrapperField.holder);
       this.forwardMethod = forwardMethod;
       this.wrapperField = wrapperField;
       this.wrapperSynthesizer = wrapperSynthesizer;
       this.itfCall = itfCall;
+      this.eventConsumer = eventConsumer;
+      this.contextSupplier = contextSupplier;
     }
 
     @Override
@@ -106,8 +115,7 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
           instructions.add(
               new CfInvoke(
                   Opcodes.INVOKESTATIC,
-                  wrapperSynthesizer.getExistingProgramConversionMethod(
-                      param, param, vivifiedTypeFor(param)),
+                  conversionMethod(param, param, vivifiedTypeFor(param)),
                   false));
           newParameters[index - 1] = vivifiedTypeFor(param);
         }
@@ -138,8 +146,7 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
         instructions.add(
             new CfInvoke(
                 Opcodes.INVOKESTATIC,
-                wrapperSynthesizer.getExistingProgramConversionMethod(
-                    returnType, vivifiedTypeFor(returnType), returnType),
+                conversionMethod(returnType, vivifiedTypeFor(returnType), returnType),
                 false));
       }
       if (returnType == factory.voidType) {
@@ -148,6 +155,11 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
         instructions.add(new CfReturn(ValueType.fromDexType(returnType)));
       }
       return standardCfCodeFromInstructions(instructions);
+    }
+
+    private DexMethod conversionMethod(DexType type, DexType srcType, DexType destType) {
+      return wrapperSynthesizer.getExistingProgramConversionMethod(
+          type, srcType, destType, eventConsumer, contextSupplier);
     }
   }
 
@@ -226,15 +238,18 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
       extends AbstractAPIConverterWrapperCfCodeProvider {
 
     private final DesugaredLibraryClasspathWrapperSynthesizeEventConsumer eventConsumer;
+    private final Supplier<UniqueContext> contextSupplier;
 
     public APICallbackWrapperCfCodeProvider(
         AppView<?> appView,
         DexMethod forwardMethod,
         DesugaredLibraryWrapperSynthesizer wrapperSynthesizor,
         boolean itfCall,
-        DesugaredLibraryClasspathWrapperSynthesizeEventConsumer eventConsumer) {
+        DesugaredLibraryClasspathWrapperSynthesizeEventConsumer eventConsumer,
+        Supplier<UniqueContext> contextSupplier) {
       super(appView, forwardMethod.holder, forwardMethod, wrapperSynthesizor, itfCall);
       this.eventConsumer = eventConsumer;
+      this.contextSupplier = contextSupplier;
     }
 
     @Override
@@ -244,7 +259,8 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
 
     @Override
     DexMethod ensureConversionMethod(DexType type, DexType srcType, DexType destType) {
-      return wrapperSynthesizor.ensureConversionMethod(type, srcType, destType, eventConsumer);
+      return wrapperSynthesizor.ensureConversionMethod(
+          type, srcType, destType, eventConsumer, contextSupplier);
     }
   }
 
@@ -252,15 +268,21 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
       extends AbstractAPIConverterWrapperCfCodeProvider {
 
     private final DexField wrapperField;
+    private final DesugaredLibraryL8ProgramWrapperSynthesizerEventConsumer eventConsumer;
+    private final Supplier<UniqueContext> contextSupplier;
 
     public APIConverterWrapperCfCodeProvider(
         AppView<?> appView,
         DexMethod forwardMethod,
         DexField wrapperField,
         DesugaredLibraryWrapperSynthesizer wrapperSynthesizor,
-        boolean itfCall) {
+        boolean itfCall,
+        DesugaredLibraryL8ProgramWrapperSynthesizerEventConsumer eventConsumer,
+        Supplier<UniqueContext> contextSupplier) {
       super(appView, wrapperField.holder, forwardMethod, wrapperSynthesizor, itfCall);
       this.wrapperField = wrapperField;
+      this.eventConsumer = eventConsumer;
+      this.contextSupplier = contextSupplier;
     }
 
     @Override
@@ -271,7 +293,8 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
 
     @Override
     DexMethod ensureConversionMethod(DexType type, DexType srcType, DexType destType) {
-      return wrapperSynthesizor.getExistingProgramConversionMethod(type, srcType, destType);
+      return wrapperSynthesizor.getExistingProgramConversionMethod(
+          type, srcType, destType, eventConsumer, contextSupplier);
     }
   }
 
@@ -401,27 +424,31 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
     }
   }
 
-  public static class EnumArrayConversionCfCodeProvider extends SyntheticCfCodeProvider {
+  public static class ArrayConversionCfCodeProvider extends SyntheticCfCodeProvider {
 
-    private final DexType enumType;
-    private final DexType convertedType;
+    private final DexType typeArray;
+    private final DexType convertedTypeArray;
+    private final DexMethod conversion;
 
-    public EnumArrayConversionCfCodeProvider(
-        AppView<?> appView, DexType holder, DexType enumType, DexType convertedType) {
+    public ArrayConversionCfCodeProvider(
+        AppView<?> appView,
+        DexType holder,
+        DexType typeArray,
+        DexType convertedTypeArray,
+        DexMethod conversion) {
       super(appView, holder);
-      this.enumType = enumType;
-      this.convertedType = convertedType;
+      this.typeArray = typeArray;
+      this.convertedTypeArray = convertedTypeArray;
+      this.conversion = conversion;
     }
 
     @Override
     public CfCode generateCfCode() {
       DexItemFactory factory = appView.dexItemFactory();
       List<CfInstruction> instructions = new ArrayList<>();
-      DexType enumTypeArray = factory.createArrayType(1, enumType);
-      DexType convertedTypeArray = factory.createArrayType(1, convertedType);
 
       // if (arg == null) { return null; }
-      instructions.add(new CfLoad(ValueType.fromDexType(enumTypeArray), 0));
+      instructions.add(new CfLoad(ValueType.fromDexType(typeArray), 0));
       instructions.add(new CfConstNull());
       CfLabel nonNull = new CfLabel();
       instructions.add(new CfIfCmp(If.Type.NE, ValueType.OBJECT, nonNull));
@@ -431,20 +458,20 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
       instructions.add(
           new CfFrame(
               ImmutableInt2ReferenceSortedMap.<FrameType>builder()
-                  .put(0, FrameType.initialized(enumTypeArray))
+                  .put(0, FrameType.initialized(typeArray))
                   .build(),
               ImmutableDeque.of()));
 
       ImmutableInt2ReferenceSortedMap<FrameType> locals =
           ImmutableInt2ReferenceSortedMap.<FrameType>builder()
-              .put(0, FrameType.initialized(enumTypeArray))
+              .put(0, FrameType.initialized(typeArray))
               .put(1, FrameType.initialized(factory.intType))
               .put(2, FrameType.initialized(convertedTypeArray))
               .put(3, FrameType.initialized(factory.intType))
               .build();
 
       // int t1 = arg.length;
-      instructions.add(new CfLoad(ValueType.fromDexType(enumTypeArray), 0));
+      instructions.add(new CfLoad(ValueType.fromDexType(typeArray), 0));
       instructions.add(new CfArrayLength());
       instructions.add(new CfStore(ValueType.INT, 1));
       // ConvertedType[] t2 = new ConvertedType[t1];
@@ -465,17 +492,10 @@ public abstract class DesugaredLibraryAPIConversionCfCodeProvider extends Synthe
       // t2[t3] = convert(arg[t3]);
       instructions.add(new CfLoad(ValueType.fromDexType(convertedTypeArray), 2));
       instructions.add(new CfLoad(ValueType.INT, 3));
-      instructions.add(new CfLoad(ValueType.fromDexType(enumTypeArray), 0));
+      instructions.add(new CfLoad(ValueType.fromDexType(typeArray), 0));
       instructions.add(new CfLoad(ValueType.INT, 3));
       instructions.add(new CfArrayLoad(MemberType.OBJECT));
-      instructions.add(
-          new CfInvoke(
-              Opcodes.INVOKESTATIC,
-              factory.createMethod(
-                  getHolder(),
-                  factory.createProto(convertedType, enumType),
-                  factory.convertMethodName),
-              false));
+      instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, conversion, false));
       instructions.add(new CfArrayStore(MemberType.OBJECT));
       // t3 = t3 + 1; }
       instructions.add(new CfLoad(ValueType.INT, 3));

@@ -6,15 +6,10 @@
   "support_all_callbacks_from_library": false,
   "common_flags": [
     {
-      "api_level_below_or_equal": 10000,
-      "rewrite_prefix": {
-        "java.net.URLDecoder": "j$.net.URLDecoder",
-        "java.net.URLEncoder": "j$.net.URLEncoder"
-      }
-    },
-    {
       "api_level_below_or_equal": 32,
       "rewrite_prefix": {
+        "java.net.URLDecoder": "j$.net.URLDecoder",
+        "java.net.URLEncoder": "j$.net.URLEncoder",
         "java.io.DesugarInputStream": "j$.io.DesugarInputStream"
       },
       "retarget_method_with_emulated_dispatch": {
@@ -48,6 +43,12 @@
         "java.time.MonthDay": "java.time.TimeConversions",
         "java.time.ZoneId": "java.time.TimeConversions",
         "java.time.ZonedDateTime": "java.time.TimeConversions"
+      }
+    },
+    {
+      "api_level_below_or_equal": 29,
+      "rewrite_prefix": {
+        "java.util.concurrent.Flow": "j$.util.concurrent.Flow"
       }
     },
     {
@@ -176,6 +177,7 @@
     {
       "api_level_below_or_equal": 18,
       "rewrite_prefix": {
+        "java.lang.DesugarCharacter": "j$.lang.DesugarCharacter",
         "java.nio.charset.StandardCharsets": "j$.nio.charset.StandardCharsets"
       },
       "retarget_method": {
@@ -217,12 +219,6 @@
       "dont_retarget": [
         "android.support.multidex.MultiDexExtractor$ExtractedDex"
       ]
-    },
-    {
-      "api_level_below_or_equal": 18,
-      "rewrite_prefix": {
-        "java.lang.DesugarCharacter": "j$.lang.DesugarCharacter"
-      }
     }
   ],
   "library_flags": [
@@ -256,12 +252,6 @@
       }
     },
     {
-      "api_level_below_or_equal": 29,
-      "rewrite_prefix": {
-        "java.util.concurrent.Flow": "j$.util.concurrent.Flow"
-      }
-    },
-    {
       "api_level_below_or_equal": 25,
       "rewrite_prefix": {
         "java.io.DesugarFile": "j$.io.DesugarFile",
@@ -278,6 +268,11 @@
         "sun.nio.fs.BasicFileAttributesHolder": "j$.sun.nio.fs.BasicFileAttributesHolder",
         "sun.nio.fs.DynamicFileAttributeView": "j$.sun.nio.fs.DynamicFileAttributeView",
         "sun.util.PreHashedMap": "j$.sun.util.PreHashedMap"
+      },
+      "rewrite_derived_prefix": {
+        "java.nio.file.attribute.": {
+          "j$.nio.file.attribute.": "java.nio.file.attribute."
+        }
       },
       "retarget_method": {
         "boolean java.util.Arrays#deepEquals0(java.lang.Object, java.lang.Object)": "java.util.DesugarArrays"

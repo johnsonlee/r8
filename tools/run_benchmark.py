@@ -22,7 +22,7 @@ R8LIB_TEST_BUILD_TARGETS = [utils.R8LIB_TESTS_TARGET, utils.R8LIB_TESTS_DEPS_TAR
 GOLEM_BUILD_TARGETS = [R8LIB_BUILD_TARGET] + R8LIB_TEST_BUILD_TARGETS
 
 def get_golem_resource_path(benchmark):
-  return os.path.join('benchmarks', benchmark + 'Group')
+  return os.path.join('benchmarks', benchmark)
 
 def get_jdk_home(options, benchmark):
   if options.golem:
@@ -41,8 +41,8 @@ def parse_options(argv):
   result.add_argument('--target',
                       help='The test target to run',
                       required=True,
-                      # These should 1:1 with BenchmarkTarget.java
-                      choices=['d8', 'r8', 'r8-force', 'r8-compat'])
+                      # These should 1:1 with benchmarks/BenchmarkTarget.java
+                      choices=['d8', 'r8-full', 'r8-force', 'r8-compat'])
   result.add_argument('--nolib', '--no-lib', '--no-r8lib',
                       help='Run the non-lib R8 build (default false)',
                       default=False,
