@@ -270,7 +270,8 @@ public class SyntheticFinalization {
         new CommittedItems(
             SyntheticItems.INVALID_ID_AFTER_SYNTHETIC_FINALIZATION,
             application,
-            new CommittedSyntheticsCollection(finalMethods, finalClasses, finalInputSynthetics),
+            new CommittedSyntheticsCollection(
+                synthetics.getNaming(), finalMethods, finalClasses, finalInputSynthetics),
             ImmutableList.of()),
         syntheticFinalizationGraphLens,
         PrunedItems.builder().setPrunedApp(application).addRemovedClasses(prunedSynthetics).build(),
@@ -717,7 +718,7 @@ public class SyntheticFinalization {
       AppView<?> appView,
       Predicate<DexType> reserved) {
     DexItemFactory factory = appView.dexItemFactory();
-    if (kind.isFixedSuffixSynthetic) {
+    if (kind.isFixedSuffixSynthetic()) {
       return SyntheticNaming.createExternalType(kind, externalSyntheticTypePrefix, "", factory);
     }
     NumberGenerator generator =
