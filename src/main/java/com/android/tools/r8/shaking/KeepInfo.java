@@ -156,7 +156,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     if (!configuration.isKeepAttributesSignatureEnabled()) {
       return true;
     }
-    return !(configuration.isForceProguardCompatibilityEnabled() || isPinned(configuration));
+    return !(configuration.isForceProguardCompatibilityEnabled()
+        || !isShrinkingAllowed(configuration));
   }
 
   public boolean isEnclosingMethodAttributeRemovalAllowed(
