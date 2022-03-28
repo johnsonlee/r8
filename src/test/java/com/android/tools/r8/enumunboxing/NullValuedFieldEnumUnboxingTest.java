@@ -33,7 +33,7 @@ public class NullValuedFieldEnumUnboxingTest extends EnumUnboxingTestBase {
         .addInnerClasses(NullValuedFieldEnumUnboxingTest.class)
         .addKeepMainRule(Main.class)
         .addKeepRules(enumKeepRules.getKeepRules())
-        .addEnumUnboxingInspector(inspector -> inspector.assertUnboxed(MyEnum.class))
+        .addEnumUnboxingInspector(inspector -> inspector.assertNotUnboxed(MyEnum.class))
         .setMinApi(parameters.getApiLevel())
         .compile()
         .run(parameters.getRuntime(), Main.class)
