@@ -21,6 +21,8 @@ import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Phi.RegisterReadType;
 import com.android.tools.r8.ir.conversion.IRBuilder;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.CfgPrinter;
@@ -110,6 +112,7 @@ public class IRCode implements ValueFactory {
   public static final int INSTRUCTION_NUMBER_DELTA = 2;
 
   private final ProgramMethod method;
+  private final MutableMethodConversionOptions conversionOptions;
 
   public LinkedList<BasicBlock> blocks;
   public final NumberGenerator valueNumberGenerator;
@@ -135,11 +138,13 @@ public class IRCode implements ValueFactory {
       NumberGenerator valueNumberGenerator,
       NumberGenerator basicBlockNumberGenerator,
       IRMetadata metadata,
-      Origin origin) {
+      Origin origin,
+      MutableMethodConversionOptions conversionOptions) {
     assert metadata != null;
     assert options != null;
     assert blocks.size() == basicBlockNumberGenerator.peek();
     this.options = options;
+    this.conversionOptions = conversionOptions;
     this.method = method;
     this.blocks = blocks;
     this.valueNumberGenerator = valueNumberGenerator;
@@ -165,6 +170,14 @@ public class IRCode implements ValueFactory {
 
   public BasicBlock entryBlock() {
     return blocks.getFirst();
+  }
+
+  public MethodConversionOptions getConversionOptions() {
+    return conversionOptions;
+  }
+
+  public void mutateConversionOptions(Consumer<MutableMethodConversionOptions> mutator) {
+    mutator.accept(conversionOptions);
   }
 
   /**
@@ -574,15 +587,15 @@ public class IRCode implements ValueFactory {
     }
   }
 
-  public boolean isConsistentSSA() {
-    isConsistentSSABeforeTypesAreCorrect();
+  public boolean isConsistentSSA(AppView<?> appView) {
+    isConsistentSSABeforeTypesAreCorrect(appView);
     assert verifyNoImpreciseOrBottomTypes();
     return true;
   }
 
-  public boolean isConsistentSSABeforeTypesAreCorrect() {
-    assert isConsistentGraph(true);
-    assert consistentBlockInstructions(true);
+  public boolean isConsistentSSABeforeTypesAreCorrect(AppView<?> appView) {
+    assert isConsistentGraph(appView, true);
+    assert consistentBlockInstructions(appView, true);
     assert consistentDefUseChains();
     assert validThrowingInstructions();
     assert noCriticalEdges();
@@ -615,16 +628,16 @@ public class IRCode implements ValueFactory {
     return true;
   }
 
-  public boolean isConsistentGraph() {
-    return isConsistentGraph(false);
+  public boolean isConsistentGraph(AppView<?> appView) {
+    return isConsistentGraph(appView, false);
   }
 
-  public boolean isConsistentGraph(boolean ssa) {
+  public boolean isConsistentGraph(AppView<?> appView, boolean ssa) {
     assert noColorsInUse();
     assert consistentBlockNumbering();
     assert consistentPredecessorSuccessors();
     assert consistentCatchHandlers();
-    assert consistentBlockInstructions(ssa);
+    assert consistentBlockInstructions(appView, ssa);
     assert consistentMetadata();
     assert !allThrowingInstructionsHavePositions || computeAllThrowingInstructionsHavePositions();
     return true;
@@ -816,12 +829,12 @@ public class IRCode implements ValueFactory {
     return true;
   }
 
-  private boolean consistentBlockInstructions(boolean ssa) {
+  private boolean consistentBlockInstructions(AppView<?> appView, boolean ssa) {
     boolean argumentsAllowed = true;
     for (BasicBlock block : blocks) {
       assert block.consistentBlockInstructions(
           argumentsAllowed,
-          options.debug || method().getOptimizationInfo().isReachabilitySensitive(),
+          options.debug || context().getOrComputeReachabilitySensitive(appView),
           ssa);
       argumentsAllowed = false;
     }

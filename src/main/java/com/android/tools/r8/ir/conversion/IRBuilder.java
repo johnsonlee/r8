@@ -118,6 +118,7 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.code.ValueTypeConstraint;
 import com.android.tools.r8.ir.code.Xor;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -500,7 +501,7 @@ public class IRBuilder {
   }
 
   public boolean isDebugMode() {
-    return appView.options().debug || getMethod().getOptimizationInfo().isReachabilitySensitive();
+    return appView.options().debug || getProgramMethod().getOrComputeReachabilitySensitive(appView);
   }
 
   public Int2ReferenceSortedMap<BlockInfo> getCFG() {
@@ -606,7 +607,7 @@ public class IRBuilder {
    * @param context Under what context this IRCode is built. Either the current method or caller.
    * @return The list of basic blocks. First block is the main entry.
    */
-  public IRCode build(ProgramMethod context) {
+  public IRCode build(ProgramMethod context, MutableMethodConversionOptions conversionOptions) {
     assert source != null;
     source.setUp();
 
@@ -706,7 +707,8 @@ public class IRBuilder {
             valueNumberGenerator,
             basicBlockNumberGenerator,
             metadata,
-            origin);
+            origin,
+            conversionOptions);
 
     // Verify critical edges are split so we have a place to insert phi moves if necessary.
     assert ir.verifySplitCriticalEdges();
@@ -733,11 +735,11 @@ public class IRBuilder {
       new TypeAnalysis(appView).narrowing(ir);
     }
 
-    if (appView.options().isStringSwitchConversionEnabled()) {
+    if (conversionOptions.isStringSwitchConversionEnabled()) {
       StringSwitchConverter.convertToStringSwitchInstructions(ir, appView.dexItemFactory());
     }
 
-    assert ir.isConsistentSSA();
+    assert ir.isConsistentSSA(appView);
 
     // Clear the code so we don't build multiple times.
     source.clear();

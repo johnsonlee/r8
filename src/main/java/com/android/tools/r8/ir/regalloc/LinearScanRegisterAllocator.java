@@ -207,7 +207,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   public void allocateRegisters() {
     // There are no linked values prior to register allocation.
     assert noLinkedValues();
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
     if (this.code.method().accessFlags.isBridge() && implementationIsBridge(this.code)) {
       transformBridgeMethod();
     }
@@ -216,7 +216,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     insertRangeInvokeMoves();
     ImmutableList<BasicBlock> blocks = computeLivenessInformation();
     performAllocation();
-    assert code.isConsistentGraph();
+    assert code.isConsistentGraph(appView);
     if (Log.ENABLED) {
       Log.debug(this.getClass(), toString());
     }
@@ -227,7 +227,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // and we do not actually want locals information in the output.
     if (options().debug) {
       computeDebugInfo(code, blocks, liveIntervals, this, liveAtEntrySets);
-    } else if (code.method().getOptimizationInfo().isReachabilitySensitive()) {
+    } else if (code.context().getOrComputeReachabilitySensitive(appView)) {
       InstructionListIterator it = code.instructionListIterator();
       while (it.hasNext()) {
         Instruction instruction = it.next();
@@ -1642,7 +1642,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // Set all free positions for possible registers to max integer.
     RegisterPositions freePositions = new RegisterPositionsImpl(registerConstraint + 1);
 
-    if ((options().debug || code.method().getOptimizationInfo().isReachabilitySensitive())
+    if ((options().debug || code.context().getOrComputeReachabilitySensitive(appView))
         && !code.method().accessFlags.isStatic()) {
       // If we are generating debug information or if the method is reachability sensitive,
       // we pin the this value register. The debugger expects to always be able to find it in
@@ -2508,11 +2508,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   }
 
   private static void addLiveRange(
-      Value value,
-      BasicBlock block,
-      int end,
-      List<LiveIntervals> liveIntervals,
-      InternalOptions options) {
+      Value value, BasicBlock block, int end, List<LiveIntervals> liveIntervals, IRCode code) {
     int firstInstructionInBlock = block.entry().getNumber();
     int instructionsSize = block.getInstructions().size() * INSTRUCTION_NUMBER_DELTA;
     int lastInstructionInBlock =
@@ -2548,8 +2544,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         instructionNumber--;
       }
       intervals.addRange(new LiveRange(instructionNumber, end));
-      assert unconstrainedForCf(intervals.getRegisterLimit(), options);
-      if (options.isGeneratingDex() && !value.isPhi()) {
+      assert unconstrainedForCf(intervals.getRegisterLimit(), code);
+      if (code.getConversionOptions().isGeneratingDex() && !value.isPhi()) {
         int constraint = value.definition.maxOutValueRegister();
         intervals.addUse(new LiveIntervalsUse(instructionNumber, constraint));
       }
@@ -2559,7 +2555,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   }
 
   private void computeLiveRanges() {
-    computeLiveRanges(options(), code, liveAtEntrySets, liveIntervals);
+    computeLiveRanges(appView, code, liveAtEntrySets, liveIntervals);
     // Art VMs before Android M assume that the register for the receiver never changes its value.
     // This assumption is used during verification. Allowing the receiver register to be
     // overwritten can therefore lead to verification errors. If we could be targeting one of these
@@ -2583,7 +2579,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
   /** Compute live ranges based on liveAtEntry sets for all basic blocks. */
   public static void computeLiveRanges(
-      InternalOptions options,
+      AppView<?> appView,
       IRCode code,
       Map<BasicBlock, LiveAtEntrySets> liveAtEntrySets,
       List<LiveIntervals> liveIntervals) {
@@ -2622,7 +2618,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         if (phiOperands.contains(value)) {
           end--;
         }
-        addLiveRange(value, block, end, liveIntervals, options);
+        addLiveRange(value, block, end, liveIntervals, code);
       }
       InstructionIterator iterator = block.iterator(block.getInstructions().size());
       while (iterator.hasPrevious()) {
@@ -2642,20 +2638,20 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
                 block,
                 instruction.getNumber() + INSTRUCTION_NUMBER_DELTA - 1,
                 liveIntervals,
-                options);
-            assert !options.isGeneratingClassFiles() || instruction.isArgument()
+                code);
+            assert !code.getConversionOptions().isGeneratingClassFiles() || instruction.isArgument()
                 : "Arguments should be the only potentially unused local in CF";
           }
           live.remove(definition);
         }
         for (Value use : instruction.inValues()) {
           if (use.needsRegister()) {
-            assert unconstrainedForCf(instruction.maxInValueRegister(), options);
+            assert unconstrainedForCf(instruction.maxInValueRegister(), code);
             if (!live.contains(use)) {
               live.add(use);
-              addLiveRange(use, block, instruction.getNumber(), liveIntervals, options);
+              addLiveRange(use, block, instruction.getNumber(), liveIntervals, code);
             }
-            if (options.isGeneratingDex()) {
+            if (code.getConversionOptions().isGeneratingDex()) {
               int inConstraint = instruction.maxInValueRegister();
               LiveIntervals useIntervals = use.getLiveIntervals();
               // Arguments are always kept in their original, incoming register. For every
@@ -2693,11 +2689,11 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
                   block,
                   getLiveRangeEndOnExceptionalFlow(instruction, use),
                   liveIntervals,
-                  options);
+                  code);
             }
           }
         }
-        if (options.debug || code.method().getOptimizationInfo().isReachabilitySensitive()) {
+        if (appView.options().debug || code.context().getOrComputeReachabilitySensitive(appView)) {
           // In debug mode, or if the method is reachability sensitive, extend the live range
           // to cover the full scope of a local variable (encoded as debug values).
           int number = instruction.getNumber();
@@ -2707,7 +2703,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             assert use.needsRegister();
             if (!live.contains(use)) {
               live.add(use);
-              addLiveRange(use, block, number, liveIntervals, options);
+              addLiveRange(use, block, number, liveIntervals, code);
             }
           }
         }
@@ -2723,8 +2719,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     return end;
   }
 
-  private static boolean unconstrainedForCf(int constraint, InternalOptions options) {
-    return !options.isGeneratingClassFiles() || constraint == Constants.U16BIT_MAX;
+  private static boolean unconstrainedForCf(int constraint, IRCode code) {
+    return code.getConversionOptions().isGeneratingDex() || constraint == Constants.U16BIT_MAX;
   }
 
   private void clearUserInfo() {

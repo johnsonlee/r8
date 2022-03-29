@@ -20,7 +20,13 @@ public interface FieldAccessInfo {
 
   int getNumberOfWriteContexts();
 
+  AbstractAccessContexts getReadsWithContexts();
+
+  AbstractAccessContexts getWritesWithContexts();
+
   ProgramMethod getUniqueReadContext();
+
+  boolean hasKnownReadContexts();
 
   boolean hasKnownWriteContexts();
 
@@ -28,11 +34,17 @@ public interface FieldAccessInfo {
 
   void forEachIndirectAccessWithContexts(BiConsumer<DexField, ProgramMethodSet> consumer);
 
+  void forEachAccessContext(Consumer<ProgramMethod> consumer);
+
   void forEachReadContext(Consumer<ProgramMethod> consumer);
 
   void forEachWriteContext(Consumer<ProgramMethod> consumer);
 
   boolean hasReflectiveAccess();
+
+  boolean hasReflectiveRead();
+
+  boolean hasReflectiveWrite();
 
   default boolean isAccessedFromMethodHandle() {
     return isReadFromMethodHandle() || isWrittenFromMethodHandle();
@@ -46,6 +58,8 @@ public interface FieldAccessInfo {
 
   boolean isReadFromMethodHandle();
 
+  boolean isReadOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate);
+
   boolean isWritten();
 
   boolean isWrittenFromMethodHandle();
@@ -53,8 +67,6 @@ public interface FieldAccessInfo {
   boolean isWrittenInMethodSatisfying(Predicate<ProgramMethod> predicate);
 
   boolean isWrittenOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate);
-
-  boolean isReadOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate);
 
   boolean isWrittenOutside(DexEncodedMethod method);
 }

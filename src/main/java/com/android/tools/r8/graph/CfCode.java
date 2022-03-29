@@ -35,6 +35,8 @@ import com.android.tools.r8.ir.conversion.CfSourceCode;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.ThrowingMethodConversionOptions;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.ClassNameMapper;
@@ -60,7 +62,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.function.BiPredicate;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
@@ -310,6 +311,16 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
     return estimatedSizeForInlining() * Base5Format.SIZE;
   }
 
+  public int bytecodeSizeUpperBound() {
+    int result = 0;
+    for (CfInstruction instruction : instructions) {
+      int delta = instruction.bytecodeSizeUpperBound();
+      assert delta > 0 || !instruction.emitsIR();
+      result += delta;
+    }
+    return result;
+  }
+
   private int countNonStackOperations(int threshold) {
     int result = 0;
     for (CfInstruction instruction : instructions) {
@@ -443,8 +454,8 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
     }
     if (parameterLabel != null) {
       assert localVariables.isEmpty();
-      Map<Integer, DebugLocalInfo> parameterInfo = method.getDefinition().getParameterInfo();
-      for (Entry<Integer, DebugLocalInfo> entry : parameterInfo.entrySet()) {
+      Int2ReferenceMap<DebugLocalInfo> parameterInfo = method.getDefinition().getParameterInfo();
+      for (Int2ReferenceMap.Entry<DebugLocalInfo> entry : parameterInfo.int2ReferenceEntrySet()) {
         writeLocalVariableEntry(
             visitor,
             graphLens,
@@ -452,7 +463,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
             entry.getValue(),
             parameterLabel,
             parameterLabel,
-            entry.getKey());
+            entry.getIntKey());
       }
     } else {
       for (LocalVariableInfo local : localVariables) {
@@ -503,10 +514,14 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
   }
 
   @Override
-  public IRCode buildIR(ProgramMethod method, AppView<?> appView, Origin origin) {
+  public IRCode buildIR(
+      ProgramMethod method,
+      AppView<?> appView,
+      Origin origin,
+      MutableMethodConversionOptions conversionOptions) {
     verifyFramesOrRemove(method, appView, getCodeLens(appView));
     return internalBuildPossiblyWithLocals(
-        method, method, appView, appView.codeLens(), null, null, origin, null);
+        method, method, appView, appView.codeLens(), null, null, origin, null, conversionOptions);
   }
 
   @Override
@@ -531,7 +546,8 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
         valueNumberGenerator,
         callerPosition,
         origin,
-        protoChanges);
+        protoChanges,
+        new ThrowingMethodConversionOptions(appView.options()));
   }
 
   private void verifyFramesOrRemove(ProgramMethod method, AppView<?> appView, GraphLens codeLens) {
@@ -552,8 +568,9 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
       Origin origin,
-      RewrittenPrototypeDescription protoChanges) {
-    if (!method.getDefinition().keepLocals(appView.options())) {
+      RewrittenPrototypeDescription protoChanges,
+      MutableMethodConversionOptions conversionOptions) {
+    if (!method.keepLocals(appView)) {
       return internalBuild(
           Collections.emptyList(),
           context,
@@ -563,7 +580,8 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
           valueNumberGenerator,
           callerPosition,
           origin,
-          protoChanges);
+          protoChanges,
+          conversionOptions);
     } else {
       return internalBuildWithLocals(
           context,
@@ -573,7 +591,8 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
           valueNumberGenerator,
           callerPosition,
           origin,
-          protoChanges);
+          protoChanges,
+          conversionOptions);
     }
   }
 
@@ -586,7 +605,8 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
       Origin origin,
-      RewrittenPrototypeDescription protoChanges) {
+      RewrittenPrototypeDescription protoChanges,
+      MutableMethodConversionOptions conversionOptions) {
     try {
       return internalBuild(
           Collections.unmodifiableList(localVariables),
@@ -597,7 +617,8 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
           valueNumberGenerator,
           callerPosition,
           origin,
-          protoChanges);
+          protoChanges,
+          conversionOptions);
     } catch (InvalidDebugInfoException e) {
       appView.options().warningInvalidDebugInfo(method, origin, e);
       return internalBuild(
@@ -609,7 +630,8 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
           valueNumberGenerator,
           callerPosition,
           origin,
-          protoChanges);
+          protoChanges,
+          conversionOptions);
     }
   }
 
@@ -623,7 +645,8 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
       Origin origin,
-      RewrittenPrototypeDescription protoChanges) {
+      RewrittenPrototypeDescription protoChanges,
+      MutableMethodConversionOptions conversionOptions) {
     CfSourceCode source =
         new CfSourceCode(
             this,
@@ -642,7 +665,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
           IRBuilder.createForInlining(
               method, appView, codeLens, source, origin, valueNumberGenerator, protoChanges);
     }
-    return builder.build(context);
+    return builder.build(context, conversionOptions);
   }
 
   @Override

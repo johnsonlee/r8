@@ -55,7 +55,6 @@
       "api_level_below_or_equal": 23,
       "rewrite_prefix": {
         "java.io.DesugarBufferedReader": "j$.io.DesugarBufferedReader",
-        "java.io.UncheckedIOException": "j$.io.UncheckedIOException",
         "java.util.DoubleSummaryStatistics": "j$.util.DoubleSummaryStatistics",
         "java.util.IntSummaryStatistics": "j$.util.IntSummaryStatistics",
         "java.util.LongSummaryStatistics": "j$.util.LongSummaryStatistics",
@@ -70,6 +69,9 @@
         "java.util.function.": "j$.util.function.",
         "java.util.stream.": "j$.util.stream."
       },
+      "maintain_prefix": [
+        "java.io.UncheckedIOException"
+      ],
       "emulate_interface": {
         "java.lang.Iterable": "j$.lang.Iterable",
         "java.util.Collection": "j$.util.Collection",
@@ -223,24 +225,13 @@
   ],
   "library_flags": [
     {
-      "api_level_below_or_equal": 10000,
+      "api_level_below_or_equal": 32,
       "rewrite_prefix": {
         "desugar.": "j$.desugar.",
         "libcore.": "j$.libcore.",
         "java.lang.Desugar": "j$.lang.Desugar",
         "java.lang.ref.Cleaner": "j$.lang.ref.Cleaner",
-        "wrapper." : "j$.wrapper.",
         "sun.security.action.": "j$.sun.security.action."
-      },
-      "rewrite_derived_prefix": {
-        "java.io.": {
-          "__wrapper__.j$.io.": "j$.io.",
-          "__wrapper__.java.io.": "java.io."
-        },
-        "java.nio.": {
-          "__wrapper__.j$.nio.": "j$.nio.",
-          "__wrapper__.java.nio.": "java.nio."
-        }
       }
     },
     {
@@ -267,11 +258,20 @@
         "sun.nio.fs.AbstractFileTypeDetector": "j$.sun.nio.fs.AbstractFileTypeDetector",
         "sun.nio.fs.BasicFileAttributesHolder": "j$.sun.nio.fs.BasicFileAttributesHolder",
         "sun.nio.fs.DynamicFileAttributeView": "j$.sun.nio.fs.DynamicFileAttributeView",
-        "sun.util.PreHashedMap": "j$.sun.util.PreHashedMap"
+        "sun.util.PreHashedMap": "j$.sun.util.PreHashedMap",
+        "wrapper." : "j$.wrapper."
       },
       "rewrite_derived_prefix": {
-        "java.nio.file.attribute.": {
-          "j$.nio.file.attribute.": "java.nio.file.attribute."
+        "java.nio.file.attribute.FileTime": {
+          "j$.nio.file.attribute.FileTime": "java.nio.file.attribute.FileTime"
+        },
+        "java.io.": {
+          "__wrapper__.j$.io.": "j$.io.",
+          "__wrapper__.java.io.": "java.io."
+        },
+        "java.nio.": {
+          "__wrapper__.j$.nio.": "j$.nio.",
+          "__wrapper__.java.nio.": "java.nio."
         }
       },
       "retarget_method": {

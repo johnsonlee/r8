@@ -40,6 +40,10 @@ public class DeadCodeRemover {
     this.codeRewriter = codeRewriter;
   }
 
+  public CodeRewriter getCodeRewriter() {
+    return codeRewriter;
+  }
+
   public void run(IRCode code, Timing timing) {
     timing.begin("Remove dead code");
 
@@ -58,7 +62,7 @@ public class DeadCodeRemover {
       }
     } while (codeRewriter.simplifyIf(code).anySimplifications()
         || removeUnneededCatchHandlers(code));
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
 
     timing.end();
   }
@@ -210,7 +214,7 @@ public class DeadCodeRemover {
     if (mayHaveIntroducedUnreachableBlocks) {
       code.removeUnreachableBlocks();
     }
-    assert code.isConsistentGraph();
+    assert code.isConsistentGraph(appView);
     return mayHaveIntroducedUnreachableBlocks;
   }
 

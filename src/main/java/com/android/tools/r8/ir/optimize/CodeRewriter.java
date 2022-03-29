@@ -39,7 +39,6 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.ConstantOrNonConstantNumberValue;
 import com.android.tools.r8.ir.analysis.value.SingleConstClassValue;
 import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
-import com.android.tools.r8.ir.code.AlwaysMaterializingNop;
 import com.android.tools.r8.ir.code.ArrayLength;
 import com.android.tools.r8.ir.code.ArrayPut;
 import com.android.tools.r8.ir.code.Assume;
@@ -158,7 +157,6 @@ public class CodeRewriter {
   private static final int MAX_FILL_ARRAY_SIZE = 8 * Constants.KILOBYTE;
   // This constant was determined by experimentation.
   private static final int STOP_SHARED_CONSTANT_THRESHOLD = 50;
-  private static final int SELF_RECURSION_LIMIT = 4;
 
   private final AppView<?> appView;
   private final DexItemFactory dexItemFactory;
@@ -387,7 +385,7 @@ public class CodeRewriter {
         new TypeAnalysis(appView).narrowing(affectedValues);
       }
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   public static boolean isFallthroughBlock(BasicBlock block) {
@@ -486,41 +484,6 @@ public class CodeRewriter {
           replacedBlocks.add(target);
         }
       }
-    }
-  }
-
-  // For method with many self-recursive calls, insert a try-catch to disable inlining.
-  // Marshmallow dex2oat aggressively inlines and eats up all the memory on devices.
-  public static void disableDex2OatInliningForSelfRecursiveMethods(
-      AppView<?> appView, IRCode code) {
-    if (!appView.options().canHaveDex2OatInliningIssue() || code.hasCatchHandlers()) {
-      // Catch handlers disables inlining, so if the method already has catch handlers
-      // there is nothing to do.
-      return;
-    }
-    int selfRecursionFanOut = 0;
-    Instruction lastSelfRecursiveCall = null;
-    for (Instruction i : code.instructions()) {
-      if (i.isInvokeMethod()
-          && i.asInvokeMethod().getInvokedMethod() == code.method().getReference()) {
-        selfRecursionFanOut++;
-        lastSelfRecursiveCall = i;
-      }
-    }
-    if (selfRecursionFanOut > SELF_RECURSION_LIMIT) {
-      assert lastSelfRecursiveCall != null;
-      // Split out the last recursive call in its own block.
-      InstructionListIterator splitIterator =
-          lastSelfRecursiveCall.getBlock().listIterator(code, lastSelfRecursiveCall);
-      splitIterator.previous();
-      BasicBlock newBlock = splitIterator.split(code, 1);
-      // Generate rethrow block.
-      DexType guard = appView.dexItemFactory().throwableType;
-      BasicBlock rethrowBlock =
-          BasicBlock.createRethrowBlock(code, lastSelfRecursiveCall.getPosition(), guard, appView);
-      code.blocks.add(rethrowBlock);
-      // Add catch handler to the block containing the last recursive call.
-      newBlock.appendCatchHandler(rethrowBlock, guard);
     }
   }
 
@@ -663,7 +626,7 @@ public class CodeRewriter {
    * Covert the switch instruction to a sequence of if instructions checking for a specified set of
    * keys, followed by a new switch with the remaining keys.
    */
-  private void convertSwitchToSwitchAndIfs(
+  void convertSwitchToSwitchAndIfs(
       IRCode code,
       ListIterator<BasicBlock> blocksIterator,
       BasicBlock originalBlock,
@@ -945,57 +908,6 @@ public class CodeRewriter {
     return rewriteSwitchFull(code, switchCaseAnalyzer);
   }
 
-  public void rewriteSwitchForMaxInt(IRCode code) {
-    if (options.canHaveSwitchMaxIntBug() && code.metadata().mayHaveSwitch()) {
-      // Always rewrite for workaround switch bug.
-      rewriteSwitchForMaxIntOnly(code);
-    }
-  }
-
-  private void rewriteSwitchForMaxIntOnly(IRCode code) {
-    boolean needToSplitCriticalEdges = false;
-    ListIterator<BasicBlock> blocksIterator = code.listIterator();
-    while (blocksIterator.hasNext()) {
-      BasicBlock block = blocksIterator.next();
-      InstructionListIterator iterator = block.listIterator(code);
-      while (iterator.hasNext()) {
-        Instruction instruction = iterator.next();
-        assert !instruction.isStringSwitch();
-        if (instruction.isIntSwitch()) {
-          IntSwitch intSwitch = instruction.asIntSwitch();
-          if (intSwitch.getKey(intSwitch.numberOfKeys() - 1) == Integer.MAX_VALUE) {
-            if (intSwitch.numberOfKeys() == 1) {
-              rewriteSingleKeySwitchToIf(code, block, iterator, intSwitch);
-            } else {
-              IntList newSwitchSequences = new IntArrayList(intSwitch.numberOfKeys() - 1);
-              for (int i = 0; i < intSwitch.numberOfKeys() - 1; i++) {
-                newSwitchSequences.add(intSwitch.getKey(i));
-              }
-              IntList outliers = new IntArrayList(1);
-              outliers.add(Integer.MAX_VALUE);
-              convertSwitchToSwitchAndIfs(
-                  code,
-                  blocksIterator,
-                  block,
-                  iterator,
-                  intSwitch,
-                  ImmutableList.of(newSwitchSequences),
-                  outliers);
-            }
-            needToSplitCriticalEdges = true;
-          }
-        }
-      }
-    }
-
-    // Rewriting of switches introduces new branching structure. It relies on critical edges
-    // being split on the way in but does not maintain this property. We therefore split
-    // critical edges at exit.
-    if (needToSplitCriticalEdges) {
-      code.splitCriticalEdges();
-    }
-  }
-
   private boolean rewriteSwitchFull(IRCode code, SwitchCaseAnalyzer switchCaseAnalyzer) {
     boolean needToRemoveUnreachableBlocks = false;
     ListIterator<BasicBlock> blocksIterator = code.listIterator();
@@ -1041,11 +953,11 @@ public class CodeRewriter {
     if (!affectedValues.isEmpty()) {
       new TypeAnalysis(appView).narrowing(affectedValues);
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
     return !affectedValues.isEmpty();
   }
 
-  private void rewriteSingleKeySwitchToIf(
+  void rewriteSingleKeySwitchToIf(
       IRCode code, BasicBlock block, InstructionListIterator iterator, IntSwitch theSwitch) {
     // Rewrite the switch to an if.
     int fallthroughBlockIndex = theSwitch.getFallthroughBlockIndex();
@@ -1247,8 +1159,8 @@ public class CodeRewriter {
    * rewrite fallthrough targets as that would require block reordering and the transformation only
    * makes sense after SSA destruction where there are no phis.
    */
-  public static void collapseTrivialGotos(IRCode code) {
-    assert code.isConsistentGraph();
+  public static void collapseTrivialGotos(AppView<?> appView, IRCode code) {
+    assert code.isConsistentGraph(appView);
     List<BasicBlock> blocksToRemove = new ArrayList<>();
     // Rewrite all non-fallthrough targets to the end of trivial goto chains and remove
     // first round of trivial goto blocks.
@@ -1286,7 +1198,7 @@ public class CodeRewriter {
       code.removeBlocks(blocksToRemove);
     }
     assert removedTrivialGotos(code);
-    assert code.isConsistentGraph();
+    assert code.isConsistentGraph(appView);
   }
 
   private boolean checkArgumentType(InvokeMethod invoke, int argumentIndex) {
@@ -1375,7 +1287,7 @@ public class CodeRewriter {
     if (!affectedValues.isEmpty()) {
       new TypeAnalysis(appView).narrowing(affectedValues);
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
     return changed;
   }
 
@@ -1466,7 +1378,7 @@ public class CodeRewriter {
         typeAnalysis.narrowing(affectedValues);
       }
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   // Returns true if the given check-cast instruction was removed.
@@ -1744,7 +1656,7 @@ public class CodeRewriter {
         }
       }
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   /**
@@ -1823,7 +1735,7 @@ public class CodeRewriter {
       }
     }
 
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   // Check if a binop can be represented in the binop/lit8 or binop/lit16 form.
@@ -2006,7 +1918,7 @@ public class CodeRewriter {
       }
     }
 
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   private void forEachUse(Instruction instruction, Consumer<Value> fn) {
@@ -2331,7 +2243,7 @@ public class CodeRewriter {
         } while (block != null);
       }
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   // TODO(mikaelpeltier) Manage that from and to instruction do not belong to the same block.
@@ -2556,7 +2468,7 @@ public class CodeRewriter {
       }
     }
     code.returnMarkingColor(noCandidate);
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   static class ControlFlowSimplificationResult {
@@ -2632,7 +2544,7 @@ public class CodeRewriter {
     if (!affectedValues.isEmpty()) {
       new TypeAnalysis(appView).narrowing(affectedValues);
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
     return new ControlFlowSimplificationResult(!affectedValues.isEmpty(), simplified);
   }
 
@@ -2988,7 +2900,7 @@ public class CodeRewriter {
     if (changed) {
       code.removeAllDeadAndTrivialPhis();
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   private static Long2ReferenceMap<List<ConstNumber>> getConstantsByValue(IRCode code) {
@@ -3099,11 +3011,6 @@ public class CodeRewriter {
   // it with a block throwing a null value (which should result in NPE). Note that this throw is not
   // expected to be ever reached, but is intended to satisfy verifier.
   public void optimizeAlwaysThrowingInstructions(IRCode code) {
-    if (!appView.appInfo().hasLiveness()) {
-      return;
-    }
-
-    AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
     Set<Value> affectedValues = Sets.newIdentityHashSet();
     Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
     ListIterator<BasicBlock> blockIterator = code.listIterator();
@@ -3153,7 +3060,7 @@ public class CodeRewriter {
               }
             }
             instructionIterator.replaceCurrentInstructionWithThrowNull(
-                appViewWithLiveness, code, blockIterator, blocksToRemove, affectedValues);
+                appView, code, blockIterator, blocksToRemove, affectedValues);
             continue;
           }
         }
@@ -3163,8 +3070,7 @@ public class CodeRewriter {
         }
 
         InvokeMethod invoke = instruction.asInvokeMethod();
-        DexClassAndMethod singleTarget =
-            invoke.lookupSingleTarget(appView.withLiveness(), code.context());
+        DexClassAndMethod singleTarget = invoke.lookupSingleTarget(appView, code.context());
         if (singleTarget == null) {
           continue;
         }
@@ -3190,7 +3096,7 @@ public class CodeRewriter {
           instructionIterator.setInsertionPosition(invoke.getPosition());
           instructionIterator.next();
           instructionIterator.replaceCurrentInstructionWithThrowNull(
-              appViewWithLiveness, code, blockIterator, blocksToRemove, affectedValues);
+              appView, code, blockIterator, blocksToRemove, affectedValues);
           instructionIterator.unsetInsertionPosition();
         }
       }
@@ -3203,7 +3109,7 @@ public class CodeRewriter {
     if (!affectedValues.isEmpty()) {
       new TypeAnalysis(appView).narrowing(affectedValues);
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   /* Identify simple diamond shapes converting boolean true/false to 1/0. We consider the forms:
@@ -3465,7 +3371,7 @@ public class CodeRewriter {
 
       phiUsers.forEach(Phi::removeTrivialPhi);
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   public void rewriteAssertionErrorTwoArgumentConstructor(IRCode code, InternalOptions options) {
@@ -3514,7 +3420,7 @@ public class CodeRewriter {
         }
       }
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   /**
@@ -3867,80 +3773,6 @@ public class CodeRewriter {
         }
         trivialPhi.replaceUsers(newInstanceValue);
         trivialPhi.getBlock().removePhi(trivialPhi);
-      }
-    }
-  }
-
-  // See comment for InternalOptions.canHaveNumberConversionRegisterAllocationBug().
-  public void workaroundNumberConversionRegisterAllocationBug(IRCode code) {
-    ListIterator<BasicBlock> blocks = code.listIterator();
-    while (blocks.hasNext()) {
-      BasicBlock block = blocks.next();
-      InstructionListIterator it = block.listIterator(code);
-      while (it.hasNext()) {
-        Instruction instruction = it.next();
-        if (instruction.isArithmeticBinop() || instruction.isNeg()) {
-          for (Value value : instruction.inValues()) {
-            // Insert a call to Double.isNaN on each value which come from a number conversion
-            // to double and flows into an arithmetic instruction. This seems to break the traces
-            // in the Dalvik JIT and avoid the bug where the generated ARM code can clobber float
-            // values in a single-precision registers with double values written to
-            // double-precision registers. See b/77496850 for examples.
-            if (!value.isPhi()
-                && value.definition.isNumberConversion()
-                && value.definition.asNumberConversion().to == NumericType.DOUBLE) {
-              InvokeStatic invokeIsNaN =
-                  new InvokeStatic(
-                      dexItemFactory.doubleMembers.isNaN, null, ImmutableList.of(value));
-              invokeIsNaN.setPosition(instruction.getPosition());
-
-              // Insert the invoke before the current instruction.
-              it.previous();
-              BasicBlock blockWithInvokeNaN =
-                  block.hasCatchHandlers() ? it.split(code, blocks) : block;
-              if (blockWithInvokeNaN != block) {
-                // If we split, add the invoke at the end of the original block.
-                it = block.listIterator(code, block.getInstructions().size());
-                it.previous();
-                it.add(invokeIsNaN);
-                // Continue iteration in the split block.
-                block = blockWithInvokeNaN;
-                it = block.listIterator(code);
-              } else {
-                // Otherwise, add it to the current block.
-                it.add(invokeIsNaN);
-              }
-              // Skip over the instruction causing the invoke to be inserted.
-              Instruction temp = it.next();
-              assert temp == instruction;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // If an exceptional edge could target a conditional-loop header ensure that we have a
-  // materializing instruction on that path to work around a bug in some L x86_64 non-emulator VMs.
-  // See b/111337896.
-  public void workaroundExceptionTargetingLoopHeaderBug(IRCode code) {
-    for (BasicBlock block : code.blocks) {
-      if (block.hasCatchHandlers()) {
-        for (BasicBlock handler : block.getCatchHandlers().getUniqueTargets()) {
-          // We conservatively assume that a block with at least two normal predecessors is a loop
-          // header. If we ever end up computing exact loop headers, use that here instead.
-          // The loop is conditional if it has at least two normal successors.
-          BasicBlock target = handler.endOfGotoChain();
-          if (target != null
-              && target.getPredecessors().size() > 1
-              && target.getNormalPredecessors().size() > 1
-              && target.getNormalSuccessors().size() > 1) {
-            Instruction fixit = new AlwaysMaterializingNop();
-            fixit.setBlock(handler);
-            fixit.setPosition(handler.getPosition());
-            handler.getInstructions().addFirst(fixit);
-          }
-        }
       }
     }
   }

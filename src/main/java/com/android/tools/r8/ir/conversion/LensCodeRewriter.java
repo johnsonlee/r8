@@ -667,7 +667,19 @@ public class LensCodeRewriter {
               ConstClass constClass = current.asConstClass();
               new InstructionReplacer(code, current, iterator, affectedPhis)
                   .replaceInstructionIfTypeChanged(
-                      constClass.getValue(), (t, v) -> new ConstClass(v, t), graphLens, codeLens);
+                      constClass.getValue(),
+                      (t, v) ->
+                          t.isPrimitiveType() || t.isVoidType()
+                              ? StaticGet.builder()
+                                  .setField(
+                                      factory
+                                          .getBoxedMembersForPrimitiveOrVoidType(t)
+                                          .getTypeField())
+                                  .setOutValue(v)
+                                  .build()
+                              : new ConstClass(v, t),
+                      graphLens,
+                      codeLens);
             }
             break;
 
@@ -809,7 +821,7 @@ public class LensCodeRewriter {
     // Finalize cast and null check insertion.
     interfaceTypeToClassTypeRewriterHelper.processWorklist();
 
-    assert code.isConsistentSSABeforeTypesAreCorrect();
+    assert code.isConsistentSSABeforeTypesAreCorrect(appView);
   }
 
   // Applies the prototype changes of the current method to the argument instructions:

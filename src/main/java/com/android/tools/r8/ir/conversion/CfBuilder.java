@@ -144,7 +144,8 @@ public class CfBuilder {
     this.bytecodeMetadataBuilder = BytecodeMetadata.builder(bytecodeMetadataProvider);
   }
 
-  public CfCode build(DeadCodeRemover deadCodeRemover, MethodConversionOptions conversionOptions) {
+  public CfCode build(DeadCodeRemover deadCodeRemover) {
+    code.traceBlocks();
     computeInitializers();
     TypeVerificationHelper typeVerificationHelper = new TypeVerificationHelper(appView, code);
     typeVerificationHelper.computeVerificationTypes();
@@ -162,7 +163,7 @@ public class CfBuilder {
         reachedFixpoint = !phiOptimizations.optimize(code);
       }
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
     // Insert reads for uninitialized read blocks to ensure correct stack maps.
     Set<UninitializedThisLocalRead> uninitializedThisLocalReads =
         insertUninitializedThisLocalReads();
@@ -178,9 +179,9 @@ public class CfBuilder {
 
     loadStoreHelper.insertPhiMoves(registerAllocator);
 
-    if (conversionOptions.isPeepholeOptimizationsEnabled()) {
+    if (code.getConversionOptions().isPeepholeOptimizationsEnabled()) {
       for (int i = 0; i < PEEPHOLE_OPTIMIZATION_PASSES; i++) {
-        CodeRewriter.collapseTrivialGotos(code);
+        CodeRewriter.collapseTrivialGotos(appView, code);
         PeepholeOptimizer.removeIdenticalPredecessorBlocks(code, registerAllocator);
         PeepholeOptimizer.shareIdenticalBlockSuffix(
             code, registerAllocator, SUFFIX_SHARING_OVERHEAD);
@@ -189,7 +190,7 @@ public class CfBuilder {
 
     rewriteIincPatterns();
 
-    CodeRewriter.collapseTrivialGotos(code);
+    CodeRewriter.collapseTrivialGotos(appView, code);
     DexBuilder.removeRedundantDebugPositions(code);
     CfCode code = buildCfCode();
     assert verifyInvokeInterface(code, appView);

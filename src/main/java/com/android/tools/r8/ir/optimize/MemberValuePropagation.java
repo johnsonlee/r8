@@ -382,6 +382,13 @@ public class MemberValuePropagation {
       return;
     }
 
+    if (current.isStaticGet() && current.hasUnusedOutValue()) {
+      // Replace by initclass.
+      iterator.removeOrReplaceCurrentInstructionByInitClassIfPossible(
+          appView, code, field.getHolderType());
+      return;
+    }
+
     if (!mayPropagateValueFor(target)) {
       return;
     }
@@ -510,7 +517,7 @@ public class MemberValuePropagation {
     if (!affectedValues.isEmpty()) {
       new TypeAnalysis(appView).narrowing(affectedValues);
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
     assert code.verifyTypes(appView);
   }
 

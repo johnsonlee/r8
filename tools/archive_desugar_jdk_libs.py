@@ -29,7 +29,7 @@ import subprocess
 import sys
 import utils
 
-VERSION_FILE = 'VERSION.txt'
+VERSION_FILE = 'VERSION_JDK11.txt'
 LIBRARY_NAME = 'desugar_jdk_libs'
 
 def ParseOptions(argv):
@@ -37,7 +37,7 @@ def ParseOptions(argv):
   result.add_option('--variant',
       help='.',
       choices = ['jdk8', 'jdk11'],
-      default='jdk8')
+      default='jdk11')
   result.add_option('--dry-run', '--dry_run',
       help='Running on bot, use third_party dependency.',
       default=False,
@@ -65,7 +65,7 @@ def GetVersion(version_file_name):
           + version_file + ' is expected to have exactly one line')
     version = lines[0].strip()
     utils.check_basic_semver_version(
-        version, 'in version file ' + version_file_name)
+        version, 'in version file ' + version_file_name, allowPrerelease = True)
     return version
 
 

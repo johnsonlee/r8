@@ -406,6 +406,11 @@ public class R8 {
           GenericSignatureCorrectnessHelper.createForInitialCheck(appView, genericContextBuilder)
               .run(appView.appInfo().classes());
 
+          // TODO(b/226539525): Implement enum lite proto shrinking as deferred tracing.
+          if (appView.options().protoShrinking().isEnumLiteProtoShrinkingEnabled()) {
+            appView.protoShrinker().enumLiteProtoShrinker.clearDeadEnumLiteMaps();
+          }
+
           TreePruner pruner = new TreePruner(appViewWithLiveness);
           DirectMappedDexApplication prunedApp = pruner.run(executorService);
 
@@ -421,10 +426,6 @@ public class R8 {
           new AbstractMethodRemover(
                   appViewWithLiveness, appViewWithLiveness.appInfo().computeSubtypingInfo())
               .run();
-
-          if (appView.options().protoShrinking().isEnumLiteProtoShrinkingEnabled()) {
-            appView.protoShrinker().enumLiteProtoShrinker.clearDeadEnumLiteMaps();
-          }
 
           AnnotationRemover annotationRemover =
               annotationRemoverBuilder
@@ -508,7 +509,7 @@ public class R8 {
         assert appView.verticallyMergedClasses() != null;
 
         HorizontalClassMerger.createForInitialClassMerging(appViewWithLiveness)
-            .runIfNecessary(runtimeTypeCheckInfo, executorService, timing);
+            .runIfNecessary(executorService, timing, runtimeTypeCheckInfo);
       }
 
       new ProtoNormalizer(appViewWithLiveness).run(executorService, timing);
@@ -751,11 +752,11 @@ public class R8 {
       // are always merged.
       HorizontalClassMerger.createForFinalClassMerging(appView)
           .runIfNecessary(
+              executorService,
+              timing,
               classMergingEnqueuerExtensionBuilder != null
                   ? classMergingEnqueuerExtensionBuilder.build(appView.graphLens())
-                  : null,
-              executorService,
-              timing);
+                  : null);
 
       // Perform minification.
       NamingLens namingLens;
@@ -975,7 +976,9 @@ public class R8 {
       return true;
     }
     for (DexDebugEvent event : code.getDebugInfo().asEventBasedInfo().events) {
-      assert !event.isSetInlineFrame() || event.asSetInlineFrame().hasOuterPosition(originalMethod);
+      assert !event.isPositionFrame()
+          || event.asSetPositionFrame().getPosition().getOutermostCaller().getMethod()
+              == originalMethod;
     }
     return true;
   }

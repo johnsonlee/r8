@@ -12,6 +12,7 @@ import com.android.tools.r8.DesugarGraphConsumer;
 import com.android.tools.r8.DexFilePerClassFileConsumer;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.FeatureSplit;
+import com.android.tools.r8.GlobalSyntheticsConsumer;
 import com.android.tools.r8.MapIdProvider;
 import com.android.tools.r8.ProgramConsumer;
 import com.android.tools.r8.SourceFileProvider;
@@ -137,7 +138,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public static final CfVersion SUPPORTED_CF_VERSION = CfVersion.V17;
-  public static final CfVersion EXPERIMENTAL_CF_VERSION = CfVersion.V12;
+  public static final CfVersion EXPERIMENTAL_CF_VERSION = CfVersion.V14;
 
   public static final int SUPPORTED_DEX_VERSION =
       AndroidApiLevel.LATEST.getDexVersion().getIntValue();
@@ -163,6 +164,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // TODO(zerny): Make this private-final once we have full program-consumer support.
   public ProgramConsumer programConsumer = null;
+
+  private GlobalSyntheticsConsumer globalSyntheticsConsumer = null;
 
   public DataResourceConsumer dataResourceConsumer;
   public FeatureSplitConfiguration featureSplitConfiguration;
@@ -271,6 +274,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // Flag to toggle if the prefix based merge restriction should be enforced.
   public boolean enableNeverMergePrefixes = true;
+  // TODO(b/227277105): Control merging with desugared library and maintain prefix.
   public Set<String> neverMergePrefixes = ImmutableSet.of("j$.");
 
   public boolean classpathInterfacesMayHaveStaticInitialization = false;
@@ -442,6 +446,18 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       return InternalOutputMode.ClassFile;
     }
     throw new UnsupportedOperationException("Cannot find internal output mode.");
+  }
+
+  public boolean hasGlobalSyntheticsConsumer() {
+    return globalSyntheticsConsumer != null;
+  }
+
+  public GlobalSyntheticsConsumer getGlobalSyntheticsConsumer() {
+    return globalSyntheticsConsumer;
+  }
+
+  public void setGlobalSyntheticsConsumer(GlobalSyntheticsConsumer globalSyntheticsConsumer) {
+    this.globalSyntheticsConsumer = globalSyntheticsConsumer;
   }
 
   public boolean isAndroidPlatform() {
@@ -922,6 +938,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
     timing.begin("Load machine specification");
     loadMachineDesugaredLibrarySpecification.accept(timing, app);
+    if (!machineDesugaredLibrarySpecification.getMaintainType().isEmpty()) {
+      // TODO(b/227277105): Control merging with desugared library and maintain prefix.
+      neverMergePrefixes = ImmutableSet.of();
+    }
     timing.end();
   }
 
@@ -1449,8 +1469,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       this.enable = enable;
     }
 
-    public int getMaxClassGroupSize() {
+    public int getMaxClassGroupSizeInR8() {
       return 30;
+    }
+
+    public int getMaxClassGroupSizeInD8() {
+      return 100;
     }
 
     public int getMaxInterfaceGroupSize() {
@@ -1672,21 +1696,34 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     private boolean hasReadCheckDeterminism = false;
     private DeterminismChecker determinismChecker = null;
 
-    public void setDeterminismChecker(DeterminismChecker checker) {
-      determinismChecker = checker;
-    }
-
-    public void checkDeterminism(AppView<?> appView) {
+    private DeterminismChecker getDeterminismChecker() {
       // Lazily read the env-var so that it can be set after options init.
       if (determinismChecker == null && !hasReadCheckDeterminism) {
         hasReadCheckDeterminism = true;
         String dir = System.getProperty("com.android.tools.r8.checkdeterminism");
         if (dir != null) {
-          determinismChecker = DeterminismChecker.createWithFileBacking(Paths.get(dir));
+          setDeterminismChecker(DeterminismChecker.createWithFileBacking(Paths.get(dir)));
         }
       }
+      return determinismChecker;
+    }
+
+    public void setDeterminismChecker(DeterminismChecker checker) {
+      determinismChecker = checker;
+    }
+
+    public void checkDeterminism(AppView<?> appView) {
+      DeterminismChecker determinismChecker = getDeterminismChecker();
       if (determinismChecker != null) {
         determinismChecker.check(appView);
+      }
+    }
+
+    public <E extends Exception> void checkDeterminism(
+        ThrowingConsumer<DeterminismChecker, E> consumer) {
+      DeterminismChecker determinismChecker = getDeterminismChecker();
+      if (determinismChecker != null) {
+        consumer.acceptWithRuntimeException(determinismChecker);
       }
     }
 
@@ -1760,6 +1797,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableCheckCastAndInstanceOfRemoval = true;
     public boolean enableDeadSwitchCaseElimination = true;
     public boolean enableInvokeSuperToInvokeVirtualRewriting = true;
+    public boolean enableMultiANewArrayDesugaringForClassFiles = false;
     public boolean enableSwitchToIfRewriting = true;
     public boolean enableEnumUnboxingDebugLogs = false;
     public boolean forceRedundantConstNumberRemoval = false;
@@ -1867,6 +1905,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public Predicate<DexMethod> cfByteCodePassThrough = null;
 
     public boolean enableExperimentalMapFileVersion = false;
+
+    public boolean alwaysGenerateLambdaFactoryMethods = false;
   }
 
   public MapVersion getMapFileVersion() {
@@ -2077,8 +2117,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // and the first register of the result could lead to the wrong exception
   // being thrown on out of bounds.
   public boolean canUseSameArrayAndResultRegisterInArrayGetWide() {
-    assert isGeneratingDex();
-    return getMinApiLevel().isGreaterThan(AndroidApiLevel.O_MR1);
+    return isGeneratingClassFiles() || getMinApiLevel().isGreaterThan(AndroidApiLevel.O_MR1);
   }
 
   // Some Lollipop versions of Art found in the wild perform invalid bounds
@@ -2309,8 +2348,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   //
   // Fixed in Android Q, see b/120985556.
   public boolean canHaveArtInstanceOfVerifierBug() {
-    assert isGeneratingDex();
-    return getMinApiLevel().isLessThan(AndroidApiLevel.Q);
+    return isGeneratingDex() && getMinApiLevel().isLessThan(AndroidApiLevel.Q);
   }
 
   // Some Art Lollipop version do not deal correctly with long-to-int conversions.

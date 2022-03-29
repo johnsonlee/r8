@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.analysis.fieldaccess;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.optimize.info.OptimizationFeedback.getSimpleFeedback;
+import static com.android.tools.r8.shaking.ObjectAllocationInfoCollectionUtils.mayHaveFinalizeMethodDirectlyOrIndirectly;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.code.CfOrDexInstanceFieldRead;
@@ -105,6 +106,9 @@ public class TrivialFieldAccessReprocessor {
     constantFields.forEach(this::markFieldAsDead);
     readFields.keySet().forEach(this::markFieldAsDead);
     writtenFields.keySet().forEach(this::markWriteOnlyFieldAsDead);
+
+    // Ensure determinism of method-to-reprocess set.
+    appView.testing().checkDeterminism(postMethodProcessorBuilder::dump);
   }
 
   private void markWriteOnlyFieldAsDead(DexEncodedField field) {
@@ -286,8 +290,7 @@ public class TrivialFieldAccessReprocessor {
       ClassTypeElement classType =
           (fieldType.isArrayType() ? fieldType.asArrayType().getBaseType() : fieldType)
               .asClassType();
-      if (classType != null
-          && appView.appInfo().mayHaveFinalizeMethodDirectlyOrIndirectly(classType)) {
+      if (classType != null && mayHaveFinalizeMethodDirectlyOrIndirectly(appView, classType)) {
         return false;
       }
     }
@@ -329,7 +332,8 @@ public class TrivialFieldAccessReprocessor {
       if (definition.isStatic() != isStatic
           || appView.isCfByteCodePassThrough(getContext().getDefinition())
           || resolutionResult.isAccessibleFrom(getContext(), appView).isPossiblyFalse()
-          || !resolutionResult.isSingleProgramFieldResolutionResult()) {
+          || !resolutionResult.isSingleProgramFieldResolutionResult()
+          || appView.appInfo().isNeverReprocessMethod(getContext())) {
         recordAccessThatCannotBeOptimized(field, definition);
         return;
       }

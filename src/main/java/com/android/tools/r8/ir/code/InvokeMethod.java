@@ -9,6 +9,7 @@ import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
 import com.android.tools.r8.cf.LoadStoreHelper;
 import com.android.tools.r8.cf.TypeVerificationHelper;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -26,6 +27,7 @@ import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.optimize.DefaultInliningOracle;
 import com.android.tools.r8.ir.optimize.Inliner.InlineAction;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
@@ -187,8 +189,9 @@ public abstract class InvokeMethod extends Invoke {
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter);
 
   @Override
-  public boolean identicalAfterRegisterAllocation(Instruction other, RegisterAllocator allocator) {
-    if (!super.identicalAfterRegisterAllocation(other, allocator)) {
+  public boolean identicalAfterRegisterAllocation(
+      Instruction other, RegisterAllocator allocator, MethodConversionOptions conversionOptions) {
+    if (!super.identicalAfterRegisterAllocation(other, allocator, conversionOptions)) {
       return false;
     }
 
@@ -245,7 +248,7 @@ public abstract class InvokeMethod extends Invoke {
 
   @Override
   public AbstractValue getAbstractValue(
-      AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, ProgramMethod context) {
     assert hasOutValue();
     DexClassAndMethod method = lookupSingleTarget(appView, context);
     if (method != null) {

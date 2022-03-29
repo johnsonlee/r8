@@ -60,6 +60,7 @@ import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SourcePosition;
 import com.android.tools.r8.ir.code.ValueType;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.MethodPosition;
@@ -67,6 +68,7 @@ import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.position.TextRange;
 import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
@@ -240,8 +242,12 @@ public class LazyCfCode extends Code {
   }
 
   @Override
-  public IRCode buildIR(ProgramMethod method, AppView<?> appView, Origin origin) {
-    return asCfCode().buildIR(method, appView, origin);
+  public IRCode buildIR(
+      ProgramMethod method,
+      AppView<?> appView,
+      Origin origin,
+      MutableMethodConversionOptions conversionOptions) {
+    return asCfCode().buildIR(method, appView, origin, conversionOptions);
   }
 
   @Override
@@ -959,7 +965,9 @@ public class LazyCfCode extends Code {
 
     @Override
     public void visitMultiANewArrayInsn(String desc, int dims) {
-      if (!application.options.isGeneratingDex()) {
+      InternalOptions options = application.options;
+      if (options.isGeneratingClassFiles()
+          && !options.testing.enableMultiANewArrayDesugaringForClassFiles) {
         instructions.add(new CfMultiANewArray(factory.createType(desc), dims));
         return;
       }
@@ -987,7 +995,18 @@ public class LazyCfCode extends Code {
         visitInsn(Opcodes.IASTORE);
         // ..., count1, ..., dim-array
       }
-      visitLdcInsn(Type.getType(desc.substring(dims)));
+      String baseDesc = desc.substring(dims);
+      if (DescriptorUtils.isPrimitiveDescriptor(baseDesc)) {
+        visitFieldInsn(
+            Opcodes.GETSTATIC,
+            DescriptorUtils.primitiveDescriptorToBoxedInternalName(baseDesc.charAt(0)),
+            "TYPE",
+            "Ljava/lang/Class;");
+      } else if (DescriptorUtils.isVoidDescriptor(baseDesc)) {
+        visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Void", "TYPE", "Ljava/lang/Class;");
+      } else {
+        visitLdcInsn(Type.getType(baseDesc));
+      }
       // ..., dim-array, dim-member-type
       visitInsn(Opcodes.SWAP);
       // ..., dim-member-type, dim-array

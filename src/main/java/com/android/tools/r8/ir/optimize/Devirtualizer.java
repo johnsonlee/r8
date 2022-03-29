@@ -315,7 +315,7 @@ public class Devirtualizer {
     if (!affectedValues.isEmpty()) {
       new TypeAnalysis(appView).narrowing(affectedValues);
     }
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   /** This rebinds invoke-super instructions to their most specific target. */
@@ -369,7 +369,7 @@ public class Devirtualizer {
     }
 
     SingleResolutionResult resolutionResult =
-        appView.appInfo().resolveMethodOnClass(target).asSingleResolution();
+        appView.appInfo().resolveMethodOnClass(target.getHolderType(), target).asSingleResolution();
     if (resolutionResult == null
         || resolutionResult
             .isAccessibleForVirtualDispatchFrom(context, appView.appInfo())
@@ -385,7 +385,7 @@ public class Devirtualizer {
     }
 
     SingleResolutionResult newResolutionResult =
-        appView.appInfo().resolveMethodOnClass(target, receiverType).asSingleResolution();
+        appView.appInfo().resolveMethodOnClass(receiverType, target).asSingleResolution();
     if (newResolutionResult == null
         || newResolutionResult
             .isAccessibleForVirtualDispatchFrom(context, appView.appInfo())

@@ -22,6 +22,7 @@ import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator;
 import com.android.tools.r8.ir.regalloc.LiveIntervals;
 import com.android.tools.r8.origin.Origin;
@@ -145,8 +146,9 @@ public class ConstantRemovalTest {
             new NumberGenerator(),
             basicBlockNumberGenerator,
             IRMetadata.unknown(),
-            Origin.unknown());
-    PeepholeOptimizer.optimize(code, new MockLinearScanRegisterAllocator(appView, code));
+            Origin.unknown(),
+            new MutableMethodConversionOptions(options));
+    PeepholeOptimizer.optimize(appView, code, new MockLinearScanRegisterAllocator(appView, code));
 
     // Check that all four constant number instructions remain.
     assertEquals(

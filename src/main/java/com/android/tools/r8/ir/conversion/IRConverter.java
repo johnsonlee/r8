@@ -11,16 +11,13 @@ import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexApplication.Builder;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
-import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
@@ -33,18 +30,8 @@ import com.android.tools.r8.ir.analysis.fieldaccess.TrivialFieldAccessReprocesso
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.InstanceFieldValueAnalysis;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValueAnalysis;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues;
-import com.android.tools.r8.ir.analysis.type.TypeElement;
-import com.android.tools.r8.ir.code.AlwaysMaterializingDefinition;
-import com.android.tools.r8.ir.code.AlwaysMaterializingUser;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionListIterator;
-import com.android.tools.r8.ir.code.InvokeStatic;
-import com.android.tools.r8.ir.code.NumericType;
-import com.android.tools.r8.ir.code.Value;
-import com.android.tools.r8.ir.conversion.MethodConversionOptions.DefaultMethodConversionOptions;
-import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollection;
@@ -75,7 +62,6 @@ import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.MemberValuePropagation;
 import com.android.tools.r8.ir.optimize.NaturalIntLoopRemover;
-import com.android.tools.r8.ir.optimize.PeepholeOptimizer;
 import com.android.tools.r8.ir.optimize.RedundantFieldLoadAndStoreElimination;
 import com.android.tools.r8.ir.optimize.ReflectionOptimizer;
 import com.android.tools.r8.ir.optimize.ServiceLoaderRewriter;
@@ -92,8 +78,6 @@ import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationIn
 import com.android.tools.r8.ir.optimize.outliner.Outliner;
 import com.android.tools.r8.ir.optimize.string.StringBuilderOptimizer;
 import com.android.tools.r8.ir.optimize.string.StringOptimizer;
-import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator;
-import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.naming.IdentifierNameStringMarker;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagator;
@@ -123,12 +107,9 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class IRConverter {
-
-  private static final int PEEPHOLE_OPTIMIZATION_PASSES = 2;
 
   public final AppView<?> appView;
 
@@ -487,7 +468,6 @@ public class IRConverter {
       D8CfInstructionDesugaringEventConsumer desugaringEventConsumer,
       D8MethodProcessor methodProcessor,
       InterfaceProcessor interfaceProcessor) {
-    boolean isReachabilitySensitive = clazz.hasReachabilitySensitiveAnnotation(options.itemFactory);
     // When converting all methods on a class always convert <clinit> first.
     ProgramMethod classInitializer = clazz.getProgramClassInitializer();
 
@@ -498,17 +478,12 @@ public class IRConverter {
     //  the need to copy the method list.
     List<ProgramMethod> methods = ListUtils.newArrayList(clazz::forEachProgramMethod);
     if (classInitializer != null) {
-      classInitializer
-          .getDefinition()
-          .getMutableOptimizationInfo()
-          .setReachabilitySensitive(isReachabilitySensitive);
       methodProcessor.processMethod(classInitializer, desugaringEventConsumer);
     }
 
     for (ProgramMethod method : methods) {
       if (!method.getDefinition().isClassInitializer()) {
         DexEncodedMethod definition = method.getDefinition();
-        definition.getMutableOptimizationInfo().setReachabilitySensitive(isReachabilitySensitive);
         methodProcessor.processMethod(method, desugaringEventConsumer);
         if (interfaceProcessor != null) {
           interfaceProcessor.processMethod(method, desugaringEventConsumer);
@@ -642,9 +617,6 @@ public class IRConverter {
     // Desugaring happens in the enqueuer.
     assert instructionDesugaring.isEmpty();
 
-    DexApplication application = appView.appInfo().app();
-
-    computeReachabilitySensitivity(application);
     workaroundAbstractMethodOnNonAbstractClassVerificationBug(executorService);
 
     // The process is in two phases in general.
@@ -849,6 +821,9 @@ public class IRConverter {
       inliner.onLastWaveDone(postMethodProcessorBuilder, executorService, timing);
     }
     openClosedInterfacesAnalysis.onPrimaryOptimizationPassComplete();
+
+    // Ensure determinism of method-to-reprocess set.
+    appView.testing().checkDeterminism(postMethodProcessorBuilder::dump);
   }
 
   public void addWaveDoneAction(com.android.tools.r8.utils.Action action) {
@@ -863,18 +838,6 @@ public class IRConverter {
 
   public boolean isInWave() {
     return onWaveDoneActions != null;
-  }
-
-  private void computeReachabilitySensitivity(DexApplication application) {
-    application
-        .classes()
-        .forEach(
-            c -> {
-              if (c.hasReachabilitySensitiveAnnotation(options.itemFactory)) {
-                c.methods()
-                    .forEach(m -> m.getMutableOptimizationInfo().setReachabilitySensitive(true));
-              }
-            });
   }
 
   private void processSynthesizedServiceLoaderMethods(
@@ -901,28 +864,28 @@ public class IRConverter {
 
   /**
    * This will replace the Dex code in the method with the Dex code generated from the provided IR.
-   * <p>
-   * This method is *only* intended for testing, where tests manipulate the IR and need runnable Dex
-   * code.
    *
-   * @param method the method to replace code for
+   * <p>This method is *only* intended for testing, where tests manipulate the IR and need runnable
+   * Dex code.
+   *
    * @param code the IR code for the method
    */
-  public void replaceCodeForTesting(DexEncodedMethod method, IRCode code) {
-    if (Log.ENABLED) {
-      Log.debug(getClass(), "Initial (SSA) flow graph for %s:\n%s", method.toSourceString(), code);
-    }
-    assert code.isConsistentSSA();
+  public void replaceCodeForTesting(IRCode code) {
+    ProgramMethod method = code.context();
+    DexEncodedMethod definition = method.getDefinition();
+    assert code.isConsistentSSA(appView);
     Timing timing = Timing.empty();
     deadCodeRemover.run(code, timing);
-    code.traceBlocks();
-    RegisterAllocator registerAllocator =
-        performRegisterAllocation(
-            code, method, DefaultMethodConversionOptions.getInstance(), timing);
-    method.setCode(code, BytecodeMetadataProvider.empty(), registerAllocator, appView);
+    method.setCode(
+        new IRToDexFinalizer(appView, deadCodeRemover)
+            .finalizeCode(code, BytecodeMetadataProvider.empty(), timing),
+        appView);
     if (Log.ENABLED) {
-      Log.debug(getClass(), "Resulting dex code for %s:\n%s",
-          method.toSourceString(), logCode(options, method));
+      Log.debug(
+          getClass(),
+          "Resulting dex code for %s:\n%s",
+          method.toSourceString(),
+          logCode(options, definition));
     }
   }
 
@@ -1094,8 +1057,6 @@ public class IRConverter {
     ProgramMethod context = code.context();
     DexEncodedMethod method = context.getDefinition();
     DexProgramClass holder = context.getHolder();
-    MutableMethodConversionOptions conversionOptions =
-        new MutableMethodConversionOptions(methodProcessor);
     assert holder != null;
 
     Timing timing = Timing.create(context.toSourceString(), options);
@@ -1123,7 +1084,7 @@ public class IRConverter {
       timing.end();
     }
 
-    boolean isDebugMode = options.debug || method.getOptimizationInfo().isReachabilitySensitive();
+    boolean isDebugMode = options.debug || context.getOrComputeReachabilitySensitive(appView);
 
     if (isDebugMode) {
       codeRewriter.simplifyDebugLocals(code);
@@ -1164,7 +1125,7 @@ public class IRConverter {
     // check. In the latter case, the type checker should be extended to detect the issue such that
     // we will return with a throw-null method above.
     assert code.verifyTypes(appView);
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
 
     openClosedInterfacesAnalysis.analyze(context, code);
 
@@ -1178,7 +1139,6 @@ public class IRConverter {
           ClassInitializerDefaultsResult.empty(),
           feedback,
           methodProcessor,
-          conversionOptions,
           BytecodeMetadataProvider.builder(),
           timing);
       timing.end();
@@ -1199,7 +1159,7 @@ public class IRConverter {
       timing.begin("Decouple identifier-name strings");
       identifierNameStringMarker.decoupleIdentifierNameStringsInMethod(code);
       timing.end();
-      assert code.isConsistentSSA();
+      assert code.isConsistentSSA(appView);
     }
 
     if (memberValuePropagation != null) {
@@ -1282,7 +1242,7 @@ public class IRConverter {
           .optimize(code, feedback, methodProcessor, methodProcessingContext);
       timing.end();
       previous = printMethod(code, "IR after class library method optimizer (SSA)", previous);
-      assert code.isConsistentSSA();
+      assert code.isConsistentSSA(appView);
     }
 
     assert code.verifyTypes(appView);
@@ -1389,7 +1349,7 @@ public class IRConverter {
     // as a result of those simplifications. The following optimizations could reveal more
     // dead code which is removed right before register allocation in performRegisterAllocation.
     deadCodeRemover.run(code, timing);
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
 
     previous = printMethod(code, "IR after dead code removal (SSA)", previous);
 
@@ -1422,7 +1382,7 @@ public class IRConverter {
                       // always uses a force inlining oracle for inlining.
                       -1)));
       timing.end();
-      assert code.isConsistentSSA();
+      assert code.isConsistentSSA(appView);
       assert code.verifyTypes(appView);
     }
 
@@ -1440,7 +1400,7 @@ public class IRConverter {
 
     previous = printMethod(code, "IR after outline handler (SSA)", previous);
 
-    if (stringSwitchRemover != null) {
+    if (code.getConversionOptions().isStringSwitchConversionEnabled()) {
       // Remove string switches prior to canonicalization to ensure that the constants that are
       // being introduced will be canonicalized if possible.
       timing.begin("Remove string switch");
@@ -1474,7 +1434,7 @@ public class IRConverter {
     // Insert code to log arguments if requested.
     if (options.methodMatchesLogArgumentsFilter(method) && !method.isProcessed()) {
       codeRewriter.logArgumentTypes(method, code);
-      assert code.isConsistentSSA();
+      assert code.isConsistentSSA(appView);
     }
 
     previous = printMethod(code, "IR after argument type logging (SSA)", previous);
@@ -1493,7 +1453,6 @@ public class IRConverter {
           classInitializerDefaultsResult,
           feedback,
           methodProcessor,
-          conversionOptions,
           bytecodeMetadataProviderBuilder,
           timing);
       timing.end();
@@ -1503,7 +1462,7 @@ public class IRConverter {
       timing.begin("Remove assume instructions");
       CodeRewriter.removeAssumeInstructions(appView, code);
       timing.end();
-      assert code.isConsistentSSA();
+      assert code.isConsistentSSA(appView);
 
       // TODO(b/214496607): Remove when dynamic types are safe w.r.t. interface assignment rules.
       codeRewriter.rewriteMoveResult(code);
@@ -1517,19 +1476,11 @@ public class IRConverter {
     previous =
         printMethod(code, "IR after computation of optimization info summary (SSA)", previous);
 
-    if (options.canHaveNumberConversionRegisterAllocationBug()) {
-      timing.begin("Check number conversion issue");
-      codeRewriter.workaroundNumberConversionRegisterAllocationBug(code);
-      timing.end();
-    }
-
     printMethod(code, "Optimized IR (SSA)", previous);
     timing.begin("Finalize IR");
     finalizeIR(
-        context,
         code,
         feedback,
-        conversionOptions,
         bytecodeMetadataProviderBuilder.build(),
         timing);
     timing.end();
@@ -1553,14 +1504,13 @@ public class IRConverter {
       ClassInitializerDefaultsResult classInitializerDefaultsResult,
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
-      MutableMethodConversionOptions conversionOptions,
       BytecodeMetadataProvider.Builder bytecodeMetadataProviderBuilder,
       Timing timing) {
     appView.withArgumentPropagator(
         argumentPropagator -> argumentPropagator.scan(method, code, methodProcessor, timing));
 
     if (methodProcessor.isPrimaryMethodProcessor()) {
-      enumUnboxer.analyzeEnums(code, conversionOptions);
+      enumUnboxer.analyzeEnums(code, methodProcessor);
     }
 
     if (inliner != null) {
@@ -1624,69 +1574,51 @@ public class IRConverter {
     }
     deadCodeRemover.run(code, timing);
     finalizeIR(
-        code.context(),
         code,
         feedback,
-        DefaultMethodConversionOptions.getInstance(),
         BytecodeMetadataProvider.empty(),
         timing);
   }
 
   public void finalizeIR(
-      ProgramMethod method,
       IRCode code,
       OptimizationFeedback feedback,
-      MethodConversionOptions conversionOptions,
       BytecodeMetadataProvider bytecodeMetadataProvider,
       Timing timing) {
-    code.traceBlocks();
     if (options.isGeneratingClassFiles()) {
-      finalizeToCf(code, feedback, conversionOptions, bytecodeMetadataProvider);
+      finalizeToCf(code, feedback, bytecodeMetadataProvider, timing);
     } else {
       assert options.isGeneratingDex();
-      finalizeToDex(code, feedback, conversionOptions, bytecodeMetadataProvider, timing);
+      finalizeToDex(code, feedback, bytecodeMetadataProvider, timing);
     }
   }
 
   private void finalizeToCf(
       IRCode code,
       OptimizationFeedback feedback,
-      MethodConversionOptions conversionOptions,
-      BytecodeMetadataProvider bytecodeMetadataProvider) {
+      BytecodeMetadataProvider bytecodeMetadataProvider,
+      Timing timing) {
     ProgramMethod method = code.context();
-    assert !method.getDefinition().getCode().isDexCode();
-    CfBuilder builder = new CfBuilder(appView, method, code, bytecodeMetadataProvider);
-    CfCode result = builder.build(deadCodeRemover, conversionOptions);
-    method.getDefinition().setCode(result, appView);
+    method.setCode(
+        new IRToCfFinalizer(appView, deadCodeRemover)
+            .finalizeCode(code, bytecodeMetadataProvider, timing),
+        appView);
     markProcessed(code, feedback);
   }
 
   private void finalizeToDex(
       IRCode code,
       OptimizationFeedback feedback,
-      MethodConversionOptions conversionOptions,
       BytecodeMetadataProvider bytecodeMetadataProvider,
       Timing timing) {
-    DexEncodedMethod method = code.method();
-    // Workaround massive dex2oat memory use for self-recursive methods.
-    CodeRewriter.disableDex2OatInliningForSelfRecursiveMethods(appView, code);
-    // Workaround MAX_INT switch issue.
-    codeRewriter.rewriteSwitchForMaxInt(code);
-    // Perform register allocation.
-    RegisterAllocator registerAllocator =
-        performRegisterAllocation(code, method, conversionOptions, timing);
-    timing.begin("Build DEX code");
-    method.setCode(code, bytecodeMetadataProvider, registerAllocator, appView);
-    timing.end();
-    updateHighestSortingStrings(method);
-    if (Log.ENABLED) {
-      Log.debug(getClass(), "Resulting dex code for %s:\n%s",
-          method.toSourceString(), logCode(options, method));
-    }
-    printMethod(code, "Final IR (non-SSA)", null);
-    timing.begin("Marking processed");
+    ProgramMethod method = code.context();
+    DexEncodedMethod definition = method.getDefinition();
+    method.setCode(
+        new IRToDexFinalizer(appView, deadCodeRemover)
+            .finalizeCode(code, bytecodeMetadataProvider, timing),
+        appView);
     markProcessed(code, feedback);
-    timing.end();
+    updateHighestSortingStrings(definition);
   }
 
   public void markProcessed(IRCode code, OptimizationFeedback feedback) {
@@ -1704,8 +1636,7 @@ public class IRConverter {
       return false;
     }
     DexEncodedMethod definition = method.getDefinition();
-    if (definition.isClassInitializer()
-        || definition.getOptimizationInfo().isReachabilitySensitive()) {
+    if (definition.isClassInitializer() || method.getOrComputeReachabilitySensitive(appView)) {
       return false;
     }
     KeepMethodInfo keepInfo = appView.getKeepInfo(method);
@@ -1725,209 +1656,6 @@ public class IRConverter {
         highestSortingString = highestSortingReferencedString;
       }
     }
-  }
-
-  private RegisterAllocator performRegisterAllocation(
-      IRCode code,
-      DexEncodedMethod method,
-      MethodConversionOptions conversionOptions,
-      Timing timing) {
-    // Always perform dead code elimination before register allocation. The register allocator
-    // does not allow dead code (to make sure that we do not waste registers for unneeded values).
-    assert deadCodeRemover.verifyNoDeadCode(code);
-    materializeInstructionBeforeLongOperationsWorkaround(code);
-    workaroundForwardingInitializerBug(code);
-    timing.begin("Allocate registers");
-    LinearScanRegisterAllocator registerAllocator = new LinearScanRegisterAllocator(appView, code);
-    registerAllocator.allocateRegisters();
-    timing.end();
-    if (options.canHaveExceptionTargetingLoopHeaderBug()) {
-      codeRewriter.workaroundExceptionTargetingLoopHeaderBug(code);
-    }
-    printMethod(code, "After register allocation (non-SSA)", null);
-    if (conversionOptions.isPeepholeOptimizationsEnabled()) {
-      timing.begin("Peephole optimize");
-      for (int i = 0; i < PEEPHOLE_OPTIMIZATION_PASSES; i++) {
-        CodeRewriter.collapseTrivialGotos(code);
-        PeepholeOptimizer.optimize(code, registerAllocator);
-      }
-      timing.end();
-    }
-    timing.begin("Clean up");
-    CodeRewriter.removeUnneededMovesOnExitingPaths(code, registerAllocator);
-    CodeRewriter.collapseTrivialGotos(code);
-    timing.end();
-    if (Log.ENABLED) {
-      Log.debug(getClass(), "Final (non-SSA) flow graph for %s:\n%s",
-          method.toSourceString(), code);
-    }
-    return registerAllocator;
-  }
-
-  private void workaroundForwardingInitializerBug(IRCode code) {
-    if (!options.canHaveForwardingInitInliningBug()) {
-      return;
-    }
-    // Only constructors.
-    if (!code.method().isInstanceInitializer()) {
-      return;
-    }
-    // Only constructors with certain signatures.
-    DexTypeList paramTypes = code.method().getReference().proto.parameters;
-    if (paramTypes.size() != 3 ||
-        paramTypes.values[0] != options.itemFactory.doubleType ||
-        paramTypes.values[1] != options.itemFactory.doubleType ||
-        !paramTypes.values[2].isClassType()) {
-      return;
-    }
-    // Only if the constructor contains a super constructor call taking only parameters as
-    // inputs.
-    for (BasicBlock block : code.blocks) {
-      InstructionListIterator it = block.listIterator(code);
-      Instruction superConstructorCall =
-          it.nextUntil(
-              (i) ->
-                  i.isInvokeDirect()
-                      && i.asInvokeDirect().getInvokedMethod().name
-                          == options.itemFactory.constructorMethodName
-                      && i.asInvokeDirect().arguments().size() == 4
-                      && i.asInvokeDirect().arguments().stream().allMatch(Value::isArgument));
-      if (superConstructorCall != null) {
-        // We force a materializing const instruction in front of the super call to make
-        // sure that there is at least one temporary register in the method. That disables
-        // the inlining that is crashing on these devices.
-        ensureInstructionBefore(code, superConstructorCall, it);
-        break;
-      }
-    }
-  }
-
-  /**
-   * For each block, we look to see if the header matches:
-   *
-   * <pre>
-   *   pseudo-instructions*
-   *   v2 <- long-{mul,div} v0 v1
-   *   pseudo-instructions*
-   *   v5 <- long-{add,sub} v3 v4
-   * </pre>
-   *
-   * where v2 ~=~ v3 or v2 ~=~ v4 (with ~=~ being equal or an alias of) and the block is not a
-   * fallthrough target.
-   */
-  private void materializeInstructionBeforeLongOperationsWorkaround(IRCode code) {
-    if (!options.canHaveDex2OatLinkedListBug()) {
-      return;
-    }
-    DexItemFactory factory = options.itemFactory;
-    final Supplier<DexMethod> javaLangLangSignum =
-        Suppliers.memoize(
-            () ->
-                factory.createMethod(
-                    factory.createString("Ljava/lang/Long;"),
-                    factory.createString("signum"),
-                    factory.intDescriptor,
-                    new DexString[] {factory.longDescriptor}));
-    for (BasicBlock block : code.blocks) {
-      InstructionListIterator it = block.listIterator(code);
-      Instruction firstMaterializing = it.nextUntil(IRConverter::isNotPseudoInstruction);
-      if (!isLongMul(firstMaterializing)) {
-        continue;
-      }
-      Instruction secondMaterializing = it.nextUntil(IRConverter::isNotPseudoInstruction);
-      if (!isLongAddOrSub(secondMaterializing)) {
-        continue;
-      }
-      if (isFallthoughTarget(block)) {
-        continue;
-      }
-      Value outOfMul = firstMaterializing.outValue();
-      for (Value inOfAddOrSub : secondMaterializing.inValues()) {
-        if (isAliasOf(inOfAddOrSub, outOfMul)) {
-          it = block.listIterator(code);
-          it.nextUntil(i -> i == firstMaterializing);
-          Value longValue = firstMaterializing.inValues().get(0);
-          InvokeStatic invokeLongSignum =
-              new InvokeStatic(
-                  javaLangLangSignum.get(), null, Collections.singletonList(longValue));
-          ensureThrowingInstructionBefore(code, firstMaterializing, it, invokeLongSignum);
-          return;
-        }
-      }
-    }
-  }
-
-  private static boolean isAliasOf(Value usedValue, Value definingValue) {
-    while (true) {
-      if (usedValue == definingValue) {
-        return true;
-      }
-      Instruction definition = usedValue.definition;
-      if (definition == null || !definition.isMove()) {
-        return false;
-      }
-      usedValue = definition.asMove().src();
-    }
-  }
-
-  private static boolean isNotPseudoInstruction(Instruction instruction) {
-    return !(instruction.isDebugInstruction() || instruction.isMove());
-  }
-
-  private static boolean isLongMul(Instruction instruction) {
-    return instruction != null
-        && instruction.isMul()
-        && instruction.asBinop().getNumericType() == NumericType.LONG
-        && instruction.outValue() != null;
-  }
-
-  private static boolean isLongAddOrSub(Instruction instruction) {
-    return instruction != null
-        && (instruction.isAdd() || instruction.isSub())
-        && instruction.asBinop().getNumericType() == NumericType.LONG;
-  }
-
-  private static boolean isFallthoughTarget(BasicBlock block) {
-    for (BasicBlock pred : block.getPredecessors()) {
-      if (pred.exit().fallthroughBlock() == block) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private void ensureThrowingInstructionBefore(
-      IRCode code, Instruction addBefore, InstructionListIterator it, Instruction instruction) {
-    Instruction check = it.previous();
-    assert addBefore == check;
-    BasicBlock block = check.getBlock();
-    if (block.hasCatchHandlers()) {
-      // Split so the existing instructions retain their handlers and the new instruction has none.
-      BasicBlock split = it.split(code);
-      assert split.hasCatchHandlers();
-      assert !block.hasCatchHandlers();
-      it = block.listIterator(code, block.getInstructions().size() - 1);
-    }
-    instruction.setPosition(addBefore.getPosition());
-    it.add(instruction);
-  }
-
-  private static void ensureInstructionBefore(
-      IRCode code, Instruction addBefore, InstructionListIterator it) {
-    // Force materialize a constant-zero before the long operation.
-    Instruction check = it.previous();
-    assert addBefore == check;
-    // Forced definition of const-zero
-    Value fixitValue = code.createValue(TypeElement.getInt());
-    Instruction fixitDefinition = new AlwaysMaterializingDefinition(fixitValue);
-    fixitDefinition.setBlock(addBefore.getBlock());
-    fixitDefinition.setPosition(addBefore.getPosition());
-    it.add(fixitDefinition);
-    // Forced user of the forced definition to ensure it has a user and thus live range.
-    Instruction fixitUser = new AlwaysMaterializingUser(fixitValue);
-    fixitUser.setBlock(addBefore.getBlock());
-    fixitUser.setPosition(addBefore.getPosition());
-    it.add(fixitUser);
   }
 
   private void printC1VisualizerHeader(DexEncodedMethod method) {

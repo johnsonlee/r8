@@ -704,7 +704,7 @@ public class Inliner {
       if (options.testing.inlineeIrModifier != null) {
         options.testing.inlineeIrModifier.accept(code);
       }
-      assert code.isConsistentSSA();
+      assert code.isConsistentSSA(appView);
       return new InlineeWithReason(code, reason);
     }
 
@@ -959,11 +959,11 @@ public class Inliner {
         if (current.isInvokeMethod()) {
           InvokeMethod invoke = current.asInvokeMethod();
           // TODO(b/142116551): This should be equivalent to invoke.lookupSingleTarget()!
-
+          DexMethod invokedMethod = invoke.getInvokedMethod();
           SingleResolutionResult resolutionResult =
               appView
                   .appInfo()
-                  .resolveMethod(invoke.getInvokedMethod(), invoke.getInterfaceBit())
+                  .resolveMethod(invokedMethod, invoke.getInterfaceBit())
                   .asSingleResolution();
           if (resolutionResult == null
               || resolutionResult.isAccessibleFrom(context, appView).isPossiblyFalse()) {
@@ -1105,7 +1105,7 @@ public class Inliner {
     classInitializationAnalysis.finish();
     code.removeBlocks(blocksToRemove);
     code.removeAllDeadAndTrivialPhis();
-    assert code.isConsistentSSA();
+    assert code.isConsistentSSA(appView);
   }
 
   private boolean tryInlineMethodWithoutSideEffects(

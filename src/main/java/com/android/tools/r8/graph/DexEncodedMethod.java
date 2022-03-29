@@ -43,12 +43,9 @@ import com.android.tools.r8.errors.InternalCompilerError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexAnnotation.AnnotatedKind;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
-import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
-import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
-import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.ir.optimize.NestUtils;
@@ -57,7 +54,6 @@ import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfoFixer;
 import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
-import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.android.tools.r8.ir.synthetic.ForwardMethodBuilder;
 import com.android.tools.r8.kotlin.KotlinMethodLevelInfo;
 import com.android.tools.r8.naming.ClassNameMapper;
@@ -81,7 +77,6 @@ import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -726,24 +721,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     compilationState = CompilationState.NOT_PROCESSED;
   }
 
-  public void setCode(Code newCode, AppView<?> appView) {
+  public void setCode(Code code, Int2ReferenceMap<DebugLocalInfo> parameterInfo) {
     checkIfObsolete();
-    // If the locals are not kept, we might still need information to satisfy -keepparameternames.
-    // The information needs to be retrieved on the original code object before replacing it.
-    if (code != null && code.isCfCode() && !hasParameterInfo() && !keepLocals(appView.options())) {
-      setParameterInfo(code.collectParameterInfo(this, appView));
-    }
-    code = newCode;
-  }
-
-  public void setCode(
-      IRCode ir,
-      BytecodeMetadataProvider bytecodeMetadataProvider,
-      RegisterAllocator registerAllocator,
-      AppView<?> appView) {
-    checkIfObsolete();
-    DexBuilder builder = new DexBuilder(ir, bytecodeMetadataProvider, registerAllocator);
-    setCode(builder.build(), appView);
+    this.code = code;
+    this.parameterInfo = parameterInfo;
   }
 
   public void unsetCode() {
@@ -751,23 +732,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     code = null;
   }
 
-  public boolean keepLocals(InternalOptions options) {
-    if (options.testing.noLocalsTableOnInput) {
-      return false;
-    }
-    return options.debug || getOptimizationInfo().isReachabilitySensitive();
-  }
-
-  private void setParameterInfo(Int2ReferenceMap<DebugLocalInfo> parameterInfo) {
-    assert this.parameterInfo == NO_PARAMETER_INFO;
-    this.parameterInfo = parameterInfo;
-  }
-
   public boolean hasParameterInfo() {
     return parameterInfo != NO_PARAMETER_INFO;
   }
 
-  public Map<Integer, DebugLocalInfo> getParameterInfo() {
+  public Int2ReferenceMap<DebugLocalInfo> getParameterInfo() {
     return parameterInfo;
   }
 

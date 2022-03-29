@@ -4,6 +4,7 @@
 package com.android.tools.r8.resolution.access;
 
 import static com.android.tools.r8.TestRuntime.CfVm.JDK11;
+import static com.android.tools.r8.TestRuntime.CfVm.JDK17;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -71,7 +72,7 @@ public class NestVirtualMethodAccessWithIntermediateClassTest extends TestBase {
     DexProgramClass bClass =
         appInfo.definitionFor(buildType(B.class, appInfo.dexItemFactory())).asProgramClass();
     DexMethod bar = buildMethod(A.class.getDeclaredMethod("bar"), appInfo.dexItemFactory());
-    MethodResolutionResult resolutionResult = appInfo.resolveMethodOnClass(bar);
+    MethodResolutionResult resolutionResult = appInfo.resolveMethodOnClassHolder(bar);
     assertEquals(OptionalBool.of(inSameNest), resolutionResult.isAccessibleFrom(bClass, appInfo));
   }
 
@@ -81,7 +82,13 @@ public class NestVirtualMethodAccessWithIntermediateClassTest extends TestBase {
         .addProgramClasses(getClasses())
         .addProgramClassFileData(getTransformedClasses())
         .run(parameters.getRuntime(), Main.class)
-        .apply(runResult -> checkExpectedResult(runResult, false));
+        .applyIf(
+            // TODO(b/227160049): Incorrect nest-based access allowed on JDK17!?
+            inSameNest
+                && parameters.isCfRuntime()
+                && parameters.asCfRuntime().isNewerThanOrEqual(JDK17),
+            runResult -> runResult.assertSuccessWithOutputLines("A::bar"),
+            runResult -> checkExpectedResult(runResult, false));
   }
 
   @Test

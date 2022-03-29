@@ -20,6 +20,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
+import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.desugar.TypeRewriter;
@@ -276,57 +277,54 @@ public final class D8 {
       namingLens = PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView, namingLens);
       namingLens = RecordRewritingNamingLens.createRecordRewritingNamingLens(appView, namingLens);
 
+      if (options.isGeneratingDex()
+          && hasDexResources
+          && hasClassResources
+          && appView.typeRewriter.isRewriting()) {
+        // There are both cf and dex inputs in the program, and rewriting is required for
+        // desugared library only on cf inputs. We cannot easily rewrite part of the program
+        // without iterating again the IR. We fall-back to writing one app with rewriting and
+        // merging it with the other app in rewriteNonDexInputs.
+        timing.begin("Rewrite non-dex inputs");
+        DexApplication app =
+            rewriteNonDexInputs(
+                appView, inputApp, options, executor, timing, appView.appInfo().app(), namingLens);
+        timing.end();
+        appView.setAppInfo(
+            new AppInfo(
+                appView.appInfo().getSyntheticItems().commit(app),
+                appView.appInfo().getMainDexInfo()));
+        namingLens = NamingLens.getIdentityLens();
+      } else if (options.isGeneratingDex() && hasDexResources) {
+        namingLens = NamingLens.getIdentityLens();
+      }
+
+      // Since tracing is not lens aware, this needs to be done prior to synthetic finalization
+      // which will construct a graph lens.
+      if (options.isGeneratingDex() && !options.mainDexKeepRules.isEmpty()) {
+        appView.dexItemFactory().clearTypeElementsCache();
+        MainDexInfo mainDexInfo =
+            new GenerateMainDexList(options)
+                .traceMainDex(
+                    executor, appView.appInfo().app(), appView.appInfo().getMainDexInfo());
+        appView.setAppInfo(appView.appInfo().rebuildWithMainDexInfo(mainDexInfo));
+      }
+
+      finalizeApplication(appView, executor);
+
+      HorizontalClassMerger.createForD8ClassMerging(appView).runIfNecessary(executor, timing);
+
+      new GenericSignatureRewriter(appView, namingLens)
+          .runForD8(appView.appInfo().classes(), executor);
+      new KotlinMetadataRewriter(appView, namingLens).runForD8(executor);
+
       if (options.isGeneratingClassFiles()) {
-        finalizeApplication(appView, executor);
         new CfApplicationWriter(appView, marker, namingLens)
             .write(options.getClassFileConsumer(), inputApp);
       } else {
-        if (!hasDexResources || !hasClassResources || !appView.typeRewriter.isRewriting()) {
-          // All inputs are either dex or cf, or there is nothing to rewrite.
-          namingLens = hasDexResources ? NamingLens.getIdentityLens() : namingLens;
-          new GenericSignatureRewriter(appView, namingLens)
-              .run(appView.appInfo().classes(), executor);
-          new KotlinMetadataRewriter(appView, namingLens).runForD8(executor);
-        } else {
-          // There are both cf and dex inputs in the program, and rewriting is required for
-          // desugared library only on cf inputs. We cannot easily rewrite part of the program
-          // without iterating again the IR. We fall-back to writing one app with rewriting and
-          // merging it with the other app in rewriteNonDexInputs.
-          timing.begin("Rewrite non-dex inputs");
-          DexApplication app =
-              rewriteNonDexInputs(
-                  appView,
-                  inputApp,
-                  options,
-                  executor,
-                  timing,
-                  appView.appInfo().app(),
-                  namingLens);
-          timing.end();
-          appView.setAppInfo(
-              new AppInfo(
-                  appView.appInfo().getSyntheticItems().commit(app),
-                  appView.appInfo().getMainDexInfo()));
-          namingLens = NamingLens.getIdentityLens();
-        }
-
-        // Since tracing is not lens aware, this needs to be done prior to synthetic finalization
-        // which will construct a graph lens.
-        if (!options.mainDexKeepRules.isEmpty()) {
-          appView.dexItemFactory().clearTypeElementsCache();
-          MainDexInfo mainDexInfo =
-              new GenerateMainDexList(options)
-                  .traceMainDex(
-                      executor, appView.appInfo().app(), appView.appInfo().getMainDexInfo());
-          appView.setAppInfo(appView.appInfo().rebuildWithMainDexInfo(mainDexInfo));
-        }
-
-        finalizeApplication(appView, executor);
-
-        if (options.apiModelingOptions().enableStubbingOfClasses && !appView.options().debug) {
+        if (options.apiModelingOptions().enableStubbingOfClasses) {
           new ApiReferenceStubber(appView).run(executor);
         }
-
         new ApplicationWriter(
                 appView,
                 marker == null ? null : ImmutableList.copyOf(markers),

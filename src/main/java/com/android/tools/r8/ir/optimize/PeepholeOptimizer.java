@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstNumber;
@@ -36,17 +37,18 @@ public class PeepholeOptimizer {
   /**
    * Perform optimizations of the code with register assignments provided by the register allocator.
    */
-  public static void optimize(IRCode code, LinearScanRegisterAllocator allocator) {
+  public static void optimize(
+      AppView<?> appView, IRCode code, LinearScanRegisterAllocator allocator) {
     removeIdenticalPredecessorBlocks(code, allocator);
     removeRedundantInstructions(code, allocator);
     shareIdenticalBlockPrefix(code, allocator);
     shareIdenticalBlockSuffix(code, allocator, 0);
-    assert code.isConsistentGraph();
+    assert code.isConsistentGraph(appView);
   }
 
   /** Identify common prefixes in successor blocks and share them. */
   private static void shareIdenticalBlockPrefix(IRCode code, RegisterAllocator allocator) {
-    InstructionEquivalence equivalence = new InstructionEquivalence(allocator);
+    InstructionEquivalence equivalence = new InstructionEquivalence(allocator, code);
     Set<BasicBlock> blocksToBeRemoved = Sets.newIdentityHashSet();
     for (BasicBlock block : code.blocks) {
       shareIdenticalBlockPrefixFromNormalSuccessors(
@@ -244,7 +246,7 @@ public class PeepholeOptimizer {
     do {
       Map<BasicBlock, BasicBlock> newBlocks = new IdentityHashMap<>();
       for (BasicBlock block : blocks) {
-        InstructionEquivalence equivalence = new InstructionEquivalence(allocator);
+        InstructionEquivalence equivalence = new InstructionEquivalence(allocator, code);
         // Group interesting predecessor blocks by their last instruction.
         Map<Wrapper<Instruction>, List<BasicBlock>> lastInstructionToBlocks = new HashMap<>();
         for (BasicBlock pred : block.getPredecessors()) {
@@ -284,7 +286,7 @@ public class PeepholeOptimizer {
             BasicBlock pred = predsWithSameLastInstruction.get(i);
             assert pred.exit().isGoto() || pred.exit().isReturn();
             commonSuffixSize =
-                Math.min(commonSuffixSize, sharedSuffixSize(firstPred, pred, allocator));
+                Math.min(commonSuffixSize, sharedSuffixSize(firstPred, pred, allocator, code));
           }
 
           int sizeDelta = overhead - (predsWithSameLastInstruction.size() - 1) * commonSuffixSize;
@@ -403,7 +405,7 @@ public class PeepholeOptimizer {
   }
 
   private static int sharedSuffixSize(
-      BasicBlock block0, BasicBlock block1, RegisterAllocator allocator) {
+      BasicBlock block0, BasicBlock block1, RegisterAllocator allocator, IRCode code) {
     assert block0.exit().isGoto() || block0.exit().isReturn();
     // If the blocks do not agree on locals at exit then they don't have any shared suffix.
     if (!Objects.equals(localsAtBlockExit(block0), localsAtBlockExit(block1))) {
@@ -415,7 +417,7 @@ public class PeepholeOptimizer {
     while (it0.hasPrevious() && it1.hasPrevious()) {
       Instruction i0 = it0.previous();
       Instruction i1 = it1.previous();
-      if (!i0.identicalAfterRegisterAllocation(i1, allocator)) {
+      if (!i0.identicalAfterRegisterAllocation(i1, allocator, code.getConversionOptions())) {
         return suffixSize;
       }
       suffixSize++;

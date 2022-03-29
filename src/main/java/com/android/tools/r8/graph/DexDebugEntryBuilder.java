@@ -3,8 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.graph.DexDebugEvent.SetOutlineCallerFrame;
-import com.android.tools.r8.graph.DexDebugEvent.SetOutlineFrame;
+import com.android.tools.r8.graph.DexDebugEvent.SetPositionFrame;
 import com.android.tools.r8.graph.DexDebugInfo.EventBasedDebugInfo;
 import com.android.tools.r8.ir.code.ValueType;
 import com.google.common.collect.ImmutableMap;
@@ -111,18 +110,8 @@ public class DexDebugEntryBuilder implements DexDebugEventVisitor {
   }
 
   @Override
-  public void visit(DexDebugEvent.SetInlineFrame setInlineFrame) {
-    positionState.visit(setInlineFrame);
-  }
-
-  @Override
-  public void visit(SetOutlineFrame setOutlineFrame) {
-    positionState.visit(setOutlineFrame);
-  }
-
-  @Override
-  public void visit(SetOutlineCallerFrame setOutlineCallerFrame) {
-    positionState.visit(setOutlineCallerFrame);
+  public void visit(SetPositionFrame setPositionFrame) {
+    positionState.visit(setPositionFrame);
   }
 
   @Override
@@ -181,7 +170,10 @@ public class DexDebugEntryBuilder implements DexDebugEventVisitor {
               pending.epilogueBegin,
               getLocals(),
               pending.method,
-              pending.callerPosition));
+              pending.callerPosition,
+              pending.isOutline,
+              pending.outlineCallee,
+              pending.outlineCallerPositions));
     }
     pending =
         new DexDebugEntry(
@@ -193,7 +185,10 @@ public class DexDebugEntryBuilder implements DexDebugEventVisitor {
             epilogueBegin,
             null,
             positionState.getCurrentMethod(),
-            positionState.getCurrentCallerPosition());
+            positionState.getCurrentCallerPosition(),
+            positionState.isOutline(),
+            positionState.getOutlineCallee(),
+            positionState.getOutlineCallerPositions());
     prologueEnd = false;
     epilogueBegin = false;
   }
