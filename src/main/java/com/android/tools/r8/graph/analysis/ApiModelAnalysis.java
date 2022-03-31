@@ -64,7 +64,7 @@ public class ApiModelAnalysis extends EnqueuerAnalysis {
   @Override
   public void notifyMarkVirtualDispatchTargetAsLive(LookupTarget target) {
     target.accept(
-        this::computeAndSetApiLevelForDefinition,
+        lookupMethodTarget -> computeAndSetApiLevelForDefinition(lookupMethodTarget.getTarget()),
         lookupLambdaTarget -> {
           // The implementation method will be assigned an api level when visited.
         });

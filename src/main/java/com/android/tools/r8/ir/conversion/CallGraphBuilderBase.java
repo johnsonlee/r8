@@ -227,7 +227,8 @@ abstract class CallGraphBuilderBase {
                     lookupResult
                         .asLookupResultSuccess()
                         .forEach(
-                            methodTarget -> {
+                            lookupMethodTarget -> {
+                              DexClassAndMethod methodTarget = lookupMethodTarget.getTarget();
                               if (methodTarget.isProgramMethod()) {
                                 targets.add(methodTarget.asProgramMethod());
                               }

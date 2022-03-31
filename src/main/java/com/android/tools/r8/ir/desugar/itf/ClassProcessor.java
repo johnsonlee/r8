@@ -25,6 +25,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GenericSignature;
 import com.android.tools.r8.graph.GenericSignature.ClassTypeSignature;
 import com.android.tools.r8.graph.LibraryMethod;
+import com.android.tools.r8.graph.LookupMethodTarget;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -718,8 +719,9 @@ final class ClassProcessor {
       }
     }
     assert resolutionResult.isSuccessfulMemberResolutionResult();
-    DexClassAndMethod virtualDispatchTarget =
+    LookupMethodTarget lookupMethodTarget =
         resolutionResult.lookupVirtualDispatchTarget(clazz, appInfo);
+    DexClassAndMethod virtualDispatchTarget = lookupMethodTarget.getTarget();
     assert virtualDispatchTarget != null;
 
     // Don't forward if the target is explicitly marked as 'dont-rewrite'
