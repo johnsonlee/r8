@@ -25,7 +25,6 @@ import com.android.tools.r8.dex.Marker.Backend;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.errors.ExperimentalClassFileVersionDiagnostic;
 import com.android.tools.r8.errors.IncompleteNestNestDesugarDiagnosic;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.android.tools.r8.errors.InvalidDebugInfoException;
@@ -108,6 +107,7 @@ import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.objectweb.asm.Opcodes;
 
 public class InternalOptions implements GlobalKeepInfoConfiguration {
@@ -138,7 +138,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public static final CfVersion SUPPORTED_CF_VERSION = CfVersion.V17;
-  public static final CfVersion EXPERIMENTAL_CF_VERSION = CfVersion.V14;
 
   public static final int SUPPORTED_DEX_VERSION =
       AndroidApiLevel.LATEST.getDexVersion().getIntValue();
@@ -272,9 +271,34 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // Flag to toggle if DEX code objects should pass-through without IR processing.
   public boolean passthroughDexCode = false;
 
+  public static class NeverMergeGroup<T> {
+    private final List<T> prefixes;
+    private final List<T> exceptionPrefixes;
+
+    NeverMergeGroup(List<T> prefixes, List<T> exceptionPrefixes) {
+      this.prefixes = prefixes;
+      this.exceptionPrefixes = exceptionPrefixes;
+    }
+
+    public List<T> getPrefixes() {
+      return prefixes;
+    }
+
+    public List<T> getExceptionPrefixes() {
+      return exceptionPrefixes;
+    }
+
+    public <R> NeverMergeGroup<R> map(Function<T, R> fn) {
+      return new NeverMergeGroup<>(
+          prefixes.stream().map(fn).collect(Collectors.toList()),
+          exceptionPrefixes.stream().map(fn).collect(Collectors.toList()));
+    }
+  }
+
   // Flag to toggle if the prefix based merge restriction should be enforced.
   public boolean enableNeverMergePrefixes = true;
-  public Set<String> neverMergePrefixes = ImmutableSet.of("j$.");
+  public NeverMergeGroup<String> neverMerge =
+      new NeverMergeGroup<>(ImmutableList.of("j$."), ImmutableList.of("java."));
 
   public boolean classpathInterfacesMayHaveStaticInitialization = false;
   public boolean libraryInterfacesMayHaveStaticInitialization = false;
@@ -1135,23 +1159,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
   }
 
-  private final Box<Boolean> reportedExperimentClassFileVersion = new Box<>(false);
-
-  public void warningExperimentalClassFileVersion(Origin origin) {
-    synchronized (reportedExperimentClassFileVersion) {
-      if (reportedExperimentClassFileVersion.get()) {
-        return;
-      }
-      reportedExperimentClassFileVersion.set(true);
-      reporter.warning(
-          new ExperimentalClassFileVersionDiagnostic(
-              origin,
-              "One or more classes has class file version >= "
-                  + EXPERIMENTAL_CF_VERSION.major()
-                  + " which is not officially supported."));
-    }
-  }
-
   public boolean printWarnings() {
     boolean printed = false;
     boolean printOutdatedToolchain = false;
@@ -1720,10 +1727,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       if (determinismChecker != null) {
         consumer.acceptWithRuntimeException(determinismChecker);
       }
-    }
-
-    public static void allowExperimentClassFileVersion(InternalOptions options) {
-      options.reportedExperimentClassFileVersion.set(true);
     }
 
     public static int NO_LIMIT = -1;

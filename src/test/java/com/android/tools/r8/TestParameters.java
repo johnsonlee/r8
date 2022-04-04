@@ -31,6 +31,14 @@ public class TestParameters {
     this.apiLevel = apiLevel;
   }
 
+  public static TestParametersBuilder builder() {
+    return new TestParametersBuilder();
+  }
+
+  public static TestParametersCollection justNoneRuntime() {
+    return builder().withNoneRuntime().build();
+  }
+
   public boolean canUseDefaultAndStaticInterfaceMethods() {
     assert isCfRuntime() || isDexRuntime();
     assert !isCfRuntime() || apiLevel == null

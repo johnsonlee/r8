@@ -4,9 +4,11 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification;
 
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.SemanticVersion;
@@ -82,8 +84,16 @@ public class MachineDesugaredLibrarySpecification {
     return rewritingFlags.getRewriteType();
   }
 
+  public Set<DexType> getMaintainType() {
+    return rewritingFlags.getMaintainType();
+  }
+
   public Map<DexType, DexType> getRewriteDerivedTypeOnly() {
     return rewritingFlags.getRewriteDerivedTypeOnly();
+  }
+
+  public Map<DexField, DexField> getStaticFieldRetarget() {
+    return rewritingFlags.getStaticFieldRetarget();
   }
 
   public Map<DexMethod, DexMethod> getStaticRetarget() {
@@ -141,6 +151,10 @@ public class MachineDesugaredLibrarySpecification {
 
   public Map<DexMethod, MethodAccessFlags> getAmendLibraryMethods() {
     return rewritingFlags.getAmendLibraryMethod();
+  }
+
+  public Map<DexField, FieldAccessFlags> getAmendLibraryFields() {
+    return rewritingFlags.getAmendLibraryField();
   }
 
   public boolean hasRetargeting() {

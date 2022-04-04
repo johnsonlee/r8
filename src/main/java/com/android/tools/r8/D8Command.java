@@ -539,7 +539,6 @@ public final class D8Command extends BaseCompilerCommand {
     assert !internal.isMinifying();
     assert !internal.passthroughDexCode;
     internal.passthroughDexCode = true;
-    assert internal.neverMergePrefixes.contains("j$.");
 
     // Assert some of R8 optimizations are disabled.
     assert !internal.inlinerOptions().enableInlining;
@@ -580,7 +579,9 @@ public final class D8Command extends BaseCompilerCommand {
     HorizontalClassMergerOptions horizontalClassMergerOptions =
         internal.horizontalClassMergerOptions();
     if (internal.isGeneratingDex()) {
-      horizontalClassMergerOptions.setRestrictToSynthetics();
+      // TODO(b/227791663): Disable until fixed.
+      horizontalClassMergerOptions.disable();
+      // horizontalClassMergerOptions.setRestrictToSynthetics();
     } else {
       assert internal.isGeneratingClassFiles();
       horizontalClassMergerOptions.disable();
