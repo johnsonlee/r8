@@ -32,7 +32,7 @@ import com.android.tools.r8.errors.InvalidLibrarySuperclassDiagnostic;
 import com.android.tools.r8.errors.MissingNestHostNestDesugarDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
-import com.android.tools.r8.experimental.startup.StartupConfiguration;
+import com.android.tools.r8.experimental.startup.StartupOptions;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -168,7 +168,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public DataResourceConsumer dataResourceConsumer;
   public FeatureSplitConfiguration featureSplitConfiguration;
-  public StartupConfiguration startupConfiguration;
 
   public List<Consumer<InspectorImpl>> outputInspections = Collections.emptyList();
 
@@ -786,6 +785,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       new KotlinOptimizationOptions();
   private final ApiModelTestingOptions apiModelTestingOptions = new ApiModelTestingOptions();
   private final DesugarSpecificOptions desugarSpecificOptions = new DesugarSpecificOptions();
+  private final StartupOptions startupOptions = new StartupOptions();
   public final TestingOptions testing = new TestingOptions();
 
   public List<ProguardConfigurationRule> mainDexKeepRules = ImmutableList.of();
@@ -837,6 +837,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return openClosedInterfacesOptions;
   }
 
+  public StartupOptions getStartupOptions() {
+    return startupOptions;
+  }
+
   private static Set<String> getExtensiveLoggingFilter() {
     String property = System.getProperty("com.android.tools.r8.extensiveLoggingFilter");
     if (property != null) {
@@ -862,11 +866,22 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return ImmutableSet.of();
   }
 
-  private static boolean isSystemPropertyForDevelopmentSet(String propertyName) {
+  public static boolean isSystemPropertyForDevelopmentSet(String propertyName) {
     if (Version.isDevelopmentVersion()) {
       return System.getProperty(propertyName) != null;
     }
     return false;
+  }
+
+  public static String getSystemPropertyForDevelopmentOrDefault(
+      String propertyName, String defaultValue) {
+    if (Version.isDevelopmentVersion()) {
+      String propertyValue = System.getProperty(propertyName);
+      if (propertyValue != null) {
+        return propertyValue;
+      }
+    }
+    return defaultValue;
   }
 
   private static int parseSystemPropertyForDevelopmentOrDefault(
@@ -969,9 +984,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       MachineDesugaredLibrarySpecification.empty();
 
   public TypeRewriter getTypeRewriter() {
-    return machineDesugaredLibrarySpecification.getRewriteType().isEmpty()
-        ? TypeRewriter.empty()
-        : new MachineDesugarPrefixRewritingMapper(machineDesugaredLibrarySpecification);
+    return machineDesugaredLibrarySpecification.requiresTypeRewriting()
+        ? new MachineDesugarPrefixRewritingMapper(machineDesugaredLibrarySpecification)
+        : TypeRewriter.empty();
   }
 
   public boolean relocatorCompilation = false;

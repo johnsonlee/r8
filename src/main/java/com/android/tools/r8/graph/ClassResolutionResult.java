@@ -14,7 +14,16 @@ public interface ClassResolutionResult {
 
   DexClass toSingleClassWithProgramOverLibrary();
 
+  // The alternative class is:
+  // - the other class than the single class if the resolution resolves into multiple classes,
+  // - null if the resolution resolves into a single class.
+  DexClass toAlternativeClassWithProgramOverLibrary();
+
   void forEachClassResolutionResult(Consumer<DexClass> consumer);
+
+  default boolean isMultipleClassResolutionResult() {
+    return false;
+  }
 
   static Builder builder() {
     return new Builder();
@@ -86,6 +95,11 @@ public interface ClassResolutionResult {
     }
 
     @Override
+    public DexClass toAlternativeClassWithProgramOverLibrary() {
+      return null;
+    }
+
+    @Override
     public void forEachClassResolutionResult(Consumer<DexClass> consumer) {
       // Intentionally empty
     }
@@ -112,6 +126,11 @@ public interface ClassResolutionResult {
       consumer.accept(programOrClasspathClass);
       consumer.accept(libraryClass);
     }
+
+    @Override
+    public boolean isMultipleClassResolutionResult() {
+      return true;
+    }
   }
 
   class ProgramAndLibraryClassResolutionResult
@@ -126,6 +145,11 @@ public interface ClassResolutionResult {
     public DexClass toSingleClassWithProgramOverLibrary() {
       return programOrClasspathClass;
     }
+
+    @Override
+    public DexClass toAlternativeClassWithProgramOverLibrary() {
+      return libraryClass;
+    }
   }
 
   class ClasspathAndLibraryClassResolutionResult
@@ -139,6 +163,11 @@ public interface ClassResolutionResult {
     @Override
     public DexClass toSingleClassWithProgramOverLibrary() {
       return libraryClass;
+    }
+
+    @Override
+    public DexClass toAlternativeClassWithProgramOverLibrary() {
+      return programOrClasspathClass;
     }
   }
 }

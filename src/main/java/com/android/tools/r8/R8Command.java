@@ -945,8 +945,10 @@ public final class R8Command extends BaseCompilerCommand {
 
     internal.featureSplitConfiguration = featureSplitConfiguration;
 
-    internal.startupConfiguration =
-        StartupConfiguration.createStartupConfiguration(getDexItemFactory(), getReporter());
+    internal
+        .getStartupOptions()
+        .setStartupConfiguration(
+            StartupConfiguration.createStartupConfiguration(getDexItemFactory(), getReporter()));
 
     internal.syntheticProguardRulesConsumer = syntheticProguardRulesConsumer;
 
@@ -983,6 +985,8 @@ public final class R8Command extends BaseCompilerCommand {
 
     internal.setDesugaredLibrarySpecification(desugaredLibrarySpecification);
     internal.synthesizedClassPrefix = synthesizedClassPrefix;
+    // TODO(b/214382176): Enable all the time.
+    internal.loadAllClassDefinitions = !synthesizedClassPrefix.isEmpty();
     internal.desugaredLibraryKeepRuleConsumer = desugaredLibraryKeepRuleConsumer;
 
     // Set up the map and source file providers.
