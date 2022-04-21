@@ -2907,6 +2907,9 @@ public class Enqueuer {
           markFieldAsLive(field, clazz, reason);
         }
       }
+      if (clazz.superType == null) {
+        break;
+      }
       clazz = getProgramClassOrNull(clazz.superType, clazz);
     } while (clazz != null && !objectAllocationInfoCollection.isInstantiatedDirectly(clazz));
   }
