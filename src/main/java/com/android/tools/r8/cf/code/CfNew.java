@@ -23,6 +23,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import java.util.ListIterator;
 import org.objectweb.asm.MethodVisitor;
@@ -122,5 +123,16 @@ public class CfNew extends CfInstruction implements CfTypeInstruction {
     // ... →
     // ..., objectref
     frameBuilder.push(FrameType.uninitializedNew(new CfLabel(), type));
+  }
+
+  @Override
+  public CfFrameState evaluate(
+      CfFrameState frame,
+      ProgramMethod context,
+      AppView<?> appView,
+      DexItemFactory dexItemFactory) {
+    // ... →
+    // ..., objectref
+    return frame.push(FrameType.uninitializedNew(new CfLabel(), type));
   }
 }

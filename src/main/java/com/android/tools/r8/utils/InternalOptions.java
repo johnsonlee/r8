@@ -360,6 +360,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean enableRedundantFieldLoadElimination = true;
   // TODO(b/138917494): Disable until we have numbers on potential performance penalties.
   public boolean enableRedundantConstNumberOptimization = false;
+  public boolean enableLoopUnrolling = true;
 
   public String synthesizedClassPrefix = "";
 
@@ -1671,6 +1672,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public void disableApiCallerIdentification() {
       enableApiCallerIdentification = false;
     }
+
+    public void disableSubbingOfClasses() {
+      enableStubbingOfClasses = false;
+    }
   }
 
   public static class ProtoShrinkingOptions {
@@ -1815,7 +1820,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableEnumUnboxingDebugLogs = false;
     public boolean forceRedundantConstNumberRemoval = false;
     public boolean enableExperimentalDesugaredLibraryKeepRuleGenerator = false;
-    public boolean enableExperimentalLoopUnrolling = false;
     public boolean invertConditionals = false;
     public boolean placeExceptionalBlocksLast = false;
     public boolean dontCreateMarkerInD8 = false;

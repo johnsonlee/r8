@@ -369,7 +369,7 @@ def cloudDependencies = [
                 "linux/art-9.0.0",
                 "linux/art-10.0.0",
                 "linux/host/art-12.0.0-beta4",
-                "linux/host/art-13-master",
+                "linux/host/art-13-dev",
                 "linux/dalvik",
                 "linux/dalvik-4.0.4",
                 "${osString}/dx",
@@ -927,15 +927,6 @@ task r8NoManifest(type: Copy) {
     into file("${buildDir}/libs")
     rename { String fileName -> "r8_no_manifest.jar" }
     outputs.file "${buildDir}/libs/r8_no_manifest.jar"
-}
-
-task D8(type: Jar) {
-    dependsOn r8
-    from zipTree(r8.outputs.files[0])
-    archiveFileName = 'd8.jar'
-    manifest {
-        attributes 'Main-Class': 'com.android.tools.r8.D8'
-    }
 }
 
 def baseCompilerCommandLine(compiler, args = []) {

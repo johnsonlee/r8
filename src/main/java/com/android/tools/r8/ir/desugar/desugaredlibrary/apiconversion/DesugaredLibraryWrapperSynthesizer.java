@@ -287,7 +287,7 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
                 + invokedMethod.holder
                 + "#"
                 + invokedMethod.name
-                + " may not work correctly at runtime (Cannot convert type "
+                + " may not work correctly at runtime (No conversion registered for type "
                 + desugaredType
                 + ").",
             origin,
@@ -520,12 +520,13 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
         .setInterfaces(interfaces)
         .setSuperType(superType)
         .setInstanceFields(Collections.singletonList(wrapperField))
-        .addMethod(methodBuilder -> buildWrapperConstructor(wrapperField, methodBuilder));
+        .addMethod(
+            methodBuilder -> buildWrapperConstructor(wrapperField, methodBuilder, superType));
     return wrapperField;
   }
 
   private void buildWrapperConstructor(
-      DexEncodedField wrappedValueField, SyntheticMethodBuilder methodBuilder) {
+      DexEncodedField wrappedValueField, SyntheticMethodBuilder methodBuilder, DexType superType) {
     methodBuilder
         .setName(factory.constructorMethodName)
         .setProto(factory.createProto(factory.voidType, wrappedValueField.getType()))
@@ -536,7 +537,8 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
         .disableAndroidApiLevelCheck()
         .setCode(
             codeSynthesizor ->
-                new APIConverterConstructorCfCodeProvider(appView, wrappedValueField.getReference())
+                new APIConverterConstructorCfCodeProvider(
+                        appView, wrappedValueField.getReference(), superType)
                     .generateCfCode());
   }
 
@@ -650,7 +652,7 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
 
   @Override
   public String uniqueIdentifier() {
-    return "$wrapper$";
+    return "$wrapper";
   }
 
   // Program wrappers are harder to deal with than classpath wrapper because generating a method's

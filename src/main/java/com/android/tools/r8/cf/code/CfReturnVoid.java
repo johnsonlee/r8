@@ -19,11 +19,22 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
+import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
+import java.util.function.BiFunction;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 public class CfReturnVoid extends CfInstruction {
+
+  @Override
+  public <BT, CT> TraversalContinuation<BT, CT> traverseNormalTargets(
+      BiFunction<? super CfInstruction, ? super CT, TraversalContinuation<BT, CT>> fn,
+      CfInstruction fallthroughInstruction,
+      CT initialValue) {
+    return TraversalContinuation.doContinue(initialValue);
+  }
 
   @Override
   public boolean isJump() {
@@ -92,5 +103,14 @@ public class CfReturnVoid extends CfInstruction {
       AppView<?> appView,
       DexItemFactory dexItemFactory) {
     frameBuilder.setNoFrame();
+  }
+
+  @Override
+  public CfFrameState evaluate(
+      CfFrameState frame,
+      ProgramMethod context,
+      AppView<?> appView,
+      DexItemFactory dexItemFactory) {
+    return CfFrameState.bottom();
   }
 }

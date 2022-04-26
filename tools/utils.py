@@ -51,7 +51,6 @@ R8LIB_TESTS_TARGET = 'configureTestForR8Lib'
 R8LIB_TESTS_DEPS_TARGET = R8_TESTS_DEPS_TARGET
 
 ALL_DEPS_JAR = os.path.join(LIBS, 'deps_all.jar')
-D8_JAR = os.path.join(LIBS, 'd8.jar')
 R8_JAR = os.path.join(LIBS, 'r8.jar')
 R8_WITH_RELOCATED_DEPS_JAR = os.path.join(LIBS, 'r8_with_relocated_deps.jar')
 R8LIB_JAR = os.path.join(LIBS, 'r8lib.jar')
@@ -102,6 +101,7 @@ ANDROID_TOOLS_VERSION_ENVIRONMENT_NAME = "ANDROID_TOOLS_VERSION"
 USER_HOME = os.path.expanduser('~')
 
 R8_TEST_RESULTS_BUCKET = 'r8-test-results'
+R8_INTERNAL_TEST_RESULTS_BUCKET = 'r8-internal-test-results'
 
 def archive_file(name, gs_dir, src_file):
   gs_file = '%s/%s' % (gs_dir, name)
@@ -344,7 +344,9 @@ def upload_dir_to_cloud_storage(directory, destination, is_html=False, public_re
   if is_html:
     cmd += ['-z', 'html']
   if public_read:
-    cmd += ['-a', 'public-read']
+    # TODO(b/177799191) Temporarily disable public-read to test uniform access control
+    if 'r8-test-results' not in destination:
+      cmd += ['-a', 'public-read']
   cmd += ['-R', directory, destination]
   PrintCmd(cmd)
   subprocess.check_call(cmd)

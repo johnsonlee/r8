@@ -65,6 +65,7 @@ import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.kotlin.KotlinClassLevelInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Timing;
@@ -79,7 +80,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 final class InlineCandidateProcessor {
 
@@ -218,7 +218,7 @@ final class InlineCandidateProcessor {
    *
    * @return null if all users are eligible, or the first ineligible user.
    */
-  InstructionOrPhi areInstanceUsersEligible(Supplier<InliningOracle> defaultOracle) {
+  InstructionOrPhi areInstanceUsersEligible(LazyBox<InliningOracle> defaultOracle) {
     // No Phi users.
     if (eligibleInstance.hasPhiUsers()) {
       return eligibleInstance.firstPhiUser(); // Not eligible.
@@ -294,7 +294,7 @@ final class InlineCandidateProcessor {
           SingleResolutionResult<?> resolutionResult =
               appView
                   .appInfo()
-                  .resolveMethod(invoke.getInvokedMethod(), invoke.getInterfaceBit())
+                  .resolveMethodLegacy(invoke.getInvokedMethod(), invoke.getInterfaceBit())
                   .asSingleResolution();
           if (resolutionResult == null
               || resolutionResult.isAccessibleFrom(method, appView).isPossiblyFalse()) {
@@ -1028,7 +1028,7 @@ final class InlineCandidateProcessor {
     // signature of the invocation resolves to a private or static method.
     // TODO(b/147212189): Why not inline private methods? If access is permitted it is valid.
     MethodResolutionResult resolutionResult =
-        appView.appInfo().resolveMethodOnClass(eligibleClass, callee);
+        appView.appInfo().resolveMethodOnClassLegacy(eligibleClass, callee);
     if (resolutionResult.isSingleResolution()
         && !resolutionResult.getSingleTarget().isNonPrivateVirtualMethod()) {
       return false;
@@ -1073,7 +1073,7 @@ final class InlineCandidateProcessor {
       InvokeMethod invoke,
       SingleResolutionResult<?> resolutionResult,
       ProgramMethod singleTarget,
-      Supplier<InliningOracle> defaultOracle,
+      LazyBox<InliningOracle> defaultOracle,
       Set<Instruction> indirectUsers) {
     if (!((invoke.isInvokeDirect() && !invoke.isInvokeConstructor(dexItemFactory))
         || invoke.isInvokeInterface()
@@ -1092,7 +1092,7 @@ final class InlineCandidateProcessor {
     }
 
     // Check if the method is inline-able by standard inliner.
-    InliningOracle oracle = defaultOracle.get();
+    InliningOracle oracle = defaultOracle.computeIfAbsent();
     if (!oracle.passesInliningConstraints(
         invoke,
         resolutionResult,
@@ -1176,7 +1176,10 @@ final class InlineCandidateProcessor {
       NonEmptyParameterUsage nonEmptyUsage = usage.asNonEmpty();
       for (DexMethod invokedMethod : nonEmptyUsage.getMethodCallsWithParameterAsReceiver()) {
         SingleResolutionResult<?> resolutionResult =
-            appView.appInfo().resolveMethodOn(eligibleClass, invokedMethod).asSingleResolution();
+            appView
+                .appInfo()
+                .resolveMethodOnLegacy(eligibleClass, invokedMethod)
+                .asSingleResolution();
         if (resolutionResult == null || !resolutionResult.getResolvedHolder().isProgramClass()) {
           return false;
         }

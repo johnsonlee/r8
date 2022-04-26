@@ -32,12 +32,14 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.utils.ThrowingCharIterator;
 import com.android.tools.r8.utils.Timing;
-import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
+import it.unimi.dsi.fastutil.objects.Reference2BooleanOpenHashMap;
 import java.io.UTFDataFormatException;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class AssertionsRewriter {
@@ -274,6 +276,7 @@ public class AssertionsRewriter {
    *   }
    * }
    * </pre>
+   *
    * For Kotlin the Class instance method desiredAssertionStatus() is only called for the class
    * kotlin._Assertions, where kotlin._Assertions.class.desiredAssertionStatus() is read into the
    * static field kotlin._Assertions.ENABLED.
@@ -311,7 +314,8 @@ public class AssertionsRewriter {
    * }
    * </pre>
    *
-   * With the rewriting below and AssertionTransformation.DISABLE (and other rewritings) the resulting code is:
+   * With the rewriting below and AssertionTransformation.DISABLE (and other rewritings) the
+   * resulting code is:
    *
    * <pre>
    * class A {
@@ -332,23 +336,26 @@ public class AssertionsRewriter {
    *   }
    * }
    * </pre>
-
+   *
    * NOTE: that in Kotlin the assertion condition is always calculated. So it is still present in
    * the code and even for AssertionTransformation.DISABLE.
    */
-  public void run(DexEncodedMethod method, IRCode code, Timing timing) {
+  public void run(
+      DexEncodedMethod method, IRCode code, DeadCodeRemover deadCodeRemover, Timing timing) {
     if (enabled) {
       timing.begin("Rewrite assertions");
-      runInternal(method, code);
+      if (runInternal(method, code)) {
+        deadCodeRemover.run(code, timing);
+      }
       assert code.isConsistentSSA(appView);
       timing.end();
     }
   }
 
-  private void runInternal(DexEncodedMethod method, IRCode code) {
+  private boolean runInternal(DexEncodedMethod method, IRCode code) {
     ConfigurationEntryWithDexString configuration = getTransformationForMethod(method);
     if (configuration.isPassthrough()) {
-      return;
+      return false;
     }
     DexEncodedMethod clinit;
     // If the <clinit> of this class did not have have code to turn on assertions don't try to
@@ -358,20 +365,25 @@ public class AssertionsRewriter {
     } else {
       DexClass clazz = appView.definitionFor(method.getHolderType());
       if (clazz == null) {
-        return;
+        return false;
       }
       clinit = clazz.getClassInitializer();
     }
     // For the transformation to rewrite the throw with a callback collect information on the
     // blocks covered by the if (!$assertionsDisabled or ENABLED) condition together with weather
     // the assertion handling is on the true or false branch.
-    Map<If, Boolean> assertionEntryIfs = new IdentityHashMap<>();
+    Map<If, Boolean> assertionEntryIfs = new Reference2BooleanOpenHashMap<>();
     Map<Throw, BasicBlock> throwSuccessorAfterHandler = new IdentityHashMap<>();
+    Set<BasicBlock> assertionBlocks = Sets.newIdentityHashSet();
+    Map<If, Boolean> additionalAssertionsEnabledIfs = new Reference2BooleanOpenHashMap<>();
     if (configuration.isAssertionHandler()) {
       LazyBox<DominatorTree> dominatorTree = new LazyBox<>(() -> new DominatorTree(code));
       code.getBlocks()
           .forEach(
               basicBlock -> {
+                if (assertionBlocks.contains(basicBlock)) {
+                  return;
+                }
                 If theIf = isCheckAssertionsEnabledBlock(basicBlock);
                 if (theIf != null) {
                   // All blocks dominated by the if is the assertion code. For Java it is on the
@@ -382,25 +394,42 @@ public class AssertionsRewriter {
                           theIf.lhs().getDefinition().asStaticGet());
                   BasicBlock assertionBlockEntry =
                       theIf.targetFromBoolean(conditionForAssertionBlock);
-                  List<BasicBlock> blocks =
+                  List<BasicBlock> dominatedBlocks =
                       dominatorTree.computeIfAbsent().dominatedBlocks(assertionBlockEntry);
-                  Throw throwInstruction = isAlwaysThrowingEntry(assertionBlockEntry, blocks);
+                  Throw throwInstruction =
+                      dominatedBlocksHasSingleThrow(assertionBlockEntry, dominatedBlocks);
                   if (throwInstruction != null) {
                     assertionEntryIfs.put(theIf, conditionForAssertionBlock);
                     throwSuccessorAfterHandler.put(
                         throwInstruction, theIf.targetFromBoolean(!conditionForAssertionBlock));
+                    // Collect any additional assertions enabled checks dominated by the current
+                    // assertions entry check.
+                    dominatedBlocks.forEach(
+                        block -> {
+                          If additionalAssertionsEnabledIf = isCheckAssertionsEnabledBlock(block);
+                          if (additionalAssertionsEnabledIf != null) {
+                            additionalAssertionsEnabledIfs.put(
+                                additionalAssertionsEnabledIf,
+                                !isUsingJavaAssertionsDisabledField(
+                                    additionalAssertionsEnabledIf
+                                        .lhs()
+                                        .getDefinition()
+                                        .asStaticGet()));
+                          }
+                        });
+                    assertionBlocks.addAll(dominatedBlocks);
                   }
                 }
               });
     }
     assert assertionEntryIfs.size() == throwSuccessorAfterHandler.size();
-
     // For javac generated code it is assumed that the code in <clinit> will tell if the code
     // in other methods of the class can have assertion checks.
     boolean isInitializerEnablingJavaVmAssertions =
         clinit != null && clinit.getOptimizationInfo().isInitializerEnablingJavaVmAssertions();
     // This code will process the assertion code in all methods including <clinit>.
     InstructionListIterator iterator = code.instructionListIterator();
+    boolean needsDeadCodeRemoval = false;
     while (iterator.hasNext()) {
       Instruction current = iterator.next();
       if (current.isInvokeMethod()) {
@@ -446,11 +475,12 @@ public class AssertionsRewriter {
         if (current.isIf()) {
           If ifInstruction = current.asIf();
           if (assertionEntryIfs.containsKey(ifInstruction)) {
-            ifInstruction
-                .targetFromBoolean(!assertionEntryIfs.get(ifInstruction))
-                .unlinkSinglePredecessorSiblingsAllowed();
-            ifInstruction.lhs().removeUser(ifInstruction);
-            iterator.replaceCurrentInstruction(new Goto());
+            forceAssertionsEnabled(ifInstruction, assertionEntryIfs, iterator);
+            needsDeadCodeRemoval = true;
+          }
+          if (additionalAssertionsEnabledIfs.containsKey(ifInstruction)) {
+            forceAssertionsEnabled(ifInstruction, additionalAssertionsEnabledIfs, iterator);
+            needsDeadCodeRemoval = true;
           }
         } else if (current.isThrow()) {
           Throw throwInstruction = current.asThrow();
@@ -469,6 +499,7 @@ public class AssertionsRewriter {
         }
       }
     }
+    return needsDeadCodeRemoval;
   }
 
   private void rewriteKotlinAssertionEnable(
@@ -541,15 +572,9 @@ public class AssertionsRewriter {
         : null;
   }
 
-  private Throw isAlwaysThrowingEntry(BasicBlock block, List<BasicBlock> blocks) {
-    WorkList<BasicBlock> workList = WorkList.newIdentityWorkList(block);
+  private Throw dominatedBlocksHasSingleThrow(BasicBlock block, List<BasicBlock> dominatedBlocks) {
     Throw theThrow = null;
-    while (workList.hasNext()) {
-      BasicBlock current = workList.next();
-      workList.addIfNotSeen(current.getNormalSuccessors());
-      if (!blocks.containsAll(current.getNormalSuccessors())) {
-        return null;
-      }
+    for (BasicBlock current : dominatedBlocks) {
       if (current.exit().isReturn()) {
         return null;
       }
@@ -561,5 +586,14 @@ public class AssertionsRewriter {
       }
     }
     return theThrow;
+  }
+
+  private void forceAssertionsEnabled(
+      If ifInstruction, Map<If, Boolean> targetMap, InstructionListIterator iterator) {
+    ifInstruction
+        .targetFromBoolean(!targetMap.get(ifInstruction))
+        .unlinkSinglePredecessorSiblingsAllowed();
+    ifInstruction.lhs().removeUser(ifInstruction);
+    iterator.replaceCurrentInstruction(new Goto());
   }
 }

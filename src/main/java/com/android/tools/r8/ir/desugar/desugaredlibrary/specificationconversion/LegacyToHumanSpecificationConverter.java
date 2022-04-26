@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.ApiLevelRange;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanRewritingFlags;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanTopLevelFlags;
@@ -32,22 +33,27 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Pair;
+import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class LegacyToHumanSpecificationConverter {
 
   private static final String WRAPPER_PREFIX = "__wrapper__.";
   private static final AndroidApiLevel LEGACY_HACK_LEVEL = AndroidApiLevel.N_MR1;
   private final Timing timing;
+  private final Set<String> missingClasses = new HashSet<>();
+  private final Set<String> missingMethods = new HashSet<>();
 
   public LegacyToHumanSpecificationConverter(Timing timing) {
     this.timing = timing;
@@ -81,14 +87,15 @@ public class LegacyToHumanSpecificationConverter {
         AppForSpecConversion.readAppForTesting(desugaredJDKLib, androidLib, options, true, timing);
 
     HumanTopLevelFlags humanTopLevelFlags = convertTopLevelFlags(legacySpec.getTopLevelFlags());
-    Int2ObjectArrayMap<HumanRewritingFlags> commonFlags =
+    Map<ApiLevelRange, HumanRewritingFlags> commonFlags =
         convertRewritingFlagMap(legacySpec.getCommonFlags(), app, origin);
-    Int2ObjectArrayMap<HumanRewritingFlags> programFlags =
+    Map<ApiLevelRange, HumanRewritingFlags> programFlags =
         convertRewritingFlagMap(legacySpec.getProgramFlags(), app, origin);
-    Int2ObjectArrayMap<HumanRewritingFlags> libraryFlags =
+    Map<ApiLevelRange, HumanRewritingFlags> libraryFlags =
         convertRewritingFlagMap(legacySpec.getLibraryFlags(), app, origin);
 
     legacyLibraryFlagHacks(libraryFlags, app, origin);
+    reportWarnings(app.options.reporter);
 
     MultiAPILevelHumanDesugaredLibrarySpecification humanSpec =
         new MultiAPILevelHumanDesugaredLibrarySpecification(
@@ -135,16 +142,34 @@ public class LegacyToHumanSpecificationConverter {
       humanRewritingFlags = builder.build();
       timing.end();
     }
-
+    reportWarnings(app.options.reporter);
     timing.end();
     return new HumanDesugaredLibrarySpecification(
         humanTopLevelFlags, humanRewritingFlags, legacySpec.isLibraryCompilation());
   }
 
+  private void reportWarnings(Reporter reporter) {
+    String errorSdk = "This usually means that the compilation SDK is absent or too old.";
+    if (!missingClasses.isEmpty()) {
+      reporter.warning(
+          "Cannot retarget core lib member for missing classes: "
+              + missingClasses
+              + ". "
+              + errorSdk);
+    }
+    if (!missingMethods.isEmpty()) {
+      reporter.warning(
+          "Should have found a method (library specifications) for "
+              + missingMethods
+              + ". "
+              + errorSdk);
+    }
+  }
+
   private void legacyLibraryFlagHacks(
-      Int2ObjectArrayMap<HumanRewritingFlags> libraryFlags, DexApplication app, Origin origin) {
-    int level = LEGACY_HACK_LEVEL.getLevel();
-    HumanRewritingFlags humanRewritingFlags = libraryFlags.get(level);
+      Map<ApiLevelRange, HumanRewritingFlags> libraryFlags, DexApplication app, Origin origin) {
+    ApiLevelRange range = new ApiLevelRange(LEGACY_HACK_LEVEL.getLevel());
+    HumanRewritingFlags humanRewritingFlags = libraryFlags.get(range);
     if (humanRewritingFlags == null) {
       // Skip CHM only configuration.
       return;
@@ -152,7 +177,7 @@ public class LegacyToHumanSpecificationConverter {
     HumanRewritingFlags.Builder builder =
         humanRewritingFlags.newBuilder(app.options.reporter, origin);
     legacyLibraryFlagHacks(app.dexItemFactory(), builder);
-    libraryFlags.put(level, builder.build());
+    libraryFlags.put(range, builder.build());
   }
 
   private void legacyLibraryFlagHacks(
@@ -186,10 +211,11 @@ public class LegacyToHumanSpecificationConverter {
     builder.retargetMethod(source, target);
   }
 
-  private Int2ObjectArrayMap<HumanRewritingFlags> convertRewritingFlagMap(
+  private Map<ApiLevelRange, HumanRewritingFlags> convertRewritingFlagMap(
       Int2ObjectMap<LegacyRewritingFlags> libFlags, DexApplication app, Origin origin) {
-    Int2ObjectArrayMap<HumanRewritingFlags> map = new Int2ObjectArrayMap<>();
-    libFlags.forEach((key, flags) -> map.put((int) key, convertRewritingFlags(flags, app, origin)));
+    Map<ApiLevelRange, HumanRewritingFlags> map = new HashMap<>();
+    libFlags.forEach(
+        (key, flags) -> map.put(new ApiLevelRange(key), convertRewritingFlags(flags, app, origin)));
     return map;
   }
 
@@ -257,7 +283,11 @@ public class LegacyToHumanSpecificationConverter {
     typeMap.forEach(
         (type, rewrittenType) -> {
           DexClass dexClass = app.definitionFor(type);
-          assert dexClass != null;
+          if (dexClass == null) {
+            assert false : "Cannot retarget core lib member for missing class " + type;
+            missingClasses.add(type.toSourceString());
+            return;
+          }
           List<DexClassAndMethod> methodsWithName =
               findMethodsWithName(name, dexClass, builder, app);
           for (DexClassAndMethod dexClassAndMethod : methodsWithName) {
@@ -297,12 +327,11 @@ public class LegacyToHumanSpecificationConverter {
           DexEncodedMethod.builder().setMethod(method).setAccessFlags(flags).build();
       return ImmutableList.of(DexClassAndMethod.create(clazz, build));
     }
-    assert !found.isEmpty()
-        : "Should have found a method (library specifications) for "
-            + clazz.toSourceString()
-            + "."
-            + methodName
-            + ". Maybe the library used for the compilation should be newer.";
+    if (found.isEmpty()) {
+      String warning = clazz.toSourceString() + "." + methodName;
+      assert false : "Should have found a method (library specifications) for " + warning;
+      missingMethods.add(warning);
+    }
     return found;
   }
 

@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.StructuralSpecification;
 import java.util.Arrays;
@@ -335,6 +336,30 @@ public class CfInvoke extends CfInstruction {
     if (!method.getReturnType().isVoidType()) {
       frameBuilder.push(method.getReturnType());
     }
+  }
+
+  @Override
+  public CfFrameState evaluate(
+      CfFrameState frame,
+      ProgramMethod context,
+      AppView<?> appView,
+      DexItemFactory dexItemFactory) {
+    // ..., objectref, [arg1, [arg2 ...]] →
+    // ... [ returnType ]
+    // OR, for static method calls:
+    // ..., [arg1, [arg2 ...]] →
+    // ...
+    frame = frame.popInitialized(appView, method.getParameters().getBacking());
+    if (opcode != Opcodes.INVOKESTATIC) {
+      frame =
+          opcode == Opcodes.INVOKESPECIAL && context.getDefinition().isInstanceInitializer()
+              ? frame.popAndInitialize(appView, method, context)
+              : frame.popInitialized(appView, method.getHolderType());
+    }
+    if (method.getReturnType().isVoidType()) {
+      return frame;
+    }
+    return frame.push(method.getReturnType());
   }
 
   private Type computeInvokeTypeForInvokeSpecial(

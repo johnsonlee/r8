@@ -23,6 +23,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -214,5 +215,17 @@ public class CfArithmeticBinop extends CfInstruction {
     // ..., result
     FrameType frameType = FrameType.fromNumericType(type, dexItemFactory);
     frameBuilder.popAndDiscard(frameType, frameType).push(frameType);
+  }
+
+  @Override
+  public CfFrameState evaluate(
+      CfFrameState state,
+      ProgramMethod context,
+      AppView<?> appView,
+      DexItemFactory dexItemFactory) {
+    // ..., value1, value2 →
+    // ..., result
+    FrameType frameType = FrameType.fromNumericType(type, dexItemFactory);
+    return state.pop(appView, frameType, frameType).push(frameType);
   }
 }

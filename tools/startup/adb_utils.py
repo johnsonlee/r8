@@ -4,10 +4,32 @@
 # BSD-style license that can be found in the LICENSE file.
 
 from enum import Enum
+import os
 import subprocess
+import sys
+import threading
 import time
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import utils
+
 DEVNULL=subprocess.DEVNULL
+
+class ProcessReader(threading.Thread):
+
+  def __init__(self, process):
+    threading.Thread.__init__(self)
+    self.lines = []
+    self.process = process
+
+  def run(self):
+    for line in self.process.stdout:
+      line = line.decode('utf-8').strip()
+      self.lines.append(line)
+
+  def stop(self):
+    self.process.kill()
 
 class ScreenState(Enum):
   OFF_LOCKED = 1,
@@ -27,6 +49,11 @@ class ScreenState(Enum):
   def is_on_and_unlocked(self):
     return self == ScreenState.ON_UNLOCKED
 
+def broadcast(action, component, device_id=None):
+  print('Sending broadcast %s' % action)
+  cmd = create_adb_cmd('shell am broadcast -a %s %s' % (action, component), device_id)
+  return subprocess.check_output(cmd).decode('utf-8').strip().splitlines()
+
 def create_adb_cmd(arguments, device_id=None):
   assert isinstance(arguments, list) or isinstance(arguments, str)
   cmd = ['adb']
@@ -39,7 +66,7 @@ def create_adb_cmd(arguments, device_id=None):
 def capture_app_profile_data(app_id, device_id=None):
   cmd = create_adb_cmd(
       'shell killall -s SIGUSR1 %s' % app_id, device_id)
-  subprocess.check_output(cmd)
+  subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
   time.sleep(5)
 
 def check_app_has_profile_data(app_id, device_id=None):
@@ -54,6 +81,10 @@ def check_app_has_profile_data(app_id, device_id=None):
   if size == 4:
     raise ValueError('Expected size of profile at %s to be > 4K' % profile_path)
 
+def clear_logcat(device_id=None):
+  cmd = create_adb_cmd('logcat -c', device_id)
+  subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
+
 def clear_profile_data(app_id, device_id=None):
   cmd = create_adb_cmd(
       'shell cmd package compile --reset %s' % app_id, device_id)
@@ -65,11 +96,13 @@ def drop_caches(device_id=None):
   subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
 
 def force_compilation(app_id, device_id=None):
+  print('Applying AOT (full)')
   cmd = create_adb_cmd(
       'shell cmd package compile -m speed -f %s' % app_id, device_id)
   subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
 
 def force_profile_compilation(app_id, device_id=None):
+  print('Applying AOT (profile)')
   cmd = create_adb_cmd(
       'shell cmd package compile -m speed-profile -f %s' % app_id, device_id)
   subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
@@ -85,6 +118,15 @@ def get_apk_path(app_id, device_id=None):
     raise ValueError(
         'Expected stdout to end with ".apk", was: %s' % stdout)
   return apk_path
+
+def get_profile_data(app_id, device_id=None):
+  with utils.TempDir() as temp:
+    source = get_profile_path(app_id)
+    target = os.path.join(temp, 'primary.prof')
+    cmd = create_adb_cmd('pull %s %s' % (source, target), device_id)
+    subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
+    with open(target, 'rb') as f:
+      return f.read()
 
 def get_profile_path(app_id):
   return '/data/misc/profiles/cur/0/%s/primary.prof' % app_id
@@ -170,9 +212,22 @@ def get_screen_off_timeout(device_id=None):
   return screen_off_timeout
 
 def install(apk, device_id=None):
+  print('Installing %s' % apk)
   cmd = create_adb_cmd('install %s' % apk, device_id)
   stdout = subprocess.check_output(cmd).decode('utf-8')
   assert 'Success' in stdout
+
+def install_profile(app_id, device_id=None):
+  # This assumes that the profileinstaller library has been added to the app,
+  # https://developer.android.com/jetpack/androidx/releases/profileinstaller.
+  action = 'androidx.profileinstaller.action.INSTALL_PROFILE'
+  component = '%s/androidx.profileinstaller.ProfileInstallReceiver' % app_id
+  stdout = broadcast(action, component, device_id)
+  assert len(stdout) == 2
+  assert stdout[0] == ('Broadcasting: Intent { act=%s flg=0x400000 cmp=%s }' % (action, component))
+  assert stdout[1] == 'Broadcast completed: result=1', stdout[1]
+  stop_app(app_id, device_id)
+  force_profile_compilation(app_id, device_id)
 
 def issue_key_event(key_event, device_id=None, sleep_in_seconds=1):
   cmd = create_adb_cmd('shell input keyevent %s' % key_event, device_id)
@@ -200,6 +255,10 @@ def launch_activity(
   assert not wait_for_activity_to_launch or 'total_time' in result
   return result
 
+def navigate_to_home_screen(device_id=None):
+  cmd = create_adb_cmd('shell input keyevent KEYCODE_HOME', device_id)
+  subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
+
 def prepare_for_interaction_with_device(device_id=None, device_pin=None):
   # Increase screen off timeout to avoid device screen turns off.
   twenty_four_hours_in_millis = 24 * 60 * 60 * 1000
@@ -226,7 +285,26 @@ def set_screen_off_timeout(screen_off_timeout_in_millis, device_id=None):
   stdout = subprocess.check_output(cmd).decode('utf-8').strip()
   assert len(stdout) == 0
 
+def start_logcat(device_id=None, format=None, filter=None):
+  args = ['logcat']
+  if format:
+    args.extend(['--format', format])
+  if filter:
+    args.append(filter)
+  cmd = create_adb_cmd(args, device_id)
+  logcat_process = subprocess.Popen(
+      cmd, bufsize=1024*1024, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  reader = ProcessReader(logcat_process)
+  reader.start()
+  return reader
+
+def stop_logcat(logcat_reader):
+  logcat_reader.stop()
+  logcat_reader.join()
+  return logcat_reader.lines
+
 def stop_app(app_id, device_id=None):
+  print('Shutting down %s' % app_id)
   cmd = create_adb_cmd('shell am force-stop %s' % app_id, device_id)
   subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
 
@@ -237,6 +315,7 @@ def tear_down_after_interaction_with_device(tear_down_options, device_id=None):
       device_id)
 
 def uninstall(app_id, device_id=None):
+  print('Uninstalling %s' % app_id)
   cmd = create_adb_cmd('uninstall %s' % app_id, device_id)
   process_result = subprocess.run(cmd, capture_output=True)
   stdout = process_result.stdout.decode('utf-8')
@@ -246,7 +325,8 @@ def uninstall(app_id, device_id=None):
   else:
     expected_error = (
         'java.lang.IllegalArgumentException: Unknown package: %s' % app_id)
-    assert expected_error in stderr
+    assert 'Failure [DELETE_FAILED_INTERNAL_ERROR]' in stdout \
+        or expected_error in stderr
 
 def unlock(device_id=None, device_pin=None):
   screen_state = get_screen_state(device_id)

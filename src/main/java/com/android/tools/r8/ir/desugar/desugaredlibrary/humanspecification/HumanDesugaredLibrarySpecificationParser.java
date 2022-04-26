@@ -47,10 +47,12 @@ public class HumanDesugaredLibrarySpecificationParser {
   static final String PROGRAM_FLAGS_KEY = "program_flags";
 
   static final String API_LEVEL_BELOW_OR_EQUAL_KEY = "api_level_below_or_equal";
+  static final String API_LEVEL_GREATER_OR_EQUAL_KEY = "api_level_greater_or_equal";
   static final String WRAPPER_CONVERSION_KEY = "wrapper_conversion";
   static final String WRAPPER_CONVERSION_EXCLUDING_KEY = "wrapper_conversion_excluding";
   static final String CUSTOM_CONVERSION_KEY = "custom_conversion";
   static final String REWRITE_PREFIX_KEY = "rewrite_prefix";
+  static final String DONT_REWRITE_PREFIX_KEY = "dont_rewrite_prefix";
   static final String MAINTAIN_PREFIX_KEY = "maintain_prefix";
   static final String RETARGET_STATIC_FIELD_KEY = "retarget_static_field";
   static final String RETARGET_METHOD_KEY = "retarget_method";
@@ -231,7 +233,13 @@ public class HumanDesugaredLibrarySpecificationParser {
       JsonObject flag = jsonFlagSet.getAsJsonObject();
       int api_level_below_or_equal = required(flag, API_LEVEL_BELOW_OR_EQUAL_KEY).getAsInt();
       if (minAPILevel <= api_level_below_or_equal) {
-        parseFlags(flag, builder);
+        if (flag.has(API_LEVEL_GREATER_OR_EQUAL_KEY)) {
+          if (minAPILevel >= flag.get(API_LEVEL_GREATER_OR_EQUAL_KEY).getAsInt()) {
+            parseFlags(flag, builder);
+          }
+        } else {
+          parseFlags(flag, builder);
+        }
       }
     }
   }
@@ -246,6 +254,12 @@ public class HumanDesugaredLibrarySpecificationParser {
     if (jsonFlagSet.has(MAINTAIN_PREFIX_KEY)) {
       for (JsonElement maintainPrefix : jsonFlagSet.get(MAINTAIN_PREFIX_KEY).getAsJsonArray()) {
         builder.putMaintainPrefix(maintainPrefix.getAsString());
+      }
+    }
+    if (jsonFlagSet.has(DONT_REWRITE_PREFIX_KEY)) {
+      for (JsonElement dontRewritePrefix :
+          jsonFlagSet.get(DONT_REWRITE_PREFIX_KEY).getAsJsonArray()) {
+        builder.putDontRewritePrefix(dontRewritePrefix.getAsString());
       }
     }
     if (jsonFlagSet.has(REWRITE_DERIVED_PREFIX_KEY)) {

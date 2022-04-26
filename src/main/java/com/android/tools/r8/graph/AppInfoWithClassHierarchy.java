@@ -592,7 +592,7 @@ public class AppInfoWithClassHierarchy extends AppInfo {
   // TODO(b/155968472): This should take a parameter `boolean isInterface` and use resolveMethod().
   public DexEncodedMethod lookupStaticTarget(DexMethod method, DexProgramClass context) {
     assert checkIfObsolete();
-    return unsafeResolveMethodDueToDexFormat(method).lookupInvokeStaticTarget(context, this);
+    return unsafeResolveMethodDueToDexFormatLegacy(method).lookupInvokeStaticTarget(context, this);
   }
 
   // TODO(b/155968472): This should take a parameter `boolean isInterface` and use resolveMethod().
@@ -613,7 +613,7 @@ public class AppInfoWithClassHierarchy extends AppInfo {
   // TODO(b/155968472): This should take a parameter `boolean isInterface` and use resolveMethod().
   public DexClassAndMethod lookupSuperTarget(DexMethod method, DexProgramClass context) {
     assert checkIfObsolete();
-    return unsafeResolveMethodDueToDexFormat(method).lookupInvokeSuperTarget(context, this);
+    return unsafeResolveMethodDueToDexFormatLegacy(method).lookupInvokeSuperTarget(context, this);
   }
 
   // TODO(b/155968472): This should take a parameter `boolean isInterface` and use resolveMethod().
@@ -632,7 +632,7 @@ public class AppInfoWithClassHierarchy extends AppInfo {
   // TODO(b/155968472): This should take a parameter `boolean isInterface` and use resolveMethod().
   public DexEncodedMethod lookupDirectTarget(DexMethod method, DexProgramClass context) {
     assert checkIfObsolete();
-    return unsafeResolveMethodDueToDexFormat(method).lookupInvokeDirectTarget(context, this);
+    return unsafeResolveMethodDueToDexFormatLegacy(method).lookupInvokeDirectTarget(context, this);
   }
 
   // TODO(b/155968472): This should take a parameter `boolean isInterface` and use resolveMethod().
@@ -646,30 +646,127 @@ public class AppInfoWithClassHierarchy extends AppInfo {
    * <p>This is to overcome the shortcoming of the DEX file format that does not allow to encode the
    * kind of a method reference.
    */
-  public MethodResolutionResult unsafeResolveMethodDueToDexFormat(DexMethod method) {
+  public MethodResolutionResult unsafeResolveMethodDueToDexFormatLegacy(DexMethod method) {
     assert checkIfObsolete();
     return MethodResolution.createLegacy(this::definitionFor, dexItemFactory())
+        .unsafeResolveMethodDueToDexFormat(method);
+  }
+
+  public MethodResolutionResult resolveMethodLegacy(DexMethod invokedMethod, boolean isInterface) {
+    assert checkIfObsolete();
+    return resolveMethodOnLegacy(invokedMethod.getHolderType(), invokedMethod, isInterface);
+  }
+
+  public MethodResolutionResult resolveMethodOnLegacy(DexClass clazz, DexMethod method) {
+    assert checkIfObsolete();
+    return clazz.isInterface()
+        ? resolveMethodOnInterfaceLegacy(clazz, method)
+        : resolveMethodOnClassLegacy(clazz, method);
+  }
+
+  public MethodResolutionResult resolveMethodOnLegacy(
+      DexClass clazz, DexMethodSignature methodSignature) {
+    assert checkIfObsolete();
+    return clazz.isInterface()
+        ? resolveMethodOnInterfaceLegacy(clazz, methodSignature)
+        : resolveMethodOnClassLegacy(clazz, methodSignature);
+  }
+
+  public MethodResolutionResult resolveMethodOnLegacy(
+      DexType holder, DexMethod method, boolean isInterface) {
+    assert checkIfObsolete();
+    return isInterface
+        ? resolveMethodOnInterfaceLegacy(holder, method)
+        : resolveMethodOnClassLegacy(holder, method);
+  }
+
+  public MethodResolutionResult resolveMethodOnClassHolderLegacy(DexMethod method) {
+    assert checkIfObsolete();
+    return resolveMethodOnClassLegacy(method.getHolderType(), method);
+  }
+
+  public MethodResolutionResult resolveMethodOnClassLegacy(DexType holder, DexMethod method) {
+    assert checkIfObsolete();
+    return resolveMethodOnClassLegacy(holder, method.getProto(), method.getName());
+  }
+
+  public MethodResolutionResult resolveMethodOnClassLegacy(
+      DexType holder, DexMethodSignature signature) {
+    assert checkIfObsolete();
+    return resolveMethodOnClassLegacy(holder, signature.getProto(), signature.getName());
+  }
+
+  public MethodResolutionResult resolveMethodOnClassLegacy(
+      DexType holder, DexProto proto, DexString name) {
+    assert checkIfObsolete();
+    return MethodResolution.createLegacy(this::definitionFor, dexItemFactory())
+        .resolveMethodOnClass(holder, proto, name);
+  }
+
+  public MethodResolutionResult resolveMethodOnClassLegacy(DexClass clazz, DexMethod method) {
+    assert checkIfObsolete();
+    return resolveMethodOnClassLegacy(clazz, method.getProto(), method.getName());
+  }
+
+  public MethodResolutionResult resolveMethodOnClassLegacy(
+      DexClass clazz, DexMethodSignature signature) {
+    assert checkIfObsolete();
+    return resolveMethodOnClassLegacy(clazz, signature.getProto(), signature.getName());
+  }
+
+  public MethodResolutionResult resolveMethodOnClassLegacy(
+      DexClass clazz, DexProto proto, DexString name) {
+    assert checkIfObsolete();
+    return MethodResolution.createLegacy(this::definitionFor, dexItemFactory())
+        .resolveMethodOnClass(clazz, proto, name);
+  }
+
+  public MethodResolutionResult resolveMethodOnInterfaceHolderLegacy(DexMethod method) {
+    assert checkIfObsolete();
+    return resolveMethodOnInterfaceLegacy(method.getHolderType(), method);
+  }
+
+  public MethodResolutionResult resolveMethodOnInterfaceLegacy(DexType holder, DexMethod method) {
+    assert checkIfObsolete();
+    return MethodResolution.createLegacy(this::definitionFor, dexItemFactory())
+        .resolveMethodOnInterface(holder, method.getProto(), method.getName());
+  }
+
+  public MethodResolutionResult resolveMethodOnInterfaceLegacy(DexClass clazz, DexMethod method) {
+    assert checkIfObsolete();
+    return resolveMethodOnInterfaceLegacy(clazz, method.getProto(), method.getName());
+  }
+
+  public MethodResolutionResult resolveMethodOnInterfaceLegacy(
+      DexClass clazz, DexMethodSignature methodSignature) {
+    assert checkIfObsolete();
+    return resolveMethodOnInterfaceLegacy(
+        clazz, methodSignature.getProto(), methodSignature.getName());
+  }
+
+  public MethodResolutionResult resolveMethodOnInterfaceLegacy(
+      DexClass clazz, DexProto proto, DexString name) {
+    assert checkIfObsolete();
+    return MethodResolution.createLegacy(this::definitionFor, dexItemFactory())
+        .resolveMethodOnInterface(clazz, proto, name);
+  }
+
+  /**
+   * This method will query the definition of the holder to decide on which resolution to use.
+   *
+   * <p>This is to overcome the shortcoming of the DEX file format that does not allow to encode the
+   * kind of a method reference.
+   */
+  public MethodResolutionResult unsafeResolveMethodDueToDexFormat(DexMethod method) {
+    assert checkIfObsolete();
+    return MethodResolution.create(
+            this::contextIndependentDefinitionForWithResolutionResult, dexItemFactory())
         .unsafeResolveMethodDueToDexFormat(method);
   }
 
   public MethodResolutionResult resolveMethod(DexMethod invokedMethod, boolean isInterface) {
     assert checkIfObsolete();
     return resolveMethodOn(invokedMethod.getHolderType(), invokedMethod, isInterface);
-  }
-
-  public MethodResolutionResult resolveMethodOn(DexClass clazz, DexMethod method) {
-    assert checkIfObsolete();
-    return clazz.isInterface()
-        ? resolveMethodOnInterface(clazz, method)
-        : resolveMethodOnClass(clazz, method);
-  }
-
-  public MethodResolutionResult resolveMethodOn(
-      DexClass clazz, DexMethodSignature methodSignature) {
-    assert checkIfObsolete();
-    return clazz.isInterface()
-        ? resolveMethodOnInterface(clazz, methodSignature)
-        : resolveMethodOnClass(clazz, methodSignature);
   }
 
   public MethodResolutionResult resolveMethodOn(
@@ -698,7 +795,8 @@ public class AppInfoWithClassHierarchy extends AppInfo {
   public MethodResolutionResult resolveMethodOnClass(
       DexType holder, DexProto proto, DexString name) {
     assert checkIfObsolete();
-    return MethodResolution.createLegacy(this::definitionFor, dexItemFactory())
+    return MethodResolution.create(
+            this::contextIndependentDefinitionForWithResolutionResult, dexItemFactory())
         .resolveMethodOnClass(holder, proto, name);
   }
 
@@ -715,7 +813,8 @@ public class AppInfoWithClassHierarchy extends AppInfo {
   public MethodResolutionResult resolveMethodOnClass(
       DexClass clazz, DexProto proto, DexString name) {
     assert checkIfObsolete();
-    return MethodResolution.createLegacy(this::definitionFor, dexItemFactory())
+    return MethodResolution.create(
+            this::contextIndependentDefinitionForWithResolutionResult, dexItemFactory())
         .resolveMethodOnClass(clazz, proto, name);
   }
 
@@ -726,7 +825,8 @@ public class AppInfoWithClassHierarchy extends AppInfo {
 
   public MethodResolutionResult resolveMethodOnInterface(DexType holder, DexMethod method) {
     assert checkIfObsolete();
-    return MethodResolution.createLegacy(this::definitionFor, dexItemFactory())
+    return MethodResolution.create(
+            this::contextIndependentDefinitionForWithResolutionResult, dexItemFactory())
         .resolveMethodOnInterface(holder, method.getProto(), method.getName());
   }
 
@@ -744,7 +844,8 @@ public class AppInfoWithClassHierarchy extends AppInfo {
   public MethodResolutionResult resolveMethodOnInterface(
       DexClass clazz, DexProto proto, DexString name) {
     assert checkIfObsolete();
-    return MethodResolution.createLegacy(this::definitionFor, dexItemFactory())
+    return MethodResolution.create(
+            this::contextIndependentDefinitionForWithResolutionResult, dexItemFactory())
         .resolveMethodOnInterface(clazz, proto, name);
   }
 

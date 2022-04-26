@@ -20,6 +20,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import org.objectweb.asm.MethodVisitor;
 
@@ -111,5 +112,16 @@ public class CfConstString extends CfInstruction {
     // ... →
     // ..., value
     frameBuilder.push(dexItemFactory.stringType);
+  }
+
+  @Override
+  public CfFrameState evaluate(
+      CfFrameState frame,
+      ProgramMethod context,
+      AppView<?> appView,
+      DexItemFactory dexItemFactory) {
+    // ... →
+    // ..., value
+    return frame.push(dexItemFactory.stringType);
   }
 }
