@@ -329,16 +329,12 @@ def upload_dir_to_cloud_storage(directory, destination, is_html=False, public_re
   cmd = [get_gsutil(), '-m', 'cp']
   if is_html:
     cmd += ['-z', 'html']
-  if public_read:
-    cmd += ['-a', 'public-read']
   cmd += ['-R', directory, destination]
   PrintCmd(cmd)
   subprocess.check_call(cmd)
 
 def upload_file_to_cloud_storage(source, destination, public_read=True):
   cmd = [get_gsutil(), 'cp']
-  if public_read:
-    cmd += ['-a', 'public-read']
   cmd += [source, destination]
   PrintCmd(cmd)
   subprocess.check_call(cmd)
