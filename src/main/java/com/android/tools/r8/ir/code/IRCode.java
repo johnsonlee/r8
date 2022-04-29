@@ -117,6 +117,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
   private final ProgramMethod method;
   private final MutableMethodConversionOptions conversionOptions;
 
+  public final Position entryPosition;
   public LinkedList<BasicBlock> blocks;
   public final NumberGenerator valueNumberGenerator;
   public final NumberGenerator basicBlockNumberGenerator;
@@ -133,6 +134,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
   public IRCode(
       InternalOptions options,
       ProgramMethod method,
+      Position entryPosition,
       LinkedList<BasicBlock> blocks,
       NumberGenerator valueNumberGenerator,
       NumberGenerator basicBlockNumberGenerator,
@@ -142,9 +144,11 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
     assert metadata != null;
     assert options != null;
     assert blocks.size() == basicBlockNumberGenerator.peek();
+    assert entryPosition != null;
     this.options = options;
     this.conversionOptions = conversionOptions;
     this.method = method;
+    this.entryPosition = entryPosition;
     this.blocks = blocks;
     this.valueNumberGenerator = valueNumberGenerator;
     this.basicBlockNumberGenerator = basicBlockNumberGenerator;
@@ -167,6 +171,10 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
 
   public BasicBlock entryBlock() {
     return blocks.getFirst();
+  }
+
+  public Position getEntryPosition() {
+    return entryPosition;
   }
 
   public MethodConversionOptions getConversionOptions() {
@@ -516,7 +524,9 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
   }
 
   public void removeBlocks(Collection<BasicBlock> blocksToRemove) {
-    blocks.removeAll(blocksToRemove);
+    if (!blocksToRemove.isEmpty()) {
+      blocks.removeAll(blocksToRemove);
+    }
   }
 
   /**
@@ -1496,35 +1506,5 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
         }
       }
     }
-  }
-
-  public Position findFirstNonNonePosition() {
-    return findFirstNonNonePosition(Position.none());
-  }
-
-  public Position findFirstNonNonePosition(Position orElse) {
-    BasicBlock current = entryBlock();
-    Set<BasicBlock> visitedBlocks = Sets.newIdentityHashSet();
-    do {
-      boolean changed = visitedBlocks.add(current);
-      assert changed;
-
-      for (Instruction instruction : current.getInstructions()) {
-        if (instruction.isArgument() || instruction.isGoto()) {
-          continue;
-        }
-        if (instruction.getPosition().isSome()) {
-          return instruction.getPosition();
-        }
-      }
-
-      // The very first non-argument instruction can be chained via goto.
-      if (current.exit().isGoto()) {
-        current = current.exit().asGoto().getTarget();
-      } else {
-        break;
-      }
-    } while (!visitedBlocks.contains(current));
-    return orElse;
   }
 }

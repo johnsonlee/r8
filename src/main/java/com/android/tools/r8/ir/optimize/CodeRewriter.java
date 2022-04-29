@@ -1833,6 +1833,9 @@ public class CodeRewriter {
   }
 
   public void shortenLiveRanges(IRCode code) {
+    if (options.testing.disableShortenLiveRanges) {
+      return;
+    }
     // Currently, we are only shortening the live range of ConstNumbers in the entry block
     // and ConstStrings with one user.
     // TODO(ager): Generalize this to shorten live ranges for more instructions? Currently
@@ -3710,7 +3713,7 @@ public class CodeRewriter {
   // The javac fix for JDK-8272564 has to be rewritten back to invoke-virtual on Object if the
   // method with an Object signature is not defined on the interface. See
   // https://bugs.openjdk.java.net/browse/JDK-8272564
-  public static void rewriteJdk8272564Fix(IRCode code, AppView<?> appView) {
+  public static void rewriteJdk8272564Fix(IRCode code, ProgramMethod context, AppView<?> appView) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     InstructionListIterator it = code.instructionListIterator();
     while (it.hasNext()) {
@@ -3718,10 +3721,15 @@ public class CodeRewriter {
       if (instruction.isInvokeInterface()) {
         InvokeInterface invoke = instruction.asInvokeInterface();
         DexMethod method = invoke.getInvokedMethod();
-        DexMethod objectMember = dexItemFactory.objectMembers.matchingPublicObjectMember(method);
-        if (objectMember != null && appView.definitionFor(method) == null) {
-          it.replaceCurrentInstruction(
-              new InvokeVirtual(objectMember, invoke.outValue(), invoke.arguments()));
+        DexClass clazz = appView.definitionFor(method.getHolderType(), context);
+        if (clazz == null || clazz.isInterface()) {
+          DexMethod objectMember = dexItemFactory.objectMembers.matchingPublicObjectMember(method);
+          // javac before JDK-8272564 would still use invoke interface if the method is defined
+          // directly on the interface reference, so mimic that by not rewriting.
+          if (objectMember != null && appView.definitionFor(method) == null) {
+            it.replaceCurrentInstruction(
+                new InvokeVirtual(objectMember, invoke.outValue(), invoke.arguments()));
+          }
         }
       }
     }
