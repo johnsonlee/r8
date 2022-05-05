@@ -17,8 +17,8 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeMethod;
+import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.InvokeStatic;
-import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Value;
 import java.util.Set;
 
@@ -46,14 +46,14 @@ public class StringMethodOptimizer extends StatelessLibraryMethodModelCollection
       Set<Value> affectedValues) {
     DexMethod singleTargetReference = singleTarget.getReference();
     if (singleTargetReference == dexItemFactory.stringMembers.equals) {
-      optimizeEquals(code, instructionIterator, invoke.asInvokeVirtual());
+      optimizeEquals(code, instructionIterator, invoke.asInvokeMethodWithReceiver());
     } else if (singleTargetReference == dexItemFactory.stringMembers.valueOf) {
       optimizeValueOf(code, instructionIterator, invoke.asInvokeStatic(), affectedValues);
     }
   }
 
   private void optimizeEquals(
-      IRCode code, InstructionListIterator instructionIterator, InvokeVirtual invoke) {
+      IRCode code, InstructionListIterator instructionIterator, InvokeMethodWithReceiver invoke) {
     if (appView.appInfo().hasLiveness()) {
       ProgramMethod context = code.context();
       Value first = invoke.getReceiver().getAliasedValue();
