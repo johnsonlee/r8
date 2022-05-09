@@ -24,9 +24,9 @@ import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class AndroidApiLevelHashingDatabaseImpl implements AndroidApiLevelDatabase {
@@ -38,7 +38,7 @@ public class AndroidApiLevelHashingDatabaseImpl implements AndroidApiLevelDataba
   private final Int2ReferenceMap<AndroidApiLevel> lookupNonAmbiguousCache =
       new Int2ReferenceOpenHashMap<AndroidApiLevel>();
   private final Map<String, AndroidApiLevel> ambiguousHashesWithApiLevel = new HashMap<>();
-  private final Map<DexReference, AndroidApiLevel> ambiguousCache = new IdentityHashMap<>();
+  private final Map<DexReference, AndroidApiLevel> ambiguousCache = new ConcurrentHashMap<>();
 
   public AndroidApiLevelHashingDatabaseImpl(
       List<AndroidApiForHashingReference> predefinedApiTypeLookup) {
