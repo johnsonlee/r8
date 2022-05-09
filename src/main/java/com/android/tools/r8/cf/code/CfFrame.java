@@ -6,6 +6,8 @@ package com.android.tools.r8.cf.code;
 import static org.objectweb.asm.Opcodes.F_NEW;
 
 import com.android.tools.r8.cf.CfPrinter;
+import com.android.tools.r8.cf.code.frame.SingleFrameType;
+import com.android.tools.r8.cf.code.frame.WideFrameType;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
@@ -28,22 +30,49 @@ import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
+import com.android.tools.r8.utils.IntObjConsumer;
+import com.android.tools.r8.utils.collections.ImmutableDeque;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
-import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
-import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
+import com.google.common.collect.Iterables;
+import it.unimi.dsi.fastutil.ints.Int2ObjectAVLTreeMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMaps;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
-import java.util.SortedMap;
+import java.util.function.Consumer;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-public class CfFrame extends CfInstruction {
+public class CfFrame extends CfInstruction implements Cloneable {
+
+  public static final Int2ObjectSortedMap<FrameType> EMPTY_LOCALS = Int2ObjectSortedMaps.emptyMap();
+  public static final Deque<FrameType> EMPTY_STACK = ImmutableDeque.of();
 
   public abstract static class FrameType {
 
+    public static DoubleFrameType doubleType() {
+      return DoubleFrameType.SINGLETON;
+    }
+
+    public static IntFrameType intType() {
+      return IntFrameType.SINGLETON;
+    }
+
+    public static LongFrameType longType() {
+      return LongFrameType.SINGLETON;
+    }
+
     public static FrameType initialized(DexType type) {
-      return new InitializedType(type);
+      if (type.isPrimitiveType()) {
+        if (type.isWideType()) {
+          return type.isDoubleType() ? doubleType() : longType();
+        } else if (type.isIntType()) {
+          return intType();
+        }
+      }
+      return new SingleInitializedType(type);
     }
 
     public static FrameType uninitializedNew(CfLabel label, DexType typeToInitialize) {
@@ -51,28 +80,77 @@ public class CfFrame extends CfInstruction {
     }
 
     public static FrameType uninitializedThis() {
-      return new UninitializedThis();
+      return UninitializedThis.SINGLETON;
     }
 
-    public static FrameType top() {
-      return Top.SINGLETON;
-    }
-
-    public static FrameType oneWord() {
+    public static OneWord oneWord() {
       return OneWord.SINGLETON;
     }
 
-    public static FrameType twoWord() {
+    public static TwoWord twoWord() {
       return TwoWord.SINGLETON;
     }
 
+    public FrameType asFrameType() {
+      return this;
+    }
+
     abstract Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens);
+
+    public boolean isDouble() {
+      return false;
+    }
+
+    public boolean isInt() {
+      return false;
+    }
+
+    public boolean isLong() {
+      return false;
+    }
+
+    public boolean isNullType() {
+      return false;
+    }
+
+    public boolean isObject() {
+      return false;
+    }
+
+    public DexType getObjectType(ProgramMethod context) {
+      assert false : "Unexpected use of getObjectType() for non-object FrameType";
+      return null;
+    }
+
+    public boolean isPrimitive() {
+      return false;
+    }
+
+    public final boolean isSingle() {
+      return !isWide();
+    }
+
+    public SingleFrameType asSingle() {
+      return null;
+    }
+
+    public SingleInitializedType asSingleInitializedType() {
+      return null;
+    }
 
     public boolean isWide() {
       return false;
     }
 
+    public WideFrameType asWide() {
+      return null;
+    }
+
     public boolean isUninitializedNew() {
+      return false;
+    }
+
+    public boolean isUninitializedObject() {
       return false;
     }
 
@@ -88,7 +166,11 @@ public class CfFrame extends CfInstruction {
       return false;
     }
 
-    public DexType getInitializedType() {
+    public boolean isSingleInitialized() {
+      return false;
+    }
+
+    public DexType getInitializedType(DexItemFactory dexItemFactory) {
       return null;
     }
 
@@ -96,12 +178,12 @@ public class CfFrame extends CfInstruction {
       return null;
     }
 
-    public boolean isTop() {
+    public boolean isOneWord() {
       return false;
     }
 
-    public boolean isOneWord() {
-      return false;
+    public boolean isSpecific() {
+      return true;
     }
 
     public boolean isTwoWord() {
@@ -109,18 +191,20 @@ public class CfFrame extends CfInstruction {
     }
 
     FrameType map(java.util.function.Function<DexType, DexType> func) {
-      if (isInitialized()) {
-        DexType type = getInitializedType();
-        DexType newType = func.apply(type);
-        if (type != newType) {
-          return initialized(newType);
+      if (isObject()) {
+        if (isInitialized()) {
+          DexType type = asSingleInitializedType().getInitializedType();
+          DexType newType = func.apply(type);
+          if (type != newType) {
+            return initialized(newType);
+          }
         }
-      }
-      if (isUninitializedNew()) {
-        DexType type = getUninitializedNewType();
-        DexType newType = func.apply(type);
-        if (type != newType) {
-          return uninitializedNew(getUninitializedLabel(), newType);
+        if (isUninitializedNew()) {
+          DexType type = getUninitializedNewType();
+          DexType newType = func.apply(type);
+          if (type != newType) {
+            return uninitializedNew(getUninitializedLabel(), newType);
+          }
         }
       }
       return this;
@@ -128,7 +212,14 @@ public class CfFrame extends CfInstruction {
 
     private FrameType() {}
 
-    public static FrameType fromMemberType(MemberType memberType, DexItemFactory factory) {
+    @Override
+    public abstract boolean equals(Object obj);
+
+    @Override
+    public abstract int hashCode();
+
+    public static FrameType fromPreciseMemberType(MemberType memberType, DexItemFactory factory) {
+      assert memberType.isPrecise();
       switch (memberType) {
         case OBJECT:
           return FrameType.initialized(factory.objectType);
@@ -143,13 +234,9 @@ public class CfFrame extends CfInstruction {
         case FLOAT:
           return FrameType.initialized(factory.floatType);
         case LONG:
-          return FrameType.initialized(factory.longType);
+          return FrameType.longType();
         case DOUBLE:
-          return FrameType.initialized(factory.doubleType);
-        case INT_OR_FLOAT:
-          return FrameType.oneWord();
-        case LONG_OR_DOUBLE:
-          return FrameType.twoWord();
+          return FrameType.doubleType();
         default:
           throw new Unreachable("Unexpected MemberType: " + memberType);
       }
@@ -157,6 +244,19 @@ public class CfFrame extends CfInstruction {
 
     public static FrameType fromNumericType(NumericType numericType, DexItemFactory factory) {
       return FrameType.initialized(numericType.toDexType(factory));
+    }
+  }
+
+  public abstract static class SingletonFrameType extends FrameType {
+
+    @Override
+    public final boolean equals(Object obj) {
+      return this == obj;
+    }
+
+    @Override
+    public final int hashCode() {
+      return System.identityHashCode(this);
     }
   }
 
@@ -183,13 +283,135 @@ public class CfFrame extends CfInstruction {
     return CfCompareHelper.compareIdUniquelyDeterminesEquality(this, other);
   }
 
-  private static class InitializedType extends FrameType {
+  public abstract static class SinglePrimitiveType extends SingletonFrameType
+      implements SingleFrameType {
+
+    @Override
+    public boolean isInitialized() {
+      return true;
+    }
+
+    @Override
+    public boolean isPrimitive() {
+      return true;
+    }
+
+    @Override
+    public SingleFrameType asSingle() {
+      return this;
+    }
+  }
+
+  public static class IntFrameType extends SinglePrimitiveType {
+
+    private static final IntFrameType SINGLETON = new IntFrameType();
+
+    private IntFrameType() {}
+
+    @Override
+    public DexType getInitializedType(DexItemFactory dexItemFactory) {
+      return dexItemFactory.intType;
+    }
+
+    @Override
+    public boolean isInt() {
+      return true;
+    }
+
+    @Override
+    Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
+      return Opcodes.INTEGER;
+    }
+
+    @Override
+    public SingleFrameType join(SingleFrameType frameType) {
+      if (this == frameType) {
+        return this;
+      }
+      if (frameType.isOneWord() || frameType.isUninitializedObject()) {
+        return oneWord();
+      }
+      assert frameType.isInitialized();
+      return CfAssignability.hasIntVerificationType(
+              frameType.asSingleInitializedType().getInitializedType())
+          ? this
+          : oneWord();
+    }
+
+    @Override
+    public String toString() {
+      return "int";
+    }
+  }
+
+  public static class SingleInitializedType extends FrameType implements SingleFrameType {
 
     private final DexType type;
 
-    private InitializedType(DexType type) {
+    private SingleInitializedType(DexType type) {
       assert type != null;
+      assert !type.isIntType();
       this.type = type;
+    }
+
+    @Override
+    public SingleInitializedType asSingleInitializedType() {
+      return this;
+    }
+
+    @Override
+    public SingleFrameType join(SingleFrameType frameType) {
+      if (equals(frameType)) {
+        return this;
+      }
+      if (frameType.isOneWord() || frameType.isUninitializedObject()) {
+        return oneWord();
+      }
+      assert frameType.isInitialized();
+      if (frameType.isPrimitive()) {
+        if (frameType.isInt()) {
+          return CfAssignability.hasIntVerificationType(type) ? frameType : oneWord();
+        }
+        // The rest of the primitives are still represented using SingleInitializedType.
+        DexType otherType = frameType.asSingleInitializedType().getInitializedType();
+        return CfAssignability.hasIntVerificationType(type)
+                && CfAssignability.hasIntVerificationType(otherType)
+            ? intType()
+            : oneWord();
+      }
+      DexType otherType = frameType.asSingleInitializedType().getInitializedType();
+      assert type != otherType;
+      if (type.isPrimitiveType()) {
+        return oneWord();
+      }
+      assert type.isReferenceType();
+      if (isNullType()) {
+        return otherType.isReferenceType() ? frameType : oneWord();
+      }
+      if (frameType.isNullType()) {
+        return this;
+      }
+      assert type.isArrayType() || type.isClassType();
+      assert otherType.isArrayType() || otherType.isClassType();
+      // TODO(b/214496607): Implement join of different reference types using class hierarchy.
+      throw new Unimplemented();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null || getClass() != obj.getClass()) {
+        return false;
+      }
+      SingleInitializedType initializedType = (SingleInitializedType) obj;
+      return type == initializedType.type;
+    }
+
+    @Override
+    public int hashCode() {
+      return type.hashCode();
     }
 
     @Override
@@ -220,8 +442,13 @@ public class CfFrame extends CfInstruction {
     }
 
     @Override
+    public SingleFrameType asSingle() {
+      return this;
+    }
+
+    @Override
     public boolean isWide() {
-      return type.isPrimitiveType() && (type.toShorty() == 'J' || type.toShorty() == 'D');
+      return false;
     }
 
     @Override
@@ -230,38 +457,159 @@ public class CfFrame extends CfInstruction {
     }
 
     @Override
+    public boolean isPrimitive() {
+      return type.isPrimitiveType();
+    }
+
+    @Override
+    public boolean isSingleInitialized() {
+      return true;
+    }
+
     public DexType getInitializedType() {
+      return type;
+    }
+
+    @Override
+    public DexType getInitializedType(DexItemFactory dexItemFactory) {
+      return getInitializedType();
+    }
+
+    @Override
+    public boolean isNullType() {
+      return type.isNullValueType();
+    }
+
+    @Override
+    public boolean isObject() {
+      return type.isReferenceType();
+    }
+
+    @Override
+    public DexType getObjectType(ProgramMethod context) {
+      assert isObject() : "Unexpected use of getObjectType() for non-object FrameType";
       return type;
     }
   }
 
-  private static class Top extends FrameType {
-
-    private static final Top SINGLETON = new Top();
+  public abstract static class WideInitializedType extends SingletonFrameType
+      implements WideFrameType {
 
     @Override
-    public String toString() {
-      return "top";
+    public boolean isInitialized() {
+      return true;
+    }
+
+    @Override
+    public boolean isPrimitive() {
+      return true;
+    }
+
+    @Override
+    public boolean isWide() {
+      return true;
+    }
+
+    @Override
+    public WideFrameType asWide() {
+      return this;
+    }
+
+    @Override
+    public WideFrameType join(WideFrameType frameType) {
+      return this == frameType ? this : twoWord();
+    }
+  }
+
+  private static class DoubleFrameType extends WideInitializedType {
+
+    private static final DoubleFrameType SINGLETON = new DoubleFrameType();
+
+    private DoubleFrameType() {}
+
+    @Override
+    public boolean isDouble() {
+      return true;
+    }
+
+    @Override
+    public DexType getInitializedType(DexItemFactory dexItemFactory) {
+      return dexItemFactory.doubleType;
     }
 
     @Override
     Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
-      return Opcodes.TOP;
+      return Opcodes.DOUBLE;
     }
 
     @Override
-    public boolean isTop() {
-      return true;
+    public String toString() {
+      return "double";
     }
   }
 
-  private static class UninitializedNew extends FrameType {
+  public static class LongFrameType extends WideInitializedType {
+
+    private static final LongFrameType SINGLETON = new LongFrameType();
+
+    private LongFrameType() {}
+
+    @Override
+    public boolean isLong() {
+      return true;
+    }
+
+    @Override
+    public DexType getInitializedType(DexItemFactory dexItemFactory) {
+      return dexItemFactory.longType;
+    }
+
+    @Override
+    Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
+      return Opcodes.LONG;
+    }
+
+    @Override
+    public String toString() {
+      return "long";
+    }
+  }
+
+  private static class UninitializedNew extends FrameType implements SingleFrameType {
+
     private final CfLabel label;
     private final DexType type;
 
     private UninitializedNew(CfLabel label, DexType type) {
       this.label = label;
       this.type = type;
+    }
+
+    @Override
+    public SingleFrameType asSingle() {
+      return this;
+    }
+
+    @Override
+    public SingleFrameType join(SingleFrameType frameType) {
+      return equals(frameType) ? this : oneWord();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      UninitializedNew uninitializedNew = (UninitializedNew) o;
+      return label == uninitializedNew.label && type == uninitializedNew.type;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(label, type);
     }
 
     @Override
@@ -275,7 +623,22 @@ public class CfFrame extends CfInstruction {
     }
 
     @Override
+    public boolean isObject() {
+      return true;
+    }
+
+    @Override
+    public DexType getObjectType(ProgramMethod context) {
+      return type;
+    }
+
+    @Override
     public boolean isUninitializedNew() {
+      return true;
+    }
+
+    @Override
+    public boolean isUninitializedObject() {
       return true;
     }
 
@@ -290,9 +653,24 @@ public class CfFrame extends CfInstruction {
     }
   }
 
-  private static class UninitializedThis extends FrameType {
+  private static class UninitializedThis extends SingletonFrameType implements SingleFrameType {
+
+    private static final UninitializedThis SINGLETON = new UninitializedThis();
 
     private UninitializedThis() {}
+
+    @Override
+    public SingleFrameType asSingle() {
+      return this;
+    }
+
+    @Override
+    public SingleFrameType join(SingleFrameType frameType) {
+      if (this == frameType) {
+        return this;
+      }
+      return oneWord();
+    }
 
     @Override
     Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
@@ -305,23 +683,55 @@ public class CfFrame extends CfInstruction {
     }
 
     @Override
+    public boolean isObject() {
+      return true;
+    }
+
+    @Override
+    public DexType getObjectType(ProgramMethod context) {
+      return context.getHolderType();
+    }
+
+    @Override
+    public boolean isUninitializedObject() {
+      return true;
+    }
+
+    @Override
     public boolean isUninitializedThis() {
       return true;
     }
   }
 
-  private static class OneWord extends FrameType {
+  private static class OneWord extends SingletonFrameType implements SingleFrameType {
 
     private static final OneWord SINGLETON = new OneWord();
 
-    @Override
-    Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
-      throw new Unreachable("Should only be used for verification");
-    }
+    private OneWord() {}
 
     @Override
     public boolean isOneWord() {
       return true;
+    }
+
+    @Override
+    public boolean isSpecific() {
+      return false;
+    }
+
+    @Override
+    public SingleFrameType asSingle() {
+      return this;
+    }
+
+    @Override
+    public SingleFrameType join(SingleFrameType frameType) {
+      return this;
+    }
+
+    @Override
+    Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
+      return Opcodes.TOP;
     }
 
     @Override
@@ -330,18 +740,15 @@ public class CfFrame extends CfInstruction {
     }
   }
 
-  private static class TwoWord extends FrameType {
+  private static class TwoWord extends SingletonFrameType implements WideFrameType {
 
     private static final TwoWord SINGLETON = new TwoWord();
 
-    @Override
-    Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
-      throw new Unreachable("Should only be used for verification");
-    }
+    private TwoWord() {}
 
     @Override
-    public boolean isWide() {
-      return true;
+    public boolean isSpecific() {
+      return false;
     }
 
     @Override
@@ -350,37 +757,116 @@ public class CfFrame extends CfInstruction {
     }
 
     @Override
+    public boolean isWide() {
+      return true;
+    }
+
+    @Override
+    public WideFrameType asWide() {
+      return this;
+    }
+
+    @Override
+    public WideFrameType join(WideFrameType frameType) {
+      // The join of wide with one of {double, long, wide} is wide.
+      return this;
+    }
+
+    @Override
+    Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
+      throw new Unreachable("Should only be used for verification");
+    }
+
+    @Override
     public String toString() {
       return "twoword";
     }
   }
 
-  private final Int2ReferenceSortedMap<FrameType> locals;
+  private final Int2ObjectSortedMap<FrameType> locals;
   private final Deque<FrameType> stack;
 
-  public CfFrame(Int2ReferenceSortedMap<FrameType> locals, Deque<FrameType> stack) {
+  // Constructor used by CfCodePrinter.
+  public CfFrame() {
+    this(EMPTY_LOCALS, EMPTY_STACK);
+  }
+
+  // Constructor used by CfCodePrinter.
+  public CfFrame(Int2ObjectAVLTreeMap<FrameType> locals) {
+    this((Int2ObjectSortedMap<FrameType>) locals, EMPTY_STACK);
+    assert !locals.isEmpty() || locals == EMPTY_LOCALS : "Should use EMPTY_LOCALS instead";
+  }
+
+  // Constructor used by CfCodePrinter.
+  public CfFrame(Deque<FrameType> stack) {
+    this(EMPTY_LOCALS, stack);
+    assert !stack.isEmpty() || stack == EMPTY_STACK : "Should use EMPTY_STACK instead";
+  }
+
+  // Constructor used by CfCodePrinter.
+  public CfFrame(Int2ObjectAVLTreeMap<FrameType> locals, Deque<FrameType> stack) {
+    this((Int2ObjectSortedMap<FrameType>) locals, stack);
+    assert !locals.isEmpty() || locals == EMPTY_LOCALS : "Should use EMPTY_LOCALS instead";
+    assert !stack.isEmpty() || stack == EMPTY_STACK : "Should use EMPTY_STACK instead";
+  }
+
+  // Internal constructor that does not require locals to be of the type Int2ObjectAVLTreeMap.
+  private CfFrame(Int2ObjectSortedMap<FrameType> locals, Deque<FrameType> stack) {
     assert locals.values().stream().allMatch(Objects::nonNull);
     assert stack.stream().allMatch(Objects::nonNull);
     this.locals = locals;
     this.stack = stack;
   }
 
-  // This is used from tests. As fastutils are repackaged and minified the method above is
-  // not available from tests which use fastutils in their original namespace.
-  public CfFrame(SortedMap<Integer, FrameType> locals, Deque<FrameType> stack) {
-    this(
-        locals instanceof Int2ReferenceAVLTreeMap
-            ? (Int2ReferenceAVLTreeMap<FrameType>) locals
-            : new Int2ReferenceAVLTreeMap<>(locals),
-        stack);
+  public static Builder builder() {
+    return new Builder();
   }
 
-  public Int2ReferenceSortedMap<FrameType> getLocals() {
+  @Override
+  public CfFrame clone() {
+    return new CfFrame(locals, stack);
+  }
+
+  public CfFrame mutableCopy() {
+    return new CfFrame(
+        (Int2ObjectSortedMap<FrameType>) new Int2ObjectAVLTreeMap<>(locals),
+        new ArrayDeque<>(stack));
+  }
+
+  public void forEachLocal(IntObjConsumer<FrameType> consumer) {
+    for (Int2ObjectMap.Entry<FrameType> entry : locals.int2ObjectEntrySet()) {
+      consumer.accept(entry.getIntKey(), entry.getValue());
+    }
+  }
+
+  public Int2ObjectSortedMap<FrameType> getLocals() {
     return locals;
   }
 
   public Deque<FrameType> getStack() {
     return stack;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (obj == null || getClass() != obj.getClass()) {
+      return false;
+    }
+    CfFrame frame = (CfFrame) obj;
+    return locals.equals(frame.locals) && Iterables.elementsEqual(stack, frame.stack);
+  }
+
+  @Override
+  public int hashCode() {
+    // Generates a hash that is identical to Objects.hash(locals, stack[0], ..., stack[n]).
+    int result = 31 + locals.hashCode();
+    for (FrameType frameType : stack) {
+      result = 31 * result + frameType.hashCode();
+    }
+    return result;
   }
 
   @Override
@@ -506,8 +992,7 @@ public class CfFrame extends CfInstruction {
       ProgramMethod context,
       AppView<?> appView,
       DexItemFactory dexItemFactory) {
-    // TODO(b/214496607): Implement this.
-    throw new Unimplemented();
+    return frame.check(appView, this);
   }
 
   public CfFrame markInstantiated(FrameType uninitializedType, DexType initType) {
@@ -515,15 +1000,15 @@ public class CfFrame extends CfInstruction {
       throw CfCodeStackMapValidatingException.error(
           "Cannot instantiate already instantiated type " + uninitializedType);
     }
-    Int2ReferenceSortedMap<FrameType> newLocals = new Int2ReferenceAVLTreeMap<>();
-    for (int var : locals.keySet()) {
-      newLocals.put(var, getInitializedFrameType(uninitializedType, locals.get(var), initType));
-    }
-    Deque<FrameType> newStack = new ArrayDeque<>();
+    CfFrame.Builder builder = CfFrame.builder().allocateStack(stack.size());
+    forEachLocal(
+        (localIndex, frameType) ->
+            builder.store(
+                localIndex, getInitializedFrameType(uninitializedType, frameType, initType)));
     for (FrameType frameType : stack) {
-      newStack.addLast(getInitializedFrameType(uninitializedType, frameType, initType));
+      builder.push(getInitializedFrameType(uninitializedType, frameType, initType));
     }
-    return new CfFrame(newLocals, newStack);
+    return builder.build();
   }
 
   public static FrameType getInitializedFrameType(
@@ -565,14 +1050,112 @@ public class CfFrame extends CfInstruction {
     if (!mapped) {
       return this;
     }
-    Int2ReferenceSortedMap<FrameType> newLocals = new Int2ReferenceAVLTreeMap<>();
-    for (int var : locals.keySet()) {
-      newLocals.put(var, locals.get(var).map(func));
+    Builder builder = builder();
+    for (Int2ObjectMap.Entry<FrameType> entry : locals.int2ObjectEntrySet()) {
+      builder.store(entry.getIntKey(), entry.getValue().map(func));
     }
-    Deque<FrameType> newStack = new ArrayDeque<>();
     for (FrameType frameType : stack) {
-      newStack.addLast(frameType.map(func));
+      builder.push(frameType.map(func));
     }
-    return new CfFrame(newLocals, newStack);
+    return builder.build();
+  }
+
+  public static class Builder {
+
+    private Int2ObjectSortedMap<FrameType> locals = EMPTY_LOCALS;
+    private Deque<FrameType> stack = EMPTY_STACK;
+
+    private boolean hasIncompleteUninitializedNew = false;
+    private boolean seenStore = false;
+
+    public Builder allocateStack(int size) {
+      assert stack == EMPTY_STACK;
+      if (size > 0) {
+        stack = new ArrayDeque<>(size);
+      }
+      return this;
+    }
+
+    public Builder appendLocal(FrameType frameType) {
+      // Mixing appendLocal() and store() is somewhat error prone. Catch it if we ever do it.
+      assert !seenStore;
+      int localIndex = locals.size();
+      return internalStore(localIndex, frameType);
+    }
+
+    public Builder apply(Consumer<Builder> consumer) {
+      consumer.accept(this);
+      return this;
+    }
+
+    public boolean hasIncompleteUninitializedNew() {
+      return hasIncompleteUninitializedNew;
+    }
+
+    public Builder setHasIncompleteUninitializedNew() {
+      hasIncompleteUninitializedNew = true;
+      return this;
+    }
+
+    public boolean hasLocal(int localIndex) {
+      return locals.containsKey(localIndex);
+    }
+
+    public FrameType getLocal(int localIndex) {
+      assert hasLocal(localIndex);
+      return locals.get(localIndex);
+    }
+
+    public Builder push(FrameType frameType) {
+      ensureMutableStack();
+      stack.addLast(frameType);
+      return this;
+    }
+
+    public Builder setLocals(Int2ObjectSortedMap<FrameType> locals) {
+      this.locals = locals;
+      return this;
+    }
+
+    public Builder setStack(Deque<FrameType> stack) {
+      this.stack = stack;
+      return this;
+    }
+
+    public Builder store(int localIndex, FrameType frameType) {
+      seenStore = true;
+      return internalStore(localIndex, frameType);
+    }
+
+    private Builder internalStore(int localIndex, FrameType frameType) {
+      ensureMutableLocals();
+      locals.put(localIndex, frameType);
+      if (frameType.isWide()) {
+        locals.put(localIndex + 1, frameType);
+      }
+      return this;
+    }
+
+    public CfFrame build() {
+      return new CfFrame(locals, stack);
+    }
+
+    public CfFrame buildMutable() {
+      ensureMutableLocals();
+      ensureMutableStack();
+      return build();
+    }
+
+    private void ensureMutableLocals() {
+      if (locals == EMPTY_LOCALS) {
+        locals = new Int2ObjectAVLTreeMap<>();
+      }
+    }
+
+    private void ensureMutableStack() {
+      if (stack == EMPTY_STACK) {
+        stack = new ArrayDeque<>();
+      }
+    }
   }
 }

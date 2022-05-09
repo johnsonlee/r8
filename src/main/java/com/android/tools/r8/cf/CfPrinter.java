@@ -76,7 +76,6 @@ import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.naming.MemberNaming.MethodSignature;
 import com.android.tools.r8.utils.DescriptorUtils;
-import it.unimi.dsi.fastutil.ints.Int2ReferenceMap.Entry;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
@@ -434,13 +433,14 @@ public class CfPrinter {
   public void print(CfFrame frame) {
     indent();
     builder.append("; frame: [");
-    {
-      String separator = "";
-      for (Entry<FrameType> entry : frame.getLocals().int2ReferenceEntrySet()) {
-        builder.append(separator).append(entry.getIntKey()).append(':');
-        print(entry.getValue());
-        separator = ", ";
-      }
+    if (!frame.getLocals().isEmpty()) {
+      int firstLocalIndex = frame.getLocals().firstIntKey();
+      frame.forEachLocal(
+          (localIndex, frameType) -> {
+            String separator = localIndex == firstLocalIndex ? "" : ", ";
+            builder.append(separator).append(localIndex).append(':');
+            print(frameType);
+          });
     }
     builder.append("] [");
     {
@@ -455,10 +455,22 @@ public class CfPrinter {
   }
 
   private void print(FrameType type) {
-    if (type.isUninitializedNew()) {
-      builder.append("uninitialized ").append(getLabel(type.getUninitializedLabel()));
+    if (type.isPrimitive()) {
+      if (type.isInt()) {
+        builder.append("int");
+      } else if (type.isDouble()) {
+        builder.append("double");
+      } else if (type.isLong()) {
+        assert type.isLong();
+        builder.append("long");
+      } else {
+        assert type.isSingleInitialized();
+        appendType(type.asSingleInitializedType().getInitializedType());
+      }
     } else if (type.isInitialized()) {
-      appendType(type.getInitializedType());
+      appendType(type.asSingleInitializedType().getInitializedType());
+    } else if (type.isUninitializedNew()) {
+      builder.append("uninitialized ").append(getLabel(type.getUninitializedLabel()));
     } else {
       builder.append(type.toString());
     }

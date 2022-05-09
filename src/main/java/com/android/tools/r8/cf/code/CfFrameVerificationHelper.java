@@ -6,21 +6,17 @@ package com.android.tools.r8.cf.code;
 
 import static com.android.tools.r8.utils.BiPredicateUtils.or;
 
+import com.android.tools.r8.cf.code.CfAssignability.AssignabilityResult;
 import com.android.tools.r8.cf.code.CfFrame.FrameType;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCodeStackMapValidatingException;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.collections.ImmutableDeque;
-import com.android.tools.r8.utils.collections.ImmutableInt2ReferenceSortedMap;
 import com.google.common.collect.Sets;
-import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
-import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.Deque;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,9 +24,7 @@ import java.util.function.BiPredicate;
 
 public class CfFrameVerificationHelper {
 
-  private static final CfFrame NO_FRAME =
-      new CfFrame(
-          ImmutableInt2ReferenceSortedMap.<FrameType>builder().build(), ImmutableDeque.of());
+  private static final CfFrame NO_FRAME = new CfFrame();
 
   private final AppView<?> appView;
   private final DexItemFactory factory;
@@ -216,9 +210,7 @@ public class CfFrameVerificationHelper {
 
   private void setFrame(CfFrame frame) {
     assert frame != NO_FRAME;
-    currentFrame =
-        new CfFrame(
-            new Int2ReferenceAVLTreeMap<>(frame.getLocals()), new ArrayDeque<>(frame.getStack()));
+    currentFrame = frame.mutableCopy();
   }
 
   public void checkExceptionEdges() {
@@ -248,7 +240,7 @@ public class CfFrameVerificationHelper {
     checkFrame(destinationFrame.getLocals(), destinationFrame.getStack());
   }
 
-  public void checkFrame(Int2ReferenceSortedMap<FrameType> locals, Deque<FrameType> stack) {
+  public void checkFrame(Int2ObjectSortedMap<FrameType> locals, Deque<FrameType> stack) {
     checkIsAssignable(currentFrame.getLocals(), currentFrame.getStack(), locals, stack);
   }
 
@@ -274,7 +266,7 @@ public class CfFrameVerificationHelper {
     if (!source.isInitialized()) {
       return false;
     }
-    return CfAssignability.isAssignable(source.getInitializedType(), target, appView);
+    return CfAssignability.isAssignable(source.getInitializedType(factory), target, appView);
   }
 
   public void checkIsAssignable(
@@ -287,7 +279,7 @@ public class CfFrameVerificationHelper {
   }
 
   public void checkIsAssignable(FrameType source, FrameType target) {
-    if (!CfAssignability.isAssignable(source, target, appView)) {
+    if (!CfAssignability.isFrameTypeAssignable(source, target, appView)) {
       throw CfCodeStackMapValidatingException.error(
           "The expected type " + source + " is not assignable to " + target);
     }
@@ -295,75 +287,27 @@ public class CfFrameVerificationHelper {
 
   // Based on https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html#jvms-4.10.1.4.
   private void checkIsAssignable(
-      Int2ReferenceSortedMap<FrameType> sourceLocals,
+      Int2ObjectSortedMap<FrameType> sourceLocals,
       Deque<FrameType> sourceStack,
-      Int2ReferenceSortedMap<FrameType> destLocals,
+      Int2ObjectSortedMap<FrameType> destLocals,
       Deque<FrameType> destStack) {
     checkLocalsIsAssignable(sourceLocals, destLocals);
     checkStackIsAssignable(sourceStack, destStack);
   }
 
   private void checkLocalsIsAssignable(
-      Int2ReferenceSortedMap<FrameType> sourceLocals,
-      Int2ReferenceSortedMap<FrameType> destLocals) {
-    // TODO(b/229826687): The tail of locals could have top(s) at destination but still be valid.
-    int localsLastKey = sourceLocals.isEmpty() ? -1 : sourceLocals.lastIntKey();
-    int otherLocalsLastKey = destLocals.isEmpty() ? -1 : destLocals.lastIntKey();
-    if (localsLastKey < otherLocalsLastKey) {
-      throw CfCodeStackMapValidatingException.error(
-          "Source locals "
-              + MapUtils.toString(sourceLocals)
-              + " have different local indices than "
-              + MapUtils.toString(destLocals));
-    }
-    for (int i = 0; i < otherLocalsLastKey; i++) {
-      FrameType sourceType = sourceLocals.containsKey(i) ? sourceLocals.get(i) : FrameType.top();
-      FrameType destinationType = destLocals.containsKey(i) ? destLocals.get(i) : FrameType.top();
-      if (!CfAssignability.isAssignable(sourceType, destinationType, appView)) {
-        throw CfCodeStackMapValidatingException.error(
-            "Could not assign '"
-                + MapUtils.toString(sourceLocals)
-                + "' to '"
-                + MapUtils.toString(destLocals)
-                + "'. The local at index "
-                + i
-                + " with '"
-                + sourceType
-                + "' not being assignable to '"
-                + destinationType
-                + "'");
-      }
+      Int2ObjectSortedMap<FrameType> sourceLocals, Int2ObjectSortedMap<FrameType> destLocals) {
+    AssignabilityResult result =
+        CfAssignability.isLocalsAssignable(sourceLocals, destLocals, appView);
+    if (result.isFailed()) {
+      throw CfCodeStackMapValidatingException.error(result.asFailed().getMessage());
     }
   }
 
   private void checkStackIsAssignable(Deque<FrameType> sourceStack, Deque<FrameType> destStack) {
-    if (sourceStack.size() != destStack.size()) {
-      throw CfCodeStackMapValidatingException.error(
-          "Source stack "
-              + Arrays.toString(sourceStack.toArray())
-              + " and destination stack "
-              + Arrays.toString(destStack.toArray())
-              + " is not the same size");
-    }
-    Iterator<FrameType> otherIterator = destStack.iterator();
-    int i = 0;
-    for (FrameType sourceType : sourceStack) {
-      FrameType destinationType = otherIterator.next();
-      if (!CfAssignability.isAssignable(sourceType, destinationType, appView)) {
-        throw CfCodeStackMapValidatingException.error(
-            "Could not assign '"
-                + Arrays.toString(sourceStack.toArray())
-                + "' to '"
-                + Arrays.toString(destStack.toArray())
-                + "'. The stack value at index "
-                + i
-                + " (from bottom) with '"
-                + sourceType
-                + "' not being assignable to '"
-                + destinationType
-                + "'");
-      }
-      i++;
+    AssignabilityResult result = CfAssignability.isStackAssignable(sourceStack, destStack, appView);
+    if (result.isFailed()) {
+      throw CfCodeStackMapValidatingException.error(result.asFailed().getMessage());
     }
   }
 }

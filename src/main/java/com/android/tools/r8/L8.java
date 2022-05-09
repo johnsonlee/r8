@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
-import static com.android.tools.r8.L8Command.USAGE_MESSAGE;
 import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException;
 
 import com.android.tools.r8.dex.ApplicationReader;
@@ -23,6 +22,7 @@ import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.shaking.AnnotationRemover;
 import com.android.tools.r8.shaking.L8TreePruner;
 import com.android.tools.r8.synthesis.SyntheticFinalization;
+import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -169,14 +169,16 @@ public class L8 {
     TypeRewriter typeRewriter = options.getTypeRewriter();
 
     DexApplication app = new L8TreePruner(options).prune(lazyApp, typeRewriter);
-    return AppView.createForL8(AppInfo.createInitialAppInfo(app), typeRewriter);
+    return AppView.createForL8(
+        AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forSingleOutputMode()),
+        typeRewriter);
   }
 
   private static void run(String[] args) throws CompilationFailedException {
     L8Command command = L8Command.parse(args, CommandLineOrigin.INSTANCE).build();
     if (command.isPrintHelp()) {
       SelfRetraceTest.test();
-      System.out.println(USAGE_MESSAGE);
+      System.out.println(L8CommandParser.getUsageMessage());
       return;
     }
     if (command.isPrintVersion()) {
@@ -189,11 +191,13 @@ public class L8 {
   /**
    * Command-line entry to L8.
    *
-   * <p>See {@link L8Command#USAGE_MESSAGE} or run {@code l8 --help} for usage information.
+   * <p>See {@link L8CommandParser#getUsageMessage()} or run {@code l8 --help} for usage
+   * information.
    */
   public static void main(String[] args) {
     if (args.length == 0) {
-      throw new RuntimeException(StringUtils.joinLines("Invalid invocation.", USAGE_MESSAGE));
+      throw new RuntimeException(
+          StringUtils.joinLines("Invalid invocation.", L8CommandParser.getUsageMessage()));
     }
     ExceptionUtils.withMainProgramHandler(() -> run(args));
   }

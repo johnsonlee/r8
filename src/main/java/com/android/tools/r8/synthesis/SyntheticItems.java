@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.contexts.CompilationContext.UniqueContext;
 import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
@@ -19,6 +20,7 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
@@ -31,21 +33,27 @@ import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
+import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.synthesis.SyntheticFinalization.Result;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -54,45 +62,115 @@ import org.objectweb.asm.ClassWriter;
 
 public class SyntheticItems implements SyntheticDefinitionsProvider {
 
-  static final int INVALID_ID_AFTER_SYNTHETIC_FINALIZATION = -1;
+  public interface GlobalSyntheticsStrategy {
+    ContextsForGlobalSynthetics getStrategy();
 
-  private final SyntheticNaming naming;
+    static GlobalSyntheticsStrategy forNonSynthesizing() {
+      ContextsForGlobalSyntheticsInSingleOutputMode instance =
+          new ContextsForGlobalSyntheticsInSingleOutputMode() {
+            @Override
+            public void addGlobalContexts(
+                DexType globalType, Collection<ProgramDefinition> contexts) {
+              throw new Unreachable("Unexpected attempt to add globals to non-desugaring build.");
+            }
+          };
+      return () -> instance;
+    }
 
-  /** Globally incremented id for the next internal synthetic class. */
-  private int nextSyntheticId;
+    static GlobalSyntheticsStrategy forSingleOutputMode() {
+      ContextsForGlobalSynthetics instance = new ContextsForGlobalSyntheticsInSingleOutputMode();
+      return () -> instance;
+    }
 
-  public SyntheticNaming getNaming() {
-    return naming;
+    static GlobalSyntheticsStrategy forPerFileMode() {
+      // Allocate a new context set as the new pending set.
+      return ContextsForGlobalSyntheticsInPerFileMode::new;
+    }
+  }
+
+  interface ContextsForGlobalSynthetics {
+    boolean isEmpty();
+
+    void forEach(BiConsumer<DexType, Set<DexType>> fn);
+
+    void addGlobalContexts(DexType globalType, Collection<ProgramDefinition> contexts);
+  }
+
+  private static class ContextsForGlobalSyntheticsInSingleOutputMode
+      implements ContextsForGlobalSynthetics {
+
+    @Override
+    public boolean isEmpty() {
+      return true;
+    }
+
+    @Override
+    public void forEach(BiConsumer<DexType, Set<DexType>> fn) {
+      // nothing to do.
+    }
+
+    @Override
+    public void addGlobalContexts(DexType globalType, Collection<ProgramDefinition> contexts) {
+      // contexts are ignored in single output modes.
+    }
+  }
+
+  private static class ContextsForGlobalSyntheticsInPerFileMode
+      implements ContextsForGlobalSynthetics {
+    private final ConcurrentHashMap<DexType, Set<DexType>> globalContexts =
+        new ConcurrentHashMap<>();
+
+    @Override
+    public boolean isEmpty() {
+      return globalContexts.isEmpty();
+    }
+
+    @Override
+    public void forEach(BiConsumer<DexType, Set<DexType>> fn) {
+      globalContexts.forEach(fn);
+    }
+
+    @Override
+    public void addGlobalContexts(DexType globalType, Collection<ProgramDefinition> contexts) {
+      Set<DexType> contextReferences =
+          globalContexts.computeIfAbsent(globalType, k -> ConcurrentHashMap.newKeySet());
+      contexts.forEach(definition -> contextReferences.add(definition.getContextType()));
+    }
+  }
+
+  enum State {
+    OPEN,
+    FINALIZED
   }
 
   /** Collection of pending items. */
   private static class PendingSynthetics {
 
     /** Thread safe collection of synthetic items not yet committed to the application. */
-    private final ConcurrentHashMap<DexType, SyntheticDefinition<?, ?, ?>> nonLegacyDefinitions =
+    private final ConcurrentHashMap<DexType, SyntheticDefinition<?, ?, ?>> definitions =
         new ConcurrentHashMap<>();
 
     boolean isEmpty() {
-      return nonLegacyDefinitions.isEmpty();
+      return definitions.isEmpty();
     }
 
     boolean containsType(DexType type) {
-      return nonLegacyDefinitions.containsKey(type);
+      return definitions.containsKey(type);
     }
 
     boolean containsTypeOfKind(DexType type, SyntheticKind kind) {
-      SyntheticDefinition<?, ?, ?> definition = nonLegacyDefinitions.get(type);
+      SyntheticDefinition<?, ?, ?> definition = definitions.get(type);
       return definition != null && definition.getKind() == kind;
     }
 
     boolean verifyNotRewritten(NonIdentityGraphLens lens) {
-      assert nonLegacyDefinitions.keySet().equals(lens.rewriteTypes(nonLegacyDefinitions.keySet()));
+      assert definitions.keySet().equals(lens.rewriteTypes(definitions.keySet()));
       return true;
     }
 
     Collection<DexProgramClass> getAllProgramClasses() {
-      List<DexProgramClass> allPending = new ArrayList<>(nonLegacyDefinitions.size());
-      for (SyntheticDefinition<?, ?, ?> item : nonLegacyDefinitions.values()) {
+      List<DexProgramClass> allPending = new ArrayList<>(definitions.size());
+      for (SyntheticDefinition<?, ?, ?> item : definitions.values()) {
         if (item.isProgramDefinition()) {
           allPending.add(item.asProgramDefinition().getHolder());
         }
@@ -101,39 +179,76 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     }
   }
 
+  private final State state;
+  private final SyntheticNaming naming;
   private final CommittedSyntheticsCollection committed;
-
   private final PendingSynthetics pending = new PendingSynthetics();
+  private final ContextsForGlobalSynthetics globalContexts;
+  private final GlobalSyntheticsStrategy globalSyntheticsStrategy;
+
+  public SyntheticNaming getNaming() {
+    return naming;
+  }
+
+  public GlobalSyntheticsStrategy getGlobalSyntheticsStrategy() {
+    return globalSyntheticsStrategy;
+  }
 
   // Empty collection for use only in tests and utilities.
   public static SyntheticItems empty() {
-    return new SyntheticItems(-1, CommittedSyntheticsCollection.empty(null));
+    return new SyntheticItems(
+        State.FINALIZED,
+        CommittedSyntheticsCollection.empty(null),
+        GlobalSyntheticsStrategy.forNonSynthesizing());
   }
 
   // Only for use from initial AppInfo/AppInfoWithClassHierarchy create functions. */
-  public static CommittedItems createInitialSyntheticItems(DexApplication application) {
+  public static CommittedItems createInitialSyntheticItems(
+      DexApplication application, GlobalSyntheticsStrategy globalSyntheticsStrategy) {
     return new CommittedItems(
-        0,
+        State.OPEN,
         application,
         CommittedSyntheticsCollection.empty(application.dexItemFactory().getSyntheticNaming()),
-        ImmutableList.of());
+        ImmutableList.of(),
+        globalSyntheticsStrategy);
   }
 
   // Only for conversion to a mutable synthetic items collection.
   SyntheticItems(CommittedItems commit) {
-    this(commit.nextSyntheticId, commit.committed);
+    this(commit.state, commit.committed, commit.globalSyntheticsStrategy);
   }
 
-  private SyntheticItems(int nextSyntheticId, CommittedSyntheticsCollection committed) {
-    this.nextSyntheticId = nextSyntheticId;
+  private SyntheticItems(
+      State state,
+      CommittedSyntheticsCollection committed,
+      GlobalSyntheticsStrategy globalSyntheticsStrategy) {
+    this.state = state;
     this.committed = committed;
     this.naming = committed.getNaming();
+    this.globalContexts = globalSyntheticsStrategy.getStrategy();
+    this.globalSyntheticsStrategy = globalSyntheticsStrategy;
+  }
+
+  public Map<DexType, Set<DexType>> getFinalGlobalSyntheticContexts(
+      AppView appView, NamingLens namingLens) {
+    assert isFinalized();
+    DexItemFactory factory = appView.dexItemFactory();
+    ImmutableMap<DexType, Set<DexType>> globalContexts = committed.getGlobalContexts();
+    Map<DexType, Set<DexType>> rewritten = new IdentityHashMap<>(globalContexts.size());
+    globalContexts.forEach(
+        (global, contexts) -> {
+          Set<DexType> old =
+              rewritten.put(
+                  namingLens.lookupType(global, factory),
+                  SetUtils.mapIdentityHashSet(contexts, c -> namingLens.lookupType(c, factory)));
+          assert old == null;
+        });
+    return rewritten;
   }
 
   public static void collectSyntheticInputs(AppView<?> appView) {
     // Collecting synthetic items must be the very first task after application build.
     SyntheticItems synthetics = appView.getSyntheticItems();
-    assert synthetics.nextSyntheticId == 0;
     assert synthetics.committed.isEmpty();
     assert synthetics.pending.isEmpty();
     CommittedSyntheticsCollection.Builder builder = synthetics.committed.builder();
@@ -157,12 +272,11 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       }
       if (marker.isSyntheticMethods()) {
         clazz.forEachProgramMethod(
-            // TODO(b/158159959): Support having multiple methods per class.
             method ->
-                builder.addNonLegacyMethod(
+                builder.addMethod(
                     new SyntheticMethodDefinition(marker.getKind(), marker.getContext(), method)));
       } else if (marker.isSyntheticClass()) {
-        builder.addNonLegacyClass(
+        builder.addClass(
             new SyntheticProgramClassDefinition(marker.getKind(), marker.getContext(), clazz));
       }
     }
@@ -172,7 +286,11 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     }
     CommittedItems commit =
         new CommittedItems(
-            synthetics.nextSyntheticId, appView.appInfo().app(), committed, ImmutableList.of());
+            synthetics.state,
+            appView.appInfo().app(),
+            committed,
+            ImmutableList.of(),
+            synthetics.globalSyntheticsStrategy);
     if (appView.appInfo().hasClassHierarchy()) {
       appView
           .withClassHierarchy()
@@ -191,7 +309,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       DexType type, Function<DexType, ClassResolutionResult> baseDefinitionFor) {
     DexClass clazz = null;
     SyntheticKind kind = null;
-    SyntheticDefinition<?, ?, ?> item = pending.nonLegacyDefinitions.get(type);
+    SyntheticDefinition<?, ?, ?> item = pending.definitions.get(type);
     if (item != null) {
       clazz = item.getHolder();
       kind = item.getKind();
@@ -209,7 +327,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   public boolean isFinalized() {
-    return nextSyntheticId == INVALID_ID_AFTER_SYNTHETIC_FINALIZATION;
+    return state == State.FINALIZED;
   }
 
   public boolean hasPendingSyntheticClasses() {
@@ -224,24 +342,16 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     return committed.containsType(type);
   }
 
-  private boolean isNonLegacyCommittedSynthetic(DexType type) {
-    return committed.containsNonLegacyType(type);
-  }
-
   public boolean isPendingSynthetic(DexType type) {
     return pending.containsType(type);
   }
 
-  private boolean isNonLegacyPendingSynthetic(DexType type) {
-    return pending.nonLegacyDefinitions.containsKey(type);
+  public boolean isSynthetic(DexProgramClass clazz) {
+    return isSynthetic(clazz.type);
   }
 
-  public boolean isNonLegacySynthetic(DexProgramClass clazz) {
-    return isNonLegacySynthetic(clazz.type);
-  }
-
-  public boolean isNonLegacySynthetic(DexType type) {
-    return isNonLegacyCommittedSynthetic(type) || isNonLegacyPendingSynthetic(type);
+  public boolean isSynthetic(DexType type) {
+    return committed.containsType(type) || pending.definitions.containsKey(type);
   }
 
   public boolean isEligibleForClassMerging(DexProgramClass clazz, HorizontalClassMerger.Mode mode) {
@@ -250,15 +360,15 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   private boolean isSyntheticLambda(DexProgramClass clazz) {
-    if (!isNonLegacySynthetic(clazz)) {
+    if (!isSynthetic(clazz)) {
       return false;
     }
-    Iterable<SyntheticReference<?, ?, ?>> references = committed.getNonLegacyItems(clazz.getType());
+    Iterable<SyntheticReference<?, ?, ?>> references = committed.getItems(clazz.getType());
     if (!Iterables.isEmpty(references)) {
       assert Iterables.size(references) == 1;
       return references.iterator().next().getKind() == naming.LAMBDA;
     }
-    SyntheticDefinition<?, ?, ?> definition = pending.nonLegacyDefinitions.get(clazz.getType());
+    SyntheticDefinition<?, ?, ?> definition = pending.definitions.get(clazz.getType());
     if (definition != null) {
       return definition.getKind() == naming.LAMBDA;
     }
@@ -272,7 +382,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   public boolean isSyntheticClass(DexType type) {
-    return isNonLegacySynthetic(type);
+    return isSynthetic(type);
   }
 
   public boolean isSyntheticClass(DexProgramClass clazz) {
@@ -280,11 +390,11 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   public boolean isGlobalSyntheticClass(DexProgramClass clazz) {
-    SyntheticDefinition<?, ?, ?> definition = pending.nonLegacyDefinitions.get(clazz.type);
+    SyntheticDefinition<?, ?, ?> definition = pending.definitions.get(clazz.type);
     if (definition != null) {
       return definition.getKind().isGlobal();
     }
-    return isGlobalReferences(committed.getNonLegacyClasses().get(clazz.type));
+    return isGlobalReferences(committed.getClasses().get(clazz.type));
   }
 
   private static boolean isGlobalReferences(List<SyntheticProgramClassReference> references) {
@@ -342,10 +452,10 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   private void forEachSynthesizingContext(DexType type, Consumer<SynthesizingContext> consumer) {
-    for (SyntheticReference<?, ?, ?> reference : committed.getNonLegacyItems(type)) {
+    for (SyntheticReference<?, ?, ?> reference : committed.getItems(type)) {
       consumer.accept(reference.getContext());
     }
-    SyntheticDefinition<?, ?, ?> definition = pending.nonLegacyDefinitions.get(type);
+    SyntheticDefinition<?, ?, ?> definition = pending.definitions.get(type);
     if (definition != null) {
       consumer.accept(definition.getContext());
     }
@@ -376,15 +486,12 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   public boolean isSyntheticMethodThatShouldNotBeDoubleProcessed(ProgramMethod method) {
     for (SyntheticMethodReference reference :
-        committed
-            .getNonLegacyMethods()
-            .getOrDefault(method.getHolderType(), Collections.emptyList())) {
+        committed.getMethods().getOrDefault(method.getHolderType(), Collections.emptyList())) {
       if (reference.getKind().equals(naming.STATIC_INTERFACE_CALL)) {
         return true;
       }
     }
-    SyntheticDefinition<?, ?, ?> definition =
-        pending.nonLegacyDefinitions.get(method.getHolderType());
+    SyntheticDefinition<?, ?, ?> definition = pending.definitions.get(method.getHolderType());
     if (definition != null) {
       return definition.getKind().equals(naming.STATIC_INTERFACE_CALL);
     }
@@ -397,8 +504,8 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       DexProgramClass clazz,
       Predicate<DexProgramClass> ifIsLambda,
       Predicate<DexProgramClass> ifNotLambda) {
-    Iterable<SyntheticReference<?, ?, ?>> references = committed.getNonLegacyItems(clazz.getType());
-    SyntheticDefinition<?, ?, ?> definition = pending.nonLegacyDefinitions.get(clazz.getType());
+    Iterable<SyntheticReference<?, ?, ?>> references = committed.getItems(clazz.getType());
+    SyntheticDefinition<?, ?, ?> definition = pending.definitions.get(clazz.getType());
     if (definition != null) {
       references = Iterables.concat(references, IterableUtils.singleton(definition.toReference()));
     }
@@ -420,12 +527,11 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   private SynthesizingContext getSynthesizingContext(
       ProgramDefinition context, ClassToFeatureSplitMap featureSplits) {
     DexType contextType = context.getContextType();
-    SyntheticDefinition<?, ?, ?> existingDefinition = pending.nonLegacyDefinitions.get(contextType);
+    SyntheticDefinition<?, ?, ?> existingDefinition = pending.definitions.get(contextType);
     if (existingDefinition != null) {
       return existingDefinition.getContext();
     }
-    Iterable<SyntheticReference<?, ?, ?>> existingReferences =
-        committed.getNonLegacyItems(contextType);
+    Iterable<SyntheticReference<?, ?, ?>> existingReferences = committed.getItems(contextType);
     if (!Iterables.isEmpty(existingReferences)) {
       // Use a deterministic synthesizing context from the set of contexts.
       return IterableUtils.min(
@@ -800,6 +906,30 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       Supplier<MissingGlobalSyntheticsConsumerDiagnostic> diagnosticSupplier,
       SyntheticKindSelector kindSelector,
       DexType globalType,
+      Collection<ProgramDefinition> contexts,
+      AppView<?> appView,
+      Consumer<SyntheticProgramClassBuilder> fn,
+      Consumer<DexProgramClass> onCreationConsumer) {
+    SyntheticKind kind = kindSelector.select(naming);
+    assert kind.isGlobal();
+    assert !contexts.isEmpty();
+    if (appView.options().intermediate && !appView.options().hasGlobalSyntheticsConsumer()) {
+      appView.reporter().fatalError(diagnosticSupplier.get());
+    }
+    // A global type is its own context.
+    SynthesizingContext outerContext = SynthesizingContext.fromType(globalType);
+    DexProgramClass globalSynthetic =
+        internalEnsureFixedProgramClass(kind, fn, onCreationConsumer, outerContext, appView);
+    addGlobalContexts(globalSynthetic.getType(), contexts);
+    return globalSynthetic;
+  }
+
+  // TODO(b/230445931): Remove this once possible.
+  @Deprecated
+  public DexProgramClass legacyEnsureGlobalClass(
+      Supplier<MissingGlobalSyntheticsConsumerDiagnostic> diagnosticSupplier,
+      SyntheticKindSelector kindSelector,
+      DexType globalType,
       AppView<?> appView,
       Consumer<SyntheticProgramClassBuilder> fn,
       Consumer<DexProgramClass> onCreationConsumer) {
@@ -829,7 +959,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       AppView<?> appView,
       Consumer<SyntheticMethodBuilder> fn,
       Supplier<String> syntheticIdSupplier) {
-    assert nextSyntheticId != INVALID_ID_AFTER_SYNTHETIC_FINALIZATION;
+    assert !isFinalized();
     // Obtain the outer synthesizing context in the case the context itself is synthetic.
     // This is to ensure a flat input-type -> synthetic-item mapping.
     SynthesizingContext outerContext = getSynthesizingContext(context, appView);
@@ -849,7 +979,11 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   private void addPendingDefinition(SyntheticDefinition<?, ?, ?> definition) {
-    pending.nonLegacyDefinitions.put(definition.getHolder().getType(), definition);
+    pending.definitions.put(definition.getHolder().getType(), definition);
+  }
+
+  private void addGlobalContexts(DexType globalType, Collection<ProgramDefinition> contexts) {
+    globalContexts.addGlobalContexts(globalType, contexts);
   }
 
   // Commit of the synthetic items to a new fully populated application.
@@ -859,34 +993,41 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   public CommittedItems commitPrunedItems(PrunedItems prunedItems) {
-    return commit(prunedItems, pending, committed, nextSyntheticId);
+    return commit(prunedItems, pending, globalContexts, committed, state, globalSyntheticsStrategy);
   }
 
   public CommittedItems commitRewrittenWithLens(
       DexApplication application, NonIdentityGraphLens lens) {
     assert pending.verifyNotRewritten(lens);
     return commit(
-        PrunedItems.empty(application), pending, committed.rewriteWithLens(lens), nextSyntheticId);
+        PrunedItems.empty(application),
+        pending,
+        globalContexts,
+        committed.rewriteWithLens(lens),
+        state,
+        globalSyntheticsStrategy);
   }
 
   private static CommittedItems commit(
       PrunedItems prunedItems,
       PendingSynthetics pending,
+      ContextsForGlobalSynthetics globalContexts,
       CommittedSyntheticsCollection committed,
-      int nextSyntheticId) {
+      State state,
+      GlobalSyntheticsStrategy globalSyntheticsStrategy) {
     DexApplication application = prunedItems.getPrunedApp();
     Set<DexType> removedClasses = prunedItems.getNoLongerSyntheticItems();
     CommittedSyntheticsCollection.Builder builder = committed.builder();
     // Compute the synthetic additions and add them to the application.
     ImmutableList<DexType> committedProgramTypes;
     DexApplication amendedApplication;
-    if (pending.nonLegacyDefinitions.isEmpty()) {
+    if (pending.definitions.isEmpty()) {
       committedProgramTypes = ImmutableList.of();
       amendedApplication = application;
     } else {
       DexApplication.Builder<?> appBuilder = application.builder();
       ImmutableList.Builder<DexType> committedProgramTypesBuilder = ImmutableList.builder();
-      for (SyntheticDefinition<?, ?, ?> definition : pending.nonLegacyDefinitions.values()) {
+      for (SyntheticDefinition<?, ?, ?> definition : pending.definitions.values()) {
         if (!removedClasses.contains(definition.getHolder().getType())) {
           if (definition.isProgramDefinition()) {
             committedProgramTypesBuilder.add(definition.getHolder().getType());
@@ -903,14 +1044,16 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
           builder.addItem(definition);
         }
       }
+      builder.addGlobalContexts(globalContexts);
       committedProgramTypes = committedProgramTypesBuilder.build();
       amendedApplication = appBuilder.build();
     }
     return new CommittedItems(
-        nextSyntheticId,
+        state,
         amendedApplication,
         builder.build().pruneItems(prunedItems),
-        committedProgramTypes);
+        committedProgramTypes,
+        globalSyntheticsStrategy);
   }
 
   public void writeAttributeIfIntermediateSyntheticClass(
@@ -918,8 +1061,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     if (!appView.options().intermediate || !appView.options().isGeneratingClassFiles()) {
       return;
     }
-    Iterator<SyntheticReference<?, ?, ?>> it =
-        committed.getNonLegacyItems(clazz.getType()).iterator();
+    Iterator<SyntheticReference<?, ?, ?>> it = committed.getItems(clazz.getType()).iterator();
     if (it.hasNext()) {
       SyntheticKind kind = it.next().getKind();
       // When compiling intermediates there should not be any mergings as they may invalidate the

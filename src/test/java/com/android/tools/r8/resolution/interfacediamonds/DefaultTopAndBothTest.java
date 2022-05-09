@@ -42,7 +42,7 @@ public class DefaultTopAndBothTest extends TestBase {
   @Test
   public void testResolution() throws Exception {
     // The resolution is runtime independent, so just run it on the default CF VM.
-    assumeTrue(parameters.useRuntimeAsNoneRuntime());
+    assumeTrue(parameters.isOrSimulateNoneRuntime());
     AppInfoWithLiveness appInfo =
         TestAppViewBuilder.builder()
             .addProgramClasses(CLASSES)
@@ -55,9 +55,13 @@ public class DefaultTopAndBothTest extends TestBase {
     DexMethod method = buildNullaryVoidMethod(B.class, "f", appInfo.dexItemFactory());
     MethodResolutionResult resolutionResult = appInfo.resolveMethodOnClassHolderLegacy(method);
     Set<String> holders = new HashSet<>();
+    Set<String> failedTypes = new HashSet<>();
     resolutionResult
         .asFailedResolution()
-        .forEachFailureDependency(target -> holders.add(target.getHolderType().toSourceString()));
+        .forEachFailureDependency(
+            type -> failedTypes.add(type.toSourceString()),
+            target -> holders.add(target.getHolderType().toSourceString()));
+    assertEquals(holders, failedTypes);
     assertEquals(ImmutableSet.of(L.class.getTypeName(), R.class.getTypeName()), holders);
   }
 

@@ -4,7 +4,6 @@
 package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -30,7 +29,7 @@ import java.util.function.BiFunction;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-public class CfReturn extends CfInstruction {
+public class CfReturn extends CfJumpInstruction {
 
   private final ValueType type;
 
@@ -81,11 +80,6 @@ public class CfReturn extends CfInstruction {
       CfInstruction fallthroughInstruction,
       CT initialValue) {
     return TraversalContinuation.doContinue(initialValue);
-  }
-
-  @Override
-  public boolean isJump() {
-    return true;
   }
 
   @Override
@@ -140,7 +134,7 @@ public class CfReturn extends CfInstruction {
       ProgramMethod context,
       AppView<?> appView,
       DexItemFactory dexItemFactory) {
-    // TODO(b/214496607): Implement this.
-    throw new Unimplemented();
+    assert !context.getReturnType().isVoidType();
+    return frame.popInitialized(appView, context.getReturnType()).clear();
   }
 }

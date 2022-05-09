@@ -21,6 +21,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.Cus
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineRewritingFlags;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineTopLevelFlags;
+import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.Timing;
@@ -58,7 +59,9 @@ public class HumanToMachineSpecificationConverter {
       HumanDesugaredLibrarySpecification humanSpec, DexApplication app) {
     timing.begin("Human to machine convert");
     reporter = app.options.reporter;
-    appInfo = AppInfoWithClassHierarchy.createForDesugaring(AppInfo.createInitialAppInfo(app));
+    appInfo =
+        AppInfoWithClassHierarchy.createForDesugaring(
+            AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forNonSynthesizing()));
     LibraryValidator.validate(
         app,
         humanSpec.isLibraryCompilation(),
@@ -93,6 +96,7 @@ public class HumanToMachineSpecificationConverter {
         ComputedApiLevel.unknown());
     rewritingFlags.getAmendLibraryMethod().forEach(builder::amendLibraryMethod);
     rewritingFlags.getAmendLibraryField().forEach(builder::amendLibraryField);
+    rewritingFlags.getApiConversionCollection().forEach(builder::addApiConversionCollection);
     new HumanToMachineRetargetConverter(appInfo)
         .convertRetargetFlags(rewritingFlags, builder, this::warnMissingReferences);
     new HumanToMachineEmulatedInterfaceConverter(appInfo)

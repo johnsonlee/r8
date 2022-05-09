@@ -41,8 +41,6 @@ import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.synthetic.SyntheticCfCodeProvider;
-import com.android.tools.r8.utils.collections.ImmutableDeque;
-import com.android.tools.r8.utils.collections.ImmutableInt2ReferenceSortedMap;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -88,19 +86,14 @@ public abstract class NullableConversionCfCodeProvider extends SyntheticCfCodePr
 
       // if (arg == null) { return null; }
       generateNullCheck(instructions);
-      instructions.add(
-          new CfFrame(
-              ImmutableInt2ReferenceSortedMap.<FrameType>builder()
-                  .put(0, FrameType.initialized(typeArray))
-                  .build(),
-              ImmutableDeque.of()));
+      instructions.add(CfFrame.builder().appendLocal(FrameType.initialized(typeArray)).build());
 
-      ImmutableInt2ReferenceSortedMap<FrameType> locals =
-          ImmutableInt2ReferenceSortedMap.<FrameType>builder()
-              .put(0, FrameType.initialized(typeArray))
-              .put(1, FrameType.initialized(factory.intType))
-              .put(2, FrameType.initialized(convertedTypeArray))
-              .put(3, FrameType.initialized(factory.intType))
+      CfFrame frame =
+          CfFrame.builder()
+              .appendLocal(FrameType.initialized(typeArray))
+              .appendLocal(FrameType.initialized(factory.intType))
+              .appendLocal(FrameType.initialized(convertedTypeArray))
+              .appendLocal(FrameType.initialized(factory.intType))
               .build();
 
       // int t1 = arg.length;
@@ -118,7 +111,7 @@ public abstract class NullableConversionCfCodeProvider extends SyntheticCfCodePr
       CfLabel returnLabel = new CfLabel();
       CfLabel loopLabel = new CfLabel();
       instructions.add(loopLabel);
-      instructions.add(new CfFrame(locals, ImmutableDeque.of()));
+      instructions.add(frame);
       instructions.add(new CfLoad(ValueType.INT, 3));
       instructions.add(new CfLoad(ValueType.INT, 1));
       instructions.add(new CfIfCmp(If.Type.GE, ValueType.INT, returnLabel));
@@ -138,7 +131,7 @@ public abstract class NullableConversionCfCodeProvider extends SyntheticCfCodePr
       instructions.add(new CfGoto(loopLabel));
       // return t2;
       instructions.add(returnLabel);
-      instructions.add(new CfFrame(locals, ImmutableDeque.of()));
+      instructions.add(frame.clone());
       instructions.add(new CfLoad(ValueType.fromDexType(convertedTypeArray), 2));
       instructions.add(new CfReturn(ValueType.fromDexType(convertedTypeArray)));
       return standardCfCodeFromInstructions(instructions);
@@ -168,14 +161,11 @@ public abstract class NullableConversionCfCodeProvider extends SyntheticCfCodePr
       DexItemFactory factory = appView.dexItemFactory();
       List<CfInstruction> instructions = new ArrayList<>();
 
-      ImmutableInt2ReferenceSortedMap<FrameType> locals =
-          ImmutableInt2ReferenceSortedMap.<FrameType>builder()
-              .put(0, FrameType.initialized(enumType))
-              .build();
+      CfFrame frame = CfFrame.builder().appendLocal(FrameType.initialized(enumType)).build();
 
       // if (arg == null) { return null; }
       generateNullCheck(instructions);
-      instructions.add(new CfFrame(locals, ImmutableDeque.of()));
+      instructions.add(frame);
 
       // if (arg == enumType.enumField1) { return convertedType.enumField1; }
       Iterator<DexEncodedField> iterator = enumFields.iterator();
@@ -194,7 +184,7 @@ public abstract class NullableConversionCfCodeProvider extends SyntheticCfCodePr
         instructions.add(new CfReturn(ValueType.fromDexType(convertedType)));
         if (iterator.hasNext()) {
           instructions.add(notEqual);
-          instructions.add(new CfFrame(locals, ImmutableDeque.of()));
+          instructions.add(frame.clone());
         }
       }
       return standardCfCodeFromInstructions(instructions);
@@ -219,14 +209,11 @@ public abstract class NullableConversionCfCodeProvider extends SyntheticCfCodePr
       List<CfInstruction> instructions = new ArrayList<>();
 
       DexType argType = wrapperField.type;
-      ImmutableInt2ReferenceSortedMap<FrameType> locals =
-          ImmutableInt2ReferenceSortedMap.<FrameType>builder()
-              .put(0, FrameType.initialized(argType))
-              .build();
+      CfFrame frame = CfFrame.builder().appendLocal(FrameType.initialized(argType)).build();
 
       // if (arg == null) { return null };
       generateNullCheck(instructions);
-      instructions.add(new CfFrame(locals, ImmutableDeque.of()));
+      instructions.add(frame);
 
       // if (arg instanceOf ReverseWrapper) { return ((ReverseWrapper) arg).wrapperField};
       assert reverseWrapperField != null;
@@ -239,7 +226,7 @@ public abstract class NullableConversionCfCodeProvider extends SyntheticCfCodePr
       instructions.add(new CfInstanceFieldRead(reverseWrapperField));
       instructions.add(new CfReturn(ValueType.fromDexType(reverseWrapperField.type)));
       instructions.add(unwrapDest);
-      instructions.add(new CfFrame(locals, ImmutableDeque.of()));
+      instructions.add(frame.clone());
 
       // return new Wrapper(wrappedValue);
       instructions.add(new CfNew(wrapperField.holder));
@@ -254,6 +241,119 @@ public abstract class NullableConversionCfCodeProvider extends SyntheticCfCodePr
                   factory.constructorMethodName),
               false));
       instructions.add(new CfReturn(ValueType.fromDexType(wrapperField.holder)));
+      return standardCfCodeFromInstructions(instructions);
+    }
+  }
+
+  public static class CollectionConversionCfCodeProvider extends NullableConversionCfCodeProvider {
+
+    private final DexType collectionType;
+    private final DexMethod conversion;
+
+    public CollectionConversionCfCodeProvider(
+        AppView<?> appView, DexType holder, DexType collectionType, DexMethod conversion) {
+      super(appView, holder);
+      this.collectionType = collectionType;
+      this.conversion = conversion;
+    }
+
+    @Override
+    public CfCode generateCfCode() {
+      DexItemFactory factory = appView.dexItemFactory();
+      List<CfInstruction> instructions = new ArrayList<>();
+
+      // if (arg == null) { return null; }
+      generateNullCheck(instructions);
+      instructions.add(
+          CfFrame.builder().appendLocal(FrameType.initialized(collectionType)).build());
+
+      CfFrame frame =
+          CfFrame.builder()
+              .appendLocal(FrameType.initialized(collectionType))
+              .appendLocal(FrameType.initialized(collectionType))
+              .appendLocal(FrameType.initialized(factory.iteratorType))
+              .build();
+
+      // Collection<E> t1 = new Collection<E>();
+      if (collectionType == factory.setType) {
+        DexType hashSetType = factory.createType("Ljava/util/HashSet;");
+        instructions.add(new CfNew(hashSetType));
+        instructions.add(
+            new CfInvoke(
+                Opcodes.INVOKESPECIAL,
+                factory.createMethod(
+                    hashSetType,
+                    factory.createProto(factory.voidType),
+                    factory.constructorMethodName),
+                false));
+      } else {
+        assert collectionType == factory.listType;
+        DexType arrayListType = factory.createType("Ljava/util/ArrayList;");
+        instructions.add(new CfNew(arrayListType));
+        instructions.add(
+            new CfInvoke(
+                Opcodes.INVOKESPECIAL,
+                factory.createMethod(
+                    arrayListType,
+                    factory.createProto(factory.voidType),
+                    factory.constructorMethodName),
+                false));
+      }
+      instructions.add(new CfStore(ValueType.OBJECT, 1));
+
+      // Iterator<E> t2 = receiver.iterator();
+      instructions.add(new CfLoad(ValueType.OBJECT, 0));
+      instructions.add(
+          new CfInvoke(
+              Opcodes.INVOKEINTERFACE,
+              factory.createMethod(
+                  factory.collectionType, factory.createProto(factory.iteratorType), "iterator"),
+              true));
+      instructions.add(new CfStore(ValueType.OBJECT, 2));
+
+      // while(t2.hasNext())
+      CfLabel returnLabel = new CfLabel();
+      CfLabel loopLabel = new CfLabel();
+      instructions.add(loopLabel);
+      instructions.add(frame);
+      instructions.add(new CfLoad(ValueType.fromDexType(factory.iteratorType), 2));
+      instructions.add(
+          new CfInvoke(
+              Opcodes.INVOKEINTERFACE,
+              factory.createMethod(
+                  factory.iteratorType, factory.createProto(factory.booleanType), "hasNext"),
+              true));
+      instructions.add(new CfConstNumber(0, ValueType.INT));
+      instructions.add(new CfIfCmp(If.Type.EQ, ValueType.INT, returnLabel));
+
+      // {t1.add(convert(t2.next());}
+      instructions.add(new CfLoad(ValueType.fromDexType(collectionType), 1));
+      instructions.add(new CfLoad(ValueType.fromDexType(factory.iteratorType), 2));
+      instructions.add(
+          new CfInvoke(
+              Opcodes.INVOKEINTERFACE,
+              factory.createMethod(
+                  factory.iteratorType,
+                  factory.createProto(conversion.getArgumentType(0, true)),
+                  "next"),
+              true));
+      instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, conversion, false));
+      instructions.add(
+          new CfInvoke(
+              Opcodes.INVOKEINTERFACE,
+              factory.createMethod(
+                  factory.collectionType,
+                  factory.createProto(factory.booleanType, factory.objectType),
+                  "add"),
+              true));
+      instructions.add(new CfGoto(loopLabel));
+
+      // return t1;
+      instructions.add(returnLabel);
+      instructions.add(frame.clone());
+      instructions.add(new CfLoad(ValueType.fromDexType(collectionType), 1));
+      instructions.add(new CfReturn(ValueType.fromDexType(collectionType)));
+
       return standardCfCodeFromInstructions(instructions);
     }
   }

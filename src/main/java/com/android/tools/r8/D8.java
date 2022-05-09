@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
-import static com.android.tools.r8.D8Command.USAGE_MESSAGE;
 import static com.android.tools.r8.utils.AssertionUtils.forTesting;
 import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException;
 
@@ -38,6 +37,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.synthesis.SyntheticFinalization;
 import com.android.tools.r8.synthesis.SyntheticItems;
+import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.CfgPrinter;
 import com.android.tools.r8.utils.ExceptionUtils;
@@ -128,7 +128,7 @@ public final class D8 {
   private static void run(String[] args) throws CompilationFailedException {
     D8Command command = D8Command.parse(args, CommandLineOrigin.INSTANCE).build();
     if (command.isPrintHelp()) {
-      System.out.println(USAGE_MESSAGE);
+      System.out.println(D8CommandParser.getUsageMessage());
       return;
     }
     if (command.isPrintVersion()) {
@@ -143,11 +143,13 @@ public final class D8 {
   /**
    * Command-line entry to D8.
    *
-   * <p>See {@link D8Command#USAGE_MESSAGE} or run {@code d8 --help} for usage information.
+   * <p>See {@link D8CommandParser#getUsageMessage()} or run {@code d8 --help} for usage
+   * information.
    */
   public static void main(String[] args) {
     if (args.length == 0) {
-      throw new RuntimeException(StringUtils.joinLines("Invalid invocation.", USAGE_MESSAGE));
+      throw new RuntimeException(
+          StringUtils.joinLines("Invalid invocation.", D8CommandParser.getUsageMessage()));
     }
     ExceptionUtils.withMainProgramHandler(() -> run(args));
   }
@@ -180,7 +182,13 @@ public final class D8 {
     AppInfo appInfo =
         timing.time(
             "Create app-info",
-            () -> AppInfo.createInitialAppInfo(app, applicationReader.readMainDexClasses(app)));
+            () ->
+                AppInfo.createInitialAppInfo(
+                    app,
+                    options.isGeneratingDexIndexed()
+                        ? GlobalSyntheticsStrategy.forSingleOutputMode()
+                        : GlobalSyntheticsStrategy.forPerFileMode(),
+                    applicationReader.readMainDexClasses(app)));
     return timing.time("Create app-view", () -> AppView.createForD8(appInfo, typeRewriter, timing));
   }
 

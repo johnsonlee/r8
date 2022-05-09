@@ -45,7 +45,7 @@ public class TwoDefaultMethodsWithoutTopTest extends TestBase {
   @Test
   public void testResolution() throws Exception {
     // The resolution is runtime independent, so just run it on the default CF VM.
-    assumeTrue(parameters.useRuntimeAsNoneRuntime());
+    assumeTrue(parameters.isOrSimulateNoneRuntime());
     for (AndroidApiLevel minApi :
         ImmutableList.of(AndroidApiLevel.B, apiLevelWithDefaultInterfaceMethodsSupport())) {
       AppInfoWithLiveness appInfo =
@@ -79,9 +79,13 @@ public class TwoDefaultMethodsWithoutTopTest extends TestBase {
         // When not desugaring resolution should fail. Check the failure dependencies are the two
         // default methods in conflict.
         Set<String> holders = new HashSet<>();
+        Set<String> failedTypes = new HashSet<>();
         resolutionResult
             .asFailedResolution()
-            .forEachFailureDependency(m -> holders.add(m.getHolderType().toSourceString()));
+            .forEachFailureDependency(
+                type -> failedTypes.add(type.toSourceString()),
+                m -> holders.add(m.getHolderType().toSourceString()));
+        assertEquals(holders, failedTypes);
         assertEquals(ImmutableSet.of(I.class.getTypeName(), J.class.getTypeName()), holders);
       }
     }

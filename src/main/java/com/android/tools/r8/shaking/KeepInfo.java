@@ -8,8 +8,10 @@ import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.shaking.KeepInfo.Builder;
+import com.android.tools.r8.shaking.KeepReason.ReflectiveUseFrom;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.Sets;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -474,9 +476,20 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
 
     final B builder;
 
-    // The set of rules that have contributed to this joiner. These are only needed for the
-    // interpretation of keep rules into keep info, and is therefore not stored in the keep info
-    // builder above.
+    /**
+     * The set of reasons and rules that have contributed to setting {@link Builder#allowShrinking}
+     * to false on this joiner. These are needed to report the correct -whyareyoukeeping reasons for
+     * rooted items.
+     *
+     * <p>An item should only have allowShrinking set to false if it is kept by a -keep rule or the
+     * {@link Enqueuer} detects a reflective access to the item (hence the {@link
+     * Set<ReflectiveUseFrom>}).
+     *
+     * <p>These are only needed for the interpretation of keep rules into keep info, and is
+     * therefore not stored in the keep info builder above.
+     */
+    final Set<ReflectiveUseFrom> reasons = new HashSet<>();
+
     final Set<ProguardKeepRuleBase> rules = Sets.newIdentityHashSet();
 
     Joiner(B builder) {
@@ -498,8 +511,16 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return null;
     }
 
+    public static KeepFieldInfo.Joiner asFieldJoinerOrNull(Joiner<?, ?, ?> joiner) {
+      return joiner != null ? joiner.asFieldJoiner() : null;
+    }
+
     public KeepMethodInfo.Joiner asMethodJoiner() {
       return null;
+    }
+
+    public Set<ReflectiveUseFrom> getReasons() {
+      return reasons;
     }
 
     public Set<ProguardKeepRuleBase> getRules() {
@@ -514,6 +535,10 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return builder.isCheckDiscardedEnabled();
     }
 
+    public boolean isOptimizationAllowed() {
+      return builder.isOptimizationAllowed();
+    }
+
     public boolean isShrinkingAllowed() {
       return builder.isShrinkingAllowed();
     }
@@ -524,6 +549,11 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
 
     public J top() {
       builder.makeTop();
+      return self();
+    }
+
+    public J addReason(ReflectiveUseFrom reason) {
+      reasons.add(reason);
       return self();
     }
 
@@ -584,6 +614,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       applyIf(
           builder.isAccessModificationRequiredForRepackaging(),
           Joiner::requireAccessModificationForRepackaging);
+      reasons.addAll(joiner.reasons);
       rules.addAll(joiner.rules);
       return self();
     }
@@ -602,7 +633,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
 
     public boolean verifyShrinkingDisallowedWithRule(InternalOptions options) {
       assert !isShrinkingAllowed();
-      assert !getRules().isEmpty() || !options.isShrinking();
+      assert !getReasons().isEmpty() || !getRules().isEmpty() || !options.isShrinking();
       return true;
     }
   }

@@ -13,11 +13,10 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
-import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import com.google.common.collect.ImmutableSet;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.Test;
@@ -26,7 +25,6 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-// This is a regression test for b/226170842.
 @RunWith(Parameterized.class)
 public class TraceMethodResolutionWithLibraryAndProgramClassTest extends TestBase {
 
@@ -59,23 +57,21 @@ public class TraceMethodResolutionWithLibraryAndProgramClassTest extends TestBas
   }
 
   @Test
-  public void testInvalidResolution() throws Exception {
+  public void testValidResolution() throws Exception {
     Path dir = temp.newFolder().toPath();
     Path libJar =
         ZipBuilder.builder(dir.resolve("lib.jar"))
             .addFilesRelative(
-                ToolHelper.getClassPathForTests(), ToolHelper.getClassFileForTestClass(A.class))
-            .addBytes(
-                DescriptorUtils.getPathFromJavaType(B.class),
-                transformer(B.class).removeMethods(MethodPredicate.all()).transform())
+                ToolHelper.getClassPathForTests(),
+                ToolHelper.getClassFileForTestClass(A.class),
+                ToolHelper.getClassFileForTestClass(B.class))
             .build();
     Path targetJar =
         ZipBuilder.builder(dir.resolve("target.jar"))
-            .addBytes(
-                DescriptorUtils.getPathFromJavaType(A.class),
-                transformer(A.class).removeMethods(MethodPredicate.all()).transform())
             .addFilesRelative(
-                ToolHelper.getClassPathForTests(), ToolHelper.getClassFileForTestClass(B.class))
+                ToolHelper.getClassPathForTests(),
+                ToolHelper.getClassFileForTestClass(A.class),
+                ToolHelper.getClassFileForTestClass(B.class))
             .build();
     Path sourceJar =
         ZipBuilder.builder(dir.resolve("source.jar"))
@@ -94,14 +90,11 @@ public class TraceMethodResolutionWithLibraryAndProgramClassTest extends TestBas
     ImmutableSet<MethodReference> foundSet =
         ImmutableSet.of(
             Reference.methodFromMethod(A.class.getMethod("foo")),
-            Reference.methodFromMethod(A.class.getMethod("bar")));
-    ImmutableSet<MethodReference> missingSet =
-        ImmutableSet.of(
+            Reference.methodFromMethod(A.class.getMethod("bar")),
             Reference.methodFromMethod(B.class.getMethod("baz")),
             Reference.methodFromMethod(B.class.getMethod("qux")));
     assertEquals(foundSet, consumer.seenMethods);
-    // TODO(b/226170842): Methods should not be missing.
-    assertEquals(missingSet, consumer.seenMissingMethods);
+    assertEquals(Collections.emptySet(), consumer.seenMissingMethods);
   }
 
   // A is added to both library and program, but the program one is missing the methods {foo,bar}

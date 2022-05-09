@@ -5,7 +5,6 @@ package com.android.tools.r8;
 
 import static com.android.tools.r8.utils.InternalOptions.DETERMINISTIC_DEBUGGING;
 
-import com.android.tools.r8.AssertionsConfiguration.AssertionTransformation;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.dump.DumpOptions;
@@ -38,8 +37,6 @@ import java.util.function.Consumer;
 /** Immutable command structure for an invocation of the {@link L8} library compiler. */
 @Keep
 public final class L8Command extends BaseCompilerCommand {
-
-  static final String USAGE_MESSAGE = L8CommandParser.USAGE_MESSAGE;
 
   private final D8Command d8Command;
   private final R8Command r8Command;
@@ -204,7 +201,7 @@ public final class L8Command extends BaseCompilerCommand {
     internal.assertionsConfiguration =
         new AssertionConfigurationWithDefault(
             AssertionsConfiguration.builder(getReporter())
-                .setTransformation(AssertionTransformation.DISABLE)
+                .setCompileTimeDisable()
                 .setScopeAll()
                 .build(),
             getAssertionsConfiguration());

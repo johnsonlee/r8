@@ -40,6 +40,7 @@ import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.shaking.MainDexInfo;
+import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.tracereferences.TraceReferencesConsumer.TracedReference;
 import com.android.tools.r8.tracereferences.internal.TracedClassImpl;
 import com.android.tools.r8.tracereferences.internal.TracedFieldImpl;
@@ -69,7 +70,8 @@ public class Tracer {
             AppInfoWithClassHierarchy.createInitialAppInfoWithClassHierarchy(
                 new ApplicationReader(inputApp, options, Timing.empty()).read().toDirect(),
                 ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap(),
-                MainDexInfo.none())),
+                MainDexInfo.none(),
+                GlobalSyntheticsStrategy.forSingleOutputMode())),
         diagnostics,
         type -> targetDescriptors.contains(type.toDescriptorString()));
   }
@@ -243,11 +245,12 @@ public class Tracer {
           }
         }
       }
-
+      MethodResolutionResult methodResolutionResult =
+          method.getHolder().isInterface()
+              ? appInfo().resolveMethodOnInterface(method.getHolder(), method.getReference())
+              : appInfo().resolveMethodOnClass(method.getHolder(), method.getReference());
       DexClassAndMethod superTarget =
-          appInfo()
-              .resolveMethodOnLegacy(method.getHolder(), method.getReference())
-              .lookupInvokeSpecialTarget(method.getHolder(), appInfo());
+          methodResolutionResult.lookupInvokeSpecialTarget(method.getHolder(), appInfo());
       if (superTarget != null
           && !superTarget.isProgramMethod()
           && isTargetType(superTarget.getHolderType())) {
@@ -267,8 +270,7 @@ public class Tracer {
           method -> {
             DexClassAndMethod resolvedMethod =
                 appInfo()
-                    .resolveMethodOnLegacy(
-                        superType, method.getReference(), superType != clazz.superType)
+                    .resolveMethodOn(superType, method.getReference(), superType != clazz.superType)
                     .getResolutionPair();
             if (resolvedMethod != null
                 && !resolvedMethod.isProgramMethod()
@@ -312,7 +314,7 @@ public class Tracer {
         assert lookupResult.getType().isStatic();
         DexMethod rewrittenMethod = lookupResult.getReference();
         handleRewrittenMethodResolution(
-            rewrittenMethod, appInfo().unsafeResolveMethodDueToDexFormatLegacy(rewrittenMethod));
+            rewrittenMethod, appInfo().unsafeResolveMethodDueToDexFormat(rewrittenMethod));
       }
 
       @Override
@@ -321,7 +323,7 @@ public class Tracer {
         assert lookupResult.getType().isSuper();
         DexMethod rewrittenMethod = lookupResult.getReference();
         MethodResolutionResult resolutionResult =
-            appInfo().unsafeResolveMethodDueToDexFormatLegacy(rewrittenMethod);
+            appInfo().unsafeResolveMethodDueToDexFormat(rewrittenMethod);
         if (resolutionResult.isFailedResolution()
             && resolutionResult.asFailedResolution().hasMethodsCausingError()) {
           handleRewrittenMethodResolution(rewrittenMethod, resolutionResult);
@@ -350,23 +352,26 @@ public class Tracer {
         handleRewrittenMethodResolution(
             method,
             lookupResult.getType().isInterface()
-                ? appInfo().resolveMethodOnInterfaceHolderLegacy(method)
-                : appInfo().resolveMethodOnClassHolderLegacy(method));
+                ? appInfo().resolveMethodOnInterfaceHolder(method)
+                : appInfo().resolveMethodOnClassHolder(method));
       }
 
       private void handleRewrittenMethodResolution(
           DexMethod method, MethodResolutionResult resolutionResult) {
-        if (resolutionResult.isFailedResolution()
-            && resolutionResult.asFailedResolution().hasMethodsCausingError()) {
-          resolutionResult
-              .asFailedResolution()
-              .forEachFailureDependency(
-                  methodCausingFailure -> {
-                    handleRewrittenMethodReference(method, methodCausingFailure);
-                  });
-          return;
-        }
-        handleRewrittenMethodReference(method, resolutionResult.getResolutionPair());
+        resolutionResult.forEachMethodResolutionResult(
+            result -> {
+              if (result.isFailedResolution()
+                  && result.asFailedResolution().hasTypesOrMethodsCausingError()) {
+                result
+                    .asFailedResolution()
+                    .forEachFailureDependency(
+                        type -> addType(type, referencedFrom),
+                        methodCausingFailure ->
+                            handleRewrittenMethodReference(method, methodCausingFailure));
+                return;
+              }
+              handleRewrittenMethodReference(method, result.getResolutionPair());
+            });
       }
 
       private void handleRewrittenMethodReference(

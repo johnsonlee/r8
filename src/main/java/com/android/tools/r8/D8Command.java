@@ -5,7 +5,6 @@ package com.android.tools.r8;
 
 import static com.android.tools.r8.utils.InternalOptions.DETERMINISTIC_DEBUGGING;
 
-import com.android.tools.r8.AssertionsConfiguration.AssertionTransformation;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
@@ -416,8 +415,6 @@ public final class D8Command extends BaseCompilerCommand {
     }
   }
 
-  static final String USAGE_MESSAGE = D8CommandParser.USAGE_MESSAGE;
-
   private final boolean intermediate;
   private final GlobalSyntheticsConsumer globalSyntheticsConsumer;
   private final DesugarGraphConsumer desugarGraphConsumer;
@@ -469,6 +466,11 @@ public final class D8Command extends BaseCompilerCommand {
    */
   public static Builder parse(String[] args, Origin origin, DiagnosticsHandler handler) {
     return D8CommandParser.parse(args, origin, handler);
+  }
+
+  /** Get the help description for the D8 supported flags. */
+  public static List<ParseFlagInfo> getParseFlagsInformation() {
+    return D8CommandParser.getFlags();
   }
 
   private D8Command(
@@ -605,7 +607,7 @@ public final class D8Command extends BaseCompilerCommand {
     internal.assertionsConfiguration =
         new AssertionConfigurationWithDefault(
             AssertionsConfiguration.builder(getReporter())
-                .setTransformation(AssertionTransformation.DISABLE)
+                .setCompileTimeDisable()
                 .setScopeAll()
                 .build(),
             getAssertionsConfiguration());

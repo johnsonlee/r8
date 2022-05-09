@@ -28,6 +28,7 @@ import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.shaking.MainDexInfo;
+import com.android.tools.r8.synthesis.SyntheticItems.State;
 import com.android.tools.r8.synthesis.SyntheticNaming.Phase;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -158,6 +159,7 @@ public class SyntheticFinalization {
       throws ExecutionException {
     assert !appView.appInfo().hasClassHierarchy();
     assert !appView.appInfo().hasLiveness();
+    appView.options().testing.checkDeterminism(appView);
     Result result = appView.getSyntheticItems().computeFinalSynthetics(appView);
     appView.setAppInfo(new AppInfo(result.commit, result.mainDexInfo));
     if (result.lens != null) {
@@ -178,6 +180,7 @@ public class SyntheticFinalization {
       AppView<AppInfoWithClassHierarchy> appView, ExecutorService executorService)
       throws ExecutionException {
     assert !appView.appInfo().hasLiveness();
+    appView.options().testing.checkDeterminism(appView);
     Result result = appView.getSyntheticItems().computeFinalSynthetics(appView);
     appView.setAppInfo(appView.appInfo().rebuildWithClassHierarchy(result.commit));
     appView.setAppInfo(appView.appInfo().rebuildWithMainDexInfo(result.mainDexInfo));
@@ -225,10 +228,8 @@ public class SyntheticFinalization {
       application =
           buildLensAndProgram(
               appView,
-              computeEquivalences(
-                  appView, committed.getNonLegacyMethods(), generators, lensBuilder),
-              computeEquivalences(
-                  appView, committed.getNonLegacyClasses(), generators, lensBuilder),
+              computeEquivalences(appView, committed.getMethods(), generators, lensBuilder),
+              computeEquivalences(appView, committed.getClasses(), generators, lensBuilder),
               lensBuilder,
               (clazz, reference) ->
                   finalClassesBuilder.put(clazz.getType(), ImmutableList.of(reference)),
@@ -242,7 +243,7 @@ public class SyntheticFinalization {
         finalClassesBuilder.build();
 
     Set<DexType> prunedSynthetics = Sets.newIdentityHashSet();
-    committed.forEachNonLegacyItem(
+    committed.forEachItem(
         reference -> {
           DexType type = reference.getHolder();
           if (!finalMethods.containsKey(type) && !finalClasses.containsKey(type)) {
@@ -268,11 +269,16 @@ public class SyntheticFinalization {
 
     return new Result(
         new CommittedItems(
-            SyntheticItems.INVALID_ID_AFTER_SYNTHETIC_FINALIZATION,
+            State.FINALIZED,
             application,
             new CommittedSyntheticsCollection(
-                synthetics.getNaming(), finalMethods, finalClasses, finalInputSynthetics),
-            ImmutableList.of()),
+                synthetics.getNaming(),
+                finalMethods,
+                finalClasses,
+                committed.getGlobalContexts(),
+                finalInputSynthetics),
+            ImmutableList.of(),
+            synthetics.getGlobalSyntheticsStrategy()),
         syntheticFinalizationGraphLens,
         PrunedItems.builder().setPrunedApp(application).addRemovedClasses(prunedSynthetics).build(),
         mainDexInfoBuilder.build());
@@ -308,12 +314,12 @@ public class SyntheticFinalization {
   }
 
   private boolean isNotSyntheticType(DexType type) {
-    return !committed.containsNonLegacyType(type);
+    return !committed.containsType(type);
   }
 
   private boolean verifyNoNestedSynthetics(DexItemFactory dexItemFactory) {
     // Check that the prefix of each synthetic is never itself synthetic.
-    committed.forEachNonLegacyItem(
+    committed.forEachItem(
         item -> {
           if (item.getKind().isGlobal()) {
             return;
@@ -331,14 +337,14 @@ public class SyntheticFinalization {
   private boolean verifyOneSyntheticPerSyntheticClass() {
     Set<DexType> seen = Sets.newIdentityHashSet();
     committed
-        .getNonLegacyClasses()
+        .getClasses()
         .forEach(
             (type, references) -> {
               assert seen.add(type);
               assert references.size() == 1;
             });
     committed
-        .getNonLegacyMethods()
+        .getMethods()
         .forEach(
             (type, references) -> {
               assert seen.add(type);
