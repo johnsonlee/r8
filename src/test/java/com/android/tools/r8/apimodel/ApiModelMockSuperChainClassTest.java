@@ -79,7 +79,6 @@ public class ApiModelMockSuperChainClassTest extends TestBase {
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
         .compile()
-        .inspect(ApiModelingTestHelper::assertNoSynthesizedClasses)
         .applyIf(
             addLibraryClassesToBootClasspath(),
             b -> b.addBootClasspathClasses(LibraryClass.class, LibraryInterface.class))
@@ -87,7 +86,8 @@ public class ApiModelMockSuperChainClassTest extends TestBase {
             addOtherLibraryClassesToBootClasspath(),
             b -> b.addBootClasspathClasses(OtherLibraryClass.class))
         .run(parameters.getRuntime(), Main.class)
-        .apply(this::checkOutput);
+        .apply(this::checkOutput)
+        .inspect(this::inspect);
   }
 
   @Test
@@ -98,8 +98,6 @@ public class ApiModelMockSuperChainClassTest extends TestBase {
             || parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V12_0_0));
     testForD8()
         .setMode(CompilationMode.RELEASE)
-        // TODO(b/213552119): Remove when enabled by default.
-        .apply(ApiModelingTestHelper::enableApiCallerIdentification)
         .apply(this::setupTestBuilder)
         .compile()
         .applyIf(

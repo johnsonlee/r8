@@ -116,6 +116,7 @@ public abstract class ApiModelingTestHelper {
   static void enableStubbingOfClasses(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
         options -> {
+          options.apiModelingOptions().enableApiCallerIdentification = true;
           options.apiModelingOptions().enableStubbingOfClasses = true;
         });
   }
@@ -123,6 +124,7 @@ public abstract class ApiModelingTestHelper {
   static void enableOutliningOfMethods(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
         options -> {
+          options.apiModelingOptions().enableApiCallerIdentification = true;
           options.apiModelingOptions().enableOutliningOfMethods = true;
         });
   }
@@ -131,6 +133,7 @@ public abstract class ApiModelingTestHelper {
       TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
         options -> {
+          options.apiModelingOptions().enableApiCallerIdentification = true;
           options.apiModelingOptions().checkAllApiReferencesAreSet = false;
         });
   }
