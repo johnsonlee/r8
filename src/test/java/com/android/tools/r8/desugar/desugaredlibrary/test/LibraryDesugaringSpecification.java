@@ -1,9 +1,12 @@
 // Copyright (c) 2022, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.desugar.desugaredlibrary.test;
 
+import static com.android.tools.r8.ToolHelper.DESUGARED_JDK_8_LIB_JAR;
+import static com.android.tools.r8.ToolHelper.DESUGARED_LIB_RELEASES_DIR;
+
+import com.android.tools.r8.L8TestBuilder;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.jdk11.DesugaredLibraryJDK11Undesugarer;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -17,79 +20,103 @@ import java.util.Set;
 public class LibraryDesugaringSpecification {
 
   private static final String RELEASES_DIR = "third_party/openjdk/desugar_jdk_libs_releases/";
-  private static final Path DESUGARED_JDK_11_LIB_JAR =
+  private static final Path UNDESUGARED_JDK_11_LIB_JAR =
       DesugaredLibraryJDK11Undesugarer.undesugaredJarJDK11(
           Paths.get("third_party/openjdk/desugar_jdk_libs_11/desugar_jdk_libs.jar"));
 
   // Main head specifications.
   public static LibraryDesugaringSpecification JDK8 =
       new LibraryDesugaringSpecification(
-          "JDK8",
-          Paths.get("third_party/openjdk/desugar_jdk_libs/desugar_jdk_libs.jar"),
-          Paths.get("src/library_desugar/desugar_jdk_libs.json"));
+          "JDK8", DESUGARED_JDK_8_LIB_JAR, "desugar_jdk_libs.json", AndroidApiLevel.P);
   public static LibraryDesugaringSpecification JDK11 =
       new LibraryDesugaringSpecification(
-          "JDK11",
-          DESUGARED_JDK_11_LIB_JAR,
-          Paths.get("src/library_desugar/jdk11/desugar_jdk_libs.json"));
+          "JDK11", UNDESUGARED_JDK_11_LIB_JAR, "jdk11/desugar_jdk_libs.json", AndroidApiLevel.R);
   public static LibraryDesugaringSpecification JDK11_MINIMAL =
       new LibraryDesugaringSpecification(
           "JDK11_MINIMAL",
-          DESUGARED_JDK_11_LIB_JAR,
-          Paths.get("src/library_desugar/jdk11/desugar_jdk_libs_minimal.json"));
+          UNDESUGARED_JDK_11_LIB_JAR,
+          "jdk11/desugar_jdk_libs_minimal.json",
+          AndroidApiLevel.R);
   public static LibraryDesugaringSpecification JDK11_PATH =
       new LibraryDesugaringSpecification(
           "JDK11_PATH",
-          DESUGARED_JDK_11_LIB_JAR,
-          Paths.get("src/library_desugar/jdk11/desugar_jdk_libs_path.json"));
+          UNDESUGARED_JDK_11_LIB_JAR,
+          "jdk11/desugar_jdk_libs_path.json",
+          AndroidApiLevel.R);
 
   // Legacy specifications.
   public static LibraryDesugaringSpecification JDK11_PATH_ALTERNATIVE_3 =
       new LibraryDesugaringSpecification(
           "JDK11_PATH_ALTERNATIVE_3",
-          DESUGARED_JDK_11_LIB_JAR,
-          Paths.get("src/library_desugar/jdk11/desugar_jdk_libs_path_alternative_3.json"));
+          UNDESUGARED_JDK_11_LIB_JAR,
+          "jdk11/desugar_jdk_libs_path_alternative_3.json",
+          AndroidApiLevel.R);
+  public static LibraryDesugaringSpecification JDK11_CHM_ONLY =
+      new LibraryDesugaringSpecification(
+          "JDK11_CHM_ONLY",
+          UNDESUGARED_JDK_11_LIB_JAR,
+          "jdk11/chm_only_desugar_jdk_libs.json",
+          AndroidApiLevel.R);
   public static LibraryDesugaringSpecification JDK11_LEGACY =
       new LibraryDesugaringSpecification(
-          "DESUGARED_JDK_11_LIB_JAR",
-          DESUGARED_JDK_11_LIB_JAR,
-          Paths.get("src/library_desugar/jdk11/desugar_jdk_libs_legacy.json"));
-  private static final LibraryDesugaringSpecification RELEASED_1_0_9 =
-      new LibraryDesugaringSpecification("1.0.9");
-  private static final LibraryDesugaringSpecification RELEASED_1_0_10 =
-      new LibraryDesugaringSpecification("1.0.10");
-  private static final LibraryDesugaringSpecification RELEASED_1_1_0 =
-      new LibraryDesugaringSpecification("1.1.0");
-  private static final LibraryDesugaringSpecification RELEASED_1_1_1 =
-      new LibraryDesugaringSpecification("1.1.1");
-  private static final LibraryDesugaringSpecification RELEASED_1_1_5 =
-      new LibraryDesugaringSpecification("1.1.5");
-
+          "JDK11_LEGACY",
+          // The legacy specification is not using the undesugared JAR.
+          Paths.get("third_party/openjdk/desugar_jdk_libs_11/desugar_jdk_libs.jar"),
+          "jdk11/desugar_jdk_libs_legacy.json",
+          AndroidApiLevel.R);
+  public static final LibraryDesugaringSpecification RELEASED_1_0_9 =
+      new LibraryDesugaringSpecification("1.0.9", AndroidApiLevel.P);
+  public static final LibraryDesugaringSpecification RELEASED_1_0_10 =
+      new LibraryDesugaringSpecification("1.0.10", AndroidApiLevel.P);
+  public static final LibraryDesugaringSpecification RELEASED_1_1_0 =
+      new LibraryDesugaringSpecification("1.1.0", AndroidApiLevel.P);
+  public static final LibraryDesugaringSpecification RELEASED_1_1_1 =
+      new LibraryDesugaringSpecification("1.1.1", AndroidApiLevel.P);
+  public static final LibraryDesugaringSpecification RELEASED_1_1_5 =
+      new LibraryDesugaringSpecification("1.1.5", AndroidApiLevel.P);
   private final String name;
   private final Set<Path> desugarJdkLibs;
   private final Path specification;
+  private final Set<Path> libraryFiles;
+  private final String extraKeepRules;
 
-  LibraryDesugaringSpecification(String name, Path desugarJdkLibs, Path specification) {
-    this(name, ImmutableSet.of(desugarJdkLibs, ToolHelper.DESUGAR_LIB_CONVERSIONS), specification);
+  private LibraryDesugaringSpecification(
+      String name, Path desugarJdkLibs, String specificationPath, AndroidApiLevel androidJarLevel) {
+    this(
+        name,
+        ImmutableSet.of(desugarJdkLibs, ToolHelper.DESUGAR_LIB_CONVERSIONS),
+        Paths.get("src/library_desugar/" + specificationPath),
+        ToolHelper.getAndroidJar(androidJarLevel));
   }
 
-  public LibraryDesugaringSpecification(String name, Path specification) {
-    this(name, DESUGARED_JDK_11_LIB_JAR, specification);
+  // This can be used to build custom specifications for testing purposes.
+  public LibraryDesugaringSpecification(
+      String name, Set<Path> desugarJdkLibs, Path specification, Path androidJar) {
+    this(name, desugarJdkLibs, specification, ImmutableSet.of(androidJar), "");
   }
 
-  public LibraryDesugaringSpecification(String name, Set<Path> desugarJdkLibs, Path specification) {
+  // This can be used to build custom specifications for testing purposes.
+  public LibraryDesugaringSpecification(
+      String name,
+      Set<Path> desugarJdkLibs,
+      Path specification,
+      Set<Path> libraryFiles,
+      String extraKeepRules) {
     this.name = name;
     this.desugarJdkLibs = desugarJdkLibs;
     this.specification = specification;
+    this.libraryFiles = libraryFiles;
+    this.extraKeepRules = extraKeepRules;
   }
 
-  LibraryDesugaringSpecification(String version) {
+  private LibraryDesugaringSpecification(String version, AndroidApiLevel androidJarLevel) {
     this(
-        "Release_" + version,
+        "RELEASED_" + version,
         ImmutableSet.of(
-            Paths.get(RELEASES_DIR, version, "desugar_jdk_libs.jar"),
-            Paths.get(RELEASES_DIR, version, "desugar_jdk_libs_configuration.jar")),
-        Paths.get(RELEASES_DIR, version, "desugar.json"));
+            Paths.get(DESUGARED_LIB_RELEASES_DIR, version, "desugar_jdk_libs.jar"),
+            Paths.get(DESUGARED_LIB_RELEASES_DIR, version, "desugar_jdk_libs_configuration.jar")),
+        Paths.get(DESUGARED_LIB_RELEASES_DIR, version, "desugar.json"),
+        ToolHelper.getAndroidJar(androidJarLevel));
   }
 
   @Override
@@ -105,11 +132,34 @@ public class LibraryDesugaringSpecification {
     return specification;
   }
 
-  public Path getAndroidJar() {
-    if (this == JDK8) {
-      return ToolHelper.getAndroidJar(AndroidApiLevel.P);
-    }
-    return ToolHelper.getAndroidJar(AndroidApiLevel.R);
+  public Set<Path> getLibraryFiles() {
+    return libraryFiles;
+  }
+
+  public String getExtraKeepRules() {
+    return extraKeepRules;
+  }
+
+  public void configureL8TestBuilder(L8TestBuilder l8TestBuilder) {
+    configureL8TestBuilder(l8TestBuilder, false, "");
+  }
+
+  public void configureL8TestBuilder(
+      L8TestBuilder l8TestBuilder, boolean l8Shrink, String keepRule) {
+    l8TestBuilder
+        .addProgramFiles(getDesugarJdkLibs())
+        .addLibraryFiles(getLibraryFiles())
+        .setDesugaredLibraryConfiguration(getSpecification())
+        .noDefaultDesugarJDKLibs()
+        .applyIf(
+            l8Shrink,
+            builder -> {
+              if (keepRule != null && !keepRule.trim().isEmpty()) {
+                String totalKeepRules = keepRule + "\n" + getExtraKeepRules();
+                builder.addGeneratedKeepRules(totalKeepRules);
+              }
+            },
+            L8TestBuilder::setDebug);
   }
 
   public static List<LibraryDesugaringSpecification> getReleased() {

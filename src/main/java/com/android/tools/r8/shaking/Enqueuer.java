@@ -18,10 +18,10 @@ import static java.util.Collections.emptySet;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
-import com.android.tools.r8.code.CfOrDexInstruction;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.dex.IndexedItemCollection;
+import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
@@ -2281,7 +2281,7 @@ public class Enqueuer {
     // annotation.
     AnnotationReferenceMarker referenceMarker =
         new AnnotationReferenceMarker(annotation, annotatedItem);
-    annotation.annotation.collectIndexedItems(referenceMarker);
+    annotation.annotation.collectIndexedItems(appView, referenceMarker);
   }
 
   private boolean shouldKeepAnnotation(
@@ -4096,11 +4096,12 @@ public class Enqueuer {
             appInfo.getSyntheticItems().commit(app),
             appInfo.getClassToFeatureSplitMap(),
             appInfo.getMainDexInfo(),
-            deadProtoTypes,
             mode.isInitialTreeShaking()
                 ? missingClassesBuilder.reportMissingClasses(
                     appView, lambdaSynthesizingContextOracle)
                 : missingClassesBuilder.assertNoMissingClasses(appView),
+            appInfo.getStartupOrder(),
+            deadProtoTypes,
             SetUtils.mapIdentityHashSet(liveTypes.getItems(), DexProgramClass::getType),
             Enqueuer.toDescriptorSet(targetedMethods.getItems()),
             failedMethodResolutionTargets,

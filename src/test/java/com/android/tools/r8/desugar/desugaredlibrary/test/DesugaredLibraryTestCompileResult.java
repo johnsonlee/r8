@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.test;
 
+import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.L8TestCompileResult;
 import com.android.tools.r8.SingleTestRunResult;
@@ -16,8 +17,6 @@ import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -30,7 +29,9 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
   private final CompilationSpecification compilationSpecification;
   private final D8TestCompileResult customLibCompile;
   private final L8TestCompileResult l8Compile;
-  private final List<Path> runClasspathFiles = new ArrayList<>();
+  // In case of Cf2Cf desugaring the run on dex, the compileResult is the Cf desugaring result
+  // while the runnableCompiledResult is the dexed compiledResult used to run on dex.
+  private final TestCompileResult<?, ? extends SingleTestRunResult<?>> runnableCompiledResult;
 
   public DesugaredLibraryTestCompileResult(
       T test,
@@ -39,7 +40,8 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
       LibraryDesugaringSpecification libraryDesugaringSpecification,
       CompilationSpecification compilationSpecification,
       D8TestCompileResult customLibCompile,
-      L8TestCompileResult l8Compile) {
+      L8TestCompileResult l8Compile)
+      throws Exception {
     this.test = test;
     this.compileResult = compileResult;
     this.parameters = parameters;
@@ -47,6 +49,7 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
     this.compilationSpecification = compilationSpecification;
     this.customLibCompile = customLibCompile;
     this.l8Compile = l8Compile;
+    this.runnableCompiledResult = computeRunnableCompiledResult();
   }
 
   public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspectCustomLib(
@@ -65,6 +68,14 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
   public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspect(
       ThrowingConsumer<CodeInspector, E> consumer) throws Throwable {
     compileResult.inspect(consumer);
+    return this;
+  }
+
+  public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspectKeepRules(
+      ThrowingConsumer<List<String>, E> consumer) throws Throwable {
+    if (compilationSpecification.isL8Shrink()) {
+      l8Compile.inspectKeepRules(consumer);
+    }
     return this;
   }
 
@@ -100,48 +111,52 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
 
   public SingleTestRunResult<?> run(TestRuntime runtime, String mainClassName, String... args)
       throws Exception {
-
-    Path desugaredLibrary = l8Compile.writeToZip();
-
-    if (runtime.getBackend().isCf()) {
-      assert compilationSpecification.isCfToCf();
-      return compileResult.addRunClasspathFiles(desugaredLibrary).run(runtime, mainClassName);
-    }
-
-    TestCompileResult<?, ? extends SingleTestRunResult<?>> actualCompileResult =
-        compilationSpecification.isCfToCf() ? convertCompileResultToDex() : compileResult;
-
-    if (customLibCompile != null) {
-      actualCompileResult.addRunClasspathFiles(customLibCompile.writeToZip());
-    }
-
-    actualCompileResult
-        .addRunClasspathFiles(desugaredLibrary)
-        .addRunClasspathFiles(runClasspathFiles);
-
-    return actualCompileResult.run(runtime, mainClassName, args);
+    return runnableCompiledResult.run(runtime, mainClassName, args);
   }
 
-  private TestCompileResult<?, ? extends SingleTestRunResult<?>> convertCompileResultToDex()
+  private TestCompileResult<?, ? extends SingleTestRunResult<?>> computeRunnableCompiledResult()
       throws Exception {
+    TestCompileResult<?, ? extends SingleTestRunResult<?>> runnable = convertToDexIfNeeded();
+    if (customLibCompile != null) {
+      runnable.addRunClasspathFiles(customLibCompile.writeToZip());
+    }
+    runnable.addRunClasspathFiles(l8Compile.writeToZip());
+    return runnable;
+  }
+
+  private TestCompileResult<?, ? extends SingleTestRunResult<?>> convertToDexIfNeeded()
+      throws CompilationFailedException, IOException {
+    if (!(compilationSpecification.isCfToCf() && parameters.getBackend().isDex())) {
+      return compileResult;
+    }
     return test.testForD8()
-        .addProgramFiles(compileResult.writeToZip())
+        .addProgramFiles(this.compileResult.writeToZip())
         .setMinApi(parameters.getApiLevel())
+        .setMode(compilationSpecification.getProgramCompilationMode())
         .disableDesugaring()
         .compile();
   }
 
   public Path writeToZip() throws IOException {
-    return compileResult.writeToZip();
+    return runnableCompiledResult.writeToZip();
+  }
+
+  public DesugaredLibraryTestCompileResult<T> writeToZip(Path path) throws IOException {
+    runnableCompiledResult.writeToZip(path);
+    return this;
+  }
+
+  public Path writeL8ToZip() throws IOException {
+    return l8Compile.writeToZip();
   }
 
   public DesugaredLibraryTestCompileResult<T> addRunClasspathFiles(Path... classpathFiles) {
-    Collections.addAll(runClasspathFiles, classpathFiles);
+    runnableCompiledResult.addRunClasspathFiles(classpathFiles);
     return this;
   }
 
   public DesugaredLibraryTestCompileResult<T> withArt6Plus64BitsLib() {
-    compileResult.withArt6Plus64BitsLib();
+    runnableCompiledResult.withArt6Plus64BitsLib();
     return this;
   }
 }

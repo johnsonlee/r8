@@ -5,6 +5,7 @@
 package com.android.tools.r8.desugar.desugaredlibrary;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
+import static com.android.tools.r8.desugar.desugaredlibrary.jdktests.Jdk11TestLibraryDesugaringSpecification.EXTENSION_PATH;
 import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertTrue;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -22,7 +23,7 @@ import com.android.tools.r8.StringResource;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.desugar.desugaredlibrary.jdktests.Jdk11DesugaredLibraryTestBase;
+import com.android.tools.r8.desugar.desugaredlibrary.jdktests.Jdk11TestLibraryDesugaringSpecification;
 import com.android.tools.r8.errors.DuplicateTypesDiagnostic;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -30,13 +31,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.nio.file.Path;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class MergingJ$Test extends Jdk11DesugaredLibraryTestBase {
+public class MergingJ$Test extends DesugaredLibraryTestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -118,12 +120,16 @@ public class MergingJ$Test extends Jdk11DesugaredLibraryTestBase {
   }
 
   private Path buildSplitDesugaredLibraryPart2() throws Exception {
+    Assume.assumeFalse(
+        "getAllFilesWithSuffixInDirectory() seems to find different files on Windows",
+        ToolHelper.isWindows());
     Path outputDex = temp.newFolder().toPath().resolve("merger-input-split-dex.zip");
+    Jdk11TestLibraryDesugaringSpecification.setUp();
     L8.run(
         L8Command.builder()
             .addLibraryFiles(getLibraryFile())
             .addLibraryFiles(ToolHelper.getDesugarJDKLibs())
-            .addProgramFiles(JDK_11_JAVA_BASE_EXTENSION_COMPILED_FILES)
+            .addProgramFiles(EXTENSION_PATH)
             .addDesugaredLibraryConfiguration(
                 StringResource.fromFile(ToolHelper.getDesugarLibJsonForTesting()))
             .setMinApiLevel(AndroidApiLevel.B.getLevel())

@@ -11,6 +11,7 @@ import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ResourceException;
+import com.android.tools.r8.androidapi.AndroidApiDataAccess;
 import com.android.tools.r8.errors.CompilationError;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
@@ -44,23 +45,30 @@ import java.util.zip.ZipOutputStream;
 
 public class ZipUtils {
 
+  // Beginning of extra field length: https://en.wikipedia.org/wiki/ZIP_(file_format)
+  private static final int EXTRA_FIELD_LENGTH_OFFSET = 30;
+
   public static void writeResourcesToZip(
       List<ProgramResource> resources,
       Set<DataEntryResource> dataResources,
       Closer closer,
       ZipOutputStream out)
       throws IOException, ResourceException {
+    for (DataEntryResource dataResource : dataResources) {
+      String entryName = dataResource.getName();
+      byte[] bytes = ByteStreams.toByteArray(closer.register(dataResource.getByteStream()));
+      writeToZipStream(
+          out,
+          entryName,
+          bytes,
+          AndroidApiDataAccess.isApiDatabaseEntry(entryName) ? ZipEntry.STORED : ZipEntry.DEFLATED);
+    }
     for (ProgramResource resource : resources) {
       assert resource.getClassDescriptors().size() == 1;
       Iterator<String> iterator = resource.getClassDescriptors().iterator();
       String className = iterator.next();
       String entryName = DescriptorUtils.getClassFileName(className);
       byte[] bytes = ByteStreams.toByteArray(closer.register(resource.getByteStream()));
-      writeToZipStream(out, entryName, bytes, ZipEntry.DEFLATED);
-    }
-    for (DataEntryResource dataResource : dataResources) {
-      String entryName = dataResource.getName();
-      byte[] bytes = ByteStreams.toByteArray(closer.register(dataResource.getByteStream()));
       writeToZipStream(out, entryName, bytes, ZipEntry.DEFLATED);
     }
   }
@@ -289,5 +297,26 @@ public class ZipUtils {
 
   public static String zipEntryNameForClass(Class<?> clazz) {
     return DescriptorUtils.getClassBinaryName(clazz) + CLASS_EXTENSION;
+  }
+
+  public static long getOffsetOfResourceInZip(File file, String entry) throws IOException {
+    // Look into the jar file to see find the offset.
+    ZipFile zipFile = new ZipFile(file);
+    Enumeration<? extends ZipEntry> entries = zipFile.entries();
+    long offset = 0;
+    while (entries.hasMoreElements()) {
+      ZipEntry zipEntry = entries.nextElement();
+      byte[] extra = zipEntry.getExtra();
+      offset +=
+          EXTRA_FIELD_LENGTH_OFFSET
+              + zipEntry.getName().length()
+              + (extra == null ? 0 : extra.length);
+      if (zipEntry.getName().equals(entry)) {
+        return zipEntry.getSize() == zipEntry.getCompressedSize() ? offset : -1;
+      } else if (!zipEntry.isDirectory()) {
+        offset += zipEntry.getCompressedSize();
+      }
+    }
+    return -1;
   }
 }

@@ -119,9 +119,9 @@ public class ParameterAnnotationsList extends DexItem
     return false;
   }
 
-  public void collectIndexedItems(IndexedItemCollection indexedItems) {
+  public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
     for (DexAnnotationSet value : values) {
-      value.collectIndexedItems(indexedItems);
+      value.collectIndexedItems(appView, indexedItems);
     }
   }
 
@@ -130,6 +130,10 @@ public class ParameterAnnotationsList extends DexItem
     // Collect values first so that the annotation sets have sorted themselves before adding this.
     collectAll(mixedItems, values);
     mixedItems.add(this);
+  }
+
+  public DexAnnotationSet[] getAnnotationSets() {
+    return values;
   }
 
   public boolean isEmpty() {

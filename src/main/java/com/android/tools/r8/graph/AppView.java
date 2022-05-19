@@ -9,6 +9,7 @@ import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.contexts.CompilationContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
+import com.android.tools.r8.experimental.startup.StartupOrder;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.GraphLens.NonIdentityGraphLens;
@@ -29,6 +30,7 @@ import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoFactory;
 import com.android.tools.r8.ir.optimize.library.LibraryMemberOptimizer;
 import com.android.tools.r8.ir.optimize.library.LibraryMethodSideEffectModelCollection;
+import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.SeedMapper;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagator;
 import com.android.tools.r8.optimize.interfaces.collection.OpenClosedInterfacesCollection;
@@ -77,6 +79,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   private GraphLens codeLens = GraphLens.getIdentityLens();
   private GraphLens graphLens = GraphLens.getIdentityLens();
   private InitClassLens initClassLens;
+  private NamingLens namingLens = NamingLens.getIdentityLens();
   private ProguardCompatibilityActions proguardCompatibilityActions;
   private RootSet rootSet;
   private MainDexRootSet mainDexRootSet = null;
@@ -201,12 +204,14 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       DexApplication application, MainDexInfo mainDexInfo) {
     ClassToFeatureSplitMap classToFeatureSplitMap =
         ClassToFeatureSplitMap.createInitialClassToFeatureSplitMap(application.options);
+    StartupOrder startupOrder = StartupOrder.createInitialStartupOrder(application.options);
     AppInfoWithClassHierarchy appInfo =
         AppInfoWithClassHierarchy.createInitialAppInfoWithClassHierarchy(
             application,
             classToFeatureSplitMap,
             mainDexInfo,
-            GlobalSyntheticsStrategy.forSingleOutputMode());
+            GlobalSyntheticsStrategy.forSingleOutputMode(),
+            startupOrder);
     return new AppView<>(appInfo, WholeProgramOptimizations.ON, defaultTypeRewriter(appInfo));
   }
 
@@ -244,8 +249,12 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return appInfo;
   }
 
+  public AppInfoWithClassHierarchy appInfoWithClassHierarchy() {
+    return hasClassHierarchy() ? appInfo.withClassHierarchy() : null;
+  }
+
   public AppInfoWithLiveness appInfoWithLiveness() {
-    return appInfo.hasLiveness() ? appInfo.withLiveness() : null;
+    return hasLiveness() ? appInfo.withLiveness() : null;
   }
 
   public AppInfoWithClassHierarchy appInfoForDesugaring() {
@@ -569,6 +578,14 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public KeepMethodInfo getKeepInfo(ProgramMethod method) {
     return getKeepInfo().getMethodInfo(method);
+  }
+
+  public NamingLens getNamingLens() {
+    return namingLens;
+  }
+
+  public void setNamingLens(NamingLens namingLens) {
+    this.namingLens = namingLens;
   }
 
   public boolean hasProguardCompatibilityActions() {

@@ -4,8 +4,8 @@
 package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
-import com.android.tools.r8.code.CfOrDexInstruction;
-import com.android.tools.r8.code.Instruction;
+import com.android.tools.r8.dex.code.CfOrDexInstruction;
+import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -25,6 +25,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
@@ -127,7 +128,12 @@ public abstract class CfInstruction implements CfOrDexInstruction {
       CT initialValue) {
     // The method is overridden in each jump instruction.
     assert !isJump();
-    return fn.apply(fallthroughInstruction, initialValue);
+    if (fallthroughInstruction != null) {
+      return fn.apply(fallthroughInstruction, initialValue);
+    }
+    // There may be a label after the last return.
+    assert isLabel();
+    return TraversalContinuation.doContinue(initialValue);
   }
 
   @Override
@@ -141,7 +147,7 @@ public abstract class CfInstruction implements CfOrDexInstruction {
   }
 
   @Override
-  public Instruction asDexInstruction() {
+  public DexInstruction asDexInstruction() {
     return null;
   }
 
@@ -355,5 +361,8 @@ public abstract class CfInstruction implements CfOrDexInstruction {
       DexItemFactory dexItemFactory);
 
   public abstract CfFrameState evaluate(
-      CfFrameState frame, ProgramMethod context, AppView<?> appView, DexItemFactory dexItemFactory);
+      CfFrameState frame,
+      AppView<?> appView,
+      CfAnalysisConfig config,
+      DexItemFactory dexItemFactory);
 }

@@ -23,7 +23,6 @@ import com.android.tools.r8.graph.AssemblyWriter;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
-import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.shaking.FilteredClassPath;
@@ -133,7 +132,6 @@ public class ToolHelper {
   public static final String DEFAULT_DEX_FILENAME = "classes.dex";
   public static final String DEFAULT_PROGUARD_MAP_FILE = "proguard.map";
 
-  public static final String JAVA_8_RUNTIME = "third_party/openjdk/openjdk-rt-1.8/rt.jar";
   public static final String CORE_LAMBDA_STUBS =
       "third_party/core-lambda-stubs/core-lambda-stubs.jar";
   public static final String JSR223_RI_JAR = "third_party/jsr223-api-1.0/jsr223-api-1.0.jar";
@@ -146,7 +144,9 @@ public class ToolHelper {
       "third_party/android_jar/lib-v%d/api-versions.xml";
   private static final AndroidApiLevel DEFAULT_MIN_SDK = AndroidApiLevel.I;
 
-  public static final String JDK_11_TESTS_DIR = "third_party/openjdk/jdk-11-test/";
+  public static final String OPEN_JDK_DIR = "third_party/openjdk/";
+  public static final String JAVA_8_RUNTIME = OPEN_JDK_DIR + "openjdk-rt-1.8/rt.jar";
+  public static final String JDK_11_TESTS_DIR = OPEN_JDK_DIR + "jdk-11-test/";
   public static final String JDK_11_TIME_TESTS_DIR = JDK_11_TESTS_DIR + "java/time/";
 
   private static final String PROGUARD5_2_1 = "third_party/proguard/proguard5.2.1/bin/proguard";
@@ -180,15 +180,24 @@ public class ToolHelper {
 
   public static final Path DESUGAR_LIB_CONVERSIONS =
       Paths.get(LIBS_DIR, "library_desugar_conversions.zip");
+  public static final String DESUGARED_LIB_RELEASES_DIR =
+      OPEN_JDK_DIR + "desugar_jdk_libs_releases/";
+  public static final Path DESUGARED_JDK_8_LIB_JAR =
+      Paths.get(OPEN_JDK_DIR + "desugar_jdk_libs/desugar_jdk_libs.jar");
+  public static final Path DESUGARED_JDK_11_LIB_JAR =
+      DesugaredLibraryJDK11Undesugarer.undesugaredJarJDK11(
+          Paths.get(OPEN_JDK_DIR + "desugar_jdk_libs_11/desugar_jdk_libs.jar"));
 
   public static Path getDesugarJDKLibs() {
     return DesugaredLibraryJDK11Undesugarer.undesugaredJar();
   }
 
   public static Path getDesugarJDKLibsBazelGeneratedFile() {
-    return Paths.get(
-        System.getProperty(
-            "desugar_jdk_libs", "third_party/openjdk/desugar_jdk_libs/desugar_jdk_libs.jar"));
+    String property = System.getProperty("desugar_jdk_libs");
+    if (property == null) {
+      return DESUGARED_JDK_8_LIB_JAR;
+    }
+    return Paths.get(property);
   }
 
   private static String getDesugarLibraryJsonDir() {
@@ -2265,12 +2274,7 @@ public class ToolHelper {
 
   public static void writeApplication(AppView<?> appView, InternalOptions options)
       throws ExecutionException {
-    R8.writeApplication(
-        Executors.newSingleThreadExecutor(),
-        appView,
-        NamingLens.getIdentityLens(),
-        options,
-        null);
+    R8.writeApplication(appView, null, Executors.newSingleThreadExecutor());
   }
 
   public static void disassemble(AndroidApp app, PrintStream ps) throws IOException {

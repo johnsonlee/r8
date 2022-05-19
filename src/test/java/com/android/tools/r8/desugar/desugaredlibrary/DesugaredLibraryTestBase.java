@@ -107,20 +107,26 @@ public class DesugaredLibraryTestBase extends TestBase {
     return parameters.getApiLevel().isLessThan(apiLevelWithDefaultInterfaceMethodsSupport());
   }
 
-  protected boolean requiresTimeDesugaring(TestParameters parameters) {
+  protected boolean requiresTimeDesugaring(TestParameters parameters, boolean isJDK11) {
     return parameters.getApiLevel().getLevel()
-        < (isJDK11DesugaredLibrary() ? AndroidApiLevel.S.getLevel() : AndroidApiLevel.O.getLevel());
+        < (isJDK11 ? AndroidApiLevel.S.getLevel() : AndroidApiLevel.O.getLevel());
+  }
+
+  protected boolean requiresTimeDesugaring(TestParameters parameters) {
+    return requiresTimeDesugaring(parameters, isJDK11DesugaredLibrary());
   }
 
   protected boolean requiresAnyCoreLibDesugaring(TestParameters parameters) {
     return requiresAnyCoreLibDesugaring(parameters.getApiLevel());
   }
 
-  protected boolean requiresAnyCoreLibDesugaring(AndroidApiLevel apiLevel) {
+  protected boolean requiresAnyCoreLibDesugaring(AndroidApiLevel apiLevel, boolean isJDK11) {
     return apiLevel.getLevel()
-        <= (isJDK11DesugaredLibrary()
-            ? AndroidApiLevel.Sv2.getLevel()
-            : AndroidApiLevel.N_MR1.getLevel());
+        <= (isJDK11 ? AndroidApiLevel.Sv2.getLevel() : AndroidApiLevel.N_MR1.getLevel());
+  }
+
+  protected boolean requiresAnyCoreLibDesugaring(AndroidApiLevel apiLevel) {
+    return requiresAnyCoreLibDesugaring(apiLevel, isJDK11DesugaredLibrary());
   }
 
   protected DesugaredLibraryTestBuilder<?> testForDesugaredLibrary(
@@ -223,7 +229,7 @@ public class DesugaredLibraryTestBase extends TestBase {
     }
   }
 
-  protected static Path[] getAllFilesWithSuffixInDirectory(Path directory, String suffix)
+  public static Path[] getAllFilesWithSuffixInDirectory(Path directory, String suffix)
       throws IOException {
     return Files.walk(directory)
         .filter(path -> path.toString().endsWith(suffix))

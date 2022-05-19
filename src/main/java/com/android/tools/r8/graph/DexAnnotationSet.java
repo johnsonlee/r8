@@ -65,6 +65,10 @@ public class DexAnnotationSet extends CachedHashValueDexItem
     return this;
   }
 
+  public DexAnnotation[] getAnnotations() {
+    return annotations;
+  }
+
   @Override
   public StructuralMapping<DexAnnotationSet> getStructuralMapping() {
     return DexAnnotationSet::specify;
@@ -116,9 +120,9 @@ public class DexAnnotationSet extends CachedHashValueDexItem
     return false;
   }
 
-  public void collectIndexedItems(IndexedItemCollection indexedItems) {
+  public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
     for (DexAnnotation annotation : annotations) {
-      annotation.collectIndexedItems(indexedItems);
+      annotation.collectIndexedItems(appView, indexedItems);
     }
   }
 

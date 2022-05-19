@@ -1,14 +1,14 @@
 {
-  "configuration_format_version": 4,
+  "configuration_format_version": 5,
   "group_id" : "com.tools.android",
   "artifact_id" : "desugar_jdk_libs",
-  "version": "1.2.0-alpha01",
+  "version": "1.2.0",
   "required_compilation_api_level": 30,
   "synthesized_library_classes_package_prefix": "j$.",
   "support_all_callbacks_from_library": true,
   "common_flags": [
     {
-      "api_level_below_or_equal": 30,
+      "api_level_below_or_equal": 10000,
       "rewrite_prefix": {
         "java.time.": "j$.time.",
         "java.util.Desugar": "j$.util.Desugar"
@@ -37,20 +37,15 @@
       }
     },
     {
-      "api_level_below_or_equal": 28,
+      "api_level_below_or_equal": 23,
       "rewrite_prefix": {
-        "java.util.DoubleSummaryStatistics": "j$.util.DoubleSummaryStatistics",
-        "java.util.IntSummaryStatistics": "j$.util.IntSummaryStatistics",
-        "java.util.LongSummaryStatistics": "j$.util.LongSummaryStatistics",
-        "java.util.Optional": "j$.util.Optional",
-        "java.util.PrimitiveIterator": "j$.util.PrimitiveIterator",
-        "java.util.Spliterator": "j$.util.Spliterator",
-        "java.util.StringJoiner": "j$.util.StringJoiner",
-        "java.util.concurrent.ConcurrentHashMap": "j$.util.concurrent.ConcurrentHashMap",
-        "java.util.concurrent.ThreadLocalRandom": "j$.util.concurrent.ThreadLocalRandom",
-        "java.util.concurrent.atomic.DesugarAtomic": "j$.util.concurrent.atomic.DesugarAtomic",
-        "java.util.function.": "j$.util.function.",
-        "java.util.stream.": "j$.util.stream."
+        "java.util.concurrent.atomic.DesugarAtomic": "j$.util.concurrent.atomic.DesugarAtomic"
+      }
+    },
+    {
+      "api_level_below_or_equal": 23,
+      "rewrite_prefix": {
+        "java.util.function.": "j$.util.function."
       },
       "emulate_interface": {
         "java.lang.Iterable": "j$.lang.Iterable",
@@ -66,7 +61,22 @@
       },
       "dont_rewrite": [
         "java.util.Iterator#remove"
-      ],
+      ]
+    },
+    {
+      "api_level_below_or_equal": 10000,
+      "rewrite_prefix": {
+        "java.util.DoubleSummaryStatistics": "j$.util.DoubleSummaryStatistics",
+        "java.util.IntSummaryStatistics": "j$.util.IntSummaryStatistics",
+        "java.util.LongSummaryStatistics": "j$.util.LongSummaryStatistics",
+        "java.util.Optional": "j$.util.Optional",
+        "java.util.PrimitiveIterator": "j$.util.PrimitiveIterator",
+        "java.util.Spliterator": "j$.util.Spliterator",
+        "java.util.StringJoiner": "j$.util.StringJoiner",
+        "java.util.concurrent.ConcurrentHashMap": "j$.util.concurrent.ConcurrentHashMap",
+        "java.util.concurrent.ThreadLocalRandom": "j$.util.concurrent.ThreadLocalRandom",
+        "java.util.stream.": "j$.util.stream."
+      },
       "retarget_lib_member": {
         "java.util.Arrays#spliterator": "java.util.DesugarArrays",
         "java.util.Arrays#stream": "java.util.DesugarArrays",
@@ -137,7 +147,7 @@
   ],
   "program_flags": [
     {
-      "api_level_below_or_equal": 30,
+      "api_level_below_or_equal": 10000,
       "retarget_lib_member": {
         "java.util.TimeZone#getTimeZone": "java.util.DesugarTimeZone",
         "java.util.Calendar#toInstant": "java.util.DesugarCalendar",
@@ -167,9 +177,10 @@
   ],
   "library_flags": [
     {
-      "api_level_below_or_equal": 30,
+      "api_level_below_or_equal": 10000,
       "rewrite_prefix": {
         "j$.time.": "java.time.",
+        "java.lang.Desugar": "j$.lang.Desugar",
         "jdk.internal.": "j$.jdk.internal.",
         "sun.misc.Desugar": "j$.sun.misc.Desugar",
         "sun.security.action.": "j$.sun.security.action."
@@ -182,7 +193,7 @@
       }
     },
     {
-      "api_level_below_or_equal": 28,
+      "api_level_below_or_equal": 10000,
       "rewrite_prefix": {
         "java.util.AbstractList": "j$.util.AbstractList",
         "java.util.CollSer": "j$.util.CollSer",

@@ -4,6 +4,9 @@
 
 package com.android.tools.r8.optimize.interfaces.analysis;
 
+import static com.android.tools.r8.optimize.interfaces.analysis.ErroneousCfFrameState.formatActual;
+import static com.android.tools.r8.optimize.interfaces.analysis.ErroneousCfFrameState.formatExpected;
+
 import com.android.tools.r8.cf.code.CfAssignability;
 import com.android.tools.r8.cf.code.CfFrame;
 import com.android.tools.r8.cf.code.CfFrame.FrameType;
@@ -11,7 +14,6 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractState;
 import com.android.tools.r8.ir.analysis.type.PrimitiveTypeElement;
 import com.android.tools.r8.ir.code.MemberType;
@@ -20,6 +22,7 @@ import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.utils.FunctionUtils;
 import com.android.tools.r8.utils.TriFunction;
 import java.util.function.BiFunction;
+import java.util.function.UnaryOperator;
 
 public abstract class CfFrameState extends AbstractState<CfFrameState> {
 
@@ -27,13 +30,53 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
     return BottomCfFrameState.getInstance();
   }
 
-  public static ErroneousCfFrameState error() {
-    return ErroneousCfFrameState.getInstance();
+  public static ErroneousCfFrameState error(String message) {
+    return new ErroneousCfFrameState(message);
+  }
+
+  public static ErroneousCfFrameState errorUnexpectedLocal(
+      FrameType frameType, ValueType expectedType, int localIndex) {
+    return internalError(
+        formatActual(frameType), formatExpected(expectedType), "at local index " + localIndex);
+  }
+
+  public static ErroneousCfFrameState errorUnexpectedStack(
+      FrameType frameType, DexType expectedType) {
+    return internalErrorUnexpectedStack(formatActual(frameType), formatExpected(expectedType));
+  }
+
+  public static ErroneousCfFrameState errorUnexpectedStack(
+      FrameType frameType, FrameType expectedType) {
+    return internalErrorUnexpectedStack(formatActual(frameType), formatExpected(expectedType));
+  }
+
+  public static ErroneousCfFrameState errorUnexpectedStack(
+      FrameType frameType, ValueType expectedType) {
+    return internalErrorUnexpectedStack(formatActual(frameType), formatExpected(expectedType));
+  }
+
+  private static ErroneousCfFrameState internalErrorUnexpectedStack(
+      String actual, String expected) {
+    return internalError(actual, expected, "on stack");
+  }
+
+  private static ErroneousCfFrameState internalError(
+      String actual, String expected, String location) {
+    return error("Expected " + expected + " " + location + ", but was " + actual);
   }
 
   @Override
   public CfFrameState asAbstractState() {
     return this;
+  }
+
+  @Override
+  public boolean isGreaterThanOrEquals(CfFrameState state) {
+    if (this == state) {
+      return true;
+    }
+    CfFrameState leastUpperBound = join(state, UnaryOperator.identity());
+    return equals(leastUpperBound);
   }
 
   public boolean isBottom() {
@@ -52,6 +95,10 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
     return false;
   }
 
+  public ErroneousCfFrameState asError() {
+    return null;
+  }
+
   public abstract CfFrameState check(AppView<?> appView, CfFrame frame);
 
   public abstract CfFrameState clear();
@@ -64,7 +111,7 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
   public abstract CfFrameState pop(BiFunction<CfFrameState, FrameType, CfFrameState> fn);
 
   public abstract CfFrameState popAndInitialize(
-      AppView<?> appView, DexMethod constructor, ProgramMethod context);
+      AppView<?> appView, DexMethod constructor, CfAnalysisConfig config);
 
   public final CfFrameState popInitialized(AppView<?> appView, DexType expectedType) {
     return popInitialized(appView, expectedType, FunctionUtils::getFirst);
@@ -101,22 +148,26 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
   }
 
   public final CfFrameState popObject(BiFunction<CfFrameState, FrameType, CfFrameState> fn) {
-    return pop((state, head) -> head.isObject() ? fn.apply(state, head) : error());
+    return pop(
+        (state, head) ->
+            head.isObject() ? fn.apply(state, head) : errorUnexpectedStack(head, ValueType.OBJECT));
   }
 
   @SuppressWarnings("InconsistentOverloads")
   public final CfFrameState popObject(
       AppView<?> appView,
       DexType expectedType,
-      ProgramMethod context,
+      CfAnalysisConfig config,
       BiFunction<CfFrameState, FrameType, CfFrameState> fn) {
     return pop(
         (state, head) ->
             head.isObject()
                     && CfAssignability.isAssignable(
-                        head.getObjectType(context), expectedType, appView)
+                        head.getObjectType(config.getCurrentContext().getHolderType()),
+                        expectedType,
+                        appView)
                 ? fn.apply(state, head)
-                : error());
+                : errorUnexpectedStack(head, expectedType));
   }
 
   public final CfFrameState popSingle() {
@@ -124,7 +175,11 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
   }
 
   public final CfFrameState popSingle(BiFunction<CfFrameState, FrameType, CfFrameState> fn) {
-    return pop((state, single) -> single.isSingle() ? fn.apply(state, single) : error());
+    return pop(
+        (state, single) ->
+            single.isSingle()
+                ? fn.apply(state, single)
+                : errorUnexpectedStack(single, FrameType.oneWord()));
   }
 
   public final CfFrameState popSingles(
@@ -150,61 +205,77 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
         wideFn);
   }
 
-  // TODO(b/214496607): Pushing a value should return an error if the stack grows larger than the
-  //  max stack height.
-  public abstract CfFrameState push(DexType type);
+  public abstract CfFrameState push(CfAnalysisConfig config, DexType type);
 
-  // TODO(b/214496607): Pushing a value should return an error if the stack grows larger than the
-  //  max stack height.
-  public abstract CfFrameState push(FrameType frameType);
+  public abstract CfFrameState push(CfAnalysisConfig config, FrameType frameType);
 
-  public final CfFrameState push(FrameType frameType, FrameType frameType2) {
-    return push(frameType).push(frameType2);
-  }
-
-  public final CfFrameState push(FrameType frameType, FrameType frameType2, FrameType frameType3) {
-    return push(frameType).push(frameType2).push(frameType3);
+  public final CfFrameState push(
+      CfAnalysisConfig config, FrameType frameType, FrameType frameType2) {
+    return push(config, frameType).push(config, frameType2);
   }
 
   public final CfFrameState push(
-      FrameType frameType, FrameType frameType2, FrameType frameType3, FrameType frameType4) {
-    return push(frameType).push(frameType2).push(frameType3).push(frameType4);
+      CfAnalysisConfig config, FrameType frameType, FrameType frameType2, FrameType frameType3) {
+    return push(config, frameType).push(config, frameType2).push(config, frameType3);
   }
 
   public final CfFrameState push(
+      CfAnalysisConfig config,
+      FrameType frameType,
+      FrameType frameType2,
+      FrameType frameType3,
+      FrameType frameType4) {
+    return push(config, frameType)
+        .push(config, frameType2)
+        .push(config, frameType3)
+        .push(config, frameType4);
+  }
+
+  public final CfFrameState push(
+      CfAnalysisConfig config,
       FrameType frameType,
       FrameType frameType2,
       FrameType frameType3,
       FrameType frameType4,
       FrameType frameType5) {
-    return push(frameType).push(frameType2).push(frameType3).push(frameType4).push(frameType5);
+    return push(config, frameType)
+        .push(config, frameType2)
+        .push(config, frameType3)
+        .push(config, frameType4)
+        .push(config, frameType5);
   }
 
   public final CfFrameState push(
+      CfAnalysisConfig config,
       FrameType frameType,
       FrameType frameType2,
       FrameType frameType3,
       FrameType frameType4,
       FrameType frameType5,
       FrameType frameType6) {
-    return push(frameType)
-        .push(frameType2)
-        .push(frameType3)
-        .push(frameType4)
-        .push(frameType5)
-        .push(frameType6);
+    return push(config, frameType)
+        .push(config, frameType2)
+        .push(config, frameType3)
+        .push(config, frameType4)
+        .push(config, frameType5)
+        .push(config, frameType6);
   }
 
-  public final CfFrameState push(AppView<?> appView, MemberType memberType) {
-    return push(FrameType.fromPreciseMemberType(memberType, appView.dexItemFactory()));
+  @SuppressWarnings("InconsistentOverloads")
+  public final CfFrameState push(
+      AppView<?> appView, CfAnalysisConfig config, MemberType memberType) {
+    return push(config, FrameType.fromPreciseMemberType(memberType, appView.dexItemFactory()));
   }
 
-  public final CfFrameState push(AppView<?> appView, NumericType numericType) {
-    return push(numericType.toDexType(appView.dexItemFactory()));
+  @SuppressWarnings("InconsistentOverloads")
+  public final CfFrameState push(
+      AppView<?> appView, CfAnalysisConfig config, NumericType numericType) {
+    return push(config, numericType.toDexType(appView.dexItemFactory()));
   }
 
-  public final CfFrameState push(AppView<?> appView, ValueType valueType) {
-    return push(valueType.toDexType(appView.dexItemFactory()));
+  @SuppressWarnings("InconsistentOverloads")
+  public final CfFrameState push(AppView<?> appView, CfAnalysisConfig config, ValueType valueType) {
+    return push(config, valueType.toDexType(appView.dexItemFactory()));
   }
 
   public abstract CfFrameState readLocal(
@@ -213,20 +284,32 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
       ValueType expectedType,
       BiFunction<CfFrameState, FrameType, CfFrameState> consumer);
 
-  public abstract CfFrameState storeLocal(int localIndex, FrameType frameType);
+  public abstract CfFrameState storeLocal(
+      int localIndex, FrameType frameType, CfAnalysisConfig config);
 
   public final CfFrameState storeLocal(
-      int localIndex, PrimitiveTypeElement primitiveType, AppView<?> appView) {
+      int localIndex,
+      PrimitiveTypeElement primitiveType,
+      AppView<?> appView,
+      CfAnalysisConfig config) {
     assert primitiveType.isInt()
         || primitiveType.isFloat()
         || primitiveType.isLong()
         || primitiveType.isDouble();
     return storeLocal(
-        localIndex, FrameType.initialized(primitiveType.toDexType(appView.dexItemFactory())));
+        localIndex,
+        FrameType.initialized(primitiveType.toDexType(appView.dexItemFactory())),
+        config);
   }
 
   @Override
   public final CfFrameState join(CfFrameState state) {
+    return join(
+        state, frameType -> frameType.isSingle() ? FrameType.oneWord() : FrameType.twoWord());
+  }
+
+  public final CfFrameState join(
+      CfFrameState state, UnaryOperator<FrameType> joinWithMissingLocal) {
     if (state.isBottom() || isError()) {
       return this;
     }
@@ -235,7 +318,7 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
     }
     assert isConcrete();
     assert state.isConcrete();
-    return asConcrete().join(state.asConcrete());
+    return asConcrete().join(state.asConcrete(), joinWithMissingLocal);
   }
 
   @Override

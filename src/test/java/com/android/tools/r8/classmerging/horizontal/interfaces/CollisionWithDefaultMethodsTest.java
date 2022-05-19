@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.classmerging.horizontal.interfaces;
 
+import static org.junit.Assert.assertEquals;
+
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.StringUtils;
@@ -25,7 +27,8 @@ public class CollisionWithDefaultMethodsTest extends TestBase {
         getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build());
   }
 
-  private static final String EXPECTED_OUTPUT = StringUtils.lines("Event1", "Event2");
+  private static final String EXPECTED_OUTPUT =
+      StringUtils.lines("Event1", "Event2", "Event1!", "Event2!", "Event1#", "Event2#");
 
   @Test
   public void testDesugaring() throws Exception {
@@ -42,12 +45,17 @@ public class CollisionWithDefaultMethodsTest extends TestBase {
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters.getApiLevel())
         .addKeepRules("-keep class ** { *; }")
+        .addHorizontallyMergedClassesInspector(
+            inspector -> {
+              if (parameters.isCfRuntime()) {
+                inspector.assertNoClassesMerged();
+              } else if (parameters.isDexRuntime()
+                  && parameters.canUseDefaultAndStaticInterfaceMethods()) {
+                assertEquals(2, inspector.getMergeGroups().size());
+              }
+            })
         .run(parameters.getRuntime(), TestClass.class)
-        // TODO(b/229951607): This should never throw ICCE.
-        .applyIf(
-            parameters.isDexRuntime() && hasDefaultInterfaceMethodsSupport(parameters),
-            r -> r.assertFailureWithErrorThatThrows(IncompatibleClassChangeError.class),
-            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class Event {}
@@ -96,6 +104,11 @@ public class CollisionWithDefaultMethodsTest extends TestBase {
     public static void main(String[] args) throws Exception {
       eventOnListener1(System.out::println);
       eventOnListener2(System.out::println);
+      // This will create two merge groups with default methods in the implemented interfaces.
+      eventOnListener1(e -> System.out.println(e.toString() + "!"));
+      eventOnListener2(e -> System.out.println(e.toString() + "!"));
+      eventOnListener1(e -> System.out.println(e.toString() + "#"));
+      eventOnListener2(e -> System.out.println(e.toString() + "#"));
     }
   }
 }

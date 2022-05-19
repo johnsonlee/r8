@@ -256,7 +256,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     enableInitializedClassesAnalysis = false;
     callSiteOptimizationOptions.disableOptimization();
     horizontalClassMergerOptions.setRestrictToSynthetics();
-    apiModelTestingOptions.disableApiCallerIdentification();
   }
 
   public boolean printTimes = System.getProperty("com.android.tools.r8.printtimes") != null;
@@ -1644,6 +1643,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableOutliningOfMethods =
         System.getProperty("com.android.tools.r8.disableApiModeling") == null;
 
+    // TODO(b/232823652): Enable when we can compute the offset correctly.
+    public boolean useMemoryMappedByteBuffer = false;
+
     // A mapping from references to the api-level introducing them.
     public Map<MethodReference, AndroidApiLevel> methodApiMapping = new HashMap<>();
     public Map<FieldReference, AndroidApiLevel> fieldApiMapping = new HashMap<>();
@@ -1667,6 +1669,15 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
           (methodReference, apiLevel) -> {
             apiLevelConsumer.accept(factory.createMethod(methodReference), apiLevel);
           });
+    }
+
+    /**
+     * Disable the workarounds for missing APIs. This does not disable the use of the database, just
+     * the introduction of soft-verification workarounds for potentially missing API references.
+     */
+    public void disableMissingApiModeling() {
+      enableOutliningOfMethods = false;
+      enableStubbingOfClasses = false;
     }
 
     public void disableApiCallerIdentification() {
@@ -2505,5 +2516,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // See b/218298666.
   public boolean canHaveInvokeInterfaceToObjectMethodBug() {
     return isGeneratingDex() && getMinApiLevel().isLessThan(AndroidApiLevel.P);
+  }
+
+  // Until we fully drop support for API levels < 16, we have to emit an empty annotation set to
+  // work around a DALVIK bug. See b/36951668.
+  public boolean canHaveDalvikEmptyAnnotationSetBug() {
+    return minApiLevel.isLessThan(AndroidApiLevel.J_MR1);
   }
 }

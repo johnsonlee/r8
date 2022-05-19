@@ -83,7 +83,6 @@ import java.util.stream.Collectors;
 public class ApplicationWriter {
 
   public final AppView<?> appView;
-  public final NamingLens namingLens;
   public final InternalOptions options;
   private final CodeToKeep desugaredLibraryCodeToKeep;
   private final Predicate<DexType> isTypeMissing;
@@ -151,36 +150,40 @@ public class ApplicationWriter {
     }
 
     @Override
-    public boolean setAnnotationsDirectoryForClass(DexProgramClass clazz,
-        DexAnnotationDirectory annotationDirectory) {
-      return true;
+    public void setAnnotationsDirectoryForClass(
+        DexProgramClass clazz, DexAnnotationDirectory annotationDirectory) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void setStaticFieldValuesForClass(
+        DexProgramClass clazz, DexEncodedArray staticFieldValues) {
+      add(staticFieldValues);
     }
   }
 
-  public ApplicationWriter(
-      AppView<?> appView,
-      List<Marker> markers,
-      NamingLens namingLens) {
+  public ApplicationWriter(AppView<?> appView, List<Marker> markers) {
     this(
         appView,
         markers,
-        namingLens,
         null);
   }
 
   public ApplicationWriter(
       AppView<?> appView,
       List<Marker> markers,
-      NamingLens namingLens,
       DexIndexedConsumer consumer) {
     this.appView = appView;
     this.options = appView.options();
-    this.desugaredLibraryCodeToKeep = CodeToKeep.createCodeToKeep(options, namingLens);
+    this.desugaredLibraryCodeToKeep = CodeToKeep.createCodeToKeep(appView);
     this.markers = markers;
-    this.namingLens = namingLens;
     this.programConsumer = consumer;
     this.isTypeMissing =
         PredicateUtils.isNull(appView.appInfo()::definitionForWithoutExistenceAssert);
+  }
+
+  private NamingLens getNamingLens() {
+    return appView.getNamingLens();
   }
 
   private List<VirtualFile> distribute(ExecutorService executorService)
@@ -242,12 +245,12 @@ public class ApplicationWriter {
     Collection<DexProgramClass> classes = appView.appInfo().classes();
     Reference2LongMap<DexString> inputChecksums = new Reference2LongOpenHashMap<>(classes.size());
     for (DexProgramClass clazz : classes) {
-      inputChecksums.put(namingLens.lookupDescriptor(clazz.getType()), clazz.getChecksum());
+      inputChecksums.put(getNamingLens().lookupDescriptor(clazz.getType()), clazz.getChecksum());
     }
     for (VirtualFile file : files) {
       ClassesChecksum toWrite = new ClassesChecksum();
       for (DexProgramClass clazz : file.classes()) {
-        DexString desc = namingLens.lookupDescriptor(clazz.type);
+        DexString desc = getNamingLens().lookupDescriptor(clazz.type);
         toWrite.addChecksum(desc.toString(), inputChecksums.getLong(desc));
       }
       file.injectString(appView.dexItemFactory().createString(toWrite.toJsonString()));
@@ -307,7 +310,7 @@ public class ApplicationWriter {
 
       // TODO(b/151313617): Sorting annotations mutates elements so run single threaded on main.
       timing.begin("Sort Annotations");
-      SortAnnotations sortAnnotations = new SortAnnotations(namingLens);
+      SortAnnotations sortAnnotations = new SortAnnotations(getNamingLens());
       appView.appInfo().classes().forEach((clazz) -> clazz.addDependencies(sortAnnotations));
       timing.end();
 
@@ -322,8 +325,7 @@ public class ApplicationWriter {
                   Timing fileTiming = Timing.create("VirtualFile " + virtualFile.getId(), options);
                   computeOffsetMappingAndRewriteJumboStrings(
                       virtualFile, lazyDexStrings, fileTiming);
-                  DebugRepresentation.computeForFile(
-                      virtualFile, appView.graphLens(), namingLens, options);
+                  DebugRepresentation.computeForFile(appView, virtualFile);
                   fileTiming.end();
                   return fileTiming;
                 },
@@ -332,15 +334,14 @@ public class ApplicationWriter {
         merger.end();
       }
 
-
-      // Now code offsets are fixed, compute the mapping file content.
+      // Now that the instruction offsets in each code object are fixed, compute the mapping file
+      // content.
       if (willComputeProguardMap()) {
         // TODO(b/220999985): Refactor line number optimization to be per file and thread it above.
         DebugRepresentationPredicate representation =
             DebugRepresentation.fromFiles(virtualFiles, options);
         delayedProguardMapId.set(
-            runAndWriteMap(
-                inputApp, appView, namingLens, timing, originalSourceFiles, representation));
+            runAndWriteMap(inputApp, appView, timing, originalSourceFiles, representation));
       }
 
       // With the mapping id/hash known, it is safe to compute the remaining dex strings.
@@ -368,7 +369,7 @@ public class ApplicationWriter {
         merger.add(timings);
         merger.end();
         if (globalsSyntheticsConsumer != null) {
-          globalsSyntheticsConsumer.finished(appView, namingLens);
+          globalsSyntheticsConsumer.finished(appView);
         }
       }
 
@@ -380,7 +381,7 @@ public class ApplicationWriter {
       // Fail if there are pending errors, e.g., the program consumers may have reported errors.
       options.reporter.failIfPendingErrors();
       // Supply info to all additional resource consumers.
-      supplyAdditionalConsumers(appView.appInfo().app(), appView, namingLens, options);
+      supplyAdditionalConsumers(appView);
     } finally {
       timing.end();
     }
@@ -484,7 +485,7 @@ public class ApplicationWriter {
       return;
     }
     timing.begin("Compute object offset mapping");
-    virtualFile.computeMapping(appView, namingLens, lazyDexStrings.size(), timing);
+    virtualFile.computeMapping(appView, lazyDexStrings.size(), timing);
     timing.end();
     timing.begin("Rewrite jumbo strings");
     rewriteCodeWithJumboStrings(
@@ -528,7 +529,7 @@ public class ApplicationWriter {
     timing.end();
 
     timing.begin("Write bytes");
-    ByteBufferResult result = writeDexFile(objectMapping, byteBufferProvider, timing);
+    ByteBufferResult result = writeDexFile(objectMapping, byteBufferProvider, virtualFile, timing);
     ByteDataView data =
         new ByteDataView(result.buffer.array(), result.buffer.arrayOffset(), result.length);
     timing.end();
@@ -550,11 +551,8 @@ public class ApplicationWriter {
     byteBufferProvider.releaseByteBuffer(result.buffer.asByteBuffer());
   }
 
-  public static void supplyAdditionalConsumers(
-      DexApplication application,
-      AppView<?> appView,
-      NamingLens namingLens,
-      InternalOptions options) {
+  public static void supplyAdditionalConsumers(AppView<?> appView) {
+    InternalOptions options = appView.options();
     if (options.configurationConsumer != null) {
       ExceptionUtils.withConsumeResourceHandler(
           options.reporter, options.configurationConsumer,
@@ -563,22 +561,22 @@ public class ApplicationWriter {
     }
     if (options.mainDexListConsumer != null) {
       ExceptionUtils.withConsumeResourceHandler(
-          options.reporter, options.mainDexListConsumer, writeMainDexList(appView, namingLens));
+          options.reporter, options.mainDexListConsumer, writeMainDexList(appView));
       ExceptionUtils.withFinishedResourceHandler(options.reporter, options.mainDexListConsumer);
     }
 
     DataResourceConsumer dataResourceConsumer = options.dataResourceConsumer;
     if (dataResourceConsumer != null) {
-      ImmutableList<DataResourceProvider> dataResourceProviders = application.dataResourceProviders;
-      ResourceAdapter resourceAdapter =
-          new ResourceAdapter(appView, application.dexItemFactory, namingLens, options);
-
+      ImmutableList<DataResourceProvider> dataResourceProviders =
+          appView.app().dataResourceProviders;
+      ResourceAdapter resourceAdapter = new ResourceAdapter(appView);
       adaptAndPassDataResources(
           options, dataResourceConsumer, dataResourceProviders, resourceAdapter);
 
       // Write the META-INF/services resources. Sort on service names and keep the order from
       // the input for the implementation lines for deterministic output.
       if (!appView.appServices().isEmpty()) {
+        NamingLens namingLens = appView.getNamingLens();
         appView
             .appServices()
             .visit(
@@ -605,8 +603,7 @@ public class ApplicationWriter {
     if (options.featureSplitConfiguration != null) {
       for (DataResourceProvidersAndConsumer entry :
           options.featureSplitConfiguration.getDataResourceProvidersAndConsumers()) {
-        ResourceAdapter resourceAdapter =
-            new ResourceAdapter(appView, application.dexItemFactory, namingLens, options);
+        ResourceAdapter resourceAdapter = new ResourceAdapter(appView);
         adaptAndPassDataResources(
             options, entry.getConsumer(), entry.getProviders(), resourceAdapter);
       }
@@ -704,7 +701,7 @@ public class ApplicationWriter {
           } else {
             annotations.add(
                 DexAnnotation.createInnerClassAnnotation(
-                    namingLens.lookupInnerName(innerClass, options),
+                    getNamingLens().lookupInnerName(innerClass, options),
                     innerClass.getAccess(),
                     options.itemFactory));
             if (innerClass.getOuter() != null && innerClass.isNamed()) {
@@ -726,7 +723,7 @@ public class ApplicationWriter {
     if (clazz.getClassSignature().hasSignature()) {
       annotations.add(
           DexAnnotation.createSignatureAnnotation(
-              clazz.getClassSignature().toRenamedString(namingLens, isTypeMissing),
+              clazz.getClassSignature().toRenamedString(getNamingLens(), isTypeMissing),
               options.itemFactory));
     }
 
@@ -756,7 +753,7 @@ public class ApplicationWriter {
             ArrayUtils.appendSingleElement(
                 field.annotations().annotations,
                 DexAnnotation.createSignatureAnnotation(
-                    field.getGenericSignature().toRenamedString(namingLens, isTypeMissing),
+                    field.getGenericSignature().toRenamedString(getNamingLens(), isTypeMissing),
                     options.itemFactory))));
     field.clearGenericSignature();
   }
@@ -771,7 +768,7 @@ public class ApplicationWriter {
             ArrayUtils.appendSingleElement(
                 method.annotations().annotations,
                 DexAnnotation.createSignatureAnnotation(
-                    method.getGenericSignature().toRenamedString(namingLens, isTypeMissing),
+                    method.getGenericSignature().toRenamedString(getNamingLens(), isTypeMissing),
                     options.itemFactory))));
     method.clearGenericSignature();
   }
@@ -827,15 +824,12 @@ public class ApplicationWriter {
   }
 
   private ByteBufferResult writeDexFile(
-      ObjectToOffsetMapping objectMapping, ByteBufferProvider provider, Timing timing) {
+      ObjectToOffsetMapping objectMapping,
+      ByteBufferProvider provider,
+      VirtualFile virtualFile,
+      Timing timing) {
     FileWriter fileWriter =
-        new FileWriter(
-            provider,
-            objectMapping,
-            appView.appInfo(),
-            options,
-            namingLens,
-            desugaredLibraryCodeToKeep);
+        new FileWriter(appView, provider, objectMapping, desugaredLibraryCodeToKeep, virtualFile);
     // Collect the non-fixed sections.
     timing.time("collect", fileWriter::collect);
     // Generate and write the bytes.
@@ -847,7 +841,7 @@ public class ApplicationWriter {
         .replace('.', '/') + ".class";
   }
 
-  private static String writeMainDexList(AppView<?> appView, NamingLens namingLens) {
+  private static String writeMainDexList(AppView<?> appView) {
     // TODO(b/178231294): Clean up by streaming directly to the consumer.
     MainDexInfo mainDexInfo = appView.appInfo().getMainDexInfo();
     StringBuilder builder = new StringBuilder();
@@ -855,7 +849,7 @@ public class ApplicationWriter {
     mainDexInfo.forEach(list::add);
     list.sort(DexType::compareTo);
     list.forEach(
-        type -> builder.append(mapMainDexListName(type, namingLens)).append('\n'));
+        type -> builder.append(mapMainDexListName(type, appView.getNamingLens())).append('\n'));
     return builder.toString();
   }
 

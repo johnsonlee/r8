@@ -5,7 +5,6 @@
 package com.android.tools.r8.apimodel;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
-import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForDefaultInstanceInitializer;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
 import static org.junit.Assume.assumeTrue;
 
@@ -46,8 +45,7 @@ public class ApiModelMockClassLoadingTest extends TestBase {
         .addDefaultRuntimeLibrary(parameters)
         .setMinApi(parameters.getApiLevel())
         .apply(ApiModelingTestHelper::enableStubbingOfClasses)
-        .apply(setMockApiLevelForClass(LibraryClass.class, mockLevel))
-        .apply(setMockApiLevelForDefaultInstanceInitializer(LibraryClass.class, mockLevel));
+        .apply(setMockApiLevelForClass(LibraryClass.class, mockLevel));
   }
 
   @Test
@@ -57,7 +55,7 @@ public class ApiModelMockClassLoadingTest extends TestBase {
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
         .compile()
-        .inspect(ApiModelingTestHelper::assertNoSynthesizedClasses)
+        .inspect(this::inspect)
         .applyIf(isGreaterOrEqualToMockLevel(), b -> b.addBootClasspathClasses(LibraryClass.class))
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
@@ -68,8 +66,6 @@ public class ApiModelMockClassLoadingTest extends TestBase {
     assumeTrue(parameters.isDexRuntime());
     testForD8()
         .setMode(CompilationMode.RELEASE)
-        // TODO(b/213552119): Remove when enabled by default.
-        .apply(ApiModelingTestHelper::enableApiCallerIdentification)
         .apply(this::setupTestBuilder)
         .compile()
         .inspect(this::inspect)
@@ -103,7 +99,7 @@ public class ApiModelMockClassLoadingTest extends TestBase {
   // Only present form api level 23.
   public static class LibraryClass {
 
-    public static void foo() {
+    public void foo() {
       System.out.println("Hello World");
     }
   }
@@ -111,7 +107,7 @@ public class ApiModelMockClassLoadingTest extends TestBase {
   public static class Main {
 
     public static void main(String[] args) {
-      LibraryClass.foo();
+      new LibraryClass().foo();
     }
   }
 }

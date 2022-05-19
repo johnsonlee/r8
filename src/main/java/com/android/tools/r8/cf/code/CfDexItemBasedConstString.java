@@ -24,6 +24,7 @@ import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
+import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import java.util.ListIterator;
@@ -136,11 +137,11 @@ public class CfDexItemBasedConstString extends CfInstruction {
   @Override
   public CfFrameState evaluate(
       CfFrameState frame,
-      ProgramMethod context,
       AppView<?> appView,
+      CfAnalysisConfig config,
       DexItemFactory dexItemFactory) {
     // ... →
     // ..., value
-    return frame.push(dexItemFactory.stringType);
+    return frame.push(config, dexItemFactory.stringType);
   }
 }

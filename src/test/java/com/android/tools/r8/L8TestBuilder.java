@@ -43,6 +43,8 @@ public class L8TestBuilder {
   private StringResource desugaredLibrarySpecification =
       StringResource.fromFile(ToolHelper.getDesugarLibJsonForTesting());
   private List<Path> libraryFiles = new ArrayList<>();
+  private ProgramConsumer programConsumer;
+  private boolean finalPrefixVerification = true;
 
   private L8TestBuilder(AndroidApiLevel apiLevel, Backend backend, TestState state) {
     this.apiLevel = apiLevel;
@@ -54,6 +56,11 @@ public class L8TestBuilder {
     return new L8TestBuilder(apiLevel, backend, state);
   }
 
+  public L8TestBuilder ignoreFinalPrefixVerification() {
+    finalPrefixVerification = false;
+    return this;
+  }
+
   public L8TestBuilder addProgramFiles(Collection<Path> programFiles) {
     this.additionalProgramFiles.addAll(programFiles);
     return this;
@@ -61,6 +68,11 @@ public class L8TestBuilder {
 
   public L8TestBuilder addProgramClassFileData(byte[]... classes) {
     this.additionalProgramClassFileData.addAll(Arrays.asList(classes));
+    return this;
+  }
+
+  public L8TestBuilder addLibraryFiles(Collection<Path> libraryFiles) {
+    this.libraryFiles.addAll(libraryFiles);
     return this;
   }
 
@@ -89,6 +101,11 @@ public class L8TestBuilder {
 
   public L8TestBuilder addOptionsModifier(Consumer<InternalOptions> optionsModifier) {
     this.optionsModifier = this.optionsModifier.andThen(optionsModifier);
+    return this;
+  }
+
+  public L8TestBuilder apply(ThrowableConsumer<L8TestBuilder> thenConsumer) {
+    thenConsumer.acceptWithRuntimeException(this);
     return this;
   }
 
@@ -128,6 +145,11 @@ public class L8TestBuilder {
     return this;
   }
 
+  public L8TestBuilder setProgramConsumer(ProgramConsumer programConsumer) {
+    this.programConsumer = programConsumer;
+    return this;
+  }
+
   public L8TestBuilder setDesugarJDKLibsCustomConversions(Path desugarJDKLibsConfiguration) {
     this.customConversions = desugarJDKLibsConfiguration;
     return this;
@@ -148,6 +170,15 @@ public class L8TestBuilder {
         options -> options.disableL8AnnotationRemoval = disableL8AnnotationRemoval);
   }
 
+  private ProgramConsumer computeProgramConsumer(AndroidAppConsumers sink) {
+    if (programConsumer != null) {
+      return programConsumer;
+    }
+    return backend.isCf()
+        ? sink.wrapProgramConsumer(ClassFileConsumer.emptyConsumer())
+        : sink.wrapProgramConsumer(DexIndexedConsumer.emptyConsumer());
+  }
+
   public L8TestCompileResult compile()
       throws IOException, CompilationFailedException, ExecutionException {
     // We wrap exceptions in a RuntimeException to call this from a lambda.
@@ -157,43 +188,50 @@ public class L8TestBuilder {
             .addProgramFiles(getProgramFiles())
             .addLibraryFiles(getLibraryFiles())
             .setMode(mode)
+            .setIncludeClassesChecksum(true)
             .addDesugaredLibraryConfiguration(desugaredLibrarySpecification)
             .setMinApiLevel(apiLevel.getLevel())
-            .setProgramConsumer(
-                backend.isCf()
-                    ? sink.wrapProgramConsumer(ClassFileConsumer.emptyConsumer())
-                    : sink.wrapProgramConsumer(DexIndexedConsumer.emptyConsumer()));
+            .setProgramConsumer(computeProgramConsumer(sink));
     addProgramClassFileData(l8Builder);
     Path mapping = null;
+    ImmutableList<String> allKeepRules = null;
     if (!keepRules.isEmpty() || generatedKeepRules != null) {
       mapping = state.getNewTempFile("mapping.txt");
+      allKeepRules =
+          ImmutableList.<String>builder()
+              .addAll(keepRules)
+              .addAll(
+                  generatedKeepRules != null
+                      ? ImmutableList.of(generatedKeepRules)
+                      : Collections.emptyList())
+              .build();
       l8Builder
-          .addProguardConfiguration(
-              ImmutableList.<String>builder()
-                  .addAll(keepRules)
-                  .addAll(
-                      generatedKeepRules != null
-                          ? ImmutableList.of(generatedKeepRules)
-                          : Collections.emptyList())
-                  .build(),
-              Origin.unknown())
+          .addProguardConfiguration(allKeepRules, Origin.unknown())
           .setProguardMapOutputPath(mapping);
     }
     ToolHelper.runL8(l8Builder.build(), optionsModifier);
+    // With special program consumer we may not be able to build the resulting app.
+    if (programConsumer != null) {
+      return null;
+    }
     return new L8TestCompileResult(
             sink.build(),
             apiLevel,
+            allKeepRules,
             generatedKeepRules,
             mapping,
             state,
             backend.isCf() ? OutputMode.ClassFile : OutputMode.DexIndexed)
-        .inspect(
-            inspector ->
-                inspector.forAllClasses(
-                    clazz ->
-                        assertTrue(
-                            clazz.getFinalName().startsWith("j$.")
-                                || clazz.getFinalName().startsWith("java."))));
+        .applyIf(
+            finalPrefixVerification,
+            compileResult ->
+                compileResult.inspect(
+                    inspector ->
+                        inspector.forAllClasses(
+                            clazz ->
+                                assertTrue(
+                                    clazz.getFinalName().startsWith("j$.")
+                                        || clazz.getFinalName().startsWith("java.")))));
   }
 
   private Collection<Path> getProgramFiles() {

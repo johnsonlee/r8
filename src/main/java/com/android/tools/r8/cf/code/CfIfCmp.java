@@ -20,6 +20,7 @@ import com.android.tools.r8.ir.conversion.CfState;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
@@ -118,8 +119,8 @@ public class CfIfCmp extends CfConditionalJumpInstruction {
   @Override
   public CfFrameState evaluate(
       CfFrameState frame,
-      ProgramMethod context,
       AppView<?> appView,
+      CfAnalysisConfig config,
       DexItemFactory dexItemFactory) {
     // ..., value1, value2 →
     // ...

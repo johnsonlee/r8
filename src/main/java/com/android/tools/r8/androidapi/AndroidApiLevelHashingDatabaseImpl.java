@@ -7,13 +7,14 @@ package com.android.tools.r8.androidapi;
 import static com.android.tools.r8.lightir.ByteUtils.isU2;
 import static com.android.tools.r8.utils.AndroidApiLevel.ANDROID_PLATFORM;
 
-import com.android.tools.r8.androidapi.AndroidApiDataAccess.AndroidApiDataAccessInMemory;
+import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThrowingFunction;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -126,13 +127,16 @@ public class AndroidApiLevelHashingDatabaseImpl implements AndroidApiLevelDataba
 
   private final Map<DexReference, AndroidApiLevel> lookupCache = new ConcurrentHashMap<>();
   private final Map<DexString, Integer> constantPoolCache = new ConcurrentHashMap<>();
+  private final InternalOptions options;
+  private final DiagnosticsHandler diagnosticsHandler;
   private static volatile AndroidApiDataAccess dataAccess;
 
-  private static AndroidApiDataAccess getDataAccess() {
+  private static AndroidApiDataAccess getDataAccess(
+      InternalOptions options, DiagnosticsHandler diagnosticsHandler) {
     if (dataAccess == null) {
       synchronized (AndroidApiDataAccess.class) {
         if (dataAccess == null) {
-          dataAccess = AndroidApiDataAccessInMemory.create();
+          dataAccess = AndroidApiDataAccess.create(options, diagnosticsHandler);
         }
       }
     }
@@ -140,7 +144,11 @@ public class AndroidApiLevelHashingDatabaseImpl implements AndroidApiLevelDataba
   }
 
   public AndroidApiLevelHashingDatabaseImpl(
-      List<AndroidApiForHashingReference> predefinedApiTypeLookup) {
+      List<AndroidApiForHashingReference> predefinedApiTypeLookup,
+      InternalOptions options,
+      DiagnosticsHandler diagnosticsHandler) {
+    this.options = options;
+    this.diagnosticsHandler = diagnosticsHandler;
     predefinedApiTypeLookup.forEach(
         predefinedApiReference -> {
           // Do not use computeIfAbsent since a return value of null implies the key should not be
@@ -169,7 +177,7 @@ public class AndroidApiLevelHashingDatabaseImpl implements AndroidApiLevelDataba
 
   private int getConstantPoolId(DexString string) {
     return constantPoolCache.computeIfAbsent(
-        string, key -> getDataAccess().getConstantPoolIndex(string));
+        string, key -> getDataAccess(options, diagnosticsHandler).getConstantPoolIndex(string));
   }
 
   private AndroidApiLevel lookupApiLevel(DexReference reference) {
@@ -190,7 +198,8 @@ public class AndroidApiLevelHashingDatabaseImpl implements AndroidApiLevelDataba
                 return ANDROID_PLATFORM;
               } else {
                 byte apiLevelForReference =
-                    getDataAccess().getApiLevelForReference(uniqueDescriptorForReference, ref);
+                    getDataAccess(options, diagnosticsHandler)
+                        .getApiLevelForReference(uniqueDescriptorForReference, ref);
                 return (apiLevelForReference <= 0)
                     ? ANDROID_PLATFORM
                     : AndroidApiLevel.getAndroidApiLevel(apiLevelForReference);

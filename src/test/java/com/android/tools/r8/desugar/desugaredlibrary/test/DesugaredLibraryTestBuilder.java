@@ -4,8 +4,11 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.test;
 
+import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8CF2CF_L8SHRINK;
+
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8TestCompileResult;
+import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.L8TestBuilder;
 import com.android.tools.r8.L8TestCompileResult;
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
@@ -15,17 +18,24 @@ import com.android.tools.r8.StringResource;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestCompilerBuilder;
+import com.android.tools.r8.TestCompilerBuilder.DiagnosticsConsumer;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.TestRuntime;
+import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
+import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase.KeepRuleConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecificationParser;
+import com.android.tools.r8.tracereferences.TraceReferences;
 import com.android.tools.r8.utils.ConsumerUtils;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.google.common.base.Charsets;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.junit.Assume;
 
 public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
@@ -35,9 +45,10 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
   private final TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> builder;
+  private Consumer<InternalOptions> l8OptionModifier = ConsumerUtils.emptyConsumer();
+  private boolean l8FinalPrefixVerification = true;
 
   private CustomLibrarySpecification customLibrarySpecification = null;
-  private Consumer<InternalOptions> l8OptionModifier = ConsumerUtils.emptyConsumer();
   private TestingKeepRuleConsumer keepRuleConsumer = null;
 
   public DesugaredLibraryTestBuilder(
@@ -55,15 +66,16 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
 
   private void setUp() {
     builder
-        .addLibraryFiles(libraryDesugaringSpecification.getAndroidJar())
-        .setMinApi(parameters.getApiLevel());
+        .addLibraryFiles(libraryDesugaringSpecification.getLibraryFiles())
+        .setMinApi(parameters.getApiLevel())
+        .setMode(compilationSpecification.getProgramCompilationMode());
     LibraryDesugaringTestConfiguration.Builder libraryConfBuilder =
         LibraryDesugaringTestConfiguration.builder()
             .setMinApi(parameters.getApiLevel())
             .addDesugaredLibraryConfiguration(
                 StringResource.fromFile(libraryDesugaringSpecification.getSpecification()))
             .dontAddRunClasspath();
-    if (compilationSpecification.isL8Shrink()) {
+    if (compilationSpecification.isL8Shrink() && !compilationSpecification.isCfToCf()) {
       keepRuleConsumer = new TestingKeepRuleConsumer();
       libraryConfBuilder.setKeepRuleConsumer(keepRuleConsumer);
     }
@@ -73,6 +85,10 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   private TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> generateBuilder() {
     if (compilationSpecification.isCfToCf()) {
       assert !compilationSpecification.isProgramShrink();
+      if (compilationSpecification.isL8Shrink()) {
+        // L8 with Cf backend and shrinking is not a supported pipeline.
+        Assume.assumeTrue(parameters.getBackend().isDex());
+      }
       return test.testForD8(Backend.CF);
     }
     // Cf back-end is only allowed in Cf to cf compilations.
@@ -113,13 +129,34 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
+  public DesugaredLibraryTestBuilder<T> addClasspathClasses(Class<?>... clazz) throws IOException {
+    builder.addClasspathClasses(clazz);
+    return this;
+  }
+
   public DesugaredLibraryTestBuilder<T> addProgramClasses(Class<?>... clazz) throws IOException {
+    builder.addProgramClasses(clazz);
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addProgramClasses(Collection<Class<?>> clazz)
+      throws IOException {
     builder.addProgramClasses(clazz);
     return this;
   }
 
   public DesugaredLibraryTestBuilder<T> addProgramFiles(Path... files) {
     builder.addProgramFiles(files);
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addProgramFiles(Collection<Path> files) {
+    builder.addProgramFiles(files);
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> ignoreL8FinalPrefixVerification() {
+    l8FinalPrefixVerification = false;
     return this;
   }
 
@@ -151,8 +188,28 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
+  public DesugaredLibraryTestBuilder<T> allowDiagnosticInfoMessages() {
+    withR8TestBuilder(R8TestBuilder::allowDiagnosticInfoMessages);
+    return this;
+  }
+
   public DesugaredLibraryTestBuilder<T> allowDiagnosticWarningMessages() {
     withR8TestBuilder(R8TestBuilder::allowDiagnosticWarningMessages);
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addKeepAttributes(String... attributes) {
+    withR8TestBuilder(b -> b.addKeepAttributes(attributes));
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addKeepAllClassesRuleWithAllowObfuscation() {
+    withR8TestBuilder(TestShrinkerBuilder::addKeepAllClassesRuleWithAllowObfuscation);
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addKeepAllClassesRule() {
+    withR8TestBuilder(TestShrinkerBuilder::addKeepAllClassesRule);
     return this;
   }
 
@@ -168,6 +225,12 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
 
   public DesugaredLibraryTestBuilder<T> addKeepRuleFiles(Path... files) {
     withR8TestBuilder(b -> b.addKeepRuleFiles(files));
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addFeatureSplit(
+      Function<FeatureSplit.Builder, FeatureSplit> featureSplitBuilder) {
+    withR8TestBuilder(b -> b.addFeatureSplit(featureSplitBuilder));
     return this;
   }
 
@@ -189,11 +252,27 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
+  public DesugaredLibraryTestBuilder<T> disableL8AnnotationRemoval() {
+    l8OptionModifier =
+        l8OptionModifier.andThen(options -> options.disableL8AnnotationRemoval = true);
+    return this;
+  }
+
   public DesugaredLibraryTestCompileResult<T> compile() throws Exception {
-    // We compile first to generate the keep rules for the l8 compilation.
     TestCompileResult<?, ? extends SingleTestRunResult<?>> compile = builder.compile();
-    String keepRule = keepRuleConsumer == null ? null : keepRuleConsumer.get();
-    L8TestCompileResult l8Compile = compileDesugaredLibrary(keepRule);
+    return internalCompile(compile);
+  }
+
+  public DesugaredLibraryTestCompileResult<T> compileWithExpectedDiagnostics(
+      DiagnosticsConsumer consumer) throws Exception {
+    TestCompileResult<?, ? extends SingleTestRunResult<?>> compile =
+        builder.compileWithExpectedDiagnostics(consumer);
+    return internalCompile(compile);
+  }
+
+  private DesugaredLibraryTestCompileResult<T> internalCompile(
+      TestCompileResult<?, ? extends SingleTestRunResult<?>> compile) throws Exception {
+    L8TestCompileResult l8Compile = compileDesugaredLibrary(compile, keepRuleConsumer);
     D8TestCompileResult customLibCompile = compileCustomLib();
     return new DesugaredLibraryTestCompileResult<>(
         test,
@@ -209,36 +288,81 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     if (customLibrarySpecification == null) {
       return null;
     }
-    return test.testForD8()
+    return test.testForD8(parameters.getBackend())
         .addProgramClasses(customLibrarySpecification.getClasses())
         .setMinApi(customLibrarySpecification.getMinApi())
         .compile();
   }
 
+  private L8TestCompileResult compileDesugaredLibrary(
+      TestCompileResult<?, ? extends SingleTestRunResult<?>> compile,
+      KeepRuleConsumer keepRuleConsumer)
+      throws Exception {
+    if (!compilationSpecification.isL8Shrink()) {
+      return compileDesugaredLibrary(null);
+    }
+    if (!compilationSpecification.isCfToCf()) {
+      // When going to dex we can get the generated keep rule through the keep rule consumer.
+      assert keepRuleConsumer != null;
+      return compileDesugaredLibrary(keepRuleConsumer.get());
+    }
+    // In D8CF2CF_L8SHRINK, we use trace reference to extract the keep rules.
+    assert compilationSpecification == D8CF2CF_L8SHRINK;
+    L8TestCompileResult nonShrunk =
+        test.testForL8(parameters.getApiLevel(), Backend.CF)
+            .apply(libraryDesugaringSpecification::configureL8TestBuilder)
+            .apply(this::configure)
+            .compile();
+    String keepRules =
+        collectKeepRulesWithTraceReferences(compile.writeToZip(), nonShrunk.writeToZip());
+    return compileDesugaredLibrary(keepRules);
+  }
+
   private L8TestCompileResult compileDesugaredLibrary(String keepRule) throws Exception {
+    assert !compilationSpecification.isL8Shrink() || keepRule != null;
     return test.testForL8(parameters.getApiLevel(), parameters.getBackend())
-        .addProgramFiles(libraryDesugaringSpecification.getDesugarJdkLibs())
-        .addLibraryFiles(libraryDesugaringSpecification.getAndroidJar())
-        .setDesugaredLibraryConfiguration(libraryDesugaringSpecification.getSpecification())
-        .noDefaultDesugarJDKLibs()
-        .applyIf(
-            compilationSpecification.isL8Shrink(),
-            builder -> {
-              if (keepRule != null && !keepRule.trim().isEmpty()) {
-                builder.addGeneratedKeepRules(keepRule);
-              }
-            },
-            L8TestBuilder::setDebug)
-        .addOptionsModifier(l8OptionModifier)
+        .apply(
+            b ->
+                libraryDesugaringSpecification.configureL8TestBuilder(
+                    b, compilationSpecification.isL8Shrink(), keepRule))
+        .apply(this::configure)
         .compile();
   }
 
-  public TestRunResult<?> run(TestRuntime runtime, Class<?> mainClass, String... args)
+  private void configure(L8TestBuilder l8Builder) {
+    l8Builder
+        .applyIf(!l8FinalPrefixVerification, L8TestBuilder::ignoreFinalPrefixVerification)
+        .addOptionsModifier(l8OptionModifier);
+  }
+
+  public String collectKeepRulesWithTraceReferences(
+      Path desugaredProgramClassFile, Path desugaredLibraryClassFile) throws Exception {
+    Path generatedKeepRules = test.temp.newFile().toPath();
+    ArrayList<String> args = new ArrayList<>();
+    args.add("--keep-rules");
+    for (Path libraryFile : libraryDesugaringSpecification.getLibraryFiles()) {
+      args.add("--lib");
+      args.add(libraryFile.toString());
+    }
+    args.add("--target");
+    args.add(desugaredLibraryClassFile.toString());
+    args.add("--source");
+    args.add(desugaredProgramClassFile.toString());
+    args.add("--output");
+    args.add(generatedKeepRules.toString());
+    args.add("--map-diagnostics");
+    args.add("error");
+    args.add("info");
+    TraceReferences.run(args.toArray(new String[0]));
+    return FileUtils.readTextFile(generatedKeepRules, Charsets.UTF_8);
+  }
+
+  public SingleTestRunResult<?> run(TestRuntime runtime, Class<?> mainClass, String... args)
       throws Exception {
     return compile().run(runtime, mainClass.getTypeName(), args);
   }
 
-  public TestRunResult<?> run(TestRuntime runtime, String mainClass, String... args)
+  public SingleTestRunResult<?> run(TestRuntime runtime, String mainClass, String... args)
       throws Exception {
     return compile().run(runtime, mainClass, args);
   }
@@ -267,6 +391,11 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
 
   public DesugaredLibraryTestBuilder<T> addAndroidBuildVersion() {
     builder.addAndroidBuildVersion();
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> disableDesugaring() {
+    builder.disableDesugaring();
     return this;
   }
 }
