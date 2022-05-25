@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.cf.code.frame;
 
-public interface PrimitiveFrameType {
+public interface PrimitiveFrameType extends InitializedFrameType {
 
   String getTypeName();
 }

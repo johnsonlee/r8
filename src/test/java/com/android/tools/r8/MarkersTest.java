@@ -14,12 +14,15 @@ import static com.android.tools.r8.MarkerMatcher.markerIsDesugared;
 import static com.android.tools.r8.MarkerMatcher.markerMinApi;
 import static com.android.tools.r8.MarkerMatcher.markerR8Mode;
 import static com.android.tools.r8.MarkerMatcher.markerTool;
+import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
+import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
+import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.origin.Origin;
@@ -41,27 +44,27 @@ import org.junit.runners.Parameterized;
 public class MarkersTest extends DesugaredLibraryTestBase {
 
   @Parameterized.Parameters(
-      name = "{0}, compilationMode {1}, shrinkDesugaredLibrary {2}, noCfMarkerForDesugaredCode {3}")
+      name = "{0}, spec: {1}, compilationMode {2}, {3}, noCfMarkerForDesugaredCode {4}")
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withNoneRuntime().build(),
-        CompilationMode.values(),
-        BooleanUtils.values(),
+        LibraryDesugaringSpecification.getJdk8Jdk11(),
+        DEFAULT_SPECIFICATIONS,
         BooleanUtils.values());
   }
 
-  private final CompilationMode compilationMode;
-  private final boolean shrinkDesugaredLibrary;
+  private final LibraryDesugaringSpecification libraryDesugaringSpecification;
+  private final CompilationSpecification compilationSpecification;
   private final boolean noCfMarkerForDesugaredCode;
 
   public MarkersTest(
       TestParameters parameters,
-      CompilationMode compilationMode,
-      boolean shrinkDesugaredLibrary,
+      LibraryDesugaringSpecification libraryDesugaringSpecification,
+      CompilationSpecification compilationSpecification,
       boolean noCfMarkerForDesugaredCode) {
     parameters.assertNoneRuntime();
-    this.compilationMode = compilationMode;
-    this.shrinkDesugaredLibrary = shrinkDesugaredLibrary;
+    this.libraryDesugaringSpecification = libraryDesugaringSpecification;
+    this.compilationSpecification = compilationSpecification;
     this.noCfMarkerForDesugaredCode = noCfMarkerForDesugaredCode;
   }
 
@@ -72,24 +75,27 @@ public class MarkersTest extends DesugaredLibraryTestBase {
 
     AndroidApiLevel apiLevel = AndroidApiLevel.L;
     Path output = temp.newFolder().toPath().resolve("desugar_jdk_libs.zip");
+    CompilationMode compilationMode =
+        compilationSpecification.isL8Shrink() ? CompilationMode.RELEASE : CompilationMode.DEBUG;
     L8Command.Builder builder =
         L8Command.builder()
-            .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
-            .addProgramFiles(ToolHelper.getDesugarJDKLibs())
-            .addProgramFiles(ToolHelper.DESUGAR_LIB_CONVERSIONS)
+            .addLibraryFiles(libraryDesugaringSpecification.getLibraryFiles())
+            .addProgramFiles(libraryDesugaringSpecification.getDesugarJdkLibs())
             .setMinApiLevel(apiLevel.getLevel())
             .setMode(compilationMode)
             .addDesugaredLibraryConfiguration(
-                StringResource.fromFile(ToolHelper.getDesugarLibJsonForTesting()))
+                StringResource.fromFile(libraryDesugaringSpecification.getSpecification()))
             .setOutput(output, OutputMode.DexIndexed);
-    if (shrinkDesugaredLibrary) {
+    if (compilationSpecification.isL8Shrink()) {
       builder.addProguardConfiguration(ImmutableList.of("-keep class * { *; }"), Origin.unknown());
     }
     L8.run(builder.build());
     Collection<Marker> markers = ExtractMarker.extractMarkerFromDexFile(output);
     JsonObject jsonObject =
         new JsonParser()
-            .parse(FileUtils.readTextFile(ToolHelper.getDesugarLibJsonForTesting(), Charsets.UTF_8))
+            .parse(
+                FileUtils.readTextFile(
+                    libraryDesugaringSpecification.getSpecification(), Charsets.UTF_8))
             .getAsJsonObject();
     String identifier =
         jsonObject.has("version")
@@ -111,7 +117,8 @@ public class MarkersTest extends DesugaredLibraryTestBase {
     Matcher<Marker> d8Matcher =
         allOf(markerTool(Tool.D8), markerCompilationMode(compilationMode), markerMinApi(apiLevel));
     assertMarkersMatch(
-        markers, ImmutableList.of(l8Matcher, shrinkDesugaredLibrary ? r8Matcher : d8Matcher));
+        markers,
+        ImmutableList.of(l8Matcher, compilationSpecification.isL8Shrink() ? r8Matcher : d8Matcher));
   }
 
   @Test
@@ -122,7 +129,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
         D8Command.builder()
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
             .addProgramFiles(ToolHelper.getClassFileForTestClass(TestClass.class))
-            .setMode(compilationMode)
+            .setMode(compilationSpecification.getProgramCompilationMode())
             .setMinApiLevel(apiLevel.getLevel())
             .setOutput(output, OutputMode.DexIndexed);
     if (noCfMarkerForDesugaredCode) {
@@ -135,7 +142,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
     Matcher<Marker> matcher =
         allOf(
             markerTool(Tool.D8),
-            markerCompilationMode(compilationMode),
+            markerCompilationMode(compilationSpecification.getProgramCompilationMode()),
             markerBackend(Backend.DEX),
             markerIsDesugared(),
             markerMinApi(apiLevel),
@@ -146,7 +153,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
   @Test
   public void testD8MarkerInCf() throws Throwable {
     // Shrinking of desugared library is not affecting this test.
-    assumeTrue(shrinkDesugaredLibrary);
+    assumeTrue(compilationSpecification.isL8Shrink());
 
     AndroidApiLevel apiLevel = AndroidApiLevel.L;
     Path output = temp.newFolder().toPath().resolve("output.zip");
@@ -154,7 +161,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
         D8Command.builder()
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
             .addProgramFiles(ToolHelper.getClassFileForTestClass(TestClass.class))
-            .setMode(compilationMode)
+            .setMode(compilationSpecification.getProgramCompilationMode())
             .setMinApiLevel(apiLevel.getLevel())
             .setOutput(output, OutputMode.ClassFile);
     if (noCfMarkerForDesugaredCode) {
@@ -168,7 +175,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
       Matcher<Marker> matcher =
           allOf(
               markerTool(Tool.D8),
-              markerCompilationMode(compilationMode),
+              markerCompilationMode(compilationSpecification.getProgramCompilationMode()),
               markerBackend(Backend.CF),
               markerIsDesugared(),
               markerMinApi(apiLevel),
@@ -180,7 +187,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
   @Test
   public void testR8MarkerInDex() throws Throwable {
     // Shrinking of desugared library is not affecting this test.
-    assumeTrue(shrinkDesugaredLibrary);
+    assumeTrue(compilationSpecification.isL8Shrink());
 
     AndroidApiLevel apiLevel = AndroidApiLevel.L;
     Path output = temp.newFolder().toPath().resolve("output.zip");
@@ -189,7 +196,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
             .addProgramFiles(ToolHelper.getClassFileForTestClass(TestClass.class))
             .addProguardConfiguration(ImmutableList.of("-keep class * { *; }"), Origin.unknown())
-            .setMode(compilationMode)
+            .setMode(compilationSpecification.getProgramCompilationMode())
             .setMinApiLevel(apiLevel.getLevel())
             .setOutput(output, OutputMode.DexIndexed);
     if (noCfMarkerForDesugaredCode) {
@@ -203,7 +210,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
     Matcher<Marker> matcher =
         allOf(
             markerTool(Tool.R8),
-            markerCompilationMode(compilationMode),
+            markerCompilationMode(compilationSpecification.getProgramCompilationMode()),
             markerBackend(Backend.DEX),
             markerIsDesugared(),
             markerMinApi(apiLevel),
@@ -214,7 +221,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
   @Test
   public void testR8MarkerInCf() throws Throwable {
     // Shrinking of desugared library is not affecting this test.
-    assumeTrue(shrinkDesugaredLibrary);
+    assumeTrue(compilationSpecification.isL8Shrink());
 
     Path output = temp.newFolder().toPath().resolve("output.zip");
     R8Command.Builder builder =
@@ -222,7 +229,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
             .addProgramFiles(ToolHelper.getClassFileForTestClass(TestClass.class))
             .addProguardConfiguration(ImmutableList.of("-keep class * { *; }"), Origin.unknown())
-            .setMode(compilationMode)
+            .setMode(compilationSpecification.getProgramCompilationMode())
             .setOutput(output, OutputMode.ClassFile);
     if (noCfMarkerForDesugaredCode) {
       ToolHelper.runR8(
@@ -235,7 +242,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
     Matcher<Marker> matcher =
         allOf(
             markerTool(Tool.R8),
-            markerCompilationMode(compilationMode),
+            markerCompilationMode(compilationSpecification.getProgramCompilationMode()),
             markerBackend(Backend.CF),
             not(markerIsDesugared()),
             not(markerHasMinApi()),
@@ -246,7 +253,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
   @Test
   public void testR8MarkerInCfAfterD8CfDesugar() throws Throwable {
     // Shrinking of desugared library is not affecting this test.
-    assumeTrue(shrinkDesugaredLibrary);
+    assumeTrue(compilationSpecification.isL8Shrink());
 
     AndroidApiLevel apiLevel = AndroidApiLevel.L;
     Path d8DesugaredOutput = temp.newFolder().toPath().resolve("output.zip");
@@ -254,7 +261,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
         D8Command.builder()
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
             .addProgramFiles(ToolHelper.getClassFileForTestClass(TestClass.class))
-            .setMode(compilationMode)
+            .setMode(compilationSpecification.getProgramCompilationMode())
             .setMinApiLevel(apiLevel.getLevel())
             .setOutput(d8DesugaredOutput, OutputMode.ClassFile);
     if (noCfMarkerForDesugaredCode) {
@@ -268,7 +275,7 @@ public class MarkersTest extends DesugaredLibraryTestBase {
           ExtractMarker.extractMarkerFromDexFile(d8DesugaredOutput),
           allOf(
               markerTool(Tool.D8),
-              markerCompilationMode(compilationMode),
+              markerCompilationMode(compilationSpecification.getProgramCompilationMode()),
               markerIsDesugared(),
               markerMinApi(apiLevel),
               not(markerHasDesugaredLibraryIdentifier())));
@@ -281,14 +288,14 @@ public class MarkersTest extends DesugaredLibraryTestBase {
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
             .addProgramFiles(ToolHelper.getClassFileForTestClass(TestClass.class))
             .addProguardConfiguration(ImmutableList.of("-keep class * { *; }"), Origin.unknown())
-            .setMode(compilationMode)
+            .setMode(compilationSpecification.getProgramCompilationMode())
             .setOutput(output, OutputMode.ClassFile)
             .build());
     assertMarkersMatch(
         ExtractMarker.extractMarkerFromDexFile(output),
         allOf(
             markerTool(Tool.R8),
-            markerCompilationMode(compilationMode),
+            markerCompilationMode(compilationSpecification.getProgramCompilationMode()),
             markerBackend(Backend.CF),
             not(markerIsDesugared()),
             not(markerHasMinApi()),

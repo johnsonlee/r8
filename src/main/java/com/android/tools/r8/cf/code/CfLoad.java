@@ -4,12 +4,12 @@
 package com.android.tools.r8.cf.code;
 
 import com.android.tools.r8.cf.CfPrinter;
+import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -24,6 +24,7 @@ import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
+import com.android.tools.r8.optimize.interfaces.analysis.ErroneousCfFrameState;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -127,22 +128,6 @@ public class CfLoad extends CfInstruction {
   }
 
   @Override
-  public void evaluate(
-      CfFrameVerificationHelper frameBuilder,
-      DexMethod context,
-      AppView<?> appView,
-      DexItemFactory dexItemFactory) {
-    // ... →
-    // ..., objectref
-    frameBuilder.push(
-        frameBuilder.readLocal(
-            getLocalIndex(),
-            type.isObject()
-                ? dexItemFactory.objectType
-                : type.toPrimitiveType().toDexType(dexItemFactory)));
-  }
-
-  @Override
   public CfFrameState evaluate(
       CfFrameState frame,
       AppView<?> appView,
@@ -151,6 +136,21 @@ public class CfLoad extends CfInstruction {
     // ... →
     // ..., objectref
     return frame.readLocal(
-        appView, getLocalIndex(), type, (state, frameType) -> state.push(config, frameType));
+        appView,
+        getLocalIndex(),
+        type,
+        (state, frameType) ->
+            frameType.isPrecise() ? state.push(config, frameType.asPrecise()) : error(frameType));
+  }
+
+  private ErroneousCfFrameState error(FrameType frameType) {
+    assert frameType.isOneWord() || frameType.isTwoWord();
+    StringBuilder message =
+        new StringBuilder("Unexpected attempt to read local of type top at index ")
+            .append(getLocalIndex());
+    if (type.isWide()) {
+      message.append(" and ").append(getLocalIndex() + 1);
+    }
+    return CfFrameState.error(message.toString());
   }
 }

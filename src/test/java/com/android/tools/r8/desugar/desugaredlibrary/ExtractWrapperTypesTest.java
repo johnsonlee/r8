@@ -98,7 +98,7 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
 
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
 
-  @Parameters(name = "{0}, spec: {1}, {2}")
+  @Parameters(name = "{0}, spec: {1}")
   public static List<Object[]> data() {
     return buildParameters(getTestParameters().withNoneRuntime().build(), getJdk8Jdk11());
   }
@@ -147,7 +147,9 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
             minApi.getLevel());
     MachineDesugaredLibrarySpecification specification =
         spec.toMachineSpecification(
-            new InternalOptions(factory, new Reporter()), getLibraryFile(), Timing.empty());
+            new InternalOptions(factory, new Reporter()),
+            libraryDesugaringSpecification.getLibraryFiles(),
+            Timing.empty());
     Set<String> wrappersInSpec =
         specification.getWrappers().keySet().stream()
             .map(DexType::toString)
@@ -288,10 +290,10 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
   private CodeInspector getDesugaredApiJar() throws Exception {
     Path out = temp.newFolder().toPath();
     GenerateLintFiles desugaredApi =
-        new GenerateLintFiles(
-            ToolHelper.getDesugarLibJsonForTesting().toString(),
-            ToolHelper.getDesugarJDKLibs().toString(),
-            out.toString());
+        GenerateLintFiles.createForTesting(
+            libraryDesugaringSpecification.getSpecification(),
+            libraryDesugaringSpecification.getDesugarJdkLibs(),
+            out);
     desugaredApi.run(targetApi.getLevel());
     return new CodeInspector(
         out.resolve("compile_api_level_" + targetApi.getLevel())

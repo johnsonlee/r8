@@ -494,39 +494,7 @@ public abstract class TestCompilerBuilder<
     return allowStderrMessages();
   }
 
-  public T enableCoreLibraryDesugaring(
-      AndroidApiLevel minApiLevel, KeepRuleConsumer keepRuleConsumer) {
-    return enableCoreLibraryDesugaring(
-        minApiLevel,
-        keepRuleConsumer,
-        StringResource.fromFile(ToolHelper.getDesugarLibJsonForTesting()));
-  }
-
   public T enableCoreLibraryDesugaring(LibraryDesugaringTestConfiguration configuration) {
-    this.libraryDesugaringTestConfiguration = configuration;
-    return self();
-  }
-
-  public T enableCoreLibraryDesugaring(
-      AndroidApiLevel minApiLevel,
-      KeepRuleConsumer keepRuleConsumer,
-      StringResource desugaredLibrarySpecification) {
-    return enableLibraryDesugaring(
-        LibraryDesugaringTestConfiguration.builder()
-            .setMinApi(minApiLevel)
-            .setKeepRuleConsumer(keepRuleConsumer)
-            .addDesugaredLibraryConfiguration(desugaredLibrarySpecification)
-            .dontAddRunClasspath()
-            .build());
-  }
-
-  public T enableLibraryDesugaring(AndroidApiLevel minApiLevel) {
-    this.libraryDesugaringTestConfiguration =
-        LibraryDesugaringTestConfiguration.builder().setMinApi(minApiLevel).build();
-    return self();
-  }
-
-  public T enableLibraryDesugaring(LibraryDesugaringTestConfiguration configuration) {
     this.libraryDesugaringTestConfiguration = configuration;
     return self();
   }

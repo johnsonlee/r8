@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.test;
 
-import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8CF2CF_L8SHRINK;
-
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.FeatureSplit;
@@ -29,6 +27,7 @@ import com.android.tools.r8.tracereferences.TraceReferences;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import com.google.common.base.Charsets;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -188,6 +187,11 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
+  public DesugaredLibraryTestBuilder<T> allowUnusedDontWarnKotlinReflectJvmInternal(boolean allow) {
+    withR8TestBuilder(b -> b.allowUnusedDontWarnKotlinReflectJvmInternal(allow));
+    return this;
+  }
+
   public DesugaredLibraryTestBuilder<T> allowDiagnosticInfoMessages() {
     withR8TestBuilder(R8TestBuilder::allowDiagnosticInfoMessages);
     return this;
@@ -195,6 +199,16 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
 
   public DesugaredLibraryTestBuilder<T> allowDiagnosticWarningMessages() {
     withR8TestBuilder(R8TestBuilder::allowDiagnosticWarningMessages);
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addKeepRules(String keepRules) {
+    withR8TestBuilder(b -> b.addKeepRules(keepRules));
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addKeepClassAndMembersRules(Class<?>... clazz) {
+    withR8TestBuilder(b -> b.addKeepClassAndMembersRules(clazz));
     return this;
   }
 
@@ -234,13 +248,40 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
+  public DesugaredLibraryTestBuilder<T> enableNeverClassInliningAnnotations() {
+    withR8TestBuilder(R8TestBuilder::enableNeverClassInliningAnnotations);
+    return this;
+  }
+
   public DesugaredLibraryTestBuilder<T> enableInliningAnnotations() {
     withR8TestBuilder(R8TestBuilder::enableInliningAnnotations);
     return this;
   }
 
+  public DesugaredLibraryTestBuilder<T> enableNoVerticalClassMergingAnnotations() {
+    withR8TestBuilder(R8TestBuilder::enableNoVerticalClassMergingAnnotations);
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addVerticallyMergedClassesInspector(
+      Consumer<VerticallyMergedClassesInspector> inspector) {
+    withR8TestBuilder(b -> b.addVerticallyMergedClassesInspector(inspector));
+    return this;
+  }
+
   public DesugaredLibraryTestBuilder<T> noMinification() {
     withR8TestBuilder(R8TestBuilder::noMinification);
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> enableConstantArgumentAnnotations() {
+    withR8TestBuilder(R8TestBuilder::enableConstantArgumentAnnotations);
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> applyOnBuilder(
+      Consumer<TestCompilerBuilder<?, ?, ?, ?, ?>> consumer) {
+    consumer.accept(builder);
     return this;
   }
 
@@ -301,13 +342,11 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     if (!compilationSpecification.isL8Shrink()) {
       return compileDesugaredLibrary(null);
     }
-    if (!compilationSpecification.isCfToCf()) {
+    if (!compilationSpecification.isTraceReferences()) {
       // When going to dex we can get the generated keep rule through the keep rule consumer.
       assert keepRuleConsumer != null;
       return compileDesugaredLibrary(keepRuleConsumer.get());
     }
-    // In D8CF2CF_L8SHRINK, we use trace reference to extract the keep rules.
-    assert compilationSpecification == D8CF2CF_L8SHRINK;
     L8TestCompileResult nonShrunk =
         test.testForL8(parameters.getApiLevel(), Backend.CF)
             .apply(libraryDesugaringSpecification::configureL8TestBuilder)

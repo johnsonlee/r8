@@ -5,7 +5,6 @@
 package com.android.tools.r8.horizontalclassmerging;
 
 import com.android.tools.r8.cf.code.CfFrame;
-import com.android.tools.r8.cf.code.CfFrame.FrameType;
 import com.android.tools.r8.cf.code.CfInstanceFieldRead;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
@@ -15,6 +14,7 @@ import com.android.tools.r8.cf.code.CfReturn;
 import com.android.tools.r8.cf.code.CfReturnVoid;
 import com.android.tools.r8.cf.code.CfSwitch;
 import com.android.tools.r8.cf.code.CfSwitch.Kind;
+import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -23,6 +23,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.horizontalclassmerging.VirtualMethodMerger.SuperMethodReference;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IterableUtils;
@@ -42,13 +43,13 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
   private final DexField classIdField;
   private final Int2ReferenceSortedMap<DexMethod> mappedMethods;
   private final DexMethod originalMethod;
-  private final DexMethod superMethod;
+  private final SuperMethodReference superMethod;
 
   public IncompleteVirtuallyMergedMethodCode(
       DexField classIdField,
       Int2ReferenceSortedMap<DexMethod> mappedMethods,
       DexMethod originalMethod,
-      DexMethod superMethod) {
+      SuperMethodReference superMethod) {
     this.mappedMethods = mappedMethods;
     this.classIdField = classIdField;
     this.superMethod = superMethod;
@@ -136,7 +137,12 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
       fallthroughTarget =
           lens.getNextMethodSignature(mappedMethods.get(mappedMethods.lastIntKey()));
     } else {
-      fallthroughTarget = lens.lookupInvokeSuper(superMethod, method).getReference();
+      DexMethod reboundFallthroughTarget =
+          lens.lookupInvokeSuper(superMethod.getReboundReference(), method).getReference();
+      fallthroughTarget =
+          reboundFallthroughTarget.withHolder(
+              lens.lookupClassType(superMethod.getReference().getHolderType()),
+              appView.dexItemFactory());
     }
     instructions.add(
         new CfInvoke(Opcodes.INVOKESPECIAL, fallthroughTarget, method.getHolder().isInterface()));
@@ -167,8 +173,7 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
     for (int argumentIndex = 0;
         argumentIndex < representative.getDefinition().getNumberOfArguments();
         argumentIndex++) {
-      FrameType frameType = FrameType.initialized(representative.getArgumentType(argumentIndex));
-      builder.appendLocal(frameType);
+      builder.appendLocal(FrameType.initialized(representative.getArgumentType(argumentIndex)));
     }
     CfFrame frame = builder.build();
     assert frame.getLocals().size() == localsSize;
