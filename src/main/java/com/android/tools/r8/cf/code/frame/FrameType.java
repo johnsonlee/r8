@@ -57,8 +57,7 @@ public interface FrameType {
 
   static PrimitiveFrameType primitive(DexType type) {
     assert type.isPrimitiveType();
-    char c = (char) type.getDescriptor().content[0];
-    switch (c) {
+    switch (type.getDescriptor().getFirstByteAsChar()) {
       case 'Z':
         return booleanType();
       case 'B':
@@ -144,6 +143,8 @@ public interface FrameType {
   boolean isFloat();
 
   boolean isInitialized();
+
+  boolean isInitializedReferenceType();
 
   InitializedReferenceFrameType asInitializedReferenceType();
 

@@ -34,7 +34,9 @@ import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.SeedMapper;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagator;
 import com.android.tools.r8.optimize.interfaces.collection.OpenClosedInterfacesCollection;
+import com.android.tools.r8.retrace.internal.RetraceUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.AssumeInfoCollection;
 import com.android.tools.r8.shaking.KeepClassInfo;
 import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.shaking.KeepInfoCollection;
@@ -74,6 +76,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   private T appInfo;
   private AppInfoWithClassHierarchy appInfoForDesugaring;
   private AppServices appServices;
+  private AssumeInfoCollection assumeInfoCollection = AssumeInfoCollection.builder().build();
   private final DontWarnConfiguration dontWarnConfiguration;
   private final WholeProgramOptimizations wholeProgramOptimizations;
   private GraphLens codeLens = GraphLens.getIdentityLens();
@@ -115,7 +118,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       OpenClosedInterfacesCollection.getDefault();
   // TODO(b/169115389): Remove
   private Set<DexMethod> cfByteCodePassThrough = ImmutableSet.of();
-  private Map<DexType, DexValueString> sourceDebugExtensions = new IdentityHashMap<>();
+  private final Map<DexType, DexValueString> sourceDebugExtensions = new IdentityHashMap<>();
+  private final Map<DexType, String> sourceFileForPrunedTypes = new IdentityHashMap<>();
 
   private SeedMapper applyMappingSeedMapper;
 
@@ -309,6 +313,14 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public void setAppServices(AppServices appServices) {
     this.appServices = appServices;
+  }
+
+  public AssumeInfoCollection getAssumeInfoCollection() {
+    return assumeInfoCollection;
+  }
+
+  public void setAssumeInfoCollection(AssumeInfoCollection assumeInfoCollection) {
+    this.assumeInfoCollection = assumeInfoCollection;
   }
 
   public DontWarnConfiguration getDontWarnConfiguration() {
@@ -760,6 +772,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     if (appServices() != null) {
       setAppServices(appServices().prunedCopy(prunedItems));
     }
+    setAssumeInfoCollection(getAssumeInfoCollection().withoutPrunedItems(prunedItems));
     if (hasProguardCompatibilityActions()) {
       setProguardCompatibilityActions(
           getProguardCompatibilityActions().withoutPrunedItems(prunedItems));
@@ -857,6 +870,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
                 .setAppInfo(appView.appInfoWithLiveness().rewrittenWithLens(application, lens));
           }
           appView.setAppServices(appView.appServices().rewrittenWithLens(lens));
+          appView.setAssumeInfoCollection(
+              appView.getAssumeInfoCollection().rewrittenWithLens(appView, lens));
           if (appView.hasInitClassLens()) {
             appView.setInitClassLens(appView.initClassLens().rewrittenWithLens(lens));
           }
@@ -914,5 +929,15 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public ComputedApiLevel computedMinApiLevel() {
     return computedMinApiLevel;
+  }
+
+  public void addPrunedClassSourceFile(DexType prunedType, String sourceFile) {
+    if (!RetraceUtils.hasPredictableSourceFileName(prunedType.toSourceString(), sourceFile)) {
+      sourceFileForPrunedTypes.put(prunedType, sourceFile);
+    }
+  }
+
+  public String getPrunedClassSourceFileInfo(DexType dexType) {
+    return sourceFileForPrunedTypes.get(dexType);
   }
 }

@@ -4,6 +4,7 @@
 package com.android.tools.r8.utils;
 
 import static com.android.tools.r8.utils.AndroidApiLevel.ANDROID_PLATFORM;
+import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyForDevelopmentOrDefault;
 
 import com.android.tools.r8.ClassFileConsumer;
 import com.android.tools.r8.CompilationMode;
@@ -394,6 +395,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // Flag to allow nest annotations in DEX. See b/231930852 for context.
   public boolean emitNestAnnotationsInDex =
       System.getProperty("com.android.tools.r8.emitNestAnnotationsInDex") != null;
+
+  // Flag to allow permitted subclasses annotations in DEX. See b/231930852 for context.
+  public boolean emitPermittedSubclassesAnnotationsInDex =
+      System.getProperty("com.android.tools.r8.emitPermittedSubclassesAnnotationsInDex") != null;
 
   // Contain the contents of the build properties file from the compiler command.
   public DumpOptions dumpOptions;
@@ -871,35 +876,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       return builder.build();
     }
     return ImmutableSet.of();
-  }
-
-  public static boolean isSystemPropertyForDevelopmentSet(String propertyName) {
-    if (Version.isDevelopmentVersion()) {
-      return System.getProperty(propertyName) != null;
-    }
-    return false;
-  }
-
-  public static String getSystemPropertyForDevelopmentOrDefault(
-      String propertyName, String defaultValue) {
-    if (Version.isDevelopmentVersion()) {
-      String propertyValue = System.getProperty(propertyName);
-      if (propertyValue != null) {
-        return propertyValue;
-      }
-    }
-    return defaultValue;
-  }
-
-  private static int parseSystemPropertyForDevelopmentOrDefault(
-      String propertyName, int defaultValue) {
-    if (Version.isDevelopmentVersion()) {
-      String propertyValue = System.getProperty(propertyName);
-      if (propertyValue != null) {
-        return Integer.parseInt(propertyValue);
-      }
-    }
-    return defaultValue;
   }
 
   public static class InvalidParameterAnnotationInfo {
@@ -1416,7 +1392,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public class InlinerOptions {
 
     public boolean enableInlining =
-        !isSystemPropertyForDevelopmentSet("com.android.tools.r8.disableinlining");
+        !parseSystemPropertyForDevelopmentOrDefault("com.android.tools.r8.disableinlining", false);
 
     // This defines the limit of instructions in the inlinee
     public int simpleInliningInstructionLimit =
@@ -2028,6 +2004,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public boolean canUseRecords() {
     return !isDesugaring();
+  }
+
+  public boolean canUseSealedClasses() {
+    return !isDesugaring() || emitPermittedSubclassesAnnotationsInDex;
   }
 
   public boolean canLeaveStaticInterfaceMethodInvokes() {

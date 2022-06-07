@@ -8,10 +8,10 @@ import static com.android.tools.r8.utils.DescriptorUtils.javaTypeToDescriptor;
 import com.android.tools.r8.InputDependencyGraphConsumer;
 import com.android.tools.r8.Version;
 import com.android.tools.r8.dex.Constants;
-import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.logging.Log;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
@@ -19,7 +19,6 @@ import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.position.TextRange;
 import com.android.tools.r8.shaking.ProguardConfiguration.Builder;
 import com.android.tools.r8.shaking.ProguardTypeMatcher.ClassOrType;
-import com.android.tools.r8.shaking.ProguardTypeMatcher.MatchSpecificType;
 import com.android.tools.r8.shaking.ProguardWildcard.BackReference;
 import com.android.tools.r8.shaking.ProguardWildcard.Pattern;
 import com.android.tools.r8.utils.IdentifierUtils;
@@ -47,12 +46,10 @@ import java.util.function.Predicate;
 public class ProguardConfigurationParser {
 
   private final Builder configurationBuilder;
-
   private final DexItemFactory dexItemFactory;
-
+  private final ProguardConfigurationParserOptions options;
   private final Reporter reporter;
   private final InputDependencyGraphConsumer inputDependencyConsumer;
-  private final boolean allowTestOptions;
 
   public static final String FLATTEN_PACKAGE_HIERARCHY = "flattenpackagehierarchy";
   public static final String REPACKAGE_CLASSES = "repackageclasses";
@@ -65,26 +62,25 @@ public class ProguardConfigurationParser {
   private static final List<String> IGNORED_OPTIONAL_SINGLE_ARG_OPTIONS =
       ImmutableList.of("runtype", "laststageoutput");
 
-  private static final List<String> IGNORED_FLAG_OPTIONS = ImmutableList.of(
-      "forceprocessing",
-      "dontpreverify",
-      "experimentalshrinkunusedprotofields",
-      "filterlibraryjarswithorginalprogramjars",
-      "dontskipnonpubliclibraryclasses",
-      "dontskipnonpubliclibraryclassmembers",
-      "invokebasemethod",
-      // TODO(b/62524562): we may support this later.
-      "mergeinterfacesaggressively",
-      "android",
-      "allowruntypeandignoreoptimizationpasses",
-      "dontshrinkduringoptimization",
-      "convert_proto_enum_to_string");
+  private static final List<String> IGNORED_FLAG_OPTIONS =
+      ImmutableList.of(
+          "forceprocessing",
+          "dontpreverify",
+          "experimentalshrinkunusedprotofields",
+          "filterlibraryjarswithorginalprogramjars",
+          "dontskipnonpubliclibraryclasses",
+          "dontskipnonpubliclibraryclassmembers",
+          "invokebasemethod",
+          // TODO(b/62524562): we may support this later.
+          "mergeinterfacesaggressively",
+          "android",
+          "allowruntypeandignoreoptimizationpasses",
+          "dontshrinkduringoptimization",
+          "convert_proto_enum_to_string",
+          "keepkotlinmetadata");
 
   private static final List<String> IGNORED_CLASS_DESCRIPTOR_OPTIONS =
-      ImmutableList.of(
-          "isclassnamestring", "whyarenotsimple", "convertchecknotnull", "checkenumunboxed");
-
-  private static final List<String> IGNORED_RETURN_VALUE_ATTRIBUTES = ImmutableList.of("_NONNULL_");
+      ImmutableList.of("isclassnamestring", "whyarenotsimple");
 
   private static final List<String> WARNED_SINGLE_ARG_OPTIONS = ImmutableList.of(
       // TODO(b/37137994): -outjars should be reported as errors, not just as warnings!
@@ -122,23 +118,37 @@ public class ProguardConfigurationParser {
 
   public ProguardConfigurationParser(
       DexItemFactory dexItemFactory, Reporter reporter) {
-    this(dexItemFactory, reporter, null, false);
+    this(
+        dexItemFactory,
+        reporter,
+        ProguardConfigurationParserOptions.builder()
+            .setEnableExperimentalCheckEnumUnboxed(false)
+            .setEnableExperimentalConvertCheckNotNull(false)
+            .setEnableExperimentalWhyAreYouNotInlining(false)
+            .setEnableTestingOptions(false)
+            .build());
   }
 
   public ProguardConfigurationParser(
       DexItemFactory dexItemFactory,
       Reporter reporter,
-      InputDependencyGraphConsumer inputDependencyConsumer,
-      boolean allowTestOptions) {
-    this.dexItemFactory = dexItemFactory;
-    configurationBuilder = ProguardConfiguration.builder(dexItemFactory, reporter);
+      ProguardConfigurationParserOptions options) {
+    this(dexItemFactory, reporter, options, null);
+  }
 
+  public ProguardConfigurationParser(
+      DexItemFactory dexItemFactory,
+      Reporter reporter,
+      ProguardConfigurationParserOptions options,
+      InputDependencyGraphConsumer inputDependencyConsumer) {
+    this.configurationBuilder = ProguardConfiguration.builder(dexItemFactory, reporter);
+    this.dexItemFactory = dexItemFactory;
+    this.options = options;
     this.reporter = reporter;
     this.inputDependencyConsumer =
         inputDependencyConsumer != null
             ? inputDependencyConsumer
             : emptyInputDependencyGraphConsumer();
-    this.allowTestOptions = allowTestOptions;
   }
 
   private static InputDependencyGraphConsumer emptyInputDependencyGraphConsumer() {
@@ -272,6 +282,7 @@ public class ProguardConfigurationParser {
       expectChar('-');
       if (parseIgnoredOption(optionStart)
           || parseIgnoredOptionAndWarn(optionStart)
+          || parseExperimentalOption(optionStart)
           || parseTestingOption(optionStart)
           || parseUnsupportedOptionAndErr(optionStart)) {
         // Intentionally left empty.
@@ -454,10 +465,10 @@ public class ProguardConfigurationParser {
       } else if (acceptString("maximumremovedandroidloglevel")) {
         skipWhitespace();
         Integer maxRemovedAndroidLogLevel = acceptInteger();
-        if (maxRemovedAndroidLogLevel != null) {
-          configurationBuilder.setMaxRemovedAndroidLogLevel(maxRemovedAndroidLogLevel);
+        if (maxRemovedAndroidLogLevel != null && maxRemovedAndroidLogLevel >= 1) {
+          configurationBuilder.joinMaxRemovedAndroidLogLevel(maxRemovedAndroidLogLevel);
         } else {
-          throw parseError("Expected integer", getPosition());
+          throw parseError("Expected integer greater than or equal to 1", getPosition());
         }
       } else {
         String unknownOption = acceptString();
@@ -472,9 +483,34 @@ public class ProguardConfigurationParser {
       return true;
     }
 
+    private boolean parseExperimentalOption(TextPosition optionStart)
+        throws ProguardRuleParserException {
+      if (acceptString(CheckEnumUnboxedRule.RULE_NAME)) {
+        CheckEnumUnboxedRule checkEnumUnboxedRule = parseCheckEnumUnboxedRule(optionStart);
+        if (options.isExperimentalCheckEnumUnboxedEnabled()) {
+          configurationBuilder.addRule(checkEnumUnboxedRule);
+        }
+        return true;
+      }
+      if (acceptString(ConvertCheckNotNullRule.RULE_NAME)) {
+        ConvertCheckNotNullRule convertCheckNotNullRule = parseConvertCheckNotNullRule(optionStart);
+        if (options.isExperimentalConvertCheckNotNullEnabled()) {
+          configurationBuilder.addRule(convertCheckNotNullRule);
+        }
+        return true;
+      }
+      if (options.isExperimentalWhyAreYouNotInliningEnabled()) {
+        if (acceptString(WhyAreYouNotInliningRule.RULE_NAME)) {
+          configurationBuilder.addRule(parseWhyAreYouNotInliningRule(optionStart));
+          return true;
+        }
+      }
+      return false;
+    }
+
     private boolean parseTestingOption(TextPosition optionStart)
         throws ProguardRuleParserException {
-      if (allowTestOptions) {
+      if (options.isTestingOptionsEnabled()) {
         if (acceptString("assumemayhavesideeffects")) {
           ProguardAssumeMayHaveSideEffectsRule rule =
               parseAssumeMayHaveSideEffectsRule(optionStart);
@@ -591,11 +627,6 @@ public class ProguardConfigurationParser {
               parseReprocessMethodRule(ReprocessMethodRule.Type.ALWAYS, optionStart));
           return true;
         }
-        if (acceptString("whyareyounotinlining")) {
-          WhyAreYouNotInliningRule rule = parseWhyAreYouNotInliningRule(optionStart);
-          configurationBuilder.addRule(rule);
-          return true;
-        }
       }
       return false;
     }
@@ -649,19 +680,6 @@ public class ProguardConfigurationParser {
           || Iterables.any(IGNORED_FLAG_OPTIONS, this::skipFlag)
           || Iterables.any(IGNORED_CLASS_DESCRIPTOR_OPTIONS, this::skipOptionWithClassSpec)
           || parseOptimizationOption(optionStart);
-    }
-
-    private boolean parseIgnoredReturnValueAttribute() {
-      return Iterables.any(IGNORED_RETURN_VALUE_ATTRIBUTES, this::skipReturnValueAttribute);
-    }
-
-    private boolean parseIgnoredReturnValueAttributes() {
-      boolean anySkipped = false;
-      while (parseIgnoredReturnValueAttribute()) {
-        anySkipped = true;
-        skipWhitespace();
-      }
-      return anySkipped;
     }
 
     private void parseInclude() throws ProguardRuleParserException {
@@ -795,7 +813,7 @@ public class ProguardConfigurationParser {
           .setOrigin(origin)
           .setStart(start);
       parseRuleTypeAndModifiers(keepRuleBuilder);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       if (keepRuleBuilder.getMemberRules().isEmpty()) {
         // If there are no member rules, a default rule for the parameterless constructor
         // applies. So we add that here.
@@ -817,7 +835,7 @@ public class ProguardConfigurationParser {
       ProguardWhyAreYouKeepingRule.Builder keepRuleBuilder = ProguardWhyAreYouKeepingRule.builder()
           .setOrigin(origin)
           .setStart(start);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -829,7 +847,7 @@ public class ProguardConfigurationParser {
       ProguardCheckDiscardRule.Builder keepRuleBuilder = ProguardCheckDiscardRule.builder()
           .setOrigin(origin)
           .setStart(start);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -840,7 +858,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       ClassInlineRule.Builder keepRuleBuilder =
           ClassInlineRule.builder().setOrigin(origin).setStart(start).setType(type);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -851,7 +869,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       NoFieldTypeStrengtheningRule.Builder keepRuleBuilder =
           NoFieldTypeStrengtheningRule.builder().setOrigin(origin).setStart(start);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -862,7 +880,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       NoUnusedInterfaceRemovalRule.Builder keepRuleBuilder =
           NoUnusedInterfaceRemovalRule.builder().setOrigin(origin).setStart(start);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -873,7 +891,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       NoVerticalClassMergingRule.Builder keepRuleBuilder =
           NoVerticalClassMergingRule.builder().setOrigin(origin).setStart(start);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -884,7 +902,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       NoHorizontalClassMergingRule.Builder keepRuleBuilder =
           NoHorizontalClassMergingRule.builder().setOrigin(origin).setStart(start);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -894,7 +912,7 @@ public class ProguardConfigurationParser {
     private <R extends NoOptimizationBaseRule<R>, B extends NoOptimizationBaseRule.Builder<R, B>>
         R parseNoOptimizationRule(Position start, B builder) throws ProguardRuleParserException {
       builder.setOrigin(origin).setStart(start);
-      parseClassSpec(builder, false);
+      parseClassSpec(builder);
       Position end = getPosition();
       builder.setSource(getSourceSnippet(contents, start, end));
       builder.setEnd(end);
@@ -906,7 +924,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       MemberValuePropagationRule .Builder keepRuleBuilder =
           MemberValuePropagationRule.builder().setOrigin(origin).setStart(start).setType(type);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -919,7 +937,7 @@ public class ProguardConfigurationParser {
           .setOrigin(origin)
           .setStart(start)
           .setType(type);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -932,7 +950,7 @@ public class ProguardConfigurationParser {
           ProguardIdentifierNameStringRule.builder()
               .setOrigin(origin)
               .setStart(start);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -944,7 +962,7 @@ public class ProguardConfigurationParser {
       ProguardIfRule.Builder ifRuleBuilder = ProguardIfRule.builder()
           .setOrigin(origin)
           .setStart(optionStart);
-      parseClassSpec(ifRuleBuilder, false);
+      parseClassSpec(ifRuleBuilder);
 
       // Required a subsequent keep rule.
       skipWhitespace();
@@ -967,7 +985,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       KeepConstantArgumentRule.Builder keepRuleBuilder =
           KeepConstantArgumentRule.builder().setOrigin(origin).setStart(start);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -978,7 +996,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       KeepUnusedArgumentRule.Builder keepRuleBuilder =
           KeepUnusedArgumentRule.builder().setOrigin(origin).setStart(start);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -990,7 +1008,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       ReprocessClassInitializerRule.Builder builder =
           ReprocessClassInitializerRule.builder().setOrigin(origin).setStart(start).setType(type);
-      parseClassSpec(builder, false);
+      parseClassSpec(builder);
       Position end = getPosition();
       builder.setSource(getSourceSnippet(contents, start, end));
       builder.setEnd(end);
@@ -1001,7 +1019,7 @@ public class ProguardConfigurationParser {
         ReprocessMethodRule.Type type, Position start) throws ProguardRuleParserException {
       ReprocessMethodRule.Builder builder =
           ReprocessMethodRule.builder().setOrigin(origin).setStart(start).setType(type);
-      parseClassSpec(builder, false);
+      parseClassSpec(builder);
       Position end = getPosition();
       builder.setSource(getSourceSnippet(contents, start, end));
       builder.setEnd(end);
@@ -1012,7 +1030,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       WhyAreYouNotInliningRule.Builder keepRuleBuilder =
           WhyAreYouNotInliningRule.builder().setOrigin(origin).setStart(start);
-      parseClassSpec(keepRuleBuilder, false);
+      parseClassSpec(keepRuleBuilder);
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
       keepRuleBuilder.setEnd(end);
@@ -1040,6 +1058,14 @@ public class ProguardConfigurationParser {
           }
         }
       }
+    }
+
+    private <
+            C extends ProguardClassSpecification,
+            B extends ProguardClassSpecification.Builder<C, B>>
+        void parseClassSpec(ProguardClassSpecification.Builder<C, B> builder)
+            throws ProguardRuleParserException {
+      parseClassSpec(builder, false);
     }
 
     private
@@ -1106,7 +1132,7 @@ public class ProguardConfigurationParser {
             builder.getModifiersBuilder().setAllowsObfuscation(true);
           } else if (acceptString("accessmodification")) {
             builder.getModifiersBuilder().setAllowsAccessModification(true);
-          } else if (allowTestOptions) {
+          } else if (options.isTestingOptionsEnabled()) {
             if (acceptString("annotationremoval")) {
               builder.getModifiersBuilder().setAllowsAnnotationRemoval(true);
             }
@@ -1275,6 +1301,11 @@ public class ProguardConfigurationParser {
               flags.setBridge();
             }
             break;
+          case 'c':
+            if ((found = acceptString("constructor"))) {
+              flags.setConstructor();
+            }
+            break;
           case 'f':
             if ((found = acceptString("final"))) {
               flags.setFinal();
@@ -1420,55 +1451,60 @@ public class ProguardConfigurationParser {
                   }
                   skipWhitespace();
                   // Parse "return ..." if present.
+                  TextPosition returnStart = getPosition();
                   if (acceptString("return")) {
+                    if (!allowValueSpecification) {
+                      throw parseError("Unexpected value specification", returnStart);
+                    }
                     skipWhitespace();
-                    boolean anyReturnValueAttributesSkipped = parseIgnoredReturnValueAttributes();
-                    if (!anyReturnValueAttributesSkipped || !hasNextChar(';')) {
-                      if (acceptString("true")) {
-                        ruleBuilder.setReturnValue(new ProguardMemberRuleReturnValue(true));
-                      } else if (acceptString("false")) {
-                        ruleBuilder.setReturnValue(new ProguardMemberRuleReturnValue(false));
-                      } else if (acceptString("null")) {
-                        ruleBuilder.setReturnValue(new ProguardMemberRuleReturnValue());
-                      } else {
-                        TextPosition fieldOrValueStart = getPosition();
-                        String qualifiedFieldNameOrInteger = acceptFieldNameOrIntegerForReturn();
-                        if (qualifiedFieldNameOrInteger != null) {
-                          if (isInteger(qualifiedFieldNameOrInteger)) {
-                            Integer min = Integer.parseInt(qualifiedFieldNameOrInteger);
-                            Integer max = min;
-                            skipWhitespace();
-                            if (acceptString("..")) {
-                              skipWhitespace();
-                              max = acceptInteger();
-                              if (max == null) {
-                                throw parseError("Expected integer value");
-                              }
-                            }
-                            if (!allowValueSpecification) {
-                              throw parseError("Unexpected value specification", fieldOrValueStart);
-                            }
-                            ruleBuilder.setReturnValue(
-                                new ProguardMemberRuleReturnValue(new LongInterval(min, max)));
-                          } else {
-                            if (ruleBuilder.getTypeMatcher() instanceof MatchSpecificType) {
-                              int lastDotIndex = qualifiedFieldNameOrInteger.lastIndexOf(".");
-                              DexType fieldType =
-                                  ((MatchSpecificType) ruleBuilder.getTypeMatcher()).type;
-                              DexType fieldClass =
-                                  dexItemFactory.createType(
-                                      javaTypeToDescriptor(
-                                          qualifiedFieldNameOrInteger.substring(0, lastDotIndex)));
-                              DexString fieldName =
-                                  dexItemFactory.createString(
-                                      qualifiedFieldNameOrInteger.substring(lastDotIndex + 1));
-                              DexField field =
-                                  dexItemFactory.createField(fieldClass, fieldType, fieldName);
-                              ruleBuilder.setReturnValue(new ProguardMemberRuleReturnValue(field));
-                            } else {
-                              throw parseError("Expected specific type", fieldOrValueStart);
-                            }
+                    if (acceptString("true")) {
+                      ruleBuilder.setReturnValue(new ProguardMemberRuleReturnValue(true));
+                    } else if (acceptString("false")) {
+                      ruleBuilder.setReturnValue(new ProguardMemberRuleReturnValue(false));
+                    } else if (acceptString("null")) {
+                      ruleBuilder.setReturnValue(
+                          new ProguardMemberRuleReturnValue(Nullability.definitelyNull()));
+                    } else {
+                      Integer integer = acceptInteger();
+                      if (integer != null) {
+                        Integer min = integer;
+                        Integer max = min;
+                        skipWhitespace();
+                        if (acceptString("..")) {
+                          skipWhitespace();
+                          max = acceptInteger();
+                          if (max == null) {
+                            throw parseError("Expected integer value");
                           }
+                        }
+                        ruleBuilder.setReturnValue(
+                            new ProguardMemberRuleReturnValue(new LongInterval(min, max)));
+                      } else {
+                        Nullability nullability = Nullability.maybeNull();
+                        if (acceptString("_NONNULL_")) {
+                          nullability = Nullability.definitelyNotNull();
+                          skipWhitespace();
+                          if (acceptChar(';')) {
+                            ruleBuilder.setReturnValue(
+                                new ProguardMemberRuleReturnValue(nullability));
+                            return;
+                          }
+                        }
+                        String qualifiedFieldName = acceptQualifiedFieldName();
+                        if (qualifiedFieldName != null) {
+                          int lastDotIndex = qualifiedFieldName.lastIndexOf(".");
+                          DexType fieldHolder =
+                              dexItemFactory.createType(
+                                  javaTypeToDescriptor(
+                                      qualifiedFieldName.substring(0, lastDotIndex)));
+                          DexString fieldName =
+                              dexItemFactory.createString(
+                                  qualifiedFieldName.substring(lastDotIndex + 1));
+                          ruleBuilder.setReturnValue(
+                              new ProguardMemberRuleReturnValue(
+                                  fieldHolder, fieldName, nullability));
+                        } else {
+                          throw parseError("Expected qualified field");
                         }
                       }
                     }
@@ -1670,7 +1706,7 @@ public class ProguardConfigurationParser {
         throws ProguardRuleParserException {
       ProguardAssumeMayHaveSideEffectsRule.Builder builder =
           ProguardAssumeMayHaveSideEffectsRule.builder().setOrigin(origin).setStart(start);
-      parseClassSpec(builder, true);
+      parseClassSpec(builder);
       Position end = getPosition();
       builder.setSource(getSourceSnippet(contents, start, end));
       builder.setEnd(end);
@@ -1683,6 +1719,28 @@ public class ProguardConfigurationParser {
           .setOrigin(origin)
           .setStart(start);
       parseClassSpec(builder, true);
+      Position end = getPosition();
+      builder.setSource(getSourceSnippet(contents, start, end));
+      builder.setEnd(end);
+      return builder.build();
+    }
+
+    private CheckEnumUnboxedRule parseCheckEnumUnboxedRule(Position start)
+        throws ProguardRuleParserException {
+      CheckEnumUnboxedRule.Builder builder =
+          CheckEnumUnboxedRule.builder().setOrigin(origin).setStart(start);
+      parseClassSpec(builder);
+      Position end = getPosition();
+      builder.setSource(getSourceSnippet(contents, start, end));
+      builder.setEnd(end);
+      return builder.build();
+    }
+
+    private ConvertCheckNotNullRule parseConvertCheckNotNullRule(Position start)
+        throws ProguardRuleParserException {
+      ConvertCheckNotNullRule.Builder builder =
+          ConvertCheckNotNullRule.builder().setOrigin(origin).setStart(start);
+      parseClassSpec(builder);
       Position end = getPosition();
       builder.setSource(getSourceSnippet(contents, start, end));
       builder.setEnd(end);
@@ -1978,26 +2036,34 @@ public class ProguardConfigurationParser {
           contents.substring(start, end), wildcardsCollector.build(), negated);
     }
 
-    private String acceptFieldNameOrIntegerForReturn() {
+    private String acceptQualifiedFieldName() {
       skipWhitespace();
       int start = position;
-      int end = position;
+      // A qualified field name must be non empty.
+      if (eof(start)) {
+        return null;
+      }
+      // The first character of a qualified field name is an identifier part.
+      int firstCodePoint = contents.codePointAt(start);
+      if (!IdentifierUtils.isDexIdentifierStart(contents.codePointAt(start))) {
+        return null;
+      }
+      int end = start + Character.charCount(firstCodePoint);
       while (!eof(end)) {
-        int current = contents.codePointAt(end);
-        if (current == '.' && !eof(end + 1) && peekCharAt(end + 1) == '.') {
-          // The grammar is ambiguous. End accepting before .. token used in return ranges.
-          break;
-        }
-        if ((start == end && IdentifierUtils.isDexIdentifierStart(current))
-            || ((start < end)
-                && (IdentifierUtils.isDexIdentifierPart(current) || current == '.'))) {
-          end += Character.charCount(current);
+        int currentCodePoint = contents.codePointAt(end);
+        if (currentCodePoint == '.') {
+          end += 1;
+          // Each dot in a qualified field name must be followed by an identifier part.
+          if (!eof(end) && IdentifierUtils.isDexIdentifierPart(peekCharAt(end))) {
+            end += Character.charCount(contents.codePointAt(end));
+          } else {
+            break;
+          }
+        } else if (IdentifierUtils.isDexIdentifierPart(currentCodePoint)) {
+          end += Character.charCount(currentCodePoint);
         } else {
           break;
         }
-      }
-      if (start == end) {
-        return null;
       }
       position = end;
       return contents.substring(start, end);

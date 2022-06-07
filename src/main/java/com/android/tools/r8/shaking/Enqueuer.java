@@ -22,6 +22,7 @@ import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
+import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
@@ -1045,6 +1046,19 @@ public class Enqueuer {
     }
   }
 
+  private FieldAccessInfoImpl getOrCreateFieldAccessInfo(DexEncodedField field) {
+    // Check if we have previously created a FieldAccessInfo object for the field definition.
+    FieldAccessInfoImpl info = fieldAccessInfoCollection.get(field.getReference());
+
+    // If not, we must create one.
+    if (info == null) {
+      info = new FieldAccessInfoImpl(field.getReference());
+      fieldAccessInfoCollection.extend(field.getReference(), info);
+    }
+
+    return info;
+  }
+
   private boolean registerFieldAccess(
       DexField field, ProgramMethod context, boolean isRead, boolean isReflective) {
     FieldAccessInfoImpl info = fieldAccessInfoCollection.get(field);
@@ -1058,14 +1072,7 @@ public class Enqueuer {
         return true;
       }
 
-      // Check if we have previously created a FieldAccessInfo object for the field definition.
-      info = fieldAccessInfoCollection.get(encodedField.getReference());
-
-      // If not, we must create one.
-      if (info == null) {
-        info = new FieldAccessInfoImpl(encodedField.getReference());
-        fieldAccessInfoCollection.extend(encodedField.getReference(), info);
-      }
+      info = getOrCreateFieldAccessInfo(encodedField);
 
       // If `field` is an indirect reference, then create a mapping for it, such that we don't have
       // to resolve the field the next time we see the reference.
@@ -2028,6 +2035,11 @@ public class Enqueuer {
 
     assert !appView.unboxedEnums().isUnboxedEnum(clazz);
 
+    if (options.isGeneratingClassFiles() && clazz.hasPermittedSubclassAttributes()) {
+      throw new CompilationError(
+          "Sealed classes are not supported as program classes when generating class files",
+          clazz.getOrigin());
+    }
     // Mark types in inner-class attributes referenced.
     {
       BiConsumer<DexType, ProgramDerivedContext> missingClassConsumer =
@@ -4137,8 +4149,6 @@ public class Enqueuer {
             callSites,
             keepInfo,
             rootSet.mayHaveSideEffects,
-            rootSet.noSideEffects,
-            rootSet.assumedValues,
             amendWithCompanionMethods(rootSet.alwaysInline),
             amendWithCompanionMethods(rootSet.neverInlineDueToSingleCaller),
             amendWithCompanionMethods(rootSet.whyAreYouNotInlining),
@@ -4553,6 +4563,10 @@ public class Enqueuer {
 
   // Package protected due to entry point from worklist.
   void markFieldAsKept(ProgramField field, KeepReason reason) {
+    FieldAccessInfoImpl fieldAccessInfo = getOrCreateFieldAccessInfo(field.getDefinition());
+    fieldAccessInfo.setHasReflectiveRead();
+    fieldAccessInfo.setHasReflectiveWrite();
+
     if (field.getDefinition().isStatic()) {
       markFieldAsLive(field, field, reason);
     } else {

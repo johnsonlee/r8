@@ -184,28 +184,13 @@ public class ToolHelper {
       OPEN_JDK_DIR + "desugar_jdk_libs_releases/";
   public static final Path DESUGARED_JDK_8_LIB_JAR =
       Paths.get(OPEN_JDK_DIR + "desugar_jdk_libs/desugar_jdk_libs.jar");
-  public static final Path UNDESUGARED_JDK_11_LIB_JAR =
-      DesugaredLibraryJDK11Undesugarer.undesugaredJarJDK11(
-          Paths.get(OPEN_JDK_DIR + "desugar_jdk_libs_11/desugar_jdk_libs.jar"));
+  public static final Path DESUGARED_JDK_11_LIB_JAR =
+      Paths.get(OPEN_JDK_DIR + "desugar_jdk_libs_11/desugar_jdk_libs.jar");
 
-  public static Path getDesugarJDKLibs() {
-    return DesugaredLibraryJDK11Undesugarer.undesugaredJar();
-  }
-
-  public static Path getDesugarJDKLibsBazelGeneratedFile() {
-    String property = System.getProperty("desugar_jdk_libs");
-    if (property == null) {
-      return DESUGARED_JDK_8_LIB_JAR;
-    }
-    return Paths.get(property);
-  }
-
-  private static String getDesugarLibraryJsonDir() {
-    return System.getProperty("desugar_jdk_json_dir", "src/library_desugar");
-  }
-
-  public static Path getDesugarLibJsonForTesting() {
-    return Paths.get(getDesugarLibraryJsonDir(), "desugar_jdk_libs.json");
+  public static Path getUndesugaredJdk11LibJarForTesting() {
+    return DesugaredLibraryJDK11Undesugarer.undesugaredJarJDK11(
+        Paths.get("build/libs"),
+        Paths.get(OPEN_JDK_DIR + "desugar_jdk_libs_11/desugar_jdk_libs.jar"));
   }
 
   public static boolean isLocalDevelopment() {
@@ -2227,7 +2212,7 @@ public class ToolHelper {
   }
 
   public static R8Command.Builder allowTestProguardOptions(R8Command.Builder builder) {
-    builder.allowTestProguardOptions();
+    builder.setEnableTestProguardOptions();
     return builder;
   }
 

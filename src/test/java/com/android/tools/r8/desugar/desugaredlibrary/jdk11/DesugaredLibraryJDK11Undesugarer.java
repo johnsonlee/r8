@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.jdk11;
 
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.transformers.MethodTransformer;
@@ -16,7 +15,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -39,22 +37,10 @@ public class DesugaredLibraryJDK11Undesugarer extends DesugaredLibraryTestBase {
           .put("wrapper/adapter/HybridFileTypeDetector", "java/adapter/HybridFileTypeDetector")
           .build();
 
-  public static void main(String[] args) throws Exception {
-    setUpDesugaredLibrary();
-    undesugaredJar();
-  }
-
-  public static Path undesugaredJar() {
-    if (!isJDK11DesugaredLibrary()) {
-      return ToolHelper.getDesugarJDKLibsBazelGeneratedFile();
-    }
-    return undesugaredJarJDK11(ToolHelper.getDesugarJDKLibsBazelGeneratedFile());
-  }
-
-  public static Path undesugaredJarJDK11(Path jdk11Jar) {
-    String string = jdk11Jar.toString();
-    Path desugaredLibJDK11Undesugared =
-        Paths.get(string.substring(0, string.length() - 4) + "_undesugared.jar");
+  public static Path undesugaredJarJDK11(Path undesugarFolder, Path jdk11Jar) {
+    String fileName = jdk11Jar.getFileName().toString();
+    String newFileName = fileName.substring(0, fileName.length() - 4) + "_undesugared.jar";
+    Path desugaredLibJDK11Undesugared = undesugarFolder.resolve(newFileName);
     return generateUndesugaredJar(jdk11Jar, desugaredLibJDK11Undesugared);
   }
 

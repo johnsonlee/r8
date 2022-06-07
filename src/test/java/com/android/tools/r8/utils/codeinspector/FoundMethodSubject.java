@@ -119,6 +119,11 @@ public class FoundMethodSubject extends MethodSubject {
   }
 
   @Override
+  public boolean isNative() {
+    return dexMethod.getAccessFlags().isNative();
+  }
+
+  @Override
   public MethodAccessFlags getAccessFlags() {
     return dexMethod.getAccessFlags();
   }
@@ -372,7 +377,7 @@ public class FoundMethodSubject extends MethodSubject {
 
   @Override
   public AnnotationSubject annotation(String name) {
-    DexAnnotation annotation = codeInspector.findAnnotation(name, dexMethod.annotations());
+    DexAnnotation annotation = codeInspector.findAnnotation(dexMethod.annotations(), name);
     return annotation == null
         ? new AbsentAnnotationSubject()
         : new FoundAnnotationSubject(annotation, codeInspector);

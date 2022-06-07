@@ -4,68 +4,99 @@
 
 package com.android.tools.r8.shaking;
 
-import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexString;
+import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.Nullability;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
+import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.LongInterval;
 
 public class ProguardMemberRuleReturnValue {
-  public enum Type {
+
+  private enum Type {
     BOOLEAN,
-    VALUE_RANGE,
     FIELD,
-    NULL
+    NULLABILITY,
+    VALUE_RANGE
   }
 
   private final Type type;
   private final boolean booleanValue;
   private final LongInterval longInterval;
-  private final DexField field;
+  private final DexType fieldHolder;
+  private final DexString fieldName;
+  private final Nullability nullability;
 
   ProguardMemberRuleReturnValue(boolean value) {
     this.type = Type.BOOLEAN;
     this.booleanValue = value;
     this.longInterval = null;
-    this.field = null;
+    this.fieldHolder = null;
+    this.fieldName = null;
+    this.nullability = null;
+  }
+
+  @SuppressWarnings("InconsistentOverloads")
+  ProguardMemberRuleReturnValue(DexType fieldHolder, DexString fieldName, Nullability nullability) {
+    assert !nullability.isDefinitelyNull();
+    this.type = Type.FIELD;
+    this.booleanValue = false;
+    this.longInterval = null;
+    this.fieldHolder = fieldHolder;
+    this.fieldName = fieldName;
+    this.nullability = nullability;
+  }
+
+  ProguardMemberRuleReturnValue(Nullability nullability) {
+    assert nullability.isDefinitelyNull() || nullability.isDefinitelyNotNull();
+    this.type = Type.NULLABILITY;
+    this.booleanValue = false;
+    this.longInterval = null;
+    this.fieldHolder = null;
+    this.fieldName = null;
+    this.nullability = nullability;
   }
 
   ProguardMemberRuleReturnValue(LongInterval value) {
     this.type = Type.VALUE_RANGE;
     this.booleanValue = false;
     this.longInterval = value;
-    this.field = null;
+    this.fieldHolder = null;
+    this.fieldName = null;
+    this.nullability = getNullabilityForValueRange(value);
   }
 
-  ProguardMemberRuleReturnValue(DexField field) {
-    this.type = Type.FIELD;
-    this.booleanValue = false;
-    this.longInterval = null;
-    this.field = field;
-  }
-
-  ProguardMemberRuleReturnValue() {
-    this.type = Type.NULL;
-    this.booleanValue = false;
-    this.longInterval = null;
-    this.field = null;
+  private static Nullability getNullabilityForValueRange(LongInterval value) {
+    if (value.isSingleValue(0)) {
+      return Nullability.definitelyNull();
+    } else if (!value.containsValue(0)) {
+      return Nullability.definitelyNotNull();
+    } else {
+      return Nullability.maybeNull();
+    }
   }
 
   public boolean isBoolean() {
     return type == Type.BOOLEAN;
   }
 
-  public boolean isValueRange() {
-    return type == Type.VALUE_RANGE;
-  }
-
   public boolean isField() {
     return type == Type.FIELD;
   }
 
-  public boolean isNonNull() {
-    return isValueRange() && getValueRange().getMin() > 0;
+  public boolean isNullability() {
+    return type == Type.NULLABILITY;
   }
 
-  public boolean isNull() {
-    return type == Type.NULL;
+  public boolean isValueRange() {
+    return type == Type.VALUE_RANGE;
   }
 
   public boolean getBoolean() {
@@ -73,31 +104,23 @@ public class ProguardMemberRuleReturnValue {
     return booleanValue;
   }
 
-  /**
-   * Returns if this return value is a single value.
-   *
-   * Boolean values and null are considered a single value.
-   */
-  public boolean isSingleValue() {
-    return isBoolean() || isNull() || (isValueRange() && longInterval.isSingleValue());
+  public DexType getFieldHolder() {
+    assert isField();
+    return fieldHolder;
   }
 
-  /**
-   * Returns the return value.
-   *
-   * Boolean values are returned as 0 for <code>false</code> and 1 for <code>true</code>.
-   *
-   * Reference value <code>null</code> is returned as 0.
-   */
-  public long getSingleValue() {
-    assert isSingleValue();
-    if (isBoolean()) {
-      return booleanValue ? 1 : 0;
-    }
-    if (isNull()) {
-      return 0;
-    }
-    return longInterval.getSingleValue();
+  public DexString getFieldName() {
+    assert isField();
+    return fieldName;
+  }
+
+  private boolean hasNullability() {
+    return isField() || isNullability() || isValueRange();
+  }
+
+  public Nullability getNullability() {
+    assert hasNullability();
+    return nullability;
   }
 
   public LongInterval getValueRange() {
@@ -105,9 +128,48 @@ public class ProguardMemberRuleReturnValue {
     return longInterval;
   }
 
-  public DexField getField() {
-    assert isField();
-    return field;
+  public AbstractValue toAbstractValue(AppView<?> appView, DexType valueType) {
+    AbstractValueFactory abstractValueFactory = appView.abstractValueFactory();
+    switch (type) {
+      case BOOLEAN:
+        return abstractValueFactory.createSingleNumberValue(BooleanUtils.intValue(booleanValue));
+
+      case FIELD:
+        DexClass holder = appView.definitionFor(fieldHolder);
+        if (holder != null) {
+          DexEncodedField field = holder.lookupUniqueStaticFieldWithName(fieldName);
+          if (field != null) {
+            return abstractValueFactory.createSingleFieldValue(
+                field.getReference(), ObjectState.empty());
+          }
+        }
+        return AbstractValue.unknown();
+
+      case NULLABILITY:
+        return nullability.isDefinitelyNull()
+            ? abstractValueFactory.createNullValue()
+            : AbstractValue.unknown();
+
+      case VALUE_RANGE:
+        if (valueType.isReferenceType()) {
+          return nullability.isDefinitelyNull()
+              ? abstractValueFactory.createNullValue()
+              : AbstractValue.unknown();
+        }
+        return longInterval.isSingleValue()
+            ? abstractValueFactory.createSingleNumberValue(longInterval.getSingleValue())
+            : abstractValueFactory.createNumberFromIntervalValue(
+                longInterval.getMin(), longInterval.getMax());
+
+      default:
+        throw new Unreachable("Unexpected type: " + type);
+    }
+  }
+
+  public DynamicType toDynamicType(AppView<?> appView, DexType valueType) {
+    return valueType.isReferenceType() && hasNullability() && getNullability().isDefinitelyNotNull()
+        ? DynamicType.definitelyNotNull()
+        : DynamicType.unknown();
   }
 
   @Override
@@ -115,18 +177,21 @@ public class ProguardMemberRuleReturnValue {
     StringBuilder result = new StringBuilder();
     result.append(" return ");
     if (isBoolean()) {
-      result.append(booleanValue ? "true" : "false");
-    } else if (isNull()) {
-      result.append("null");
-    } else if (isValueRange()) {
+      result.append(booleanValue);
+    } else if (isField()) {
+      if (nullability.isDefinitelyNotNull()) {
+        result.append("_NONNULL_ ");
+      }
+      result.append(fieldHolder.getTypeName()).append('.').append(fieldName);
+    } else if (isNullability()) {
+      result.append(nullability.isDefinitelyNull() ? "null" : "_NONNULL_");
+    } else {
+      assert isValueRange();
       result.append(longInterval.getMin());
-      if (!isSingleValue()) {
+      if (!longInterval.isSingleValue()) {
         result.append("..");
         result.append(longInterval.getMax());
       }
-    } else {
-      assert isField();
-      result.append(field.holder.toSourceString() + '.' + field.name);
     }
     return result.toString();
   }

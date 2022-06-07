@@ -646,6 +646,8 @@ public class DexItemFactory {
       createStaticallyKnownType("Ldalvik/annotation/NestHost;");
   public final DexType annotationNestMembers =
       createStaticallyKnownType("Ldalvik/annotation/NestMembers;");
+  public final DexType annotationPermittedSubclasses =
+      createStaticallyKnownType("Ldalvik/annotation/PermittedSubclasses;");
   public final DexType annotationSourceDebugExtension =
       createStaticallyKnownType("Ldalvik/annotation/SourceDebugExtension;");
   public final DexType annotationThrows = createStaticallyKnownType("Ldalvik/annotation/Throws;");
@@ -750,9 +752,7 @@ public class DexItemFactory {
 
   public BoxedPrimitiveMembers getBoxedMembersForPrimitiveOrVoidType(DexType type) {
     assert type.isPrimitiveType() || type.isVoidType();
-    char c = (char) type.getDescriptor().content[0];
-    assert c == type.toDescriptorString().charAt(0);
-    switch (c) {
+    switch (type.getDescriptor().getFirstByteAsChar()) {
       case 'B':
         return byteMembers;
       case 'C':

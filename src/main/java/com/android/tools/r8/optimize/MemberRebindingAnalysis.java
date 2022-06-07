@@ -103,10 +103,11 @@ public class MemberRebindingAnalysis {
           currentResolutionResult.withInitialResolutionHolder(
               currentResolutionResult.getResolvedHolder()),
           contexts,
-          invokeType)) {
+          invokeType,
+          original)) {
         eligibleLibraryMethod = currentResolvedMethod.asLibraryMethod();
       }
-      if (appView.appInfo().isAssumeMethod(currentResolvedMethod)) {
+      if (appView.getAssumeInfoCollection().contains(currentResolvedMethod)) {
         break;
       }
       DexClass currentResolvedHolder = currentResolvedMethod.getHolder();
@@ -140,7 +141,8 @@ public class MemberRebindingAnalysis {
       DexClassAndMethod resolvedMethod,
       SingleResolutionResult<?> resolutionResult,
       ProgramMethodSet contexts,
-      Type invokeType) {
+      Type invokeType,
+      DexMethod original) {
     // TODO(b/194422791): It could potentially be that `original.holder` is not a subtype of
     //  `original.holder` on all API levels, in which case it is not OK to rebind to the resolved
     //  method.
@@ -149,7 +151,7 @@ public class MemberRebindingAnalysis {
         && !isInvokeSuperToInterfaceMethod(resolvedMethod, invokeType)
         && !isInvokeSuperToAbstractMethod(resolvedMethod, invokeType)
         && isApiSafeForMemberRebinding(
-            resolvedMethod.asLibraryMethod(), androidApiLevelCompute, options);
+            resolvedMethod.asLibraryMethod(), original, androidApiLevelCompute, options);
   }
 
   private boolean isAccessibleInAllContexts(

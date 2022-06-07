@@ -3,10 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.desugaredlibrary;
 
+import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
+
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import java.lang.reflect.InvocationTargetException;
@@ -27,17 +29,22 @@ import org.junit.runners.Parameterized.Parameters;
 
 // For context see b/229793269.
 @RunWith(Parameterized.class)
-public class PseudoPlatformApiTest extends TestBase {
+public class PseudoPlatformApiTest extends DesugaredLibraryTestBase {
 
-  @Parameter() public TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameters(name = "{0}")
+  @Parameter(1)
+  public LibraryDesugaringSpecification libraryDesugaringSpecification;
+
+  @Parameters(name = "{0}, spec: {1}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters()
             .withDexRuntimes()
             .withApiLevelsStartingAtIncluding(AndroidApiLevel.P)
-            .build());
+            .build(),
+        getJdk8Jdk11());
   }
 
   private Path androidJarAdditions() throws Exception {
@@ -104,8 +111,12 @@ public class PseudoPlatformApiTest extends TestBase {
         .addProgramClasses(ProgramClass.class)
         .setMinApi(AndroidApiLevel.H_MR2)
         .enableCoreLibraryDesugaring(
-            LibraryDesugaringTestConfiguration.forApiLevel(AndroidApiLevel.B))
+            LibraryDesugaringTestConfiguration.forSpecification(
+                libraryDesugaringSpecification.getSpecification()))
         .addRunClasspathFiles(androidJarAdditionsDex())
+        .addRunClasspathFiles(
+            getNonShrunkDesugaredLib(
+                AndroidApiLevel.H_MR2, parameters.getBackend(), libraryDesugaringSpecification))
         .run(parameters.getRuntime(), ProgramClass.class)
         .assertSuccessWithOutputLines("DEFAULT-X", "Y-DEFAULT");
   }
@@ -119,9 +130,13 @@ public class PseudoPlatformApiTest extends TestBase {
         .addProgramClasses(ProgramClass.class)
         .setMinApi(AndroidApiLevel.H_MR2)
         .enableCoreLibraryDesugaring(
-            LibraryDesugaringTestConfiguration.forApiLevel(AndroidApiLevel.B))
+            LibraryDesugaringTestConfiguration.forSpecification(
+                libraryDesugaringSpecification.getSpecification()))
         .addRunClasspathFiles(androidJarAdditionsDex())
         .addRunClasspathFiles(oemDex())
+        .addRunClasspathFiles(
+            getNonShrunkDesugaredLib(
+                AndroidApiLevel.H_MR2, parameters.getBackend(), libraryDesugaringSpecification))
         .run(parameters.getRuntime(), ProgramClass.class)
         .assertSuccessWithOutputLines("OEM-X", "Y-OEM");
   }

@@ -6,9 +6,8 @@ package com.android.tools.r8.transformers;
 import static com.android.tools.r8.references.Reference.classFromTypeName;
 import static com.android.tools.r8.transformers.ClassFileTransformer.InnerClassPredicate.always;
 import static com.android.tools.r8.utils.DescriptorUtils.getBinaryNameFromDescriptor;
+import static com.android.tools.r8.utils.InternalOptions.ASM_VERSION;
 import static com.android.tools.r8.utils.StringUtils.replaceAll;
-import static org.objectweb.asm.Opcodes.ASM7;
-import static org.objectweb.asm.Opcodes.ASM9;
 
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
@@ -32,7 +31,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -81,7 +82,7 @@ public class ClassFileTransformer {
     final List<MethodTransformer> methodTransformers;
 
     InnerMostClassTransformer(ClassWriter writer, List<MethodTransformer> methodTransformers) {
-      super(ASM7, writer);
+      super(ASM_VERSION, writer);
       this.methodTransformers = methodTransformers;
     }
 
@@ -331,6 +332,22 @@ public class ClassFileTransformer {
         });
   }
 
+  public ClassFileTransformer setSuper(Function<String, String> rewrite) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public void visit(
+              int version,
+              int access,
+              String name,
+              String signature,
+              String superName,
+              String[] interfaces) {
+            super.visit(version, access, name, signature, rewrite.apply(superName), interfaces);
+          }
+        });
+  }
+
   public ClassFileTransformer setAccessFlags(Consumer<ClassAccessFlags> fn) {
     return addClassTransformer(
         new ClassTransformer() {
@@ -423,6 +440,50 @@ public class ClassFileTransformer {
             });
   }
 
+  public ClassFileTransformer setPermittedSubclasses(
+      Class<?> clazz, Class<?>... permittedSubclasses) {
+    assert !Arrays.asList(permittedSubclasses).contains(clazz);
+    return setMinVersion(CfVm.JDK17)
+        .addClassTransformer(
+            new ClassTransformer() {
+
+              final String name = DescriptorUtils.getBinaryNameFromJavaType(clazz.getTypeName());
+
+              final List<String> permittedSubclassesNames =
+                  Arrays.stream(permittedSubclasses)
+                      .map(m -> DescriptorUtils.getBinaryNameFromJavaType(m.getTypeName()))
+                      .collect(Collectors.toList());
+              String className;
+
+              @Override
+              public void visit(
+                  int version,
+                  int access,
+                  String name,
+                  String signature,
+                  String superName,
+                  String[] interfaces) {
+                super.visit(version, access, name, signature, superName, interfaces);
+                className = name;
+              }
+
+              @Override
+              public void visitPermittedSubclass(String permittedSubclass) {
+                // Ignore/remove existing permitted subclasses.
+              }
+
+              @Override
+              public void visitEnd() {
+                if (className.equals(name)) {
+                  for (String permittedSubclass : permittedSubclassesNames) {
+                    super.visitPermittedSubclass(permittedSubclass);
+                  }
+                }
+                super.visitEnd();
+              }
+            });
+  }
+
   public ClassFileTransformer unsetAbstract() {
     return setAccessFlags(ClassAccessFlags::unsetAbstract);
   }
@@ -508,6 +569,11 @@ public class ClassFileTransformer {
 
   private ClassFileTransformer setAccessFlags(
       MethodReference methodReference, Consumer<MethodAccessFlags> setter) {
+    return setAccessFlags(MethodPredicate.onReference(methodReference), setter);
+  }
+
+  public ClassFileTransformer setAccessFlags(
+      MethodPredicate predicate, Consumer<MethodAccessFlags> setter) {
     return addClassTransformer(
         new ClassTransformer() {
 
@@ -519,8 +585,7 @@ public class ClassFileTransformer {
                     || name.equals(Constants.CLASS_INITIALIZER_NAME);
             MethodAccessFlags accessFlags =
                 MethodAccessFlags.fromCfAccessFlags(access, isConstructor);
-            if (name.equals(methodReference.getMethodName())
-                && descriptor.equals(methodReference.getMethodDescriptor())) {
+            if (predicate.test(access, name, descriptor, signature, exceptions)) {
               setter.accept(accessFlags);
             }
             return super.visitMethod(
@@ -539,6 +604,12 @@ public class ClassFileTransformer {
 
     static MethodPredicate onName(String name) {
       return (access, otherName, descriptor, signature, exceptions) -> name.equals(otherName);
+    }
+
+    static MethodPredicate onReference(MethodReference reference) {
+      return (access, otherName, descriptor, signature, exceptions) ->
+          reference.getMethodName().equals(otherName)
+              && reference.getMethodDescriptor().equals(descriptor);
     }
 
     static boolean testContext(MethodPredicate predicate, MethodContext context) {
@@ -604,6 +675,31 @@ public class ClassFileTransformer {
         });
   }
 
+  public ClassFileTransformer rewriteEnlosingAndNestAttributes(Function<String, String> rewrite) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public void visitInnerClass(String name, String outerName, String innerName, int access) {
+            super.visitInnerClass(rewrite.apply(name), rewrite.apply(outerName), innerName, access);
+          }
+
+          @Override
+          public void visitOuterClass(String owner, String name, String descriptor) {
+            super.visitOuterClass(rewrite.apply(owner), name, descriptor);
+          }
+
+          @Override
+          public void visitNestMember(String nestMember) {
+            super.visitNestMember(rewrite.apply(nestMember));
+          }
+
+          @Override
+          public void visitNestHost(String nestHost) {
+            super.visitNestHost(rewrite.apply(nestHost));
+          }
+        });
+  }
+
   public ClassFileTransformer rewriteEnclosingMethod(
       String newOwner, String newName, String newDescriptor) {
     return addClassTransformer(
@@ -625,6 +721,18 @@ public class ClassFileTransformer {
             return predicate.test(access, name, descriptor, signature, exceptions)
                 ? null
                 : super.visitMethod(access, name, descriptor, signature, exceptions);
+          }
+        });
+  }
+
+  public ClassFileTransformer removeMethodsCodeAndAnnotations(MethodPredicate predicate) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public MethodVisitor visitMethod(
+              int access, String name, String descriptor, String signature, String[] exceptions) {
+            MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
+            return predicate.test(access, name, descriptor, signature, exceptions) ? null : mv;
           }
         });
   }
@@ -869,7 +977,7 @@ public class ClassFileTransformer {
 
           @Override
           public AnnotationVisitor visitAnnotationDefault() {
-            return new AnnotationVisitor(ASM9, super.visitAnnotationDefault()) {
+            return new AnnotationVisitor(ASM_VERSION, super.visitAnnotationDefault()) {
               @Override
               public void visit(String name, Object value) {
                 super.visit(name, value);
@@ -921,6 +1029,38 @@ public class ClassFileTransformer {
           }
 
           @Override
+          public void visitInvokeDynamicInsn(
+              String name,
+              String descriptor,
+              Handle bootstrapMethodHandle,
+              Object... bootstrapMethodArguments) {
+            // This includes the minimal support so that simple lambda are correctly rewritten.
+            // This should be extended based on need if we want to rewrite more complex
+            // invoke-dynamic.
+            Object[] newBootArgs = new Object[bootstrapMethodArguments.length];
+            for (int i = 0; i < bootstrapMethodArguments.length; i++) {
+              Object arg = bootstrapMethodArguments[i];
+              if (arg instanceof Handle) {
+                Handle oldHandle = (Handle) arg;
+                String repl =
+                    replaceAll("L" + oldHandle.getOwner() + ";", oldDescriptor, newDescriptor);
+                String newOwner = repl.substring(1, repl.length() - 1);
+                Handle newHandle =
+                    new Handle(
+                        oldHandle.getTag(),
+                        newOwner,
+                        oldHandle.getName(),
+                        oldHandle.getDesc(),
+                        oldHandle.isInterface());
+                newBootArgs[i] = newHandle;
+              } else {
+                newBootArgs[i] = arg;
+              }
+            }
+            super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, newBootArgs);
+          }
+
+          @Override
           public void visitTypeInsn(int opcode, String type) {
             super.visitTypeInsn(opcode, rewriteASMInternalTypeName(type));
           }
@@ -945,7 +1085,7 @@ public class ClassFileTransformer {
 
   private MethodVisitor redirectVisitInvokeDynamicInsn(
       MethodVisitor visitor, VisitInvokeDynamicInsnCallback callback) {
-    return new MethodVisitor(ASM7, visitor) {
+    return new MethodVisitor(ASM_VERSION, visitor) {
       @Override
       public void visitInvokeDynamicInsn(
           String name,
@@ -1036,7 +1176,7 @@ public class ClassFileTransformer {
 
   private MethodVisitor redirectVisitFieldInsn(
       MethodVisitor visitor, VisitFieldInsnCallback callback) {
-    return new MethodVisitor(ASM7, visitor) {
+    return new MethodVisitor(ASM_VERSION, visitor) {
       @Override
       public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
         callback.visitFieldInsn(opcode, owner, name, descriptor);
@@ -1064,6 +1204,38 @@ public class ClassFileTransformer {
         });
   }
 
+  public ClassFileTransformer setPredictiveLineNumbering() {
+    return setPredictiveLineNumbering(MethodPredicate.all());
+  }
+
+  public ClassFileTransformer setPredictiveLineNumbering(MethodPredicate predicate) {
+    return setPredictiveLineNumbering(predicate, 0);
+  }
+
+  public ClassFileTransformer setPredictiveLineNumbering(
+      MethodPredicate predicate, int startingLineNumber) {
+    return addMethodTransformer(
+        new MethodTransformer() {
+          private final Map<MethodReference, Integer> lines = new HashMap<>();
+
+          @Override
+          public void visitLineNumber(int line, Label start) {
+            if (MethodPredicate.testContext(predicate, getContext())) {
+              Integer nextLine =
+                  lines.getOrDefault(getContext().getReference(), startingLineNumber);
+              if (nextLine > 0) {
+                super.visitLineNumber(nextLine, start);
+              }
+              // Increment the actual line content by 100 so that each one is clearly distinct
+              // from a PC value for any of the methods.
+              lines.put(getContext().getReference(), nextLine + 100);
+            } else {
+              super.visitLineNumber(line, start);
+            }
+          }
+        });
+  }
+
   @FunctionalInterface
   private interface VisitMethodInsnCallback {
     void visitMethodInsn(
@@ -1072,7 +1244,7 @@ public class ClassFileTransformer {
 
   private MethodVisitor redirectVisitMethodInsn(
       MethodVisitor visitor, VisitMethodInsnCallback callback) {
-    return new MethodVisitor(ASM7, visitor) {
+    return new MethodVisitor(ASM_VERSION, visitor) {
       @Override
       public void visitMethodInsn(
           int opcode, String owner, String name, String descriptor, boolean isInterface) {
@@ -1110,7 +1282,7 @@ public class ClassFileTransformer {
 
   private MethodVisitor redirectVisitTypeInsn(
       MethodVisitor visitor, VisitTypeInsnCallback callback) {
-    return new MethodVisitor(ASM7, visitor) {
+    return new MethodVisitor(ASM_VERSION, visitor) {
       @Override
       public void visitTypeInsn(int opcode, String type) {
         callback.visitTypeInsn(opcode, type);
@@ -1141,7 +1313,7 @@ public class ClassFileTransformer {
 
   private MethodVisitor redirectVisitTryCatchBlock(
       MethodVisitor visitor, VisitTryCatchBlockCallback callback) {
-    return new MethodVisitor(ASM7, visitor) {
+    return new MethodVisitor(ASM_VERSION, visitor) {
       @Override
       public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
         callback.visitTryCatchBlock(start, end, handler, type);
@@ -1175,7 +1347,7 @@ public class ClassFileTransformer {
   }
 
   private MethodVisitor redirectVisitLdcInsn(MethodVisitor visitor, VisitLdcInsnCallback callback) {
-    return new MethodVisitor(ASM7, visitor) {
+    return new MethodVisitor(ASM_VERSION, visitor) {
       @Override
       public void visitLdcInsn(Object value) {
         callback.visitLdcInsn(value);

@@ -303,6 +303,7 @@ def cloudDependencies = [
         ],
         "third_party": [
                 "android_cts_baseline",
+                "android_jar/libcore_latest",
                 "android_jar/lib-v14",
                 "android_jar/lib-v15",
                 "android_jar/lib-v19",
@@ -460,7 +461,8 @@ def x20Dependencies = [
         "protobuf-lite",
         "retrace_internal",
         "youtube/youtube.android_15.33",
-        "youtube/youtube.android_16.20"
+        "youtube/youtube.android_16.20",
+        "youtube/youtube.android_17.19"
     ],
 ]
 
@@ -2273,6 +2275,9 @@ test { task ->
     }
     if (!project.hasProperty('all_tests')) {
         exclude "com/android/tools/r8/art/dx/**"
+    }
+    if (project.hasProperty('no_arttests')) {
+        exclude "com/android/tools/r8/art/**"
     }
     if (project.hasProperty('shard_count') ) {
       assert project.hasProperty('shard_number')

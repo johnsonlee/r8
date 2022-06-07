@@ -88,8 +88,6 @@ public class CfArrayLength extends CfInstruction {
       DexItemFactory dexItemFactory) {
     // ..., arrayref →
     // ..., length
-    return frame
-        .popInitialized(appView, dexItemFactory.objectArrayType)
-        .push(config, dexItemFactory.intType);
+    return frame.popArray(appView).push(config, dexItemFactory.intType);
   }
 }

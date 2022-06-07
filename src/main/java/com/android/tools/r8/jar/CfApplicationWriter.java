@@ -38,6 +38,7 @@ import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.NestMemberClassAttribute;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
+import com.android.tools.r8.graph.PermittedSubclassAttribute;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.naming.NamingLens;
@@ -242,8 +243,15 @@ public class CfApplicationWriter {
         clazz.accessFlags.setSuper();
       }
     }
+    boolean allowInvalidCfAccessFlags = false;
+    if (clazz
+        .getType()
+        .getDescriptor()
+        .endsWith(appView.dexItemFactory().createString("/package-info;"))) {
+      allowInvalidCfAccessFlags = true;
+    }
     int access =
-        options.testing.allowInvalidCfAccessFlags
+        allowInvalidCfAccessFlags || options.testing.allowInvalidCfAccessFlags
             ? clazz.accessFlags.materialize()
             : clazz.accessFlags.getAsCfAccessFlags();
     if (clazz.isDeprecated()) {
@@ -278,6 +286,10 @@ public class CfApplicationWriter {
       entry.write(writer, getNamingLens());
       assert clazz.getNestHostClassAttribute() == null
           : "A nest host cannot also be a nest member.";
+    }
+
+    for (PermittedSubclassAttribute entry : clazz.getPermittedSubclassAttributes()) {
+      entry.write(writer, getNamingLens());
     }
 
     if (clazz.isRecord()) {
