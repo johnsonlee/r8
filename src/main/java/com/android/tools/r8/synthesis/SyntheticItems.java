@@ -105,11 +105,6 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   private final PendingSynthetics pending = new PendingSynthetics();
 
-  // Empty collection for use only in tests and utilities.
-  public static SyntheticItems empty() {
-    return new SyntheticItems(-1, CommittedSyntheticsCollection.empty(null));
-  }
-
   // Only for use from initial AppInfo/AppInfoWithClassHierarchy create functions. */
   public static CommittedItems createInitialSyntheticItems(DexApplication application) {
     return new CommittedItems(
