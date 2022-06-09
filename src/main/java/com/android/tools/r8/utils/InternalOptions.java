@@ -21,9 +21,12 @@ import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.Version;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.cf.CfVersion;
+import com.android.tools.r8.debuginfo.DebugRepresentation;
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Backend;
 import com.android.tools.r8.dex.Marker.Tool;
+import com.android.tools.r8.dex.MixedSectionLayoutStrategy;
+import com.android.tools.r8.dex.VirtualFile;
 import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.IncompleteNestNestDesugarDiagnosic;
@@ -104,6 +107,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -257,6 +261,16 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     enableInitializedClassesAnalysis = false;
     callSiteOptimizationOptions.disableOptimization();
     horizontalClassMergerOptions.setRestrictToSynthetics();
+  }
+
+  public void configureAndroidPlatformBuild(boolean isAndroidPlatformBuild) {
+    if (!isAndroidPlatformBuild) {
+      return;
+    }
+    // Configure options according to platform build assumptions.
+    // See go/r8platformflag and b/232073181.
+    minApiLevel = ANDROID_PLATFORM;
+    apiModelingOptions().disableMissingApiModeling();
   }
 
   public boolean printTimes = System.getProperty("com.android.tools.r8.printtimes") != null;
@@ -851,6 +865,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public StartupOptions getStartupOptions() {
     return startupOptions;
+  }
+
+  public TestingOptions getTestingOptions() {
+    return testing;
   }
 
   private static Set<String> getExtensiveLoggingFilter() {
@@ -1756,6 +1774,15 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
             ? NondeterministicIROrdering.getInstance()
             : IdentityIROrdering.getInstance();
 
+    public BiFunction<MixedSectionLayoutStrategy, VirtualFile, MixedSectionLayoutStrategy>
+        mixedSectionLayoutStrategyInspector = (strategy, virtualFile) -> strategy;
+
+    public void setMixedSectionLayoutStrategyInspector(
+        BiFunction<MixedSectionLayoutStrategy, VirtualFile, MixedSectionLayoutStrategy>
+            mixedSectionLayoutStrategyInspector) {
+      this.mixedSectionLayoutStrategyInspector = mixedSectionLayoutStrategyInspector;
+    }
+
     public BiConsumer<AppInfoWithLiveness, Enqueuer.Mode> enqueuerInspector = null;
 
     public Consumer<String> processingContextsConsumer = null;
@@ -1777,6 +1804,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         ConsumerUtils.emptyBiConsumer();
 
     public Consumer<Deque<ProgramMethodSet>> waveModifier = waves -> {};
+
+    public Consumer<DebugRepresentation> debugRepresentationCallback = null;
 
     /**
      * If this flag is enabled, we will also compute the set of possible targets for invoke-
@@ -1819,6 +1848,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean dontCreateMarkerInD8 = false;
     public boolean forceJumboStringProcessing = false;
     public boolean forcePcBasedEncoding = false;
+    public int pcBasedDebugEncodingOverheadThreshold =
+        System.getProperty("com.android.tools.r8.pc2pcOverheadThreshold") != null
+            ? Integer.parseInt(System.getProperty("com.android.tools.r8.pc2pcOverheadThreshold"))
+            : 200000;
     public Set<Inliner.Reason> validInliningReasons = null;
     public boolean noLocalsTableOnInput = false;
     public boolean forceNameReflectionOptimization = false;

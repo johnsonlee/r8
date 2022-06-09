@@ -13,20 +13,27 @@ import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class StartupConfiguration {
 
-  private final List<DexType> startupClasses;
+  private final List<StartupClass<DexType>> startupClasses;
   private final List<DexMethod> startupMethods;
 
-  public StartupConfiguration(List<DexType> startupClasses, List<DexMethod> startupMethods) {
+  public StartupConfiguration(
+      List<StartupClass<DexType>> startupClasses, List<DexMethod> startupMethods) {
     this.startupClasses = startupClasses;
     this.startupMethods = startupMethods;
+  }
+
+  public static Builder builder() {
+    return new Builder();
   }
 
   /**
@@ -67,18 +74,26 @@ public class StartupConfiguration {
       return null;
     }
 
-    List<DexType> startupClasses = new ArrayList<>();
+    return createStartupConfigurationFromLines(dexItemFactory, reporter, startupDescriptors);
+  }
+
+  public static StartupConfiguration createStartupConfigurationFromLines(
+      DexItemFactory dexItemFactory, Reporter reporter, List<String> startupDescriptors) {
+    List<StartupClass<DexType>> startupClasses = new ArrayList<>();
     List<DexMethod> startupMethods = new ArrayList<>();
     for (String startupDescriptor : startupDescriptors) {
       if (startupDescriptor.isEmpty()) {
         continue;
       }
+      StartupClass.Builder<DexType> startupClassBuilder = StartupClass.builder();
+      startupDescriptor = parseSyntheticFlag(startupDescriptor, startupClassBuilder);
       int methodNameStartIndex = getMethodNameStartIndex(startupDescriptor);
       if (methodNameStartIndex >= 0) {
         DexMethod startupMethod =
             parseStartupMethodDescriptor(startupDescriptor, methodNameStartIndex, dexItemFactory);
         if (startupMethod != null) {
-          startupClasses.add(startupMethod.getHolderType());
+          startupClasses.add(
+              startupClassBuilder.setReference(startupMethod.getHolderType()).build());
           startupMethods.add(startupMethod);
         } else {
           reporter.warning(
@@ -87,7 +102,7 @@ public class StartupConfiguration {
       } else {
         DexType startupClass = parseStartupClassDescriptor(startupDescriptor, dexItemFactory);
         if (startupClass != null) {
-          startupClasses.add(startupClass);
+          startupClasses.add(startupClassBuilder.setReference(startupClass).build());
         } else {
           reporter.warning(
               new StringDiagnostic("Invalid descriptor for startup class: " + startupDescriptor));
@@ -95,6 +110,15 @@ public class StartupConfiguration {
       }
     }
     return new StartupConfiguration(startupClasses, startupMethods);
+  }
+
+  public static String parseSyntheticFlag(
+      String startupDescriptor, StartupClass.Builder<?> startupClassBuilder) {
+    if (!startupDescriptor.isEmpty() && startupDescriptor.charAt(0) == 'S') {
+      startupClassBuilder.setSynthetic();
+      return startupDescriptor.substring(1);
+    }
+    return startupDescriptor;
   }
 
   private static int getMethodNameStartIndex(String startupDescriptor) {
@@ -147,7 +171,28 @@ public class StartupConfiguration {
     return !startupClasses.isEmpty();
   }
 
-  public List<DexType> getStartupClasses() {
+  public List<StartupClass<DexType>> getStartupClasses() {
     return startupClasses;
+  }
+
+  public static class Builder {
+
+    private final ImmutableList.Builder<StartupClass<DexType>> startupClassesBuilder =
+        ImmutableList.builder();
+    private final ImmutableList.Builder<DexMethod> startupMethodsBuilder = ImmutableList.builder();
+
+    public Builder addStartupClass(StartupClass<DexType> startupClass) {
+      this.startupClassesBuilder.add(startupClass);
+      return this;
+    }
+
+    public Builder apply(Consumer<Builder> consumer) {
+      consumer.accept(this);
+      return this;
+    }
+
+    public StartupConfiguration build() {
+      return new StartupConfiguration(startupClassesBuilder.build(), startupMethodsBuilder.build());
+    }
   }
 }
