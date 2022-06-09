@@ -458,6 +458,8 @@ public class Enqueuer {
 
   private final InterfaceProcessor interfaceProcessor;
 
+  private final Thread mainThreadForTesting = Thread.currentThread();
+
   Enqueuer(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ExecutorService executorService,
@@ -676,6 +678,7 @@ public class Enqueuer {
       DexType type,
       ProgramDerivedContext context,
       BiConsumer<DexType, ProgramDerivedContext> missingClassConsumer) {
+    assert verifyIsMainThread();
     return internalDefinitionFor(type, context, missingClassConsumer);
   }
 
@@ -1720,6 +1723,11 @@ public class Enqueuer {
   //
   // Actual actions performed.
   //
+
+  private boolean verifyIsMainThread() {
+    assert Thread.currentThread() == mainThreadForTesting;
+    return true;
+  }
 
   private boolean verifyMethodIsTargeted(ProgramMethod method) {
     DexEncodedMethod definition = method.getDefinition();
@@ -3607,7 +3615,7 @@ public class Enqueuer {
           lambdaCallback.andThen(
               (clazz, context) -> {
                 for (DexType itf : clazz.getLambdaProgramClass().getInterfaces()) {
-                  if (definitionFor(itf, context) == null) {
+                  if (appInfo().definitionFor(itf, context) == null) {
                     for (ProgramMethod method :
                         clazz.getLambdaProgramClass().virtualProgramMethods()) {
                       synchronized (additions) {
