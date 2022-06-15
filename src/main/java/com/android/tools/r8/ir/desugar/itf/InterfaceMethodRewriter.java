@@ -696,7 +696,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
                   //  resolution was implemented in full.
                   DexMethod amendedMethod =
                       amendDefaultMethod(context12.getHolder(), invokedMethod);
-                  assert method.getReference() == amendedMethod;
+                  // TODO(b/234711664): The assertion below is disabled on this release branch.
+                  assert true || method.getReference() == amendedMethod;
                   DexClassAndMethod companionMethod =
                       helper.ensureDefaultAsMethodOfCompanionClassStub(method);
                   acceptCompanionMethod(method, companionMethod, eventConsumer);
