@@ -1102,8 +1102,14 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
             .build());
   }
 
+  public DexEncodedMethod toForwardingMethod(DexClass newHolder, AppView<?> definitions) {
+    return toForwardingMethod(newHolder, definitions, ConsumerUtils.emptyConsumer());
+  }
+
   public DexEncodedMethod toForwardingMethod(
-      DexClass newHolder, DexDefinitionSupplier definitions) {
+      DexClass newHolder,
+      AppView<?> definitions,
+      Consumer<DexEncodedMethod.Builder> builderConsumer) {
     DexMethod newMethod = getReference().withHolder(newHolder, definitions.dexItemFactory());
     checkIfObsolete();
 
@@ -1149,6 +1155,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
                     .modifyAccessFlags(MethodAccessFlags::setBridge))
         .setIsLibraryMethodOverrideIf(
             !isStatic() && !isLibraryMethodOverride().isUnknown(), isLibraryMethodOverride())
+        .apply(builderConsumer)
         .build();
   }
 
