@@ -591,6 +591,19 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     // 1.7 or below, this will make a VerificationError on the input a VerificationError
     // on the output. If the input was 1.8 or above the runtime behaviour (potential ICCE)
     // will remain the same.
+    upgradeCfVersionToSupportInterfaceMethodInvoke(method);
+  }
+
+  private void leavingSuperInvokeToInterface(ProgramMethod method) {
+    // When leaving interface method invokes possibly upgrade the class file
+    // version, but don't go above the initial class file version. If the input was
+    // 1.7 or below, this will make a VerificationError on the input a VerificationError
+    // on the output. If the input was 1.8 or above the runtime behaviour (potential ICCE)
+    // will remain the same.
+    upgradeCfVersionToSupportInterfaceMethodInvoke(method);
+  }
+
+  private void upgradeCfVersionToSupportInterfaceMethodInvoke(ProgramMethod method) {
     if (method.getHolder().hasClassFileVersion()) {
       method
           .getDefinition()
@@ -644,7 +657,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       return computeInvokeAsThrowRewrite(invoke, resolutionResult, context);
     }
 
-    if (clazz.isInterface() && !clazz.isLibraryClass()) {
+    if (clazz.isInterface() && !resolutionResult.getResolutionPair().getHolder().isLibraryClass()) {
       // NOTE: we intentionally don't desugar super calls into interface methods
       // coming from android.jar since it is only possible in case v24+ version
       // of android.jar is provided.
@@ -697,7 +710,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
                   //  resolution was implemented in full.
                   DexMethod amendedMethod =
                       amendDefaultMethod(context12.getHolder(), invokedMethod);
-                  // assert method.getReference() == amendedMethod;
+                  assert method.getReference() == amendedMethod;
                   DexClassAndMethod companionMethod =
                       helper.ensureDefaultAsMethodOfCompanionClassStub(method);
                   acceptCompanionMethod(method, companionMethod, eventConsumer);
@@ -709,20 +722,27 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
 
     DesugarDescription emulatedInterfaceDesugaring =
         computeEmulatedInterfaceInvokeSpecial(clazz, invokedMethod, context);
-    if (!emulatedInterfaceDesugaring.needsDesugaring() && context.isDefaultMethod()) {
-      return AlwaysThrowingInstructionDesugaring.computeInvokeAsThrowNSMERewrite(
-          appView,
-          invoke,
-          () ->
-              appView
-                  .reporter()
-                  .warning(
-                      new StringDiagnostic(
-                          "Interface method desugaring has inserted NoSuchMethodError replacing a"
-                              + " super call in "
-                              + context.toSourceString(),
-                          context.getOrigin())));
+    if (!emulatedInterfaceDesugaring.needsDesugaring()) {
+      if (context.isDefaultMethod()) {
+        return AlwaysThrowingInstructionDesugaring.computeInvokeAsThrowNSMERewrite(
+            appView,
+            invoke,
+            () ->
+                appView
+                    .reporter()
+                    .warning(
+                        new StringDiagnostic(
+                            "Interface method desugaring has inserted NoSuchMethodError replacing a"
+                                + " super call in "
+                                + context.toSourceString(),
+                            context.getOrigin())));
+      } else {
+        return DesugarDescription.builder()
+            .addScanEffect(() -> leavingSuperInvokeToInterface(context))
+            .build();
+      }
     }
+
     return emulatedInterfaceDesugaring;
   }
 
