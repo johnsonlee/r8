@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
+import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -35,6 +36,7 @@ import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorGraph
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.utils.AccessUtils;
+import com.android.tools.r8.utils.AndroidApiLevelUtils;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IntBox;
@@ -109,6 +111,7 @@ public class ArgumentPropagatorProgramOptimizer {
   }
 
   private final AppView<AppInfoWithLiveness> appView;
+  private final AndroidApiLevelCompute androidApiLevelCompute;
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
   private final Map<Set<DexProgramClass>, DexMethodSignatureSet> interfaceDispatchOutsideProgram;
 
@@ -120,6 +123,7 @@ public class ArgumentPropagatorProgramOptimizer {
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       Map<Set<DexProgramClass>, DexMethodSignatureSet> interfaceDispatchOutsideProgram) {
     this.appView = appView;
+    this.androidApiLevelCompute = AndroidApiLevelCompute.create(appView);
     this.immediateSubtypingInfo = immediateSubtypingInfo;
     this.interfaceDispatchOutsideProgram = interfaceDispatchOutsideProgram;
   }
@@ -486,8 +490,9 @@ public class ArgumentPropagatorProgramOptimizer {
 
     private DexType getNewFieldType(ProgramField field) {
       DynamicType dynamicType = field.getOptimizationInfo().getDynamicType();
+      DexType staticType = field.getType();
       if (dynamicType.isUnknown()) {
-        return field.getType();
+        return staticType;
       }
 
       KeepFieldInfo keepInfo = appView.getKeepInfo(field);
@@ -496,17 +501,17 @@ public class ArgumentPropagatorProgramOptimizer {
       assert !keepInfo.isPinned(options);
 
       if (!keepInfo.isFieldTypeStrengtheningAllowed(options)) {
-        return field.getType();
+        return staticType;
       }
 
       if (dynamicType.isNullType()) {
         // Don't optimize always null fields; these will be optimized anyway.
-        return field.getType();
+        return staticType;
       }
 
       if (dynamicType.isNotNullType()) {
         // We don't have a more specific type.
-        return field.getType();
+        return staticType;
       }
 
       DynamicTypeWithUpperBound dynamicTypeWithUpperBound =
@@ -514,15 +519,15 @@ public class ArgumentPropagatorProgramOptimizer {
       TypeElement dynamicUpperBoundType = dynamicTypeWithUpperBound.getDynamicUpperBoundType();
       assert dynamicUpperBoundType.isReferenceType();
 
-      ClassTypeElement staticFieldType = field.getType().toTypeElement(appView).asClassType();
+      ClassTypeElement staticFieldType = staticType.toTypeElement(appView).asClassType();
       if (dynamicUpperBoundType.equalUpToNullability(staticFieldType)) {
         // We don't have more precise type information.
-        return field.getType();
+        return staticType;
       }
 
       if (!dynamicUpperBoundType.strictlyLessThan(staticFieldType, appView)) {
         assert options.testing.allowTypeErrors;
-        return field.getType();
+        return staticType;
       }
 
       DexType newStaticFieldType;
@@ -533,7 +538,7 @@ public class ArgumentPropagatorProgramOptimizer {
             newStaticFieldType =
                 dynamicUpperBoundClassType.getInterfaces().getSingleKnownInterface();
           } else {
-            return field.getType();
+            return staticType;
           }
         } else {
           newStaticFieldType = dynamicUpperBoundClassType.getClassType();
@@ -542,8 +547,17 @@ public class ArgumentPropagatorProgramOptimizer {
         newStaticFieldType = dynamicUpperBoundType.asArrayType().toDexType(dexItemFactory);
       }
 
-      if (!AccessUtils.isAccessibleInSameContextsAs(newStaticFieldType, field.getType(), appView)) {
-        return field.getType();
+      if (newStaticFieldType == staticType) {
+        return staticType;
+      }
+
+      if (!AccessUtils.isAccessibleInSameContextsAs(newStaticFieldType, staticType, appView)) {
+        return staticType;
+      }
+
+      if (!AndroidApiLevelUtils.isApiSafeForTypeStrengthening(
+          newStaticFieldType, staticType, appView, androidApiLevelCompute)) {
+        return staticType;
       }
 
       return newStaticFieldType;
