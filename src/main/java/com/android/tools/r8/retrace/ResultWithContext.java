@@ -5,7 +5,11 @@
 package com.android.tools.r8.retrace;
 
 import com.android.tools.r8.Keep;
-import com.android.tools.r8.retrace.internal.MappingProviderInternal;
 
 @Keep
-public abstract class MappingProvider extends MappingProviderInternal {}
+public interface ResultWithContext<T> {
+
+  RetraceStackTraceContext getContext();
+
+  T getResult();
+}

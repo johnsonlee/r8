@@ -156,7 +156,12 @@ public abstract class DexClass extends DexDefinition
   }
 
   @Override
-  public DexClass toAlternativeClassWithProgramOverLibrary() {
+  public DexClass toSingleClassWithLibraryOverProgram() {
+    return this;
+  }
+
+  @Override
+  public DexClass toAlternativeClass() {
     return null;
   }
 
@@ -285,6 +290,10 @@ public abstract class DexClass extends DexDefinition
 
   public Iterable<DexEncodedMethod> virtualMethods(Predicate<? super DexEncodedMethod> predicate) {
     return Iterables.filter(virtualMethods(), predicate::test);
+  }
+
+  public void addVirtualMethod(DexEncodedMethod method) {
+    methodCollection.addVirtualMethod(method);
   }
 
   public void addVirtualMethods(Collection<DexEncodedMethod> methods) {

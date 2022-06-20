@@ -73,14 +73,10 @@ public interface Retracer {
   static Retracer createDefault(
       ProguardMapProducer proguardMapProducer, DiagnosticsHandler diagnosticsHandler) {
     try {
-      ProguardMappingProvider mappingProvider =
-          ProguardMappingProvider.builder()
-              .setProguardMapProducer(proguardMapProducer)
-              .setDiagnosticsHandler(diagnosticsHandler)
-              .allowLookupAllClasses()
-              .build();
+      ProguardMappingSupplier mappingSupplier =
+          ProguardMappingSupplier.builder().setProguardMapProducer(proguardMapProducer).build();
       return Retracer.builder()
-          .setMappingProvider(mappingProvider)
+          .setMappingSupplier(mappingSupplier)
           .setDiagnosticsHandler(diagnosticsHandler)
           .build();
     } catch (Exception e) {

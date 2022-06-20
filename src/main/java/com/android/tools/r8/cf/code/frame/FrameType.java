@@ -32,6 +32,10 @@ public interface FrameType {
     return DoubleFrameType.SINGLETON;
   }
 
+  static DoubleHighFrameType doubleHighType() {
+    return DoubleHighFrameType.SINGLETON;
+  }
+
   static FloatFrameType floatType() {
     return FloatFrameType.SINGLETON;
   }
@@ -44,6 +48,10 @@ public interface FrameType {
     return LongFrameType.SINGLETON;
   }
 
+  static LongHighFrameType longHighType() {
+    return LongHighFrameType.SINGLETON;
+  }
+
   static ShortFrameType shortType() {
     return ShortFrameType.SINGLETON;
   }
@@ -52,6 +60,11 @@ public interface FrameType {
     if (type.isPrimitiveType()) {
       return primitive(type);
     }
+    return initializedReference(type);
+  }
+
+  static InitializedReferenceFrameType initializedReference(DexType type) {
+    assert type.isReferenceType();
     return new InitializedReferenceFrameType(type);
   }
 
@@ -140,6 +153,10 @@ public interface FrameType {
 
   boolean isDouble();
 
+  boolean isDoubleLow();
+
+  boolean isDoubleHigh();
+
   boolean isFloat();
 
   boolean isInitialized();
@@ -151,6 +168,10 @@ public interface FrameType {
   boolean isInt();
 
   boolean isLong();
+
+  boolean isLongLow();
+
+  boolean isLongHigh();
 
   boolean isNullType();
 
@@ -172,6 +193,8 @@ public interface FrameType {
 
   SingleFrameType asSingle();
 
+  boolean isSinglePrimitive();
+
   SinglePrimitiveFrameType asSinglePrimitive();
 
   boolean isTwoWord();
@@ -191,6 +214,14 @@ public interface FrameType {
   boolean isWide();
 
   WideFrameType asWide();
+
+  boolean isWidePrimitive();
+
+  WidePrimitiveFrameType asWidePrimitive();
+
+  boolean isWidePrimitiveLow();
+
+  boolean isWidePrimitiveHigh();
 
   default FrameType map(Function<DexType, DexType> fn) {
     assert !isPrecise();

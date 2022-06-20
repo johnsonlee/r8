@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification;
 
+import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
@@ -13,6 +14,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +37,7 @@ public class MachineRewritingFlags {
       Map<DexMethod, DexMethod> nonEmulatedVirtualRetarget,
       Map<DexMethod, EmulatedDispatchMethodDescriptor> emulatedVirtualRetarget,
       Map<DexMethod, DexMethod> emulatedVirtualRetargetThroughEmulatedInterface,
-      Map<DexMethod, DexType[]> apiConversionCollection,
+      Map<DexMethod, DexMethod[]> apiGenericTypesConversion,
       Map<DexType, EmulatedInterfaceDescriptor> emulatedInterfaces,
       Map<DexType, List<DexMethod>> wrappers,
       Map<DexType, DexType> legacyBackport,
@@ -53,7 +55,7 @@ public class MachineRewritingFlags {
     this.emulatedVirtualRetarget = emulatedVirtualRetarget;
     this.emulatedVirtualRetargetThroughEmulatedInterface =
         emulatedVirtualRetargetThroughEmulatedInterface;
-    this.apiConversionCollection = apiConversionCollection;
+    this.apiGenericTypesConversion = apiGenericTypesConversion;
     this.emulatedInterfaces = emulatedInterfaces;
     this.wrappers = wrappers;
     this.legacyBackport = legacyBackport;
@@ -94,7 +96,7 @@ public class MachineRewritingFlags {
   private final Map<DexMethod, DexMethod> emulatedVirtualRetargetThroughEmulatedInterface;
 
   // Encodes weither specific parameter collections need to be wrapped differently.
-  private final Map<DexMethod, DexType[]> apiConversionCollection;
+  private final Map<DexMethod, DexMethod[]> apiGenericTypesConversion;
 
   // Emulated interface descriptors.
   private final Map<DexType, EmulatedInterfaceDescriptor> emulatedInterfaces;
@@ -144,8 +146,8 @@ public class MachineRewritingFlags {
     return emulatedVirtualRetargetThroughEmulatedInterface;
   }
 
-  public Map<DexMethod, DexType[]> getApiConversionCollection() {
-    return apiConversionCollection;
+  public Map<DexMethod, DexMethod[]> getApiGenericConversion() {
+    return apiGenericTypesConversion;
   }
 
   public void forEachRetargetMethod(Consumer<DexMethod> consumer) {
@@ -243,7 +245,7 @@ public class MachineRewritingFlags {
         emulatedVirtualRetarget = ImmutableMap.builder();
     private final ImmutableMap.Builder<DexMethod, DexMethod>
         emulatedVirtualRetargetThroughEmulatedInterface = ImmutableMap.builder();
-    private final ImmutableMap.Builder<DexMethod, DexType[]> apiConversionCollection =
+    private final ImmutableMap.Builder<DexMethod, DexMethod[]> apiGenericTypesConversion =
         ImmutableMap.builder();
     private final ImmutableMap.Builder<DexType, EmulatedInterfaceDescriptor> emulatedInterfaces =
         ImmutableMap.builder();
@@ -302,8 +304,8 @@ public class MachineRewritingFlags {
       emulatedVirtualRetargetThroughEmulatedInterface.put(src, dest);
     }
 
-    public void addApiConversionCollection(DexMethod method, DexType[] dexTypes) {
-      apiConversionCollection.put(method, dexTypes);
+    public void addApiGenericTypesConversion(DexMethod method, DexMethod[] conversions) {
+      apiGenericTypesConversion.put(method, conversions);
     }
 
     public void addWrapper(DexType wrapperConversion, List<DexMethod> methods) {
@@ -334,10 +336,28 @@ public class MachineRewritingFlags {
       return rewriteType.get(type);
     }
 
+    private void validate(Set<DexType> maintainTypeBuilt) {
+      ArrayList<DexType> warnings = new ArrayList<>();
+      for (DexType toRewrite : rewriteType.keySet()) {
+        if (maintainTypeBuilt.contains(toRewrite)) {
+          warnings.add(toRewrite);
+        }
+      }
+      if (!warnings.isEmpty()) {
+        throw new CompilationError(
+            "The compilation cannot proceed because the desugared library specification contains"
+                + " ambiguous flags that the compiler cannot interpret: The following types are"
+                + " both rewritten and maintained "
+                + warnings);
+      }
+    }
+
     public MachineRewritingFlags build() {
+      Set<DexType> maintainTypeBuilt = maintainType.build();
+      validate(maintainTypeBuilt);
       return new MachineRewritingFlags(
           rewriteType,
-          maintainType.build(),
+          maintainTypeBuilt,
           rewriteDerivedTypeOnly,
           staticFieldRetarget.build(),
           covariantRetarget.build(),
@@ -345,7 +365,7 @@ public class MachineRewritingFlags {
           nonEmulatedVirtualRetarget.build(),
           emulatedVirtualRetarget.build(),
           emulatedVirtualRetargetThroughEmulatedInterface.build(),
-          apiConversionCollection.build(),
+          apiGenericTypesConversion.build(),
           emulatedInterfaces.build(),
           wrappers.build(),
           legacyBackport.build(),

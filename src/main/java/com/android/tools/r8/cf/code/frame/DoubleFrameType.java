@@ -14,11 +14,41 @@ public class DoubleFrameType extends WidePrimitiveFrameType {
 
   static final DoubleFrameType SINGLETON = new DoubleFrameType();
 
-  private DoubleFrameType() {}
+  DoubleFrameType() {}
+
+  @Override
+  public DoubleFrameType getLowType() {
+    return FrameType.doubleType();
+  }
+
+  @Override
+  public DoubleHighFrameType getHighType() {
+    return FrameType.doubleHighType();
+  }
 
   @Override
   public boolean isDouble() {
     return true;
+  }
+
+  @Override
+  public boolean isDoubleLow() {
+    return true;
+  }
+
+  @Override
+  public boolean isDoubleHigh() {
+    return false;
+  }
+
+  @Override
+  public boolean isWidePrimitiveLow() {
+    return true;
+  }
+
+  @Override
+  public boolean isWidePrimitiveHigh() {
+    return false;
   }
 
   @Override

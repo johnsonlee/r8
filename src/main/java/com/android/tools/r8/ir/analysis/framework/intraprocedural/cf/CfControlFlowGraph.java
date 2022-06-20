@@ -10,18 +10,22 @@ import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfLabel;
 import com.android.tools.r8.cf.code.CfTryCatch;
 import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.ControlFlowGraph;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.cf.CfBlock.MutableCfBlock;
-import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.TraversalUtils;
+import com.android.tools.r8.utils.TriFunction;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Collection;
+import java.util.Deque;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.BiFunction;
 
 /**
@@ -48,8 +52,8 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
     return new Builder(code);
   }
 
-  public static CfControlFlowGraph create(CfCode code) {
-    return builder(code).build();
+  public static CfControlFlowGraph create(CfCode code, InternalOptions options) {
+    return builder(code).build(options);
   }
 
   private CfBlock getBlock(CfInstruction blockEntry) {
@@ -58,8 +62,13 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
   }
 
   @Override
+  public Collection<? extends CfBlock> getBlocks() {
+    return blocks.values();
+  }
+
+  @Override
   public CfBlock getEntryBlock() {
-    return getBlock(code.getInstructions().get(0));
+    return getBlock(code.getInstruction(0));
   }
 
   @Override
@@ -92,9 +101,12 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
   @Override
   public <BT, CT> TraversalContinuation<BT, CT> traverseExceptionalSuccessors(
       CfBlock block,
-      BiFunction<? super CfBlock, ? super CT, TraversalContinuation<BT, CT>> fn,
+      TriFunction<? super CfBlock, DexType, ? super CT, TraversalContinuation<BT, CT>> fn,
       CT initialValue) {
-    return TraversalUtils.traverseIterable(block.getExceptionalSuccessors(), fn, initialValue);
+    return TraversalUtils.traverseMap(
+        block.getExceptionalSuccessors(),
+        (guard, exceptionalSuccessor, value) -> fn.apply(exceptionalSuccessor, guard, value),
+        initialValue);
   }
 
   @Override
@@ -107,7 +119,7 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
     for (int instructionIndex = block.getFirstInstructionIndex();
         instructionIndex <= block.getLastInstructionIndex();
         instructionIndex++) {
-      CfInstruction instruction = code.getInstructions().get(instructionIndex);
+      CfInstruction instruction = code.getInstruction(instructionIndex);
       traversalContinuation = fn.apply(instruction, traversalContinuation.asContinue().getValue());
       if (traversalContinuation.shouldBreak()) {
         break;
@@ -127,7 +139,7 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
       this.code = code;
     }
 
-    CfControlFlowGraph build() {
+    CfControlFlowGraph build(InternalOptions options) {
       // Perform an initial pass over the CfCode to identify all instructions that start a new
       // block.
       createBlocks();
@@ -137,9 +149,11 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
       // identified all block entries up front.
       processBlocks();
 
-      assert blocks.values().stream().allMatch(MutableCfBlock::validate);
+      removeBlockForTrailingLabel();
 
-      return new CfControlFlowGraph(blocks, code);
+      CfControlFlowGraph cfg = new CfControlFlowGraph(blocks, code);
+      assert blocks.values().stream().allMatch(block -> block.validate(cfg, options));
+      return cfg;
     }
 
     private void createBlocks() {
@@ -158,6 +172,11 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
                   ? instructions.get(fallthroughInstructionIndex)
                   : null;
           instruction.forEachNormalTarget(this::createBlockIfAbsent, fallthroughInstruction);
+
+          // Also create a block for the fallthrough instruction, though it may be unreachable.
+          if (!instruction.asJump().hasFallthrough() && fallthroughInstruction != null) {
+            createBlockIfAbsent(fallthroughInstruction);
+          }
         }
       }
 
@@ -173,9 +192,9 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
     }
 
     private void processBlocks() {
-      // A collection of active catch handlers. The catch handlers are stored in a map where the key
-      // is the label at which the catch handlers end.
-      Map<CfLabel, List<CfTryCatch>> activeUntilCatchHandlers = new IdentityHashMap<>();
+      // A collection of active catch handlers. The most recently added catch handlers take
+      // precedence over catch handlers added before them.
+      Deque<CfTryCatch> activeCatchHandlers = new ArrayDeque<>();
 
       // A collection of inactive catch handlers. The catch handlers are stored in a map where the
       // key is the label at which the catch handlers start.
@@ -199,12 +218,12 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
                   instruction,
                   instructionIndex,
                   block,
-                  activeUntilCatchHandlers,
+                  activeCatchHandlers,
                   inactiveUntilCatchHandlers);
         }
       }
 
-      assert activeUntilCatchHandlers.isEmpty();
+      assert activeCatchHandlers.isEmpty();
       assert inactiveUntilCatchHandlers.isEmpty();
     }
 
@@ -212,31 +231,34 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
         CfInstruction instruction,
         int instructionIndex,
         MutableCfBlock block,
-        Map<CfLabel, List<CfTryCatch>> activeUntilCatchHandlers,
+        Deque<CfTryCatch> activeCatchHandlers,
         Map<CfLabel, List<CfTryCatch>> inactiveUntilCatchHandlers) {
       // Record the index of the first instruction of the block.
       block.setFirstInstructionIndex(instructionIndex);
 
       if (instruction.isLabel()) {
-        updateCatchHandlers(
-            instruction.asLabel(), activeUntilCatchHandlers, inactiveUntilCatchHandlers);
+        updateCatchHandlers(instruction.asLabel(), activeCatchHandlers, inactiveUntilCatchHandlers);
       }
 
       // Visit each instruction belonging to the current block.
-      Set<CfLabel> exceptionalSuccessors = new LinkedHashSet<>();
+      Map<DexType, CfLabel> exceptionalSuccessors = new LinkedHashMap<>();
+      Iterator<CfTryCatch> activeCatchHandlerIterator = activeCatchHandlers.descendingIterator();
+      while (activeCatchHandlerIterator.hasNext()) {
+        CfTryCatch activeCatchHandler = activeCatchHandlerIterator.next();
+        activeCatchHandler.forEach(exceptionalSuccessors::putIfAbsent);
+      }
+
       do {
         assert !instruction.isLabel()
             || verifyCatchHandlersUnchanged(
-                instruction.asLabel(), activeUntilCatchHandlers, inactiveUntilCatchHandlers);
-        if (instruction.canThrow()) {
-          for (CfTryCatch tryCatch : IterableUtils.flatten(activeUntilCatchHandlers.values())) {
-            exceptionalSuccessors.addAll(tryCatch.getTargets());
-          }
+                instruction.asLabel(), activeCatchHandlers, inactiveUntilCatchHandlers);
+        if (instruction.instructionTypeCanThrow() && !block.hasThrowingInstruction()) {
+          block.setFirstThrowingInstructionIndex(instructionIndex);
         }
         if (isBlockExit(instructionIndex)) {
           break;
         }
-        instruction = code.getInstructions().get(++instructionIndex);
+        instruction = code.getInstruction(++instructionIndex);
       } while (true);
 
       // Record the index of the last instruction of the block.
@@ -249,13 +271,20 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
 
       // Add the current block as an exceptional predecessor of the exceptional successor blocks.
       exceptionalSuccessors.forEach(
-          exceptionalSuccessor -> {
+          (guard, exceptionalSuccessor) -> {
             MutableCfBlock exceptionalSuccessorBlock = getBlock(exceptionalSuccessor);
-            block.addExceptionalSuccessor(exceptionalSuccessorBlock);
+            block.addExceptionalSuccessor(exceptionalSuccessorBlock, guard);
             exceptionalSuccessorBlock.addExceptionalPredecessor(block);
           });
 
       return instructionIndex;
+    }
+
+    private void removeBlockForTrailingLabel() {
+      CfInstruction lastInstruction = code.getInstruction(code.getInstructions().size() - 1);
+      if (lastInstruction.isLabel() && isBlockEntry(lastInstruction)) {
+        blocks.remove(lastInstruction);
+      }
     }
 
     private boolean isBlockEntry(CfInstruction instruction) {
@@ -267,32 +296,35 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
       if (instructionIndex == lastInstructionIndex) {
         return true;
       }
-      CfInstruction nextInstruction = code.getInstructions().get(instructionIndex + 1);
+      CfInstruction nextInstruction = code.getInstruction(instructionIndex + 1);
       return isBlockEntry(nextInstruction);
     }
 
     private void updateCatchHandlers(
         CfLabel instruction,
-        Map<CfLabel, List<CfTryCatch>> activeUntilCatchHandlers,
+        Deque<CfTryCatch> activeCatchHandlers,
         Map<CfLabel, List<CfTryCatch>> inactiveUntilCatchHandlers) {
       // Remove active catch handlers that have expired at the current instruction.
-      activeUntilCatchHandlers.remove(instruction);
+      activeCatchHandlers.removeIf(
+          activeCatchHandler -> activeCatchHandler.getEnd() == instruction);
 
       // Promote inactive catch handlers that is activated at the current instruction to active.
-      for (CfTryCatch tryCatch :
-          inactiveUntilCatchHandlers.getOrDefault(instruction, Collections.emptyList())) {
-        assert tryCatch.getEnd() != tryCatch.getStart();
-        activeUntilCatchHandlers
-            .computeIfAbsent(tryCatch.getEnd(), ignoreKey(ArrayList::new))
-            .add(tryCatch);
+      List<CfTryCatch> newlyActiveCatchHandlers = inactiveUntilCatchHandlers.remove(instruction);
+      if (newlyActiveCatchHandlers != null) {
+        for (int i = newlyActiveCatchHandlers.size() - 1; i >= 0; i--) {
+          CfTryCatch newlyActiveCatchHandler = newlyActiveCatchHandlers.get(i);
+          assert newlyActiveCatchHandler.getEnd() != newlyActiveCatchHandler.getStart();
+          activeCatchHandlers.addLast(newlyActiveCatchHandler);
+        }
       }
     }
 
     private boolean verifyCatchHandlersUnchanged(
         CfLabel instruction,
-        Map<CfLabel, List<CfTryCatch>> activeUntilCatchHandlers,
+        Deque<CfTryCatch> activeCatchHandlers,
         Map<CfLabel, List<CfTryCatch>> inactiveUntilCatchHandlers) {
-      assert !activeUntilCatchHandlers.containsKey(instruction);
+      assert activeCatchHandlers.stream()
+          .allMatch(activeCatchHandler -> activeCatchHandler.getEnd() != instruction);
       assert !inactiveUntilCatchHandlers.containsKey(instruction);
       return true;
     }

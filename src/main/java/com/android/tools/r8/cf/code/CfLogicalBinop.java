@@ -177,11 +177,7 @@ public class CfLogicalBinop extends CfInstruction {
   }
 
   @Override
-  public CfFrameState evaluate(
-      CfFrameState frame,
-      AppView<?> appView,
-      CfAnalysisConfig config,
-      DexItemFactory dexItemFactory) {
+  public CfFrameState evaluate(CfFrameState frame, AppView<?> appView, CfAnalysisConfig config) {
     // ..., value1, value2 →
     // ..., result
     NumericType value1Type = type;
@@ -196,8 +192,8 @@ public class CfLogicalBinop extends CfInstruction {
         value2Type = NumericType.INT;
     }
     return frame
-        .popInitialized(appView, value2Type)
-        .popInitialized(appView, value1Type)
+        .popInitialized(appView, config, value2Type)
+        .popInitialized(appView, config, value1Type)
         .push(appView, config, value1Type);
   }
 }

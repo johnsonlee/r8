@@ -16,6 +16,8 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static java.util.Collections.emptySet;
 
 import com.android.tools.r8.Diagnostic;
+import com.android.tools.r8.androidapi.ComputedApiLevel;
+import com.android.tools.r8.androidapi.CovariantReturnTypeMethods;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
@@ -72,6 +74,7 @@ import com.android.tools.r8.graph.LookupLambdaTarget;
 import com.android.tools.r8.graph.LookupMethodTarget;
 import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.LookupTarget;
+import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodAccessInfoCollection;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.FailedResolutionResult;
@@ -673,12 +676,23 @@ public class Enqueuer {
     return definitionFor(type, context, this::recordNonProgramClass, this::reportMissingClass);
   }
 
+  public DexLibraryClass definitionForLibraryClassOrIgnore(DexType type) {
+    assert type.isClassType();
+    ClassResolutionResult classResolutionResult =
+        appInfo().contextIndependentDefinitionForWithResolutionResult(type);
+    return classResolutionResult.hasClassResolutionResult()
+            && !classResolutionResult.isMultipleClassResolutionResult()
+        ? DexLibraryClass.asLibraryClassOrNull(
+            classResolutionResult.toSingleClassWithProgramOverLibrary())
+        : null;
+  }
+
   public boolean hasAlternativeLibraryDefinition(DexProgramClass programClass) {
     ClassResolutionResult classResolutionResult =
         internalDefinitionFor(
             programClass.type, programClass, this::recordNonProgramClass, this::reportMissingClass);
     assert classResolutionResult.hasClassResolutionResult();
-    DexClass alternativeClass = classResolutionResult.toAlternativeClassWithProgramOverLibrary();
+    DexClass alternativeClass = classResolutionResult.toAlternativeClass();
     assert alternativeClass == null || alternativeClass.isLibraryClass();
     return alternativeClass != null;
   }
@@ -772,6 +786,7 @@ public class Enqueuer {
         // rules.
         handleLibraryTypeInheritingFromProgramType(clazz.asLibraryClass());
       }
+      analyses.forEach(analysis -> analysis.processNewLiveNonProgramType(clazz));
       clazz.forEachClassField(
           field ->
               addNonProgramClassToWorklist(
@@ -2547,9 +2562,7 @@ public class Enqueuer {
       return;
     }
     DexClass alternativeResolutionResult =
-        appInfo()
-            .contextIndependentDefinitionForWithResolutionResult(type)
-            .toAlternativeClassWithProgramOverLibrary();
+        appInfo().contextIndependentDefinitionForWithResolutionResult(type).toAlternativeClass();
     if (alternativeResolutionResult != null && alternativeResolutionResult.isLibraryClass()) {
       // We are in a situation where a library class inherits from a library class, which has a
       // program class duplicated version for low API levels.
@@ -3554,9 +3567,8 @@ public class Enqueuer {
     includeMinimumKeepInfo(rootSet);
 
     if (mode.isInitialTreeShaking()) {
-      // This is simulating the effect of the "root set" applied rules.
-      // This is done only in the initial pass, in subsequent passes the "rules" are reapplied
-      // by iterating the instances.
+      // Amend library methods with covariant return types.
+      modelLibraryMethodsWithCovariantReturnTypes();
     } else if (appView.getKeepInfo() != null) {
       EnqueuerEvent preconditionEvent = UnconditionalKeepInfoEvent.get();
       appView
@@ -3596,6 +3608,30 @@ public class Enqueuer {
             this::recordDependentMinimumKeepInfo,
             this::recordDependentMinimumKeepInfo,
             this::recordDependentMinimumKeepInfo);
+  }
+
+  private void modelLibraryMethodsWithCovariantReturnTypes() {
+    CovariantReturnTypeMethods.registerMethodsWithCovariantReturnType(
+        appView.dexItemFactory(),
+        method -> {
+          DexLibraryClass libraryClass =
+              DexLibraryClass.asLibraryClassOrNull(
+                  appView.appInfo().definitionForWithoutExistenceAssert(method.getHolderType()));
+          if (libraryClass == null) {
+            return;
+          }
+          // Check if the covariant method exists on the class.
+          DexEncodedMethod covariantMethod = libraryClass.lookupMethod(method);
+          if (covariantMethod != null) {
+            return;
+          }
+          libraryClass.addVirtualMethod(
+              DexEncodedMethod.builder()
+                  .setMethod(method)
+                  .setAccessFlags(MethodAccessFlags.builder().setPublic().build())
+                  .setApiLevelForDefinition(ComputedApiLevel.notSet())
+                  .build());
+        });
   }
 
   private void applyMinimumKeepInfo(DexProgramClass clazz) {

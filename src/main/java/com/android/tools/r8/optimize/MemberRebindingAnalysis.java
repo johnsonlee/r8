@@ -28,6 +28,7 @@ import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BiForEachable;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.TriConsumer;
@@ -35,6 +36,7 @@ import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -354,15 +356,32 @@ public class MemberRebindingAnalysis {
         (bridgeHolder, targets) -> {
           // Sorting the list of bridges within a class maintains a deterministic order of entries
           // in the method collection.
-          targets.sort((p1, p2) -> p1.getFirst().compareTo(p2.getFirst()));
+          targets.sort(Comparator.comparing(Pair::getFirst));
           for (Pair<DexMethod, DexClassAndMethod> pair : targets) {
             DexMethod method = pair.getFirst();
             DexClassAndMethod target = pair.getSecond();
             DexMethod bridgeMethod =
                 method.withHolder(bridgeHolder.getType(), appView.dexItemFactory());
             if (bridgeHolder.getMethodCollection().getMethod(bridgeMethod) == null) {
+              DexEncodedMethod targetDefinition = target.getDefinition();
               DexEncodedMethod bridgeMethodDefinition =
-                  target.getDefinition().toForwardingMethod(bridgeHolder, appView);
+                  targetDefinition.toForwardingMethod(
+                      bridgeHolder,
+                      appView,
+                      builder -> {
+                        if (!targetDefinition.isAbstract()
+                            && targetDefinition.getApiLevelForCode().isNotSetApiLevel()) {
+                          assert target.isLibraryMethod();
+                          builder.setApiLevelForCode(
+                              appView
+                                  .apiLevelCompute()
+                                  .computeApiLevelForLibraryReference(
+                                      targetDefinition.getReference(),
+                                      appView.computedMinApiLevel()));
+                        }
+                        builder.setIsLibraryMethodOverrideIf(
+                            target.isLibraryMethod(), OptionalBool.TRUE);
+                      });
               bridgeHolder.addMethod(bridgeMethodDefinition);
             }
             assert resolver.apply(method).getResolvedMethod().getReference() == bridgeMethod;

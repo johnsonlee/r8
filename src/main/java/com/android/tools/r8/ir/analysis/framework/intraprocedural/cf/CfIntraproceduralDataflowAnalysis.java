@@ -5,17 +5,25 @@
 package com.android.tools.r8.ir.analysis.framework.intraprocedural.cf;
 
 import com.android.tools.r8.cf.code.CfInstruction;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractState;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractTransferFunction;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.IntraProceduralDataflowAnalysisBase;
+import com.android.tools.r8.ir.analysis.framework.intraprocedural.IntraProceduralDataflowAnalysisOptions;
 
 public class CfIntraproceduralDataflowAnalysis<StateType extends AbstractState<StateType>>
     extends IntraProceduralDataflowAnalysisBase<CfBlock, CfInstruction, StateType> {
 
   public CfIntraproceduralDataflowAnalysis(
+      AppView<?> appView,
       StateType bottom,
       CfControlFlowGraph cfg,
       AbstractTransferFunction<CfBlock, CfInstruction, StateType> transfer) {
-    super(bottom, cfg, transfer);
+    super(
+        appView,
+        bottom,
+        cfg,
+        transfer,
+        IntraProceduralDataflowAnalysisOptions.getCollapseInstance());
   }
 }

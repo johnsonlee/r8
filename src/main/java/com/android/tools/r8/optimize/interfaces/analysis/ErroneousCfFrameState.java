@@ -25,6 +25,7 @@ public class ErroneousCfFrameState extends CfFrameState {
   private final String message;
 
   ErroneousCfFrameState(String message) {
+    assert message != null;
     this.message = message;
   }
 
@@ -114,17 +115,17 @@ public class ErroneousCfFrameState extends CfFrameState {
   }
 
   @Override
-  public CfFrameState check(AppView<?> appView, CfFrame frame) {
+  public CfFrameState check(CfAnalysisConfig config, CfFrame frame) {
     return this;
   }
 
   @Override
-  public CfFrameState checkLocals(AppView<?> appView, CfFrame frame) {
+  public CfFrameState checkLocals(CfAnalysisConfig config, CfFrame frame) {
     return this;
   }
 
   @Override
-  public CfFrameState checkStack(AppView<?> appView, CfFrame frame) {
+  public CfFrameState checkStack(CfAnalysisConfig config, CfFrame frame) {
     return this;
   }
 
@@ -163,13 +164,15 @@ public class ErroneousCfFrameState extends CfFrameState {
   @Override
   public CfFrameState popInitialized(
       AppView<?> appView,
+      CfAnalysisConfig config,
       DexType expectedType,
       BiFunction<CfFrameState, PreciseFrameType, CfFrameState> fn) {
     return this;
   }
 
   @Override
-  public CfFrameState popInitialized(AppView<?> appView, DexType... expectedTypes) {
+  public CfFrameState popInitialized(
+      AppView<?> appView, CfAnalysisConfig config, DexType... expectedTypes) {
     return this;
   }
 
@@ -184,8 +187,14 @@ public class ErroneousCfFrameState extends CfFrameState {
   }
 
   @Override
+  public CfFrameState pushException(CfAnalysisConfig config, DexType guard) {
+    return this;
+  }
+
+  @Override
   public CfFrameState readLocal(
       AppView<?> appView,
+      CfAnalysisConfig config,
       int localIndex,
       ValueType expectedType,
       BiFunction<CfFrameState, FrameType, CfFrameState> fn) {
@@ -199,11 +208,18 @@ public class ErroneousCfFrameState extends CfFrameState {
 
   @Override
   public boolean equals(Object other) {
-    return this == other;
+    if (this == other) {
+      return true;
+    }
+    if (other == null || getClass() != other.getClass()) {
+      return false;
+    }
+    ErroneousCfFrameState error = (ErroneousCfFrameState) other;
+    return message.equals(error.message);
   }
 
   @Override
   public int hashCode() {
-    return System.identityHashCode(this);
+    return message.hashCode();
   }
 }

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.analysis.framework.intraprocedural;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult.FailedDataflowAnalysisResult;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult.SuccessfulDataflowAnalysisResult;
 import com.android.tools.r8.utils.Timing;
@@ -25,7 +26,9 @@ import java.util.Map;
  * FailedDataflowAnalysisResult}.
  */
 public class IntraProceduralDataflowAnalysisBase<
-    Block, Instruction, StateType extends AbstractState<StateType>> {
+    Block, Instruction extends AbstractInstruction, StateType extends AbstractState<StateType>> {
+
+  final AppView<?> appView;
 
   final StateType bottom;
 
@@ -34,21 +37,30 @@ public class IntraProceduralDataflowAnalysisBase<
   // The transfer function that defines the abstract semantics for each instruction.
   final AbstractTransferFunction<Block, Instruction, StateType> transfer;
 
-  // The state of the analysis.
-  final Map<Block, StateType> blockExitStates = new IdentityHashMap<>();
-
   // The entry states for each block that satisfies the predicate
   // shouldCacheBlockEntryStateFor(block). These entry states can be computed from the exit states
   // of the predecessors, but doing so can be expensive when a block has many predecessors.
-  final Map<Block, StateType> blockEntryStatesCache = new IdentityHashMap<>();
+  final Map<Block, StateType> blockEntryStates = new IdentityHashMap<>();
+
+  // The state of the analysis.
+  final Map<Block, StateType> blockExitStates = new IdentityHashMap<>();
+
+  // The entry states for exceptional blocks.
+  final Map<Block, StateType> exceptionalBlockEntryStates = new IdentityHashMap<>();
+
+  final IntraProceduralDataflowAnalysisOptions options;
 
   public IntraProceduralDataflowAnalysisBase(
+      AppView<?> appView,
       StateType bottom,
       ControlFlowGraph<Block, Instruction> cfg,
-      AbstractTransferFunction<Block, Instruction, StateType> transfer) {
+      AbstractTransferFunction<Block, Instruction, StateType> transfer,
+      IntraProceduralDataflowAnalysisOptions options) {
+    this.appView = appView;
     this.bottom = bottom;
     this.cfg = cfg;
     this.transfer = transfer;
+    this.options = options;
   }
 
   public DataflowAnalysisResult run(Block root) {
@@ -69,12 +81,27 @@ public class IntraProceduralDataflowAnalysisBase<
       StateType state =
           timing.time("Compute block entry state", () -> computeBlockEntryState(initialBlock));
 
+      TransferFunctionResult<StateType> blockResult = transfer.applyBlock(initialBlock, state);
+      if (blockResult.isFailedTransferResult()) {
+        return new FailedDataflowAnalysisResult();
+      }
+      state = blockResult.asAbstractState();
+
       timing.begin("Compute transfers");
       do {
+        Block currentBlock = block;
+        boolean hasExceptionalSuccessors = cfg.hasExceptionalSuccessors(block);
         TraversalContinuation<FailedDataflowAnalysisResult, StateType> traversalContinuation =
             cfg.traverseInstructions(
                 block,
                 (instruction, previousState) -> {
+                  if (instruction.instructionTypeCanThrow()
+                      && hasExceptionalSuccessors
+                      && transfer.shouldTransferExceptionalControlFlowFromInstruction(
+                          currentBlock, instruction)) {
+                    updateBlockEntryStateCacheForExceptionalSuccessors(
+                        currentBlock, instruction, previousState);
+                  }
                   TransferFunctionResult<StateType> transferResult =
                       transfer.apply(instruction, previousState);
                   if (transferResult.isFailedTransferResult()) {
@@ -89,7 +116,7 @@ public class IntraProceduralDataflowAnalysisBase<
           return traversalContinuation.asBreak().getValue();
         }
         state = traversalContinuation.asContinue().getValue();
-        if (cfg.hasUniqueSuccessorWithUniquePredecessor(block)) {
+        if (isBlockWithIntermediateSuccessorBlock(block)) {
           block = cfg.getUniqueSuccessor(block);
         } else {
           end = block;
@@ -104,53 +131,97 @@ public class IntraProceduralDataflowAnalysisBase<
         cfg.forEachSuccessor(end, worklist::addIgnoringSeenSet);
       }
 
-      // Add the computed exit state to the entry state of each successor that satisfies the
+      // Add the computed exit state to the entry state of each normal successor that satisfies the
       // predicate shouldCacheBlockEntryStateFor(successor).
-      updateBlockEntryStateCacheForSuccessors(end, state);
+      updateBlockEntryStateCacheForNormalSuccessors(end, state);
     }
     return new SuccessfulDataflowAnalysisResult<>(blockExitStates);
   }
 
   public StateType computeBlockEntryState(Block block) {
     if (block == cfg.getEntryBlock()) {
-      return transfer.computeInitialState(block, bottom);
+      return transfer
+          .computeInitialState(block, bottom)
+          .join(appView, computeBlockEntryStateForNormalBlock(block));
     }
-    if (shouldCacheBlockEntryStateFor(block)) {
-      return blockEntryStatesCache.getOrDefault(block, bottom);
+    if (cfg.hasExceptionalPredecessors(block)) {
+      return exceptionalBlockEntryStates.getOrDefault(block, bottom).clone();
     }
+    return computeBlockEntryStateForNormalBlock(block);
+  }
+
+  private StateType computeBlockEntryStateForNormalBlock(Block block) {
+    if (shouldCacheBlockEntryStateForNormalBlock(block)) {
+      return blockEntryStates.getOrDefault(block, bottom).clone();
+    }
+    return computeBlockEntryStateFromPredecessorExitStates(block);
+  }
+
+  private StateType computeBlockEntryStateFromPredecessorExitStates(Block block) {
     TraversalContinuation<?, StateType> traversalContinuation =
-        cfg.traversePredecessors(
+        cfg.traverseNormalPredecessors(
             block,
             (predecessor, entryState) -> {
               StateType edgeState =
                   transfer.computeBlockEntryState(
-                      block, predecessor, blockExitStates.getOrDefault(predecessor, bottom));
-              return TraversalContinuation.doContinue(entryState.join(edgeState));
+                      block,
+                      predecessor,
+                      blockExitStates.getOrDefault(predecessor, bottom).clone());
+              return TraversalContinuation.doContinue(entryState.join(appView, edgeState));
             },
             bottom);
     return traversalContinuation.asContinue().getValue().clone();
   }
 
   boolean setBlockExitState(Block block, StateType state) {
-    assert !cfg.hasUniqueSuccessorWithUniquePredecessor(block);
+    assert !isBlockWithIntermediateSuccessorBlock(block);
     StateType previous = blockExitStates.put(block, state);
-    assert previous == null || state.isGreaterThanOrEquals(previous);
+    assert previous == null || state.isGreaterThanOrEquals(appView, previous);
     return !state.equals(previous);
   }
 
-  void updateBlockEntryStateCacheForSuccessors(Block block, StateType state) {
-    cfg.forEachSuccessor(
+  void updateBlockEntryStateCacheForNormalSuccessors(Block block, StateType state) {
+    cfg.forEachNormalSuccessor(
         block,
         successor -> {
-          if (shouldCacheBlockEntryStateFor(successor)) {
+          if (shouldCacheBlockEntryStateForNormalBlock(successor)) {
             StateType edgeState = transfer.computeBlockEntryState(successor, block, state);
-            StateType previous = blockEntryStatesCache.getOrDefault(successor, bottom);
-            blockEntryStatesCache.put(successor, previous.join(edgeState));
+            updateBlockEntryStateForBlock(successor, edgeState, blockEntryStates);
           }
         });
   }
 
-  boolean shouldCacheBlockEntryStateFor(Block block) {
+  void updateBlockEntryStateCacheForExceptionalSuccessors(
+      Block block, Instruction instruction, StateType state) {
+    cfg.forEachExceptionalSuccessor(
+        block,
+        (exceptionalSuccessor, guard) -> {
+          StateType edgeState =
+              transfer.computeExceptionalBlockEntryState(
+                  exceptionalSuccessor, guard, block, instruction, state);
+          updateBlockEntryStateForBlock(
+              exceptionalSuccessor, edgeState, exceptionalBlockEntryStates);
+        });
+  }
+
+  private void updateBlockEntryStateForBlock(
+      Block block, StateType edgeState, Map<Block, StateType> states) {
+    StateType previous = states.getOrDefault(block, bottom);
+    states.put(block, previous.join(appView, edgeState));
+  }
+
+  public boolean isIntermediateBlock(Block block) {
+    return options.isCollapsingOfTrivialEdgesEnabled()
+        && cfg.hasUniquePredecessorWithUniqueSuccessor(block)
+        && block != cfg.getEntryBlock()
+        && !cfg.hasExceptionalPredecessors(block);
+  }
+
+  public boolean isBlockWithIntermediateSuccessorBlock(Block block) {
+    return cfg.hasUniqueSuccessor(block) && isIntermediateBlock(cfg.getUniqueSuccessor(block));
+  }
+
+  boolean shouldCacheBlockEntryStateForNormalBlock(Block block) {
     return TraversalUtils.isSizeGreaterThan(counter -> cfg.traversePredecessors(block, counter), 2);
   }
 }

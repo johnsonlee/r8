@@ -12,11 +12,13 @@ import com.android.tools.r8.cf.code.frame.UninitializedFrameType;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.CfCompareHelper;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.InitClassLens;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.conversion.CfSourceCode;
 import com.android.tools.r8.ir.conversion.CfState;
 import com.android.tools.r8.ir.conversion.IRBuilder;
@@ -36,8 +38,10 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMaps;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.ListIterator;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -98,7 +102,7 @@ public class CfFrame extends CfInstruction implements Cloneable {
 
   // Internal constructor that does not require locals to be of the type Int2ObjectAVLTreeMap.
   private CfFrame(Int2ObjectSortedMap<FrameType> locals, Deque<PreciseFrameType> stack) {
-    assert locals.values().stream().allMatch(Objects::nonNull);
+    assert CfFrameUtils.verifyLocals(locals);
     assert stack.stream().allMatch(Objects::nonNull);
     this.locals = locals;
     this.stack = stack;
@@ -248,6 +252,24 @@ public class CfFrame extends CfInstruction implements Cloneable {
   }
 
   @Override
+  void internalRegisterUse(
+      UseRegistry<?> registry, DexClassAndMethod context, ListIterator<CfInstruction> iterator) {
+    locals.values().forEach(frameType -> internalRegisterUse(registry, frameType));
+    stack.forEach(frameType -> internalRegisterUse(registry, frameType));
+  }
+
+  private void internalRegisterUse(UseRegistry<?> registry, FrameType frameType) {
+    if (frameType.isInitializedReferenceType()) {
+      if (frameType.isNullType()) {
+        return;
+      }
+      registry.registerTypeReference(frameType.asInitializedReferenceType().getInitializedType());
+    } else if (frameType.isUninitializedNew()) {
+      registry.registerTypeReference(frameType.asUninitializedNew().getUninitializedNewType());
+    }
+  }
+
+  @Override
   public String toString() {
     return getClass().getSimpleName();
   }
@@ -274,12 +296,8 @@ public class CfFrame extends CfInstruction implements Cloneable {
   }
 
   @Override
-  public CfFrameState evaluate(
-      CfFrameState frame,
-      AppView<?> appView,
-      CfAnalysisConfig config,
-      DexItemFactory dexItemFactory) {
-    return frame.check(appView, this);
+  public CfFrameState evaluate(CfFrameState frame, AppView<?> appView, CfAnalysisConfig config) {
+    return frame.check(config, this);
   }
 
   public static PreciseFrameType getInitializedFrameType(
@@ -295,7 +313,7 @@ public class CfFrame extends CfInstruction implements Cloneable {
     return other;
   }
 
-  public CfFrame map(java.util.function.Function<DexType, DexType> func) {
+  public CfFrame mapReferenceTypes(Function<DexType, DexType> func) {
     boolean mapped = false;
     for (int var : locals.keySet()) {
       FrameType originalType = locals.get(var);
@@ -319,9 +337,17 @@ public class CfFrame extends CfInstruction implements Cloneable {
     }
     Builder builder = builder();
     for (Int2ObjectMap.Entry<FrameType> entry : locals.int2ObjectEntrySet()) {
-      builder.store(entry.getIntKey(), entry.getValue().map(func));
+      FrameType frameType = entry.getValue();
+      if (frameType.isWidePrimitiveHigh()) {
+        // This frame type has already been written as a result of processing the previous frame
+        // type.
+        assert builder.getLocal(entry.getIntKey()) == frameType;
+        continue;
+      }
+      builder.store(entry.getIntKey(), frameType.map(func));
     }
     for (PreciseFrameType frameType : stack) {
+      assert !frameType.isWidePrimitiveHigh();
       builder.push(frameType.map(func));
     }
     return builder.build();
@@ -395,11 +421,9 @@ public class CfFrame extends CfInstruction implements Cloneable {
     }
 
     private Builder internalStore(int localIndex, FrameType frameType) {
-      ensureMutableLocals();
-      locals.put(localIndex, frameType);
-      if (frameType.isWide()) {
-        locals.put(localIndex + 1, frameType);
-      }
+      assert !frameType.isTwoWord();
+      Int2ObjectAVLTreeMap<FrameType> mutableLocals = ensureMutableLocals();
+      CfFrameUtils.storeLocal(localIndex, frameType, mutableLocals);
       return this;
     }
 
@@ -413,10 +437,11 @@ public class CfFrame extends CfInstruction implements Cloneable {
       return build();
     }
 
-    private void ensureMutableLocals() {
+    private Int2ObjectAVLTreeMap<FrameType> ensureMutableLocals() {
       if (locals == EMPTY_LOCALS) {
         locals = new Int2ObjectAVLTreeMap<>();
       }
+      return (Int2ObjectAVLTreeMap<FrameType>) locals;
     }
 
     private void ensureMutableStack() {

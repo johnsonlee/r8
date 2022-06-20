@@ -103,13 +103,9 @@ public class CfIfCmp extends CfConditionalJumpInstruction {
   }
 
   @Override
-  public CfFrameState evaluate(
-      CfFrameState frame,
-      AppView<?> appView,
-      CfAnalysisConfig config,
-      DexItemFactory dexItemFactory) {
+  public CfFrameState evaluate(CfFrameState frame, AppView<?> appView, CfAnalysisConfig config) {
     // ..., value1, value2 →
     // ...
-    return frame.popInitialized(appView, type).popInitialized(appView, type);
+    return frame.popInitialized(appView, config, type).popInitialized(appView, config, type);
   }
 }

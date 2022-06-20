@@ -281,6 +281,10 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
     return tryCatchRanges;
   }
 
+  public CfInstruction getInstruction(int index) {
+    return instructions.get(index);
+  }
+
   public List<CfInstruction> getInstructions() {
     return Collections.unmodifiableList(instructions);
   }
@@ -380,7 +384,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
     // In cf to cf desugar we do pass through of code and don't move around methods.
     // TODO(b/169115389): Remove when we have a way to determine if we need parameter names per
     // method.
-    if (appView.options().cfToCfDesugar) {
+    if (appView.options().isCfDesugaring()) {
       return false;
     }
 
@@ -978,7 +982,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       if (instruction.isLabel()) {
         helper.seenLabel(instruction.asLabel());
       }
-      state = instruction.evaluate(state, appView, helper, appView.dexItemFactory());
+      state = instruction.evaluate(state, appView, helper);
       if (instruction.isJumpWithNormalTarget()) {
         CfInstruction fallthroughInstruction =
             (i + 1) < instructions.size() ? instructions.get(i + 1) : null;
@@ -1046,7 +1050,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       DexMethod previousMethodSignature,
       boolean previousMethodSignatureIsInstance) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    CfFrameState state = ConcreteCfFrameState.bottom();
+    CfFrameState state = new ConcreteCfFrameState();
     int localIndex = 0;
     if (previousMethodSignatureIsInstance) {
       state =

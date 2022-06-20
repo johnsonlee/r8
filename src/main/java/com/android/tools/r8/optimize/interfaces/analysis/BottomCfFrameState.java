@@ -30,18 +30,18 @@ public class BottomCfFrameState extends CfFrameState {
   }
 
   @Override
-  public CfFrameState check(AppView<?> appView, CfFrame frame) {
-    return new ConcreteCfFrameState().check(appView, frame);
+  public CfFrameState check(CfAnalysisConfig config, CfFrame frame) {
+    return this;
   }
 
   @Override
-  public CfFrameState checkLocals(AppView<?> appView, CfFrame frame) {
-    return new ConcreteCfFrameState().checkLocals(appView, frame);
+  public CfFrameState checkLocals(CfAnalysisConfig config, CfFrame frame) {
+    return this;
   }
 
   @Override
-  public CfFrameState checkStack(AppView<?> appView, CfFrame frame) {
-    return new ConcreteCfFrameState().checkStack(appView, frame);
+  public CfFrameState checkStack(CfAnalysisConfig config, CfFrame frame) {
+    return this;
   }
 
   @Override
@@ -52,66 +52,73 @@ public class BottomCfFrameState extends CfFrameState {
   @Override
   public CfFrameState markInitialized(
       UninitializedFrameType uninitializedType, DexType initializedType) {
-    // Initializing an uninitialized type is a no-op when the frame is empty.
     return this;
   }
 
   @Override
-  public ErroneousCfFrameState pop() {
-    return error("Unexpected pop from empty stack");
+  public CfFrameState pop() {
+    return this;
   }
 
   @Override
-  public ErroneousCfFrameState pop(BiFunction<CfFrameState, PreciseFrameType, CfFrameState> fn) {
-    return pop();
+  public CfFrameState pop(BiFunction<CfFrameState, PreciseFrameType, CfFrameState> fn) {
+    return this;
   }
 
   @Override
-  public ErroneousCfFrameState popAndInitialize(
+  public CfFrameState popAndInitialize(
       AppView<?> appView, DexMethod constructor, CfAnalysisConfig config) {
-    return pop();
+    return this;
   }
 
   @Override
-  public ErroneousCfFrameState popArray(AppView<?> appView) {
-    return pop();
+  public CfFrameState popArray(AppView<?> appView) {
+    return this;
   }
 
   @Override
-  public ErroneousCfFrameState popInitialized(
+  public CfFrameState popInitialized(
       AppView<?> appView,
+      CfAnalysisConfig config,
       DexType expectedType,
       BiFunction<CfFrameState, PreciseFrameType, CfFrameState> fn) {
-    return pop();
+    return this;
   }
 
   @Override
-  public CfFrameState popInitialized(AppView<?> appView, DexType... expectedTypes) {
-    return expectedTypes.length == 0 ? this : pop();
+  public CfFrameState popInitialized(
+      AppView<?> appView, CfAnalysisConfig config, DexType... expectedTypes) {
+    return this;
   }
 
   @Override
   public CfFrameState push(CfAnalysisConfig config, DexType type) {
-    return new ConcreteCfFrameState().push(config, type);
+    return this;
   }
 
   @Override
   public CfFrameState push(CfAnalysisConfig config, PreciseFrameType frameType) {
-    return new ConcreteCfFrameState().push(config, frameType);
+    return this;
   }
 
   @Override
-  public ErroneousCfFrameState readLocal(
+  public CfFrameState pushException(CfAnalysisConfig config, DexType guard) {
+    return this;
+  }
+
+  @Override
+  public CfFrameState readLocal(
       AppView<?> appView,
+      CfAnalysisConfig config,
       int localIndex,
       ValueType expectedType,
       BiFunction<CfFrameState, FrameType, CfFrameState> fn) {
-    return error("Unexpected local read from empty frame");
+    return this;
   }
 
   @Override
   public CfFrameState storeLocal(int localIndex, FrameType frameType, CfAnalysisConfig config) {
-    return new ConcreteCfFrameState().storeLocal(localIndex, frameType, config);
+    return this;
   }
 
   @Override

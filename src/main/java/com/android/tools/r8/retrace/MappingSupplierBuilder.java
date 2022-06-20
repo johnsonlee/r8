@@ -4,18 +4,15 @@
 
 package com.android.tools.r8.retrace;
 
-import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.Keep;
 
 @Keep
-public abstract class MappingProviderBuilder<
-    P extends MappingProvider, T extends MappingProviderBuilder<P, T>> {
+public abstract class MappingSupplierBuilder<
+    P extends MappingSupplier, T extends MappingSupplierBuilder<P, T>> {
 
   public abstract T self();
 
   public abstract T setAllowExperimental(boolean allowExperimental);
-
-  public abstract T setDiagnosticsHandler(DiagnosticsHandler diagnosticsHandler);
 
   public abstract P build();
 }

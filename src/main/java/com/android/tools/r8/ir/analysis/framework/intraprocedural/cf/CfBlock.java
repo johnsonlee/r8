@@ -6,9 +6,13 @@ package com.android.tools.r8.ir.analysis.framework.intraprocedural.cf;
 
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SetUtils;
+import com.android.tools.r8.utils.StringUtils;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -18,6 +22,9 @@ public class CfBlock {
 
   // The CfCode instruction index of the block's first instruction.
   int firstInstructionIndex = -1;
+
+  // The CfCode instruction index of the block's first throwing instruction.
+  int firstThrowingInstructionIndex = -1;
 
   // The CfCode instruction index of the block's last instruction.
   int lastInstructionIndex = -1;
@@ -30,7 +37,7 @@ public class CfBlock {
   final List<CfBlock> exceptionalPredecessors = new ArrayList<>();
 
   // The exceptional successors of the block (i.e., the catch handlers of the block).
-  final List<CfBlock> exceptionalSuccessors = new ArrayList<>();
+  final LinkedHashMap<DexType, CfBlock> exceptionalSuccessors = new LinkedHashMap<>();
 
   public CfInstruction getFallthroughInstruction(CfCode code) {
     int fallthroughInstructionIndex = getLastInstructionIndex() + 1;
@@ -41,6 +48,14 @@ public class CfBlock {
 
   public int getFirstInstructionIndex() {
     return firstInstructionIndex;
+  }
+
+  public boolean hasThrowingInstruction() {
+    return firstThrowingInstructionIndex >= 0;
+  }
+
+  public int getFirstThrowingInstructionIndex() {
+    return firstThrowingInstructionIndex;
   }
 
   public CfInstruction getLastInstruction(CfCode code) {
@@ -55,16 +70,28 @@ public class CfBlock {
     return predecessors;
   }
 
-  // TODO(b/214496607): This currently only encodes the graph, but we likely need to include the
-  //  guard types here.
   public List<CfBlock> getExceptionalPredecessors() {
     return exceptionalPredecessors;
   }
 
-  // TODO(b/214496607): This currently only encodes the graph, but we likely need to include the
-  //  guard types here.
-  public List<CfBlock> getExceptionalSuccessors() {
+  public LinkedHashMap<DexType, CfBlock> getExceptionalSuccessors() {
     return exceptionalSuccessors;
+  }
+
+  @Override
+  public String toString() {
+    List<String> predecessorStrings = new ArrayList<>();
+    predecessors.forEach(p -> predecessorStrings.add(p.getRangeString()));
+    exceptionalPredecessors.forEach(p -> predecessorStrings.add("*" + p.getRangeString()));
+    return "CfBlock(range="
+        + getRangeString()
+        + ", predecessors="
+        + StringUtils.join(", ", predecessorStrings)
+        + ")";
+  }
+
+  private String getRangeString() {
+    return firstInstructionIndex + "->" + lastInstructionIndex;
   }
 
   // A mutable interface for block construction.
@@ -78,22 +105,35 @@ public class CfBlock {
       exceptionalPredecessors.add(block);
     }
 
-    void addExceptionalSuccessor(CfBlock block) {
-      exceptionalSuccessors.add(block);
+    void addExceptionalSuccessor(CfBlock block, DexType guard) {
+      assert !exceptionalSuccessors.containsKey(guard);
+      exceptionalSuccessors.put(guard, block);
     }
 
     void setFirstInstructionIndex(int firstInstructionIndex) {
       this.firstInstructionIndex = firstInstructionIndex;
     }
 
+    void setFirstThrowingInstructionIndex(int firstThrowingInstructionIndex) {
+      this.firstThrowingInstructionIndex = firstThrowingInstructionIndex;
+    }
+
     void setLastInstructionIndex(int lastInstructionIndex) {
       this.lastInstructionIndex = lastInstructionIndex;
     }
 
-    boolean validate() {
+    boolean validate(CfControlFlowGraph cfg, InternalOptions options) {
       assert 0 <= firstInstructionIndex;
       assert firstInstructionIndex <= lastInstructionIndex;
+      assert firstThrowingInstructionIndex < 0
+          || firstInstructionIndex <= firstThrowingInstructionIndex;
+      assert firstThrowingInstructionIndex < 0
+          || firstThrowingInstructionIndex <= lastInstructionIndex;
       assert SetUtils.newIdentityHashSet(predecessors).size() == predecessors.size();
+      assert this == cfg.getEntryBlock()
+          || !predecessors.isEmpty()
+          || !exceptionalPredecessors.isEmpty()
+          || options.getCfCodeAnalysisOptions().isUnreachableCfBlocksAllowed();
       return true;
     }
   }

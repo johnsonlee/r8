@@ -126,15 +126,12 @@ public class CfInstanceOf extends CfInstruction implements CfTypeInstruction {
   }
 
   @Override
-  public CfFrameState evaluate(
-      CfFrameState frame,
-      AppView<?> appView,
-      CfAnalysisConfig config,
-      DexItemFactory dexItemFactory) {
+  public CfFrameState evaluate(CfFrameState frame, AppView<?> appView, CfAnalysisConfig config) {
     // ..., objectref →
     // ..., result
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
     return frame
-        .popInitialized(appView, dexItemFactory.objectType)
+        .popInitialized(appView, config, dexItemFactory.objectType)
         .push(config, dexItemFactory.intType);
   }
 }

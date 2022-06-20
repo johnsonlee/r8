@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import org.junit.Test;
@@ -45,7 +46,7 @@ public class ChannelSetTest extends DesugaredLibraryTestBase {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
 
-  private static final String EXPECTED_RESULT =
+  private static final String EXPECTED_RESULT_DESUGARING =
       StringUtils.lines(
           "bytes written: 11",
           "String written: Hello World",
@@ -54,7 +55,17 @@ public class ChannelSetTest extends DesugaredLibraryTestBase {
           "bytes read: 11",
           "String read: Hello World",
           "unsupported");
-  private static final String EXPECTED_RESULT_26 =
+  private static final String EXPECTED_RESULT_DESUGARING_PLATFORM_FILE_SYSTEM =
+      StringUtils.lines(
+          "bytes written: 11",
+          "String written: Hello World",
+          "bytes read: 11",
+          "String read: Hello World",
+          "bytes read: 11",
+          "String read: Hello World",
+          "bytes read: 11",
+          "String read: Hello World");
+  private static final String EXPECTED_RESULT_NO_DESUGARING =
       StringUtils.lines(
           "bytes written: 11",
           "String written: Hello World",
@@ -97,7 +108,7 @@ public class ChannelSetTest extends DesugaredLibraryTestBase {
   }
 
   @Test
-  public void test() throws Exception {
+  public void test() throws Throwable {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
         .addProgramClasses(TestClass.class)
         .setCustomLibrarySpecification(
@@ -113,9 +124,12 @@ public class ChannelSetTest extends DesugaredLibraryTestBase {
   }
 
   private String getExpectedResult() {
-    return parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O)
-        ? EXPECTED_RESULT_26
-        : EXPECTED_RESULT;
+    if (!libraryDesugaringSpecification.hasNioFileDesugaring(parameters)) {
+      return EXPECTED_RESULT_NO_DESUGARING;
+    }
+    return libraryDesugaringSpecification.usesPlatformFileSystem(parameters)
+        ? EXPECTED_RESULT_DESUGARING_PLATFORM_FILE_SYSTEM
+        : EXPECTED_RESULT_DESUGARING;
   }
 
   public static class CustomLib {
@@ -163,12 +177,20 @@ public class ChannelSetTest extends DesugaredLibraryTestBase {
           pathWrapper.getFileSystem().provider().newFileChannel(pathWrapper, openOptions)) {
         readFromChannel(channel, hello.length());
       }
+      ExecutorService executor;
+      try {
+        executor = ForkJoinPool.commonPool();
+      } catch (Throwable t) {
+        // ForkJoinPool is not entirely supported below Android 5.
+        System.out.println("unsupported");
+        return;
+      }
       try {
         try (AsynchronousFileChannel channel =
             pathWrapper
                 .getFileSystem()
                 .provider()
-                .newAsynchronousFileChannel(pathWrapper, openOptions, ForkJoinPool.commonPool())) {
+                .newAsynchronousFileChannel(pathWrapper, openOptions, executor)) {
           ByteBuffer byteBuffer = ByteBuffer.allocate(hello.length());
           Future<Integer> readFuture = channel.read(byteBuffer, 0);
           // We force the future to await here with get().

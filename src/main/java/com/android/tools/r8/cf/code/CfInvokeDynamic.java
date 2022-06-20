@@ -167,14 +167,12 @@ public class CfInvokeDynamic extends CfInstruction {
   }
 
   @Override
-  public CfFrameState evaluate(
-      CfFrameState frame,
-      AppView<?> appView,
-      CfAnalysisConfig config,
-      DexItemFactory dexItemFactory) {
+  public CfFrameState evaluate(CfFrameState frame, AppView<?> appView, CfAnalysisConfig config) {
     // ..., [arg1, [arg2 ...]] →
     // ...
-    frame = frame.popInitialized(appView, callSite.getMethodProto().getParameters().getBacking());
+    frame =
+        frame.popInitialized(
+            appView, config, callSite.getMethodProto().getParameters().getBacking());
     DexType returnType = callSite.getMethodProto().getReturnType();
     if (returnType.isVoidType()) {
       return frame;

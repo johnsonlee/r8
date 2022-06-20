@@ -65,7 +65,6 @@ public class ClassNameMapper implements ProguardMap {
 
     private ImmutableMap<String, ClassNamingForNameMapper> buildClassNameMappings() {
       ImmutableMap.Builder<String, ClassNamingForNameMapper> builder = ImmutableMap.builder();
-      builder.orderEntriesByValue(Comparator.comparing(x -> x.originalName));
       mapping.forEach(
           (renamedName, valueBuilder) -> builder.put(renamedName, valueBuilder.build()));
       return builder.build();
@@ -158,6 +157,7 @@ public class ClassNameMapper implements ProguardMap {
 
   public static ClassNameMapper mapperFromLineReaderWithFiltering(
       LineReader reader,
+      MapVersion mapVersion,
       DiagnosticsHandler diagnosticsHandler,
       boolean allowEmptyMappedRanges,
       boolean allowExperimentalMapping)
@@ -167,7 +167,8 @@ public class ClassNameMapper implements ProguardMap {
             reader,
             diagnosticsHandler != null ? diagnosticsHandler : new Reporter(),
             allowEmptyMappedRanges,
-            allowExperimentalMapping)) {
+            allowExperimentalMapping,
+            mapVersion)) {
       ClassNameMapper.Builder builder = ClassNameMapper.builder();
       proguardReader.parse(builder);
       return builder.build();
@@ -177,12 +178,12 @@ public class ClassNameMapper implements ProguardMap {
   private final ImmutableMap<String, ClassNamingForNameMapper> classNameMappings;
   private BiMapContainer<String, String> nameMapping;
   private final Map<Signature, Signature> signatureMap = new HashMap<>();
-  private final Set<MapVersionMappingInformation> mapVersions;
+  private final LinkedHashSet<MapVersionMappingInformation> mapVersions;
   private final Map<String, String> originalSourceFiles;
 
   private ClassNameMapper(
       ImmutableMap<String, ClassNamingForNameMapper> classNameMappings,
-      Set<MapVersionMappingInformation> mapVersions,
+      LinkedHashSet<MapVersionMappingInformation> mapVersions,
       Map<String, String> originalSourceFiles) {
     this.classNameMappings = classNameMappings;
     this.mapVersions = mapVersions;
@@ -240,6 +241,40 @@ public class ClassNameMapper implements ProguardMap {
 
   public String getSourceFile(String typeName) {
     return originalSourceFiles.get(typeName);
+  }
+
+  public ClassNameMapper combine(ClassNameMapper other) {
+    if (other == null || other.isEmpty()) {
+      return this;
+    }
+    if (this.isEmpty()) {
+      return other;
+    }
+    ImmutableMap.Builder<String, ClassNamingForNameMapper> builder = ImmutableMap.builder();
+    Map<String, ClassNamingForNameMapper> otherClassMappings = other.getClassNameMappings();
+    for (Entry<String, ClassNamingForNameMapper> mappingEntry : classNameMappings.entrySet()) {
+      ClassNamingForNameMapper otherMapping = otherClassMappings.get(mappingEntry.getKey());
+      if (otherMapping == null) {
+        builder.put(mappingEntry);
+      } else {
+        builder.put(mappingEntry.getKey(), mappingEntry.getValue().combine(otherMapping));
+      }
+    }
+    otherClassMappings.forEach(
+        (otherMappingClass, otherMapping) -> {
+          // Collisions are handled above so only take non-existing mappings.
+          if (!classNameMappings.containsKey(otherMappingClass)) {
+            builder.put(otherMappingClass, otherMapping);
+          }
+        });
+    LinkedHashSet<MapVersionMappingInformation> newMapVersions =
+        new LinkedHashSet<>(getMapVersions());
+    newMapVersions.addAll(other.getMapVersions());
+    Map<String, String> newSourcesFiles = new HashMap<>(originalSourceFiles);
+    // This will overwrite existing source files but the chance of that happening should be very
+    // slim.
+    newSourcesFiles.putAll(other.originalSourceFiles);
+    return new ClassNameMapper(builder.build(), newMapVersions, newSourcesFiles);
   }
 
   @Override
@@ -381,5 +416,9 @@ public class ClassNameMapper implements ProguardMap {
 
   public Set<MapVersionMappingInformation> getMapVersions() {
     return mapVersions;
+  }
+
+  public MapVersionMappingInformation getFirstMappingInformation() {
+    return mapVersions.isEmpty() ? null : mapVersions.iterator().next();
   }
 }

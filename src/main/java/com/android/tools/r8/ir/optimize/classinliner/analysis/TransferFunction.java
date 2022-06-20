@@ -149,6 +149,16 @@ class TransferFunction
     return predecessorExitState;
   }
 
+  @Override
+  public ParameterUsages computeExceptionalBlockEntryState(
+      BasicBlock block,
+      DexType guard,
+      BasicBlock throwBlock,
+      Instruction throwInstruction,
+      ParameterUsages throwState) {
+    return throwState;
+  }
+
   private ParameterUsages analyzeArgument(Argument argument, ParameterUsages state) {
     // Only consider arguments that could store an instance eligible for class inlining. Note that
     // we can't ignore parameters with a library type, since instances of program classes could

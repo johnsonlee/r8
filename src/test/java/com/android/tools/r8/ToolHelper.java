@@ -15,7 +15,9 @@ import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.ToolHelper.DexVm.Kind;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
+import com.android.tools.r8.desugar.desugaredlibrary.jdk11.ConversionConverter;
 import com.android.tools.r8.desugar.desugaredlibrary.jdk11.DesugaredLibraryJDK11Undesugarer;
+import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.CustomConversionVersion;
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
@@ -187,10 +189,13 @@ public class ToolHelper {
   public static final Path DESUGARED_JDK_11_LIB_JAR =
       Paths.get(OPEN_JDK_DIR + "desugar_jdk_libs_11/desugar_jdk_libs.jar");
 
+  public static Path getConvertedDesugaredLibConversions(CustomConversionVersion legacy) {
+    return ConversionConverter.convertJar(DESUGAR_LIB_CONVERSIONS, legacy);
+  }
+
   public static Path getUndesugaredJdk11LibJarForTesting() {
     return DesugaredLibraryJDK11Undesugarer.undesugaredJarJDK11(
-        Paths.get("build/libs"),
-        Paths.get(OPEN_JDK_DIR + "desugar_jdk_libs_11/desugar_jdk_libs.jar"));
+        Paths.get("build/libs"), DESUGARED_JDK_11_LIB_JAR);
   }
 
   public static boolean isLocalDevelopment() {

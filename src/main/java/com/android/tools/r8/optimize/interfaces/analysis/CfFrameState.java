@@ -12,6 +12,7 @@ import com.android.tools.r8.cf.code.CfFrame;
 import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.cf.code.frame.PreciseFrameType;
 import com.android.tools.r8.cf.code.frame.UninitializedFrameType;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
@@ -72,11 +73,13 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
   }
 
   @Override
-  public boolean isGreaterThanOrEquals(CfFrameState state) {
+  public boolean isGreaterThanOrEquals(AppView<?> appView, CfFrameState state) {
     if (this == state) {
       return true;
     }
-    CfFrameState leastUpperBound = join(state, UnaryOperator.identity());
+    assert appView.hasClassHierarchy();
+    CfFrameState leastUpperBound =
+        join(appView.withClassHierarchy(), state, UnaryOperator.identity());
     return equals(leastUpperBound);
   }
 
@@ -100,11 +103,11 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
     return null;
   }
 
-  public abstract CfFrameState check(AppView<?> appView, CfFrame frame);
+  public abstract CfFrameState check(CfAnalysisConfig config, CfFrame frame);
 
-  public abstract CfFrameState checkLocals(AppView<?> appView, CfFrame frame);
+  public abstract CfFrameState checkLocals(CfAnalysisConfig config, CfFrame frame);
 
-  public abstract CfFrameState checkStack(AppView<?> appView, CfFrame frame);
+  public abstract CfFrameState checkStack(CfAnalysisConfig config, CfFrame frame);
 
   public abstract CfFrameState clear();
 
@@ -120,38 +123,46 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
 
   public abstract CfFrameState popArray(AppView<?> appView);
 
-  public final CfFrameState popInitialized(AppView<?> appView, DexType expectedType) {
-    return popInitialized(appView, expectedType, FunctionUtils::getFirst);
+  public final CfFrameState popInitialized(
+      AppView<?> appView, CfAnalysisConfig config, DexType expectedType) {
+    return popInitialized(appView, config, expectedType, FunctionUtils::getFirst);
   }
 
   public abstract CfFrameState popInitialized(
       AppView<?> appView,
+      CfAnalysisConfig config,
       DexType expectedType,
       BiFunction<CfFrameState, PreciseFrameType, CfFrameState> fn);
 
-  public abstract CfFrameState popInitialized(AppView<?> appView, DexType... expectedTypes);
+  public abstract CfFrameState popInitialized(
+      AppView<?> appView, CfAnalysisConfig config, DexType... expectedTypes);
 
-  public final CfFrameState popInitialized(AppView<?> appView, MemberType memberType) {
+  public final CfFrameState popInitialized(
+      AppView<?> appView, CfAnalysisConfig config, MemberType memberType) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     return popInitialized(
         appView,
+        config,
         FrameType.fromPreciseMemberType(memberType, dexItemFactory)
             .getInitializedType(dexItemFactory));
   }
 
-  public final CfFrameState popInitialized(AppView<?> appView, NumericType expectedType) {
-    return popInitialized(appView, expectedType.toDexType(appView.dexItemFactory()));
+  public final CfFrameState popInitialized(
+      AppView<?> appView, CfAnalysisConfig config, NumericType expectedType) {
+    return popInitialized(appView, config, expectedType.toDexType(appView.dexItemFactory()));
   }
 
-  public final CfFrameState popInitialized(AppView<?> appView, ValueType valueType) {
-    return popInitialized(appView, valueType, FunctionUtils::getFirst);
+  public final CfFrameState popInitialized(
+      AppView<?> appView, CfAnalysisConfig config, ValueType valueType) {
+    return popInitialized(appView, config, valueType, FunctionUtils::getFirst);
   }
 
   public final CfFrameState popInitialized(
       AppView<?> appView,
+      CfAnalysisConfig config,
       ValueType valueType,
       BiFunction<CfFrameState, PreciseFrameType, CfFrameState> fn) {
-    return popInitialized(appView, valueType.toDexType(appView.dexItemFactory()), fn);
+    return popInitialized(appView, config, valueType.toDexType(appView.dexItemFactory()), fn);
   }
 
   public final CfFrameState popObject(BiFunction<CfFrameState, PreciseFrameType, CfFrameState> fn) {
@@ -162,17 +173,16 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
 
   @SuppressWarnings("InconsistentOverloads")
   public final CfFrameState popObject(
-      AppView<?> appView,
       DexType expectedType,
       CfAnalysisConfig config,
       BiFunction<CfFrameState, PreciseFrameType, CfFrameState> fn) {
+    CfAssignability assignability = config.getAssignability();
     return pop(
         (state, head) ->
             head.isObject()
-                    && CfAssignability.isAssignable(
+                    && assignability.isAssignable(
                         head.getObjectType(config.getCurrentContext().getHolderType()),
-                        expectedType,
-                        appView)
+                        expectedType)
                 ? fn.apply(state, head)
                 : errorUnexpectedStack(head, expectedType));
   }
@@ -288,8 +298,11 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
     return push(config, valueType.toDexType(appView.dexItemFactory()));
   }
 
+  public abstract CfFrameState pushException(CfAnalysisConfig config, DexType guard);
+
   public abstract CfFrameState readLocal(
       AppView<?> appView,
+      CfAnalysisConfig config,
       int localIndex,
       ValueType expectedType,
       BiFunction<CfFrameState, FrameType, CfFrameState> consumer);
@@ -313,13 +326,18 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
   }
 
   @Override
-  public final CfFrameState join(CfFrameState state) {
+  public final CfFrameState join(AppView<?> appView, CfFrameState state) {
+    assert appView.hasClassHierarchy();
     return join(
-        state, frameType -> frameType.isSingle() ? FrameType.oneWord() : FrameType.twoWord());
+        appView.withClassHierarchy(),
+        state,
+        frameType -> frameType.isSingle() ? FrameType.oneWord() : FrameType.twoWord());
   }
 
   public final CfFrameState join(
-      CfFrameState state, UnaryOperator<FrameType> joinWithMissingLocal) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      CfFrameState state,
+      UnaryOperator<FrameType> joinWithMissingLocal) {
     if (state.isBottom() || isError()) {
       return this;
     }
@@ -328,7 +346,7 @@ public abstract class CfFrameState extends AbstractState<CfFrameState> {
     }
     assert isConcrete();
     assert state.isConcrete();
-    return asConcrete().join(state.asConcrete(), joinWithMissingLocal);
+    return asConcrete().join(appView, state.asConcrete(), joinWithMissingLocal);
   }
 
   @Override

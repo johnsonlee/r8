@@ -1100,8 +1100,14 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
             .build());
   }
 
+  public DexEncodedMethod toForwardingMethod(DexClass newHolder, AppView<?> definitions) {
+    return toForwardingMethod(newHolder, definitions, ConsumerUtils.emptyConsumer());
+  }
+
   public DexEncodedMethod toForwardingMethod(
-      DexClass newHolder, DexDefinitionSupplier definitions) {
+      DexClass newHolder,
+      AppView<?> definitions,
+      Consumer<DexEncodedMethod.Builder> builderConsumer) {
     DexMethod newMethod = getReference().withHolder(newHolder, definitions.dexItemFactory());
     checkIfObsolete();
 
@@ -1147,6 +1153,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
                     .modifyAccessFlags(MethodAccessFlags::setBridge))
         .setIsLibraryMethodOverrideIf(
             !isStatic() && !isLibraryMethodOverride().isUnknown(), isLibraryMethodOverride())
+        .apply(builderConsumer)
         .build();
   }
 
@@ -1471,6 +1478,16 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       }
 
       if (argumentInfoCollection.hasArgumentPermutation()) {
+        // If we have missing parameter annotations we cannot reliably reorder without handling
+        // missing annotations. We could introduce empty annotations to fill in empty spots but the
+        // missing parameters are only bridged in the reflection api for enums or local/anonymous
+        // classes and permuting such method arguments destroys the "invariant" that these are
+        // shifted.
+        // Having a keep on the members will automatically remove the permutation so the developer
+        // can easily recover.
+        if (newNumberOfMissingParameterAnnotations > 0) {
+          return setParameterAnnotations(ParameterAnnotationsList.empty());
+        }
         List<DexAnnotationSet> newPermutedParameterAnnotations =
             Arrays.asList(new DexAnnotationSet[method.getParameters().size()]);
         for (int parameterIndex = newNumberOfMissingParameterAnnotations;
