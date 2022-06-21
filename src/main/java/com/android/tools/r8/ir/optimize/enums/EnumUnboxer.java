@@ -532,20 +532,21 @@ public class EnumUnboxer {
           }
         }
         if (invokeMethod.isInvokeMethodWithReceiver()) {
-          DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(invokedMethod.holder);
+          DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(invokedMethod.getHolderType());
           if (enumClass != null) {
             markEnumAsUnboxable(Reason.ENUM_METHOD_CALLED_WITH_NULL_RECEIVER, enumClass);
           }
         }
       } else if (use.isFieldPut()) {
-        DexType type = use.asFieldInstruction().getField().type;
-        if (enumUnboxingCandidatesInfo.isCandidate(type)) {
-          eligibleEnums.add(type);
+        DexProgramClass enumClass =
+            getEnumUnboxingCandidateOrNull(use.asFieldInstruction().getField().getType());
+        if (enumClass != null) {
+          eligibleEnums.add(enumClass.getType());
         }
       } else if (use.isReturn()) {
-        DexType returnType = code.method().getReference().proto.returnType;
-        if (enumUnboxingCandidatesInfo.isCandidate(returnType)) {
-          eligibleEnums.add(returnType);
+        DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(code.context().getReturnType());
+        if (enumClass != null) {
+          eligibleEnums.add(enumClass.getType());
         }
       }
     }
