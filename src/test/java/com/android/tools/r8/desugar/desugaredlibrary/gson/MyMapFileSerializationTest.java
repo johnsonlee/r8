@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.gson;
 
+import static com.android.tools.r8.desugar.desugaredlibrary.gson.GsonDesugaredLibraryTestUtils.uniqueName;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
 
@@ -64,18 +65,11 @@ public class MyMapFileSerializationTest extends DesugaredLibraryTestBase {
         .noMinification()
         .compile()
         .withArt6Plus64BitsLib()
-        .run(parameters.getRuntime(), Executor.class, uniqueName())
+        .run(
+            parameters.getRuntime(),
+            Executor.class,
+            uniqueName(temp, libraryDesugaringSpecification, compilationSpecification, parameters))
         .assertSuccessWithOutput(EXPECTED_RESULT);
-  }
-
-  private String uniqueName() {
-    return libraryDesugaringSpecification.toString()
-        + "_"
-        + compilationSpecification.toString()
-        + "_"
-        + parameters.getRuntime()
-        + "_"
-        + parameters.getApiLevel();
   }
 
   @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
@@ -86,10 +80,7 @@ public class MyMapFileSerializationTest extends DesugaredLibraryTestBase {
       MyMap<String, String> map = new MyMap<>();
       map.put("k1", "v1");
       map.put("k2", "v2");
-      // It seems the FileSystem is shared across multiple VM runs at least on some VMs.
-      // There is no easy way to create a temp file that works on all VM/configurations.
-      // We pass a unique string as parameter that we use for the file name.
-      File file = new File("test_" + args[0]);
+      File file = new File(args[0]);
 
       FileOutputStream fos = new FileOutputStream(file);
       ObjectOutputStream oos = new ObjectOutputStream(fos);
