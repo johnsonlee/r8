@@ -76,12 +76,17 @@ public abstract class BaseFrameType implements FrameType {
   }
 
   @Override
+  public NullFrameType asNullType() {
+    return null;
+  }
+
+  @Override
   public boolean isObject() {
     return false;
   }
 
   @Override
-  public DexType getObjectType(DexType context) {
+  public DexType getObjectType(DexItemFactory dexItemFactory, DexType context) {
     assert false : "Unexpected use of getObjectType() for non-object FrameType";
     return null;
   }
@@ -135,6 +140,38 @@ public abstract class BaseFrameType implements FrameType {
 
   @Override
   public InitializedReferenceFrameType asInitializedReferenceType() {
+    return null;
+  }
+
+  @Override
+  public boolean isInitializedNonNullReferenceType() {
+    return false;
+  }
+
+  @Override
+  public InitializedNonNullReferenceFrameType asInitializedNonNullReferenceType() {
+    return null;
+  }
+
+  @Override
+  public boolean isInitializedNonNullReferenceTypeWithoutInterfaces() {
+    return false;
+  }
+
+  @Override
+  public InitializedNonNullReferenceFrameTypeWithoutInterfaces
+      asInitializedNonNullReferenceTypeWithoutInterfaces() {
+    return null;
+  }
+
+  @Override
+  public boolean isInitializedNonNullReferenceTypeWithInterfaces() {
+    return false;
+  }
+
+  @Override
+  public InitializedNonNullReferenceFrameTypeWithInterfaces
+      asInitializedNonNullReferenceTypeWithInterfaces() {
     return null;
   }
 

@@ -17,13 +17,16 @@ import com.android.tools.r8.cf.code.frame.PreciseFrameType;
 import com.android.tools.r8.cf.code.frame.SingleFrameType;
 import com.android.tools.r8.cf.code.frame.UninitializedFrameType;
 import com.android.tools.r8.cf.code.frame.WideFrameType;
+import com.android.tools.r8.cf.code.frame.WidePrimitiveFrameType;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.FunctionUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.ints.Int2ObjectAVLTreeMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -35,6 +38,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 public class ConcreteCfFrameState extends CfFrameState {
@@ -77,6 +81,9 @@ public class ConcreteCfFrameState extends CfFrameState {
         config.getAssignability().isFrameAssignable(currentFrame, frame);
     if (assignabilityResult.isFailed()) {
       return error(assignabilityResult.asFailed().getMessage());
+    }
+    if (config.isStrengthenFramesEnabled()) {
+      return this;
     }
     CfFrame frameCopy = frame.mutableCopy();
     return new ConcreteCfFrameState(
@@ -133,6 +140,29 @@ public class ConcreteCfFrameState extends CfFrameState {
               : frameType);
     }
     return new ConcreteCfFrameState(locals, newStack, stackHeight);
+  }
+
+  public void peekStackElement(Consumer<PreciseFrameType> consumer, InternalOptions options) {
+    if (!stack.isEmpty()) {
+      consumer.accept(stack.peekLast());
+    } else {
+      assert options.getTestingOptions().allowTypeErrors;
+    }
+  }
+
+  public void peekStackElements(
+      int number, Consumer<Deque<PreciseFrameType>> consumer, InternalOptions options) {
+    if (stack.size() >= number) {
+      Deque<PreciseFrameType> result = new ArrayDeque<>(number);
+      Iterator<PreciseFrameType> iterator = stack.descendingIterator();
+      while (iterator.hasNext() && number > 0) {
+        result.addFirst(iterator.next());
+        number--;
+      }
+      consumer.accept(result);
+    } else {
+      assert options.getTestingOptions().allowTypeErrors;
+    }
   }
 
   @Override
@@ -202,11 +232,23 @@ public class ConcreteCfFrameState extends CfFrameState {
   }
 
   private static boolean isArrayTypeOrNull(FrameType frameType) {
-    if (frameType.isInitializedReferenceType()
-        && frameType.asInitializedReferenceType().getInitializedType().isArrayType()) {
-      return true;
+    if (frameType.isInitializedReferenceType()) {
+      if (frameType.isNullType()) {
+        return true;
+      } else if (frameType.isInitializedNonNullReferenceTypeWithInterfaces()) {
+        return frameType
+            .asInitializedNonNullReferenceTypeWithInterfaces()
+            .getInitializedTypeWithInterfaces()
+            .isArrayType();
+      } else {
+        assert frameType.isInitializedNonNullReferenceTypeWithoutInterfaces();
+        return frameType
+            .asInitializedNonNullReferenceTypeWithoutInterfaces()
+            .getInitializedType()
+            .isArrayType();
+      }
     }
-    return frameType.isNullType();
+    return false;
   }
 
   @Override
@@ -244,6 +286,11 @@ public class ConcreteCfFrameState extends CfFrameState {
   }
 
   @Override
+  public CfFrameState push(CfAnalysisConfig config, TypeElement type) {
+    return push(config, FrameType.initialized(type));
+  }
+
+  @Override
   public CfFrameState push(CfAnalysisConfig config, PreciseFrameType frameType) {
     int newStackHeight = stackHeight + frameType.getWidth();
     if (newStackHeight > config.getMaxStack()) {
@@ -270,7 +317,7 @@ public class ConcreteCfFrameState extends CfFrameState {
     ArrayDeque<PreciseFrameType> newStack = new ArrayDeque<>();
     int newStackHeight = 0;
     return new ConcreteCfFrameState(newLocals, newStack, newStackHeight)
-        .push(config, FrameType.initialized(guard));
+        .push(config, FrameType.initializedNonNullReference(guard));
   }
 
   @Override
@@ -345,32 +392,18 @@ public class ConcreteCfFrameState extends CfFrameState {
     ObjectBidirectionalIterator<Entry<FrameType>> otherIterator =
         locals.int2ObjectEntrySet().iterator();
     while (iterator.hasNext() && otherIterator.hasNext()) {
-      Entry<FrameType> entry = nextLocal(iterator);
+      Entry<FrameType> entry = iterator.next();
       int localIndex = entry.getIntKey();
       FrameType frameType = entry.getValue();
 
-      Entry<FrameType> otherEntry = nextLocal(otherIterator);
+      Entry<FrameType> otherEntry = otherIterator.next();
       int otherLocalIndex = otherEntry.getIntKey();
       FrameType otherFrameType = otherEntry.getValue();
 
       if (localIndex < otherLocalIndex) {
-        joinLocalsWithDifferentIndices(
-            localIndex,
-            frameType,
-            otherLocalIndex,
-            otherFrameType,
-            iterator,
-            otherIterator,
-            builder);
+        joinLocalsWithDifferentIndices(localIndex, otherLocalIndex, otherIterator, builder);
       } else if (otherLocalIndex < localIndex) {
-        joinLocalsWithDifferentIndices(
-            otherLocalIndex,
-            otherFrameType,
-            localIndex,
-            frameType,
-            otherIterator,
-            iterator,
-            builder);
+        joinLocalsWithDifferentIndices(otherLocalIndex, localIndex, iterator, builder);
       } else {
         joinLocalsWithSameIndex(
             localIndex, frameType, otherFrameType, iterator, otherIterator, appView, builder);
@@ -382,31 +415,12 @@ public class ConcreteCfFrameState extends CfFrameState {
 
   private void joinLocalsWithDifferentIndices(
       int localIndex,
-      FrameType frameType,
       int otherLocalIndex,
-      FrameType otherFrameType,
-      ObjectBidirectionalIterator<Entry<FrameType>> iterator,
       ObjectBidirectionalIterator<Entry<FrameType>> otherIterator,
       CfFrame.Builder builder) {
     assert localIndex < otherLocalIndex;
-
-    // Check if the smaller local does not overlap with the larger local.
-    if (frameType.isSingle() || localIndex + 1 < otherLocalIndex) {
-      setLocalToTop(localIndex, frameType, builder);
-      previousLocal(otherIterator);
-      return;
-    }
-
-    // The smaller local is a wide that overlaps with the larger local.
-    setLocalToTop(localIndex, frameType, builder);
-
-    // If the larger local is a wide, then its high part is no longer usable. We also need to handle
-    // overlapping of the other local and the next local in the iterator.
-    if (otherFrameType.isWide()) {
-      int lastLocalIndexMarkedTop = otherLocalIndex + 1;
-      setSingleLocalToTop(lastLocalIndexMarkedTop, builder);
-      handleOverlappingLocals(lastLocalIndexMarkedTop, iterator, otherIterator, builder);
-    }
+    setSingleLocalToTop(localIndex, builder);
+    otherIterator.previous();
   }
 
   private void joinLocalsWithSameIndex(
@@ -422,16 +436,19 @@ public class ConcreteCfFrameState extends CfFrameState {
         joinSingleLocalsWithSameIndex(
             localIndex, frameType.asSingle(), otherFrameType.asSingle(), appView, builder);
       } else {
-        setWideLocalToTop(localIndex, builder);
-        handleOverlappingLocals(localIndex + 1, iterator, otherIterator, builder);
+        joinSingleAndWideLocalsWithSameIndex(localIndex, builder);
       }
     } else {
       if (otherFrameType.isWide()) {
         joinWideLocalsWithSameIndex(
-            localIndex, frameType.asWide(), otherFrameType.asWide(), builder);
+            localIndex,
+            frameType.asWidePrimitive(),
+            otherFrameType.asWidePrimitive(),
+            iterator,
+            otherIterator,
+            builder);
       } else {
-        setWideLocalToTop(localIndex, builder);
-        handleOverlappingLocals(localIndex + 1, otherIterator, iterator, builder);
+        joinSingleAndWideLocalsWithSameIndex(localIndex, builder);
       }
     }
   }
@@ -445,103 +462,78 @@ public class ConcreteCfFrameState extends CfFrameState {
     builder.store(localIndex, frameType.join(appView, otherFrameType));
   }
 
-  private void joinWideLocalsWithSameIndex(
-      int localIndex,
-      WideFrameType frameType,
-      WideFrameType otherFrameType,
-      CfFrame.Builder builder) {
-    WideFrameType join = frameType.join(otherFrameType);
-    if (join.isPrecise()) {
-      builder.store(localIndex, join);
-    } else {
-      assert join.isTwoWord();
-      setWideLocalToTop(localIndex, builder);
-    }
+  private void joinSingleAndWideLocalsWithSameIndex(int localIndex, CfFrame.Builder builder) {
+    setSingleLocalToTop(localIndex, builder);
   }
 
-  // TODO(b/231521474): By splitting each wide type into single left/right types, the join of each
-  //  (single) local index can be determined by looking at only locals[i] and otherLocals[i] (i.e.,
-  //  there is no carry-over). Thus this entire method could be avoided.
-  private void handleOverlappingLocals(
-      int lastLocalIndexMarkedTop,
+  private void joinWideLocalsWithSameIndex(
+      int localIndex,
+      WidePrimitiveFrameType frameType,
+      WidePrimitiveFrameType otherFrameType,
       ObjectBidirectionalIterator<Entry<FrameType>> iterator,
       ObjectBidirectionalIterator<Entry<FrameType>> otherIterator,
       CfFrame.Builder builder) {
-    ObjectBidirectionalIterator<Entry<FrameType>> currentIterator = iterator;
-    while (currentIterator.hasNext()) {
-      Entry<FrameType> entry = nextLocal(currentIterator);
-      int currentLocalIndex = entry.getIntKey();
-      FrameType currentFrameType = entry.getValue();
-
-      // Check if this local overlaps with the previous wide local that was set to top. If not, then
-      // this local is not affected.
-      if (lastLocalIndexMarkedTop < currentLocalIndex) {
-        // The current local still needs to be handled, thus this rewinds the iterator.
-        previousLocal(currentIterator);
-        break;
-      }
-
-      // Verify that the low part of the current local has been set to top.
-      assert builder.hasLocal(currentLocalIndex);
-      assert builder.getLocal(currentLocalIndex).isOneWord();
-
-      // If the current local is not a wide, then we're done.
-      if (currentFrameType.isSingle()) {
-        // The current local has become top due to the overlap with a wide local. Therefore, this
-        // intentionally does not rewind the iterator.
-        break;
-      }
-
-      // The current local is a wide. We mark its high local index as top due to the overlap, and
-      // check if this wide local overlaps with a wide local in the other locals.
-      lastLocalIndexMarkedTop = currentLocalIndex + 1;
-      setSingleLocalToTop(lastLocalIndexMarkedTop, builder);
-      currentIterator = currentIterator == iterator ? otherIterator : iterator;
+    if (frameType.isWidePrimitiveLow() != otherFrameType.isWidePrimitiveLow()) {
+      setSingleLocalToTop(localIndex, builder);
+      return;
     }
+    if (frameType == otherFrameType) {
+      builder.store(localIndex, frameType);
+    } else {
+      setWideLocalToTop(localIndex, builder);
+    }
+    acceptWidePrimitiveHigh(localIndex, frameType, iterator);
+    acceptWidePrimitiveHigh(localIndex, otherFrameType, otherIterator);
+  }
+
+  private void acceptWidePrimitiveHigh(
+      int localIndex,
+      WidePrimitiveFrameType frameType,
+      ObjectBidirectionalIterator<Entry<FrameType>> iterator) {
+    assert iterator.hasNext();
+    Entry<FrameType> entry = iterator.next();
+    int nextLocalIndex = entry.getIntKey();
+    assert nextLocalIndex == localIndex + 1;
+    FrameType nextFrameType = entry.getValue();
+    assert nextFrameType == frameType.getHighType();
   }
 
   private void joinLocalsOnlyPresentInOne(
       ObjectBidirectionalIterator<Entry<FrameType>> iterator,
       CfFrame.Builder builder,
       UnaryOperator<FrameType> joinWithMissingLocal) {
+    if (!iterator.hasNext()) {
+      return;
+    }
+    Entry<FrameType> firstEntry = iterator.next();
+    if (firstEntry.getValue().isWidePrimitiveHigh()) {
+      setSingleLocalToTop(firstEntry.getIntKey(), builder);
+    } else {
+      joinLocalOnlyPresentInOne(iterator, firstEntry, builder, joinWithMissingLocal);
+    }
     while (iterator.hasNext()) {
-      Entry<FrameType> entry = nextLocal(iterator);
-      int localIndex = entry.getIntKey();
-      FrameType frameType = entry.getValue();
-      FrameType joinFrameType = joinWithMissingLocal.apply(frameType);
-      assert joinFrameType.isSingle() == frameType.isSingle();
-      if (joinFrameType.isOneWord() || joinFrameType.isTwoWord()) {
-        setLocalToTop(localIndex, joinFrameType, builder);
-      } else {
-        builder.store(localIndex, joinFrameType);
-      }
+      Entry<FrameType> entry = iterator.next();
+      joinLocalOnlyPresentInOne(iterator, entry, builder, joinWithMissingLocal);
     }
   }
 
-  private Entry<FrameType> nextLocal(ObjectBidirectionalIterator<Entry<FrameType>> iterator) {
-    Entry<FrameType> entry = iterator.next();
+  private void joinLocalOnlyPresentInOne(
+      ObjectBidirectionalIterator<Entry<FrameType>> iterator,
+      Entry<FrameType> entry,
+      CfFrame.Builder builder,
+      UnaryOperator<FrameType> joinWithMissingLocal) {
+    int localIndex = entry.getIntKey();
     FrameType frameType = entry.getValue();
-    if (frameType.isWidePrimitive()) {
-      assert frameType.isDoubleLow() || frameType.isLongLow();
-      Entry<FrameType> highEntry = iterator.next();
-      assert highEntry.getIntKey() == entry.getIntKey() + 1;
-      assert highEntry.getValue() == frameType.asWidePrimitive().getHighType();
-    } else {
-      assert !frameType.isWide();
+    assert !frameType.isWidePrimitiveHigh();
+    if (frameType.isWidePrimitiveLow()) {
+      acceptWidePrimitiveHigh(localIndex, frameType.asWidePrimitive(), iterator);
     }
-    return entry;
-  }
-
-  private void previousLocal(ObjectBidirectionalIterator<Entry<FrameType>> iterator) {
-    Entry<FrameType> entry = iterator.previous();
-    FrameType frameType = entry.getValue();
-    if (frameType.isWidePrimitive()) {
-      assert frameType.isDoubleHigh() || frameType.isLongHigh();
-      Entry<FrameType> lowEntry = iterator.previous();
-      assert lowEntry.getIntKey() == entry.getIntKey() - 1;
-      assert lowEntry.getValue() == frameType.asWidePrimitive().getLowType();
+    FrameType joinFrameType = joinWithMissingLocal.apply(frameType);
+    assert joinFrameType.isSingle() == frameType.isSingle();
+    if (joinFrameType.isOneWord() || joinFrameType.isTwoWord()) {
+      setLocalToTop(localIndex, joinFrameType, builder);
     } else {
-      assert !frameType.isWide();
+      builder.store(localIndex, joinFrameType);
     }
   }
 

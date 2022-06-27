@@ -596,10 +596,13 @@ public class CfApplicationWriter {
 
       case ENUM:
         DexField enumField = value.asDexValueEnum().getValue();
+        // This must not be renamed, as the Java runtime will use Enum.valueOf to find the enum's
+        // referenced in annotations. See b/236691999 for details.
+        assert getNamingLens().lookupName(enumField) == enumField.name;
         visitor.visitEnum(
             name,
             getNamingLens().lookupDescriptor(enumField.getType()).toString(),
-            getNamingLens().lookupName(enumField).toString());
+            enumField.name.toString());
         break;
 
       case FIELD:

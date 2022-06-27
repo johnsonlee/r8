@@ -11,20 +11,18 @@ public interface PreciseFrameType extends FrameType {
 
   @Override
   default PreciseFrameType map(Function<DexType, DexType> fn) {
-    if (isObject()) {
-      if (isInitialized()) {
-        DexType type = asInitializedReferenceType().getInitializedType();
-        DexType newType = fn.apply(type);
-        if (type != newType) {
-          return FrameType.initializedReference(newType);
-        }
+    assert !isInitializedNonNullReferenceTypeWithInterfaces();
+    if (isInitializedNonNullReferenceTypeWithoutInterfaces()) {
+      DexType type = asInitializedNonNullReferenceTypeWithoutInterfaces().getInitializedType();
+      DexType newType = fn.apply(type);
+      if (type != newType) {
+        return FrameType.initializedNonNullReference(newType);
       }
-      if (isUninitializedNew()) {
-        DexType type = getUninitializedNewType();
-        DexType newType = fn.apply(type);
-        if (type != newType) {
-          return FrameType.uninitializedNew(getUninitializedLabel(), newType);
-        }
+    } else if (isUninitializedNew()) {
+      DexType type = getUninitializedNewType();
+      DexType newType = fn.apply(type);
+      if (type != newType) {
+        return FrameType.uninitializedNew(getUninitializedLabel(), newType);
       }
     }
     return this;

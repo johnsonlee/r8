@@ -259,11 +259,10 @@ public class CfFrame extends CfInstruction implements Cloneable {
   }
 
   private void internalRegisterUse(UseRegistry<?> registry, FrameType frameType) {
-    if (frameType.isInitializedReferenceType()) {
-      if (frameType.isNullType()) {
-        return;
-      }
-      registry.registerTypeReference(frameType.asInitializedReferenceType().getInitializedType());
+    assert !frameType.isInitializedNonNullReferenceTypeWithInterfaces();
+    if (frameType.isInitializedNonNullReferenceTypeWithoutInterfaces()) {
+      registry.registerTypeReference(
+          frameType.asInitializedNonNullReferenceTypeWithoutInterfaces().getInitializedType());
     } else if (frameType.isUninitializedNew()) {
       registry.registerTypeReference(frameType.asUninitializedNew().getUninitializedNewType());
     }
@@ -303,12 +302,12 @@ public class CfFrame extends CfInstruction implements Cloneable {
   public static PreciseFrameType getInitializedFrameType(
       UninitializedFrameType unInit, UninitializedFrameType other, DexType newType) {
     if (unInit.isUninitializedThis() && other.isUninitializedThis()) {
-      return FrameType.initialized(newType);
+      return FrameType.initializedNonNullReference(newType);
     }
     if (unInit.isUninitializedNew()
         && other.isUninitializedNew()
         && unInit.getUninitializedLabel() == other.getUninitializedLabel()) {
-      return FrameType.initialized(newType);
+      return FrameType.initializedNonNullReference(newType);
     }
     return other;
   }

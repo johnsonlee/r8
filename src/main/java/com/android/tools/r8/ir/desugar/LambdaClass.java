@@ -685,16 +685,11 @@ public final class LambdaClass {
                     return newMethod;
                   });
       if (replacement != null) {
-        // Since we've copied the code object from an existing method, the code should already be
-        // processed, and thus we don't need to schedule it for processing in D8.
+        // Since we've copied the code object from an existing method from the same class, the
+        // code is already processed, and thus we don't need to schedule it for processing in D8.
         assert !appView.options().isGeneratingClassFiles() || replacement.getCode().isCfCode();
         assert !appView.options().isGeneratingDex() || replacement.getCode().isDexCode();
-        ProgramMethod newMethod = new ProgramMethod(implMethodHolder, replacement);
-        if (appView.options().isDesugaredLibraryCompilation()) {
-          assert appView.options().isGeneratingClassFiles();
-          needsProcessingConsumer.accept(newMethod);
-        }
-        return newMethod;
+        return new ProgramMethod(implMethodHolder, replacement);
       }
       // The method might already have been moved by another invoke-dynamic targeting it.
       // If so, it must be defined on the holder.
@@ -773,16 +768,11 @@ public final class LambdaClass {
                     return newMethod;
                   });
       if (replacement != null) {
-        // Since we've copied the code object from an existing method, the code should already be
-        // processed, and thus we don't need to schedule it for processing in D8.
+        // Since we've copied the code object from an existing method from the same class, the
+        // code is already processed, and thus we don't need to schedule it for processing in D8.
         assert !appView.options().isGeneratingClassFiles() || replacement.getCode().isCfCode();
         assert !appView.options().isGeneratingDex() || replacement.getCode().isDexCode();
-        ProgramMethod newMethod = new ProgramMethod(implMethodHolder, replacement);
-        if (appView.options().isDesugaredLibraryCompilation()) {
-          assert appView.options().isGeneratingClassFiles();
-          needsProcessingConsumer.accept(newMethod);
-        }
-        return newMethod;
+        return new ProgramMethod(implMethodHolder, replacement);
       }
       // The method might already have been moved by another invoke-dynamic targeting it.
       // If so, it must be defined on the holder.
@@ -846,10 +836,7 @@ public final class LambdaClass {
                   .disableAndroidApiLevelCheck()
                   .build());
       accessorClass.addDirectMethod(accessorMethod.getDefinition());
-      if (appView.options().isDesugaredLibraryCompilation()
-          || appView.options().isGeneratingDex()) {
-        needsProcessingConsumer.accept(accessorMethod);
-      }
+      needsProcessingConsumer.accept(accessorMethod);
       return accessorMethod;
     }
   }

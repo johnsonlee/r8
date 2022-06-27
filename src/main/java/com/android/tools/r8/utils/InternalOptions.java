@@ -1621,6 +1621,14 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       allowOpenInterfaces = false;
     }
 
+    public OpenClosedInterfacesOptions suppressSingleOpenInterface(ClassReference classReference) {
+      assert !allowOpenInterfaces;
+      suppressions.add(
+          (appView, valueType, openInterface) ->
+              openInterface.getTypeName().equals(classReference.getTypeName()));
+      return this;
+    }
+
     public void suppressAllOpenInterfaces() {
       assert !allowOpenInterfaces;
       suppressions.add((appView, valueType, openInterface) -> true);
@@ -1930,8 +1938,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     // If set, pruned record fields are not used in hashCode/equals/toString and toString prints
     // minified field names instead of original field names.
     public boolean enableRecordModeling = true;
-
-    public boolean allowConflictingSyntheticTypes = false;
 
     // Flag to allow processing of resources in D8. A data resource consumer still needs to be
     // specified.

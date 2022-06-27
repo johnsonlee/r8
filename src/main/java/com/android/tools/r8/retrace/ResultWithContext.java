@@ -5,11 +5,17 @@
 package com.android.tools.r8.retrace;
 
 import com.android.tools.r8.Keep;
+import java.util.List;
+import java.util.function.Consumer;
 
 @Keep
 public interface ResultWithContext<T> {
 
   RetraceStackTraceContext getContext();
 
-  T getResult();
+  List<T> getLines();
+
+  void forEach(Consumer<T> consumer);
+
+  boolean isEmpty();
 }

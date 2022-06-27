@@ -9,6 +9,9 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
+import com.android.tools.r8.ir.analysis.type.PrimitiveTypeElement;
+import com.android.tools.r8.ir.analysis.type.ReferenceTypeElement;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.naming.NamingLens;
@@ -63,14 +66,50 @@ public interface FrameType {
     return initializedReference(type);
   }
 
+  static InitializedFrameType initialized(TypeElement type) {
+    if (type.isPrimitiveType()) {
+      return primitive(type.asPrimitiveType());
+    }
+    return initializedReference(type.asReferenceType());
+  }
+
   static InitializedReferenceFrameType initializedReference(DexType type) {
     assert type.isReferenceType();
-    return new InitializedReferenceFrameType(type);
+    return type.isNullValueType() ? nullType() : initializedNonNullReference(type);
+  }
+
+  static InitializedReferenceFrameType initializedReference(ReferenceTypeElement type) {
+    return type.isNullType() ? nullType() : initializedNonNullReference(type);
+  }
+
+  static InitializedNonNullReferenceFrameTypeWithoutInterfaces initializedNonNullReference(
+      DexType type) {
+    assert type.isReferenceType();
+    assert !type.isNullValueType();
+    return new InitializedNonNullReferenceFrameTypeWithoutInterfaces(type);
+  }
+
+  static InitializedNonNullReferenceFrameTypeWithInterfaces initializedNonNullReference(
+      ReferenceTypeElement type) {
+    assert !type.isNullType();
+    return new InitializedNonNullReferenceFrameTypeWithInterfaces(type);
+  }
+
+  static NullFrameType nullType() {
+    return NullFrameType.SINGLETON;
   }
 
   static PrimitiveFrameType primitive(DexType type) {
     assert type.isPrimitiveType();
-    switch (type.getDescriptor().getFirstByteAsChar()) {
+    return internalPrimitive(type.getDescriptor().getFirstByteAsChar());
+  }
+
+  static PrimitiveFrameType primitive(PrimitiveTypeElement type) {
+    return internalPrimitive(type.getDescriptor().charAt(0));
+  }
+
+  static PrimitiveFrameType internalPrimitive(char descriptor) {
+    switch (descriptor) {
       case 'Z':
         return booleanType();
       case 'B':
@@ -88,7 +127,7 @@ public interface FrameType {
       case 'S':
         return shortType();
       default:
-        throw new Unreachable("Unexpected primitive type: " + type.getTypeName());
+        throw new Unreachable("Unexpected primitive type: " + descriptor);
     }
   }
 
@@ -116,7 +155,7 @@ public interface FrameType {
     assert memberType.isPrecise();
     switch (memberType) {
       case OBJECT:
-        return FrameType.initialized(factory.objectType);
+        return FrameType.initializedNonNullReference(factory.objectType);
       case BOOLEAN_OR_BYTE:
       case CHAR:
       case SHORT:
@@ -135,7 +174,7 @@ public interface FrameType {
 
   DexType getInitializedType(DexItemFactory dexItemFactory);
 
-  DexType getObjectType(DexType context);
+  DexType getObjectType(DexItemFactory dexItemFactory, DexType context);
 
   Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens);
 
@@ -165,6 +204,20 @@ public interface FrameType {
 
   InitializedReferenceFrameType asInitializedReferenceType();
 
+  boolean isInitializedNonNullReferenceType();
+
+  InitializedNonNullReferenceFrameType asInitializedNonNullReferenceType();
+
+  boolean isInitializedNonNullReferenceTypeWithoutInterfaces();
+
+  InitializedNonNullReferenceFrameTypeWithoutInterfaces
+      asInitializedNonNullReferenceTypeWithoutInterfaces();
+
+  boolean isInitializedNonNullReferenceTypeWithInterfaces();
+
+  InitializedNonNullReferenceFrameTypeWithInterfaces
+      asInitializedNonNullReferenceTypeWithInterfaces();
+
   boolean isInt();
 
   boolean isLong();
@@ -174,6 +227,8 @@ public interface FrameType {
   boolean isLongHigh();
 
   boolean isNullType();
+
+  NullFrameType asNullType();
 
   boolean isObject();
 

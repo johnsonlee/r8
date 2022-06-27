@@ -46,6 +46,21 @@ public class CfInstanceFieldWrite extends CfFieldInstruction {
   }
 
   @Override
+  public boolean isFieldPut() {
+    return true;
+  }
+
+  @Override
+  public boolean isInstanceFieldPut() {
+    return true;
+  }
+
+  @Override
+  public CfInstanceFieldWrite asInstanceFieldPut() {
+    return this;
+  }
+
+  @Override
   void internalRegisterUse(
       UseRegistry<?> registry, DexClassAndMethod context, ListIterator<CfInstruction> iterator) {
     registry.registerInstanceFieldWrite(getField());
@@ -71,6 +86,7 @@ public class CfInstanceFieldWrite extends CfFieldInstruction {
     return frame
         .popInitialized(appView, config, getField().getType())
         .popObject(
+            appView,
             getField().getHolderType(),
             config,
             (state, head) -> head.isUninitializedNew() ? error(head) : state);

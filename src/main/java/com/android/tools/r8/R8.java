@@ -442,7 +442,7 @@ public class R8 {
       assert appView.appInfo().hasLiveness();
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
 
-      assert new CfOpenClosedInterfacesAnalysis(appViewWithLiveness).run(executorService);
+      new CfOpenClosedInterfacesAnalysis(appViewWithLiveness).run(executorService);
 
       new StartupInstrumentation(appView).instrumentAllClasses(executorService);
 

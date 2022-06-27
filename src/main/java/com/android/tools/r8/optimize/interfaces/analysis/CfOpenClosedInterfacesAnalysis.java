@@ -5,12 +5,17 @@
 package com.android.tools.r8.optimize.interfaces.analysis;
 
 import com.android.tools.r8.cf.code.CfAssignability;
+import com.android.tools.r8.cf.code.CfFrameVerifier;
+import com.android.tools.r8.cf.code.CfFrameVerifier.StackMapStatus;
+import com.android.tools.r8.cf.code.CfFrameVerifierEventConsumer;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfSubtypingAssignability;
 import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.CfCodeDiagnostics;
 import com.android.tools.r8.graph.Code;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
@@ -23,17 +28,25 @@ import com.android.tools.r8.ir.analysis.framework.intraprocedural.TransferFuncti
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.cf.CfBlock;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.cf.CfControlFlowGraph;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.cf.CfIntraproceduralDataflowAnalysis;
+import com.android.tools.r8.optimize.interfaces.collection.NonEmptyOpenClosedInterfacesCollection;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.InternalOptions.OpenClosedInterfacesOptions;
 import com.android.tools.r8.utils.Reporter;
+import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.UnverifiableCfCodeDiagnostic;
+import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
+import com.google.common.collect.Sets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 public class CfOpenClosedInterfacesAnalysis {
 
@@ -41,18 +54,20 @@ public class CfOpenClosedInterfacesAnalysis {
   private final CfAssignability assignability;
   private final InternalOptions options;
 
+  private final Set<DexClass> openInterfaces = Sets.newConcurrentHashSet();
+
   private final ProgramMethodMap<UnverifiableCfCodeDiagnostic> unverifiableCodeDiagnostics =
       ProgramMethodMap.createConcurrent();
 
   public CfOpenClosedInterfacesAnalysis(AppView<AppInfoWithLiveness> appView) {
-    InternalOptions options = appView.options();
     this.appView = appView;
     this.assignability = new CfSubtypingAssignability(appView);
-    this.options = options;
+    this.options = appView.options();
   }
 
   public boolean run(ExecutorService executorService) throws ExecutionException {
     processClasses(executorService);
+    setClosedInterfaces();
     reportUnverifiableCodeDiagnostics();
     return true;
   }
@@ -62,19 +77,96 @@ public class CfOpenClosedInterfacesAnalysis {
   }
 
   private void processClass(DexProgramClass clazz) {
-    clazz.forEachProgramMethodMatching(DexEncodedMethod::hasCode, this::processMethod);
+    clazz.forEachProgramMethodMatching(
+        DexEncodedMethod::hasCode, method -> openInterfaces.addAll(processMethod(method)));
   }
 
-  private void processMethod(ProgramMethod method) {
+  private Set<DexClass> processMethod(ProgramMethod method) {
     Code code = method.getDefinition().getCode();
     if (!code.isCfCode()) {
       assert code.isDefaultInstanceInitializerCode() || code.isDexCode() || code.isThrowNullCode();
-      return;
+      return Collections.emptySet();
     }
-
     CfCode cfCode = code.asCfCode();
-    CfControlFlowGraph cfg = CfControlFlowGraph.create(cfCode, options);
-    TransferFunction transfer = new TransferFunction(method);
+    CfAnalysisConfig config = createConfig(method, cfCode);
+    CfOpenClosedInterfacesAnalysisHelper helper =
+        new CfOpenClosedInterfacesAnalysisHelper(appView, method, unverifiableCodeDiagnostics);
+    if (runLinearScan(method, cfCode, config, helper).isNotPresent()) {
+      runFixpoint(method, cfCode, config, helper);
+    }
+    return helper.getOpenInterfaces();
+  }
+
+  private CfAnalysisConfig createConfig(ProgramMethod method, CfCode code) {
+    return new CfAnalysisConfig() {
+
+      @Override
+      public CfAssignability getAssignability() {
+        return assignability;
+      }
+
+      @Override
+      public DexMethod getCurrentContext() {
+        return method.getReference();
+      }
+
+      @Override
+      public int getMaxLocals() {
+        return code.getMaxLocals();
+      }
+
+      @Override
+      public int getMaxStack() {
+        return code.getMaxStack();
+      }
+
+      @Override
+      public boolean isImmediateSuperClassOfCurrentContext(DexType type) {
+        return type == method.getHolder().getSuperType();
+      }
+
+      @Override
+      public boolean isStrengthenFramesEnabled() {
+        return true;
+      }
+    };
+  }
+
+  private StackMapStatus runLinearScan(
+      ProgramMethod method,
+      CfCode code,
+      CfAnalysisConfig config,
+      CfOpenClosedInterfacesAnalysisHelper helper) {
+    CfFrameVerifierEventConsumer eventConsumer =
+        new CfFrameVerifierEventConsumer() {
+
+          @Override
+          public void acceptError(CfCodeDiagnostics diagnostics) {
+            helper.registerUnverifiableCodeWithFrames(diagnostics);
+          }
+
+          @Override
+          public void acceptInstructionState(CfInstruction instruction, CfFrameState state) {
+            helper.processInstruction(instruction, state);
+          }
+        };
+    CfFrameVerifier verifier =
+        CfFrameVerifier.builder(appView, code, method)
+            .setConfig(config)
+            .setEventConsumer(eventConsumer)
+            .build();
+    StackMapStatus stackMapStatus = verifier.run();
+    assert stackMapStatus.isValid() || helper.getOpenInterfaces().isEmpty();
+    return stackMapStatus;
+  }
+
+  private void runFixpoint(
+      ProgramMethod method,
+      CfCode code,
+      CfAnalysisConfig config,
+      CfOpenClosedInterfacesAnalysisHelper helper) {
+    CfControlFlowGraph cfg = CfControlFlowGraph.create(code, options);
+    TransferFunction transfer = new TransferFunction(config, method);
     CfIntraproceduralDataflowAnalysis<CfFrameState> analysis =
         new CfIntraproceduralDataflowAnalysis<>(appView, CfFrameState.bottom(), cfg, transfer);
     DataflowAnalysisResult result = analysis.run(cfg.getEntryBlock());
@@ -84,23 +176,19 @@ public class CfOpenClosedInterfacesAnalysis {
         continue;
       }
       CfFrameState state = analysis.computeBlockEntryState(block);
+      if (state.isError()) {
+        helper.registerUnverifiableCode(method, 0, state.asError());
+        return;
+      }
       do {
         for (int instructionIndex = block.getFirstInstructionIndex();
             instructionIndex <= block.getLastInstructionIndex();
             instructionIndex++) {
-          // TODO(b/214496607): Determine open interfaces.
-          CfInstruction instruction = cfCode.getInstruction(instructionIndex);
+          CfInstruction instruction = code.getInstruction(instructionIndex);
+          helper.processInstruction(instruction, state);
           state = transfer.apply(instruction, state).asAbstractState();
           if (state.isError()) {
-            if (options.getCfCodeAnalysisOptions().isUnverifiableCodeReportingEnabled()) {
-              unverifiableCodeDiagnostics.put(
-                  method,
-                  new UnverifiableCfCodeDiagnostic(
-                      method.getMethodReference(),
-                      instructionIndex,
-                      state.asError().getMessage(),
-                      method.getOrigin()));
-            }
+            helper.registerUnverifiableCode(method, instructionIndex, state.asError());
             return;
           }
         }
@@ -110,6 +198,43 @@ public class CfOpenClosedInterfacesAnalysis {
           block = null;
         }
       } while (block != null);
+    }
+  }
+
+  private void setClosedInterfaces() {
+    // If open interfaces are not allowed and there are one or more suppressions, we should find at
+    // least one open interface.
+    OpenClosedInterfacesOptions openClosedInterfacesOptions =
+        options.getOpenClosedInterfacesOptions();
+    assert openClosedInterfacesOptions.isOpenInterfacesAllowed()
+            || !openClosedInterfacesOptions.hasSuppressions()
+            || !openInterfaces.isEmpty()
+        : "Expected to find at least one open interface";
+
+    includeParentOpenInterfaces();
+
+    appView.setOpenClosedInterfacesCollection(
+        new NonEmptyOpenClosedInterfacesCollection(
+            openInterfaces.stream()
+                .map(DexClass::getType)
+                .collect(
+                    Collectors.toCollection(
+                        () -> SetUtils.newIdentityHashSet(openInterfaces.size())))));
+  }
+
+  private void includeParentOpenInterfaces() {
+    // This includes all parent interfaces of each open interface in the set of open interfaces,
+    // by using the open interfaces as the seen set.
+    WorkList<DexClass> worklist = WorkList.newWorkList(openInterfaces);
+    worklist.addAllIgnoringSeenSet(openInterfaces);
+    while (worklist.hasNext()) {
+      DexClass openInterface = worklist.next();
+      for (DexType indirectOpenInterfaceType : openInterface.getInterfaces()) {
+        DexClass indirectOpenInterfaceDefinition = appView.definitionFor(indirectOpenInterfaceType);
+        if (indirectOpenInterfaceDefinition != null) {
+          worklist.addIfNotSeen(indirectOpenInterfaceDefinition);
+        }
+      }
     }
   }
 
@@ -124,43 +249,11 @@ public class CfOpenClosedInterfacesAnalysis {
   private class TransferFunction
       implements AbstractTransferFunction<CfBlock, CfInstruction, CfFrameState> {
 
-    private final CfCode code;
     private final CfAnalysisConfig config;
     private final ProgramMethod context;
 
-    TransferFunction(ProgramMethod context) {
-      CfCode code = context.getDefinition().getCode().asCfCode();
-      int maxLocals = code.getMaxLocals();
-      int maxStack = code.getMaxStack();
-      this.code = code;
-      this.config =
-          new CfAnalysisConfig() {
-
-            @Override
-            public CfAssignability getAssignability() {
-              return assignability;
-            }
-
-            @Override
-            public DexMethod getCurrentContext() {
-              return context.getReference();
-            }
-
-            @Override
-            public int getMaxLocals() {
-              return maxLocals;
-            }
-
-            @Override
-            public int getMaxStack() {
-              return maxStack;
-            }
-
-            @Override
-            public boolean isImmediateSuperClassOfCurrentContext(DexType type) {
-              return type == context.getHolder().getSuperType();
-            }
-          };
+    TransferFunction(CfAnalysisConfig config, ProgramMethod context) {
+      this.config = config;
       this.context = context;
     }
 
@@ -180,7 +273,9 @@ public class CfOpenClosedInterfacesAnalysis {
         } else {
           initialState =
               initialState.storeLocal(
-                  localIndex, FrameType.initialized(context.getHolderType()), config);
+                  localIndex,
+                  FrameType.initializedNonNullReference(context.getHolderType()),
+                  config);
         }
         localIndex++;
       }
