@@ -11,6 +11,7 @@ import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException
 import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.Diagnostic;
+import com.android.tools.r8.DumpOptions;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.ProgramResourceProvider;
@@ -55,12 +56,15 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class ApplicationReader {
@@ -196,9 +200,10 @@ public class ApplicationReader {
       cleanDump = true;
       dumpOutput = Paths.get("/tmp").resolve("dump" + System.nanoTime() + ".zip");
     }
-    if (dumpOutput != null) {
+    DumpOptions dumpOptions = options.dumpOptions;
+    if (dumpOutput != null && dumpOptions != null && shouldDump(dumpOptions)) {
       timing.begin("ApplicationReader.dump");
-      inputApp.dump(dumpOutput, options.dumpOptions, options.reporter, options.dexItemFactory());
+      inputApp.dump(dumpOutput, dumpOptions, options.reporter, options.dexItemFactory());
       if (cleanDump) {
         Files.delete(dumpOutput);
       }
@@ -210,6 +215,18 @@ public class ApplicationReader {
         options.reporter.info(message);
       }
     }
+  }
+
+  private static boolean shouldDump(DumpOptions options) {
+    Map<String, String> buildProperties = options.getBuildProperties();
+    for (Entry<String, String> entry : buildProperties.entrySet()) {
+      String valueRegExp =
+          System.getProperty("com.android.tools.r8.dump.filter.buildproperty." + entry.getKey());
+      if (valueRegExp != null && !Pattern.matches(valueRegExp, entry.getValue())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   public MainDexInfo readMainDexClasses(DexApplication app) {
