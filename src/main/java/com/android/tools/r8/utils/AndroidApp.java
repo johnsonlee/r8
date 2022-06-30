@@ -467,9 +467,6 @@ public class AndroidApp {
   }
 
   public void dump(Path output, DumpOptions options, Reporter reporter, DexItemFactory factory) {
-    if (options == null) {
-      return;
-    }
     int nextDexIndex = 0;
     OpenOption[] openOptions =
         new OpenOption[] {StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING};
@@ -477,7 +474,10 @@ public class AndroidApp {
       writeToZipStream(
           out, dumpVersionFileName, Version.getVersionString().getBytes(), ZipEntry.DEFLATED);
       writeToZipStream(
-          out, dumpBuildPropertiesFileName, options.dumpOptions().getBytes(), ZipEntry.DEFLATED);
+          out,
+          dumpBuildPropertiesFileName,
+          options.getBuildPropertiesFileContent().getBytes(),
+          ZipEntry.DEFLATED);
       if (options.getDesugaredLibraryJsonSource() != null) {
         writeToZipStream(
             out,
@@ -790,6 +790,18 @@ public class AndroidApp {
       } catch (ResourceException e) {
         throw new CompilationError("Resource exception in validation", e);
       }
+    }
+  }
+
+  public void signalFinishedToProviders(Reporter reporter) throws IOException {
+    for (ProgramResourceProvider provider : programResourceProviders) {
+      provider.finished(reporter);
+    }
+    for (ClassFileResourceProvider provider : classpathResourceProviders) {
+      provider.finished(reporter);
+    }
+    for (ClassFileResourceProvider provider : libraryResourceProviders) {
+      provider.finished(reporter);
     }
   }
 

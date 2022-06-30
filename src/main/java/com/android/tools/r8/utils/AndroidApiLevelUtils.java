@@ -106,7 +106,7 @@ public class AndroidApiLevelUtils {
     return apiLevelOfOriginal.max(apiLevel).isLessThanOrEqualTo(options.getMinApiLevel()).isTrue();
   }
 
-  private static boolean isApiSafeForReference(LibraryDefinition definition, AppView<?> appView) {
+  public static boolean isApiSafeForReference(LibraryDefinition definition, AppView<?> appView) {
     return isApiSafeForReference(definition, appView.apiLevelCompute(), appView.options());
   }
 
@@ -114,7 +114,9 @@ public class AndroidApiLevelUtils {
       LibraryDefinition definition,
       AndroidApiLevelCompute androidApiLevelCompute,
       InternalOptions options) {
-    assert options.apiModelingOptions().enableApiCallerIdentification;
+    if (!options.apiModelingOptions().enableApiCallerIdentification) {
+      return false;
+    }
     ComputedApiLevel apiLevel =
         androidApiLevelCompute.computeApiLevelForLibraryReference(
             definition.getReference(), ComputedApiLevel.unknown());

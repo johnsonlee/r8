@@ -114,11 +114,12 @@ public final class R8Command extends BaseCompilerCommand {
     private InputDependencyGraphConsumer inputDependencyGraphConsumer = null;
     private final List<FeatureSplit> featureSplits = new ArrayList<>();
     private String synthesizedClassPrefix = "";
-    private boolean skipDump = false;
     private boolean enableMissingLibraryApiModeling = false;
 
     private final ProguardConfigurationParserOptions.Builder parserOptionsBuilder =
         ProguardConfigurationParserOptions.builder().readEnvironment();
+    private final boolean allowDexInArchive =
+        System.getProperty("com.android.tools.r8.allowDexInputToR8") != null;
 
     // TODO(zerny): Consider refactoring CompatProguardCommandBuilder to avoid subclassing.
     Builder() {
@@ -127,17 +128,17 @@ public final class R8Command extends BaseCompilerCommand {
 
     Builder(DiagnosticsHandler diagnosticsHandler) {
       super(diagnosticsHandler);
-      setIgnoreDexInArchive(true);
+      setIgnoreDexInArchive(!allowDexInArchive);
     }
 
     private Builder(AndroidApp app) {
       super(app);
-      setIgnoreDexInArchive(true);
+      setIgnoreDexInArchive(!allowDexInArchive);
     }
 
     private Builder(AndroidApp app, DiagnosticsHandler diagnosticsHandler) {
       super(app, diagnosticsHandler);
-      setIgnoreDexInArchive(true);
+      setIgnoreDexInArchive(!allowDexInArchive);
     }
 
     // Internal
@@ -282,15 +283,6 @@ public final class R8Command extends BaseCompilerCommand {
      */
     public Builder setDesugaredLibraryKeepRuleConsumer(StringConsumer keepRuleConsumer) {
       this.desugaredLibraryKeepRuleConsumer = keepRuleConsumer;
-      return self();
-    }
-
-    /**
-     * Allow to skip to dump into file and dump into directory instruction, this is primarily used
-     * for chained compilation in L8 so there are no duplicated dumps.
-     */
-    Builder skipDump() {
-      skipDump = true;
       return self();
     }
 
@@ -632,7 +624,6 @@ public final class R8Command extends BaseCompilerCommand {
               getAssertionsConfiguration(),
               getOutputInspections(),
               synthesizedClassPrefix,
-              skipDump,
               getThreadCount(),
               getDumpInputFlags(),
               getMapIdProvider(),
@@ -734,7 +725,6 @@ public final class R8Command extends BaseCompilerCommand {
   private final DesugaredLibrarySpecification desugaredLibrarySpecification;
   private final FeatureSplitConfiguration featureSplitConfiguration;
   private final String synthesizedClassPrefix;
-  private final boolean skipDump;
   private final boolean enableMissingLibraryApiModeling;
 
   /** Get a new {@link R8Command.Builder}. */
@@ -820,7 +810,6 @@ public final class R8Command extends BaseCompilerCommand {
       List<AssertionsConfiguration> assertionsConfiguration,
       List<Consumer<Inspector>> outputInspections,
       String synthesizedClassPrefix,
-      boolean skipDump,
       int threadCount,
       DumpInputFlags dumpInputFlags,
       MapIdProvider mapIdProvider,
@@ -865,7 +854,6 @@ public final class R8Command extends BaseCompilerCommand {
     this.desugaredLibrarySpecification = desugaredLibrarySpecification;
     this.featureSplitConfiguration = featureSplitConfiguration;
     this.synthesizedClassPrefix = synthesizedClassPrefix;
-    this.skipDump = skipDump;
     this.enableMissingLibraryApiModeling = enableMissingLibraryApiModeling;
   }
 
@@ -889,7 +877,6 @@ public final class R8Command extends BaseCompilerCommand {
     desugaredLibrarySpecification = null;
     featureSplitConfiguration = null;
     synthesizedClassPrefix = null;
-    skipDump = false;
     enableMissingLibraryApiModeling = false;
   }
 
@@ -1053,7 +1040,7 @@ public final class R8Command extends BaseCompilerCommand {
       internal.threadCount = getThreadCount();
     }
 
-    internal.setDumpInputFlags(getDumpInputFlags(), skipDump);
+    internal.setDumpInputFlags(getDumpInputFlags());
     internal.dumpOptions = dumpOptions();
 
     return internal;

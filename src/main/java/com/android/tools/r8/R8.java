@@ -67,7 +67,7 @@ import com.android.tools.r8.naming.PrefixRewritingNamingLens;
 import com.android.tools.r8.naming.ProguardMapMinifier;
 import com.android.tools.r8.naming.RecordRewritingNamingLens;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
-import com.android.tools.r8.optimize.ClassAndMemberPublicizer;
+import com.android.tools.r8.optimize.AccessModifier;
 import com.android.tools.r8.optimize.MemberRebindingAnalysis;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLensFactory;
 import com.android.tools.r8.optimize.VisibilityBridgeRemover;
@@ -462,7 +462,7 @@ public class R8 {
       if (options.getProguardConfiguration().isAccessModificationAllowed()) {
         SubtypingInfo subtypingInfo = appViewWithLiveness.appInfo().computeSubtypingInfo();
         GraphLens publicizedLens =
-            ClassAndMemberPublicizer.run(
+            AccessModifier.run(
                 executorService,
                 timing,
                 appViewWithLiveness.appInfo().app(),
@@ -718,9 +718,9 @@ public class R8 {
       appView.setGraphLens(MemberRebindingIdentityLensFactory.create(appView, executorService));
 
       if (appView.appInfo().hasLiveness()) {
-        SyntheticFinalization.finalizeWithLiveness(appView.withLiveness(), executorService);
+        SyntheticFinalization.finalizeWithLiveness(appView.withLiveness(), executorService, timing);
       } else {
-        SyntheticFinalization.finalizeWithClassHierarchy(appView, executorService);
+        SyntheticFinalization.finalizeWithClassHierarchy(appView, executorService, timing);
       }
 
       // Read any -applymapping input to allow for repackaging to not relocate the classes.
@@ -845,6 +845,7 @@ public class R8 {
     } catch (ExecutionException e) {
       throw unwrapExecutionException(e);
     } finally {
+      inputApp.signalFinishedToProviders(options.reporter);
       options.signalFinishedToConsumers();
       // Dump timings.
       if (options.printTimes) {

@@ -278,10 +278,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // To print memory one also have to enable printtimes.
   public boolean printMemory = System.getProperty("com.android.tools.r8.printmemory") != null;
 
-  public String dumpInputToFile = System.getProperty("com.android.tools.r8.dumpinputtofile");
-  public String dumpInputToDirectory =
-      System.getProperty("com.android.tools.r8.dumpinputtodirectory");
-
   // Flag to toggle if DEX code objects should pass-through without IR processing.
   public boolean passthroughDexCode = false;
 
@@ -414,6 +410,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean emitPermittedSubclassesAnnotationsInDex =
       System.getProperty("com.android.tools.r8.emitPermittedSubclassesAnnotationsInDex") != null;
 
+  private DumpInputFlags dumpInputFlags = DumpInputFlags.getDefault();
+
   // Contain the contents of the build properties file from the compiler command.
   public DumpOptions dumpOptions;
 
@@ -462,19 +460,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return marker;
   }
 
-  public void setDumpInputFlags(DumpInputFlags dumpInputFlags, boolean skipDump) {
-    if (skipDump) {
-      dumpInputToDirectory = null;
-      dumpInputToFile = null;
-      return;
-    }
-
-    if (dumpInputFlags.getDumpInputToFile() != null) {
-      dumpInputToFile = dumpInputFlags.getDumpInputToFile().toString();
-    }
-    if (dumpInputFlags.getDumpInputToDirectory() != null) {
-      dumpInputToDirectory = dumpInputFlags.getDumpInputToDirectory().toString();
-    }
+  public void setDumpInputFlags(DumpInputFlags dumpInputFlags) {
+    this.dumpInputFlags = dumpInputFlags;
   }
 
   public boolean hasConsumer() {
@@ -522,10 +509,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean shouldKeepStackMapTable() {
-    assert isCfDesugaring() || isRelocatorCompilation() || getProguardConfiguration() != null;
-    return isCfDesugaring()
-        || isRelocatorCompilation()
-        || getProguardConfiguration().getKeepAttributes().stackMapTable;
+    assert isRelocatorCompilation() || getProguardConfiguration() != null;
+    return isRelocatorCompilation() || getProguardConfiguration().getKeepAttributes().stackMapTable;
   }
 
   public boolean shouldRerunEnqueuer() {
@@ -870,6 +855,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public CfCodeAnalysisOptions getCfCodeAnalysisOptions() {
     return cfCodeAnalysisOptions;
+  }
+
+  public DumpInputFlags getDumpInputFlags() {
+    return dumpInputFlags;
   }
 
   public OpenClosedInterfacesOptions getOpenClosedInterfacesOptions() {
@@ -1953,10 +1942,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public boolean disableShortenLiveRanges = false;
 
-    // Force each call of application read to dump its inputs to a file, which is subsequently
-    // deleted. Useful to check that our dump functionality does not cause compilation failure.
-    public boolean dumpAll = false;
-
     // Option for testing outlining with interface array arguments, see b/132420510.
     public boolean allowOutlinerInterfaceArrayArguments = false;
 
@@ -2083,28 +2068,76 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return CfVersion.V1_5;
   }
 
-  public boolean canUseInvokePolymorphicOnVarHandle() {
-    return hasFeaturePresentFrom(AndroidApiLevel.P);
+  public static AndroidApiLevel invokePolymorphicOnMethodHandleApiLevel() {
+    return AndroidApiLevel.O;
   }
 
-  public boolean canUseInvokePolymorphic() {
-    return hasFeaturePresentFrom(AndroidApiLevel.O);
+  public boolean canUseInvokePolymorphicOnMethodHandle() {
+    return hasFeaturePresentFrom(invokePolymorphicOnMethodHandleApiLevel());
+  }
+
+  public static AndroidApiLevel invokePolymorphicOnVarHandleApiLevel() {
+    return AndroidApiLevel.P;
+  }
+
+  public boolean canUseInvokePolymorphicOnVarHandle() {
+    return hasFeaturePresentFrom(invokePolymorphicOnMethodHandleApiLevel());
+  }
+
+  public static AndroidApiLevel constantMethodHandleApiLevel() {
+    return AndroidApiLevel.P;
   }
 
   public boolean canUseConstantMethodHandle() {
-    return hasFeaturePresentFrom(AndroidApiLevel.P);
+    return hasFeaturePresentFrom(constantMethodHandleApiLevel());
+  }
+
+  public static AndroidApiLevel constantMethodTypeApiLevel() {
+    return AndroidApiLevel.P;
   }
 
   public boolean canUseConstantMethodType() {
-    return hasFeaturePresentFrom(AndroidApiLevel.P);
+    return hasFeaturePresentFrom(constantMethodTypeApiLevel());
+  }
+
+  public static AndroidApiLevel invokeCustomApiLevel() {
+    return AndroidApiLevel.O;
   }
 
   public boolean canUseInvokeCustom() {
-    return hasFeaturePresentFrom(AndroidApiLevel.O);
+    return hasFeaturePresentFrom(invokeCustomApiLevel());
+  }
+
+  public static AndroidApiLevel constantDynamicApiLevel() {
+    return null;
+  }
+
+  public boolean canUseConstantDynamic() {
+    return hasFeaturePresentFrom(constantDynamicApiLevel());
+  }
+
+  public static AndroidApiLevel defaultAndStaticInterfaceMethodsApiLevel() {
+    return AndroidApiLevel.N;
+  }
+
+  public static AndroidApiLevel defaultInterfaceMethodsApiLevel() {
+    return defaultAndStaticInterfaceMethodsApiLevel();
+  }
+
+  public static AndroidApiLevel staticInterfaceMethodsApiLevel() {
+    return defaultAndStaticInterfaceMethodsApiLevel();
   }
 
   public boolean canUseDefaultAndStaticInterfaceMethods() {
-    return hasFeaturePresentFrom(AndroidApiLevel.N);
+    return hasFeaturePresentFrom(defaultInterfaceMethodsApiLevel());
+  }
+
+  public static AndroidApiLevel privateInterfaceMethodsApiLevel() {
+    return AndroidApiLevel.N;
+  }
+
+  public boolean canUsePrivateInterfaceMethods() {
+    return hasFeaturePresentFrom(privateInterfaceMethodsApiLevel());
   }
 
   public boolean canUseNestBasedAccess() {
@@ -2148,10 +2181,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         return desugarState.isOn() && !canUseTwrCloseResourceMethod();
     }
     throw new Unreachable();
-  }
-
-  public boolean canUsePrivateInterfaceMethods() {
-    return hasFeaturePresentFrom(AndroidApiLevel.N);
   }
 
   // Debug entries may be dropped only if the source file content allows being omitted from

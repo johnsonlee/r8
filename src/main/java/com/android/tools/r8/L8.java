@@ -137,7 +137,7 @@ public class L8 {
 
       new IRConverter(appView, timing).convert(appView, executor);
 
-      SyntheticFinalization.finalize(appView, executor);
+      SyntheticFinalization.finalize(appView, timing, executor);
 
       appView.setNamingLens(PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView));
       new GenericSignatureRewriter(appView).run(appView.appInfo().classes(), executor);
@@ -148,6 +148,7 @@ public class L8 {
     } catch (ExecutionException e) {
       throw unwrapExecutionException(e);
     } finally {
+      inputApp.signalFinishedToProviders(options.reporter);
       options.signalFinishedToConsumers();
       // Dump timings.
       if (options.printTimes) {

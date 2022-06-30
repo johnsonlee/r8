@@ -248,6 +248,10 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
     return stackMapStatus;
   }
 
+  public void setStackMapStatus(StackMapStatus stackMapStatus) {
+    this.stackMapStatus = stackMapStatus;
+  }
+
   public com.android.tools.r8.position.Position getDiagnosticPosition() {
     return diagnosticPosition;
   }
@@ -407,7 +411,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
     GraphLens graphLens = appView.graphLens();
-    assert verifyFrames(method, appView).isValidOrNotPresent()
+    assert getOrComputeStackMapStatus(method, appView).isValidOrNotPresent()
         : "Could not validate stack map frames";
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     InitClassLens initClassLens = appView.initClassLens();
@@ -418,11 +422,13 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       parameterLabel.write(
           appView, method, dexItemFactory, graphLens, initClassLens, namingLens, rewriter, visitor);
     }
+    boolean discardFrames =
+        classFileVersion.isLessThan(CfVersion.V1_6)
+            || (appView.enableWholeProgramOptimizations()
+                && classFileVersion.isEqualTo(CfVersion.V1_6)
+                && !options.shouldKeepStackMapTable());
     for (CfInstruction instruction : instructions) {
-      if (instruction instanceof CfFrame
-          && (classFileVersion.isLessThan(CfVersion.V1_6)
-              || (classFileVersion.isEqualTo(CfVersion.V1_6)
-                  && !options.shouldKeepStackMapTable()))) {
+      if (discardFrames && instruction instanceof CfFrame) {
         continue;
       }
       instruction.write(
@@ -545,7 +551,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
   }
 
   private void verifyFramesOrRemove(ProgramMethod method, AppView<?> appView, GraphLens codeLens) {
-    stackMapStatus = verifyFrames(method, appView, codeLens);
+    stackMapStatus = getOrComputeStackMapStatus(method, appView, codeLens);
     if (!stackMapStatus.isValidOrNotPresent()) {
       ArrayList<CfInstruction> copy = new ArrayList<>(instructions);
       copy.removeIf(CfInstruction::isFrame);
@@ -884,11 +890,20 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
         originalHolder, maxStack, maxLocals, newInstructions, tryCatchRanges, localVariables);
   }
 
-  public StackMapStatus verifyFrames(ProgramMethod method, AppView<?> appView) {
-    return verifyFrames(method, appView, getCodeLens(appView));
+  public StackMapStatus getOrComputeStackMapStatus(ProgramMethod method, AppView<?> appView) {
+    return getOrComputeStackMapStatus(method, appView, getCodeLens(appView));
   }
 
-  public StackMapStatus verifyFrames(ProgramMethod method, AppView<?> appView, GraphLens codeLens) {
+  public StackMapStatus getOrComputeStackMapStatus(
+      ProgramMethod method, AppView<?> appView, GraphLens codeLens) {
+    if (stackMapStatus.isNotVerified()) {
+      setStackMapStatus(computeStackMapStatus(method, appView, codeLens));
+    }
+    return stackMapStatus;
+  }
+
+  private StackMapStatus computeStackMapStatus(
+      ProgramMethod method, AppView<?> appView, GraphLens codeLens) {
     CfFrameVerifierEventConsumer eventConsumer =
         new CfFrameVerifierEventConsumer() {
 

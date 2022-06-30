@@ -43,6 +43,7 @@ import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -936,25 +937,6 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     return globalSynthetic;
   }
 
-  // TODO(b/230445931): Remove this once possible.
-  @Deprecated
-  public DexProgramClass legacyEnsureGlobalClass(
-      Supplier<MissingGlobalSyntheticsConsumerDiagnostic> diagnosticSupplier,
-      SyntheticKindSelector kindSelector,
-      DexType globalType,
-      AppView<?> appView,
-      Consumer<SyntheticProgramClassBuilder> fn,
-      Consumer<DexProgramClass> onCreationConsumer) {
-    SyntheticKind kind = kindSelector.select(naming);
-    assert kind.isGlobal();
-    if (appView.options().intermediate && !appView.options().hasGlobalSyntheticsConsumer()) {
-      appView.reporter().fatalError(diagnosticSupplier.get());
-    }
-    // A global type is its own context.
-    SynthesizingContext outerContext = SynthesizingContext.fromType(globalType);
-    return internalEnsureFixedProgramClass(kind, fn, onCreationConsumer, outerContext, appView);
-  }
-
   /** Create a single synthetic method item. */
   public ProgramMethod createMethod(
       SyntheticKindSelector kindSelector,
@@ -1086,9 +1068,9 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   // Finalization of synthetic items.
 
-  Result computeFinalSynthetics(AppView<?> appView) {
+  Result computeFinalSynthetics(AppView<?> appView, Timing timing) {
     assert !hasPendingSyntheticClasses();
     return new SyntheticFinalization(appView.options(), this, committed)
-        .computeFinalSynthetics(appView);
+        .computeFinalSynthetics(appView, timing);
   }
 }
