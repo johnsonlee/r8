@@ -180,8 +180,8 @@ public class IfSimplificationTest extends SmaliTestBase {
         ":return",
         "  return v0");
     DexCode code = method.getCode().asDexCode();
-    assertEquals(10, code.instructions.length);
-    assertTrue(code.instructions[9] instanceof DexReturn);
+    assertEquals(12, code.instructions.length);
+    assertTrue(code.instructions[11] instanceof DexReturn);
   }
 
   @Test
@@ -452,6 +452,6 @@ public class IfSimplificationTest extends SmaliTestBase {
     // TODO(sgjesse): Maybe this test is too fragile, as it leaves quite a lot of code, so the
     // expectation might need changing with other optimizations.
     // TODO(zerny): Consider optimizing the fallthrough branch of conditionals to not be return.
-    assertEquals(24, code.instructions.length);
+    assertEquals(26, code.instructions.length);
   }
 }
