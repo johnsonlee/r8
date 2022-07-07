@@ -11,6 +11,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestDiagnosticMessagesImpl;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.retrace.stacktraces.InlineFileNameStackTrace;
+import com.android.tools.r8.retrace.stacktraces.LongLineStackTrace;
 import com.android.tools.r8.retrace.stacktraces.RetraceAssertionErrorStackTrace;
 import com.android.tools.r8.retrace.stacktraces.StackTraceForTest;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -1088,7 +1089,7 @@ public class StackTraceRegularExpressionParserTests extends TestBase {
   @Test
   public void testGroups() {
     runRetraceTest(
-        "(?:(?:.*?%c %m\\(%s(?:: %l)?\\)))",
+        "(?:(?:.*?%c %m\\(%s\\s*:\\s*%l\\s*\\)))",
         new StackTraceForTest() {
           @Override
           public List<String> obfuscatedStackTrace() {
@@ -1113,9 +1114,9 @@ public class StackTraceRegularExpressionParserTests extends TestBase {
             return ImmutableList.of(
                 "this.was.Deobfuscated someMethod(Deobfuscated.java: 65)",
                 "this.was.Deobfuscated someMethod(Deobfuscated.java: 65)",
-                "FOO bar(PG:1)",
-                "FOO bar(PG:1 )",
-                "FOO bar(PG: 1 )");
+                "this.was.Deobfuscated someMethod(Deobfuscated.java:65)",
+                "this.was.Deobfuscated someMethod(Deobfuscated.java:65 )",
+                "this.was.Deobfuscated someMethod(Deobfuscated.java: 65 )");
           }
 
           @Override
@@ -1123,9 +1124,9 @@ public class StackTraceRegularExpressionParserTests extends TestBase {
             return ImmutableList.of(
                 "this.was.Deobfuscated void someMethod(int)(Deobfuscated.java: 65)",
                 "this.was.Deobfuscated void someMethod(int)(Deobfuscated.java: 65)",
-                "FOO bar(PG:1)",
-                "FOO bar(PG:1 )",
-                "FOO bar(PG: 1 )");
+                "this.was.Deobfuscated void someMethod(int)(Deobfuscated.java:65)",
+                "this.was.Deobfuscated void someMethod(int)(Deobfuscated.java:65 )",
+                "this.was.Deobfuscated void someMethod(int)(Deobfuscated.java: 65 )");
           }
 
           @Override
@@ -1133,6 +1134,12 @@ public class StackTraceRegularExpressionParserTests extends TestBase {
             return 0;
           }
         });
+  }
+
+  /** This is a regression test for b/234758957 */
+  @Test()
+  public void testLongLine() {
+    runRetraceTest("(?:.*?\\(\\s*%s(?:\\s*:\\s*%l\\s*)?\\)\\s*%c\\.%m)|", new LongLineStackTrace());
   }
 
   private TestDiagnosticMessagesImpl runRetraceTest(

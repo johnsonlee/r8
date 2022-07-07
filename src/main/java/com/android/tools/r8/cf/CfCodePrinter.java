@@ -79,6 +79,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.objectweb.asm.Opcodes;
 
 /** Rudimentary printer to print the source representation for creating CfCode object. */
 public class CfCodePrinter extends CfPrinter {
@@ -124,8 +125,8 @@ public class CfCodePrinter extends CfPrinter {
             .append(" ")
             .append(methodName)
             .append("(")
-            .append(r8Type("InternalOptions", "utils"))
-            .append(" options, ")
+            .append(dexItemFactoryType())
+            .append(" factory, ")
             .append(r8Type("DexMethod", "graph"))
             .append(" method) {");
 
@@ -267,7 +268,7 @@ public class CfCodePrinter extends CfPrinter {
   }
 
   private String dexString(DexString string) {
-    return "options.itemFactory.createString(" + quote(string.toString()) + ")";
+    return "factory.createString(" + quote(string.toString()) + ")";
   }
 
   private final Map<String, String> knownTypeFields =
@@ -303,17 +304,15 @@ public class CfCodePrinter extends CfPrinter {
     String descriptor = type.toDescriptorString();
     String field = knownTypeFields.get(descriptor);
     if (field != null) {
-      return "options.itemFactory." + field;
+      return "factory." + field;
     }
     synthesizedTypes.add(descriptor);
-    return "options.itemFactory.createType(" + quote(descriptor) + ")";
+    return "factory.createType(" + quote(descriptor) + ")";
   }
 
   private String dexProto(DexProto proto) {
     StringBuilder builder =
-        new StringBuilder()
-            .append("options.itemFactory.createProto(")
-            .append(dexType(proto.returnType));
+        new StringBuilder().append("factory.createProto(").append(dexType(proto.returnType));
     for (DexType param : proto.parameters.values) {
       builder.append(", ").append(dexType(param));
     }
@@ -321,7 +320,7 @@ public class CfCodePrinter extends CfPrinter {
   }
 
   private String dexMethod(DexMethod method) {
-    return "options.itemFactory.createMethod("
+    return "factory.createMethod("
         + dexType(method.holder)
         + ", "
         + dexProto(method.proto)
@@ -331,7 +330,7 @@ public class CfCodePrinter extends CfPrinter {
   }
 
   private String dexField(DexField field) {
-    return "options.itemFactory.createField("
+    return "factory.createField("
         + dexType(field.holder)
         + ", "
         + dexType(field.type)
@@ -593,7 +592,22 @@ public class CfCodePrinter extends CfPrinter {
 
   @Override
   public void print(CfFieldInstruction insn) {
-    throw new Unreachable();
+    switch (insn.getOpcode()) {
+      case Opcodes.GETFIELD:
+        printNewInstruction("CfInstanceFieldRead", dexField(insn.getField()));
+        break;
+      case Opcodes.PUTFIELD:
+        printNewInstruction("CfInstanceFieldWrite", dexField(insn.getField()));
+        break;
+      case Opcodes.GETSTATIC:
+        printNewInstruction("CfStaticFieldRead", dexField(insn.getField()));
+        break;
+      case Opcodes.PUTSTATIC:
+        printNewInstruction("CfStaticFieldWrite", dexField(insn.getField()));
+        break;
+      default:
+        throw new Unreachable();
+    }
   }
 
   @Override
