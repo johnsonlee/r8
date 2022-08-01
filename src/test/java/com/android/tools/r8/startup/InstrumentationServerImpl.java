@@ -5,19 +5,19 @@
 package com.android.tools.r8.startup;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.io.PrintWriter;
+import java.util.LinkedHashSet;
 
 public class InstrumentationServerImpl extends InstrumentationServer {
 
   private static final InstrumentationServerImpl INSTANCE = new InstrumentationServerImpl();
 
-  private final StringBuilder builder = new StringBuilder();
-
   // May be set to true by the instrumentation.
-  private final boolean writeToLogcat = false;
-  private final String logcatTag = "r8";
+  private static boolean writeToLogcat;
+  private static String logcatTag;
+
+  private final LinkedHashSet<String> lines = new LinkedHashSet<>();
 
   private InstrumentationServerImpl() {}
 
@@ -33,25 +33,32 @@ public class InstrumentationServerImpl extends InstrumentationServer {
     getInstance().addLine('S' + descriptor);
   }
 
-  private synchronized void addLine(String line) {
+  private void addLine(String line) {
+    synchronized (lines) {
+      if (!lines.add(line)) {
+        return;
+      }
+    }
     if (writeToLogcat) {
       writeToLogcat(line);
-    } else {
-      builder.append(line).append('\n');
     }
   }
 
   @Override
-  public synchronized void writeToFile(File file) throws IOException {
-    FileOutputStream stream = new FileOutputStream(file);
+  public void writeToFile(File file) throws IOException {
+    PrintWriter writer = new PrintWriter(file, "UTF-8");
     try {
-      stream.write(builder.toString().getBytes(Charset.forName("UTF-8")));
+      synchronized (lines) {
+        for (String line : lines) {
+          writer.println(line);
+        }
+      }
     } finally {
-      stream.close();
+      writer.close();
     }
   }
 
   private void writeToLogcat(String line) {
-    android.util.Log.v(logcatTag, line);
+    android.util.Log.i(logcatTag, line);
   }
 }

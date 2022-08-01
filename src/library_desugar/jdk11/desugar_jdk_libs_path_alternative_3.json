@@ -40,7 +40,9 @@
         "java.time.Duration": "java.time.TimeConversions",
         "java.time.Instant": "java.time.TimeConversions",
         "java.time.LocalDate": "java.time.TimeConversions",
+        "java.time.LocalTime": "java.time.TimeConversions",
         "java.time.MonthDay": "java.time.TimeConversions",
+        "java.time.Period": "java.time.TimeConversions",
         "java.time.ZoneId": "java.time.TimeConversions",
         "java.time.ZonedDateTime": "java.time.TimeConversions"
       }
@@ -158,14 +160,9 @@
         "java.util.function.DoubleToLongFunction",
         "java.util.function.LongUnaryOperator",
         "java.util.stream.BaseStream",
-        "java.util.function.DoublePredicate"
+        "java.util.function.DoublePredicate",
+        "java.util.Spliterator"
       ],
-      "wrapper_conversion_excluding": {
-        "java.util.Spliterator": [
-          "boolean java.util.Spliterator#hasCharacteristics(int)",
-          "long java.util.Spliterator#getExactSizeIfKnown()"
-        ]
-      },
       "custom_conversion": {
         "java.util.DoubleSummaryStatistics": "java.util.DoubleSummaryStatisticsConversions",
         "java.util.IntSummaryStatistics": "java.util.IntSummaryStatisticsConversions",

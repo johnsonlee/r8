@@ -16,7 +16,6 @@ import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.errors.CheckDiscardDiagnostic;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
-import com.android.tools.r8.experimental.startup.StartupInstrumentation;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
@@ -443,8 +442,6 @@ public class R8 {
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
 
       new CfOpenClosedInterfacesAnalysis(appViewWithLiveness).run(executorService);
-
-      new StartupInstrumentation(appView).instrumentAllClasses(executorService);
 
       assert verifyNoJarApplicationReaders(appView.appInfo().classes());
       assert appView.checkForTesting(() -> allReferencesAssignedApiLevel(appViewWithLiveness));

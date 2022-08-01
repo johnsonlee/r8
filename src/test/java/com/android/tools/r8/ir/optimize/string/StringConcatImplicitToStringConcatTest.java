@@ -52,20 +52,17 @@ public class StringConcatImplicitToStringConcatTest extends TestBase {
             inspect -> {
               MethodSubject methodSubject = inspect.clazz(Main.class).mainMethod();
               assertThat(methodSubject, isPresent());
-              // TODO(b/129200243): This should be String.concat() as argument.
-              assertEquals(2, countStringBuilderInits(methodSubject.asFoundMethodSubject()));
-              assertEquals(1, countStringBuilderAppends(methodSubject.asFoundMethodSubject()));
+              assertEquals(0, countStringBuilderInits(methodSubject.asFoundMethodSubject()));
+              assertEquals(0, countStringBuilderAppends(methodSubject.asFoundMethodSubject()));
             });
   }
 
   public static class Main {
 
     public static void main(String[] args) {
-      String arg1 = System.currentTimeMillis() > 0 ? "o" : null;
-      String arg2 = System.currentTimeMillis() > 0 ? "k" : null;
-      if (arg1 != null && arg2 != null) {
-        System.out.println(new StringBuilder(new StringBuilder(arg1).append(arg2)).toString());
-      }
+      String arg1 = System.currentTimeMillis() > 0 ? "o" : "";
+      String arg2 = System.currentTimeMillis() > 0 ? "k" : "";
+      System.out.println(new StringBuilder(new StringBuilder(arg1).append(arg2)).toString());
     }
   }
 }
