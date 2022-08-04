@@ -6,8 +6,9 @@ package com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification;
 
 import com.android.tools.r8.graph.DexType;
 import java.util.LinkedHashMap;
+import java.util.Objects;
 
-public class EmulatedDispatchMethodDescriptor {
+public class EmulatedDispatchMethodDescriptor implements SpecificationDescriptor {
 
   /**
    * When resolving into the descriptor, if the resolution is used for a super-invoke or to generate
@@ -66,5 +67,31 @@ public class EmulatedDispatchMethodDescriptor {
 
   public LinkedHashMap<DexType, DerivedMethod> getDispatchCases() {
     return dispatchCases;
+  }
+
+  @Override
+  public Object[] toJsonStruct(
+      MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter exporter) {
+    return exporter.exportEmulatedDispatchMethodDescriptor(this);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof EmulatedDispatchMethodDescriptor)) {
+      return false;
+    }
+    EmulatedDispatchMethodDescriptor that = (EmulatedDispatchMethodDescriptor) o;
+    return Objects.equals(interfaceMethod, that.interfaceMethod)
+        && Objects.equals(emulatedDispatchMethod, that.emulatedDispatchMethod)
+        && Objects.equals(forwardingMethod, that.forwardingMethod)
+        && Objects.equals(dispatchCases, that.dispatchCases);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(interfaceMethod, emulatedDispatchMethod, forwardingMethod, dispatchCases);
   }
 }

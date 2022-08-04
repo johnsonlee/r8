@@ -93,10 +93,6 @@ public class VarHandleTest extends TestBase {
     testForD8()
         .addProgramFiles(getProgramInputs())
         .setMinApi(parameters.getApiLevel())
-        .mapUnsupportedFeaturesToWarnings()
-        // TODO(b/238175192): remove again when resolved
-        .addOptionsModification(
-            options -> options.enableUnrepresentableInDexInstructionRemoval = true)
         .compileWithExpectedDiagnostics(
             diagnostics -> {
               if (hasInvokePolymorphicCompileSupport()) {

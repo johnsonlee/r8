@@ -7,6 +7,10 @@ package com.android.tools.r8.experimental.startup;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.MethodReference;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 // TODO(b/238173796): When updating the compiler to have support for taking a list of startup
 //  methods, this class may likely be removed along with the StartupItem class, so that only
@@ -23,6 +27,23 @@ public class StartupClass<C, M> extends StartupItem<C, M, C> {
 
   public static Builder<DexType, DexMethod> dexBuilder() {
     return new Builder<>();
+  }
+
+  public static Builder<ClassReference, MethodReference> referenceBuilder() {
+    return new Builder<>();
+  }
+
+  @Override
+  public void accept(
+      Consumer<StartupClass<C, M>> classConsumer, Consumer<StartupMethod<C, M>> methodConsumer) {
+    classConsumer.accept(this);
+  }
+
+  @Override
+  public <T> T apply(
+      Function<StartupClass<C, M>, T> classFunction,
+      Function<StartupMethod<C, M>, T> methodFunction) {
+    return classFunction.apply(this);
   }
 
   @Override

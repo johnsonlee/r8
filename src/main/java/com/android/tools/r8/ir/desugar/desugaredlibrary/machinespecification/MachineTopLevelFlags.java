@@ -44,7 +44,7 @@ public class MachineTopLevelFlags {
     this.extraKeepRules = extraKeepRules;
   }
 
-  public AndroidApiLevel getRequiredCompilationAPILevel() {
+  public AndroidApiLevel getRequiredCompilationApiLevel() {
     return requiredCompilationAPILevel;
   }
 
@@ -66,5 +66,9 @@ public class MachineTopLevelFlags {
 
   public List<String> getExtraKeepRules() {
     return extraKeepRules;
+  }
+
+  public String getExtraKeepRulesConcatenated() {
+    return String.join("\n", extraKeepRules);
   }
 }

@@ -34,6 +34,7 @@ import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import com.android.tools.r8.utils.structural.StructuralSpecification;
@@ -111,12 +112,27 @@ public class CfInvoke extends CfInstruction {
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
     Invoke.Type invokeType = Invoke.Type.fromCfOpcode(opcode, method, context, appView);
-    MethodLookupResult lookup = graphLens.lookupMethod(method, context.getReference(), invokeType);
-    DexMethod rewrittenMethod = lookup.getReference();
-    String owner = namingLens.lookupInternalName(rewrittenMethod.holder);
-    String name = namingLens.lookupName(rewrittenMethod).toString();
-    String desc = rewrittenMethod.proto.toDescriptorString(namingLens);
-    visitor.visitMethodInsn(lookup.getType().getCfOpcode(), owner, name, desc, itf);
+    if (invokeType == Type.POLYMORPHIC) {
+      assert dexItemFactory.polymorphicMethods.isPolymorphicInvoke(method);
+      // The method is one of java.lang.MethodHandle.invoke/invokeExact.
+      // Only the method signature (getProto()) is to be type rewritten.
+      DexProto rewrittenProto = rewriter.rewriteProto(method.getProto());
+      visitor.visitMethodInsn(
+          invokeType.getCfOpcode(),
+          DescriptorUtils.descriptorToInternalName(method.holder.toDescriptorString()),
+          method.getName().toString(),
+          rewrittenProto.toDescriptorString(namingLens),
+          itf);
+    } else {
+      MethodLookupResult lookup =
+          graphLens.lookupMethod(method, context.getReference(), invokeType);
+      Invoke.Type rewrittenType = lookup.getType();
+      DexMethod rewrittenMethod = lookup.getReference();
+      String owner = namingLens.lookupInternalName(rewrittenMethod.holder);
+      String name = namingLens.lookupName(rewrittenMethod).toString();
+      String desc = rewrittenMethod.proto.toDescriptorString(namingLens);
+      visitor.visitMethodInsn(rewrittenType.getCfOpcode(), owner, name, desc, itf);
+    }
   }
 
   @Override

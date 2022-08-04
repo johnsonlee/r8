@@ -11,7 +11,7 @@ import com.android.tools.r8.naming.MemberNaming.Signature;
 import com.android.tools.r8.naming.mappinginformation.MapVersionMappingInformation;
 import com.android.tools.r8.naming.mappinginformation.MappingInformation;
 import com.android.tools.r8.naming.mappinginformation.MappingInformationDiagnostics;
-import com.android.tools.r8.position.TextPosition;
+import com.android.tools.r8.position.Position;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.IdentifierUtils;
 import com.android.tools.r8.utils.StringUtils;
@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Parses a Proguard mapping file and produces mappings from obfuscated class names to the original
@@ -425,8 +426,37 @@ public class ProguardMapReader implements AutoCloseable {
     }
   }
 
-  private TextPosition getPosition() {
-    return new TextPosition(0, lineNo, 1);
+  private Position getPosition() {
+    return new LinePosition(lineNo);
+  }
+
+  private static final class LinePosition implements Position {
+    private final int lineNo;
+
+    LinePosition(int lineNo) {
+      this.lineNo = lineNo;
+    }
+
+    @Override
+    public String getDescription() {
+      return "line " + lineNo;
+    }
+
+    @Override
+    public int hashCode() {
+      return lineNo;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      }
+      if (o instanceof LinePosition) {
+        return lineNo == ((LinePosition) o).lineNo;
+      }
+      return false;
+    }
   }
 
   // Parsing of components
@@ -460,17 +490,42 @@ public class ProguardMapReader implements AutoCloseable {
     }
   }
 
+  // Small direct-mapped cache for computing String.substring.
+  //
+  // Due to inlining, the same method names and parameter types will occur repeatedly on multiple
+  // lines.  String.substring ends up allocating a lot of garbage, so we use this cache to find
+  // String objects without having to allocate memory.
+  //
+  // "Direct-mapped" is inspired from computer architecture, where having a lookup policy in
+  // which entries can only ever map to one cache line is often faster than a fancy LRU cache.
+  private static final int SUBSTRING_CACHE_SIZE = 64;
+  private final String[] substringCache = new String[SUBSTRING_CACHE_SIZE];
   // Cache for canonicalizing strings.
   // This saves 10% of heap space for large programs.
-  final HashMap<String, String> cache = new HashMap<>();
+  private final HashMap<String, String> identifierCache = new HashMap<>();
+
+  // Cache for canonicalizing signatures.
+  //
+  // Due to inlining, the same MethodSignature will come up many times in a ProguardMap.
+  // This happens to help a bit for FieldSignature too, so lump those in.
+  private final HashMap<Signature, Signature> signatureCache = new HashMap<>();
 
   private String substring(int start) {
-    String result = line.substring(start, lineOffset);
-    if (cache.containsKey(result)) {
-      return cache.get(result);
+    int cacheIdx;
+    {
+      // Check if there was a recent String accessed which matches the substring.
+      int len = lineOffset - start;
+      cacheIdx = len % SUBSTRING_CACHE_SIZE;
+      String candidate = substringCache[cacheIdx];
+      if (candidate != null
+          && candidate.length() == len
+          && line.regionMatches(start, candidate, 0, len)) {
+        return candidate;
+      }
     }
-    cache.put(result, result);
-    return result;
+
+    String result = line.substring(start, lineOffset);
+    return substringCache[cacheIdx] = identifierCache.computeIfAbsent(result, Function.identity());
   }
 
   private String parseMethodName() {
@@ -510,7 +565,7 @@ public class ProguardMapReader implements AutoCloseable {
       skipWhitespace();
       String[] arguments;
       if (peekChar(0) == ')') {
-        arguments = new String[0];
+        arguments = StringUtils.EMPTY_ARRAY;
       } else {
         List<String> items = new ArrayList<>();
         items.add(parseType(true));
@@ -528,7 +583,7 @@ public class ProguardMapReader implements AutoCloseable {
     } else {
       signature = new FieldSignature(name, type);
     }
-    return signature;
+    return signatureCache.computeIfAbsent(signature, Function.identity());
   }
 
   private void skipArrow() {

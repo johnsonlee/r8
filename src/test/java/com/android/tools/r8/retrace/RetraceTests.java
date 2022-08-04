@@ -508,6 +508,7 @@ public class RetraceTests extends TestBase {
                   ProguardMappingSupplier.builder()
                       .setProguardMapProducer(
                           ProguardMapProducer.fromString(stackTraceForTest.mapping()))
+                      .setLoadAllDefinitions(!stream)
                       .setAllowExperimental(allowExperimentalMapping)
                       .build())
               .setRetracedStackTraceConsumer(

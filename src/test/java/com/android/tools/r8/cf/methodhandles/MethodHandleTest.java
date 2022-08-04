@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.cf.methodhandles;
 
-import com.android.tools.r8.NoVerticalClassMerging;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -61,7 +60,6 @@ public class MethodHandleTest {
     // Class that is only mentioned in return value of LDC(MethodType)-instruction.
   }
 
-  @NoVerticalClassMerging
   public interface I {
 
     static void svi(int i) {
@@ -126,8 +124,8 @@ public class MethodHandleTest {
       divicMethod().invoke(i, 15, 'x');
       assertEquals(42L, (long) dijicMethod().invoke(i, 16, 'x'));
       constructorMethod().invoke(21);
-      System.out.println(veType().parameterType(0).getName().lastIndexOf('.'));
-      System.out.println(fType().returnType().getName().lastIndexOf('.'));
+      System.out.println(veType().parameterType(0).equals(E.class));
+      System.out.println(fType().returnType().equals(F.class));
     } catch (Throwable e) {
       throw new RuntimeException(e);
     }

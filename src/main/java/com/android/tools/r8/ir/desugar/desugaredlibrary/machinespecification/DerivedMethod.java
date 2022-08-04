@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
+import java.util.Objects;
 
 /**
  * A derived method is: - if the holderKind is null, a normal dexMethod; - if the holderKind is
@@ -16,7 +17,7 @@ import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
  * context to generate the holder type. The method may however differ (for example the method name
  * may be different).
  */
-public class DerivedMethod {
+public class DerivedMethod implements SpecificationDescriptor {
 
   private final DexMethod method;
   private final SyntheticKind holderKind;
@@ -48,5 +49,28 @@ public class DerivedMethod {
 
   public DexProto getProto() {
     return method.getProto();
+  }
+
+  @Override
+  public Object[] toJsonStruct(
+      MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter exporter) {
+    return exporter.exportDerivedMethod(this);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof DerivedMethod)) {
+      return false;
+    }
+    DerivedMethod that = (DerivedMethod) o;
+    return method == that.method && Objects.equals(holderKind, that.holderKind);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(method, holderKind);
   }
 }

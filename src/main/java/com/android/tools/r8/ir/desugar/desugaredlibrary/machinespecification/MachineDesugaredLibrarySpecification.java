@@ -4,20 +4,24 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification;
 
+import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.MethodAccessFlags;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.SemanticVersion;
+import com.android.tools.r8.utils.Timing;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
-public class MachineDesugaredLibrarySpecification {
+public class MachineDesugaredLibrarySpecification implements DesugaredLibrarySpecification {
 
   private final boolean libraryCompilation;
   private final MachineTopLevelFlags topLevelFlags;
@@ -52,18 +56,30 @@ public class MachineDesugaredLibrarySpecification {
     this.rewritingFlags = rewritingFlags;
   }
 
+  @Override
   public boolean isEmpty() {
     return rewritingFlags.isEmpty();
   }
 
+  @Override
   public boolean isLibraryCompilation() {
     return libraryCompilation;
   }
 
-  public AndroidApiLevel getRequiredCompilationAPILevel() {
-    return topLevelFlags.getRequiredCompilationAPILevel();
+  public MachineTopLevelFlags getTopLevelFlags() {
+    return topLevelFlags;
   }
 
+  public MachineRewritingFlags getRewritingFlags() {
+    return rewritingFlags;
+  }
+
+  @Override
+  public AndroidApiLevel getRequiredCompilationApiLevel() {
+    return topLevelFlags.getRequiredCompilationApiLevel();
+  }
+
+  @Override
   public String getSynthesizedLibraryClassesPackagePrefix() {
     return topLevelFlags.getSynthesizedLibraryClassesPackagePrefix();
   }
@@ -72,6 +88,7 @@ public class MachineDesugaredLibrarySpecification {
     return topLevelFlags.getIdentifier();
   }
 
+  @Override
   public String getJsonSource() {
     return topLevelFlags.getJsonSource();
   }
@@ -80,6 +97,7 @@ public class MachineDesugaredLibrarySpecification {
     return topLevelFlags.supportAllCallbacksFromLibrary();
   }
 
+  @Override
   public List<String> getExtraKeepRules() {
     return topLevelFlags.getExtraKeepRules();
   }
@@ -204,8 +222,10 @@ public class MachineDesugaredLibrarySpecification {
     return false;
   }
 
-  public AndroidApiLevel getRequiredCompilationApiLevel() {
-    return topLevelFlags.getRequiredCompilationAPILevel();
+  @Override
+  public MachineDesugaredLibrarySpecification toMachineSpecification(
+      DexApplication app, Timing timing) throws IOException {
+    return this;
   }
 
   public boolean requiresTypeRewriting() {

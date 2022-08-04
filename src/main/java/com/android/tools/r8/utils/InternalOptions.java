@@ -23,6 +23,7 @@ import com.android.tools.r8.Version;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.debuginfo.DebugRepresentation;
+import com.android.tools.r8.dex.ApplicationReader.ProgramClassConflictResolver;
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Backend;
 import com.android.tools.r8.dex.Marker.Tool;
@@ -169,6 +170,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // TODO(zerny): Make this private-final once we have full program-consumer support.
   public ProgramConsumer programConsumer = null;
+
+  public ProgramClassConflictResolver programClassConflictResolver = null;
 
   private GlobalSyntheticsConsumer globalSyntheticsConsumer = null;
 
@@ -372,6 +375,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean enableRedundantConstNumberOptimization = false;
   public boolean enableLoopUnrolling = true;
 
+  // TODO(b/237567012): Remove when resolved.
+  public boolean enableCheckAllInstructionsDuringStackMapVerification = false;
+
   public String synthesizedClassPrefix = "";
 
   // Number of threads to use while processing the dex files.
@@ -397,13 +403,14 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // Boolean value indicating that byte code pass through may be enabled.
   public boolean enableCfByteCodePassThrough = false;
 
-  // TODO(b/238175192): remove again when resolved
-  public boolean enableUnrepresentableInDexInstructionRemoval = false;
-
   // Flag to control the representation of stateless lambdas.
   // See b/222081665 for context.
   public boolean createSingletonsForStatelessLambdas =
       System.getProperty("com.android.tools.r8.createSingletonsForStatelessLambdas") != null;
+
+  // Flag to allow record annotations in DEX. See b/231930852 for context.
+  public boolean emitRecordAnnotationsInDex =
+      System.getProperty("com.android.tools.r8.emitRecordAnnotationsInDex") != null;
 
   // Flag to allow nest annotations in DEX. See b/231930852 for context.
   public boolean emitNestAnnotationsInDex =
@@ -2148,7 +2155,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean canUseRecords() {
-    return hasFeaturePresentFrom(null);
+    return hasFeaturePresentFrom(null) || emitRecordAnnotationsInDex;
   }
 
   public boolean canUseSealedClasses() {

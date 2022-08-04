@@ -28,6 +28,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.ValueType;
@@ -79,7 +80,7 @@ public class UnrepresentableInDexInstructionRemover implements CfInstructionDesu
             makeDiagnostic(context.getOrigin(), MethodPosition.create(context));
         assert (diagnostic.getSupportedApiLevel() == -1 && supportedApiLevel == null)
             || (diagnostic.getSupportedApiLevel() == supportedApiLevel.getLevel());
-        appView.reporter().error(diagnostic);
+        appView.reporter().warning(diagnostic);
       }
     }
 
@@ -114,8 +115,9 @@ public class UnrepresentableInDexInstructionRemover implements CfInstructionDesu
       builder.add(new CfStackInstruction(type.isWideType() ? Opcode.Pop2 : Opcode.Pop));
     }
 
-    static void pop(Iterable<DexType> types, Builder<CfInstruction> builder) {
-      types.forEach(t -> pop(t, builder));
+    static void pop(DexProto proto, Builder<CfInstruction> builder) {
+      // Pop arguments in reverse order from the stack.
+      proto.getParameters().forEachReverse(t -> pop(t, builder));
     }
 
     static Builder<CfInstruction> pushReturnValue(DexType type, Builder<CfInstruction> builder) {
@@ -169,7 +171,7 @@ public class UnrepresentableInDexInstructionRemover implements CfInstructionDesu
                 report(context);
                 Builder<CfInstruction> replacement = ImmutableList.builder();
                 DexCallSite callSite = invokeDynamic.getCallSite();
-                pop(callSite.getMethodProto().getParameters(), replacement);
+                pop(callSite.getMethodProto(), replacement);
                 localStackAllocator.allocateLocalStack(1);
                 invokeThrowingStub(methodProcessingContext, eventConsumer, context, replacement);
                 pushReturnValue(callSite.getMethodProto().getReturnType(), replacement);
@@ -217,10 +219,10 @@ public class UnrepresentableInDexInstructionRemover implements CfInstructionDesu
                   dexItemFactory) -> {
                 report(context);
                 Builder<CfInstruction> replacement = ImmutableList.builder();
+                pop(invoke.getMethod().getProto(), replacement);
                 if (!invoke.isInvokeStatic()) {
                   pop(dexItemFactory.objectType, replacement);
                 }
-                pop(invoke.getMethod().getParameters(), replacement);
                 localStackAllocator.allocateLocalStack(1);
                 invokeThrowingStub(methodProcessingContext, eventConsumer, context, replacement);
                 pushReturnValue(invoke.getMethod().getReturnType(), replacement);

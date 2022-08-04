@@ -120,14 +120,20 @@ public abstract class Reason {
     private final int ordinal;
     private final DexField instanceField;
 
+    public MissingInstanceFieldValueForEnumInstanceReason(DexField instanceField) {
+      this.enumField = null;
+      this.ordinal = -1;
+      this.instanceField = instanceField;
+    }
+
     public MissingInstanceFieldValueForEnumInstanceReason(
-        DexField enumField, DexField instanceField) {
+        DexField instanceField, DexField enumField) {
       this.enumField = enumField;
       this.ordinal = -1;
       this.instanceField = instanceField;
     }
 
-    public MissingInstanceFieldValueForEnumInstanceReason(int ordinal, DexField instanceField) {
+    public MissingInstanceFieldValueForEnumInstanceReason(DexField instanceField, int ordinal) {
       this.enumField = null;
       this.ordinal = ordinal;
       this.instanceField = instanceField;
@@ -144,6 +150,11 @@ public abstract class Reason {
         return "MissingInstanceFieldValueForEnumInstance(enum field="
             + enumField.toSourceString()
             + ", instance field="
+            + instanceField.toSourceString()
+            + ")";
+      }
+      if (ordinal == -1) {
+        return "MissingInstanceFieldValueForEnumInstance(Cannot resolve instance field="
             + instanceField.toSourceString()
             + ")";
       }

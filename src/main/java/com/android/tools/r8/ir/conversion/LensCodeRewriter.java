@@ -10,6 +10,7 @@ import static com.android.tools.r8.ir.code.Opcodes.ASSUME;
 import static com.android.tools.r8.ir.code.Opcodes.CHECK_CAST;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_CLASS;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_METHOD_HANDLE;
+import static com.android.tools.r8.ir.code.Opcodes.CONST_METHOD_TYPE;
 import static com.android.tools.r8.ir.code.Opcodes.INIT_CLASS;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_GET;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_OF;
@@ -46,6 +47,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
+import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GraphLens;
 import com.android.tools.r8.graph.GraphLens.FieldLookupResult;
@@ -70,6 +72,7 @@ import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.ConstMethodHandle;
+import com.android.tools.r8.ir.code.ConstMethodType;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.FieldPut;
 import com.android.tools.r8.ir.code.IRCode;
@@ -85,6 +88,7 @@ import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMultiNewArray;
 import com.android.tools.r8.ir.code.InvokeNewArray;
+import com.android.tools.r8.ir.code.InvokePolymorphic;
 import com.android.tools.r8.ir.code.MoveException;
 import com.android.tools.r8.ir.code.NewArrayEmpty;
 import com.android.tools.r8.ir.code.NewInstance;
@@ -99,6 +103,7 @@ import com.android.tools.r8.ir.code.TypeAndLocalInfoSupplier;
 import com.android.tools.r8.ir.code.UnusedArgument;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
+import com.android.tools.r8.ir.optimize.CodeRewriter;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxer;
 import com.android.tools.r8.optimize.MemberRebindingAnalysis;
 import com.android.tools.r8.optimize.argumentpropagation.lenscoderewriter.NullCheckInserter;
@@ -220,6 +225,15 @@ public class LensCodeRewriter {
       assert graphLens.getPrevious() == codeLens;
       affectedPhis.addAll(enumUnboxer.rewriteCode(code, methodProcessor, prototypeChanges));
     }
+    if (!unusedArguments.isEmpty()) {
+      for (UnusedArgument unusedArgument : unusedArguments) {
+        if (unusedArgument.outValue().hasPhiUsers()) {
+          // See b/240282988: We can end up in situations where the second round of IR processing
+          // introduce phis for irreducible control flow, we need to resolve them.
+          CodeRewriter.replaceUnusedArgumentTrivialPhis(unusedArgument);
+        }
+      }
+    }
     rewritePartialDefault(
         code, method, graphLens, codeLens, prototypeChanges, affectedPhis, unusedArguments);
   }
@@ -277,11 +291,18 @@ public class LensCodeRewriter {
                       .computeIfAbsent()
                       .rewriteDexMethodHandle(handle, NOT_ARGUMENT_TO_LAMBDA_METAFACTORY, method);
               if (newHandle != handle) {
-                Value newOutValue = makeOutValue(current, code, graphLens, codeLens);
-                iterator.replaceCurrentInstruction(new ConstMethodHandle(newOutValue, newHandle));
-                if (newOutValue != null && newOutValue.getType() != current.getOutType()) {
-                  affectedPhis.addAll(newOutValue.uniquePhiUsers());
-                }
+                iterator.replaceCurrentInstruction(
+                    new ConstMethodHandle(current.outValue(), newHandle));
+              }
+            }
+            break;
+          case CONST_METHOD_TYPE:
+            {
+              ConstMethodType constType = current.asConstMethodType();
+              DexProto rewrittenProto = helper.computeIfAbsent().rewriteProto(constType.getValue());
+              if (constType.getValue() != rewrittenProto) {
+                iterator.replaceCurrentInstruction(
+                    new ConstMethodType(constType.outValue(), rewrittenProto));
               }
             }
             break;
@@ -298,9 +319,25 @@ public class LensCodeRewriter {
             }
             break;
 
+          case INVOKE_POLYMORPHIC:
+            {
+              InvokePolymorphic invoke = current.asInvokePolymorphic();
+              // The invoked method is on java.lang.invoke.MethodHandle and always remains as is.
+              assert factory.polymorphicMethods.isPolymorphicInvoke(invoke.getInvokedMethod());
+              // Rewrite the signature of the handles actual target.
+              DexProto rewrittenProto = helper.computeIfAbsent().rewriteProto(invoke.getProto());
+              if (invoke.getProto() != rewrittenProto) {
+                iterator.replaceCurrentInstruction(
+                    new InvokePolymorphic(
+                        invoke.getInvokedMethod(),
+                        rewrittenProto,
+                        invoke.outValue(),
+                        invoke.arguments()));
+              }
+            }
+            break;
           case INVOKE_DIRECT:
           case INVOKE_INTERFACE:
-          case INVOKE_POLYMORPHIC:
           case INVOKE_STATIC:
           case INVOKE_SUPER:
           case INVOKE_VIRTUAL:
