@@ -443,9 +443,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // Compute the marker to be placed in the main dex file.
   private Marker createMarker(Tool tool) {
-    if (tool == Tool.D8 && testing.dontCreateMarkerInD8) {
-      return null;
-    }
     Marker marker =
         new Marker(tool)
             .setVersion(Version.LABEL)
@@ -699,7 +696,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   @Override
   public boolean isRepackagingEnabled() {
-    return proguardConfiguration.getPackageObfuscationMode().isSome() && isMinifying();
+    return !debug
+        && proguardConfiguration != null
+        && proguardConfiguration.getPackageObfuscationMode().isSome()
+        && (isMinifying() || !isForceProguardCompatibilityEnabled());
   }
 
   @Override
@@ -1772,6 +1772,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public static class TestingOptions {
 
+    public boolean neverReuseCfLocalRegisters = false;
     private boolean hasReadCheckDeterminism = false;
     private DeterminismChecker determinismChecker = null;
 
@@ -1892,7 +1893,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableExperimentalDesugaredLibraryKeepRuleGenerator = false;
     public boolean invertConditionals = false;
     public boolean placeExceptionalBlocksLast = false;
-    public boolean dontCreateMarkerInD8 = false;
     public boolean forceJumboStringProcessing = false;
     public boolean forcePcBasedEncoding = false;
     public int pcBasedDebugEncodingOverheadThreshold =

@@ -47,6 +47,9 @@ public class DexFileMergerHelper {
       throws CompilationFailedException {
     InternalOptions options = command.getInternalOptions();
 
+    // TODO(b/241351268): Don't compile in intermediate mode as the output is a final "shard".
+    options.intermediate = true;
+
     // TODO(b/241063980): Move this to D8Command.Builder.setDisableDesugaring(true) in bazel.
     options.desugarState = DesugarState.OFF;
 
@@ -60,13 +63,6 @@ public class DexFileMergerHelper {
     options.programClassConflictResolver =
         new DexFileMergerHelper(inputOrdering)::keepFirstProgramClassConflictResolver;
 
-    D8.runForTesting(command.getInputApp(), options);
-  }
-
-  public static void runD8ForTesting(D8Command command, boolean dontCreateMarkerInD8)
-      throws CompilationFailedException {
-    InternalOptions options = command.getInternalOptions();
-    options.testing.dontCreateMarkerInD8 = dontCreateMarkerInD8;
     D8.runForTesting(command.getInputApp(), options);
   }
 }

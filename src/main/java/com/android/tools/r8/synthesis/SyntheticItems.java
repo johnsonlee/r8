@@ -40,6 +40,7 @@ import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.synthesis.SyntheticFinalization.Result;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.ConsumerUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
@@ -488,6 +489,22 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     return oracle.getSynthesizingContexts(clazz);
   }
 
+  public Map<DexType, List<DexProgramClass>> computeSyntheticContextsToSyntheticClasses(
+      AppView<?> appView) {
+    Map<DexType, List<DexProgramClass>> syntheticContextsToSyntheticClasses =
+        new IdentityHashMap<>();
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      if (isSyntheticClass(clazz)) {
+        for (DexType synthesizingContextType : getSynthesizingContextTypes(clazz.getType())) {
+          syntheticContextsToSyntheticClasses
+              .computeIfAbsent(synthesizingContextType, ignoreKey -> new ArrayList<>())
+              .add(clazz);
+        }
+      }
+    }
+    return syntheticContextsToSyntheticClasses;
+  }
+
   public interface SynthesizingContextOracle {
 
     Set<DexReference> getSynthesizingContexts(DexProgramClass clazz);
@@ -528,18 +545,25 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   private SynthesizingContext getSynthesizingContext(
       ProgramDefinition context, AppView<?> appView) {
+    InternalOptions options = appView.options();
     if (appView.hasClassHierarchy()) {
       AppInfoWithClassHierarchy appInfo = appView.appInfoWithClassHierarchy();
       return getSynthesizingContext(
-          context, appInfo.getClassToFeatureSplitMap(), appInfo.getStartupOrder());
+          context, appInfo.getClassToFeatureSplitMap(), options, appInfo.getStartupOrder());
     }
     return getSynthesizingContext(
-        context, ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap(), StartupOrder.empty());
+        context,
+        ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap(),
+        options,
+        StartupOrder.empty());
   }
 
   /** Used to find the synthesizing context for a new synthetic that is about to be created. */
   private SynthesizingContext getSynthesizingContext(
-      ProgramDefinition context, ClassToFeatureSplitMap featureSplits, StartupOrder startupOrder) {
+      ProgramDefinition context,
+      ClassToFeatureSplitMap featureSplits,
+      InternalOptions options,
+      StartupOrder startupOrder) {
     DexType contextType = context.getContextType();
     SyntheticDefinition<?, ?, ?> existingDefinition = pending.definitions.get(contextType);
     if (existingDefinition != null) {
@@ -555,7 +579,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
           .getContext();
     }
     // This context is not nested in an existing synthetic context so create a new "leaf" context.
-    FeatureSplit featureSplit = featureSplits.getFeatureSplit(context, startupOrder, this);
+    FeatureSplit featureSplit = featureSplits.getFeatureSplit(context, options, startupOrder, this);
     return SynthesizingContext.fromNonSyntheticInputContext(context, featureSplit);
   }
 
