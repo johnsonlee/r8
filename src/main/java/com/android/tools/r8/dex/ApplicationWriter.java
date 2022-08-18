@@ -21,8 +21,10 @@ import com.android.tools.r8.debuginfo.DebugRepresentation;
 import com.android.tools.r8.debuginfo.DebugRepresentation.DebugRepresentationPredicate;
 import com.android.tools.r8.dex.FileWriter.ByteBufferResult;
 import com.android.tools.r8.dex.VirtualFile.FilePerInputClassDistributor;
+import com.android.tools.r8.dex.VirtualFile.ItemUseInfo;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.experimental.startup.StartupCompleteness;
+import com.android.tools.r8.experimental.startup.StartupOrder;
 import com.android.tools.r8.features.FeatureSplitConfiguration.DataResourceProvidersAndConsumer;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
@@ -34,6 +36,7 @@ import com.android.tools.r8.graph.DexDebugInfoForWriting;
 import com.android.tools.r8.graph.DexEncodedArray;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
@@ -53,6 +56,7 @@ import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ExceptionUtils;
+import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.InternalGlobalSyntheticsProgramConsumer;
 import com.android.tools.r8.utils.InternalGlobalSyntheticsProgramConsumer.InternalGlobalSyntheticsDexIndexedConsumer;
 import com.android.tools.r8.utils.InternalGlobalSyntheticsProgramConsumer.InternalGlobalSyntheticsDexPerFileConsumer;
@@ -214,7 +218,16 @@ public class ApplicationWriter {
         && options.enableMainDexListCheck) {
       distributor = new VirtualFile.MonoDexDistributor(this, classes, options);
     } else {
-      distributor = new VirtualFile.FillFilesDistributor(this, classes, options, executorService);
+      // Retrieve the startup order for writing the app. In R8, the startup order is created
+      // up-front to guide optimizations through-out the compilation. In D8, the startup
+      // order is only used for writing the app, so we create it here for the first time.
+      StartupOrder startupOrder =
+          appView.appInfo().hasClassHierarchy()
+              ? appView.appInfoWithClassHierarchy().getStartupOrder()
+              : StartupOrder.createInitialStartupOrder(options);
+      distributor =
+          new VirtualFile.FillFilesDistributor(
+              this, classes, options, executorService, startupOrder);
     }
 
     List<VirtualFile> virtualFiles = distributor.run();
@@ -493,11 +506,38 @@ public class ApplicationWriter {
     timing.end();
   }
 
+  private <T extends DexItem> void printUse(Map<T, ItemUseInfo> useMap, String label) {
+    assert options.testing.calculateItemUseCountInDex;
+    List<IntBox> notMany = new ArrayList<>();
+    for (int i = 0; i < ItemUseInfo.getManyCount() - 1; i++) {
+      notMany.add(new IntBox());
+    }
+    IntBox many = new IntBox();
+    useMap.forEach(
+        (item, itemUseInfo) -> {
+          if (itemUseInfo.isMany()) {
+            many.increment();
+          } else {
+            assert itemUseInfo.getSize() >= 1;
+            notMany.get(itemUseInfo.getSize() - 1).increment();
+          }
+        });
+
+    System.out.print(label);
+    for (int i = 0; i < ItemUseInfo.getManyCount() - 1; i++) {
+      System.out.print("," + notMany.get(i).get());
+      notMany.add(new IntBox());
+    }
+    System.out.println("," + many.get());
+  }
+
   private void writeVirtualFile(
       VirtualFile virtualFile, Timing timing, List<DexString> forcedStrings) {
     if (virtualFile.isEmpty()) {
       return;
     }
+
+    printItemUseInfo(virtualFile);
 
     ProgramConsumer consumer;
     ByteBufferProvider byteBufferProvider;
@@ -884,6 +924,41 @@ public class ApplicationWriter {
       DexString value = internalCompute();
       computed = true;
       return value;
+    }
+  }
+
+  private void printItemUseInfo(VirtualFile virtualFile) {
+    if (options.testing.calculateItemUseCountInDex) {
+      synchronized (System.out) {
+        System.out.print("\"Item\"");
+        for (int i = 0; i < ItemUseInfo.getManyCount() - 1; i++) {
+          System.out.print(",\"" + (i + 1) + " use\"");
+        }
+        System.out.println(",\"Not single use\"");
+        printUse(virtualFile.indexedItems.stringsUse, "Strings");
+        printUse(virtualFile.indexedItems.typesUse, "Types");
+        printUse(virtualFile.indexedItems.protosUse, "Protos");
+        printUse(virtualFile.indexedItems.fieldsUse, "Fields");
+        printUse(virtualFile.indexedItems.methodsUse, "Methods");
+        printUse(virtualFile.indexedItems.callSitesUse, "CallSites");
+        printUse(virtualFile.indexedItems.methodHandlesUse, "MethodHandles");
+        if (options.testing.calculateItemUseCountInDexDumpSingleUseStrings) {
+          virtualFile.indexedItems.stringsUse.forEach(
+              (string, info) -> {
+                if (info.getSizeOrMany() == 1) {
+                  System.out.println(info.getUse().iterator().next() + ": " + string.toString());
+                }
+              });
+        }
+      }
+    } else {
+      assert virtualFile.indexedItems.stringsUse.isEmpty();
+      assert virtualFile.indexedItems.typesUse.isEmpty();
+      assert virtualFile.indexedItems.protosUse.isEmpty();
+      assert virtualFile.indexedItems.fieldsUse.isEmpty();
+      assert virtualFile.indexedItems.methodsUse.isEmpty();
+      assert virtualFile.indexedItems.callSitesUse.isEmpty();
+      assert virtualFile.indexedItems.methodHandlesUse.isEmpty();
     }
   }
 }

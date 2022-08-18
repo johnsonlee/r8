@@ -47,15 +47,15 @@ def teardown(options, teardown_options):
       teardown_options['previous_screen_off_timeout'],
       options.device_id)
 
-def run_all(apk, options, tmp_dir):
+def run_all(apk_or_apks, options, tmp_dir):
   # Launch app while collecting information.
   data_total = {}
   for iteration in range(1, options.iterations + 1):
     print('Starting iteration %i' % iteration)
     out_dir = os.path.join(options.out_dir, str(iteration))
-    teardown_options = setup_for_run(apk, out_dir, options)
+    teardown_options = setup_for_run(apk_or_apks, out_dir, options)
     data = run(out_dir, options, tmp_dir)
-    teardown_for_run(options, teardown_options)
+    teardown_for_run(out_dir, options, teardown_options)
     add_data(data_total, data)
     print('Result:')
     print(data)
@@ -76,12 +76,17 @@ def compute_data_summary(data_total):
     data_summary['%s_med' % key] = statistics.median(value)
   return data_summary
 
-def setup_for_run(apk, out_dir, options):
+def setup_for_run(apk_or_apks, out_dir, options):
   adb_utils.root(options.device_id)
 
   print('Installing')
   adb_utils.uninstall(options.app_id, options.device_id)
-  adb_utils.install(apk, options.device_id)
+  if apk_or_apks['apk']:
+    adb_utils.install(apk_or_apks['apk'], options.device_id)
+  else:
+    assert apk_or_apks['apks']
+    adb_utils.install_apks(apk_or_apks['apks'], options.device_id)
+
   os.makedirs(out_dir, exist_ok=True)
 
   # AOT compile.
@@ -119,8 +124,12 @@ def setup_for_run(apk, out_dir, options):
   adb_utils.drop_caches(options.device_id)
   return teardown_options
 
-def teardown_for_run(options, teardown_options):
+def teardown_for_run(out_dir, options, teardown_options):
   assert adb_utils.get_screen_state(options.device_id).is_on_and_unlocked()
+
+  if options.capture_screen:
+    target = os.path.join(out_dir, 'screen.png')
+    adb_utils.capture_screen(target, options.device_id)
 
   if options.cooldown > 0:
     adb_utils.teardown_after_interaction_with_device(
@@ -246,8 +255,15 @@ def parse_options(argv):
                       default=False,
                       action='store_true')
   result.add_argument('--apk',
-                      help='Path to the APK',
-                      required=True)
+                      help='Path to the .apk')
+  result.add_argument('--apks',
+                      help='Path to the .apks')
+  result.add_argument('--bundle',
+                      help='Path to the .aab')
+  result.add_argument('--capture-screen',
+                      help='Take a screenshot after each test',
+                      default=False,
+                      action='store_true')
   result.add_argument('--cooldown',
                       help='Seconds to wait before running each iteration',
                       default=0,
@@ -282,8 +298,23 @@ def parse_options(argv):
                       type=int)
   options, args = result.parse_known_args(argv)
   setattr(options, 'perfetto', not options.no_perfetto)
+
+  paths = [
+      path for path in [options.apk, options.apks, options.bundle]
+      if path is not None]
+  assert len(paths) == 1, 'Expected exactly one .apk, .apks, or .aab file.'
+
+  # Build .apks file up front to avoid building the bundle upon each install.
+  if options.bundle:
+    os.makedirs(options.out_dir, exist_ok=True)
+    options.apks = os.path.join(options.out_dir, 'Bundle.apks')
+    adb_utils.build_apks_from_bundle(
+        options.bundle, options.apks, overwrite=True)
+    del options.bundle
+
   # Profile is only used with --aot.
   assert options.aot or not options.baseline_profile
+
   return options, args
 
 def global_setup(options):
@@ -308,10 +339,13 @@ def global_teardown(options, teardown_options):
 def main(argv):
   (options, args) = parse_options(argv)
   with utils.TempDir() as tmp_dir:
-    apk = apk_utils.add_baseline_profile_to_apk(
-        options.apk, options.baseline_profile, tmp_dir)
+    apk_or_apks = { 'apk': options.apk, 'apks': options.apks }
+    if options.baseline_profile:
+      assert not options.apks, 'Unimplemented'
+      apk_or_apks['apk'] = apk_utils.add_baseline_profile_to_apk(
+          options.apk, options.baseline_profile, tmp_dir)
     teardown_options = global_setup(options)
-    run_all(apk, options, tmp_dir)
+    run_all(apk_or_apks, options, tmp_dir)
     global_teardown(options, teardown_options)
 
 if __name__ == '__main__':

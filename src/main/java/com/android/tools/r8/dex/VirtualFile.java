@@ -4,7 +4,6 @@
 package com.android.tools.r8.dex;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
-import static com.google.common.base.Predicates.alwaysFalse;
 
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.debuginfo.DebugRepresentation;
@@ -56,6 +55,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -70,36 +70,38 @@ public class VirtualFile {
   public static final int MAX_ENTRIES = Constants.U16BIT_MAX + 1;
 
   private final int id;
-  private final VirtualFileIndexedItemCollection indexedItems;
+  public final VirtualFileIndexedItemCollection indexedItems;
   private final IndexedItemTransaction transaction;
   private final FeatureSplit featureSplit;
+  private final StartupOrder startupOrder;
 
   private final DexString primaryClassDescriptor;
   private DebugRepresentation debugRepresentation;
 
   VirtualFile(int id, AppView<?> appView) {
-    this(id, appView, null, null);
+    this(id, appView, null, null, StartupOrder.empty());
   }
 
   VirtualFile(
       int id,
       AppView<?> appView,
       FeatureSplit featureSplit) {
-    this(id, appView, null, featureSplit);
+    this(id, appView, null, featureSplit, StartupOrder.empty());
   }
 
   private VirtualFile(
       int id,
       AppView<?> appView,
       DexProgramClass primaryClass) {
-    this(id, appView, primaryClass, null);
+    this(id, appView, primaryClass, null, StartupOrder.empty());
   }
 
   private VirtualFile(
       int id,
       AppView<?> appView,
       DexProgramClass primaryClass,
-      FeatureSplit featureSplit) {
+      FeatureSplit featureSplit,
+      StartupOrder startupOrder) {
     this.id = id;
     this.indexedItems = new VirtualFileIndexedItemCollection(appView);
     this.transaction = new IndexedItemTransaction(indexedItems, appView);
@@ -108,6 +110,7 @@ public class VirtualFile {
             ? null
             : appView.getNamingLens().lookupClassDescriptor(primaryClass.type);
     this.featureSplit = featureSplit;
+    this.startupOrder = startupOrder;
   }
 
   public int getId() {
@@ -125,6 +128,10 @@ public class VirtualFile {
 
   public FeatureSplit getFeatureSplit() {
     return featureSplit;
+  }
+
+  public StartupOrder getStartupOrder() {
+    return startupOrder;
   }
 
   public String getPrimaryClassDescriptor() {
@@ -351,13 +358,17 @@ public class VirtualFile {
     protected final InternalOptions options;
 
     DistributorBase(
-        ApplicationWriter writer, Collection<DexProgramClass> classes, InternalOptions options) {
+        ApplicationWriter writer,
+        Collection<DexProgramClass> classes,
+        InternalOptions options,
+        StartupOrder startupOrder) {
       super(writer);
       this.options = options;
       this.classes = SetUtils.newIdentityHashSet(classes);
 
-      // Create the primary dex file. The distribution will add more if needed.
-      mainDexFile = new VirtualFile(0, appView);
+      // Create the primary dex file. The distribution will add more if needed. We use the startup
+      // order (if any) to guide the layout of the primary dex file.
+      mainDexFile = new VirtualFile(0, appView, null, null, startupOrder);
       assert virtualFiles.isEmpty();
       virtualFiles.add(mainDexFile);
       addMarkers(mainDexFile);
@@ -428,7 +439,7 @@ public class VirtualFile {
     }
 
     protected void addFeatureSplitFiles(
-        Map<FeatureSplit, Set<DexProgramClass>> featureSplitClasses) {
+        Map<FeatureSplit, Set<DexProgramClass>> featureSplitClasses, StartupOrder startupOrder) {
       if (featureSplitClasses.isEmpty()) {
         return;
       }
@@ -451,6 +462,7 @@ public class VirtualFile {
                 appView,
                 featureSplitSetEntry.getValue(),
                 originalNames,
+                startupOrder,
                 nextFileId)
             .run();
       }
@@ -458,15 +470,19 @@ public class VirtualFile {
   }
 
   public static class FillFilesDistributor extends DistributorBase {
+
     private final ExecutorService executorService;
+    private final StartupOrder startupOrder;
 
     FillFilesDistributor(
         ApplicationWriter writer,
         Collection<DexProgramClass> classes,
         InternalOptions options,
-        ExecutorService executorService) {
-      super(writer, classes, options);
+        ExecutorService executorService,
+        StartupOrder startupOrder) {
+      super(writer, classes, options, startupOrder);
       this.executorService = executorService;
+      this.startupOrder = startupOrder;
     }
 
     @Override
@@ -507,10 +523,16 @@ public class VirtualFile {
             .distribute();
       } else {
         new PackageSplitPopulator(
-                virtualFiles, filesForDistribution, appView, classes, originalNames, nextFileId)
+                virtualFiles,
+                filesForDistribution,
+                appView,
+                classes,
+                originalNames,
+                startupOrder,
+                nextFileId)
             .run();
       }
-      addFeatureSplitFiles(featureSplitClasses);
+      addFeatureSplitFiles(featureSplitClasses, startupOrder);
 
       assert totalClassNumber == virtualFiles.stream().mapToInt(dex -> dex.classes().size()).sum();
       return virtualFiles;
@@ -520,7 +542,7 @@ public class VirtualFile {
   public static class MonoDexDistributor extends DistributorBase {
     MonoDexDistributor(
         ApplicationWriter writer, Collection<DexProgramClass> classes, InternalOptions options) {
-      super(writer, classes, options);
+      super(writer, classes, options, StartupOrder.empty());
     }
 
     @Override
@@ -536,14 +558,63 @@ public class VirtualFile {
       if (options.featureSplitConfiguration != null) {
         if (!featureSplitClasses.isEmpty()) {
           // TODO(141334414): Figure out if we allow multidex in features even when mono-dexing
-          addFeatureSplitFiles(featureSplitClasses);
+          addFeatureSplitFiles(featureSplitClasses, StartupOrder.empty());
         }
       }
       return virtualFiles;
     }
   }
 
-  private static class VirtualFileIndexedItemCollection implements IndexedItemCollection {
+  public static class ItemUseInfo {
+
+    private static final Set<DexProgramClass> MANY = null;
+    private static final int manyCount = 3;
+
+    private Set<DexProgramClass> use;
+
+    ItemUseInfo(Set<DexProgramClass> initialUse) {
+      use = initialUse.size() >= manyCount ? MANY : initialUse;
+    }
+
+    public void addUse(Set<DexProgramClass> moreUse) {
+      if (use == MANY) {
+        return;
+      }
+      if (moreUse.size() >= manyCount) {
+        use = MANY;
+        return;
+      }
+      use.addAll(moreUse);
+      if (use.size() >= manyCount) {
+        use = MANY;
+      }
+    }
+
+    public static int getManyCount() {
+      return manyCount;
+    }
+
+    public boolean isMany() {
+      return use == MANY;
+    }
+
+    public int getSize() {
+      assert use != MANY;
+      return use.size();
+    }
+
+    public int getSizeOrMany() {
+      if (use == MANY) return -1;
+      return use.size();
+    }
+
+    public Set<DexProgramClass> getUse() {
+      assert !isMany();
+      return use;
+    }
+  }
+
+  public static class VirtualFileIndexedItemCollection implements IndexedItemCollection {
 
     private final GraphLens graphLens;
     private final InitClassLens initClassLens;
@@ -557,6 +628,14 @@ public class VirtualFile {
     private final Set<DexString> strings = Sets.newIdentityHashSet();
     private final Set<DexCallSite> callSites = Sets.newIdentityHashSet();
     private final Set<DexMethodHandle> methodHandles = Sets.newIdentityHashSet();
+
+    public final Map<DexString, ItemUseInfo> stringsUse = new IdentityHashMap<>();
+    public final Map<DexType, ItemUseInfo> typesUse = new IdentityHashMap<>();
+    public final Map<DexProto, ItemUseInfo> protosUse = new IdentityHashMap<>();
+    public final Map<DexField, ItemUseInfo> fieldsUse = new IdentityHashMap<>();
+    public final Map<DexMethod, ItemUseInfo> methodsUse = new IdentityHashMap<>();
+    public final Map<DexCallSite, ItemUseInfo> callSitesUse = new IdentityHashMap<>();
+    public final Map<DexMethodHandle, ItemUseInfo> methodHandlesUse = new IdentityHashMap<>();
 
     public VirtualFileIndexedItemCollection(AppView<?> appView) {
       this.graphLens = appView.graphLens();
@@ -616,6 +695,238 @@ public class VirtualFile {
 
   public static class IndexedItemTransaction implements IndexedItemCollection {
 
+    public interface ClassUseCollector {
+
+      void collectClassDependencies(DexProgramClass clazz);
+
+      void collectClassDependenciesDone();
+
+      void clear();
+
+      Map<DexString, Set<DexProgramClass>> getStringsUse();
+
+      Map<DexType, Set<DexProgramClass>> getTypesUse();
+
+      Map<DexProto, Set<DexProgramClass>> getProtosUse();
+
+      Map<DexField, Set<DexProgramClass>> getFieldsUse();
+
+      Map<DexMethod, Set<DexProgramClass>> getMethodsUse();
+
+      Map<DexCallSite, Set<DexProgramClass>> getCallSitesUse();
+
+      Map<DexMethodHandle, Set<DexProgramClass>> getMethodHandlesUse();
+    }
+
+    public static class EmptyIndexedItemUsedByClasses implements ClassUseCollector {
+      @Override
+      public void collectClassDependencies(DexProgramClass clazz) {
+        // Do nothing.
+      }
+
+      @Override
+      public void collectClassDependenciesDone() {
+        // Do nothing.
+      }
+
+      @Override
+      public void clear() {
+        // DO nothing.
+      }
+
+      @Override
+      public Map<DexString, Set<DexProgramClass>> getStringsUse() {
+        assert false;
+        return null;
+      }
+
+      @Override
+      public Map<DexType, Set<DexProgramClass>> getTypesUse() {
+        assert false;
+        return null;
+      }
+
+      @Override
+      public Map<DexProto, Set<DexProgramClass>> getProtosUse() {
+        assert false;
+        return null;
+      }
+
+      @Override
+      public Map<DexField, Set<DexProgramClass>> getFieldsUse() {
+        assert false;
+        return null;
+      }
+
+      @Override
+      public Map<DexMethod, Set<DexProgramClass>> getMethodsUse() {
+        assert false;
+        return null;
+      }
+
+      @Override
+      public Map<DexCallSite, Set<DexProgramClass>> getCallSitesUse() {
+        assert false;
+        return null;
+      }
+
+      @Override
+      public Map<DexMethodHandle, Set<DexProgramClass>> getMethodHandlesUse() {
+        assert false;
+        return null;
+      }
+    }
+
+    public static class IndexedItemsUsedByClassesInTransaction
+        implements IndexedItemCollection, ClassUseCollector {
+
+      private final AppView<?> appView;
+      private final LensCodeRewriterUtils rewriter;
+      private final VirtualFileIndexedItemCollection base;
+      private final IndexedItemTransaction transaction;
+
+      private final Set<DexProgramClass> classes = new LinkedHashSet<>();
+
+      private final Map<DexString, Set<DexProgramClass>> stringsUse = new IdentityHashMap<>();
+      private final Map<DexType, Set<DexProgramClass>> typesUse = new IdentityHashMap<>();
+      private final Map<DexProto, Set<DexProgramClass>> protosUse = new IdentityHashMap<>();
+      private final Map<DexField, Set<DexProgramClass>> fieldsUse = new IdentityHashMap<>();
+      private final Map<DexMethod, Set<DexProgramClass>> methodsUse = new IdentityHashMap<>();
+      private final Map<DexCallSite, Set<DexProgramClass>> callSitesUse = new IdentityHashMap<>();
+      private final Map<DexMethodHandle, Set<DexProgramClass>> methodHandlessUse =
+          new LinkedHashMap<>();
+
+      DexProgramClass currentClass = null;
+
+      private IndexedItemsUsedByClassesInTransaction(
+          AppView<?> appView,
+          LensCodeRewriterUtils rewriter,
+          VirtualFileIndexedItemCollection base,
+          IndexedItemTransaction transaction) {
+        this.appView = appView;
+        this.rewriter = rewriter;
+        this.base = base;
+        this.transaction = transaction;
+      }
+
+      @Override
+      public void collectClassDependencies(DexProgramClass clazz) {
+        clazz.collectIndexedItems(appView, this, rewriter);
+      }
+
+      @Override
+      public boolean addClass(DexProgramClass clazz) {
+        assert currentClass == null;
+        currentClass = clazz;
+        assert !classes.contains(clazz);
+        classes.add(clazz);
+        return true;
+      }
+
+      @Override
+      public void collectClassDependenciesDone() {
+        currentClass = null;
+      }
+
+      @Override
+      public boolean addString(DexString string) {
+        collectUse(string, transaction.strings, base.strings, stringsUse);
+        return true;
+      }
+
+      @Override
+      public boolean addType(DexType type) {
+        collectUse(type, transaction.types, base.types, typesUse);
+        return true;
+      }
+
+      @Override
+      public boolean addProto(DexProto proto) {
+        collectUse(proto, transaction.protos, base.protos, protosUse);
+        return true;
+      }
+
+      @Override
+      public boolean addField(DexField field) {
+        collectUse(field, transaction.fields, base.fields, fieldsUse);
+        return true;
+      }
+
+      @Override
+      public boolean addMethod(DexMethod method) {
+        collectUse(method, transaction.methods, base.methods, methodsUse);
+        return true;
+      }
+
+      @Override
+      public boolean addCallSite(DexCallSite callSite) {
+        collectUse(callSite, transaction.callSites, base.callSites, callSitesUse);
+        return true;
+      }
+
+      @Override
+      public boolean addMethodHandle(DexMethodHandle methodHandle) {
+        collectUse(methodHandle, transaction.methodHandles, base.methodHandles, methodHandlessUse);
+        return true;
+      }
+
+      private <T extends DexItem> void collectUse(
+          T item, Set<T> set, Set<T> baseSet, Map<T, Set<DexProgramClass>> use) {
+        assert baseSet.contains(item) || set.contains(item);
+        if (set.contains(item)) {
+          assert classes.contains(currentClass);
+        }
+        use.computeIfAbsent(item, unused -> Sets.newIdentityHashSet()).add(currentClass);
+      }
+
+      @Override
+      public Map<DexString, Set<DexProgramClass>> getStringsUse() {
+        return stringsUse;
+      }
+
+      @Override
+      public Map<DexType, Set<DexProgramClass>> getTypesUse() {
+        return typesUse;
+      }
+
+      @Override
+      public Map<DexProto, Set<DexProgramClass>> getProtosUse() {
+        return protosUse;
+      }
+
+      @Override
+      public Map<DexField, Set<DexProgramClass>> getFieldsUse() {
+        return fieldsUse;
+      }
+
+      @Override
+      public Map<DexMethod, Set<DexProgramClass>> getMethodsUse() {
+        return methodsUse;
+      }
+
+      @Override
+      public Map<DexCallSite, Set<DexProgramClass>> getCallSitesUse() {
+        return callSitesUse;
+      }
+
+      @Override
+      public Map<DexMethodHandle, Set<DexProgramClass>> getMethodHandlesUse() {
+        return methodHandlessUse;
+      }
+
+      @Override
+      public void clear() {
+        classes.clear();
+        stringsUse.clear();
+        typesUse.clear();
+        protosUse.clear();
+        fieldsUse.clear();
+        methodsUse.clear();
+        callSitesUse.clear();
+        methodHandlessUse.clear();
+      }
+    }
+
     private final AppView<?> appView;
     private final VirtualFileIndexedItemCollection base;
     private final LensCodeRewriterUtils rewriter;
@@ -629,10 +940,16 @@ public class VirtualFile {
     private final Set<DexCallSite> callSites = new LinkedHashSet<>();
     private final Set<DexMethodHandle> methodHandles = new LinkedHashSet<>();
 
+    private final ClassUseCollector indexedItemsReferencedFromClassesInTransaction;
+
     private IndexedItemTransaction(VirtualFileIndexedItemCollection base, AppView<?> appView) {
       this.appView = appView;
       this.base = base;
       this.rewriter = new LensCodeRewriterUtils(appView, true);
+      this.indexedItemsReferencedFromClassesInTransaction =
+          appView.options().testing.calculateItemUseCountInDex
+              ? new IndexedItemsUsedByClassesInTransaction(appView, rewriter, base, this)
+              : new EmptyIndexedItemUsedByClasses();
     }
 
     private NamingLens getNamingLens() {
@@ -640,55 +957,82 @@ public class VirtualFile {
     }
 
     private <T extends DexItem> boolean maybeInsert(T item, Set<T> set, Set<T> baseSet) {
-      if (baseSet.contains(item) || set.contains(item)) {
+      return maybeInsert(item, set, baseSet, true);
+    }
+
+    private <T extends DexItem> boolean maybeInsert(
+        T item, Set<T> set, Set<T> baseSet, boolean requireCurrentClass) {
+      if (baseSet.contains(item)) {
         return false;
       }
-      set.add(item);
-      return true;
+      boolean added = set.add(item);
+      assert !added || !requireCurrentClass || classes.contains(currentClass);
+      return added;
     }
 
     void addClassAndDependencies(DexProgramClass clazz) {
       clazz.collectIndexedItems(appView, this, rewriter);
+      addClassDone();
+      indexedItemsReferencedFromClassesInTransaction.collectClassDependencies(clazz);
+      indexedItemsReferencedFromClassesInTransaction.collectClassDependenciesDone();
     }
+
+    DexProgramClass currentClass = null;
 
     @Override
     public boolean addClass(DexProgramClass dexProgramClass) {
+      assert currentClass == null;
+      currentClass = dexProgramClass;
       return maybeInsert(dexProgramClass, classes, base.classes);
+    }
+
+    public void addClassDone() {
+      currentClass = null;
     }
 
     @Override
     public boolean addField(DexField field) {
+      assert currentClass != null;
       return maybeInsert(field, fields, base.fields);
     }
 
     @Override
     public boolean addMethod(DexMethod method) {
+      assert currentClass != null;
       return maybeInsert(method, methods, base.methods);
     }
 
     @Override
     public boolean addString(DexString string) {
-      return maybeInsert(string, strings, base.strings);
+      if (currentClass == null) {
+        // Only marker strings can be added outside a class context.
+        assert string.startsWith("~~");
+      }
+      return maybeInsert(string, strings, base.strings, false);
     }
 
     @Override
     public boolean addProto(DexProto proto) {
+      assert currentClass != null;
       return maybeInsert(proto, protos, base.protos);
     }
 
     @Override
     public boolean addType(DexType type) {
+      assert currentClass != null;
       assert SyntheticNaming.verifyNotInternalSynthetic(type);
       return maybeInsert(type, types, base.types);
     }
 
     @Override
     public boolean addCallSite(DexCallSite callSite) {
+      assert currentClass != null;
       return maybeInsert(callSite, callSites, base.callSites);
     }
 
     @Override
     public boolean addMethodHandle(DexMethodHandle methodHandle) {
+      assert currentClass != null;
       return maybeInsert(methodHandle, methodHandles, base.methodHandles);
     }
 
@@ -721,6 +1065,40 @@ public class VirtualFile {
       commitItemsIn(strings, base::addString);
       commitItemsIn(callSites, base::addCallSite);
       commitItemsIn(methodHandles, base::addMethodHandle);
+
+      if (appView.options().testing.calculateItemUseCountInDex) {
+        transferUsedBy(
+            indexedItemsReferencedFromClassesInTransaction.getStringsUse(), base.stringsUse);
+        transferUsedBy(indexedItemsReferencedFromClassesInTransaction.getTypesUse(), base.typesUse);
+        transferUsedBy(
+            indexedItemsReferencedFromClassesInTransaction.getProtosUse(), base.protosUse);
+        transferUsedBy(
+            indexedItemsReferencedFromClassesInTransaction.getFieldsUse(), base.fieldsUse);
+        transferUsedBy(
+            indexedItemsReferencedFromClassesInTransaction.getMethodsUse(), base.methodsUse);
+        transferUsedBy(
+            indexedItemsReferencedFromClassesInTransaction.getCallSitesUse(), base.callSitesUse);
+        transferUsedBy(
+            indexedItemsReferencedFromClassesInTransaction.getMethodHandlesUse(),
+            base.methodHandlesUse);
+      }
+    }
+
+    private <T extends DexItem> void transferUsedBy(
+        Map<T, Set<DexProgramClass>> classesInTransactionReferringToItem,
+        Map<T, ItemUseInfo> itemUse) {
+      assert appView.options().testing.calculateItemUseCountInDex;
+      classesInTransactionReferringToItem.forEach(
+          (item, classes) -> {
+            ItemUseInfo currentItemUse = itemUse.get(item);
+            if (currentItemUse == null) {
+              itemUse.put(item, new ItemUseInfo(classes));
+            } else {
+              currentItemUse.addUse(classes);
+            }
+          });
+
+      classesInTransactionReferringToItem.clear();
     }
 
     void abort() {
@@ -730,6 +1108,8 @@ public class VirtualFile {
       protos.clear();
       types.clear();
       strings.clear();
+
+      indexedItemsReferencedFromClassesInTransaction.clear();
     }
 
     public boolean isEmpty() {
@@ -883,12 +1263,13 @@ public class VirtualFile {
 
       public static PackageSplitClassPartioning create(
           Collection<DexProgramClass> classes,
-          AppView<?> appView,
-          Map<DexProgramClass, String> originalNames) {
+          Map<DexProgramClass, String> originalNames,
+          StartupOrder startupOrder,
+          SyntheticItems syntheticItems) {
         return create(
             classes,
             getClassesByPackageComparator(originalNames),
-            getStartupClassPredicate(appView));
+            getStartupClassPredicate(startupOrder, syntheticItems));
       }
 
       private static PackageSplitClassPartioning create(
@@ -938,12 +1319,8 @@ public class VirtualFile {
         };
       }
 
-      private static Predicate<DexProgramClass> getStartupClassPredicate(AppView<?> appView) {
-        if (!appView.hasClassHierarchy()) {
-          return alwaysFalse();
-        }
-        StartupOrder startupOrder = appView.appInfoWithClassHierarchy().getStartupOrder();
-        SyntheticItems syntheticItems = appView.getSyntheticItems();
+      private static Predicate<DexProgramClass> getStartupClassPredicate(
+          StartupOrder startupOrder, SyntheticItems syntheticItems) {
         return clazz -> startupOrder.contains(clazz.getType(), syntheticItems);
       }
 
@@ -980,8 +1357,11 @@ public class VirtualFile {
         AppView<?> appView,
         Collection<DexProgramClass> classes,
         Map<DexProgramClass, String> originalNames,
+        StartupOrder startupOrder,
         IntBox nextFileId) {
-      this.classPartioning = PackageSplitClassPartioning.create(classes, appView, originalNames);
+      this.classPartioning =
+          PackageSplitClassPartioning.create(
+              classes, originalNames, startupOrder, appView.getSyntheticItems());
       this.originalNames = originalNames;
       this.dexItemFactory = appView.dexItemFactory();
       this.options = appView.options();
@@ -1016,7 +1396,7 @@ public class VirtualFile {
         return;
       }
 
-      assert options.getStartupOptions().hasStartupConfiguration();
+      assert options.getStartupOptions().hasStartupProfileProvider();
 
       // In practice, all startup classes should fit in a single dex file, so optimistically try to
       // commit the startup classes using a single transaction.

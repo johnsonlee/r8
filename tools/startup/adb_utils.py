@@ -14,6 +14,7 @@ from enum import Enum
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import profile_utils
 import utils
 
 DEVNULL=subprocess.DEVNULL
@@ -55,6 +56,24 @@ def broadcast(action, component, device_id=None):
   print('Sending broadcast %s' % action)
   cmd = create_adb_cmd('shell am broadcast -a %s %s' % (action, component), device_id)
   return subprocess.check_output(cmd).decode('utf-8').strip().splitlines()
+
+def build_apks_from_bundle(bundle, output, overwrite=False):
+  print('Building %s' % bundle)
+  cmd = [
+      'java', '-jar', utils.BUNDLETOOL_JAR,
+      'build-apks',
+      '--bundle=%s' % bundle,
+      '--output=%s' % output]
+  if overwrite:
+    cmd.append('--overwrite')
+  subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
+
+def capture_screen(target, device_id=None):
+  print('Taking screenshot to %s' % target)
+  tmp = '/sdcard/screencap.png'
+  cmd = create_adb_cmd('shell screencap -p %s' % tmp, device_id)
+  subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
+  pull(tmp, target, device_id)
 
 def create_adb_cmd(arguments, device_id=None):
   assert isinstance(arguments, list) or isinstance(arguments, str)
@@ -135,8 +154,7 @@ def get_profile_data(app_id, device_id=None):
   with utils.TempDir() as temp:
     source = get_profile_path(app_id)
     target = os.path.join(temp, 'primary.prof')
-    cmd = create_adb_cmd('pull %s %s' % (source, target), device_id)
-    subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
+    pull(source, target, device_id)
     with open(target, 'rb') as f:
       return f.read()
 
@@ -182,38 +200,13 @@ def get_screen_state(device_id=None):
 def get_classes_and_methods_from_app_profile(app_id, device_id=None):
   apk_path = get_apk_path(app_id, device_id)
   profile_path = get_profile_path(app_id)
-
-  # Generates a list of class and method descriptors, prefixed with one or more
-  # flags 'H' (hot), 'S' (startup), 'P' (post startup).
-  #
-  # Example:
-  #
-  # HSPLandroidx/compose/runtime/ComposerImpl;->updateValue(Ljava/lang/Object;)V
-  # HSPLandroidx/compose/runtime/ComposerImpl;->updatedNodeCount(I)I
-  # HLandroidx/compose/runtime/ComposerImpl;->validateNodeExpected()V
-  # PLandroidx/compose/runtime/CompositionImpl;->applyChanges()V
-  # HLandroidx/compose/runtime/ComposerKt;->findLocation(Ljava/util/List;I)I
-  # Landroidx/compose/runtime/ComposerImpl;
-  #
-  # See also https://developer.android.com/studio/profile/baselineprofiles.
   cmd = create_adb_cmd(
     'shell profman --dump-classes-and-methods'
     ' --profile-file=%s --apk=%s --dex-location=%s'
         % (profile_path, apk_path, apk_path), device_id)
   stdout = subprocess.check_output(cmd).decode('utf-8').strip()
   lines = stdout.splitlines()
-  classes_and_methods = []
-  flags_to_name = { 'H': 'hot', 'S': 'startup', 'P': 'post_startup' }
-  for line in lines:
-    flags = { 'hot': False, 'startup': False, 'post_startup': False }
-    while line[0] in flags_to_name:
-      flag_abbreviation = line[0]
-      flag_name = flags_to_name.get(flag_abbreviation)
-      flags[flag_name] = True
-      line = line[1:]
-    assert line.startswith('L')
-    classes_and_methods.append({ 'descriptor': line, 'flags': flags })
-  return classes_and_methods
+  return profile_utils.parse_art_profile(lines)
 
 def get_screen_off_timeout(device_id=None):
   cmd = create_adb_cmd(
@@ -228,6 +221,33 @@ def install(apk, device_id=None):
   cmd = create_adb_cmd('install %s' % apk, device_id)
   stdout = subprocess.check_output(cmd).decode('utf-8')
   assert 'Success' in stdout
+
+def install_apks(apks, device_id=None, max_attempts=3):
+  print('Installing %s' % apks)
+  cmd = [
+      'java', '-jar', utils.BUNDLETOOL_JAR,
+      'install-apks',
+      '--apks=%s' % apks]
+  if device_id is not None:
+    cmd.append('--device-id=%s' % device_id)
+  for i in range(max_attempts):
+    process_result = subprocess.run(cmd, capture_output=True)
+    stdout = process_result.stdout.decode('utf-8')
+    stderr = process_result.stderr.decode('utf-8')
+    if process_result.returncode == 0:
+      return
+    print('Failed to install %s' % apks)
+    print('Stdout: %s' % stdout)
+    print('Stderr: %s' % stderr)
+    print('Retrying...')
+  raise Exception('Unable to install apks in %s attempts' % max_attempts)
+
+def install_bundle(bundle, device_id=None):
+  print('Installing %s' % bundle)
+  with utils.TempDir() as temp:
+    apks = os.path.join(temp, 'Bundle.apks')
+    build_apks_from_bundle(bundle, apks)
+    install_apks(apks, device_id)
 
 def install_profile(app_id, device_id=None):
   # This assumes that the profileinstaller library has been added to the app,
@@ -267,7 +287,7 @@ def launch_activity(
       total_time_str = line.removeprefix('TotalTime: ')
       assert total_time_str.isdigit()
       result['total_time'] = int(total_time_str)
-  assert not wait_for_activity_to_launch or 'total_time' in result
+  assert not wait_for_activity_to_launch or 'total_time' in result, lines
   return result
 
 def navigate_to_home_screen(device_id=None):
@@ -287,6 +307,10 @@ def prepare_for_interaction_with_device(device_id=None, device_pin=None):
     'previous_screen_off_timeout': previous_screen_off_timeout
   }
   return teardown_options
+
+def pull(source, target, device_id=None):
+  cmd = create_adb_cmd('pull %s %s' % (source, target), device_id)
+  subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
 
 def root(device_id=None):
   cmd = create_adb_cmd('root', device_id)
@@ -364,6 +388,8 @@ def unlock(device_id=None, device_pin=None):
 
 def parse_options(argv):
   result = argparse.ArgumentParser(description='Run adb utils.')
+  result.add_argument('--capture-screen',
+                      help='Capture screen to given file')
   result.add_argument('--device-id',
                       help='Device id (e.g., emulator-5554).')
   result.add_argument('--device-pin',
@@ -385,6 +411,8 @@ def parse_options(argv):
 
 def main(argv):
   (options, args) = parse_options(argv)
+  if options.capture_screen:
+    capture_screen(options.capture_screen, options.device_id)
   if options.ensure_screen_off:
     ensure_screen_off(options.device_id)
   elif options.get_screen_state:

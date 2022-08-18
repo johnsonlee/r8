@@ -39,6 +39,7 @@ import com.android.tools.r8.errors.MissingNestHostNestDesugarDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.experimental.startup.StartupOptions;
+import com.android.tools.r8.experimental.startup.instrumentation.StartupInstrumentationOptions;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -816,6 +817,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final ApiModelTestingOptions apiModelTestingOptions = new ApiModelTestingOptions();
   private final DesugarSpecificOptions desugarSpecificOptions = new DesugarSpecificOptions();
   private final StartupOptions startupOptions = new StartupOptions();
+  private final StartupInstrumentationOptions startupInstrumentationOptions =
+      new StartupInstrumentationOptions();
   public final TestingOptions testing = new TestingOptions();
 
   public List<ProguardConfigurationRule> mainDexKeepRules = ImmutableList.of();
@@ -877,6 +880,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public StartupOptions getStartupOptions() {
     return startupOptions;
+  }
+
+  public StartupInstrumentationOptions getStartupInstrumentationOptions() {
+    return startupInstrumentationOptions;
   }
 
   public TestingOptions getTestingOptions() {
@@ -1504,6 +1511,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     private boolean enableInterfaceMerging =
         System.getProperty("com.android.tools.r8.enableHorizontalInterfaceMerging") != null;
     private boolean enableInterfaceMergingInInitial = false;
+    private boolean enableSameFilePolicy = false;
     private boolean enableSyntheticMerging = true;
     private boolean ignoreRuntimeTypeChecksForTesting = false;
     private boolean restrictToSynthetics = false;
@@ -1559,6 +1567,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       return ignoreRuntimeTypeChecksForTesting;
     }
 
+    public boolean isSameFilePolicyEnabled() {
+      return enableSameFilePolicy;
+    }
+
     public boolean isSyntheticMergingEnabled() {
       return enableSyntheticMerging;
     }
@@ -1586,8 +1598,16 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       enableInterfaceMerging = true;
     }
 
+    public void setEnableInterfaceMerging(boolean enableInterfaceMerging) {
+      this.enableInterfaceMerging = enableInterfaceMerging;
+    }
+
     public void setEnableInterfaceMergingInInitial() {
       enableInterfaceMergingInInitial = true;
+    }
+
+    public void setEnableSameFilePolicy(boolean enableSameFilePolicy) {
+      this.enableSameFilePolicy = enableSameFilePolicy;
     }
 
     public void setIgnoreRuntimeTypeChecksForTesting() {
@@ -1775,6 +1795,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean neverReuseCfLocalRegisters = false;
     private boolean hasReadCheckDeterminism = false;
     private DeterminismChecker determinismChecker = null;
+
+    // Testing options to analyse locality of items in DEX files when they are generated.
+    public boolean calculateItemUseCountInDex = false;
+    public boolean calculateItemUseCountInDexDumpSingleUseStrings = false;
 
     private DeterminismChecker getDeterminismChecker() {
       // Lazily read the env-var so that it can be set after options init.
