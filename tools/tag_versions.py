@@ -125,7 +125,8 @@ def tag_agp_version(agp, args):
         ]).decode('utf-8')
         version = output.split(' ')[0]
         run(args, ['git', 'tag', '-f', tag, '-m', tag, '%s^{}' % version])
-        run(args, ['git', 'push', 'origin', tag])
+        run(args, ['git', 'push', '-o', 'push-justification=b/313360935',
+                   'origin', tag])
 
 
 def tag_r8_branch(branch, args):
@@ -145,7 +146,8 @@ def tag_r8_branch(branch, args):
         result = get_tag_info_on_origin(version)
         if not result:
             run(args, ['git', 'tag', '-a', version, '-m', version, hash])
-            run(args, ['git', 'push', 'origin', version])
+            run(args, ['git', 'push',  '-o', 'push-justification=b/313360935',
+                       'origin', version])
     if args.dry_run:
         print('Dry run complete. None of the above have been executed.')
 
