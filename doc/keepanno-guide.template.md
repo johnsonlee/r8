@@ -72,14 +72,51 @@ use case. You should generally prefer `@UsesReflection` where applicable.
 
 ## [Annotating code used by reflection (or via JNI)](used-by-reflection)
 
+TODO
+
 
 ## [Annotating APIs](apis)
+
+TODO
 
 
 ## [Migrating rules to annotations](migrating-rules)
 
+There is no automatic migration of keep rules. Keep annotations often invert the
+direction and rules have no indication of where the reflection is taking
+place or why. Thus, migrating existing keep rules requires user involvement.
+Keep rules also have a tendency to be very general, matching a large
+number of classes and members. Often the rules are much too broad and are
+keeping more than needed which will have a negative impact on the shrinkers
+ability to reduce size.
+
+First step in converting a rule is to determine the purpose of the rule. Is it
+API surface or is it reflection? Note that a very general rule may be covering
+several use cases and even a mix of both reflection and API usage.
+
+When migrating it is preferable to use `@UsesReflection` instead of
+`@UsedByReflection`. For very general rules it might not be easy or worth it to
+migrate without completely reevaluating the rule. If one still wants to replace
+it by annotations, the general `@KeepEdge` can be used to define a context
+independent keep annotation.
+
+[[[INCLUDE DOC:KeepMainMethods]]]
+
+[[[INCLUDE CODE:KeepMainMethods]]]
+
 
 ## [My use case is not covered!](other-uses)
 
+The annotation library is in active development and not all use cases are
+described here or supported. Reach out to the R8 team by
+[filing a new issue in our tracker](https://issuetracker.google.com/issues/new?component=326788).
+Describe your use case and we will look at how best to support it.
+
 
 ## [Troubleshooting](troubleshooting)
+
+If an annotation is not working as expected it may be helpful to inspect the
+rules that have been extracted for the annotation. This can be done by
+inspecting the configuration output of the shrinker. For R8 you can use the
+command line argument `--pg-conf-output <path>` to emit the full configuration
+used by R8.

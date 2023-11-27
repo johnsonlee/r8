@@ -15,6 +15,7 @@ import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsedByNative;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
+import com.android.tools.r8.keepanno.doctests.MainMethodsDocumentationTest;
 import com.android.tools.r8.keepanno.doctests.UsesReflectionDocumentationTest;
 import com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.Generator;
 import com.android.tools.r8.utils.FileUtils;
@@ -76,7 +77,8 @@ public class KeepAnnoMarkdownGenerator {
             UsedByReflection.class,
             UsedByNative.class,
             KeepForApi.class);
-    populateCodeAndDocReplacements(UsesReflectionDocumentationTest.class);
+    populateCodeAndDocReplacements(
+        UsesReflectionDocumentationTest.class, MainMethodsDocumentationTest.class);
   }
 
   private Map<String, String> getTypeLinkReplacements(Class<?>... classes) {
