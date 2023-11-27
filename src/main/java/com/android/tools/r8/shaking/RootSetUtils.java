@@ -474,6 +474,7 @@ public class RootSetUtils {
       return new ConsequentRootSet(
           neverInlineDueToSingleCaller,
           neverClassInline,
+          noHorizontalClassMerging,
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
           Lists.newArrayList(delayedRootSetActionItems),
@@ -1793,6 +1794,7 @@ public class RootSetUtils {
 
     final Set<DexMethod> neverInlineDueToSingleCaller;
     final Set<DexType> neverClassInline;
+    final Set<DexType> noHorizontalClassMerging;
     private final DependentMinimumKeepInfoCollection dependentMinimumKeepInfo;
     final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule;
     final List<DelayedRootSetActionItem> delayedRootSetActionItems;
@@ -1801,12 +1803,14 @@ public class RootSetUtils {
     RootSetBase(
         Set<DexMethod> neverInlineDueToSingleCaller,
         Set<DexType> neverClassInline,
+        Set<DexType> noHorizontalClassMerging,
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
       this.neverInlineDueToSingleCaller = neverInlineDueToSingleCaller;
       this.neverClassInline = neverClassInline;
+      this.noHorizontalClassMerging = noHorizontalClassMerging;
       this.dependentMinimumKeepInfo = dependentMinimumKeepInfo;
       this.dependentKeepClassCompatRule = dependentKeepClassCompatRule;
       this.delayedRootSetActionItems = delayedRootSetActionItems;
@@ -1833,7 +1837,6 @@ public class RootSetUtils {
     public final PredicateSet<DexType> alwaysClassInline;
     public final Set<DexType> noUnusedInterfaceRemoval;
     public final Set<DexType> noVerticalClassMerging;
-    public final Set<DexType> noHorizontalClassMerging;
     public final Set<DexMember<?, ?>> neverPropagateValue;
     public final Map<DexReference, ProguardMemberRule> mayHaveSideEffects;
     public final Set<DexMember<?, ?>> identifierNameStrings;
@@ -1863,6 +1866,7 @@ public class RootSetUtils {
       super(
           neverInlineDueToSingleCaller,
           neverClassInline,
+          noHorizontalClassMerging,
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
           delayedRootSetActionItems,
@@ -1876,7 +1880,6 @@ public class RootSetUtils {
       this.alwaysClassInline = alwaysClassInline;
       this.noUnusedInterfaceRemoval = noUnusedInterfaceRemoval;
       this.noVerticalClassMerging = noVerticalClassMerging;
-      this.noHorizontalClassMerging = noHorizontalClassMerging;
       this.neverPropagateValue = neverPropagateValue;
       this.mayHaveSideEffects = mayHaveSideEffects;
       this.identifierNameStrings = Collections.unmodifiableSet(identifierNameStrings);
@@ -1909,6 +1912,7 @@ public class RootSetUtils {
     void addConsequentRootSet(ConsequentRootSet consequentRootSet) {
       neverInlineDueToSingleCaller.addAll(consequentRootSet.neverInlineDueToSingleCaller);
       neverClassInline.addAll(consequentRootSet.neverClassInline);
+      noHorizontalClassMerging.addAll(consequentRootSet.noHorizontalClassMerging);
       consequentRootSet.dependentKeepClassCompatRule.forEach(
           (type, rules) ->
               dependentKeepClassCompatRule
@@ -2235,6 +2239,7 @@ public class RootSetUtils {
     ConsequentRootSet(
         Set<DexMethod> neverInlineDueToSingleCaller,
         Set<DexType> neverClassInline,
+        Set<DexType> noHorizontalClassMerging,
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
@@ -2242,6 +2247,7 @@ public class RootSetUtils {
       super(
           neverInlineDueToSingleCaller,
           neverClassInline,
+          noHorizontalClassMerging,
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
           delayedRootSetActionItems,
