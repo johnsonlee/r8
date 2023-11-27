@@ -674,6 +674,11 @@ public class ProguardMapReader implements AutoCloseable {
     }
     if (isInit) {
       expect('>');
+      // There are some files that include identifier text after <clinit>, such as
+      // <clinit>$redex$opt as seen in b/309080420.
+      while (IdentifierUtils.isDexIdentifierPart(peekCodePoint())) {
+        nextCodePoint();
+      }
     }
     if (IdentifierUtils.isDexIdentifierPart(peekCodePoint())) {
       throw new ParseException(

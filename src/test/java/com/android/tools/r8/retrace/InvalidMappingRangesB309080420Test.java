@@ -34,7 +34,9 @@ public class InvalidMappingRangesB309080420Test extends TestBase {
           "a.x -> a.x:",
           "    1:1:void a(com.example.Foo) -> a",
           "    11:2:void a() -> a", // Unexpected line range [11:2] - interpreting as [2:11]
-          "    12:21:void a(android.content.Intent) -> a");
+          "    12:21:void a(android.content.Intent) -> a",
+          // Allow identifier content to follow <init>/<clinit>.
+          "    22:41:void <clinit>$more$stuff() -> clinit$move$stuff");
 
   @Test
   public void test() throws Exception {
