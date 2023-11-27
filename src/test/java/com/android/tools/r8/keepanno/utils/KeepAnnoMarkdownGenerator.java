@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.keepanno.utils;
 
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.quote;
+
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.annotations.KeepBinding;
 import com.android.tools.r8.keepanno.annotations.KeepCondition;
@@ -22,9 +24,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class KeepAnnoMarkdownGenerator {
 
@@ -38,6 +46,8 @@ public class KeepAnnoMarkdownGenerator {
 
   private static String JAVADOC_URL =
       "https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/";
+
+  private static final String TOC_MARKER = "[[[TOC]]]";
 
   private static final String INCLUDE_MD_START = "[[[INCLUDE";
   private static final String INCLUDE_MD_DOC_START = "[[[INCLUDE DOC";
@@ -135,16 +145,87 @@ public class KeepAnnoMarkdownGenerator {
     println("[comment]: <> (Changes should be made in " + template + ")");
     println();
     List<String> readAllLines = FileUtils.readAllLines(template);
+    TableEntry root = new TableEntry(0, "root", "root", null);
+    readAllLines = collectTableOfContents(readAllLines, root);
+
     for (int i = 0; i < readAllLines.size(); i++) {
       String line = readAllLines.get(i);
       try {
-        processLine(line, generator);
+        if (line.trim().equals(TOC_MARKER)) {
+          printTableOfContents(root);
+        } else {
+          processLine(line, generator);
+        }
       } catch (Exception e) {
         System.err.println("Parse error on line " + (i + 1) + ":");
         System.err.println(line);
         System.err.println(e.getMessage());
       }
     }
+  }
+
+  private void printTableOfContents(TableEntry root) {
+    println("## Table of contents");
+    println();
+    printTableSubEntries(root.subSections.values());
+    println();
+  }
+
+  private void printTableSubEntries(Collection<TableEntry> entries) {
+    for (TableEntry entry : entries) {
+      println("- " + entry.getHrefLink());
+      generator.withIndent(() -> printTableSubEntries(entry.subSections.values()));
+    }
+  }
+
+  private List<String> collectTableOfContents(List<String> lines, TableEntry root) {
+    Set<String> seen = new HashSet<>();
+    TableEntry current = root;
+    List<String> newLines = new ArrayList<>(lines.size());
+    Iterator<String> iterator = lines.iterator();
+    // Skip forward until the TOC insertion.
+    while (iterator.hasNext()) {
+      String line = iterator.next();
+      newLines.add(line);
+      if (line.trim().equals(TOC_MARKER)) {
+        break;
+      }
+    }
+    // Find TOC entries and replace the headings with links.
+    while (iterator.hasNext()) {
+      String line = iterator.next();
+      int headingDepth = 0;
+      for (int i = 0; i < line.length(); i++) {
+        char c = line.charAt(i);
+        if (c != '#') {
+          headingDepth = i;
+          break;
+        }
+      }
+      if (headingDepth == 0) {
+        newLines.add(line);
+        continue;
+      }
+      String headingPrefix = line.substring(0, headingDepth);
+      String headingContent = line.substring(headingDepth).trim();
+      int splitIndex = headingContent.indexOf("](");
+      if (splitIndex < 0 || !headingContent.startsWith("[") || !headingContent.endsWith(")")) {
+        throw new RuntimeException("Invalid heading format. Use [Heading Text](heading-id)");
+      }
+      String headingText = headingContent.substring(1, splitIndex);
+      String headingId = headingContent.substring(splitIndex + 2, headingContent.length() - 1);
+      if (!seen.add(headingId)) {
+        throw new RuntimeException("Duplicate heading id: " + headingText);
+      }
+      while (headingDepth <= current.depth) {
+        current = current.parent;
+      }
+      TableEntry entry = new TableEntry(headingDepth, headingText, headingId, current);
+      current.subSections.put(headingText, entry);
+      current = entry;
+      newLines.add(headingPrefix + " " + entry.getIdAnchor());
+    }
+    return newLines;
   }
 
   private String replaceCodeAndDocMarkers(String line) {
@@ -190,23 +271,44 @@ public class KeepAnnoMarkdownGenerator {
   private StringBuilder unindentLines(String replacement, StringBuilder builder) {
     int shortestSpacePrefix = Integer.MAX_VALUE;
     List<String> lines = StringUtils.split(replacement, '\n');
+    lines = trimEmptyLines(lines);
     for (String line : lines) {
       if (!line.isEmpty()) {
         shortestSpacePrefix = Math.min(shortestSpacePrefix, findFirstNonSpaceIndex(line));
       }
     }
-    if (shortestSpacePrefix > 0) {
-      for (String line : lines) {
-        if (!line.isEmpty()) {
-          builder.append(line.substring(shortestSpacePrefix));
-        }
-        builder.append('\n');
+    for (String line : lines) {
+      if (!line.isEmpty()) {
+        builder.append(line.substring(shortestSpacePrefix));
       }
-    } else {
-      builder.append(replacement);
       builder.append('\n');
     }
     return builder;
+  }
+
+  private static List<String> trimEmptyLines(List<String> lines) {
+    int startLineIndex = 0;
+    int endLineIndex = lines.size() - 1;
+    while (true) {
+      String line = lines.get(startLineIndex);
+      if (line.trim().isEmpty()) {
+        startLineIndex++;
+      } else {
+        break;
+      }
+    }
+    while (true) {
+      String line = lines.get(endLineIndex);
+      if (line.trim().isEmpty()) {
+        --endLineIndex;
+      } else {
+        break;
+      }
+    }
+    if (startLineIndex != 0 || endLineIndex != lines.size() - 1) {
+      lines = lines.subList(startLineIndex, endLineIndex + 1);
+    }
+    return lines;
   }
 
   private int findFirstNonSpaceIndex(String line) {
@@ -243,5 +345,28 @@ public class KeepAnnoMarkdownGenerator {
       replacement = tryLinkReplacements(line);
     }
     generator.println(line);
+  }
+
+  private static class TableEntry {
+    final int depth;
+    final String name;
+    final String id;
+    final TableEntry parent;
+    final Map<String, TableEntry> subSections = new LinkedHashMap<>();
+
+    public TableEntry(int depth, String name, String id, TableEntry parent) {
+      this.depth = depth;
+      this.name = name;
+      this.id = id;
+      this.parent = parent;
+    }
+
+    public String getHrefLink() {
+      return "[" + name + "](#" + id + ")";
+    }
+
+    public String getIdAnchor() {
+      return name + "<a id=" + quote(id) + "></a>";
+    }
   }
 }

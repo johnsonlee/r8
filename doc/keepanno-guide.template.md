@@ -13,8 +13,10 @@ bugs](https://issuetracker.google.com/issues/new?component=326788) in the
 [R8 component](https://issuetracker.google.com/issues?q=status:open%20componentid:326788).
 
 
+[[[TOC]]]
 
-## Introduction
+
+## [Introduction](introduction)
 
 When using a Java/Kotlin shrinker such as R8 or Proguard, developers must inform
 the shrinker about parts of the program that are used either externally from the
@@ -32,7 +34,7 @@ addition, the annotations are defined independent from keep rules and have a
 hopefully more clear and direct meaning.
 
 
-## Build configuration
+## [Build configuration](build-configuration)
 
 To use the keep annotations your build must include the library of
 annotations. It is currently built as part of each R8 build and if used with R8,
@@ -58,7 +60,7 @@ java -Dcom.android.tools.r8.enableKeepAnnotations=1 \
   # ... the rest of your R8 compilation command here ...
 ```
 
-### Annotating code using reflection
+## [Annotating code using reflection](using-reflection)
 
 The keep annotation library defines a family of annotations depending on your
 use case. You should generally prefer `@UsesReflection` where applicable.
@@ -68,18 +70,16 @@ use case. You should generally prefer `@UsesReflection` where applicable.
 [[[INCLUDE CODE:UsesReflectionOnVirtualMethod]]]
 
 
-
-### Annotating code used by reflection (or via JNI)
-
+## [Annotating code used by reflection (or via JNI)](used-by-reflection)
 
 
-### Annotating APIs
+## [Annotating APIs](apis)
 
 
-### Migrating rules to annotations
+## [Migrating rules to annotations](migrating-rules)
 
 
-### My use case is not covered!
+## [My use case is not covered!](other-uses)
 
 
-### Troubleshooting
+## [Troubleshooting](troubleshooting)

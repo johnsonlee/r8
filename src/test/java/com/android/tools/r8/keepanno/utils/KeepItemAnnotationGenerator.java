@@ -47,7 +47,7 @@ public class KeepItemAnnotationGenerator {
     Generator.run();
   }
 
-  private static String quote(String str) {
+  public static String quote(String str) {
     return "\"" + str + "\"";
   }
 
@@ -218,7 +218,7 @@ public class KeepItemAnnotationGenerator {
       this.writer = writer;
     }
 
-    private void withIndent(Runnable fn) {
+    public void withIndent(Runnable fn) {
       indent += 2;
       fn.run();
       indent -= 2;
