@@ -82,7 +82,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 
 final class InlineCandidateProcessor {
 
@@ -92,7 +91,6 @@ final class InlineCandidateProcessor {
   private final AppView<AppInfoWithLiveness> appView;
   private final DexItemFactory dexItemFactory;
   private final Inliner inliner;
-  private final Function<DexProgramClass, EligibilityStatus> isClassEligible;
   private final MethodProcessor methodProcessor;
   private final ProgramMethod method;
   private final Instruction root;
@@ -115,14 +113,12 @@ final class InlineCandidateProcessor {
   InlineCandidateProcessor(
       AppView<AppInfoWithLiveness> appView,
       Inliner inliner,
-      Function<DexProgramClass, EligibilityStatus> isClassEligible,
       MethodProcessor methodProcessor,
       ProgramMethod method,
       Instruction root) {
     this.appView = appView;
     this.dexItemFactory = appView.dexItemFactory();
     this.inliner = inliner;
-    this.isClassEligible = isClassEligible;
     this.method = method;
     this.root = root;
     this.methodProcessor = methodProcessor;
@@ -198,21 +194,6 @@ final class InlineCandidateProcessor {
             ? abstractValue.asSingleFieldValue().getObjectState()
             : ObjectState.empty();
     return EligibilityStatus.ELIGIBLE;
-  }
-
-  // Checks if the class is eligible and is properly used. Regarding general class
-  // eligibility rules see comment on computeClassEligible(...).
-  //
-  // In addition to class being eligible this method also checks:
-  //   -- for 'new-instance' root:
-  //      * class itself does not have static initializer
-  //   -- for 'static-get' root:
-  //      * class does not have instance fields
-  //      * class is final
-  //      * class has class initializer marked as TrivialClassInitializer, and
-  //        class initializer initializes the field we are reading here.
-  EligibilityStatus isClassAndUsageEligible() {
-    return isClassEligible.apply(eligibleClass);
   }
 
   /**

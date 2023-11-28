@@ -124,10 +124,6 @@ public class RootSetUtils {
     private final Set<DexMethod> reprocess = Sets.newIdentityHashSet();
     private final Set<DexMethod> neverReprocess = Sets.newIdentityHashSet();
     private final PredicateSet<DexType> alwaysClassInline = new PredicateSet<>();
-    private final Set<DexType> neverClassInline = Sets.newIdentityHashSet();
-    private final Set<DexType> noUnusedInterfaceRemoval = Sets.newIdentityHashSet();
-    private final Set<DexType> noVerticalClassMerging = Sets.newIdentityHashSet();
-    private final Set<DexType> noHorizontalClassMerging = Sets.newIdentityHashSet();
     private final Set<DexMember<?, ?>> neverPropagateValue = Sets.newIdentityHashSet();
     private final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule =
         new IdentityHashMap<>();
@@ -387,10 +383,9 @@ public class RootSetUtils {
             appView,
             subtypingInfo,
             alwaysClassInline,
-            noVerticalClassMerging,
-            noHorizontalClassMerging,
             alwaysInline,
-            bypassClinitforInlining);
+            bypassClinitforInlining,
+            dependentMinimumKeepInfo);
       }
       return new RootSet(
           dependentMinimumKeepInfo,
@@ -402,10 +397,6 @@ public class RootSetUtils {
           reprocess,
           neverReprocess,
           alwaysClassInline,
-          neverClassInline,
-          noUnusedInterfaceRemoval,
-          noVerticalClassMerging,
-          noHorizontalClassMerging,
           neverPropagateValue,
           mayHaveSideEffects,
           dependentKeepClassCompatRule,
@@ -473,8 +464,6 @@ public class RootSetUtils {
     ConsequentRootSet buildConsequentRootSet() {
       return new ConsequentRootSet(
           neverInlineDueToSingleCaller,
-          neverClassInline,
-          noHorizontalClassMerging,
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
           Lists.newArrayList(delayedRootSetActionItems),
@@ -1221,10 +1210,13 @@ public class RootSetUtils {
         }
         switch (classInlineRule.getType()) {
           case ALWAYS:
-            alwaysClassInline.addElement(item.asClass().getType());
+            alwaysClassInline.addElement(clazz.getType());
             break;
           case NEVER:
-            neverClassInline.add(item.asClass().getType());
+            dependentMinimumKeepInfo
+                .getOrCreateUnconditionalMinimumKeepInfoFor(clazz.getType())
+                .asClassJoiner()
+                .disallowClassInlining();
             break;
           default:
             throw new Unreachable();
@@ -1251,13 +1243,25 @@ public class RootSetUtils {
             .disallowRedundantFieldLoadElimination();
         context.markAsUsed();
       } else if (context instanceof NoUnusedInterfaceRemovalRule) {
-        noUnusedInterfaceRemoval.add(item.asClass().type);
+        assert item.isProgramClass();
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asClassJoiner()
+            .disallowUnusedInterfaceRemoval();
         context.markAsUsed();
       } else if (context instanceof NoVerticalClassMergingRule) {
-        noVerticalClassMerging.add(item.asClass().type);
+        assert item.isProgramClass();
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asClassJoiner()
+            .disallowVerticalClassMerging();
         context.markAsUsed();
       } else if (context instanceof NoHorizontalClassMergingRule) {
-        noHorizontalClassMerging.add(item.asClass().type);
+        assert item.isProgramClass();
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asClassJoiner()
+            .disallowHorizontalClassMerging();
         context.markAsUsed();
       } else if (context instanceof NoMethodStaticizingRule) {
         assert item.isProgramMethod();
@@ -1793,8 +1797,6 @@ public class RootSetUtils {
   abstract static class RootSetBase {
 
     final Set<DexMethod> neverInlineDueToSingleCaller;
-    final Set<DexType> neverClassInline;
-    final Set<DexType> noHorizontalClassMerging;
     private final DependentMinimumKeepInfoCollection dependentMinimumKeepInfo;
     final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule;
     final List<DelayedRootSetActionItem> delayedRootSetActionItems;
@@ -1802,15 +1804,11 @@ public class RootSetUtils {
 
     RootSetBase(
         Set<DexMethod> neverInlineDueToSingleCaller,
-        Set<DexType> neverClassInline,
-        Set<DexType> noHorizontalClassMerging,
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
       this.neverInlineDueToSingleCaller = neverInlineDueToSingleCaller;
-      this.neverClassInline = neverClassInline;
-      this.noHorizontalClassMerging = noHorizontalClassMerging;
       this.dependentMinimumKeepInfo = dependentMinimumKeepInfo;
       this.dependentKeepClassCompatRule = dependentKeepClassCompatRule;
       this.delayedRootSetActionItems = delayedRootSetActionItems;
@@ -1835,8 +1833,6 @@ public class RootSetUtils {
     public final Set<DexMethod> reprocess;
     public final Set<DexMethod> neverReprocess;
     public final PredicateSet<DexType> alwaysClassInline;
-    public final Set<DexType> noUnusedInterfaceRemoval;
-    public final Set<DexType> noVerticalClassMerging;
     public final Set<DexMember<?, ?>> neverPropagateValue;
     public final Map<DexReference, ProguardMemberRule> mayHaveSideEffects;
     public final Set<DexMember<?, ?>> identifierNameStrings;
@@ -1852,10 +1848,6 @@ public class RootSetUtils {
         Set<DexMethod> reprocess,
         Set<DexMethod> neverReprocess,
         PredicateSet<DexType> alwaysClassInline,
-        Set<DexType> neverClassInline,
-        Set<DexType> noUnusedInterfaceRemoval,
-        Set<DexType> noVerticalClassMerging,
-        Set<DexType> noHorizontalClassMerging,
         Set<DexMember<?, ?>> neverPropagateValue,
         Map<DexReference, ProguardMemberRule> mayHaveSideEffects,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
@@ -1865,8 +1857,6 @@ public class RootSetUtils {
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
       super(
           neverInlineDueToSingleCaller,
-          neverClassInline,
-          noHorizontalClassMerging,
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
           delayedRootSetActionItems,
@@ -1878,8 +1868,6 @@ public class RootSetUtils {
       this.reprocess = reprocess;
       this.neverReprocess = neverReprocess;
       this.alwaysClassInline = alwaysClassInline;
-      this.noUnusedInterfaceRemoval = noUnusedInterfaceRemoval;
-      this.noVerticalClassMerging = noVerticalClassMerging;
       this.neverPropagateValue = neverPropagateValue;
       this.mayHaveSideEffects = mayHaveSideEffects;
       this.identifierNameStrings = Collections.unmodifiableSet(identifierNameStrings);
@@ -1911,8 +1899,6 @@ public class RootSetUtils {
 
     void addConsequentRootSet(ConsequentRootSet consequentRootSet) {
       neverInlineDueToSingleCaller.addAll(consequentRootSet.neverInlineDueToSingleCaller);
-      neverClassInline.addAll(consequentRootSet.neverClassInline);
-      noHorizontalClassMerging.addAll(consequentRootSet.noHorizontalClassMerging);
       consequentRootSet.dependentKeepClassCompatRule.forEach(
           (type, rules) ->
               dependentKeepClassCompatRule
@@ -1939,9 +1925,6 @@ public class RootSetUtils {
       getDependentMinimumKeepInfo().pruneDeadItems(definitions, enqueuer);
       timing.end();
       timing.begin("Prune others");
-      pruneDeadReferences(noUnusedInterfaceRemoval, definitions, enqueuer);
-      pruneDeadReferences(noVerticalClassMerging, definitions, enqueuer);
-      pruneDeadReferences(noHorizontalClassMerging, definitions, enqueuer);
       pruneDeadReferences(alwaysInline, definitions, enqueuer);
       timing.end();
     }
@@ -1997,10 +1980,6 @@ public class RootSetUtils {
                 reprocess,
                 neverReprocess,
                 alwaysClassInline,
-                neverClassInline,
-                noUnusedInterfaceRemoval,
-                noVerticalClassMerging,
-                noHorizontalClassMerging,
                 neverPropagateValue,
                 mayHaveSideEffects,
                 dependentKeepClassCompatRule,
@@ -2238,16 +2217,12 @@ public class RootSetUtils {
 
     ConsequentRootSet(
         Set<DexMethod> neverInlineDueToSingleCaller,
-        Set<DexType> neverClassInline,
-        Set<DexType> noHorizontalClassMerging,
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
       super(
           neverInlineDueToSingleCaller,
-          neverClassInline,
-          noHorizontalClassMerging,
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
           delayedRootSetActionItems,
@@ -2310,10 +2285,6 @@ public class RootSetUtils {
           Collections.emptySet(),
           Collections.emptySet(),
           PredicateSet.empty(),
-          Collections.emptySet(),
-          Collections.emptySet(),
-          Collections.emptySet(),
-          Collections.emptySet(),
           Collections.emptySet(),
           emptyMap(),
           emptyMap(),

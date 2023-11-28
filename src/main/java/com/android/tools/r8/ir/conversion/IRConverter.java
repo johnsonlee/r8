@@ -247,9 +247,11 @@ public class IRConverter {
       assert appView.rootSet() != null;
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       assumeInserter = new AssumeInserter(appViewWithLiveness);
+      this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness);
+      this.inliner = new Inliner(appViewWithLiveness, this, lensCodeRewriter);
       this.classInliner =
           options.enableClassInlining && options.inlinerOptions().enableInlining
-              ? new ClassInliner()
+              ? new ClassInliner(appViewWithLiveness, inliner)
               : null;
       this.dynamicTypeOptimization = new DynamicTypeOptimization(appViewWithLiveness);
       this.fieldAccessAnalysis = new FieldAccessAnalysis(appViewWithLiveness);
@@ -259,8 +261,6 @@ public class IRConverter {
               : null;
       this.enumUnboxer = EnumUnboxer.create(appViewWithLiveness);
       this.numberUnboxer = NumberUnboxer.create(appViewWithLiveness);
-      this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness);
-      this.inliner = new Inliner(appViewWithLiveness, this, lensCodeRewriter);
       this.outliner = Outliner.create(appViewWithLiveness);
       this.memberValuePropagation = new R8MemberValuePropagation(appViewWithLiveness);
       this.methodOptimizationInfoCollector =
@@ -766,13 +766,11 @@ public class IRConverter {
       // lambda, it does not get collected by merger.
       assert options.inlinerOptions().enableInlining && inliner != null;
       classInliner.processMethodCode(
-          appView.withLiveness(),
           code.context(),
           code,
           feedback,
           methodProcessor,
           methodProcessingContext,
-          inliner,
           new LazyBox<>(
               () ->
                   inliner.createDefaultOracle(

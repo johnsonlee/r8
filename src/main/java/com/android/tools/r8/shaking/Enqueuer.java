@@ -10,6 +10,7 @@ import static com.android.tools.r8.ir.desugar.LambdaDescriptor.isLambdaMetafacto
 import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor.ExcludeDexResources;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.identifyIdentifier;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflectionMethod;
+import static com.android.tools.r8.shaking.KeepInfo.Joiner.asClassJoinerOrNull;
 import static com.android.tools.r8.shaking.KeepInfo.Joiner.asFieldJoinerOrNull;
 import static com.android.tools.r8.utils.CovariantReturnTypeUtils.modelLibraryMethodsWithCovariantReturnTypes;
 import static com.android.tools.r8.utils.FunctionUtils.ignoreArgument;
@@ -737,6 +738,16 @@ public class Enqueuer {
 
   public KeepClassInfo getKeepInfo(DexProgramClass clazz) {
     return keepInfo.getClassInfo(clazz);
+  }
+
+  public boolean hasMinimumKeepInfoThatMatches(
+      DexProgramClass clazz, Predicate<KeepClassInfo.Joiner> predicate) {
+    MinimumKeepInfoCollection minimumKeepInfoCollection =
+        dependentMinimumKeepInfo.getUnconditionalMinimumKeepInfoOrDefault(
+            MinimumKeepInfoCollection.empty());
+    KeepClassInfo.Joiner minimumKeepInfo =
+        asClassJoinerOrNull(minimumKeepInfoCollection.getOrDefault(clazz.getReference(), null));
+    return minimumKeepInfo != null && predicate.test(minimumKeepInfo);
   }
 
   public KeepFieldInfo getKeepInfo(ProgramField field) {
@@ -2225,8 +2236,8 @@ public class Enqueuer {
       return;
     }
 
-    if (!appView.options().enableUnusedInterfaceRemoval
-        || rootSet.noUnusedInterfaceRemoval.contains(type)
+    if (!options.enableUnusedInterfaceRemoval
+        || hasMinimumKeepInfoThatMatches(clazz, info -> !info.isUnusedInterfaceRemovalAllowed())
         || mode.isMainDexTracing()) {
       markTypeAsLive(clazz, implementer);
       return;
@@ -4309,10 +4320,6 @@ public class Enqueuer {
             amendWithCompanionMethods(rootSet.reprocess),
             amendWithCompanionMethods(rootSet.neverReprocess),
             rootSet.alwaysClassInline,
-            rootSet.neverClassInline,
-            noClassMerging,
-            rootSet.noVerticalClassMerging,
-            rootSet.noHorizontalClassMerging,
             rootSet.neverPropagateValue,
             joinIdentifierNameStrings(rootSet.identifierNameStrings, identifierNameStrings),
             emptySet(),

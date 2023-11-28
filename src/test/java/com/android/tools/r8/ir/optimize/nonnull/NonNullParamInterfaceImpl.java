@@ -3,8 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.nonnull;
 
+import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 
+@NeverClassInline
 public class NonNullParamInterfaceImpl implements NonNullParamInterface {
   @NeverInline
   public int sum(NotPinnedClass arg1, NotPinnedClass arg2) {

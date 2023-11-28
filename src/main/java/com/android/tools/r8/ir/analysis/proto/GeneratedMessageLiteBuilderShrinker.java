@@ -315,17 +315,15 @@ public class GeneratedMessageLiteBuilderShrinker {
       AppView<? extends AppInfoWithClassHierarchy> appView,
       SubtypingInfo subtypingInfo,
       PredicateSet<DexType> alwaysClassInline,
-      Set<DexType> neverMergeClassVertically,
-      Set<DexType> neverMergeClassHorizontally,
       Set<DexMethod> alwaysInline,
-      Set<DexMethod> bypassClinitforInlining) {
+      Set<DexMethod> bypassClinitforInlining,
+      DependentMinimumKeepInfoCollection dependentMinimumKeepInfo) {
     new RootSetExtension(
             appView,
             alwaysClassInline,
-            neverMergeClassVertically,
-            neverMergeClassHorizontally,
             alwaysInline,
-            bypassClinitforInlining)
+            bypassClinitforInlining,
+            dependentMinimumKeepInfo)
         .extend(subtypingInfo);
   }
 
@@ -444,26 +442,22 @@ public class GeneratedMessageLiteBuilderShrinker {
     private final ProtoReferences references;
 
     private final PredicateSet<DexType> alwaysClassInline;
-    private final Set<DexType> neverMergeClassVertically;
-    private final Set<DexType> neverMergeClassHorizontally;
-
     private final Set<DexMethod> alwaysInline;
     private final Set<DexMethod> bypassClinitforInlining;
+    private final DependentMinimumKeepInfoCollection dependentMinimumKeepInfo;
 
     RootSetExtension(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         PredicateSet<DexType> alwaysClassInline,
-        Set<DexType> neverMergeClassVertically,
-        Set<DexType> neverMergeClassHorizontally,
         Set<DexMethod> alwaysInline,
-        Set<DexMethod> bypassClinitforInlining) {
+        Set<DexMethod> bypassClinitforInlining,
+        DependentMinimumKeepInfoCollection dependentMinimumKeepInfo) {
       this.appView = appView;
       this.references = appView.protoShrinker().references;
       this.alwaysClassInline = alwaysClassInline;
-      this.neverMergeClassVertically = neverMergeClassVertically;
-      this.neverMergeClassHorizontally = neverMergeClassHorizontally;
       this.alwaysInline = alwaysInline;
       this.bypassClinitforInlining = bypassClinitforInlining;
+      this.dependentMinimumKeepInfo = dependentMinimumKeepInfo;
     }
 
     void extend(SubtypingInfo subtypingInfo) {
@@ -527,8 +521,11 @@ public class GeneratedMessageLiteBuilderShrinker {
     }
 
     private void neverMergeClass(DexType type) {
-      neverMergeClassVertically.add(type);
-      neverMergeClassHorizontally.add(type);
+      dependentMinimumKeepInfo
+          .getOrCreateUnconditionalMinimumKeepInfoFor(type)
+          .asClassJoiner()
+          .disallowHorizontalClassMerging()
+          .disallowVerticalClassMerging();
     }
   }
 }

@@ -502,6 +502,10 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return null;
     }
 
+    public static KeepClassInfo.Joiner asClassJoinerOrNull(Joiner<?, ?, ?> joiner) {
+      return joiner != null ? joiner.asClassJoiner() : null;
+    }
+
     public KeepFieldInfo.Joiner asFieldJoiner() {
       return null;
     }

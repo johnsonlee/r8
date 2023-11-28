@@ -9,7 +9,6 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
@@ -42,8 +41,16 @@ public final class ClassInliner {
     NOT_ELIGIBLE
   }
 
+  private final AppView<AppInfoWithLiveness> appView;
+  private final Inliner inliner;
+
   private final ConcurrentHashMap<DexClass, EligibilityStatus> knownClasses =
       new ConcurrentHashMap<>();
+
+  public ClassInliner(AppView<AppInfoWithLiveness> appView, Inliner inliner) {
+    this.appView = appView;
+    this.inliner = inliner;
+  }
 
   // Process method code and inline eligible class instantiations, in short:
   //
@@ -122,16 +129,13 @@ public final class ClassInliner {
   //     }
   //   }
   //
-  public final void processMethodCode(
-      AppView<AppInfoWithLiveness> appView,
+  public void processMethodCode(
       ProgramMethod method,
       IRCode code,
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext,
-      Inliner inliner,
       LazyBox<InliningOracle> defaultOracle) {
-
     // Collect all the new-instance and static-get instructions in the code before inlining.
     List<Instruction> roots =
         Lists.newArrayList(code.instructions(insn -> insn.isNewInstance() || insn.isStaticGet()));
@@ -152,7 +156,6 @@ public final class ClassInliner {
             new InlineCandidateProcessor(
                 appView,
                 inliner,
-                clazz -> isClassEligible(appView, clazz),
                 methodProcessor,
                 method,
                 root);
@@ -164,7 +167,7 @@ public final class ClassInliner {
           rootsIterator.remove();
           continue;
         }
-        status = processor.isClassAndUsageEligible();
+        status = isClassEligible(processor.getEligibleClass());
         if (status != EligibilityStatus.ELIGIBLE) {
           // This root will never be inlined.
           rootsIterator.remove();
@@ -247,15 +250,15 @@ public final class ClassInliner {
       new BranchSimplifier(appView)
           .run(code, methodProcessor, methodProcessingContext, Timing.empty());
       // If a method was inlined we may see more trivial computation/conversion of String.
-      new StringOptimizer(appView).run(code, Timing.empty());
+      new StringOptimizer(appView)
+          .run(code, methodProcessor, methodProcessingContext, Timing.empty());
     }
   }
 
-  private EligibilityStatus isClassEligible(
-      AppView<AppInfoWithLiveness> appView, DexProgramClass clazz) {
+  private EligibilityStatus isClassEligible(DexProgramClass clazz) {
     EligibilityStatus eligible = knownClasses.get(clazz);
     if (eligible == null) {
-      EligibilityStatus computed = computeClassEligible(appView, clazz);
+      EligibilityStatus computed = computeClassEligible(clazz);
       EligibilityStatus existing = knownClasses.putIfAbsent(clazz, computed);
       assert existing == null || existing == computed;
       eligible = existing == null ? computed : existing;
@@ -263,27 +266,22 @@ public final class ClassInliner {
     return eligible;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   // Class is eligible for this optimization. Eligibility implementation:
   //   - is not an abstract class or interface
   //   - does not declare finalizer
   //   - does not trigger any static initializers except for its own
-  private EligibilityStatus computeClassEligible(
-      AppView<AppInfoWithLiveness> appView, DexProgramClass clazz) {
+  private EligibilityStatus computeClassEligible(DexProgramClass clazz) {
     if (clazz == null
         || clazz.isAbstract()
         || clazz.isInterface()
-        || !appView.appInfo().isClassInliningAllowed(clazz)) {
+        || !appView.getKeepInfo(clazz).isClassInliningAllowed(appView.options())) {
       return EligibilityStatus.NOT_ELIGIBLE;
     }
 
     // Class must not define finalizer.
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    for (DexEncodedMethod method : clazz.virtualMethods()) {
-      if (method.getReference().name == dexItemFactory.finalizeMethodName
-          && method.getReference().proto == dexItemFactory.objectMembers.finalize.proto) {
-        return EligibilityStatus.NOT_ELIGIBLE;
-      }
+    if (clazz.lookupMethod(dexItemFactory.objectMembers.finalize) != null) {
+      return EligibilityStatus.NOT_ELIGIBLE;
     }
 
     // Check for static initializers in this class or any of interfaces it implements.

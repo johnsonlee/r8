@@ -166,13 +166,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   private final Set<DexMethod> neverReprocess;
   /** All types that should be inlined if possible due to a configuration directive. */
   public final PredicateSet<DexType> alwaysClassInline;
-  /** All types that *must* never be inlined due to a configuration directive (testing only). */
-  private final Set<DexType> neverClassInline;
-
-  private final Set<DexType> noClassMerging;
-  private final Set<DexType> noHorizontalClassMerging;
-  private final Set<DexType> noVerticalClassMerging;
-
   /**
    * Set of lock candidates (i.e., types whose class reference may flow to a monitor instruction).
    */
@@ -232,10 +225,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Set<DexMethod> reprocess,
       Set<DexMethod> neverReprocess,
       PredicateSet<DexType> alwaysClassInline,
-      Set<DexType> neverClassInline,
-      Set<DexType> noClassMerging,
-      Set<DexType> noVerticalClassMerging,
-      Set<DexType> noHorizontalClassMerging,
       Set<DexMember<?, ?>> neverPropagateValue,
       Object2BooleanMap<DexMember<?, ?>> identifierNameStrings,
       Set<DexType> prunedTypes,
@@ -265,10 +254,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.reprocess = reprocess;
     this.neverReprocess = neverReprocess;
     this.alwaysClassInline = alwaysClassInline;
-    this.neverClassInline = neverClassInline;
-    this.noClassMerging = noClassMerging;
-    this.noVerticalClassMerging = noVerticalClassMerging;
-    this.noHorizontalClassMerging = noHorizontalClassMerging;
     this.neverPropagateValue = neverPropagateValue;
     this.identifierNameStrings = identifierNameStrings;
     this.prunedTypes = prunedTypes;
@@ -306,10 +291,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.reprocess,
         previous.neverReprocess,
         previous.alwaysClassInline,
-        previous.neverClassInline,
-        previous.noClassMerging,
-        previous.noVerticalClassMerging,
-        previous.noHorizontalClassMerging,
         previous.neverPropagateValue,
         previous.identifierNameStrings,
         previous.prunedTypes,
@@ -348,10 +329,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         pruneMethods(previous.reprocess, prunedItems, tasks),
         pruneMethods(previous.neverReprocess, prunedItems, tasks),
         previous.alwaysClassInline,
-        pruneClasses(previous.neverClassInline, prunedItems, tasks),
-        pruneClasses(previous.noClassMerging, prunedItems, tasks),
-        pruneClasses(previous.noVerticalClassMerging, prunedItems, tasks),
-        pruneClasses(previous.noHorizontalClassMerging, prunedItems, tasks),
         pruneMembers(previous.neverPropagateValue, prunedItems, tasks),
         pruneMapFromMembers(previous.identifierNameStrings, prunedItems, tasks),
         prunedItems.hasRemovedClasses()
@@ -536,10 +513,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         reprocess,
         neverReprocess,
         alwaysClassInline,
-        neverClassInline,
-        noClassMerging,
-        noVerticalClassMerging,
-        noHorizontalClassMerging,
         neverPropagateValue,
         identifierNameStrings,
         prunedTypes,
@@ -614,10 +587,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.reprocess = previous.reprocess;
     this.neverReprocess = previous.neverReprocess;
     this.alwaysClassInline = previous.alwaysClassInline;
-    this.neverClassInline = previous.neverClassInline;
-    this.noClassMerging = previous.noClassMerging;
-    this.noVerticalClassMerging = previous.noVerticalClassMerging;
-    this.noHorizontalClassMerging = previous.noHorizontalClassMerging;
     this.neverPropagateValue = previous.neverPropagateValue;
     this.identifierNameStrings = previous.identifierNameStrings;
     this.prunedTypes = previous.prunedTypes;
@@ -1043,39 +1012,31 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return this;
   }
 
-  public boolean isClassInliningAllowed(DexProgramClass clazz) {
-    return !isPinned(clazz) && !neverClassInline.contains(clazz.getType());
-  }
-
+  @Deprecated
   public boolean isMinificationAllowed(DexProgramClass clazz) {
     return options().isMinificationEnabled()
         && keepInfo.getInfo(clazz).isMinificationAllowed(options());
   }
 
+  @Deprecated
   public boolean isMinificationAllowed(ProgramDefinition definition) {
     return options().isMinificationEnabled()
         && keepInfo.getInfo(definition).isMinificationAllowed(options());
   }
 
+  @Deprecated
   public boolean isMinificationAllowed(DexDefinition definition) {
     return options().isMinificationEnabled()
         && keepInfo.getInfo(definition, this).isMinificationAllowed(options());
   }
 
+  @Deprecated
   public boolean isMinificationAllowed(DexType reference) {
     return options().isMinificationEnabled()
         && keepInfo.getClassInfo(reference, this).isMinificationAllowed(options());
   }
 
-  public boolean isAccessModificationAllowed(ProgramDefinition definition) {
-    assert options().getProguardConfiguration().isAccessModificationAllowed();
-    return keepInfo.getInfo(definition).isAccessModificationAllowed(options());
-  }
-
   public boolean isRepackagingAllowed(DexProgramClass clazz, AppView<?> appView) {
-    if (!options().isRepackagingEnabled()) {
-      return false;
-    }
     if (!keepInfo.getInfo(clazz).isRepackagingAllowed(options())) {
       return false;
     }
@@ -1086,19 +1047,23 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return applyMappingSeedMapper == null || !applyMappingSeedMapper.hasMapping(clazz.type);
   }
 
+  @Deprecated
   public boolean isPinnedWithDefinitionLookup(DexReference reference) {
     assert checkIfObsolete();
     return keepInfo.isPinnedWithDefinitionLookup(reference, options(), this);
   }
 
+  @Deprecated
   public boolean isPinned(DexDefinition definition) {
     return keepInfo.isPinned(definition, options(), this);
   }
 
+  @Deprecated
   public boolean isPinned(DexProgramClass clazz) {
     return keepInfo.isPinned(clazz, options());
   }
 
+  @Deprecated
   public boolean isPinned(Definition definition) {
     assert definition != null;
     return definition.isProgramDefinition()
@@ -1199,10 +1164,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         lens.rewriteReferences(reprocess),
         lens.rewriteReferences(neverReprocess),
         alwaysClassInline.rewriteItems(lens::lookupType),
-        lens.rewriteReferences(neverClassInline),
-        lens.rewriteReferences(noClassMerging),
-        lens.rewriteReferences(noVerticalClassMerging),
-        lens.rewriteReferences(noHorizontalClassMerging),
         lens.rewriteReferences(neverPropagateValue),
         lens.rewriteReferenceKeys(identifierNameStrings),
         // Don't rewrite pruned types - the removed types are identified by their original name.
@@ -1511,18 +1472,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
 
   public SubtypingInfo computeSubtypingInfo() {
     return SubtypingInfo.create(this);
-  }
-
-  /** Predicate on types that *must* never be merged horizontally. */
-  public boolean isNoHorizontalClassMergingOfType(DexProgramClass clazz) {
-    return noClassMerging.contains(clazz.getType())
-        || noHorizontalClassMerging.contains(clazz.getType());
-  }
-
-  /** Predicate on types that *must* never be merged vertically. */
-  public boolean isNoVerticalClassMergingOfType(DexProgramClass clazz) {
-    return noClassMerging.contains(clazz.getType())
-        || noVerticalClassMerging.contains(clazz.getType());
   }
 
   public boolean verifyNoIteratingOverPrunedClasses() {

@@ -214,9 +214,8 @@ public class VerticalClassMerger {
     if (allocationInfo.isInstantiatedDirectly(sourceClass)
         || allocationInfo.isInterfaceWithUnknownSubtypeHierarchy(sourceClass)
         || allocationInfo.isImmediateInterfaceOfInstantiatedLambda(sourceClass)
-        || appView.getKeepInfo(sourceClass).isPinned(options)
-        || pinnedClasses.contains(sourceClass)
-        || appView.appInfo().isNoVerticalClassMergingOfType(sourceClass)) {
+        || !appView.getKeepInfo(sourceClass).isVerticalClassMergingAllowed(options)
+        || pinnedClasses.contains(sourceClass)) {
       return false;
     }
 

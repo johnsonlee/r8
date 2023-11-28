@@ -15,11 +15,27 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
 
   // Requires all aspects of a class to be kept.
   private static final KeepClassInfo TOP =
-      new Builder().makeTop().disallowRepackaging().disallowPermittedSubclassesRemoval().build();
+      new Builder()
+          .makeTop()
+          .disallowClassInlining()
+          .disallowHorizontalClassMerging()
+          .disallowPermittedSubclassesRemoval()
+          .disallowRepackaging()
+          .disallowUnusedInterfaceRemoval()
+          .disallowVerticalClassMerging()
+          .build();
 
   // Requires no aspects of a class to be kept.
   private static final KeepClassInfo BOTTOM =
-      new Builder().makeBottom().allowRepackaging().allowPermittedSubclassesRemoval().build();
+      new Builder()
+          .makeBottom()
+          .allowClassInlining()
+          .allowHorizontalClassMerging()
+          .allowPermittedSubclassesRemoval()
+          .allowRepackaging()
+          .allowUnusedInterfaceRemoval()
+          .allowVerticalClassMerging()
+          .build();
 
   public static KeepClassInfo top() {
     return TOP;
@@ -33,15 +49,23 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
     return bottom().joiner();
   }
 
-  private final boolean allowRepackaging;
-  private final boolean checkEnumUnboxed;
+  private final boolean allowClassInlining;
+  private final boolean allowHorizontalClassMerging;
   private final boolean allowPermittedSubclassesRemoval;
+  private final boolean allowRepackaging;
+  private final boolean allowUnusedInterfaceRemoval;
+  private final boolean allowVerticalClassMerging;
+  private final boolean checkEnumUnboxed;
 
   private KeepClassInfo(Builder builder) {
     super(builder);
-    this.allowRepackaging = builder.isRepackagingAllowed();
-    this.checkEnumUnboxed = builder.isCheckEnumUnboxedEnabled();
+    this.allowClassInlining = builder.isClassInliningAllowed();
+    this.allowHorizontalClassMerging = builder.isHorizontalClassMergingAllowed();
     this.allowPermittedSubclassesRemoval = builder.isPermittedSubclassesRemovalAllowed();
+    this.allowRepackaging = builder.isRepackagingAllowed();
+    this.allowUnusedInterfaceRemoval = builder.isUnusedInterfaceRemovalAllowed();
+    this.allowVerticalClassMerging = builder.isVerticalClassMergingAllowed();
+    this.checkEnumUnboxed = builder.isCheckEnumUnboxedEnabled();
   }
 
   @Override
@@ -57,28 +81,24 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
     return checkEnumUnboxed;
   }
 
-  public Joiner joiner() {
-    assert !isTop();
-    return new Joiner(this);
+  public boolean isClassInliningAllowed(GlobalKeepInfoConfiguration configuration) {
+    return isOptimizationAllowed(configuration)
+        && isShrinkingAllowed(configuration)
+        && internalIsClassInliningAllowed();
   }
 
-  public boolean isPermittedSubclassesRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
-    return !configuration.isKeepPermittedSubclassesEnabled()
-        && internalIsPermittedSubclassesRemovalAllowed();
+  boolean internalIsClassInliningAllowed() {
+    return allowClassInlining;
   }
 
-  /**
-   * True if an item may be repackaged.
-   *
-   * <p>This method requires knowledge of the global configuration as that can override the concrete
-   * value on a given item.
-   */
-  public boolean isRepackagingAllowed(GlobalKeepInfoConfiguration configuration) {
-    return configuration.isRepackagingEnabled() && internalIsRepackagingAllowed();
+  public boolean isHorizontalClassMergingAllowed(GlobalKeepInfoConfiguration configuration) {
+    return isOptimizationAllowed(configuration)
+        && isShrinkingAllowed(configuration)
+        && internalIsHorizontalClassMergingAllowed();
   }
 
-  boolean internalIsRepackagingAllowed() {
-    return allowRepackaging;
+  boolean internalIsHorizontalClassMergingAllowed() {
+    return allowHorizontalClassMerging;
   }
 
   public boolean isKotlinMetadataRemovalAllowed(
@@ -101,8 +121,46 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
         || !getClassInfo.apply(kotlinMetadataClass.asProgramClass()).isShrinkingAllowed(options);
   }
 
+  public boolean isPermittedSubclassesRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
+    return !configuration.isKeepPermittedSubclassesEnabled()
+        && internalIsPermittedSubclassesRemovalAllowed();
+  }
+
   boolean internalIsPermittedSubclassesRemovalAllowed() {
     return allowPermittedSubclassesRemoval;
+  }
+
+  /**
+   * True if an item may be repackaged.
+   *
+   * <p>This method requires knowledge of the global configuration as that can override the concrete
+   * value on a given item.
+   */
+  public boolean isRepackagingAllowed(GlobalKeepInfoConfiguration configuration) {
+    return configuration.isRepackagingEnabled() && internalIsRepackagingAllowed();
+  }
+
+  boolean internalIsRepackagingAllowed() {
+    return allowRepackaging;
+  }
+
+  boolean internalIsUnusedInterfaceRemovalAllowed() {
+    return allowUnusedInterfaceRemoval;
+  }
+
+  public boolean isVerticalClassMergingAllowed(GlobalKeepInfoConfiguration configuration) {
+    return isOptimizationAllowed(configuration)
+        && isShrinkingAllowed(configuration)
+        && internalIsVerticalClassMergingAllowed();
+  }
+
+  boolean internalIsVerticalClassMergingAllowed() {
+    return allowVerticalClassMerging;
+  }
+
+  public Joiner joiner() {
+    assert !isTop();
+    return new Joiner(this);
   }
 
   @Override
@@ -117,9 +175,13 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
 
   public static class Builder extends KeepInfo.Builder<Builder, KeepClassInfo> {
 
-    private boolean allowRepackaging;
-    private boolean checkEnumUnboxed;
+    private boolean allowClassInlining;
+    private boolean allowHorizontalClassMerging;
     private boolean allowPermittedSubclassesRemoval;
+    private boolean allowRepackaging;
+    private boolean allowUnusedInterfaceRemoval;
+    private boolean allowVerticalClassMerging;
+    private boolean checkEnumUnboxed;
 
     private Builder() {
       super();
@@ -127,9 +189,13 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
 
     private Builder(KeepClassInfo original) {
       super(original);
-      allowRepackaging = original.internalIsRepackagingAllowed();
-      checkEnumUnboxed = original.internalIsCheckEnumUnboxedEnabled();
+      allowClassInlining = original.internalIsClassInliningAllowed();
+      allowHorizontalClassMerging = original.internalIsHorizontalClassMergingAllowed();
       allowPermittedSubclassesRemoval = original.internalIsPermittedSubclassesRemovalAllowed();
+      allowRepackaging = original.internalIsRepackagingAllowed();
+      allowUnusedInterfaceRemoval = original.internalIsUnusedInterfaceRemovalAllowed();
+      allowVerticalClassMerging = original.internalIsVerticalClassMergingAllowed();
+      checkEnumUnboxed = original.internalIsCheckEnumUnboxedEnabled();
     }
 
     // Check enum unboxed.
@@ -142,6 +208,73 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
       this.checkEnumUnboxed = checkEnumUnboxed;
       return self();
     }
+
+    public Builder setCheckEnumUnboxed() {
+      return setCheckEnumUnboxed(true);
+    }
+
+    public Builder unsetCheckEnumUnboxed() {
+      return setCheckEnumUnboxed(false);
+    }
+
+    // Class inlining.
+
+    public Builder allowClassInlining() {
+      return setAllowClassInlining(true);
+    }
+
+    public boolean isClassInliningAllowed() {
+      return allowClassInlining;
+    }
+
+    private Builder setAllowClassInlining(boolean allowClassInlining) {
+      this.allowClassInlining = allowClassInlining;
+      return self();
+    }
+
+    public Builder disallowClassInlining() {
+      return setAllowClassInlining(false);
+    }
+
+    // Horizontal class merging.
+
+    public Builder allowHorizontalClassMerging() {
+      return setAllowHorizontalClassMerging(true);
+    }
+
+    public boolean isHorizontalClassMergingAllowed() {
+      return allowHorizontalClassMerging;
+    }
+
+    private Builder setAllowHorizontalClassMerging(boolean allowHorizontalClassMerging) {
+      this.allowHorizontalClassMerging = allowHorizontalClassMerging;
+      return self();
+    }
+
+    public Builder disallowHorizontalClassMerging() {
+      return setAllowHorizontalClassMerging(false);
+    }
+
+    // Permitted subclasses removal.
+
+    public Builder allowPermittedSubclassesRemoval() {
+      return setAllowPermittedSubclassesRemoval(true);
+    }
+
+    public boolean isPermittedSubclassesRemovalAllowed() {
+      return allowPermittedSubclassesRemoval;
+    }
+
+    private Builder setAllowPermittedSubclassesRemoval(boolean allowPermittedSubclassesRemoval) {
+      this.allowPermittedSubclassesRemoval = allowPermittedSubclassesRemoval;
+      return self();
+    }
+
+    public Builder disallowPermittedSubclassesRemoval() {
+      return setAllowPermittedSubclassesRemoval(false);
+    }
+
+    // Repackaging.
 
     public boolean isRepackagingAllowed() {
       return allowRepackaging;
@@ -160,29 +293,42 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
       return setAllowRepackaging(false);
     }
 
-    public Builder setCheckEnumUnboxed() {
-      return setCheckEnumUnboxed(true);
+    // Unused interface removal.
+
+    public Builder allowUnusedInterfaceRemoval() {
+      return setAllowUnusedInterfaceRemoval(true);
     }
 
-    public Builder unsetCheckEnumUnboxed() {
-      return setCheckEnumUnboxed(false);
+    public boolean isUnusedInterfaceRemovalAllowed() {
+      return allowUnusedInterfaceRemoval;
     }
 
-    public Builder allowPermittedSubclassesRemoval() {
-      return setAllowPermittedSubclassesRemoval(true);
-    }
-
-    public boolean isPermittedSubclassesRemovalAllowed() {
-      return allowPermittedSubclassesRemoval;
-    }
-
-    private Builder setAllowPermittedSubclassesRemoval(boolean allowPermittedSubclassesRemoval) {
-      this.allowPermittedSubclassesRemoval = allowPermittedSubclassesRemoval;
+    private Builder setAllowUnusedInterfaceRemoval(boolean allowUnusedInterfaceRemoval) {
+      this.allowUnusedInterfaceRemoval = allowUnusedInterfaceRemoval;
       return self();
     }
 
-    public Builder disallowPermittedSubclassesRemoval() {
-      return setAllowPermittedSubclassesRemoval(false);
+    public Builder disallowUnusedInterfaceRemoval() {
+      return setAllowUnusedInterfaceRemoval(false);
+    }
+
+    // Vertical class merging.
+
+    public Builder allowVerticalClassMerging() {
+      return setAllowVerticalClassMerging(true);
+    }
+
+    public boolean isVerticalClassMergingAllowed() {
+      return allowVerticalClassMerging;
+    }
+
+    private Builder setAllowVerticalClassMerging(boolean allowVerticalClassMerging) {
+      this.allowVerticalClassMerging = allowVerticalClassMerging;
+      return self();
+    }
+
+    public Builder disallowVerticalClassMerging() {
+      return setAllowVerticalClassMerging(false);
     }
 
     @Override
@@ -208,10 +354,14 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
     @Override
     boolean internalIsEqualTo(KeepClassInfo other) {
       return super.internalIsEqualTo(other)
-          && isRepackagingAllowed() == other.internalIsRepackagingAllowed()
           && isCheckEnumUnboxedEnabled() == other.internalIsCheckEnumUnboxedEnabled()
+          && isClassInliningAllowed() == other.internalIsClassInliningAllowed()
+          && isHorizontalClassMergingAllowed() == other.internalIsHorizontalClassMergingAllowed()
           && isPermittedSubclassesRemovalAllowed()
-              == other.internalIsPermittedSubclassesRemovalAllowed();
+              == other.internalIsPermittedSubclassesRemovalAllowed()
+          && isRepackagingAllowed() == other.internalIsRepackagingAllowed()
+          && isUnusedInterfaceRemovalAllowed() == other.internalIsUnusedInterfaceRemovalAllowed()
+          && isVerticalClassMergingAllowed() == other.internalIsVerticalClassMergingAllowed();
     }
 
     @Override
@@ -222,17 +372,25 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
     @Override
     public Builder makeTop() {
       return super.makeTop()
-          .unsetCheckEnumUnboxed()
+          .disallowClassInlining()
+          .disallowHorizontalClassMerging()
+          .disallowPermittedSubclassesRemoval()
           .disallowRepackaging()
-          .disallowPermittedSubclassesRemoval();
+          .disallowUnusedInterfaceRemoval()
+          .disallowVerticalClassMerging()
+          .unsetCheckEnumUnboxed();
     }
 
     @Override
     public Builder makeBottom() {
       return super.makeBottom()
-          .unsetCheckEnumUnboxed()
+          .allowClassInlining()
+          .allowHorizontalClassMerging()
+          .allowPermittedSubclassesRemoval()
           .allowRepackaging()
-          .allowPermittedSubclassesRemoval();
+          .allowUnusedInterfaceRemoval()
+          .allowVerticalClassMerging()
+          .unsetCheckEnumUnboxed();
     }
   }
 
@@ -242,13 +400,13 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
       super(info.builder());
     }
 
-    public Joiner setCheckEnumUnboxed() {
-      builder.setCheckEnumUnboxed();
+    public Joiner disallowClassInlining() {
+      builder.disallowClassInlining();
       return self();
     }
 
-    public Joiner disallowRepackaging() {
-      builder.disallowRepackaging();
+    public Joiner disallowHorizontalClassMerging() {
+      builder.disallowHorizontalClassMerging();
       return self();
     }
 
@@ -257,8 +415,27 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
       return self();
     }
 
-    public Joiner allowPermittedSubclassesRemoval() {
-      builder.allowPermittedSubclassesRemoval();
+    public Joiner disallowRepackaging() {
+      builder.disallowRepackaging();
+      return self();
+    }
+
+    public Joiner disallowUnusedInterfaceRemoval() {
+      builder.disallowUnusedInterfaceRemoval();
+      return self();
+    }
+
+    public Joiner disallowVerticalClassMerging() {
+      builder.disallowVerticalClassMerging();
+      return self();
+    }
+
+    public boolean isUnusedInterfaceRemovalAllowed() {
+      return builder.isUnusedInterfaceRemovalAllowed();
+    }
+
+    public Joiner setCheckEnumUnboxed() {
+      builder.setCheckEnumUnboxed();
       return self();
     }
 
@@ -272,10 +449,20 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
       // Should be extended to merge the fields of this class in case any are added.
       return super.merge(joiner)
           .applyIf(joiner.builder.isCheckEnumUnboxedEnabled(), Joiner::setCheckEnumUnboxed)
-          .applyIf(!joiner.builder.isRepackagingAllowed(), Joiner::disallowRepackaging)
+          .applyIf(!joiner.builder.isClassInliningAllowed(), Joiner::disallowClassInlining)
+          .applyIf(
+              !joiner.builder.isHorizontalClassMergingAllowed(),
+              Joiner::disallowHorizontalClassMerging)
           .applyIf(
               !joiner.builder.isPermittedSubclassesRemovalAllowed(),
-              Joiner::disallowPermittedSubclassesRemoval);
+              Joiner::disallowPermittedSubclassesRemoval)
+          .applyIf(!joiner.builder.isRepackagingAllowed(), Joiner::disallowRepackaging)
+          .applyIf(
+              !joiner.builder.isUnusedInterfaceRemovalAllowed(),
+              Joiner::disallowUnusedInterfaceRemoval)
+          .applyIf(
+              !joiner.builder.isVerticalClassMergingAllowed(),
+              Joiner::disallowVerticalClassMerging);
     }
 
     @Override
