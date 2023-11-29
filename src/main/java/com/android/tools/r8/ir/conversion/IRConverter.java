@@ -1150,6 +1150,7 @@ public class IRConverter {
     assert method.getHolder().lookupMethod(method.getReference()) == null;
     appView.withArgumentPropagator(argumentPropagator -> argumentPropagator.onMethodPruned(method));
     enumUnboxer.onMethodPruned(method);
+    fieldAccessAnalysis.fieldAssignmentTracker().onMethodPruned(method);
     numberUnboxer.onMethodPruned(method);
     outliner.onMethodPruned(method);
     if (inliner != null) {
@@ -1168,6 +1169,7 @@ public class IRConverter {
     appView.withArgumentPropagator(
         argumentPropagator -> argumentPropagator.onMethodCodePruned(method));
     enumUnboxer.onMethodCodePruned(method);
+    fieldAccessAnalysis.fieldAssignmentTracker().onMethodCodePruned(method);
     numberUnboxer.onMethodCodePruned(method);
     outliner.onMethodCodePruned(method);
     if (inliner != null) {

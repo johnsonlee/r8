@@ -62,8 +62,7 @@ public class InstanceFieldsOnlyWrittenInInitializersWithSingleCallerPruningTest 
         .enableInliningAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/307987907): Should succeed with "Hello, world!".
-        .assertSuccessWithOutputLines("HelloHello");
+        .assertSuccessWithOutputLines("Hello, world!");
   }
 
   static class Main {

@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
@@ -79,6 +80,9 @@ public class FieldAssignmentTracker {
 
   private final Map<DexProgramClass, ProgramFieldMap<AbstractValue>>
       abstractFinalInstanceFieldValues = new ConcurrentHashMap<>();
+
+  private final Set<DexProgramClass> classesWithPrunedInstanceInitializers =
+      ConcurrentHashMap.newKeySet();
 
   FieldAssignmentTracker(AppView<AppInfoWithLiveness> appView) {
     this.abstractValueFactory = appView.abstractValueFactory();
@@ -360,41 +364,49 @@ public class FieldAssignmentTracker {
 
   private void recordAllInstanceFieldPutsProcessed(
       ProgramField field, OptimizationFeedbackDelayed feedback) {
-    if (appView.appInfo().isInstanceFieldWrittenOnlyInInstanceInitializers(field)) {
-      AbstractValue abstractValue = BottomValue.getInstance();
-      DexProgramClass clazz = field.getHolder();
-      for (DexEncodedMethod method : clazz.directMethods(DexEncodedMethod::isInstanceInitializer)) {
-        InstanceFieldInitializationInfo fieldInitializationInfo =
-            method
-                .getOptimizationInfo()
-                .getContextInsensitiveInstanceInitializerInfo()
-                .fieldInitializationInfos()
-                .get(field);
-        if (fieldInitializationInfo.isSingleValue()) {
-          abstractValue =
-              appView
-                  .getAbstractValueFieldJoiner()
-                  .join(abstractValue, fieldInitializationInfo.asSingleValue(), field);
-          if (abstractValue.isUnknown()) {
-            break;
-          }
-        } else if (fieldInitializationInfo.isTypeInitializationInfo()) {
-          // TODO(b/149732532): Not handled, for now.
-          abstractValue = UnknownValue.getInstance();
-          break;
-        } else {
-          assert fieldInitializationInfo.isArgumentInitializationInfo()
-              || fieldInitializationInfo.isUnknown();
-          abstractValue = UnknownValue.getInstance();
+    if (!appView.appInfo().isInstanceFieldWrittenOnlyInInstanceInitializers(field)) {
+      return;
+    }
+    DexProgramClass clazz = field.getHolder();
+    if (classesWithPrunedInstanceInitializers.contains(clazz)) {
+      // The current method is analyzing the instance-puts to the field in the instance initializers
+      // of the holder class. Due to single caller inlining of instance initializers some of the
+      // methods needed for the analysis may have been pruned from the app, in which case the
+      // analysis result will not be conservative.
+      return;
+    }
+    AbstractValue abstractValue = BottomValue.getInstance();
+    for (DexEncodedMethod method : clazz.directMethods(DexEncodedMethod::isInstanceInitializer)) {
+      InstanceFieldInitializationInfo fieldInitializationInfo =
+          method
+              .getOptimizationInfo()
+              .getContextInsensitiveInstanceInitializerInfo()
+              .fieldInitializationInfos()
+              .get(field);
+      if (fieldInitializationInfo.isSingleValue()) {
+        abstractValue =
+            appView
+                .getAbstractValueFieldJoiner()
+                .join(abstractValue, fieldInitializationInfo.asSingleValue(), field);
+        if (abstractValue.isUnknown()) {
           break;
         }
+      } else if (fieldInitializationInfo.isTypeInitializationInfo()) {
+        // TODO(b/149732532): Not handled, for now.
+        abstractValue = UnknownValue.getInstance();
+        break;
+      } else {
+        assert fieldInitializationInfo.isArgumentInitializationInfo()
+            || fieldInitializationInfo.isUnknown();
+        abstractValue = UnknownValue.getInstance();
+        break;
       }
+    }
 
-      assert !abstractValue.isBottom();
+    assert !abstractValue.isBottom();
 
-      if (!abstractValue.isUnknown()) {
-        feedback.recordFieldHasAbstractValue(field.getDefinition(), appView, abstractValue);
-      }
+    if (!abstractValue.isUnknown()) {
+      feedback.recordFieldHasAbstractValue(field.getDefinition(), appView, abstractValue);
     }
   }
 
@@ -419,6 +431,16 @@ public class FieldAssignmentTracker {
           }
           return TraversalContinuation.doContinue();
         });
+  }
+
+  public void onMethodPruned(ProgramMethod method) {
+    onMethodCodePruned(method);
+  }
+
+  public void onMethodCodePruned(ProgramMethod method) {
+    if (method.getDefinition().isInstanceInitializer()) {
+      classesWithPrunedInstanceInitializers.add(method.getHolder());
+    }
   }
 
   public void waveDone(ProgramMethodSet wave, OptimizationFeedbackDelayed feedback) {
