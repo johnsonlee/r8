@@ -90,11 +90,12 @@ public class CfCheckCast extends CfInstruction implements CfTypeInstruction {
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    DexType rewrittenType = graphLens.lookupType(type);
+    DexType rewrittenType = graphLens.lookupType(type, codeLens);
     visitor.visitTypeInsn(Opcodes.CHECKCAST, namingLens.lookupInternalName(rewrittenType));
   }
 

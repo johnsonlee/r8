@@ -94,6 +94,7 @@ public class CfReturn extends CfJumpInstruction {
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,

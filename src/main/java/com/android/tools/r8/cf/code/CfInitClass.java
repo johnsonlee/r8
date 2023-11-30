@@ -74,13 +74,14 @@ public class CfInitClass extends CfInstruction {
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
     // We intentionally apply the graph lens first, and then the init class lens, using the fact
     // that the init class lens maps classes in the final program to fields in the final program.
-    DexType rewrittenClass = graphLens.lookupType(clazz);
+    DexType rewrittenClass = graphLens.lookupType(clazz, codeLens);
     DexField clinitField = initClassLens.getInitClassField(rewrittenClass);
     String owner = namingLens.lookupInternalName(clinitField.holder);
     String name = namingLens.lookupName(clinitField).toString();

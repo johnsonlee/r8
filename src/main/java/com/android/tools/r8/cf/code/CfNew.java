@@ -107,11 +107,12 @@ public class CfNew extends CfInstruction implements CfTypeInstruction {
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    DexType rewrittenType = graphLens.lookupType(getType());
+    DexType rewrittenType = graphLens.lookupType(getType(), codeLens);
     visitor.visitTypeInsn(Opcodes.NEW, namingLens.lookupInternalName(rewrittenType));
   }
 

@@ -176,7 +176,7 @@ public interface FrameType {
 
   DexType getObjectType(DexItemFactory dexItemFactory, DexType context);
 
-  Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens);
+  Object getTypeOpcode(GraphLens graphLens, GraphLens codeLens, NamingLens namingLens);
 
   CfLabel getUninitializedLabel();
 

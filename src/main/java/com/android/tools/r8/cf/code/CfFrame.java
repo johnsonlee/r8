@@ -182,14 +182,15 @@ public class CfFrame extends CfInstruction implements Cloneable {
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
     int stackCount = computeStackCount();
-    Object[] stackTypes = computeStackTypes(stackCount, graphLens, namingLens);
+    Object[] stackTypes = computeStackTypes(stackCount, graphLens, codeLens, namingLens);
     int localsCount = computeLocalsCount();
-    Object[] localsTypes = computeLocalsTypes(localsCount, graphLens, namingLens);
+    Object[] localsTypes = computeLocalsTypes(localsCount, graphLens, codeLens, namingLens);
     visitor.visitFrame(F_NEW, localsCount, localsTypes, stackCount, stackTypes);
   }
 
@@ -210,7 +211,8 @@ public class CfFrame extends CfInstruction implements Cloneable {
     return size;
   }
 
-  private Object[] computeStackTypes(int stackCount, GraphLens graphLens, NamingLens namingLens) {
+  private Object[] computeStackTypes(
+      int stackCount, GraphLens graphLens, GraphLens codeLens, NamingLens namingLens) {
     assert stackCount == stack.size();
     if (stackCount == 0) {
       return null;
@@ -218,7 +220,7 @@ public class CfFrame extends CfInstruction implements Cloneable {
     Object[] stackTypes = new Object[stackCount];
     int index = 0;
     for (PreciseFrameType frameType : stack) {
-      stackTypes[index++] = frameType.getTypeOpcode(graphLens, namingLens);
+      stackTypes[index++] = frameType.getTypeOpcode(graphLens, codeLens, namingLens);
     }
     return stackTypes;
   }
@@ -240,7 +242,8 @@ public class CfFrame extends CfInstruction implements Cloneable {
     return localsCount;
   }
 
-  private Object[] computeLocalsTypes(int localsCount, GraphLens graphLens, NamingLens namingLens) {
+  private Object[] computeLocalsTypes(
+      int localsCount, GraphLens graphLens, GraphLens codeLens, NamingLens namingLens) {
     if (localsCount == 0) {
       return null;
     }
@@ -250,7 +253,7 @@ public class CfFrame extends CfInstruction implements Cloneable {
     for (int i = 0; i <= maxRegister; i++) {
       FrameType type = locals.get(i);
       localsTypes[localIndex++] =
-          type == null ? Opcodes.TOP : type.getTypeOpcode(graphLens, namingLens);
+          type == null ? Opcodes.TOP : type.getTypeOpcode(graphLens, codeLens, namingLens);
       if (type != null && type.isWide()) {
         i++;
       }

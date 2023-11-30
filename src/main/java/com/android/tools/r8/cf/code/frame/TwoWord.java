@@ -41,7 +41,7 @@ public class TwoWord extends SingletonFrameType implements WideFrameType {
   }
 
   @Override
-  public Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
+  public Object getTypeOpcode(GraphLens graphLens, GraphLens codeLens, NamingLens namingLens) {
     throw new Unreachable("Should only be used for verification");
   }
 

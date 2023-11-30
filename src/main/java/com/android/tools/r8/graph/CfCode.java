@@ -424,6 +424,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
     GraphLens graphLens = appView.graphLens();
+    GraphLens codeLens = getCodeLens(appView);
     assert getOrComputeStackMapStatus(method, appView).isValidOrNotPresent()
         : "Could not validate stack map frames";
     DexItemFactory dexItemFactory = appView.dexItemFactory();
@@ -433,7 +434,15 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
     if (shouldAddParameterNames(method.getDefinition(), appView)) {
       parameterLabel = new CfLabel();
       parameterLabel.write(
-          appView, method, dexItemFactory, graphLens, initClassLens, namingLens, rewriter, visitor);
+          appView,
+          method,
+          dexItemFactory,
+          graphLens,
+          codeLens,
+          initClassLens,
+          namingLens,
+          rewriter,
+          visitor);
     }
     boolean discardFrames =
         classFileVersion.isLessThan(CfVersion.V1_6)
@@ -453,7 +462,15 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
         continue;
       }
       instruction.write(
-          appView, method, dexItemFactory, graphLens, initClassLens, namingLens, rewriter, visitor);
+          appView,
+          method,
+          dexItemFactory,
+          graphLens,
+          codeLens,
+          initClassLens,
+          namingLens,
+          rewriter,
+          visitor);
     }
     visitor.visitEnd();
     visitor.visitMaxs(maxStack, maxLocals);
@@ -462,7 +479,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       Label end = tryCatch.end.getLabel();
       for (int i = 0; i < tryCatch.guards.size(); i++) {
         DexType guard = tryCatch.guards.get(i);
-        DexType rewrittenGuard = graphLens.lookupType(guard);
+        DexType rewrittenGuard = graphLens.lookupType(guard, codeLens);
         Label target = tryCatch.targets.get(i).getLabel();
         visitor.visitTryCatchBlock(
             start,
@@ -480,6 +497,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
         writeLocalVariableEntry(
             visitor,
             graphLens,
+            codeLens,
             namingLens,
             entry.getValue(),
             parameterLabel,
@@ -489,7 +507,14 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
     } else {
       for (LocalVariableInfo local : localVariables) {
         writeLocalVariableEntry(
-            visitor, graphLens, namingLens, local.local, local.start, local.end, local.index);
+            visitor,
+            graphLens,
+            codeLens,
+            namingLens,
+            local.local,
+            local.start,
+            local.end,
+            local.index);
       }
     }
   }
@@ -497,12 +522,13 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
   private void writeLocalVariableEntry(
       MethodVisitor visitor,
       GraphLens graphLens,
+      GraphLens codeLens,
       NamingLens namingLens,
       DebugLocalInfo info,
       CfLabel start,
       CfLabel end,
       int index) {
-    DexType rewrittenType = graphLens.lookupType(info.type);
+    DexType rewrittenType = graphLens.lookupType(info.type, codeLens);
     visitor.visitLocalVariable(
         info.name.toString(),
         namingLens.lookupDescriptor(rewrittenType).toString(),

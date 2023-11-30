@@ -55,7 +55,7 @@ public class InitializedNonNullReferenceFrameTypeWithInterfaces
   }
 
   @Override
-  public Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
+  public Object getTypeOpcode(GraphLens graphLens, GraphLens codeLens, NamingLens namingLens) {
     throw new Unreachable(
         "Unexpected InitializedNonNullReferenceFrameTypeWithInterfaces in writer");
   }

@@ -83,6 +83,7 @@ public class CfNewUnboxedEnum extends CfInstruction implements CfTypeInstruction
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,

@@ -101,7 +101,10 @@ public class CfNewArray extends CfInstruction implements CfTypeInstruction {
   }
 
   private String getElementInternalName(
-      DexItemFactory dexItemFactory, GraphLens graphLens, NamingLens namingLens) {
+      DexItemFactory dexItemFactory,
+      GraphLens graphLens,
+      GraphLens codeLens,
+      NamingLens namingLens) {
     assert !type.isPrimitiveArrayType();
     StringBuilder renamedElementDescriptor = new StringBuilder();
     // Intentionally starting from 1 to get the element descriptor.
@@ -110,7 +113,7 @@ public class CfNewArray extends CfInstruction implements CfTypeInstruction {
       renamedElementDescriptor.append("[");
     }
     DexType baseType = getType().toBaseType(dexItemFactory);
-    DexType rewrittenBaseType = graphLens.lookupType(baseType);
+    DexType rewrittenBaseType = graphLens.lookupType(baseType, codeLens);
     renamedElementDescriptor.append(
         namingLens.lookupDescriptor(rewrittenBaseType).toSourceString());
     return DescriptorUtils.descriptorToInternalName(renamedElementDescriptor.toString());
@@ -122,6 +125,7 @@ public class CfNewArray extends CfInstruction implements CfTypeInstruction {
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
@@ -130,7 +134,8 @@ public class CfNewArray extends CfInstruction implements CfTypeInstruction {
       visitor.visitIntInsn(Opcodes.NEWARRAY, getPrimitiveTypeCode());
     } else {
       visitor.visitTypeInsn(
-          Opcodes.ANEWARRAY, getElementInternalName(dexItemFactory, graphLens, namingLens));
+          Opcodes.ANEWARRAY,
+          getElementInternalName(dexItemFactory, graphLens, codeLens, namingLens));
     }
   }
 

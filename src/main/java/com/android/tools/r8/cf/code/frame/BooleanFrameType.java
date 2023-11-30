@@ -27,7 +27,7 @@ public class BooleanFrameType extends SinglePrimitiveFrameType {
   }
 
   @Override
-  public Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
+  public Object getTypeOpcode(GraphLens graphLens, GraphLens codeLens, NamingLens namingLens) {
     throw new Unreachable("Unexpected value type: " + this);
   }
 

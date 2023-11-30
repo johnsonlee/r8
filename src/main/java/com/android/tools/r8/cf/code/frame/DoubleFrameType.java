@@ -62,7 +62,7 @@ public class DoubleFrameType extends WidePrimitiveFrameType {
   }
 
   @Override
-  public Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
+  public Object getTypeOpcode(GraphLens graphLens, GraphLens codeLens, NamingLens namingLens) {
     return Opcodes.DOUBLE;
   }
 }

@@ -106,6 +106,7 @@ public class CfInvoke extends CfInstruction {
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
@@ -124,7 +125,7 @@ public class CfInvoke extends CfInstruction {
           itf);
     } else {
       MethodLookupResult lookup =
-          graphLens.lookupMethod(method, context.getReference(), invokeType);
+          graphLens.lookupMethod(method, context.getReference(), invokeType, codeLens);
       InvokeType rewrittenType = lookup.getType();
       DexMethod rewrittenMethod = lookup.getReference();
       String owner = namingLens.lookupInternalName(rewrittenMethod.holder);

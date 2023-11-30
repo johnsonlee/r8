@@ -27,7 +27,7 @@ public class IntFrameType extends SinglePrimitiveFrameType {
   }
 
   @Override
-  public Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
+  public Object getTypeOpcode(GraphLens graphLens, GraphLens codeLens, NamingLens namingLens) {
     return Opcodes.INTEGER;
   }
 

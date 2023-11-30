@@ -102,12 +102,13 @@ public abstract class CfFieldInstruction extends CfInstruction {
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    DexField rewrittenField = graphLens.lookupField(field);
-    DexField rewrittenDeclaringField = graphLens.lookupField(declaringField);
+    DexField rewrittenField = graphLens.lookupField(field, codeLens);
+    DexField rewrittenDeclaringField = graphLens.lookupField(declaringField, codeLens);
     String owner = namingLens.lookupInternalName(rewrittenField.holder);
     String name = namingLens.lookupName(rewrittenDeclaringField).toString();
     String desc = namingLens.lookupDescriptor(rewrittenField.type).toString();

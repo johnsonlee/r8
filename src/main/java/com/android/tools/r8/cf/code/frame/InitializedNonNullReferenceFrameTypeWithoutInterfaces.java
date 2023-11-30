@@ -54,8 +54,8 @@ public class InitializedNonNullReferenceFrameTypeWithoutInterfaces
 
   @Override
   @SuppressWarnings("ReferenceEquality")
-  public Object getTypeOpcode(GraphLens graphLens, NamingLens namingLens) {
-    DexType rewrittenType = graphLens.lookupType(type);
+  public Object getTypeOpcode(GraphLens graphLens, GraphLens codeLens, NamingLens namingLens) {
+    DexType rewrittenType = graphLens.lookupType(type, codeLens);
     assert rewrittenType != DexItemFactory.nullValueType;
     switch (rewrittenType.toShorty()) {
       case 'L':

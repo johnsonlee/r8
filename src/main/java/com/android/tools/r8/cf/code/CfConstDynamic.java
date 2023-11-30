@@ -155,6 +155,7 @@ public class CfConstDynamic extends CfInstruction implements CfTypeInstruction {
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
@@ -172,15 +173,15 @@ public class CfConstDynamic extends CfInstruction implements CfTypeInstruction {
     ConstantDynamic constantDynamic =
         new ConstantDynamic(
             reference.getName().toString(),
-            getConstantTypeDescriptor(graphLens, namingLens, dexItemFactory),
+            getConstantTypeDescriptor(graphLens, codeLens, namingLens, dexItemFactory),
             rewrittenHandle.toAsmHandle(namingLens),
             bsmArgs);
     visitor.visitLdcInsn(constantDynamic);
   }
 
   private String getConstantTypeDescriptor(
-      GraphLens graphLens, NamingLens namingLens, DexItemFactory factory) {
-    DexType rewrittenType = graphLens.lookupType(reference.getType());
+      GraphLens graphLens, GraphLens codeLens, NamingLens namingLens, DexItemFactory factory) {
+    DexType rewrittenType = graphLens.lookupType(reference.getType(), codeLens);
     DexType renamedType = namingLens.lookupType(rewrittenType, factory);
     return renamedType.toDescriptorString();
   }

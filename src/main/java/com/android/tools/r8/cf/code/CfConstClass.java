@@ -103,11 +103,12 @@ public class CfConstClass extends CfInstruction implements CfTypeInstruction {
       ProgramMethod context,
       DexItemFactory dexItemFactory,
       GraphLens graphLens,
+      GraphLens codeLens,
       InitClassLens initClassLens,
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    visitor.visitLdcInsn(Type.getObjectType(getInternalName(graphLens, namingLens)));
+    visitor.visitLdcInsn(Type.getObjectType(getInternalName(graphLens, codeLens, namingLens)));
   }
 
   @Override
@@ -126,8 +127,8 @@ public class CfConstClass extends CfInstruction implements CfTypeInstruction {
     return true;
   }
 
-  private String getInternalName(GraphLens graphLens, NamingLens namingLens) {
-    DexType rewrittenType = graphLens.lookupType(type);
+  private String getInternalName(GraphLens graphLens, GraphLens codeLens, NamingLens namingLens) {
+    DexType rewrittenType = graphLens.lookupType(type, codeLens);
     switch (rewrittenType.toShorty()) {
       case '[':
       case 'L':
