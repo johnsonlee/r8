@@ -35,6 +35,7 @@ import com.android.tools.r8.ir.conversion.passes.CodeRewriterPass;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.naming.dexitembasedstring.ClassNameComputationInfo;
+import com.android.tools.r8.shaking.KeepClassInfo;
 import java.io.UTFDataFormatException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -308,8 +309,10 @@ public class StringOptimizer extends CodeRewriterPass<AppInfo> {
         continue;
       }
       boolean mayBeRenamed =
-          appView.enableWholeProgramOptimizations()
-              && appView.withLiveness().appInfo().isMinificationAllowed(holder);
+          holder.isProgramClass()
+              && appView
+                  .getKeepInfoOrDefault(holder.asProgramClass(), KeepClassInfo.top())
+                  .isMinificationAllowed(options);
       // b/120138731: Filter out escaping uses. In such case, the result of this optimization will
       // be stored somewhere, which can lead to a regression if the corresponding class is in a deep
       // package hierarchy. For local cases, it is likely a one-time computation, but make sure the
