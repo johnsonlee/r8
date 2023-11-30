@@ -12,6 +12,8 @@ import static com.android.tools.r8.utils.InternalOptions.ASM_VERSION;
 import static com.android.tools.r8.utils.ZipUtils.writeToZipStream;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.android.tools.r8.AndroidResourceInput;
+import com.android.tools.r8.AndroidResourceProvider;
 import com.android.tools.r8.ClassFileConsumer;
 import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.DataDirectoryResource;
@@ -99,18 +101,19 @@ public class AndroidApp {
   private static final String dumpMainDexListResourceFileName = "main-dex-list.txt";
   private static final String dumpMainDexRulesResourceFileName = "main-dex-rules.txt";
   private static final String dumpProgramFileName = "program.jar";
+  private static final String dumpInputResourcesFileName = "app-res.ap_";
   private static final String dumpClasspathFileName = "classpath.jar";
   private static final String dumpLibraryFileName = "library.jar";
   private static final String dumpConfigFileName = "proguard.config";
   private static final String dumpInputConfigFileName = "proguard_input.config";
 
   private static Map<FeatureSplit, String> dumpFeatureSplitFileNames(
-      FeatureSplitConfiguration featureSplitConfiguration) {
+      FeatureSplitConfiguration featureSplitConfiguration, String postfix) {
     Map<FeatureSplit, String> featureSplitFileNames = new IdentityHashMap<>();
     if (featureSplitConfiguration != null) {
       int i = 1;
       for (FeatureSplit featureSplit : featureSplitConfiguration.getFeatureSplits()) {
-        featureSplitFileNames.put(featureSplit, "feature-" + i + ".jar");
+        featureSplitFileNames.put(featureSplit, "feature-" + i + postfix);
         i++;
       }
     }
@@ -550,6 +553,21 @@ public class AndroidApp {
       if (dumpOptions.hasStartupProfileProviders()) {
         dumpStartupProfileProviders(dumpOptions.getStartupProfileProviders(), options, out);
       }
+      if (dumpOptions.hasAndroidResourcesProvider()) {
+        dumpAndroidResourcesProvider(
+            dumpOptions.getAndroidResourceProvider(), out, dumpInputResourcesFileName);
+        Map<FeatureSplit, String> featureSplitNameMap =
+            dumpFeatureSplitFileNames(dumpOptions.getFeatureSplitConfiguration(), ".ap_");
+        for (FeatureSplit featureSplit :
+            dumpOptions.getFeatureSplitConfiguration().getFeatureSplits()) {
+          if (featureSplit.getAndroidResourceProvider() != null) {
+            dumpAndroidResourcesProvider(
+                featureSplit.getAndroidResourceProvider(),
+                out,
+                featureSplitNameMap.get(featureSplit));
+          }
+        }
+      }
       nextDexIndex =
           dumpProgramResources(
               dumpProgramFileName,
@@ -627,6 +645,23 @@ public class AndroidApp {
     };
   }
 
+  private void dumpAndroidResourcesProvider(
+      AndroidResourceProvider androidResourceProvider, ZipOutputStream out, String name)
+      throws IOException, ResourceException {
+    try (ByteArrayOutputStream archiveByteStream = new ByteArrayOutputStream()) {
+      try (ZipOutputStream archiveOutputStream = new ZipOutputStream(archiveByteStream)) {
+        for (AndroidResourceInput androidResource : androidResourceProvider.getAndroidResources()) {
+          writeToZipStream(
+              archiveOutputStream,
+              androidResource.getPath().location(),
+              androidResource.getByteStream().readAllBytes(),
+              ZipEntry.DEFLATED);
+        }
+      }
+      writeToZipStream(out, name, archiveByteStream.toByteArray(), ZipEntry.DEFLATED);
+    }
+  }
+
   private int dumpProgramResources(
       String archiveName,
       FeatureSplitConfiguration featureSplitConfiguration,
@@ -635,7 +670,7 @@ public class AndroidApp {
       InternalOptions options)
       throws IOException, ResourceException {
     Map<FeatureSplit, String> featureSplitArchiveNames =
-        dumpFeatureSplitFileNames(featureSplitConfiguration);
+        dumpFeatureSplitFileNames(featureSplitConfiguration, ".jar");
     Map<FeatureSplit, ByteArrayOutputStream> featureSplitArchiveByteStreams =
         new IdentityHashMap<>();
     Map<FeatureSplit, ZipOutputStream> featureSplitArchiveOutputStreams = new IdentityHashMap<>();

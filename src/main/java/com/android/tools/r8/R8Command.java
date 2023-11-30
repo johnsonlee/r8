@@ -1294,6 +1294,7 @@ public final class R8Command extends BaseCompilerCommand {
         .setMinification(getEnableMinification())
         .setForceProguardCompatibility(forceProguardCompatibility)
         .setFeatureSplitConfiguration(featureSplitConfiguration)
+        .setAndroidResourceProvider(androidResourceProvider)
         .setProguardConfiguration(proguardConfiguration)
         .setMainDexKeepRules(mainDexKeepRules)
         .setDesugaredLibraryConfiguration(desugaredLibrarySpecification)

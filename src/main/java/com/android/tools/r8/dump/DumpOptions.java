@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.dump;
 
+import com.android.tools.r8.AndroidResourceProvider;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.dex.Marker.Backend;
 import com.android.tools.r8.dex.Marker.Tool;
@@ -75,7 +76,7 @@ public class DumpOptions {
   private final Collection<StartupProfileProvider> startupProfileProviders;
   private final boolean enableMissingLibraryApiModeling;
   private final boolean isAndroidPlatformBuild;
-
+  private final AndroidResourceProvider androidResourceProvider;
   private final Map<String, String> systemProperties;
 
   // TraceReferences only.
@@ -107,7 +108,8 @@ public class DumpOptions {
       boolean isAndroidPlatformBuild,
       Map<String, String> systemProperties,
       boolean dumpInputToFile,
-      String traceReferencesConsumer) {
+      String traceReferencesConsumer,
+      AndroidResourceProvider androidResourceProvider) {
     this.backend = backend;
     this.tool = tool;
     this.compilationMode = compilationMode;
@@ -131,6 +133,7 @@ public class DumpOptions {
     this.systemProperties = systemProperties;
     this.dumpInputToFile = dumpInputToFile;
     this.traceReferencesConsumer = traceReferencesConsumer;
+    this.androidResourceProvider = androidResourceProvider;
   }
 
   public String getBuildPropertiesFileContent() {
@@ -333,6 +336,14 @@ public class DumpOptions {
     return new Builder().setTool(tool);
   }
 
+  public boolean hasAndroidResourcesProvider() {
+    return androidResourceProvider != null;
+  }
+
+  public AndroidResourceProvider getAndroidResourceProvider() {
+    return androidResourceProvider;
+  }
+
   public static class Builder {
     // Initialize backend to DEX for backwards compatibility.
     private Backend backend = Backend.DEX;
@@ -354,6 +365,7 @@ public class DumpOptions {
     private List<ProguardConfigurationRule> mainDexKeepRules;
     private Collection<ArtProfileProvider> artProfileProviders;
     private Collection<StartupProfileProvider> startupProfileProviders;
+    private AndroidResourceProvider androidResourceProvider;
 
     private boolean enableMissingLibraryApiModeling = false;
     private boolean isAndroidPlatformBuild = false;
@@ -530,7 +542,17 @@ public class DumpOptions {
           isAndroidPlatformBuild,
           systemProperties,
           dumpInputToFile,
-          traceReferencesConsumer);
+          traceReferencesConsumer,
+          androidResourceProvider);
+    }
+
+    public AndroidResourceProvider getAndroidResourceProvider() {
+      return androidResourceProvider;
+    }
+
+    public Builder setAndroidResourceProvider(AndroidResourceProvider androidResourceProvider) {
+      this.androidResourceProvider = androidResourceProvider;
+      return this;
     }
   }
 }

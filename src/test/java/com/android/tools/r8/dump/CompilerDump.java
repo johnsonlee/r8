@@ -1,4 +1,4 @@
-// Copyright (c) 2022, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2023, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dump;
@@ -47,6 +47,14 @@ public class CompilerDump {
 
   public boolean hasDesugaredLibrary() {
     return Files.exists(directory.resolve("desugared-library.json"));
+  }
+
+  public Path getAndroidResources() {
+    return directory.resolve("app-res.ap_");
+  }
+
+  public Path getAndroidResourcesForFeature(int feature) {
+    return directory.resolve("feature-" + feature + ".ap_");
   }
 
   public Path getDesugaredLibraryFile() {
