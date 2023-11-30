@@ -1043,7 +1043,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     //  MemberRebindingIdentityLens.
     GraphLens newMemberRebindingLens =
         computeNewMemberRebindingLens(appView, appliedLens, firstUnappliedLens, timing);
-
     firstUnappliedLens.withAlternativeParentLens(
         newMemberRebindingLens,
         () -> {
@@ -1178,7 +1177,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
               new ThreadTask() {
                 @Override
                 public void run(Timing threadTiming) {
-                  appView.resourceAnalysisResult.rewrittenWithLens(lens, threadTiming);
+                  appView.resourceAnalysisResult.rewrittenWithLens(
+                      lens, appliedLensInModifiedLens, threadTiming);
                 }
 
                 @Override

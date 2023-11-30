@@ -210,16 +210,15 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
       return resourceShrinkerState.getR8ResourceShrinkerModel();
     }
 
-    @SuppressWarnings("ReferenceEquality")
-    public void rewrittenWithLens(GraphLens lens, Timing timing) {
+    public void rewrittenWithLens(GraphLens lens, GraphLens appliedLens, Timing timing) {
       Map<DexType, DexType> changed = new IdentityHashMap<>();
       for (DexType dexType : rClassFieldToValueStoreMap.keySet()) {
-        DexType rewritten = lens.lookupClassType(dexType);
+        DexType rewritten = lens.lookupClassType(dexType, appliedLens);
         if (rewritten != dexType) {
           changed.put(dexType, rewritten);
         }
       }
-      if (changed.size() > 0) {
+      if (!changed.isEmpty()) {
         Map<DexType, RClassFieldToValueStore> rewrittenMap = new IdentityHashMap<>();
         rClassFieldToValueStoreMap.forEach(
             (type, map) -> {
