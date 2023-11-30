@@ -152,7 +152,8 @@ public abstract class DexDebugInfo extends CachedHashValueDexItem
     }
 
     @Override
-    public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
+    public void collectIndexedItems(
+        AppView<?> appView, GraphLens codeLens, IndexedItemCollection indexedItems) {
       // No indexed items to collect.
     }
 
@@ -172,15 +173,21 @@ public abstract class DexDebugInfo extends CachedHashValueDexItem
 
     @Override
     public void write(
-        DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+        DebugBytecodeWriter writer,
+        ObjectToOffsetMapping mapping,
+        GraphLens graphLens,
+        GraphLens codeLens) {
       writer.putUleb128(START_LINE);
       writer.putUleb128(parameterCount);
       for (int i = 0; i < parameterCount; i++) {
         writer.putString(null);
       }
-      mapping.dexItemFactory().zeroChangeDefaultEvent.writeOn(writer, mapping, graphLens);
+      mapping.dexItemFactory().zeroChangeDefaultEvent.writeOn(writer, mapping, graphLens, codeLens);
       for (int i = 0; i < maxPc; i++) {
-        mapping.dexItemFactory().oneChangeDefaultEvent.writeOn(writer, mapping, graphLens);
+        mapping
+            .dexItemFactory()
+            .oneChangeDefaultEvent
+            .writeOn(writer, mapping, graphLens, codeLens);
       }
       writer.putByte(Constants.DBG_END_SEQUENCE);
     }
@@ -263,14 +270,15 @@ public abstract class DexDebugInfo extends CachedHashValueDexItem
       return visitor.visit(this, other.asEventBasedInfo(), EventBasedDebugInfo::specify);
     }
 
-    public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
+    public void collectIndexedItems(
+        AppView<?> appView, GraphLens codeLens, IndexedItemCollection indexedItems) {
       for (DexString parameter : parameters) {
         if (parameter != null) {
           parameter.collectIndexedItems(indexedItems);
         }
       }
       for (DexDebugEvent event : events) {
-        event.collectIndexedItems(appView, indexedItems);
+        event.collectIndexedItems(appView, codeLens, indexedItems);
       }
     }
 
@@ -363,8 +371,9 @@ public abstract class DexDebugInfo extends CachedHashValueDexItem
     }
 
     @Override
-    public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
-      super.collectIndexedItems(appView, indexedItems);
+    public void collectIndexedItems(
+        AppView<?> appView, GraphLens codeLens, IndexedItemCollection indexedItems) {
+      super.collectIndexedItems(appView, codeLens, indexedItems);
     }
 
     @Override
@@ -385,14 +394,17 @@ public abstract class DexDebugInfo extends CachedHashValueDexItem
 
     @Override
     public void write(
-        DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+        DebugBytecodeWriter writer,
+        ObjectToOffsetMapping mapping,
+        GraphLens graphLens,
+        GraphLens codeLens) {
       writer.putUleb128(startLine);
       writer.putUleb128(parameters.length);
       for (DexString name : parameters) {
         writer.putString(name);
       }
       for (DexDebugEvent event : events) {
-        event.writeOn(writer, mapping, graphLens);
+        event.writeOn(writer, mapping, graphLens, codeLens);
       }
       writer.putByte(Constants.DBG_END_SEQUENCE);
     }

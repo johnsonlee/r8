@@ -27,13 +27,14 @@ public abstract class DexInvokeMethodRange extends DexFormat3rc<DexMethod> {
   @Override
   public final void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {
     DexMethod rewritten =
         appView
             .graphLens()
-            .lookupMethod(getMethod(), context.getReference(), getInvokeType())
+            .lookupMethod(getMethod(), context.getReference(), getInvokeType(), codeLens)
             .getReference();
     rewritten.collectIndexedItems(appView, indexedItems);
   }
@@ -54,7 +55,7 @@ public abstract class DexInvokeMethodRange extends DexFormat3rc<DexMethod> {
       ObjectToOffsetMapping mapping,
       LensCodeRewriterUtils rewriter) {
     MethodLookupResult lookup =
-        graphLens.lookupMethod(getMethod(), context.getReference(), getInvokeType());
+        graphLens.lookupMethod(getMethod(), context.getReference(), getInvokeType(), codeLens);
     writeFirst(AA, dest, lookup.getType().getDexOpcodeRange());
     write16BitReference(lookup.getReference(), dest, mapping);
     write16BitValue(CCCC, dest);

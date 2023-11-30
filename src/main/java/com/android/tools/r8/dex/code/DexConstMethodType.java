@@ -91,6 +91,7 @@ public class DexConstMethodType extends DexFormat21c<DexProto> {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {

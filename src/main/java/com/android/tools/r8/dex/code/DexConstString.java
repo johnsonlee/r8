@@ -43,6 +43,7 @@ public class DexConstString extends DexFormat21c<DexString> {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {

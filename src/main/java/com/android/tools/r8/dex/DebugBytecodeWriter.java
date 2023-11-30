@@ -16,19 +16,24 @@ public class DebugBytecodeWriter {
 
   private final ObjectToOffsetMapping mapping;
   private final GraphLens graphLens;
+  private final GraphLens codeLens;
   private final DexDebugInfoForWriting info;
   private ByteBuffer buffer;
 
   public DebugBytecodeWriter(
-      DexDebugInfoForWriting info, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+      DexDebugInfoForWriting info,
+      ObjectToOffsetMapping mapping,
+      GraphLens graphLens,
+      GraphLens codeLens) {
     this.info = info;
     this.mapping = mapping;
     this.graphLens = graphLens;
+    this.codeLens = codeLens;
     this.buffer = ByteBuffer.allocate(info.estimatedWriteSize());
   }
 
   public byte[] generate() {
-    info.write(this, mapping, graphLens);
+    info.write(this, mapping, graphLens, codeLens);
     return Arrays.copyOf(buffer.array(), buffer.position());
   }
 

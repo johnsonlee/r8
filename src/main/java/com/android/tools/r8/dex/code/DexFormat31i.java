@@ -73,6 +73,7 @@ abstract class DexFormat31i extends DexBase3Format {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {

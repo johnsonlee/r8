@@ -62,10 +62,11 @@ public class DexConstClass extends DexFormat21c<DexType> {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {
-    DexType rewritten = appView.graphLens().lookupType(getType());
+    DexType rewritten = appView.graphLens().lookupType(getType(), codeLens);
     rewritten.collectIndexedItems(appView, indexedItems);
   }
 
@@ -77,7 +78,7 @@ public class DexConstClass extends DexFormat21c<DexType> {
       GraphLens codeLens,
       ObjectToOffsetMapping mapping,
       LensCodeRewriterUtils rewriter) {
-    DexType rewritten = graphLens.lookupType(getType());
+    DexType rewritten = graphLens.lookupType(getType(), codeLens);
     writeFirst(AA, dest);
     write16BitReference(rewritten, dest, mapping);
   }

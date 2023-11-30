@@ -40,6 +40,7 @@ public class DexRecordFieldValues extends DexInstruction {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {

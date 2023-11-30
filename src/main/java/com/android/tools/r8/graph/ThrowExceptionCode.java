@@ -79,9 +79,11 @@ public class ThrowExceptionCode extends Code implements DexWritableCode {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {
+    assert exceptionType.isIdenticalTo(appView.graphLens().lookupType(exceptionType, codeLens));
     rewriter
         .dexItemFactory()
         .createInstanceInitializer(exceptionType)

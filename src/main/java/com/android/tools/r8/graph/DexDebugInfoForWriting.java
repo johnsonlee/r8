@@ -14,9 +14,14 @@ public interface DexDebugInfoForWriting {
 
   void collectMixedSectionItems(MixedSectionCollection collection);
 
-  void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems);
+  void collectIndexedItems(
+      AppView<?> appView, GraphLens codeLens, IndexedItemCollection indexedItems);
 
   int estimatedWriteSize();
 
-  void write(DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens);
+  void write(
+      DebugBytecodeWriter writer,
+      ObjectToOffsetMapping mapping,
+      GraphLens graphLens,
+      GraphLens codeLens);
 }

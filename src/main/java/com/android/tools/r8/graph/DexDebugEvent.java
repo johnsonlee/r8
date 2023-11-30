@@ -24,7 +24,8 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
 
   public static final DexDebugEvent[] EMPTY_ARRAY = {};
 
-  public void collectIndexedItems(AppView<?> appView, IndexedItemCollection collection) {
+  public void collectIndexedItems(
+      AppView<?> appView, GraphLens codeLens, IndexedItemCollection collection) {
     // Empty by default.
   }
 
@@ -74,9 +75,12 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
   }
 
   public final void writeOn(
-      DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+      DebugBytecodeWriter writer,
+      ObjectToOffsetMapping mapping,
+      GraphLens graphLens,
+      GraphLens codeLens) {
     assert isWritableEvent();
-    internalWriteOn(writer, mapping, graphLens);
+    internalWriteOn(writer, mapping, graphLens, codeLens);
   }
 
   boolean isWritableEvent() {
@@ -84,7 +88,10 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
   }
 
   void internalWriteOn(
-      DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+      DebugBytecodeWriter writer,
+      ObjectToOffsetMapping mapping,
+      GraphLens graphLens,
+      GraphLens codeLens) {
     throw new Unreachable();
   }
 
@@ -125,7 +132,10 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
 
     @Override
     public void internalWriteOn(
-        DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+        DebugBytecodeWriter writer,
+        ObjectToOffsetMapping mapping,
+        GraphLens graphLens,
+        GraphLens codeLens) {
       writer.putByte(Constants.DBG_ADVANCE_PC);
       writer.putUleb128(delta);
     }
@@ -180,7 +190,10 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
 
     @Override
     public void internalWriteOn(
-        DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+        DebugBytecodeWriter writer,
+        ObjectToOffsetMapping mapping,
+        GraphLens graphLens,
+        GraphLens codeLens) {
       writer.putByte(Constants.DBG_SET_PROLOGUE_END);
     }
 
@@ -230,7 +243,10 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
 
     @Override
     public void internalWriteOn(
-        DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+        DebugBytecodeWriter writer,
+        ObjectToOffsetMapping mapping,
+        GraphLens graphLens,
+        GraphLens codeLens) {
       writer.putByte(Constants.DBG_SET_EPILOGUE_BEGIN);
     }
 
@@ -291,7 +307,10 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
 
     @Override
     public void internalWriteOn(
-        DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+        DebugBytecodeWriter writer,
+        ObjectToOffsetMapping mapping,
+        GraphLens graphLens,
+        GraphLens codeLens) {
       writer.putByte(Constants.DBG_ADVANCE_LINE);
       writer.putSleb128(delta);
     }
@@ -364,25 +383,29 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
 
     @Override
     public void internalWriteOn(
-        DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+        DebugBytecodeWriter writer,
+        ObjectToOffsetMapping mapping,
+        GraphLens graphLens,
+        GraphLens codeLens) {
       writer.putByte(signature == null
           ? Constants.DBG_START_LOCAL
           : Constants.DBG_START_LOCAL_EXTENDED);
       writer.putUleb128(registerNum);
       writer.putString(name);
-      writer.putType(graphLens.lookupType(type));
+      writer.putType(graphLens.lookupType(type, codeLens));
       if (signature != null) {
         writer.putString(signature);
       }
     }
 
     @Override
-    public void collectIndexedItems(AppView<?> appView, IndexedItemCollection collection) {
+    public void collectIndexedItems(
+        AppView<?> appView, GraphLens codeLens, IndexedItemCollection collection) {
       if (name != null) {
         name.collectIndexedItems(collection);
       }
       if (type != null) {
-        DexType rewritten = appView.graphLens().lookupType(type);
+        DexType rewritten = appView.graphLens().lookupType(type, codeLens);
         rewritten.collectIndexedItems(appView, collection);
       }
       if (signature != null) {
@@ -440,7 +463,10 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
 
     @Override
     public void internalWriteOn(
-        DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+        DebugBytecodeWriter writer,
+        ObjectToOffsetMapping mapping,
+        GraphLens graphLens,
+        GraphLens codeLens) {
       writer.putByte(Constants.DBG_END_LOCAL);
       writer.putUleb128(registerNum);
     }
@@ -492,7 +518,10 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
 
     @Override
     public void internalWriteOn(
-        DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+        DebugBytecodeWriter writer,
+        ObjectToOffsetMapping mapping,
+        GraphLens graphLens,
+        GraphLens codeLens) {
       writer.putByte(Constants.DBG_RESTART_LOCAL);
       writer.putUleb128(registerNum);
     }
@@ -551,7 +580,8 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
     }
 
     @Override
-    public void collectIndexedItems(AppView<?> appView, IndexedItemCollection collection) {
+    public void collectIndexedItems(
+        AppView<?> appView, GraphLens codeLens, IndexedItemCollection collection) {
       fileName.collectIndexedItems(collection);
     }
 
@@ -682,7 +712,10 @@ public abstract class DexDebugEvent extends DexItem implements StructuralItem<De
 
     @Override
     public void internalWriteOn(
-        DebugBytecodeWriter writer, ObjectToOffsetMapping mapping, GraphLens graphLens) {
+        DebugBytecodeWriter writer,
+        ObjectToOffsetMapping mapping,
+        GraphLens graphLens,
+        GraphLens codeLens) {
       writer.putByte(value);
     }
 

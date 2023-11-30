@@ -53,6 +53,7 @@ public class DexNewUnboxedEnumInstance extends DexFormat21c<DexType> {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {

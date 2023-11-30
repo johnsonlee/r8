@@ -42,6 +42,7 @@ public class DexItemBasedConstString extends DexFormat21c<DexReference> {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {

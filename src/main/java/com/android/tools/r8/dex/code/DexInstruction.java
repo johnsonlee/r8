@@ -407,6 +407,7 @@ public abstract class DexInstruction implements CfOrDexInstruction, StructuralIt
 
   public abstract void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter);

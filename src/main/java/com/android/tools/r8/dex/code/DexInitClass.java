@@ -49,12 +49,13 @@ public class DexInitClass extends DexBase2Format {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {
     // We intentionally apply the graph lens first, and then the init class lens, using the fact
     // that the init class lens maps classes in the final program to fields in the final program.
-    DexType rewrittenClass = appView.graphLens().lookupType(clazz);
+    DexType rewrittenClass = appView.graphLens().lookupType(clazz, codeLens);
     DexField clinitField = appView.initClassLens().getInitClassField(rewrittenClass);
     clinitField.collectIndexedItems(appView, indexedItems);
   }
@@ -123,7 +124,7 @@ public class DexInitClass extends DexBase2Format {
       LensCodeRewriterUtils rewriter) {
     // We intentionally apply the graph lens first, and then the init class lens, using the fact
     // that the init class lens maps classes in the final program to fields in the final program.
-    DexType rewrittenClass = graphLens.lookupType(clazz);
+    DexType rewrittenClass = graphLens.lookupType(clazz, codeLens);
     DexField clinitField = mapping.getClinitField(rewrittenClass);
     writeFirst(dest, buffer, getOpcode(clinitField));
     write16BitReference(clinitField, buffer, mapping);

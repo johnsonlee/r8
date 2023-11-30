@@ -22,6 +22,7 @@ import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DexWritableCode;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.profile.startup.profile.StartupProfileClassRule;
@@ -124,7 +125,8 @@ public class StartupMixedSectionLayoutStrategy extends DefaultMixedSectionLayout
       methodReference.collectIndexedItems(appView, indexedItemCollection);
       if (indexedItemCollection.addCode(method)) {
         DexWritableCode code = method.getDefinition().getCode().asDexWritableCode();
-        code.collectIndexedItems(appView, indexedItemCollection, method, rewriter);
+        GraphLens codeLens = code.getCodeLens(appView);
+        code.collectIndexedItems(appView, codeLens, indexedItemCollection, method, rewriter);
       }
     }
   }

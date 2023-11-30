@@ -26,10 +26,11 @@ abstract class DexSgetOrSput extends DexFormat21c<DexField> {
   @Override
   public final void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {
-    DexField rewritten = appView.graphLens().lookupField(getField());
+    DexField rewritten = appView.graphLens().lookupField(getField(), codeLens);
     rewritten.collectIndexedItems(appView, indexedItems);
   }
 

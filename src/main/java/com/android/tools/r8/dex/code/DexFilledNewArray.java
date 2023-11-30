@@ -46,10 +46,11 @@ public class DexFilledNewArray extends DexFormat35c<DexType> {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {
-    DexType rewritten = appView.graphLens().lookupType(getType());
+    DexType rewritten = appView.graphLens().lookupType(getType(), codeLens);
     rewritten.collectIndexedItems(appView, indexedItems);
   }
 
@@ -75,7 +76,7 @@ public class DexFilledNewArray extends DexFormat35c<DexType> {
       GraphLens codeLens,
       ObjectToOffsetMapping mapping,
       LensCodeRewriterUtils rewriter) {
-    DexType rewritten = graphLens.lookupType(getType());
+    DexType rewritten = graphLens.lookupType(getType(), codeLens);
     writeFirst(A, G, dest);
     write16BitReference(rewritten, dest, mapping);
     write16BitValue(combineBytes(makeByte(F, E), makeByte(D, C)), dest);

@@ -102,13 +102,14 @@ public abstract class DexFormat45cc extends DexBase4Format {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {
     MethodLookupResult lookup =
         appView
             .graphLens()
-            .lookupMethod(getMethod(), context.getReference(), InvokeType.POLYMORPHIC);
+            .lookupMethod(getMethod(), context.getReference(), InvokeType.POLYMORPHIC, codeLens);
     assert lookup.getType() == InvokeType.POLYMORPHIC;
     lookup.getReference().collectIndexedItems(appView, indexedItems);
 
@@ -130,7 +131,7 @@ public abstract class DexFormat45cc extends DexBase4Format {
     assert rewriter.dexItemFactory().polymorphicMethods.isPolymorphicInvoke(getMethod());
     assert getMethod()
         == graphLens
-            .lookupMethod(getMethod(), context.getReference(), InvokeType.POLYMORPHIC)
+            .lookupMethod(getMethod(), context.getReference(), InvokeType.POLYMORPHIC, codeLens)
             .getReference();
     DexProto rewrittenProto = rewriter.rewriteProto(getProto());
     writeFirst(A, G, dest);

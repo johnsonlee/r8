@@ -72,7 +72,8 @@ public final class ProgramMethod extends DexClassAndMethod
     getReference().collectIndexedItems(appView, indexedItems);
     if (definition.hasCode()) {
       Code code = definition.getCode();
-      code.asDexWritableCode().collectIndexedItems(appView, indexedItems, this, rewriter);
+      GraphLens codeLens = code.getCodeLens(appView);
+      code.asDexWritableCode().collectIndexedItems(appView, codeLens, indexedItems, this, rewriter);
     }
     definition.annotations().collectIndexedItems(appView, indexedItems);
     definition.parameterAnnotationsList.collectIndexedItems(appView, indexedItems);

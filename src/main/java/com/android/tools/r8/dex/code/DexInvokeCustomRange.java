@@ -47,6 +47,7 @@ public class DexInvokeCustomRange extends DexFormat3rc<DexCallSite> {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {

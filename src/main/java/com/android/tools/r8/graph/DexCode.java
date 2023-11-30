@@ -749,13 +749,14 @@ public class DexCode extends Code
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {
     highestSortingString = null;
     for (DexInstruction insn : instructions) {
       assert !insn.isDexItemBasedConstString();
-      insn.collectIndexedItems(appView, indexedItems, context, rewriter);
+      insn.collectIndexedItems(appView, codeLens, indexedItems, context, rewriter);
       if (insn.isConstString()) {
         updateHighestSortingString(insn.asConstString().getString());
       } else if (insn.isConstStringJumbo()) {
@@ -763,10 +764,10 @@ public class DexCode extends Code
       }
     }
     if (debugInfo != null) {
-      getDebugInfoForWriting().collectIndexedItems(appView, indexedItems);
+      getDebugInfoForWriting().collectIndexedItems(appView, codeLens, indexedItems);
     }
     for (TryHandler handler : handlers) {
-      handler.collectIndexedItems(appView, indexedItems);
+      handler.collectIndexedItems(appView, codeLens, indexedItems);
     }
   }
 
@@ -996,9 +997,10 @@ public class DexCode extends Code
       return Equatable.equalsImpl(this, other);
     }
 
-    public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
+    public void collectIndexedItems(
+        AppView<?> appView, GraphLens codeLens, IndexedItemCollection indexedItems) {
       for (TypeAddrPair pair : pairs) {
-        pair.collectIndexedItems(appView, indexedItems);
+        pair.collectIndexedItems(appView, codeLens, indexedItems);
       }
     }
 
@@ -1056,12 +1058,13 @@ public class DexCode extends Code
         return type;
       }
 
-      public DexType getType(GraphLens lens) {
-        return lens.lookupType(type);
+      public DexType getType(GraphLens lens, GraphLens codeLens) {
+        return lens.lookupType(type, codeLens);
       }
 
-      public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
-        DexType rewritten = getType(appView.graphLens());
+      public void collectIndexedItems(
+          AppView<?> appView, GraphLens codeLens, IndexedItemCollection indexedItems) {
+        DexType rewritten = getType(appView.graphLens(), codeLens);
         rewritten.collectIndexedItems(appView, indexedItems);
       }
 

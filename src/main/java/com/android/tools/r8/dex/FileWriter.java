@@ -235,10 +235,10 @@ public class FileWriter {
       layout.setDebugInfosOffset(dest.align(1));
       Set<DexDebugInfoForWriting> seen = new HashSet<>(mixedSectionOffsets.getDebugInfos().size());
       for (ProgramMethod method : codes) {
-        DexDebugInfoForWriting info =
-            method.getDefinition().getCode().asDexWritableCode().getDebugInfoForWriting();
+        DexWritableCode code = method.getDefinition().getCode().asDexWritableCode();
+        DexDebugInfoForWriting info = code.getDebugInfoForWriting();
         if (info != null && seen.add(info)) {
-          writeDebugItem(info);
+          writeDebugItem(code, info);
         }
       }
     }
@@ -485,6 +485,7 @@ public class FileWriter {
   }
 
   private int sizeOfCodeItem(DexWritableCode code) {
+    GraphLens codeLens = code.getCodeLens(appView);
     int result = 16;
     int insnSize = code.codeSizeInBytes();
     result += insnSize * 2;
@@ -497,7 +498,7 @@ public class FileWriter {
         result += LebUtils
             .sizeAsSleb128(hasCatchAll ? -handler.pairs.length : handler.pairs.length);
         for (TypeAddrPair pair : handler.pairs) {
-          result += sizeAsUleb128(mapping.getOffsetFor(pair.getType(graphLens)));
+          result += sizeAsUleb128(mapping.getOffsetFor(pair.getType(graphLens, codeLens)));
           result += sizeAsUleb128(pair.addr);
         }
         if (hasCatchAll) {
@@ -562,12 +563,14 @@ public class FileWriter {
         mixedSectionOffsets.getOffsetFor(mixedSectionOffsets.getStaticFieldValuesForClass(clazz)));
   }
 
-  private void writeDebugItem(DexDebugInfoForWriting debugInfo) {
+  private void writeDebugItem(DexWritableCode code, DexDebugInfoForWriting debugInfo) {
+    GraphLens codeLens = code.getCodeLens(appView);
     mixedSectionOffsets.setOffsetFor(debugInfo, dest.position());
-    dest.putBytes(new DebugBytecodeWriter(debugInfo, mapping, graphLens).generate());
+    dest.putBytes(new DebugBytecodeWriter(debugInfo, mapping, graphLens, codeLens).generate());
   }
 
   private int writeCodeItem(ProgramMethod method, DexWritableCode code) {
+    GraphLens codeLens = code.getCodeLens(appView);
     int codeOffset = dest.align(4);
     mixedSectionOffsets.setOffsetFor(method.getDefinition(), codeOffset);
     // Fixed size header information.
@@ -600,9 +603,9 @@ public class FileWriter {
         boolean hasCatchAll = handler.catchAllAddr != TryHandler.NO_HANDLER;
         dest.putSleb128(hasCatchAll ? -handler.pairs.length : handler.pairs.length);
         for (TypeAddrPair pair : handler.pairs) {
-          dest.putUleb128(mapping.getOffsetFor(pair.getType(graphLens)));
+          dest.putUleb128(mapping.getOffsetFor(pair.getType(graphLens, codeLens)));
           dest.putUleb128(pair.addr);
-          desugaredLibraryCodeToKeep.recordClass(pair.getType(graphLens));
+          desugaredLibraryCodeToKeep.recordClass(pair.getType(graphLens, codeLens));
         }
         if (hasCatchAll) {
           dest.putUleb128(handler.catchAllAddr);

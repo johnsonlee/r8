@@ -47,6 +47,7 @@ public class DexInvokeCustom extends DexFormat35c<DexCallSite> {
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {

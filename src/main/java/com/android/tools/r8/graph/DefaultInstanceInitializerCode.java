@@ -189,12 +189,13 @@ public class DefaultInstanceInitializerCode extends Code
   @Override
   public void collectIndexedItems(
       AppView<?> appView,
+      GraphLens codeLens,
       IndexedItemCollection indexedItems,
       ProgramMethod context,
       LensCodeRewriterUtils rewriter) {
     DexMethod parentConstructor = getParentConstructor(context, rewriter.dexItemFactory());
     MethodLookupResult lookupResult =
-        appView.graphLens().lookupInvokeDirect(parentConstructor, context);
+        appView.graphLens().lookupInvokeDirect(parentConstructor, context, codeLens);
     lookupResult.getReference().collectIndexedItems(appView, indexedItems);
   }
 
@@ -398,8 +399,7 @@ public class DefaultInstanceInitializerCode extends Code
       LensCodeRewriterUtils lensCodeRewriter,
       ObjectToOffsetMapping mapping) {
     DexMethod parentConstructor = getParentConstructor(context, mapping.dexItemFactory());
-    MethodLookupResult lookupResult = graphLens.lookupInvokeDirect(parentConstructor, context);
-    new DexInvokeDirect(1, lookupResult.getReference(), 0, 0, 0, 0, 0)
+    new DexInvokeDirect(1, parentConstructor, 0, 0, 0, 0, 0)
         .write(shortBuffer, context, graphLens, codeLens, mapping, lensCodeRewriter);
     new DexReturnVoid().write(shortBuffer, context, graphLens, codeLens, mapping, lensCodeRewriter);
   }
