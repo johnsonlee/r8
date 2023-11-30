@@ -556,15 +556,17 @@ public class AndroidApp {
       if (dumpOptions.hasAndroidResourcesProvider()) {
         dumpAndroidResourcesProvider(
             dumpOptions.getAndroidResourceProvider(), out, dumpInputResourcesFileName);
-        Map<FeatureSplit, String> featureSplitNameMap =
-            dumpFeatureSplitFileNames(dumpOptions.getFeatureSplitConfiguration(), ".ap_");
-        for (FeatureSplit featureSplit :
-            dumpOptions.getFeatureSplitConfiguration().getFeatureSplits()) {
-          if (featureSplit.getAndroidResourceProvider() != null) {
-            dumpAndroidResourcesProvider(
-                featureSplit.getAndroidResourceProvider(),
-                out,
-                featureSplitNameMap.get(featureSplit));
+        if (dumpOptions.getFeatureSplitConfiguration() != null) {
+          Map<FeatureSplit, String> featureSplitNameMap =
+              dumpFeatureSplitFileNames(dumpOptions.getFeatureSplitConfiguration(), ".ap_");
+          for (FeatureSplit featureSplit :
+              dumpOptions.getFeatureSplitConfiguration().getFeatureSplits()) {
+            if (featureSplit.getAndroidResourceProvider() != null) {
+              dumpAndroidResourcesProvider(
+                  featureSplit.getAndroidResourceProvider(),
+                  out,
+                  featureSplitNameMap.get(featureSplit));
+            }
           }
         }
       }
