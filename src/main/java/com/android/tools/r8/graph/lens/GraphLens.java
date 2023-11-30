@@ -414,6 +414,10 @@ public abstract class GraphLens {
     return null;
   }
 
+  public boolean isNumberUnboxerLens() {
+    return false;
+  }
+
   public boolean isHorizontalClassMergerGraphLens() {
     return false;
   }

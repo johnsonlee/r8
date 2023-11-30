@@ -4,10 +4,17 @@
 
 package com.android.tools.r8.numberunboxing;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.util.Objects;
 import org.hamcrest.CoreMatchers;
 import org.junit.Test;
@@ -39,6 +46,7 @@ public class SimpleNumberUnboxingTest extends TestBase {
         .setMinApi(parameters)
         .allowDiagnosticWarningMessages()
         .compile()
+        .inspect(this::assertUnboxing)
         .assertWarningMessageThatMatches(
             CoreMatchers.containsString(
                 "Unboxing of arg 0 of void"
@@ -65,6 +73,33 @@ public class SimpleNumberUnboxingTest extends TestBase {
                     + " com.android.tools.r8.numberunboxing.SimpleNumberUnboxingTest$Main.forwardGet()"))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("32", "33", "42", "43", "51", "52", "2");
+  }
+
+  private void assertFirstParameterUnboxed(ClassSubject mainClass, String methodName) {
+    MethodSubject methodSubject = mainClass.uniqueMethodWithOriginalName(methodName);
+    assertThat(methodSubject, isPresent());
+    assertEquals("java.lang.Integer", methodSubject.getOriginalSignature().parameters[0]);
+    assertEquals("int", methodSubject.getFinalSignature().asMethodSignature().parameters[0]);
+  }
+
+  private void assertReturnUnboxed(ClassSubject mainClass, String methodName) {
+    MethodSubject methodSubject = mainClass.uniqueMethodWithOriginalName(methodName);
+    assertThat(methodSubject, isPresent());
+    assertEquals("java.lang.Integer", methodSubject.getOriginalSignature().type);
+    assertEquals("int", methodSubject.getFinalSignature().asMethodSignature().type);
+  }
+
+  private void assertUnboxing(CodeInspector codeInspector) {
+    ClassSubject mainClass = codeInspector.clazz(Main.class);
+    assertThat(mainClass, isPresent());
+
+    assertFirstParameterUnboxed(mainClass, "print");
+    assertFirstParameterUnboxed(mainClass, "forwardToPrint2");
+    assertFirstParameterUnboxed(mainClass, "directPrintUnbox");
+    assertFirstParameterUnboxed(mainClass, "forwardToPrint");
+
+    assertReturnUnboxed(mainClass, "get");
+    assertReturnUnboxed(mainClass, "forwardGet");
   }
 
   static class Main {

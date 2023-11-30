@@ -87,6 +87,13 @@ public interface InstructionListIterator
     Instruction previous = previous();
     assert previous == instruction;
   }
+
+  default void addBeforeAndPositionAfterNewInstruction(Instruction instruction) {
+    previous();
+    add(instruction);
+    next();
+  }
+
   /** See {@link #replaceCurrentInstruction(Instruction, Set)}. */
   default void replaceCurrentInstruction(Instruction newInstruction) {
     replaceCurrentInstruction(newInstruction, null);

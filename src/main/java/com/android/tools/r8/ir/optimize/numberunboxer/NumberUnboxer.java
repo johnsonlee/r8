@@ -34,7 +34,8 @@ public abstract class NumberUnboxer {
   public abstract void unboxNumbers(
       PostMethodProcessor.Builder postMethodProcessorBuilder,
       Timing timing,
-      ExecutorService executorService);
+      ExecutorService executorService)
+      throws ExecutionException;
 
   public abstract void onMethodPruned(ProgramMethod method);
 

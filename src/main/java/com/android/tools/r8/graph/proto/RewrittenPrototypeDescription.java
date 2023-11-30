@@ -33,7 +33,7 @@ public class RewrittenPrototypeDescription {
 
   private static final RewrittenPrototypeDescription NONE = new RewrittenPrototypeDescription();
 
-  private final List<ExtraParameter> extraParameters;
+  private final List<? extends ExtraParameter> extraParameters;
   private final ArgumentInfoCollection argumentInfoCollection;
   private final RewrittenTypeInfo rewrittenReturnInfo;
 
@@ -44,7 +44,7 @@ public class RewrittenPrototypeDescription {
   }
 
   private RewrittenPrototypeDescription(
-      List<ExtraParameter> extraParameters,
+      List<? extends ExtraParameter> extraParameters,
       RewrittenTypeInfo rewrittenReturnInfo,
       ArgumentInfoCollection argumentsInfo) {
     assert argumentsInfo != null;
@@ -55,7 +55,7 @@ public class RewrittenPrototypeDescription {
   }
 
   public static RewrittenPrototypeDescription create(
-      List<ExtraParameter> extraParameters,
+      List<? extends ExtraParameter> extraParameters,
       RewrittenTypeInfo rewrittenReturnInfo,
       ArgumentInfoCollection argumentsInfo) {
     return extraParameters.isEmpty() && rewrittenReturnInfo == null && argumentsInfo.isEmpty()
@@ -116,7 +116,7 @@ public class RewrittenPrototypeDescription {
     return !extraParameters.isEmpty();
   }
 
-  public List<ExtraParameter> getExtraParameters() {
+  public List<? extends ExtraParameter> getExtraParameters() {
     return extraParameters;
   }
 

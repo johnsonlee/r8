@@ -7,12 +7,12 @@ package com.android.tools.r8.ir.optimize.numberunboxer;
 import static com.android.tools.r8.ir.optimize.numberunboxer.NumberUnboxerBoxingStatusResolution.MethodBoxingStatusResult.BoxingStatusResult.NO_UNBOX;
 import static com.android.tools.r8.ir.optimize.numberunboxer.NumberUnboxerBoxingStatusResolution.MethodBoxingStatusResult.BoxingStatusResult.TO_PROCESS;
 import static com.android.tools.r8.ir.optimize.numberunboxer.NumberUnboxerBoxingStatusResolution.MethodBoxingStatusResult.BoxingStatusResult.UNBOX;
-import static com.android.tools.r8.utils.ListUtils.*;
 
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.ir.optimize.numberunboxer.NumberUnboxerBoxingStatusResolution.MethodBoxingStatusResult.BoxingStatusResult;
 import com.android.tools.r8.ir.optimize.numberunboxer.TransitiveDependency.MethodArg;
 import com.android.tools.r8.ir.optimize.numberunboxer.TransitiveDependency.MethodRet;
+import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.WorkList;
 import java.util.Arrays;
@@ -71,6 +71,20 @@ public class NumberUnboxerBoxingStatusResolution {
 
     public BoxingStatusResult[] getArgs() {
       return args;
+    }
+
+    public boolean isNoneUnboxable() {
+      return ret == NO_UNBOX && ArrayUtils.all(args, NO_UNBOX);
+    }
+
+    public boolean shouldUnboxArg(int i) {
+      assert args[i] != TO_PROCESS;
+      return args[i] == UNBOX;
+    }
+
+    public boolean shouldUnboxRet() {
+      assert ret != TO_PROCESS;
+      return ret == UNBOX;
     }
   }
 
@@ -135,7 +149,12 @@ public class NumberUnboxerBoxingStatusResolution {
       }
     }
     assert allProcessed();
+    clearNoneUnboxable();
     return boxingStatusResultMap;
+  }
+
+  private void clearNoneUnboxable() {
+    boxingStatusResultMap.values().removeIf(MethodBoxingStatusResult::isNoneUnboxable);
   }
 
   private boolean allProcessed() {
