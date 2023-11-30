@@ -214,7 +214,7 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
       Map<DexType, DexType> changed = new IdentityHashMap<>();
       for (DexType dexType : rClassFieldToValueStoreMap.keySet()) {
         DexType rewritten = lens.lookupClassType(dexType, appliedLens);
-        if (rewritten != dexType) {
+        if (rewritten.isNotIdenticalTo(dexType)) {
           changed.put(dexType, rewritten);
         }
       }
