@@ -354,6 +354,11 @@ public final class R8Command extends BaseCompilerCommand {
       return self();
     }
 
+    /** Get the consumer for receiving the proguard configuration information if set. */
+    public StringConsumer getProguardConfigurationConsumer() {
+      return proguardConfigurationConsumer;
+    }
+
     /**
      * Set a consumer for receiving kept-graph events.
      */

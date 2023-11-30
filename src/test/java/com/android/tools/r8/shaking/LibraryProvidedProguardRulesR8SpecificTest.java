@@ -16,6 +16,7 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,29 +45,17 @@ public class LibraryProvidedProguardRulesR8SpecificTest
         ProviderType.values());
   }
 
-  private static final String EXPECTED_A =
-      StringUtils.lines(
-          "-keep class A1 {", "  <init>();", "}", "-keep class A2 {", "  <init>();", "}");
+  private static final String EXPECTED_A = StringUtils.lines("-keep class A1", "-keep class A2");
 
-  private static final String EXPECTED_B =
-      StringUtils.lines(
-          "-keep class B1 {", "  <init>();", "}", "-keep class B2 {", "  <init>();", "}");
+  private static final String EXPECTED_B = StringUtils.lines("-keep class B1", "-keep class B2");
 
-  private static final String EXPECTED_C =
-      StringUtils.lines(
-          "-keep class C1 {", "  <init>();", "}", "-keep class C2 {", "  <init>();", "}");
+  private static final String EXPECTED_C = StringUtils.lines("-keep class C1", "-keep class C2");
 
-  private static final String EXPECTED_D =
-      StringUtils.lines(
-          "-keep class D1 {", "  <init>();", "}", "-keep class D2 {", "  <init>();", "}");
+  private static final String EXPECTED_D = StringUtils.lines("-keep class D1", "-keep class D2");
 
-  private static final String EXPECTED_E =
-      StringUtils.lines(
-          "-keep class E1 {", "  <init>();", "}", "-keep class E2 {", "  <init>();", "}");
+  private static final String EXPECTED_E = StringUtils.lines("-keep class E1", "-keep class E2");
 
-  private static final String EXPECTED_X =
-      StringUtils.lines(
-          "-keep class X1 {", "  <init>();", "}", "-keep class X2 {", "  <init>();", "}");
+  private static final String EXPECTED_X = StringUtils.lines("-keep class X1", "-keep class X2");
 
   private Path buildLibrary() throws Exception {
     ZipBuilder jarBuilder =
@@ -144,7 +133,28 @@ public class LibraryProvidedProguardRulesR8SpecificTest
         .allowUnusedProguardConfigurationRules()
         .compile()
         .inspectProguardConfiguration(
-            configuration -> assertEquals(expected, configuration.toString()));
+            configuration ->
+                assertEquals(
+                    expected,
+                    stripCommentsAndInJars(configuration, providerType == ProviderType.INJARS)));
+  }
+
+  private static String stripCommentsAndInJars(String configuration, boolean expectOneInJar) {
+    int expectedInJars = expectOneInJar ? 1 : 0;
+    int foundInJars = 0;
+    List<String> lines = StringUtils.splitLines(configuration);
+    List<String> filtered = new ArrayList<>(lines.size());
+    for (String line : lines) {
+      if (line.trim().startsWith("-injars ")) {
+        if (++foundInJars > expectedInJars) {
+          fail("Unexpected: " + line);
+        }
+      } else if (!line.trim().startsWith("#")) {
+        filtered.add(line);
+      }
+    }
+    assertEquals(expectedInJars, foundInJars);
+    return StringUtils.lines(filtered);
   }
 
   @Test
@@ -222,9 +232,7 @@ public class LibraryProvidedProguardRulesR8SpecificTest
     }
     Path library = buildLibrary();
     testForR8(Backend.DEX)
-        .applyIf(
-            providerType == ProviderType.API,
-            b -> b.addProgramFiles(library).addProgramFiles(library))
+        .applyIf(providerType == ProviderType.API, b -> b.addProgramFiles(library))
         .applyIf(providerType == ProviderType.INJARS, b -> b.addKeepRules("-injars " + library))
         .setMinApi(AndroidApiLevel.B)
         .allowUnusedProguardConfigurationRules()
@@ -241,7 +249,7 @@ public class LibraryProvidedProguardRulesR8SpecificTest
             configuration ->
                 assertEquals(
                     StringUtils.lines(EXPECTED_A.trim(), EXPECTED_B.trim(), EXPECTED_E.trim()),
-                    configuration.toString()));
+                    stripCommentsAndInJars(configuration, providerType == ProviderType.INJARS)));
   }
 
   @Test
@@ -257,7 +265,10 @@ public class LibraryProvidedProguardRulesR8SpecificTest
         .allowUnusedProguardConfigurationRules()
         .compile()
         .inspectProguardConfiguration(
-            configuration -> assertEquals(EXPECTED_A, configuration.toString()));
+            configuration ->
+                assertEquals(
+                    EXPECTED_A,
+                    stripCommentsAndInJars(configuration, providerType == ProviderType.INJARS)));
   }
 
   @Test
@@ -271,7 +282,10 @@ public class LibraryProvidedProguardRulesR8SpecificTest
         .allowUnusedProguardConfigurationRules()
         .compile()
         .inspectProguardConfiguration(
-            configuration -> assertEquals(EXPECTED_X, configuration.toString()));
+            configuration ->
+                assertEquals(
+                    EXPECTED_X,
+                    stripCommentsAndInJars(configuration, providerType == ProviderType.INJARS)));
   }
 
   @Test
@@ -284,7 +298,10 @@ public class LibraryProvidedProguardRulesR8SpecificTest
         .allowUnusedProguardConfigurationRules()
         .compile()
         .inspectProguardConfiguration(
-            configuration -> assertEquals(EXPECTED_X, configuration.toString()));
+            configuration ->
+                assertEquals(
+                    EXPECTED_X,
+                    stripCommentsAndInJars(configuration, providerType == ProviderType.INJARS)));
   }
 
   @Test
@@ -308,7 +325,10 @@ public class LibraryProvidedProguardRulesR8SpecificTest
           .setFakeCompilerVersion(SemanticVersion.create(1, 2, 3))
           .compile()
           .inspectProguardConfiguration(
-              configuration -> assertEquals("", configuration.toString()));
+              configuration ->
+                  assertEquals(
+                      "",
+                      stripCommentsAndInJars(configuration, providerType == ProviderType.INJARS)));
     }
   }
 
@@ -332,7 +352,10 @@ public class LibraryProvidedProguardRulesR8SpecificTest
           .setMinApi(AndroidApiLevel.B)
           .compile()
           .inspectProguardConfiguration(
-              configuration -> assertEquals("", configuration.toString()));
+              configuration ->
+                  assertEquals(
+                      "",
+                      stripCommentsAndInJars(configuration, providerType == ProviderType.INJARS)));
     }
   }
 }

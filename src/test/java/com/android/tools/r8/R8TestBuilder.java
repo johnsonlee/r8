@@ -34,7 +34,6 @@ import com.android.tools.r8.shaking.NoRedundantFieldLoadEliminationRule;
 import com.android.tools.r8.shaking.NoReturnTypeStrengtheningRule;
 import com.android.tools.r8.shaking.NoUnusedInterfaceRemovalRule;
 import com.android.tools.r8.shaking.NoVerticalClassMergingRule;
-import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.startup.StartupProfileProvider;
 import com.android.tools.r8.utils.AndroidApp;
@@ -147,25 +146,21 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     class Box {
 
       private List<ProguardConfigurationRule> syntheticProguardRules;
-      private ProguardConfiguration proguardConfiguration;
     }
     Box box = new Box();
     ToolHelper.addSyntheticProguardRulesConsumerForTesting(
         builder, rules -> box.syntheticProguardRules = rules);
     libraryDesugaringTestConfiguration.configure(builder);
     builder.setEnableExperimentalMissingLibraryApiModeling(enableMissingLibraryApiModeling);
-    ToolHelper.runAndBenchmarkR8WithoutResult(
-        builder,
-        optionsConsumer.andThen(
-            options -> box.proguardConfiguration = options.getProguardConfiguration()),
-        benchmarkResults);
+    StringBuilder pgConfOutput = wrapProguardConfigConsumer(builder);
+    ToolHelper.runAndBenchmarkR8WithoutResult(builder, optionsConsumer, benchmarkResults);
     R8TestCompileResult compileResult =
         new R8TestCompileResult(
             getState(),
             getOutputMode(),
             libraryDesugaringTestConfiguration,
             app.get(),
-            box.proguardConfiguration,
+            pgConfOutput.toString(),
             box.syntheticProguardRules,
             proguardMapBuilder.toString(),
             graphConsumer,
@@ -206,6 +201,20 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
       compileResult.assertNoInfoThatMatches(proguardConfigurationRuleDoesNotMatch());
     }
     return compileResult;
+  }
+
+  private static StringBuilder wrapProguardConfigConsumer(Builder builder) {
+    StringBuilder pgConfOutput = new StringBuilder();
+    StringConsumer pgConfConsumer = builder.getProguardConfigurationConsumer();
+    builder.setProguardConfigurationConsumer(
+        new StringConsumer.ForwardingConsumer(pgConfConsumer) {
+          @Override
+          public void accept(String string, DiagnosticsHandler handler) {
+            super.accept(string, handler);
+            pgConfOutput.append(string);
+          }
+        });
+    return pgConfOutput;
   }
 
   public Builder getBuilder() {

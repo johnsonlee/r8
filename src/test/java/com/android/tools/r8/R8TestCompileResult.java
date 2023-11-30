@@ -14,7 +14,6 @@ import com.android.tools.r8.dexsplitter.SplitterTestBase.SplitRunner;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.shaking.CollectingGraphConsumer;
-import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.FileUtils;
@@ -35,7 +34,7 @@ import java.util.function.Consumer;
 
 public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, R8TestRunResult> {
 
-  private final ProguardConfiguration proguardConfiguration;
+  private final String proguardConfiguration;
   private final List<ProguardConfigurationRule> syntheticProguardRules;
   private final String proguardMap;
   private final CollectingGraphConsumer graphConsumer;
@@ -49,7 +48,7 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
       OutputMode outputMode,
       LibraryDesugaringTestConfiguration libraryDesugaringTestConfiguration,
       AndroidApp app,
-      ProguardConfiguration proguardConfiguration,
+      String proguardConfiguration,
       List<ProguardConfigurationRule> syntheticProguardRules,
       String proguardMap,
       CollectingGraphConsumer graphConsumer,
@@ -182,12 +181,11 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
     return new GraphInspector(graphConsumer, inspector());
   }
 
-  public ProguardConfiguration getProguardConfiguration() {
+  public String getProguardConfiguration() {
     return proguardConfiguration;
   }
 
-  public R8TestCompileResult inspectProguardConfiguration(
-      Consumer<ProguardConfiguration> consumer) {
+  public R8TestCompileResult inspectProguardConfiguration(Consumer<String> consumer) {
     consumer.accept(getProguardConfiguration());
     return self();
   }

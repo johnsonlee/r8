@@ -39,7 +39,7 @@ public class ConditionalKeepRulePrintingTest extends TestBase {
         .compile()
         .apply(
             r -> {
-              assertThat(r.getProguardConfiguration().toString(), containsString("*** main(...);"));
+              assertThat(r.getProguardConfiguration(), containsString("*** main(...);"));
             });
   }
 

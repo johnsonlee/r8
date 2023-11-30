@@ -57,7 +57,7 @@ public class KeepUsesReflectionOnFieldTest extends TestBase {
         .compile()
         .apply(
             c -> {
-              String rules = c.getProguardConfiguration().getParsedConfiguration();
+              String rules = c.getProguardConfiguration();
               assertThat(rules, containsString("context: " + descriptor(A.class) + "foo()V"));
               assertThat(rules, containsString("description: Keep the\\nstring-valued fields"));
             })
