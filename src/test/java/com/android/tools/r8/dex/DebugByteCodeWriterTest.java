@@ -73,6 +73,7 @@ public class DebugByteCodeWriterTest {
         new DebugBytecodeWriter(
             DexDebugInfo.convertToWritable(debugInfo),
             emptyObjectTObjectMapping(),
+            GraphLens.getIdentityLens(),
             GraphLens.getIdentityLens());
     Assert.assertEquals(3, writer.generate().length);
   }
