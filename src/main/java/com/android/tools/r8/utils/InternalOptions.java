@@ -63,6 +63,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.ResourceAccessAnalysis;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.horizontalclassmerging.Policy;
@@ -2218,6 +2219,19 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
                           BytecodeMetadataProvider.empty(),
                           LirStrategy.getDefaultStrategy().getEncodingStrategy(),
                           appView.options());
+                  // TODO(b/312890994): Setting a custom code lens is only needed until we convert
+                  //  code objects to LIR before we create the first code object with a custom code
+                  //  lens (horizontal class merging).
+                  GraphLens codeLens = method.getDefinition().getCode().getCodeLens(appView);
+                  if (codeLens != appView.codeLens()) {
+                    lirCode =
+                        new LirCode<>(lirCode) {
+                          @Override
+                          public GraphLens getCodeLens(AppView<?> appView) {
+                            return codeLens;
+                          }
+                        };
+                  }
                   method.setCode(lirCode, appView);
                 });
           },

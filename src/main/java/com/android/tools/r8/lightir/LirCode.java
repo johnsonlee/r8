@@ -373,6 +373,21 @@ public class LirCode<EV> extends Code
         .withAssert(c -> c.metadataMap == null);
   }
 
+  protected LirCode(LirCode<EV> code) {
+    this(
+        code.irMetadata,
+        code.constants,
+        code.positionTable,
+        code.argumentCount,
+        code.instructions,
+        code.instructionCount,
+        code.tryCatchTable,
+        code.debugLocalInfoTable,
+        code.strategyInfo,
+        code.useDexEstimationStrategy,
+        code.metadataMap);
+  }
+
   /** Should be constructed using {@link LirBuilder}. */
   LirCode(
       IRMetadata irMetadata,
