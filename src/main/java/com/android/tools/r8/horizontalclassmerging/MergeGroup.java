@@ -14,7 +14,6 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
-import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneHashMap;
@@ -178,11 +177,10 @@ public class MergeGroup implements Collection<DexProgramClass> {
     }
     Iterator<DexProgramClass> candidateIterator = candidates.iterator();
     DexProgramClass target = IterableUtils.first(candidates);
-    KeepInfoCollection keepInfo = appView.getKeepInfo();
     while (candidateIterator.hasNext()) {
       DexProgramClass current = candidateIterator.next();
-      if (keepInfo != null
-          && keepInfo.getClassInfo(current).isMinificationAllowed(appView.options())) {
+      if (appView.hasKeepInfo()
+          && appView.getKeepInfo(current).isMinificationAllowed(appView.options())) {
         target = current;
         break;
       }

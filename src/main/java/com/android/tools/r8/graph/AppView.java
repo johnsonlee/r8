@@ -751,7 +751,12 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return mainDexRootSet;
   }
 
+  public boolean hasKeepInfo() {
+    return keepInfo != null;
+  }
+
   public KeepInfoCollection getKeepInfo() {
+    assert hasKeepInfo();
     return keepInfo;
   }
 
@@ -766,6 +771,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public KeepClassInfo getKeepInfo(DexProgramClass clazz) {
     return getKeepInfo().getClassInfo(clazz);
+  }
+
+  public KeepClassInfo getKeepInfoOrDefault(DexProgramClass clazz, KeepClassInfo defaultValue) {
+    return hasKeepInfo() ? getKeepInfo().getClassInfo(clazz) : defaultValue;
   }
 
   public KeepFieldInfo getKeepInfo(ProgramField field) {

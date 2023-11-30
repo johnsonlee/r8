@@ -16,6 +16,7 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.DexValue.DexItemBasedValueString;
@@ -50,6 +51,7 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.naming.dexitembasedstring.ClassNameComputationInfo;
 import com.android.tools.r8.naming.dexitembasedstring.ClassNameComputationInfo.ClassNameMapping;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepClassInfo;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.IteratorUtils;
 import com.google.common.collect.Maps;
@@ -177,7 +179,7 @@ public class ClassInitializerDefaultsOptimization {
           Value value = put.value().getAliasedValue();
           if (unnecessaryStaticPuts.contains(put)) {
             if (fieldType == dexItemFactory.stringType) {
-              fieldsWithStaticValues.put(field, getDexStringValue(value, context.getHolderType()));
+              fieldsWithStaticValues.put(field, getDexStringValue(value, context.getHolder()));
             } else if (fieldType.isClassType() || fieldType.isArrayType()) {
               if (value.isZero()) {
                 fieldsWithStaticValues.put(field, DexValueNull.NULL);
@@ -308,7 +310,7 @@ public class ClassInitializerDefaultsOptimization {
     return new ClassInitializerDefaultsResult(fieldsWithStaticValues);
   }
 
-  private DexValue getDexStringValue(Value inValue, DexType holder) {
+  private DexValue getDexStringValue(Value inValue, DexProgramClass holder) {
     if (inValue.isPhi()) {
       return null;
     }
@@ -337,25 +339,21 @@ public class ClassInitializerDefaultsOptimization {
   }
 
   @SuppressWarnings("ReferenceEquality")
-  private DexValue getDexStringValueForInvoke(DexMethod invokedMethod, DexType holder) {
-    DexClass clazz = appView.definitionFor(holder);
-    if (clazz == null) {
-      assert false;
-      return null;
-    }
-
-    if (appView.enableWholeProgramOptimizations()
-        && appView.withLiveness().appInfo().isMinificationAllowed(clazz)) {
+  private DexValue getDexStringValueForInvoke(DexMethod invokedMethod, DexProgramClass holder) {
+    if (appView
+        .getKeepInfoOrDefault(holder, KeepClassInfo.top())
+        .isMinificationAllowed(appView.options())) {
       if (invokedMethod == dexItemFactory.classMethods.getName) {
-        return new DexItemBasedValueString(holder, ClassNameComputationInfo.getInstance(NAME));
+        return new DexItemBasedValueString(
+            holder.getType(), ClassNameComputationInfo.getInstance(NAME));
       }
       if (invokedMethod == dexItemFactory.classMethods.getCanonicalName) {
         return new DexItemBasedValueString(
-            holder, ClassNameComputationInfo.getInstance(CANONICAL_NAME));
+            holder.getType(), ClassNameComputationInfo.getInstance(CANONICAL_NAME));
       }
       if (invokedMethod == dexItemFactory.classMethods.getSimpleName) {
         return new DexItemBasedValueString(
-            holder, ClassNameComputationInfo.getInstance(SIMPLE_NAME));
+            holder.getType(), ClassNameComputationInfo.getInstance(SIMPLE_NAME));
       }
       if (invokedMethod == dexItemFactory.classMethods.getTypeName) {
         // TODO(b/119426668): desugar Type#getTypeName
@@ -375,7 +373,8 @@ public class ClassInitializerDefaultsOptimization {
       // TODO(b/119426668): desugar Type#getTypeName
     }
     if (mapping != null) {
-      return new DexValueString(mapping.map(holder.toDescriptorString(), clazz, dexItemFactory));
+      return new DexValueString(
+          mapping.map(holder.getType().toDescriptorString(), holder, dexItemFactory));
     }
     assert false;
     return null;
