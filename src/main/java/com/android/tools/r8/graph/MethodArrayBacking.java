@@ -208,33 +208,6 @@ public class MethodArrayBacking extends MethodCollectionBacking {
   }
 
   @Override
-  void virtualizeMethods(Set<DexEncodedMethod> privateInstanceMethods) {
-    int vLen = virtualMethods.length;
-    int dLen = directMethods.length;
-    int mLen = privateInstanceMethods.size();
-    assert mLen <= dLen;
-
-    DexEncodedMethod[] newDirectMethods = new DexEncodedMethod[dLen - mLen];
-    int index = 0;
-    for (int i = 0; i < dLen; i++) {
-      DexEncodedMethod encodedMethod = directMethods[i];
-      if (!privateInstanceMethods.contains(encodedMethod)) {
-        newDirectMethods[index++] = encodedMethod;
-      }
-    }
-    assert index == dLen - mLen;
-    setDirectMethods(newDirectMethods);
-
-    DexEncodedMethod[] newVirtualMethods = new DexEncodedMethod[vLen + mLen];
-    System.arraycopy(virtualMethods, 0, newVirtualMethods, 0, vLen);
-    index = vLen;
-    for (DexEncodedMethod encodedMethod : privateInstanceMethods) {
-      newVirtualMethods[index++] = encodedMethod;
-    }
-    setVirtualMethods(newVirtualMethods);
-  }
-
-  @Override
   DexEncodedMethod getDirectMethod(DexMethod method) {
     for (DexEncodedMethod directMethod : directMethods) {
       if (method.match(directMethod)) {

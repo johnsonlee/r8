@@ -367,11 +367,6 @@ public class MethodCollection {
     backing.setVirtualMethods(methods);
   }
 
-  public void virtualizeMethods(Set<DexEncodedMethod> privateInstanceMethods) {
-    resetVirtualMethodCaches();
-    backing.virtualizeMethods(privateInstanceMethods);
-  }
-
   public boolean hasAnnotations() {
     return traverse(
             method ->

@@ -323,13 +323,6 @@ public class MethodCollectionConcurrencyChecked extends MethodCollection {
   }
 
   @Override
-  public void virtualizeMethods(Set<DexEncodedMethod> privateInstanceMethods) {
-    assert assertWriteEntry();
-    super.virtualizeMethods(privateInstanceMethods);
-    assert assertWriteExit();
-  }
-
-  @Override
   public void useSortedBacking() {
     assert assertWriteEntry();
     super.useSortedBacking();

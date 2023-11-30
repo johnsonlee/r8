@@ -365,21 +365,6 @@ public class MethodMapBacking extends MethodCollectionBacking {
   }
 
   @Override
-  void virtualizeMethods(Set<DexEncodedMethod> privateInstanceMethods) {
-    // This is a no-op as the virtualizer has modified the encoded method bits.
-    assert verifyVirtualizedMethods(privateInstanceMethods);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private boolean verifyVirtualizedMethods(Set<DexEncodedMethod> methods) {
-    for (DexEncodedMethod method : methods) {
-      assert belongsToVirtualPool(method);
-      assert methodMap.get(method.getSignature()) == method;
-    }
-    return true;
-  }
-
-  @Override
   MethodMapBacking map(Function<DexEncodedMethod, DexEncodedMethod> fn) {
     MethodMapBacking newBacking = new MethodMapBacking(isSorted, createMap(methodMap.size()));
     methodMap.forEach((ignore, method) -> newBacking.addMethod(fn.apply(method)));

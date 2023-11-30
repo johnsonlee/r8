@@ -339,10 +339,6 @@ public abstract class DexClass extends DexDefinition
     return methodCollection.allMethodsSorted();
   }
 
-  public void virtualizeMethods(Set<DexEncodedMethod> privateInstanceMethods) {
-    methodCollection.virtualizeMethods(privateInstanceMethods);
-  }
-
   /**
    * For all annotations on the class and all annotations on its methods and fields apply the
    * specified consumer.
