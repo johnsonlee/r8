@@ -247,7 +247,13 @@ public abstract class ProfileAdditions<
         .forEach(classRuleBuilder -> ruleAdditionsSorted.add(classRuleBuilder.build()));
     methodRuleAdditions
         .values()
-        .forEach(methodRuleBuilder -> ruleAdditionsSorted.add(methodRuleBuilder.build()));
+        .forEach(
+            methodRuleBuilder -> {
+              MethodRule methodRule = methodRuleBuilder.build();
+              if (!methodRuleRemovals.contains(methodRule.getReference())) {
+                ruleAdditionsSorted.add(methodRule);
+              }
+            });
     ruleAdditionsSorted.sort(getRuleComparator());
     ruleAdditionsSorted.forEach(profileBuilder::addRule);
 
