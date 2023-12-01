@@ -16,14 +16,13 @@ import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.util.Objects;
-import org.hamcrest.CoreMatchers;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class SimpleNumberUnboxingTest extends TestBase {
+public class StaticMethodsNumberUnboxingTest extends TestBase {
 
   private final TestParameters parameters;
 
@@ -32,7 +31,7 @@ public class SimpleNumberUnboxingTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public SimpleNumberUnboxingTest(TestParameters parameters) {
+  public StaticMethodsNumberUnboxingTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
@@ -45,33 +44,8 @@ public class SimpleNumberUnboxingTest extends TestBase {
         .addOptionsModification(opt -> opt.testing.enableNumberUnboxer = true)
         .addOptionsModification(opt -> opt.testing.printNumberUnboxed = true)
         .setMinApi(parameters)
-        .allowDiagnosticWarningMessages()
         .compile()
         .inspect(this::assertUnboxing)
-        .assertWarningMessageThatMatches(
-            CoreMatchers.containsString(
-                "Unboxing of arg 0 of void"
-                    + " com.android.tools.r8.numberunboxing.SimpleNumberUnboxingTest$Main.print(java.lang.Integer)"))
-        .assertWarningMessageThatMatches(
-            CoreMatchers.containsString(
-                "Unboxing of arg 0 of void"
-                    + " com.android.tools.r8.numberunboxing.SimpleNumberUnboxingTest$Main.forwardToPrint2(java.lang.Integer)"))
-        .assertWarningMessageThatMatches(
-            CoreMatchers.containsString(
-                "Unboxing of arg 0 of void"
-                    + " com.android.tools.r8.numberunboxing.SimpleNumberUnboxingTest$Main.directPrintUnbox(java.lang.Integer)"))
-        .assertWarningMessageThatMatches(
-            CoreMatchers.containsString(
-                "Unboxing of arg 0 of void"
-                    + " com.android.tools.r8.numberunboxing.SimpleNumberUnboxingTest$Main.forwardToPrint(java.lang.Integer)"))
-        .assertWarningMessageThatMatches(
-            CoreMatchers.containsString(
-                "Unboxing of return value of java.lang.Integer"
-                    + " com.android.tools.r8.numberunboxing.SimpleNumberUnboxingTest$Main.get()"))
-        .assertWarningMessageThatMatches(
-            CoreMatchers.containsString(
-                "Unboxing of return value of java.lang.Integer"
-                    + " com.android.tools.r8.numberunboxing.SimpleNumberUnboxingTest$Main.forwardGet()"))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("32", "33", "42", "43", "51", "52", "2");
   }

@@ -26,6 +26,7 @@ import com.android.tools.r8.ir.optimize.numberunboxer.TransitiveDependency.Metho
 import com.android.tools.r8.ir.optimize.numberunboxer.TransitiveDependency.MethodRet;
 import com.android.tools.r8.optimize.argumentpropagation.utils.ProgramClassesBidirectedGraph;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
@@ -142,6 +143,7 @@ public class NumberUnboxerImpl extends NumberUnboxer {
     DexMethod contextReference = code.context().getReference();
     ValueBoxingStatus[] args = null;
     ValueBoxingStatus returnStatus = null;
+    int shift = BooleanUtils.intValue(!code.context().getDefinition().isStatic());
     for (Instruction next : code.instructions()) {
       if (next.isArgument()) {
         ValueBoxingStatus unboxingStatus = analyzeOutput(next.outValue());
@@ -149,7 +151,7 @@ public class NumberUnboxerImpl extends NumberUnboxer {
           if (args == null) {
             args = new ValueBoxingStatus[contextReference.getArity()];
           }
-          args[next.asArgument().getIndex()] = unboxingStatus;
+          args[next.asArgument().getIndex() - shift] = unboxingStatus;
         }
       } else if (next.isReturn()) {
         Return ret = next.asReturn();
@@ -223,8 +225,9 @@ public class NumberUnboxerImpl extends NumberUnboxer {
     if (!inValue.isPhi()) {
       Instruction definition = inValue.getAliasedValue().getDefinition();
       if (definition.isArgument()) {
+        int shift = BooleanUtils.intValue(!context.getDefinition().isStatic());
         return ValueBoxingStatus.with(
-            new MethodArg(definition.asArgument().getIndex(), context.getReference()));
+            new MethodArg(definition.asArgument().getIndex() - shift, context.getReference()));
       }
       if (definition.isInvokeMethod()) {
         if (boxPrimitiveMethod.isIdenticalTo(definition.asInvokeMethod().getInvokedMethod())) {

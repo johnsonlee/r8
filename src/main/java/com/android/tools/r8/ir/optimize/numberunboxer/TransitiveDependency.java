@@ -113,6 +113,7 @@ public interface TransitiveDependency {
     public MethodArg(int parameterIndex, DexMethod method) {
       super(method);
       assert parameterIndex >= 0;
+      assert parameterIndex < method.getArity();
       this.parameterIndex = parameterIndex;
     }
 
