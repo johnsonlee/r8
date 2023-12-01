@@ -5,9 +5,11 @@
 package com.android.tools.r8.enumunboxing;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -40,6 +42,7 @@ public class EnumUnboxingMappingTest extends EnumUnboxingTestBase {
         .addKeepRules(EnumKeepRules.STUDIO.getKeepRules())
         .addEnumUnboxingInspector(inspector -> inspector.assertUnboxed(MyEnum.class))
         .enableNeverClassInliningAnnotations()
+        .enableNoHorizontalClassMergingAnnotations()
         .enableInliningAnnotations()
         .allowDiagnosticMessages()
         .setMinApi(parameters)
@@ -64,6 +67,11 @@ public class EnumUnboxingMappingTest extends EnumUnboxingTestBase {
     assertEquals(MyEnum.class.getName(), debugInfoMethod.getOriginalSignature().parameters[0]);
     // TODO(b/314076309): The original parameter should be MyEnum.class but is int.
     assertEquals("int", noDebugInfoMethod.getOriginalSignature().parameters[0]);
+
+    ClassSubject indirection = codeInspector.clazz(Indirection.class);
+    MethodSubject abstractMethod = indirection.uniqueMethodWithOriginalName("intermediate");
+    assertTrue(abstractMethod.isAbstract());
+    assertEquals(MyEnum.class.getName(), abstractMethod.getOriginalSignature().parameters[0]);
   }
 
   @NeverClassInline
@@ -72,22 +80,53 @@ public class EnumUnboxingMappingTest extends EnumUnboxingTestBase {
     B
   }
 
+  @NeverClassInline
+  abstract static class Indirection {
+
+    @NeverInline
+    public abstract int intermediate(MyEnum e);
+  }
+
+  @NoHorizontalClassMerging
+  @NeverClassInline
+  static class A extends Indirection {
+
+    @Override
+    public int intermediate(MyEnum e) {
+      return Main.noDebugInfoAfterUnboxing(e);
+    }
+  }
+
+  @NoHorizontalClassMerging
+  @NeverClassInline
+  static class B extends Indirection {
+
+    @Override
+    public int intermediate(MyEnum e) {
+      return Main.debugInfoAfterUnboxing(e);
+    }
+  }
+
   static class Main {
 
     public static void main(String[] args) {
-      System.out.println(noDebugInfoAfterUnboxing(MyEnum.A));
-      System.out.println(noDebugInfoAfterUnboxing(null));
-      System.out.println(debugInfoAfterUnboxing(MyEnum.A));
-      System.out.println(debugInfoAfterUnboxing(null));
+      Indirection indirection1 = new A();
+      Indirection indirection2 = new B();
+      Indirection i = System.nanoTime() > 0 ? indirection1 : indirection2;
+      System.out.println(i.intermediate(MyEnum.A));
+      System.out.println(i.intermediate(null));
+      i = System.nanoTime() < 0 ? indirection1 : indirection2;
+      System.out.println(i.intermediate(MyEnum.A));
+      System.out.println(i.intermediate(null));
     }
 
     @NeverInline
-    private static int noDebugInfoAfterUnboxing(MyEnum e) {
+    static int noDebugInfoAfterUnboxing(MyEnum e) {
       return (e == null ? 1 : 0) + 1;
     }
 
     @NeverInline
-    private static int debugInfoAfterUnboxing(MyEnum e) {
+    static int debugInfoAfterUnboxing(MyEnum e) {
       System.out.println("DebugInfoForThisPrint");
       return (e == null ? 1 : 0) + 1;
     }
