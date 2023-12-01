@@ -16,9 +16,15 @@ import java.util.Set;
 public class FeatureSplitConfiguration {
 
   private final List<FeatureSplit> featureSplits;
+  private final boolean isolatedSplits;
 
-  public FeatureSplitConfiguration(List<FeatureSplit> featureSplits) {
+  public FeatureSplitConfiguration(List<FeatureSplit> featureSplits, boolean isolatedSplits) {
     this.featureSplits = featureSplits;
+    this.isolatedSplits = isolatedSplits;
+  }
+
+  public static Builder builder() {
+    return new Builder();
   }
 
   public static class DataResourceProvidersAndConsumer {
@@ -66,5 +72,35 @@ public class FeatureSplitConfiguration {
 
   public List<FeatureSplit> getFeatureSplits() {
     return featureSplits;
+  }
+
+  public boolean isIsolatedSplitsEnabled() {
+    return isolatedSplits;
+  }
+
+  public static class Builder {
+
+    private List<FeatureSplit> featureSplits = new ArrayList<>();
+    private boolean isolatedSplits;
+
+    public Builder addFeatureSplit(FeatureSplit featureSplit) {
+      featureSplits.add(featureSplit);
+      return this;
+    }
+
+    public List<FeatureSplit> getFeatureSplits() {
+      return featureSplits;
+    }
+
+    public Builder setEnableIsolatedSplits(boolean isolatedSplits) {
+      this.isolatedSplits = isolatedSplits;
+      return this;
+    }
+
+    public FeatureSplitConfiguration build() {
+      return featureSplits.isEmpty()
+          ? null
+          : new FeatureSplitConfiguration(featureSplits, isolatedSplits);
+    }
   }
 }

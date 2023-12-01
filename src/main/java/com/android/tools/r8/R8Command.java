@@ -131,7 +131,8 @@ public final class R8Command extends BaseCompilerCommand {
     private GraphConsumer keptGraphConsumer = null;
     private GraphConsumer mainDexKeptGraphConsumer = null;
     private InputDependencyGraphConsumer inputDependencyGraphConsumer = null;
-    private final List<FeatureSplit> featureSplits = new ArrayList<>();
+    private final FeatureSplitConfiguration.Builder featureSplitConfigurationBuilder =
+        FeatureSplitConfiguration.builder();
     private String synthesizedClassPrefix = "";
     private boolean enableMissingLibraryApiModeling = false;
     private boolean enableExperimentalKeepAnnotations =
@@ -446,7 +447,7 @@ public final class R8Command extends BaseCompilerCommand {
     public Builder addFeatureSplit(
         Function<FeatureSplit.Builder, FeatureSplit> featureSplitGenerator) {
       FeatureSplit featureSplit = featureSplitGenerator.apply(FeatureSplit.builder(getReporter()));
-      featureSplits.add(featureSplit);
+      featureSplitConfigurationBuilder.addFeatureSplit(featureSplit);
       for (ProgramResourceProvider programResourceProvider : featureSplit
           .getProgramResourceProviders()) {
         // Data resources are handled separately and passed directly to the feature split consumer.
@@ -464,6 +465,18 @@ public final class R8Command extends BaseCompilerCommand {
         addProgramResourceProvider(providerWithoutDataResources);
       }
       return self();
+    }
+
+    /**
+     * Used to specify if the application is using isolated splits, i.e., if split APKs installed
+     * for this application are loaded into their own Context objects.
+     *
+     * <p>See also <a href="https://developer.android.com/reference/android/R.attr#isolatedSplits">
+     * R.attr#isolatedSplits</a>.
+     */
+    public Builder setEnableExperimentalIsolatedSplits(boolean enableIsolatedSplits) {
+      featureSplitConfigurationBuilder.setEnableIsolatedSplits(enableIsolatedSplits);
+      return this;
     }
 
     /**
@@ -580,7 +593,7 @@ public final class R8Command extends BaseCompilerCommand {
                   + " and above");
         }
       }
-      for (FeatureSplit featureSplit : featureSplits) {
+      for (FeatureSplit featureSplit : featureSplitConfigurationBuilder.getFeatureSplits()) {
         verifyResourceSplitOrProgramSplit(featureSplit);
         if (getProgramConsumer() != null && !(getProgramConsumer() instanceof DexIndexedConsumer)) {
           reporter.error("R8 does not support class file output when using feature splits");
@@ -667,9 +680,6 @@ public final class R8Command extends BaseCompilerCommand {
               ? DesugarState.OFF
               : getDesugaringState();
 
-      FeatureSplitConfiguration featureSplitConfiguration =
-          !featureSplits.isEmpty() ? new FeatureSplitConfiguration(featureSplits) : null;
-
       R8Command command =
           new R8Command(
               getAppBuilder().build(),
@@ -698,7 +708,7 @@ public final class R8Command extends BaseCompilerCommand {
               getDexClassChecksumFilter(),
               desugaredLibraryKeepRuleConsumer,
               desugaredLibrarySpecification,
-              featureSplitConfiguration,
+              featureSplitConfigurationBuilder.build(),
               getAssertionsConfiguration(),
               getOutputInspections(),
               synthesizedClassPrefix,
