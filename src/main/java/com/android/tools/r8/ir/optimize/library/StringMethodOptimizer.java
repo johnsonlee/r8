@@ -330,7 +330,7 @@ public class StringMethodOptimizer extends StatelessLibraryMethodModelCollection
     for (SimpleStringFormatSpec.Part part : parsedSpec.parts) {
       if (part.isPlaceholder()) {
         Value paramValue = elementValues.get(part.placeholderIdx);
-        if (paramValue == null || paramValue.isAlwaysNull(appView)) {
+        if (isArrayElementAlwaysNull(paramValue)) {
           continue;
         }
         if (!isSupportedFormatType(part.formatChar, paramValue.getType())) {
@@ -386,7 +386,7 @@ public class StringMethodOptimizer extends StatelessLibraryMethodModelCollection
         appendMethod = dexItemFactory.stringBuilderMethods.appendString;
       } else {
         paramValue = elementValues.get(part.placeholderIdx);
-        if (paramValue == null) {
+        if (isArrayElementAlwaysNull(paramValue)) {
           ConstString constString =
               ConstString.builder()
                   .setValue(dexItemFactory.createString(part.formatChar == 'b' ? "false" : "null"))
@@ -444,6 +444,10 @@ public class StringMethodOptimizer extends StatelessLibraryMethodModelCollection
       debugLog(code, "String.format(): Optimized.");
     }
     return instructionIterator;
+  }
+
+  private boolean isArrayElementAlwaysNull(Value value) {
+    return value == null || value.isAlwaysNull(appView);
   }
 
   private void optimizeValueOf(
