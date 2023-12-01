@@ -331,8 +331,6 @@ public class StringMethodOptimizer extends StatelessLibraryMethodModelCollection
       if (part.isPlaceholder()) {
         Value paramValue = elementValues.get(part.placeholderIdx);
         if (paramValue == null || paramValue.isAlwaysNull(appView)) {
-          // Save having to call isAlwaysNull() again.
-          elementValues.set(part.placeholderIdx, null);
           continue;
         }
         if (!isSupportedFormatType(part.formatChar, paramValue.getType())) {

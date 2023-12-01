@@ -131,7 +131,9 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
       methodState = MethodState.unknown();
     }
 
-    methodState = getMethodStateAfterUninstantiatedParameterRemoval(method, methodState);
+    if (appView.getKeepInfo(method).isArgumentPropagationAllowed(options)) {
+      methodState = getMethodStateAfterUninstantiatedParameterRemoval(method, methodState);
+    }
 
     if (methodState.isUnknown()) {
       // Nothing is known about the arguments to this method.

@@ -761,8 +761,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
   @Override
   public String toString() {
-    checkIfObsolete();
-    return "Encoded method " + getReference();
+    return toSourceString();
   }
 
   @Override
