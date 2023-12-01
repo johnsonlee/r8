@@ -43,6 +43,7 @@ public class SimpleNumberUnboxingTest extends TestBase {
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .addOptionsModification(opt -> opt.testing.enableNumberUnboxer = true)
+        .addOptionsModification(opt -> opt.testing.printNumberUnboxed = true)
         .setMinApi(parameters)
         .allowDiagnosticWarningMessages()
         .compile()

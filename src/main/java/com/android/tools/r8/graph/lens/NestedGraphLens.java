@@ -18,7 +18,6 @@ import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentati
 import com.android.tools.r8.utils.collections.EmptyBidirectionalOneToOneMap;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * GraphLens implementation with a parent lens where the mapping of types, methods and fields can be
@@ -291,24 +290,6 @@ public class NestedGraphLens extends DefaultNonIdentityGraphLens {
 
   @Override
   public String toString() {
-    StringBuilder builder = new StringBuilder();
-    typeMap.forEach(
-        (from, to) ->
-            builder
-                .append(from.getTypeName())
-                .append(" -> ")
-                .append(to.getTypeName())
-                .append(System.lineSeparator()));
-    fieldMap.forEachManyToOneMapping(
-        (fromSet, to) -> {
-          builder.append(
-              fromSet.stream()
-                  .map(DexField::toSourceString)
-                  .collect(Collectors.joining("," + System.lineSeparator())));
-          builder.append(" -> ");
-          builder.append(to.toSourceString()).append(System.lineSeparator());
-        });
-    builder.append(getPrevious().toString());
-    return builder.toString();
+    return getClass().getTypeName();
   }
 }
