@@ -5,6 +5,7 @@
 package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
@@ -83,22 +84,22 @@ public class RuntimeTypeCheckInfo {
     }
 
     @Override
-    public void traceCheckCast(DexType type, ProgramMethod context) {
+    public void traceCheckCast(DexType type, DexClass clazz, ProgramMethod context) {
       add(type, checkCastTypes);
     }
 
     @Override
-    public void traceSafeCheckCast(DexType type, ProgramMethod context) {
+    public void traceSafeCheckCast(DexType type, DexClass clazz, ProgramMethod context) {
       // Intentionally empty.
     }
 
     @Override
-    public void traceInstanceOf(DexType type, ProgramMethod context) {
+    public void traceInstanceOf(DexType type, DexClass clazz, ProgramMethod context) {
       add(type, instanceOfTypes);
     }
 
     @Override
-    public void traceExceptionGuard(DexType guard, ProgramMethod context) {
+    public void traceExceptionGuard(DexType guard, DexClass clazz, ProgramMethod context) {
       add(guard, exceptionGuardTypes);
     }
 

@@ -18,28 +18,24 @@ public interface EnqueuerFieldAccessAnalysis {
       FieldResolutionResult resolutionResult,
       ProgramMethod context,
       EnqueuerWorklist worklist) {}
-  ;
 
   default void traceInstanceFieldWrite(
       DexField field,
       FieldResolutionResult resolutionResult,
       ProgramMethod context,
       EnqueuerWorklist worklist) {}
-  ;
 
   default void traceStaticFieldRead(
       DexField field,
       SingleFieldResolutionResult<?> resolutionResult,
       ProgramMethod context,
       EnqueuerWorklist worklist) {}
-  ;
 
   default void traceStaticFieldWrite(
       DexField field,
       FieldResolutionResult resolutionResult,
       ProgramMethod context,
       EnqueuerWorklist worklist) {}
-  ;
 
   /**
    * Called when the Enqueuer has reached the final fixpoint. Each analysis may use this callback to
