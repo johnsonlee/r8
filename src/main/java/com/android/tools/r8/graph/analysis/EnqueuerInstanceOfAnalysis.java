@@ -4,9 +4,10 @@
 
 package com.android.tools.r8.graph.analysis;
 
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 
 public interface EnqueuerInstanceOfAnalysis {
-  void traceInstanceOf(DexType type, ProgramMethod context);
+  void traceInstanceOf(DexType type, DexClass clazz, ProgramMethod context);
 }

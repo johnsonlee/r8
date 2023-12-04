@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.KeepInfo.Joiner;
@@ -53,7 +54,8 @@ public class InvokeVirtualToInterfaceVerifyErrorWorkaround implements EnqueuerIn
   }
 
   @Override
-  public void traceInvokeVirtual(DexMethod invokedMethod, ProgramMethod context) {
+  public void traceInvokeVirtual(
+      DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
     if (isInterfaceInSomeApiLevel(invokedMethod.getHolderType())) {
       enqueuer.getKeepInfo().joinMethod(context, Joiner::disallowOptimization);
     }
@@ -69,22 +71,26 @@ public class InvokeVirtualToInterfaceVerifyErrorWorkaround implements EnqueuerIn
   }
 
   @Override
-  public void traceInvokeDirect(DexMethod invokedMethod, ProgramMethod context) {
+  public void traceInvokeDirect(
+      DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
     // Intentionally empty.
   }
 
   @Override
-  public void traceInvokeInterface(DexMethod invokedMethod, ProgramMethod context) {
+  public void traceInvokeInterface(
+      DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
     // Intentionally empty.
   }
 
   @Override
-  public void traceInvokeStatic(DexMethod invokedMethod, ProgramMethod context) {
+  public void traceInvokeStatic(
+      DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
     // Intentionally empty.
   }
 
   @Override
-  public void traceInvokeSuper(DexMethod invokedMethod, ProgramMethod context) {
+  public void traceInvokeSuper(
+      DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
     // Intentionally empty.
   }
 }

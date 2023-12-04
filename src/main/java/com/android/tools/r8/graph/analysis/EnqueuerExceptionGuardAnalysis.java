@@ -4,9 +4,10 @@
 
 package com.android.tools.r8.graph.analysis;
 
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 
 public interface EnqueuerExceptionGuardAnalysis {
-  void traceExceptionGuard(DexType guard, ProgramMethod context);
+  void traceExceptionGuard(DexType guard, DexClass clazz, ProgramMethod context);
 }
