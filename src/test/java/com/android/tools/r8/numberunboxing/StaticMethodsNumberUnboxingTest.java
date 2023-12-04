@@ -42,7 +42,6 @@ public class StaticMethodsNumberUnboxingTest extends TestBase {
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .addOptionsModification(opt -> opt.testing.enableNumberUnboxer = true)
-        .addOptionsModification(opt -> opt.testing.printNumberUnboxed = true)
         .setMinApi(parameters)
         .compile()
         .inspect(this::assertUnboxing)
