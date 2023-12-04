@@ -25,7 +25,6 @@ import java.util.Map;
 
 public class MemberRebindingLens extends DefaultNonIdentityGraphLens {
 
-  private final AppView<AppInfoWithLiveness> appView;
   private final Map<InvokeType, Map<DexMethod, DexMethod>> methodMaps;
   private final Map<DexField, DexField> nonReboundFieldReferenceToDefinitionMap;
 
@@ -33,8 +32,7 @@ public class MemberRebindingLens extends DefaultNonIdentityGraphLens {
       AppView<AppInfoWithLiveness> appView,
       Map<InvokeType, Map<DexMethod, DexMethod>> methodMaps,
       Map<DexField, DexField> nonReboundFieldReferenceToDefinitionMap) {
-    super(appView.dexItemFactory(), appView.graphLens());
-    this.appView = appView;
+    super(appView);
     this.methodMaps = methodMaps;
     this.nonReboundFieldReferenceToDefinitionMap = nonReboundFieldReferenceToDefinitionMap;
   }
@@ -111,7 +109,7 @@ public class MemberRebindingLens extends DefaultNonIdentityGraphLens {
           builder.recordDefinitionForNonReboundFieldReference(
               rewrittenNonReboundFieldReference, rewrittenReboundFieldReference);
         });
-    return builder.build(dexItemFactory);
+    return builder.build(appView);
   }
 
   public static class Builder {

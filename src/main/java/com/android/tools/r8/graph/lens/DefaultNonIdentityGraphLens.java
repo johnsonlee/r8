@@ -6,7 +6,6 @@ package com.android.tools.r8.graph.lens;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
@@ -14,11 +13,11 @@ import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 public class DefaultNonIdentityGraphLens extends NonIdentityGraphLens {
 
   public DefaultNonIdentityGraphLens(AppView<?> appView) {
-    this(appView.dexItemFactory(), appView.graphLens());
+    this(appView, appView.graphLens());
   }
 
-  public DefaultNonIdentityGraphLens(DexItemFactory dexItemFactory, GraphLens previousLens) {
-    super(dexItemFactory, previousLens);
+  public DefaultNonIdentityGraphLens(AppView<?> appView, GraphLens previousLens) {
+    super(appView, previousLens);
   }
 
   @Override

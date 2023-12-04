@@ -33,9 +33,9 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
   private MemberRebindingIdentityLens(
       Map<DexField, DexField> nonReboundFieldReferenceToDefinitionMap,
       Map<DexMethod, DexMethod> nonReboundMethodReferenceToDefinitionMap,
-      DexItemFactory dexItemFactory,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       GraphLens previousLens) {
-    super(dexItemFactory, previousLens);
+    super(appView, previousLens);
     this.nonReboundFieldReferenceToDefinitionMap = nonReboundFieldReferenceToDefinitionMap;
     this.nonReboundMethodReferenceToDefinitionMap = nonReboundMethodReferenceToDefinitionMap;
   }
@@ -202,7 +202,7 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
       return new MemberRebindingIdentityLens(
           nonReboundFieldReferenceToDefinitionMap,
           nonReboundMethodReferenceToDefinitionMap,
-          appView.dexItemFactory(),
+          appView,
           previousLens);
     }
   }

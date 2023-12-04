@@ -13,7 +13,6 @@ import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -463,13 +462,6 @@ public abstract class GraphLens {
 
   public boolean isVerticalClassMergerLens() {
     return false;
-  }
-
-  public GraphLens withCodeRewritingsApplied(DexItemFactory dexItemFactory) {
-    if (hasCodeRewritings()) {
-      return new ClearCodeRewritingGraphLens(dexItemFactory, this);
-    }
-    return this;
   }
 
   @SuppressWarnings("ReferenceEquality")

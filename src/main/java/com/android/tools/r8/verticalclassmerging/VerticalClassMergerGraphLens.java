@@ -63,8 +63,6 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
     MethodLookupResult get(RewrittenPrototypeDescription prototypeChanges);
   }
 
-  private final AppView<?> appView;
-
   private VerticallyMergedClasses mergedClasses;
   private final Map<DexType, Map<DexMethod, GraphLensLookupResultProvider>>
       contextualVirtualToDirectMethodMaps;
@@ -84,7 +82,6 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
       Map<DexMethod, DexMethod> originalMethodSignaturesForBridges,
       Map<DexMethod, RewrittenPrototypeDescription> prototypeChanges) {
     super(appView, fieldMap, methodMap, mergedClasses.getBidirectionalMap(), newMethodSignatures);
-    this.appView = appView;
     this.mergedClasses = mergedClasses;
     this.contextualVirtualToDirectMethodMaps = contextualVirtualToDirectMethodMaps;
     this.mergedMethods = mergedMethods;

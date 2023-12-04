@@ -46,7 +46,7 @@ public final class AppliedGraphLens extends DefaultNonIdentityGraphLens {
 
   @SuppressWarnings("ReferenceEquality")
   public AppliedGraphLens(AppView<? extends AppInfoWithClassHierarchy> appView) {
-    super(appView.dexItemFactory(), GraphLens.getIdentityLens());
+    super(appView, GraphLens.getIdentityLens());
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       // TODO(b/169395592): If merged classes were removed from the application this would not be
       //  necessary.

@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis.InitializedClassesInInstanceMethods;
 import com.android.tools.r8.graph.analysis.ResourceAccessAnalysis.ResourceAnalysisResult;
 import com.android.tools.r8.graph.classmerging.MergedClassesCollection;
+import com.android.tools.r8.graph.lens.ClearCodeRewritingGraphLens;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.InitClassLens;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
@@ -433,10 +434,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     allCodeProcessed = true;
   }
 
-  public GraphLens clearCodeRewritings() {
-    GraphLens newLens = graphLens.withCodeRewritingsApplied(dexItemFactory());
-    setGraphLens(newLens);
-    return newLens;
+  public void clearCodeRewritings() {
+    setGraphLens(new ClearCodeRewritingGraphLens(withClassHierarchy()));
   }
 
   public AppServices appServices() {

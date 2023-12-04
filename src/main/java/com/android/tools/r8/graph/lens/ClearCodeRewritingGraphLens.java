@@ -5,8 +5,9 @@
 package com.android.tools.r8.graph.lens;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
@@ -15,8 +16,8 @@ import com.android.tools.r8.ir.code.InvokeType;
 // relies on the previous lens for names (getRenamed/Original methods).
 public class ClearCodeRewritingGraphLens extends DefaultNonIdentityGraphLens {
 
-  public ClearCodeRewritingGraphLens(DexItemFactory dexItemFactory, GraphLens previousLens) {
-    super(dexItemFactory, previousLens);
+  public ClearCodeRewritingGraphLens(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    super(appView);
   }
 
   @Override

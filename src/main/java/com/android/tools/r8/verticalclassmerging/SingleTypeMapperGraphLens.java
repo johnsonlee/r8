@@ -23,7 +23,6 @@ import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneRepre
 
 public class SingleTypeMapperGraphLens extends NonIdentityGraphLens {
 
-  private final AppView<AppInfoWithLiveness> appView;
   private final VerticalClassMergerGraphLens.Builder lensBuilder;
   private final MutableBidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses;
 
@@ -36,8 +35,7 @@ public class SingleTypeMapperGraphLens extends NonIdentityGraphLens {
       MutableBidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses,
       DexProgramClass source,
       DexProgramClass target) {
-    super(appView.dexItemFactory(), GraphLens.getIdentityLens());
-    this.appView = appView;
+    super(appView, GraphLens.getIdentityLens());
     this.lensBuilder = lensBuilder;
     this.mergedClasses = mergedClasses;
     this.source = source;

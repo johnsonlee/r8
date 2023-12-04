@@ -18,7 +18,7 @@ class BridgeHoistingLens extends DefaultNonIdentityGraphLens {
   public BridgeHoistingLens(
       AppView<?> appView,
       BidirectionalManyToOneMap<DexMethod, DexMethod> bridgeToHoistedBridgeMap) {
-    super(appView.dexItemFactory(), appView.graphLens());
+    super(appView);
     this.bridgeToHoistedBridgeMap = bridgeToHoistedBridgeMap;
   }
 

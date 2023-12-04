@@ -17,17 +17,19 @@ import java.util.function.Predicate;
 
 public abstract class NonIdentityGraphLens extends GraphLens {
 
+  protected final AppView<?> appView;
   private final DexItemFactory dexItemFactory;
   private GraphLens previousLens;
 
   private final Map<DexType, DexType> arrayTypeCache = new ConcurrentHashMap<>();
 
   public NonIdentityGraphLens(AppView<?> appView) {
-    this(appView.dexItemFactory(), appView.graphLens());
+    this(appView, appView.graphLens());
   }
 
-  public NonIdentityGraphLens(DexItemFactory dexItemFactory, GraphLens previousLens) {
-    this.dexItemFactory = dexItemFactory;
+  public NonIdentityGraphLens(AppView<?> appView, GraphLens previousLens) {
+    this.appView = appView;
+    this.dexItemFactory = appView.dexItemFactory();
     this.previousLens = previousLens;
   }
 

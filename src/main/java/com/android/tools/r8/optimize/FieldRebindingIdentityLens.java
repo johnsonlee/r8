@@ -4,8 +4,9 @@
 
 package com.android.tools.r8.optimize;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.lens.DefaultNonIdentityGraphLens;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -24,9 +25,9 @@ public class FieldRebindingIdentityLens extends DefaultNonIdentityGraphLens {
 
   private FieldRebindingIdentityLens(
       Map<DexField, DexField> nonReboundFieldReferenceToDefinitionMap,
-      DexItemFactory dexItemFactory,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       GraphLens previousLens) {
-    super(dexItemFactory, previousLens);
+    super(appView, previousLens);
     this.nonReboundFieldReferenceToDefinitionMap = nonReboundFieldReferenceToDefinitionMap;
   }
 
@@ -65,12 +66,12 @@ public class FieldRebindingIdentityLens extends DefaultNonIdentityGraphLens {
       nonReboundFieldReferenceToDefinitionMap.put(nonReboundFieldReference, reboundFieldReference);
     }
 
-    FieldRebindingIdentityLens build(DexItemFactory dexItemFactory) {
+    FieldRebindingIdentityLens build(AppView<? extends AppInfoWithClassHierarchy> appView) {
       // This intentionally does not return null when the map is empty. In this case there are no
       // non-rebound field references, but the member rebinding lens is still needed to populate the
       // rebound reference during field lookup.
       return new FieldRebindingIdentityLens(
-          nonReboundFieldReferenceToDefinitionMap, dexItemFactory, GraphLens.getIdentityLens());
+          nonReboundFieldReferenceToDefinitionMap, appView, GraphLens.getIdentityLens());
     }
   }
 }
