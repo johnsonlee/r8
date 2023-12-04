@@ -24,7 +24,10 @@ import com.android.tools.r8.utils.InternalOptions;
 public class IsolatedFeatureSplitsChecker
     implements EnqueuerFieldAccessAnalysis, EnqueuerInvokeAnalysis, EnqueuerTypeAccessAnalysis {
 
+  @SuppressWarnings("UnusedVariable")
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
+
+  @SuppressWarnings("UnusedVariable")
   private final Enqueuer enqueuer;
 
   private IsolatedFeatureSplitsChecker(
@@ -52,14 +55,17 @@ public class IsolatedFeatureSplitsChecker
         && enqueuer.getMode().isInitialTreeShaking();
   }
 
+  @SuppressWarnings("UnusedVariable")
   private void traceFieldAccess(FieldResolutionResult resolutionResult, ProgramMethod context) {
     // TODO(b/300247439): Check access.
   }
 
+  @SuppressWarnings("UnusedVariable")
   private void traceMethodInvoke(MethodResolutionResult resolutionResult, ProgramMethod context) {
     // TODO(b/300247439): Check access.
   }
 
+  @SuppressWarnings("UnusedVariable")
   private void traceTypeAccess(DexClass clazz, ProgramMethod context) {
     // TODO(b/300247439): Check access.
   }
