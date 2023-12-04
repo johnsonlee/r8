@@ -1509,11 +1509,9 @@ public class Enqueuer {
     invokeAnalyses.forEach(analysis -> analysis.traceInvokeStatic(invokedMethod, context));
   }
 
-  @SuppressWarnings("UnusedVariable")
   void traceInvokeSuper(DexMethod invokedMethod, ProgramMethod context) {
     // We have to revisit super invokes based on the context they are found in. The same
     // method descriptor will hit different targets, depending on the context it is used in.
-    DexMethod actualTarget = getInvokeSuperTarget(invokedMethod, context);
     if (!registerMethodWithTargetAndContext(
         methodAccessInfoCollection::registerInvokeSuperInContext, invokedMethod, context)) {
       return;
@@ -1961,20 +1959,6 @@ public class Enqueuer {
           traceFieldReference(fieldReference, currentMethod);
           noClassMerging.add(fieldReference.getHolderType());
         });
-  }
-
-  private DexMethod getInvokeSuperTarget(DexMethod method, ProgramMethod currentMethod) {
-    DexClass methodHolderClass = appView.definitionFor(method.holder);
-    if (methodHolderClass != null && methodHolderClass.isInterface()) {
-      return method;
-    }
-    DexProgramClass holderClass = currentMethod.getHolder();
-    if (holderClass.superType == null || holderClass.isInterface()) {
-      // We do not know better or this call is made from an interface.
-      return method;
-    }
-    // Return the invoked method on the supertype.
-    return appView.dexItemFactory().createMethod(holderClass.superType, method.proto, method.name);
   }
 
   //
@@ -4224,6 +4208,15 @@ public class Enqueuer {
         (field, info) -> field != info.getField() || info == MISSING_FIELD_ACCESS_INFO);
     assert fieldAccessInfoCollection.verifyMappingIsOneToOne();
     timing.end();
+
+    // Remove mappings for methods that don't resolve in the method access info collection.
+    // TODO(b/313365881): Should use non-legacy resolution, but this fails.
+    methodAccessInfoCollection.removeIf(
+        method -> {
+          MethodResolutionResult result = appInfo.unsafeResolveMethodDueToDexFormatLegacy(method);
+          return result.isFailedResolution()
+              || result.isSignaturePolymorphicResolution(method, appView.dexItemFactory());
+        });
 
     // Verify all references on the input app before synthesizing definitions.
     assert verifyReferences(appInfo.app());

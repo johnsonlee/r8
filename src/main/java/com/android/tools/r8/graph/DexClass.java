@@ -558,7 +558,7 @@ public abstract class DexClass extends DexDefinition
   @SuppressWarnings("ReferenceEquality")
   public DexEncodedMethod lookupSignaturePolymorphicMethod(
       DexString methodName, DexItemFactory factory) {
-    if (type != factory.methodHandleType && type != factory.varHandleType) {
+    if (!isClassWithSignaturePolymorphicMethods(factory)) {
       return null;
     }
     DexEncodedMethod matchingName = null;
@@ -579,15 +579,17 @@ public abstract class DexClass extends DexDefinition
     return signaturePolymorphicMethod;
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  public static boolean isSignaturePolymorphicMethod(
-      DexEncodedMethod method, DexItemFactory factory) {
-    assert method.getHolderType() == factory.methodHandleType
-        || method.getHolderType() == factory.varHandleType;
-    return method.accessFlags.isVarargs()
-        && method.accessFlags.isNative()
-        && method.getReference().proto.parameters.size() == 1
-        && method.getReference().proto.parameters.values[0] == factory.objectArrayType;
+  public boolean isClassWithSignaturePolymorphicMethods(DexItemFactory dexItemFactory) {
+    return type.isIdenticalTo(dexItemFactory.methodHandleType)
+        || type.isIdenticalTo(dexItemFactory.varHandleType);
+  }
+
+  public boolean isSignaturePolymorphicMethod(DexEncodedMethod method, DexItemFactory factory) {
+    assert isClassWithSignaturePolymorphicMethods(factory);
+    return method.isVarargs()
+        && method.isNative()
+        && method.getParameters().size() == 1
+        && method.getParameter(0).isIdenticalTo(factory.objectArrayType);
   }
 
   public boolean canBeInstantiatedByNewInstance() {

@@ -53,6 +53,15 @@ public abstract class MethodResolutionResult
     return this;
   }
 
+  public boolean isSignaturePolymorphicResolution(DexMethod method, DexItemFactory dexItemFactory) {
+    if (isSingleResolution() && !method.match(getResolvedMethod())) {
+      assert getResolvedHolder().isClassWithSignaturePolymorphicMethods(dexItemFactory);
+      assert getResolvedHolder().isSignaturePolymorphicMethod(getResolvedMethod(), dexItemFactory);
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Returns true if resolution succeeded *and* the resolved method has a known definition.
    *
@@ -179,8 +188,8 @@ public abstract class MethodResolutionResult
       DexProgramClass context, AppView<? extends AppInfoWithClassHierarchy> appView);
 
   public final DexClassAndMethod lookupInvokeSuperTarget(
-      DexProgramClass context, AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return lookupInvokeSuperTarget(context, appView, appView.appInfo());
+      ProgramDefinition context, AppView<? extends AppInfoWithClassHierarchy> appView) {
+    return lookupInvokeSuperTarget(context.getContextClass(), appView, appView.appInfo());
   }
 
   /** Lookup the single target of an invoke-super on this resolution result if possible. */

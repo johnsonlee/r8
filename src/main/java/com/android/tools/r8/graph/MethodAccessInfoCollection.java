@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public class MethodAccessInfoCollection {
@@ -332,6 +333,18 @@ public class MethodAccessInfoCollection {
           contexts.addAll(existingContexts);
         }
       }
+    }
+
+    public void removeIf(Predicate<DexMethod> predicate) {
+      removeIf(predicate, directInvokes);
+      removeIf(predicate, interfaceInvokes);
+      removeIf(predicate, staticInvokes);
+      removeIf(predicate, superInvokes);
+      removeIf(predicate, virtualInvokes);
+    }
+
+    private static void removeIf(Predicate<DexMethod> predicate, Map<DexMethod, ?> invokes) {
+      invokes.keySet().removeIf(predicate);
     }
 
     public MethodAccessInfoCollection build() {

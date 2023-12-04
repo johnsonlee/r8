@@ -403,22 +403,18 @@ public class MethodArrayBacking extends MethodCollectionBacking {
   public void replaceAllDirectMethods(Function<DexEncodedMethod, DexEncodedMethod> replacement) {
     DexEncodedMethod[] oldMethods = directMethods;
     clearDirectMethods();
-    DexEncodedMethod[] newMethods = new DexEncodedMethod[oldMethods.length];
-    for (int i = 0; i < oldMethods.length; i++) {
-      newMethods[i] = replacement.apply(oldMethods[i]);
-    }
-    directMethods = newMethods;
+    directMethods =
+        ArrayUtils.initialize(
+            new DexEncodedMethod[oldMethods.length], i -> replacement.apply(oldMethods[i]));
   }
 
   @Override
   public void replaceAllVirtualMethods(Function<DexEncodedMethod, DexEncodedMethod> replacement) {
     DexEncodedMethod[] oldMethods = virtualMethods;
     clearVirtualMethods();
-    DexEncodedMethod[] newMethods = new DexEncodedMethod[oldMethods.length];
-    for (int i = 0; i < oldMethods.length; i++) {
-      newMethods[i] = replacement.apply(oldMethods[i]);
-    }
-    virtualMethods = newMethods;
+    virtualMethods =
+        ArrayUtils.initialize(
+            new DexEncodedMethod[oldMethods.length], i -> replacement.apply(oldMethods[i]));
   }
 
   @Override

@@ -450,6 +450,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return accessFlags.isSynchronized();
   }
 
+  public boolean isVarargs() {
+    return accessFlags.isVarargs();
+  }
+
   public boolean isInitializer() {
     checkIfObsolete();
     return isInstanceInitializer() || isClassInitializer();

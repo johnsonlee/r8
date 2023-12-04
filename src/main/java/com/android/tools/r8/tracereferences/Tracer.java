@@ -298,7 +298,7 @@ public class Tracer {
                     }
                   });
           if (seenMethod.isFalse()) {
-            handleRewrittenMethodReference(rewrittenMethod, (DexClassAndMethod) null);
+            handleRewrittenMethodReference(rewrittenMethod, null);
           }
         }
       }
@@ -368,7 +368,8 @@ public class Tracer {
                     .forEachFailureDependency(
                         type -> addType(type, referencedFrom),
                         methodCausingFailure ->
-                            handleRewrittenMethodReference(method, methodCausingFailure));
+                            handleRewrittenMethodReference(
+                                method, methodCausingFailure.asDexClassAndMethod(appView)));
                 return;
               }
               seenSingleResult.set();
@@ -379,33 +380,27 @@ public class Tracer {
               failingResult -> {
                 assert failingResult.isFailedResolution();
                 if (!failingResult.asFailedResolution().hasMethodsCausingError()) {
-                  handleRewrittenMethodReference(method, (DexEncodedMethod) null);
+                  handleRewrittenMethodReference(method, null);
                 }
               });
         }
       }
 
-      private void handleRewrittenMethodReference(
-          DexMethod method, DexClassAndMethod resolvedMethod) {
-        handleRewrittenMethodReference(
-            method, resolvedMethod == null ? null : resolvedMethod.getDefinition());
-      }
-
       @SuppressWarnings("ReferenceEquality")
       private void handleRewrittenMethodReference(
-          DexMethod method, DexEncodedMethod resolvedMethod) {
-        assert resolvedMethod == null
-            || resolvedMethod.getReference().match(method)
-            || DexClass.isSignaturePolymorphicMethod(resolvedMethod, factory);
+          DexMethod method, DexClassAndMethod resolvedMethod) {
         addType(method.getHolderType(), referencedFrom);
         addTypes(method.getParameters(), referencedFrom);
         addType(method.getReturnType(), referencedFrom);
         if (resolvedMethod != null) {
+          DexEncodedMethod definition = resolvedMethod.getDefinition();
+          assert resolvedMethod.getReference().match(method)
+              || resolvedMethod.getHolder().isSignaturePolymorphicMethod(definition, factory);
           if (isTargetType(resolvedMethod.getHolderType())) {
             if (resolvedMethod.getHolderType() != method.getHolderType()) {
               addType(resolvedMethod.getHolderType(), referencedFrom);
             }
-            TracedMethodImpl tracedMethod = new TracedMethodImpl(resolvedMethod, referencedFrom);
+            TracedMethodImpl tracedMethod = new TracedMethodImpl(definition, referencedFrom);
             consumer.acceptMethod(tracedMethod, diagnostics);
             if (resolvedMethod.getAccessFlags().isVisibilityDependingOnPackage()) {
               consumer.acceptPackage(
