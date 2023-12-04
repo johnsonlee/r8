@@ -4,13 +4,12 @@
 
 package com.android.tools.r8.graph.analysis;
 
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 
 public interface EnqueuerCheckCastAnalysis {
 
-  void traceCheckCast(DexType type, DexClass clazz, ProgramMethod context);
+  void traceCheckCast(DexType type, ProgramMethod context);
 
-  void traceSafeCheckCast(DexType type, DexClass clazz, ProgramMethod context);
+  void traceSafeCheckCast(DexType type, ProgramMethod context);
 }

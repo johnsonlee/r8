@@ -223,14 +223,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return false;
   }
 
-  public boolean hasFeatureSplitConfiguration() {
-    return featureSplitConfiguration != null;
-  }
-
-  public FeatureSplitConfiguration getFeatureSplitConfiguration() {
-    return featureSplitConfiguration;
-  }
-
   public boolean hasProguardConfiguration() {
     return proguardConfiguration != null;
   }
