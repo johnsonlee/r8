@@ -123,7 +123,7 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
     forEachApply(annotations, annotation -> annotation::trace, definitionSupplier);
   }
 
-  public DexType rewriteType(GraphLens graphLens) {
-    return classifier.rewriteType(graphLens);
+  public DexType rewriteType(GraphLens graphLens, GraphLens codeLens) {
+    return classifier.rewriteType(graphLens, codeLens);
   }
 }

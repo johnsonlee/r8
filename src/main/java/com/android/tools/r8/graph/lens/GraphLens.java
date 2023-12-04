@@ -245,6 +245,7 @@ public abstract class GraphLens {
 
   public abstract DexType lookupType(DexType type, GraphLens appliedLens);
 
+  @Deprecated
   public final MethodLookupResult lookupInvokeDirect(DexMethod method, ProgramMethod context) {
     return lookupMethod(method, context.getReference(), InvokeType.DIRECT);
   }
@@ -254,6 +255,7 @@ public abstract class GraphLens {
     return lookupMethod(method, context.getReference(), InvokeType.DIRECT, codeLens);
   }
 
+  @Deprecated
   public final MethodLookupResult lookupInvokeInterface(DexMethod method, ProgramMethod context) {
     return lookupMethod(method, context.getReference(), InvokeType.INTERFACE);
   }
@@ -263,6 +265,7 @@ public abstract class GraphLens {
     return lookupMethod(method, context.getReference(), InvokeType.INTERFACE, codeLens);
   }
 
+  @Deprecated
   public final MethodLookupResult lookupInvokeStatic(DexMethod method, ProgramMethod context) {
     return lookupMethod(method, context.getReference(), InvokeType.STATIC);
   }
@@ -272,6 +275,7 @@ public abstract class GraphLens {
     return lookupMethod(method, context.getReference(), InvokeType.STATIC, codeLens);
   }
 
+  @Deprecated
   public final MethodLookupResult lookupInvokeSuper(DexMethod method, ProgramMethod context) {
     return lookupMethod(method, context.getReference(), InvokeType.SUPER);
   }
@@ -281,6 +285,7 @@ public abstract class GraphLens {
     return lookupMethod(method, context.getReference(), InvokeType.SUPER, codeLens);
   }
 
+  @Deprecated
   public final MethodLookupResult lookupInvokeVirtual(DexMethod method, ProgramMethod context) {
     return lookupMethod(method, context.getReference(), InvokeType.VIRTUAL);
   }
@@ -290,6 +295,8 @@ public abstract class GraphLens {
     return lookupMethod(method, context.getReference(), InvokeType.VIRTUAL, codeLens);
   }
 
+  @Deprecated
+  @SuppressWarnings("InlineMeSuggester")
   public final MethodLookupResult lookupMethod(
       DexMethod method, DexMethod context, InvokeType type) {
     return lookupMethod(method, context, type, null);
@@ -329,6 +336,8 @@ public abstract class GraphLens {
   public abstract RewrittenPrototypeDescription lookupPrototypeChangesForMethodDefinition(
       DexMethod method, GraphLens codeLens);
 
+  @Deprecated
+  @SuppressWarnings("InlineMeSuggester")
   public final DexField lookupField(DexField field) {
     return lookupField(field, null);
   }

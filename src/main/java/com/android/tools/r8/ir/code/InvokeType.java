@@ -99,7 +99,8 @@ public enum InvokeType {
           // Invoking a private super method within a nest must use invoke-direct. Invoking a
           // non-private super method within a nest must use invoke-super.
           MethodLookupResult lookupResult =
-              graphLens.lookupMethod(invokedMethod, context.getReference(), InvokeType.DIRECT);
+              graphLens.lookupMethod(
+                  invokedMethod, context.getReference(), InvokeType.DIRECT, codeLens);
           DexEncodedMethod definition = holderType.lookupMethod(lookupResult.getReference());
           return definition != null && definition.isPrivate()
               ? InvokeType.DIRECT
@@ -110,7 +111,7 @@ public enum InvokeType {
     }
 
     MethodLookupResult lookupResult =
-        graphLens.lookupMethod(invokedMethod, context.getReference(), InvokeType.DIRECT);
+        graphLens.lookupMethod(invokedMethod, context.getReference(), InvokeType.DIRECT, codeLens);
     if (lookupResult.getType().isStatic()) {
       // This method has been staticized. The original invoke-type is DIRECT.
       return InvokeType.DIRECT;

@@ -10,7 +10,6 @@ import com.android.tools.r8.graph.DefaultInstanceInitializerCode;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -44,11 +43,9 @@ import java.util.Set;
  */
 class TreeFixer extends TreeFixerBase {
 
-  private final AppView<?> appView;
   private final HorizontallyMergedClasses mergedClasses;
   private final Mode mode;
   private final HorizontalClassMergerGraphLens.Builder lensBuilder;
-  private final DexItemFactory dexItemFactory;
   private final ProfileCollectionAdditions profileCollectionAdditions;
   private final SyntheticArgumentClass syntheticArgumentClass;
 
@@ -64,13 +61,11 @@ class TreeFixer extends TreeFixerBase {
       ProfileCollectionAdditions profileCollectionAdditions,
       SyntheticArgumentClass syntheticArgumentClass) {
     super(appView);
-    this.appView = appView;
     this.mergedClasses = mergedClasses;
     this.mode = mode;
     this.lensBuilder = lensBuilder;
     this.profileCollectionAdditions = profileCollectionAdditions;
     this.syntheticArgumentClass = syntheticArgumentClass;
-    this.dexItemFactory = appView.dexItemFactory();
   }
 
   /**
@@ -395,7 +390,7 @@ class TreeFixer extends TreeFixerBase {
         lookupReservedVirtualName(originalMethodReference, renamedClassVirtualMethods);
 
     // Fix all type references in the method prototype.
-    DexMethodSignature newSignature = fixupMethodSignature(originalSignature);
+    DexMethodSignature newSignature = fixupMethodSignature(method);
 
     if (renamedVirtualName != null) {
       // If the method was renamed in a parent, rename it in the child.

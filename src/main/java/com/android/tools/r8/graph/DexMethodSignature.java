@@ -71,12 +71,19 @@ public abstract class DexMethodSignature implements StructuralItem<DexMethodSign
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof DexMethodSignature)) return false;
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof DexMethodSignature)) {
+      return false;
+    }
     DexMethodSignature that = (DexMethodSignature) o;
-    return getName() == that.getName() && getProto() == that.getProto();
+    return equals(that.getName(), that.getProto());
+  }
+
+  public boolean equals(DexString name, DexProto proto) {
+    return getName().isIdenticalTo(name) && getProto().isIdenticalTo(proto);
   }
 
   @Override

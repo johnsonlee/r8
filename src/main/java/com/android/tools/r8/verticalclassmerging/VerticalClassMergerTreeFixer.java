@@ -18,7 +18,6 @@ import java.util.List;
 
 class VerticalClassMergerTreeFixer extends TreeFixerBase {
 
-  private final AppView<AppInfoWithLiveness> appView;
   private final VerticalClassMergerGraphLens.Builder lensBuilder;
   private final VerticallyMergedClasses mergedClasses;
   private final List<SynthesizedBridgeCode> synthesizedBridges;
@@ -29,7 +28,6 @@ class VerticalClassMergerTreeFixer extends TreeFixerBase {
       VerticallyMergedClasses mergedClasses,
       List<SynthesizedBridgeCode> synthesizedBridges) {
     super(appView);
-    this.appView = appView;
     this.lensBuilder =
         VerticalClassMergerGraphLens.Builder.createBuilderForFixup(lensBuilder, mergedClasses);
     this.mergedClasses = mergedClasses;

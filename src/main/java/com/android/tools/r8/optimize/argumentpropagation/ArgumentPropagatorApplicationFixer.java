@@ -38,13 +38,13 @@ import java.util.concurrent.ExecutorService;
  */
 public class ArgumentPropagatorApplicationFixer extends TreeFixerBase {
 
-  private final AppView<AppInfoWithLiveness> appView;
+  private final AppView<AppInfoWithLiveness> appViewWithLiveness;
   private final ArgumentPropagatorGraphLens graphLens;
 
   public ArgumentPropagatorApplicationFixer(
-      AppView<AppInfoWithLiveness> appView, ArgumentPropagatorGraphLens graphLens) {
-    super(appView);
-    this.appView = appView;
+      AppView<AppInfoWithLiveness> appViewWithLiveness, ArgumentPropagatorGraphLens graphLens) {
+    super(appViewWithLiveness);
+    this.appViewWithLiveness = appViewWithLiveness;
     this.graphLens = graphLens;
   }
 
@@ -138,7 +138,8 @@ public class ArgumentPropagatorApplicationFixer extends TreeFixerBase {
               @Override
               public void fixup(
                   DexEncodedField field, MutableFieldOptimizationInfo optimizationInfo) {
-                optimizationInfo.fixupAbstractValue(appView, field, graphLens, codeLens);
+                optimizationInfo.fixupAbstractValue(
+                    appViewWithLiveness, field, graphLens, codeLens);
               }
 
               @Override
@@ -147,8 +148,9 @@ public class ArgumentPropagatorApplicationFixer extends TreeFixerBase {
                 // Fixup the return value in case the method returns a field that had its signature
                 // changed.
                 optimizationInfo
-                    .fixupAbstractReturnValue(appView, method, graphLens, codeLens)
-                    .fixupInstanceInitializerInfo(appView, graphLens, codeLens, prunedItems);
+                    .fixupAbstractReturnValue(appViewWithLiveness, method, graphLens, codeLens)
+                    .fixupInstanceInitializerInfo(
+                        appViewWithLiveness, graphLens, codeLens, prunedItems);
 
                 // Rewrite the optimization info to account for method signature changes.
                 if (graphLens.hasPrototypeChanges(method.getReference())) {
@@ -156,7 +158,7 @@ public class ArgumentPropagatorApplicationFixer extends TreeFixerBase {
                       graphLens.getPrototypeChanges(method.getReference());
                   MethodOptimizationInfoFixer fixer =
                       prototypeChanges.createMethodOptimizationInfoFixer();
-                  optimizationInfo.fixup(appView, method, fixer);
+                  optimizationInfo.fixup(appViewWithLiveness, method, fixer);
                 }
               }
             });

@@ -63,6 +63,16 @@ public class RewrittenPrototypeDescription {
         : new RewrittenPrototypeDescription(extraParameters, rewrittenReturnInfo, argumentsInfo);
   }
 
+  public static RewrittenPrototypeDescription createForArgumentsInfo(
+      ArgumentInfoCollection argumentsInfo) {
+    return create(Collections.emptyList(), null, argumentsInfo);
+  }
+
+  public static RewrittenPrototypeDescription createForExtraParameters(
+      List<? extends ExtraParameter> extraParameters) {
+    return create(extraParameters, null, ArgumentInfoCollection.empty());
+  }
+
   public static RewrittenPrototypeDescription createForRewrittenTypes(
       RewrittenTypeInfo returnInfo, ArgumentInfoCollection rewrittenArgumentsInfo) {
     return create(Collections.emptyList(), returnInfo, rewrittenArgumentsInfo);

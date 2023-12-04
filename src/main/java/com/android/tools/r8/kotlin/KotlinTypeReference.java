@@ -162,7 +162,8 @@ class KotlinTypeReference implements EnqueuerMetadataTraceable {
     if (!type.isClassType()) {
       return type;
     }
-    DexType rewrittenType = appView.graphLens().lookupClassType(type);
+    DexType rewrittenType =
+        appView.graphLens().lookupClassType(type, appView.getKotlinMetadataLens());
     if (appView.appInfo().hasLiveness()
         && !appView.withLiveness().appInfo().isNonProgramTypeOrLiveProgramType(rewrittenType)) {
       return null;
@@ -183,9 +184,9 @@ class KotlinTypeReference implements EnqueuerMetadataTraceable {
     }
   }
 
-  public DexType rewriteType(GraphLens graphLens) {
+  public DexType rewriteType(GraphLens graphLens, GraphLens codeLens) {
     if (known != null && known.isClassType()) {
-      return graphLens.lookupClassType(known);
+      return graphLens.lookupClassType(known, codeLens);
     }
     return null;
   }

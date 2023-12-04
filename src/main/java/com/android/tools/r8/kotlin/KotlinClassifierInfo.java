@@ -51,7 +51,7 @@ public abstract class KotlinClassifierInfo implements EnqueuerMetadataTraceable 
 
   abstract boolean rewrite(KmTypeVisitor visitor, AppView<?> appView);
 
-  public DexType rewriteType(GraphLens graphLens) {
+  public DexType rewriteType(GraphLens graphLens, GraphLens codeLens) {
     return null;
   }
 
@@ -81,8 +81,8 @@ public abstract class KotlinClassifierInfo implements EnqueuerMetadataTraceable 
     }
 
     @Override
-    public DexType rewriteType(GraphLens graphLens) {
-      return type.rewriteType(graphLens);
+    public DexType rewriteType(GraphLens graphLens, GraphLens codeLens) {
+      return type.rewriteType(graphLens, codeLens);
     }
   }
 

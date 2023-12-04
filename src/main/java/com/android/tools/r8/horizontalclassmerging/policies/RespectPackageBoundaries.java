@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
@@ -114,7 +115,8 @@ public class RespectPackageBoundaries extends MultiClassPolicy {
                 return TraversalContinuation.doBreak();
               }
               return TraversalContinuation.doContinue();
-            });
+            },
+            DexEncodedMethod::hasCode);
     return result.shouldBreak();
   }
 

@@ -35,8 +35,8 @@ import java.util.function.Consumer;
 
 public abstract class TreeFixerBase {
 
-  private final AppView<?> appView;
-  private final DexItemFactory dexItemFactory;
+  protected final AppView<?> appView;
+  protected final DexItemFactory dexItemFactory;
 
   private final Map<DexType, DexProgramClass> programClassCache = new IdentityHashMap<>();
   private final Map<DexProto, DexProto> protoFixupCache = new IdentityHashMap<>();
@@ -395,7 +395,7 @@ public abstract class TreeFixerBase {
   }
 
   /** Fixup a method signature. */
-  public DexMethodSignature fixupMethodSignature(DexMethodSignature signature) {
-    return signature.withProto(fixupProto(signature.getProto()));
+  public DexMethodSignature fixupMethodSignature(DexEncodedMethod method) {
+    return DexMethodSignature.create(method.getName(), fixupProto(method.getProto()));
   }
 }

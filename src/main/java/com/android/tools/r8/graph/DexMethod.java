@@ -360,7 +360,7 @@ public class DexMethod extends DexMember<DexEncodedMethod, DexMethod> {
   }
 
   @Override
-  public DexMethod withHolder(DexType reference, DexItemFactory dexItemFactory) {
+  public DexMethod withHolder(DexReference reference, DexItemFactory dexItemFactory) {
     return dexItemFactory.createMethod(reference.getContextType(), proto, name);
   }
 

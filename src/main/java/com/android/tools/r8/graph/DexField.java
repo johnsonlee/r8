@@ -31,6 +31,10 @@ public class DexField extends DexMember<DexEncodedField, DexField> {
     return identical(this, other);
   }
 
+  public final boolean isNotIdenticalTo(DexField other) {
+    return !isIdenticalTo(other);
+  }
+
   public final DexType type;
 
   DexField(DexType holder, DexType type, DexString name, boolean skipNameValidationForTesting) {
@@ -224,8 +228,8 @@ public class DexField extends DexMember<DexEncodedField, DexField> {
   }
 
   @Override
-  public DexField withHolder(DexType holder, DexItemFactory dexItemFactory) {
-    return dexItemFactory.createField(holder, type, name);
+  public DexField withHolder(DexReference reference, DexItemFactory dexItemFactory) {
+    return dexItemFactory.createField(reference.getContextType(), type, name);
   }
 
   public DexField withName(DexString name, DexItemFactory dexItemFactory) {

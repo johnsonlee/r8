@@ -19,6 +19,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.horizontalclassmerging.MergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
 import com.android.tools.r8.horizontalclassmerging.policies.deadlock.SingleCallerInformation;
@@ -408,8 +409,11 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
 
     class TracerUseRegistry extends DefaultUseRegistry<ProgramMethod> {
 
+      private final GraphLens codeLens;
+
       TracerUseRegistry(ProgramMethod context) {
         super(appView(), context);
+        this.codeLens = context.getDefinition().getCode().getCodeLens(appView);
       }
 
       private void fail() {
@@ -474,14 +478,14 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
 
       @Override
       public void registerInitClass(DexType type) {
-        DexType rewrittenType = appView.graphLens().lookupType(type);
+        DexType rewrittenType = appView.graphLens().lookupType(type, codeLens);
         triggerClassInitializerIfNotAlreadyTriggeredInContext(rewrittenType);
       }
 
       @Override
       public void registerInvokeDirect(DexMethod method) {
         DexMethod rewrittenMethod =
-            appView.graphLens().lookupInvokeDirect(method, getContext()).getReference();
+            appView.graphLens().lookupInvokeDirect(method, getContext(), codeLens).getReference();
         MethodResolutionResult resolutionResult =
             appView().appInfo().resolveMethodOnClassHolderLegacy(rewrittenMethod);
         if (resolutionResult.isSingleResolution()
@@ -493,7 +497,10 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
       @Override
       public void registerInvokeInterface(DexMethod method) {
         DexMethod rewrittenMethod =
-            appView.graphLens().lookupInvokeInterface(method, getContext()).getReference();
+            appView
+                .graphLens()
+                .lookupInvokeInterface(method, getContext(), codeLens)
+                .getReference();
         DexClassAndMethod resolvedMethod =
             appView()
                 .appInfo()
@@ -507,7 +514,7 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
       @Override
       public void registerInvokeStatic(DexMethod method) {
         DexMethod rewrittenMethod =
-            appView.graphLens().lookupInvokeStatic(method, getContext()).getReference();
+            appView.graphLens().lookupInvokeStatic(method, getContext(), codeLens).getReference();
         ProgramMethod resolvedMethod =
             appView()
                 .appInfo()
@@ -522,7 +529,7 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
       @Override
       public void registerInvokeSuper(DexMethod method) {
         DexMethod rewrittenMethod =
-            appView.graphLens().lookupInvokeSuper(method, getContext()).getReference();
+            appView.graphLens().lookupInvokeSuper(method, getContext(), codeLens).getReference();
         ProgramMethod superTarget =
             asProgramMethodOrNull(
                 appView().appInfo().lookupSuperTarget(rewrittenMethod, getContext(), appView()));
@@ -534,7 +541,7 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
       @Override
       public void registerInvokeVirtual(DexMethod method) {
         DexMethod rewrittenMethod =
-            appView.graphLens().lookupInvokeVirtual(method, getContext()).getReference();
+            appView.graphLens().lookupInvokeVirtual(method, getContext(), codeLens).getReference();
         DexClassAndMethod resolvedMethod =
             appView()
                 .appInfo()
@@ -551,19 +558,19 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
 
       @Override
       public void registerNewInstance(DexType type) {
-        DexType rewrittenType = appView.graphLens().lookupType(type);
+        DexType rewrittenType = appView.graphLens().lookupType(type, codeLens);
         triggerClassInitializerIfNotAlreadyTriggeredInContext(rewrittenType);
       }
 
       @Override
       public void registerStaticFieldRead(DexField field) {
-        DexField rewrittenField = appView.graphLens().lookupField(field);
+        DexField rewrittenField = appView.graphLens().lookupField(field, codeLens);
         triggerClassInitializerIfNotAlreadyTriggeredInContext(rewrittenField.getHolderType());
       }
 
       @Override
       public void registerStaticFieldWrite(DexField field) {
-        DexField rewrittenField = appView.graphLens().lookupField(field);
+        DexField rewrittenField = appView.graphLens().lookupField(field, codeLens);
         triggerClassInitializerIfNotAlreadyTriggeredInContext(rewrittenField.getHolderType());
       }
 

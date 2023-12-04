@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ListUtils;
@@ -380,7 +381,9 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     List<KmType> rewrittenSuperTypes = kmClass.getSupertypes();
     for (KotlinTypeInfo superType : superTypes) {
       // Ensure the rewritten super type is not this type.
-      if (clazz.getType() != superType.rewriteType(appView.graphLens())) {
+      DexType rewrittenSuperType =
+          superType.rewriteType(appView.graphLens(), appView.getKotlinMetadataLens());
+      if (clazz.getType() != rewrittenSuperType) {
         rewritten |= superType.rewrite(rewrittenSuperTypes::add, appView);
       } else {
         rewritten = true;
