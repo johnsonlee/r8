@@ -105,7 +105,7 @@ public class RepackagingUseRegistry extends UseRegistry<ProgramDefinition> {
   }
 
   public void registerFieldAccess(DexField field) {
-    registerMemberAccess(appInfo.resolveField(graphLens.lookupField(field)), false);
+    registerMemberAccess(appInfo.resolveField(graphLens.lookupField(field, codeLens)), false);
   }
 
   public ProgramMethod registerMethodReference(DexMethod method) {
@@ -209,7 +209,8 @@ public class RepackagingUseRegistry extends UseRegistry<ProgramDefinition> {
   @Override
   public void registerInitClass(DexType type) {
     registerMemberAccess(
-        appInfo.resolveField(initClassLens.getInitClassField(graphLens.lookupClassType(type))),
+        appInfo.resolveField(
+            initClassLens.getInitClassField(graphLens.lookupClassType(type, codeLens))),
         false);
   }
 
@@ -262,7 +263,7 @@ public class RepackagingUseRegistry extends UseRegistry<ProgramDefinition> {
 
   @Override
   public void registerNewInstance(DexType type) {
-    registerTypeAccess(graphLens.lookupClassType(type));
+    registerTypeAccess(graphLens.lookupClassType(type, codeLens));
   }
 
   @Override
@@ -286,7 +287,7 @@ public class RepackagingUseRegistry extends UseRegistry<ProgramDefinition> {
 
   @Override
   public void registerInstanceOf(DexType type) {
-    registerTypeAccess(graphLens.lookupType(type));
+    registerTypeAccess(graphLens.lookupType(type, codeLens));
   }
 
   public void registerEnclosingMethodAttribute(EnclosingMethodAttribute enclosingMethodAttribute) {
