@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.features;
 
+import com.android.tools.r8.features.diagnostic.IllegalAccessWithIsolatedFeatureSplitsDiagnostic;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -12,6 +13,8 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult;
+import com.android.tools.r8.graph.ProgramDefinition;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.EnqueuerFieldAccessAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerInvokeAnalysis;
@@ -24,22 +27,18 @@ import com.android.tools.r8.utils.InternalOptions;
 public class IsolatedFeatureSplitsChecker
     implements EnqueuerFieldAccessAnalysis, EnqueuerInvokeAnalysis, EnqueuerTypeAccessAnalysis {
 
-  @SuppressWarnings("UnusedVariable")
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
+  private final ClassToFeatureSplitMap features;
 
-  @SuppressWarnings("UnusedVariable")
-  private final Enqueuer enqueuer;
-
-  private IsolatedFeatureSplitsChecker(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+  private IsolatedFeatureSplitsChecker(AppView<? extends AppInfoWithClassHierarchy> appView) {
     this.appView = appView;
-    this.enqueuer = enqueuer;
+    this.features = appView.appInfo().getClassToFeatureSplitMap();
   }
 
   public static void register(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     if (enabled(appView, enqueuer)) {
-      IsolatedFeatureSplitsChecker checker = new IsolatedFeatureSplitsChecker(appView, enqueuer);
+      IsolatedFeatureSplitsChecker checker = new IsolatedFeatureSplitsChecker(appView);
       enqueuer
           .registerFieldAccessAnalysis(checker)
           .registerInvokeAnalysis(checker)
@@ -55,19 +54,37 @@ public class IsolatedFeatureSplitsChecker
         && enqueuer.getMode().isInitialTreeShaking();
   }
 
-  @SuppressWarnings("UnusedVariable")
   private void traceFieldAccess(FieldResolutionResult resolutionResult, ProgramMethod context) {
-    // TODO(b/300247439): Check access.
+    ProgramField resolvedField = resolutionResult.getSingleProgramField();
+    if (resolvedField != null) {
+      checkAccess(resolvedField, context);
+      checkAccess(resolutionResult.getInitialResolutionHolder().asProgramClass(), context);
+    }
   }
 
   @SuppressWarnings("UnusedVariable")
   private void traceMethodInvoke(MethodResolutionResult resolutionResult, ProgramMethod context) {
-    // TODO(b/300247439): Check access.
+    ProgramMethod resolvedMethod = resolutionResult.getResolvedProgramMethod();
+    if (resolvedMethod != null) {
+      checkAccess(resolvedMethod, context);
+      checkAccess(resolutionResult.getInitialResolutionHolder().asProgramClass(), context);
+    }
   }
 
   @SuppressWarnings("UnusedVariable")
   private void traceTypeAccess(DexClass clazz, ProgramMethod context) {
-    // TODO(b/300247439): Check access.
+    if (clazz != null && clazz.isProgramClass()) {
+      checkAccess(clazz.asProgramClass(), context);
+    }
+  }
+
+  private void checkAccess(ProgramDefinition accessedItem, ProgramMethod context) {
+    if (!features.isInBaseOrSameFeatureAs(accessedItem, context, appView)
+        && !accessedItem.getAccessFlags().isPublic()) {
+      appView
+          .reporter()
+          .error(new IllegalAccessWithIsolatedFeatureSplitsDiagnostic(accessedItem, context));
+    }
   }
 
   // Field accesses.

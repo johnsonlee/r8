@@ -206,7 +206,7 @@ public class ClassToFeatureSplitMap {
   }
 
   public boolean isInBaseOrSameFeatureAs(
-      DexProgramClass clazz,
+      ProgramDefinition clazz,
       ProgramDefinition context,
       AppView<? extends AppInfoWithClassHierarchy> appView) {
     return isInBaseOrSameFeatureAs(
@@ -218,7 +218,7 @@ public class ClassToFeatureSplitMap {
   }
 
   public boolean isInBaseOrSameFeatureAs(
-      DexProgramClass clazz,
+      ProgramDefinition clazz,
       ProgramDefinition context,
       InternalOptions options,
       StartupProfile startupProfile,
