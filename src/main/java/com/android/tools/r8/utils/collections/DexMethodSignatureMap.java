@@ -159,6 +159,10 @@ public class DexMethodSignatureMap<T> implements Map<DexMethodSignature, T> {
     return merge(method.getReference(), value, remappingFunction);
   }
 
+  public boolean containsKey(DexEncodedMethod method) {
+    return containsKey(method.getSignature());
+  }
+
   @Override
   public boolean containsKey(Object o) {
     return backing.containsKey(o);

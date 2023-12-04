@@ -15,6 +15,10 @@ public interface MutableBidirectionalManyToOneMap<K, V> extends BidirectionalMan
 
   void put(Iterable<K> key, V value);
 
+  default void putAll(BidirectionalManyToOneMap<K, V> map) {
+    map.forEach(this::put);
+  }
+
   V remove(K key);
 
   void removeAll(Iterable<K> keys);

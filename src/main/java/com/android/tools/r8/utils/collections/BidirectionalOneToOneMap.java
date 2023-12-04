@@ -17,6 +17,11 @@ public interface BidirectionalOneToOneMap<K, V>
 
   K getKey(V value);
 
+  default K getKeyOrDefault(V value, K defaultValue) {
+    K key = getKey(value);
+    return key != null ? key : defaultValue;
+  }
+
   @Override
   BiMap<K, V> getForwardMap();
 

@@ -4,11 +4,26 @@
 
 package com.android.tools.r8.utils.collections;
 
+import com.android.tools.r8.graph.DexMethodSignature;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableBiMap;
 
 public class DexMethodSignatureBiMap<T> extends DexMethodSignatureMap<T> {
 
   public DexMethodSignatureBiMap() {
-    super(HashBiMap.create());
+    this(HashBiMap.create());
+  }
+
+  public DexMethodSignatureBiMap(DexMethodSignatureBiMap<T> map) {
+    this(HashBiMap.create(map));
+  }
+
+  public DexMethodSignatureBiMap(BiMap<DexMethodSignature, T> map) {
+    super(map);
+  }
+
+  public static <T> DexMethodSignatureBiMap<T> empty() {
+    return new DexMethodSignatureBiMap<>(ImmutableBiMap.of());
   }
 }

@@ -36,7 +36,11 @@ public class BidirectionalManyToOneRepresentativeHashMap<K, V>
   @Override
   public void forEachManyToOneMapping(TriConsumer<? super Set<K>, V, K> consumer) {
     forEachManyToOneMapping(
-        (keys, value) -> consumer.accept(keys, value, getRepresentativeKey(value)));
+        (keys, value) ->
+            consumer.accept(
+                keys,
+                value,
+                hasExplicitRepresentativeKey(value) ? getRepresentativeKey(value) : null));
   }
 
   @Override
@@ -85,7 +89,7 @@ public class BidirectionalManyToOneRepresentativeHashMap<K, V>
     map.forEachManyToOneMapping(
         (keys, value, representative) -> {
           put(keys, value);
-          if (keys.size() > 1) {
+          if (representative != null) {
             setRepresentative(value, representative);
           }
         });
