@@ -6,7 +6,7 @@ package com.android.tools.r8.numberunboxing;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
@@ -52,15 +52,19 @@ public class StaticMethodsNumberUnboxingTest extends TestBase {
   private void assertFirstParameterUnboxed(ClassSubject mainClass, String methodName) {
     MethodSubject methodSubject = mainClass.uniqueMethodWithOriginalName(methodName);
     assertThat(methodSubject, isPresent());
-    assertEquals("java.lang.Integer", methodSubject.getOriginalSignature().parameters[0]);
-    assertEquals("int", methodSubject.getFinalSignature().asMethodSignature().parameters[0]);
+    assertTrue(methodSubject.getProgramMethod().getParameter(0).isIntType());
+  }
+
+  private void assertFirstParameterBoxed(ClassSubject mainClass, String methodName) {
+    MethodSubject methodSubject = mainClass.uniqueMethodWithOriginalName(methodName);
+    assertThat(methodSubject, isPresent());
+    assertTrue(methodSubject.getProgramMethod().getParameter(0).isReferenceType());
   }
 
   private void assertReturnUnboxed(ClassSubject mainClass, String methodName) {
     MethodSubject methodSubject = mainClass.uniqueMethodWithOriginalName(methodName);
     assertThat(methodSubject, isPresent());
-    assertEquals("java.lang.Integer", methodSubject.getOriginalSignature().type);
-    assertEquals("int", methodSubject.getFinalSignature().asMethodSignature().type);
+    assertTrue(methodSubject.getProgramMethod().getReturnType().isIntType());
   }
 
   private void assertUnboxing(CodeInspector codeInspector) {
@@ -74,6 +78,8 @@ public class StaticMethodsNumberUnboxingTest extends TestBase {
 
     assertReturnUnboxed(mainClass, "get");
     assertReturnUnboxed(mainClass, "forwardGet");
+
+    assertFirstParameterBoxed(mainClass, "directPrintNotUnbox");
   }
 
   static class Main {

@@ -22,7 +22,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class VirtualMethodsNumberUnboxingTest extends TestBase {
+public class StaticMethodsWideUnboxingNumberUnboxingTest extends TestBase {
 
   private final TestParameters parameters;
 
@@ -31,7 +31,7 @@ public class VirtualMethodsNumberUnboxingTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public VirtualMethodsNumberUnboxingTest(TestParameters parameters) {
+  public StaticMethodsWideUnboxingNumberUnboxingTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
@@ -46,101 +46,101 @@ public class VirtualMethodsNumberUnboxingTest extends TestBase {
         .compile()
         .inspect(this::assertUnboxing)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("32", "33", "42", "43", "51", "52", "2");
+        .assertSuccessWithOutputLines("32", "33", "42", "43", "52", "53", "2");
   }
 
-  private void assertFirstParameterUnboxed(ClassSubject mainClass, String methodName) {
+  private void assertSecondParameterUnboxed(ClassSubject mainClass, String methodName) {
     MethodSubject methodSubject = mainClass.uniqueMethodWithOriginalName(methodName);
     assertThat(methodSubject, isPresent());
-    assertTrue(methodSubject.getProgramMethod().getParameter(0).isIntType());
+    assertTrue(methodSubject.getProgramMethod().getParameter(1).isLongType());
   }
 
-  private void assertFirstParameterBoxed(ClassSubject mainClass, String methodName) {
+  private void assertSecondParameterBoxed(ClassSubject mainClass, String methodName) {
     MethodSubject methodSubject = mainClass.uniqueMethodWithOriginalName(methodName);
     assertThat(methodSubject, isPresent());
-    assertTrue(methodSubject.getProgramMethod().getParameter(0).isReferenceType());
+    assertTrue(methodSubject.getProgramMethod().getParameter(1).isReferenceType());
   }
 
   private void assertReturnUnboxed(ClassSubject mainClass, String methodName) {
     MethodSubject methodSubject = mainClass.uniqueMethodWithOriginalName(methodName);
     assertThat(methodSubject, isPresent());
-    assertTrue(methodSubject.getProgramMethod().getReturnType().isIntType());
+    assertTrue(methodSubject.getProgramMethod().getReturnType().isLongType());
   }
 
   private void assertUnboxing(CodeInspector codeInspector) {
     ClassSubject mainClass = codeInspector.clazz(Main.class);
     assertThat(mainClass, isPresent());
 
-    assertFirstParameterUnboxed(mainClass, "print");
-    assertFirstParameterUnboxed(mainClass, "forwardToPrint2");
-    assertFirstParameterUnboxed(mainClass, "directPrintUnbox");
-    assertFirstParameterUnboxed(mainClass, "forwardToPrint");
+    assertSecondParameterUnboxed(mainClass, "print");
+    assertSecondParameterUnboxed(mainClass, "forwardToPrint2");
+    assertSecondParameterUnboxed(mainClass, "directPrintUnbox");
+    assertSecondParameterUnboxed(mainClass, "forwardToPrint");
 
     assertReturnUnboxed(mainClass, "get");
     assertReturnUnboxed(mainClass, "forwardGet");
 
-    assertFirstParameterBoxed(mainClass, "directPrintNotUnbox");
+    assertSecondParameterBoxed(mainClass, "directPrintNotUnbox");
   }
 
   static class Main {
 
-    private static final Main MAIN = new Main();
-
     public static void main(String[] args) {
+      long shift = System.currentTimeMillis() > 0 ? 1L : 0L;
 
       // The number unboxer should immediately find this method is worth unboxing.
-      MAIN.directPrintUnbox(31);
-      MAIN.directPrintUnbox(32);
+      directPrintUnbox(shift, 31L);
+      directPrintUnbox(shift, 32L);
 
       // The number unboxer should find the chain of calls is worth unboxing.
-      MAIN.forwardToPrint(41);
-      MAIN.forwardToPrint(42);
+      forwardToPrint(shift, 41L);
+      forwardToPrint(shift, 42L);
 
       // The number unboxer should find this method is *not* worth unboxing.
-      Integer decode1 = Integer.decode("51");
+      Long decode1 = Long.decode("51");
       Objects.requireNonNull(decode1);
-      MAIN.directPrintNotUnbox(decode1);
-      Integer decode2 = Integer.decode("52");
+      directPrintNotUnbox(shift, decode1);
+      Long decode2 = Long.decode("52");
       Objects.requireNonNull(decode2);
-      MAIN.directPrintNotUnbox(decode2);
+      directPrintNotUnbox(shift, decode2);
 
       // The number unboxer should unbox the return values.
-      System.out.println(MAIN.forwardGet() + 1);
+      System.out.println(forwardGet() + 1);
     }
 
     @NeverInline
-    public Integer get() {
-      return System.currentTimeMillis() > 0 ? 1 : -1;
+    private static Long get() {
+      return System.currentTimeMillis() > 0 ? 1L : -1L;
     }
 
     @NeverInline
-    public Integer forwardGet() {
+    private static Long forwardGet() {
       return get();
     }
 
     @NeverInline
-    public void forwardToPrint(Integer boxed) {
-      forwardToPrint2(boxed);
+    private static void forwardToPrint(long shift, Long boxed) {
+      forwardToPrint2(shift, boxed);
     }
 
     @NeverInline
-    public void forwardToPrint2(Integer boxed) {
-      print(boxed);
+    private static void forwardToPrint2(long shift, Long boxed) {
+      print(shift, boxed);
     }
 
     @NeverInline
-    public void print(Integer boxed) {
-      System.out.println(boxed + 1);
+    private static void print(long shift, Long boxed) {
+      System.out.println(boxed + shift);
     }
 
     @NeverInline
-    public void directPrintUnbox(Integer boxed) {
-      System.out.println(boxed + 1);
+    private static void directPrintUnbox(long shift, Long boxed) {
+      System.out.println(boxed + shift);
     }
 
     @NeverInline
-    public void directPrintNotUnbox(Integer boxed) {
-      System.out.println(boxed);
+    private static void directPrintNotUnbox(long shift, Long boxed) {
+      Long newBox = Long.valueOf(boxed + shift);
+      System.out.println(newBox);
     }
   }
 }
