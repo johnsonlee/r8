@@ -327,7 +327,7 @@ val r8WithRelocatedDeps by registering(Exec::class) {
              "--map",
              "com.google.protobuf.**->com.android.tools.r8.com.google.protobuf",
              "--map",
-             "android.aapt.**->com.android.tools.r8.android.aaapt"
+             "android.aapt.**->com.android.tools.r8.android.aapt"
       ))
   }
 }
