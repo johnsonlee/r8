@@ -122,6 +122,7 @@ public class NumberUnboxerBoxingStatusResolution {
 
   public Map<DexMethod, MethodBoxingStatusResult> resolve(
       Map<DexMethod, MethodBoxingStatus> methodBoxingStatus) {
+    assert allProcessedAndUnboxable(methodBoxingStatus);
     List<DexMethod> methods = ListUtils.sort(methodBoxingStatus.keySet(), DexMethod::compareTo);
     for (DexMethod method : methods) {
       MethodBoxingStatus status = methodBoxingStatus.get(method);
@@ -151,6 +152,15 @@ public class NumberUnboxerBoxingStatusResolution {
     assert allProcessed();
     clearNoneUnboxable();
     return boxingStatusResultMap;
+  }
+
+  private boolean allProcessedAndUnboxable(Map<DexMethod, MethodBoxingStatus> methodBoxingStatus) {
+    methodBoxingStatus.forEach(
+        (k, v) -> {
+          assert !v.isNoneUnboxable() : v + " registered for " + k;
+          assert !v.isUnprocessedCandidate() : v + " registered for " + k;
+        });
+    return true;
   }
 
   private void clearNoneUnboxable() {

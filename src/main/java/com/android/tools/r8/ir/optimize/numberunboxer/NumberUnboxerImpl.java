@@ -4,11 +4,13 @@
 
 package com.android.tools.r8.ir.optimize.numberunboxer;
 
+import static com.android.tools.r8.ir.optimize.numberunboxer.MethodBoxingStatus.UNPROCESSED_CANDIDATE;
 import static com.android.tools.r8.ir.optimize.numberunboxer.NumberUnboxerBoxingStatusResolution.MethodBoxingStatusResult.BoxingStatusResult.UNBOX;
 import static com.android.tools.r8.ir.optimize.numberunboxer.ValueBoxingStatus.NOT_UNBOXABLE;
 
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -31,6 +33,7 @@ import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.DexMethodSignatureMap;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -48,9 +51,10 @@ public class NumberUnboxerImpl extends NumberUnboxer {
   private final DexItemFactory factory;
   private final Set<DexType> boxedTypes;
 
-  // Temporarily keep the information here, and not in the MethodOptimizationInfo as the
-  // optimization is developed and unfinished.
-  private final Map<DexMethod, MethodBoxingStatus> methodBoxingStatus = new ConcurrentHashMap<>();
+  // All candidate methods are initialized to UNPROCESSED_CANDIDATE (bottom) and methods not in
+  // this map are not subject to unboxing.
+  private final Map<DexMethod, MethodBoxingStatus> candidateBoxingStatus =
+      new ConcurrentHashMap<>();
   private Map<DexMethod, DexMethod> virtualMethodsRepresentative;
 
   public NumberUnboxerImpl(AppView<AppInfoWithLiveness> appView) {
@@ -89,22 +93,36 @@ public class NumberUnboxerImpl extends NumberUnboxer {
   // TODO(b/307872552): Do not store irrelevant representative.
   private Map<DexMethod, DexMethod> computeVirtualMethodRepresentative(
       Set<DexProgramClass> component) {
-    DexMethodSignatureMap<List<DexMethod>> componentVirtualMethods = DexMethodSignatureMap.create();
+    DexMethodSignatureMap<List<ProgramMethod>> componentVirtualMethods =
+        DexMethodSignatureMap.create();
     for (DexProgramClass clazz : component) {
       for (ProgramMethod virtualProgramMethod : clazz.virtualProgramMethods()) {
-        DexMethod reference = virtualProgramMethod.getReference();
-        List<DexMethod> set =
+        List<ProgramMethod> set =
             componentVirtualMethods.computeIfAbsent(virtualProgramMethod, k -> new ArrayList<>());
-        set.add(reference);
+        set.add(virtualProgramMethod);
+      }
+      for (ProgramMethod candidate : clazz.directProgramMethods()) {
+        if (shouldConsiderForUnboxing(candidate)) {
+          candidateBoxingStatus.put(candidate.getReference(), UNPROCESSED_CANDIDATE);
+        }
       }
     }
     Map<DexMethod, DexMethod> vMethodRepresentative = new IdentityHashMap<>();
-    for (List<DexMethod> vMethods : componentVirtualMethods.values()) {
+    for (List<ProgramMethod> vMethods : componentVirtualMethods.values()) {
       if (vMethods.size() > 1) {
-        vMethods.sort(Comparator.naturalOrder());
-        DexMethod representative = vMethods.get(0);
-        for (int i = 1; i < vMethods.size(); i++) {
-          vMethodRepresentative.put(vMethods.get(i), representative);
+        if (Iterables.all(vMethods, this::shouldConsiderForUnboxing)) {
+          vMethods.sort(Comparator.comparing(DexClassAndMember::getReference));
+          ProgramMethod representative = vMethods.get(0);
+          for (int i = 1; i < vMethods.size(); i++) {
+            vMethodRepresentative.put(
+                vMethods.get(i).getReference(), representative.getReference());
+          }
+        }
+      } else {
+        assert vMethods.size() == 1;
+        ProgramMethod candidate = vMethods.get(0);
+        if (shouldConsiderForUnboxing(candidate)) {
+          candidateBoxingStatus.put(candidate.getReference(), UNPROCESSED_CANDIDATE);
         }
       }
     }
@@ -113,8 +131,12 @@ public class NumberUnboxerImpl extends NumberUnboxer {
 
   private void registerMethodUnboxingStatusIfNeeded(
       ProgramMethod method, ValueBoxingStatus returnStatus, ValueBoxingStatus[] args) {
-    if (args == null && returnStatus == null) {
-      // We don't register anything if nothing unboxable was found.
+    DexMethod representative =
+        virtualMethodsRepresentative.getOrDefault(method.getReference(), method.getReference());
+    if (args == null && (returnStatus == null || returnStatus.isNotUnboxable())) {
+      // Effectively NOT_UNBOXABLE, remove the candidate.
+      // TODO(b/307872552): Do we need to remove at the end of the wave for determinism?
+      candidateBoxingStatus.remove(representative);
       return;
     }
     ValueBoxingStatus nonNullReturnStatus = returnStatus == null ? NOT_UNBOXABLE : returnStatus;
@@ -122,16 +144,13 @@ public class NumberUnboxerImpl extends NumberUnboxer {
         args == null ? ValueBoxingStatus.notUnboxableArray(method.getReference().getArity()) : args;
     MethodBoxingStatus unboxingStatus = MethodBoxingStatus.create(nonNullReturnStatus, nonNullArgs);
     assert !unboxingStatus.isNoneUnboxable();
-    DexMethod representative =
-        virtualMethodsRepresentative.getOrDefault(method.getReference(), method.getReference());
-    methodBoxingStatus.compute(
-        representative,
-        (m, old) -> {
-          if (old == null) {
-            return unboxingStatus;
-          }
-          return old.merge(unboxingStatus);
-        });
+    MethodBoxingStatus newStatus =
+        candidateBoxingStatus.computeIfPresent(
+            representative, (m, old) -> old.merge(unboxingStatus));
+    if (newStatus != null && newStatus.isNoneUnboxable()) {
+      // TODO(b/307872552): Do we need to remove at the end of the wave for determinism?
+      candidateBoxingStatus.remove(representative);
+    }
   }
 
   /**
@@ -150,6 +169,7 @@ public class NumberUnboxerImpl extends NumberUnboxer {
         if (unboxingStatus.mayBeUnboxable()) {
           if (args == null) {
             args = new ValueBoxingStatus[contextReference.getArity()];
+            Arrays.fill(args, NOT_UNBOXABLE);
           }
           args[next.asArgument().getIndex() - shift] = unboxingStatus;
         }
@@ -206,12 +226,25 @@ public class NumberUnboxerImpl extends NumberUnboxer {
   }
 
   private boolean shouldConsiderForUnboxing(Value value) {
+    return value.getType().isClassType()
+        && shouldConsiderForUnboxing(value.getType().asClassType().getClassType());
+  }
+
+  private boolean shouldConsiderForUnboxing(ProgramMethod method) {
+    if (appView.getKeepInfo().isPinned(method, appView.options())) {
+      return false;
+    }
+    return shouldConsiderForUnboxing(method.getReturnType())
+        || Iterables.any(method.getParameters(), this::shouldConsiderForUnboxing);
+  }
+
+  private boolean shouldConsiderForUnboxing(DexType type) {
     // TODO(b/307872552): So far we consider only boxed type value to unbox them into their
     // corresponding primitive type, for example, Integer -> int. It would be nice to support
     // the pattern checkCast(BoxType) followed by a boxing operation, so that for example when
     // we have MyClass<T> and T is proven to be an Integer, we can unbox into int.
-    return value.getType().isClassType()
-        && boxedTypes.contains(value.getType().asClassType().getClassType());
+    // Types to consider: Object, Serializable, Comparable, Number.
+    return boxedTypes.contains(type);
   }
 
   // Inputs are values flowing into a method return, an invoke argument or a field write.
@@ -222,7 +255,7 @@ public class NumberUnboxerImpl extends NumberUnboxer {
     DexType boxedType = inValue.getType().asClassType().getClassType();
     DexType primitiveType = factory.primitiveToBoxed.inverse().get(boxedType);
     DexMethod boxPrimitiveMethod = factory.getBoxPrimitiveMethod(primitiveType);
-    if (!inValue.isPhi()) {
+    if (!inValue.getAliasedValue().isPhi()) {
       Instruction definition = inValue.getAliasedValue().getDefinition();
       if (definition.isArgument()) {
         int shift = BooleanUtils.intValue(!context.getDefinition().isStatic());
@@ -307,7 +340,7 @@ public class NumberUnboxerImpl extends NumberUnboxer {
       ExecutorService executorService)
       throws ExecutionException {
     Map<DexMethod, MethodBoxingStatusResult> unboxingResult =
-        new NumberUnboxerBoxingStatusResolution().resolve(methodBoxingStatus);
+        new NumberUnboxerBoxingStatusResolution().resolve(candidateBoxingStatus);
     if (unboxingResult.isEmpty()) {
       return;
     }

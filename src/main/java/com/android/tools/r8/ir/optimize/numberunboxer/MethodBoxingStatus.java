@@ -9,12 +9,14 @@ import com.android.tools.r8.utils.ArrayUtils;
 public class MethodBoxingStatus {
 
   public static final MethodBoxingStatus NONE_UNBOXABLE = new MethodBoxingStatus(null, null);
+  public static final MethodBoxingStatus UNPROCESSED_CANDIDATE = new MethodBoxingStatus(null, null);
 
   private final ValueBoxingStatus returnStatus;
   private final ValueBoxingStatus[] argStatuses;
 
   public static MethodBoxingStatus create(
       ValueBoxingStatus returnStatus, ValueBoxingStatus[] argStatuses) {
+    assert !ArrayUtils.contains(argStatuses, null);
     if (returnStatus.isNotUnboxable()
         && ArrayUtils.all(argStatuses, ValueBoxingStatus.NOT_UNBOXABLE)) {
       return NONE_UNBOXABLE;
@@ -31,6 +33,12 @@ public class MethodBoxingStatus {
     if (isNoneUnboxable() || other.isNoneUnboxable()) {
       return NONE_UNBOXABLE;
     }
+    if (isUnprocessedCandidate()) {
+      return other;
+    }
+    if (other.isUnprocessedCandidate()) {
+      return this;
+    }
     assert argStatuses.length == other.argStatuses.length;
     ValueBoxingStatus[] newArgStatuses = new ValueBoxingStatus[argStatuses.length];
     for (int i = 0; i < other.argStatuses.length; i++) {
@@ -43,6 +51,10 @@ public class MethodBoxingStatus {
     return this == NONE_UNBOXABLE;
   }
 
+  public boolean isUnprocessedCandidate() {
+    return this == UNPROCESSED_CANDIDATE;
+  }
+
   public ValueBoxingStatus getReturnStatus() {
     assert !isNoneUnboxable();
     return returnStatus;
@@ -50,6 +62,7 @@ public class MethodBoxingStatus {
 
   public ValueBoxingStatus getArgStatus(int i) {
     assert !isNoneUnboxable();
+    assert argStatuses[i] != null;
     return argStatuses[i];
   }
 
@@ -62,7 +75,9 @@ public class MethodBoxingStatus {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("MethodBoxingStatus[");
-    if (this == NONE_UNBOXABLE) {
+    if (isUnprocessedCandidate()) {
+      sb.append("UNPROCESSED_CANDIDATE");
+    } else if (isNoneUnboxable()) {
       sb.append("NONE_UNBOXABLE");
     } else {
       for (int i = 0; i < argStatuses.length; i++) {
