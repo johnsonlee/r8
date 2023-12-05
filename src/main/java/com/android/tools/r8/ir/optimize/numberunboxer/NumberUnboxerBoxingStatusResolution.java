@@ -24,15 +24,16 @@ public class NumberUnboxerBoxingStatusResolution {
 
   // TODO(b/307872552): Add threshold to NumberUnboxing options.
   private static final int UNBOX_DELTA_THRESHOLD = 0;
+  private final Map<DexMethod, MethodBoxingStatus> methodBoxingStatus;
   private final Map<DexMethod, MethodBoxingStatusResult> boxingStatusResultMap =
       new IdentityHashMap<>();
 
-  static class MethodBoxingStatusResult {
+  public NumberUnboxerBoxingStatusResolution(
+      Map<DexMethod, MethodBoxingStatus> methodBoxingStatus) {
+    this.methodBoxingStatus = methodBoxingStatus;
+  }
 
-    public static MethodBoxingStatusResult createNonUnboxable(DexMethod method) {
-      // Replace by singleton.
-      return new MethodBoxingStatusResult(method, NO_UNBOX);
-    }
+  static class MethodBoxingStatusResult {
 
     public static MethodBoxingStatusResult create(DexMethod method) {
       return new MethodBoxingStatusResult(method, TO_PROCESS);
@@ -88,18 +89,18 @@ public class NumberUnboxerBoxingStatusResolution {
     }
   }
 
-  void markNoneUnboxable(DexMethod method) {
-    boxingStatusResultMap.put(method, MethodBoxingStatusResult.createNonUnboxable(method));
-  }
-
   private MethodBoxingStatusResult getMethodBoxingStatusResult(DexMethod method) {
+    assert methodBoxingStatus.containsKey(method);
     return boxingStatusResultMap.computeIfAbsent(method, MethodBoxingStatusResult::create);
   }
 
   BoxingStatusResult get(TransitiveDependency transitiveDependency) {
     assert transitiveDependency.isMethodDependency();
-    MethodBoxingStatusResult methodBoxingStatusResult =
-        getMethodBoxingStatusResult(transitiveDependency.asMethodDependency().getMethod());
+    DexMethod method = transitiveDependency.asMethodDependency().getMethod();
+    if (!methodBoxingStatus.containsKey(method)) {
+      return NO_UNBOX;
+    }
+    MethodBoxingStatusResult methodBoxingStatusResult = getMethodBoxingStatusResult(method);
     if (transitiveDependency.isMethodRet()) {
       return methodBoxingStatusResult.getRet();
     }
@@ -109,8 +110,14 @@ public class NumberUnboxerBoxingStatusResolution {
 
   void register(TransitiveDependency transitiveDependency, BoxingStatusResult boxingStatusResult) {
     assert transitiveDependency.isMethodDependency();
-    MethodBoxingStatusResult methodBoxingStatusResult =
-        getMethodBoxingStatusResult(transitiveDependency.asMethodDependency().getMethod());
+    DexMethod method = transitiveDependency.asMethodDependency().getMethod();
+    if (boxingStatusResult == NO_UNBOX) {
+      if (!methodBoxingStatus.containsKey(method)) {
+        // Nothing to unbox, nothing to register.
+        return;
+      }
+    }
+    MethodBoxingStatusResult methodBoxingStatusResult = getMethodBoxingStatusResult(method);
     if (transitiveDependency.isMethodRet()) {
       methodBoxingStatusResult.setRet(boxingStatusResult);
       return;
@@ -120,22 +127,18 @@ public class NumberUnboxerBoxingStatusResolution {
         boxingStatusResult, transitiveDependency.asMethodArg().getParameterIndex());
   }
 
-  public Map<DexMethod, MethodBoxingStatusResult> resolve(
-      Map<DexMethod, MethodBoxingStatus> methodBoxingStatus) {
+  public Map<DexMethod, MethodBoxingStatusResult> resolve() {
     assert allProcessedAndUnboxable(methodBoxingStatus);
     List<DexMethod> methods = ListUtils.sort(methodBoxingStatus.keySet(), DexMethod::compareTo);
     for (DexMethod method : methods) {
       MethodBoxingStatus status = methodBoxingStatus.get(method);
-      if (status.isNoneUnboxable()) {
-        markNoneUnboxable(method);
-        continue;
-      }
+      assert !status.isNoneUnboxable();
       MethodBoxingStatusResult methodBoxingStatusResult = getMethodBoxingStatusResult(method);
       if (status.getReturnStatus().isNotUnboxable()) {
         methodBoxingStatusResult.setRet(NO_UNBOX);
       } else {
         if (methodBoxingStatusResult.getRet() == TO_PROCESS) {
-          resolve(methodBoxingStatus, new MethodRet(method));
+          resolve(new MethodRet(method));
         }
       }
       for (int i = 0; i < status.getArgStatuses().length; i++) {
@@ -144,14 +147,23 @@ public class NumberUnboxerBoxingStatusResolution {
           methodBoxingStatusResult.setArg(NO_UNBOX, i);
         } else {
           if (methodBoxingStatusResult.getArg(i) == TO_PROCESS) {
-            resolve(methodBoxingStatus, new MethodArg(i, method));
+            resolve(new MethodArg(i, method));
           }
         }
       }
     }
+    assert noResultForNoneUnboxable();
     assert allProcessed();
     clearNoneUnboxable();
     return boxingStatusResultMap;
+  }
+
+  private boolean noResultForNoneUnboxable() {
+    boxingStatusResultMap.forEach(
+        (k, v) -> {
+          assert methodBoxingStatus.containsKey(k);
+        });
+    return true;
   }
 
   private boolean allProcessedAndUnboxable(Map<DexMethod, MethodBoxingStatus> methodBoxingStatus) {
@@ -178,11 +190,14 @@ public class NumberUnboxerBoxingStatusResolution {
     return true;
   }
 
-  private ValueBoxingStatus getValueBoxingStatus(
-      TransitiveDependency dep, Map<DexMethod, MethodBoxingStatus> methodBoxingStatus) {
+  private ValueBoxingStatus getValueBoxingStatus(TransitiveDependency dep) {
     // Later we will implement field dependencies.
     assert dep.isMethodDependency();
     MethodBoxingStatus status = methodBoxingStatus.get(dep.asMethodDependency().getMethod());
+    if (status == null) {
+      // Nothing was recorded because nothing was unboxable.
+      return ValueBoxingStatus.NOT_UNBOXABLE;
+    }
     if (dep.isMethodRet()) {
       return status.getReturnStatus();
     }
@@ -190,8 +205,7 @@ public class NumberUnboxerBoxingStatusResolution {
     return status.getArgStatus(dep.asMethodArg().getParameterIndex());
   }
 
-  private void resolve(
-      Map<DexMethod, MethodBoxingStatus> methodBoxingStatus, TransitiveDependency dep) {
+  private void resolve(TransitiveDependency dep) {
     WorkList<TransitiveDependency> workList = WorkList.newIdentityWorkList(dep);
     int delta = 0;
     while (workList.hasNext()) {
@@ -201,7 +215,7 @@ public class NumberUnboxerBoxingStatusResolution {
         delta++;
         continue;
       }
-      ValueBoxingStatus valueBoxingStatus = getValueBoxingStatus(next, methodBoxingStatus);
+      ValueBoxingStatus valueBoxingStatus = getValueBoxingStatus(next);
       if (boxingStatusResult == NO_UNBOX || valueBoxingStatus.isNotUnboxable()) {
         // TODO(b/307872552): Unbox when a non unboxable non null dependency is present.
         // If a dependency is not unboxable, we need to prove it's non-null, else we cannot unbox.

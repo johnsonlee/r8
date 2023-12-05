@@ -340,7 +340,7 @@ public class NumberUnboxerImpl extends NumberUnboxer {
       ExecutorService executorService)
       throws ExecutionException {
     Map<DexMethod, MethodBoxingStatusResult> unboxingResult =
-        new NumberUnboxerBoxingStatusResolution().resolve(candidateBoxingStatus);
+        new NumberUnboxerBoxingStatusResolution(candidateBoxingStatus).resolve();
     if (unboxingResult.isEmpty()) {
       return;
     }

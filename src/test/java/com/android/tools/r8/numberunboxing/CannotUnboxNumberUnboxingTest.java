@@ -45,7 +45,7 @@ public class CannotUnboxNumberUnboxingTest extends TestBase {
         .compile()
         .inspect(this::assertUnboxing)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("null", "2", "2", "1");
+        .assertSuccessWithOutputLines("null", "2", "2", "1", "null", "2", "1");
   }
 
   private void assertUnboxing(CodeInspector codeInspector) {
@@ -60,7 +60,36 @@ public class CannotUnboxNumberUnboxingTest extends TestBase {
   }
 
   static class Main {
+
     public static void main(String[] args) {
+      cannotUnboxPrint();
+      depsNonUnboxable();
+    }
+
+    @NeverInline
+    private static void depsNonUnboxable() {
+      try {
+        forward(null);
+      } catch (NullPointerException npe) {
+        System.out.println("null");
+      }
+      forward(1);
+      forward(0);
+    }
+
+    @NeverInline
+    private static void forward(Integer i) {
+      // Here print2 will get i as a deps which is non-unboxable.
+      print2(i);
+    }
+
+    @NeverInline
+    private static void print2(Integer boxed) {
+      System.out.println(boxed + 1);
+    }
+
+    @NeverInline
+    private static void cannotUnboxPrint() {
       try {
         print(System.currentTimeMillis() > 0 ? null : -1);
       } catch (NullPointerException npe) {
