@@ -187,6 +187,10 @@ public class KeepBindings {
       return this;
     }
 
+    public KeepItemPattern getItemForBinding(KeepBindingSymbol symbol) {
+      return bindings.get(symbol);
+    }
+
     @SuppressWarnings("ReferenceEquality")
     public KeepBindings build() {
       if (bindings.isEmpty()) {

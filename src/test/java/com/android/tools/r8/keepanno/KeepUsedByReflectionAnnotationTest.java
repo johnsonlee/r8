@@ -11,6 +11,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.keepanno.annotations.KeepCondition;
+import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -47,7 +48,7 @@ public class KeepUsedByReflectionAnnotationTest extends TestBase {
   }
 
   @Test
-  public void testWithRuleExtraction() throws Exception {
+  public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .enableExperimentalKeepAnnotations()
         .addProgramClasses(getInputClasses())
@@ -58,8 +59,29 @@ public class KeepUsedByReflectionAnnotationTest extends TestBase {
         .inspect(this::checkOutput);
   }
 
+  @Test
+  public void testNoRefReference() throws Exception {
+    testForRuntime(parameters)
+        .addProgramClasses(getInputClasses())
+        .run(parameters.getRuntime(), TestClassNoRef.class)
+        .assertSuccessWithOutput(EXPECTED);
+  }
+
+  @Test
+  public void testNoRefR8() throws Exception {
+    testForR8(parameters.getBackend())
+        .enableExperimentalKeepAnnotations()
+        .addProgramClasses(getInputClasses())
+        .addKeepMainRule(TestClassNoRef.class)
+        .allowUnusedProguardConfigurationRules()
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), TestClassNoRef.class)
+        .assertSuccessWithOutput(EXPECTED)
+        .inspect(this::checkOutputNoRef);
+  }
+
   public List<Class<?>> getInputClasses() {
-    return ImmutableList.of(TestClass.class, A.class, B.class, C.class);
+    return ImmutableList.of(TestClass.class, TestClassNoRef.class, A.class, B.class, C.class);
   }
 
   private void checkOutput(CodeInspector inspector) {
@@ -70,8 +92,17 @@ public class KeepUsedByReflectionAnnotationTest extends TestBase {
     assertThat(inspector.clazz(B.class).method("void", "bar", "int"), isAbsent());
   }
 
+  private void checkOutputNoRef(CodeInspector inspector) {
+    // A remains as it has an unconditional keep annotation.
+    assertThat(inspector.clazz(A.class), isPresent());
+    // B should be inlined and eliminated since A.foo is not live and its keep annotation inactive.
+    assertThat(inspector.clazz(B.class), isAbsent());
+    assertThat(inspector.clazz(C.class), isAbsent());
+  }
+
   @UsedByReflection(
-      description = "Ensure that the class A remains as we are assuming the contents of its name.")
+      description = "Ensure that A remains valid for lookup as we compute B's name from it.",
+      constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME})
   static class A {
 
     public void foo() throws Exception {
@@ -86,7 +117,9 @@ public class KeepUsedByReflectionAnnotationTest extends TestBase {
         // Only if A.foo is live do we need to keep this.
         preconditions = {@KeepCondition(classConstant = A.class, methodName = "foo")},
         // Both the class and method are reflectively accessed.
-        kind = KeepItemKind.CLASS_AND_MEMBERS)
+        kind = KeepItemKind.CLASS_AND_METHODS,
+        // Both the class and method need to be looked up. Since static, only the method is invoked.
+        constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.METHOD_INVOKE})
     public static void bar() {
       System.out.println("Hello, world");
     }
@@ -104,6 +137,13 @@ public class KeepUsedByReflectionAnnotationTest extends TestBase {
 
     public static void main(String[] args) throws Exception {
       new A().foo();
+    }
+  }
+
+  static class TestClassNoRef {
+
+    public static void main(String[] args) throws Exception {
+      B.bar();
     }
   }
 }

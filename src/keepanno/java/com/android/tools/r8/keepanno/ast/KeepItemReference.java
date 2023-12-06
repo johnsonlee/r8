@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import java.util.function.Function;
+
 /**
  * A reference to an item pattern.
  *
@@ -60,5 +62,14 @@ public abstract class KeepItemReference {
 
   public KeepMemberItemPattern asMemberItemPattern() {
     return null;
+  }
+
+  public <T> T match(
+      Function<KeepBindingReference, T> onBinding, Function<KeepItemPattern, T> onItem) {
+    if (isBindingReference()) {
+      return onBinding.apply(asBindingReference());
+    }
+    assert isItemPattern();
+    return onItem.apply(asItemPattern());
   }
 }

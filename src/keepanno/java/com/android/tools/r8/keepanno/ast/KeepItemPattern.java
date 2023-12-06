@@ -4,6 +4,7 @@
 package com.android.tools.r8.keepanno.ast;
 
 import java.util.Collection;
+import java.util.function.Function;
 
 /**
  * A pattern for matching items in the program.
@@ -44,5 +45,14 @@ public abstract class KeepItemPattern {
   public abstract Collection<KeepBindingReference> getBindingReferences();
 
   public abstract KeepItemReference toItemReference();
+
+  public <T> T match(
+      Function<KeepClassItemPattern, T> onClass, Function<KeepMemberItemPattern, T> onMember) {
+    if (isClassItemPattern()) {
+      return onClass.apply(asClassItemPattern());
+    }
+    assert isMemberItemPattern();
+    return onMember.apply(asMemberItemPattern());
+  }
 }
 

@@ -89,6 +89,24 @@ public class KeepEdgeReader implements Opcodes {
         KeepQualifiedClassNamePattern.exact(className));
   }
 
+  private static KeepOptions getKeepOptionsOrDefault(KeepOptions options) {
+    // TODO(b/248408342): These should be constraints computed/filtered based on the item type but
+    //   currently the constraints default to the same set of options.
+    if (options != null) {
+      return options;
+    }
+    return KeepOptions.disallowBuilder()
+        // LOOKUP (same for any type of item).
+        .add(KeepOption.SHRINKING)
+        // NAME (same for any type of item).
+        .add(KeepOption.OBFUSCATING)
+        // CLASS_INSTANTIATE / METHOD_INVOKE / FIELD_GET & FIELD_SET:
+        .add(KeepOption.OPTIMIZING)
+        .add(KeepOption.ACCESS_MODIFICATION)
+        // ACCESS_ALLOW - currently no options needed.
+        .build();
+  }
+
   /** Internal copy of the user-facing KeepItemKind */
   public enum ItemKind {
     ONLY_CLASS,
@@ -445,6 +463,10 @@ public class KeepEdgeReader implements Opcodes {
       return symbol;
     }
 
+    public KeepItemPattern getItemForBinding(KeepBindingReference bindingReference) {
+      return builder.getItemForBinding(bindingReference.getName());
+    }
+
     public KeepBindings build() {
       return builder.build();
     }
@@ -684,6 +706,7 @@ public class KeepEdgeReader implements Opcodes {
     private final KeepConsequences.Builder consequences = KeepConsequences.builder();
     private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
+    private final OptionsDeclaration optionsDeclaration;
 
     UsedByReflectionClassVisitor(
         String annotationDescriptor,
@@ -696,6 +719,7 @@ public class KeepEdgeReader implements Opcodes {
       addContext.accept(metaInfoBuilder);
       // The class context/holder is the annotated class.
       visit(Item.className, className);
+      optionsDeclaration = new OptionsDeclaration(getAnnotationName());
     }
 
     @Override
@@ -732,6 +756,10 @@ public class KeepEdgeReader implements Opcodes {
             },
             bindingsHelper);
       }
+      AnnotationVisitor visitor = optionsDeclaration.tryParseArray(name, v -> {});
+      if (visitor != null) {
+        return visitor;
+      }
       return super.visitArray(name);
     }
 
@@ -766,7 +794,11 @@ public class KeepEdgeReader implements Opcodes {
           throw new KeepEdgeException(
               "@" + getAnnotationName() + " cannot define an 'extends' pattern.");
         }
-        consequences.addTarget(KeepTarget.builder().setItemPattern(itemPattern).build());
+        consequences.addTarget(
+            KeepTarget.builder()
+                .setItemPattern(itemPattern)
+                .setOptions(getKeepOptionsOrDefault(optionsDeclaration.getValue()))
+                .build());
       }
       parent.accept(
           builder
@@ -791,6 +823,7 @@ public class KeepEdgeReader implements Opcodes {
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
     private final KeepConsequences.Builder consequences = KeepConsequences.builder();
     private ItemKind kind = KeepEdgeReader.ItemKind.ONLY_MEMBERS;
+    private final OptionsDeclaration optionsDeclaration;
 
     UsedByReflectionMemberVisitor(
         String annotationDescriptor,
@@ -801,6 +834,7 @@ public class KeepEdgeReader implements Opcodes {
       this.parent = parent;
       this.context = context;
       addContext.accept(metaInfoBuilder);
+      optionsDeclaration = new OptionsDeclaration(getAnnotationName());
     }
 
     @Override
@@ -845,6 +879,10 @@ public class KeepEdgeReader implements Opcodes {
             },
             bindingsHelper);
       }
+      AnnotationVisitor visitor = optionsDeclaration.tryParseArray(name, v -> {});
+      if (visitor != null) {
+        return visitor;
+      }
       return super.visitArray(name);
     }
 
@@ -860,7 +898,11 @@ public class KeepEdgeReader implements Opcodes {
             KeepTarget.builder().setItemReference(memberContext.getClassReference()).build());
       }
       validateConsistentKind(memberContext.getMemberPattern());
-      consequences.addTarget(KeepTarget.builder().setItemPattern(context).build());
+      consequences.addTarget(
+          KeepTarget.builder()
+              .setOptions(getKeepOptionsOrDefault(optionsDeclaration.getValue()))
+              .setItemPattern(context)
+              .build());
       parent.accept(
           builder
               .setMetaInfo(metaInfoBuilder.build())
@@ -1896,7 +1938,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     KeepOptions getDefaultValue() {
-      return KeepOptions.keepAll();
+      return null;
     }
 
     @Override
@@ -1954,7 +1996,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitArray(String name) {
-      AnnotationVisitor visitor = optionsDeclaration.tryParseArray(name, builder::setOptions);
+      AnnotationVisitor visitor = optionsDeclaration.tryParseArray(name, v -> {});
       if (visitor != null) {
         return visitor;
       }
@@ -1964,6 +2006,7 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public void visitEnd() {
       super.visitEnd();
+      builder.setOptions(getKeepOptionsOrDefault(optionsDeclaration.getValue()));
       for (KeepItemReference item : getItemsWithBinding()) {
         parent.accept(builder.setItemReference(item).build());
       }

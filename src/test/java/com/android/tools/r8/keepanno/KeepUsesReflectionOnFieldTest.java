@@ -11,6 +11,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -86,7 +87,8 @@ public class KeepUsesReflectionOnFieldTest extends TestBase {
         value = {
           @KeepTarget(
               className = "com.android.tools.r8.keepanno.KeepUsesReflectionOnFieldTest$A",
-              fieldType = "java.lang.String")
+              fieldType = "java.lang.String",
+              constraints = {KeepConstraint.LOOKUP, KeepConstraint.FIELD_GET})
         })
     public void foo() throws Exception {
       for (Field field : getClass().getDeclaredFields()) {
