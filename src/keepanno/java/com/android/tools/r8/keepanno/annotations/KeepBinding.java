@@ -46,11 +46,21 @@ public @interface KeepBinding {
    * <ul>
    *   <li>ONLY_CLASS
    *   <li>ONLY_MEMBERS
+   *   <li>ONLY_METHODS
+   *   <li>ONLY_FIELDS
    *   <li>CLASS_AND_MEMBERS
+   *   <li>CLASS_AND_METHODS
+   *   <li>CLASS_AND_FIELDS
    * </ul>
    *
-   * <p>If unspecified the default for an item with no member patterns is ONLY_CLASS and if it does
-   * have member patterns the default is ONLY_MEMBERS
+   * <p>If unspecified the default for an item depends on its member patterns:
+   *
+   * <ul>
+   *   <li>ONLY_CLASS if no member patterns are defined
+   *   <li>ONLY_METHODS if method patterns are defined
+   *   <li>ONLY_FIELDS if field patterns are defined
+   *   <li>ONLY_MEMBERS otherwise.
+   * </ul>
    *
    * @return The kind for this pattern.
    */

@@ -7,6 +7,7 @@ import com.android.tools.r8.keepanno.ast.AccessVisibility;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Binding;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Condition;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.Constraints;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Edge;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.FieldAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.ForApi;
@@ -86,6 +87,84 @@ public class KeepEdgeReader implements Opcodes {
   private static KeepClassItemReference classReferenceFromName(String className) {
     return KeepClassItemReference.fromClassNamePattern(
         KeepQualifiedClassNamePattern.exact(className));
+  }
+
+  /** Internal copy of the user-facing KeepItemKind */
+  public enum ItemKind {
+    ONLY_CLASS,
+    ONLY_MEMBERS,
+    ONLY_METHODS,
+    ONLY_FIELDS,
+    CLASS_AND_MEMBERS,
+    CLASS_AND_METHODS,
+    CLASS_AND_FIELDS;
+
+    private static ItemKind fromString(String name) {
+      switch (name) {
+        case Kind.ONLY_CLASS:
+          return ONLY_CLASS;
+        case Kind.ONLY_MEMBERS:
+          return ONLY_MEMBERS;
+        case Kind.ONLY_METHODS:
+          return ONLY_METHODS;
+        case Kind.ONLY_FIELDS:
+          return ONLY_FIELDS;
+        case Kind.CLASS_AND_MEMBERS:
+          return CLASS_AND_MEMBERS;
+        case Kind.CLASS_AND_METHODS:
+          return CLASS_AND_METHODS;
+        case Kind.CLASS_AND_FIELDS:
+          return CLASS_AND_FIELDS;
+        default:
+          return null;
+      }
+    }
+
+    private boolean isOnlyClass() {
+      return equals(ONLY_CLASS);
+    }
+
+    private boolean requiresMembers() {
+      // If requiring members it is fine to have the more specific methods or fields.
+      return includesMembers();
+    }
+
+    private boolean requiresMethods() {
+      return equals(ONLY_METHODS) || equals(CLASS_AND_METHODS);
+    }
+
+    private boolean requiresFields() {
+      return equals(ONLY_FIELDS) || equals(CLASS_AND_FIELDS);
+    }
+
+    private boolean includesClassAndMembers() {
+      return includesClass() && includesMembers();
+    }
+
+    private boolean includesClass() {
+      return equals(ONLY_CLASS)
+          || equals(CLASS_AND_MEMBERS)
+          || equals(CLASS_AND_METHODS)
+          || equals(CLASS_AND_FIELDS);
+    }
+
+    private boolean includesMembers() {
+      return !equals(ONLY_CLASS);
+    }
+
+    private boolean includesMethod() {
+      return equals(ONLY_MEMBERS)
+          || equals(ONLY_METHODS)
+          || equals(CLASS_AND_MEMBERS)
+          || equals(CLASS_AND_METHODS);
+    }
+
+    private boolean includesField() {
+      return equals(ONLY_MEMBERS)
+          || equals(ONLY_FIELDS)
+          || equals(CLASS_AND_MEMBERS)
+          || equals(CLASS_AND_FIELDS);
+    }
   }
 
   private static class KeepEdgeClassVisitor extends ClassVisitor {
@@ -479,7 +558,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnd() {
-      if (!getKind().equals(Kind.ONLY_CLASS) && isDefaultMemberDeclaration()) {
+      if (!getKind().isOnlyClass() && isDefaultMemberDeclaration()) {
         // If no member declarations have been made, set public & protected as the default.
         AnnotationVisitor v = visitArray(Item.memberAccess);
         v.visitEnum(null, MemberAccess.DESCRIPTOR, MemberAccess.PUBLIC);
@@ -711,7 +790,7 @@ public class KeepEdgeReader implements Opcodes {
     private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
     private final KeepConsequences.Builder consequences = KeepConsequences.builder();
-    private String kind = Kind.ONLY_MEMBERS;
+    private ItemKind kind = KeepEdgeReader.ItemKind.ONLY_MEMBERS;
 
     UsedByReflectionMemberVisitor(
         String annotationDescriptor,
@@ -744,14 +823,11 @@ public class KeepEdgeReader implements Opcodes {
       if (!descriptor.equals(AnnotationConstants.Kind.DESCRIPTOR)) {
         super.visitEnum(name, descriptor, value);
       }
-      switch (value) {
-        case Kind.ONLY_CLASS:
-        case Kind.ONLY_MEMBERS:
-        case Kind.CLASS_AND_MEMBERS:
-          kind = value;
-          break;
-        default:
-          super.visitEnum(name, descriptor, value);
+      KeepEdgeReader.ItemKind kind = KeepEdgeReader.ItemKind.fromString(value);
+      if (kind != null) {
+        this.kind = kind;
+      } else {
+        super.visitEnum(name, descriptor, value);
       }
     }
 
@@ -774,15 +850,16 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnd() {
-      if (Kind.ONLY_CLASS.equals(kind)) {
+      if (kind.isOnlyClass()) {
         throw new KeepEdgeException("@" + getAnnotationName() + " kind must include its member");
       }
       assert context.isMemberItemPattern();
       KeepMemberItemPattern memberContext = context.asMemberItemPattern();
-      if (Kind.CLASS_AND_MEMBERS.equals(kind)) {
+      if (kind.includesClass()) {
         consequences.addTarget(
             KeepTarget.builder().setItemReference(memberContext.getClassReference()).build());
       }
+      validateConsistentKind(memberContext.getMemberPattern());
       consequences.addTarget(KeepTarget.builder().setItemPattern(context).build());
       parent.accept(
           builder
@@ -790,6 +867,18 @@ public class KeepEdgeReader implements Opcodes {
               .setBindings(bindingsHelper.build())
               .setConsequences(consequences.build())
               .build());
+    }
+
+    private void validateConsistentKind(KeepMemberPattern memberPattern) {
+      if (memberPattern.isGeneralMember()) {
+        throw new KeepEdgeException("Unexpected general pattern for context.");
+      }
+      if (memberPattern.isMethod() && !kind.includesMethod()) {
+        throw new KeepEdgeException("Kind " + kind + " cannot be use when annotating a method");
+      }
+      if (memberPattern.isField() && !kind.includesField()) {
+        throw new KeepEdgeException("Kind " + kind + " cannot be use when annotating a field");
+      }
     }
   }
 
@@ -1488,7 +1577,7 @@ public class KeepEdgeReader implements Opcodes {
 
   private abstract static class KeepItemVisitorBase extends AnnotationVisitorBase {
     private String memberBindingReference = null;
-    private String kind = null;
+    private ItemKind kind = null;
     private final ClassDeclaration classDeclaration = new ClassDeclaration(this::getBindingsHelper);
     private final MemberDeclaration memberDeclaration;
 
@@ -1505,8 +1594,14 @@ public class KeepEdgeReader implements Opcodes {
       if (itemReference == null) {
         throw new KeepEdgeException("Item reference not finalized. Missing call to visitEnd()");
       }
-      if (Kind.CLASS_AND_MEMBERS.equals(kind)) {
-        // If kind is set then visitEnd ensures that this cannot be a binding reference.
+      if (itemReference.isBindingReference()) {
+        return Collections.singletonList(itemReference);
+      }
+      // Kind is only null if item is a "binding reference".
+      if (kind == null) {
+        throw new KeepEdgeException("Unexpected state: unknown kind for an item pattern");
+      }
+      if (kind.includesClassAndMembers()) {
         assert !itemReference.isBindingReference();
         KeepItemPattern itemPattern = itemReference.asItemPattern();
         KeepClassItemReference classReference;
@@ -1536,8 +1631,10 @@ public class KeepEdgeReader implements Opcodes {
         return Collections.singletonList(itemReference);
       }
       // Kind is only null if item is a "binding reference".
-      assert kind != null;
-      if (Kind.CLASS_AND_MEMBERS.equals(kind)) {
+      if (kind == null) {
+        throw new KeepEdgeException("Unexpected state: unknown kind for an item pattern");
+      }
+      if (kind.includesClassAndMembers()) {
         KeepItemPattern itemPattern = itemReference.asItemPattern();
         // Ensure we have a member item linked to the correct class.
         KeepMemberItemPattern memberItemPattern;
@@ -1577,7 +1674,7 @@ public class KeepEdgeReader implements Opcodes {
       return itemReference;
     }
 
-    public String getKind() {
+    public ItemKind getKind() {
       return kind;
     }
 
@@ -1590,14 +1687,11 @@ public class KeepEdgeReader implements Opcodes {
       if (!descriptor.equals(AnnotationConstants.Kind.DESCRIPTOR)) {
         super.visitEnum(name, descriptor, value);
       }
-      switch (value) {
-        case Kind.ONLY_CLASS:
-        case Kind.ONLY_MEMBERS:
-        case Kind.CLASS_AND_MEMBERS:
-          kind = value;
-          break;
-        default:
-          super.visitEnum(name, descriptor, value);
+      ItemKind kind = ItemKind.fromString(value);
+      if (kind != null) {
+        this.kind = kind;
+      } else {
+        super.visitEnum(name, descriptor, value);
       }
     }
 
@@ -1636,20 +1730,73 @@ public class KeepEdgeReader implements Opcodes {
         itemReference = KeepBindingReference.forMember(symbol).toItemReference();
       } else {
         KeepMemberPattern memberPattern = memberDeclaration.getValue();
-        // If the kind is not set (default) then the content of the members determines the kind.
+        // If no explicit kind is set, extract it based on the member pattern.
         if (kind == null) {
-          kind = memberPattern.isNone() ? Kind.ONLY_CLASS : Kind.ONLY_MEMBERS;
+          if (memberPattern.isMethod()) {
+            kind = ItemKind.ONLY_METHODS;
+          } else if (memberPattern.isField()) {
+            kind = ItemKind.ONLY_FIELDS;
+          } else if (memberPattern.isGeneralMember()) {
+            kind = ItemKind.ONLY_MEMBERS;
+          } else {
+            assert memberPattern.isNone();
+            kind = ItemKind.ONLY_CLASS;
+          }
+        }
+
+        if (kind.isOnlyClass() && !memberPattern.isNone()) {
+          throw new KeepEdgeException("Item pattern for members is incompatible with kind " + kind);
+        }
+
+        // Refine the member pattern to be as precise as the specified kind.
+        if (kind.requiresMethods() && !memberPattern.isMethod()) {
+          if (memberPattern.isGeneralMember()) {
+            memberPattern =
+                KeepMethodPattern.builder()
+                    .setAccessPattern(
+                        KeepMethodAccessPattern.builder()
+                            .copyOfMemberAccess(memberPattern.getAccessPattern())
+                            .build())
+                    .build();
+          } else if (memberPattern.isNone()) {
+            memberPattern = KeepMethodPattern.allMethods();
+          } else {
+            assert memberPattern.isField();
+            throw new KeepEdgeException(
+                "Item pattern for fields is incompatible with kind " + kind);
+          }
+        }
+
+        if (kind.requiresFields() && !memberPattern.isField()) {
+          if (memberPattern.isGeneralMember()) {
+            memberPattern =
+                KeepFieldPattern.builder()
+                    .setAccessPattern(
+                        KeepFieldAccessPattern.builder()
+                            .copyOfMemberAccess(memberPattern.getAccessPattern())
+                            .build())
+                    .build();
+          } else if (memberPattern.isNone()) {
+            memberPattern = KeepFieldPattern.allFields();
+          } else {
+            assert memberPattern.isMethod();
+            throw new KeepEdgeException(
+                "Item pattern for methods is incompatible with kind " + kind);
+          }
+        }
+
+        if (kind.requiresMembers() && memberPattern.isNone()) {
+          memberPattern = KeepMemberPattern.allMembers();
         }
 
         KeepClassItemReference classReference = classDeclaration.getValue();
-        if (kind.equals(Kind.ONLY_CLASS)) {
+        if (kind.isOnlyClass()) {
           itemReference = classReference;
         } else {
           KeepItemPattern itemPattern =
               KeepMemberItemPattern.builder()
                   .setClassReference(classReference)
-                  .setMemberPattern(
-                      memberPattern.isNone() ? KeepMemberPattern.allMembers() : memberPattern)
+                  .setMemberPattern(memberPattern)
                   .build();
           itemReference = itemPattern.toItemReference();
         }
@@ -1759,6 +1906,11 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     AnnotationVisitor parseArray(String name, Consumer<KeepOptions> setValue) {
+      if (name.equals(AnnotationConstants.Target.constraints)) {
+        return new KeepConstraintsVisitor(
+            annotationName,
+            options -> setValue.accept(KeepOptions.disallowBuilder().addAll(options).build()));
+      }
       if (name.equals(AnnotationConstants.Target.disallow)) {
         return new KeepOptionsVisitor(
             annotationName,
@@ -1842,6 +1994,74 @@ public class KeepEdgeReader implements Opcodes {
     public void visitEnd() {
       super.visitEnd();
       parent.accept(KeepCondition.builder().setItemReference(getItemReference()).build());
+    }
+  }
+
+  private static class KeepConstraintsVisitor extends AnnotationVisitorBase {
+
+    private final String annotationName;
+    private final Parent<Collection<KeepOption>> parent;
+    private final Set<KeepOption> options = new HashSet<>();
+
+    public KeepConstraintsVisitor(String annotationName, Parent<Collection<KeepOption>> parent) {
+      this.annotationName = annotationName;
+      this.parent = parent;
+    }
+
+    @Override
+    public String getAnnotationName() {
+      return annotationName;
+    }
+
+    @Override
+    public void visitEnum(String ignore, String descriptor, String value) {
+      if (!descriptor.equals(AnnotationConstants.Constraints.DESCRIPTOR)) {
+        super.visitEnum(ignore, descriptor, value);
+      }
+      switch (value) {
+        case Constraints.LOOKUP:
+          options.add(KeepOption.SHRINKING);
+          break;
+        case Constraints.NAME:
+          options.add(KeepOption.OBFUSCATING);
+          break;
+        case Constraints.VISIBILITY_RELAX:
+          // The compiler currently satisfies that access is never restricted.
+          break;
+        case Constraints.VISIBILITY_RESTRICT:
+          // We don't have directional rules so this prohibits any modification.
+          options.add(KeepOption.ACCESS_MODIFICATION);
+          break;
+        case Constraints.CLASS_INSTANTIATE:
+        case Constraints.METHOD_INVOKE:
+        case Constraints.FIELD_GET:
+        case Constraints.FIELD_SET:
+          // These options are the item-specific actual uses of the items.
+          // Allocating, invoking and read/writing all imply that the item cannot be "optimized"
+          // at compile time. It would be natural to refine the field specific uses but that is
+          // not expressible as keep options.
+          options.add(KeepOption.OPTIMIZING);
+          break;
+        case Constraints.METHOD_REPLACE:
+        case Constraints.FIELD_REPLACE:
+        case Constraints.NEVER_INLINE:
+        case Constraints.CLASS_OPEN_HIERARCHY:
+          options.add(KeepOption.OPTIMIZING);
+          break;
+        case Constraints.ANNOTATIONS:
+          // The annotation constrain only implies that annotations should remain, no restrictions
+          // are on the item otherwise.
+          options.add(KeepOption.ANNOTATION_REMOVAL);
+          break;
+        default:
+          super.visitEnum(ignore, descriptor, value);
+      }
+    }
+
+    @Override
+    public void visitEnd() {
+      parent.accept(options);
+      super.visitEnd();
     }
   }
 

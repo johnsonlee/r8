@@ -77,8 +77,7 @@ public class KeepEdgeAstTest extends TestBase {
                     .build())
             .build();
     // Disallow will issue the full inverse of the known options, e.g., 'allowaccessmodification'.
-    List<String> options =
-        ImmutableList.of("shrinking", "obfuscation", "accessmodification", "annotationremoval");
+    List<String> options = ImmutableList.of("shrinking", "obfuscation", "accessmodification");
     String allows = String.join(",allow", options);
     // The "any" item will be split in two rules, one for the targeted types and one for the
     // targeted members.

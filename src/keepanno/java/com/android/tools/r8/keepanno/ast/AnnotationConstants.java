@@ -111,6 +111,7 @@ public final class AnnotationConstants {
     public static final String DESCRIPTOR =
         "Lcom/android/tools/r8/keepanno/annotations/KeepTarget;";
     public static final String kind = "kind";
+    public static final String constraints = "constraints";
     public static final String allow = "allow";
     public static final String disallow = "disallow";
   }
@@ -121,7 +122,30 @@ public final class AnnotationConstants {
         "Lcom/android/tools/r8/keepanno/annotations/KeepItemKind;";
     public static final String ONLY_CLASS = "ONLY_CLASS";
     public static final String ONLY_MEMBERS = "ONLY_MEMBERS";
+    public static final String ONLY_METHODS = "ONLY_METHODS";
+    public static final String ONLY_FIELDS = "ONLY_FIELDS";
     public static final String CLASS_AND_MEMBERS = "CLASS_AND_MEMBERS";
+    public static final String CLASS_AND_METHODS = "CLASS_AND_METHODS";
+    public static final String CLASS_AND_FIELDS = "CLASS_AND_FIELDS";
+  }
+
+  public static final class Constraints {
+    public static final String SIMPLE_NAME = "KeepConstraint";
+    public static final String DESCRIPTOR =
+        "Lcom/android/tools/r8/keepanno/annotations/KeepConstraint;";
+    public static final String LOOKUP = "LOOKUP";
+    public static final String NAME = "NAME";
+    public static final String VISIBILITY_RELAX = "VISIBILITY_RELAX";
+    public static final String VISIBILITY_RESTRICT = "VISIBILITY_RESTRICT";
+    public static final String CLASS_INSTANTIATE = "CLASS_INSTANTIATE";
+    public static final String METHOD_INVOKE = "METHOD_INVOKE";
+    public static final String FIELD_GET = "FIELD_GET";
+    public static final String FIELD_SET = "FIELD_SET";
+    public static final String METHOD_REPLACE = "METHOD_REPLACE";
+    public static final String FIELD_REPLACE = "FIELD_REPLACE";
+    public static final String NEVER_INLINE = "NEVER_INLINE";
+    public static final String CLASS_OPEN_HIERARCHY = "CLASS_OPEN_HIERARCHY";
+    public static final String ANNOTATIONS = "ANNOTATIONS";
   }
 
   public static final class Option {

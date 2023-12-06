@@ -7,11 +7,16 @@ package com.android.tools.r8.keepanno.utils;
 import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.quote;
 
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepBinding;
 import com.android.tools.r8.keepanno.annotations.KeepCondition;
+import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepEdge;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
+import com.android.tools.r8.keepanno.annotations.MemberAccessFlags;
+import com.android.tools.r8.keepanno.annotations.MethodAccessFlags;
 import com.android.tools.r8.keepanno.annotations.UsedByNative;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
@@ -22,6 +27,8 @@ import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -69,6 +76,7 @@ public class KeepAnnoMarkdownGenerator {
     this.generator = generator;
     typeLinkReplacements =
         getTypeLinkReplacements(
+            // Annotations.
             KeepEdge.class,
             KeepBinding.class,
             KeepTarget.class,
@@ -76,7 +84,13 @@ public class KeepAnnoMarkdownGenerator {
             UsesReflection.class,
             UsedByReflection.class,
             UsedByNative.class,
-            KeepForApi.class);
+            KeepForApi.class,
+            // Enums.
+            KeepConstraint.class,
+            KeepItemKind.class,
+            MemberAccessFlags.class,
+            MethodAccessFlags.class,
+            FieldAccessFlags.class);
     populateCodeAndDocReplacements(
         UsesReflectionDocumentationTest.class, MainMethodsDocumentationTest.class);
   }
@@ -84,7 +98,22 @@ public class KeepAnnoMarkdownGenerator {
   private Map<String, String> getTypeLinkReplacements(Class<?>... classes) {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     for (Class<?> clazz : classes) {
-      builder.put("`@" + clazz.getSimpleName() + "`", getMdLink(clazz));
+      String prefix = "`@" + clazz.getSimpleName();
+      String suffix = "`";
+      if (clazz.isAnnotation()) {
+        builder.put(prefix + suffix, getMdAnnotationLink(clazz));
+        for (Method method : clazz.getDeclaredMethods()) {
+          builder.put(
+              prefix + "#" + method.getName() + suffix, getMdAnnotationPropertyLink(method));
+        }
+      } else if (clazz.isEnum()) {
+        builder.put(prefix + suffix, getMdEnumLink(clazz));
+        for (Field field : clazz.getDeclaredFields()) {
+          builder.put(prefix + "#" + field.getName() + suffix, getMdEnumFieldLink(field));
+        }
+      } else {
+        throw new RuntimeException("Unexpected type of class for doc links");
+      }
     }
     return builder.build();
   }
@@ -128,9 +157,30 @@ public class KeepAnnoMarkdownGenerator {
     }
   }
 
-  private String getMdLink(Class<?> clazz) {
-    String url = JAVADOC_URL + clazz.getTypeName().replace('.', '/') + ".html";
-    return "[@" + clazz.getSimpleName() + "](" + url + ")";
+  private static String getClassJavaDocUrl(Class<?> clazz) {
+    return JAVADOC_URL + clazz.getTypeName().replace('.', '/') + ".html";
+  }
+
+  private String getMdAnnotationLink(Class<?> clazz) {
+    return "[@" + clazz.getSimpleName() + "](" + getClassJavaDocUrl(clazz) + ")";
+  }
+
+  private String getMdAnnotationPropertyLink(Method method) {
+    Class<?> clazz = method.getDeclaringClass();
+    String methodName = method.getName();
+    String url = getClassJavaDocUrl(clazz) + "#" + methodName + "()";
+    return "[@" + clazz.getSimpleName() + "." + methodName + "](" + url + ")";
+  }
+
+  private String getMdEnumLink(Class<?> clazz) {
+    return "[" + clazz.getSimpleName() + "](" + getClassJavaDocUrl(clazz) + ")";
+  }
+
+  private String getMdEnumFieldLink(Field field) {
+    Class<?> clazz = field.getDeclaringClass();
+    String fieldName = field.getName();
+    String url = getClassJavaDocUrl(clazz) + "#" + fieldName;
+    return "[" + clazz.getSimpleName() + "." + fieldName + "](" + url + ")";
   }
 
   private void println() {

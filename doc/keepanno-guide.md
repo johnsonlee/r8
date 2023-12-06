@@ -21,6 +21,8 @@ bugs](https://issuetracker.google.com/issues/new?component=326788) in the
 - [Introduction](#introduction)
 - [Build configuration](#build-configuration)
 - [Annotating code using reflection](#using-reflection)
+  - [Invoking methods](#using-reflection-methods)
+  - [Accessing fields](#using-reflection-fields)
 - [Annotating code used by reflection (or via JNI)](#used-by-reflection)
 - [Annotating APIs](#apis)
 - [Migrating rules to annotations](#migrating-rules)
@@ -42,9 +44,10 @@ The keep annotations described in this document represent an alternative method
 using Java annotations. The motivation for using these annotations is foremost
 to place the description of what to keep closer to the program point using
 reflective behavior. Doing so more directly connects the reflective code with
-the keep specification and makes it easier to maintain as the code develops. In
-addition, the annotations are defined independent from keep rules and have a
-hopefully more clear and direct meaning.
+the keep specification and makes it easier to maintain as the code develops.
+Often the keep annotations are only in effect if the annotated method is used,
+allowing more precise shrinking.  In addition, the annotations are defined
+independent from keep rules and have a hopefully more clear and direct meaning.
 
 
 ## Build configuration<a id="build-configuration"></a>
@@ -73,16 +76,22 @@ java -Dcom.android.tools.r8.enableKeepAnnotations=1 \
   # ... the rest of your R8 compilation command here ...
 ```
 
+
 ## Annotating code using reflection<a id="using-reflection"></a>
 
 The keep annotation library defines a family of annotations depending on your
 use case. You should generally prefer [@UsesReflection](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsesReflection.html) where applicable.
+Common uses of reflection are to lookup fields and methods on classes. Examples
+of such use cases are detailed below.
+
+
+### Invoking methods<a id="using-reflection-methods"></a>
 
 For example, if your program is reflectively invoking a method, you
 should annotate the method that is doing the reflection. The annotation must describe the
 assumptions the reflective code makes.
 
-In the following example, the method `foo` is looking up the method with the name
+In the following example, the method `callHiddenMethod` is looking up the method with the name
 `hiddenMethod` on objects that are instances of `BaseClass`. It is then invoking the method with
 no other arguments than the receiver.
 
@@ -92,7 +101,7 @@ are objects that are instances of the class `BaseClass` or subclasses thereof.
 
 
 ```
-static class MyClass {
+public class MyHiddenMethodCaller {
 
   @UsesReflection({
     @KeepTarget(
@@ -100,8 +109,43 @@ static class MyClass {
         methodName = "hiddenMethod",
         methodParameters = {})
   })
-  public void foo(BaseClass base) throws Exception {
+  public void callHiddenMethod(BaseClass base) throws Exception {
     base.getClass().getDeclaredMethod("hiddenMethod").invoke(base);
+  }
+}
+```
+
+
+
+### Accessing fields<a id="using-reflection-fields"></a>
+
+For example, if your program is reflectively accessing the fields on a class, you should
+annotate the method that is doing the reflection.
+
+In the following example, the `printFieldValues` method takes in an object of
+type `PrintableFieldInterface` and then looks for all the fields declared on the class
+of the object.
+
+The [@KeepTarget](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html) describes these field targets. Since the printing only cares about preserving
+the fields, the [@KeepTarget.kind](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html#kind()) is set to [KeepItemKind.ONLY_FIELDS](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepItemKind.html#ONLY_FIELDS). Also, since printing
+the field names and values only requires looking up the field, printing its name and getting
+its value the [@KeepTarget.constraints](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html#constraints()) are set to just [KeepConstraint.LOOKUP](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#LOOKUP),
+[KeepConstraint.NAME](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#NAME) and [KeepConstraint.FIELD_GET](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#FIELD_GET).
+
+
+```
+public class MyFieldValuePrinter {
+
+  @UsesReflection({
+    @KeepTarget(
+        instanceOfClassConstant = PrintableFieldInterface.class,
+        kind = KeepItemKind.ONLY_FIELDS,
+        constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
+  })
+  public void printFieldValues(PrintableFieldInterface objectWithFields) throws Exception {
+    for (Field field : objectWithFields.getClass().getDeclaredFields()) {
+      System.out.println(field.getName() + " = " + field.get(objectWithFields));
+    }
   }
 }
 ```

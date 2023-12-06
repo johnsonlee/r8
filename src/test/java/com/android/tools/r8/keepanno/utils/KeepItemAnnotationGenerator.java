@@ -12,6 +12,7 @@ import com.android.tools.r8.keepanno.annotations.CheckRemoved;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepBinding;
 import com.android.tools.r8.keepanno.annotations.KeepCondition;
+import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepEdge;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
@@ -22,6 +23,8 @@ import com.android.tools.r8.keepanno.annotations.MethodAccessFlags;
 import com.android.tools.r8.keepanno.annotations.UsedByNative;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
+import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.StringUtils.BraceType;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayOutputStream;
@@ -39,6 +42,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.function.Consumer;
+import org.jetbrains.annotations.NotNull;
 
 public class KeepItemAnnotationGenerator {
 
@@ -259,7 +263,7 @@ public class KeepItemAnnotationGenerator {
     }
 
     private static String KIND_GROUP = "kind";
-    private static String OPTIONS_GROUP = "options";
+    private static String CONSTRAINTS_GROUP = "constraints";
     private static String CLASS_GROUP = "class";
     private static String CLASS_NAME_GROUP = "class-name";
     private static String INSTANCE_OF_GROUP = "instance-of";
@@ -344,37 +348,74 @@ public class KeepItemAnnotationGenerator {
           .addUnorderedList(
               KeepItemKind.ONLY_CLASS.name(),
               KeepItemKind.ONLY_MEMBERS.name(),
-              KeepItemKind.CLASS_AND_MEMBERS.name())
-          .addParagraph(
-              "If unspecified the default for an item with no member patterns is",
-              KeepItemKind.ONLY_CLASS.name(),
-              "and if it does have member patterns the default is",
-              KeepItemKind.ONLY_MEMBERS.name());
+              KeepItemKind.ONLY_METHODS.name(),
+              KeepItemKind.ONLY_FIELDS.name(),
+              KeepItemKind.CLASS_AND_MEMBERS.name(),
+              KeepItemKind.CLASS_AND_METHODS.name(),
+              KeepItemKind.CLASS_AND_FIELDS.name())
+          .addParagraph("If unspecified the default for an item depends on its member patterns:")
+          .addUnorderedList(
+              KeepItemKind.ONLY_CLASS.name() + " if no member patterns are defined",
+              KeepItemKind.ONLY_METHODS.name() + " if method patterns are defined",
+              KeepItemKind.ONLY_FIELDS.name() + " if field patterns are defined",
+              KeepItemKind.ONLY_MEMBERS.name() + " otherwise.");
     }
 
-    private Group getKeepOptionsGroup() {
-      return new Group(OPTIONS_GROUP)
+    private Group getKeepConstraintsGroup() {
+      return new Group(CONSTRAINTS_GROUP)
+          .addMember(constraints())
           .addMember(
               new GroupMember("allow")
-                  .setDocTitle("Define the " + OPTIONS_GROUP + " that are allowed to be modified.")
-                  .addParagraph("The specified options do not need to be preserved for the target.")
-                  .setDocReturn("Options allowed to be modified for the target.")
+                  .setDeprecated("Use " + docLink(constraints()) + " instead.")
+                  .setDocTitle(
+                      "Define the " + CONSTRAINTS_GROUP + " that are allowed to be modified.")
+                  .addParagraph(
+                      "The specified option constraints do not need to be preserved for the"
+                          + " target.")
+                  .setDocReturn("Option constraints allowed to be modified for the target.")
                   .defaultEmptyArray("KeepOption"))
           .addMember(
               new GroupMember("disallow")
+                  .setDeprecated("Use " + docLink(constraints()) + " instead.")
                   .setDocTitle(
-                      "Define the " + OPTIONS_GROUP + " that are not allowed to be modified.")
-                  .addParagraph("The specified options *must* be preserved for the target.")
-                  .setDocReturn("Options not allowed to be modified for the target.")
+                      "Define the " + CONSTRAINTS_GROUP + " that are not allowed to be modified.")
+                  .addParagraph(
+                      "The specified option constraints *must* be preserved for the target.")
+                  .setDocReturn("Option constraints not allowed to be modified for the target.")
                   .defaultEmptyArray("KeepOption"))
           .addDocFooterParagraph(
               "If nothing is specified for "
-                  + OPTIONS_GROUP
-                  + " the default is "
-                  + quote("allow none")
-                  + " / "
-                  + quote("disallow all")
+                  + CONSTRAINTS_GROUP
+                  + " the default is the default for "
+                  + docLink(constraints())
                   + ".");
+    }
+
+    private static String docLinkList(Enum<?>... values) {
+      return StringUtils.join(", ", values, v -> docLink(v), BraceType.TUBORG);
+    }
+
+    @NotNull
+    private static GroupMember constraints() {
+      return new GroupMember("constraints")
+          .setDocTitle("Define the usage constraints of the target.")
+          .addParagraph("The specified constraints must remain valid for the target.")
+          .addParagraph("The default constraints depend on the type of the target.")
+          .addUnorderedList(
+              "For classes, the default is "
+                  + docLinkList(
+                      KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.CLASS_INSTANTIATE),
+              "For methods, the default is "
+                  + docLinkList(
+                      KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.METHOD_INVOKE),
+              "For fields, the default is "
+                  + docLinkList(
+                      KeepConstraint.LOOKUP,
+                      KeepConstraint.NAME,
+                      KeepConstraint.FIELD_GET,
+                      KeepConstraint.FIELD_SET))
+          .setDocReturn("Usage constraints for the target.")
+          .defaultEmptyArray(KeepConstraint.class);
     }
 
     private GroupMember bindingName() {
@@ -740,7 +781,7 @@ public class KeepItemAnnotationGenerator {
           () -> {
             getKindGroup().generate(this);
             println();
-            getKeepOptionsGroup().generate(this);
+            getKeepConstraintsGroup().generate(this);
             println();
             generateClassAndMemberPropertiesWithClassAndMemberBinding();
           });
@@ -963,20 +1004,20 @@ public class KeepItemAnnotationGenerator {
       println("}");
     }
 
-    private String annoSimpleName(Class<?> clazz) {
+    private static String annoSimpleName(Class<?> clazz) {
       return "@" + simpleName(clazz);
     }
 
-    private String docLink(Class<?> clazz) {
+    private static String docLink(Class<?> clazz) {
       return "{@link " + simpleName(clazz) + "}";
     }
 
-    private String docLink(GroupMember member) {
+    private static String docLink(GroupMember member) {
       return "{@link #" + member.name + "}";
     }
 
-    private String docLink(KeepItemKind kind) {
-      return "{@link KeepItemKind#" + kind.name() + "}";
+    private static String docLink(Enum<?> kind) {
+      return "{@link " + simpleName(kind.getClass()) + "#" + kind.name() + "}";
     }
 
     private void generateConstants() {
@@ -1008,6 +1049,7 @@ public class KeepItemAnnotationGenerator {
             generateConditionConstants();
             generateTargetConstants();
             generateKindConstants();
+            generateConstraintConstants();
             generateOptionConstants();
             generateMemberAccessConstants();
             generateMethodAccessConstants();
@@ -1163,7 +1205,7 @@ public class KeepItemAnnotationGenerator {
           () -> {
             generateAnnotationConstants(KeepTarget.class);
             getKindGroup().generateConstants(this);
-            getKeepOptionsGroup().generateConstants(this);
+            getKeepConstraintsGroup().generateConstants(this);
           });
       println("}");
       println();
@@ -1183,6 +1225,20 @@ public class KeepItemAnnotationGenerator {
                         + quote(value.name())
                         + ";");
               }
+            }
+          });
+      println("}");
+      println();
+    }
+
+    private void generateConstraintConstants() {
+      println("public static final class Constraints {");
+      withIndent(
+          () -> {
+            generateAnnotationConstants(KeepConstraint.class);
+            for (KeepConstraint value : KeepConstraint.values()) {
+              println(
+                  "public static final String " + value.name() + " = " + quote(value.name()) + ";");
             }
           });
       println("}");

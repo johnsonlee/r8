@@ -29,9 +29,10 @@ The keep annotations described in this document represent an alternative method
 using Java annotations. The motivation for using these annotations is foremost
 to place the description of what to keep closer to the program point using
 reflective behavior. Doing so more directly connects the reflective code with
-the keep specification and makes it easier to maintain as the code develops. In
-addition, the annotations are defined independent from keep rules and have a
-hopefully more clear and direct meaning.
+the keep specification and makes it easier to maintain as the code develops.
+Often the keep annotations are only in effect if the annotated method is used,
+allowing more precise shrinking.  In addition, the annotations are defined
+independent from keep rules and have a hopefully more clear and direct meaning.
 
 
 ## [Build configuration](build-configuration)
@@ -60,14 +61,27 @@ java -Dcom.android.tools.r8.enableKeepAnnotations=1 \
   # ... the rest of your R8 compilation command here ...
 ```
 
+
 ## [Annotating code using reflection](using-reflection)
 
 The keep annotation library defines a family of annotations depending on your
 use case. You should generally prefer `@UsesReflection` where applicable.
+Common uses of reflection are to lookup fields and methods on classes. Examples
+of such use cases are detailed below.
+
+
+### [Invoking methods](using-reflection-methods)
 
 [[[INCLUDE DOC:UsesReflectionOnVirtualMethod]]]
 
 [[[INCLUDE CODE:UsesReflectionOnVirtualMethod]]]
+
+
+### [Accessing fields](using-reflection-fields)
+
+[[[INCLUDE DOC:UsesReflectionFieldPrinter]]]
+
+[[[INCLUDE CODE:UsesReflectionFieldPrinter]]]
 
 
 ## [Annotating code used by reflection (or via JNI)](used-by-reflection)

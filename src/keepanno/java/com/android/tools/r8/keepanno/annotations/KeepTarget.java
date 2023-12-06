@@ -36,40 +36,93 @@ public @interface KeepTarget {
    * <ul>
    *   <li>ONLY_CLASS
    *   <li>ONLY_MEMBERS
+   *   <li>ONLY_METHODS
+   *   <li>ONLY_FIELDS
    *   <li>CLASS_AND_MEMBERS
+   *   <li>CLASS_AND_METHODS
+   *   <li>CLASS_AND_FIELDS
    * </ul>
    *
-   * <p>If unspecified the default for an item with no member patterns is ONLY_CLASS and if it does
-   * have member patterns the default is ONLY_MEMBERS
+   * <p>If unspecified the default for an item depends on its member patterns:
+   *
+   * <ul>
+   *   <li>ONLY_CLASS if no member patterns are defined
+   *   <li>ONLY_METHODS if method patterns are defined
+   *   <li>ONLY_FIELDS if field patterns are defined
+   *   <li>ONLY_MEMBERS otherwise.
+   * </ul>
    *
    * @return The kind for this pattern.
    */
   KeepItemKind kind() default KeepItemKind.DEFAULT;
 
   /**
-   * Define the options that are allowed to be modified.
+   * Define the usage constraints of the target.
    *
-   * <p>The specified options do not need to be preserved for the target.
+   * <p>The specified constraints must remain valid for the target.
    *
-   * <p>Mutually exclusive with the property `disallow` also defining options.
+   * <p>The default constraints depend on the type of the target.
    *
-   * <p>If nothing is specified for options the default is "allow none" / "disallow all".
+   * <ul>
+   *   <li>For classes, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
+   *       {@link KeepConstraint#CLASS_INSTANTIATE}}
+   *   <li>For methods, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
+   *       {@link KeepConstraint#METHOD_INVOKE}}
+   *   <li>For fields, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
+   *       {@link KeepConstraint#FIELD_GET}, {@link KeepConstraint#FIELD_SET}}
+   * </ul>
    *
-   * @return Options allowed to be modified for the target.
+   * <p>Mutually exclusive with the following other properties defining constraints:
+   *
+   * <ul>
+   *   <li>allow
+   *   <li>disallow
+   * </ul>
+   *
+   * <p>If nothing is specified for constraints the default is the default for {@link #constraints}.
+   *
+   * @return Usage constraints for the target.
    */
+  KeepConstraint[] constraints() default {};
+
+  /**
+   * Define the constraints that are allowed to be modified.
+   *
+   * <p>The specified option constraints do not need to be preserved for the target.
+   *
+   * <p>Mutually exclusive with the following other properties defining constraints:
+   *
+   * <ul>
+   *   <li>constraints
+   *   <li>disallow
+   * </ul>
+   *
+   * <p>If nothing is specified for constraints the default is the default for {@link #constraints}.
+   *
+   * @return Option constraints allowed to be modified for the target.
+   * @deprecated Use {@link #constraints} instead.
+   */
+  @Deprecated
   KeepOption[] allow() default {};
 
   /**
-   * Define the options that are not allowed to be modified.
+   * Define the constraints that are not allowed to be modified.
    *
-   * <p>The specified options *must* be preserved for the target.
+   * <p>The specified option constraints *must* be preserved for the target.
    *
-   * <p>Mutually exclusive with the property `allow` also defining options.
+   * <p>Mutually exclusive with the following other properties defining constraints:
    *
-   * <p>If nothing is specified for options the default is "allow none" / "disallow all".
+   * <ul>
+   *   <li>constraints
+   *   <li>allow
+   * </ul>
    *
-   * @return Options not allowed to be modified for the target.
+   * <p>If nothing is specified for constraints the default is the default for {@link #constraints}.
+   *
+   * @return Option constraints not allowed to be modified for the target.
+   * @deprecated Use {@link #constraints} instead.
    */
+  @Deprecated
   KeepOption[] disallow() default {};
 
   /**
