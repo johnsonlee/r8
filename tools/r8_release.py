@@ -812,8 +812,10 @@ def validate_branch_change_diff(version_diff_output, old_version, new_version):
 
 
 def prepare_branch(args):
+    if (len(args.new_dev_branch) < 1 or len(args.new_dev_branch) > 2):
+        print("One or two arguments required for --new-dev-branch")
+        sys.exit(1)
     branch_version = args.new_dev_branch[0]
-    commithash = args.new_dev_branch[1]
 
     current_semver = utils.check_basic_semver_version(
         R8_DEV_BRANCH, ", current release branch version should be x.y", 2)
@@ -829,12 +831,43 @@ def prepare_branch(args):
         with utils.TempDir() as temp:
             subprocess.check_call(['git', 'clone', utils.REPO_SOURCE, temp])
             with utils.ChangedWorkingDirectory(temp):
-                subprocess.check_call(
-                    ['git', 'branch', branch_version, commithash])
+                if len(options.new_dev_branch) == 1:
+                    # Calculate the usual branch hash.
+                    subprocess.check_call(['git',  'fetch', 'origin', R8_DEV_BRANCH])
+                    hashes = subprocess.check_output(
+                      ['git',
+                      'show',
+                      '-s',
+                      '--pretty=%P',
+                      'origin/%s~1' % R8_DEV_BRANCH]).decode('utf-8').strip()
+                    if (len(hashes.split()) != 2):
+                        print('Expected two parent hashes for commit origin/%s~1'
+                            % R8_DEV_BRANCH)
+                        sys.exit(0)
+                    commithash = hashes.split()[1]
+                    print()
+                    print('Calculated branch hash: %s' % commithash)
+                    print('Please double check that this is the correct branch hash. It'
+                        ' is obtained as the second parent of origin/%s~1.' % R8_DEV_BRANCH)
+                    print('If not rerun the script passing an explicit hash to branch from.')
+                else:
+                    commithash = options.new_dev_branch[1]
+                    print()
+                    print('Using explicit branch hash %s' % commithash)
+                print()
+                print('Use the Gerrit admin UI at'
+                     ' https://r8-review.googlesource.com/admin/repos/r8,branches'
+                     ' to create the %s branch from %s.' % (branch_version, commithash))
+                answer = input("Branch created in Gerrit UI? [y/N]:")
+                if answer != 'y':
+                    print('Aborting preparing branch for %s' % branch_version)
+                    sys.exit(1)
 
+                # Fetch and checkout the new branch created through the Gerrit UI.
+                subprocess.check_call(['git',  'fetch', 'origin', branch_version])
                 subprocess.check_call(['git', 'checkout', branch_version])
 
-                # Rewrite the version, commit and validate.
+                # Rewrite the version on the branch, commit and validate.
                 old_version = 'main'
                 full_version = branch_version + '.0-dev'
                 version_prefix = 'public static final String LABEL = "'
@@ -851,19 +884,22 @@ def prepare_branch(args):
                 validate_version_change_diff(version_diff_output, old_version,
                                              full_version)
 
+                if options.dry_run:
+                    input(
+                        'DryRun: check %s for content of version %s [enter to continue]:'
+                        % (temp, branch_version))
+
                 # Double check that we want to create a new release branch.
                 if not options.dry_run:
-                    answer = input('Create new branch for %s [y/N]:' %
+                    answer = input('Continue with branch for %s [y/N]:' %
                                    branch_version)
                     if answer != 'y':
-                        print('Aborting new branch for %s' % branch_version)
+                        print('Aborting preparing branch for %s' % branch_version)
                         sys.exit(1)
 
                 maybe_check_call(
                     options,
-                    ['git', 'push', 'origin',
-                     'HEAD:%s' % branch_version])
-                maybe_tag(options, full_version)
+                    ['git', 'cl', 'upload', '--bypass-hooks'])
 
                 print(
                     'Updating tools/r8_release.py to make new dev releases on %s'
@@ -900,11 +936,17 @@ def prepare_branch(args):
                 validate_branch_change_diff(branch_diff_output, R8_DEV_BRANCH,
                                             branch_version)
 
+                if options.dry_run:
+                    input(
+                        'DryRun: check %s for content of version main [enter to continue]:'
+                        % temp)
+
                 maybe_check_call(options,
                                  ['git', 'cl', 'upload', '-f', '-m', message])
 
                 print('')
-                print('Make sure to send out the branch change CL for review.')
+                print('Make sure to send out the two branch change CL for review'
+                      ' (on %s and main).' % branch_version)
                 print('')
 
     return make_branch
@@ -933,9 +975,11 @@ def parse_options():
         help='Update studio mirror of com.android.tools:desugar_jdk_libs')
     group.add_argument(
         '--new-dev-branch',
-        nargs=2,
-        metavar=('<version>', '<main hash>'),
-        help='Create a new branch starting a version line (e.g. 2.0)')
+        nargs='+',
+        metavar=('<version>', '<branch hash>'),
+        help=('Prepare new branch for a version line (e.g. 8.0)'
+             ' Suggested branch hash is calculated '
+             ' if not explicitly specified'))
     result.add_argument('--dev-pre-cherry-pick',
                         metavar=('<main hash(s)>'),
                         default=[],
