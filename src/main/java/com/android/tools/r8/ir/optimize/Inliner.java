@@ -131,7 +131,7 @@ public class Inliner {
   private ConstraintWithTarget instructionAllowedForInlining(
       Instruction instruction, InliningConstraints inliningConstraints, ProgramMethod context) {
     ConstraintWithTarget result = instruction.inliningConstraint(inliningConstraints, context);
-    if (result == ConstraintWithTarget.NEVER && instruction.isDebugInstruction()) {
+    if (result.isNever() && instruction.isDebugInstruction()) {
       return ConstraintWithTarget.ALWAYS;
     }
     return result;
@@ -155,7 +155,7 @@ public class Inliner {
     for (Instruction instruction : code.instructions()) {
       ConstraintWithTarget state =
           instructionAllowedForInlining(instruction, inliningConstraints, context);
-      if (state == ConstraintWithTarget.NEVER) {
+      if (state.isNever()) {
         result = state;
         break;
       }
@@ -232,6 +232,10 @@ public class Inliner {
       return otherConstraint;
     }
 
+    public boolean isAlways() {
+      return this == ALWAYS;
+    }
+
     public boolean isNever() {
       return this == NEVER;
     }
@@ -277,6 +281,10 @@ public class Inliner {
       assert targetHolder != null;
       this.constraint = constraint;
       this.targetHolder = targetHolder;
+    }
+
+    public boolean isAlways() {
+      return constraint.isAlways();
     }
 
     public boolean isNever() {
@@ -358,7 +366,7 @@ public class Inliner {
         return meet(other, one, appView);
       }
       // From now on, one.constraint.ordinal() <= other.constraint.ordinal()
-      if (one == NEVER) {
+      if (one.isNever()) {
         return NEVER;
       }
       if (other == ALWAYS) {
