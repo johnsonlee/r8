@@ -44,22 +44,22 @@ public @interface KeepBinding {
    * <p>Possible values are:
    *
    * <ul>
-   *   <li>ONLY_CLASS
-   *   <li>ONLY_MEMBERS
-   *   <li>ONLY_METHODS
-   *   <li>ONLY_FIELDS
-   *   <li>CLASS_AND_MEMBERS
-   *   <li>CLASS_AND_METHODS
-   *   <li>CLASS_AND_FIELDS
+   *   <li>{@link KeepItemKind#ONLY_CLASS}
+   *   <li>{@link KeepItemKind#ONLY_MEMBERS}
+   *   <li>{@link KeepItemKind#ONLY_METHODS}
+   *   <li>{@link KeepItemKind#ONLY_FIELDS}
+   *   <li>{@link KeepItemKind#CLASS_AND_MEMBERS}
+   *   <li>{@link KeepItemKind#CLASS_AND_METHODS}
+   *   <li>{@link KeepItemKind#CLASS_AND_FIELDS}
    * </ul>
    *
-   * <p>If unspecified the default for an item depends on its member patterns:
+   * <p>If unspecified the default kind for an item depends on its member patterns:
    *
    * <ul>
-   *   <li>ONLY_CLASS if no member patterns are defined
-   *   <li>ONLY_METHODS if method patterns are defined
-   *   <li>ONLY_FIELDS if field patterns are defined
-   *   <li>ONLY_MEMBERS otherwise.
+   *   <li>{@link KeepItemKind#ONLY_CLASS} if no member patterns are defined
+   *   <li>{@link KeepItemKind#ONLY_METHODS} if method patterns are defined
+   *   <li>{@link KeepItemKind#ONLY_FIELDS} if field patterns are defined
+   *   <li>{@link KeepItemKind#ONLY_MEMBERS} otherwise.
    * </ul>
    *
    * @return The kind for this pattern.

@@ -5,11 +5,13 @@
 package com.android.tools.r8.threading;
 
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.MemberAccessFlags;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -24,6 +26,7 @@ import java.util.concurrent.Future;
  * interface they implement must be kept.
  */
 @UsedByReflection(
+    description = "Implementations of this interface are dynamically loaded at runtime",
     kind = KeepItemKind.CLASS_AND_MEMBERS,
     memberAccess = {MemberAccessFlags.PUBLIC})
 public interface ThreadingModule {
@@ -38,29 +41,33 @@ public interface ThreadingModule {
 
   class Loader {
 
-    // Splitting up the names to make reflective identification unlikely.
-    // We explicitly don't want R8 to optimize out the reflective lookup.
-    private static final String PACKAGE = "com.android.tools.r8.threading.providers";
-    private static final String BLOCKING_PROVIDER = "blocking.ThreadingModuleBlockingProvider";
-    private static final String SINGLE_THREADED_PROVIDER =
-        "singlethreaded.ThreadingModuleSingleThreadedProvider";
-    private static final String[] IMPLEMENTATIONS = {BLOCKING_PROVIDER, SINGLE_THREADED_PROVIDER};
+    @UsedByReflection(
+        description = "Prevent analysis any inlining and assumptions of the provider class names",
+        constraints = {KeepConstraint.NEVER_INLINE})
+    private static List<String> getProviderNames() {
+      return ImmutableList.of(
+          "com.android.tools.r8.threading.providers.blocking.ThreadingModuleBlockingProvider",
+          "com.android.tools.r8.threading.providers.singlethreaded.ThreadingModuleSingleThreadedProvider");
+    }
 
     @UsesReflection({
       @KeepTarget(
-          kind = KeepItemKind.CLASS_AND_MEMBERS,
-          className = PACKAGE + "." + "blocking.ThreadingModuleBlockingProvider",
+          kind = KeepItemKind.CLASS_AND_METHODS,
+          className =
+              "com.android.tools.r8.threading.providers."
+                  + "blocking.ThreadingModuleBlockingProvider",
           methodName = "<init>",
           methodParameters = {}),
       @KeepTarget(
-          kind = KeepItemKind.CLASS_AND_MEMBERS,
-          className = PACKAGE + "." + "singlethreaded.ThreadingModuleSingleThreadedProvider",
+          kind = KeepItemKind.CLASS_AND_METHODS,
+          className =
+              "com.android.tools.r8.threading.providers."
+                  + "singlethreaded.ThreadingModuleSingleThreadedProvider",
           methodName = "<init>",
           methodParameters = {})
     })
     public static ThreadingModuleProvider load() {
-      for (String implementation : IMPLEMENTATIONS) {
-        String name = PACKAGE + "." + implementation;
+      for (String name : getProviderNames()) {
         try {
           Class<?> providerClass = Class.forName(name);
           return (ThreadingModuleProvider) providerClass.getDeclaredConstructor().newInstance();

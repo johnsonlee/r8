@@ -346,19 +346,20 @@ public class KeepItemAnnotationGenerator {
           .setDocReturn("The kind for this pattern.")
           .addParagraph("Possible values are:")
           .addUnorderedList(
-              KeepItemKind.ONLY_CLASS.name(),
-              KeepItemKind.ONLY_MEMBERS.name(),
-              KeepItemKind.ONLY_METHODS.name(),
-              KeepItemKind.ONLY_FIELDS.name(),
-              KeepItemKind.CLASS_AND_MEMBERS.name(),
-              KeepItemKind.CLASS_AND_METHODS.name(),
-              KeepItemKind.CLASS_AND_FIELDS.name())
-          .addParagraph("If unspecified the default for an item depends on its member patterns:")
+              docLink(KeepItemKind.ONLY_CLASS),
+              docLink(KeepItemKind.ONLY_MEMBERS),
+              docLink(KeepItemKind.ONLY_METHODS),
+              docLink(KeepItemKind.ONLY_FIELDS),
+              docLink(KeepItemKind.CLASS_AND_MEMBERS),
+              docLink(KeepItemKind.CLASS_AND_METHODS),
+              docLink(KeepItemKind.CLASS_AND_FIELDS))
+          .addParagraph(
+              "If unspecified the default kind for an item depends on its member patterns:")
           .addUnorderedList(
-              KeepItemKind.ONLY_CLASS.name() + " if no member patterns are defined",
-              KeepItemKind.ONLY_METHODS.name() + " if method patterns are defined",
-              KeepItemKind.ONLY_FIELDS.name() + " if field patterns are defined",
-              KeepItemKind.ONLY_MEMBERS.name() + " otherwise.");
+              docLink(KeepItemKind.ONLY_CLASS) + " if no member patterns are defined",
+              docLink(KeepItemKind.ONLY_METHODS) + " if method patterns are defined",
+              docLink(KeepItemKind.ONLY_FIELDS) + " if field patterns are defined",
+              docLink(KeepItemKind.ONLY_MEMBERS) + " otherwise.");
     }
 
     private Group getKeepConstraintsGroup() {
@@ -983,20 +984,26 @@ public class KeepItemAnnotationGenerator {
             GroupMember kindProperty = getKindMember();
             kindProperty
                 .clearDocLines()
+                .addParagraph("If unspecified the default kind depends on the annotated item.")
+                .addParagraph("When annotating a class the default kind is:")
+                .addUnorderedList(
+                    docLink(KeepItemKind.ONLY_CLASS) + " if no member patterns are defined;",
+                    docLink(KeepItemKind.CLASS_AND_METHODS) + " if method patterns are defined;",
+                    docLink(KeepItemKind.CLASS_AND_FIELDS) + " if field patterns are defined;",
+                    docLink(KeepItemKind.CLASS_AND_MEMBERS) + "otherwise.")
                 .addParagraph(
-                    "When annotating a class without member patterns, the default kind is "
+                    "When annotating a method the default kind is: "
+                        + docLink(KeepItemKind.ONLY_METHODS))
+                .addParagraph(
+                    "When annotating a field the default kind is: "
+                        + docLink(KeepItemKind.ONLY_FIELDS))
+                .addParagraph(
+                    "It is not possible to use "
                         + docLink(KeepItemKind.ONLY_CLASS)
-                        + ".")
-                .addParagraph(
-                    "When annotating a class with member patterns, the default kind is "
-                        + docLink(KeepItemKind.CLASS_AND_MEMBERS)
-                        + ".")
-                .addParagraph(
-                    "When annotating a member, the default kind is "
-                        + docLink(KeepItemKind.ONLY_MEMBERS)
-                        + ".")
-                .addParagraph("It is not possible to use ONLY_CLASS if annotating a member.")
+                        + " if annotating a member.")
                 .generate(this);
+            println();
+            constraints().generate(this);
             println();
             generateMemberPropertiesNoBinding();
           });

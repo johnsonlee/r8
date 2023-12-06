@@ -57,19 +57,46 @@ public @interface UsedByNative {
   /**
    * Specify the kind of this item pattern.
    *
-   * <p>When annotating a class without member patterns, the default kind is {@link
-   * KeepItemKind#ONLY_CLASS}.
+   * <p>If unspecified the default kind depends on the annotated item.
    *
-   * <p>When annotating a class with member patterns, the default kind is {@link
-   * KeepItemKind#CLASS_AND_MEMBERS}.
+   * <p>When annotating a class the default kind is:
    *
-   * <p>When annotating a member, the default kind is {@link KeepItemKind#ONLY_MEMBERS}.
+   * <ul>
+   *   <li>{@link KeepItemKind#ONLY_CLASS} if no member patterns are defined;
+   *   <li>{@link KeepItemKind#CLASS_AND_METHODS} if method patterns are defined;
+   *   <li>{@link KeepItemKind#CLASS_AND_FIELDS} if field patterns are defined;
+   *   <li>{@link KeepItemKind#CLASS_AND_MEMBERS}otherwise.
+   * </ul>
    *
-   * <p>It is not possible to use ONLY_CLASS if annotating a member.
+   * <p>When annotating a method the default kind is: {@link KeepItemKind#ONLY_METHODS}
+   *
+   * <p>When annotating a field the default kind is: {@link KeepItemKind#ONLY_FIELDS}
+   *
+   * <p>It is not possible to use {@link KeepItemKind#ONLY_CLASS} if annotating a member.
    *
    * @return The kind for this pattern.
    */
   KeepItemKind kind() default KeepItemKind.DEFAULT;
+
+  /**
+   * Define the usage constraints of the target.
+   *
+   * <p>The specified constraints must remain valid for the target.
+   *
+   * <p>The default constraints depend on the type of the target.
+   *
+   * <ul>
+   *   <li>For classes, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
+   *       {@link KeepConstraint#CLASS_INSTANTIATE}}
+   *   <li>For methods, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
+   *       {@link KeepConstraint#METHOD_INVOKE}}
+   *   <li>For fields, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
+   *       {@link KeepConstraint#FIELD_GET}, {@link KeepConstraint#FIELD_SET}}
+   * </ul>
+   *
+   * @return Usage constraints for the target.
+   */
+  KeepConstraint[] constraints() default {};
 
   /**
    * Define the member-access pattern by matching on access flags.
