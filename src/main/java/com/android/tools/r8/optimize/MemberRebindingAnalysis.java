@@ -462,7 +462,8 @@ public class MemberRebindingAnalysis {
             context, holderType, method.getAccessFlags(), appView);
     // We may need bridge for visibility if the target class is not visible while the target method
     // is visible from the calling context.
-    return classVisibility.isNever() && !methodVisibility.isNever();
+    return classVisibility == ConstraintWithTarget.NEVER
+        && methodVisibility != ConstraintWithTarget.NEVER;
   }
 
   private DexMethod insertBridgeForVisibilityIfNeeded(

@@ -9,16 +9,15 @@ import com.android.tools.r8.features.FeatureSplitBoundaryOptimizationUtils;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
+import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult;
-import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.InvokeType;
@@ -182,7 +181,8 @@ public class InliningConstraints {
         singleTargetWhileVerticalClassMerging(
             resolutionResult, context, MethodResolutionResult::lookupInvokeDirectTarget);
     if (target != null) {
-      return forResolvedMember(resolutionResult.getInitialResolutionHolder(), context, target);
+      return forResolvedMember(
+          resolutionResult.getInitialResolutionHolder(), context, target.getDefinition());
     }
     return ConstraintWithTarget.NEVER;
   }
@@ -224,7 +224,8 @@ public class InliningConstraints {
       }
     }
     if (target != null) {
-      return forResolvedMember(resolutionResult.getInitialResolutionHolder(), context, target);
+      return forResolvedMember(
+          resolutionResult.getInitialResolutionHolder(), context, target.getDefinition());
     }
     return ConstraintWithTarget.NEVER;
   }
@@ -359,15 +360,14 @@ public class InliningConstraints {
 
   private ConstraintWithTarget forFieldInstruction(DexField field, ProgramMethod context) {
     DexField lookup = graphLens.lookupField(field);
-    SingleFieldResolutionResult<?> fieldResolutionResult =
-        appView.appInfo().resolveField(lookup).asSingleFieldResolutionResult();
-    if (fieldResolutionResult == null) {
+    FieldResolutionResult fieldResolutionResult = appView.appInfo().resolveField(lookup);
+    if (fieldResolutionResult.isMultiFieldResolutionResult()) {
       return ConstraintWithTarget.NEVER;
     }
     return forResolvedMember(
         fieldResolutionResult.getInitialResolutionHolder(),
         context,
-        fieldResolutionResult.getResolutionPair());
+        fieldResolutionResult.getResolvedField());
   }
 
   private ConstraintWithTarget forVirtualInvoke(
@@ -378,22 +378,21 @@ public class InliningConstraints {
 
     // Perform resolution and derive inlining constraints based on the accessibility of the
     // resolution result.
-    SingleResolutionResult<?> resolutionResult =
-        appView.appInfo().resolveMethodLegacy(method, isInterface).asSingleResolution();
-    if (resolutionResult == null || !resolutionResult.isVirtualTarget()) {
+    MethodResolutionResult resolutionResult =
+        appView.appInfo().resolveMethodLegacy(method, isInterface);
+    if (!resolutionResult.isVirtualTarget()) {
       return ConstraintWithTarget.NEVER;
     }
+
     return forResolvedMember(
-        resolutionResult.getInitialResolutionHolder(),
-        context,
-        resolutionResult.getResolutionPair());
+        resolutionResult.getInitialResolutionHolder(), context, resolutionResult.getSingleTarget());
   }
 
   @SuppressWarnings("ReferenceEquality")
   private ConstraintWithTarget forResolvedMember(
       DexClass initialResolutionHolder,
       ProgramMethod context,
-      DexClassAndMember<?, ?> resolvedMember) {
+      DexEncodedMember<?, ?> resolvedMember) {
     if (resolvedMember == null) {
       // This will fail at runtime.
       return ConstraintWithTarget.NEVER;
@@ -402,11 +401,11 @@ public class InliningConstraints {
         FeatureSplitBoundaryOptimizationUtils.getInliningConstraintForResolvedMember(
             context, resolvedMember, appView);
     assert featureSplitInliningConstraint == ConstraintWithTarget.ALWAYS
-        || featureSplitInliningConstraint.isNever();
-    if (featureSplitInliningConstraint.isNever()) {
+        || featureSplitInliningConstraint == ConstraintWithTarget.NEVER;
+    if (featureSplitInliningConstraint == ConstraintWithTarget.NEVER) {
       return featureSplitInliningConstraint;
     }
-    DexType resolvedHolder = resolvedMember.getHolderType();
+    DexType resolvedHolder = graphLens.lookupType(resolvedMember.getHolderType());
     assert initialResolutionHolder != null;
     ConstraintWithTarget memberConstraintWithTarget =
         ConstraintWithTarget.deriveConstraint(
@@ -414,10 +413,7 @@ public class InliningConstraints {
     // We also have to take the constraint of the initial resolution holder into account.
     ConstraintWithTarget classConstraintWithTarget =
         ConstraintWithTarget.deriveConstraint(
-            context,
-            initialResolutionHolder.getType(),
-            initialResolutionHolder.getAccessFlags(),
-            appView);
+            context, initialResolutionHolder.type, initialResolutionHolder.accessFlags, appView);
     return ConstraintWithTarget.meet(
         classConstraintWithTarget, memberConstraintWithTarget, appView);
   }

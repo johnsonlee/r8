@@ -191,7 +191,7 @@ public class ReflectionOptimizer {
     // Make sure the target (base) type is visible.
     ConstraintWithTarget constraints =
         ConstraintWithTarget.classIsVisible(context, baseType, appView);
-    if (constraints.isNever()) {
+    if (constraints == ConstraintWithTarget.NEVER) {
       return;
     }
 

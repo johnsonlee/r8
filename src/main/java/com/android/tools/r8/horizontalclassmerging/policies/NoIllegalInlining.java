@@ -42,8 +42,8 @@ public class NoIllegalInlining extends SingleClassPolicy {
     if (code.isCfCode()) {
       CfCode cfCode = code.asCfCode();
       ConstraintWithTarget constraint =
-          cfCode.computeInliningConstraint(appView, appView.graphLens(), method);
-      return constraint.isNever();
+          cfCode.computeInliningConstraint(method, appView, appView.graphLens(), method);
+      return constraint == ConstraintWithTarget.NEVER;
     } else if (code.isDefaultInstanceInitializerCode()) {
       return false;
     } else {

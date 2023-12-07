@@ -7,7 +7,7 @@ package com.android.tools.r8.features;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClassAndMember;
+import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -21,7 +21,7 @@ public class FeatureSplitBoundaryOptimizationUtils {
 
   public static ConstraintWithTarget getInliningConstraintForResolvedMember(
       ProgramMethod method,
-      DexClassAndMember<?, ?> resolvedMember,
+      DexEncodedMember<?, ?> resolvedMember,
       AppView<? extends AppInfoWithClassHierarchy> appView) {
     ClassToFeatureSplitMap classToFeatureSplitMap = appView.appInfo().getClassToFeatureSplitMap();
     // We never inline into the base from a feature (calls should never happen) and we never inline

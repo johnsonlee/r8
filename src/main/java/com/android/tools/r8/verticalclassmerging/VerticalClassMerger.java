@@ -823,13 +823,16 @@ public class VerticalClassMerger {
         SingleTypeMapperGraphLens lens =
             new SingleTypeMapperGraphLens(
                 appView, lensBuilder, mergedClasses, method.getHolder(), context);
-        ConstraintWithTarget constraint = cfCode.computeInliningConstraint(appView, lens, method);
+        ConstraintWithTarget constraint =
+            cfCode.computeInliningConstraint(
+                method, appView, lens, context.programInstanceInitializers().iterator().next());
         if (constraint.isNever()) {
           return true;
         }
         // Constructors can have references beyond the root main dex classes. This can increase the
         // size of the main dex dependent classes and we should bail out.
-        if (mainDexInfo.disallowInliningIntoContext(appView, context, method)) {
+        if (mainDexInfo.disallowInliningIntoContext(
+            appView, context, method, appView.getSyntheticItems())) {
           return true;
         }
         return false;

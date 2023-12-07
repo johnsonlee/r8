@@ -202,11 +202,11 @@ public class MainDexInfo {
   public boolean disallowInliningIntoContext(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ProgramDefinition context,
-      ProgramMethod method) {
+      ProgramMethod method,
+      SyntheticItems synthetics) {
     if (context.getContextType() == method.getContextType()) {
       return false;
     }
-    SyntheticItems synthetics = appView.getSyntheticItems();
     MainDexGroup mainDexGroupInternal = getMainDexGroupInternal(context, synthetics);
     if (mainDexGroupInternal == MainDexGroup.NOT_IN_MAIN_DEX
         || mainDexGroupInternal == MainDexGroup.MAIN_DEX_DEPENDENCY) {

@@ -850,26 +850,39 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
 
   @SuppressWarnings("ReferenceEquality")
   public ConstraintWithTarget computeInliningConstraint(
+      ProgramMethod method,
       AppView<AppInfoWithLiveness> appView,
       GraphLens graphLens,
       ProgramMethod context) {
     InliningConstraints inliningConstraints = new InliningConstraints(appView, graphLens);
     if (appView.options().isInterfaceMethodDesugaringEnabled()) {
       // TODO(b/120130831): Conservatively need to say "no" at this point if there are invocations
-      //  to static interface methods. This should be fixed by making sure that the desugared
-      //  versions of default and static interface methods are present in the application during
-      //  IR processing.
+      // to static interface methods. This should be fixed by making sure that the desugared
+      // versions of default and static interface methods are present in the application during
+      // IR processing.
       inliningConstraints.disallowStaticInterfaceMethodCalls();
     }
-    ConstraintWithTarget constraint = ConstraintWithTarget.ALWAYS;
-    assert inliningConstraints.forMonitor().isAlways();
+    // Model a synchronized method as having a monitor instruction.
+    ConstraintWithTarget constraint =
+        method.getDefinition().isSynchronized()
+            ? inliningConstraints.forMonitor()
+            : ConstraintWithTarget.ALWAYS;
+
+    if (constraint == ConstraintWithTarget.NEVER) {
+      return constraint;
+    }
     for (CfInstruction insn : instructions) {
       constraint =
           ConstraintWithTarget.meet(
               constraint, insn.inliningConstraint(inliningConstraints, this, context), appView);
-      if (constraint.isNever()) {
+      if (constraint == ConstraintWithTarget.NEVER) {
         return constraint;
       }
+    }
+    if (!tryCatchRanges.isEmpty()) {
+      // Model a try-catch as a move-exception instruction.
+      constraint =
+          ConstraintWithTarget.meet(constraint, inliningConstraints.forMoveException(), appView);
     }
     return constraint;
   }
