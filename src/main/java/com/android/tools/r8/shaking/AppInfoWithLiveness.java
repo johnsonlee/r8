@@ -59,7 +59,6 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
-import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.naming.SeedMapper;
 import com.android.tools.r8.repackaging.RepackagingUtils;
 import com.android.tools.r8.shaking.KeepInfo.Joiner;
@@ -608,8 +607,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     assert definition != null
             || deadProtoTypes.contains(type)
             || getMissingClasses().contains(type)
-            // TODO(b/150693139): Remove these exceptions once fixed.
-            || InterfaceDesugaringSyntheticHelper.isCompanionClassType(type)
             // TODO(b/150736225): Not sure how to remove these.
             || DesugaredLibraryAPIConverter.isVivifiedType(type)
         : "Failed lookup of non-missing type: " + type;
