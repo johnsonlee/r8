@@ -295,7 +295,6 @@ public final class LambdaDescriptor {
    * Matches call site for lambda metafactory invocation pattern and returns extracted match
    * information, or MATCH_FAILED if match failed.
    */
-  @SuppressWarnings("ReferenceEquality")
   static LambdaDescriptor infer(
       DexCallSite callSite,
       AppView<?> appView,
@@ -357,7 +356,7 @@ public final class LambdaDescriptor {
             mainFuncInterface,
             captures);
 
-    if (bootstrapMethod == factory.metafactoryMethod) {
+    if (factory.metafactoryMethod.isIdenticalTo(bootstrapMethod)) {
       if (callSite.bootstrapArgs.size() != 3) {
         throw new Unreachable(
             "Unexpected number of metafactory method arguments in " + callSite.toString());
@@ -477,12 +476,11 @@ public final class LambdaDescriptor {
     return false;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   // Checks if the types are the same OR both types are reference types and
   // `subType` is derived from `b`. Note that in the latter case we only check if
   // both types are class types, for the reasons mentioned in isSameOrAdaptableTo(...).
   static boolean isSameOrDerived(DexItemFactory factory, DexType subType, DexType superType) {
-    if (subType == superType || (subType.isClassType() && superType.isClassType())) {
+    if (subType.isIdenticalTo(superType) || (subType.isClassType() && superType.isClassType())) {
       return true;
     }
 
@@ -492,7 +490,7 @@ public final class LambdaDescriptor {
         return isSameOrDerived(factory,
             subType.toArrayElementType(factory), superType.toArrayElementType(factory));
       }
-      return superType == factory.objectType; // T[] -> Object.
+      return superType.isIdenticalTo(factory.objectType); // T[] -> Object.
     }
 
     return false;

@@ -32,7 +32,6 @@ import com.android.tools.r8.ir.desugar.LambdaClass.NoAccessorMethodTarget;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring.DesugarInvoke;
 import com.android.tools.r8.utils.IntBox;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -87,10 +86,9 @@ final class LambdaMainMethodSourceCode {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   // Checks if the types are the same OR type `a` is adaptable to type `b`.
   static boolean isSameOrAdaptableTo(DexType a, DexType b, DexItemFactory factory) {
-    if (a == b) {
+    if (a.isIdenticalTo(b)) {
       return true;
     }
 
@@ -98,12 +96,12 @@ final class LambdaMainMethodSourceCode {
       // Arrays are only adaptable to java.lang.Object or other arrays, note that we
       // don't check element type inheritance in the second case since we assume the
       // input code is verifiable.
-      return b == factory.objectType || b.isArrayType();
+      return b.isIdenticalTo(factory.objectType) || b.isArrayType();
     }
 
     if (b.isArrayType()) {
       // If A is typed object it can be convertible to an array type.
-      return a == factory.objectType;
+      return a.isIdenticalTo(factory.objectType);
     }
 
     if (a.isPrimitiveType()) {
@@ -113,19 +111,19 @@ final class LambdaMainMethodSourceCode {
 
       // `a` is primitive and `b` is a supertype of the boxed type `a`.
       DexType boxedPrimitiveType = getBoxedForPrimitiveType(a, factory);
-      if (b == boxedPrimitiveType ||
-          b == factory.objectType ||
-          b == factory.serializableType ||
-          b == factory.comparableType) {
+      if (b.isIdenticalTo(boxedPrimitiveType)
+          || b.isIdenticalTo(factory.objectType)
+          || b.isIdenticalTo(factory.serializableType)
+          || b.isIdenticalTo(factory.comparableType)) {
         return true;
       }
-      return boxedPrimitiveType != factory.boxedCharType
-          && boxedPrimitiveType != factory.boxedBooleanType
-          && b.descriptor == factory.boxedNumberDescriptor;
+      return boxedPrimitiveType.isNotIdenticalTo(factory.boxedCharType)
+          && boxedPrimitiveType.isNotIdenticalTo(factory.boxedBooleanType)
+          && b.descriptor.isIdenticalTo(factory.boxedNumberDescriptor);
     }
 
     if (b.isPrimitiveType()) {
-      if (a == factory.objectType) {
+      if (a.isIdenticalTo(factory.objectType)) {
         // `a` is java.lang.Object in which case we assume it represented by
         // proper boxed type.
         return true;
@@ -171,7 +169,6 @@ final class LambdaMainMethodSourceCode {
     }
   }
 
-  @SuppressWarnings({"BadImport", "ReferenceEquality"})
   public static CfCode build(
       LambdaClass lambda, DexMethod mainMethod, DesugarInvoke desugarInvoke) {
     DexItemFactory factory = lambda.appView.dexItemFactory();
@@ -198,7 +195,7 @@ final class LambdaMainMethodSourceCode {
 
     // Only constructor call should use direct invoke type since super
     // and private methods require accessor methods.
-    boolean constructorTarget = methodToCall.name == factory.constructorMethodName;
+    boolean constructorTarget = methodToCall.name.isIdenticalTo(factory.constructorMethodName);
     assert !constructorTarget || target.invokeType == InvokeType.DIRECT;
 
     boolean targetWithReceiver =
@@ -225,7 +222,7 @@ final class LambdaMainMethodSourceCode {
         factory);
 
     int maxStack = 0;
-    Builder<CfInstruction> instructions = ImmutableList.builder();
+    ImmutableList.Builder<CfInstruction> instructions = ImmutableList.builder();
 
     // If the target is a constructor, we need to create the instance first.
     // This instance will be the first argument to the call and the dup will be on stack at return.
@@ -342,12 +339,11 @@ final class LambdaMainMethodSourceCode {
 
   // Adds necessary casts and transformations to adjust the value
   // returned by impl-method to expected return type of the method.
-  @SuppressWarnings("BadImport")
   private static int prepareReturnValue(
       DexType erasedType,
       DexType enforcedType,
       DexType actualType,
-      Builder<CfInstruction> instructions,
+      ImmutableList.Builder<CfInstruction> instructions,
       DexItemFactory factory) {
     // The `erasedType` and `enforcedType` should only differ when they both
     // are class types and `erasedType` is a base type of `enforcedType`,
@@ -365,41 +361,38 @@ final class LambdaMainMethodSourceCode {
   // be converted to enforced parameter type (`enforcedType`), which,
   // in its turn, may need to be adjusted to the parameter type of
   // the impl-method (`expectedType`).
-  @SuppressWarnings("BadImport")
   private static int prepareParameterValue(
       DexType erasedType,
       DexType enforcedType,
       DexType expectedType,
-      Builder<CfInstruction> instructions,
+      ImmutableList.Builder<CfInstruction> instructions,
       DexItemFactory factory) {
     enforceParameterType(erasedType, enforcedType, instructions, factory);
     return adjustType(enforcedType, expectedType, false, instructions, factory);
   }
 
-  @SuppressWarnings({"BadImport", "ReferenceEquality"})
   private static void enforceParameterType(
       DexType paramType,
       DexType enforcedType,
-      Builder<CfInstruction> instructions,
+      ImmutableList.Builder<CfInstruction> instructions,
       DexItemFactory factory) {
     // `paramType` must be either same as `enforcedType` or both must be class
     // types and `enforcedType` must be a subclass of `paramType` in which case
     // a cast need to be inserted.
-    if (paramType != enforcedType) {
+    if (paramType.isNotIdenticalTo(enforcedType)) {
       assert LambdaDescriptor.isSameOrDerived(factory, enforcedType, paramType);
       instructions.add(new CfCheckCast(enforcedType));
     }
   }
 
-  @SuppressWarnings({"BadImport", "ReferenceEquality"})
   private static int adjustType(
       DexType fromType,
       DexType toType,
       boolean returnType,
-      Builder<CfInstruction> instructions,
+      ImmutableList.Builder<CfInstruction> instructions,
       DexItemFactory factory) {
     internalAdjustType(fromType, toType, returnType, instructions, factory);
-    if (fromType == toType) {
+    if (fromType.isIdenticalTo(toType)) {
       return ValueType.fromDexType(fromType).requiredRegisters();
     }
     // Account for the potential unboxing of a wide type.
@@ -413,14 +406,13 @@ final class LambdaMainMethodSourceCode {
             ValueType.fromDexType(toType).requiredRegisters()));
   }
 
-  @SuppressWarnings({"BadImport", "ReferenceEquality"})
   private static void internalAdjustType(
       DexType fromType,
       DexType toType,
       boolean returnType,
-      Builder<CfInstruction> instructions,
+      ImmutableList.Builder<CfInstruction> instructions,
       DexItemFactory factory) {
-    if (fromType == toType) {
+    if (fromType.isIdenticalTo(toType)) {
       return;
     }
 
@@ -438,7 +430,7 @@ final class LambdaMainMethodSourceCode {
     // widening conversion.
     if (toTypePrimitive) {
       DexType boxedType = fromType;
-      if (boxedType == factory.objectType) {
+      if (boxedType.isIdenticalTo(factory.objectType)) {
         // We are in situation when from(=java.lang.Object) is being adjusted to a
         // primitive type, in which case we assume it is of proper box type.
         boxedType = getBoxedForPrimitiveType(toType, factory);
@@ -456,19 +448,20 @@ final class LambdaMainMethodSourceCode {
     // type for this primitive type, just box the value.
     if (fromTypePrimitive) {
       DexType boxedFromType = getBoxedForPrimitiveType(fromType, factory);
-      if (toType == boxedFromType
-          || toType == factory.objectType
-          || toType == factory.serializableType
-          || toType == factory.comparableType
-          || (boxedFromType != factory.booleanType
-              && boxedFromType != factory.charType
-              && toType == factory.boxedNumberType)) {
+      if (toType.isIdenticalTo(boxedFromType)
+          || toType.isIdenticalTo(factory.objectType)
+          || toType.isIdenticalTo(factory.serializableType)
+          || toType.isIdenticalTo(factory.comparableType)
+          || (boxedFromType.isNotIdenticalTo(factory.booleanType)
+              && boxedFromType.isNotIdenticalTo(factory.charType)
+              && toType.isIdenticalTo(factory.boxedNumberType))) {
         addPrimitiveBoxing(boxedFromType, instructions, factory);
         return;
       }
     }
 
-    if (fromType.isArrayType() && (toType == factory.objectType || toType.isArrayType())) {
+    if (fromType.isArrayType()
+        && (toType.isIdenticalTo(factory.objectType) || toType.isArrayType())) {
       // If `fromType` is an array and `toType` is java.lang.Object, no cast is needed.
       // If both `fromType` and `toType` are arrays, no cast is needed since we assume
       // the input code is verifiable.
@@ -476,8 +469,8 @@ final class LambdaMainMethodSourceCode {
     }
 
     if ((fromType.isClassType() && toType.isClassType())
-        || (fromType == factory.objectType && toType.isArrayType())) {
-      if (returnType && toType != factory.objectType) {
+        || (fromType.isIdenticalTo(factory.objectType) && toType.isArrayType())) {
+      if (returnType && toType.isNotIdenticalTo(factory.objectType)) {
         // For return type adjustment in case `fromType` and `toType` are both reference types,
         // `fromType` does NOT have to be deriving from `toType` and we need to add a cast.
         // NOTE: we don't check `toType` for being actually a supertype, since we
@@ -491,11 +484,10 @@ final class LambdaMainMethodSourceCode {
         + fromType.toSourceString() + " to " + toType);
   }
 
-  @SuppressWarnings({"BadImport", "ReferenceEquality"})
   private static void addPrimitiveWideningConversion(
-      DexType fromType, DexType toType, Builder<CfInstruction> instructions) {
+      DexType fromType, DexType toType, ImmutableList.Builder<CfInstruction> instructions) {
     assert fromType.isPrimitiveType() && toType.isPrimitiveType();
-    if (fromType == toType) {
+    if (fromType.isIdenticalTo(toType)) {
       return;
     }
 
@@ -553,16 +545,14 @@ final class LambdaMainMethodSourceCode {
         "converted to " + toType.toSourceString() + " via primitive widening conversion.");
   }
 
-  @SuppressWarnings("BadImport")
   private static void addPrimitiveUnboxing(
-      DexType boxType, Builder<CfInstruction> instructions, DexItemFactory factory) {
+      DexType boxType, ImmutableList.Builder<CfInstruction> instructions, DexItemFactory factory) {
     DexMethod method = factory.getUnboxPrimitiveMethod(boxType);
     instructions.add(new CfInvoke(Opcodes.INVOKEVIRTUAL, method, false));
   }
 
-  @SuppressWarnings("BadImport")
   private static void addPrimitiveBoxing(
-      DexType boxType, Builder<CfInstruction> instructions, DexItemFactory factory) {
+      DexType boxType, ImmutableList.Builder<CfInstruction> instructions, DexItemFactory factory) {
     DexMethod method = factory.getBoxPrimitiveMethod(boxType);
     instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, method, false));
   }
