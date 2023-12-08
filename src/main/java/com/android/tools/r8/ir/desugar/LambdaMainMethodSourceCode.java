@@ -89,7 +89,7 @@ final class LambdaMainMethodSourceCode {
 
   @SuppressWarnings("ReferenceEquality")
   // Checks if the types are the same OR type `a` is adaptable to type `b`.
-  private static boolean isSameOrAdaptableTo(DexType a, DexType b, DexItemFactory factory) {
+  static boolean isSameOrAdaptableTo(DexType a, DexType b, DexItemFactory factory) {
     if (a == b) {
       return true;
     }
@@ -188,6 +188,13 @@ final class LambdaMainMethodSourceCode {
     DexType erasedReturnType = lambda.descriptor.erasedProto.returnType;
     DexType[] enforcedParams = lambda.descriptor.enforcedProto.parameters.values;
     DexType enforcedReturnType = lambda.descriptor.enforcedProto.returnType;
+    if (enforcedReturnType.isPrimitiveType() && mainMethod.getReturnType().isReferenceType()) {
+      // It is unlikely but runtimes support the case where the return type is unboxed.
+      // In such cases, change the enforced return type to be the reference compatible boxed type.
+      assert LambdaDescriptor.isSameOrDerivedReturnType(
+          factory, enforcedReturnType, erasedReturnType, methodToCall.getReturnType());
+      enforcedReturnType = factory.getBoxedForPrimitiveType(methodToCall.getReturnType());
+    }
 
     // Only constructor call should use direct invoke type since super
     // and private methods require accessor methods.
@@ -342,10 +349,12 @@ final class LambdaMainMethodSourceCode {
       DexType actualType,
       Builder<CfInstruction> instructions,
       DexItemFactory factory) {
-    // `erasedType` and `enforcedType` may only differ when they both
+    // The `erasedType` and `enforcedType` should only differ when they both
     // are class types and `erasedType` is a base type of `enforcedType`,
-    // so no transformation is actually needed.
-    assert LambdaDescriptor.isSameOrDerived(factory, enforcedType, erasedType);
+    // so no transformation is actually needed. However, it appears primitives can appear in place
+    // of reference types in the `erasedType` signature.
+    assert LambdaDescriptor.isSameOrDerivedReturnType(
+        factory, enforcedType, erasedType, actualType);
     return adjustType(actualType, enforcedType, true, instructions, factory);
   }
 

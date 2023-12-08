@@ -327,7 +327,10 @@ public final class LambdaDescriptor {
     DexValue.DexValueMethodType funcEnforcedSignature =
         getBootstrapArgument(callSite.bootstrapArgs, 2, DexValue.DexValueMethodType.class);
     if (!isEnforcedSignatureValid(
-        factory, funcEnforcedSignature.value, funcErasedSignature.value)) {
+        factory,
+        funcEnforcedSignature.value,
+        funcErasedSignature.value,
+        lambdaImplMethodHandle.asMethod())) {
       throw new Unreachable(
           "Enforced and erased signatures are inconsistent in " + callSite.toString());
     }
@@ -439,8 +442,9 @@ public final class LambdaDescriptor {
   }
 
   private static boolean isEnforcedSignatureValid(
-      DexItemFactory factory, DexProto enforced, DexProto erased) {
-    if (!isSameOrDerived(factory, enforced.returnType, erased.returnType)) {
+      DexItemFactory factory, DexProto enforced, DexProto erased, DexMethod implMethod) {
+    if (!isSameOrDerivedReturnType(
+        factory, enforced.returnType, erased.returnType, implMethod.getReturnType())) {
       return false;
     }
     DexType[] enforcedValues = enforced.parameters.values;
@@ -455,6 +459,22 @@ public final class LambdaDescriptor {
       }
     }
     return true;
+  }
+
+  static boolean isSameOrDerivedReturnType(
+      DexItemFactory factory, DexType subType, DexType superType, DexType actualReturnType) {
+    if (isSameOrDerived(factory, subType, superType)) {
+      return true;
+    }
+    // The linking invariants should apply to return types as stated in:
+    // https://docs.oracle.com/javase/8/docs/api/java/lang/invoke/LambdaMetafactory.html
+    // However, running examples on actual JVMs show they are not enforced for return types.
+    // It appears that a primitive type can appear in the interface type so long as the actual
+    // implementation method return type can be adapted to it.
+    if (subType.isPrimitiveType()) {
+      return LambdaMainMethodSourceCode.isSameOrAdaptableTo(actualReturnType, subType, factory);
+    }
+    return false;
   }
 
   @SuppressWarnings("ReferenceEquality")
