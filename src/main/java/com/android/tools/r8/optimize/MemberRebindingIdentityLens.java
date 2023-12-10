@@ -77,7 +77,7 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
   public MethodLookupResult internalDescribeLookupMethod(
       MethodLookupResult previous, DexMethod context, GraphLens codeLens) {
     assert previous.getReboundReference() == null;
-    return MethodLookupResult.builder(this)
+    return MethodLookupResult.builder(this, codeLens)
         .setReference(previous.getReference())
         .setReboundReference(getReboundMethodReference(previous.getReference()))
         .setPrototypeChanges(previous.getPrototypeChanges())
@@ -85,10 +85,9 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
         .build();
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private DexMethod getReboundMethodReference(DexMethod method) {
     DexMethod rebound = nonReboundMethodReferenceToDefinitionMap.get(method);
-    assert method != rebound;
+    assert method.isNotIdenticalTo(rebound);
     while (rebound != null) {
       method = rebound;
       rebound = nonReboundMethodReferenceToDefinitionMap.get(method);
@@ -130,8 +129,10 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
                   lens.lookupType(
                       nonReboundFieldReference.getHolderType(), appliedMemberRebindingLens),
                   dexItemFactory);
-          builder.recordNonReboundFieldAccess(
-              rewrittenNonReboundFieldReference, rewrittenReboundFieldReference);
+          if (rewrittenNonReboundFieldReference.isNotIdenticalTo(rewrittenReboundFieldReference)) {
+            builder.recordNonReboundFieldAccess(
+                rewrittenNonReboundFieldReference, rewrittenReboundFieldReference);
+          }
         });
     nonReboundMethodReferenceToDefinitionMap.forEach(
         (nonReboundMethodReference, reboundMethodReference) -> {
@@ -142,8 +143,11 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
                   lens.lookupType(
                       nonReboundMethodReference.getHolderType(), appliedMemberRebindingLens),
                   dexItemFactory);
-          builder.recordNonReboundMethodAccess(
-              rewrittenNonReboundMethodReference, rewrittenReboundMethodReference);
+          if (rewrittenNonReboundMethodReference.isNotIdenticalTo(
+              rewrittenReboundMethodReference)) {
+            builder.recordNonReboundMethodAccess(
+                rewrittenNonReboundMethodReference, rewrittenReboundMethodReference);
+          }
         });
     return builder.build();
   }
@@ -171,11 +175,13 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
 
     private void recordNonReboundFieldAccess(
         DexField nonReboundFieldReference, DexField reboundFieldReference) {
+      assert nonReboundFieldReference.isNotIdenticalTo(reboundFieldReference);
       nonReboundFieldReferenceToDefinitionMap.put(nonReboundFieldReference, reboundFieldReference);
     }
 
     private void recordNonReboundMethodAccess(
         DexMethod nonReboundMethodReference, DexMethod reboundMethodReference) {
+      assert nonReboundMethodReference.isNotIdenticalTo(reboundMethodReference);
       nonReboundMethodReferenceToDefinitionMap.put(
           nonReboundMethodReference, reboundMethodReference);
     }

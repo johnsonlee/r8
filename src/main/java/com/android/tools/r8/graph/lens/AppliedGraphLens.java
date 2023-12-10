@@ -45,22 +45,23 @@ public final class AppliedGraphLens extends DefaultNonIdentityGraphLens {
   private final Map<DexMethod, DexMethod> extraOriginalMethodSignatures = new IdentityHashMap<>();
 
   @SuppressWarnings("ReferenceEquality")
-  public AppliedGraphLens(AppView<? extends AppInfoWithClassHierarchy> appView) {
-    super(appView, GraphLens.getIdentityLens());
+  public AppliedGraphLens(
+      AppView<? extends AppInfoWithClassHierarchy> appView, GraphLens graphLens) {
+    super(appView);
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       // TODO(b/169395592): If merged classes were removed from the application this would not be
       //  necessary.
-      if (appView.graphLens().lookupType(clazz.getType()) != clazz.getType()) {
+      if (graphLens.lookupType(clazz.getType()) != clazz.getType()) {
         continue;
       }
 
       // Record original type names.
-      recordOriginalTypeNames(clazz, appView);
+      recordOriginalTypeNames(clazz, graphLens);
 
       // Record original field signatures.
       for (DexEncodedField encodedField : clazz.fields()) {
         DexField field = encodedField.getReference();
-        DexField original = appView.graphLens().getOriginalFieldSignature(field);
+        DexField original = graphLens.getOriginalFieldSignature(field);
         if (original != field) {
           DexField existing = originalFieldSignatures.forcePut(field, original);
           assert existing == null;
@@ -70,12 +71,12 @@ public final class AppliedGraphLens extends DefaultNonIdentityGraphLens {
       // Record original method signatures.
       for (DexEncodedMethod encodedMethod : clazz.methods()) {
         DexMethod method = encodedMethod.getReference();
-        DexMethod original = appView.graphLens().getOriginalMethodSignatureForMapping(method);
+        DexMethod original = graphLens.getOriginalMethodSignatureForMapping(method);
         DexMethod existing = originalMethodSignatures.inverse().get(original);
         if (existing == null) {
           originalMethodSignatures.put(method, original);
         } else {
-          DexMethod renamed = appView.graphLens().getRenamedMethodSignature(original);
+          DexMethod renamed = graphLens.getRenamedMethodSignature(original);
           if (renamed == existing) {
             extraOriginalMethodSignatures.put(method, original);
           } else {
@@ -92,11 +93,10 @@ public final class AppliedGraphLens extends DefaultNonIdentityGraphLens {
   }
 
   @SuppressWarnings("ReferenceEquality")
-  private void recordOriginalTypeNames(
-      DexProgramClass clazz, AppView<? extends AppInfoWithClassHierarchy> appView) {
+  private void recordOriginalTypeNames(DexProgramClass clazz, GraphLens graphLens) {
     DexType type = clazz.getType();
 
-    List<DexType> originalTypes = Lists.newArrayList(appView.graphLens().getOriginalTypes(type));
+    List<DexType> originalTypes = Lists.newArrayList(graphLens.getOriginalTypes(type));
     boolean isIdentity = originalTypes.size() == 1 && originalTypes.get(0) == type;
     if (!isIdentity) {
       originalTypes.forEach(
@@ -104,7 +104,7 @@ public final class AppliedGraphLens extends DefaultNonIdentityGraphLens {
             assert !renamedTypeNames.containsKey(originalType);
             renamedTypeNames.put(originalType, type);
           });
-      renamedTypeNames.setRepresentative(type, appView.graphLens().getOriginalType(type));
+      renamedTypeNames.setRepresentative(type, graphLens.getOriginalType(type));
     }
   }
 

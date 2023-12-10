@@ -22,13 +22,16 @@ import java.util.function.BiConsumer;
 public class VerticallyMergedClasses implements MergedClasses {
 
   private final BidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses;
-  private final BidirectionalManyToOneMap<DexType, DexType> mergedInterfaces;
+  private final BidirectionalManyToOneMap<DexType, DexType> mergedInterfacesToClasses;
+  private final BidirectionalManyToOneMap<DexType, DexType> mergedInterfacesToInterfaces;
 
   public VerticallyMergedClasses(
       BidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses,
-      BidirectionalManyToOneMap<DexType, DexType> mergedInterfaces) {
+      BidirectionalManyToOneMap<DexType, DexType> mergedInterfacesToClasses,
+      BidirectionalManyToOneMap<DexType, DexType> mergedInterfacesToInterfaces) {
     this.mergedClasses = mergedClasses;
-    this.mergedInterfaces = mergedInterfaces;
+    this.mergedInterfacesToClasses = mergedInterfacesToClasses;
+    this.mergedInterfacesToInterfaces = mergedInterfacesToInterfaces;
   }
 
   public static Builder builder() {
@@ -38,7 +41,7 @@ public class VerticallyMergedClasses implements MergedClasses {
   public static VerticallyMergedClasses empty() {
     EmptyBidirectionalOneToOneMap<DexType, DexType> emptyMap =
         new EmptyBidirectionalOneToOneMap<>();
-    return new VerticallyMergedClasses(emptyMap, emptyMap);
+    return new VerticallyMergedClasses(emptyMap, emptyMap, emptyMap);
   }
 
   @Override
@@ -59,6 +62,10 @@ public class VerticallyMergedClasses implements MergedClasses {
     return mergedClasses.keySet();
   }
 
+  public Set<DexType> getTargets() {
+    return mergedClasses.values();
+  }
+
   public Collection<DexType> getSourcesFor(DexType type) {
     return mergedClasses.getKeys(type);
   }
@@ -77,8 +84,13 @@ public class VerticallyMergedClasses implements MergedClasses {
     return mergedClasses.containsKey(type);
   }
 
+  public boolean hasInterfaceBeenMergedIntoClass(DexType interfaceType, DexType classType) {
+    return classType.isIdenticalTo(mergedInterfacesToClasses.get(interfaceType));
+  }
+
   public boolean hasInterfaceBeenMergedIntoSubtype(DexType type) {
-    return mergedInterfaces.containsKey(type);
+    return mergedInterfacesToClasses.containsKey(type)
+        || mergedInterfacesToInterfaces.containsKey(type);
   }
 
   public boolean isEmpty() {
@@ -104,13 +116,20 @@ public class VerticallyMergedClasses implements MergedClasses {
     private final MutableBidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses =
         BidirectionalManyToOneRepresentativeHashMap.newIdentityHashMap();
 
-    private final BidirectionalManyToOneHashMap<DexType, DexType> mergedInterfaces =
+    private final BidirectionalManyToOneHashMap<DexType, DexType> mergedInterfacesToClasses =
+        BidirectionalManyToOneHashMap.newIdentityHashMap();
+
+    private final BidirectionalManyToOneHashMap<DexType, DexType> mergedInterfacesToInterfaces =
         BidirectionalManyToOneHashMap.newIdentityHashMap();
 
     void add(DexProgramClass source, DexProgramClass target) {
       mergedClasses.put(source.getType(), target.getType());
       if (source.isInterface()) {
-        mergedInterfaces.put(source.getType(), target.getType());
+        if (target.isInterface()) {
+          mergedInterfacesToInterfaces.put(source.getType(), target.getType());
+        } else {
+          mergedInterfacesToClasses.put(source.getType(), target.getType());
+        }
       }
     }
 
@@ -128,11 +147,13 @@ public class VerticallyMergedClasses implements MergedClasses {
 
     void merge(VerticallyMergedClasses.Builder other) {
       mergedClasses.putAll(other.mergedClasses);
-      mergedInterfaces.putAll(other.mergedInterfaces);
+      mergedInterfacesToClasses.putAll(other.mergedInterfacesToClasses);
+      mergedInterfacesToInterfaces.putAll(other.mergedInterfacesToInterfaces);
     }
 
     VerticallyMergedClasses build() {
-      return new VerticallyMergedClasses(mergedClasses, mergedInterfaces);
+      return new VerticallyMergedClasses(
+          mergedClasses, mergedInterfacesToClasses, mergedInterfacesToInterfaces);
     }
   }
 }

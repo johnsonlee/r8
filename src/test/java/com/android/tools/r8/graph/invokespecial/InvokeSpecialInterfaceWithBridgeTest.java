@@ -73,7 +73,7 @@ public class InvokeSpecialInterfaceWithBridgeTest extends TestBase {
 
   public static class A implements I {}
 
-  public static class B extends A {
+  public static class B extends A { // B extends Object implements I
 
     public void bar() {
       foo(); // Will be rewritten to invoke-special B.foo()

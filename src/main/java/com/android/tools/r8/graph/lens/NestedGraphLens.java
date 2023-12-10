@@ -172,12 +172,14 @@ public class NestedGraphLens extends DefaultNonIdentityGraphLens {
               : // This assumes that the holder will always be moved in lock-step with the method!
               rewrittenReboundReference.withHolder(
                   getNextClassType(previous.getReference().getHolderType()), dexItemFactory());
-      return MethodLookupResult.builder(this)
+      return MethodLookupResult.builder(this, codeLens)
           .setReference(rewrittenReference)
           .setReboundReference(rewrittenReboundReference)
           .setPrototypeChanges(
               internalDescribePrototypeChanges(
-                  previous.getPrototypeChanges(), rewrittenReboundReference))
+                  previous.getPrototypeChanges(),
+                  previous.getReboundReference(),
+                  rewrittenReboundReference))
           .setType(
               mapInvocationType(
                   rewrittenReboundReference, previous.getReference(), previous.getType()))
@@ -190,14 +192,15 @@ public class NestedGraphLens extends DefaultNonIdentityGraphLens {
         newMethod = previous.getReference();
       }
       RewrittenPrototypeDescription newPrototypeChanges =
-          internalDescribePrototypeChanges(previous.getPrototypeChanges(), newMethod);
+          internalDescribePrototypeChanges(
+              previous.getPrototypeChanges(), previous.getReference(), newMethod);
       if (newMethod == previous.getReference()
           && newPrototypeChanges == previous.getPrototypeChanges()) {
-        return previous;
+        return previous.verify(this, codeLens);
       }
       // TODO(sgjesse): Should we always do interface to virtual mapping? Is it a performance win
       //  that only subclasses which are known to need it actually do it?
-      return MethodLookupResult.builder(this)
+      return MethodLookupResult.builder(this, codeLens)
           .setReference(newMethod)
           .setPrototypeChanges(newPrototypeChanges)
           .setType(mapInvocationType(newMethod, previous.getReference(), previous.getType()))
@@ -214,11 +217,13 @@ public class NestedGraphLens extends DefaultNonIdentityGraphLens {
     DexMethod previous = getPreviousMethodSignature(method);
     RewrittenPrototypeDescription lookup =
         getPrevious().lookupPrototypeChangesForMethodDefinition(previous, codeLens);
-    return internalDescribePrototypeChanges(lookup, method);
+    return internalDescribePrototypeChanges(lookup, previous, method);
   }
 
   protected RewrittenPrototypeDescription internalDescribePrototypeChanges(
-      RewrittenPrototypeDescription prototypeChanges, DexMethod method) {
+      RewrittenPrototypeDescription prototypeChanges,
+      DexMethod previousMethod,
+      DexMethod newMethod) {
     return prototypeChanges;
   }
 

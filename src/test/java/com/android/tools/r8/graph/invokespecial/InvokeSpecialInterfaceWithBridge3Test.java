@@ -9,6 +9,7 @@ import static org.junit.Assert.assertEquals;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 
+import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -43,13 +44,17 @@ public class InvokeSpecialInterfaceWithBridge3Test extends TestBase {
         testForRuntime(parameters.getRuntime(), parameters.getApiLevel())
             .addProgramClasses(I.class, A.class, Main.class)
             .addProgramClassFileData(getClassWithTransformedInvoked())
-            .run(parameters.getRuntime(), Main.class);
+            .run(parameters.getRuntime(), Main.class)
+            .apply(this::inspectRunResult);
+  }
+
+  private void inspectRunResult(SingleTestRunResult<?> runResult) {
     if (parameters.isDexRuntime() && parameters.canUseDefaultAndStaticInterfaceMethods()) {
       // TODO(b/166210854): Runs really should fail, but since DEX does not have interface
       //  method references the VM will just dispatch.
-      result.assertSuccessWithOutput(EXPECTED);
+      runResult.assertSuccessWithOutput(EXPECTED);
     } else {
-      result.assertFailureWithErrorThatThrows(getExpectedException());
+      runResult.assertFailureWithErrorThatThrows(getExpectedException());
     }
   }
 
@@ -74,8 +79,11 @@ public class InvokeSpecialInterfaceWithBridge3Test extends TestBase {
         .addKeepMainRule(Main.class)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/166210854): Runs but should have failed.
-        .assertSuccessWithOutput(EXPECTED);
+        .applyIf(
+            parameters.isCfRuntime(),
+            // TODO(b/166210854): Runs but should have failed.
+            runResult -> runResult.assertSuccessWithOutput(EXPECTED),
+            this::inspectRunResult);
   }
 
   private byte[] getClassWithTransformedInvoked() throws IOException {

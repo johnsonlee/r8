@@ -854,13 +854,6 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       GraphLens graphLens,
       ProgramMethod context) {
     InliningConstraints inliningConstraints = new InliningConstraints(appView, graphLens);
-    if (appView.options().isInterfaceMethodDesugaringEnabled()) {
-      // TODO(b/120130831): Conservatively need to say "no" at this point if there are invocations
-      //  to static interface methods. This should be fixed by making sure that the desugared
-      //  versions of default and static interface methods are present in the application during
-      //  IR processing.
-      inliningConstraints.disallowStaticInterfaceMethodCalls();
-    }
     ConstraintWithTarget constraint = ConstraintWithTarget.ALWAYS;
     assert inliningConstraints.forMonitor().isAlways();
     for (CfInstruction insn : instructions) {

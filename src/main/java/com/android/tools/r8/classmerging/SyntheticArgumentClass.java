@@ -1,12 +1,13 @@
-// Copyright (c) 2020, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2023, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.horizontalclassmerging;
+package com.android.tools.r8.classmerging;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.horizontalclassmerging.MergeGroup;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.synthesis.SyntheticItems.SyntheticKindSelector;
 import com.google.common.base.Suppliers;
@@ -48,7 +49,7 @@ public class SyntheticArgumentClass {
 
     private final AppView<AppInfoWithLiveness> appView;
 
-    Builder(AppView<AppInfoWithLiveness> appView) {
+    public Builder(AppView<AppInfoWithLiveness> appView) {
       this.appView = appView;
     }
 
@@ -60,22 +61,28 @@ public class SyntheticArgumentClass {
     }
 
     public SyntheticArgumentClass build(Collection<MergeGroup> mergeGroups) {
-      DexProgramClass context = getDeterministicContext(mergeGroups);
+      return build(getDeterministicContext(mergeGroups));
+    }
+
+    public SyntheticArgumentClass build(DexProgramClass deterministicContext) {
       List<Supplier<DexType>> syntheticArgumentTypes = new ArrayList<>();
       syntheticArgumentTypes.add(
           Suppliers.memoize(
               () ->
-                  synthesizeClass(context, kinds -> kinds.HORIZONTAL_INIT_TYPE_ARGUMENT_1)
+                  synthesizeClass(
+                          deterministicContext, kinds -> kinds.HORIZONTAL_INIT_TYPE_ARGUMENT_1)
                       .getType()));
       syntheticArgumentTypes.add(
           Suppliers.memoize(
               () ->
-                  synthesizeClass(context, kinds -> kinds.HORIZONTAL_INIT_TYPE_ARGUMENT_2)
+                  synthesizeClass(
+                          deterministicContext, kinds -> kinds.HORIZONTAL_INIT_TYPE_ARGUMENT_2)
                       .getType()));
       syntheticArgumentTypes.add(
           Suppliers.memoize(
               () ->
-                  synthesizeClass(context, kinds -> kinds.HORIZONTAL_INIT_TYPE_ARGUMENT_3)
+                  synthesizeClass(
+                          deterministicContext, kinds -> kinds.HORIZONTAL_INIT_TYPE_ARGUMENT_3)
                       .getType()));
       return new SyntheticArgumentClass(syntheticArgumentTypes);
     }

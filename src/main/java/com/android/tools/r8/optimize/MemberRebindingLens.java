@@ -6,17 +6,12 @@ package com.android.tools.r8.optimize;
 
 import static com.android.tools.r8.graph.lens.NestedGraphLens.mapVirtualInterfaceInvocationTypes;
 
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.FieldAccessInfo;
 import com.android.tools.r8.graph.lens.DefaultNonIdentityGraphLens;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
-import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Collections;
@@ -26,15 +21,11 @@ import java.util.Map;
 public class MemberRebindingLens extends DefaultNonIdentityGraphLens {
 
   private final Map<InvokeType, Map<DexMethod, DexMethod>> methodMaps;
-  private final Map<DexField, DexField> nonReboundFieldReferenceToDefinitionMap;
 
   public MemberRebindingLens(
-      AppView<AppInfoWithLiveness> appView,
-      Map<InvokeType, Map<DexMethod, DexMethod>> methodMaps,
-      Map<DexField, DexField> nonReboundFieldReferenceToDefinitionMap) {
+      AppView<AppInfoWithLiveness> appView, Map<InvokeType, Map<DexMethod, DexMethod>> methodMaps) {
     super(appView);
     this.methodMaps = methodMaps;
-    this.nonReboundFieldReferenceToDefinitionMap = nonReboundFieldReferenceToDefinitionMap;
   }
 
   public static Builder builder(AppView<AppInfoWithLiveness> appView) {
@@ -53,16 +44,7 @@ public class MemberRebindingLens extends DefaultNonIdentityGraphLens {
 
   @Override
   protected FieldLookupResult internalDescribeLookupField(FieldLookupResult previous) {
-    assert !previous.hasReadCastType();
-    assert !previous.hasReboundReference();
-    return FieldLookupResult.builder(this)
-        .setReference(previous.getReference())
-        .setReboundReference(getReboundFieldReference(previous.getReference()))
-        .build();
-  }
-
-  private DexField getReboundFieldReference(DexField field) {
-    return nonReboundFieldReferenceToDefinitionMap.getOrDefault(field, field);
+    return previous;
   }
 
   @Override
@@ -70,16 +52,15 @@ public class MemberRebindingLens extends DefaultNonIdentityGraphLens {
       MethodLookupResult previous, DexMethod context, GraphLens codeLens) {
     Map<DexMethod, DexMethod> methodMap =
         methodMaps.getOrDefault(previous.getType(), Collections.emptyMap());
-    DexMethod newMethod = methodMap.get(previous.getReference());
-    if (newMethod == null) {
-      return previous;
-    }
-    return MethodLookupResult.builder(this)
-        .setReference(newMethod)
+    DexMethod newReboundMethod =
+        methodMap.getOrDefault(previous.getReference(), previous.getReference());
+    return MethodLookupResult.builder(this, codeLens)
+        .setReboundReference(newReboundMethod)
+        .setReference(newReboundMethod)
         .setPrototypeChanges(previous.getPrototypeChanges())
         .setType(
             mapVirtualInterfaceInvocationTypes(
-                appView, newMethod, previous.getReference(), previous.getType()))
+                appView, newReboundMethod, previous.getReference(), previous.getType()))
         .build();
   }
 
@@ -91,33 +72,10 @@ public class MemberRebindingLens extends DefaultNonIdentityGraphLens {
     return getPrevious().isIdentityLensForFields(codeLens);
   }
 
-  public FieldRebindingIdentityLens toRewrittenFieldRebindingLens(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      GraphLens lens,
-      NonIdentityGraphLens appliedMemberRebindingLens) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    FieldRebindingIdentityLens.Builder builder = FieldRebindingIdentityLens.builder();
-    nonReboundFieldReferenceToDefinitionMap.forEach(
-        (nonReboundFieldReference, reboundFieldReference) -> {
-          DexField rewrittenReboundFieldReference =
-              lens.getRenamedFieldSignature(reboundFieldReference, appliedMemberRebindingLens);
-          DexField rewrittenNonReboundFieldReference =
-              rewrittenReboundFieldReference.withHolder(
-                  lens.lookupType(
-                      nonReboundFieldReference.getHolderType(), appliedMemberRebindingLens),
-                  dexItemFactory);
-          builder.recordDefinitionForNonReboundFieldReference(
-              rewrittenNonReboundFieldReference, rewrittenReboundFieldReference);
-        });
-    return builder.build(appView);
-  }
-
   public static class Builder {
 
     private final AppView<AppInfoWithLiveness> appView;
     private final Map<InvokeType, Map<DexMethod, DexMethod>> methodMaps = new IdentityHashMap<>();
-    private final Map<DexField, DexField> nonReboundFieldReferenceToDefinitionMap =
-        new IdentityHashMap<>();
 
     private Builder(AppView<AppInfoWithLiveness> appView) {
       this.appView = appView;
@@ -135,20 +93,8 @@ public class MemberRebindingLens extends DefaultNonIdentityGraphLens {
       methodMap.put(from, to);
     }
 
-    void recordNonReboundFieldAccesses(FieldAccessInfo info) {
-      DexField reboundFieldReference = info.getField();
-      info.forEachIndirectAccess(
-          nonReboundFieldReference ->
-              recordNonReboundFieldAccess(nonReboundFieldReference, reboundFieldReference));
-    }
-
-    private void recordNonReboundFieldAccess(
-        DexField nonReboundFieldReference, DexField reboundFieldReference) {
-      nonReboundFieldReferenceToDefinitionMap.put(nonReboundFieldReference, reboundFieldReference);
-    }
-
     public MemberRebindingLens build() {
-      return new MemberRebindingLens(appView, methodMaps, nonReboundFieldReferenceToDefinitionMap);
+      return new MemberRebindingLens(appView, methodMaps);
     }
   }
 }

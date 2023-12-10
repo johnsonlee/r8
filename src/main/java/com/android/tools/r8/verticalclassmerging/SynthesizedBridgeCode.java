@@ -1,9 +1,11 @@
 package com.android.tools.r8.verticalclassmerging;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.UseRegistry;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.synthetic.AbstractSynthesizedCode;
 import com.android.tools.r8.ir.synthetic.ForwardMethodSourceCode;
@@ -13,13 +15,13 @@ public class SynthesizedBridgeCode extends AbstractSynthesizedCode {
 
   private DexMethod method;
   private DexMethod invocationTarget;
-  private InvokeType type;
+  private final InvokeType type;
   private final boolean isInterface;
+  private VerticalClassMergerGraphLens codeLens;
 
-  public SynthesizedBridgeCode(
-      DexMethod method, DexMethod invocationTarget, InvokeType type, boolean isInterface) {
+  public SynthesizedBridgeCode(DexMethod method, InvokeType type, boolean isInterface) {
     this.method = method;
-    this.invocationTarget = invocationTarget;
+    this.invocationTarget = null;
     this.type = type;
     this.isInterface = isInterface;
   }
@@ -44,8 +46,14 @@ public class SynthesizedBridgeCode extends AbstractSynthesizedCode {
   // expects to be applied to method signatures from *before* vertical class merging or *after*
   // vertical class merging).
   public void updateMethodSignatures(VerticalClassMergerGraphLens lens) {
-    method = lens.getNextMethodSignature(method);
-    invocationTarget = lens.getNextMethodSignature(invocationTarget);
+    codeLens = lens;
+    invocationTarget = lens.getNextImplementationMethodSignature(method);
+    method = lens.getNextBridgeMethodSignature(method);
+  }
+
+  @Override
+  public GraphLens getCodeLens(AppView<?> appView) {
+    return codeLens;
   }
 
   @Override

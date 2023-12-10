@@ -4,15 +4,11 @@
 
 package com.android.tools.r8.classmerging.vertical;
 
-import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverInline;
-import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.BooleanUtils;
-import com.android.tools.r8.utils.Box;
-import com.android.tools.r8.utils.codeinspector.AssertUtils;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,36 +34,31 @@ public class IncorrectRewritingOfInvokeSuperTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    Box<R8TestCompileResult> compileResult = new Box<>();
-    AssertUtils.assertFailsCompilationIf(
-        verifyLensLookup,
-        () ->
-            compileResult.set(
-                testForR8(parameters.getBackend())
-                    .addInnerClasses(IncorrectRewritingOfInvokeSuperTest.class)
-                    .addKeepMainRule(TestClass.class)
-                    .addOptionsModification(
-                        options -> {
-                          options.enableUnusedInterfaceRemoval = false;
-                          options.testing.enableVerticalClassMergerLensAssertion = verifyLensLookup;
-                        })
-                    .enableInliningAnnotations()
-                    .addDontObfuscate()
-                    .setMinApi(parameters)
-                    .compile()));
-
-    if (!compileResult.isSet()) {
-      assertTrue(verifyLensLookup);
-      return;
-    }
-
-    compileResult.get().run(parameters.getRuntime(), TestClass.class).assertSuccess();
+    testForR8(parameters.getBackend())
+        .addInnerClasses(IncorrectRewritingOfInvokeSuperTest.class)
+        .addKeepMainRule(TestClass.class)
+        .addOptionsModification(
+            options -> {
+              options.enableUnusedInterfaceRemoval = false;
+              options.testing.enableVerticalClassMergerLensAssertion = verifyLensLookup;
+            })
+        .enableInliningAnnotations()
+        .addDontObfuscate()
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines("Caught NPE");
   }
 
   static class TestClass {
 
     public static void main(String[] args) {
-      new B() {}.m(new SubArgType());
+      B b = new B() {};
+      b.m(new SubArgType());
+      try {
+        b.m(null);
+      } catch (RuntimeException e) {
+        System.out.println("Caught NPE");
+      }
     }
   }
 

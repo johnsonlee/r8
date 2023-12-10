@@ -9,23 +9,21 @@ import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class MethodCollisionTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public MethodCollisionTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -33,13 +31,8 @@ public class MethodCollisionTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
-        // TODO(christofferqa): Currently we do not allow merging A into B because we find a
-        //  collision. However, we are free to change the names of private methods, so we should
-        //  handle them similar to fields (i.e., we should allow merging A into B). This would also
-        //  improve the performance of the collision detector, because it would only have to
-        //  consider non-private methods.
         .addVerticallyMergedClassesInspector(
-            VerticallyMergedClassesInspector::assertNoClassesMerged)
+            inspector -> inspector.assertMergedIntoSubtype(A.class, C.class))
         .enableInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
         .setMinApi(parameters)

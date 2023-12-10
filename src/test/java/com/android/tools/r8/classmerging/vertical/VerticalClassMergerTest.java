@@ -145,7 +145,6 @@ public class VerticalClassMergerTest extends TestBase {
     Set<String> preservedClassNames =
         ImmutableSet.of(
             "classmerging.ArrayTypeCollisionTest",
-            "classmerging.ArrayTypeCollisionTest$A",
             "classmerging.ArrayTypeCollisionTest$B");
     runTest(
         testForR8(parameters.getBackend())
@@ -177,8 +176,7 @@ public class VerticalClassMergerTest extends TestBase {
   public void testArrayReturnTypeCollision() throws Throwable {
     String main = "classmerging.ArrayReturnTypeCollisionTest";
     Set<String> preservedClassNames =
-        ImmutableSet.of(
-            "classmerging.ArrayReturnTypeCollisionTest", "classmerging.A", "classmerging.B");
+        ImmutableSet.of("classmerging.ArrayReturnTypeCollisionTest", "classmerging.B");
 
     JasminBuilder jasminBuilder = new JasminBuilder();
 

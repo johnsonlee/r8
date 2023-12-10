@@ -34,7 +34,6 @@ import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
-import com.android.tools.r8.graph.lens.AppliedGraphLens;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.conversion.IRConverter;
@@ -483,7 +482,9 @@ public class R8 {
       // should therefore be run after the publicizer.
       new NestReducer(appViewWithLiveness).run(executorService, timing);
 
-      new MemberRebindingAnalysis(appViewWithLiveness).run(executorService);
+      appView.setGraphLens(MemberRebindingIdentityLensFactory.create(appView, executorService));
+
+      new MemberRebindingAnalysis(appViewWithLiveness).run();
       appViewWithLiveness.appInfo().notifyMemberRebindingFinished(appViewWithLiveness);
 
       assert ArtProfileCompletenessChecker.verify(appView);
@@ -540,9 +541,7 @@ public class R8 {
       // At this point all code has been mapped according to the graph lens. We cannot remove the
       // graph lens entirely, though, since it is needed for mapping all field and method signatures
       // back to the original program.
-      timing.time(
-          "AppliedGraphLens construction",
-          () -> appView.setGraphLens(new AppliedGraphLens(appView)));
+      timing.time("AppliedGraphLens construction", appView::flattenGraphLenses);
       timing.end();
 
       RuntimeTypeCheckInfo.Builder finalRuntimeTypeCheckInfoBuilder = null;

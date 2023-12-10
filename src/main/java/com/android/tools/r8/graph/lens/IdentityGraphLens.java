@@ -55,7 +55,7 @@ final class IdentityGraphLens extends GraphLens {
   public MethodLookupResult lookupMethod(
       DexMethod method, DexMethod context, InvokeType type, GraphLens codeLens) {
     assert codeLens == null || codeLens.isIdentityLens();
-    return MethodLookupResult.builder(this).setReference(method).setType(type).build();
+    return MethodLookupResult.builder(this, codeLens).setReference(method).setType(type).build();
   }
 
   @Override

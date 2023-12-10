@@ -53,10 +53,6 @@ public class InliningConstraints {
     return graphLens;
   }
 
-  public void disallowStaticInterfaceMethodCalls() {
-    allowStaticInterfaceMethodCalls = false;
-  }
-
   public ConstraintWithTarget forAlwaysMaterializingUser() {
     return ConstraintWithTarget.ALWAYS;
   }

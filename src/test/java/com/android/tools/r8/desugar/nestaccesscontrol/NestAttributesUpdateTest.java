@@ -7,6 +7,7 @@ package com.android.tools.r8.desugar.nestaccesscontrol;
 import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.PACKAGE_NAME;
 import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.classesMatching;
 import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertSame;
 import static junit.framework.TestCase.assertTrue;
@@ -151,7 +152,7 @@ public class NestAttributesUpdateTest extends TestBase {
   }
 
   public static void assertNestAttributesCorrect(CodeInspector inspector) {
-    assertTrue(inspector.allClasses().size() > 0);
+    assertFalse(inspector.allClasses().isEmpty());
     for (FoundClassSubject classSubject : inspector.allClasses()) {
       DexClass clazz = classSubject.getDexProgramClass();
       if (clazz.isInANest()) {

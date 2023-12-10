@@ -7,6 +7,7 @@ package com.android.tools.r8.profile.art.completeness;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -16,7 +17,6 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,6 +46,7 @@ public class VerticalClassMergingBridgeProfileRewritingTest extends TestBase {
             options -> options.callSiteOptimizationOptions().disableOptimization())
         .addVerticallyMergedClassesInspector(
             inspector -> inspector.assertMergedIntoSubtype(A.class))
+        .enableNeverClassInliningAnnotations()
         .setMinApi(parameters)
         .compile()
         .inspectResidualArtProfile(this::inspect)
@@ -64,11 +65,13 @@ public class VerticalClassMergingBridgeProfileRewritingTest extends TestBase {
     assertThat(bClassSubject, isPresent());
 
     MethodSubject movedMethodSubject =
-        bClassSubject.uniqueMethodThatMatches(FoundMethodSubject::isPrivate);
+        bClassSubject.uniqueMethodThatMatches(
+            method -> method.isBridge() && method.isSynthetic() && method.isVirtual());
     assertThat(movedMethodSubject, isPresent());
 
     MethodSubject syntheticBridgeMethodSubject =
-        bClassSubject.uniqueMethodThatMatches(FoundMethodSubject::isVirtual);
+        bClassSubject.uniqueMethodThatMatches(
+            method -> !method.isBridge() && !method.isSynthetic() && method.isVirtual());
     assertThat(syntheticBridgeMethodSubject, isPresent());
 
     profileInspector
@@ -90,5 +93,6 @@ public class VerticalClassMergingBridgeProfileRewritingTest extends TestBase {
     }
   }
 
+  @NeverClassInline
   static class B extends A {}
 }

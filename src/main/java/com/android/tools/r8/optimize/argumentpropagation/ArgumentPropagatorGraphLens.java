@@ -57,10 +57,9 @@ public class ArgumentPropagatorGraphLens extends NestedGraphLens {
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
   protected FieldLookupResult internalDescribeLookupField(FieldLookupResult previous) {
     FieldLookupResult lookupResult = super.internalDescribeLookupField(previous);
-    if (lookupResult.getReference().getType() != previous.getReference().getType()) {
+    if (lookupResult.getReference().getType().isNotIdenticalTo(previous.getReference().getType())) {
       return FieldLookupResult.builder(this)
           .setReboundReference(lookupResult.getReboundReference())
           .setReference(lookupResult.getReference())
@@ -73,15 +72,17 @@ public class ArgumentPropagatorGraphLens extends NestedGraphLens {
 
   @Override
   protected RewrittenPrototypeDescription internalDescribePrototypeChanges(
-      RewrittenPrototypeDescription prototypeChanges, DexMethod method) {
-    DexMethod previous = getPreviousMethodSignature(method);
-    if (!hasPrototypeChanges(method)) {
+      RewrittenPrototypeDescription prototypeChanges,
+      DexMethod previousMethod,
+      DexMethod newMethod) {
+    DexMethod previous = getPreviousMethodSignature(newMethod);
+    if (!hasPrototypeChanges(newMethod)) {
       return prototypeChanges;
     }
     RewrittenPrototypeDescription newPrototypeChanges =
-        prototypeChanges.combine(getPrototypeChanges(method));
+        prototypeChanges.combine(getPrototypeChanges(newMethod));
     assert previous.getReturnType().isVoidType()
-        || !method.getReturnType().isVoidType()
+        || !newMethod.getReturnType().isVoidType()
         || newPrototypeChanges.hasRewrittenReturnInfo();
     return newPrototypeChanges;
   }

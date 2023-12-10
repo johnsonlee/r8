@@ -70,7 +70,8 @@ public class VerticalClassMergerPolicyExecutor {
       if (!isStillMergeCandidate(sourceClass, targetClass)) {
         continue;
       }
-      if (mergeMayLeadToIllegalAccesses(sourceClass, targetClass)) {
+      if (mergeMayLeadToIllegalAccesses(sourceClass, targetClass)
+          || mergeMayLeadToNoSuchMethodError(sourceClass, targetClass)) {
         continue;
       }
       mergeCandidates.add(sourceClass);
@@ -328,8 +329,33 @@ public class VerticalClassMergerPolicyExecutor {
                 return TraversalContinuation.doBreak();
               }
               return TraversalContinuation.doContinue();
-            });
+            },
+            DexEncodedMethod::hasCode);
     return result.shouldBreak();
+  }
+
+  // TODO: maybe skip this check if target does not implement any interfaces (directly or
+  // indirectly)?
+  private boolean mergeMayLeadToNoSuchMethodError(DexProgramClass source, DexProgramClass target) {
+    // This only returns true when an invoke-super instruction is found that targets a default
+    // interface method.
+    if (!options.canUseDefaultAndStaticInterfaceMethods()) {
+      return false;
+    }
+    // This problem may only arise when merging (non-interface) classes into classes.
+    if (source.isInterface() || target.isInterface()) {
+      return false;
+    }
+    return target
+        .traverseProgramMethods(
+            method -> {
+              MergeMayLeadToNoSuchMethodErrorUseRegistry registry =
+                  new MergeMayLeadToNoSuchMethodErrorUseRegistry(appView, method, source);
+              method.registerCodeReferencesWithResult(registry);
+              return TraversalContinuation.breakIf(registry.mayLeadToNoSuchMethodError());
+            },
+            DexEncodedMethod::hasCode)
+        .shouldBreak();
   }
 
   private boolean methodResolutionMayChange(DexProgramClass source, DexProgramClass target) {

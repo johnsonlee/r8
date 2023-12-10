@@ -56,27 +56,34 @@ public class AccessModifierLens extends DefaultNonIdentityGraphLens {
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
   public MethodLookupResult internalDescribeLookupMethod(
       MethodLookupResult previous, DexMethod context, GraphLens codeLens) {
-    assert !previous.hasReboundReference();
-    DexMethod newMethod = getNextMethodSignature(previous.getReference());
+    DexMethod newReboundReference = getNextMethodSignature(previous.getReboundReference());
+    assert newReboundReference
+        .getHolderType()
+        .isIdenticalTo(previous.getReboundReference().getHolderType());
+
     InvokeType newInvokeType = previous.getType();
-    if (previous.getType() == InvokeType.DIRECT) {
-      if (publicizedPrivateInterfaceMethods.contains(newMethod)) {
+    if (previous.getType().isDirect()) {
+      if (publicizedPrivateInterfaceMethods.contains(newReboundReference)) {
         newInvokeType = InvokeType.INTERFACE;
-      } else if (publicizedPrivateVirtualMethods.contains(newMethod)) {
+      } else if (publicizedPrivateVirtualMethods.contains(newReboundReference)) {
         newInvokeType = InvokeType.VIRTUAL;
       }
     }
-    if (newInvokeType != previous.getType() || newMethod != previous.getReference()) {
-      return MethodLookupResult.builder(this)
-          .setReference(newMethod)
+
+    if (newInvokeType != previous.getType()
+        || newReboundReference.isNotIdenticalTo(previous.getReboundReference())) {
+      DexMethod newReference =
+          newReboundReference.withHolder(previous.getReference(), dexItemFactory());
+      return MethodLookupResult.builder(this, codeLens)
+          .setReboundReference(newReboundReference)
+          .setReference(newReference)
           .setPrototypeChanges(previous.getPrototypeChanges())
           .setType(newInvokeType)
           .build();
     }
-    return previous;
+    return previous.verify(this, codeLens);
   }
 
   public static class Builder {

@@ -4,7 +4,11 @@
 
 package com.android.tools.r8.graph.lens;
 
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMember;
+import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.utils.ObjectUtils;
+import com.android.tools.r8.utils.collections.BidirectionalManyToManyRepresentativeMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -31,6 +35,20 @@ abstract class MemberLookupResult<R extends DexMember<?, R>> {
     return rewritings.getOrDefault(reference, reference);
   }
 
+  @SuppressWarnings("unchecked")
+  public R getRewrittenReferenceFromRewrittenReboundReference(
+      R rewrittenReboundReference,
+      Function<DexType, DexType> typeRewriter,
+      DexItemFactory dexItemFactory) {
+    R rewrittenReference =
+        ObjectUtils.identical(reference, reboundReference)
+            ? rewrittenReboundReference
+            : (R)
+                rewrittenReboundReference.withHolder(
+                    typeRewriter.apply(reference.getHolderType()), dexItemFactory);
+    return rewrittenReference;
+  }
+
   public boolean hasReboundReference() {
     return reboundReference != null;
   }
@@ -39,7 +57,11 @@ abstract class MemberLookupResult<R extends DexMember<?, R>> {
     return reboundReference;
   }
 
-  public R getRewrittenReboundReference(BidirectionalManyToOneRepresentativeMap<R, R> rewritings) {
+  public R getRewrittenReboundReference(BidirectionalManyToManyRepresentativeMap<R, R> rewritings) {
+    return rewritings.getRepresentativeValueOrDefault(reboundReference, reboundReference);
+  }
+
+  public R getRewrittenReboundReference(Map<R, R> rewritings) {
     return rewritings.getOrDefault(reboundReference, reboundReference);
   }
 
@@ -53,9 +75,17 @@ abstract class MemberLookupResult<R extends DexMember<?, R>> {
     R reference;
     R reboundReference;
 
+    public R getReference() {
+      return reference;
+    }
+
     public Self setReference(R reference) {
       this.reference = reference;
       return self();
+    }
+
+    public R getReboundReference() {
+      return reboundReference;
     }
 
     public Self setReboundReference(R reboundReference) {

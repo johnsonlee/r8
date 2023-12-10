@@ -10,6 +10,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationMode;
+import com.android.tools.r8.KeepUnusedReturnValue;
+import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestParameters;
@@ -17,8 +19,6 @@ import com.android.tools.r8.naming.retrace.StackTrace.StackTraceLine;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -26,7 +26,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class VerticalClassMergingRetraceTest extends RetraceTestBase {
-  private Set<StackTraceLine> haveSeenLines = new HashSet<>();
 
   @Parameters(name = "{0}, mode: {1}, compat: {2}")
   public static Collection<Object[]> data() {
@@ -43,7 +42,10 @@ public class VerticalClassMergingRetraceTest extends RetraceTestBase {
 
   @Override
   public void configure(R8TestBuilder builder) {
-    builder.enableInliningAnnotations();
+    builder
+        .enableInliningAnnotations()
+        .enableKeepUnusedReturnValueAnnotations()
+        .enableNeverClassInliningAnnotations();
   }
 
   @Override
@@ -126,7 +128,6 @@ public class VerticalClassMergingRetraceTest extends RetraceTestBase {
     // since the synthetic bridge belongs to ResourceWrapper.foo.
     assumeTrue(compat);
     assumeTrue(parameters.isDexRuntime());
-    haveSeenLines.clear();
     runTest(
         ImmutableList.of(),
         (StackTrace actualStackTrace, StackTrace retracedStackTrace) -> {
@@ -142,11 +143,14 @@ class ResourceWrapper {
   // Will be merged down, and represented as:
   //     java.lang.String ...ResourceWrapper.foo() -> a
   @NeverInline
+  // TODO(b/313404813): Remove @KeepUnusedReturnValue as a workaround for a retrace failure.
+  @KeepUnusedReturnValue
   String foo() {
     throw null;
   }
 }
 
+@NeverClassInline
 class TintResources extends ResourceWrapper {}
 
 class MainApp {

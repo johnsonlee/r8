@@ -31,7 +31,7 @@ public abstract class ClassMergerGraphLens extends NestedGraphLens {
       GL extends ClassMergerGraphLens, MC extends MergedClasses> {
 
     public abstract void addExtraParameters(
-        DexMethod methodSignature, List<? extends ExtraParameter> extraParameters);
+        DexMethod from, DexMethod to, List<? extends ExtraParameter> extraParameters);
 
     public abstract void commitPendingUpdates();
 

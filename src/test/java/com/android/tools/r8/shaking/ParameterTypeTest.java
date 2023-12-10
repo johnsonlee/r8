@@ -4,8 +4,7 @@
 package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -142,28 +141,22 @@ public class ParameterTypeTest extends TestBase {
             .inspector();
 
     ClassSubject superInterface1 = inspector.clazz(B112452064SuperInterface1.class);
-    if (enableUnusedInterfaceRemoval && enableVerticalClassMerging) {
-      assertThat(superInterface1, isAbsent());
-    } else {
-      assertThat(superInterface1, isPresentAndRenamed());
-    }
+    assertThat(
+        superInterface1, isAbsentIf(enableUnusedInterfaceRemoval && enableVerticalClassMerging));
+
     MethodSubject foo = superInterface1.uniqueMethodWithOriginalName("foo");
-    assertThat(foo, not(isPresent()));
+    assertThat(foo, isAbsent());
+
     ClassSubject superInterface2 = inspector.clazz(B112452064SuperInterface2.class);
-    if (enableVerticalClassMerging) {
-      assertThat(superInterface2, not(isPresent()));
-    } else {
-      assertThat(superInterface2, isPresentAndRenamed());
-    }
+    assertThat(
+        superInterface2, isAbsentIf(enableUnusedInterfaceRemoval && enableVerticalClassMerging));
+
     MethodSubject bar = superInterface2.uniqueMethodWithOriginalName("bar");
-    assertThat(bar, not(isPresent()));
+    assertThat(bar, isAbsent());
+
     ClassSubject subInterface = inspector.clazz(B112452064SubInterface.class);
-    if (enableUnusedInterfaceRemoval) {
-      assertThat(subInterface, not(isPresent()));
-    } else {
-      assertThat(subInterface, isPresent());
-      assertThat(subInterface, isPresentAndRenamed());
-    }
+    assertThat(
+        subInterface, isAbsentIf(enableUnusedInterfaceRemoval || enableVerticalClassMerging));
   }
 
   @Test

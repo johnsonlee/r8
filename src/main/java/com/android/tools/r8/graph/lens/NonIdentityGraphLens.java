@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.utils.ThrowingAction;
+import com.google.common.collect.Streams;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
@@ -82,20 +83,19 @@ public abstract class NonIdentityGraphLens extends GraphLens {
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
   public MethodLookupResult lookupMethod(
-      DexMethod method, DexMethod context, InvokeType type, GraphLens codeLens) {
+      DexMethod method, DexMethod context, InvokeType invokeType, GraphLens codeLens) {
     if (method.getHolderType().isArrayType()) {
-      assert lookupType(method.getReturnType()) == method.getReturnType();
-      assert method.getParameters().stream()
-          .allMatch(parameterType -> lookupType(parameterType) == parameterType);
-      return MethodLookupResult.builder(this)
-          .setReference(method.withHolder(lookupType(method.getHolderType()), dexItemFactory))
-          .setType(type)
+      assert Streams.stream(method.getReferencedBaseTypes(dexItemFactory))
+          .allMatch(type -> type.isIdenticalTo(lookupClassType(type, codeLens)));
+      return MethodLookupResult.builder(this, codeLens)
+          .setReference(
+              method.withHolder(lookupType(method.getHolderType(), codeLens), dexItemFactory))
+          .setType(invokeType)
           .build();
     }
     assert method.getHolderType().isClassType();
-    return internalLookupMethod(method, context, type, codeLens, result -> result);
+    return internalLookupMethod(method, context, invokeType, codeLens, result -> result);
   }
 
   @Override
@@ -185,6 +185,10 @@ public abstract class NonIdentityGraphLens extends GraphLens {
   public abstract DexField getNextFieldSignature(DexField field);
 
   public abstract DexMethod getNextMethodSignature(DexMethod method);
+
+  public final boolean isD8Lens() {
+    return !appView.enableWholeProgramOptimizations();
+  }
 
   @Override
   public final boolean isIdentityLens() {

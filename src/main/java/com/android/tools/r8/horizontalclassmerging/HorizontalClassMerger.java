@@ -6,6 +6,7 @@ package com.android.tools.r8.horizontalclassmerging;
 
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 
+import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -14,9 +15,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
-import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
-import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
@@ -175,7 +174,8 @@ public class HorizontalClassMerger {
             mode,
             profileCollectionAdditions,
             syntheticArgumentClass,
-            executorService);
+            executorService,
+            timing);
     profileCollectionAdditions =
         profileCollectionAdditions.rewriteMethodReferences(
             horizontalClassMergerGraphLens::getNextMethodToInvoke);
@@ -255,14 +255,10 @@ public class HorizontalClassMerger {
               for (VirtuallyMergedMethodsKeepInfo virtuallyMergedMethodsKeepInfo :
                   virtuallyMergedMethodsKeepInfos) {
                 DexMethod representative = virtuallyMergedMethodsKeepInfo.getRepresentative();
-                MethodLookupResult lookupResult =
-                    horizontalClassMergerGraphLens.lookupMethod(
-                        representative,
-                        null,
-                        InvokeType.VIRTUAL,
-                        horizontalClassMergerGraphLens.getPrevious());
+                DexMethod mergedMethodReference =
+                    horizontalClassMergerGraphLens.getNextMethodToInvoke(representative);
                 ProgramMethod mergedMethod =
-                    asProgramMethodOrNull(appView.definitionFor(lookupResult.getReference()));
+                    asProgramMethodOrNull(appView.definitionFor(mergedMethodReference));
                 if (mergedMethod != null) {
                   keepInfo.joinMethod(
                       mergedMethod,
@@ -427,7 +423,8 @@ public class HorizontalClassMerger {
       Mode mode,
       ProfileCollectionAdditions profileCollectionAdditions,
       SyntheticArgumentClass syntheticArgumentClass,
-      ExecutorService executorService)
+      ExecutorService executorService,
+      Timing timing)
       throws ExecutionException {
     return new HorizontalClassMergerTreeFixer(
             appView,
@@ -436,7 +433,7 @@ public class HorizontalClassMerger {
             mode,
             profileCollectionAdditions,
             syntheticArgumentClass)
-        .run(executorService);
+        .run(executorService, timing);
   }
 
   @SuppressWarnings("ReferenceEquality")

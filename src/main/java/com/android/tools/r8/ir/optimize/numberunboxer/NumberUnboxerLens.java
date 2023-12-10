@@ -35,10 +35,12 @@ public class NumberUnboxerLens extends NestedGraphLensWithCustomLensCodeRewriter
 
   @Override
   protected RewrittenPrototypeDescription internalDescribePrototypeChanges(
-      RewrittenPrototypeDescription prototypeChanges, DexMethod method) {
-    RewrittenPrototypeDescription enumUnboxingPrototypeChanges =
-        prototypeChangesPerMethod.getOrDefault(method, RewrittenPrototypeDescription.none());
-    return prototypeChanges.combine(enumUnboxingPrototypeChanges);
+      RewrittenPrototypeDescription previousPrototypeChanges,
+      DexMethod previousMethod,
+      DexMethod newMethod) {
+    RewrittenPrototypeDescription prototypeChanges =
+        prototypeChangesPerMethod.getOrDefault(newMethod, RewrittenPrototypeDescription.none());
+    return previousPrototypeChanges.combine(prototypeChanges);
   }
 
   @Override

@@ -135,7 +135,31 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
+  protected MethodLookupResult internalLookupMethod(
+      DexMethod reference,
+      DexMethod context,
+      InvokeType type,
+      GraphLens codeLens,
+      LookupMethodContinuation continuation) {
+    if (this == codeLens) {
+      // We sometimes create code objects that have the EnumUnboxingLens as code lens.
+      // When using this lens as a code lens there is no lens that will insert the rebound reference
+      // since the MemberRebindingIdentityLens is an ancestor of the EnumUnboxingLens.
+      // We therefore use the reference itself as the rebound reference here, which is safe since
+      // the code objects created during enum unboxing are guaranteed not to contain any non-rebound
+      // method references.
+      MethodLookupResult lookupResult =
+          MethodLookupResult.builder(this, codeLens)
+              .setReboundReference(reference)
+              .setReference(reference)
+              .setType(type)
+              .build();
+      return continuation.lookupMethod(lookupResult);
+    }
+    return super.internalLookupMethod(reference, context, type, codeLens, continuation);
+  }
+
+  @Override
   public MethodLookupResult internalDescribeLookupMethod(
       MethodLookupResult previous, DexMethod context, GraphLens codeLens) {
     assert context != null || verifyIsContextFreeForMethod(previous.getReference(), codeLens);
@@ -146,9 +170,9 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
       DexMethod previousContext = getPreviousMethodSignature(context);
       DexType superEnum = unboxedEnums.representativeType(previousContext.getHolderType());
       if (unboxedEnums.isUnboxedEnum(superEnum)) {
-        if (superEnum != previousContext.getHolderType()) {
+        if (superEnum.isNotIdenticalTo(previousContext.getHolderType())) {
           DexMethod reference = previous.getReference();
-          if (reference.getHolderType() != superEnum) {
+          if (reference.getHolderType().isNotIdenticalTo(superEnum)) {
             // We are in an enum subtype where super-invokes are rebound differently.
             reference = reference.withHolder(superEnum, dexItemFactory());
           }
@@ -156,7 +180,7 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
         } else {
           // This is a super-invoke to a library method, not rewritten by the lens.
           // This is rewritten by the EnumUnboxerRewriter.
-          return previous;
+          return previous.verify(this, codeLens);
         }
       } else {
         result = methodMap.apply(previous.getReference());
@@ -165,12 +189,13 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
       result = methodMap.apply(previous.getReference());
     }
     if (result == null) {
-      return previous;
+      return previous.verify(this, codeLens);
     }
-    return MethodLookupResult.builder(this)
+    return MethodLookupResult.builder(this, codeLens)
         .setReference(result)
         .setPrototypeChanges(
-            internalDescribePrototypeChanges(previous.getPrototypeChanges(), result))
+            internalDescribePrototypeChanges(
+                previous.getPrototypeChanges(), previous.getReference(), result))
         .setType(mapInvocationType(result, previous.getReference(), previous.getType()))
         .build();
   }
@@ -178,7 +203,9 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
   @Override
   @SuppressWarnings("ReferenceEquality")
   protected RewrittenPrototypeDescription internalDescribePrototypeChanges(
-      RewrittenPrototypeDescription prototypeChanges, DexMethod method) {
+      RewrittenPrototypeDescription prototypeChanges,
+      DexMethod previousMethod,
+      DexMethod newMethod) {
     // Rewrite the single value of the given RewrittenPrototypeDescription if it is referring to an
     // unboxed enum field.
     if (prototypeChanges.hasRewrittenReturnInfo()) {
@@ -198,12 +225,8 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
         }
       }
     }
-
-    // During the second IR processing enum unboxing is the only optimization rewriting
-    // prototype description, if this does not hold, remove the assertion and merge
-    // the two prototype changes.
     RewrittenPrototypeDescription enumUnboxingPrototypeChanges =
-        prototypeChangesPerMethod.getOrDefault(method, RewrittenPrototypeDescription.none());
+        prototypeChangesPerMethod.getOrDefault(newMethod, RewrittenPrototypeDescription.none());
     return prototypeChanges.combine(enumUnboxingPrototypeChanges);
   }
 

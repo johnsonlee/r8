@@ -15,9 +15,11 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
+import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneHashMap;
+import com.android.tools.r8.utils.collections.BidirectionalManyToOneMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
 import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneMap;
@@ -40,9 +42,14 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
       HorizontallyMergedClasses mergedClasses,
       Map<DexMethod, List<ExtraParameter>> methodExtraParameters,
       BidirectionalManyToOneRepresentativeMap<DexField, DexField> fieldMap,
-      Map<DexMethod, DexMethod> methodMap,
+      BidirectionalManyToOneMap<DexMethod, DexMethod> methodMap,
       BidirectionalManyToOneRepresentativeMap<DexMethod, DexMethod> newMethodSignatures) {
-    super(appView, fieldMap, methodMap, mergedClasses.getBidirectionalMap(), newMethodSignatures);
+    super(
+        appView,
+        fieldMap,
+        methodMap.getForwardMap(),
+        mergedClasses.getBidirectionalMap(),
+        newMethodSignatures);
     this.methodExtraParameters = methodExtraParameters;
     this.mergedClasses = mergedClasses;
   }
@@ -67,6 +74,32 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
     return IterableUtils.prependSingleton(previous, mergedClasses.getSourcesFor(previous));
   }
 
+  @Override
+  protected MethodLookupResult internalLookupMethod(
+      DexMethod reference,
+      DexMethod context,
+      InvokeType type,
+      GraphLens codeLens,
+      LookupMethodContinuation continuation) {
+    if (this == codeLens) {
+      // We sometimes create code objects that have the HorizontalClassMergerGraphLens as code lens.
+      // When using this lens as a code lens there is no lens that will insert the rebound reference
+      // since the MemberRebindingIdentityLens is an ancestor of the HorizontalClassMergerGraphLens.
+      // We therefore use the reference itself as the rebound reference here, which is safe since
+      // the code objects created during horizontal class merging are guaranteed not to contain
+      // any non-rebound method references.
+      // TODO(b/315284255): Actually guarantee the above!
+      MethodLookupResult lookupResult =
+          MethodLookupResult.builder(this, codeLens)
+              .setReboundReference(reference)
+              .setReference(reference)
+              .setType(type)
+              .build();
+      return continuation.lookupMethod(lookupResult);
+    }
+    return super.internalLookupMethod(reference, context, type, codeLens, continuation);
+  }
+
   /**
    * If an overloaded constructor is requested, add the constructor id as a parameter to the
    * constructor. Otherwise return the lookup on the underlying graph lens.
@@ -74,12 +107,18 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
   @Override
   public MethodLookupResult internalDescribeLookupMethod(
       MethodLookupResult previous, DexMethod context, GraphLens codeLens) {
-    List<ExtraParameter> extraParameters = methodExtraParameters.get(previous.getReference());
+    if (!previous.hasReboundReference()) {
+      return super.internalDescribeLookupMethod(previous, context, codeLens);
+    }
+    assert previous.hasReboundReference();
+    List<ExtraParameter> extraParameters =
+        methodExtraParameters.get(previous.getReboundReference());
     MethodLookupResult lookup = super.internalDescribeLookupMethod(previous, context, codeLens);
     if (extraParameters == null) {
       return lookup;
     }
-    return MethodLookupResult.builder(this)
+    return MethodLookupResult.builder(this, codeLens)
+        .setReboundReference(lookup.getReboundReference())
         .setReference(lookup.getReference())
         .setPrototypeChanges(lookup.getPrototypeChanges().withExtraParameters(extraParameters))
         .setType(lookup.getType())
@@ -144,7 +183,7 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
           mergedClasses,
           methodExtraParameters,
           newFieldSignatures,
-          methodMap.getForwardMap(),
+          methodMap,
           newMethodSignatures);
     }
 
@@ -237,9 +276,7 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
       if (originalMethodSignatures.isEmpty()) {
         pendingMethodMapUpdates.put(oldMethodSignature, newMethodSignature);
       } else {
-        for (DexMethod originalMethodSignature : originalMethodSignatures) {
-          pendingMethodMapUpdates.put(originalMethodSignature, newMethodSignature);
-        }
+        pendingMethodMapUpdates.put(originalMethodSignatures, newMethodSignature);
       }
     }
 
@@ -253,9 +290,7 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
       if (oldMemberSignatures.isEmpty()) {
         pendingNewMemberSignatureUpdates.put(oldMemberSignature, newMemberSignature);
       } else {
-        for (R originalMethodSignature : oldMemberSignatures) {
-          pendingNewMemberSignatureUpdates.put(originalMethodSignature, newMemberSignature);
-        }
+        pendingNewMemberSignatureUpdates.put(oldMemberSignatures, newMemberSignature);
         R representative = newMemberSignatures.getRepresentativeKey(oldMemberSignature);
         if (representative != null) {
           pendingNewMemberSignatureUpdates.setRepresentative(newMemberSignature, representative);
@@ -298,11 +333,11 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
 
     @Override
     public void addExtraParameters(
-        DexMethod methodSignature, List<? extends ExtraParameter> extraParameters) {
-      Set<DexMethod> originalMethodSignatures = methodMap.getKeys(methodSignature);
+        DexMethod from, DexMethod to, List<? extends ExtraParameter> extraParameters) {
+      Set<DexMethod> originalMethodSignatures = methodMap.getKeys(from);
       if (originalMethodSignatures.isEmpty()) {
         methodExtraParameters
-            .computeIfAbsent(methodSignature, ignore -> new ArrayList<>(extraParameters.size()))
+            .computeIfAbsent(from, ignore -> new ArrayList<>(extraParameters.size()))
             .addAll(extraParameters);
       } else {
         for (DexMethod originalMethodSignature : originalMethodSignatures) {

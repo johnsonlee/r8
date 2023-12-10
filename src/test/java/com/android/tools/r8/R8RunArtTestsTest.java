@@ -1176,7 +1176,7 @@ public abstract class R8RunArtTestsTest extends TestBase {
   // These tests match on paths relative to the execution directory (normally the repo root).
   // Cached stdout might be from a different directory.
   private static List<String> noArtCommandCaching =
-      ImmutableList.of("068-classloader", "086-null-superTest", "087-gc-after-linkTest");
+      ImmutableList.of("068-classloader", "086-null-super", "087-gc-after-link");
 
   private static final String NO_CLASS_ACCESS_MODIFICATION_RULE =
       "-keep,allowobfuscation,allowoptimization,allowshrinking class *";

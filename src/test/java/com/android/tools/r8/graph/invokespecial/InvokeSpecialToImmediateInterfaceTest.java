@@ -6,17 +6,13 @@ package com.android.tools.r8.graph.invokespecial;
 import static com.android.tools.r8.utils.DescriptorUtils.getBinaryNameFromJavaType;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 
-import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.utils.Box;
-import com.android.tools.r8.utils.codeinspector.AssertUtils;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -63,30 +59,17 @@ public class InvokeSpecialToImmediateInterfaceTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    Box<R8TestCompileResult> compileResult = new Box<>();
-
-    // TODO(b/313065227): Should succeed.
-    AssertUtils.assertFailsCompilationIf(
-        parameters.isCfRuntime(),
-        () ->
-            testForR8(parameters.getBackend())
-                .addProgramClasses(I.class, Main.class)
-                .addProgramClassFileData(getClassWithTransformedInvoked())
-                .addKeepMainRule(Main.class)
-                .setMinApi(parameters)
-                .compile()
-                .apply(compileResult::set));
-
-    if (!compileResult.isSet()) {
-      assertTrue(parameters.isCfRuntime());
-      return;
-    }
-
-    // TODO(b/313065227): Should succeed.
-    compileResult
-        .get()
+    testForR8(parameters.getBackend())
+        .addProgramClasses(I.class, Main.class)
+        .addProgramClassFileData(getClassWithTransformedInvoked())
+        .addKeepMainRule(Main.class)
+        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
-        .assertFailureWithErrorThatThrows(NullPointerException.class);
+        // TODO(b/313065227): Should succeed.
+        .applyIf(
+            parameters.isCfRuntime(),
+            runResult -> runResult.assertFailureWithErrorThatThrows(NoSuchMethodError.class),
+            runResult -> runResult.assertFailureWithErrorThatThrows(NullPointerException.class));
   }
 
   private byte[] getClassWithTransformedInvoked() throws IOException {

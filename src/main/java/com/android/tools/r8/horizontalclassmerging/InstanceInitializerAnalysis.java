@@ -21,6 +21,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
@@ -73,6 +74,7 @@ public class InstanceInitializerAnalysis {
     InstanceInitializerDescription.Builder builder =
         InstanceInitializerDescription.builder(appView, instanceInitializer);
     IRCode code = codeProvider.buildIR(instanceInitializer);
+    GraphLens codeLens = instanceInitializer.getDefinition().getCode().getCodeLens(appView);
     WorkList<BasicBlock> workList = WorkList.newIdentityWorkList(code.entryBlock());
     while (workList.hasNext()) {
       BasicBlock block = workList.next();
@@ -105,7 +107,7 @@ public class InstanceInitializerAnalysis {
               // Check that this writes a field on the enclosing class.
               DexField fieldReference = instancePut.getField();
               DexField lensRewrittenFieldReference =
-                  appView.graphLens().lookupField(fieldReference);
+                  appView.graphLens().lookupField(fieldReference, codeLens);
               if (lensRewrittenFieldReference.getHolderType()
                   != instanceInitializer.getHolderType()) {
                 return invalid();
@@ -143,7 +145,7 @@ public class InstanceInitializerAnalysis {
               DexMethod lensRewrittenInvokedMethod =
                   appView
                       .graphLens()
-                      .lookupInvokeDirect(invokedMethod, instanceInitializer)
+                      .lookupInvokeDirect(invokedMethod, instanceInitializer, codeLens)
                       .getReference();
 
               // TODO(b/189296638): Consider allowing constructor forwarding.

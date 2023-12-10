@@ -102,9 +102,7 @@ public class IncompleteMergedInstanceInitializerCode extends IncompleteHorizonta
       int classIdLocalIndex = maxLocals - 1 - extraNulls;
       instructionBuilder.add(new CfLoad(ValueType.OBJECT, 0));
       instructionBuilder.add(new CfLoad(ValueType.INT, classIdLocalIndex));
-      instructionBuilder.add(
-          new CfInstanceFieldWrite(
-              lens.getRenamedFieldSignature(classIdField, lens.getPrevious())));
+      instructionBuilder.add(new CfInstanceFieldWrite(lens.getNextFieldSignature(classIdField)));
       maxStack.set(2);
     }
 
@@ -123,7 +121,8 @@ public class IncompleteMergedInstanceInitializerCode extends IncompleteHorizonta
     instructionBuilder.add(new CfLoad(ValueType.OBJECT, 0));
 
     // Load constructor arguments.
-    MethodLookupResult parentConstructorLookup = lens.lookupInvokeDirect(parentConstructor, method);
+    MethodLookupResult parentConstructorLookup =
+        lens.lookupInvokeDirect(parentConstructor, method, appView.codeLens());
 
     int i = 0;
     for (InstanceFieldInitializationInfo initializationInfo : parentConstructorArguments) {
@@ -195,7 +194,7 @@ public class IncompleteMergedInstanceInitializerCode extends IncompleteHorizonta
           int stackSizeForInitializationInfo =
               addCfInstructionsForInitializationInfo(
                   instructionBuilder, initializationInfo, argumentToLocalIndex, field.getType());
-          DexField rewrittenField = lens.getRenamedFieldSignature(field, lens.getPrevious());
+          DexField rewrittenField = lens.getNextFieldSignature(field);
 
           // Insert a check to ensure the program continues to type check according to Java type
           // checking. Otherwise, instance initializer merging may cause open interfaces. If

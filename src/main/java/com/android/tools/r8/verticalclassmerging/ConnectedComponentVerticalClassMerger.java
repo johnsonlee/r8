@@ -32,7 +32,7 @@ public class ConnectedComponentVerticalClassMerger {
       AppView<AppInfoWithLiveness> appView, Set<DexProgramClass> classesToMerge) {
     this.appView = appView;
     this.classesToMerge = classesToMerge;
-    this.lensBuilder = new VerticalClassMergerGraphLens.Builder(appView);
+    this.lensBuilder = new VerticalClassMergerGraphLens.Builder();
   }
 
   public boolean isEmpty() {

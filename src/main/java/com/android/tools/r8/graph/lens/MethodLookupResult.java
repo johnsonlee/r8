@@ -7,6 +7,7 @@ package com.android.tools.r8.graph.lens;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
+import com.android.tools.r8.optimize.bridgehoisting.BridgeHoistingLens;
 
 /**
  * Result of a method lookup in a GraphLens.
@@ -30,29 +31,44 @@ public class MethodLookupResult extends MemberLookupResult<DexMethod> {
     this.prototypeChanges = prototypeChanges;
   }
 
-  public static Builder builder(GraphLens lens) {
-    return new Builder(lens);
+  public static Builder builder(GraphLens lens, GraphLens codeLens) {
+    return new Builder(lens, codeLens);
   }
 
   public InvokeType getType() {
     return type;
   }
 
-  @SuppressWarnings("UnusedVariable")
   public RewrittenPrototypeDescription getPrototypeChanges() {
     return prototypeChanges;
   }
 
+  public MethodLookupResult verify(GraphLens lens, GraphLens codeLens) {
+    assert getReference() != null;
+    assert lens.isIdentityLens()
+            || lens.isAppliedLens()
+            || lens.asNonIdentityLens().isD8Lens()
+            || getReference().getHolderType().isArrayType()
+            || hasReboundReference()
+            // TODO: Disallow the following.
+            || lens.isEnumUnboxerLens()
+            || lens.isNumberUnboxerLens()
+            || lens instanceof BridgeHoistingLens
+        : lens;
+    return this;
+  }
+
   public static class Builder extends MemberLookupResult.Builder<DexMethod, Builder> {
 
-    @SuppressWarnings("UnusedVariable")
     private final GraphLens lens;
+    private final GraphLens codeLens;
 
     private RewrittenPrototypeDescription prototypeChanges = RewrittenPrototypeDescription.none();
     private InvokeType type;
 
-    private Builder(GraphLens lens) {
+    private Builder(GraphLens lens, GraphLens codeLens) {
       this.lens = lens;
+      this.codeLens = codeLens;
     }
 
     public Builder setPrototypeChanges(RewrittenPrototypeDescription prototypeChanges) {
@@ -66,9 +82,8 @@ public class MethodLookupResult extends MemberLookupResult<DexMethod> {
     }
 
     public MethodLookupResult build() {
-      assert reference != null;
-      // TODO(b/168282032): All non-identity graph lenses should set the rebound reference.
-      return new MethodLookupResult(reference, reboundReference, type, prototypeChanges);
+      return new MethodLookupResult(reference, reboundReference, type, prototypeChanges)
+          .verify(lens, codeLens);
     }
 
     @Override

@@ -7,6 +7,7 @@ package com.android.tools.r8.horizontalclassmerging;
 import static com.google.common.base.Predicates.not;
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
+import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinition;

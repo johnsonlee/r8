@@ -34,7 +34,7 @@ public class VerticalClassMergingWithMissingTypeArgsSubstitutionTest extends Tes
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  @Test()
+  @Test
   public void test() throws Exception {
     testForR8Compat(parameters.getBackend())
         .addInnerClasses(getClass())
@@ -63,14 +63,22 @@ public class VerticalClassMergingWithMissingTypeArgsSubstitutionTest extends Tes
               // copied to the virtual bridge.
               MethodSubject fooMovedFromB =
                   classSubject.uniqueMethodThatMatches(
-                      method -> !method.isVirtual() && method.getOriginalName(false).equals("foo"));
+                      method ->
+                          method.isFinal()
+                              && method.isVirtual()
+                              && !method.isSynthetic()
+                              && method.getOriginalName(false).equals("foo"));
               assertThat(fooMovedFromB, isPresentAndRenamed());
               assertEquals(
                   "(Ljava/lang/Object;)Ljava/lang/Object;",
                   fooMovedFromB.getFinalSignatureAttribute());
               MethodSubject fooBridge =
                   classSubject.uniqueMethodThatMatches(
-                      method -> method.isVirtual() && method.getOriginalName(false).equals("foo"));
+                      method ->
+                          method.isFinal()
+                              && method.isVirtual()
+                              && method.isSynthetic()
+                              && method.getOriginalName(false).equals("foo"));
               assertThat(fooBridge, isPresentAndRenamed());
               assertEquals(
                   "(Ljava/lang/Object;)Ljava/lang/Object;", fooBridge.getFinalSignatureAttribute());

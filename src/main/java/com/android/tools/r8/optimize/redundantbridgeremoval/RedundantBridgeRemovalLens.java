@@ -47,11 +47,16 @@ public class RedundantBridgeRemovalLens extends DefaultNonIdentityGraphLens {
       } while (methodMap.containsKey(newReference));
       boolean holderTypeIsInterface = interfaces.contains(newReference.getHolderType());
       if (previous.getType().isSuper() && holderTypeIsInterface) {
-        return previous;
+        return MethodLookupResult.builder(this, codeLens)
+            .setReboundReference(newReference)
+            .setReference(previous.getReference())
+            .setPrototypeChanges(previous.getPrototypeChanges())
+            .setType(previous.getType())
+            .build();
       }
-      return MethodLookupResult.builder(this)
-          .setReference(newReference)
+      return MethodLookupResult.builder(this, codeLens)
           .setReboundReference(newReference)
+          .setReference(newReference)
           .setPrototypeChanges(previous.getPrototypeChanges())
           .setType(
               holderTypeIsInterface && previous.getType().isVirtual()
@@ -59,7 +64,7 @@ public class RedundantBridgeRemovalLens extends DefaultNonIdentityGraphLens {
                   : previous.getType())
           .build();
     }
-    return previous;
+    return previous.verify(this, codeLens);
   }
 
   public static class Builder {

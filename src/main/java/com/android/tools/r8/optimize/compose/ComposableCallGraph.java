@@ -87,7 +87,8 @@ public class ComposableCallGraph {
     // TODO(b/302483644): Parallelize identification of @Composable call sites.
     private void addCallEdgesToComposableFunctions() {
       // Code is fully rewritten so no need to lens rewrite in registry.
-      assert appView.codeLens() == appView.graphLens();
+      assert appView.graphLens().isMemberRebindingIdentityLens();
+      assert appView.codeLens() == appView.graphLens().asNonIdentityLens().getPrevious();
 
       for (DexProgramClass clazz : appView.appInfo().classes()) {
         clazz.forEachProgramMethodMatching(

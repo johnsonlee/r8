@@ -5,9 +5,11 @@
 package com.android.tools.r8.horizontalclassmerging;
 
 import com.android.tools.r8.classmerging.ClassMergerTreeFixer;
+import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
+import com.android.tools.r8.utils.Timing;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -89,9 +91,9 @@ class HorizontalClassMergerTreeFixer
    * </ul>
    */
   @Override
-  public HorizontalClassMergerGraphLens run(ExecutorService executorService)
+  public HorizontalClassMergerGraphLens run(ExecutorService executorService, Timing timing)
       throws ExecutionException {
-    return super.run(executorService);
+    return super.run(executorService, timing);
   }
 
   @Override

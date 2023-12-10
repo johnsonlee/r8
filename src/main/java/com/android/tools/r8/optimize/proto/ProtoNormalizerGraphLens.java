@@ -58,24 +58,28 @@ public class ProtoNormalizerGraphLens extends DefaultNonIdentityGraphLens {
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
   protected MethodLookupResult internalDescribeLookupMethod(
       MethodLookupResult previous, DexMethod context, GraphLens codeLens) {
-    DexMethod methodSignature = previous.getReference();
-    DexMethod newMethodSignature = getNextMethodSignature(methodSignature);
-    if (methodSignature == newMethodSignature) {
-      return previous;
+    assert previous.hasReboundReference();
+    DexMethod previousReboundReference = previous.getReboundReference();
+    DexMethod newReboundReference = getNextMethodSignature(previousReboundReference);
+    if (newReboundReference.isIdenticalTo(previousReboundReference)) {
+      return previous.verify(this, codeLens);
     }
-    assert !previous.hasReboundReference()
-        || previous.getReference() == previous.getReboundReference();
-    return MethodLookupResult.builder(this)
+    DexMethod previousReference = previous.getReference();
+    DexMethod newReference =
+        previousReference.isIdenticalTo(previousReboundReference)
+            ? newReboundReference
+            : newReboundReference.withHolder(previousReference.getHolderType(), dexItemFactory());
+    return MethodLookupResult.builder(this, codeLens)
         .setPrototypeChanges(
             previous
                 .getPrototypeChanges()
                 .combine(
                     prototypeChanges.getOrDefault(
-                        newMethodSignature, RewrittenPrototypeDescription.none())))
-        .setReference(newMethodSignature)
+                        newReboundReference, RewrittenPrototypeDescription.none())))
+        .setReboundReference(newReboundReference)
+        .setReference(newReference)
         .setType(previous.getType())
         .build();
   }

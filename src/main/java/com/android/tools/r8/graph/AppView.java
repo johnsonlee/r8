@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis.InitializedClassesInInstanceMethods;
 import com.android.tools.r8.graph.analysis.ResourceAccessAnalysis.ResourceAnalysisResult;
 import com.android.tools.r8.graph.classmerging.MergedClassesCollection;
+import com.android.tools.r8.graph.lens.AppliedGraphLens;
 import com.android.tools.r8.graph.lens.ClearCodeRewritingGraphLens;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.InitClassLens;
@@ -38,6 +39,8 @@ import com.android.tools.r8.ir.optimize.library.LibraryMemberOptimizer;
 import com.android.tools.r8.ir.optimize.library.LibraryMethodSideEffectModelCollection;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.SeedMapper;
+import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
+import com.android.tools.r8.optimize.MemberRebindingIdentityLensFactory;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagator;
 import com.android.tools.r8.optimize.compose.ComposeReferences;
 import com.android.tools.r8.optimize.interfaces.collection.OpenClosedInterfacesCollection;
@@ -434,8 +437,18 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     allCodeProcessed = true;
   }
 
-  public void clearCodeRewritings() {
+  public void clearCodeRewritings(ExecutorService executorService) throws ExecutionException {
     setGraphLens(new ClearCodeRewritingGraphLens(withClassHierarchy()));
+
+    MemberRebindingIdentityLens memberRebindingIdentityLens =
+        MemberRebindingIdentityLensFactory.rebuild(withClassHierarchy(), executorService);
+    setGraphLens(memberRebindingIdentityLens);
+  }
+
+  public void flattenGraphLenses() {
+    GraphLens graphLens = graphLens();
+    setGraphLens(GraphLens.getIdentityLens());
+    setGraphLens(new AppliedGraphLens(withClassHierarchy(), graphLens));
   }
 
   public AppServices appServices() {
@@ -1246,19 +1259,13 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     if (!firstUnappliedLens.isMemberRebindingLens()
         && !firstUnappliedLens.isMemberRebindingIdentityLens()) {
       NonIdentityGraphLens appliedMemberRebindingLens =
-          firstUnappliedLens.findPrevious(
-              previous ->
-                  previous.isMemberRebindingLens() || previous.isMemberRebindingIdentityLens());
+          firstUnappliedLens.findPrevious(GraphLens::isMemberRebindingIdentityLens);
       if (appliedMemberRebindingLens != null) {
         newMemberRebindingLens =
-            appliedMemberRebindingLens.isMemberRebindingLens()
-                ? appliedMemberRebindingLens
-                    .asMemberRebindingLens()
-                    .toRewrittenFieldRebindingLens(appView, appliedLens, appliedMemberRebindingLens)
-                : appliedMemberRebindingLens
-                    .asMemberRebindingIdentityLens()
-                    .toRewrittenMemberRebindingIdentityLens(
-                        appView, appliedLens, appliedMemberRebindingLens);
+            appliedMemberRebindingLens
+                .asMemberRebindingIdentityLens()
+                .toRewrittenMemberRebindingIdentityLens(
+                    appView, appliedLens, appliedMemberRebindingLens);
       }
     }
     timing.end();

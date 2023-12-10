@@ -20,12 +20,14 @@ import com.android.tools.r8.utils.OptionalBool;
 public class IllegalAccessDetector extends UseRegistryWithResult<Boolean, ProgramMethod> {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy;
+  private final GraphLens codeLens;
 
   public IllegalAccessDetector(
       AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy,
       ProgramMethod context) {
     super(appViewWithClassHierarchy, context, false);
     this.appViewWithClassHierarchy = appViewWithClassHierarchy;
+    this.codeLens = context.getDefinition().getCode().getCodeLens(appViewWithClassHierarchy);
   }
 
   protected boolean checkFoundPackagePrivateAccess() {
@@ -43,7 +45,8 @@ public class IllegalAccessDetector extends UseRegistryWithResult<Boolean, Progra
   }
 
   private boolean checkFieldReference(DexField field) {
-    return checkRewrittenFieldReference(appViewWithClassHierarchy.graphLens().lookupField(field));
+    return checkRewrittenFieldReference(
+        appViewWithClassHierarchy.graphLens().lookupField(field, codeLens));
   }
 
   private boolean checkRewrittenFieldReference(DexField field) {
@@ -102,16 +105,18 @@ public class IllegalAccessDetector extends UseRegistryWithResult<Boolean, Progra
   }
 
   private boolean checkTypeReference(DexType type) {
-    return internalCheckTypeReference(type, appViewWithClassHierarchy.graphLens());
+    return internalCheckTypeReference(type, appViewWithClassHierarchy.graphLens(), codeLens);
   }
 
   private boolean checkRewrittenTypeReference(DexType type) {
-    return internalCheckTypeReference(type, GraphLens.getIdentityLens());
+    return internalCheckTypeReference(
+        type, GraphLens.getIdentityLens(), GraphLens.getIdentityLens());
   }
 
-  private boolean internalCheckTypeReference(DexType type, GraphLens graphLens) {
+  private boolean internalCheckTypeReference(
+      DexType type, GraphLens graphLens, GraphLens codeLens) {
     DexType baseType =
-        graphLens.lookupType(type.toBaseType(appViewWithClassHierarchy.dexItemFactory()));
+        graphLens.lookupType(type.toBaseType(appViewWithClassHierarchy.dexItemFactory()), codeLens);
     if (baseType.isClassType() && baseType.isSamePackage(getContext().getHolderType())) {
       DexClass clazz = appViewWithClassHierarchy.definitionFor(baseType);
       if (clazz == null || !clazz.isPublic()) {
@@ -126,7 +131,7 @@ public class IllegalAccessDetector extends UseRegistryWithResult<Boolean, Progra
     if (appViewWithClassHierarchy.initClassLens().isFinal()) {
       // The InitClass lens is always rewritten up until the most recent graph lens, so first map
       // the class type to the most recent graph lens.
-      DexType rewrittenType = appViewWithClassHierarchy.graphLens().lookupType(clazz);
+      DexType rewrittenType = appViewWithClassHierarchy.graphLens().lookupType(clazz, codeLens);
       DexField initClassField =
           appViewWithClassHierarchy.initClassLens().getInitClassField(rewrittenType);
       checkRewrittenFieldReference(initClassField);
@@ -138,35 +143,35 @@ public class IllegalAccessDetector extends UseRegistryWithResult<Boolean, Progra
   @Override
   public void registerInvokeVirtual(DexMethod method) {
     MethodLookupResult lookup =
-        appViewWithClassHierarchy.graphLens().lookupInvokeVirtual(method, getContext());
+        appViewWithClassHierarchy.graphLens().lookupInvokeVirtual(method, getContext(), codeLens);
     checkRewrittenMethodReference(lookup.getReference(), OptionalBool.FALSE);
   }
 
   @Override
   public void registerInvokeDirect(DexMethod method) {
     MethodLookupResult lookup =
-        appViewWithClassHierarchy.graphLens().lookupInvokeDirect(method, getContext());
+        appViewWithClassHierarchy.graphLens().lookupInvokeDirect(method, getContext(), codeLens);
     checkRewrittenMethodReference(lookup.getReference(), OptionalBool.UNKNOWN);
   }
 
   @Override
   public void registerInvokeStatic(DexMethod method) {
     MethodLookupResult lookup =
-        appViewWithClassHierarchy.graphLens().lookupInvokeStatic(method, getContext());
+        appViewWithClassHierarchy.graphLens().lookupInvokeStatic(method, getContext(), codeLens);
     checkRewrittenMethodReference(lookup.getReference(), OptionalBool.UNKNOWN);
   }
 
   @Override
   public void registerInvokeInterface(DexMethod method) {
     MethodLookupResult lookup =
-        appViewWithClassHierarchy.graphLens().lookupInvokeInterface(method, getContext());
+        appViewWithClassHierarchy.graphLens().lookupInvokeInterface(method, getContext(), codeLens);
     checkRewrittenMethodReference(lookup.getReference(), OptionalBool.TRUE);
   }
 
   @Override
   public void registerInvokeSuper(DexMethod method) {
     MethodLookupResult lookup =
-        appViewWithClassHierarchy.graphLens().lookupInvokeSuper(method, getContext());
+        appViewWithClassHierarchy.graphLens().lookupInvokeSuper(method, getContext(), codeLens);
     checkRewrittenMethodReference(lookup.getReference(), OptionalBool.UNKNOWN);
   }
 

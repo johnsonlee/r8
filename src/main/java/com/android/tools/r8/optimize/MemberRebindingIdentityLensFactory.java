@@ -37,6 +37,30 @@ public class MemberRebindingIdentityLensFactory {
    * Otherwise we apply the {@link NonReboundMemberReferencesRegistry} below to all code objects to
    * compute the mapping.
    */
+  public static MemberRebindingIdentityLens rebuild(
+      AppView<? extends AppInfoWithClassHierarchy> appView, ExecutorService executorService)
+      throws ExecutionException {
+    FieldAccessInfoCollectionImpl mutableFieldAccessInfoCollection =
+        new FieldAccessInfoCollectionImpl(new ConcurrentHashMap<>());
+    MethodAccessInfoCollection.ConcurrentBuilder methodAccessInfoCollectionBuilder =
+        MethodAccessInfoCollection.concurrentBuilder();
+    initializeMemberAccessInfoCollectionsForMemberRebinding(
+        appView,
+        mutableFieldAccessInfoCollection,
+        methodAccessInfoCollectionBuilder,
+        executorService);
+    return create(
+        appView, mutableFieldAccessInfoCollection, methodAccessInfoCollectionBuilder.build());
+  }
+
+  /**
+   * In order to construct an instance of {@link MemberRebindingIdentityLens} we need a mapping from
+   * non-rebound field and method references to their definitions.
+   *
+   * <p>If shrinking or minification is enabled, we retrieve these from {@link AppInfoWithLiveness}.
+   * Otherwise we apply the {@link NonReboundMemberReferencesRegistry} below to all code objects to
+   * compute the mapping.
+   */
   public static MemberRebindingIdentityLens create(
       AppView<? extends AppInfoWithClassHierarchy> appView, ExecutorService executorService)
       throws ExecutionException {

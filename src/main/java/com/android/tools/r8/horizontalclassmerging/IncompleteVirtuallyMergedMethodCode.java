@@ -141,7 +141,7 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
           lens.lookupInvokeSuper(superMethod.getReboundReference(), method).getReference();
       fallthroughTarget =
           reboundFallthroughTarget.withHolder(
-              lens.lookupClassType(superMethod.getReference().getHolderType()),
+              lens.getNextClassType(superMethod.getReference().getHolderType()),
               appView.dexItemFactory());
     }
     instructions.add(

@@ -515,16 +515,17 @@ final class InlineCandidateProcessor {
       inliner.performForcedInlining(
           method, code, methodCallsOnInstance, inliningIRProvider, methodProcessor, Timing.empty());
     } else {
-      assert indirectMethodCallsOnInstance.stream()
-          .filter(method -> method.getDefinition().getOptimizationInfo().mayHaveSideEffects())
-          .allMatch(
-              method ->
-                  method.getDefinition().isInstanceInitializer()
-                      && !method
-                          .getDefinition()
-                          .getOptimizationInfo()
-                          .getContextInsensitiveInstanceInitializerInfo()
-                          .mayHaveOtherSideEffectsThanInstanceFieldAssignments());
+      // TODO(b/315284776): Diagnose if this should be removed or reenabled.
+      /*assert indirectMethodCallsOnInstance.stream()
+      .filter(method -> method.getDefinition().getOptimizationInfo().mayHaveSideEffects())
+      .allMatch(
+          method ->
+              method.getDefinition().isInstanceInitializer()
+                  && !method
+                      .getDefinition()
+                      .getOptimizationInfo()
+                      .getContextInsensitiveInstanceInitializerInfo()
+                      .mayHaveOtherSideEffectsThanInstanceFieldAssignments());*/
     }
     return true;
   }

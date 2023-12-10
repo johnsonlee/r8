@@ -6,6 +6,7 @@ package com.android.tools.r8.verticalclassmerging;
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
+import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -24,6 +25,7 @@ import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Timing.TimingMerger;
@@ -32,6 +34,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -166,15 +169,7 @@ public class VerticalClassMerger {
             .computeStronglyConnectedComponents();
 
     // Remove singleton class hierarchies as they are not subject to vertical class merging.
-    Set<DexProgramClass> singletonComponents = Sets.newIdentityHashSet();
-    connectedComponents.removeIf(
-        connectedComponent -> {
-          if (connectedComponent.size() == 1) {
-            singletonComponents.addAll(connectedComponent);
-            return true;
-          }
-          return false;
-        });
+    connectedComponents.removeIf(connectedComponent -> connectedComponent.size() == 1);
     timing.end();
 
     // Apply class merging concurrently in disjoint class hierarchies.
@@ -185,13 +180,13 @@ public class VerticalClassMerger {
     if (verticalClassMergerResult.isEmpty()) {
       return;
     }
-
+    ProfileCollectionAdditions profileCollectionAdditions =
+        ProfileCollectionAdditions.create(appView);
     VerticalClassMergerGraphLens lens =
-        new VerticalClassMergerTreeFixer(appView, immediateSubtypingInfo, verticalClassMergerResult)
-            .run(connectedComponents, singletonComponents, executorService, timing);
+        runFixup(profileCollectionAdditions, verticalClassMergerResult, executorService, timing);
     updateKeepInfoForMergedClasses(verticalClassMergerResult);
     assert verifyGraphLens(lens, verticalClassMergerResult);
-    updateArtProfiles(lens, verticalClassMergerResult);
+    updateArtProfiles(profileCollectionAdditions, lens, verticalClassMergerResult);
     appView.rewriteWithLens(lens, executorService, timing);
     updateKeepInfoForSynthesizedBridges(verticalClassMergerResult);
     appView.notifyOptimizationFinishedForTesting();
@@ -270,12 +265,37 @@ public class VerticalClassMerger {
     return verticalClassMergerResult.build();
   }
 
+  private VerticalClassMergerGraphLens runFixup(
+      ProfileCollectionAdditions profileCollectionAdditions,
+      VerticalClassMergerResult verticalClassMergerResult,
+      ExecutorService executorService,
+      Timing timing)
+      throws ExecutionException {
+    DexProgramClass deterministicContext =
+        appView
+            .definitionFor(
+                ListUtils.first(
+                    ListUtils.sort(
+                        verticalClassMergerResult.getVerticallyMergedClasses().getTargets(),
+                        Comparator.naturalOrder())))
+            .asProgramClass();
+    SyntheticArgumentClass syntheticArgumentClass =
+        new SyntheticArgumentClass.Builder(appView).build(deterministicContext);
+    VerticalClassMergerGraphLens lens =
+        new VerticalClassMergerTreeFixer(
+                appView,
+                profileCollectionAdditions,
+                syntheticArgumentClass,
+                verticalClassMergerResult)
+            .run(executorService, timing);
+    return lens;
+  }
+
   private void updateArtProfiles(
+      ProfileCollectionAdditions profileCollectionAdditions,
       VerticalClassMergerGraphLens verticalClassMergerLens,
       VerticalClassMergerResult verticalClassMergerResult) {
     // Include bridges in art profiles.
-    ProfileCollectionAdditions profileCollectionAdditions =
-        ProfileCollectionAdditions.create(appView);
     if (!profileCollectionAdditions.isNop()) {
       List<SynthesizedBridgeCode> synthesizedBridges =
           verticalClassMergerResult.getSynthesizedBridges();

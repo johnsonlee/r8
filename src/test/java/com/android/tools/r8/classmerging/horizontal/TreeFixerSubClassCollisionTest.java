@@ -71,6 +71,7 @@ public class TreeFixerSubClassCollisionTest extends HorizontalClassMergingTestBa
 
   @NoHorizontalClassMerging
   @NeverClassInline
+  @NoVerticalClassMerging
   public static class C {
     @NeverInline
     public void foo(A a) {

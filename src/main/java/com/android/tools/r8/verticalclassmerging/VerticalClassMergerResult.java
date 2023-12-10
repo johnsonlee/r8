@@ -58,7 +58,7 @@ public class VerticalClassMergerResult {
 
     Builder(AppView<AppInfoWithLiveness> appView) {
       this(
-          new VerticalClassMergerGraphLens.Builder(appView),
+          new VerticalClassMergerGraphLens.Builder(),
           new ArrayList<>(),
           VerticallyMergedClasses.builder());
     }

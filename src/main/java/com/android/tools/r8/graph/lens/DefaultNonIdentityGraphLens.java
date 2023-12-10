@@ -67,7 +67,7 @@ public class DefaultNonIdentityGraphLens extends NonIdentityGraphLens {
   @Override
   protected MethodLookupResult internalDescribeLookupMethod(
       MethodLookupResult previous, DexMethod context, GraphLens codeLens) {
-    return previous;
+    return previous.verify(this, codeLens);
   }
 
   @Override

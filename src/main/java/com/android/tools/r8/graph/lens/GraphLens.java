@@ -225,12 +225,6 @@ public abstract class GraphLens {
 
   public abstract String lookupPackageName(String pkg);
 
-  @Deprecated
-  public final DexType lookupClassType(DexType type) {
-    GraphLens appliedLens = getIdentityLens();
-    return lookupClassType(type, appliedLens);
-  }
-
   public final DexType lookupClassType(DexType type, GraphLens appliedLens) {
     return getRenamedReference(
         type, appliedLens, NonIdentityGraphLens::getNextClassType, DexType::isPrimitiveType);
@@ -322,7 +316,7 @@ public abstract class GraphLens {
       GraphLens codeLens,
       LookupMethodContinuation continuation);
 
-  interface LookupMethodContinuation {
+  public interface LookupMethodContinuation {
 
     MethodLookupResult lookupMethod(MethodLookupResult previous);
   }
