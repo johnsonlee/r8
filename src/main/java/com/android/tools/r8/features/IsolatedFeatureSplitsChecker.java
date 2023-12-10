@@ -60,7 +60,6 @@ public class IsolatedFeatureSplitsChecker
     }
   }
 
-  @SuppressWarnings("UnusedVariable")
   private void traceMethodInvoke(MethodResolutionResult resolutionResult, ProgramMethod context) {
     ProgramMethod resolvedMethod = resolutionResult.getResolvedProgramMethod();
     if (resolvedMethod != null) {
@@ -69,7 +68,6 @@ public class IsolatedFeatureSplitsChecker
     }
   }
 
-  @SuppressWarnings("UnusedVariable")
   private void traceTypeAccess(DexClass clazz, ProgramMethod context) {
     if (clazz != null && clazz.isProgramClass()) {
       checkAccess(clazz.asProgramClass(), context);
