@@ -50,6 +50,11 @@ public class VerticallyMergedClasses implements MergedClasses {
     return mergedClasses;
   }
 
+  @Override
+  public DexType getMergeTargetOrDefault(DexType type, DexType defaultValue) {
+    return mergedClasses.getOrDefault(type, defaultValue);
+  }
+
   public Set<DexType> getSources() {
     return mergedClasses.keySet();
   }
@@ -63,8 +68,9 @@ public class VerticallyMergedClasses implements MergedClasses {
     return mergedClasses.get(type);
   }
 
-  public DexType getTargetForOrDefault(DexType type, DexType defaultValue) {
-    return mergedClasses.getOrDefault(type, defaultValue);
+  @Override
+  public boolean isMergeSource(DexType type) {
+    return hasBeenMergedIntoSubtype(type);
   }
 
   public boolean hasBeenMergedIntoSubtype(DexType type) {
@@ -82,11 +88,6 @@ public class VerticallyMergedClasses implements MergedClasses {
   @Override
   public boolean isMergeTarget(DexType type) {
     return !getSourcesFor(type).isEmpty();
-  }
-
-  @Override
-  public boolean hasBeenMergedIntoDifferentType(DexType type) {
-    return hasBeenMergedIntoSubtype(type);
   }
 
   @Override

@@ -186,9 +186,9 @@ public class VerticalClassMerger {
       return;
     }
 
-    timing.begin("fixup");
     VerticalClassMergerGraphLens lens =
-        new VerticalClassMergerTreeFixer(appView, verticalClassMergerResult).run(timing);
+        new VerticalClassMergerTreeFixer(appView, immediateSubtypingInfo, verticalClassMergerResult)
+            .run(connectedComponents, singletonComponents, executorService, timing);
     updateKeepInfoForMergedClasses(verticalClassMergerResult);
     assert verifyGraphLens(lens, verticalClassMergerResult);
     updateArtProfiles(lens, verticalClassMergerResult);

@@ -5,6 +5,7 @@
 package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationElement;
 import com.android.tools.r8.graph.DexEncodedAnnotation;
@@ -22,27 +23,37 @@ import com.android.tools.r8.graph.DexValue.DexValueEnum;
 import com.android.tools.r8.graph.DexValue.DexValueType;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.ThreadUtils;
+import java.util.Collection;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 public class AnnotationFixer {
 
+  private final AppView<?> appView;
   private final GraphLens lens;
   private final GraphLens annotationLens;
 
-  public AnnotationFixer(GraphLens lens, GraphLens annotationLens) {
+  public AnnotationFixer(AppView<?> appView, GraphLens lens) {
+    this.appView = appView;
     this.lens = lens;
-    this.annotationLens = annotationLens;
+    this.annotationLens = appView.graphLens();
   }
 
   private DexType lookupType(DexType type) {
     return lens.lookupType(type, annotationLens);
   }
 
-  public void run(Iterable<DexProgramClass> classes) {
-    for (DexProgramClass clazz : classes) {
-      clazz.setAnnotations(clazz.annotations().rewrite(this::rewriteAnnotation));
-      clazz.forEachMethod(this::processMethod);
-      clazz.forEachField(this::processField);
-    }
+  public void run(Collection<DexProgramClass> classes, ExecutorService executorService)
+      throws ExecutionException {
+    ThreadUtils.processItems(
+        classes, this::processClass, appView.options().getThreadingModule(), executorService);
+  }
+
+  private void processClass(DexProgramClass clazz) {
+    clazz.setAnnotations(clazz.annotations().rewrite(this::rewriteAnnotation));
+    clazz.forEachMethod(this::processMethod);
+    clazz.forEachField(this::processField);
   }
 
   private void processMethod(DexEncodedMethod method) {

@@ -14,7 +14,13 @@ public interface MergedClasses {
 
   void forEachMergeGroup(BiConsumer<Set<DexType>, DexType> consumer);
 
-  boolean hasBeenMergedIntoDifferentType(DexType type);
+  DexType getMergeTargetOrDefault(DexType type, DexType defaultValue);
+
+  boolean isMergeSource(DexType type);
+
+  default boolean isMergeSourceOrTarget(DexType type) {
+    return isMergeSource(type) || isMergeTarget(type);
+  }
 
   boolean isMergeTarget(DexType type);
 

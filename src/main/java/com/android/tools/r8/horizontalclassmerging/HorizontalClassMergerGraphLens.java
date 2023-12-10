@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import com.android.tools.r8.classmerging.ClassMergerGraphLens;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexField;
@@ -14,7 +15,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
-import com.android.tools.r8.graph.lens.NestedGraphLens;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneHashMap;
@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class HorizontalClassMergerGraphLens extends NestedGraphLens {
+public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
 
   private final Map<DexMethod, List<ExtraParameter>> methodExtraParameters;
   private final HorizontallyMergedClasses mergedClasses;
@@ -87,24 +87,24 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
   protected FieldLookupResult internalDescribeLookupField(FieldLookupResult previous) {
     FieldLookupResult lookup = super.internalDescribeLookupField(previous);
-    if (lookup.getReference() == previous.getReference()) {
+    if (lookup.getReference().isIdenticalTo(previous.getReference())) {
       return lookup;
     }
     return FieldLookupResult.builder(this)
         .setReference(lookup.getReference())
         .setReboundReference(lookup.getReboundReference())
         .setReadCastType(
-            lookup.getReference().getType() != previous.getReference().getType()
+            lookup.getReference().getType().isNotIdenticalTo(previous.getReference().getType())
                 ? lookupType(previous.getReference().getType())
                 : null)
         .setWriteCastType(previous.getRewrittenWriteCastType(this::getNextClassType))
         .build();
   }
 
-  public static class Builder {
+  public static class Builder
+      extends BuilderBase<HorizontalClassMergerGraphLens, HorizontallyMergedClasses> {
 
     private final MutableBidirectionalManyToOneRepresentativeMap<DexField, DexField>
         newFieldSignatures = BidirectionalManyToOneRepresentativeHashMap.newIdentityHashMap();
@@ -126,7 +126,8 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
 
     Builder() {}
 
-    HorizontalClassMergerGraphLens build(
+    @Override
+    public HorizontalClassMergerGraphLens build(
         AppView<?> appView, HorizontallyMergedClasses mergedClasses) {
       assert pendingMethodMapUpdates.isEmpty();
       assert pendingNewFieldSignatureUpdates.isEmpty();
@@ -147,6 +148,11 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
           newMethodSignatures);
     }
 
+    @Override
+    public Set<DexMethod> getOriginalMethodReferences(DexMethod method) {
+      return methodMap.getKeys(method);
+    }
+
     DexMethod getRenamedMethodSignature(DexMethod method) {
       assert newMethodSignatures.containsKey(method);
       return newMethodSignatures.get(method);
@@ -156,13 +162,12 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
       newFieldSignatures.put(oldFieldSignature, newFieldSignature);
     }
 
-    @SuppressWarnings("ReferenceEquality")
     void recordNewFieldSignature(
         Iterable<DexField> oldFieldSignatures,
         DexField newFieldSignature,
         DexField representative) {
       assert Streams.stream(oldFieldSignatures)
-          .anyMatch(oldFieldSignature -> oldFieldSignature != newFieldSignature);
+          .anyMatch(oldFieldSignature -> oldFieldSignature.isNotIdenticalTo(newFieldSignature));
       assert Streams.stream(oldFieldSignatures).noneMatch(newFieldSignatures::containsValue);
       assert Iterables.contains(oldFieldSignatures, representative);
       for (DexField oldFieldSignature : oldFieldSignatures) {
@@ -171,7 +176,8 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
       newFieldSignatures.setRepresentative(newFieldSignature, representative);
     }
 
-    void fixupField(DexField oldFieldSignature, DexField newFieldSignature) {
+    @Override
+    public void fixupField(DexField oldFieldSignature, DexField newFieldSignature) {
       fixupOriginalMemberSignatures(
           oldFieldSignature,
           newFieldSignature,
@@ -216,7 +222,8 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
       }
     }
 
-    void fixupMethod(DexMethod oldMethodSignature, DexMethod newMethodSignature) {
+    @Override
+    public void fixupMethod(DexMethod oldMethodSignature, DexMethod newMethodSignature) {
       fixupMethodMap(oldMethodSignature, newMethodSignature);
       fixupOriginalMemberSignatures(
           oldMethodSignature,
@@ -256,7 +263,8 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
       }
     }
 
-    void commitPendingUpdates() {
+    @Override
+    public void commitPendingUpdates() {
       // Commit pending method map updates.
       methodMap.removeAll(pendingMethodMapUpdates.keySet());
       pendingMethodMapUpdates.forEachManyToOneMapping(methodMap::put);
@@ -283,12 +291,13 @@ public class HorizontalClassMergerGraphLens extends NestedGraphLens {
      */
     void mapMergedConstructor(DexMethod from, DexMethod to, List<ExtraParameter> extraParameters) {
       mapMethod(from, to);
-      if (extraParameters.size() > 0) {
+      if (!extraParameters.isEmpty()) {
         methodExtraParameters.put(from, extraParameters);
       }
     }
 
-    void addExtraParameters(
+    @Override
+    public void addExtraParameters(
         DexMethod methodSignature, List<? extends ExtraParameter> extraParameters) {
       Set<DexMethod> originalMethodSignatures = methodMap.getKeys(methodSignature);
       if (originalMethodSignatures.isEmpty()) {

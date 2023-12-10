@@ -57,7 +57,7 @@ public class ArtProfileCompletenessChecker {
     assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
     List<DexReference> missing = new ArrayList<>();
     for (DexProgramClass clazz : appView.appInfo().classesWithDeterministicOrder()) {
-      if (appView.horizontallyMergedClasses().hasBeenMergedIntoDifferentType(clazz.getType())
+      if (appView.horizontallyMergedClasses().isMergeSource(clazz.getType())
           || (appView.hasVerticallyMergedClasses()
               && appView.getVerticallyMergedClasses().hasBeenMergedIntoSubtype(clazz.getType()))
           || appView.unboxedEnums().isUnboxedEnum(clazz)) {

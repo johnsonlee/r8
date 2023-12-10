@@ -109,7 +109,9 @@ public class R8InliningTest extends TestBase {
     DexType originalType =
         dexItemFactory.createType(DescriptorUtils.javaTypeToDescriptor("inlining.Nullability"));
     nullabilityClass =
-        horizontallyMergedClasses.getMergeTargetOrDefault(originalType).toSourceString();
+        horizontallyMergedClasses
+            .getMergeTargetOrDefault(originalType, originalType)
+            .toSourceString();
   }
 
   private void generateR8Version(Path out, Path mapFile, boolean inlining) throws Exception {

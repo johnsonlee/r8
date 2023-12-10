@@ -628,7 +628,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
     for (Instruction instruction : instructions()) {
       if (instruction.outValue != null && instruction.outValue.getType().isClassType()) {
         ClassTypeElement classTypeLattice = instruction.outValue.getType().asClassType();
-        assert !mergedClasses.hasBeenMergedIntoDifferentType(classTypeLattice.getClassType())
+        assert !mergedClasses.isMergeSource(classTypeLattice.getClassType())
             : "Expected reference to "
                 + classTypeLattice.getClassType().getTypeName()
                 + " to be rewritten at instruction "
@@ -637,7 +637,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
             .getInterfaces()
             .anyMatch(
                 (itf, isKnown) -> {
-                  assert !mergedClasses.hasBeenMergedIntoDifferentType(itf);
+                  assert !mergedClasses.isMergeSource(itf);
                   return false;
                 });
       }

@@ -640,7 +640,7 @@ public class SyntheticFinalization {
                             equivalences.containsKey(candidateType)
                                 || appView
                                     .horizontallyMergedClasses()
-                                    .hasBeenMergedIntoDifferentType(candidateType));
+                                    .isMergeSource(candidateType));
             equivalences.put(representativeType, group);
           }
         });

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.graph.classmerging;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -28,9 +29,14 @@ public class MergedClassesCollection implements MergedClasses {
   }
 
   @Override
-  public boolean hasBeenMergedIntoDifferentType(DexType type) {
+  public DexType getMergeTargetOrDefault(DexType type, DexType defaultValue) {
+    throw new Unreachable();
+  }
+
+  @Override
+  public boolean isMergeSource(DexType type) {
     for (MergedClasses mergedClasses : collection) {
-      if (mergedClasses.hasBeenMergedIntoDifferentType(type)) {
+      if (mergedClasses.isMergeSource(type)) {
         return true;
       }
     }

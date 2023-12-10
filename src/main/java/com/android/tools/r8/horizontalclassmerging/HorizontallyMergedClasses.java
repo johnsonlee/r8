@@ -12,7 +12,6 @@ import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentati
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
 import com.android.tools.r8.utils.collections.EmptyBidirectionalOneToOneMap;
 import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneRepresentativeMap;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
@@ -43,7 +42,8 @@ public class HorizontallyMergedClasses implements MergedClasses {
     Builder builder = builder();
     forEachMergeGroup(
         (sources, target) -> {
-          DexType rewrittenTarget = newHorizontallyMergedClasses.getMergeTargetOrDefault(target);
+          DexType rewrittenTarget =
+              newHorizontallyMergedClasses.getMergeTargetOrDefault(target, target);
           sources.forEach(source -> builder.add(source, rewrittenTarget));
         });
     newHorizontallyMergedClasses.forEachMergeGroup(
@@ -56,8 +56,9 @@ public class HorizontallyMergedClasses implements MergedClasses {
     mergedClasses.forEachManyToOneMapping(consumer);
   }
 
-  public DexType getMergeTargetOrDefault(DexType type) {
-    return mergedClasses.getOrDefault(type, type);
+  @Override
+  public DexType getMergeTargetOrDefault(DexType type, DexType defaultValue) {
+    return mergedClasses.getOrDefault(type, defaultValue);
   }
 
   public Set<DexType> getSources() {
@@ -72,13 +73,13 @@ public class HorizontallyMergedClasses implements MergedClasses {
     return mergedClasses.values();
   }
 
-  @Override
-  public boolean hasBeenMergedIntoDifferentType(DexType type) {
-    return mergedClasses.containsKey(type);
-  }
-
   public boolean isEmpty() {
     return mergedClasses.isEmpty();
+  }
+
+  @Override
+  public boolean isMergeSource(DexType type) {
+    return mergedClasses.containsKey(type);
   }
 
   @Override
@@ -86,16 +87,8 @@ public class HorizontallyMergedClasses implements MergedClasses {
     return mergedClasses.containsValue(type);
   }
 
-  public boolean hasBeenMergedOrIsMergeTarget(DexType type) {
-    return this.hasBeenMergedIntoDifferentType(type) || isMergeTarget(type);
-  }
-
   BidirectionalManyToOneRepresentativeMap<DexType, DexType> getBidirectionalMap() {
     return mergedClasses;
-  }
-
-  Map<DexType, DexType> getForwardMap() {
-    return mergedClasses.getForwardMap();
   }
 
   @Override

@@ -164,7 +164,7 @@ public class Repackaging {
             repackagingTreeFixer.fixupClasses(appView.appInfo().classesWithDeterministicOrder()));
     appBuilder.replaceProgramClasses(newProgramClasses);
     RepackagingLens lens = lensBuilder.build(appView, packageMappings);
-    new AnnotationFixer(lens, appView.graphLens()).run(appBuilder.getProgramClasses());
+    new AnnotationFixer(appView, lens).run(appBuilder.getProgramClasses(), executorService);
     return lens;
   }
 

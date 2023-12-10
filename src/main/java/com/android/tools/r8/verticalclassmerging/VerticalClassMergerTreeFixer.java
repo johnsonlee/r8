@@ -10,29 +10,42 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
 import com.android.tools.r8.shaking.AnnotationFixer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Timing;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 class VerticalClassMergerTreeFixer extends TreeFixerBase {
 
+  private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
   private final VerticalClassMergerGraphLens.Builder lensBuilder;
   private final VerticallyMergedClasses mergedClasses;
   private final List<SynthesizedBridgeCode> synthesizedBridges;
 
   VerticalClassMergerTreeFixer(
-      AppView<AppInfoWithLiveness> appView, VerticalClassMergerResult verticalClassMergerResult) {
+      AppView<AppInfoWithLiveness> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
+      VerticalClassMergerResult verticalClassMergerResult) {
     super(appView);
+    this.immediateSubtypingInfo = immediateSubtypingInfo;
     this.lensBuilder =
         VerticalClassMergerGraphLens.Builder.createBuilderForFixup(verticalClassMergerResult);
     this.mergedClasses = verticalClassMergerResult.getVerticallyMergedClasses();
     this.synthesizedBridges = verticalClassMergerResult.getSynthesizedBridges();
   }
 
-  VerticalClassMergerGraphLens run(Timing timing) {
+  VerticalClassMergerGraphLens run(
+      List<Set<DexProgramClass>> connectedComponents,
+      Set<DexProgramClass> singletonComponents,
+      ExecutorService executorService,
+      Timing timing)
+      throws ExecutionException {
     timing.begin("Fixup");
     // Globally substitute merged class types in protos and holders.
     for (DexProgramClass clazz : appView.appInfo().classes()) {
@@ -42,13 +55,11 @@ class VerticalClassMergerTreeFixer extends TreeFixerBase {
       clazz.setPermittedSubclassAttributes(
           fixupPermittedSubclassAttribute(clazz.getPermittedSubclassAttributes()));
     }
+    VerticalClassMergerGraphLens lens = lensBuilder.build(appView, mergedClasses);
     for (SynthesizedBridgeCode synthesizedBridge : synthesizedBridges) {
-      synthesizedBridge.updateMethodSignatures(this::fixupMethodReference);
+      synthesizedBridge.updateMethodSignatures(lens);
     }
-    VerticalClassMergerGraphLens lens = lensBuilder.build(mergedClasses);
-    if (lens != null) {
-      new AnnotationFixer(lens, appView.graphLens()).run(appView.appInfo().classes());
-    }
+    new AnnotationFixer(appView, lens).run(appView.appInfo().classes(), executorService);
     timing.end();
     return lens;
   }

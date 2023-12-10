@@ -1,8 +1,7 @@
-// Copyright (c) 2020, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2023, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
-package com.android.tools.r8.horizontalclassmerging;
+package com.android.tools.r8.classmerging;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
@@ -17,11 +16,14 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
+import com.android.tools.r8.graph.classmerging.MergedClasses;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
+import com.android.tools.r8.horizontalclassmerging.SubtypingForrestForClasses;
+import com.android.tools.r8.horizontalclassmerging.SyntheticArgumentClass;
 import com.android.tools.r8.ir.conversion.ExtraUnusedNullParameter;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AnnotationFixer;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.OptionalBool;
@@ -35,17 +37,17 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
-/**
- * The tree fixer traverses all program classes and finds and fixes references to old classes which
- * have been remapped to new classes by the class merger. While doing so, all updated changes are
- * tracked in {@link TreeFixer#lensBuilder}.
- */
-class TreeFixer extends TreeFixerBase {
+public abstract class ClassMergerTreeFixer<
+        LB extends ClassMergerGraphLens.BuilderBase<GL, MC>,
+        GL extends ClassMergerGraphLens,
+        MC extends MergedClasses>
+    extends TreeFixerBase {
 
-  private final HorizontallyMergedClasses mergedClasses;
-  private final Mode mode;
-  private final HorizontalClassMergerGraphLens.Builder lensBuilder;
+  protected final LB lensBuilder;
+  protected final MC mergedClasses;
   private final ProfileCollectionAdditions profileCollectionAdditions;
   private final SyntheticArgumentClass syntheticArgumentClass;
 
@@ -53,97 +55,45 @@ class TreeFixer extends TreeFixerBase {
   private final BiMap<DexMethodSignature, DexMethodSignature> reservedInterfaceSignatures =
       HashBiMap.create();
 
-  public TreeFixer(
+  public ClassMergerTreeFixer(
       AppView<?> appView,
-      HorizontallyMergedClasses mergedClasses,
-      HorizontalClassMergerGraphLens.Builder lensBuilder,
-      Mode mode,
+      LB lensBuilder,
+      MC mergedClasses,
       ProfileCollectionAdditions profileCollectionAdditions,
       SyntheticArgumentClass syntheticArgumentClass) {
     super(appView);
-    this.mergedClasses = mergedClasses;
-    this.mode = mode;
     this.lensBuilder = lensBuilder;
+    this.mergedClasses = mergedClasses;
     this.profileCollectionAdditions = profileCollectionAdditions;
     this.syntheticArgumentClass = syntheticArgumentClass;
   }
 
-  /**
-   * Lets assume the following initial classes, where the class B should be merged into A: <code>
-   *   class A {
-   *     public A(A a) { ... }
-   *     public A(A a, int v) { ... }
-   *     public A(B b) { ... }
-   *     public A(B b, int v) { ... }
-   *   }
-   *
-   *   class B {
-   *     public B(A a) { ... }
-   *     public B(B b) { ... }
-   *   }
-   * </code>
-   *
-   * <p>The {@link ClassMerger} merges the constructors {@code A.<init>(B)} and {@code B.<init>(B)}
-   * into the constructor {@code A.<init>(B, int)} to prevent any collisions when merging the
-   * constructor into A. The extra integer argument determines which class' constructor is called.
-   * The SynthArg is used to prevent a collision with the existing {@code A.<init>(B, int)}
-   * constructor. All constructors {@code A.<init>(A, ...)} generate a constructor {@code
-   * A.<init>(A, int, SynthClass)} but are otherwise ignored. During ClassMerging the constructor
-   * produces the following mappings in the graph lens builder:
-   *
-   * <ul>
-   *   <li>{@code B.<init>(B) <--> A.<init>(B, int, SynthArg)}
-   *   <li>{@code A.<init>(B) <--> A.<init>(B, int, SynthArg)} (This mapping is representative)
-   *   <li>{@code A.constructor$B(B) ---> A.constructor$B(B)}
-   *   <li>{@code B.<init>(B) <--- A.constructor$B(B)}
-   * </ul>
-   *
-   * <p>Note: The identity mapping is needed so that the method is remapped in the forward direction
-   * if there are changes in the tree fixer. Otherwise, methods are only remapped in directions they
-   * are already mapped in.
-   *
-   * <p>During the fixup, all type references to B are changed into A. This causes a collision
-   * between {@code A.<init>(A, int, SynthClass)} and {@code A.<init>(B, int, SynthClass)}. This
-   * collision should be fixed by adding an extra argument to {@code A.<init>(B, int, SynthClass)}.
-   * The TreeFixer generates the following mapping of renamed methods:
-   *
-   * <ul>
-   *   <li>{@code A.<init>(B, int, SynthArg) <--> A.<init>(A, int, SynthArg, ExtraArg)}
-   *   <li>{@code A.constructor$B(B) <--> A.constructor$B(A)}
-   * </ul>
-   *
-   * <p>This rewrites the previous method mappings to:
-   *
-   * <ul>
-   *   <li>{@code B.<init>(B) <--- A.constructor$B(A)}
-   *   <li>{@code A.constructor$B(B) ---> A.constructor$B(A)}
-   *   <li>{@code B.<init>(B) <--> A.<init>(A, int, SynthArg, ExtraArg)}
-   *   <li>{@code A.<init>(B) <--> A.<init>(A, int, SynthArg, ExtraArg)} (including represents)
-   * </ul>
-   */
-  public HorizontalClassMergerGraphLens fixupTypeReferences() {
-    HorizontalClassMergerGraphLens lens = lensBuilder.build(appView, mergedClasses);
-    if (appView.enableWholeProgramOptimizations()) {
-      Collection<DexProgramClass> classes = appView.appInfo().classesWithDeterministicOrder();
-      Iterables.filter(classes, DexProgramClass::isInterface).forEach(this::fixupInterfaceClass);
-      classes.forEach(this::fixupAttributes);
-      classes.forEach(this::fixupProgramClassSuperTypes);
-      SubtypingForrestForClasses subtypingForrest =
-          new SubtypingForrestForClasses(appView.withClassHierarchy());
-      // TODO(b/170078037): parallelize this code segment.
-      for (DexProgramClass root : subtypingForrest.getProgramRoots()) {
-        subtypingForrest.traverseNodeDepthFirst(root, HashBiMap.create(), this::fixupProgramClass);
-      }
-      new AnnotationFixer(lens, appView.graphLens()).run(appView.appInfo().classes());
+  public GL run(ExecutorService executorService) throws ExecutionException {
+    if (!appView.enableWholeProgramOptimizations()) {
+      return lensBuilder.build(appView, mergedClasses);
     }
+    AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+    Collection<DexProgramClass> classes = appView.appInfo().classesWithDeterministicOrder();
+    Iterables.filter(classes, DexProgramClass::isInterface).forEach(this::fixupInterfaceClass);
+    classes.forEach(this::fixupAttributes);
+    classes.forEach(this::fixupProgramClassSuperTypes);
+    SubtypingForrestForClasses subtypingForrest =
+        new SubtypingForrestForClasses(appView.withClassHierarchy());
+    // TODO(b/170078037): parallelize this code segment.
+    for (DexProgramClass root : subtypingForrest.getProgramRoots()) {
+      subtypingForrest.traverseNodeDepthFirst(root, HashBiMap.create(), this::fixupProgramClass);
+    }
+    GL lens = lensBuilder.build(appViewWithLiveness, mergedClasses);
+    new AnnotationFixer(appView, lens).run(appView.appInfo().classes(), executorService);
     return lens;
   }
 
-  private void fixupAttributes(DexProgramClass clazz) {
+  public abstract boolean isRunningBeforePrimaryOptimizationPass();
+
+  public void fixupAttributes(DexProgramClass clazz) {
     if (clazz.hasEnclosingMethodAttribute()) {
       EnclosingMethodAttribute enclosingMethodAttribute = clazz.getEnclosingMethodAttribute();
-      if (mergedClasses.hasBeenMergedIntoDifferentType(
-          enclosingMethodAttribute.getEnclosingType())) {
+      if (mergedClasses.isMergeSource(enclosingMethodAttribute.getEnclosingType())) {
         clazz.clearEnclosingMethodAttribute();
       } else {
         clazz.setEnclosingMethodAttribute(fixupEnclosingMethodAttribute(enclosingMethodAttribute));
@@ -156,10 +106,9 @@ class TreeFixer extends TreeFixerBase {
         fixupPermittedSubclassAttribute(clazz.getPermittedSubclassAttributes()));
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private void fixupProgramClassSuperTypes(DexProgramClass clazz) {
     DexType rewrittenSuperType = fixupType(clazz.getSuperType());
-    if (rewrittenSuperType != clazz.getSuperType()) {
+    if (rewrittenSuperType.isNotIdenticalTo(clazz.getSuperType())) {
       originalSuperTypes.put(clazz, clazz.getSuperType());
       clazz.superType = rewrittenSuperType;
     }
@@ -196,15 +145,14 @@ class TreeFixer extends TreeFixerBase {
     return remappedClassVirtualMethods;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private DexEncodedMethod fixupVirtualInterfaceMethod(DexEncodedMethod method) {
     DexMethod originalMethodReference = method.getReference();
 
     // Don't process this method if it does not refer to a merge class type.
     boolean referencesMergeClass =
         Iterables.any(
-            originalMethodReference.getProto().getBaseTypes(dexItemFactory),
-            mergedClasses::hasBeenMergedOrIsMergeTarget);
+            originalMethodReference.getReferencedBaseTypes(dexItemFactory),
+            mergedClasses::isMergeSourceOrTarget);
     if (!referencesMergeClass) {
       return method;
     }
@@ -231,7 +179,7 @@ class TreeFixer extends TreeFixerBase {
     DexMethod newMethodReference =
         newMethodSignature.withHolder(originalMethodReference, dexItemFactory);
     lensBuilder.fixupMethod(originalMethodReference, newMethodReference);
-    return newMethodReference != originalMethodReference
+    return newMethodReference.isNotIdenticalTo(originalMethodReference)
         ? method.toTypeSubstitutedMethodAsInlining(newMethodReference, dexItemFactory)
         : method;
   }
@@ -252,22 +200,20 @@ class TreeFixer extends TreeFixerBase {
     lensBuilder.commitPendingUpdates();
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private DexTypeList fixupInterfaces(DexProgramClass clazz, DexTypeList interfaceTypes) {
     Set<DexType> seen = Sets.newIdentityHashSet();
     return interfaceTypes.map(
         interfaceType -> {
           DexType rewrittenInterfaceType = mapClassType(interfaceType);
-          assert rewrittenInterfaceType != clazz.getType();
+          assert rewrittenInterfaceType.isNotIdenticalTo(clazz.getType());
           return seen.add(rewrittenInterfaceType) ? rewrittenInterfaceType : null;
         });
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private DexEncodedMethod fixupProgramMethod(
       DexMethod newMethodReference, DexEncodedMethod method) {
     DexMethod originalMethodReference = method.getReference();
-    if (newMethodReference == originalMethodReference) {
+    if (newMethodReference.isIdenticalTo(originalMethodReference)) {
       return method;
     }
 
@@ -313,7 +259,7 @@ class TreeFixer extends TreeFixerBase {
         // Amend the art profile collection.
         if (usedSyntheticArgumentClasses.isSet()) {
           Set<DexMethod> previousMethodReferences =
-              lensBuilder.methodMap.getKeys(originalMethodReference);
+              lensBuilder.getOriginalMethodReferences(originalMethodReference);
           if (previousMethodReferences.isEmpty()) {
             profileCollectionAdditions.applyIfContextIsInProfile(
                 originalMethodReference,
@@ -345,10 +291,10 @@ class TreeFixer extends TreeFixerBase {
 
     // Convert out of DefaultInstanceInitializerCode, since this piece of code will require lens
     // code rewriting.
-    if (mode.isInitial()
+    if (isRunningBeforePrimaryOptimizationPass()
         && method.hasCode()
         && method.getCode().isDefaultInstanceInitializerCode()
-        && mergedClasses.hasBeenMergedOrIsMergeTarget(clazz.getSuperType())) {
+        && mergedClasses.isMergeSourceOrTarget(clazz.getSuperType())) {
       DexType originalSuperType = originalSuperTypes.getOrDefault(clazz, clazz.getSuperType());
       DefaultInstanceInitializerCode.uncanonicalizeCode(
           appView, method.asProgramMethod(clazz), originalSuperType);
@@ -473,7 +419,7 @@ class TreeFixer extends TreeFixerBase {
 
   @Override
   public DexType mapClassType(DexType type) {
-    return mergedClasses.getMergeTargetOrDefault(type);
+    return mergedClasses.getMergeTargetOrDefault(type, type);
   }
 
   @Override

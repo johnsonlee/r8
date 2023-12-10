@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.verticalclassmerging;
 
+import com.android.tools.r8.classmerging.ClassMergerGraphLens;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -13,10 +15,10 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
-import com.android.tools.r8.graph.lens.NestedGraphLens;
 import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
+import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
@@ -30,6 +32,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import java.util.Collection;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -57,7 +60,7 @@ import java.util.Set;
 // invocation will hit the same implementation as the original super.m() call.
 //
 // For the invocation "invoke-virtual A.m()" in B.m2, this graph lens will return the method B.m.
-public class VerticalClassMergerGraphLens extends NestedGraphLens {
+public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
 
   public interface GraphLensLookupResultProvider {
 
@@ -197,7 +200,8 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
     return true;
   }
 
-  public static class Builder {
+  public static class Builder
+      extends BuilderBase<VerticalClassMergerGraphLens, VerticallyMergedClasses> {
 
     private final AppView<AppInfoWithLiveness> appView;
     private final DexItemFactory dexItemFactory;
@@ -223,7 +227,6 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
       this.dexItemFactory = appView.dexItemFactory();
     }
 
-    @SuppressWarnings("ReferenceEquality")
     static Builder createBuilderForFixup(VerticalClassMergerResult verticalClassMergerResult) {
       Builder builder = verticalClassMergerResult.getLensBuilder();
       VerticallyMergedClasses mergedClasses =
@@ -245,7 +248,7 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
       for (Map.Entry<DexType, Map<DexMethod, GraphLensLookupResultProvider>> entry :
           builder.contextualVirtualToDirectMethodMaps.entrySet()) {
         DexType context = entry.getKey();
-        assert context == builder.getTypeAfterClassMerging(context, mergedClasses);
+        assert context.isIdenticalTo(builder.getTypeAfterClassMerging(context, mergedClasses));
         for (Map.Entry<DexMethod, GraphLensLookupResultProvider> innerEntry :
             entry.getValue().entrySet()) {
           DexMethod from = innerEntry.getKey();
@@ -285,11 +288,37 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
       return newBuilder;
     }
 
-    public VerticalClassMergerGraphLens build(VerticallyMergedClasses mergedClasses) {
-      if (mergedClasses.isEmpty()) {
-        return null;
-      }
+    @Override
+    public void addExtraParameters(
+        DexMethod methodSignature, List<? extends ExtraParameter> extraParameters) {
+      throw new Unimplemented();
+    }
+
+    @Override
+    public void commitPendingUpdates() {
+      throw new Unimplemented();
+    }
+
+    @Override
+    public void fixupField(DexField from, DexField to) {
+      throw new Unimplemented();
+    }
+
+    @Override
+    public void fixupMethod(DexMethod from, DexMethod to) {
+      throw new Unimplemented();
+    }
+
+    @Override
+    public Set<DexMethod> getOriginalMethodReferences(DexMethod method) {
+      throw new Unimplemented();
+    }
+
+    @Override
+    public VerticalClassMergerGraphLens build(
+        AppView<?> appView, VerticallyMergedClasses mergedClasses) {
       // Build new graph lens.
+      assert !mergedClasses.isEmpty();
       return new VerticalClassMergerGraphLens(
           appView,
           mergedClasses,
@@ -302,53 +331,50 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
           prototypeChanges);
     }
 
-    @SuppressWarnings("ReferenceEquality")
     private DexField getFieldSignatureAfterClassMerging(
         DexField field, VerticallyMergedClasses mergedClasses) {
-      assert !field.holder.isArrayType();
+      assert !field.getHolderType().isArrayType();
 
-      DexType holder = field.holder;
-      DexType newHolder = mergedClasses.getTargetForOrDefault(holder, holder);
+      DexType holder = field.getHolderType();
+      DexType newHolder = mergedClasses.getMergeTargetOrDefault(holder, holder);
 
-      DexType type = field.type;
+      DexType type = field.getType();
       DexType newType = getTypeAfterClassMerging(type, mergedClasses);
 
-      if (holder == newHolder && type == newType) {
+      if (holder.isIdenticalTo(newHolder) && type.isIdenticalTo(newType)) {
         return field;
       }
-      return dexItemFactory.createField(newHolder, newType, field.name);
+      return dexItemFactory.createField(newHolder, newType, field.getName());
     }
 
-    @SuppressWarnings("ReferenceEquality")
     private DexMethod getMethodSignatureAfterClassMerging(
         DexMethod signature, VerticallyMergedClasses mergedClasses) {
-      assert !signature.holder.isArrayType();
+      assert !signature.getHolderType().isArrayType();
 
-      DexType holder = signature.holder;
-      DexType newHolder = mergedClasses.getTargetForOrDefault(holder, holder);
+      DexType holder = signature.getHolderType();
+      DexType newHolder = mergedClasses.getMergeTargetOrDefault(holder, holder);
 
-      DexProto proto = signature.proto;
+      DexProto proto = signature.getProto();
       DexProto newProto =
           dexItemFactory.applyClassMappingToProto(
               proto, type -> getTypeAfterClassMerging(type, mergedClasses), cache);
 
-      if (holder == newHolder && proto == newProto) {
+      if (holder.isIdenticalTo(newHolder) && proto.isIdenticalTo(newProto)) {
         return signature;
       }
-      return dexItemFactory.createMethod(newHolder, newProto, signature.name);
+      return dexItemFactory.createMethod(newHolder, newProto, signature.getName());
     }
 
-    @SuppressWarnings("ReferenceEquality")
     private DexType getTypeAfterClassMerging(DexType type, VerticallyMergedClasses mergedClasses) {
       if (type.isArrayType()) {
         DexType baseType = type.toBaseType(dexItemFactory);
-        DexType newBaseType = mergedClasses.getTargetForOrDefault(baseType, baseType);
-        if (newBaseType != baseType) {
+        DexType newBaseType = mergedClasses.getMergeTargetOrDefault(baseType, baseType);
+        if (newBaseType.isNotIdenticalTo(baseType)) {
           return type.replaceBaseType(newBaseType, dexItemFactory);
         }
         return type;
       }
-      return mergedClasses.getTargetForOrDefault(type, type);
+      return mergedClasses.getMergeTargetOrDefault(type, type);
     }
 
     public boolean hasMappingForSignatureInContext(DexProgramClass context, DexMethod signature) {
@@ -418,7 +444,6 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
       virtualToDirectMethodMap.put(from, to);
     }
 
-    @SuppressWarnings("ReferenceEquality")
     public void merge(VerticalClassMergerGraphLens.Builder builder) {
       fieldMap.putAll(builder.fieldMap);
       methodMap.putAll(builder.methodMap);
@@ -426,7 +451,9 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
       builder.newMethodSignatures.forEachManyToOneMapping(
           (keys, value, representative) -> {
             boolean isRemapping =
-                Iterables.any(keys, key -> newMethodSignatures.containsValue(key) && key != value);
+                Iterables.any(
+                    keys,
+                    key -> newMethodSignatures.containsValue(key) && key.isNotIdenticalTo(value));
             if (isRemapping) {
               // If I and J are merged into A and both I.m() and J.m() exists, then we may map J.m()
               // to I.m() as a result of merging J into A, and then subsequently merge I.m() to

@@ -170,7 +170,12 @@ public class HorizontalClassMerger {
 
     HorizontalClassMergerGraphLens horizontalClassMergerGraphLens =
         createLens(
-            mergedClasses, lensBuilder, mode, profileCollectionAdditions, syntheticArgumentClass);
+            mergedClasses,
+            lensBuilder,
+            mode,
+            profileCollectionAdditions,
+            syntheticArgumentClass,
+            executorService);
     profileCollectionAdditions =
         profileCollectionAdditions.rewriteMethodReferences(
             horizontalClassMergerGraphLens::getNextMethodToInvoke);
@@ -348,8 +353,7 @@ public class HorizontalClassMerger {
       return appView
           .app()
           .builder()
-          .removeProgramClasses(
-              clazz -> mergedClasses.hasBeenMergedIntoDifferentType(clazz.getType()))
+          .removeProgramClasses(clazz -> mergedClasses.isMergeSource(clazz.getType()))
           .build();
     }
   }
@@ -413,8 +417,8 @@ public class HorizontalClassMerger {
   }
 
   /**
-   * Fix all references to merged classes using the {@link TreeFixer}. Construct a graph lens
-   * containing all changes performed by horizontal class merging.
+   * Fix all references to merged classes using the {@link HorizontalClassMergerTreeFixer}.
+   * Construct a graph lens containing all changes performed by horizontal class merging.
    */
   @SuppressWarnings("ReferenceEquality")
   private HorizontalClassMergerGraphLens createLens(
@@ -422,15 +426,17 @@ public class HorizontalClassMerger {
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       Mode mode,
       ProfileCollectionAdditions profileCollectionAdditions,
-      SyntheticArgumentClass syntheticArgumentClass) {
-    return new TreeFixer(
+      SyntheticArgumentClass syntheticArgumentClass,
+      ExecutorService executorService)
+      throws ExecutionException {
+    return new HorizontalClassMergerTreeFixer(
             appView,
             mergedClasses,
             lensBuilder,
             mode,
             profileCollectionAdditions,
             syntheticArgumentClass)
-        .fixupTypeReferences();
+        .run(executorService);
   }
 
   @SuppressWarnings("ReferenceEquality")

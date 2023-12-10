@@ -69,7 +69,7 @@ public class HorizontallyMergedClassesInspector {
   }
 
   public DexType getTarget(DexType clazz) {
-    return horizontallyMergedClasses.getMergeTargetOrDefault(clazz);
+    return horizontallyMergedClasses.getMergeTargetOrDefault(clazz, clazz);
   }
 
   public Set<DexType> getTargets() {
@@ -99,8 +99,7 @@ public class HorizontallyMergedClassesInspector {
 
   public HorizontallyMergedClassesInspector assertMergedInto(
       ClassReference from, ClassReference target) {
-    assertEquals(
-        horizontallyMergedClasses.getMergeTargetOrDefault(toDexType(from)), toDexType(target));
+    assertEquals(getTarget(toDexType(from)), toDexType(target));
     seen.add(toDexType(from).asClassReference());
     seen.add(toDexType(target).asClassReference());
     return this;
@@ -128,7 +127,7 @@ public class HorizontallyMergedClassesInspector {
   public HorizontallyMergedClassesInspector assertTypesMerged(Collection<DexType> types) {
     List<DexType> unmerged = new ArrayList<>();
     for (DexType type : types) {
-      if (!horizontallyMergedClasses.hasBeenMergedOrIsMergeTarget(type)) {
+      if (!horizontallyMergedClasses.isMergeSourceOrTarget(type)) {
         unmerged.add(type);
       }
     }
@@ -190,7 +189,7 @@ public class HorizontallyMergedClassesInspector {
   public HorizontallyMergedClassesInspector assertTypesNotMerged(Collection<DexType> types) {
     for (DexType type : types) {
       assertTrue(type.isClassType());
-      assertFalse(horizontallyMergedClasses.hasBeenMergedOrIsMergeTarget(type));
+      assertFalse(horizontallyMergedClasses.isMergeSourceOrTarget(type));
     }
     seen.addAll(types.stream().map(DexType::asClassReference).collect(Collectors.toList()));
     return this;
@@ -232,11 +231,8 @@ public class HorizontallyMergedClassesInspector {
     }
     if (uniqueTarget == null) {
       for (DexType type : types) {
-        if (horizontallyMergedClasses.hasBeenMergedIntoDifferentType(type)) {
-          fail(
-              "Expected merge target "
-                  + horizontallyMergedClasses.getMergeTargetOrDefault(type).getTypeName()
-                  + " to be in merge group");
+        if (horizontallyMergedClasses.isMergeSource(type)) {
+          fail("Expected merge target " + getTarget(type).getTypeName() + " to be in merge group");
         }
       }
       fail("Expected to find a merge target, but none found");
