@@ -21,6 +21,10 @@ public class StartupBoundaryOptimizationUtils {
         || callee.getOptimizationInfo().forceInline()) {
       return true;
     }
+    if (appView.hasLiveness()
+        && appView.withLiveness().appInfo().isAlwaysInlineMethod(callee.getReference())) {
+      return true;
+    }
     // It is always OK to inline into a non-startup class.
     if (!startupProfile.isStartupClass(caller.getHolderType())) {
       return true;
