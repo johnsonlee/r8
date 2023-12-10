@@ -346,13 +346,11 @@ public class InliningConstraints {
       DexClass initialResolutionHolder,
       ProgramMethod context,
       DexClassAndMember<?, ?> resolvedMember) {
-    ConstraintWithTarget featureSplitInliningConstraint =
-        FeatureSplitBoundaryOptimizationUtils.getInliningConstraintForResolvedMember(
-            resolvedMember, initialResolutionHolder, context, appView);
-    assert featureSplitInliningConstraint == ConstraintWithTarget.ALWAYS
-        || featureSplitInliningConstraint.isNever();
-    if (featureSplitInliningConstraint.isNever()) {
-      return featureSplitInliningConstraint;
+    if (!FeatureSplitBoundaryOptimizationUtils.isSafeForAccess(
+            initialResolutionHolder, context, appView)
+        || !FeatureSplitBoundaryOptimizationUtils.isSafeForAccess(
+            resolvedMember, context, appView)) {
+      return ConstraintWithTarget.NEVER;
     }
     DexType resolvedHolder = resolvedMember.getHolderType();
     assert initialResolutionHolder != null;

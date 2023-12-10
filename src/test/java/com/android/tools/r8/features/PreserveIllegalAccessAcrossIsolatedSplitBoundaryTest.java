@@ -4,8 +4,9 @@
 package com.android.tools.r8.features;
 
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPackagePrivate;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverInline;
@@ -58,10 +59,12 @@ public class PreserveIllegalAccessAcrossIsolatedSplitBoundaryTest extends TestBa
               ClassSubject baseClassSubject = baseInspector.clazz(Base.class);
               assertThat(baseClassSubject, isPresent());
 
-              // TODO(b/300247439): Illegal access error should be preserved.
               MethodSubject nonPublicMethodSubject =
                   baseClassSubject.uniqueMethodWithOriginalName("nonPublicMethod");
-              assertThat(nonPublicMethodSubject, isAbsent());
+              assertThat(nonPublicMethodSubject, isPresentIf(enableIsolatedSplits));
+              if (enableIsolatedSplits) {
+                assertThat(nonPublicMethodSubject, isPackagePrivate());
+              }
 
               MethodSubject otherMethodSubject =
                   baseClassSubject.uniqueMethodWithOriginalName("otherMethod");
@@ -73,7 +76,10 @@ public class PreserveIllegalAccessAcrossIsolatedSplitBoundaryTest extends TestBa
               MethodSubject featureMethodSubject =
                   featureClassSubject.uniqueMethodWithOriginalName("test");
               assertThat(featureMethodSubject, isPresent());
-              assertThat(featureMethodSubject, invokesMethod(otherMethodSubject));
+              assertThat(
+                  featureMethodSubject,
+                  invokesMethod(
+                      enableIsolatedSplits ? nonPublicMethodSubject : otherMethodSubject));
             });
   }
 

@@ -9,75 +9,45 @@ import static com.android.tools.r8.graph.DexEncodedMethod.CompilationState.PROCE
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexClassAndMember;
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramDefinition;
-import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
-import com.android.tools.r8.synthesis.SyntheticItems;
 
 public class FeatureSplitBoundaryOptimizationUtils {
 
-  public static ConstraintWithTarget getInliningConstraintForResolvedMember(
-      DexClassAndMember<?, ?> resolvedMember,
-      DexClass initialResolutionHolder,
-      ProgramMethod context,
-      AppView<? extends AppInfoWithClassHierarchy> appView) {
-    if (!appView.options().hasFeatureSplitConfiguration()) {
-      return ConstraintWithTarget.ALWAYS;
-    }
-    // If we resolve to something outside the program then everything is fine.
-    if (!initialResolutionHolder.isProgramClass()) {
-      assert !resolvedMember.isProgramMember();
-      return ConstraintWithTarget.ALWAYS;
-    }
-    ProgramMember<?, ?> resolvedProgramMember = resolvedMember.asProgramMember();
-    DexProgramClass initialProgramResolutionHolder = initialResolutionHolder.asProgramClass();
-    return getInliningConstraintForResolvedMember(
-        resolvedProgramMember, initialProgramResolutionHolder, context, appView);
-  }
-
-  private static ConstraintWithTarget getInliningConstraintForResolvedMember(
-      ProgramMember<?, ?> resolvedMember,
-      DexProgramClass initialResolutionHolder,
-      ProgramMethod context,
-      AppView<? extends AppInfoWithClassHierarchy> appView) {
-    assert appView.options().hasFeatureSplitConfiguration();
-    ClassToFeatureSplitMap features = appView.appInfo().getClassToFeatureSplitMap();
-    // Check that whatever we resolve to is in the same feature or in base.
-    if (!features.isInBaseOrSameFeatureAs(initialResolutionHolder, context, appView)
-        || !features.isInBaseOrSameFeatureAs(resolvedMember, context, appView)) {
-      return ConstraintWithTarget.NEVER;
-    }
-    // If isolated splits are enabled then the resolved method must be in the same feature split or
-    // it must be public.
-    if (appView.options().getFeatureSplitConfiguration().isIsolatedSplitsEnabled()) {
-      if (!initialResolutionHolder.isPublic()
-          && !features.isInSameFeature(initialResolutionHolder, context, appView)) {
-        return ConstraintWithTarget.NEVER;
-      }
-      if (!resolvedMember.getAccessFlags().isPublic()
-          && !features.isInSameFeature(resolvedMember, context, appView)) {
-        return ConstraintWithTarget.NEVER;
-      }
-    }
-    return ConstraintWithTarget.ALWAYS;
-  }
-
   public static FeatureSplit getMergeKeyForHorizontalClassMerging(
       DexProgramClass clazz, AppView<? extends AppInfoWithClassHierarchy> appView) {
-    ClassToFeatureSplitMap classToFeatureSplitMap = appView.appInfo().getClassToFeatureSplitMap();
-    return classToFeatureSplitMap.getFeatureSplit(clazz, appView);
+    return appView.appInfo().getClassToFeatureSplitMap().getFeatureSplit(clazz, appView);
   }
 
   public static boolean isSafeForAccess(
-      DexProgramClass accessedClass,
-      ProgramDefinition accessor,
-      ClassToFeatureSplitMap classToFeatureSplitMap,
-      SyntheticItems syntheticItems) {
-    return classToFeatureSplitMap.isInBaseOrSameFeatureAs(accessedClass, accessor, syntheticItems);
+      Definition definition,
+      ProgramDefinition context,
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    return !appView.options().hasFeatureSplitConfiguration()
+        || !definition.isProgramDefinition()
+        || isSafeForAccess(definition.asProgramDefinition(), context, appView);
+  }
+
+  private static boolean isSafeForAccess(
+      ProgramDefinition definition,
+      ProgramDefinition context,
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    assert appView.options().hasFeatureSplitConfiguration();
+    ClassToFeatureSplitMap classToFeatureSplitMap = appView.appInfo().getClassToFeatureSplitMap();
+    if (classToFeatureSplitMap.isInSameFeature(definition, context, appView)) {
+      return true;
+    }
+    if (!classToFeatureSplitMap.isInBase(definition, appView)) {
+      return false;
+    }
+    // If isolated splits are enabled then the resolved method must be public.
+    if (appView.options().getFeatureSplitConfiguration().isIsolatedSplitsEnabled()
+        && !definition.getAccessFlags().isPublic()) {
+      return false;
+    }
+    return true;
   }
 
   public static boolean isSafeForInlining(
