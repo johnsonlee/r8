@@ -380,11 +380,11 @@ public class Matchers {
     };
   }
 
-  public static <T extends MemberSubject> Matcher<T> isPrivate() {
+  public static <T extends ClassOrMemberSubject> Matcher<T> isPrivate() {
     return hasVisibility(Visibility.PRIVATE);
   }
 
-  public static <T extends MemberSubject> Matcher<T> isPackagePrivate() {
+  public static <T extends ClassOrMemberSubject> Matcher<T> isPackagePrivate() {
     return hasVisibility(Visibility.PACKAGE_PRIVATE);
   }
 
