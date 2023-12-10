@@ -5,9 +5,7 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.features.FeatureSplitBoundaryOptimizationUtils;
-import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.synthesis.SyntheticItems;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionalBool;
 
 /**
@@ -26,8 +24,6 @@ public class AccessControl {
         clazz,
         context,
         appView.appInfo().getClassToFeatureSplitMap(),
-        appView.options(),
-        appView.getStartupProfile(),
         appView.getSyntheticItems());
   }
 
@@ -35,8 +31,6 @@ public class AccessControl {
       DexClass clazz,
       Definition context,
       ClassToFeatureSplitMap classToFeatureSplitMap,
-      InternalOptions options,
-      StartupProfile startupProfile,
       SyntheticItems syntheticItems) {
     if (!clazz.isPublic() && !clazz.getType().isSamePackage(context.getContextType())) {
       return OptionalBool.FALSE;
@@ -47,8 +41,6 @@ public class AccessControl {
             clazz.asProgramClass(),
             context.asProgramDefinition(),
             classToFeatureSplitMap,
-            options,
-            startupProfile,
             syntheticItems)) {
       return OptionalBool.UNKNOWN;
     }
@@ -59,13 +51,11 @@ public class AccessControl {
   static OptionalBool isMemberAccessible(
       SuccessfulMemberResolutionResult<?, ?> resolutionResult,
       Definition context,
-      AppView<?> appView,
       AppInfoWithClassHierarchy appInfo) {
     return isMemberAccessible(
         resolutionResult.getResolutionPair(),
         resolutionResult.getInitialResolutionHolder(),
         context,
-        appView,
         appInfo);
   }
 
@@ -74,15 +64,13 @@ public class AccessControl {
       Definition initialResolutionContext,
       Definition context,
       AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return isMemberAccessible(
-        member, initialResolutionContext, context, appView, appView.appInfo());
+    return isMemberAccessible(member, initialResolutionContext, context, appView.appInfo());
   }
 
   static OptionalBool isMemberAccessible(
       DexClassAndMember<?, ?> member,
       Definition initialResolutionContext,
       Definition context,
-      AppView<?> appView,
       AppInfoWithClassHierarchy appInfo) {
     AccessFlags<?> memberFlags = member.getDefinition().getAccessFlags();
     OptionalBool classAccessibility =
@@ -90,8 +78,6 @@ public class AccessControl {
             initialResolutionContext.getContextClass(),
             context,
             appInfo.getClassToFeatureSplitMap(),
-            appInfo.options(),
-            appView.getStartupProfile(),
             appInfo.getSyntheticItems());
     if (classAccessibility.isFalse()) {
       return OptionalBool.FALSE;

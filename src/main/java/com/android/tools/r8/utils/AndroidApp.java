@@ -46,7 +46,6 @@ import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.profile.art.ArtProfileProvider;
 import com.android.tools.r8.profile.art.ArtProfileProviderUtils;
 import com.android.tools.r8.profile.startup.StartupProfileProviderUtils;
-import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.shaking.FilteredClassPath;
 import com.android.tools.r8.startup.StartupProfileProvider;
 import com.android.tools.r8.synthesis.SyntheticItems;
@@ -717,8 +716,7 @@ public class AndroidApp {
                           DexType type = options.dexItemFactory().createType(classDescriptor);
                           SyntheticItems syntheticItems = null;
                           FeatureSplit featureSplit =
-                              classToFeatureSplitMap.getFeatureSplit(
-                                  type, options, StartupProfile.empty(), syntheticItems);
+                              classToFeatureSplitMap.getFeatureSplit(type, syntheticItems);
                           if (featureSplit != null && !featureSplit.isBase()) {
                             return featureSplitArchiveOutputStreams.get(featureSplit);
                           }

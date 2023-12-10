@@ -76,6 +76,8 @@ public abstract class WhyAreYouNotInliningReporter {
 
   public abstract void reportInliningAcrossFeatureSplit();
 
+  public abstract void reportInliningAcrossStartupBoundary();
+
   public abstract void reportInstructionBudgetIsExceeded();
 
   public abstract void reportInvalidDoubleInliningCandidate();

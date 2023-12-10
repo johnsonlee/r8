@@ -48,6 +48,7 @@ import com.android.tools.r8.ir.optimize.Inliner.RetryAction;
 import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.InliningReasonStrategy;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
+import com.android.tools.r8.profile.startup.optimization.StartupBoundaryOptimizationUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.AssumeInfoCollection;
 import com.android.tools.r8.shaking.MainDexInfo;
@@ -173,6 +174,11 @@ public final class DefaultInliningOracle implements InliningOracle, InliningStra
 
     if (!FeatureSplitBoundaryOptimizationUtils.isSafeForInlining(method, singleTarget, appView)) {
       whyAreYouNotInliningReporter.reportInliningAcrossFeatureSplit();
+      return false;
+    }
+
+    if (!StartupBoundaryOptimizationUtils.isSafeForInlining(method, singleTarget, appView)) {
+      whyAreYouNotInliningReporter.reportInliningAcrossStartupBoundary();
       return false;
     }
 

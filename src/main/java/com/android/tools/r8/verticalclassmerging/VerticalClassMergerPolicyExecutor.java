@@ -22,6 +22,7 @@ import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
+import com.android.tools.r8.profile.startup.optimization.StartupBoundaryOptimizationUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.utils.Box;
@@ -102,6 +103,10 @@ public class VerticalClassMergerPolicyExecutor {
         .shouldContinue();
 
     if (!FeatureSplitBoundaryOptimizationUtils.isSafeForVerticalClassMerging(
+        sourceClass, targetClass, appView)) {
+      return false;
+    }
+    if (!StartupBoundaryOptimizationUtils.isSafeForVerticalClassMerging(
         sourceClass, targetClass, appView)) {
       return false;
     }

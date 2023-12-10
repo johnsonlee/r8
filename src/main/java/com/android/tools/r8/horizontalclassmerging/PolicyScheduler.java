@@ -60,6 +60,7 @@ import com.android.tools.r8.horizontalclassmerging.policies.SameMainDexGroup;
 import com.android.tools.r8.horizontalclassmerging.policies.SameNestHost;
 import com.android.tools.r8.horizontalclassmerging.policies.SamePackageForNonGlobalMergeSynthetic;
 import com.android.tools.r8.horizontalclassmerging.policies.SameParentClass;
+import com.android.tools.r8.horizontalclassmerging.policies.SameStartupPartition;
 import com.android.tools.r8.horizontalclassmerging.policies.SyntheticItemsPolicy;
 import com.android.tools.r8.horizontalclassmerging.policies.VerifyMultiClassPolicyAlwaysSatisfied;
 import com.android.tools.r8.horizontalclassmerging.policies.VerifySingleClassPolicyAlwaysSatisfied;
@@ -289,6 +290,7 @@ public class PolicyScheduler {
         new CheckAbstractClasses(appView),
         new NoClassAnnotationCollisions(),
         new SameFeatureSplit(appView),
+        new SameStartupPartition(appView),
         new SameInstanceFields(appView, mode),
         new SameMainDexGroup(appView),
         new SameNestHost(appView),

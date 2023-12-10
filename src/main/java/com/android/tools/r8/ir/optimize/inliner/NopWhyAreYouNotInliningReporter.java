@@ -69,6 +69,9 @@ public class NopWhyAreYouNotInliningReporter extends WhyAreYouNotInliningReporte
   public void reportInliningAcrossFeatureSplit() {}
 
   @Override
+  public void reportInliningAcrossStartupBoundary() {}
+
+  @Override
   public void reportInstructionBudgetIsExceeded() {}
 
   @Override

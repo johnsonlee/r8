@@ -63,12 +63,12 @@ public class SingleCallerBridgeStartupTest extends TestBase {
         .inspect(
             inspector -> {
               // Assert that foo is not inlined.
-              ClassSubject A = inspector.clazz(A.class);
-              assertThat(A, isPresent());
-              assertThat(A.uniqueMethodWithOriginalName("foo"), isPresent());
+              ClassSubject B = inspector.clazz(B.class);
+              assertThat(B, isPresent());
+              assertThat(B.uniqueMethodWithOriginalName("foo"), isPresent());
             })
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("A::foo", "A::foo");
+        .assertSuccessWithOutputLines("B::foo", "B::foo");
   }
 
   static class Main {
@@ -81,12 +81,8 @@ public class SingleCallerBridgeStartupTest extends TestBase {
 
   public static class A {
 
-    private static void foo() {
-      System.out.println("A::foo");
-    }
-
     private static void bar() {
-      foo();
+      B.foo();
     }
 
     public static void callBarInStartup() {
@@ -95,6 +91,13 @@ public class SingleCallerBridgeStartupTest extends TestBase {
 
     public static void callBarOutsideStartup() {
       bar();
+    }
+  }
+
+  public static class B {
+
+    static void foo() {
+      System.out.println("B::foo");
     }
   }
 }

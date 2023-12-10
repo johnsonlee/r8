@@ -12,10 +12,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
-import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.synthesis.SyntheticItems;
-import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.OptionalBool;
 
 public class FeatureSplitBoundaryOptimizationUtils {
 
@@ -43,11 +40,8 @@ public class FeatureSplitBoundaryOptimizationUtils {
       DexProgramClass accessedClass,
       ProgramDefinition accessor,
       ClassToFeatureSplitMap classToFeatureSplitMap,
-      InternalOptions options,
-      StartupProfile startupProfile,
       SyntheticItems syntheticItems) {
-    return classToFeatureSplitMap.isInBaseOrSameFeatureAs(
-        accessedClass, accessor, options, startupProfile, syntheticItems);
+    return classToFeatureSplitMap.isInBaseOrSameFeatureAs(accessedClass, accessor, syntheticItems);
   }
 
   public static boolean isSafeForInlining(
@@ -60,40 +54,9 @@ public class FeatureSplitBoundaryOptimizationUtils {
 
     // First guarantee that we don't cross any actual feature split boundaries.
     if (!calleeFeatureSplit.isBase()) {
-      if (calleeFeatureSplit != callerFeatureSplit) {
-        return false;
-      }
-    }
-
-    // Next perform startup checks.
-    if (!callee.getOptimizationInfo().forceInline()) {
-      StartupProfile startupProfile = appView.getStartupProfile();
-      OptionalBool callerIsStartupMethod = isStartupMethod(caller, startupProfile);
-      if (callerIsStartupMethod.isTrue()) {
-        // If the caller is a startup method, then only allow inlining if the callee is also a
-        // startup method.
-        if (isStartupMethod(callee, startupProfile).isFalse()) {
-          return false;
-        }
-      } else if (callerIsStartupMethod.isFalse()) {
-        // If the caller is not a startup method, then only allow inlining if the caller is not a
-        // startup class or the callee is a startup class.
-        if (startupProfile.isStartupClass(caller.getHolderType())
-            && !startupProfile.isStartupClass(callee.getHolderType())) {
-          return false;
-        }
-      }
+      return calleeFeatureSplit == callerFeatureSplit;
     }
     return true;
-  }
-
-  private static OptionalBool isStartupMethod(ProgramMethod method, StartupProfile startupProfile) {
-    if (method.getDefinition().isD8R8Synthesized()) {
-      // Due to inadequate rewriting of the startup list during desugaring, we do not give an
-      // accurate result in this case.
-      return OptionalBool.unknown();
-    }
-    return OptionalBool.of(startupProfile.containsMethodRule(method.getReference()));
   }
 
   public static boolean isSafeForVerticalClassMerging(
@@ -107,19 +70,9 @@ public class FeatureSplitBoundaryOptimizationUtils {
     // First guarantee that we don't cross any actual feature split boundaries.
     if (targetFeatureSplit.isBase()) {
       assert sourceFeatureSplit.isBase() : "Unexpected class in base that inherits from feature";
+      return true;
     } else {
-      if (sourceFeatureSplit != targetFeatureSplit) {
-        return false;
-      }
+      return sourceFeatureSplit == targetFeatureSplit;
     }
-
-    // If the source class is a startup class then require that the target class is also a startup
-    // class.
-    StartupProfile startupProfile = appView.getStartupProfile();
-    if (startupProfile.isStartupClass(sourceClass.getType())
-        && !startupProfile.isStartupClass(targetClass.getType())) {
-      return false;
-    }
-    return true;
   }
 }

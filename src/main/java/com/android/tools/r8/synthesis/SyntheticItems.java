@@ -39,7 +39,6 @@ import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticFinalization.Result;
@@ -609,25 +608,17 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   private SynthesizingContext getSynthesizingContext(
       ProgramDefinition context, AppView<?> appView) {
-    InternalOptions options = appView.options();
     if (appView.hasClassHierarchy()) {
       AppInfoWithClassHierarchy appInfo = appView.appInfoWithClassHierarchy();
-      return getSynthesizingContext(
-          context, appInfo.getClassToFeatureSplitMap(), options, appView.getStartupProfile());
+      return getSynthesizingContext(context, appInfo.getClassToFeatureSplitMap());
     }
     return getSynthesizingContext(
-        context,
-        ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap(),
-        options,
-        StartupProfile.empty());
+        context, ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap());
   }
 
   /** Used to find the synthesizing context for a new synthetic that is about to be created. */
   private SynthesizingContext getSynthesizingContext(
-      ProgramDefinition context,
-      ClassToFeatureSplitMap featureSplits,
-      InternalOptions options,
-      StartupProfile startupProfile) {
+      ProgramDefinition context, ClassToFeatureSplitMap featureSplits) {
     DexType contextType = context.getContextType();
     SyntheticDefinition<?, ?, ?> existingDefinition = pending.definitions.get(contextType);
     if (existingDefinition != null) {
@@ -643,8 +634,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
           .getContext();
     }
     // This context is not nested in an existing synthetic context so create a new "leaf" context.
-    FeatureSplit featureSplit =
-        featureSplits.getFeatureSplit(context, options, startupProfile, this);
+    FeatureSplit featureSplit = featureSplits.getFeatureSplit(context, this);
     return SynthesizingContext.fromNonSyntheticInputContext(context, featureSplit);
   }
 

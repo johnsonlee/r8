@@ -501,7 +501,7 @@ public abstract class MethodResolutionResult
     @Override
     public OptionalBool isAccessibleFrom(
         ProgramDefinition context, AppView<?> appView, AppInfoWithClassHierarchy appInfo) {
-      return AccessControl.isMemberAccessible(this, context, appView, appInfo);
+      return AccessControl.isMemberAccessible(this, context, appInfo);
     }
 
     @Override
@@ -1484,8 +1484,6 @@ public abstract class MethodResolutionResult
                                       clazz,
                                       context,
                                       appInfo.getClassToFeatureSplitMap(),
-                                      appView.options(),
-                                      appView.getStartupProfile(),
                                       appView.getSyntheticItems())
                                   .isPossiblyFalse())),
           method -> {
@@ -1493,7 +1491,7 @@ public abstract class MethodResolutionResult
             DexClassAndMethod classAndMethod = DexClassAndMethod.create(holder, method);
             seenNoAccess.or(
                 AccessControl.isMemberAccessible(
-                        classAndMethod, initialResolutionHolder, context, appView, appInfo)
+                        classAndMethod, initialResolutionHolder, context, appInfo)
                     .isPossiblyFalse());
           });
       return seenNoAccess.get();

@@ -203,7 +203,7 @@ public abstract class FieldResolutionResult
     @Override
     public OptionalBool isAccessibleFrom(
         ProgramDefinition context, AppView<?> appView, AppInfoWithClassHierarchy appInfo) {
-      return AccessControl.isMemberAccessible(this, context, appView, appInfo);
+      return AccessControl.isMemberAccessible(this, context, appInfo);
     }
 
     @Override

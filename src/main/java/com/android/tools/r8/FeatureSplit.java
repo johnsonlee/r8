@@ -39,19 +39,6 @@ public class FeatureSplit {
         }
       };
 
-  public static final FeatureSplit BASE_STARTUP =
-      new FeatureSplit(null, null, null, null) {
-        @Override
-        public boolean isBase() {
-          return true;
-        }
-
-        @Override
-        public boolean isStartupBase() {
-          return true;
-        }
-      };
-
   private ProgramConsumer programConsumer;
   private final List<ProgramResourceProvider> programResourceProviders;
   private final AndroidResourceProvider androidResourceProvider;
@@ -69,10 +56,6 @@ public class FeatureSplit {
   }
 
   public boolean isBase() {
-    return false;
-  }
-
-  public boolean isStartupBase() {
     return false;
   }
 

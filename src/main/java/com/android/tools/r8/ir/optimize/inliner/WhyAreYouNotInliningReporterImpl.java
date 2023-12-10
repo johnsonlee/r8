@@ -153,6 +153,11 @@ class WhyAreYouNotInliningReporterImpl extends WhyAreYouNotInliningReporter {
   }
 
   @Override
+  public void reportInliningAcrossStartupBoundary() {
+    report("cannot inline across startup/non-startup boundary.");
+  }
+
+  @Override
   public void reportInstructionBudgetIsExceeded() {
     report("caller's instruction budget is exceeded.");
   }
