@@ -8,7 +8,9 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.Timing;
+import java.util.Iterator;
 
 public class EmptyArtProfileCollection extends ArtProfileCollection {
 
@@ -28,6 +30,11 @@ public class EmptyArtProfileCollection extends ArtProfileCollection {
   @Override
   public boolean isNonEmpty() {
     return false;
+  }
+
+  @Override
+  public Iterator<ArtProfile> iterator() {
+    return IteratorUtils.empty();
   }
 
   @Override

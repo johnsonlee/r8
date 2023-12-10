@@ -17,8 +17,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
-public class NonEmptyArtProfileCollection extends ArtProfileCollection
-    implements Iterable<ArtProfile> {
+public class NonEmptyArtProfileCollection extends ArtProfileCollection {
 
   private final List<ArtProfile> artProfiles;
 

@@ -8,8 +8,8 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -20,10 +20,12 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.optimize.argumentpropagation.utils.ProgramClassesBidirectedGraph;
+import com.android.tools.r8.profile.art.ArtProfile;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfoCollection;
+import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -93,44 +95,65 @@ public class VerticalClassMerger {
     // TODO(b/192821424): Can be removed if handled.
     extractPinnedClasses(appView.appInfo().getFailedMethodResolutionTargets(), pinnedClasses);
 
+    // The ART profiles may contain method rules that do not exist in the app. These method may
+    // refer to classes that will be vertically merged into their unique subtype, but the vertical
+    // class merger lens will not contain any mappings for the missing methods in the ART profiles.
+    // Therefore, trying to perform a lens lookup on these methods will fail.
+    for (ArtProfile artProfile : appView.getArtProfileCollection()) {
+      artProfile.forEachRule(
+          ConsumerUtils.emptyThrowingConsumer(),
+          methodRule -> {
+            DexMethod method = methodRule.getMethod();
+            if (method.getHolderType().isArrayType()) {
+              return;
+            }
+            DexClass holder =
+                appView.appInfo().definitionForWithoutExistenceAssert(method.getHolderType());
+            if (method.lookupOnClass(holder) == null) {
+              extractPinnedClasses(methodRule.getMethod(), pinnedClasses);
+            }
+          });
+    }
+
     return pinnedClasses;
   }
 
   private <T extends DexReference> void extractPinnedClasses(
       Iterable<T> items, Set<DexProgramClass> pinnedClasses) {
     for (DexReference item : items) {
-      if (item.isDexType()) {
-        markTypeAsPinned(item.asDexType(), pinnedClasses);
-      } else if (item.isDexField()) {
-        // Pin the holder and the type of the field.
-        DexField field = item.asDexField();
-        markTypeAsPinned(field.getHolderType(), pinnedClasses);
-        markTypeAsPinned(field.getType(), pinnedClasses);
-      } else {
-        assert item.isDexMethod();
-        // Pin the holder, the return type and the parameter types of the method. If we were to
-        // merge any of these types into their sub classes, then we would implicitly change the
-        // signature of this method.
-        DexMethod method = item.asDexMethod();
-        markTypeAsPinned(method.getHolderType(), pinnedClasses);
-        markTypeAsPinned(method.getReturnType(), pinnedClasses);
-        for (DexType parameterType : method.getParameters()) {
-          markTypeAsPinned(parameterType, pinnedClasses);
-        }
-      }
+      extractPinnedClasses(item, pinnedClasses);
     }
+  }
+
+  private void extractPinnedClasses(DexReference reference, Set<DexProgramClass> pinnedClasses) {
+    markTypeAsPinned(reference.getContextType(), pinnedClasses);
+    reference.accept(
+        ConsumerUtils.emptyConsumer(),
+        field -> {
+          // Pin the type of the field.
+          markTypeAsPinned(field.getType(), pinnedClasses);
+        },
+        method -> {
+          // Pin the return type and the parameter types of the method. If we were to merge any of
+          // these types into their sub classes, then we would implicitly change the signature of
+          // this method.
+          for (DexType type : method.getReferencedTypes()) {
+            markTypeAsPinned(type, pinnedClasses);
+          }
+        });
   }
 
   private void markTypeAsPinned(DexType type, Set<DexProgramClass> pinnedClasses) {
     DexType baseType = type.toBaseType(dexItemFactory);
-    if (!baseType.isClassType() || appView.appInfo().isPinnedWithDefinitionLookup(baseType)) {
-      // We check for the case where the type is pinned according to appInfo.isPinned,
-      // so we only need to add it here if it is not the case.
+    if (!baseType.isClassType()) {
       return;
     }
 
-    DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(baseType));
-    if (clazz != null) {
+    DexProgramClass clazz =
+        asProgramClassOrNull(appView.appInfo().definitionForWithoutExistenceAssert(baseType));
+    if (clazz != null && !appView.getKeepInfo(clazz).isPinned(options)) {
+      // We check for the case where the type is pinned according to its keep info, so we only need
+      // to add it here if it is not the case.
       markClassAsPinned(clazz, pinnedClasses);
     }
   }

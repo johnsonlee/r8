@@ -44,6 +44,10 @@ public class IteratorUtils {
     return counter.get();
   }
 
+  public static <T> Iterator<T> empty() {
+    return IterableUtils.<T>empty().iterator();
+  }
+
   public static <T, S extends T> Iterator<S> filter(
       Iterator<? extends T> iterator, Predicate<T> predicate) {
     return new Iterator<S>() {
