@@ -4257,13 +4257,7 @@ public class Enqueuer {
     timing.end();
 
     // Remove mappings for methods that don't resolve in the method access info collection.
-    // TODO(b/313365881): Should use non-legacy resolution, but this fails.
-    methodAccessInfoCollection.removeIf(
-        method -> {
-          MethodResolutionResult result = appInfo.unsafeResolveMethodDueToDexFormatLegacy(method);
-          return result.isFailedResolution()
-              || result.isSignaturePolymorphicResolution(method, appView.dexItemFactory());
-        });
+    methodAccessInfoCollection.removeNonResolving(appView, this);
 
     // Verify all references on the input app before synthesizing definitions.
     assert verifyReferences(appInfo.app());

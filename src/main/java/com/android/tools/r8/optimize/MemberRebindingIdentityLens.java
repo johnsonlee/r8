@@ -15,8 +15,10 @@ import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.lens.DefaultNonIdentityGraphLens;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.graph.lens.GraphLensUtils;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
+import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -134,10 +136,25 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
                 rewrittenNonReboundFieldReference, rewrittenReboundFieldReference);
           }
         });
+
+    Deque<NonIdentityGraphLens> lenses = GraphLensUtils.extractNonIdentityLenses(lens);
     nonReboundMethodReferenceToDefinitionMap.forEach(
         (nonReboundMethodReference, reboundMethodReference) -> {
-          DexMethod rewrittenReboundMethodReference =
-              lens.getRenamedMethodSignature(reboundMethodReference, appliedMemberRebindingLens);
+          DexMethod rewrittenReboundMethodReference = reboundMethodReference;
+          for (NonIdentityGraphLens currentLens : lenses) {
+            if (currentLens.isVerticalClassMergerLens()) {
+              // The vertical class merger lens maps merged virtual methods to private methods in
+              // the subclass. Invokes to such virtual methods are mapped to the corresponding
+              // virtual method in the subclass.
+              rewrittenReboundMethodReference =
+                  currentLens
+                      .asVerticalClassMergerLens()
+                      .getNextBridgeMethodSignature(rewrittenReboundMethodReference);
+            } else {
+              rewrittenReboundMethodReference =
+                  currentLens.getNextMethodSignature(rewrittenReboundMethodReference);
+            }
+          }
           DexMethod rewrittenNonReboundMethodReference =
               rewrittenReboundMethodReference.withHolder(
                   lens.lookupType(

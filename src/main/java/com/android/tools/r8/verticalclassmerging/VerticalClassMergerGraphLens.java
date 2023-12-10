@@ -108,6 +108,11 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
   }
 
   @Override
+  public VerticalClassMergerGraphLens asVerticalClassMergerLens() {
+    return this;
+  }
+
+  @Override
   public DexType getPreviousClassType(DexType type) {
     return type;
   }

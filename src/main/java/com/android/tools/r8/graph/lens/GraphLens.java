@@ -36,6 +36,7 @@ import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
 import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneRepresentativeMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.android.tools.r8.verticalclassmerging.VerticalClassMergerGraphLens;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -456,6 +457,10 @@ public abstract class GraphLens {
 
   public boolean isVerticalClassMergerLens() {
     return false;
+  }
+
+  public VerticalClassMergerGraphLens asVerticalClassMergerLens() {
+    return null;
   }
 
   @SuppressWarnings("ReferenceEquality")

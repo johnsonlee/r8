@@ -1099,6 +1099,17 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
                 @Override
                 public void onJoin() {
                   appView.withClassHierarchy().setAppInfo(result);
+                  assert verifyLensRewriting();
+                }
+
+                private boolean verifyLensRewriting() {
+                  if (appView.hasLiveness()) {
+                    AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+                    MethodAccessInfoCollection methodAccessInfoCollection =
+                        appViewWithLiveness.appInfo().getMethodAccessInfoCollection();
+                    methodAccessInfoCollection.modifier().commit(appViewWithLiveness);
+                  }
+                  return true;
                 }
               },
               new ThreadTask() {

@@ -9,6 +9,8 @@ import static com.android.tools.r8.utils.collections.ThrowingMap.isThrowingMap;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.ir.code.InvokeType;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -347,6 +349,54 @@ public class MethodAccessInfoCollection {
       invokes.keySet().removeIf(predicate);
     }
 
+    public void removeNonResolving(
+        AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+      // TODO(b/313365881): Should use non-legacy resolution, but this fails.
+      removeIf(
+          method -> {
+            MethodResolutionResult result =
+                appView.appInfo().unsafeResolveMethodDueToDexFormatLegacy(method);
+            if (result.isFailedResolution()
+                || result.isSignaturePolymorphicResolution(method, appView.dexItemFactory())) {
+              return true;
+            }
+            if (result.hasProgramResult()) {
+              ProgramMethod resolvedMethod = result.getResolvedProgramMethod();
+              // Guard against an unusual case where the invoke resolves to a program method but the
+              // invoke is invalid (e.g., invoke-interface to a non-interface), such that the
+              // resolved method is not retained after all.
+              if (!enqueuer.isMethodLive(resolvedMethod)
+                  && !enqueuer.isMethodTargeted(resolvedMethod)) {
+                return true;
+              }
+            }
+            return false;
+          });
+    }
+
+    public boolean verifyNoNonResolving(AppView<AppInfoWithLiveness> appView) {
+      verifyNoNonResolving(appView, directInvokes);
+      verifyNoNonResolving(appView, interfaceInvokes);
+      verifyNoNonResolving(appView, staticInvokes);
+      verifyNoNonResolving(appView, superInvokes);
+      verifyNoNonResolving(appView, virtualInvokes);
+      return true;
+    }
+
+    private void verifyNoNonResolving(
+        AppView<AppInfoWithLiveness> appView, Map<DexMethod, ?> invokes) {
+      if (!isThrowingMap(invokes)) {
+        for (DexMethod method : invokes.keySet()) {
+          MethodResolutionResult result =
+              appView.appInfo().unsafeResolveMethodDueToDexFormatLegacy(method);
+          assert !result.isFailedResolution()
+              : "Unexpected method that does not resolve: " + method.toSourceString();
+          assert !result.isSignaturePolymorphicResolution(method, appView.dexItemFactory())
+              : "Unexpected signature polymorphic resolution: " + method.toSourceString();
+        }
+      }
+    }
+
     public MethodAccessInfoCollection build() {
       return new MethodAccessInfoCollection(
           directInvokes, interfaceInvokes, staticInvokes, superInvokes, virtualInvokes);
@@ -386,6 +436,10 @@ public class MethodAccessInfoCollection {
       collection.forEachStaticInvoke(this::registerInvokeStaticInContexts);
       collection.forEachSuperInvoke(this::registerInvokeSuperInContexts);
       collection.forEachVirtualInvoke(this::registerInvokeVirtualInContexts);
+    }
+
+    public void commit(AppView<AppInfoWithLiveness> appView) {
+      assert verifyNoNonResolving(appView);
     }
   }
 }
