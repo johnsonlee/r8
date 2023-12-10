@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.fixup.TreeFixerBase;
 import com.android.tools.r8.shaking.AnnotationFixer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.OptionalBool;
+import com.android.tools.r8.utils.Timing;
 import java.util.List;
 
 class VerticalClassMergerTreeFixer extends TreeFixerBase {
@@ -23,18 +24,16 @@ class VerticalClassMergerTreeFixer extends TreeFixerBase {
   private final List<SynthesizedBridgeCode> synthesizedBridges;
 
   VerticalClassMergerTreeFixer(
-      AppView<AppInfoWithLiveness> appView,
-      VerticalClassMergerGraphLens.Builder lensBuilder,
-      VerticallyMergedClasses mergedClasses,
-      List<SynthesizedBridgeCode> synthesizedBridges) {
+      AppView<AppInfoWithLiveness> appView, VerticalClassMergerResult verticalClassMergerResult) {
     super(appView);
     this.lensBuilder =
-        VerticalClassMergerGraphLens.Builder.createBuilderForFixup(lensBuilder, mergedClasses);
-    this.mergedClasses = mergedClasses;
-    this.synthesizedBridges = synthesizedBridges;
+        VerticalClassMergerGraphLens.Builder.createBuilderForFixup(verticalClassMergerResult);
+    this.mergedClasses = verticalClassMergerResult.getVerticallyMergedClasses();
+    this.synthesizedBridges = verticalClassMergerResult.getSynthesizedBridges();
   }
 
-  VerticalClassMergerGraphLens fixupTypeReferences() {
+  VerticalClassMergerGraphLens run(Timing timing) {
+    timing.begin("Fixup");
     // Globally substitute merged class types in protos and holders.
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       clazz.getMethodCollection().replaceMethods(this::fixupMethod);
@@ -46,10 +45,11 @@ class VerticalClassMergerTreeFixer extends TreeFixerBase {
     for (SynthesizedBridgeCode synthesizedBridge : synthesizedBridges) {
       synthesizedBridge.updateMethodSignatures(this::fixupMethodReference);
     }
-    VerticalClassMergerGraphLens lens = lensBuilder.build(appView, mergedClasses);
+    VerticalClassMergerGraphLens lens = lensBuilder.build(mergedClasses);
     if (lens != null) {
       new AnnotationFixer(lens, appView.graphLens()).run(appView.appInfo().classes());
     }
+    timing.end();
     return lens;
   }
 

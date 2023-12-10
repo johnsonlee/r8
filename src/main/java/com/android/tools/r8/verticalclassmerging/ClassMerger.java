@@ -47,7 +47,6 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.ObjectUtils;
-import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneRepresentativeMap;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Streams;
@@ -79,7 +78,7 @@ class ClassMerger {
   private final VerticalClassMergerGraphLens.Builder deferredRenamings;
   private final DexItemFactory dexItemFactory;
   private final VerticalClassMergerGraphLens.Builder lensBuilder;
-  private final MutableBidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses;
+  private final VerticallyMergedClasses.Builder verticallyMergedClassesBuilder;
 
   private final DexProgramClass source;
   private final DexProgramClass target;
@@ -91,15 +90,14 @@ class ClassMerger {
   ClassMerger(
       AppView<AppInfoWithLiveness> appView,
       VerticalClassMergerGraphLens.Builder lensBuilder,
-      MutableBidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses,
+      VerticallyMergedClasses.Builder verticallyMergedClassesBuilder,
       DexProgramClass source,
       DexProgramClass target) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
     this.appView = appView;
-    this.deferredRenamings = new VerticalClassMergerGraphLens.Builder(dexItemFactory);
-    this.dexItemFactory = dexItemFactory;
+    this.deferredRenamings = new VerticalClassMergerGraphLens.Builder(appView);
+    this.dexItemFactory = appView.dexItemFactory();
     this.lensBuilder = lensBuilder;
-    this.mergedClasses = mergedClasses;
+    this.verticallyMergedClassesBuilder = verticallyMergedClassesBuilder;
     this.source = source;
     this.target = target;
   }
@@ -585,7 +583,7 @@ class ClassMerger {
         // the code above. However, instructions on the form "invoke-super A.m()" should also be
         // changed into "invoke-direct D.m$C()". This is achieved by also considering the classes
         // that have been merged into [holder].
-        Set<DexType> mergedTypes = mergedClasses.getKeys(holder.getType());
+        Set<DexType> mergedTypes = verticallyMergedClassesBuilder.getSourcesFor(holder);
         for (DexType type : mergedTypes) {
           DexMethod signatureInType = oldTargetReference.withHolder(type, dexItemFactory);
           // Resolution would have succeeded if the method used to be in [type], or if one of

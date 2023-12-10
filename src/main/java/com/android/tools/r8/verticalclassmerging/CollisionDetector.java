@@ -11,7 +11,6 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Timing;
-import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneRepresentativeMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -26,7 +25,6 @@ class CollisionDetector {
 
   private final DexItemFactory dexItemFactory;
   private final Collection<DexMethod> invokes;
-  private final MutableBidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses;
 
   private final DexType source;
   private final Reference2IntMap<DexProto> sourceProtoCache;
@@ -39,12 +37,10 @@ class CollisionDetector {
   CollisionDetector(
       AppView<AppInfoWithLiveness> appView,
       Collection<DexMethod> invokes,
-      MutableBidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses,
       DexType source,
       DexType target) {
     this.dexItemFactory = appView.dexItemFactory();
     this.invokes = invokes;
-    this.mergedClasses = mergedClasses;
     this.source = source;
     this.sourceProtoCache = new Reference2IntOpenHashMap<>(invokes.size() / 2);
     this.sourceProtoCache.defaultReturnValue(NOT_FOUND);
@@ -115,7 +111,7 @@ class CollisionDetector {
     int accumulator = 0;
     for (DexType parameterBaseType : proto.getParameterBaseTypes(dexItemFactory)) {
       // Substitute the type with the already merged class to estimate what it will look like.
-      DexType mappedType = mergedClasses.getOrDefault(parameterBaseType, parameterBaseType);
+      DexType mappedType = parameterBaseType;
       accumulator <<= 1;
       bitsUsed++;
       if (mappedType.isIdenticalTo(type)) {
@@ -130,7 +126,7 @@ class CollisionDetector {
     }
     // We also take the return type into account for potential conflicts.
     DexType returnBaseType = proto.getReturnType().toBaseType(dexItemFactory);
-    DexType mappedReturnType = mergedClasses.getOrDefault(returnBaseType, returnBaseType);
+    DexType mappedReturnType = returnBaseType;
     accumulator <<= 1;
     if (mappedReturnType.isIdenticalTo(type)) {
       accumulator |= 1;

@@ -5,14 +5,17 @@
 package com.android.tools.r8.verticalclassmerging;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.classmerging.MergedClasses;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.collections.BidirectionalManyToOneHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneMap;
+import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
 import com.android.tools.r8.utils.collections.EmptyBidirectionalOneToOneMap;
+import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneRepresentativeMap;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
@@ -26,6 +29,10 @@ public class VerticallyMergedClasses implements MergedClasses {
       BidirectionalManyToOneMap<DexType, DexType> mergedInterfaces) {
     this.mergedClasses = mergedClasses;
     this.mergedInterfaces = mergedInterfaces;
+  }
+
+  public static Builder builder() {
+    return new Builder();
   }
 
   public static VerticallyMergedClasses empty() {
@@ -43,8 +50,8 @@ public class VerticallyMergedClasses implements MergedClasses {
     return mergedClasses;
   }
 
-  public Map<DexType, DexType> getForwardMap() {
-    return mergedClasses.getForwardMap();
+  public Set<DexType> getSources() {
+    return mergedClasses.keySet();
   }
 
   public Collection<DexType> getSourcesFor(DexType type) {
@@ -89,5 +96,42 @@ public class VerticallyMergedClasses implements MergedClasses {
           : "Expected vertically merged class `" + source.toSourceString() + "` to be absent";
     }
     return true;
+  }
+
+  public static class Builder {
+
+    private final MutableBidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses =
+        BidirectionalManyToOneRepresentativeHashMap.newIdentityHashMap();
+
+    private final BidirectionalManyToOneHashMap<DexType, DexType> mergedInterfaces =
+        BidirectionalManyToOneHashMap.newIdentityHashMap();
+
+    void add(DexProgramClass source, DexProgramClass target) {
+      mergedClasses.put(source.getType(), target.getType());
+      if (source.isInterface()) {
+        mergedInterfaces.put(source.getType(), target.getType());
+      }
+    }
+
+    Set<DexType> getSourcesFor(DexProgramClass target) {
+      return mergedClasses.getKeys(target.getType());
+    }
+
+    boolean isMergeSource(DexProgramClass clazz) {
+      return mergedClasses.containsKey(clazz.getType());
+    }
+
+    boolean isMergeTarget(DexProgramClass clazz) {
+      return mergedClasses.containsValue(clazz.getType());
+    }
+
+    void merge(VerticallyMergedClasses.Builder other) {
+      mergedClasses.putAll(other.mergedClasses);
+      mergedInterfaces.putAll(other.mergedInterfaces);
+    }
+
+    VerticallyMergedClasses build() {
+      return new VerticallyMergedClasses(mergedClasses, mergedInterfaces);
+    }
   }
 }

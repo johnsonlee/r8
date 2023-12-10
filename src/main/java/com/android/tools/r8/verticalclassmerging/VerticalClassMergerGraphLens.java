@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.lens.NestedGraphLens;
 import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
@@ -58,15 +59,15 @@ import java.util.Set;
 // For the invocation "invoke-virtual A.m()" in B.m2, this graph lens will return the method B.m.
 public class VerticalClassMergerGraphLens extends NestedGraphLens {
 
-  interface GraphLensLookupResultProvider {
+  public interface GraphLensLookupResultProvider {
 
     MethodLookupResult get(RewrittenPrototypeDescription prototypeChanges);
   }
 
-  private VerticallyMergedClasses mergedClasses;
+  private final VerticallyMergedClasses mergedClasses;
   private final Map<DexType, Map<DexMethod, GraphLensLookupResultProvider>>
       contextualVirtualToDirectMethodMaps;
-  private Set<DexMethod> mergedMethods;
+  private final Set<DexMethod> mergedMethods;
   private final Map<DexMethod, DexMethod> originalMethodSignaturesForBridges;
   private final Map<DexMethod, RewrittenPrototypeDescription> prototypeChanges;
 
@@ -198,6 +199,7 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
 
   public static class Builder {
 
+    private final AppView<AppInfoWithLiveness> appView;
     private final DexItemFactory dexItemFactory;
 
     protected final MutableBidirectionalOneToOneMap<DexField, DexField> fieldMap =
@@ -216,13 +218,17 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
 
     private final Map<DexProto, DexProto> cache = new IdentityHashMap<>();
 
-    Builder(DexItemFactory dexItemFactory) {
-      this.dexItemFactory = dexItemFactory;
+    Builder(AppView<AppInfoWithLiveness> appView) {
+      this.appView = appView;
+      this.dexItemFactory = appView.dexItemFactory();
     }
 
     @SuppressWarnings("ReferenceEquality")
-    static Builder createBuilderForFixup(Builder builder, VerticallyMergedClasses mergedClasses) {
-      Builder newBuilder = new Builder(builder.dexItemFactory);
+    static Builder createBuilderForFixup(VerticalClassMergerResult verticalClassMergerResult) {
+      Builder builder = verticalClassMergerResult.getLensBuilder();
+      VerticallyMergedClasses mergedClasses =
+          verticalClassMergerResult.getVerticallyMergedClasses();
+      Builder newBuilder = new Builder(builder.appView);
       builder.fieldMap.forEach(
           (key, value) ->
               newBuilder.map(
@@ -279,8 +285,7 @@ public class VerticalClassMergerGraphLens extends NestedGraphLens {
       return newBuilder;
     }
 
-    public VerticalClassMergerGraphLens build(
-        AppView<?> appView, VerticallyMergedClasses mergedClasses) {
+    public VerticalClassMergerGraphLens build(VerticallyMergedClasses mergedClasses) {
       if (mergedClasses.isEmpty()) {
         return null;
       }
