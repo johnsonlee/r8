@@ -37,7 +37,7 @@ public class IsolatedFeatureSplitsChecker
 
   public static void register(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
-    if (enabled(appView, enqueuer)) {
+    if (enabled(appView)) {
       IsolatedFeatureSplitsChecker checker = new IsolatedFeatureSplitsChecker(appView);
       enqueuer
           .registerFieldAccessAnalysis(checker)
@@ -46,12 +46,10 @@ public class IsolatedFeatureSplitsChecker
     }
   }
 
-  private static boolean enabled(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+  private static boolean enabled(AppView<? extends AppInfoWithClassHierarchy> appView) {
     InternalOptions options = appView.options();
     return options.hasFeatureSplitConfiguration()
-        && options.getFeatureSplitConfiguration().isIsolatedSplitsEnabled()
-        && enqueuer.getMode().isInitialTreeShaking();
+        && options.getFeatureSplitConfiguration().isIsolatedSplitsEnabled();
   }
 
   private void traceFieldAccess(FieldResolutionResult resolutionResult, ProgramMethod context) {
