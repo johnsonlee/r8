@@ -184,13 +184,11 @@ public final class DefaultInliningOracle implements InliningOracle, InliningStra
 
     // Don't inline code with references beyond root main dex classes into a root main dex class.
     // If we do this it can increase the size of the main dex dependent classes.
-    if (mainDexInfo.disallowInliningIntoContext(
-        appView, method, singleTarget, appView.getSyntheticItems())) {
+    if (mainDexInfo.disallowInliningIntoContext(appView, method, singleTarget)) {
       whyAreYouNotInliningReporter.reportInlineeRefersToClassesNotInMainDex();
       return false;
     }
-    assert !mainDexInfo.disallowInliningIntoContext(
-        appView, method, singleTarget, appView.getSyntheticItems());
+    assert !mainDexInfo.disallowInliningIntoContext(appView, method, singleTarget);
     return true;
   }
 
