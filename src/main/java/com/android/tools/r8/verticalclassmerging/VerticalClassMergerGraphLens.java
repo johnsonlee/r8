@@ -309,16 +309,28 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
 
     protected final MutableBidirectionalOneToOneMap<DexField, DexField> newFieldSignatures =
         new BidirectionalOneToOneHashMap<>();
+    protected final Map<DexField, DexField> pendingNewFieldSignatureUpdates =
+        new IdentityHashMap<>();
+
     private final Map<DexType, Map<DexMethod, DexMethod>>
         contextualSuperToImplementationInContexts = new IdentityHashMap<>();
 
     private final MutableBidirectionalManyToOneRepresentativeMap<DexMethod, DexMethod>
         newMethodSignatures = BidirectionalManyToOneRepresentativeHashMap.newIdentityHashMap();
+    private final Map<DexMethod, DexMethod> pendingNewMethodSignatureUpdates =
+        new IdentityHashMap<>();
+
     private final MutableBidirectionalOneToOneMap<DexMethod, DexMethod> extraNewMethodSignatures =
         new BidirectionalOneToOneHashMap<>();
+    private final Map<DexMethod, DexMethod> pendingExtraNewMethodSignatureUpdates =
+        new IdentityHashMap<>();
 
     private final Set<DexMethod> mergedMethods = Sets.newIdentityHashSet();
+    private final Map<DexMethod, DexMethod> pendingMergedMethodUpdates = new IdentityHashMap<>();
+
     private final Set<DexMethod> staticizedMethods = Sets.newIdentityHashSet();
+    private final Map<DexMethod, DexMethod> pendingStaticizedMethodUpdates =
+        new IdentityHashMap<>();
 
     static Builder createBuilderForFixup(VerticalClassMergerResult verticalClassMergerResult) {
       return verticalClassMergerResult.getLensBuilder();
@@ -332,41 +344,77 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
 
     @Override
     public void commitPendingUpdates() {
-      // Intentionally empty.
+      // Commit new field signatures.
+      newFieldSignatures.putAll(pendingNewFieldSignatureUpdates);
+      pendingNewFieldSignatureUpdates.clear();
+
+      // Commit new method signatures.
+      Map<DexMethod, DexMethod> newMethodSignatureUpdates = new IdentityHashMap<>();
+      Map<DexMethod, DexMethod> newMethodSignatureRepresentativeUpdates = new IdentityHashMap<>();
+      pendingNewMethodSignatureUpdates.forEach(
+          (from, to) -> {
+            Set<DexMethod> originalMethodSignatures = newMethodSignatures.getKeys(from);
+            if (originalMethodSignatures.isEmpty()) {
+              newMethodSignatureUpdates.put(from, to);
+            } else {
+              for (DexMethod originalMethodSignature : originalMethodSignatures) {
+                newMethodSignatureUpdates.put(originalMethodSignature, to);
+              }
+              if (newMethodSignatures.hasExplicitRepresentativeKey(from)) {
+                assert originalMethodSignatures.size() > 1;
+                newMethodSignatureRepresentativeUpdates.put(
+                    to, newMethodSignatures.getRepresentativeKey(from));
+              } else {
+                assert originalMethodSignatures.size() == 1;
+              }
+            }
+          });
+      newMethodSignatures.removeValues(pendingNewMethodSignatureUpdates.keySet());
+      newMethodSignatures.putAll(newMethodSignatureUpdates);
+      newMethodSignatureRepresentativeUpdates.forEach(
+          (value, representative) -> {
+            assert newMethodSignatures.getKeys(value).size() > 1;
+            newMethodSignatures.setRepresentative(value, representative);
+          });
+      pendingNewMethodSignatureUpdates.clear();
+
+      // Commit extra new method signatures.
+      extraNewMethodSignatures.putAll(pendingExtraNewMethodSignatureUpdates);
+      pendingExtraNewMethodSignatureUpdates.clear();
+
+      // Commit merged methods.
+      mergedMethods.removeAll(pendingMergedMethodUpdates.keySet());
+      mergedMethods.addAll(pendingMergedMethodUpdates.values());
+      pendingMergedMethodUpdates.clear();
+
+      // Commit staticized methods.
+      staticizedMethods.removeAll(pendingStaticizedMethodUpdates.keySet());
+      staticizedMethods.addAll(pendingStaticizedMethodUpdates.values());
+      pendingStaticizedMethodUpdates.clear();
     }
 
     @Override
     public void fixupField(DexField oldFieldSignature, DexField newFieldSignature) {
       DexField originalFieldSignature =
           newFieldSignatures.getKeyOrDefault(oldFieldSignature, oldFieldSignature);
-      newFieldSignatures.put(originalFieldSignature, newFieldSignature);
+      pendingNewFieldSignatureUpdates.put(originalFieldSignature, newFieldSignature);
     }
 
     @Override
     public void fixupMethod(DexMethod oldMethodSignature, DexMethod newMethodSignature) {
       if (extraNewMethodSignatures.containsValue(oldMethodSignature)) {
         DexMethod originalMethodSignature = extraNewMethodSignatures.getKey(oldMethodSignature);
-        extraNewMethodSignatures.put(originalMethodSignature, newMethodSignature);
+        pendingExtraNewMethodSignatureUpdates.put(originalMethodSignature, newMethodSignature);
       } else {
-        Set<DexMethod> oldMethodSignatures = newMethodSignatures.getKeys(oldMethodSignature);
-        if (oldMethodSignatures.isEmpty()) {
-          newMethodSignatures.put(oldMethodSignature, newMethodSignature);
-        } else {
-          DexMethod representative = newMethodSignatures.getRepresentativeKey(oldMethodSignature);
-          newMethodSignatures.removeValue(oldMethodSignature);
-          newMethodSignatures.put(oldMethodSignatures, newMethodSignature);
-          if (representative != null) {
-            newMethodSignatures.setRepresentative(newMethodSignature, representative);
-          }
-        }
+        pendingNewMethodSignatureUpdates.put(oldMethodSignature, newMethodSignature);
       }
 
-      if (mergedMethods.remove(oldMethodSignature)) {
-        mergedMethods.add(newMethodSignature);
+      if (mergedMethods.contains(oldMethodSignature)) {
+        pendingMergedMethodUpdates.put(oldMethodSignature, newMethodSignature);
       }
 
-      if (staticizedMethods.remove(oldMethodSignature)) {
-        staticizedMethods.add(newMethodSignature);
+      if (staticizedMethods.contains(oldMethodSignature)) {
+        pendingStaticizedMethodUpdates.put(oldMethodSignature, newMethodSignature);
       }
     }
 

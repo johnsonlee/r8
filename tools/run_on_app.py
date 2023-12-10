@@ -739,7 +739,7 @@ def run_with_options(options,
                 if should_build(options):
                     gradle.RunGradle([
                         utils.GRADLE_TASK_R8LIB
-                        if tool.startswith('r8lib') else UTILS.GRADLE_TASK_R8
+                        if tool.startswith('r8lib') else utils.GRADLE_TASK_R8
                     ])
                 t0 = time.time()
                 exit_code = toolhelper.run(

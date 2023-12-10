@@ -149,7 +149,7 @@ public class BidirectionalOneToOneHashMap<K, V>
   }
 
   @Override
-  public void putAll(BidirectionalManyToManyMap<K, V> map) {
+  public void putAll(BidirectionalManyToManyMap<? extends K, ? extends V> map) {
     map.forEach(this::put);
   }
 
