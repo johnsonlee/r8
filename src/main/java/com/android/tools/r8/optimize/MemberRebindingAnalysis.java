@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize;
 import static com.android.tools.r8.utils.AndroidApiLevelUtils.isApiSafeForMemberRebinding;
 
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
+import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
@@ -22,7 +23,6 @@ import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.InvokeType;
-import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BiForEachable;
 import com.android.tools.r8.utils.InternalOptions;
@@ -289,8 +289,8 @@ public class MemberRebindingAnalysis {
 
     methodsWithContexts.forEach(
         (method, contexts) -> {
-          MethodResolutionResult resolutionResult = resolver.apply(method);
-          if (!resolutionResult.isSingleResolution()) {
+          SingleResolutionResult<?> resolutionResult = resolver.apply(method).asSingleResolution();
+          if (resolutionResult == null) {
             return;
           }
 
@@ -327,7 +327,7 @@ public class MemberRebindingAnalysis {
               // If the target class is not public but the targeted method is, we might run into
               // visibility problems when rebinding.
               if (contexts.stream()
-                  .anyMatch(context -> mayNeedBridgeForVisibility(context, resolvedMethod))) {
+                  .anyMatch(context -> mayNeedBridgeForVisibility(context, resolutionResult))) {
                 bridgeMethod =
                     insertBridgeForVisibilityIfNeeded(
                         method, resolvedMethod, initialResolutionHolder, addBridge);
@@ -437,22 +437,11 @@ public class MemberRebindingAnalysis {
     return findHolderForInterfaceMethodBridge(superClass.asProgramClass(), iface);
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  private boolean mayNeedBridgeForVisibility(ProgramMethod context, DexClassAndMethod method) {
-    DexType holderType = method.getHolderType();
-    DexClass holder = appView.definitionFor(holderType);
-    if (holder == null) {
-      return false;
-    }
-    ConstraintWithTarget classVisibility =
-        ConstraintWithTarget.deriveConstraint(
-            context, holderType, holder.getAccessFlags(), appView);
-    ConstraintWithTarget methodVisibility =
-        ConstraintWithTarget.deriveConstraint(
-            context, holderType, method.getAccessFlags(), appView);
-    // We may need bridge for visibility if the target class is not visible while the target method
-    // is visible from the calling context.
-    return classVisibility.isNever() && !methodVisibility.isNever();
+  private boolean mayNeedBridgeForVisibility(
+      ProgramMethod context, SingleResolutionResult<?> resolutionResult) {
+    return resolutionResult.isAccessibleFrom(context, appView).isTrue()
+        && AccessControl.isClassAccessible(resolutionResult.getResolvedHolder(), context, appView)
+            .isPossiblyFalse();
   }
 
   private DexMethod insertBridgeForVisibilityIfNeeded(
