@@ -546,8 +546,7 @@ class ClassMerger {
         DexMethod signatureInHolder = oldTargetReference.withHolder(holder, dexItemFactory);
         // Only rewrite the invoke-super call if it does not lead to a NoSuchMethodError.
         boolean resolutionSucceeds =
-            holder.lookupVirtualMethod(signatureInHolder) != null
-                || appView.appInfo().lookupSuperTarget(signatureInHolder, holder, appView) != null;
+            appView.appInfo().resolveMethodOnClass(holder, signatureInHolder).isSingleResolution();
         if (resolutionSucceeds) {
           deferredRenamings.mapVirtualMethodToDirectInType(
               signatureInHolder, oldTarget, target.type);
