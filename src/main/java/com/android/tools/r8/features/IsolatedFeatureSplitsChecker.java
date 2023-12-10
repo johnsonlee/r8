@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.features;
 
+import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
 import com.android.tools.r8.features.diagnostic.IllegalAccessWithIsolatedFeatureSplitsDiagnostic;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -75,12 +76,17 @@ public class IsolatedFeatureSplitsChecker
   }
 
   private void checkAccess(ProgramDefinition accessedItem, ProgramMethod context) {
-    if (!features.isInSameFeature(accessedItem, context, appView)
-        && !accessedItem.getAccessFlags().isPublic()) {
-      appView
-          .reporter()
-          .error(new IllegalAccessWithIsolatedFeatureSplitsDiagnostic(accessedItem, context));
+    if (accessedItem.getAccessFlags().isPublic()
+        || features.isInSameFeature(accessedItem, context, appView)) {
+      return;
     }
+    DontWarnConfiguration dontWarnConfiguration = appView.getDontWarnConfiguration();
+    if (dontWarnConfiguration.matches(accessedItem) || dontWarnConfiguration.matches(context)) {
+      return;
+    }
+    appView
+        .reporter()
+        .error(new IllegalAccessWithIsolatedFeatureSplitsDiagnostic(accessedItem, context));
   }
 
   // Field accesses.
