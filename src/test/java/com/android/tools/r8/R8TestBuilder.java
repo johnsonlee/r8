@@ -76,6 +76,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   private AllowedDiagnosticMessages allowedDiagnosticMessages = AllowedDiagnosticMessages.NONE;
   private boolean allowUnusedProguardConfigurationRules = false;
   private boolean enableMissingLibraryApiModeling = true;
+  private boolean enableStartupLayoutOptimization = true;
   private CollectingGraphConsumer graphConsumer = null;
   private final List<ExternalArtProfile> residualArtProfiles = new ArrayList<>();
   private final List<String> keepRules = new ArrayList<>();
@@ -152,6 +153,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
         builder, rules -> box.syntheticProguardRules = rules);
     libraryDesugaringTestConfiguration.configure(builder);
     builder.setEnableExperimentalMissingLibraryApiModeling(enableMissingLibraryApiModeling);
+    builder.setEnableStartupLayoutOptimization(enableStartupLayoutOptimization);
     StringBuilder pgConfOutput = wrapProguardConfigConsumer(builder);
     ToolHelper.runAndBenchmarkR8WithoutResult(builder, optionsConsumer, benchmarkResults);
     R8TestCompileResult compileResult =
@@ -877,6 +879,11 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
 
   public T addStartupProfileProviders(Collection<StartupProfileProvider> startupProfileProviders) {
     builder.addStartupProfileProviders(startupProfileProviders);
+    return self();
+  }
+
+  public T enableStartupLayoutOptimization(boolean enableStartupLayoutOptimization) {
+    this.enableStartupLayoutOptimization = enableStartupLayoutOptimization;
     return self();
   }
 

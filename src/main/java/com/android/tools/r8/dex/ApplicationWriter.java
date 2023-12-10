@@ -241,10 +241,15 @@ public class ApplicationWriter {
       // Retrieve the startup order for writing the app. In R8, the startup order is created
       // up-front to guide optimizations through-out the compilation. In D8, the startup
       // order is only used for writing the app, so we create it here for the first time.
-      StartupProfile startupProfile =
-          appView.appInfo().hasClassHierarchy()
-              ? appView.getStartupProfile()
-              : StartupProfile.createInitialStartupProfileForD8(appView);
+      StartupProfile startupProfile;
+      if (options.getStartupOptions().isStartupLayoutOptimizationEnabled()) {
+        startupProfile =
+            appView.appInfo().hasClassHierarchy()
+                ? appView.getStartupProfile()
+                : StartupProfile.createInitialStartupProfileForD8(appView);
+      } else {
+        startupProfile = StartupProfile.empty();
+      }
       distributor =
           new VirtualFile.FillFilesDistributor(
               this, classes, options, executorService, startupProfile);

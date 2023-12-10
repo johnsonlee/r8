@@ -90,6 +90,10 @@ public class TestParameters {
     return isDexRuntime() && getDexRuntimeVersion().isNewerThanOrEqual(DexVm.Version.V8_1_0);
   }
 
+  public boolean canUseNativeMultidex() {
+    return isDexRuntime() && getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L);
+  }
+
   public boolean canUseNestBasedAccesses() {
     assert isCfRuntime() || isDexRuntime();
     return isCfRuntime() && getRuntime().asCf().isNewerThanOrEqual(CfVm.JDK11);

@@ -42,11 +42,14 @@ public class StartupOptions {
   private boolean enableStartupCompletenessCheckForTesting =
       parseSystemPropertyOrDefault("com.android.tools.r8.startup.completenesscheck", false);
 
+  /** When enabled, the startup profile is used to layout the DEX. */
+  private boolean enableStartupLayoutOptimization = true;
+
   /**
-   * When enabled, the layout of the primary dex file will be generated using the startup list,
-   * using {@link com.android.tools.r8.dex.StartupMixedSectionLayoutStrategy}.
+   * When enabled, the mixed section layout of the primary dex file will be generated using the
+   * startup list, using {@link com.android.tools.r8.dex.StartupMixedSectionLayoutStrategy}.
    */
-  private boolean enableStartupLayoutOptimizations =
+  private boolean enableStartupMixedSectionLayoutOptimizations =
       parseSystemPropertyOrDefault("com.android.tools.r8.startup.layout", true);
 
   private String multiStartupDexDistributionStrategyName =
@@ -84,12 +87,16 @@ public class StartupOptions {
     return this;
   }
 
-  public boolean isStartupLayoutOptimizationsEnabled() {
-    return enableStartupLayoutOptimizations;
+  public boolean isStartupMixedSectionLayoutOptimizationsEnabled() {
+    return enableStartupMixedSectionLayoutOptimizations;
   }
 
   public boolean isStartupCompletenessCheckForTestingEnabled() {
     return enableStartupCompletenessCheckForTesting;
+  }
+
+  public boolean isStartupLayoutOptimizationEnabled() {
+    return enableStartupLayoutOptimization;
   }
 
   public StartupOptions setEnableStartupCompletenessCheckForTesting() {
@@ -99,6 +106,12 @@ public class StartupOptions {
   public StartupOptions setEnableStartupCompletenessCheckForTesting(
       boolean enableStartupCompletenessCheckForTesting) {
     this.enableStartupCompletenessCheckForTesting = enableStartupCompletenessCheckForTesting;
+    return this;
+  }
+
+  public StartupOptions setEnableStartupLayoutOptimization(
+      boolean enableStartupLayoutOptimization) {
+    this.enableStartupLayoutOptimization = enableStartupLayoutOptimization;
     return this;
   }
 

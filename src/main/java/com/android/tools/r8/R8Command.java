@@ -137,6 +137,7 @@ public final class R8Command extends BaseCompilerCommand {
     private boolean enableMissingLibraryApiModeling = false;
     private boolean enableExperimentalKeepAnnotations =
         System.getProperty("com.android.tools.r8.enableKeepAnnotations") != null;
+    public boolean enableStartupLayoutOptimization = true;
     private SemanticVersion fakeCompilerVersion = null;
     private AndroidResourceProvider androidResourceProvider = null;
     private AndroidResourceConsumer androidResourceConsumer = null;
@@ -290,7 +291,7 @@ public final class R8Command extends BaseCompilerCommand {
       return super.setProguardMapOutputPath(proguardMapOutput);
     }
 
-    /** Set input proguard map used for distribution of classes in multi-dex. */
+    /** Set input proguard map used for distribution of classes in multi-DEX. */
     public Builder setProguardMapInputFile(Path proguardInputMap) {
       getAppBuilder().setProguardMapInputData(proguardInputMap);
       return self();
@@ -507,11 +508,11 @@ public final class R8Command extends BaseCompilerCommand {
 
     /**
      * Add a collection of startup profile providers that should be used for distributing the
-     * program classes in dex. The given startup profiles are also used to disallow optimizations
+     * program classes in DEX. The given startup profiles are also used to disallow optimizations
      * across the startup and post-startup boundary.
      *
      * <p>NOTE: Startup profiles are ignored when compiling to class files or the min-API level does
-     * not support native multidex (API<=20).
+     * not support native multi-DEX (API<=20).
      */
     @Override
     public Builder addStartupProfileProviders(StartupProfileProvider... startupProfileProviders) {
@@ -520,16 +521,29 @@ public final class R8Command extends BaseCompilerCommand {
 
     /**
      * Add a collection of startup profile providers that should be used for distributing the
-     * program classes in dex. The given startup profiles are also used to disallow optimizations
-     * across the startup and post-startup boundary.
+     * program classes in DEX, unless turned off using {@link #setEnableStartupLayoutOptimization}.
+     * The given startup profiles are also used to disallow optimizations across the startup and
+     * post-startup boundary.
      *
      * <p>NOTE: Startup profiles are ignored when compiling to class files or the min-API level does
-     * not support native multidex (API<=20).
+     * not support native multi-DEX (API<=20).
      */
     @Override
     public Builder addStartupProfileProviders(
         Collection<StartupProfileProvider> startupProfileProviders) {
       return super.addStartupProfileProviders(startupProfileProviders);
+    }
+
+    /**
+     * API for specifying whether R8 should use the provided startup profiles to layout the DEX.
+     * When this is set to {@code false}, the given startup profiles are then only used to disallow
+     * optimizations across the startup and post-startup boundary.
+     *
+     * <p>Defaults to true.
+     */
+    public Builder setEnableStartupLayoutOptimization(boolean enable) {
+      enableStartupLayoutOptimization = enable;
+      return this;
     }
 
     /**
@@ -717,6 +731,7 @@ public final class R8Command extends BaseCompilerCommand {
               getMapIdProvider(),
               getSourceFileProvider(),
               enableMissingLibraryApiModeling,
+              enableStartupLayoutOptimization,
               getAndroidPlatformBuild(),
               getArtProfilesForRewriting(),
               getStartupProfileProviders(),
@@ -912,6 +927,7 @@ public final class R8Command extends BaseCompilerCommand {
   private final FeatureSplitConfiguration featureSplitConfiguration;
   private final String synthesizedClassPrefix;
   private final boolean enableMissingLibraryApiModeling;
+  private final boolean enableStartupLayoutOptimization;
   private final AndroidResourceProvider androidResourceProvider;
   private final AndroidResourceConsumer androidResourceConsumer;
   private final ResourceShrinkerConfiguration resourceShrinkerConfiguration;
@@ -1004,6 +1020,7 @@ public final class R8Command extends BaseCompilerCommand {
       MapIdProvider mapIdProvider,
       SourceFileProvider sourceFileProvider,
       boolean enableMissingLibraryApiModeling,
+      boolean enableStartupLayoutOptimization,
       boolean isAndroidPlatformBuild,
       List<ArtProfileForRewriting> artProfilesForRewriting,
       List<StartupProfileProvider> startupProfileProviders,
@@ -1055,6 +1072,7 @@ public final class R8Command extends BaseCompilerCommand {
     this.featureSplitConfiguration = featureSplitConfiguration;
     this.synthesizedClassPrefix = synthesizedClassPrefix;
     this.enableMissingLibraryApiModeling = enableMissingLibraryApiModeling;
+    this.enableStartupLayoutOptimization = enableStartupLayoutOptimization;
     this.androidResourceProvider = androidResourceProvider;
     this.androidResourceConsumer = androidResourceConsumer;
     this.resourceShrinkerConfiguration = resourceShrinkerConfiguration;
@@ -1081,6 +1099,7 @@ public final class R8Command extends BaseCompilerCommand {
     featureSplitConfiguration = null;
     synthesizedClassPrefix = null;
     enableMissingLibraryApiModeling = false;
+    enableStartupLayoutOptimization = true;
     androidResourceProvider = null;
     androidResourceConsumer = null;
     resourceShrinkerConfiguration = null;
@@ -1199,7 +1218,7 @@ public final class R8Command extends BaseCompilerCommand {
       internal.apiModelingOptions().disableOutliningAndStubbing();
     }
 
-    // Default is to remove all javac generated assertion code when generating dex.
+    // Default is to remove all javac generated assertion code when generating DEX.
     assert internal.assertionsConfiguration == null;
     AssertionsConfiguration.Builder builder = AssertionsConfiguration.builder(getReporter());
     internal.assertionsConfiguration =
@@ -1244,7 +1263,10 @@ public final class R8Command extends BaseCompilerCommand {
 
     internal.getArtProfileOptions().setArtProfilesForRewriting(getArtProfilesForRewriting());
     if (!getStartupProfileProviders().isEmpty()) {
-      internal.getStartupOptions().setStartupProfileProviders(getStartupProfileProviders());
+      internal
+          .getStartupOptions()
+          .setStartupProfileProviders(getStartupProfileProviders())
+          .setEnableStartupLayoutOptimization(enableStartupLayoutOptimization);
     }
 
     internal.programClassConflictResolver =

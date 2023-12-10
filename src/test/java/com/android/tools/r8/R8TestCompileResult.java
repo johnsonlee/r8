@@ -25,6 +25,7 @@ import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.graphinspector.GraphInspector;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
@@ -136,8 +137,12 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
   @SafeVarargs
   @Override
   public final <E extends Throwable> R8TestCompileResult inspectMultiDex(
-      ThrowingConsumer<CodeInspector, E>... consumers) throws IOException, E {
-    return inspectMultiDex(writeProguardMap(), consumers);
+      ThrowingConsumer<CodeInspector, E>... consumers) throws E {
+    try {
+      return inspectMultiDex(writeProguardMap(), consumers);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   public final <E extends Throwable> R8TestCompileResult inspectGraph(

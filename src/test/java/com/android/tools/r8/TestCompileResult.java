@@ -39,6 +39,7 @@ import com.google.common.collect.ObjectArrays;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -456,21 +457,25 @@ public abstract class TestCompileResult<
 
   @SuppressWarnings("unchecked")
   public <E extends Throwable> CR inspectMultiDex(ThrowingConsumer<CodeInspector, E>... consumers)
-      throws IOException, E {
+      throws E {
     return inspectMultiDex(null, consumers);
   }
 
   @SafeVarargs
   public final <E extends Throwable> CR inspectMultiDex(
-      Path mappingFile, ThrowingConsumer<CodeInspector, E>... consumers) throws IOException, E {
-    Path out = state.getNewTempFolder();
-    getApp().writeToDirectory(out, OutputMode.DexIndexed);
-    consumers[0].accept(new CodeInspector(out.resolve("classes.dex"), mappingFile));
-    for (int i = 1; i < consumers.length; i++) {
-      Path dex = out.resolve("classes" + (i + 1) + ".dex");
-      CodeInspector inspector =
-          dex.toFile().exists() ? new CodeInspector(dex, mappingFile) : CodeInspector.empty();
-      consumers[i].accept(inspector);
+      Path mappingFile, ThrowingConsumer<CodeInspector, E>... consumers) throws E {
+    try {
+      Path out = state.getNewTempFolder();
+      getApp().writeToDirectory(out, OutputMode.DexIndexed);
+      consumers[0].accept(new CodeInspector(out.resolve("classes.dex"), mappingFile));
+      for (int i = 1; i < consumers.length; i++) {
+        Path dex = out.resolve("classes" + (i + 1) + ".dex");
+        CodeInspector inspector =
+            dex.toFile().exists() ? new CodeInspector(dex, mappingFile) : CodeInspector.empty();
+        consumers[i].accept(inspector);
+      }
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
     }
     return self();
   }

@@ -28,7 +28,7 @@ public abstract class MixedSectionLayoutStrategy {
     } else {
       assert virtualFile.getId() == 0;
       startupProfileForWriting =
-          appView.options().getStartupOptions().isStartupLayoutOptimizationsEnabled()
+          appView.options().getStartupOptions().isStartupMixedSectionLayoutOptimizationsEnabled()
               ? virtualFile.getStartupProfile().toStartupProfileForWriting(appView)
               : StartupProfile.empty();
     }

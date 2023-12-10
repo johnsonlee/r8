@@ -10,6 +10,7 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.D8TestRunResult;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestDiagnosticMessagesImpl;
@@ -190,6 +191,11 @@ public class StartupTestingUtils {
       assertTrue(testBuilder.isR8TestBuilder());
       testBuilder.asR8TestBuilder().addStartupProfileProviders(startupProfileProvider);
     }
+  }
+
+  public static <B extends R8TestBuilder<B>> ThrowableConsumer<B> addStartupProfile(
+      Collection<ExternalStartupItem> startupItems) {
+    return testBuilder -> addStartupProfile(testBuilder, startupItems);
   }
 
   private static byte[] getTransformedAndroidUtilLog() throws IOException {
