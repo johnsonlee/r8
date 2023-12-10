@@ -45,20 +45,16 @@ public class VerticalClassMergerPolicyExecutor {
   private final InternalOptions options;
   private final MainDexInfo mainDexInfo;
   private final Set<DexProgramClass> pinnedClasses;
-  private final VerticallyMergedClasses.Builder verticallyMergedClassesBuilder;
 
   VerticalClassMergerPolicyExecutor(
-      AppView<AppInfoWithLiveness> appView,
-      Set<DexProgramClass> pinnedClasses,
-      VerticallyMergedClasses.Builder verticallyMergedClassesInComponentBuilder) {
+      AppView<AppInfoWithLiveness> appView, Set<DexProgramClass> pinnedClasses) {
     this.appView = appView;
     this.options = appView.options();
     this.mainDexInfo = appView.appInfo().getMainDexInfo();
     this.pinnedClasses = pinnedClasses;
-    this.verticallyMergedClassesBuilder = verticallyMergedClassesInComponentBuilder;
   }
 
-  Set<DexProgramClass> run(
+  ConnectedComponentVerticalClassMerger run(
       Set<DexProgramClass> connectedComponent,
       ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
     Set<DexProgramClass> mergeCandidates = Sets.newIdentityHashSet();
@@ -79,7 +75,7 @@ public class VerticalClassMergerPolicyExecutor {
       }
       mergeCandidates.add(sourceClass);
     }
-    return mergeCandidates;
+    return new ConnectedComponentVerticalClassMerger(appView, mergeCandidates);
   }
 
   // Returns true if [clazz] is a merge candidate. Note that the result of the checks in this
@@ -161,6 +157,12 @@ public class VerticalClassMergerPolicyExecutor {
         return false;
       }
     }
+
+    // Check with main dex classes to see if we are allowed to merge.
+    if (!mainDexInfo.canMerge(sourceClass, targetClass, appView.getSyntheticItems())) {
+      return false;
+    }
+
     return true;
   }
 
@@ -170,7 +172,6 @@ public class VerticalClassMergerPolicyExecutor {
    * called before merging {@param sourceClass} into {@param targetClass}.
    */
   boolean isStillMergeCandidate(DexProgramClass sourceClass, DexProgramClass targetClass) {
-    assert !verticallyMergedClassesBuilder.isMergeTarget(sourceClass);
     // For interface types, this is more complicated, see:
     // https://docs.oracle.com/javase/specs/jvms/se9/html/jvms-5.html#jvms-5.5
     // We basically can't move the clinit, since it is not called when implementing classes have

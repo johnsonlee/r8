@@ -159,16 +159,28 @@ public class VerticalClassMerger {
     timing.begin("Setup");
     ImmediateProgramSubtypingInfo immediateSubtypingInfo =
         ImmediateProgramSubtypingInfo.create(appView);
+
+    // Compute the disjoint class hierarchies for parallel processing.
     List<Set<DexProgramClass>> connectedComponents =
         new ProgramClassesBidirectedGraph(appView, immediateSubtypingInfo)
             .computeStronglyConnectedComponents();
-    Set<DexProgramClass> pinnedClasses = getPinnedClasses();
+
+    // Remove singleton class hierarchies as they are not subject to vertical class merging.
+    Set<DexProgramClass> singletonComponents = Sets.newIdentityHashSet();
+    connectedComponents.removeIf(
+        connectedComponent -> {
+          if (connectedComponent.size() == 1) {
+            singletonComponents.addAll(connectedComponent);
+            return true;
+          }
+          return false;
+        });
     timing.end();
 
     // Apply class merging concurrently in disjoint class hierarchies.
     VerticalClassMergerResult verticalClassMergerResult =
         mergeClassesInConnectedComponents(
-            connectedComponents, immediateSubtypingInfo, pinnedClasses, executorService, timing);
+            connectedComponents, immediateSubtypingInfo, executorService, timing);
     appView.setVerticallyMergedClasses(verticalClassMergerResult.getVerticallyMergedClasses());
     if (verticalClassMergerResult.isEmpty()) {
       return;
@@ -188,21 +200,65 @@ public class VerticalClassMerger {
   private VerticalClassMergerResult mergeClassesInConnectedComponents(
       List<Set<DexProgramClass>> connectedComponents,
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
-      Set<DexProgramClass> pinnedClasses,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
-    VerticalClassMergerResult.Builder verticalClassMergerResult =
-        VerticalClassMergerResult.builder(appView);
-    TimingMerger merger = timing.beginMerger("Merge classes", executorService);
+    Collection<ConnectedComponentVerticalClassMerger> connectedComponentMergers =
+        getConnectedComponentMergers(
+            connectedComponents, immediateSubtypingInfo, executorService, timing);
+    return applyConnectedComponentMergers(
+        connectedComponentMergers, immediateSubtypingInfo, executorService, timing);
+  }
+
+  private Collection<ConnectedComponentVerticalClassMerger> getConnectedComponentMergers(
+      List<Set<DexProgramClass>> connectedComponents,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
+      ExecutorService executorService,
+      Timing timing)
+      throws ExecutionException {
+    TimingMerger merger = timing.beginMerger("Compute classes to merge", executorService);
+    List<ConnectedComponentVerticalClassMerger> connectedComponentMergers =
+        new ArrayList<>(connectedComponents.size());
+    Set<DexProgramClass> pinnedClasses = getPinnedClasses();
     Collection<Timing> timings =
         ThreadUtils.processItemsWithResults(
             connectedComponents,
             connectedComponent -> {
+              Timing threadTiming = Timing.create("Compute classes to merge in component", options);
+              ConnectedComponentVerticalClassMerger connectedComponentMerger =
+                  new VerticalClassMergerPolicyExecutor(appView, pinnedClasses)
+                      .run(connectedComponent, immediateSubtypingInfo);
+              if (!connectedComponentMerger.isEmpty()) {
+                synchronized (connectedComponentMergers) {
+                  connectedComponentMergers.add(connectedComponentMerger);
+                }
+              }
+              threadTiming.end();
+              return threadTiming;
+            },
+            appView.options().getThreadingModule(),
+            executorService);
+    merger.add(timings);
+    merger.end();
+    return connectedComponentMergers;
+  }
+
+  private VerticalClassMergerResult applyConnectedComponentMergers(
+      Collection<ConnectedComponentVerticalClassMerger> connectedComponentMergers,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
+      ExecutorService executorService,
+      Timing timing)
+      throws ExecutionException {
+    TimingMerger merger = timing.beginMerger("Merge classes", executorService);
+    VerticalClassMergerResult.Builder verticalClassMergerResult =
+        VerticalClassMergerResult.builder(appView);
+    Collection<Timing> timings =
+        ThreadUtils.processItemsWithResults(
+            connectedComponentMergers,
+            connectedComponentMerger -> {
               Timing threadTiming = Timing.create("Merge classes in component", options);
               VerticalClassMergerResult.Builder verticalClassMergerComponentResult =
-                  new ConnectedComponentVerticalClassMerger(appView)
-                      .run(connectedComponent, immediateSubtypingInfo, pinnedClasses, threadTiming);
+                  connectedComponentMerger.run(immediateSubtypingInfo);
               verticalClassMergerResult.merge(verticalClassMergerComponentResult);
               threadTiming.end();
               return threadTiming;
