@@ -75,6 +75,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
 
   private AllowedDiagnosticMessages allowedDiagnosticMessages = AllowedDiagnosticMessages.NONE;
   private boolean allowUnusedProguardConfigurationRules = false;
+  private boolean enableIsolatedSplits = false;
   private boolean enableMissingLibraryApiModeling = true;
   private boolean enableStartupLayoutOptimization = true;
   private CollectingGraphConsumer graphConsumer = null;
@@ -152,6 +153,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     ToolHelper.addSyntheticProguardRulesConsumerForTesting(
         builder, rules -> box.syntheticProguardRules = rules);
     libraryDesugaringTestConfiguration.configure(builder);
+    builder.setEnableExperimentalIsolatedSplits(enableIsolatedSplits);
     builder.setEnableExperimentalMissingLibraryApiModeling(enableMissingLibraryApiModeling);
     builder.setEnableStartupLayoutOptimization(enableStartupLayoutOptimization);
     StringBuilder pgConfOutput = wrapProguardConfigConsumer(builder);
@@ -853,6 +855,11 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
         builder ->
             splitWithNonJavaFile(builder, path, getState().getTempFolder(), nonJavaFiles, classes));
     features.add(path);
+    return self();
+  }
+
+  public T enableIsolatedSplits(boolean enableIsolatedSplits) {
+    this.enableIsolatedSplits = enableIsolatedSplits;
     return self();
   }
 

@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.PrunedItems;
@@ -128,17 +129,16 @@ public class ClassToFeatureSplitMap {
   public FeatureSplit getFeatureSplit(
       ProgramDefinition definition,
       SyntheticItems syntheticItems) {
-    return getFeatureSplit(definition.getContextType(), syntheticItems);
+    return getFeatureSplit(definition.getReference(), syntheticItems);
   }
 
   public FeatureSplit getFeatureSplit(
-      DexType type, AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return getFeatureSplit(type, appView.getSyntheticItems());
+      DexReference reference, AppView<? extends AppInfoWithClassHierarchy> appView) {
+    return getFeatureSplit(reference, appView.getSyntheticItems());
   }
 
-  public FeatureSplit getFeatureSplit(
-      DexType type,
-      SyntheticItems syntheticItems) {
+  public FeatureSplit getFeatureSplit(DexReference reference, SyntheticItems syntheticItems) {
+    DexType type = reference.getContextType();
     if (syntheticItems == null) {
       // Called from AndroidApp.dumpProgramResources().
       return classToFeatureSplitMap.getOrDefault(type, FeatureSplit.BASE);
@@ -214,6 +214,16 @@ public class ClassToFeatureSplitMap {
       DexProgramClass clazz,
       SyntheticItems syntheticItems) {
     return !isInBase(clazz, syntheticItems);
+  }
+
+  public boolean isInSameFeature(
+      ProgramDefinition definition, ProgramDefinition other, AppView<?> appView) {
+    return isInSameFeature(definition, other, appView.getSyntheticItems());
+  }
+
+  public boolean isInSameFeature(
+      ProgramDefinition definition, ProgramDefinition other, SyntheticItems syntheticItems) {
+    return getFeatureSplit(definition, syntheticItems) == getFeatureSplit(other, syntheticItems);
   }
 
   public ClassToFeatureSplitMap rewrittenWithLens(GraphLens lens, Timing timing) {

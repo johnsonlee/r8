@@ -79,7 +79,7 @@ public class IsolatedFeatureSplitsChecker
   }
 
   private void checkAccess(ProgramDefinition accessedItem, ProgramMethod context) {
-    if (!features.isInBaseOrSameFeatureAs(accessedItem, context, appView)
+    if (!features.isInSameFeature(accessedItem, context, appView)
         && !accessedItem.getAccessFlags().isPublic()) {
       appView
           .reporter()
