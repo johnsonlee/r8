@@ -3,19 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.features;
 
-import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilationIf;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoAccessModification;
 import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.features.diagnostic.IllegalAccessWithIsolatedFeatureSplitsDiagnostic;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -46,52 +42,41 @@ public class InliningLeadsToPackagePrivateIsolatedSplitCrossBoundaryReferenceTes
   @Test
   public void test() throws Exception {
     Box<CodeInspector> baseInspectorBox = new Box<>();
-    assertFailsCompilationIf(
-        enableIsolatedSplits,
-        () ->
-            testForR8(parameters.getBackend())
-                .addProgramClasses(Base.class)
-                .addFeatureSplit(Feature.class)
-                .addKeepClassAndMembersRules(Feature.class)
-                .enableInliningAnnotations()
-                .enableIsolatedSplits(enableIsolatedSplits)
-                .enableNoAccessModificationAnnotationsForMembers()
-                .setMinApi(parameters)
-                .compileWithExpectedDiagnostics(this::inspectDiagnostics)
-                .inspect(
-                    baseInspectorBox::set,
-                    featureInspector -> {
-                      CodeInspector baseInspector = baseInspectorBox.get();
-                      ClassSubject baseClassSubject = baseInspector.clazz(Base.class);
-                      assertThat(baseClassSubject, isPresent());
+    testForR8(parameters.getBackend())
+        .addProgramClasses(Base.class)
+        .addFeatureSplit(Feature.class)
+        .addKeepClassAndMembersRules(Feature.class)
+        .enableInliningAnnotations()
+        .enableIsolatedSplits(enableIsolatedSplits)
+        .enableNoAccessModificationAnnotationsForMembers()
+        .setMinApi(parameters)
+        .compile()
+        .inspect(
+            baseInspectorBox::set,
+            featureInspector -> {
+              CodeInspector baseInspector = baseInspectorBox.get();
+              ClassSubject baseClassSubject = baseInspector.clazz(Base.class);
+              assertThat(baseClassSubject, isPresent());
 
-                      // TODO(b/300247439): Should not allow inlining of callNonPublicMethod().
-                      MethodSubject callNonPublicMethodSubject =
-                          baseClassSubject.uniqueMethodWithOriginalName("callNonPublicMethod");
-                      assertThat(callNonPublicMethodSubject, isAbsent());
+              MethodSubject callNonPublicMethodSubject =
+                  baseClassSubject.uniqueMethodWithOriginalName("callNonPublicMethod");
+              assertThat(callNonPublicMethodSubject, isPresentIf(enableIsolatedSplits));
 
-                      MethodSubject nonPublicMethodSubject =
-                          baseClassSubject.uniqueMethodWithOriginalName("nonPublicMethod");
-                      assertThat(nonPublicMethodSubject, isPresent());
+              MethodSubject nonPublicMethodSubject =
+                  baseClassSubject.uniqueMethodWithOriginalName("nonPublicMethod");
+              assertThat(nonPublicMethodSubject, isPresent());
 
-                      ClassSubject featureClassSubject = featureInspector.clazz(Feature.class);
-                      assertThat(featureClassSubject, isPresent());
+              ClassSubject featureClassSubject = featureInspector.clazz(Feature.class);
+              assertThat(featureClassSubject, isPresent());
 
-                      MethodSubject featureMethodSubject =
-                          featureClassSubject.uniqueMethodWithOriginalName("test");
-                      assertThat(featureMethodSubject, isPresent());
-                      assertThat(featureMethodSubject, invokesMethod(nonPublicMethodSubject));
-                    }));
-  }
-
-  // TODO(b/300247439): Should not report any diagnostics.
-  private void inspectDiagnostics(TestDiagnosticMessages diagnostics) {
-    if (enableIsolatedSplits) {
-      diagnostics.assertErrorsMatch(
-          diagnosticType(IllegalAccessWithIsolatedFeatureSplitsDiagnostic.class));
-    } else {
-      diagnostics.assertNoMessages();
-    }
+              MethodSubject featureMethodSubject =
+                  featureClassSubject.uniqueMethodWithOriginalName("test");
+              assertThat(featureMethodSubject, isPresent());
+              assertThat(
+                  featureMethodSubject,
+                  invokesMethod(
+                      enableIsolatedSplits ? callNonPublicMethodSubject : nonPublicMethodSubject));
+            });
   }
 
   public static class Base {

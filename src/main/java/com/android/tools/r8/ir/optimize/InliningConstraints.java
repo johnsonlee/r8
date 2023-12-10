@@ -348,7 +348,7 @@ public class InliningConstraints {
       DexClassAndMember<?, ?> resolvedMember) {
     ConstraintWithTarget featureSplitInliningConstraint =
         FeatureSplitBoundaryOptimizationUtils.getInliningConstraintForResolvedMember(
-            context, resolvedMember, appView);
+            resolvedMember, initialResolutionHolder, context, appView);
     assert featureSplitInliningConstraint == ConstraintWithTarget.ALWAYS
         || featureSplitInliningConstraint.isNever();
     if (featureSplitInliningConstraint.isNever()) {

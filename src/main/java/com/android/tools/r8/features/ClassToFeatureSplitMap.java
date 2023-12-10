@@ -169,10 +169,12 @@ public class ClassToFeatureSplitMap {
     return classToFeatureSplitMap.isEmpty();
   }
 
-  public boolean isInBase(
-      DexProgramClass clazz,
-      SyntheticItems syntheticItems) {
-    return getFeatureSplit(clazz, syntheticItems).isBase();
+  public boolean isInBase(ProgramDefinition definition, AppView<?> appView) {
+    return isInBase(definition, appView.getSyntheticItems());
+  }
+
+  public boolean isInBase(ProgramDefinition definition, SyntheticItems syntheticItems) {
+    return getFeatureSplit(definition, syntheticItems).isBase();
   }
 
   public boolean isInBaseOrSameFeatureAs(
