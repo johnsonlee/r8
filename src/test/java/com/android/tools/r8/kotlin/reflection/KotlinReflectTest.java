@@ -6,6 +6,7 @@ package com.android.tools.r8.kotlin.reflection;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_3_72;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_8_0;
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_9_21;
 
 import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.KotlinTestBase;
@@ -108,9 +109,11 @@ public class KotlinReflectTest extends KotlinTestBase {
         .assertNoErrorMessages()
         // -keepattributes Signature is added in kotlin-reflect from version 1.4.20.
         .applyIf(kotlinParameters.is(KOTLINC_1_3_72), TestCompileResult::assertNoInfoMessages)
-        // TODO(b/269794485): Figure out why generic signatures fail using kotlin-dev.
+        // TODO(b/269794485): Figure out why generic signatures fail using 1.9.
         .applyIf(
-            kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72) && !kotlinParameters.isKotlinDev(),
+            kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72)
+                && kotlinParameters.getCompiler().isNot(KOTLINC_1_9_21)
+                && !kotlinParameters.isKotlinDev(),
             TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation)
         .apply(KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)
         .writeToZip(foo.toPath())
