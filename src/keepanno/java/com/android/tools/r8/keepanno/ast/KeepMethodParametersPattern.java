@@ -72,12 +72,11 @@ public abstract class KeepMethodParametersPattern {
     }
 
     @Override
-    @SuppressWarnings("EqualsGetClass")
     public boolean equals(Object o) {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof Some)) {
         return false;
       }
 

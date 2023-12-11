@@ -87,10 +87,15 @@ public final class AnnotationConstants {
     public static final String methodAccess = "methodAccess";
     public static final String methodName = "methodName";
     public static final String methodReturnType = "methodReturnType";
+    public static final String methodReturnTypeConstant = "methodReturnTypeConstant";
+    public static final String methodReturnTypePattern = "methodReturnTypePattern";
     public static final String methodParameters = "methodParameters";
+    public static final String methodParameterTypePatterns = "methodParameterTypePatterns";
     public static final String fieldAccess = "fieldAccess";
     public static final String fieldName = "fieldName";
     public static final String fieldType = "fieldType";
+    public static final String fieldTypeConstant = "fieldTypeConstant";
+    public static final String fieldTypePattern = "fieldTypePattern";
   }
 
   public static final class Binding {
@@ -190,5 +195,13 @@ public final class AnnotationConstants {
         "Lcom/android/tools/r8/keepanno/annotations/FieldAccessFlags;";
     public static final String VOLATILE = "VOLATILE";
     public static final String TRANSIENT = "TRANSIENT";
+  }
+
+  public static final class TypePattern {
+    public static final String SIMPLE_NAME = "TypePattern";
+    public static final String DESCRIPTOR =
+        "Lcom/android/tools/r8/keepanno/annotations/TypePattern;";
+    public static final String name = "name";
+    public static final String constant = "constant";
   }
 }

@@ -68,10 +68,18 @@ public class KeepEdgeReaderUtils {
     }
   }
 
-  public static KeepMethodReturnTypePattern methodReturnTypeFromString(String returnType) {
+  public static KeepMethodReturnTypePattern methodReturnTypeFromTypeName(String returnType) {
     if ("void".equals(returnType)) {
       return KeepMethodReturnTypePattern.voidType();
     }
     return KeepMethodReturnTypePattern.fromType(typePatternFromString(returnType));
+  }
+
+  public static KeepMethodReturnTypePattern methodReturnTypeFromTypeDescriptor(
+      String returnTypeDesc) {
+    if ("V".equals(returnTypeDesc)) {
+      return KeepMethodReturnTypePattern.voidType();
+    }
+    return KeepMethodReturnTypePattern.fromType(KeepTypePattern.fromDescriptor(returnTypeDesc));
   }
 }
