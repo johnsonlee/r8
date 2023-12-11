@@ -707,6 +707,7 @@ fun getThirdPartyKotlinCompilers() : List<ThirdPartyDependency> {
     "kotlin-compiler-1.6.0",
     "kotlin-compiler-1.7.0",
     "kotlin-compiler-1.8.0",
+    "kotlin-compiler-1.9.21",
     "kotlin-compiler-dev")
     .map { ThirdPartyDependency(
       it,
