@@ -490,7 +490,6 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
           (clazz, allocationSitesForClass) -> {
             DexType type = lens.lookupType(clazz.type);
             if (type.isPrimitiveType()) {
-              assert clazz.isEnum();
               return;
             }
             DexProgramClass rewrittenClass = asProgramClassOrNull(definitions.definitionFor(type));

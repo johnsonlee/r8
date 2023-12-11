@@ -1417,12 +1417,12 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     DexClassAndMethod mostAccurateTarget = singleTarget == null ? resolvedMethod : singleTarget;
 
     if (mostAccurateTarget.isProgramMethod()) {
-      if (mostAccurateTarget.getHolder().isEnum()
-          && resolvedMethod.getDefinition().isInstanceInitializer()) {
+      DexProgramClass candidateOrNull =
+          getEnumUnboxingCandidateOrNull(mostAccurateTarget.getHolderType());
+      if (candidateOrNull != null && resolvedMethod.getDefinition().isInstanceInitializer()) {
         // The enum instance initializer is only allowed to be called from an initializer of the
         // enum itself.
-        if (getEnumUnboxingCandidateOrNull(code.context().getHolderType())
-                != getEnumUnboxingCandidateOrNull(mostAccurateTarget.getHolderType())
+        if (getEnumUnboxingCandidateOrNull(code.context().getHolderType()) != candidateOrNull
             || !context.getDefinition().isInitializer()) {
           return Reason.INVALID_INIT;
         }

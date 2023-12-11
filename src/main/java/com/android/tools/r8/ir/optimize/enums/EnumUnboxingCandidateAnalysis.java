@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.ir.optimize.enums;
 
-import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -14,16 +13,14 @@ import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.optimize.enums.eligibility.Reason;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 
 class EnumUnboxingCandidateAnalysis {
 
@@ -35,11 +32,8 @@ class EnumUnboxingCandidateAnalysis {
   private final AppView<AppInfoWithLiveness> appView;
   private final EnumUnboxerImpl enumUnboxer;
   private final DexItemFactory factory;
-  private EnumUnboxingCandidateInfoCollection enumToUnboxCandidates =
+  private final EnumUnboxingCandidateInfoCollection enumToUnboxCandidates =
       new EnumUnboxingCandidateInfoCollection();
-
-  private final Map<DexType, Set<DexProgramClass>> enumSubclasses = new IdentityHashMap<>();
-  private final Set<DexType> ineligibleCandidates = Sets.newIdentityHashSet();
 
   EnumUnboxingCandidateAnalysis(AppView<AppInfoWithLiveness> appView, EnumUnboxerImpl enumUnboxer) {
     this.appView = appView;
@@ -54,13 +48,13 @@ class EnumUnboxingCandidateAnalysis {
       // disables the enum unboxer.
       return enumToUnboxCandidates;
     }
+    ImmediateProgramSubtypingInfo subtypingInfo = ImmediateProgramSubtypingInfo.create(appView);
+    // In recent Kotlin enum subclasses are not flagged as enum, so we cannot rely on the flag.
     for (DexProgramClass clazz : appView.appInfo().classes()) {
-      if (clazz.isEnum()) {
-        analyzeEnum(graphLensForPrimaryOptimizationPass, clazz);
+      if (clazz.isEnum() && clazz.superType.isIdenticalTo(factory.enumType)) {
+        analyzeEnum(graphLensForPrimaryOptimizationPass, clazz, subtypingInfo);
       }
     }
-    removeIneligibleCandidates();
-    setEnumSubclassesOnCandidates();
     removeEnumsInAnnotations();
     removePinnedCandidates();
     if (appView.options().protoShrinking().isProtoShrinkingEnabled()) {
@@ -70,42 +64,28 @@ class EnumUnboxingCandidateAnalysis {
     return enumToUnboxCandidates;
   }
 
-  private void setEnumSubclassesOnCandidates() {
-    enumToUnboxCandidates.forEachCandidateInfo(
-        info -> {
-          DexType type = info.getEnumClass().getType();
-          enumToUnboxCandidates.setEnumSubclasses(
-              type, enumSubclasses.getOrDefault(type, ImmutableSet.of()));
-        });
-  }
-
-  private void removeIneligibleCandidates() {
-    for (DexType ineligibleCandidate : ineligibleCandidates) {
-      enumToUnboxCandidates.removeCandidate(ineligibleCandidate);
+  private void analyzeEnum(
+      GraphLens graphLensForPrimaryOptimizationPass,
+      DexProgramClass clazz,
+      ImmediateProgramSubtypingInfo subtypingInfo) {
+    if (!isSuperEnumUnboxingCandidate(clazz)) {
+      return;
     }
-  }
 
-  @SuppressWarnings("ReferenceEquality")
-  private void analyzeEnum(GraphLens graphLensForPrimaryOptimizationPass, DexProgramClass clazz) {
-    if (clazz.superType == factory.enumType) {
-      if (isSuperEnumUnboxingCandidate(clazz)) {
-        enumToUnboxCandidates.addCandidate(appView, clazz, graphLensForPrimaryOptimizationPass);
+    List<DexProgramClass> subtypes = subtypingInfo.getSubclasses(clazz);
+    ImmutableSet.Builder<DexProgramClass> subEnumClassesBuilder = ImmutableSet.builder();
+    for (DexProgramClass subEnum : subtypes) {
+      if (!isSubEnumUnboxingCandidate(subEnum)) {
+        return;
       }
-    } else {
-      if (isSubEnumUnboxingCandidate(clazz)
-          && appView.options().testing.enableEnumWithSubtypesUnboxing) {
-        enumSubclasses
-            .computeIfAbsent(clazz.superType, ignoreKey(Sets::newIdentityHashSet))
-            .add(clazz);
-      } else {
-        ineligibleCandidates.add(clazz.superType);
-      }
+      subEnumClassesBuilder.add(subEnum);
     }
+    enumToUnboxCandidates.addCandidate(
+        appView, clazz, subEnumClassesBuilder.build(), graphLensForPrimaryOptimizationPass);
   }
 
   @SuppressWarnings("ReferenceEquality")
   private boolean isSubEnumUnboxingCandidate(DexProgramClass clazz) {
-    assert clazz.isEnum();
     boolean result = true;
     // Javac does not seem to generate enums with more than a single subtype level.
     // TODO(b/273910479): Stop using isEffectivelyFinal.
@@ -132,29 +112,14 @@ class EnumUnboxingCandidateAnalysis {
     return result;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private boolean isSuperEnumUnboxingCandidate(DexProgramClass clazz) {
     assert clazz.isEnum();
-
-    // This is used in debug mode, where we don't do quick returns to log all the reasons an enum
-    // is not unboxed.
-    boolean result = true;
-
-    // TODO(b/271385332): Change this into an assert when legacy is removed.
-    if (clazz.superType != factory.enumType) {
-      if (!enumUnboxer.reportFailure(clazz, Reason.INVALID_LIBRARY_SUPERTYPE)) {
-        return false;
-      }
-      result = false;
-    }
-
+    assert clazz.superType.isIdenticalTo(factory.enumType);
     if (clazz.instanceFields().size() > MAX_INSTANCE_FIELDS_FOR_UNBOXING) {
-      if (!enumUnboxer.reportFailure(clazz, Reason.MANY_INSTANCE_FIELDS)) {
-        return false;
-      }
-      result = false;
+      enumUnboxer.reportFailure(clazz, Reason.MANY_INSTANCE_FIELDS);
+      return false;
     }
-    return result;
+    return true;
   }
 
   private void removeEnumsInAnnotations() {

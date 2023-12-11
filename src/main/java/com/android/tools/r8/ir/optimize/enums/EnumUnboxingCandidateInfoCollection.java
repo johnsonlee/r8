@@ -34,11 +34,16 @@ public class EnumUnboxingCandidateInfoCollection {
   public void addCandidate(
       AppView<AppInfoWithLiveness> appView,
       DexProgramClass enumClass,
+      Set<DexProgramClass> subclasses,
       GraphLens graphLensForPrimaryOptimizationPass) {
     assert !enumTypeToInfo.containsKey(enumClass.type);
     enumTypeToInfo.put(
         enumClass.type,
-        new EnumUnboxingCandidateInfo(appView, enumClass, graphLensForPrimaryOptimizationPass));
+        new EnumUnboxingCandidateInfo(
+            appView, enumClass, subclasses, graphLensForPrimaryOptimizationPass));
+    for (DexProgramClass subclass : subclasses) {
+      subEnumToSuperEnumMap.put(subclass.getType(), enumClass.getType());
+    }
   }
 
   public boolean hasSubtypes(DexType enumType) {
@@ -48,13 +53,6 @@ public class EnumUnboxingCandidateInfoCollection {
   public Set<DexType> getSubtypes(DexType enumType) {
     return SetUtils.mapIdentityHashSet(
         enumTypeToInfo.get(enumType).getSubclasses(), DexClass::getType);
-  }
-
-  public void setEnumSubclasses(DexType superEnum, Set<DexProgramClass> subclasses) {
-    enumTypeToInfo.get(superEnum).setSubclasses(subclasses);
-    for (DexProgramClass subclass : subclasses) {
-      subEnumToSuperEnumMap.put(subclass.getType(), superEnum);
-    }
   }
 
   public void addPrunedMethod(ProgramMethod method) {
@@ -174,10 +172,12 @@ public class EnumUnboxingCandidateInfoCollection {
     public EnumUnboxingCandidateInfo(
         AppView<AppInfoWithLiveness> appView,
         DexProgramClass enumClass,
+        Set<DexProgramClass> subclasses,
         GraphLens graphLensForPrimaryOptimizationPass) {
       assert enumClass != null;
       assert appView.graphLens() == graphLensForPrimaryOptimizationPass;
       this.enumClass = enumClass;
+      this.subclasses = subclasses;
       this.methodDependencies =
           LongLivedProgramMethodSetBuilder.createConcurrentForIdentitySet(
               graphLensForPrimaryOptimizationPass);
@@ -186,10 +186,6 @@ public class EnumUnboxingCandidateInfoCollection {
     public Set<DexProgramClass> getSubclasses() {
       assert subclasses != null;
       return subclasses;
-    }
-
-    public void setSubclasses(Set<DexProgramClass> subclasses) {
-      this.subclasses = subclasses;
     }
 
     public DexProgramClass getEnumClass() {

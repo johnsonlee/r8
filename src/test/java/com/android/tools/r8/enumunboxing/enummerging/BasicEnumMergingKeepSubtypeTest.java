@@ -42,7 +42,6 @@ public class BasicEnumMergingKeepSubtypeTest extends EnumUnboxingTestBase {
         .addKeepMainRule(Main.class)
         .addKeepRules("-keep class " + SUBTYPE_NAME + " { public void method(); }")
         .addKeepRules(enumKeepRules.getKeepRules())
-        .addOptionsModification(opt -> opt.testing.enableEnumWithSubtypesUnboxing = true)
         .addEnumUnboxingInspector(
             inspector -> inspector.assertNotUnboxed(EnumWithVirtualOverride.class))
         .addOptionsModification(opt -> enableEnumOptions(opt, enumValueOptimization))

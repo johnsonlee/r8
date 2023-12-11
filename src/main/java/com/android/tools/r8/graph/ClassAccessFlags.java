@@ -184,6 +184,10 @@ public class ClassAccessFlags extends AccessFlags<ClassAccessFlags> {
     set(Constants.ACC_ENUM);
   }
 
+  public void unsetEnum() {
+    unset(Constants.ACC_ENUM);
+  }
+
   public boolean isRecord() {
     return isSet(Constants.ACC_RECORD);
   }
