@@ -10,10 +10,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotEquals;
 
 import com.android.tools.r8.KotlinCompilerTool;
-import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.util.List;
@@ -52,6 +53,8 @@ public class KotlinEnumSwitchTest extends KotlinTestBase {
   @Test
   public void test() throws Exception {
     testForR8(parameters.getBackend())
+        // Use android.jar with java.lang.ClassValue.
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.U))
         .addProgramFiles(
             kotlinJars.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
         .addKeepMainRule("enumswitch.EnumSwitchKt")
@@ -62,13 +65,6 @@ public class KotlinEnumSwitchTest extends KotlinTestBase {
             })
         .setMinApi(parameters)
         .addDontObfuscate()
-        // This will probably start failing when the CL
-        // https://github.com/JetBrains/kotlin/commit/79f6d4b590573e6adccd7e8899d3b15ddb42d185
-        // is propagated to the build for kotlin-reflect.
-        .applyIf(
-            parameters.isDexRuntime()
-                && kotlinParameters.isNewerThan(KotlinCompilerVersion.KOTLINC_1_8_0),
-            b -> b.addDontWarn("java.lang.ClassValue"))
         .allowDiagnosticWarningMessages()
         .compile()
         .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
