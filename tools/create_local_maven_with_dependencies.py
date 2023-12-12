@@ -101,11 +101,7 @@ PLUGIN_DEPENDENCIES = [
   'org.gradle.kotlin.kotlin-dsl:org.gradle.kotlin.kotlin-dsl.gradle.plugin:4.1.0',
   'org.jetbrains.kotlin:kotlin-gradle-plugin-api:1.9.10',
   'net.ltgt.errorprone:net.ltgt.errorprone.gradle.plugin:3.0.1',
-
-  # Patched version of org.spdx.sbom:org.spdx.sbom.gradle.plugin:0.4.0.
-  # See
-  # https://github.com/spdx/spdx-gradle-plugin/issues/69#issuecomment-1799122543.
-  'org.spdx.sbom:org.spdx.sbom.gradle.plugin:0.4.0-r8-patch02',
+  'org.spdx.sbom:org.spdx.sbom.gradle.plugin:0.4.0',
   # See https://github.com/FasterXML/jackson-core/issues/999.
   'ch.randelshofer:fastdoubleparser:0.8.0',
 ]
