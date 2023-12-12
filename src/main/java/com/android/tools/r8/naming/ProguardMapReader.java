@@ -652,6 +652,24 @@ public class ProguardMapReader implements AutoCloseable {
 
   // Parsing of components
 
+  private static boolean isAllowedIdentifierStart(int codePoint) {
+    if (IdentifierUtils.isDexIdentifierStart(codePoint)) {
+      return true;
+    }
+    // Proguard sometimes outputs a ? as a method name. We have tools (dexsplitter) that depends
+    // on being able to map class names back to the original, but does not care if methods are
+    // correctly mapped. Using this on proguard output for anything else might not give correct
+    // remappings.
+    if (IdentifierUtils.isQuestionMark(codePoint)) {
+      return true;
+    }
+    // Some mapping files contain entries starting with a '.', allow those for compatibility.
+    if (codePoint == '.') {
+      return true;
+    }
+    return false;
+  }
+
   private void skipIdentifier(boolean allowInit) {
     boolean isInit = false;
     if (allowInit && peekChar(0) == '<') {
@@ -659,12 +677,7 @@ public class ProguardMapReader implements AutoCloseable {
       nextChar();
       isInit = true;
     }
-    // Proguard sometimes outputs a ? as a method name. We have tools (dexsplitter) that depends
-    // on being able to map class names back to the original, but does not care if methods are
-    // correctly mapped. Using this on proguard output for anything else might not give correct
-    // remappings.
-    if (!IdentifierUtils.isDexIdentifierStart(peekCodePoint())
-        && !IdentifierUtils.isQuestionMark(peekCodePoint())) {
+    if (!isAllowedIdentifierStart(peekCodePoint())) {
       throw new ParseException("Identifier expected");
     }
     nextCodePoint();
