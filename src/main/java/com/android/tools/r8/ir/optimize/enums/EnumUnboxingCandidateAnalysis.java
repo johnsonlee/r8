@@ -73,15 +73,13 @@ class EnumUnboxingCandidateAnalysis {
     }
 
     List<DexProgramClass> subtypes = subtypingInfo.getSubclasses(clazz);
-    ImmutableSet.Builder<DexProgramClass> subEnumClassesBuilder = ImmutableSet.builder();
     for (DexProgramClass subEnum : subtypes) {
       if (!isSubEnumUnboxingCandidate(subEnum)) {
         return;
       }
-      subEnumClassesBuilder.add(subEnum);
     }
     enumToUnboxCandidates.addCandidate(
-        appView, clazz, subEnumClassesBuilder.build(), graphLensForPrimaryOptimizationPass);
+        appView, clazz, ImmutableSet.copyOf(subtypes), graphLensForPrimaryOptimizationPass);
   }
 
   @SuppressWarnings("ReferenceEquality")
