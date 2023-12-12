@@ -10,16 +10,10 @@ public class GraphLensUtils {
 
   public static Deque<NonIdentityGraphLens> extractNonIdentityLenses(GraphLens lens) {
     Deque<NonIdentityGraphLens> lenses = new ArrayDeque<>();
-    if (lens.isNonIdentityLens()) {
-      lenses.addFirst(lens.asNonIdentityLens());
-      while (true) {
-        GraphLens previous = lenses.getFirst().getPrevious();
-        if (previous.isNonIdentityLens()) {
-          lenses.addFirst(previous.asNonIdentityLens());
-        } else {
-          break;
-        }
-      }
+    while (lens.isNonIdentityLens()) {
+      NonIdentityGraphLens nonIdentityLens = lens.asNonIdentityLens();
+      lenses.addFirst(nonIdentityLens);
+      lens = nonIdentityLens.getPrevious();
     }
     return lenses;
   }

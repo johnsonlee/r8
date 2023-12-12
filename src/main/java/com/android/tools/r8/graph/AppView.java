@@ -1107,7 +1107,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
                     AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
                     MethodAccessInfoCollection methodAccessInfoCollection =
                         appViewWithLiveness.appInfo().getMethodAccessInfoCollection();
-                    methodAccessInfoCollection.modifier().commit(appViewWithLiveness);
+                    assert methodAccessInfoCollection.verify(appViewWithLiveness);
                   }
                   return true;
                 }

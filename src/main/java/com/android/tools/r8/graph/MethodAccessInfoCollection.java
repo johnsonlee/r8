@@ -212,6 +212,34 @@ public class MethodAccessInfoCollection {
             });
   }
 
+  public boolean verify(AppView<AppInfoWithLiveness> appView) {
+    assert verifyNoNonResolving(appView);
+    return true;
+  }
+
+  public boolean verifyNoNonResolving(AppView<AppInfoWithLiveness> appView) {
+    verifyNoNonResolving(appView, directInvokes);
+    verifyNoNonResolving(appView, interfaceInvokes);
+    verifyNoNonResolving(appView, staticInvokes);
+    verifyNoNonResolving(appView, superInvokes);
+    verifyNoNonResolving(appView, virtualInvokes);
+    return true;
+  }
+
+  private void verifyNoNonResolving(
+      AppView<AppInfoWithLiveness> appView, Map<DexMethod, ?> invokes) {
+    if (!isThrowingMap(invokes)) {
+      for (DexMethod method : invokes.keySet()) {
+        MethodResolutionResult result =
+            appView.appInfo().unsafeResolveMethodDueToDexFormatLegacy(method);
+        assert !result.isFailedResolution()
+            : "Unexpected method that does not resolve: " + method.toSourceString();
+        assert !result.isSignaturePolymorphicResolution(method, appView.dexItemFactory())
+            : "Unexpected signature polymorphic resolution: " + method.toSourceString();
+      }
+    }
+  }
+
   public abstract static class Builder<T extends Map<DexMethod, ProgramMethodSet>> {
 
     private final T directInvokes;
@@ -374,29 +402,6 @@ public class MethodAccessInfoCollection {
           });
     }
 
-    public boolean verifyNoNonResolving(AppView<AppInfoWithLiveness> appView) {
-      verifyNoNonResolving(appView, directInvokes);
-      verifyNoNonResolving(appView, interfaceInvokes);
-      verifyNoNonResolving(appView, staticInvokes);
-      verifyNoNonResolving(appView, superInvokes);
-      verifyNoNonResolving(appView, virtualInvokes);
-      return true;
-    }
-
-    private void verifyNoNonResolving(
-        AppView<AppInfoWithLiveness> appView, Map<DexMethod, ?> invokes) {
-      if (!isThrowingMap(invokes)) {
-        for (DexMethod method : invokes.keySet()) {
-          MethodResolutionResult result =
-              appView.appInfo().unsafeResolveMethodDueToDexFormatLegacy(method);
-          assert !result.isFailedResolution()
-              : "Unexpected method that does not resolve: " + method.toSourceString();
-          assert !result.isSignaturePolymorphicResolution(method, appView.dexItemFactory())
-              : "Unexpected signature polymorphic resolution: " + method.toSourceString();
-        }
-      }
-    }
-
     public MethodAccessInfoCollection build() {
       return new MethodAccessInfoCollection(
           directInvokes, interfaceInvokes, staticInvokes, superInvokes, virtualInvokes);
@@ -436,10 +441,6 @@ public class MethodAccessInfoCollection {
       collection.forEachStaticInvoke(this::registerInvokeStaticInContexts);
       collection.forEachSuperInvoke(this::registerInvokeSuperInContexts);
       collection.forEachVirtualInvoke(this::registerInvokeVirtualInContexts);
-    }
-
-    public void commit(AppView<AppInfoWithLiveness> appView) {
-      assert verifyNoNonResolving(appView);
     }
   }
 }

@@ -114,7 +114,7 @@ public class BridgeHoisting {
                 assert false;
               }
             });
-        methodAccessInfoCollectionModifier.commit(appView);
+        methodAccessInfoCollection.verify(appView);
       }
     }
 
