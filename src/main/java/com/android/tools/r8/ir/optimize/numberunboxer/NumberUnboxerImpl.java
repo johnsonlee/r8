@@ -110,7 +110,8 @@ public class NumberUnboxerImpl extends NumberUnboxer {
     Map<DexMethod, DexMethod> vMethodRepresentative = new IdentityHashMap<>();
     for (List<ProgramMethod> vMethods : componentVirtualMethods.values()) {
       if (vMethods.size() > 1) {
-        if (Iterables.all(vMethods, this::shouldConsiderForUnboxing)) {
+        if (Iterables.all(vMethods, this::shouldConsiderForUnboxing)
+            && Iterables.any(vMethods, m -> !m.getDefinition().isAbstract())) {
           vMethods.sort(Comparator.comparing(DexClassAndMember::getReference));
           ProgramMethod representative = vMethods.get(0);
           for (int i = 1; i < vMethods.size(); i++) {
@@ -122,7 +123,7 @@ public class NumberUnboxerImpl extends NumberUnboxer {
       } else {
         assert vMethods.size() == 1;
         ProgramMethod candidate = vMethods.get(0);
-        if (shouldConsiderForUnboxing(candidate)) {
+        if (shouldConsiderForUnboxing(candidate) && !candidate.getDefinition().isAbstract()) {
           candidateBoxingStatus.put(candidate.getReference(), UNPROCESSED_CANDIDATE);
         }
       }
