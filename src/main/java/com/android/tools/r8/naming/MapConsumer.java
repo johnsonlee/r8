@@ -15,6 +15,5 @@ public interface MapConsumer extends Finishable {
 
   void accept(
       DiagnosticsHandler diagnosticsHandler,
-      ProguardMapMarkerInfo makerInfo,
       ClassNameMapper classNameMapper);
 }

@@ -7,7 +7,6 @@ package com.android.tools.r8.naming;
 import com.android.tools.r8.Version;
 import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapId;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.VersionProperties;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,10 +60,6 @@ public class ProguardMapMarkerInfo {
     preamble.add(
         "# " + MARKER_KEY_PG_MAP_HASH + ": " + SHA_256_KEY + " " + proguardMapId.getHash());
     return preamble;
-  }
-
-  public String serializeToString() {
-    return StringUtils.unixLines(toPreamble());
   }
 
   public static Builder builder() {

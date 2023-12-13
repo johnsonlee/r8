@@ -393,6 +393,11 @@ public abstract class BaseCompilerCommand extends BaseCommand {
       return self();
     }
 
+    /** Get the consumer for receiving the proguard-map content or null if unset. */
+    public StringConsumer getProguardMapConsumer() {
+      return proguardMapConsumer;
+    }
+
     /**
      * Set an output destination to which partition-map content should be written.
      *

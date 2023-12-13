@@ -86,7 +86,6 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   private final List<Path> features = new ArrayList<>();
   private Path resourceShrinkerOutput = null;
   private HashMap<String, Path> resourceShrinkerOutputForFeatures = new HashMap<>();
-  private PartitionMapConsumer partitionMapConsumer = null;
 
   @Override
   public boolean isR8TestBuilder() {
@@ -115,21 +114,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     if (enableMinification.isFalse()) {
       builder.setDisableMinification(true);
     }
-    StringBuilder proguardMapBuilder = new StringBuilder();
-    builder.setProguardMapConsumer(
-        new StringConsumer() {
-          @Override
-          public void accept(String string, DiagnosticsHandler handler) {
-            proguardMapBuilder.append(string);
-          }
-
-          @Override
-          public void finished(DiagnosticsHandler handler) {
-            // Nothing to do.
-          }
-        });
-    builder.setPartitionMapConsumer(partitionMapConsumer);
-
+    StringBuilder proguardMapBuilder = wrapProguardMapConsumer(builder);
     if (!applyMappingMaps.isEmpty()) {
       try {
         Path mappingsDir = getState().getNewTempFolder();
@@ -205,6 +190,25 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
       compileResult.assertNoInfoThatMatches(proguardConfigurationRuleDoesNotMatch());
     }
     return compileResult;
+  }
+
+  private static StringBuilder wrapProguardMapConsumer(Builder builder) {
+    StringBuilder pgMapOutput = new StringBuilder();
+    StringConsumer pgMapConsumer = builder.getProguardMapConsumer();
+    builder.setProguardMapConsumer(
+        new StringConsumer.ForwardingConsumer(pgMapConsumer) {
+          @Override
+          public void accept(String string, DiagnosticsHandler handler) {
+            super.accept(string, handler);
+            pgMapOutput.append(string);
+          }
+
+          @Override
+          public void finished(DiagnosticsHandler handler) {
+            super.finished(handler);
+          }
+        });
+    return pgMapOutput;
   }
 
   private static StringBuilder wrapProguardConfigConsumer(Builder builder) {
@@ -900,7 +904,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   }
 
   public T setPartitionMapConsumer(PartitionMapConsumer partitionMapConsumer) {
-    this.partitionMapConsumer = partitionMapConsumer;
+    getBuilder().setPartitionMapConsumer(partitionMapConsumer);
     return self();
   }
 

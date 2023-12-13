@@ -26,10 +26,8 @@ public class ProguardMapStringConsumer implements MapConsumer, ChainableStringCo
   @Override
   public void accept(
       DiagnosticsHandler diagnosticsHandler,
-      ProguardMapMarkerInfo markerInfo,
       ClassNameMapper classNameMapper) {
     this.diagnosticsHandler = diagnosticsHandler;
-    accept(markerInfo.serializeToString());
     accept(StringUtils.unixLines(classNameMapper.getPreamble()));
     classNameMapper.write(this);
   }

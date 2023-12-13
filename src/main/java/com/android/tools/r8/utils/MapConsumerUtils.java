@@ -7,7 +7,6 @@ package com.android.tools.r8.utils;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.naming.MapConsumer;
-import com.android.tools.r8.naming.ProguardMapMarkerInfo;
 import java.util.function.Function;
 
 public class MapConsumerUtils {
@@ -19,12 +18,9 @@ public class MapConsumerUtils {
     }
     return new MapConsumer() {
       @Override
-      public void accept(
-          DiagnosticsHandler diagnosticsHandler,
-          ProguardMapMarkerInfo makerInfo,
-          ClassNameMapper classNameMapper) {
-        existingMapConsumer.accept(diagnosticsHandler, makerInfo, classNameMapper);
-        newConsumer.accept(diagnosticsHandler, makerInfo, classNameMapper);
+      public void accept(DiagnosticsHandler diagnosticsHandler, ClassNameMapper classNameMapper) {
+        existingMapConsumer.accept(diagnosticsHandler, classNameMapper);
+        newConsumer.accept(diagnosticsHandler, classNameMapper);
       }
 
       @Override

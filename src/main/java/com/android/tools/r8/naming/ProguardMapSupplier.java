@@ -9,6 +9,7 @@ import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.utils.ChainableStringConsumer;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Reporter;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -66,16 +67,20 @@ public class ProguardMapSupplier {
 
   public ProguardMapId writeProguardMap() {
     ProguardMapId proguardMapId = computeProguardMapId();
-    consumer.accept(
-        reporter,
+    ProguardMapMarkerInfo markerInfo =
         ProguardMapMarkerInfo.builder()
             .setCompilerName(compiler.name())
             .setProguardMapId(proguardMapId)
             .setGeneratingDex(options.isGeneratingDex())
             .setApiLevel(options.getMinApiLevel())
             .setMapVersion(options.getMapFileVersion())
-            .build(),
-        classNameMapper);
+            .build();
+
+    // Set or compose the marker in the preamble information.
+    classNameMapper.setPreamble(
+        ListUtils.concat(markerInfo.toPreamble(), classNameMapper.getPreamble()));
+
+    consumer.accept(reporter, classNameMapper);
     ExceptionUtils.withConsumeResourceHandler(reporter, this.consumer::finished);
     return proguardMapId;
   }
