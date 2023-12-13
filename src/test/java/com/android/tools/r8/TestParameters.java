@@ -196,6 +196,11 @@ public class TestParameters {
     return isCfRuntime() ? ToolHelper.getJava8RuntimeJar() : getDefaultAndroidJar();
   }
 
+  public CfRuntime getCfRuntime() {
+    assert isCfRuntime();
+    return runtime.asCf();
+  }
+
   // Access to underlying runtime/wrapper.
   public TestRuntime getRuntime() {
     return runtime;
