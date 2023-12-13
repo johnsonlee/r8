@@ -7,7 +7,6 @@ import static org.hamcrest.CoreMatchers.containsString;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
-import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -65,15 +64,10 @@ public class PackagePrivateOverrideWithInterfacePublicizerTest extends TestBase 
   }
 
   private void assertSuccessOutput(TestRunResult<?> result) {
-    if (result instanceof R8TestRunResult) {
-      // TODO(b/314984596): Should pass with expected output.
-      result.assertSuccessWithOutputLines("SubViewModel.clear()", "SubViewModel.clear()");
+    if (parameters.isDexRuntime() && parameters.getDexRuntimeVersion().isDalvik()) {
+      result.assertFailureWithErrorThatMatches(containsString("overrides final"));
     } else {
-      if (parameters.isDexRuntime() && parameters.getDexRuntimeVersion().isDalvik()) {
-        result.assertFailureWithErrorThatMatches(containsString("overrides final"));
-      } else {
-        result.assertSuccessWithOutputLines("SubViewModel.clear()", "ViewModel.clear()");
-      }
+      result.assertSuccessWithOutputLines("SubViewModel.clear()", "ViewModel.clear()");
     }
   }
 

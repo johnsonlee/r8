@@ -126,4 +126,8 @@ public class ImmediateProgramSubtypingInfo {
   public List<DexProgramClass> getSubclasses(DexProgramClass clazz) {
     return immediateSubtypes.getOrDefault(clazz, Collections.emptyList());
   }
+
+  public boolean hasSubclasses(DexProgramClass clazz) {
+    return !getSubclasses(clazz).isEmpty();
+  }
 }
