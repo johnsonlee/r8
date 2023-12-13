@@ -136,10 +136,6 @@ class AccessModifierTraversal extends DepthFirstTopDownClassHierarchyTraversal {
     TopDownTraversalState asTopDownTraversalState() {
       return this;
     }
-
-    boolean isEmpty() {
-      return true;
-    }
   }
 
   static class BottomUpTraversalState extends TraversalState {
