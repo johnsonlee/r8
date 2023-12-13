@@ -74,6 +74,7 @@ public @interface KeepBinding {
    * <ul>
    *   <li>className
    *   <li>classConstant
+   *   <li>classNamePattern
    *   <li>instanceOfClassName
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstant
@@ -95,6 +96,7 @@ public @interface KeepBinding {
    *
    * <ul>
    *   <li>classConstant
+   *   <li>classNamePattern
    *   <li>classFromBinding
    * </ul>
    *
@@ -111,6 +113,7 @@ public @interface KeepBinding {
    *
    * <ul>
    *   <li>className
+   *   <li>classNamePattern
    *   <li>classFromBinding
    * </ul>
    *
@@ -119,6 +122,23 @@ public @interface KeepBinding {
    * @return The class-constant that defines the class.
    */
   Class<?> classConstant() default Object.class;
+
+  /**
+   * Define the class-name pattern by reference to a class-name pattern.
+   *
+   * <p>Mutually exclusive with the following other properties defining class-name:
+   *
+   * <ul>
+   *   <li>className
+   *   <li>classConstant
+   *   <li>classFromBinding
+   * </ul>
+   *
+   * <p>If none are specified the default is to match any class name.
+   *
+   * @return The class-name pattern that defines the class.
+   */
+  ClassNamePattern classNamePattern() default @ClassNamePattern(simpleName = "");
 
   /**
    * Define the instance-of pattern as classes that are instances of the fully qualified class name.

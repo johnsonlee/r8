@@ -29,7 +29,12 @@ public @interface TypePattern {
    *
    * <p>For example, {@code "long"} or {@code "java.lang.String"}.
    *
-   * <p>Mutually exclusive with the property `constant` also defining type-pattern.
+   * <p>Mutually exclusive with the following other properties defining type-pattern:
+   *
+   * <ul>
+   *   <li>constant
+   *   <li>classNamePattern
+   * </ul>
    */
   String name() default "";
 
@@ -38,7 +43,24 @@ public @interface TypePattern {
    *
    * <p>For example, {@code String.class}.
    *
-   * <p>Mutually exclusive with the property `name` also defining type-pattern.
+   * <p>Mutually exclusive with the following other properties defining type-pattern:
+   *
+   * <ul>
+   *   <li>name
+   *   <li>classNamePattern
+   * </ul>
    */
   Class<?> constant() default Object.class;
+
+  /**
+   * Classes matching the class-name pattern.
+   *
+   * <p>Mutually exclusive with the following other properties defining type-pattern:
+   *
+   * <ul>
+   *   <li>name
+   *   <li>constant
+   * </ul>
+   */
+  ClassNamePattern classNamePattern() default @ClassNamePattern(simpleName = "");
 }

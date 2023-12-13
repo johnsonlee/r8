@@ -76,6 +76,7 @@ public final class AnnotationConstants {
     public static final String memberFromBinding = "memberFromBinding";
     public static final String className = "className";
     public static final String classConstant = "classConstant";
+    public static final String classNamePattern = "classNamePattern";
     public static final String instanceOfClassName = "instanceOfClassName";
     public static final String instanceOfClassNameExclusive = "instanceOfClassNameExclusive";
     public static final String instanceOfClassConstant = "instanceOfClassConstant";
@@ -203,5 +204,14 @@ public final class AnnotationConstants {
         "Lcom/android/tools/r8/keepanno/annotations/TypePattern;";
     public static final String name = "name";
     public static final String constant = "constant";
+    public static final String classNamePattern = "classNamePattern";
+  }
+
+  public static final class ClassNamePattern {
+    public static final String SIMPLE_NAME = "ClassNamePattern";
+    public static final String DESCRIPTOR =
+        "Lcom/android/tools/r8/keepanno/annotations/ClassNamePattern;";
+    public static final String simpleName = "simpleName";
+    public static final String packageName = "packageName";
   }
 }

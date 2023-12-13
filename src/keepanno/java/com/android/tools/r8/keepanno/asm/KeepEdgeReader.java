@@ -6,6 +6,7 @@ package com.android.tools.r8.keepanno.asm;
 import com.android.tools.r8.keepanno.ast.AccessVisibility;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Binding;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.ClassNamePattern;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Condition;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Constraints;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Edge;
@@ -50,10 +51,13 @@ import com.android.tools.r8.keepanno.ast.KeepMethodPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodReturnTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepOptions;
 import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
+import com.android.tools.r8.keepanno.ast.KeepPackagePattern;
 import com.android.tools.r8.keepanno.ast.KeepPreconditions;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepTarget;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
+import com.android.tools.r8.keepanno.ast.KeepUnqualfiedClassNamePattern;
+import com.android.tools.r8.keepanno.utils.Unimplemented;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1195,7 +1199,6 @@ public class KeepEdgeReader implements Opcodes {
       }
       return true;
     }
-    ;
 
     abstract T getValue();
 
@@ -1341,6 +1344,15 @@ public class KeepEdgeReader implements Opcodes {
       }
       return null;
     }
+
+    @Override
+    AnnotationVisitor parseAnnotation(
+        String name, String descriptor, Consumer<KeepQualifiedClassNamePattern> setValue) {
+      if (name.equals(Item.classNamePattern) && descriptor.equals(ClassNamePattern.DESCRIPTOR)) {
+        return new ClassNamePatternVisitor(setValue);
+      }
+      return super.parseAnnotation(name, descriptor, setValue);
+    }
   }
 
   private static class InstanceOfDeclaration extends SingleDeclaration<KeepInstanceOfPattern> {
@@ -1402,9 +1414,16 @@ public class KeepEdgeReader implements Opcodes {
     private KeepClassItemReference boundClassItemReference = null;
     private final ClassNameDeclaration classNameDeclaration = new ClassNameDeclaration();
     private final InstanceOfDeclaration instanceOfDeclaration = new InstanceOfDeclaration();
+    private final List<Declaration<?>> declarations =
+        ImmutableList.of(classNameDeclaration, instanceOfDeclaration);
 
     public ClassDeclaration(Supplier<UserBindingsHelper> getBindingsHelper) {
       this.getBindingsHelper = getBindingsHelper;
+    }
+
+    @Override
+    List<Declaration<?>> declarations() {
+      return declarations;
     }
 
     private boolean isBindingReferenceDefined() {
@@ -1429,11 +1448,12 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     boolean isDefault() {
-      return !isBindingReferenceDefined() && !classPatternsAreDefined();
+      return !isBindingReferenceDefined() && super.isDefault();
     }
 
     @Override
     KeepClassItemReference getValue() {
+      checkAllowedDefinitions();
       if (isBindingReferenceDefined()) {
         return boundClassItemReference;
       }
@@ -1463,15 +1483,7 @@ public class KeepEdgeReader implements Opcodes {
         setBindingReference(KeepBindingReference.forClass(symbol).toClassItemReference());
         return true;
       }
-      if (classNameDeclaration.tryParse(name, value)) {
-        checkAllowedDefinitions();
-        return true;
-      }
-      if (instanceOfDeclaration.tryParse(name, value)) {
-        checkAllowedDefinitions();
-        return true;
-      }
-      return false;
+      return super.tryParse(name, value);
     }
   }
 
@@ -2139,6 +2151,109 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
+  private static class ClassSimpleNameDeclaration
+      extends SingleDeclaration<KeepUnqualfiedClassNamePattern> {
+
+    @Override
+    String kind() {
+      return "class-simple-name";
+    }
+
+    @Override
+    KeepUnqualfiedClassNamePattern getDefaultValue() {
+      return KeepUnqualfiedClassNamePattern.any();
+    }
+
+    @Override
+    KeepUnqualfiedClassNamePattern parse(String name, Object value) {
+      if (name.equals(ClassNamePattern.simpleName) && value instanceof String) {
+        return KeepUnqualfiedClassNamePattern.builder().exact((String) value).build();
+      }
+      return null;
+    }
+  }
+
+  private static class PackageDeclaration extends SingleDeclaration<KeepPackagePattern> {
+
+    @Override
+    String kind() {
+      return "package";
+    }
+
+    @Override
+    KeepPackagePattern getDefaultValue() {
+      return KeepPackagePattern.any();
+    }
+
+    @Override
+    KeepPackagePattern parse(String name, Object value) {
+      if (name.equals(ClassNamePattern.packageName) && value instanceof String) {
+        return KeepPackagePattern.builder().exact((String) value).build();
+      }
+      return null;
+    }
+  }
+
+  private static class ClassNamePatternDeclaration
+      extends Declaration<KeepQualifiedClassNamePattern> {
+
+    private final ClassSimpleNameDeclaration nameDeclaration = new ClassSimpleNameDeclaration();
+    private final PackageDeclaration packageDeclaration = new PackageDeclaration();
+    private final List<Declaration<?>> declarations =
+        ImmutableList.of(nameDeclaration, packageDeclaration);
+
+    @Override
+    String kind() {
+      return "class-name";
+    }
+
+    @Override
+    KeepQualifiedClassNamePattern getValue() {
+      if (!packageDeclaration.isDefault() || !nameDeclaration.isDefault()) {
+        return KeepQualifiedClassNamePattern.builder()
+            .setPackagePattern(packageDeclaration.getValue())
+            .setNamePattern(nameDeclaration.getValue())
+            .build();
+      }
+      return null;
+    }
+
+    @Override
+    List<Declaration<?>> declarations() {
+      return declarations;
+    }
+  }
+
+  private static class ClassNamePatternVisitor extends AnnotationVisitorBase {
+
+    private final ClassNamePatternDeclaration declaration = new ClassNamePatternDeclaration();
+    private final Consumer<KeepQualifiedClassNamePattern> setValue;
+
+    public ClassNamePatternVisitor(Consumer<KeepQualifiedClassNamePattern> setValue) {
+      this.setValue = setValue;
+    }
+
+    @Override
+    public String getAnnotationName() {
+      return ClassNamePattern.SIMPLE_NAME;
+    }
+
+    @Override
+    public void visit(String name, Object value) {
+      if (!declaration.tryParse(name, value)) {
+        super.visit(name, value);
+      }
+    }
+
+    @Override
+    public void visitEnd() {
+      if (!declaration.isDefault()) {
+        setValue.accept(declaration.getValue());
+      }
+      super.visitEnd();
+    }
+  }
+
   private static class TypePatternVisitor extends AnnotationVisitorBase {
     private final Supplier<String> annotationName;
     private final Consumer<KeepTypePattern> consumer;
@@ -2174,6 +2289,23 @@ public class KeepEdgeReader implements Opcodes {
         return;
       }
       super.visit(name, value);
+    }
+
+    @Override
+    public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+      if (TypePattern.classNamePattern.equals(name)
+          && descriptor.equals(ClassNamePattern.DESCRIPTOR)) {
+        return new ClassNamePatternVisitor(
+            p -> {
+              if (p.isExact()) {
+                setResult(KeepTypePattern.fromDescriptor(p.getExactDescriptor()));
+              } else {
+                // TODO(b/248408342): Extend the AST type patterns.
+                throw new Unimplemented("Non-exact class patterns are not unimplemented yet");
+              }
+            });
+      }
+      return super.visitAnnotation(name, descriptor);
     }
 
     @Override
