@@ -202,7 +202,7 @@ public final class KotlinClassMetadataReader {
       KotlinClassMetadata kMetadata,
       AppView<?> appView,
       Consumer<DexEncodedMethod> keepByteCode) {
-    Metadata metadata = kMetadata.getAnnotationData$kotlinx_metadata_jvm();
+    Metadata metadata = kMetadata.write();
     String packageName = metadata.pn();
     int[] metadataVersion = metadata.mv();
     if (kMetadata instanceof KotlinClassMetadata.Class) {
