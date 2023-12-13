@@ -16,7 +16,6 @@ import java.util.Set;
 public interface DominatorChecker {
   boolean check(BasicBlock targetBlock);
 
-  DominatorChecker TRUE_CHECKER = targetBlock -> true;
   DominatorChecker FALSE_CHECKER = targetBlock -> false;
 
   class PrecomputedDominatorChecker implements DominatorChecker {

@@ -170,8 +170,11 @@ public class ValueUtils {
 
     // Ensure that all paths from new-array-empty to |usage| contain all array-put instructions.
     DominatorChecker dominatorChecker = DominatorChecker.create(definition.getBlock(), usageBlock);
-    for (Instruction user : arrayValue.uniqueUsers()) {
-      if (!dominatorChecker.check(user.getBlock())) {
+    // Visit in reverse order because array-puts generally appear in order, and DominatorChecker's
+    // cache is more effective when visiting in reverse order.
+    for (int i = arraySize - 1; i >= 0; --i) {
+      ArrayPut arrayPut = arrayPutsByIndex[i];
+      if (arrayPut != null && !dominatorChecker.check(arrayPut.getBlock())) {
         return null;
       }
     }
