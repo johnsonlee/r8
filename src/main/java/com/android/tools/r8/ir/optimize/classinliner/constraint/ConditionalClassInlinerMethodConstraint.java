@@ -53,9 +53,9 @@ public class ConditionalClassInlinerMethodConstraint implements ClassInlinerMeth
                 return;
               }
               if (argumentInfo.isRewrittenTypeInfo()
-                  && argumentInfo.asRewrittenTypeInfo().getNewType().isIntType()) {
-                // This is due to enum unboxing. After enum unboxing, we no longer need information
-                // about the usages of this parameter for class inlining.
+                  && argumentInfo.asRewrittenTypeInfo().getNewType().isPrimitiveType()) {
+                // This is due to number/enum unboxing. After enum unboxing, we no longer need
+                // information about the usages of this parameter for class inlining.
                 return;
               }
               backing.put(changes.getNewArgumentIndex(argumentIndex), usagePerContext);

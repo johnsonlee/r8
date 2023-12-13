@@ -7,6 +7,7 @@ package com.android.tools.r8.ir.optimize.info;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraint;
 import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraintFactory;
+import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.optimize.classinliner.constraint.ClassInlinerMethodConstraint;
 import com.android.tools.r8.ir.optimize.enums.classification.EnumUnboxerMethodClassification;
 import com.android.tools.r8.ir.optimize.info.bridge.BridgeInfo;
@@ -73,5 +74,10 @@ public class DefaultMethodOptimizationInfoFixer extends MethodOptimizationInfoFi
   @Override
   public BitSet fixupArguments(BitSet arguments) {
     return arguments;
+  }
+
+  @Override
+  public DynamicType fixupDynamicType(DynamicType dynamicType) {
+    return dynamicType;
   }
 }

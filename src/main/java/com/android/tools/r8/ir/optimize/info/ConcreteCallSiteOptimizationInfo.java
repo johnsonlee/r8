@@ -94,7 +94,8 @@ public class ConcreteCallSiteOptimizationInfo extends CallSiteOptimizationInfo {
             parameterChanges.getArgumentInfo(parameterIndex).asRewrittenTypeInfo();
         if (rewrittenTypeInfo != null
             && rewrittenTypeInfo.getOldType().isReferenceType()
-            && rewrittenTypeInfo.getNewType().isIntType()) {
+            && rewrittenTypeInfo.getNewType().isPrimitiveType()) {
+          // Clear information for number/enum unboxing.
           rewrittenParameterIndex++;
           continue;
         }

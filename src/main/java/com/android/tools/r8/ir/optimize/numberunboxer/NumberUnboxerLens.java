@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.proto.RewrittenTypeInfo;
 import com.android.tools.r8.ir.conversion.ExtraUnusedNullParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
 import com.android.tools.r8.utils.collections.BidirectionalOneToOneHashMap;
 import com.android.tools.r8.utils.collections.MutableBidirectionalOneToOneMap;
@@ -82,12 +83,14 @@ public class NumberUnboxerLens extends NestedGraphLensWithCustomLensCodeRewriter
       ArgumentInfoCollection.Builder builder =
           ArgumentInfoCollection.builder()
               .setArgumentInfosSize(from.getNumberOfArguments(staticMethod));
+      int shift = BooleanUtils.intValue(!staticMethod);
       for (int i = 0; i < from.getParameters().size(); i++) {
         DexType fromType = from.getParameter(i);
         DexType toType = to.getParameter(i);
         if (!fromType.isIdenticalTo(toType)) {
           builder.addArgumentInfo(
-              i, RewrittenTypeInfo.builder().setOldType(fromType).setNewType(toType).build());
+              shift + i,
+              RewrittenTypeInfo.builder().setOldType(fromType).setNewType(toType).build());
         }
       }
       RewrittenTypeInfo returnInfo =

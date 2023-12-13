@@ -26,16 +26,19 @@ import java.util.concurrent.ExecutorService;
 
 public class NumberUnboxerTreeFixer implements ProgramClassFixer {
 
-  private final Map<DexMethod, MethodBoxingStatusResult> unboxingResult;
   private final AppView<AppInfoWithLiveness> appView;
+  private final Map<DexMethod, MethodBoxingStatusResult> unboxingResult;
+  private final Map<DexMethod, DexMethod> virtualMethodsRepresentative;
 
   private final NumberUnboxerLens.Builder lensBuilder = NumberUnboxerLens.builder();
 
   public NumberUnboxerTreeFixer(
       AppView<AppInfoWithLiveness> appView,
-      Map<DexMethod, MethodBoxingStatusResult> unboxingResult) {
-    this.unboxingResult = unboxingResult;
+      Map<DexMethod, MethodBoxingStatusResult> unboxingResult,
+      Map<DexMethod, DexMethod> virtualMethodsRepresentative) {
     this.appView = appView;
+    this.unboxingResult = unboxingResult;
+    this.virtualMethodsRepresentative = virtualMethodsRepresentative;
   }
 
   public NumberUnboxerLens fixupTree(ExecutorService executorService, Timing timing)
@@ -56,12 +59,16 @@ public class NumberUnboxerTreeFixer implements ProgramClassFixer {
   public boolean shouldReserveAsIfPinned(ProgramMethod method) {
     // We don't reprocess dependencies of unchanged methods so we have to maintain them
     // with the same signature.
-    return !unboxingResult.containsKey(method.getReference());
+    return !unboxingResult.containsKey(representative(method.getReference()));
+  }
+
+  private DexMethod representative(DexMethod method) {
+    return virtualMethodsRepresentative.getOrDefault(method, method);
   }
 
   private DexEncodedMethod fixupEncodedMethod(
       DexEncodedMethod method, MethodNamingUtility utility) {
-    if (!unboxingResult.containsKey(method.getReference())) {
+    if (!unboxingResult.containsKey(representative(method.getReference()))) {
       assert method
           .getReference()
           .isIdenticalTo(
@@ -69,7 +76,8 @@ public class NumberUnboxerTreeFixer implements ProgramClassFixer {
                   method, method.getProto(), appView.dexItemFactory().shortType));
       return method;
     }
-    MethodBoxingStatusResult methodBoxingStatus = unboxingResult.get(method.getReference());
+    MethodBoxingStatusResult methodBoxingStatus =
+        unboxingResult.get(representative(method.getReference()));
     assert !methodBoxingStatus.isNoneUnboxable();
     DexProto newProto = fixupProto(method.getProto(), methodBoxingStatus);
     DexMethod newMethod =
