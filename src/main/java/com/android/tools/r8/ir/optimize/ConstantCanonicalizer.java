@@ -445,13 +445,14 @@ public class ConstantCanonicalizer {
           if (instanceGet.instructionMayHaveSideEffects(appView, context)) {
             return false;
           }
+          NewInstance newInstance = null;
           if (instanceGet.object().isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
-            NewInstance newInstance = instanceGet.object().getDefinition().asNewInstance();
+            newInstance = instanceGet.object().getDefinition().asNewInstance();
             if (newInstance.getUniqueConstructorInvoke(appView.dexItemFactory()) == null) {
               return false;
             }
           }
-          if (!isReadOfEffectivelyFinalFieldOutsideInitializer(instanceGet)) {
+          if (!isReadOfEffectivelyFinalFieldOutsideInitializer(instanceGet, newInstance)) {
             return false;
           }
           if (getOrComputeIneligibleInstanceGetInstructions().contains(instanceGet)) {
@@ -484,7 +485,12 @@ public class ConstantCanonicalizer {
     return true;
   }
 
-  private boolean isReadOfEffectivelyFinalFieldOutsideInitializer(FieldGet fieldGet) {
+  private boolean isReadOfEffectivelyFinalFieldOutsideInitializer(StaticGet staticGet) {
+    return isReadOfEffectivelyFinalFieldOutsideInitializer(staticGet, null);
+  }
+
+  private boolean isReadOfEffectivelyFinalFieldOutsideInitializer(
+      FieldGet fieldGet, NewInstance newInstance) {
     if (getOrComputeIsAccessingVolatileField()) {
       // A final field may be initialized concurrently. A requirement for this is that the field is
       // volatile. However, the reading or writing of another volatile field also allows for
@@ -510,6 +516,14 @@ public class ConstantCanonicalizer {
     FieldAccessFlags accessFlags = resolvedField.getAccessFlags();
     assert !accessFlags.isVolatile();
     if (!resolvedField.isFinalOrEffectivelyFinal(appViewWithClassHierarchy)) {
+      return false;
+    }
+    if (!resolvedField.getAccessFlags().isFinal() && newInstance != null) {
+      // The effectively final property captured in the enqueuer may be invalidated by constructor
+      // inlining (in particular, fields that used only to be written in instance initializers from
+      // the enclosing class may now be written outside such constructors). If we see an
+      // instance-get on a newly created instance, we therefore bail-out since the field may in
+      // principle not be effectively final in this method.
       return false;
     }
     if (appView.getKeepInfo(resolvedField).isPinned(appView.options())) {

@@ -14,6 +14,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
+/** Regression test for b/315877832. */
 @RunWith(Parameterized.class)
 public class EffectivelyFinalInstanceFieldCanonicalizationAfterConstructorInliningTest
     extends TestBase {
@@ -35,11 +36,7 @@ public class EffectivelyFinalInstanceFieldCanonicalizationAfterConstructorInlini
         .enableNoRedundantFieldLoadEliminationAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/315877832): Fix canonicalization.
-        .assertSuccessWithOutputLines(
-            parameters.canInitNewInstanceUsingSuperclassConstructor()
-                ? "null, world!"
-                : "Hello, world!");
+        .assertSuccessWithOutputLines("Hello, world!");
   }
 
   static class Main {
