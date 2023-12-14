@@ -6,7 +6,7 @@ package com.android.tools.r8.numberunboxing;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
@@ -14,7 +14,6 @@ import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.naming.MemberNaming.MethodSignature;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
@@ -49,19 +48,14 @@ public class VirtualMethodsOverrideNumberUnboxingTest extends TestBase {
         .compile()
         .inspect(this::assertUnboxing)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("3", "1", "5", "0");
+        .assertSuccessWithOutputLines("3", "1", "43", "5", "0", "43");
   }
 
   private void assertUnboxed(MethodSubject methodSubject) {
     assertThat(methodSubject, isPresent());
-    MethodSignature originalSignature = methodSubject.getOriginalSignature();
-    MethodSignature finalSignature = methodSubject.getFinalSignature().asMethodSignature();
-    assertEquals("java.lang.Long", originalSignature.type);
-    assertEquals("long", finalSignature.type);
-    assertEquals("java.lang.Double", originalSignature.parameters[0]);
-    assertEquals("double", finalSignature.parameters[0]);
-    assertEquals("java.lang.Integer", originalSignature.parameters[1]);
-    assertEquals("int", finalSignature.parameters[1]);
+    assertTrue(methodSubject.getProgramMethod().getParameter(0).isDoubleType());
+    assertTrue(methodSubject.getProgramMethod().getParameter(1).isIntType());
+    assertTrue(methodSubject.getProgramMethod().getReturnType().isLongType());
   }
 
   private void assertUnboxing(CodeInspector codeInspector) {
@@ -73,8 +67,10 @@ public class VirtualMethodsOverrideNumberUnboxingTest extends TestBase {
     public static void main(String[] args) {
       System.out.println(new Add().convert(1.3, 1) + 1L);
       System.out.println(new Sub().convert(1.4, 2) + 1L);
+      System.out.println(new Cst().convert(1.4, 2) + 1L);
       run(new Add());
       run(new Sub());
+      run(new Cst());
     }
 
     @NeverInline
@@ -95,7 +91,6 @@ public class VirtualMethodsOverrideNumberUnboxingTest extends TestBase {
     @Override
     @NeverInline
     public Long convert(Double d, Integer i) {
-      System.out.print("");
       return Long.valueOf((long) (d.doubleValue() + i.intValue()));
     }
   }
@@ -106,8 +101,17 @@ public class VirtualMethodsOverrideNumberUnboxingTest extends TestBase {
     @Override
     @NeverInline
     public Long convert(Double d, Integer i) {
-      System.out.print("");
       return Long.valueOf((long) (d.doubleValue() - i.intValue()));
+    }
+  }
+
+  @NeverClassInline
+  @NoHorizontalClassMerging
+  static class Cst implements Top {
+    @Override
+    @NeverInline
+    public Long convert(Double d, Integer i) {
+      return Long.valueOf(42L);
     }
   }
 }

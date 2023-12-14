@@ -160,6 +160,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
         .fixupBridgeInfo(fixer)
         .fixupClassInlinerMethodConstraint(appView, fixer)
         .fixupDynamicType(fixer)
+        .fixupAbstractReturnValue(appView, fixer)
         .fixupEnumUnboxerMethodClassification(fixer)
         .fixupInstanceInitializerInfo(appView, fixer)
         .fixupNonNullParamOnNormalExits(fixer)
@@ -207,6 +208,15 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     assert appView.hasUnboxedEnums();
     assert appView.unboxedEnums().isUnboxedEnum(dynamicUpperBoundClassType.getClassType());
     return true;
+  }
+
+  public MutableMethodOptimizationInfo fixupAbstractReturnValue(
+      AppView<AppInfoWithLiveness> appView, MethodOptimizationInfoFixer fixer) {
+    if (abstractReturnValue.isUnknown()) {
+      return this;
+    }
+    abstractReturnValue = fixer.fixupAbstractReturnValue(appView, abstractReturnValue);
+    return this;
   }
 
   public MutableMethodOptimizationInfo fixupAbstractReturnValue(
