@@ -13,7 +13,9 @@ import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.inlining.NeverSimpleInliningConstraint;
 import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraint;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
@@ -183,12 +185,28 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   public MutableMethodOptimizationInfo fixupClassTypeReferences(
       AppView<AppInfoWithLiveness> appView, GraphLens lens, Set<DexType> prunedTypes) {
     DynamicType rewrittenDynamicType = dynamicType.rewrittenWithLens(appView, lens, prunedTypes);
-    assert !(rewrittenDynamicType.hasDynamicUpperBoundType()
-        && rewrittenDynamicType
-            .asDynamicTypeWithUpperBound()
-            .getDynamicUpperBoundType()
-            .isPrimitiveType());
+    if (rewrittenDynamicType.hasDynamicUpperBoundType()) {
+      DynamicTypeWithUpperBound rewrittenDynamicTypeWithUpperBound =
+          rewrittenDynamicType.asDynamicTypeWithUpperBound();
+      if (rewrittenDynamicTypeWithUpperBound.getDynamicUpperBoundType().isPrimitiveType()) {
+        // Do not store primitive dynamic types.
+        assert verifyDynamicTypeIsUnboxedEnum(appView, dynamicType);
+        return unsetDynamicType();
+      }
+    }
     return setDynamicType(rewrittenDynamicType);
+  }
+
+  private static boolean verifyDynamicTypeIsUnboxedEnum(
+      AppView<?> appView, DynamicType dynamicType) {
+    assert dynamicType.isDynamicTypeWithUpperBound();
+    DynamicTypeWithUpperBound dynamicTypeWithUpperBound = dynamicType.asDynamicTypeWithUpperBound();
+    TypeElement dynamicUpperBoundType = dynamicTypeWithUpperBound.getDynamicUpperBoundType();
+    assert dynamicUpperBoundType.isClassType();
+    ClassTypeElement dynamicUpperBoundClassType = dynamicUpperBoundType.asClassType();
+    assert appView.hasUnboxedEnums();
+    assert appView.unboxedEnums().isUnboxedEnum(dynamicUpperBoundClassType.getClassType());
+    return true;
   }
 
   public MutableMethodOptimizationInfo fixupAbstractReturnValue(
