@@ -5177,7 +5177,9 @@ public class Enqueuer {
     int parametersSize =
         newArrayEmpty != null
             ? newArrayEmpty.sizeIfConst()
-            : newArrayFilled != null ? newArrayFilled.size() : -1;
+            : newArrayFilled != null
+                ? newArrayFilled.size()
+                : parametersValue.isAlwaysNull(appView) ? 0 : -1;
     if (parametersSize < 0) {
       return;
     }

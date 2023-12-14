@@ -675,6 +675,7 @@ public class DexItemFactory {
   public final AssertionErrorMethods assertionErrorMethods = new AssertionErrorMethods();
   public final ClassMethods classMethods = new ClassMethods();
   public final ConstructorMethods constructorMethods = new ConstructorMethods();
+  public final MethodMethods methodMethods = new MethodMethods();
   public final EnumMembers enumMembers = new EnumMembers();
   public final AndroidUtilLogMembers androidUtilLogMembers = new AndroidUtilLogMembers();
   public final JavaLangReflectArrayMembers javaLangReflectArrayMembers =
@@ -1944,6 +1945,15 @@ public class DexItemFactory {
               objectDescriptor,
               new DexString[] {objectArrayDescriptor});
     }
+  }
+
+  public class MethodMethods {
+
+    public final DexMethod invoke =
+        createMethod(
+            methodType, createProto(objectType, objectType, objectArrayType), invokeMethodName);
+
+    private MethodMethods() {}
   }
 
   public class AndroidUtilLogMembers {
