@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.classmerging.vertical;
 
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilationIf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
@@ -69,44 +68,39 @@ public class VerticalClassMergingInvokeSuperToNestMemberTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     assumeTrue(parameters.isDexRuntime() || !emitNestAnnotationsInDex);
-    // TODO(b/315283465): Fix rewriting of invoke-super after vertical class merging.
-    assertFailsCompilationIf(
-        enableVerticalClassMerging && (parameters.isCfRuntime() || emitNestAnnotationsInDex),
-        () ->
-            testForR8(parameters.getBackend())
-                .addProgramClasses(Main.class)
-                .addProgramClassFileData(getTransformedClasses())
-                .addKeepMainRule(Main.class)
-                .addOptionsModification(
-                    options -> options.emitNestAnnotationsInDex = emitNestAnnotationsInDex)
-                .addVerticallyMergedClassesInspector(
-                    inspector -> {
-                      if (enableVerticalClassMerging) {
-                        inspector.assertMergedIntoSubtype(Bar.class);
-                      } else {
-                        inspector.assertNoClassesMerged();
-                      }
-                    })
-                .enableInliningAnnotations()
-                .enableNeverClassInliningAnnotations()
-                .enableNoAccessModificationAnnotationsForMembers()
-                .enableNoHorizontalClassMergingAnnotations()
-                .applyIf(
-                    enableVerticalClassMerging,
-                    R8TestBuilder::addNoVerticalClassMergingAnnotations,
-                    R8TestBuilder::enableNoVerticalClassMergingAnnotations)
-                .setMinApi(parameters)
-                .compile()
-                .run(parameters.getRuntime(), Main.class)
-                .applyIf(
-                    parameters.isDexRuntime() && emitNestAnnotationsInDex,
-                    runResult ->
-                        runResult.assertFailureWithErrorThatThrows(IllegalAccessError.class),
-                    parameters.isCfRuntime() && parameters.getCfRuntime().isOlderThan(CfVm.JDK11),
-                    runResult ->
-                        runResult.assertFailureWithErrorThatThrows(
-                            UnsupportedClassVersionError.class),
-                    runResult -> runResult.assertSuccessWithOutputLines("Bar.bar()")));
+    testForR8(parameters.getBackend())
+        .addProgramClasses(Main.class)
+        .addProgramClassFileData(getTransformedClasses())
+        .addKeepMainRule(Main.class)
+        .addOptionsModification(
+            options -> options.emitNestAnnotationsInDex = emitNestAnnotationsInDex)
+        .addVerticallyMergedClassesInspector(
+            inspector -> {
+              if (enableVerticalClassMerging) {
+                inspector.assertMergedIntoSubtype(Bar.class);
+              } else {
+                inspector.assertNoClassesMerged();
+              }
+            })
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoAccessModificationAnnotationsForMembers()
+        .enableNoHorizontalClassMergingAnnotations()
+        .applyIf(
+            enableVerticalClassMerging,
+            R8TestBuilder::addNoVerticalClassMergingAnnotations,
+            R8TestBuilder::enableNoVerticalClassMergingAnnotations)
+        .setMinApi(parameters)
+        .compile()
+        .run(parameters.getRuntime(), Main.class)
+        .applyIf(
+            parameters.canUseNestBasedAccesses()
+                || (parameters.isDexRuntime() && !emitNestAnnotationsInDex),
+            runResult -> runResult.assertSuccessWithOutputLines("Bar.bar()"),
+            parameters.isCfRuntime(),
+            runResult ->
+                runResult.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class),
+            runResult -> runResult.assertFailureWithErrorThatThrows(IllegalAccessError.class));
   }
 
   private Collection<byte[]> getTransformedClasses() throws Exception {

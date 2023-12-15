@@ -428,8 +428,14 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
         for (Entry<DexMethod, DexMethod> innerEntry : entry.getValue().entrySet()) {
           DexMethod virtualMethod = innerEntry.getValue();
           DexMethod implementationMethod = extraNewMethodSignatures.get(virtualMethod);
-          assert implementationMethod != null;
-          innerEntry.setValue(implementationMethod);
+          if (implementationMethod != null) {
+            // Handle invoke-super to non-private virtual method.
+            innerEntry.setValue(implementationMethod);
+          } else {
+            // Handle invoke-super to private virtual method (nest access).
+            assert newMethodSignatures.containsKey(virtualMethod);
+            innerEntry.setValue(newMethodSignatures.get(virtualMethod));
+          }
         }
       }
     }

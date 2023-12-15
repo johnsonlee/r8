@@ -146,10 +146,8 @@ class ClassMerger {
                 && definition.isPrivate()
                 && AccessControl.isMemberAccessible(directMethod, source, target, appView)
                     .isTrue()) {
-              // TODO(b/315283465): Add a test for correct rewriting of invoke-super to nest members
-              //  and determine if we need to record something here or not.
-              // deferredRenamings.mapVirtualMethodToDirectInType(
-              //    directMethod.getReference(), target.getType());
+              deferredRenamings.mapVirtualMethodToDirectInType(
+                  definition.getReference(), definition, target.getType());
             }
           }
         });
