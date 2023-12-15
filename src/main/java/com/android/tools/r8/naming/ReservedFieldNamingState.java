@@ -6,6 +6,7 @@ package com.android.tools.r8.naming;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.naming.ReservedFieldNamingState.InternalState;
@@ -43,8 +44,8 @@ class ReservedFieldNamingState extends FieldNamingStateBase<InternalState> {
     return internalState == null ? null : internalState.getReservedByName(name);
   }
 
-  void markReserved(DexString name, DexString originalName, DexType type) {
-    getOrCreateInternalState(type).markReserved(name, originalName);
+  void markReserved(DexString name, DexClassAndField field) {
+    getOrCreateInternalState(field.getType()).markReserved(name, field.getName());
   }
 
   void includeReservations(ReservedFieldNamingState reservedNames) {

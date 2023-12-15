@@ -7,6 +7,7 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -126,13 +127,12 @@ class FieldNameMinifier {
               }
               ReservedFieldNamingState reservationState =
                   getOrCreateReservedFieldNamingState(frontier);
-              for (DexEncodedField field : clazz.fields()) {
-                DexString reservedName = strategy.getReservedName(field, clazz);
+              for (DexClassAndField field : clazz.classFields()) {
+                DexString reservedName = strategy.getReservedName(field);
                 if (reservedName != null) {
-                  reservationState.markReserved(
-                      reservedName, field.getReference().name, field.getReference().type);
+                  reservationState.markReserved(reservedName, field);
                   // TODO(b/148846065): Consider lazily computing the renaming on actual lookups.
-                  if (reservedName != field.getReference().name) {
+                  if (reservedName.isNotIdenticalTo(field.getName())) {
                     renaming.put(field.getReference(), reservedName);
                   }
                 }
@@ -214,16 +214,15 @@ class FieldNameMinifier {
             });
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private void renameFieldsInUnrelatedClasspathClasses() {
     if (appView.options().getProguardConfiguration().hasApplyMappingFile()) {
       appView
           .appInfo()
           .forEachReferencedClasspathClass(
               clazz -> {
-                for (DexEncodedField field : clazz.fields()) {
-                  DexString reservedName = strategy.getReservedName(field, clazz);
-                  if (reservedName != null && reservedName != field.getReference().name) {
+                for (DexClassAndField field : clazz.classFields()) {
+                  DexString reservedName = strategy.getReservedName(field);
+                  if (reservedName != null && reservedName.isNotIdenticalTo(field.getName())) {
                     renaming.put(field.getReference(), reservedName);
                   }
                 }
@@ -267,8 +266,7 @@ class FieldNameMinifier {
             .forEachProgramField(
                 field -> {
                   DexString newName = renameField(field, state);
-                  namesToBeReservedInImplementsSubclasses.markReserved(
-                      newName, field.getReference().name, field.getReference().type);
+                  namesToBeReservedInImplementsSubclasses.markReserved(newName, field);
                 });
       }
     }

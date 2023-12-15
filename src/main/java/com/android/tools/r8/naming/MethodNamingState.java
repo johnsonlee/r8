@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming;
 
-import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.naming.MethodNamingState.InternalNewNameState;
@@ -45,12 +45,12 @@ class MethodNamingState<KeyType> extends MethodNamingStateBase<KeyType, Internal
         this, this.keyTransform, this.namingStrategy, frontierReservationState);
   }
 
-  DexString newOrReservedNameFor(DexEncodedMethod method) {
+  DexString newOrReservedNameFor(DexClassAndMethod method) {
     return newOrReservedNameFor(method, this::isAvailable);
   }
 
   DexString newOrReservedNameFor(
-      DexEncodedMethod method, BiPredicate<DexString, DexMethod> isAvailable) {
+      DexClassAndMethod method, BiPredicate<DexString, DexMethod> isAvailable) {
     DexString newName = getAssignedName(method.getReference());
     if (newName != null) {
       return newName;
@@ -67,14 +67,14 @@ class MethodNamingState<KeyType> extends MethodNamingStateBase<KeyType, Internal
     return nextName(method, isAvailable);
   }
 
-  DexString nextName(DexEncodedMethod method, BiPredicate<DexString, DexMethod> isAvailable) {
+  DexString nextName(DexClassAndMethod method, BiPredicate<DexString, DexMethod> isAvailable) {
     InternalNewNameState internalState = getOrCreateInternalState(method.getReference());
     DexString newName = namingStrategy.next(method, internalState, isAvailable);
     assert newName != null;
     return newName;
   }
 
-  void addRenaming(DexString newName, DexEncodedMethod method) {
+  void addRenaming(DexString newName, DexClassAndMethod method) {
     InternalNewNameState internalState = getOrCreateInternalState(method.getReference());
     internalState.addRenaming(newName, method.getReference());
   }

@@ -5,6 +5,7 @@ package com.android.tools.r8.naming;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -20,6 +21,7 @@ import com.android.tools.r8.optimize.MemberRebindingAnalysis;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.google.common.collect.Sets;
 import java.util.Arrays;
 import java.util.Set;
@@ -59,7 +61,7 @@ public abstract class NamingLens {
       return callSite.methodName;
     }
     AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
-    Set<DexEncodedMethod> lambdaImplementedMethods =
+    DexClassAndMethodSet lambdaImplementedMethods =
         appViewWithLiveness.appInfo().lookupLambdaImplementedMethods(callSite, appViewWithLiveness);
     if (lambdaImplementedMethods.isEmpty()) {
       return callSite.methodName;
@@ -70,7 +72,7 @@ public abstract class NamingLens {
         lookupMethod(lambdaImplementedMethodReference, appView.dexItemFactory()).getName();
     // Verify that all lambda implemented methods are renamed consistently.
     assert lambdaImplementedMethods.stream()
-        .map(DexEncodedMethod::getReference)
+        .map(DexClassAndMethod::getReference)
         .map(reference -> lookupMethod(reference, appView.dexItemFactory()))
         .map(DexMethod::getName)
         .allMatch(name -> name == renamedMethodName);

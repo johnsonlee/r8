@@ -8,6 +8,8 @@ import static com.android.tools.r8.utils.MapUtils.unmodifiableForTesting;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndMember;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
@@ -19,15 +21,17 @@ import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.WorkList;
+import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -105,9 +109,8 @@ class MethodNameMinifier {
   // from the method name minifier to the interface method name minifier.
   class State {
 
-    @SuppressWarnings("ReferenceEquality")
-    void putRenaming(DexEncodedMethod key, DexString newName) {
-      if (newName != key.getName()) {
+    void putRenaming(DexClassAndMethod key, DexString newName) {
+      if (newName.isNotIdenticalTo(key.getName())) {
         renaming.put(key.getReference(), newName);
       }
     }
@@ -129,8 +132,8 @@ class MethodNameMinifier {
       return frontiers.getOrDefault(type, type);
     }
 
-    DexString getReservedName(DexEncodedMethod method, DexClass holder) {
-      return strategy.getReservedName(method, holder);
+    DexString getReservedName(DexClassAndMethod method) {
+      return strategy.getReservedName(method);
     }
   }
 
@@ -163,14 +166,9 @@ class MethodNameMinifier {
   }
 
   private Function<DexMethod, ?> getReservationKeyTransform() {
-    if (appView.options().getProguardConfiguration().isOverloadAggressively()
-        && appView.options().isGeneratingClassFiles()) {
-      // Use the full proto as key, hence reuse names based on full signature.
-      return method -> method.proto;
-    } else {
-      // Only use the parameters as key, hence do not reuse names on return type.
-      return method -> method.proto.parameters;
-    }
+    // Only use the parameters as key, hence do not reuse names on return type. Returning the full
+    // proto here implements aggressive overloading.
+    return DexMethod::getParameters;
   }
 
   private Function<DexMethod, ?> getNamingKeyTransform() {
@@ -244,23 +242,27 @@ class MethodNameMinifier {
                               .getOrDefault(clazz.superType, rootNamingState)
                               .createChild(reservationState));
               if (strategy.allowMemberRenaming(clazz)) {
-                for (DexEncodedMethod method : clazz.allMethodsSorted()) {
-                  assignNameToMethod(clazz, method, namingState);
+                List<DexClassAndMethod> allMethodsSorted =
+                    ListUtils.sort(
+                        clazz.classMethods(),
+                        Comparator.comparing(DexClassAndMember::getReference),
+                        clazz.getMethodCollection().size());
+                for (DexClassAndMethod method : allMethodsSorted) {
+                  assignNameToMethod(method, namingState);
                 }
               }
             });
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private void renameMethodsInUnrelatedClasspathClasses() {
     if (appView.options().getProguardConfiguration().hasApplyMappingFile()) {
       appView
           .appInfo()
           .forEachReferencedClasspathClass(
               clazz -> {
-                for (DexEncodedMethod method : clazz.methods()) {
-                  DexString reservedName = strategy.getReservedName(method, clazz);
-                  if (reservedName != null && reservedName != method.getReference().name) {
+                for (DexClassAndMethod method : clazz.classMethods()) {
+                  DexString reservedName = strategy.getReservedName(method);
+                  if (reservedName != null && reservedName.isNotIdenticalTo(method.getName())) {
                     renaming.put(method.getReference(), reservedName);
                   }
                 }
@@ -268,20 +270,18 @@ class MethodNameMinifier {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  private void assignNameToMethod(
-      DexClass holder, DexEncodedMethod method, MethodNamingState<?> state) {
-    if (method.isInitializer()) {
+  private void assignNameToMethod(DexClassAndMethod method, MethodNamingState<?> state) {
+    if (method.getDefinition().isInitializer()) {
       return;
     }
     // The strategy may have an explicit naming for this member which we query first. It may be that
     // the strategy will return the identity name, for which we have to look into a previous
     // renaming tracked by the state.
-    DexString newName = strategy.getReservedName(method, holder);
-    if (newName == null || newName == method.getName()) {
+    DexString newName = strategy.getReservedName(method);
+    if (newName == null || newName.isIdenticalTo(method.getName())) {
       newName = state.newOrReservedNameFor(method);
     }
-    if (method.getName() != newName) {
+    if (newName.isNotIdenticalTo(method.getName())) {
       renaming.put(method.getReference(), newName);
     }
     state.addRenaming(newName, method);
@@ -335,20 +335,22 @@ class MethodNameMinifier {
       // have to do byte-code rewriting against a mapping file to observe the issue. Doing that they
       // may as well just adjust the keep rules to keep the targets of bridges.
       // See b/290711987 for an actual issue regarding this.
-      Set<DexEncodedMethod> bridgeMethodCandidates = Sets.newIdentityHashSet();
-      Iterable<DexEncodedMethod> methods = shuffleMethods(holder.methods(), appView.options());
-      for (DexEncodedMethod method : methods) {
-        DexString reservedName = strategy.getReservedName(method, holder);
+      DexClassAndMethodSet bridgeMethodCandidates = DexClassAndMethodSet.create();
+      Iterable<DexClassAndMethod> methods =
+          shuffleMethods(holder.classMethods(), appView.options());
+      for (DexClassAndMethod method : methods) {
+        DexString reservedName = strategy.getReservedName(method);
         if (reservedName != null) {
           state.reserveName(reservedName, method);
-        } else if (appView.options().isGeneratingClassFiles() && method.isSyntheticBridgeMethod()) {
+        } else if (appView.options().isGeneratingClassFiles()
+            && method.getDefinition().isSyntheticBridgeMethod()) {
           bridgeMethodCandidates.add(method);
         }
       }
       Map<DexString, Set<Integer>> methodNamesToReserve =
           computeBridgesThatAreReserved(holder, bridgeMethodCandidates);
       if (!methodNamesToReserve.isEmpty()) {
-        for (DexEncodedMethod method : methods) {
+        for (DexClassAndMethod method : methods) {
           if (methodNamesToReserve
               .getOrDefault(method.getName(), Collections.emptySet())
               .contains(method.getProto().getArity())) {
@@ -360,7 +362,7 @@ class MethodNameMinifier {
   }
 
   private Map<DexString, Set<Integer>> computeBridgesThatAreReserved(
-      DexClass holder, Set<DexEncodedMethod> methods) {
+      DexClass holder, DexClassAndMethodSet methods) {
     if (methods.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -495,8 +497,8 @@ class MethodNameMinifier {
 
   // Shuffles the given methods if assertions are enabled and deterministic debugging is disabled.
   // Used to ensure that the generated output is deterministic.
-  private static Iterable<DexEncodedMethod> shuffleMethods(
-      Iterable<DexEncodedMethod> methods, InternalOptions options) {
-    return options.testing.irOrdering.order(methods);
+  private static Iterable<DexClassAndMethod> shuffleMethods(
+      Iterable<DexClassAndMethod> methods, InternalOptions options) {
+    return options.testing.irOrdering.orderClassMethods(methods);
   }
 }

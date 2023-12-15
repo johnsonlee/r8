@@ -51,6 +51,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.AppView.WholeProgramOptimizations;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItem;
@@ -114,7 +115,6 @@ import com.android.tools.r8.utils.structural.Ordered;
 import com.android.tools.r8.verticalclassmerging.VerticalClassMergerOptions;
 import com.android.tools.r8.verticalclassmerging.VerticallyMergedClasses;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -2502,11 +2502,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
       public Comparator<DexMethod> interfaceMethodOrdering = null;
 
-      public Comparator<Wrapper<DexEncodedMethod>> getInterfaceMethodOrderingOrDefault(
-          Comparator<Wrapper<DexEncodedMethod>> comparator) {
+      public Comparator<? super DexClassAndMethod> getInterfaceMethodOrderingOrDefault(
+          Comparator<DexClassAndMethod> comparator) {
         if (interfaceMethodOrdering != null) {
-          return (a, b) ->
-              interfaceMethodOrdering.compare(a.get().getReference(), b.get().getReference());
+          return (a, b) -> interfaceMethodOrdering.compare(a.getReference(), b.getReference());
         }
         return comparator;
       }

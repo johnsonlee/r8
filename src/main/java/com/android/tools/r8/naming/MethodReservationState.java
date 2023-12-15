@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.naming;
 
-import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.naming.MethodReservationState.InternalReservationState;
@@ -37,7 +37,7 @@ class MethodReservationState<KeyType>
     return new MethodReservationState<>(this, this.keyTransform);
   }
 
-  void reserveName(DexString reservedName, DexEncodedMethod method) {
+  void reserveName(DexString reservedName, DexClassAndMethod method) {
     try {
       getOrCreateInternalState(method.getReference()).reserveName(method, reservedName);
     } catch (AssertionError err) {
@@ -92,7 +92,7 @@ class MethodReservationState<KeyType>
       return originalToReservedNames.get(MethodSignatureEquivalence.get().wrap(method));
     }
 
-    void reserveName(DexEncodedMethod method, DexString name) {
+    void reserveName(DexClassAndMethod method, DexString name) {
       if (reservedNames == null) {
         assert originalToReservedNames == null;
         originalToReservedNames = new HashMap<>();

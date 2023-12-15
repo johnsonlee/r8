@@ -3,9 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming;
 
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
@@ -16,11 +19,12 @@ import com.android.tools.r8.naming.MethodNameMinifier.State;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.DisjointSets;
 import com.android.tools.r8.utils.MethodJavaSignatureEquivalence;
-import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.TraversalContinuation;
+import com.android.tools.r8.utils.collections.DexClassAndMethodMap;
+import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -110,11 +114,11 @@ class InterfaceMethodNameMinifier {
       this.iface = iface;
     }
 
-    DexString getReservedName(DexEncodedMethod method) {
+    DexString getReservedName(DexClassAndMethod method) {
       // If an interface is kept and we are using applymapping, the renamed name for this method
       // is tracked on this level.
       if (appView.options().getProguardConfiguration().hasApplyMappingFile()) {
-        DexString reservedName = minifierState.getReservedName(method, iface);
+        DexString reservedName = minifierState.getReservedName(method);
         if (reservedName != null) {
           return reservedName;
         }
@@ -143,7 +147,7 @@ class InterfaceMethodNameMinifier {
       this.reservationTypes.add(type);
     }
 
-    void reserveName(DexString reservedName, DexEncodedMethod method) {
+    void reserveName(DexString reservedName, DexClassAndMethod method) {
       forAll(
           s -> {
             s.reservationTypes.forEach(
@@ -154,7 +158,7 @@ class InterfaceMethodNameMinifier {
           });
     }
 
-    boolean isAvailable(DexString candidate, DexEncodedMethod method) {
+    boolean isAvailable(DexString candidate, DexClassAndMethod method) {
       Boolean result =
           forAny(
               s -> {
@@ -169,14 +173,14 @@ class InterfaceMethodNameMinifier {
       return result == null || result;
     }
 
-    void addRenaming(DexString newName, DexEncodedMethod method) {
+    void addRenaming(DexString newName, DexClassAndMethod method) {
       forAll(
           s ->
               s.reservationTypes.forEach(
                   resType -> minifierState.getNamingState(resType).addRenaming(newName, method)));
     }
 
-    <T> void forAll(Consumer<InterfaceReservationState> action) {
+    void forAll(Consumer<InterfaceReservationState> action) {
       forAny(
           s -> {
             action.accept(s);
@@ -238,20 +242,19 @@ class InterfaceMethodNameMinifier {
   class InterfaceMethodGroupState implements Comparable<InterfaceMethodGroupState> {
 
     private final Set<DexCallSite> callSites = new HashSet<>();
-    private final Map<DexEncodedMethod, Set<InterfaceReservationState>> methodStates =
-        new HashMap<>();
-    private final List<DexEncodedMethod> callSiteCollidingMethods = new ArrayList<>();
+    private final DexClassAndMethodMap<Set<InterfaceReservationState>> methodStates =
+        DexClassAndMethodMap.create();
+    private final List<DexClassAndMethod> callSiteCollidingMethods = new ArrayList<>();
 
-    void addState(DexEncodedMethod method, InterfaceReservationState interfaceState) {
-      methodStates.computeIfAbsent(method, m -> new HashSet<>()).add(interfaceState);
+    void addState(DexClassAndMethod method, InterfaceReservationState interfaceState) {
+      methodStates.computeIfAbsent(method, ignoreKey(HashSet::new)).add(interfaceState);
     }
 
     void appendMethodGroupState(InterfaceMethodGroupState state) {
       callSites.addAll(state.callSites);
       callSiteCollidingMethods.addAll(state.callSiteCollidingMethods);
-      for (DexEncodedMethod key : state.methodStates.keySet()) {
-        methodStates.computeIfAbsent(key, k -> new HashSet<>()).addAll(state.methodStates.get(key));
-      }
+      state.methodStates.forEach(
+          (key, value) -> methodStates.computeIfAbsent(key, ignoreKey(HashSet::new)).addAll(value));
     }
 
     void addCallSite(DexCallSite callSite) {
@@ -260,7 +263,6 @@ class InterfaceMethodNameMinifier {
       callSites.add(callSite);
     }
 
-    @SuppressWarnings("ReferenceEquality")
     DexString getReservedName() {
       if (methodStates.isEmpty()) {
         return null;
@@ -268,13 +270,11 @@ class InterfaceMethodNameMinifier {
       // It is perfectly fine to have multiple reserved names inside a group. If we have an identity
       // reservation, we have to prioritize that over the others, otherwise we just propose the
       // first ordered reserved name since we do not allow overwriting the name.
-      List<DexEncodedMethod> sortedMethods = Lists.newArrayList(methodStates.keySet());
-      sortedMethods.sort((x, y) -> x.getReference().compareTo(y.getReference()));
       DexString reservedName = null;
-      for (DexEncodedMethod method : sortedMethods) {
+      for (DexClassAndMethod method : methodStates.getKeysSorted()) {
         for (InterfaceReservationState state : methodStates.get(method)) {
           DexString stateReserved = state.getReservedName(method);
-          if (stateReserved == method.getName()) {
+          if (method.getName().isIdenticalTo(stateReserved)) {
             return method.getName();
           } else if (stateReserved != null) {
             reservedName = stateReserved;
@@ -320,7 +320,7 @@ class InterfaceMethodNameMinifier {
           });
     }
 
-    void forEachState(BiConsumer<DexEncodedMethod, InterfaceReservationState> action) {
+    void forEachState(BiConsumer<DexClassAndMethod, InterfaceReservationState> action) {
       forAnyState(
           (s, i) -> {
             action.accept(s, i);
@@ -328,21 +328,25 @@ class InterfaceMethodNameMinifier {
           });
     }
 
-    <T> T forAnyState(BiFunction<DexEncodedMethod, InterfaceReservationState, T> callback) {
-      T returnValue;
-      for (Map.Entry<DexEncodedMethod, Set<InterfaceReservationState>> entry :
-          methodStates.entrySet()) {
-        for (InterfaceReservationState state : entry.getValue()) {
-          returnValue = callback.apply(entry.getKey(), state);
-          if (returnValue != null) {
-            return returnValue;
-          }
-        }
+    <T> T forAnyState(BiFunction<DexClassAndMethod, InterfaceReservationState, T> callback) {
+      TraversalContinuation<T, Void> traversalContinuation =
+          methodStates.traverse(
+              (key, value) -> {
+                for (InterfaceReservationState state : value) {
+                  T returnValue = callback.apply(key, state);
+                  if (returnValue != null) {
+                    return TraversalContinuation.doBreak(returnValue);
+                  }
+                }
+                return TraversalContinuation.doContinue();
+              });
+      if (traversalContinuation.isBreak()) {
+        return traversalContinuation.asBreak().getValue();
       }
       return null;
     }
 
-    boolean containsReservation(DexEncodedMethod method, DexType reservationType) {
+    boolean containsReservation(DexClassAndMethod method, DexType reservationType) {
       Set<InterfaceReservationState> states = methodStates.get(method);
       if (states != null) {
         for (InterfaceReservationState state : states) {
@@ -361,15 +365,30 @@ class InterfaceMethodNameMinifier {
     }
   }
 
+  // Replacing the use of MethodJavaSignatureEquivalence by MethodSignatureEquivalence implements
+  // aggressive overloading.
+  private static final Equivalence<DexClassAndMethod> equivalence =
+      new Equivalence<>() {
+
+        @Override
+        protected boolean doEquivalent(DexClassAndMethod method, DexClassAndMethod other) {
+          return MethodJavaSignatureEquivalence.get()
+              .equivalent(method.getReference(), other.getReference());
+        }
+
+        @Override
+        protected int doHash(DexClassAndMethod method) {
+          return MethodJavaSignatureEquivalence.get().hash(method.getReference());
+        }
+      };
+
   private final AppView<AppInfoWithLiveness> appView;
   private final SubtypingInfo subtypingInfo;
-  private final Equivalence<DexMethod> equivalence;
-  private final Equivalence<DexEncodedMethod> definitionEquivalence;
   private final MethodNameMinifier.State minifierState;
 
   /** A map from DexMethods to all the states linked to interfaces they appear in. */
-  private final Map<Wrapper<DexEncodedMethod>, InterfaceMethodGroupState> globalStateMap =
-      new HashMap<>();
+  private final DexClassAndMethodMap<InterfaceMethodGroupState> globalStateMap =
+      createDexClassAndMethodMap();
 
   /** A map for caching all interface states. */
   private final Map<DexType, InterfaceReservationState> interfaceStateMap = new HashMap<>();
@@ -379,25 +398,19 @@ class InterfaceMethodNameMinifier {
     this.appView = appView;
     this.minifierState = minifierState;
     this.subtypingInfo = subtypingInfo;
-    this.equivalence =
-        appView.options().getProguardConfiguration().isOverloadAggressively()
-            ? MethodSignatureEquivalence.get()
-            : MethodJavaSignatureEquivalence.get();
-    this.definitionEquivalence =
-        new Equivalence<>() {
-          @Override
-          protected boolean doEquivalent(DexEncodedMethod method, DexEncodedMethod other) {
-            return equivalence.equivalent(method.getReference(), other.getReference());
-          }
-
-          @Override
-          protected int doHash(DexEncodedMethod method) {
-            return equivalence.hash(method.getReference());
-          }
-        };
   }
 
-  private Comparator<Wrapper<DexEncodedMethod>> getDefaultInterfaceMethodOrdering() {
+  private static <V> DexClassAndMethodMap<V> createDexClassAndMethodMap() {
+    return new DexClassAndMethodMap<>(new HashMap<>()) {
+
+      @Override
+      protected Wrapper<DexClassAndMethod> wrap(DexClassAndMethod method) {
+        return equivalence.wrap(method);
+      }
+    };
+  }
+
+  private Comparator<DexClassAndMethod> getDefaultInterfaceMethodOrdering() {
     return Comparator.comparing(globalStateMap::get);
   }
 
@@ -430,10 +443,9 @@ class InterfaceMethodNameMinifier {
     for (DexClass iface : interfaces) {
       InterfaceReservationState inheritanceState = interfaceStateMap.get(iface.type);
       assert inheritanceState != null;
-      for (DexEncodedMethod method : iface.methods()) {
-        Wrapper<DexEncodedMethod> key = definitionEquivalence.wrap(method);
+      for (DexClassAndMethod method : iface.classMethods()) {
         globalStateMap
-            .computeIfAbsent(key, k -> new InterfaceMethodGroupState())
+            .computeIfAbsent(method, ignoreKey(InterfaceMethodGroupState::new))
             .addState(method, inheritanceState);
       }
     }
@@ -451,21 +463,21 @@ class InterfaceMethodNameMinifier {
     // Note that if the input does not use multi-interface lambdas unificationParent will remain
     // empty.
     timing.begin("Union-find");
-    DisjointSets<Wrapper<DexEncodedMethod>> unification = new DisjointSets<>();
+    DisjointSets<Wrapper<DexClassAndMethod>> unification = new DisjointSets<>();
 
     liveCallSites.forEach(
         callSite -> {
-          Set<Wrapper<DexEncodedMethod>> callSiteMethods = new HashSet<>();
+          Set<Wrapper<DexClassAndMethod>> callSiteMethods = new HashSet<>();
           // Don't report errors, as the set of call sites is a conservative estimate, and can
           // refer to interfaces which has been removed.
-          Set<DexEncodedMethod> implementedMethods =
+          DexClassAndMethodSet implementedMethods =
               appView.appInfo().lookupLambdaImplementedMethods(callSite, appView);
-          for (DexEncodedMethod method : implementedMethods) {
-            Wrapper<DexEncodedMethod> wrapped = definitionEquivalence.wrap(method);
-            InterfaceMethodGroupState groupState = globalStateMap.get(wrapped);
-            assert groupState != null : wrapped;
+          for (DexClassAndMethod method : implementedMethods) {
+            Wrapper<DexClassAndMethod> wrapper = equivalence.wrap(method);
+            InterfaceMethodGroupState groupState = globalStateMap.get(wrapper);
+            assert groupState != null : wrapper;
             groupState.addCallSite(callSite);
-            callSiteMethods.add(wrapped);
+            callSiteMethods.add(wrapper);
           }
           if (callSiteMethods.isEmpty()) {
             return;
@@ -480,8 +492,8 @@ class InterfaceMethodNameMinifier {
               // name.
               DexClass iface = appView.definitionFor(implementedInterfaces.get(i));
               assert iface.isInterface();
-              for (DexEncodedMethod implementedMethod : implementedMethods) {
-                for (DexEncodedMethod virtualMethod : iface.virtualMethods()) {
+              for (DexClassAndMethod implementedMethod : implementedMethods) {
+                for (DexClassAndMethod virtualMethod : iface.virtualClassMethods()) {
                   boolean differentName = implementedMethod.getName() != virtualMethod.getName();
                   if (differentName
                       && MethodJavaSignatureEquivalence.getEquivalenceIgnoreName()
@@ -489,8 +501,7 @@ class InterfaceMethodNameMinifier {
                               implementedMethod.getReference(), virtualMethod.getReference())) {
                     InterfaceMethodGroupState interfaceMethodGroupState =
                         globalStateMap.computeIfAbsent(
-                            definitionEquivalence.wrap(implementedMethod),
-                            k -> new InterfaceMethodGroupState());
+                            implementedMethod, ignoreKey(InterfaceMethodGroupState::new));
                     interfaceMethodGroupState.callSiteCollidingMethods.add(virtualMethod);
                   }
                 }
@@ -499,9 +510,9 @@ class InterfaceMethodNameMinifier {
           }
           if (callSiteMethods.size() > 1) {
             // Implemented interfaces have different protos. Unify them.
-            Wrapper<DexEncodedMethod> mainKey = callSiteMethods.iterator().next();
-            Wrapper<DexEncodedMethod> representative = unification.findOrMakeSet(mainKey);
-            for (Wrapper<DexEncodedMethod> key : callSiteMethods) {
+            Wrapper<DexClassAndMethod> mainKey = callSiteMethods.iterator().next();
+            Wrapper<DexClassAndMethod> representative = unification.findOrMakeSet(mainKey);
+            for (Wrapper<DexClassAndMethod> key : callSiteMethods) {
               unification.unionWithMakeSet(representative, key);
             }
           }
@@ -512,32 +523,32 @@ class InterfaceMethodNameMinifier {
     // We now have roots for all unions. Add all of the states for the groups to the method state
     // for the unions to allow consistent naming across different protos.
     timing.begin("States for union");
-    Map<Wrapper<DexEncodedMethod>, Set<Wrapper<DexEncodedMethod>>> unions =
-        unification.collectSets();
-
-    for (Wrapper<DexEncodedMethod> wrapped : unions.keySet()) {
-      InterfaceMethodGroupState groupState = globalStateMap.get(wrapped);
-      assert groupState != null;
-
-      for (Wrapper<DexEncodedMethod> groupedMethod : unions.get(wrapped)) {
-        DexEncodedMethod method = groupedMethod.get();
-        assert method != null;
-        groupState.appendMethodGroupState(globalStateMap.get(groupedMethod));
-      }
-    }
+    DexClassAndMethodMap<Set<Wrapper<DexClassAndMethod>>> unions = createDexClassAndMethodMap();
+    unification.consumeSets(
+        (representative, element) ->
+            unions.computeIfAbsent(representative, ignoreKey(HashSet::new)).add(element));
+    unions.forEach(
+        (representative, elements) -> {
+          InterfaceMethodGroupState groupState = globalStateMap.get(representative);
+          assert groupState != null;
+          for (Wrapper<DexClassAndMethod> groupedMethod : elements) {
+            groupState.appendMethodGroupState(globalStateMap.get(groupedMethod));
+          }
+        });
     timing.end();
 
     timing.begin("Sort");
     // Filter out the groups that is included both in the unification and in the map. We sort the
     // methods by the number of dependent states, so that we use short names for method that are
     // referenced in many places.
-    List<Wrapper<DexEncodedMethod>> interfaceMethodGroups =
-        globalStateMap.keySet().stream()
+    List<DexClassAndMethod> interfaceMethodGroups =
+        globalStateMap
+            .streamWrappedKeys()
             .filter(unification::isRepresentativeOrNotPresent)
+            .map(Wrapper::get)
             .sorted(
                 appView
-                    .options()
-                    .testing
+                    .testing()
                     .minifier
                     .getInterfaceMethodOrderingOrDefault(getDefaultInterfaceMethodOrdering()))
             .collect(Collectors.toList());
@@ -549,8 +560,8 @@ class InterfaceMethodNameMinifier {
     timing.begin("Reserve in groups");
     // It is important that this entire phase is run before given new names, to ensure all
     // reservations are propagated to all naming states.
-    List<Wrapper<DexEncodedMethod>> nonReservedMethodGroups = new ArrayList<>();
-    for (Wrapper<DexEncodedMethod> interfaceMethodGroup : interfaceMethodGroups) {
+    List<DexClassAndMethod> nonReservedMethodGroups = new ArrayList<>();
+    for (DexClassAndMethod interfaceMethodGroup : interfaceMethodGroups) {
       InterfaceMethodGroupState groupState = globalStateMap.get(interfaceMethodGroup);
       assert groupState != null;
       DexString reservedName = groupState.getReservedName();
@@ -564,39 +575,43 @@ class InterfaceMethodNameMinifier {
     timing.end();
 
     timing.begin("Rename in groups");
-    for (Wrapper<DexEncodedMethod> interfaceMethodGroup : nonReservedMethodGroups) {
+    for (DexClassAndMethod interfaceMethodGroup : nonReservedMethodGroups) {
       InterfaceMethodGroupState groupState = globalStateMap.get(interfaceMethodGroup);
       assert groupState != null;
       assert groupState.getReservedName() == null;
-      DexString newName = assignNewName(interfaceMethodGroup.get(), groupState);
+      DexString newName = assignNewName(interfaceMethodGroup, groupState);
       assert newName != null;
       Set<String> loggingFilter = appView.options().extensiveInterfaceMethodMinifierLoggingFilter;
       if (!loggingFilter.isEmpty()) {
-        Set<DexEncodedMethod> sourceMethods = groupState.methodStates.keySet();
-        if (sourceMethods.stream()
-            .map(DexEncodedMethod::toSourceString)
+        if (groupState
+            .methodStates
+            .streamKeys()
+            .map(DexClassAndMethod::toSourceString)
             .anyMatch(loggingFilter::contains)) {
-          print(interfaceMethodGroup.get().getReference(), sourceMethods, System.out);
+          print(
+              interfaceMethodGroup.getReference(),
+              groupState.methodStates.getKeysSorted(),
+              System.out);
         }
       }
     }
 
     // After all naming is completed for callsites, we must ensure to rename all interface methods
     // that can collide with the callsite method name.
-    for (Wrapper<DexEncodedMethod> interfaceMethodGroup : nonReservedMethodGroups) {
+    for (DexClassAndMethod interfaceMethodGroup : nonReservedMethodGroups) {
       InterfaceMethodGroupState groupState = globalStateMap.get(interfaceMethodGroup);
       if (groupState.callSiteCollidingMethods.isEmpty()) {
         continue;
       }
-      DexEncodedMethod key = interfaceMethodGroup.get();
-      MethodNamingState<?> keyNamingState = minifierState.getNamingState(key.getHolderType());
-      DexString existingRenaming = keyNamingState.newOrReservedNameFor(key);
+      MethodNamingState<?> keyNamingState =
+          minifierState.getNamingState(interfaceMethodGroup.getHolderType());
+      DexString existingRenaming = keyNamingState.newOrReservedNameFor(interfaceMethodGroup);
       assert existingRenaming != null;
-      for (DexEncodedMethod collidingMethod : groupState.callSiteCollidingMethods) {
+      for (DexClassAndMethod collidingMethod : groupState.callSiteCollidingMethods) {
         DexString newNameInGroup = newNameInGroup(collidingMethod, keyNamingState, groupState);
         minifierState.putRenaming(collidingMethod, newNameInGroup);
         MethodNamingState<?> methodNamingState =
-            minifierState.getNamingState(collidingMethod.getReference().holder);
+            minifierState.getNamingState(collidingMethod.getHolderType());
         methodNamingState.addRenaming(newNameInGroup, collidingMethod);
         keyNamingState.addRenaming(newNameInGroup, collidingMethod);
       }
@@ -606,7 +621,7 @@ class InterfaceMethodNameMinifier {
     timing.end(); // end compute timing
   }
 
-  private DexString assignNewName(DexEncodedMethod method, InterfaceMethodGroupState groupState) {
+  private DexString assignNewName(DexClassAndMethod method, InterfaceMethodGroupState groupState) {
     assert groupState.getReservedName() == null;
     assert groupState.methodStates.containsKey(method);
     assert groupState.containsReservation(method, method.getHolderType());
@@ -620,7 +635,7 @@ class InterfaceMethodNameMinifier {
   }
 
   private DexString newNameInGroup(
-      DexEncodedMethod method,
+      DexClassAndMethod method,
       MethodNamingState<?> namingState,
       InterfaceMethodGroupState groupState) {
     // Check if the name is available in all states.
@@ -663,50 +678,52 @@ class InterfaceMethodNameMinifier {
                     }));
   }
 
-  private boolean verifyAllCallSitesAreRepresentedIn(List<Wrapper<DexEncodedMethod>> groups) {
-    Set<Wrapper<DexEncodedMethod>> unifiedMethods = new HashSet<>(groups);
+  private boolean verifyAllCallSitesAreRepresentedIn(List<DexClassAndMethod> groups) {
+    Set<Wrapper<DexClassAndMethod>> unifiedMethods = new HashSet<>(groups.size());
+    groups.forEach(group -> unifiedMethods.add(equivalence.wrap(group)));
     Set<DexCallSite> unifiedSeen = new HashSet<>();
     Set<DexCallSite> seen = new HashSet<>();
-    for (Map.Entry<Wrapper<DexEncodedMethod>, InterfaceMethodGroupState> state :
-        globalStateMap.entrySet()) {
-      for (DexCallSite callSite : state.getValue().callSites) {
-        seen.add(callSite);
-        if (unifiedMethods.contains(state.getKey())) {
-          boolean added = unifiedSeen.add(callSite);
-          assert added;
-        }
-      }
-    }
+    globalStateMap.forEach(
+        (key, value) -> {
+          for (DexCallSite callSite : value.callSites) {
+            seen.add(callSite);
+            if (unifiedMethods.contains(equivalence.wrap(key))) {
+              boolean added = unifiedSeen.add(callSite);
+              assert added;
+            }
+          }
+        });
     assert seen.size() == unifiedSeen.size();
     assert unifiedSeen.containsAll(seen);
     return true;
   }
 
-  private boolean verifyAllMethodsAreRepresentedIn(List<Wrapper<DexEncodedMethod>> groups) {
-    Set<Wrapper<DexEncodedMethod>> unifiedMethods = new HashSet<>(groups);
+  private boolean verifyAllMethodsAreRepresentedIn(List<DexClassAndMethod> groups) {
+    Set<Wrapper<DexClassAndMethod>> unifiedMethods = new HashSet<>(groups.size());
+    groups.forEach(group -> unifiedMethods.add(equivalence.wrap(group)));
     Set<DexEncodedMethod> unifiedSeen = Sets.newIdentityHashSet();
     Set<DexEncodedMethod> seen = Sets.newIdentityHashSet();
-    for (Map.Entry<Wrapper<DexEncodedMethod>, InterfaceMethodGroupState> state :
-        globalStateMap.entrySet()) {
-      for (DexEncodedMethod method : state.getValue().methodStates.keySet()) {
-        seen.add(method);
-        if (unifiedMethods.contains(state.getKey())) {
-          boolean added = unifiedSeen.add(method);
-          assert added;
-        }
-      }
-    }
+    globalStateMap.forEach(
+        (representative, value) ->
+            value.methodStates.forEachKey(
+                method -> {
+                  seen.add(method.getDefinition());
+                  if (unifiedMethods.contains(equivalence.wrap(representative))) {
+                    boolean added = unifiedSeen.add(method.getDefinition());
+                    assert added;
+                  }
+                }));
     assert seen.size() == unifiedSeen.size();
     assert unifiedSeen.containsAll(seen);
     return true;
   }
 
-  private void print(DexMethod method, Set<DexEncodedMethod> sourceMethods, PrintStream out) {
+  private void print(DexMethod method, List<DexClassAndMethod> sourceMethods, PrintStream out) {
     out.println("-----------------------------------------------------------------------");
     out.println("assignNameToInterfaceMethod(`" + method.toSourceString() + "`)");
     out.println("-----------------------------------------------------------------------");
     out.println("Source methods:");
-    for (DexEncodedMethod sourceMethod : sourceMethods) {
+    for (DexClassAndMethod sourceMethod : sourceMethods) {
       out.println("  " + sourceMethod.toSourceString());
     }
     out.println("States:");

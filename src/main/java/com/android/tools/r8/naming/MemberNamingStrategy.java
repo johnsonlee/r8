@@ -5,8 +5,9 @@
 package com.android.tools.r8.naming;
 
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexEncodedField;
-import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexClassAndField;
+import com.android.tools.r8.graph.DexClassAndMember;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.ProgramField;
@@ -15,7 +16,7 @@ import java.util.function.BiPredicate;
 public interface MemberNamingStrategy {
 
   DexString next(
-      DexEncodedMethod method,
+      DexClassAndMethod method,
       InternalNamingState internalState,
       BiPredicate<DexString, DexMethod> isAvailable);
 
@@ -24,9 +25,13 @@ public interface MemberNamingStrategy {
       InternalNamingState internalState,
       BiPredicate<DexString, ProgramField> isAvailable);
 
-  DexString getReservedName(DexEncodedMethod method, DexClass holder);
+  DexString getReservedName(DexClassAndMethod method);
 
-  DexString getReservedName(DexEncodedField field, DexClass holder);
+  DexString getReservedName(DexClassAndField field);
 
-  boolean allowMemberRenaming(DexClass holder);
+  boolean allowMemberRenaming(DexClass clazz);
+
+  default boolean allowMemberRenaming(DexClassAndMember<?, ?> member) {
+    return allowMemberRenaming(member.getHolder());
+  }
 }

@@ -30,6 +30,10 @@ public class DexString extends IndexedDexItem
     return identical(this, other);
   }
 
+  public final boolean isNotIdenticalTo(DexString other) {
+    return !isIdenticalTo(other);
+  }
+
   public static final DexString[] EMPTY_ARRAY = {};
   private static final int ARRAY_CHARACTER = '[';
 

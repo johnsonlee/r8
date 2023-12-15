@@ -42,7 +42,6 @@ import com.android.tools.r8.graph.MethodAccessInfoCollection;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollectionImpl;
-import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
@@ -71,6 +70,7 @@ import com.android.tools.r8.utils.PredicateSet;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Visibility;
 import com.android.tools.r8.utils.WorkList;
+import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.collections.ThrowingSet;
 import com.android.tools.r8.utils.structural.Ordered;
@@ -764,14 +764,14 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
    * @return Methods implemented by the lambda expression that created the {@code callSite}.
    */
   @SuppressWarnings("ReferenceEquality")
-  public Set<DexEncodedMethod> lookupLambdaImplementedMethods(
+  public DexClassAndMethodSet lookupLambdaImplementedMethods(
       DexCallSite callSite, AppView<AppInfoWithLiveness> appView) {
     assert checkIfObsolete();
     List<DexType> callSiteInterfaces = LambdaDescriptor.getInterfaces(callSite, appView);
     if (callSiteInterfaces == null || callSiteInterfaces.isEmpty()) {
-      return Collections.emptySet();
+      return DexClassAndMethodSet.empty();
     }
-    Set<DexEncodedMethod> result = Sets.newIdentityHashSet();
+    DexClassAndMethodSet result = DexClassAndMethodSet.create();
     Deque<DexType> worklist = new ArrayDeque<>(callSiteInterfaces);
     Set<DexType> visited = Sets.newIdentityHashSet();
     while (!worklist.isEmpty()) {
@@ -794,8 +794,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         continue;
       }
       assert clazz.isInterface();
-      for (DexEncodedMethod method : clazz.virtualMethods()) {
-        if (method.getReference().name == callSite.methodName && method.accessFlags.isAbstract()) {
+      for (DexClassAndMethod method : clazz.virtualClassMethods()) {
+        if (method.getName().isIdenticalTo(callSite.methodName)
+            && method.getAccessFlags().isAbstract()) {
           result.add(method);
         }
       }
@@ -1007,30 +1008,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   public AppInfoWithLiveness withLiveness() {
     assert checkIfObsolete();
     return this;
-  }
-
-  @Deprecated
-  public boolean isMinificationAllowed(DexProgramClass clazz) {
-    return options().isMinificationEnabled()
-        && keepInfo.getInfo(clazz).isMinificationAllowed(options());
-  }
-
-  @Deprecated
-  public boolean isMinificationAllowed(ProgramDefinition definition) {
-    return options().isMinificationEnabled()
-        && keepInfo.getInfo(definition).isMinificationAllowed(options());
-  }
-
-  @Deprecated
-  public boolean isMinificationAllowed(DexDefinition definition) {
-    return options().isMinificationEnabled()
-        && keepInfo.getInfo(definition, this).isMinificationAllowed(options());
-  }
-
-  @Deprecated
-  public boolean isMinificationAllowed(DexType reference) {
-    return options().isMinificationEnabled()
-        && keepInfo.getClassInfo(reference, this).isMinificationAllowed(options());
   }
 
   public boolean isRepackagingAllowed(DexProgramClass clazz, AppView<?> appView) {

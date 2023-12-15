@@ -298,6 +298,10 @@ public abstract class DexClass extends DexDefinition
     return Iterables.filter(virtualMethods(), predicate::test);
   }
 
+  public Iterable<DexClassAndMethod> virtualClassMethods() {
+    return Iterables.transform(virtualMethods(), method -> DexClassAndMethod.create(this, method));
+  }
+
   public void addVirtualMethod(DexEncodedMethod method) {
     methodCollection.addVirtualMethod(method);
   }

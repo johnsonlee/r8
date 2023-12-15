@@ -609,10 +609,6 @@ public class ProguardConfiguration {
     return rules;
   }
 
-  public boolean isOverloadAggressively() {
-    return false;
-  }
-
   public List<String> getObfuscationDictionary() {
     return obfuscationDictionary;
   }

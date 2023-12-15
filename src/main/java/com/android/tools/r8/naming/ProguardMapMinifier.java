@@ -5,6 +5,7 @@
 package com.android.tools.r8.naming;
 
 import static com.android.tools.r8.graph.DexApplication.classesWithDeterministicOrder;
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.defaultAsMethodOfCompanionClass;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.getInterfaceClassType;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.isCompanionClassType;
@@ -13,12 +14,15 @@ import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHe
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinition;
+import com.android.tools.r8.graph.DexClassAndField;
+import com.android.tools.r8.graph.DexClassAndMember;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
@@ -187,10 +191,9 @@ public class ProguardMapMinifier {
           memberNaming -> addMemberNamings(type, memberNaming, nonPrivateMembers, false));
     } else {
       // We have to ensure we do not rename to an existing member, that cannot be renamed.
-      if (clazz == null || !appView.options().isMinifying()) {
-        notMappedReferences.add(type);
-      } else if (appView.options().isMinifying()
-          && !appView.appInfo().isMinificationAllowed(type)) {
+      DexProgramClass programClass = asProgramClassOrNull(clazz);
+      if (programClass == null
+          || !appView.getKeepInfo(programClass).isMinificationAllowed(appView.options())) {
         notMappedReferences.add(type);
       }
     }
@@ -400,7 +403,9 @@ public class ProguardMapMinifier {
     public DexString next(
         DexType type, char[] packagePrefix, InternalNamingState state, Predicate<String> isUsed) {
       assert !mappings.containsKey(type);
-      assert appView.appInfo().isMinificationAllowed(type);
+      assert appView
+          .getKeepInfo(appView.definitionFor(type).asProgramClass())
+          .isMinificationAllowed(appView.options());
       return super.next(
           type,
           packagePrefix,
@@ -420,19 +425,21 @@ public class ProguardMapMinifier {
       //  members that can be reserved differently in the hierarchy.
       DexClass clazz = appView.appInfo().definitionForWithoutExistenceAssert(type);
       if (clazz == null) {
-        return type.descriptor;
-      }
-      if (clazz.isNotProgramClass() && mappings.containsKey(type)) {
-        return mappings.get(type);
+        return type.getDescriptor();
       }
       if (clazz.isProgramClass()) {
-        if (appView.appInfo().isMinificationAllowed(clazz.asProgramClass())) {
+        DexProgramClass programClass = clazz.asProgramClass();
+        if (appView.getKeepInfo(programClass).isMinificationAllowed(appView.options())) {
           return mappings.get(type);
         }
         // TODO(b/136694827): Report a warning here if in the mapping since the user may find this
         //  non intuitive.
+      } else {
+        if (mappings.containsKey(type)) {
+          return mappings.get(type);
+        }
       }
-      return type.descriptor;
+      return type.getDescriptor();
     }
 
     @Override
@@ -456,13 +463,11 @@ public class ProguardMapMinifier {
     @Override
     @SuppressWarnings("ReferenceEquality")
     public DexString next(
-        DexEncodedMethod method,
+        DexClassAndMethod method,
         InternalNamingState internalState,
         BiPredicate<DexString, DexMethod> isAvailable) {
       DexMethod reference = method.getReference();
-      DexClass holder = appView.definitionForHolder(reference);
-      assert holder != null;
-      DexString reservedName = getReservedName(method, reference.name, holder);
+      DexString reservedName = getReservedName(method, reference.getName());
       DexString nextName;
       if (reservedName != null) {
         if (!isAvailable.test(reservedName, reference)) {
@@ -471,11 +476,14 @@ public class ProguardMapMinifier {
         nextName = reservedName;
       } else {
         assert !mappedNames.containsKey(reference);
-        assert appView.appInfo().isMinificationAllowed(method);
+        assert !method.isProgramMethod()
+            || appView
+                .getKeepInfo(method.asProgramMethod())
+                .isMinificationAllowed(appView.options());
         nextName = super.next(method, internalState, isAvailable);
       }
-      assert nextName == reference.name || !method.isInitializer();
-      assert nextName == reference.name || !holder.isAnnotation();
+      assert nextName.isIdenticalTo(reference.getName()) || !method.getDefinition().isInitializer();
+      assert nextName.isIdenticalTo(reference.getName()) || !method.getHolder().isAnnotation();
       return nextName;
     }
 
@@ -485,8 +493,7 @@ public class ProguardMapMinifier {
         InternalNamingState internalState,
         BiPredicate<DexString, ProgramField> isAvailable) {
       DexField reference = field.getReference();
-      DexString reservedName =
-          getReservedName(field.getDefinition(), reference.name, field.getHolder());
+      DexString reservedName = getReservedName(field, reference.getName());
       if (reservedName != null) {
         if (!isAvailable.test(reservedName, field)) {
           reportReservationError(reference, reservedName);
@@ -494,35 +501,34 @@ public class ProguardMapMinifier {
         return reservedName;
       }
       assert !mappedNames.containsKey(reference);
-      assert appView.appInfo().isMinificationAllowed(field);
+      assert appView.getKeepInfo(field).isMinificationAllowed(appView.options());
       return super.next(field, internalState, isAvailable);
     }
 
     @Override
-    public DexString getReservedName(DexEncodedMethod method, DexClass holder) {
-      return getReservedName(method, method.getReference().name, holder);
+    public DexString getReservedName(DexClassAndMethod method) {
+      return getReservedName(method, method.getName());
     }
 
     @Override
-    public DexString getReservedName(DexEncodedField field, DexClass holder) {
-      return getReservedName(field, field.getReference().name, holder);
+    public DexString getReservedName(DexClassAndField field) {
+      return getReservedName(field, field.getName());
     }
 
-    private DexString getReservedName(DexDefinition definition, DexString name, DexClass holder) {
-      assert definition.isDexEncodedMethod() || definition.isDexEncodedField();
+    private DexString getReservedName(DexClassAndMember<?, ?> definition, DexString name) {
       // Always consult the mapping for renamed members that are not on program path.
       DexReference reference = definition.getReference();
-      if (holder.isNotProgramClass()) {
+      if (definition.getHolder().isNotProgramClass()) {
         if (mappedNames.containsKey(reference)) {
           return factory.createString(mappedNames.get(reference).getRenamedName());
         }
         return name;
       }
-      assert holder.isProgramClass();
+      assert definition.isProgramMember();
       DexString reservedName =
-          definition.isDexEncodedMethod()
-              ? super.getReservedName(definition.asDexEncodedMethod(), holder)
-              : super.getReservedName(definition.asDexEncodedField(), holder);
+          definition.isMethod()
+              ? super.getReservedName(definition.asMethod())
+              : super.getReservedName(definition.asField());
       if (reservedName != null) {
         return reservedName;
       }
@@ -533,7 +539,7 @@ public class ProguardMapMinifier {
     }
 
     @Override
-    public boolean allowMemberRenaming(DexClass holder) {
+    public boolean allowMemberRenaming(DexClass clazz) {
       return true;
     }
 

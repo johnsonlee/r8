@@ -18,7 +18,7 @@ public abstract class DexClassAndFieldMapBase<K extends DexClassAndField, V>
   }
 
   @Override
-  Wrapper<K> wrap(K field) {
+  protected Wrapper<K> wrap(K field) {
     return DexClassAndFieldEquivalence.get().wrap(field);
   }
 }

@@ -42,7 +42,6 @@ public abstract class DexClassAndMethodSetBase<T extends DexClassAndMethod>
   @Override
   public boolean add(T method) {
     T existing = backing.put(method.getReference(), method);
-    assert existing == null || existing.isStructurallyEqualTo(method);
     return existing == null;
   }
 

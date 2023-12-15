@@ -3,19 +3,22 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.StringUtils.EMPTY_CHAR_ARRAY;
 import static com.android.tools.r8.utils.SymbolGenerationUtils.RESERVED_NAMES;
 
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexEncodedField;
-import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexClassAndField;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.naming.ClassNameMinifier.ClassNamingStrategy;
 import com.android.tools.r8.naming.ClassNameMinifier.ClassRenaming;
@@ -206,8 +209,9 @@ public class Minifier {
 
     @Override
     public DexString reservedDescriptor(DexType type) {
-      if (!appView.appInfo().isMinificationAllowed(type)) {
-        return type.descriptor;
+      DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(type));
+      if (clazz == null || !appView.getKeepInfo(clazz).isMinificationAllowed(appView.options())) {
+        return type.getDescriptor();
       }
       return null;
     }
@@ -277,10 +281,14 @@ public class Minifier {
 
     @Override
     public DexString next(
-        DexEncodedMethod method,
+        DexClassAndMethod method,
         InternalNamingState internalState,
         BiPredicate<DexString, DexMethod> isAvailable) {
-      assert checkAllowMemberRenaming(method.getHolderType());
+      if (!method.isProgramMethod()) {
+        assert isAvailable.test(method.getName(), method.getReference());
+        return method.getName();
+      }
+      assert allowMemberRenaming(method);
       DexString candidate;
       do {
         candidate = getNextName(internalState);
@@ -293,7 +301,7 @@ public class Minifier {
         ProgramField field,
         InternalNamingState internalState,
         BiPredicate<DexString, ProgramField> isAvailable) {
-      assert checkAllowMemberRenaming(field.getHolderType());
+      assert allowMemberRenaming(field);
       DexString candidate;
       do {
         candidate = getNextName(internalState);
@@ -306,40 +314,39 @@ public class Minifier {
     }
 
     @Override
-    public DexString getReservedName(DexEncodedMethod method, DexClass holder) {
-      if (!allowMemberRenaming(holder)
-          || holder.accessFlags.isAnnotation()
-          || method.accessFlags.isConstructor()
-          || !appView.appInfo().isMinificationAllowed(method)) {
-        return method.getReference().name;
+    public DexString getReservedName(DexClassAndMethod method) {
+      if (!allowMemberRenaming(method)) {
+        return method.getName();
+      }
+      assert method.isProgramMethod();
+      ProgramMethod programMethod = method.asProgramMethod();
+      if (method.getHolder().isAnnotation()
+          || method.getAccessFlags().isConstructor()
+          || !appView.getKeepInfo(programMethod).isMinificationAllowed(appView.options())) {
+        return method.getName();
       }
       if (desugaredLibraryRenaming
-          && method.isLibraryMethodOverride().isTrue()
-          && appView.typeRewriter.hasRewrittenTypeInSignature(
-              method.getReference().proto, appView)) {
+          && method.getDefinition().isLibraryMethodOverride().isTrue()
+          && appView.typeRewriter.hasRewrittenTypeInSignature(method.getProto(), appView)) {
         // With desugared library, call-backs names are reserved here.
-        return method.getReference().name;
+        return method.getName();
       }
       return null;
     }
 
     @Override
-    public DexString getReservedName(DexEncodedField field, DexClass holder) {
-      if (holder.isLibraryClass() || !appView.appInfo().isMinificationAllowed(field)) {
-        return field.getReference().name;
+    public DexString getReservedName(DexClassAndField field) {
+      ProgramField programField = field.asProgramField();
+      if (programField == null
+          || !appView.getKeepInfo(programField).isMinificationAllowed(appView.options())) {
+        return field.getName();
       }
       return null;
     }
 
     @Override
-    public boolean allowMemberRenaming(DexClass holder) {
-      return holder.isProgramClass();
-    }
-
-    public boolean checkAllowMemberRenaming(DexType holder) {
-      DexClass clazz = appView.definitionFor(holder);
-      assert clazz != null && allowMemberRenaming(clazz);
-      return true;
+    public boolean allowMemberRenaming(DexClass clazz) {
+      return clazz.isProgramClass();
     }
   }
 }

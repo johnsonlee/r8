@@ -49,16 +49,12 @@ public class FieldNamingState extends FieldNamingStateBase<InternalState> implem
   }
 
   public DexString getOrCreateNameFor(ProgramField field) {
-    DexString reservedName = strategy.getReservedName(field.getDefinition(), field.getHolder());
+    DexString reservedName = strategy.getReservedName(field);
     if (reservedName != null) {
       return reservedName;
     }
     // TODO(b/133208730) If we cannot resolve the field, are we then allowed to rename it?
     return getOrCreateInternalState(field.getReference()).createNewName(field);
-  }
-
-  public void includeReservations(ReservedFieldNamingState reservedNames) {
-    this.reservedNames.includeReservations(reservedNames);
   }
 
   @Override

@@ -4,10 +4,13 @@
 
 package com.android.tools.r8.utils;
 
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 /**
  * Disjoint sets of instances of type T. Each of the sets will be represented by one of the
@@ -134,12 +137,18 @@ public class DisjointSets<T> {
   /** Returns the sets currently represented. */
   public Map<T, Set<T>> collectSets() {
     Map<T, Set<T>> unification = new HashMap<>();
+    consumeSets(
+        (representative, element) ->
+            unification.computeIfAbsent(representative, ignoreKey(HashSet::new)).add(element));
+    return unification;
+  }
+
+  public void consumeSets(BiConsumer<T, T> consumer) {
     for (T element : parent.keySet()) {
       // Find root with path-compression.
       T representative = findSet(element);
-      unification.computeIfAbsent(representative, k -> new HashSet<>()).add(element);
+      consumer.accept(representative, element);
     }
-    return unification;
   }
 
   @Override

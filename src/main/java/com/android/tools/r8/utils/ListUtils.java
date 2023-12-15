@@ -6,6 +6,7 @@ package com.android.tools.r8.utils;
 
 import com.android.tools.r8.naming.ClassNamingForNameMapper.MappedRange;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -295,6 +296,13 @@ public class ListUtils {
 
   public interface ReferenceAndIntConsumer<T> {
     void accept(T item, int index);
+  }
+
+  public static <T> List<T> sort(Iterable<T> items, Comparator<T> comparator, int numberOfItems) {
+    List<T> sorted = new ArrayList<>(numberOfItems);
+    Iterables.addAll(sorted, items);
+    sorted.sort(comparator);
+    return sorted;
   }
 
   public static <T> List<T> sort(Collection<T> items, Comparator<T> comparator) {

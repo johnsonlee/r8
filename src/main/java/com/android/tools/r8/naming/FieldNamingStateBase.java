@@ -8,7 +8,6 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.shaking.ProguardConfiguration;
 import java.util.Map;
 
 abstract class FieldNamingStateBase<T> {
@@ -36,11 +35,10 @@ abstract class FieldNamingStateBase<T> {
     return internalStates.computeIfAbsent(internalStateKey, key -> createInternalState());
   }
 
+  @SuppressWarnings("UnusedVariable")
   private DexType getInternalStateKey(DexType type) {
-    ProguardConfiguration proguardConfiguration = appView.options().getProguardConfiguration();
-    return proguardConfiguration.isOverloadAggressively()
-        ? type
-        : appView.dexItemFactory().voidType;
+    // Returning the given type instead of void will implement aggressive overloading.
+    return appView.dexItemFactory().voidType;
   }
 
   abstract T createInternalState();

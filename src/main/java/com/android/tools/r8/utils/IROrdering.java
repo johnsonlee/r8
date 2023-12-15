@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.utils;
 
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.google.common.collect.Lists;
 import java.util.Collection;
@@ -15,6 +16,8 @@ import java.util.Set;
 public interface IROrdering {
 
   Iterable<DexEncodedMethod> order(Iterable<DexEncodedMethod> methods);
+
+  Iterable<DexClassAndMethod> orderClassMethods(Iterable<DexClassAndMethod> methods);
 
   Collection<DexEncodedMethod> order(Collection<DexEncodedMethod> methods);
 
@@ -32,6 +35,11 @@ public interface IROrdering {
 
     @Override
     public Iterable<DexEncodedMethod> order(Iterable<DexEncodedMethod> methods) {
+      return methods;
+    }
+
+    @Override
+    public Iterable<DexClassAndMethod> orderClassMethods(Iterable<DexClassAndMethod> methods) {
       return methods;
     }
 
@@ -59,6 +67,13 @@ public interface IROrdering {
     @Override
     public List<DexEncodedMethod> order(Iterable<DexEncodedMethod> methods) {
       List<DexEncodedMethod> toShuffle = Lists.newArrayList(methods);
+      Collections.shuffle(toShuffle);
+      return toShuffle;
+    }
+
+    @Override
+    public List<DexClassAndMethod> orderClassMethods(Iterable<DexClassAndMethod> methods) {
+      List<DexClassAndMethod> toShuffle = Lists.newArrayList(methods);
       Collections.shuffle(toShuffle);
       return toShuffle;
     }

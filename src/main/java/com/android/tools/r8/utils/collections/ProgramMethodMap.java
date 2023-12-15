@@ -43,7 +43,7 @@ public class ProgramMethodMap<V> extends DexClassAndMemberMap<ProgramMethod, V> 
   }
 
   @Override
-  Wrapper<ProgramMethod> wrap(ProgramMethod method) {
+  protected Wrapper<ProgramMethod> wrap(ProgramMethod method) {
     return ProgramMethodEquivalence.get().wrap(method);
   }
 }
