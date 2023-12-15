@@ -416,40 +416,6 @@ public class KeepEdgeReader implements Opcodes {
     void accept(T result);
   }
 
-  private abstract static class AnnotationVisitorBase extends AnnotationVisitor {
-
-    AnnotationVisitorBase() {
-      super(ASM_VERSION);
-    }
-
-    public abstract String getAnnotationName();
-
-    private String errorMessagePrefix() {
-      return " @" + getAnnotationName() + ": ";
-    }
-
-    @Override
-    public void visit(String name, Object value) {
-      throw new KeepEdgeException(
-          "Unexpected value in" + errorMessagePrefix() + name + " = " + value);
-    }
-
-    @Override
-    public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-      throw new KeepEdgeException("Unexpected annotation in" + errorMessagePrefix() + name);
-    }
-
-    @Override
-    public void visitEnum(String name, String descriptor, String value) {
-      throw new KeepEdgeException("Unexpected enum in" + errorMessagePrefix() + name);
-    }
-
-    @Override
-    public AnnotationVisitor visitArray(String name) {
-      throw new KeepEdgeException("Unexpected array in" + errorMessagePrefix() + name);
-    }
-  }
-
   private static class UserBindingsHelper {
     private final KeepBindings.Builder builder = KeepBindings.builder();
     private final Map<String, KeepBindingSymbol> userNames = new HashMap<>();
@@ -1491,9 +1457,16 @@ public class KeepEdgeReader implements Opcodes {
       extends SingleDeclaration<KeepMethodReturnTypePattern> {
 
     private final Supplier<String> annotationName;
+    private final TypeParser typeParser;
 
     private MethodReturnTypeDeclaration(Supplier<String> annotationName) {
       this.annotationName = annotationName;
+      typeParser =
+          new TypeParser()
+              .setKind("return type")
+              .enableTypePattern(Item.methodReturnTypePattern)
+              .enableTypeName(Item.methodReturnType)
+              .enableTypeConstant(Item.methodReturnTypeConstant);
     }
 
     @Override
@@ -1506,26 +1479,27 @@ public class KeepEdgeReader implements Opcodes {
       return KeepMethodReturnTypePattern.any();
     }
 
-    @Override
-    KeepMethodReturnTypePattern parse(String name, Object value) {
-      if (name.equals(Item.methodReturnType) && value instanceof String) {
-        return KeepEdgeReaderUtils.methodReturnTypeFromTypeName((String) value);
+    KeepMethodReturnTypePattern fromType(KeepTypePattern typePattern) {
+      if (typePattern == null) {
+        return null;
       }
-      if (name.equals(Item.methodReturnTypeConstant) && value instanceof Type) {
-        Type type = (Type) value;
-        return KeepEdgeReaderUtils.methodReturnTypeFromTypeDescriptor(type.getDescriptor());
+      // Special-case method return types to allow void.
+      String descriptor = typePattern.getDescriptor();
+      if (descriptor.equals("V") || descriptor.equals("Lvoid;")) {
+        return KeepMethodReturnTypePattern.voidType();
       }
-      return null;
+      return KeepMethodReturnTypePattern.fromType(typePattern);
     }
 
     @Override
-    AnnotationVisitor parseAnnotation(
+    public KeepMethodReturnTypePattern parse(String name, Object value) {
+      return fromType(typeParser.tryParse(name, value));
+    }
+
+    @Override
+    public AnnotationVisitor parseAnnotation(
         String name, String descriptor, Consumer<KeepMethodReturnTypePattern> setValue) {
-      if (name.equals(Item.methodReturnTypePattern) && descriptor.equals(TypePattern.DESCRIPTOR)) {
-        return new TypePatternVisitor(
-            annotationName, t -> setValue.accept(KeepMethodReturnTypePattern.fromType(t)));
-      }
-      return super.parseAnnotation(name, descriptor, setValue);
+      return typeParser.tryParseAnnotation(name, descriptor, t -> setValue.accept(fromType(t)));
     }
   }
 
@@ -1666,9 +1640,16 @@ public class KeepEdgeReader implements Opcodes {
   private static class FieldTypeDeclaration extends SingleDeclaration<KeepFieldTypePattern> {
 
     private final Supplier<String> annotationName;
+    private final TypeParser typeParser;
 
     private FieldTypeDeclaration(Supplier<String> annotationName) {
       this.annotationName = annotationName;
+      this.typeParser =
+          new TypeParser()
+              .setKind("field type")
+              .enableTypePattern(Item.fieldTypePattern)
+              .enableTypeName(Item.fieldType)
+              .enableTypeConstant(Item.fieldTypeConstant);
     }
 
     @Override
@@ -1682,26 +1663,19 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     @Override
-    KeepFieldTypePattern parse(String name, Object value) {
-      if (name.equals(Item.fieldType) && value instanceof String) {
-        return KeepFieldTypePattern.fromType(
-            KeepEdgeReaderUtils.typePatternFromString((String) value));
-      }
-      if (name.equals(Item.fieldTypeConstant) && value instanceof Type) {
-        String descriptor = ((Type) value).getDescriptor();
-        return KeepFieldTypePattern.fromType(KeepTypePattern.fromDescriptor(descriptor));
+    public KeepFieldTypePattern parse(String name, Object value) {
+      KeepTypePattern typePattern = typeParser.tryParse(name, value);
+      if (typePattern != null) {
+        return KeepFieldTypePattern.fromType(typePattern);
       }
       return null;
     }
 
     @Override
-    AnnotationVisitor parseAnnotation(
+    public AnnotationVisitor parseAnnotation(
         String name, String descriptor, Consumer<KeepFieldTypePattern> setValue) {
-      if (name.equals(Item.fieldTypePattern) && descriptor.equals(TypePattern.DESCRIPTOR)) {
-        return new TypePatternVisitor(
-            annotationName, t -> setValue.accept(KeepFieldTypePattern.fromType(t)));
-      }
-      return super.parseAnnotation(name, descriptor, setValue);
+      return typeParser.tryParseAnnotation(
+          name, descriptor, t -> setValue.accept(KeepFieldTypePattern.fromType(t)));
     }
   }
 
