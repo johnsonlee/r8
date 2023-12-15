@@ -2275,7 +2275,7 @@ public class KeepEdgeReader implements Opcodes {
                 setResult(KeepTypePattern.fromDescriptor(p.getExactDescriptor()));
               } else {
                 // TODO(b/248408342): Extend the AST type patterns.
-                throw new Unimplemented("Non-exact class patterns are not unimplemented yet");
+                throw new Unimplemented("Non-exact class patterns are not implemented yet");
               }
             });
       }

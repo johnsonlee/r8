@@ -4,24 +4,30 @@
 
 package com.android.tools.r8.keepanno.asm;
 
-import java.util.function.Consumer;
+import java.util.Collections;
+import java.util.List;
 import org.objectweb.asm.AnnotationVisitor;
 
-/** Convert a parser into an annotation visitor. */
-public class ParserVisitor<T, P, S> extends AnnotationVisitorBase {
+/** Convert parser(s) into an annotation visitor. */
+public class ParserVisitor extends AnnotationVisitorBase {
 
   private final String annotationDescriptor;
-  private final SingleValuePropertyParser<T, P, S> declaration;
-  private final Consumer<T> callback;
+  private final List<PropertyParser<?, ?, ?>> parsers;
+  private final Runnable onVisitEnd;
 
   public ParserVisitor(
-      String annotationDescriptor,
-      SingleValuePropertyParser<T, P, S> declaration,
-      Consumer<T> callback) {
+      String annotationDescriptor, List<PropertyParser<?, ?, ?>> parsers, Runnable onVisitEnd) {
     this.annotationDescriptor = annotationDescriptor;
-    this.declaration = declaration;
-    this.callback = callback;
+    this.parsers = parsers;
+    this.onVisitEnd = onVisitEnd;
   }
+
+  public ParserVisitor(
+      String annotationDescriptor, PropertyParser<?, ?, ?> declaration, Runnable onVisitEnd) {
+    this(annotationDescriptor, Collections.singletonList(declaration), onVisitEnd);
+  }
+
+  private <T> void ignore(T unused) {}
 
   @Override
   public String getAnnotationName() {
@@ -32,39 +38,49 @@ public class ParserVisitor<T, P, S> extends AnnotationVisitorBase {
 
   @Override
   public void visit(String name, Object value) {
-    if (declaration.tryParse(name, value, unused -> {})) {
-      return;
+    for (PropertyParser<?, ?, ?> parser : parsers) {
+      if (parser.tryParse(name, value, this::ignore)) {
+        return;
+      }
     }
     super.visit(name, value);
   }
 
   @Override
   public AnnotationVisitor visitArray(String name) {
-    AnnotationVisitor visitor = declaration.tryParseArray(name, unused -> {});
-    if (visitor != null) {
-      return visitor;
+    for (PropertyParser<?, ?, ?> parser : parsers) {
+      AnnotationVisitor visitor = parser.tryParseArray(name, this::ignore);
+      if (visitor != null) {
+        return visitor;
+      }
     }
     return super.visitArray(name);
   }
 
   @Override
   public void visitEnum(String name, String descriptor, String value) {
+    for (PropertyParser<?, ?, ?> parser : parsers) {
+      if (parser.tryParseEnum(name, descriptor, value, this::ignore)) {
+        return;
+      }
+    }
     super.visitEnum(name, descriptor, value);
   }
 
   @Override
   public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-    AnnotationVisitor visitor = declaration.tryParseAnnotation(name, descriptor, unused -> {});
-    if (visitor != null) {
-      return visitor;
+    for (PropertyParser<?, ?, ?> parser : parsers) {
+      AnnotationVisitor visitor = parser.tryParseAnnotation(name, descriptor, this::ignore);
+      if (visitor != null) {
+        return visitor;
+      }
     }
     return super.visitAnnotation(name, descriptor);
   }
 
   @Override
   public void visitEnd() {
-    if (declaration.isDeclared()) {
-      callback.accept(declaration.getSingleValue());
-    }
+    onVisitEnd.run();
+    super.visitEnd();
   }
 }
