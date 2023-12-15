@@ -84,8 +84,8 @@ public class VerticallyMergedClasses implements MergedClasses {
     return mergedClasses.containsKey(type);
   }
 
-  public boolean hasInterfaceBeenMergedIntoClass(DexType interfaceType, DexType classType) {
-    return classType.isIdenticalTo(mergedInterfacesToClasses.get(interfaceType));
+  public boolean hasInterfaceBeenMergedIntoClass(DexType interfaceType) {
+    return mergedInterfacesToClasses.containsKey(interfaceType);
   }
 
   public boolean hasInterfaceBeenMergedIntoSubtype(DexType type) {

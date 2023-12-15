@@ -281,8 +281,7 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
       return InvokeType.STATIC;
     }
     if (type.isInterface()
-        && mergedClasses.hasInterfaceBeenMergedIntoClass(
-            previousMethod.getHolderType(), newMethod.getHolderType())) {
+        && mergedClasses.hasInterfaceBeenMergedIntoClass(previousMethod.getHolderType())) {
       return InvokeType.VIRTUAL;
     }
     return type;
