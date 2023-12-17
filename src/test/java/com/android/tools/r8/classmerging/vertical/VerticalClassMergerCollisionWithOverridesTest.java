@@ -48,7 +48,7 @@ public class VerticalClassMergerCollisionWithOverridesTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .assertFailureWithErrorThatThrows(AbstractMethodError.class);
+        .assertSuccessWithOutputLines("C C.m()", "B B.m()");
   }
 
   private static byte[] getTransformedClass() throws Exception {

@@ -397,8 +397,7 @@ public abstract class ClassMergerTreeFixer<
     // subclasses perform the identical rename.
     if (!reservedInterfaceSignatures.containsKey(method)
         && Iterables.any(
-            newSignature.getProto().getParameterBaseTypes(dexItemFactory),
-            mergedClasses::isMergeTarget)) {
+            newSignature.getProto().getBaseTypes(dexItemFactory), mergedClasses::isMergeTarget)) {
       renamedClassVirtualMethods.put(method.getSignature(), newSignature);
     }
 
