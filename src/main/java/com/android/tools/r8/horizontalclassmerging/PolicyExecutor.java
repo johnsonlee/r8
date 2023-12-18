@@ -5,9 +5,7 @@
 package com.android.tools.r8.horizontalclassmerging;
 
 import com.android.tools.r8.utils.Timing;
-import com.google.common.collect.ImmutableList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -17,64 +15,7 @@ import java.util.concurrent.ExecutorService;
  * primarily be readable and correct. The SimplePolicyExecutor should be a reference implementation,
  * against which more efficient policy executors can be compared.
  */
-public class PolicyExecutor {
-
-  private void applySingleClassPolicy(SingleClassPolicy policy, LinkedList<MergeGroup> groups) {
-    Iterator<MergeGroup> i = groups.iterator();
-    while (i.hasNext()) {
-      MergeGroup group = i.next();
-      boolean isInterfaceGroup = group.isInterfaceGroup();
-      int previousGroupSize = group.size();
-      group.removeIf(clazz -> !policy.canMerge(clazz));
-      assert policy.recordRemovedClassesForDebugging(
-          isInterfaceGroup, previousGroupSize, ImmutableList.of(group));
-      if (group.isTrivial()) {
-        i.remove();
-      }
-    }
-  }
-
-  // TODO(b/270398965): Replace LinkedList.
-  @SuppressWarnings("JdkObsolete")
-  private LinkedList<MergeGroup> applyMultiClassPolicy(
-      MultiClassPolicy policy, LinkedList<MergeGroup> groups) {
-    // For each group apply the multi class policy and add all the new groups together.
-    LinkedList<MergeGroup> newGroups = new LinkedList<>();
-    groups.forEach(
-        group -> {
-          boolean isInterfaceGroup = group.isInterfaceGroup();
-          int previousGroupSize = group.size();
-          Collection<MergeGroup> policyGroups = policy.apply(group);
-          policyGroups.forEach(newGroup -> newGroup.applyMetadataFrom(group));
-          assert policy.recordRemovedClassesForDebugging(
-              isInterfaceGroup, previousGroupSize, policyGroups);
-          newGroups.addAll(policyGroups);
-        });
-    return newGroups;
-  }
-
-  // TODO(b/270398965): Replace LinkedList.
-  @SuppressWarnings("JdkObsolete")
-  private <T> LinkedList<MergeGroup> applyMultiClassPolicyWithPreprocessing(
-      MultiClassPolicyWithPreprocessing<T> policy,
-      LinkedList<MergeGroup> groups,
-      ExecutorService executorService)
-      throws ExecutionException {
-    // For each group apply the multi class policy and add all the new groups together.
-    T data = policy.preprocess(groups, executorService);
-    LinkedList<MergeGroup> newGroups = new LinkedList<>();
-    groups.forEach(
-        group -> {
-          boolean isInterfaceGroup = group.isInterfaceGroup();
-          int previousGroupSize = group.size();
-          Collection<MergeGroup> policyGroups = policy.apply(group, data);
-          policyGroups.forEach(newGroup -> newGroup.applyMetadataFrom(group));
-          assert policy.recordRemovedClassesForDebugging(
-              isInterfaceGroup, previousGroupSize, policyGroups);
-          newGroups.addAll(policyGroups);
-        });
-    return newGroups;
-  }
+public abstract class PolicyExecutor<MG extends MergeGroupBase> {
 
   /**
    * Given an initial collection of class groups which can potentially be merged, run all of the
@@ -83,16 +24,16 @@ public class PolicyExecutor {
    */
   // TODO(b/270398965): Replace LinkedList.
   @SuppressWarnings("JdkObsolete")
-  public Collection<MergeGroup> run(
-      Collection<MergeGroup> inputGroups,
+  public Collection<MG> run(
+      Collection<MG> inputGroups,
       Collection<Policy> policies,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
-    LinkedList<MergeGroup> linkedGroups;
+    LinkedList<MG> linkedGroups;
 
     if (inputGroups instanceof LinkedList) {
-      linkedGroups = (LinkedList<MergeGroup>) inputGroups;
+      linkedGroups = (LinkedList<MG>) inputGroups;
     } else {
       linkedGroups = new LinkedList<>(inputGroups);
     }
@@ -103,16 +44,7 @@ public class PolicyExecutor {
       }
 
       timing.begin(policy.getName());
-      if (policy.isSingleClassPolicy()) {
-        applySingleClassPolicy(policy.asSingleClassPolicy(), linkedGroups);
-      } else if (policy.isMultiClassPolicy()) {
-        linkedGroups = applyMultiClassPolicy(policy.asMultiClassPolicy(), linkedGroups);
-      } else {
-        assert policy.isMultiClassPolicyWithPreprocessing();
-        linkedGroups =
-            applyMultiClassPolicyWithPreprocessing(
-                policy.asMultiClassPolicyWithPreprocessing(), linkedGroups, executorService);
-      }
+      linkedGroups = apply(policy, linkedGroups, executorService);
       timing.end();
 
       policy.clear();
@@ -127,4 +59,8 @@ public class PolicyExecutor {
 
     return linkedGroups;
   }
+
+  protected abstract LinkedList<MG> apply(
+      Policy policy, LinkedList<MG> linkedGroups, ExecutorService executorService)
+      throws ExecutionException;
 }

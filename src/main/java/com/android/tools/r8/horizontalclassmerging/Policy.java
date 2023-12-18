@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import com.android.tools.r8.verticalclassmerging.VerticalClassMergerPolicy;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -47,6 +48,14 @@ public abstract class Policy {
   }
 
   public MultiClassPolicyWithPreprocessing<?> asMultiClassPolicyWithPreprocessing() {
+    return null;
+  }
+
+  public boolean isVerticalClassMergerPolicy() {
+    return false;
+  }
+
+  public VerticalClassMergerPolicy asVerticalClassMergerPolicy() {
     return null;
   }
 

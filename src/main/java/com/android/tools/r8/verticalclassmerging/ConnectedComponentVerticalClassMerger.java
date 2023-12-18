@@ -5,19 +5,18 @@ package com.android.tools.r8.verticalclassmerging;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 public class ConnectedComponentVerticalClassMerger {
 
   private final AppView<AppInfoWithLiveness> appView;
-  private final Set<DexProgramClass> classesToMerge;
+  private final Collection<VerticalMergeGroup> classesToMerge;
 
   // The resulting graph lens that should be used after class merging.
   private final VerticalClassMergerGraphLens.Builder lensBuilder;
@@ -29,7 +28,7 @@ public class ConnectedComponentVerticalClassMerger {
       VerticallyMergedClasses.builder();
 
   ConnectedComponentVerticalClassMerger(
-      AppView<AppInfoWithLiveness> appView, Set<DexProgramClass> classesToMerge) {
+      AppView<AppInfoWithLiveness> appView, Collection<VerticalMergeGroup> classesToMerge) {
     this.appView = appView;
     this.classesToMerge = classesToMerge;
     this.lensBuilder = new VerticalClassMergerGraphLens.Builder();
@@ -39,23 +38,19 @@ public class ConnectedComponentVerticalClassMerger {
     return classesToMerge.isEmpty();
   }
 
-  public VerticalClassMergerResult.Builder run(ImmediateProgramSubtypingInfo immediateSubtypingInfo)
-      throws ExecutionException {
-    List<DexProgramClass> classesToMergeSorted =
-        ListUtils.sort(classesToMerge, Comparator.comparing(DexProgramClass::getType));
-    for (DexProgramClass clazz : classesToMergeSorted) {
-      mergeClassIfPossible(clazz, immediateSubtypingInfo);
+  public VerticalClassMergerResult.Builder run() throws ExecutionException {
+    List<VerticalMergeGroup> classesToMergeSorted =
+        ListUtils.sort(classesToMerge, Comparator.comparing(group -> group.getSource().getType()));
+    for (VerticalMergeGroup group : classesToMergeSorted) {
+      mergeClassIfPossible(group);
     }
     return VerticalClassMergerResult.builder(
         lensBuilder, synthesizedBridges, verticallyMergedClassesBuilder);
   }
 
-  private void mergeClassIfPossible(
-      DexProgramClass sourceClass, ImmediateProgramSubtypingInfo immediateSubtypingInfo)
-      throws ExecutionException {
-    List<DexProgramClass> subclasses = immediateSubtypingInfo.getSubclasses(sourceClass);
-    assert subclasses.size() == 1;
-    DexProgramClass targetClass = ListUtils.first(subclasses);
+  private void mergeClassIfPossible(VerticalMergeGroup group) throws ExecutionException {
+    DexProgramClass sourceClass = group.getSource();
+    DexProgramClass targetClass = group.getTarget();
     if (verticallyMergedClassesBuilder.isMergeSource(targetClass)
         || verticallyMergedClassesBuilder.isMergeTarget(sourceClass)) {
       return;

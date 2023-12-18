@@ -26,7 +26,7 @@ import java.util.LinkedList;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public class MergeGroup implements Collection<DexProgramClass> {
+public class MergeGroup extends MergeGroupBase implements Collection<DexProgramClass> {
 
   public static class Metadata {}
 

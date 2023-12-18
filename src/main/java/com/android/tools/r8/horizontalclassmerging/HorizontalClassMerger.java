@@ -127,7 +127,8 @@ public class HorizontalClassMerger {
     List<Policy> policies =
         PolicyScheduler.getPolicies(appView, codeProvider, mode, runtimeTypeCheckInfo);
     Collection<MergeGroup> groups =
-        new PolicyExecutor().run(getInitialGroups(), policies, executorService, timing);
+        new HorizontalClassMergerPolicyExecutor()
+            .run(getInitialGroups(), policies, executorService, timing);
 
     // If there are no groups, then end horizontal class merging.
     if (groups.isEmpty()) {
