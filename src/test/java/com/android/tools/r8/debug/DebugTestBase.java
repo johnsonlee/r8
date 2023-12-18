@@ -1572,6 +1572,14 @@ public abstract class DebugTestBase extends TestBase {
         return internalInstanceField(getMirror(), thisObjectId, fieldId);
       }
 
+      public void setFieldOnThis(String fieldName, String fieldSignature, Value value) {
+        long thisObjectId = getMirror().getThisObject(getThreadId(), getFrameId());
+        long classId = getMirror().getReferenceType(thisObjectId);
+        // TODO(zerny): Search supers too. This will only get the field if directly on the class.
+        long fieldId = findField(getMirror(), classId, fieldName, fieldSignature);
+        internalSetInstanceField(getMirror(), thisObjectId, fieldId, value);
+      }
+
       private long findField(VmMirror mirror, long classId, String fieldName,
           String fieldSignature) {
 
@@ -1631,6 +1639,19 @@ public abstract class DebugTestBase extends TestBase {
         Assert.assertTrue(replyPacket.isAllDataRead());
         return result;
       }
+    }
+
+    private static void internalSetInstanceField(
+        VmMirror mirror, long objectId, long fieldId, Value value) {
+      CommandPacket commandPacket =
+          new CommandPacket(
+              ObjectReferenceCommandSet.CommandSetID, ObjectReferenceCommandSet.SetValuesCommand);
+      commandPacket.setNextValueAsObjectID(objectId);
+      commandPacket.setNextValueAsInt(1); // field count.
+      commandPacket.setNextValueAsFieldID(fieldId);
+      commandPacket.setNextValueAsUntaggedValue(value);
+      ReplyPacket replyPacket = mirror.performCommand(commandPacket);
+      assert replyPacket.getErrorCode() == Error.NONE : "Error code: " + replyPacket.getErrorCode();
     }
 
     private static Value internalInstanceField(VmMirror mirror, long objectId, long fieldId) {
