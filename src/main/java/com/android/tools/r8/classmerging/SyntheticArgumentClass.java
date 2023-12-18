@@ -7,7 +7,7 @@ package com.android.tools.r8.classmerging;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.synthesis.SyntheticItems.SyntheticKindSelector;
 import com.google.common.base.Suppliers;
@@ -60,7 +60,7 @@ public class SyntheticArgumentClass {
           .createFixedClass(syntheticKindSelector, context, appView, builder -> {});
     }
 
-    public SyntheticArgumentClass build(Collection<MergeGroup> mergeGroups) {
+    public SyntheticArgumentClass build(Collection<HorizontalMergeGroup> mergeGroups) {
       return build(getDeterministicContext(mergeGroups));
     }
 
@@ -87,9 +87,10 @@ public class SyntheticArgumentClass {
       return new SyntheticArgumentClass(syntheticArgumentTypes);
     }
 
-    private static DexProgramClass getDeterministicContext(Collection<MergeGroup> mergeGroups) {
+    private static DexProgramClass getDeterministicContext(
+        Collection<HorizontalMergeGroup> mergeGroups) {
       // Relies on the determinism of the merge groups.
-      MergeGroup mergeGroup = mergeGroups.iterator().next();
+      HorizontalMergeGroup mergeGroup = mergeGroups.iterator().next();
       assert mergeGroup.hasTarget();
       return mergeGroup.getTarget();
     }

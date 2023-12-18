@@ -24,7 +24,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRMetadata;
@@ -59,7 +59,7 @@ public class ClassInitializerMerger {
     this.classInitializers = classInitializers;
   }
 
-  public static ClassInitializerMerger create(MergeGroup group) {
+  public static ClassInitializerMerger create(HorizontalMergeGroup group) {
     ClassInitializerMerger.Builder builder = new ClassInitializerMerger.Builder();
     group.forEach(
         clazz -> {

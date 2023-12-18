@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.horizontalclassmerging;
+package com.android.tools.r8.classmerging;
 
 import com.android.tools.r8.utils.Timing;
 import java.util.Collection;
@@ -15,7 +15,7 @@ import java.util.concurrent.ExecutorService;
  * primarily be readable and correct. The SimplePolicyExecutor should be a reference implementation,
  * against which more efficient policy executors can be compared.
  */
-public abstract class PolicyExecutor<MG extends MergeGroupBase> {
+public abstract class PolicyExecutor<MG extends MergeGroup> {
 
   /**
    * Given an initial collection of class groups which can potentially be merged, run all of the

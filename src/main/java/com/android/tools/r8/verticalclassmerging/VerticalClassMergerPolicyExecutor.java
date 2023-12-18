@@ -3,11 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.verticalclassmerging;
 
+import com.android.tools.r8.classmerging.Policy;
+import com.android.tools.r8.classmerging.PolicyExecutor;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
-import com.android.tools.r8.horizontalclassmerging.Policy;
-import com.android.tools.r8.horizontalclassmerging.PolicyExecutor;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
@@ -18,7 +18,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
-// TODO(b/315252934): Parallelize policy execution over connected program components.
 public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMergeGroup> {
 
   private final AppView<AppInfoWithLiveness> appView;

@@ -19,13 +19,13 @@ import com.android.tools.r8.graph.MethodAccessInfoCollection;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.horizontalclassmerging.ClassInstanceFieldsMerger;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.IRCodeProvider;
 import com.android.tools.r8.horizontalclassmerging.InstanceInitializerAnalysis;
 import com.android.tools.r8.horizontalclassmerging.InstanceInitializerAnalysis.AbsentInstanceInitializer;
 import com.android.tools.r8.horizontalclassmerging.InstanceInitializerAnalysis.InstanceInitializer;
 import com.android.tools.r8.horizontalclassmerging.InstanceInitializerAnalysis.PresentInstanceInitializer;
 import com.android.tools.r8.horizontalclassmerging.InstanceInitializerDescription;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
@@ -73,7 +73,7 @@ public class NoInstanceInitializerMerging
   @Override
   @SuppressWarnings("MixedMutabilityReturnType")
   public Map<DexProgramClass, Set<DexMethod>> preprocess(
-      Collection<MergeGroup> groups, ExecutorService executorService) {
+      Collection<HorizontalMergeGroup> groups, ExecutorService executorService) {
     if (!appView.options().canHaveNonReboundConstructorInvoke()) {
       return Collections.emptyMap();
     }
@@ -118,8 +118,8 @@ public class NoInstanceInitializerMerging
 
   @Override
   @SuppressWarnings("MixedMutabilityReturnType")
-  public Collection<MergeGroup> apply(
-      MergeGroup group, Map<DexProgramClass, Set<DexMethod>> absentInstanceInitializers) {
+  public Collection<HorizontalMergeGroup> apply(
+      HorizontalMergeGroup group, Map<DexProgramClass, Set<DexMethod>> absentInstanceInitializers) {
     assert !group.hasTarget();
     assert !group.hasInstanceFieldMap();
 
@@ -148,7 +148,8 @@ public class NoInstanceInitializerMerging
     group.selectTarget(appView);
     group.selectInstanceFieldMap(appView);
 
-    Map<MergeGroup, Map<DexMethodSignature, InstanceInitializer>> newGroups = new LinkedHashMap<>();
+    Map<HorizontalMergeGroup, Map<DexMethodSignature, InstanceInitializer>> newGroups =
+        new LinkedHashMap<>();
 
     // Caching of instance initializer descriptions, which are used to determine equivalence.
     // TODO(b/181846319): Make this cache available to the instance initializer merger so that we
@@ -164,12 +165,12 @@ public class NoInstanceInitializerMerging
     // Partition group into smaller groups where there are no (non-equivalent) instance initializer
     // collisions.
     for (DexProgramClass clazz : group) {
-      MergeGroup newGroup = null;
+      HorizontalMergeGroup newGroup = null;
       Map<DexMethodSignature, InstanceInitializer> classInstanceInitializers =
           getInstanceInitializersByRelaxedSignature(clazz, absentInstanceInitializers);
-      for (Entry<MergeGroup, Map<DexMethodSignature, InstanceInitializer>> entry :
+      for (Entry<HorizontalMergeGroup, Map<DexMethodSignature, InstanceInitializer>> entry :
           newGroups.entrySet()) {
-        MergeGroup candidateGroup = entry.getKey();
+        HorizontalMergeGroup candidateGroup = entry.getKey();
         Map<DexMethodSignature, InstanceInitializer> groupInstanceInitializers = entry.getValue();
         if (canAddClassToGroup(
             classInstanceInitializers,
@@ -183,12 +184,12 @@ public class NoInstanceInitializerMerging
       if (newGroup != null) {
         newGroup.add(clazz);
       } else {
-        newGroups.put(new MergeGroup(clazz), classInstanceInitializers);
+        newGroups.put(new HorizontalMergeGroup(clazz), classInstanceInitializers);
       }
     }
 
     // Remove trivial groups and finalize the newly created groups.
-    Collection<MergeGroup> newNonTrivialGroups = removeTrivialGroups(newGroups.keySet());
+    Collection<HorizontalMergeGroup> newNonTrivialGroups = removeTrivialGroups(newGroups.keySet());
     setInstanceFieldMaps(newNonTrivialGroups, group);
     return newNonTrivialGroups;
   }
@@ -265,7 +266,7 @@ public class NoInstanceInitializerMerging
   }
 
   private Optional<InstanceInitializerDescription> getOrComputeInstanceInitializerDescription(
-      MergeGroup group,
+      HorizontalMergeGroup group,
       InstanceInitializer instanceInitializer,
       Map<DexMethod, Optional<InstanceInitializerDescription>> instanceInitializerDescriptions) {
     return instanceInitializerDescriptions.computeIfAbsent(
@@ -296,8 +297,9 @@ public class NoInstanceInitializerMerging
         : instanceInitializerReference;
   }
 
-  private void setInstanceFieldMaps(Iterable<MergeGroup> newGroups, MergeGroup group) {
-    for (MergeGroup newGroup : newGroups) {
+  private void setInstanceFieldMaps(
+      Iterable<HorizontalMergeGroup> newGroups, HorizontalMergeGroup group) {
+    for (HorizontalMergeGroup newGroup : newGroups) {
       // Set target.
       newGroup.selectTarget(appView);
 

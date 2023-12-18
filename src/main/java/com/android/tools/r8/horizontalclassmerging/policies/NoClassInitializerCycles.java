@@ -20,7 +20,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
 import com.android.tools.r8.horizontalclassmerging.policies.deadlock.SingleCallerInformation;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -97,7 +97,7 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
   final AppView<AppInfoWithLiveness> appView;
 
   // Mapping from each merge candidate to its merge group.
-  final Map<DexProgramClass, MergeGroup> allGroups = new IdentityHashMap<>();
+  final Map<DexProgramClass, HorizontalMergeGroup> allGroups = new IdentityHashMap<>();
 
   private SingleCallerInformation singleCallerInformation;
 
@@ -112,24 +112,25 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
   // TODO(b/270398965): Replace LinkedList.
   @SuppressWarnings("JdkObsolete")
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group, Void nothing) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group, Void nothing) {
     // Partition the merge group into smaller groups that may be merged. If the class initialization
     // of a parent class may initialize a member of the merge group, then this member is not
     // eligible for class merging, unless the only way to class initialize this member is from the
     // class initialization of the parent class. In this case, the member may be merged with other
     // group members that are also guaranteed to only be class initialized from the class
     // initialization of the parent class.
-    List<MergeGroup> partitioning = partitionClassesWithPossibleClassInitializerDeadlock(group);
-    List<MergeGroup> newGroups = new LinkedList<>();
+    List<HorizontalMergeGroup> partitioning =
+        partitionClassesWithPossibleClassInitializerDeadlock(group);
+    List<HorizontalMergeGroup> newGroups = new LinkedList<>();
 
     // Revisit each partition. If the class initialization of a group member may initialize another
     // class (not necessarily a group member), and vice versa, then class initialization could
     // deadlock if the group member is merged with another class that is initialized concurrently.
-    for (MergeGroup partition : partitioning) {
-      List<MergeGroup> newGroupsFromPartition = new LinkedList<>();
+    for (HorizontalMergeGroup partition : partitioning) {
+      List<HorizontalMergeGroup> newGroupsFromPartition = new LinkedList<>();
       Tracer tracer = new Tracer(partition);
       for (DexProgramClass clazz : partition) {
-        MergeGroup newGroup = getOrCreateGroupFor(clazz, newGroupsFromPartition, tracer);
+        HorizontalMergeGroup newGroup = getOrCreateGroupFor(clazz, newGroupsFromPartition, tracer);
         if (newGroup != null) {
           newGroup.add(clazz);
         } else {
@@ -143,22 +144,22 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
     return newGroups;
   }
 
-  private void commit(MergeGroup oldGroup, List<MergeGroup> newGroups) {
-    for (MergeGroup newGroup : newGroups) {
+  private void commit(HorizontalMergeGroup oldGroup, List<HorizontalMergeGroup> newGroups) {
+    for (HorizontalMergeGroup newGroup : newGroups) {
       for (DexProgramClass member : newGroup) {
         allGroups.put(member, newGroup);
       }
     }
     for (DexProgramClass member : oldGroup) {
-      MergeGroup newGroup = allGroups.get(member);
+      HorizontalMergeGroup newGroup = allGroups.get(member);
       if (newGroup == oldGroup) {
         allGroups.remove(member);
       }
     }
   }
 
-  private MergeGroup getOrCreateGroupFor(
-      DexProgramClass clazz, List<MergeGroup> groups, Tracer tracer) {
+  private HorizontalMergeGroup getOrCreateGroupFor(
+      DexProgramClass clazz, List<HorizontalMergeGroup> groups, Tracer tracer) {
     assert !tracer.hasPossibleClassInitializerDeadlock(clazz);
 
     if (clazz.hasClassInitializer()) {
@@ -174,18 +175,18 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
       }
     }
 
-    for (MergeGroup group : groups) {
+    for (HorizontalMergeGroup group : groups) {
       if (canMerge(clazz, group, tracer)) {
         return group;
       }
     }
 
-    MergeGroup newGroup = new MergeGroup();
+    HorizontalMergeGroup newGroup = new HorizontalMergeGroup();
     groups.add(newGroup);
     return newGroup;
   }
 
-  private boolean canMerge(DexProgramClass clazz, MergeGroup group, Tracer tracer) {
+  private boolean canMerge(DexProgramClass clazz, HorizontalMergeGroup group, Tracer tracer) {
     for (DexProgramClass member : group) {
       // Check that the class initialization of the given class cannot reach the class initializer
       // of the current group member.
@@ -206,7 +207,8 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
    * If the class initializer of one of the classes in the merge group is reached, then that class
    * is not eligible for merging.
    */
-  private List<MergeGroup> partitionClassesWithPossibleClassInitializerDeadlock(MergeGroup group) {
+  private List<HorizontalMergeGroup> partitionClassesWithPossibleClassInitializerDeadlock(
+      HorizontalMergeGroup group) {
     Set<DexProgramClass> superclasses = Sets.newIdentityHashSet();
     appView
         .appInfo()
@@ -230,13 +232,15 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
     }
     tracer.trace();
 
-    MergeGroup notInitializedByInitializationOfParent = new MergeGroup();
-    Map<DexProgramClass, MergeGroup> partitioning = new LinkedHashMap<>();
+    HorizontalMergeGroup notInitializedByInitializationOfParent = new HorizontalMergeGroup();
+    Map<DexProgramClass, HorizontalMergeGroup> partitioning = new LinkedHashMap<>();
     for (DexProgramClass member : group) {
       if (tracer.hasPossibleClassInitializerDeadlock(member)) {
         DexProgramClass nearestLock = getNearestLock(member, superclasses);
         if (nearestLock != null) {
-          partitioning.computeIfAbsent(nearestLock, ignoreKey(MergeGroup::new)).add(member);
+          partitioning
+              .computeIfAbsent(nearestLock, ignoreKey(HorizontalMergeGroup::new))
+              .add(member);
         } else {
           // Ineligible for merging.
         }
@@ -245,7 +249,7 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
       }
     }
 
-    return ImmutableList.<MergeGroup>builder()
+    return ImmutableList.<HorizontalMergeGroup>builder()
         .add(notInitializedByInitializationOfParent)
         .addAll(partitioning.values())
         .build();
@@ -276,9 +280,9 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
   }
 
   @Override
-  public Void preprocess(Collection<MergeGroup> groups, ExecutorService executorService)
+  public Void preprocess(Collection<HorizontalMergeGroup> groups, ExecutorService executorService)
       throws ExecutionException {
-    for (MergeGroup group : groups) {
+    for (HorizontalMergeGroup group : groups) {
       for (DexProgramClass clazz : group) {
         allGroups.put(clazz, group);
       }
@@ -296,7 +300,7 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
 
   private class Tracer {
 
-    final MergeGroup group;
+    final HorizontalMergeGroup group;
 
     // The members of the existing merge group, for efficient membership querying.
     final Set<DexProgramClass> groupMembers;
@@ -314,7 +318,7 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
     // group).
     private Collection<DexProgramClass> tracingRoots;
 
-    Tracer(MergeGroup group) {
+    Tracer(HorizontalMergeGroup group) {
       this.group = group;
       this.groupMembers = SetUtils.newIdentityHashSet(group);
     }
@@ -469,7 +473,7 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
             worklist.addIfNotSeen(superClass);
           }
 
-          MergeGroup other = allGroups.get(clazz);
+          HorizontalMergeGroup other = allGroups.get(clazz);
           if (other != null && other != group) {
             worklist.addIfNotSeen(other);
           }

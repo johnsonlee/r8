@@ -49,13 +49,13 @@ public class VirtualMethodMerger {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final DexItemFactory dexItemFactory;
-  private final MergeGroup group;
+  private final HorizontalMergeGroup group;
   private final List<ProgramMethod> methods;
   private final SuperMethodReference superMethod;
 
   public VirtualMethodMerger(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      MergeGroup group,
+      HorizontalMergeGroup group,
       List<ProgramMethod> methods,
       SuperMethodReference superMethod) {
     this.appView = appView;
@@ -75,7 +75,7 @@ public class VirtualMethodMerger {
 
     /** Get the super method handle if this method overrides a parent method. */
     private SuperMethodReference superMethod(
-        AppView<? extends AppInfoWithClassHierarchy> appView, MergeGroup group) {
+        AppView<? extends AppInfoWithClassHierarchy> appView, HorizontalMergeGroup group) {
       DexMethod template = methods.iterator().next().getReference();
       SingleResolutionResult<?> resolutionResult =
           appView
@@ -98,7 +98,7 @@ public class VirtualMethodMerger {
     }
 
     public VirtualMethodMerger build(
-        AppView<? extends AppInfoWithClassHierarchy> appView, MergeGroup group) {
+        AppView<? extends AppInfoWithClassHierarchy> appView, HorizontalMergeGroup group) {
       // If not all the classes are in the merge group, find the fallback super method to call.
       SuperMethodReference superMethod =
           methods.size() < group.size() ? superMethod(appView, group) : null;

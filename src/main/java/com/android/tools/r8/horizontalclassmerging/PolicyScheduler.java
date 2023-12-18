@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;

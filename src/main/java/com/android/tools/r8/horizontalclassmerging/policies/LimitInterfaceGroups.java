@@ -7,7 +7,7 @@ package com.android.tools.r8.horizontalclassmerging.policies;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import java.util.Collection;
 import java.util.Collections;
@@ -25,24 +25,24 @@ public class LimitInterfaceGroups extends MultiClassPolicy {
   }
 
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     if (group.isClassGroup()) {
       return Collections.singletonList(group);
     }
     // Mapping from new merge groups to their size.
-    Map<MergeGroup, Integer> newGroups = new LinkedHashMap<>();
+    Map<HorizontalMergeGroup, Integer> newGroups = new LinkedHashMap<>();
     for (DexProgramClass clazz : group) {
       processClass(clazz, newGroups);
     }
     return removeTrivialGroups(newGroups.keySet());
   }
 
-  private void processClass(DexProgramClass clazz, Map<MergeGroup, Integer> newGroups) {
+  private void processClass(DexProgramClass clazz, Map<HorizontalMergeGroup, Integer> newGroups) {
     int increment = clazz.getMethodCollection().size();
 
     // Find an existing group.
-    for (Entry<MergeGroup, Integer> entry : newGroups.entrySet()) {
-      MergeGroup candidateGroup = entry.getKey();
+    for (Entry<HorizontalMergeGroup, Integer> entry : newGroups.entrySet()) {
+      HorizontalMergeGroup candidateGroup = entry.getKey();
       int candidateGroupSize = entry.getValue();
       int newCandidateGroupSize = candidateGroupSize + increment;
       if (newCandidateGroupSize <= maxGroupSize) {
@@ -53,7 +53,7 @@ public class LimitInterfaceGroups extends MultiClassPolicy {
     }
 
     // Failed to find an existing group.
-    newGroups.put(new MergeGroup(clazz), increment);
+    newGroups.put(new HorizontalMergeGroup(clazz), increment);
   }
 
   @Override

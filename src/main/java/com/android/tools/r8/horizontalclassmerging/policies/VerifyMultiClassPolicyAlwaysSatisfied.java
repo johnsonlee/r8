@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.Collection;
@@ -29,15 +29,15 @@ public class VerifyMultiClassPolicyAlwaysSatisfied extends MultiClassPolicy {
   }
 
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     assert verifySameAppliedGroup(group);
     return Collections.singletonList(group);
   }
 
-  private boolean verifySameAppliedGroup(MergeGroup group) {
-    Collection<MergeGroup> applied = policy.apply(group);
+  private boolean verifySameAppliedGroup(HorizontalMergeGroup group) {
+    Collection<HorizontalMergeGroup> applied = policy.apply(group);
     assert applied.size() == 1;
-    MergeGroup appliedGroup = applied.iterator().next();
+    HorizontalMergeGroup appliedGroup = applied.iterator().next();
     assert appliedGroup.size() == group.size() && group.containsAll(appliedGroup);
     return true;
   }

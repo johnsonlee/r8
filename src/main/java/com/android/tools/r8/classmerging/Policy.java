@@ -2,15 +2,19 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.horizontalclassmerging;
+package com.android.tools.r8.classmerging;
 
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
+import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
+import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
+import com.android.tools.r8.horizontalclassmerging.SingleClassPolicy;
 import com.android.tools.r8.verticalclassmerging.VerticalClassMergerPolicy;
 import java.util.ArrayList;
 import java.util.Collection;
 
 /**
- * The super class of all horizontal class merging policies. Most classes will either implement
- * {@link SingleClassPolicy} or {@link MultiClassPolicy}.
+ * The super class of all class merging policies. Most classes will either implement {@link
+ * SingleClassPolicy} or {@link MultiClassPolicy}.
  */
 public abstract class Policy {
 
@@ -66,18 +70,19 @@ public abstract class Policy {
   /**
    * Remove all groups containing no or only a single class, as there is no point in merging these.
    */
-  protected Collection<MergeGroup> removeTrivialGroups(Collection<MergeGroup> groups) {
+  protected Collection<HorizontalMergeGroup> removeTrivialGroups(
+      Collection<HorizontalMergeGroup> groups) {
     assert !(groups instanceof ArrayList);
-    groups.removeIf(MergeGroup::isTrivial);
+    groups.removeIf(HorizontalMergeGroup::isTrivial);
     return groups;
   }
 
-  boolean recordRemovedClassesForDebugging(
-      boolean isInterfaceGroup, int previousGroupSize, Collection<MergeGroup> newGroups) {
+  public boolean recordRemovedClassesForDebugging(
+      boolean isInterfaceGroup, int previousGroupSize, Collection<HorizontalMergeGroup> newGroups) {
     assert previousGroupSize >= 2;
     int previousNumberOfRemovedClasses = previousGroupSize - 1;
     int newNumberOfRemovedClasses = 0;
-    for (MergeGroup newGroup : newGroups) {
+    for (HorizontalMergeGroup newGroup : newGroups) {
       if (newGroup.isNonTrivial()) {
         newNumberOfRemovedClasses += newGroup.size() - 1;
       }

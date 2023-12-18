@@ -7,7 +7,7 @@ package com.android.tools.r8.horizontalclassmerging.policies;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
@@ -34,7 +34,7 @@ public class FinalizeMergeGroup extends MultiClassPolicy {
   }
 
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     if (appView.enableWholeProgramOptimizations()) {
       if (mode.isInitial() || group.isInterfaceGroup()) {
         group.selectTarget(appView);
@@ -63,7 +63,7 @@ public class FinalizeMergeGroup extends MultiClassPolicy {
     return true;
   }
 
-  private boolean verifyAlreadyFinalized(MergeGroup group) {
+  private boolean verifyAlreadyFinalized(HorizontalMergeGroup group) {
     assert group.hasTarget();
     assert group.getClasses().contains(group.getTarget());
     assert group.hasInstanceFieldMap();

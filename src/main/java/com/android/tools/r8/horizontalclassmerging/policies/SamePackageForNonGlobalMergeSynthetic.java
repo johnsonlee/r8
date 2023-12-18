@@ -9,7 +9,7 @@ import static com.android.tools.r8.utils.FunctionUtils.ignoreArgument;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.google.common.collect.Iterables;
@@ -28,10 +28,12 @@ public class SamePackageForNonGlobalMergeSynthetic extends MultiClassPolicy {
 
   /** Sort unrestricted classes into restricted classes if they are in the same package. */
   private void tryFindRestrictedPackage(
-      MergeGroup unrestrictedClasses, Map<String, MergeGroup> restrictedClasses) {
+      HorizontalMergeGroup unrestrictedClasses,
+      Map<String, HorizontalMergeGroup> restrictedClasses) {
     unrestrictedClasses.removeIf(
         clazz -> {
-          MergeGroup restrictedPackage = restrictedClasses.get(clazz.type.getPackageDescriptor());
+          HorizontalMergeGroup restrictedPackage =
+              restrictedClasses.get(clazz.type.getPackageDescriptor());
           if (restrictedPackage != null) {
             restrictedPackage.add(clazz);
             return true;
@@ -41,9 +43,9 @@ public class SamePackageForNonGlobalMergeSynthetic extends MultiClassPolicy {
   }
 
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
-    Map<String, MergeGroup> restrictedClasses = new LinkedHashMap<>();
-    MergeGroup unrestrictedClasses = new MergeGroup();
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
+    Map<String, HorizontalMergeGroup> restrictedClasses = new LinkedHashMap<>();
+    HorizontalMergeGroup unrestrictedClasses = new HorizontalMergeGroup();
     SyntheticItems syntheticItems = appView.getSyntheticItems();
 
     // Sort all restricted classes into packages.
@@ -56,7 +58,7 @@ public class SamePackageForNonGlobalMergeSynthetic extends MultiClassPolicy {
                   || !kind.asSyntheticMethodKind().isAllowGlobalMerging())) {
         restrictedClasses
             .computeIfAbsent(
-                clazz.getType().getPackageDescriptor(), ignoreArgument(MergeGroup::new))
+                clazz.getType().getPackageDescriptor(), ignoreArgument(HorizontalMergeGroup::new))
             .add(clazz);
       } else {
         unrestrictedClasses.add(clazz);
@@ -66,7 +68,7 @@ public class SamePackageForNonGlobalMergeSynthetic extends MultiClassPolicy {
     tryFindRestrictedPackage(unrestrictedClasses, restrictedClasses);
     removeTrivialGroups(restrictedClasses.values());
 
-    Collection<MergeGroup> groups = new ArrayList<>(restrictedClasses.size() + 1);
+    Collection<HorizontalMergeGroup> groups = new ArrayList<>(restrictedClasses.size() + 1);
     if (unrestrictedClasses.size() > 1) {
       groups.add(unrestrictedClasses);
     }

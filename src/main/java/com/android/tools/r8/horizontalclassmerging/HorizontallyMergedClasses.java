@@ -112,11 +112,11 @@ public class HorizontallyMergedClasses implements MergedClasses {
       mergedClasses.put(source, target);
     }
 
-    void addMergeGroup(MergeGroup group) {
+    void addMergeGroup(HorizontalMergeGroup group) {
       group.forEachSource(clazz -> add(clazz.getType(), group.getTarget().getType()));
     }
 
-    Builder addMergeGroups(Iterable<MergeGroup> groups) {
+    Builder addMergeGroups(Iterable<HorizontalMergeGroup> groups) {
       groups.forEach(this::addMergeGroup);
       return this;
     }

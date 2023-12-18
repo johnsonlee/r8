@@ -17,7 +17,7 @@ public class ClassStaticFieldsMerger {
 
   private final AppView<?> appView;
   private final DexItemFactory dexItemFactory;
-  private final MergeGroup group;
+  private final HorizontalMergeGroup group;
 
   @SuppressWarnings("BadImport")
   private final Builder lensBuilder;
@@ -25,7 +25,9 @@ public class ClassStaticFieldsMerger {
   private final Map<DexField, DexEncodedField> targetFields = new LinkedHashMap<>();
 
   public ClassStaticFieldsMerger(
-      AppView<?> appView, HorizontalClassMergerGraphLens.Builder lensBuilder, MergeGroup group) {
+      AppView<?> appView,
+      HorizontalClassMergerGraphLens.Builder lensBuilder,
+      HorizontalMergeGroup group) {
     this.appView = appView;
     this.dexItemFactory = appView.dexItemFactory();
     this.group = group;

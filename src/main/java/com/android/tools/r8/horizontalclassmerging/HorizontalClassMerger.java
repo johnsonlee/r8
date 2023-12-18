@@ -6,6 +6,7 @@ package com.android.tools.r8.horizontalclassmerging;
 
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 
+import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -126,7 +127,7 @@ public class HorizontalClassMerger {
     // Run the policies on all program classes to produce a final grouping.
     List<Policy> policies =
         PolicyScheduler.getPolicies(appView, codeProvider, mode, runtimeTypeCheckInfo);
-    Collection<MergeGroup> groups =
+    Collection<HorizontalMergeGroup> groups =
         new HorizontalClassMergerPolicyExecutor()
             .run(getInitialGroups(), policies, executorService, timing);
 
@@ -187,7 +188,7 @@ public class HorizontalClassMerger {
     if (mode.isInitial()) {
       fieldAccessInfoCollectionModifier = createFieldAccessInfoCollectionModifier(groups);
     } else {
-      assert groups.stream().noneMatch(MergeGroup::hasClassIdField);
+      assert groups.stream().noneMatch(HorizontalMergeGroup::hasClassIdField);
     }
 
     // Set the new graph lens before finalizing any synthetic code.
@@ -272,11 +273,11 @@ public class HorizontalClassMerger {
   }
 
   private FieldAccessInfoCollectionModifier createFieldAccessInfoCollectionModifier(
-      Collection<MergeGroup> groups) {
+      Collection<HorizontalMergeGroup> groups) {
     assert mode.isInitial();
     FieldAccessInfoCollectionModifier.Builder builder =
         new FieldAccessInfoCollectionModifier.Builder();
-    for (MergeGroup group : groups) {
+    for (HorizontalMergeGroup group : groups) {
       if (group.hasClassIdField()) {
         DexProgramClass target = group.getTarget();
         target.forEachProgramInstanceInitializerMatching(
@@ -292,7 +293,7 @@ public class HorizontalClassMerger {
   }
 
   private void transformIncompleteCode(
-      Collection<MergeGroup> groups,
+      Collection<HorizontalMergeGroup> groups,
       HorizontalClassMergerGraphLens horizontalClassMergerGraphLens,
       ExecutorService executorService)
       throws ExecutionException {
@@ -322,7 +323,8 @@ public class HorizontalClassMerger {
   }
 
   private boolean verifyNoIncompleteCode(
-      Collection<MergeGroup> groups, ExecutorService executorService) throws ExecutionException {
+      Collection<HorizontalMergeGroup> groups, ExecutorService executorService)
+      throws ExecutionException {
     ThreadUtils.processItems(
         groups,
         group -> {
@@ -357,9 +359,9 @@ public class HorizontalClassMerger {
 
   // TODO(b/270398965): Replace LinkedList.
   @SuppressWarnings("JdkObsolete")
-  private List<MergeGroup> getInitialGroups() {
-    MergeGroup initialClassGroup = new MergeGroup();
-    MergeGroup initialInterfaceGroup = new MergeGroup();
+  private List<HorizontalMergeGroup> getInitialGroups() {
+    HorizontalMergeGroup initialClassGroup = new HorizontalMergeGroup();
+    HorizontalMergeGroup initialInterfaceGroup = new HorizontalMergeGroup();
     for (DexProgramClass clazz : appView.appInfo().classesWithDeterministicOrder()) {
       if (clazz.isInterface()) {
         initialInterfaceGroup.add(clazz);
@@ -367,10 +369,10 @@ public class HorizontalClassMerger {
         initialClassGroup.add(clazz);
       }
     }
-    List<MergeGroup> initialGroups = new LinkedList<>();
+    List<HorizontalMergeGroup> initialGroups = new LinkedList<>();
     initialGroups.add(initialClassGroup);
     initialGroups.add(initialInterfaceGroup);
-    initialGroups.removeIf(MergeGroup::isTrivial);
+    initialGroups.removeIf(HorizontalMergeGroup::isTrivial);
     return initialGroups;
   }
 
@@ -381,9 +383,9 @@ public class HorizontalClassMerger {
   private List<ClassMerger> initializeClassMergers(
       IRCodeProvider codeProvider,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
-      Collection<MergeGroup> groups) {
+      Collection<HorizontalMergeGroup> groups) {
     List<ClassMerger> classMergers = new ArrayList<>(groups.size());
-    for (MergeGroup group : groups) {
+    for (HorizontalMergeGroup group : groups) {
       assert group.isNonTrivial();
       assert group.hasInstanceFieldMap();
       assert group.hasTarget();
@@ -439,8 +441,8 @@ public class HorizontalClassMerger {
 
   @SuppressWarnings("ReferenceEquality")
   private static boolean verifyNoCyclesInInterfaceHierarchies(
-      AppView<?> appView, Collection<MergeGroup> groups) {
-    for (MergeGroup group : groups) {
+      AppView<?> appView, Collection<HorizontalMergeGroup> groups) {
+    for (HorizontalMergeGroup group : groups) {
       if (group.isClassGroup()) {
         continue;
       }

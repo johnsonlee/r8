@@ -74,7 +74,7 @@ public class InstanceInitializerDescription {
    */
   public IncompleteMergedInstanceInitializerCode createCfCode(
       DexMethod originalMethodReference,
-      MergeGroup group,
+      HorizontalMergeGroup group,
       boolean hasClassId,
       int extraNulls) {
     return new IncompleteMergedInstanceInitializerCode(

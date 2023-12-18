@@ -10,7 +10,7 @@ import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.DexMethodSignatureMap;
@@ -43,11 +43,11 @@ public class NoDefaultInterfaceMethodMerging extends MultiClassPolicy {
   }
 
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     // Split the group into smaller groups such that no default methods collide.
     // TODO(b/229951607): This fixes the ICCE issue for synthetic lambda classes, but a more
     //  general solution possibly extending the policy NoDefaultInterfaceMethodCollisions.
-    Map<MergeGroup, DexMethodSignatureMap<DexType>> newGroups = new LinkedHashMap<>();
+    Map<HorizontalMergeGroup, DexMethodSignatureMap<DexType>> newGroups = new LinkedHashMap<>();
     for (DexProgramClass clazz : group) {
       addClassToGroup(
           clazz,
@@ -63,14 +63,14 @@ public class NoDefaultInterfaceMethodMerging extends MultiClassPolicy {
   @SuppressWarnings("ReferenceEquality")
   private void addClassToGroup(
       DexProgramClass clazz,
-      Map<MergeGroup, DexMethodSignatureMap<DexType>> newGroups,
+      Map<HorizontalMergeGroup, DexMethodSignatureMap<DexType>> newGroups,
       Function<DexProgramClass, DexMethodSignatureMap<DexType>> fn) {
     DexMethodSignatureMap<DexType> classSignatures = fn.apply(clazz);
 
     // Find a group that does not have any collisions with `clazz`.
     nextGroup:
-    for (Entry<MergeGroup, DexMethodSignatureMap<DexType>> entry : newGroups.entrySet()) {
-      MergeGroup group = entry.getKey();
+    for (Entry<HorizontalMergeGroup, DexMethodSignatureMap<DexType>> entry : newGroups.entrySet()) {
+      HorizontalMergeGroup group = entry.getKey();
       DexMethodSignatureMap<DexType> groupSignatures = entry.getValue();
       if (!groupSignatures.containsAnyKeyOf(classSignatures.keySet())) {
         groupSignatures.putAll(classSignatures);
@@ -92,7 +92,7 @@ public class NoDefaultInterfaceMethodMerging extends MultiClassPolicy {
     }
 
     // Else create a new group.
-    newGroups.put(new MergeGroup(clazz), classSignatures);
+    newGroups.put(new HorizontalMergeGroup(clazz), classSignatures);
   }
 
   @SuppressWarnings("ReferenceEquality")

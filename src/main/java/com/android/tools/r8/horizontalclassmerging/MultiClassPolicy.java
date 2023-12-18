@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import com.android.tools.r8.classmerging.Policy;
 import java.util.Collection;
 
 public abstract class MultiClassPolicy extends Policy {
@@ -16,7 +17,7 @@ public abstract class MultiClassPolicy extends Policy {
    *     merged. If the policy detects no issues then `group` will be returned unchanged. If classes
    *     cannot be merged with any other classes they are returned as singleton lists.
    */
-  public abstract Collection<MergeGroup> apply(MergeGroup group);
+  public abstract Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group);
 
   @Override
   public boolean isMultiClassPolicy() {

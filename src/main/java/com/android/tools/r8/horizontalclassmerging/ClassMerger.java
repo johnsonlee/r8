@@ -60,7 +60,7 @@ public class ClassMerger {
 
   private final AppView<?> appView;
   private final Mode mode;
-  private final MergeGroup group;
+  private final HorizontalMergeGroup group;
   private final DexItemFactory dexItemFactory;
   private final HorizontalClassMergerGraphLens.Builder lensBuilder;
 
@@ -81,7 +81,7 @@ public class ClassMerger {
       IRCodeProvider codeProvider,
       Mode mode,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
-      MergeGroup group,
+      HorizontalMergeGroup group,
       Collection<VirtualMethodMerger> virtualMethodMergers) {
     this.appView = appView;
     this.dexItemFactory = appView.dexItemFactory();
@@ -376,9 +376,10 @@ public class ClassMerger {
     private final AppView<?> appView;
     private final IRCodeProvider codeProvider;
     private final Mode mode;
-    private final MergeGroup group;
+    private final HorizontalMergeGroup group;
 
-    public Builder(AppView<?> appView, IRCodeProvider codeProvider, MergeGroup group, Mode mode) {
+    public Builder(
+        AppView<?> appView, IRCodeProvider codeProvider, HorizontalMergeGroup group, Mode mode) {
       this.appView = appView;
       this.codeProvider = codeProvider;
       this.group = group;

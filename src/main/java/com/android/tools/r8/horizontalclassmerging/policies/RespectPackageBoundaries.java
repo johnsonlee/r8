@@ -15,7 +15,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.verticalclassmerging.IllegalAccessDetector;
@@ -122,10 +122,12 @@ public class RespectPackageBoundaries extends MultiClassPolicy {
 
   /** Sort unrestricted classes into restricted classes if they are in the same package. */
   void tryFindRestrictedPackage(
-      MergeGroup unrestrictedClasses, Map<String, MergeGroup> restrictedClasses) {
+      HorizontalMergeGroup unrestrictedClasses,
+      Map<String, HorizontalMergeGroup> restrictedClasses) {
     unrestrictedClasses.removeIf(
         clazz -> {
-          MergeGroup restrictedPackage = restrictedClasses.get(clazz.type.getPackageDescriptor());
+          HorizontalMergeGroup restrictedPackage =
+              restrictedClasses.get(clazz.type.getPackageDescriptor());
           if (restrictedPackage != null) {
             restrictedPackage.add(clazz);
             return true;
@@ -135,15 +137,16 @@ public class RespectPackageBoundaries extends MultiClassPolicy {
   }
 
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
-    Map<String, MergeGroup> restrictedClasses = new LinkedHashMap<>();
-    MergeGroup unrestrictedClasses = new MergeGroup();
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
+    Map<String, HorizontalMergeGroup> restrictedClasses = new LinkedHashMap<>();
+    HorizontalMergeGroup unrestrictedClasses = new HorizontalMergeGroup();
 
     // Sort all restricted classes into packages.
     for (DexProgramClass clazz : group) {
       if (shouldRestrictMergingAcrossPackageBoundary(clazz)) {
         restrictedClasses
-            .computeIfAbsent(clazz.getType().getPackageDescriptor(), ignore -> new MergeGroup())
+            .computeIfAbsent(
+                clazz.getType().getPackageDescriptor(), ignore -> new HorizontalMergeGroup())
             .add(clazz);
       } else {
         unrestrictedClasses.add(clazz);
@@ -155,7 +158,7 @@ public class RespectPackageBoundaries extends MultiClassPolicy {
 
     // TODO(b/166577694): Add the unrestricted classes to restricted groups, but ensure they aren't
     // the merge target.
-    Collection<MergeGroup> groups = new ArrayList<>(restrictedClasses.size() + 1);
+    Collection<HorizontalMergeGroup> groups = new ArrayList<>(restrictedClasses.size() + 1);
     if (unrestrictedClasses.size() > 1) {
       groups.add(unrestrictedClasses);
     }

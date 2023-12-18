@@ -33,7 +33,9 @@ public interface ClassInstanceFieldsMerger {
   DexEncodedField[] merge();
 
   static ClassInstanceFieldsMerger create(
-      AppView<?> appView, HorizontalClassMergerGraphLens.Builder lensBuilder, MergeGroup group) {
+      AppView<?> appView,
+      HorizontalClassMergerGraphLens.Builder lensBuilder,
+      HorizontalMergeGroup group) {
     if (appView.hasClassHierarchy()) {
       return new ClassInstanceFieldsMergerImpl(appView.withClassHierarchy(), lensBuilder, group);
     } else {
@@ -137,7 +139,7 @@ public interface ClassInstanceFieldsMerger {
   class ClassInstanceFieldsMergerImpl implements ClassInstanceFieldsMerger {
 
     private final AppView<? extends AppInfoWithClassHierarchy> appView;
-    private final MergeGroup group;
+    private final HorizontalMergeGroup group;
 
     @SuppressWarnings("BadImport")
     private final Builder lensBuilder;
@@ -149,7 +151,7 @@ public interface ClassInstanceFieldsMerger {
     private ClassInstanceFieldsMergerImpl(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         HorizontalClassMergerGraphLens.Builder lensBuilder,
-        MergeGroup group) {
+        HorizontalMergeGroup group) {
       this.appView = appView;
       this.group = group;
       this.lensBuilder = lensBuilder;

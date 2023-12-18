@@ -42,7 +42,7 @@ public class InstanceInitializerMergerCollection {
       AppView<?> appView,
       Reference2IntMap<DexType> classIdentifiers,
       IRCodeProvider codeProvider,
-      MergeGroup group,
+      HorizontalMergeGroup group,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       Mode mode) {
     if (!appView.hasClassHierarchy()) {
@@ -130,7 +130,7 @@ public class InstanceInitializerMergerCollection {
         instanceInitializerMergers, equivalentInstanceInitializerMergers);
   }
 
-  private static boolean verifyNoInstanceInitializers(MergeGroup group) {
+  private static boolean verifyNoInstanceInitializers(HorizontalMergeGroup group) {
     group.forEach(
         clazz -> {
           assert !clazz.programInstanceInitializers().iterator().hasNext();

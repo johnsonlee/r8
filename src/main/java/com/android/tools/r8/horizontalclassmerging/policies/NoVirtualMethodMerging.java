@@ -14,7 +14,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.SetUtils;
@@ -40,17 +40,19 @@ public class NoVirtualMethodMerging extends MultiClassPolicy {
   }
 
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
-    Map<MergeGroup, Map<DexMethodSignature, ProgramMethod>> newGroups = new LinkedHashMap<>();
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
+    Map<HorizontalMergeGroup, Map<DexMethodSignature, ProgramMethod>> newGroups =
+        new LinkedHashMap<>();
     for (DexProgramClass clazz : group) {
       Map<DexMethodSignature, ProgramMethod> classMethods = new HashMap<>();
       clazz.forEachProgramVirtualMethodMatching(
           DexEncodedMethod::isNonAbstractVirtualMethod,
           method -> classMethods.put(method.getMethodSignature(), method));
 
-      MergeGroup newGroup = null;
-      for (Entry<MergeGroup, Map<DexMethodSignature, ProgramMethod>> entry : newGroups.entrySet()) {
-        MergeGroup candidateGroup = entry.getKey();
+      HorizontalMergeGroup newGroup = null;
+      for (Entry<HorizontalMergeGroup, Map<DexMethodSignature, ProgramMethod>> entry :
+          newGroups.entrySet()) {
+        HorizontalMergeGroup candidateGroup = entry.getKey();
         Map<DexMethodSignature, ProgramMethod> groupMethods = entry.getValue();
         if (canAddNonAbstractVirtualMethodsToGroup(
             clazz, classMethods.values(), candidateGroup, groupMethods)) {
@@ -63,7 +65,7 @@ public class NoVirtualMethodMerging extends MultiClassPolicy {
       if (newGroup != null) {
         newGroup.add(clazz);
       } else {
-        newGroups.put(new MergeGroup(clazz), classMethods);
+        newGroups.put(new HorizontalMergeGroup(clazz), classMethods);
       }
     }
     return removeTrivialGroups(newGroups.keySet());
@@ -72,7 +74,7 @@ public class NoVirtualMethodMerging extends MultiClassPolicy {
   private boolean canAddNonAbstractVirtualMethodsToGroup(
       DexProgramClass clazz,
       Collection<ProgramMethod> methods,
-      MergeGroup group,
+      HorizontalMergeGroup group,
       Map<DexMethodSignature, ProgramMethod> groupMethods) {
     // For each of clazz' virtual methods, check that adding these methods to the group does not
     // require method merging.
@@ -92,7 +94,8 @@ public class NoVirtualMethodMerging extends MultiClassPolicy {
     return true;
   }
 
-  private boolean hasNonAbstractDefinitionInHierarchy(MergeGroup group, ProgramMethod method) {
+  private boolean hasNonAbstractDefinitionInHierarchy(
+      HorizontalMergeGroup group, ProgramMethod method) {
     return hasNonAbstractDefinitionInSuperClass(group.getSuperType(), method)
         || hasNonAbstractDefinitionInSuperInterface(
             SetUtils.newIdentityHashSet(IterableUtils.flatMap(group, DexClass::getInterfaces)),

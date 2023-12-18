@@ -6,7 +6,7 @@ package com.android.tools.r8.horizontalclassmerging.policies;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import java.util.Collection;
 import java.util.Collections;
@@ -27,13 +27,13 @@ public class LimitClassGroups extends MultiClassPolicy {
   // TODO(b/270398965): Replace LinkedList.
   @Override
   @SuppressWarnings({"JdkObsolete", "MixedMutabilityReturnType"})
-  public Collection<MergeGroup> apply(MergeGroup group) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     if (group.size() <= maxGroupSize || group.isInterfaceGroup()) {
       return Collections.singletonList(group);
     }
 
-    LinkedList<MergeGroup> newGroups = new LinkedList<>();
-    MergeGroup newGroup = createNewGroup(newGroups);
+    LinkedList<HorizontalMergeGroup> newGroups = new LinkedList<>();
+    HorizontalMergeGroup newGroup = createNewGroup(newGroups);
     for (DexProgramClass clazz : group) {
       if (newGroup.size() == maxGroupSize) {
         newGroup = createNewGroup(newGroups);
@@ -42,7 +42,7 @@ public class LimitClassGroups extends MultiClassPolicy {
     }
     if (newGroup.size() == 1) {
       if (maxGroupSize == 2) {
-        MergeGroup removedGroup = newGroups.removeLast();
+        HorizontalMergeGroup removedGroup = newGroups.removeLast();
         assert removedGroup == newGroup;
       } else {
         newGroup.add(newGroups.getFirst().removeLast());
@@ -51,8 +51,8 @@ public class LimitClassGroups extends MultiClassPolicy {
     return newGroups;
   }
 
-  private MergeGroup createNewGroup(LinkedList<MergeGroup> newGroups) {
-    MergeGroup newGroup = new MergeGroup();
+  private HorizontalMergeGroup createNewGroup(LinkedList<HorizontalMergeGroup> newGroups) {
+    HorizontalMergeGroup newGroup = new HorizontalMergeGroup();
     newGroups.add(newGroup);
     return newGroup;
   }

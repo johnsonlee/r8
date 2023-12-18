@@ -10,7 +10,7 @@ import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.OptionalBool;
@@ -101,10 +101,10 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
 
   public static class TargetGroup {
 
-    private final MergeGroup group = new MergeGroup();
+    private final HorizontalMergeGroup group = new HorizontalMergeGroup();
     private final Map<DexMethodSignature, MethodCharacteristics> methodMap = new HashMap<>();
 
-    public MergeGroup getGroup() {
+    public HorizontalMergeGroup getGroup() {
       return group;
     }
 
@@ -139,7 +139,7 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
   // TODO(b/270398965): Replace LinkedList.
   @SuppressWarnings("JdkObsolete")
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     List<TargetGroup> groups = new ArrayList<>();
 
     for (DexProgramClass clazz : group) {
@@ -152,7 +152,7 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
       }
     }
 
-    LinkedList<MergeGroup> newGroups = new LinkedList<>();
+    LinkedList<HorizontalMergeGroup> newGroups = new LinkedList<>();
     for (TargetGroup newGroup : groups) {
       if (!newGroup.getGroup().isTrivial()) {
         newGroups.add(newGroup.getGroup());

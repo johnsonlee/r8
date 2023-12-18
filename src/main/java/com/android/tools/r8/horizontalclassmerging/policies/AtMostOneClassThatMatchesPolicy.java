@@ -7,7 +7,7 @@ package com.android.tools.r8.horizontalclassmerging.policies;
 import static com.android.tools.r8.utils.IteratorUtils.createCircularIterator;
 
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
@@ -20,12 +20,12 @@ public abstract class AtMostOneClassThatMatchesPolicy extends MultiClassPolicy {
   // TODO(b/270398965): Replace LinkedList.
   @SuppressWarnings("JdkObsolete")
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     // Create a new merge group for each class that we want at most one of.
-    List<MergeGroup> newGroups = new LinkedList<>();
+    List<HorizontalMergeGroup> newGroups = new LinkedList<>();
     for (DexProgramClass clazz : group) {
       if (atMostOneOf(clazz)) {
-        newGroups.add(new MergeGroup(clazz));
+        newGroups.add(new HorizontalMergeGroup(clazz));
       }
     }
 
@@ -36,7 +36,7 @@ public abstract class AtMostOneClassThatMatchesPolicy extends MultiClassPolicy {
     }
 
     // Otherwise, fill up the new merge groups with the remaining classes.
-    Iterator<MergeGroup> newGroupsIterator = createCircularIterator(newGroups);
+    Iterator<HorizontalMergeGroup> newGroupsIterator = createCircularIterator(newGroups);
     for (DexProgramClass clazz : group) {
       if (!atMostOneOf(clazz)) {
         newGroupsIterator.next().add(clazz);

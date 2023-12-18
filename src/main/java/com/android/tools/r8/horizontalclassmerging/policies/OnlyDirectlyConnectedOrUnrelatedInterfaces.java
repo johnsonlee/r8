@@ -13,7 +13,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.WorkList;
@@ -62,7 +62,7 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
   private final Mode mode;
 
   // The interface merge groups that this policy has committed to so far.
-  private final Map<DexProgramClass, MergeGroup> committed = new IdentityHashMap<>();
+  private final Map<DexProgramClass, HorizontalMergeGroup> committed = new IdentityHashMap<>();
 
   public OnlyDirectlyConnectedOrUnrelatedInterfaces(
       AppView<? extends AppInfoWithClassHierarchy> appView, Mode mode) {
@@ -73,7 +73,8 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
   // TODO(b/270398965): Replace LinkedList.
   @Override
   @SuppressWarnings({"JdkObsolete", "MixedMutabilityReturnType"})
-  public Collection<MergeGroup> apply(MergeGroup group, SubtypingInfo subtypingInfo) {
+  public Collection<HorizontalMergeGroup> apply(
+      HorizontalMergeGroup group, SubtypingInfo subtypingInfo) {
     if (!group.isInterfaceGroup()) {
       return ImmutableList.of(group);
     }
@@ -104,9 +105,9 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
       committed.put(clazz, newGroup.getGroup());
     }
 
-    List<MergeGroup> newGroups = new LinkedList<>();
+    List<HorizontalMergeGroup> newGroups = new LinkedList<>();
     for (MergeGroupWithInfo newGroupWithInfo : newGroupsWithInfo) {
-      MergeGroup newGroup = newGroupWithInfo.getGroup();
+      HorizontalMergeGroup newGroup = newGroupWithInfo.getGroup();
       if (newGroup.isTrivial()) {
         assert !newGroup.isEmpty();
         committed.remove(newGroup.getClasses().getFirst());
@@ -135,7 +136,7 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
     workList.addIgnoringSeenSet(clazz);
     workList.process(
         interfaceDefinition -> {
-          MergeGroup group = committed.get(interfaceDefinition);
+          HorizontalMergeGroup group = committed.get(interfaceDefinition);
           if (group != null) {
             workList.addIfNotSeen(group);
           }
@@ -163,7 +164,8 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
   }
 
   @Override
-  public SubtypingInfo preprocess(Collection<MergeGroup> groups, ExecutorService executorService) {
+  public SubtypingInfo preprocess(
+      Collection<HorizontalMergeGroup> groups, ExecutorService executorService) {
     return SubtypingInfo.create(appView);
   }
 
@@ -174,7 +176,7 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
 
   static class MergeGroupWithInfo {
 
-    private final MergeGroup group;
+    private final HorizontalMergeGroup group;
     private final Set<DexProgramClass> members;
     private final Set<DexProgramClass> superInterfaces;
     private final Set<DexProgramClass> subInterfaces;
@@ -183,7 +185,7 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
         DexProgramClass clazz,
         Set<DexProgramClass> superInterfaces,
         Set<DexProgramClass> subInterfaces) {
-      this.group = new MergeGroup(clazz);
+      this.group = new HorizontalMergeGroup(clazz);
       this.members = SetUtils.newIdentityHashSet(clazz);
       this.superInterfaces = superInterfaces;
       this.subInterfaces = subInterfaces;
@@ -206,7 +208,7 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
       subInterfaces.remove(clazz);
     }
 
-    MergeGroup getGroup() {
+    HorizontalMergeGroup getGroup() {
       return group;
     }
 

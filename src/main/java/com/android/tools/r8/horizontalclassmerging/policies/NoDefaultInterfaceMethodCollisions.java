@@ -19,7 +19,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
 import com.android.tools.r8.horizontalclassmerging.policies.NoDefaultInterfaceMethodCollisions.InterfaceInfo;
 import com.android.tools.r8.utils.IterableUtils;
@@ -82,7 +82,8 @@ public class NoDefaultInterfaceMethodCollisions
   }
 
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group, Map<DexType, InterfaceInfo> infos) {
+  public Collection<HorizontalMergeGroup> apply(
+      HorizontalMergeGroup group, Map<DexType, InterfaceInfo> infos) {
     if (!group.isInterfaceGroup()) {
       return ImmutableList.of(group);
     }
@@ -95,7 +96,7 @@ public class NoDefaultInterfaceMethodCollisions
     // TODO(b/173990042): Consider forming multiple groups instead of just filtering. In practice,
     //  this rarely leads to much filtering, though, since the use of default methods is somewhat
     //  limited.
-    MergeGroup newGroup = new MergeGroup();
+    HorizontalMergeGroup newGroup = new HorizontalMergeGroup();
     for (DexProgramClass clazz : group) {
       Set<DexMethod> newDefaultMethodsAddedToClassByMerge =
           computeNewDefaultMethodsAddedToClassByMerge(clazz, group, infos);
@@ -107,7 +108,7 @@ public class NoDefaultInterfaceMethodCollisions
   }
 
   private Set<DexMethod> computeNewDefaultMethodsAddedToClassByMerge(
-      DexProgramClass clazz, MergeGroup group, Map<DexType, InterfaceInfo> infos) {
+      DexProgramClass clazz, HorizontalMergeGroup group, Map<DexType, InterfaceInfo> infos) {
     // Run through the other classes in the merge group, and add the default interface methods that
     // they declare (or inherit from a super interface) to a set.
     Set<DexMethod> newDefaultMethodsAddedToClassByMerge = Sets.newIdentityHashSet();
@@ -146,7 +147,7 @@ public class NoDefaultInterfaceMethodCollisions
 
   @Override
   public Map<DexType, InterfaceInfo> preprocess(
-      Collection<MergeGroup> groups, ExecutorService executorService) {
+      Collection<HorizontalMergeGroup> groups, ExecutorService executorService) {
     SubtypingInfo subtypingInfo = SubtypingInfo.create(appView);
     Collection<DexProgramClass> classesOfInterest = computeClassesOfInterest(subtypingInfo);
     Map<DexType, DexMethodSignatureSet> inheritedClassMethodsPerClass =
@@ -163,7 +164,7 @@ public class NoDefaultInterfaceMethodCollisions
 
     // Store the computed information for each interface that is subject to merging.
     Map<DexType, InterfaceInfo> infos = new IdentityHashMap<>();
-    for (MergeGroup group : groups) {
+    for (HorizontalMergeGroup group : groups) {
       if (group.isInterfaceGroup()) {
         for (DexProgramClass clazz : group) {
           infos.put(
@@ -277,13 +278,13 @@ public class NoDefaultInterfaceMethodCollisions
       computeDefaultMethodsInheritedBySubclassesPerProgramClass(
           Collection<DexProgramClass> classesOfInterest,
           Map<DexType, Map<DexMethodSignature, Set<DexMethod>>> inheritedDefaultMethodsPerClass,
-          Collection<MergeGroup> groups,
+          Collection<HorizontalMergeGroup> groups,
           SubtypingInfo subtypingInfo) {
     // Build a mapping from class types to their merge group.
     Map<DexType, Iterable<DexProgramClass>> classGroupsByType =
         MapUtils.newIdentityHashMap(
             builder ->
-                Iterables.filter(groups, MergeGroup::isClassGroup)
+                Iterables.filter(groups, HorizontalMergeGroup::isClassGroup)
                     .forEach(group -> group.forEach(clazz -> builder.put(clazz.getType(), group))));
 
     // Copy the map from classes to their inherited default methods.

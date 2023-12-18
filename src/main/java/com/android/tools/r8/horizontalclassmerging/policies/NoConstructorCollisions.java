@@ -12,7 +12,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.IterableUtils;
@@ -55,9 +55,10 @@ public class NoConstructorCollisions extends MultiClassPolicyWithPreprocessing<S
    * filtered group.
    */
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group, Set<DexType> collisionResolution) {
-    MergeGroup newGroup =
-        new MergeGroup(
+  public Collection<HorizontalMergeGroup> apply(
+      HorizontalMergeGroup group, Set<DexType> collisionResolution) {
+    HorizontalMergeGroup newGroup =
+        new HorizontalMergeGroup(
             Iterables.filter(group, clazz -> !collisionResolution.contains(clazz.getType())));
     return newGroup.isTrivial() ? Collections.emptyList() : ListUtils.newLinkedList(newGroup);
   }
@@ -67,10 +68,11 @@ public class NoConstructorCollisions extends MultiClassPolicyWithPreprocessing<S
    * lead to constructor collisions.
    */
   @Override
-  public Set<DexType> preprocess(Collection<MergeGroup> groups, ExecutorService executorService) {
+  public Set<DexType> preprocess(
+      Collection<HorizontalMergeGroup> groups, ExecutorService executorService) {
     // Build a mapping from types to groups.
-    Map<DexType, MergeGroup> groupsByType = new IdentityHashMap<>();
-    for (MergeGroup group : groups) {
+    Map<DexType, HorizontalMergeGroup> groupsByType = new IdentityHashMap<>();
+    for (HorizontalMergeGroup group : groups) {
       for (DexProgramClass clazz : group) {
         groupsByType.put(clazz.getType(), group);
       }
@@ -109,7 +111,7 @@ public class NoConstructorCollisions extends MultiClassPolicyWithPreprocessing<S
     return collisionResolution;
   }
 
-  private DexProto rewriteProto(DexProto proto, Map<DexType, MergeGroup> groups) {
+  private DexProto rewriteProto(DexProto proto, Map<DexType, HorizontalMergeGroup> groups) {
     DexType[] parameters =
         ArrayUtils.map(
             proto.getParameters().values,
@@ -118,7 +120,7 @@ public class NoConstructorCollisions extends MultiClassPolicyWithPreprocessing<S
     return dexItemFactory.createProto(rewriteType(proto.getReturnType(), groups), parameters);
   }
 
-  private DexMethod rewriteReference(DexMethod method, Map<DexType, MergeGroup> groups) {
+  private DexMethod rewriteReference(DexMethod method, Map<DexType, HorizontalMergeGroup> groups) {
     return dexItemFactory.createMethod(
         rewriteType(method.getHolderType(), groups),
         rewriteProto(method.getProto(), groups),
@@ -126,7 +128,7 @@ public class NoConstructorCollisions extends MultiClassPolicyWithPreprocessing<S
   }
 
   @SuppressWarnings("ReferenceEquality")
-  private DexType rewriteType(DexType type, Map<DexType, MergeGroup> groups) {
+  private DexType rewriteType(DexType type, Map<DexType, HorizontalMergeGroup> groups) {
     if (type.isArrayType()) {
       DexType baseType = type.toBaseType(dexItemFactory);
       DexType rewrittenBaseType = rewriteType(baseType, groups);

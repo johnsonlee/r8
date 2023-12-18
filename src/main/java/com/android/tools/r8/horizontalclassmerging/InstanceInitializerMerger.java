@@ -45,7 +45,7 @@ public class InstanceInitializerMerger {
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final Reference2IntMap<DexType> classIdentifiers;
   private final DexItemFactory dexItemFactory;
-  private final MergeGroup group;
+  private final HorizontalMergeGroup group;
   private final List<ProgramMethod> instanceInitializers;
   private final InstanceInitializerDescription instanceInitializerDescription;
   private final HorizontalClassMergerGraphLens.Builder lensBuilder;
@@ -54,7 +54,7 @@ public class InstanceInitializerMerger {
   InstanceInitializerMerger(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       Reference2IntMap<DexType> classIdentifiers,
-      MergeGroup group,
+      HorizontalMergeGroup group,
       List<ProgramMethod> instanceInitializers,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       Mode mode) {
@@ -64,7 +64,7 @@ public class InstanceInitializerMerger {
   InstanceInitializerMerger(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       Reference2IntMap<DexType> classIdentifiers,
-      MergeGroup group,
+      HorizontalMergeGroup group,
       List<ProgramMethod> instanceInitializers,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       Mode mode,
@@ -214,7 +214,7 @@ public class InstanceInitializerMerger {
       return this;
     }
 
-    public List<InstanceInitializerMerger> build(MergeGroup group) {
+    public List<InstanceInitializerMerger> build(HorizontalMergeGroup group) {
       assert instanceInitializerGroups.stream().noneMatch(List::isEmpty);
       return ListUtils.map(
           instanceInitializerGroups,
@@ -224,7 +224,7 @@ public class InstanceInitializerMerger {
     }
 
     public InstanceInitializerMerger buildSingle(
-        MergeGroup group, InstanceInitializerDescription instanceInitializerDescription) {
+        HorizontalMergeGroup group, InstanceInitializerDescription instanceInitializerDescription) {
       assert instanceInitializerGroups.stream().noneMatch(List::isEmpty);
       assert instanceInitializerGroups.size() == 1;
       List<ProgramMethod> instanceInitializers = ListUtils.first(instanceInitializerGroups);

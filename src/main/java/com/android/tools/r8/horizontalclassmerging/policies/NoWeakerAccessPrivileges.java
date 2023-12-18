@@ -10,7 +10,7 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.optimize.argumentpropagation.utils.ProgramClassesBidirectedGraph;
 import com.android.tools.r8.utils.collections.DexMethodSignatureSet;
@@ -46,14 +46,14 @@ public class NoWeakerAccessPrivileges extends MultiClassPolicy {
   // TODO(b/270398965): Replace LinkedList.
   @SuppressWarnings("JdkObsolete")
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
-    List<MergeGroup> newMergeGroups = new LinkedList<>();
-    Map<MergeGroup, DexMethodSignatureSet> inheritedInterfaceMethodsPerGroup =
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
+    List<HorizontalMergeGroup> newMergeGroups = new LinkedList<>();
+    Map<HorizontalMergeGroup, DexMethodSignatureSet> inheritedInterfaceMethodsPerGroup =
         new IdentityHashMap<>();
     for (DexProgramClass clazz : group) {
       // Find an existing merge group that the current class can be added to.
-      MergeGroup newMergeGroup = null;
-      for (MergeGroup candidateMergeGroup : newMergeGroups) {
+      HorizontalMergeGroup newMergeGroup = null;
+      for (HorizontalMergeGroup candidateMergeGroup : newMergeGroups) {
         DexMethodSignatureSet inheritedInterfaceMethodsInGroup =
             inheritedInterfaceMethodsPerGroup.get(candidateMergeGroup);
         if (canAddToGroup(clazz, candidateMergeGroup, inheritedInterfaceMethodsInGroup)) {
@@ -65,7 +65,7 @@ public class NoWeakerAccessPrivileges extends MultiClassPolicy {
       DexMethodSignatureSet inheritedInterfaceMethodsInGroup;
       if (newMergeGroup == null) {
         // Form a new singleton merge group from the current class.
-        newMergeGroup = new MergeGroup(clazz);
+        newMergeGroup = new HorizontalMergeGroup(clazz);
         newMergeGroups.add(newMergeGroup);
         inheritedInterfaceMethodsInGroup = DexMethodSignatureSet.create();
         inheritedInterfaceMethodsPerGroup.put(newMergeGroup, inheritedInterfaceMethodsInGroup);
@@ -86,7 +86,7 @@ public class NoWeakerAccessPrivileges extends MultiClassPolicy {
 
   private boolean canAddToGroup(
       DexProgramClass clazz,
-      MergeGroup group,
+      HorizontalMergeGroup group,
       DexMethodSignatureSet inheritedInterfaceMethodsInGroup) {
     // We need to ensure that adding class to the group is OK.
     DexMethodSignatureSet nonPublicVirtualMethodSignaturesInClassComponent =

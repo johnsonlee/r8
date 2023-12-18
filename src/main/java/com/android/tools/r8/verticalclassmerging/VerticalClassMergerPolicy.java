@@ -7,6 +7,7 @@ import static com.android.tools.r8.utils.AndroidApiLevelUtils.getApiReferenceLev
 
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
+import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.features.FeatureSplitBoundaryOptimizationUtils;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -20,7 +21,6 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.horizontalclassmerging.Policy;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.profile.startup.optimization.StartupBoundaryOptimizationUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;

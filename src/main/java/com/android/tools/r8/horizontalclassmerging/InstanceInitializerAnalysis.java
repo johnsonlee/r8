@@ -40,7 +40,7 @@ public class InstanceInitializerAnalysis {
   public static InstanceInitializerDescription analyze(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       IRCodeProvider codeProvider,
-      MergeGroup group,
+      HorizontalMergeGroup group,
       InstanceInitializer instanceInitializer) {
     if (instanceInitializer.isAbsent()) {
       InstanceInitializerDescription.Builder builder =
@@ -69,7 +69,7 @@ public class InstanceInitializerAnalysis {
   public static InstanceInitializerDescription analyze(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       IRCodeProvider codeProvider,
-      MergeGroup group,
+      HorizontalMergeGroup group,
       ProgramMethod instanceInitializer) {
     InstanceInitializerDescription.Builder builder =
         InstanceInitializerDescription.builder(appView, instanceInitializer);

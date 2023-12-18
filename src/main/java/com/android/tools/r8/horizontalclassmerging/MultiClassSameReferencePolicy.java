@@ -12,12 +12,12 @@ import java.util.Map;
 public abstract class MultiClassSameReferencePolicy<T> extends MultiClassPolicy {
 
   @Override
-  public final Collection<MergeGroup> apply(MergeGroup group) {
-    Map<T, MergeGroup> groups = new LinkedHashMap<>();
+  public final Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
+    Map<T, HorizontalMergeGroup> groups = new LinkedHashMap<>();
     for (DexProgramClass clazz : group) {
       T mergeKey = getMergeKey(clazz);
       if (mergeKey != null) {
-        groups.computeIfAbsent(mergeKey, ignore -> new MergeGroup()).add(clazz);
+        groups.computeIfAbsent(mergeKey, ignore -> new HorizontalMergeGroup()).add(clazz);
       }
     }
     removeTrivialGroups(groups.values());

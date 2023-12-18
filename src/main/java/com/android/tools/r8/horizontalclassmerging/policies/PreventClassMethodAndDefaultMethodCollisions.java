@@ -14,7 +14,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.collections.DexMethodSignatureSet;
 import com.google.common.collect.ImmutableList;
@@ -151,7 +151,7 @@ public class PreventClassMethodAndDefaultMethodCollisions extends MultiClassPoli
   }
 
   @Override
-  public Collection<MergeGroup> apply(MergeGroup group) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     // This policy is specific to issues that may arise from merging (non-interface) classes.
     if (group.isInterfaceGroup()) {
       return ImmutableList.of(group);
@@ -162,7 +162,7 @@ public class PreventClassMethodAndDefaultMethodCollisions extends MultiClassPoli
       signatures.addAllMethods(clazz.methods());
     }
 
-    Map<DispatchSignature, MergeGroup> newGroups = new LinkedHashMap<>();
+    Map<DispatchSignature, HorizontalMergeGroup> newGroups = new LinkedHashMap<>();
     for (DexProgramClass clazz : group) {
       DexMethodSignatureSet clazzReserved = computeReservedSignaturesForClass(clazz);
       DispatchSignature dispatchSignature = new DispatchSignature();
@@ -178,7 +178,7 @@ public class PreventClassMethodAndDefaultMethodCollisions extends MultiClassPoli
         }
         dispatchSignature.addSignature(signature, category);
       }
-      newGroups.computeIfAbsent(dispatchSignature, ignore -> new MergeGroup()).add(clazz);
+      newGroups.computeIfAbsent(dispatchSignature, ignore -> new HorizontalMergeGroup()).add(clazz);
     }
     return removeTrivialGroups(newGroups.values());
   }

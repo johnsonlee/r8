@@ -6,6 +6,7 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import com.android.tools.r8.classmerging.MergeGroup;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -26,7 +27,7 @@ import java.util.LinkedList;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public class MergeGroup extends MergeGroupBase implements Collection<DexProgramClass> {
+public class HorizontalMergeGroup extends MergeGroup implements Collection<DexProgramClass> {
 
   public static class Metadata {}
 
@@ -42,21 +43,21 @@ public class MergeGroup extends MergeGroupBase implements Collection<DexProgramC
 
   // TODO(b/270398965): Replace LinkedList.
   @SuppressWarnings("JdkObsolete")
-  public MergeGroup() {
+  public HorizontalMergeGroup() {
     this.classes = new LinkedList<>();
   }
 
-  public MergeGroup(DexProgramClass clazz) {
+  public HorizontalMergeGroup(DexProgramClass clazz) {
     this();
     add(clazz);
   }
 
-  public MergeGroup(Iterable<DexProgramClass> classes) {
+  public HorizontalMergeGroup(Iterable<DexProgramClass> classes) {
     this();
     Iterables.addAll(this.classes, classes);
   }
 
-  public void applyMetadataFrom(MergeGroup group) {
+  public void applyMetadataFrom(HorizontalMergeGroup group) {
     if (metadata == null) {
       metadata = group.metadata;
     }
@@ -67,7 +68,7 @@ public class MergeGroup extends MergeGroupBase implements Collection<DexProgramC
     return classes.add(clazz);
   }
 
-  public boolean add(MergeGroup group) {
+  public boolean add(HorizontalMergeGroup group) {
     return classes.addAll(group.getClasses());
   }
 

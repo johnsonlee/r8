@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import com.android.tools.r8.classmerging.Policy;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -19,9 +20,10 @@ public abstract class MultiClassPolicyWithPreprocessing<T> extends Policy {
    *     merged. If the policy detects no issues then `group` will be returned unchanged. If classes
    *     cannot be merged with any other classes they are returned as singleton lists.
    */
-  public abstract Collection<MergeGroup> apply(MergeGroup group, T data);
+  public abstract Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group, T data);
 
-  public abstract T preprocess(Collection<MergeGroup> groups, ExecutorService executorService)
+  public abstract T preprocess(
+      Collection<HorizontalMergeGroup> groups, ExecutorService executorService)
       throws ExecutionException;
 
   @Override

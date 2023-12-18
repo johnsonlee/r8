@@ -6,7 +6,7 @@ package com.android.tools.r8.horizontalclassmerging.policies;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.horizontalclassmerging.MergeGroup;
+import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Collection;
@@ -28,14 +28,14 @@ public class NoDeadLocks extends MultiClassPolicy {
   // TODO(b/270398965): Replace LinkedList.
   @Override
   @SuppressWarnings({"JdkObsolete", "MixedMutabilityReturnType"})
-  public Collection<MergeGroup> apply(MergeGroup group) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     // Gather all synchronized classes.
-    Collection<MergeGroup> synchronizedGroups = new LinkedList<>();
+    Collection<HorizontalMergeGroup> synchronizedGroups = new LinkedList<>();
     group.removeIf(
         clazz -> {
           boolean synchronizationClass = isSynchronizationClass(clazz);
           if (synchronizationClass) {
-            MergeGroup synchronizedGroup = new MergeGroup();
+            HorizontalMergeGroup synchronizedGroup = new HorizontalMergeGroup();
             synchronizedGroup.add(clazz);
             synchronizedGroups.add(synchronizedGroup);
           }
@@ -46,7 +46,7 @@ public class NoDeadLocks extends MultiClassPolicy {
       return Collections.singletonList(group);
     }
 
-    Iterator<MergeGroup> synchronizedGroupIterator = synchronizedGroups.iterator();
+    Iterator<HorizontalMergeGroup> synchronizedGroupIterator = synchronizedGroups.iterator();
     for (DexProgramClass clazz : group) {
       if (!synchronizedGroupIterator.hasNext()) {
         synchronizedGroupIterator = synchronizedGroups.iterator();
