@@ -14,7 +14,7 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
-class MergeMayLeadToNoSuchMethodErrorUseRegistry
+public class MergeMayLeadToNoSuchMethodErrorUseRegistry
     extends DefaultUseRegistryWithResult<Boolean, ProgramMethod> {
 
   private final AppView<AppInfoWithLiveness> appViewWithLiveness;
@@ -22,7 +22,7 @@ class MergeMayLeadToNoSuchMethodErrorUseRegistry
   private final GraphLens codeLens;
   private final DexProgramClass source;
 
-  MergeMayLeadToNoSuchMethodErrorUseRegistry(
+  public MergeMayLeadToNoSuchMethodErrorUseRegistry(
       AppView<AppInfoWithLiveness> appView, ProgramMethod context, DexProgramClass source) {
     super(appView, context, Boolean.FALSE);
     assert context.getHolder().getSuperType().isIdenticalTo(source.getType());
@@ -32,7 +32,7 @@ class MergeMayLeadToNoSuchMethodErrorUseRegistry
     this.source = source;
   }
 
-  boolean mayLeadToNoSuchMethodError() {
+  public boolean mayLeadToNoSuchMethodError() {
     return getResult();
   }
 

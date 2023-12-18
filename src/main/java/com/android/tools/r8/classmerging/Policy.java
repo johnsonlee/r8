@@ -8,7 +8,7 @@ import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
 import com.android.tools.r8.horizontalclassmerging.SingleClassPolicy;
-import com.android.tools.r8.verticalclassmerging.VerticalClassMergerPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicy;
 import java.util.ArrayList;
 import java.util.Collection;
 

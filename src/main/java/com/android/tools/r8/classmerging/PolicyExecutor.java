@@ -26,7 +26,7 @@ public abstract class PolicyExecutor<MG extends MergeGroup> {
   @SuppressWarnings("JdkObsolete")
   public Collection<MG> run(
       Collection<MG> inputGroups,
-      Collection<Policy> policies,
+      Collection<? extends Policy> policies,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {

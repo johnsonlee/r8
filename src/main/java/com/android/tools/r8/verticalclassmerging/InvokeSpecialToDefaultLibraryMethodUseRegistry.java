@@ -10,7 +10,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 public class InvokeSpecialToDefaultLibraryMethodUseRegistry
     extends DefaultUseRegistryWithResult<Boolean, ProgramMethod> {
 
-  InvokeSpecialToDefaultLibraryMethodUseRegistry(
+  public InvokeSpecialToDefaultLibraryMethodUseRegistry(
       AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
     super(appView, context, false);
     assert context.getHolder().isInterface();

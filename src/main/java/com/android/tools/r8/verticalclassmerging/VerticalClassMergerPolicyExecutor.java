@@ -11,6 +11,28 @@ import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.verticalclassmerging.policies.NoAnnotationClassesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoClassInitializationChangesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoDirectlyInstantiatedClassesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoEnclosingMethodAttributesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoFieldResolutionChangesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoIllegalAccessesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoInnerClassAttributesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoInterfacesWithUnknownSubtypesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoInvokeSuperNoSuchMethodErrorsPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoKeptClassesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoLockMergingPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoMethodResolutionChangesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoNonSerializableClassIntoSerializableClassPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoServiceInterfacesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.SafeConstructorInliningPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.SameApiReferenceLevelPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.SameFeatureSplitPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.SameMainDexGroupPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.SameNestPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.SameStartupPartitionPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicy;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -37,7 +59,29 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
       Set<DexProgramClass> connectedComponent, ExecutorService executorService, Timing timing)
       throws ExecutionException {
     Collection<VerticalMergeGroup> groups = createInitialMergeGroups(connectedComponent);
-    Collection<Policy> policies = List.of(new VerticalClassMergerPolicy(appView, pinnedClasses));
+    Collection<VerticalClassMergerPolicy> policies =
+        List.of(
+            new NoDirectlyInstantiatedClassesPolicy(appView),
+            new NoInterfacesWithUnknownSubtypesPolicy(appView),
+            new NoKeptClassesPolicy(appView, pinnedClasses),
+            new SameFeatureSplitPolicy(appView),
+            new SameStartupPartitionPolicy(appView),
+            new NoServiceInterfacesPolicy(appView),
+            new NoAnnotationClassesPolicy(),
+            new NoNonSerializableClassIntoSerializableClassPolicy(appView),
+            new SafeConstructorInliningPolicy(appView),
+            new NoEnclosingMethodAttributesPolicy(),
+            new NoInnerClassAttributesPolicy(),
+            new SameNestPolicy(),
+            new SameMainDexGroupPolicy(appView),
+            new NoLockMergingPolicy(appView),
+            new SameApiReferenceLevelPolicy(appView),
+            new NoFieldResolutionChangesPolicy(appView),
+            new NoMethodResolutionChangesPolicy(appView),
+            new NoIllegalAccessesPolicy(appView),
+            new NoClassInitializationChangesPolicy(appView),
+            new NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy(appView),
+            new NoInvokeSuperNoSuchMethodErrorsPolicy(appView));
     groups = run(groups, policies, executorService, timing);
     return new ConnectedComponentVerticalClassMerger(appView, groups);
   }
