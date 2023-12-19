@@ -29,6 +29,7 @@ import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.BidirectionalOneToOneHashMap;
 import com.android.tools.r8.utils.collections.DexMethodSignatureBiMap;
+import com.android.tools.r8.utils.collections.DexMethodSignatureSet;
 import com.android.tools.r8.utils.collections.MutableBidirectionalOneToOneMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -52,6 +53,8 @@ public abstract class ClassMergerTreeFixer<
   private final SyntheticArgumentClass syntheticArgumentClass;
 
   private final Map<DexProgramClass, DexType> originalSuperTypes = new IdentityHashMap<>();
+
+  protected final DexMethodSignatureSet keptSignatures = DexMethodSignatureSet.create();
   private final DexMethodSignatureBiMap<DexMethodSignature> reservedInterfaceSignatures =
       new DexMethodSignatureBiMap<>();
 
@@ -74,6 +77,7 @@ public abstract class ClassMergerTreeFixer<
     }
     timing.begin("Fixup");
     AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+    preprocess();
     Collection<DexProgramClass> classes = appView.appInfo().classesWithDeterministicOrder();
     Iterables.filter(classes, DexProgramClass::isInterface).forEach(this::fixupInterfaceClass);
     classes.forEach(this::fixupAttributes);
@@ -93,6 +97,10 @@ public abstract class ClassMergerTreeFixer<
   }
 
   public abstract boolean isRunningBeforePrimaryOptimizationPass();
+
+  public void preprocess() {
+    // Intentionally empty.
+  }
 
   public void postprocess() {
     // Intentionally empty.
@@ -155,9 +163,12 @@ public abstract class ClassMergerTreeFixer<
   }
 
   private DexEncodedMethod fixupVirtualInterfaceMethod(DexEncodedMethod method) {
-    DexMethod originalMethodReference = method.getReference();
+    if (keptSignatures.contains(method)) {
+      return method;
+    }
 
     // Don't process this method if it does not refer to a merge class type.
+    DexMethod originalMethodReference = method.getReference();
     boolean referencesMergeClass =
         Iterables.any(
             originalMethodReference.getReferencedBaseTypes(dexItemFactory),
@@ -264,64 +275,70 @@ public abstract class ClassMergerTreeFixer<
     DexMethod originalMethodReference = method.getReference();
 
     // Fix all type references in the method prototype.
-    DexMethodSignature reservedMethodSignature = newMethodSignatures.get(method);
     DexMethod newMethodReference;
-    if (reservedMethodSignature != null) {
-      newMethodReference = reservedMethodSignature.withHolder(clazz, dexItemFactory);
+    if (keptSignatures.contains(method)) {
+      newMethodReference = method.getReference();
     } else {
-      newMethodReference = fixupMethodReference(originalMethodReference);
-      if (newMethodSignatures.containsValue(newMethodReference.getSignature())) {
-        // If the method collides with a direct method on the same class then rename it to a
-        // globally
-        // fresh name and record the signature.
-        if (method.isInstanceInitializer()) {
-          // If the method is an instance initializer, then add extra nulls.
-          Box<Set<DexType>> usedSyntheticArgumentClasses = new Box<>();
-          newMethodReference =
-              dexItemFactory.createInstanceInitializerWithFreshProto(
-                  newMethodReference,
-                  syntheticArgumentClass.getArgumentClasses(),
-                  tryMethod -> !newMethodSignatures.containsValue(tryMethod.getSignature()),
-                  usedSyntheticArgumentClasses::set);
-          lensBuilder.addExtraParameters(
-              originalMethodReference,
-              newMethodReference,
-              ExtraUnusedNullParameter.computeExtraUnusedNullParameters(
-                  originalMethodReference, newMethodReference));
+      DexMethodSignature reservedMethodSignature = newMethodSignatures.get(method);
+      if (reservedMethodSignature != null) {
+        newMethodReference = reservedMethodSignature.withHolder(clazz, dexItemFactory);
+      } else {
+        newMethodReference = fixupMethodReference(originalMethodReference);
+        if (keptSignatures.contains(newMethodReference)
+            || newMethodSignatures.containsValue(newMethodReference.getSignature())) {
+          // If the method collides with a direct method on the same class then rename it to a
+          // globally
+          // fresh name and record the signature.
+          if (method.isInstanceInitializer()) {
+            // If the method is an instance initializer, then add extra nulls.
+            Box<Set<DexType>> usedSyntheticArgumentClasses = new Box<>();
+            newMethodReference =
+                dexItemFactory.createInstanceInitializerWithFreshProto(
+                    newMethodReference,
+                    syntheticArgumentClass.getArgumentClasses(),
+                    tryMethod -> !newMethodSignatures.containsValue(tryMethod.getSignature()),
+                    usedSyntheticArgumentClasses::set);
+            lensBuilder.addExtraParameters(
+                originalMethodReference,
+                newMethodReference,
+                ExtraUnusedNullParameter.computeExtraUnusedNullParameters(
+                    originalMethodReference, newMethodReference));
 
-          // Amend the art profile collection.
-          if (usedSyntheticArgumentClasses.isSet()) {
-            Set<DexMethod> previousMethodReferences =
-                lensBuilder.getOriginalMethodReferences(originalMethodReference);
-            if (previousMethodReferences.isEmpty()) {
-              profileCollectionAdditions.applyIfContextIsInProfile(
-                  originalMethodReference,
-                  additionsBuilder ->
-                      usedSyntheticArgumentClasses.get().forEach(additionsBuilder::addRule));
-            } else {
-              for (DexMethod previousMethodReference : previousMethodReferences) {
+            // Amend the art profile collection.
+            if (usedSyntheticArgumentClasses.isSet()) {
+              Set<DexMethod> previousMethodReferences =
+                  lensBuilder.getOriginalMethodReferences(originalMethodReference);
+              if (previousMethodReferences.isEmpty()) {
                 profileCollectionAdditions.applyIfContextIsInProfile(
-                    previousMethodReference,
+                    originalMethodReference,
                     additionsBuilder ->
                         usedSyntheticArgumentClasses.get().forEach(additionsBuilder::addRule));
+              } else {
+                for (DexMethod previousMethodReference : previousMethodReferences) {
+                  profileCollectionAdditions.applyIfContextIsInProfile(
+                      previousMethodReference,
+                      additionsBuilder ->
+                          usedSyntheticArgumentClasses.get().forEach(additionsBuilder::addRule));
+                }
               }
             }
+          } else {
+            newMethodReference =
+                dexItemFactory.createFreshMethodNameWithoutHolder(
+                    newMethodReference.getName().toSourceString(),
+                    newMethodReference.getProto(),
+                    newMethodReference.getHolderType(),
+                    tryMethod ->
+                        !keptSignatures.contains(tryMethod)
+                            && !reservedInterfaceSignatures.containsValue(tryMethod.getSignature())
+                            && !remappedVirtualMethods.containsValue(tryMethod.getSignature())
+                            && !newMethodSignatures.containsValue(tryMethod.getSignature()));
           }
-        } else {
-          newMethodReference =
-              dexItemFactory.createFreshMethodNameWithoutHolder(
-                  newMethodReference.getName().toSourceString(),
-                  newMethodReference.getProto(),
-                  newMethodReference.getHolderType(),
-                  tryMethod ->
-                      !reservedInterfaceSignatures.containsValue(tryMethod.getSignature())
-                          && !remappedVirtualMethods.containsValue(tryMethod.getSignature())
-                          && !newMethodSignatures.containsValue(tryMethod.getSignature()));
         }
-      }
 
-      assert !newMethodSignatures.containsValue(newMethodReference.getSignature());
-      newMethodSignatures.put(method, newMethodReference.getSignature());
+        assert !newMethodSignatures.containsValue(newMethodReference.getSignature());
+        newMethodSignatures.put(method, newMethodReference.getSignature());
+      }
     }
 
     return fixupProgramMethod(clazz, method, newMethodReference);
@@ -378,24 +395,31 @@ public abstract class ClassMergerTreeFixer<
       DexEncodedMethod method,
       DexMethodSignatureBiMap<DexMethodSignature> renamedClassVirtualMethods,
       MutableBidirectionalOneToOneMap<DexEncodedMethod, DexMethodSignature> newMethodSignatures) {
-    DexMethodSignature newSignature = newMethodSignatures.get(method);
-    if (newSignature == null) {
-      // Fix all type references in the method prototype.
-      newSignature =
-          dexItemFactory.createFreshMethodSignatureName(
-              method.getName().toSourceString(),
-              null,
-              fixupProto(method.getProto()),
-              trySignature ->
-                  !reservedInterfaceSignatures.containsValue(trySignature)
-                      && !newMethodSignatures.containsValue(trySignature)
-                      && !renamedClassVirtualMethods.containsValue(trySignature));
-      newMethodSignatures.put(method, newSignature);
+    DexMethodSignature newSignature;
+    if (keptSignatures.contains(method)) {
+      newSignature = method.getSignature();
+    } else {
+      newSignature = newMethodSignatures.get(method);
+      if (newSignature == null) {
+        // Fix all type references in the method prototype.
+        newSignature =
+            dexItemFactory.createFreshMethodSignatureName(
+                method.getName().toSourceString(),
+                null,
+                fixupProto(method.getProto()),
+                trySignature ->
+                    !keptSignatures.contains(trySignature)
+                        && !reservedInterfaceSignatures.containsValue(trySignature)
+                        && !newMethodSignatures.containsValue(trySignature)
+                        && !renamedClassVirtualMethods.containsValue(trySignature));
+        newMethodSignatures.put(method, newSignature);
+      }
     }
 
     // If any of the parameter types have been merged, record the signature mapping so that
     // subclasses perform the identical rename.
-    if (!reservedInterfaceSignatures.containsKey(method)
+    if (!keptSignatures.contains(method)
+        && !reservedInterfaceSignatures.containsKey(method)
         && Iterables.any(
             newSignature.getProto().getBaseTypes(dexItemFactory), mergedClasses::isMergeTarget)) {
       renamedClassVirtualMethods.put(method.getSignature(), newSignature);

@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.classmerging.vertical;
 
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
 
 import com.android.tools.r8.NoUnusedInterfaceRemoval;
 import com.android.tools.r8.NoVerticalClassMerging;
@@ -29,22 +28,20 @@ public class VerticalClassMergerPinnedMethodInterfaceCollisionTest extends TestB
 
   @Test
   public void test() throws Exception {
-    assertFailsCompilation(
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .addKeepClassAndMembersRules(Main.class)
-                .addKeepRules(
-                    "-keep class " + OtherUser.class.getTypeName() + " {",
-                    "  void f(" + B.class.getTypeName() + ");",
-                    "}")
-                .addVerticallyMergedClassesInspector(
-                    inspector -> inspector.assertMergedIntoSubtype(A.class))
-                .enableInliningAnnotations()
-                .enableNoUnusedInterfaceRemovalAnnotations()
-                .enableNoVerticalClassMergingAnnotations()
-                .setMinApi(parameters)
-                .compile());
+    testForR8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addKeepClassAndMembersRules(Main.class)
+        .addKeepRules(
+            "-keep class " + OtherUser.class.getTypeName() + " {",
+            "  void f(" + B.class.getTypeName() + ");",
+            "}")
+        .addVerticallyMergedClassesInspector(
+            inspector -> inspector.assertMergedIntoSubtype(A.class))
+        .enableNoUnusedInterfaceRemovalAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("B", "B");
   }
 
   static class Main {
@@ -80,7 +77,7 @@ public class VerticalClassMergerPinnedMethodInterfaceCollisionTest extends TestB
 
     @Override
     public void f(A a) {
-      System.out.println("UserImpl");
+      System.out.println(a);
     }
   }
 

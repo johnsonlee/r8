@@ -46,6 +46,19 @@ class VerticalClassMergerTreeFixer
   }
 
   @Override
+  public void preprocess() {
+    appView
+        .getKeepInfo()
+        .forEachPinnedMethod(
+            method -> {
+              if (!method.isInstanceInitializer(dexItemFactory)) {
+                keptSignatures.add(method);
+              }
+            },
+            appView.options());
+  }
+
+  @Override
   public void postprocess() {
     lensBuilder.fixupContextualVirtualToDirectMethodMaps();
   }
