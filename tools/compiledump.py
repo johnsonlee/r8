@@ -477,7 +477,7 @@ def clean_config_line(line, minify, optimize, shrink):
     if line.lstrip().startswith('#'):
         return False
     if ('-injars' in line or '-libraryjars' in line or '-print' in line or
-            '-applymapping' in line):
+            '-applymapping' in line or '-tracing' in line):
         return True
     if minify == 'force-enable' and '-dontobfuscate' in line:
         return True
