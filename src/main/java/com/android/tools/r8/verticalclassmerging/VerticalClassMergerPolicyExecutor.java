@@ -24,6 +24,7 @@ import com.android.tools.r8.verticalclassmerging.policies.NoInvokeSuperNoSuchMet
 import com.android.tools.r8.verticalclassmerging.policies.NoKeptClassesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoLockMergingPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoMethodResolutionChangesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoNestedMergingPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoNonSerializableClassIntoSerializableClassPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoServiceInterfacesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SafeConstructorInliningPolicy;
@@ -33,7 +34,10 @@ import com.android.tools.r8.verticalclassmerging.policies.SameMainDexGroupPolicy
 import com.android.tools.r8.verticalclassmerging.policies.SameNestPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SameStartupPartitionPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicyWithPreprocessing;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -58,8 +62,9 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
   ConnectedComponentVerticalClassMerger run(
       Set<DexProgramClass> connectedComponent, ExecutorService executorService, Timing timing)
       throws ExecutionException {
-    Collection<VerticalMergeGroup> groups = createInitialMergeGroups(connectedComponent);
-    Collection<VerticalClassMergerPolicy> policies =
+    Collection<VerticalMergeGroup> groups =
+        createInitialMergeGroupsWithDeterministicOrder(connectedComponent);
+    Collection<Policy> policies =
         List.of(
             new NoDirectlyInstantiatedClassesPolicy(appView),
             new NoInterfacesWithUnknownSubtypesPolicy(appView),
@@ -81,35 +86,48 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
             new NoIllegalAccessesPolicy(appView),
             new NoClassInitializationChangesPolicy(appView),
             new NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy(appView),
-            new NoInvokeSuperNoSuchMethodErrorsPolicy(appView));
+            new NoInvokeSuperNoSuchMethodErrorsPolicy(appView),
+            new NoNestedMergingPolicy());
     groups = run(groups, policies, executorService, timing);
     return new ConnectedComponentVerticalClassMerger(appView, groups);
   }
 
-  @SuppressWarnings("JdkObsolete")
-  private LinkedList<VerticalMergeGroup> createInitialMergeGroups(
+  private Collection<VerticalMergeGroup> createInitialMergeGroupsWithDeterministicOrder(
       Set<DexProgramClass> connectedComponent) {
-    LinkedList<VerticalMergeGroup> groups = new LinkedList<>();
+    List<VerticalMergeGroup> groups = new ArrayList<>();
     for (DexProgramClass mergeCandidate : connectedComponent) {
       List<DexProgramClass> subclasses = immediateSubtypingInfo.getSubclasses(mergeCandidate);
       if (subclasses.size() == 1) {
         groups.add(new VerticalMergeGroup(mergeCandidate, ListUtils.first(subclasses)));
       }
     }
-    return groups;
+    return ListUtils.destructiveSort(
+        groups, Comparator.comparing(group -> group.getSource().getType()));
   }
 
   @Override
   protected LinkedList<VerticalMergeGroup> apply(
       Policy policy, LinkedList<VerticalMergeGroup> linkedGroups, ExecutorService executorService)
       throws ExecutionException {
-    assert policy.isVerticalClassMergerPolicy();
-    return apply(policy.asVerticalClassMergerPolicy(), linkedGroups);
+    if (policy.isVerticalClassMergerPolicy()) {
+      return apply(policy.asVerticalClassMergerPolicy(), linkedGroups);
+    } else {
+      assert policy.isVerticalClassMergerPolicyWithPreprocessing();
+      return apply(policy.asVerticalClassMergerPolicyWithPreprocessing(), linkedGroups);
+    }
   }
 
   private LinkedList<VerticalMergeGroup> apply(
       VerticalClassMergerPolicy policy, LinkedList<VerticalMergeGroup> linkedGroups) {
     linkedGroups.removeIf(group -> !policy.canMerge(group));
+    return linkedGroups;
+  }
+
+  private <T> LinkedList<VerticalMergeGroup> apply(
+      VerticalClassMergerPolicyWithPreprocessing<T> policy,
+      LinkedList<VerticalMergeGroup> linkedGroups) {
+    T data = policy.preprocess(linkedGroups);
+    linkedGroups.removeIf(group -> !policy.canMerge(group, data));
     return linkedGroups;
   }
 }

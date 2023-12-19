@@ -9,6 +9,7 @@ import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
 import com.android.tools.r8.horizontalclassmerging.SingleClassPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicyWithPreprocessing;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -60,6 +61,15 @@ public abstract class Policy {
   }
 
   public VerticalClassMergerPolicy asVerticalClassMergerPolicy() {
+    return null;
+  }
+
+  public boolean isVerticalClassMergerPolicyWithPreprocessing() {
+    return false;
+  }
+
+  public VerticalClassMergerPolicyWithPreprocessing<?>
+      asVerticalClassMergerPolicyWithPreprocessing() {
     return null;
   }
 

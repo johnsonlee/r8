@@ -51,10 +51,6 @@ public class ConnectedComponentVerticalClassMerger {
   private void mergeClassIfPossible(VerticalMergeGroup group) throws ExecutionException {
     DexProgramClass sourceClass = group.getSource();
     DexProgramClass targetClass = group.getTarget();
-    if (verticallyMergedClassesBuilder.isMergeSource(targetClass)
-        || verticallyMergedClassesBuilder.isMergeTarget(sourceClass)) {
-      return;
-    }
     ClassMerger merger =
         new ClassMerger(
             appView, lensBuilder, verticallyMergedClassesBuilder, sourceClass, targetClass);

@@ -388,7 +388,7 @@ public class VerticalClassMergerTest extends TestBase {
     Set<String> preservedClassNames =
         ImmutableSet.of(
             "classmerging.NestedDefaultInterfaceMethodsTest",
-            "classmerging.NestedDefaultInterfaceMethodsTest$B",
+            "classmerging.NestedDefaultInterfaceMethodsTest$A",
             "classmerging.NestedDefaultInterfaceMethodsTest$C");
     runTest(
         testForR8(parameters.getBackend())
@@ -413,7 +413,7 @@ public class VerticalClassMergerTest extends TestBase {
     Set<String> preservedClassNames =
         ImmutableSet.of(
             "classmerging.NestedDefaultInterfaceMethodsTest",
-            "classmerging.NestedDefaultInterfaceMethodsTest$B",
+            "classmerging.NestedDefaultInterfaceMethodsTest$A",
             "classmerging.NestedDefaultInterfaceMethodsTest$C");
     runTestOnInput(
         testForR8(parameters.getBackend())

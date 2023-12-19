@@ -6,6 +6,7 @@ package com.android.tools.r8.classmerging.vertical;
 
 
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -43,7 +44,10 @@ public class IncorrectRewritingOfInvokeSuperTest extends TestBase {
               options.testing.enableVerticalClassMergerLensAssertion = verifyLensLookup;
             })
         .enableInliningAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
         .addDontObfuscate()
+        .addVerticallyMergedClassesInspector(
+            inspector -> inspector.assertMergedIntoSubtype(A.class, ArgType.class))
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutputLines("Caught NPE");
@@ -78,6 +82,7 @@ public class IncorrectRewritingOfInvokeSuperTest extends TestBase {
     }
   }
 
+  @NoVerticalClassMerging
   static class B extends A {
 
     @NeverInline

@@ -311,8 +311,9 @@ public class ListUtils {
     return sorted;
   }
 
-  public static <T> void destructiveSort(List<T> items, Comparator<T> comparator) {
+  public static <T> List<T> destructiveSort(List<T> items, Comparator<T> comparator) {
     items.sort(comparator);
+    return items;
   }
 
   // Utility to add a slow verification of a comparator as part of sorting. Note that this

@@ -5,6 +5,7 @@ package com.android.tools.r8.classmerging.vertical;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -45,6 +46,7 @@ public class VerticalClassMergerCollisionWithOverridesTest extends TestBase {
             inspector -> inspector.assertMergedIntoSubtype(A.class))
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
@@ -77,6 +79,7 @@ public class VerticalClassMergerCollisionWithOverridesTest extends TestBase {
     }
   }
 
+  @NoVerticalClassMerging
   abstract static class B extends A {
 
     @NeverInline
