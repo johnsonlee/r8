@@ -233,7 +233,7 @@ public class KeepAnnotatedMemberTest extends TestBase {
             .apply(this::suppressZipFileAssignmentsToJavaLangAutoCloseable)
             .compile()
             .graphInspector();
-    assertRetainedClassesEqual(referenceInspector, ifThenKeepClassMembersInspector, true, true);
+    assertRetainedClassesEqual(referenceInspector, ifThenKeepClassMembersInspector);
 
     GraphInspector ifThenKeepClassesWithMembersInspector =
         testForR8(Backend.CF)
@@ -252,8 +252,7 @@ public class KeepAnnotatedMemberTest extends TestBase {
             .apply(this::suppressZipFileAssignmentsToJavaLangAutoCloseable)
             .compile()
             .graphInspector();
-    assertRetainedClassesEqual(
-        referenceInspector, ifThenKeepClassesWithMembersInspector, true, true);
+    assertRetainedClassesEqual(referenceInspector, ifThenKeepClassesWithMembersInspector);
 
     GraphInspector ifHasMemberThenKeepClassInspector =
         testForR8(Backend.CF)
