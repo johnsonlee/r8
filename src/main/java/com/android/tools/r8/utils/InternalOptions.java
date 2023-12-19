@@ -2476,9 +2476,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     // specified.
     public boolean enableD8ResourcesPassThrough = false;
 
-    // TODO(b/144781417): This is disabled by default as some test apps appear to have such classes.
-    public boolean allowNonAbstractClassesWithAbstractMethods = true;
-
     public boolean verifyKeptGraphInfo = false;
 
     public boolean readInputStackMaps = true;

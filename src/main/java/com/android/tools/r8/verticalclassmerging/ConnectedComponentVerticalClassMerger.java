@@ -4,14 +4,12 @@
 package com.android.tools.r8.verticalclassmerging;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 public class ConnectedComponentVerticalClassMerger {
 
@@ -38,27 +36,16 @@ public class ConnectedComponentVerticalClassMerger {
     return classesToMerge.isEmpty();
   }
 
-  public VerticalClassMergerResult.Builder run() throws ExecutionException {
+  public VerticalClassMergerResult.Builder run() {
     List<VerticalMergeGroup> classesToMergeSorted =
         ListUtils.sort(classesToMerge, Comparator.comparing(group -> group.getSource().getType()));
     for (VerticalMergeGroup group : classesToMergeSorted) {
-      mergeClassIfPossible(group);
+      ClassMerger classMerger =
+          new ClassMerger(
+              appView, lensBuilder, synthesizedBridges, verticallyMergedClassesBuilder, group);
+      classMerger.merge();
     }
     return VerticalClassMergerResult.builder(
         lensBuilder, synthesizedBridges, verticallyMergedClassesBuilder);
-  }
-
-  private void mergeClassIfPossible(VerticalMergeGroup group) throws ExecutionException {
-    DexProgramClass sourceClass = group.getSource();
-    DexProgramClass targetClass = group.getTarget();
-    ClassMerger merger =
-        new ClassMerger(
-            appView, lensBuilder, verticallyMergedClassesBuilder, sourceClass, targetClass);
-    if (merger.merge()) {
-      verticallyMergedClassesBuilder.add(sourceClass, targetClass);
-      // Commit the changes to the graph lens.
-      lensBuilder.merge(merger.getRenamings());
-      synthesizedBridges.addAll(merger.getSynthesizedBridges());
-    }
   }
 }

@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.verticalclassmerging.policies.NoAbstractMethodsOnAbstractClassesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoAnnotationClassesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoClassInitializationChangesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoDirectlyInstantiatedClassesPolicy;
@@ -33,6 +34,7 @@ import com.android.tools.r8.verticalclassmerging.policies.SameFeatureSplitPolicy
 import com.android.tools.r8.verticalclassmerging.policies.SameMainDexGroupPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SameNestPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SameStartupPartitionPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.SuccessfulVirtualMethodResolutionInTargetPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicyWithPreprocessing;
 import java.util.ArrayList;
@@ -87,6 +89,8 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
             new NoClassInitializationChangesPolicy(appView),
             new NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy(appView),
             new NoInvokeSuperNoSuchMethodErrorsPolicy(appView),
+            new SuccessfulVirtualMethodResolutionInTargetPolicy(appView),
+            new NoAbstractMethodsOnAbstractClassesPolicy(appView),
             new NoNestedMergingPolicy());
     groups = run(groups, policies, executorService, timing);
     return new ConnectedComponentVerticalClassMerger(appView, groups);

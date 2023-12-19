@@ -182,6 +182,7 @@ public class VerticalClassMerger {
   }
 
   private void run(ExecutorService executorService, Timing timing) throws ExecutionException {
+    appView.appInfo().getMethodAccessInfoCollection().verifyNoNonResolving(appView);
     timing.begin("Setup");
     ImmediateProgramSubtypingInfo immediateSubtypingInfo =
         ImmediateProgramSubtypingInfo.create(appView);
