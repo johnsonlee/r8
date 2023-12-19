@@ -337,12 +337,6 @@ public class IfRuleEvaluator {
         rootSetBuilder.runPerRule(tasks, neverClassInlineRuleForCondition, null);
       }
 
-      InlineRule neverInlineForClassInliningRuleForCondition =
-          materializedRule.neverInlineRuleForCondition(dexItemFactory, Type.NEVER_CLASS_INLINE);
-      if (neverInlineForClassInliningRuleForCondition != null) {
-        rootSetBuilder.runPerRule(tasks, neverInlineForClassInliningRuleForCondition, null);
-      }
-
       // If the condition of the -if rule has any members, then we need to keep these members to
       // ensure that the subsequent rule will be applied again in the second round of tree
       // shaking.

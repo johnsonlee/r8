@@ -8,7 +8,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
@@ -195,7 +194,7 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
             ? null
             : getInheritanceClassName().materialize(dexItemFactory),
         getInheritanceIsExtends(),
-        ImmutableList.of(),
+        getMemberRules(),
         ClassInlineRule.Type.NEVER);
   }
 
