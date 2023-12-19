@@ -11,12 +11,18 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants.ClassNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepPackagePattern;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepUnqualfiedClassNamePattern;
+import com.android.tools.r8.keepanno.ast.ParsingContext;
+import com.android.tools.r8.keepanno.ast.ParsingContext.AnnotationParsingContext;
 import com.google.common.collect.ImmutableList;
 import java.util.function.Consumer;
 import org.objectweb.asm.AnnotationVisitor;
 
 public class ClassNameParser
     extends PropertyParserBase<KeepQualifiedClassNamePattern, ClassNameProperty, ClassNameParser> {
+
+  public ClassNameParser(ParsingContext parsingContext) {
+    super(parsingContext);
+  }
 
   public enum ClassNameProperty {
     PATTERN
@@ -36,13 +42,16 @@ public class ClassNameParser
     switch (property) {
       case PATTERN:
         {
+          AnnotationParsingContext parsingContext =
+              new AnnotationParsingContext(getParsingContext(), descriptor);
           PackageNameParser packageParser =
-              new PackageNameParser()
+              new PackageNameParser(parsingContext)
                   .setProperty(PackageNameProperty.NAME, ClassNamePattern.packageName);
           ClassSimpleNameParser nameParser =
-              new ClassSimpleNameParser()
+              new ClassSimpleNameParser(parsingContext)
                   .setProperty(ClassSimpleNameProperty.NAME, ClassNamePattern.simpleName);
           return new ParserVisitor(
+              parsingContext,
               descriptor,
               ImmutableList.of(packageParser, nameParser),
               () ->

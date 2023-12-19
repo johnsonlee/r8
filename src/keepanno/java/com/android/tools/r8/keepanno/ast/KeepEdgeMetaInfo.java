@@ -115,12 +115,11 @@ public class KeepEdgeMetaInfo {
     }
 
     @Override
-    @SuppressWarnings("EqualsGetClass")
     public boolean equals(Object o) {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof KeepEdgeClassContext)) {
         return false;
       }
       KeepEdgeClassContext that = (KeepEdgeClassContext) o;
@@ -154,12 +153,11 @@ public class KeepEdgeMetaInfo {
     }
 
     @Override
-    @SuppressWarnings("EqualsGetClass")
     public boolean equals(Object o) {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof KeepEdgeMethodContext)) {
         return false;
       }
       KeepEdgeMethodContext that = (KeepEdgeMethodContext) o;
@@ -191,12 +189,11 @@ public class KeepEdgeMetaInfo {
     }
 
     @Override
-    @SuppressWarnings("EqualsGetClass")
     public boolean equals(Object o) {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof KeepEdgeFieldContext)) {
         return false;
       }
       KeepEdgeFieldContext that = (KeepEdgeFieldContext) o;

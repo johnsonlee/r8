@@ -5,6 +5,7 @@
 package com.android.tools.r8.keepanno.asm;
 
 import com.android.tools.r8.keepanno.ast.KeepEdgeException;
+import com.android.tools.r8.keepanno.ast.ParsingContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -13,10 +14,20 @@ import org.objectweb.asm.AnnotationVisitor;
 /** Special case of a property parser allowing only a single value callback. */
 public abstract class PropertyParserBase<T, P, S> implements PropertyParser<T, P, S> {
 
+  private final ParsingContext parsingContext;
+
   private String kind;
   private final Map<String, P> mapping = new HashMap<>();
   private String resultPropertyName = null;
   private T resultValue = null;
+
+  protected PropertyParserBase(ParsingContext parsingContext) {
+    this.parsingContext = parsingContext;
+  }
+
+  public ParsingContext getParsingContext() {
+    return parsingContext;
+  }
 
   boolean tryProperty(P property, String name, Object value, Consumer<T> setValue) {
     return false;

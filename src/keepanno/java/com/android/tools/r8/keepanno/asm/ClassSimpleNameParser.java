@@ -6,11 +6,16 @@ package com.android.tools.r8.keepanno.asm;
 
 import com.android.tools.r8.keepanno.asm.ClassSimpleNameParser.ClassSimpleNameProperty;
 import com.android.tools.r8.keepanno.ast.KeepUnqualfiedClassNamePattern;
+import com.android.tools.r8.keepanno.ast.ParsingContext;
 import java.util.function.Consumer;
 
 public class ClassSimpleNameParser
     extends PropertyParserBase<
         KeepUnqualfiedClassNamePattern, ClassSimpleNameProperty, ClassSimpleNameParser> {
+
+  public ClassSimpleNameParser(ParsingContext parsingContext) {
+    super(parsingContext);
+  }
 
   public enum ClassSimpleNameProperty {
     NAME

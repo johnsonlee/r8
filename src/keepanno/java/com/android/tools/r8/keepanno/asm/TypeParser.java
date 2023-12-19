@@ -8,12 +8,18 @@ import com.android.tools.r8.keepanno.asm.ClassNameParser.ClassNameProperty;
 import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.TypePattern;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
+import com.android.tools.r8.keepanno.ast.ParsingContext;
+import com.android.tools.r8.keepanno.ast.ParsingContext.AnnotationParsingContext;
 import com.android.tools.r8.keepanno.utils.Unimplemented;
 import java.util.function.Consumer;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 
 public class TypeParser extends PropertyParserBase<KeepTypePattern, TypeProperty, TypeParser> {
+
+  public TypeParser(ParsingContext parsingContext) {
+    super(parsingContext);
+  }
 
   public enum TypeProperty {
     SELF_PATTERN,
@@ -63,32 +69,39 @@ public class TypeParser extends PropertyParserBase<KeepTypePattern, TypeProperty
       TypeProperty property, String name, String descriptor, Consumer<KeepTypePattern> setValue) {
     switch (property) {
       case SELF_PATTERN:
-        TypeParser typeParser =
-            new TypeParser()
-                .setKind(kind())
-                .enableTypeName(TypePattern.name)
-                .enableTypeConstant(TypePattern.constant)
-                .enableTypeClassNamePattern(TypePattern.classNamePattern);
-        return new ParserVisitor(
-            descriptor,
-            typeParser,
-            () -> setValue.accept(typeParser.getValueOrDefault(KeepTypePattern.any())));
+        {
+          AnnotationParsingContext parsingContext =
+              new AnnotationParsingContext(getParsingContext(), descriptor);
+          TypeParser typeParser =
+              new TypeParser(parsingContext)
+                  .setKind(kind())
+                  .enableTypeName(TypePattern.name)
+                  .enableTypeConstant(TypePattern.constant)
+                  .enableTypeClassNamePattern(TypePattern.classNamePattern);
+          return new ParserVisitor(
+              parsingContext,
+              descriptor,
+              typeParser,
+              () -> setValue.accept(typeParser.getValueOrDefault(KeepTypePattern.any())));
+        }
       case CLASS_NAME_PATTERN:
-        return new ClassNameParser()
-            .setKind(kind())
-            .tryPropertyAnnotation(
-                ClassNameProperty.PATTERN,
-                name,
-                descriptor,
-                classNamePattern -> {
-                  if (classNamePattern.isExact()) {
-                    setValue.accept(
-                        KeepTypePattern.fromDescriptor(classNamePattern.getExactDescriptor()));
-                  } else {
-                    // TODO(b/248408342): Extend the AST type patterns.
-                    throw new Unimplemented("Non-exact class patterns are not implemented yet");
-                  }
-                });
+        {
+          return new ClassNameParser(getParsingContext())
+              .setKind(kind())
+              .tryPropertyAnnotation(
+                  ClassNameProperty.PATTERN,
+                  name,
+                  descriptor,
+                  classNamePattern -> {
+                    if (classNamePattern.isExact()) {
+                      setValue.accept(
+                          KeepTypePattern.fromDescriptor(classNamePattern.getExactDescriptor()));
+                    } else {
+                      // TODO(b/248408342): Extend the AST type patterns.
+                      throw new Unimplemented("Non-exact class patterns are not implemented yet");
+                    }
+                  });
+        }
       default:
         return null;
     }

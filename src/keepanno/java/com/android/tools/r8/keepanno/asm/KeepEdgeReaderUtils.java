@@ -23,19 +23,55 @@ public class KeepEdgeReaderUtils {
     return "L" + getBinaryNameFromClassTypeName(classTypeName) + ";";
   }
 
+  public static String getJavaTypeFromDescriptor(String descriptor) {
+    if (descriptor.length() == 1) {
+      switch (descriptor.charAt(0)) {
+        case 'Z':
+          return "boolean";
+        case 'B':
+          return "byte";
+        case 'C':
+          return "char";
+        case 'S':
+          return "short";
+        case 'I':
+          return "int";
+        case 'J':
+          return "long";
+        case 'F':
+          return "float";
+        case 'D':
+          return "double";
+        case 'V':
+          return "void";
+        default:
+          throw new IllegalStateException("Unexpected descriptor: " + descriptor);
+      }
+    }
+    if (descriptor.charAt(0) == '[') {
+      return getJavaTypeFromDescriptor(descriptor.substring(1)) + "[]";
+    }
+    if (descriptor.charAt(0) == 'L') {
+      return descriptor.substring(1, descriptor.length() - 1).replace('/', '.');
+    }
+    throw new IllegalStateException("Unexpected descriptor: " + descriptor);
+  }
+
   public static KeepTypePattern typePatternFromString(String string) {
     if (string.equals("<any>")) {
       return KeepTypePattern.any();
     }
-    return KeepTypePattern.fromDescriptor(javaTypeToDescriptor(string));
+    return KeepTypePattern.fromDescriptor(getDescriptorFromJavaType(string));
   }
 
-  public static String javaTypeToDescriptor(String type) {
+  public static String getDescriptorFromJavaType(String type) {
     switch (type) {
       case "boolean":
         return "Z";
       case "byte":
         return "B";
+      case "char":
+        return "C";
       case "short":
         return "S";
       case "int":

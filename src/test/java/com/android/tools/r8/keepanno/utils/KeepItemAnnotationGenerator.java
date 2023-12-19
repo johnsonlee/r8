@@ -1220,9 +1220,7 @@ public class KeepItemAnnotationGenerator {
     }
 
     private void generateAnnotationConstants(Class<?> clazz) {
-      String name = simpleName(clazz);
       String desc = TestBase.descriptor(clazz);
-      println("public static final String SIMPLE_NAME = " + quote(name) + ";");
       println("public static final String DESCRIPTOR = " + quote(desc) + ";");
     }
 

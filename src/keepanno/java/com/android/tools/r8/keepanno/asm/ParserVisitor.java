@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.keepanno.asm;
 
+import com.android.tools.r8.keepanno.ast.ParsingContext.AnnotationParsingContext;
 import java.util.Collections;
 import java.util.List;
 import org.objectweb.asm.AnnotationVisitor;
@@ -11,30 +12,29 @@ import org.objectweb.asm.AnnotationVisitor;
 /** Convert parser(s) into an annotation visitor. */
 public class ParserVisitor extends AnnotationVisitorBase {
 
-  private final String annotationDescriptor;
   private final List<PropertyParser<?, ?, ?>> parsers;
   private final Runnable onVisitEnd;
 
   public ParserVisitor(
-      String annotationDescriptor, List<PropertyParser<?, ?, ?>> parsers, Runnable onVisitEnd) {
-    this.annotationDescriptor = annotationDescriptor;
+      AnnotationParsingContext parsingContext,
+      String annotationDescriptor,
+      List<PropertyParser<?, ?, ?>> parsers,
+      Runnable onVisitEnd) {
+    super(parsingContext);
     this.parsers = parsers;
     this.onVisitEnd = onVisitEnd;
+    assert annotationDescriptor.equals(parsingContext.getAnnotationDescriptor());
   }
 
   public ParserVisitor(
-      String annotationDescriptor, PropertyParser<?, ?, ?> declaration, Runnable onVisitEnd) {
-    this(annotationDescriptor, Collections.singletonList(declaration), onVisitEnd);
+      AnnotationParsingContext parsingContext,
+      String annotationDescriptor,
+      PropertyParser<?, ?, ?> declaration,
+      Runnable onVisitEnd) {
+    this(parsingContext, annotationDescriptor, Collections.singletonList(declaration), onVisitEnd);
   }
 
   private <T> void ignore(T unused) {}
-
-  @Override
-  public String getAnnotationName() {
-    int start = annotationDescriptor.lastIndexOf('/') + 1;
-    int end = annotationDescriptor.length() - 1;
-    return annotationDescriptor.substring(start, end);
-  }
 
   @Override
   public void visit(String name, Object value) {

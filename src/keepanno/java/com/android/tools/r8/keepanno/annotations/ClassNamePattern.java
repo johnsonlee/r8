@@ -25,7 +25,7 @@ public @interface ClassNamePattern {
   /**
    * Exact simple name of the class or interface.
    *
-   * <p>For example, the simple name {@code com.example.MyClass} is {@code MyClass}.
+   * <p>For example, the simple name of {@code com.example.MyClass} is {@code MyClass}.
    *
    * <p>The default matches any simple name.
    */

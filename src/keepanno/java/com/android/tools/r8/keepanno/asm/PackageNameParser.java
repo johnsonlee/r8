@@ -6,10 +6,15 @@ package com.android.tools.r8.keepanno.asm;
 
 import com.android.tools.r8.keepanno.asm.PackageNameParser.PackageNameProperty;
 import com.android.tools.r8.keepanno.ast.KeepPackagePattern;
+import com.android.tools.r8.keepanno.ast.ParsingContext;
 import java.util.function.Consumer;
 
 public class PackageNameParser
     extends PropertyParserBase<KeepPackagePattern, PackageNameProperty, PackageNameParser> {
+
+  public PackageNameParser(ParsingContext parsingContext) {
+    super(parsingContext);
+  }
 
   public enum PackageNameProperty {
     NAME

@@ -4,20 +4,17 @@
 
 package com.android.tools.r8.keepanno.asm;
 
-import com.android.tools.r8.keepanno.ast.KeepEdgeException;
+import com.android.tools.r8.keepanno.ast.ParsingContext;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 
 public abstract class AnnotationVisitorBase extends AnnotationVisitor {
 
-  AnnotationVisitorBase() {
+  private final ParsingContext parsingContext;
+
+  AnnotationVisitorBase(ParsingContext parsingContext) {
     super(KeepEdgeReader.ASM_VERSION);
-  }
-
-  public abstract String getAnnotationName();
-
-  private String errorMessagePrefix() {
-    return "@" + getAnnotationName() + ": ";
+    this.parsingContext = parsingContext;
   }
 
   private String getTypeName(String descriptor) {
@@ -26,34 +23,31 @@ public abstract class AnnotationVisitorBase extends AnnotationVisitor {
 
   @Override
   public void visit(String name, Object value) {
-    throw new KeepEdgeException(
-        "Unexpected value in " + errorMessagePrefix() + name + " = " + value);
+    throw parsingContext.error("Unexpected value for property " + name + " with value " + value);
   }
 
   @Override
   public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-    throw new KeepEdgeException(
-        "Unexpected annotation in "
-            + errorMessagePrefix()
+    throw parsingContext.error(
+        "Unexpected annotation for property "
             + name
-            + " for annotation: "
+            + " of annotation type "
             + getTypeName(descriptor));
   }
 
   @Override
   public void visitEnum(String name, String descriptor, String value) {
-    throw new KeepEdgeException(
-        "Unexpected enum in "
-            + errorMessagePrefix()
+    throw parsingContext.error(
+        "Unexpected enum for property "
             + name
-            + " for enum: "
+            + " of enum type "
             + getTypeName(descriptor)
-            + " with value: "
+            + " with value "
             + value);
   }
 
   @Override
   public AnnotationVisitor visitArray(String name) {
-    throw new KeepEdgeException("Unexpected array in " + errorMessagePrefix() + name);
+    throw parsingContext.error("Unexpected array for property " + name);
   }
 }
