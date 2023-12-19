@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.shaking.ifrule.verticalclassmerging;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
@@ -114,7 +114,7 @@ public class MergedParameterTypeTest extends MergedTypeBaseTest {
 
       if (enableVerticalClassMerging) {
         // Verify that SuperTestClass has been merged into TestClass.
-        assertThat(inspector.clazz(SuperTestClass.class), not(isPresent()));
+        assertThat(inspector.clazz(SuperTestClass.class), isAbsent());
         assertEquals(
             "java.lang.Object", testClassSubject.getDexProgramClass().superType.toSourceString());
 

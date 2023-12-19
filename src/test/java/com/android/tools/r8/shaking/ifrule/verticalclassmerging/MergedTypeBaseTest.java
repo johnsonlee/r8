@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.shaking.ifrule.verticalclassmerging;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NoAccessModification;
@@ -97,8 +97,8 @@ public abstract class MergedTypeBaseTest extends TestBase {
 
     // Verify that A and I are no longer present when vertical class merging is enabled.
     if (enableVerticalClassMerging) {
-      assertThat(inspector.clazz(A.class), not(isPresent()));
-      assertThat(inspector.clazz(I.class), not(isPresent()));
+      assertThat(inspector.clazz(A.class), isAbsent());
+      assertThat(inspector.clazz(I.class), isAbsent());
     }
   }
 

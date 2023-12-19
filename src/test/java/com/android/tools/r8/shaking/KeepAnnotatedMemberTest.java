@@ -274,7 +274,7 @@ public class KeepAnnotatedMemberTest extends TestBase {
             .apply(this::suppressZipFileAssignmentsToJavaLangAutoCloseable)
             .compile()
             .graphInspector();
-    assertRetainedClassesEqual(referenceInspector, ifHasMemberThenKeepClassInspector, true, true);
+    assertRetainedClassesEqual(referenceInspector, ifHasMemberThenKeepClassInspector);
   }
 
   private void configureHorizontalClassMerging(R8FullTestBuilder testBuilder) {
