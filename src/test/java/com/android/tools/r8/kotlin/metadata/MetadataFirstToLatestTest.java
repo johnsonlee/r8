@@ -100,6 +100,19 @@ public class MetadataFirstToLatestTest extends KotlinMetadataTestBase {
       assertThat(
           assertionError.getMessage(),
           containsString("compiled with an incompatible version of Kotlin"));
+    } else if (kotlinParameters.is(KotlinCompilerVersion.KOTLINC_1_6_0)) {
+      AssertionError assertionError =
+          assertThrows(
+              AssertionError.class,
+              () -> {
+                runTest(kotlinParameters.getCompiler().getCompilerVersion(), libJar, stdLibJar);
+              });
+      // TODO(b/317019265): Triage this.
+      assertThat(
+          assertionError.getMessage(),
+          containsString(
+              "Trying to inline an anonymous object which is not part of the public ABI"));
+
     } else {
       runTest(kotlinParameters.getCompiler().getCompilerVersion(), libJar, stdLibJar);
     }

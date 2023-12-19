@@ -8,14 +8,17 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.objectweb.asm.Opcodes.ASM7;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.DexAnnotationElement;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.transformers.ClassTransformer;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StreamUtils;
 import com.android.tools.r8.utils.ZipUtils;
 import com.android.tools.r8.utils.codeinspector.AnnotationSubject;
@@ -58,6 +61,7 @@ public class MetadataVersionNumberBumpTest extends KotlinMetadataTestBase {
     final R8FullTestBuilder testBuilder = testForR8(parameters.getBackend());
     rewriteMetadataVersion(testBuilder::addProgramClassFileData, new int[] {1, 1, 16});
     testBuilder
+        .apply(this::addLibrary)
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .setMinApi(parameters)
         .addOptionsModification(options -> options.testing.keepMetadataInR8IfNotRewritten = false)
@@ -72,6 +76,7 @@ public class MetadataVersionNumberBumpTest extends KotlinMetadataTestBase {
     final R8FullTestBuilder testBuilder = testForR8(parameters.getBackend());
     rewriteMetadataVersion(testBuilder::addProgramClassFileData, new int[] {1, 4, 0});
     testBuilder
+        .apply(this::addLibrary)
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .setMinApi(parameters)
         .addKeepAllClassesRuleWithAllowObfuscation()
@@ -85,12 +90,23 @@ public class MetadataVersionNumberBumpTest extends KotlinMetadataTestBase {
     final R8FullTestBuilder testBuilder = testForR8(parameters.getBackend());
     rewriteMetadataVersion(testBuilder::addProgramClassFileData, new int[] {1, 4, 2});
     testBuilder
+        .apply(this::addLibrary)
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .setMinApi(parameters)
         .addKeepAllClassesRuleWithAllowObfuscation()
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .compile()
         .inspect(inspector -> inspectMetadataVersion(inspector, "1.4.2"));
+  }
+
+  private void addLibrary(R8FullTestBuilder testBuilder) {
+    // Starting with version 1.6 kotlin-stdlib references java.lang.annotation.Repeatable. This
+    // annotation was added in Android N.
+    testBuilder.applyIf(
+        kotlinParameters.isNewerThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_6_0)
+            && parameters.isDexRuntime()
+            && parameters.getApiLevel().isLessThan(AndroidApiLevel.N),
+        b -> b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.N)));
   }
 
   private void rewriteMetadataVersion(Consumer<byte[]> rewrittenBytesConsumer, int[] newVersion)
