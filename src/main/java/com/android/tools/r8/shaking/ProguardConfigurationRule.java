@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
+import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +59,23 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
         inheritanceClassName,
         inheritanceIsExtends,
         memberRules);
+  }
+
+  public boolean isTrivalAllClassMatch() {
+    BooleanBox booleanBox = new BooleanBox(true);
+    getClassNames()
+        .forEachTypeMatcher(
+            unused -> booleanBox.set(false),
+            proguardTypeMatcher -> !proguardTypeMatcher.isMatchAnyClassPattern());
+    return booleanBox.get()
+        && getClassAnnotations().isEmpty()
+        && getClassAccessFlags().isDefaultFlags()
+        && getNegatedClassAccessFlags().isDefaultFlags()
+        && !getClassTypeNegated()
+        && getClassType() == ProguardClassType.CLASS
+        && getInheritanceAnnotations().isEmpty()
+        && getInheritanceClassName() == null
+        && getMemberRules().isEmpty();
   }
 
   public boolean isUsed() {

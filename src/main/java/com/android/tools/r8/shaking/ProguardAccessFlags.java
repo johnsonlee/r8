@@ -239,6 +239,10 @@ public class ProguardAccessFlags {
     return this.flags == ((ProguardAccessFlags) obj).flags;
   }
 
+  public boolean isDefaultFlags() {
+    return flags == 0;
+  }
+
   @Override
   public int hashCode() {
     return flags;

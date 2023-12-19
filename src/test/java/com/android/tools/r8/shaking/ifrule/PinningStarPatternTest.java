@@ -49,11 +49,7 @@ public class PinningStarPatternTest extends TestBase {
 
   @Test
   public void testR8IfStar() throws Exception {
-    // TODO(b/316100042): We should not keep A.class.
-    testKeepRule(
-        "-if class * -keep class **B { *; }",
-        ImmutableList.of(),
-        ImmutableList.of(B.class, TestClass.class, A.class));
+    testKeepRule("-if class * -keep class **B { *; }", EXPECTED_ABSENT, EXPECTED_PRESENT);
   }
 
   @Test

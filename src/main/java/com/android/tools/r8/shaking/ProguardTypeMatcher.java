@@ -43,6 +43,10 @@ public abstract class ProguardTypeMatcher {
   // Evaluates this matcher on the given type.
   public abstract boolean matches(DexType type);
 
+  public boolean isMatchAnyClassPattern() {
+    return false;
+  }
+
   // Evaluates this matcher on the given type, and on all types that have been merged into the given
   // type, if any.
   public final boolean matches(DexType type, AppView<?> appView) {
@@ -167,6 +171,11 @@ public abstract class ProguardTypeMatcher {
     }
 
     @Override
+    public boolean isMatchAnyClassPattern() {
+      return true;
+    }
+
+    @Override
     public boolean matches(DexType type) {
       wildcard.setCaptured(type.toSourceString());
       return true;
@@ -246,6 +255,11 @@ public abstract class ProguardTypeMatcher {
       assert pattern.equals(LEGACY_MATCH_CLASS_PATTERN) || pattern.equals(MATCH_CLASS_PATTERN);
       this.pattern = pattern;
       this.wildcard = wildcard;
+    }
+
+    @Override
+    public boolean isMatchAnyClassPattern() {
+      return true;
     }
 
     @Override

@@ -328,7 +328,9 @@ public class IfRuleEvaluator {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     ProguardIfRule materializedRule = rule.materialize(dexItemFactory, preconditions);
 
-    if (enqueuer.getMode().isInitialTreeShaking() && !rule.isUsed()) {
+    if (enqueuer.getMode().isInitialTreeShaking()
+        && !rule.isUsed()
+        && !rule.isTrivalAllClassMatch()) {
       // We need to abort class inlining of classes that could be matched by the condition of this
       // -if rule.
       ClassInlineRule neverClassInlineRuleForCondition =
