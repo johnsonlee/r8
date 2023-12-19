@@ -39,7 +39,9 @@ public class CodeRewriterPassCollection {
     passes.add(new BranchSimplifier(appView));
     passes.add(new SplitBranch(appView));
     passes.add(new RedundantConstNumberRemover(appView));
-    passes.add(new RedundantFieldLoadAndStoreElimination(appView));
+    if (!appView.options().debug) {
+      passes.add(new RedundantFieldLoadAndStoreElimination(appView));
+    }
     passes.add(new BinopRewriter(appView));
     return new CodeRewriterPassCollection(passes);
   }
