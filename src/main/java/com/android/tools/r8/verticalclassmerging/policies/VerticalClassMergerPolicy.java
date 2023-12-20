@@ -3,20 +3,21 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.verticalclassmerging.policies;
 
-import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.verticalclassmerging.VerticalMergeGroup;
+import java.util.Collection;
 
-public abstract class VerticalClassMergerPolicy extends Policy {
+public abstract class VerticalClassMergerPolicy
+    extends VerticalClassMergerPolicyWithPreprocessing<Void> {
 
   public abstract boolean canMerge(VerticalMergeGroup group);
 
   @Override
-  public boolean isVerticalClassMergerPolicy() {
-    return true;
+  public final boolean canMerge(VerticalMergeGroup group, Void data) {
+    return canMerge(group);
   }
 
   @Override
-  public VerticalClassMergerPolicy asVerticalClassMergerPolicy() {
-    return this;
+  public final Void preprocess(Collection<VerticalMergeGroup> groups) {
+    return null;
   }
 }

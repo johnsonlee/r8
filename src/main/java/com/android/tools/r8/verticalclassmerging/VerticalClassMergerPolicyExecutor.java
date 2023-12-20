@@ -35,7 +35,6 @@ import com.android.tools.r8.verticalclassmerging.policies.SameMainDexGroupPolicy
 import com.android.tools.r8.verticalclassmerging.policies.SameNestPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SameStartupPartitionPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SuccessfulVirtualMethodResolutionInTargetPolicy;
-import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicyWithPreprocessing;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -113,18 +112,8 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
   protected LinkedList<VerticalMergeGroup> apply(
       Policy policy, LinkedList<VerticalMergeGroup> linkedGroups, ExecutorService executorService)
       throws ExecutionException {
-    if (policy.isVerticalClassMergerPolicy()) {
-      return apply(policy.asVerticalClassMergerPolicy(), linkedGroups);
-    } else {
-      assert policy.isVerticalClassMergerPolicyWithPreprocessing();
-      return apply(policy.asVerticalClassMergerPolicyWithPreprocessing(), linkedGroups);
-    }
-  }
-
-  private LinkedList<VerticalMergeGroup> apply(
-      VerticalClassMergerPolicy policy, LinkedList<VerticalMergeGroup> linkedGroups) {
-    linkedGroups.removeIf(group -> !policy.canMerge(group));
-    return linkedGroups;
+    assert policy.isVerticalClassMergerPolicy();
+    return apply(policy.asVerticalClassMergerPolicy(), linkedGroups);
   }
 
   private <T> LinkedList<VerticalMergeGroup> apply(

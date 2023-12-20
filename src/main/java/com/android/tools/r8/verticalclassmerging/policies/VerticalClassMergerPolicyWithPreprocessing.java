@@ -14,13 +14,12 @@ public abstract class VerticalClassMergerPolicyWithPreprocessing<T> extends Poli
   public abstract T preprocess(Collection<VerticalMergeGroup> groups);
 
   @Override
-  public boolean isVerticalClassMergerPolicyWithPreprocessing() {
+  public boolean isVerticalClassMergerPolicy() {
     return true;
   }
 
   @Override
-  public VerticalClassMergerPolicyWithPreprocessing<T>
-      asVerticalClassMergerPolicyWithPreprocessing() {
+  public VerticalClassMergerPolicyWithPreprocessing<T> asVerticalClassMergerPolicy() {
     return this;
   }
 }
