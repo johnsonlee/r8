@@ -14,7 +14,7 @@ import java.util.List;
 public class ConnectedComponentVerticalClassMerger {
 
   private final AppView<AppInfoWithLiveness> appView;
-  private final Collection<VerticalMergeGroup> classesToMerge;
+  private final Collection<VerticalMergeGroup> groups;
 
   // The resulting graph lens that should be used after class merging.
   private final VerticalClassMergerGraphLens.Builder lensBuilder;
@@ -26,25 +26,31 @@ public class ConnectedComponentVerticalClassMerger {
       VerticallyMergedClasses.builder();
 
   ConnectedComponentVerticalClassMerger(
-      AppView<AppInfoWithLiveness> appView, Collection<VerticalMergeGroup> classesToMerge) {
+      AppView<AppInfoWithLiveness> appView, Collection<VerticalMergeGroup> groups) {
     this.appView = appView;
-    this.classesToMerge = classesToMerge;
+    this.groups = groups;
     this.lensBuilder = new VerticalClassMergerGraphLens.Builder();
   }
 
   public boolean isEmpty() {
-    return classesToMerge.isEmpty();
+    return groups.isEmpty();
   }
 
   public VerticalClassMergerResult.Builder run() {
-    List<VerticalMergeGroup> classesToMergeSorted =
-        ListUtils.sort(classesToMerge, Comparator.comparing(group -> group.getSource().getType()));
-    for (VerticalMergeGroup group : classesToMergeSorted) {
-      ClassMerger classMerger =
-          new ClassMerger(
-              appView, lensBuilder, synthesizedBridges, verticallyMergedClassesBuilder, group);
-      classMerger.merge();
-    }
+    List<VerticalMergeGroup> groupsSorted =
+        ListUtils.sort(groups, Comparator.comparing(group -> group.getSource().getType()));
+    List<ClassMerger> classMergers =
+        ListUtils.map(
+            groupsSorted,
+            group ->
+                new ClassMerger(
+                    appView,
+                    lensBuilder,
+                    synthesizedBridges,
+                    verticallyMergedClassesBuilder,
+                    group));
+    classMergers.forEach(ClassMerger::setup);
+    classMergers.forEach(ClassMerger::merge);
     return VerticalClassMergerResult.builder(
         lensBuilder, synthesizedBridges, verticallyMergedClassesBuilder);
   }

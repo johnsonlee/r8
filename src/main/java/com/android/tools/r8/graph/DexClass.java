@@ -1141,9 +1141,8 @@ public abstract class DexClass extends DexDefinition
     return null;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public boolean isInSameNest(DexClass other) {
-    return isInANest() && other.isInANest() && getNestHost() == other.getNestHost();
+    return isInANest() && other.isInANest() && getNestHost().isIdenticalTo(other.getNestHost());
   }
 
   public void forEachNestMember(Consumer<DexType> consumer) {

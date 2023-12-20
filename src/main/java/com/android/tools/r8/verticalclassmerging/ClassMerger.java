@@ -8,6 +8,7 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.code.InvokeType.DIRECT;
 import static com.android.tools.r8.ir.code.InvokeType.STATIC;
 import static com.android.tools.r8.ir.code.InvokeType.VIRTUAL;
+import static java.util.function.Predicate.not;
 
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.errors.Unreachable;
@@ -93,6 +94,77 @@ class ClassMerger {
     this.target = group.getTarget();
   }
 
+  public void setup() {
+    setupInvokeSuperMapping();
+  }
+
+  private void setupInvokeSuperMapping() {
+    source.forEachProgramMethod(this::redirectSuperCallsToMethod);
+  }
+
+  private void redirectSuperCallsToMethod(ProgramMethod sourceMethod) {
+    if (sourceMethod.getAccessFlags().belongsToDirectPool()) {
+      redirectSuperCallsToDirectMethod(sourceMethod);
+    } else {
+      redirectSuperCallsToVirtualMethod(sourceMethod);
+    }
+  }
+
+  private void redirectSuperCallsToDirectMethod(ProgramMethod sourceMethod) {
+    DexEncodedMethod definition = sourceMethod.getDefinition();
+    if (appView.options().canUseNestBasedAccess()
+        && source.isInSameNest(target)
+        && definition.isInstance()
+        && !definition.isInstanceInitializer()
+        && AccessControl.isMemberAccessible(sourceMethod, source, target, appView).isTrue()) {
+      lensBuilder.mapVirtualMethodToDirectInType(sourceMethod.getReference(), sourceMethod, target);
+    }
+  }
+
+  private void redirectSuperCallsToVirtualMethod(ProgramMethod sourceMethod) {
+    if (sourceMethod.getAccessFlags().isAbstract()) {
+      return;
+    }
+    if (source.isInterface()) {
+      // If we merge a default interface method from interface I to its subtype C, then we need
+      // to rewrite invocations on the form "invoke-super I.m()" to "invoke-direct C.m$I()".
+      //
+      // Unlike when we merge a class into its subclass (the else-branch below), we should *not*
+      // rewrite any invocations on the form "invoke-super J.m()" to "invoke-direct C.m$I()",
+      // if I has a supertype J. This is due to the fact that invoke-super instructions that
+      // resolve to a method on an interface never hit an implementation below that interface.
+      lensBuilder.mapVirtualMethodToDirectInType(sourceMethod.getReference(), sourceMethod, target);
+    } else {
+      // If we merge class B into class C, and class C contains an invocation super.m(), then it
+      // is insufficient to rewrite "invoke-super B.m()" to "invoke-{direct,virtual} C.m$B()" (the
+      // method C.m$B denotes the direct/virtual method that has been created in C for B.m). In
+      // particular, there might be an instruction "invoke-super A.m()" in C that resolves to B.m
+      // at runtime (A is a superclass of B), which also needs to be rewritten to
+      // "invoke-{direct,virtual} C.m$B()".
+      //
+      // We handle this by adding a mapping for [target] and all of its supertypes.
+      DexProgramClass current = target;
+      while (current != null) {
+        // Only rewrite the invoke-super call if it does not lead to a NoSuchMethodError.
+        boolean resolutionSucceeds =
+            appView
+                .appInfo()
+                .resolveMethodOnClass(current, sourceMethod.getReference())
+                .isSingleResolution();
+        if (!resolutionSucceeds) {
+          break;
+        }
+        DexMethod signatureInHolder =
+            sourceMethod.getReference().withHolder(current, dexItemFactory);
+        lensBuilder.mapVirtualMethodToDirectInType(signatureInHolder, sourceMethod, target);
+        current =
+            current.hasSuperType()
+                ? asProgramClassOrNull(appView.definitionFor(current.getSuperType()))
+                : null;
+      }
+    }
+  }
+
   public void merge() {
     // Merge the class [clazz] into [targetClass] by adding all methods to
     // targetClass that are not currently contained.
@@ -132,51 +204,37 @@ class ClassMerger {
             add(directMethods, resultingDirectMethod, MethodSignatureEquivalence.get());
             lensBuilder.recordMove(directMethod.getDefinition(), resultingDirectMethod);
             blockRedirectionOfSuperCalls(resultingDirectMethod);
-
-            // Private methods in the parent class may be targeted with invoke-super if the two
-            // classes are in the same nest. Ensure such calls are mapped to invoke-direct.
-            if (definition.isInstance()
-                && definition.isPrivate()
-                && AccessControl.isMemberAccessible(directMethod, source, target, appView)
-                    .isTrue()) {
-              lensBuilder.mapVirtualMethodToDirectInType(
-                  definition.getReference(), definition, target.getType());
-            }
           }
         });
 
-    for (DexEncodedMethod virtualMethod : source.virtualMethods()) {
-      DexEncodedMethod shadowedBy = findMethodInTarget(virtualMethod);
+    for (DexEncodedMethod abstractMethod : source.virtualMethods(DexEncodedMethod::isAbstract)) {
+      DexEncodedMethod shadowedBy = findMethodInTarget(abstractMethod);
       if (shadowedBy != null) {
-        if (virtualMethod.isAbstract()) {
-          // Remove abstract/interface methods that are shadowed. The identity mapping below is
-          // needed to ensure we correctly fixup the mapping in case the signature refers to
-          // merged classes.
-          lensBuilder.recordSplit(virtualMethod, shadowedBy, null, null);
+        // Remove abstract/interface methods that are shadowed. The identity mapping below is
+        // needed to ensure we correctly fixup the mapping in case the signature refers to
+        // merged classes.
+        lensBuilder.recordSplit(abstractMethod, shadowedBy, null, null);
 
-          // The override now corresponds to the method in the parent, so unset its synthetic flag
-          // if the method in the parent is not synthetic.
-          if (!virtualMethod.isSyntheticMethod() && shadowedBy.isSyntheticMethod()) {
-            shadowedBy.getAccessFlags().demoteFromSynthetic();
-          }
-          continue;
+        // The override now corresponds to the method in the parent, so unset its synthetic flag
+        // if the method in the parent is not synthetic.
+        if (!abstractMethod.isSyntheticMethod() && shadowedBy.isSyntheticMethod()) {
+          shadowedBy.getAccessFlags().demoteFromSynthetic();
         }
       } else {
         // The method is not shadowed. If it is abstract, we can simply move it to the subclass.
-        // Non-abstract methods are handled below (they cannot simply be moved to the subclass as
-        // a virtual method, because they might be the target of an invoke-super instruction).
-        if (virtualMethod.isAbstract()) {
-          assert target.isAbstract();
-          // Update the holder of [virtualMethod] using renameMethod().
-          DexEncodedMethod resultingVirtualMethod =
-              renameMethod(virtualMethod, availableMethodSignatures, Rename.NEVER);
-          resultingVirtualMethod.setLibraryMethodOverride(virtualMethod.isLibraryMethodOverride());
-          lensBuilder.recordMove(virtualMethod, resultingVirtualMethod);
-          add(virtualMethods, resultingVirtualMethod, MethodSignatureEquivalence.get());
-          continue;
-        }
+        assert target.isAbstract();
+        // Update the holder of [virtualMethod] using renameMethod().
+        DexEncodedMethod resultingAbstractMethod =
+            renameMethod(abstractMethod, availableMethodSignatures, Rename.NEVER);
+        resultingAbstractMethod.setLibraryMethodOverride(abstractMethod.isLibraryMethodOverride());
+        lensBuilder.recordMove(abstractMethod, resultingAbstractMethod);
+        add(virtualMethods, resultingAbstractMethod, MethodSignatureEquivalence.get());
       }
+    }
 
+    for (DexEncodedMethod virtualMethod :
+        source.virtualMethods(not(DexEncodedMethod::isAbstract))) {
+      DexEncodedMethod shadowedBy = findMethodInTarget(virtualMethod);
       DexEncodedMethod resultingMethod;
       if (source.isInterface()) {
         // Moving a default interface method into its subtype. This method could be hit directly
@@ -209,10 +267,6 @@ class ClassMerger {
           resultingMethod.belongsToDirectPool() ? directMethods : virtualMethods,
           resultingMethod,
           MethodSignatureEquivalence.get());
-
-      // Record that invoke-super instructions in the target class should be redirected to the
-      // newly created direct method.
-      redirectSuperCallsInTarget(virtualMethod);
 
       DexEncodedMethod bridge = null;
       DexEncodedMethod override = shadowedBy;
@@ -466,66 +520,6 @@ class ClassMerger {
         TypeParameterContext.empty().addPrunedSubstitutions(substitutionMap),
         (type1, type2) -> true,
         type -> true);
-  }
-
-  private void redirectSuperCallsInTarget(DexEncodedMethod oldTarget) {
-    DexMethod oldTargetReference = oldTarget.getReference();
-    if (source.isInterface()) {
-      // If we merge a default interface method from interface I to its subtype C, then we need
-      // to rewrite invocations on the form "invoke-super I.m()" to "invoke-direct C.m$I()".
-      //
-      // Unlike when we merge a class into its subclass (the else-branch below), we should *not*
-      // rewrite any invocations on the form "invoke-super J.m()" to "invoke-direct C.m$I()",
-      // if I has a supertype J. This is due to the fact that invoke-super instructions that
-      // resolve to a method on an interface never hit an implementation below that interface.
-      lensBuilder.mapVirtualMethodToDirectInType(oldTargetReference, oldTarget, target.getType());
-    } else {
-      // If we merge class B into class C, and class C contains an invocation super.m(), then it
-      // is insufficient to rewrite "invoke-super B.m()" to "invoke-{direct,virtual} C.m$B()" (the
-      // method C.m$B denotes the direct/virtual method that has been created in C for B.m). In
-      // particular, there might be an instruction "invoke-super A.m()" in C that resolves to B.m
-      // at runtime (A is a superclass of B), which also needs to be rewritten to
-      // "invoke-{direct,virtual} C.m$B()".
-      //
-      // We handle this by adding a mapping for [target] and all of its supertypes.
-      DexProgramClass holder = target;
-      while (holder != null) {
-        DexMethod signatureInHolder = oldTargetReference.withHolder(holder, dexItemFactory);
-        // Only rewrite the invoke-super call if it does not lead to a NoSuchMethodError.
-        boolean resolutionSucceeds =
-            appView.appInfo().resolveMethodOnClass(holder, signatureInHolder).isSingleResolution();
-        if (resolutionSucceeds) {
-          lensBuilder.mapVirtualMethodToDirectInType(signatureInHolder, oldTarget, target.type);
-        } else {
-          break;
-        }
-
-        // Consider that A gets merged into B and B's subclass C gets merged into D. Instructions
-        // on the form "invoke-super {B,C,D}.m()" in D are changed into "invoke-direct D.m$C()" by
-        // the code above. However, instructions on the form "invoke-super A.m()" should also be
-        // changed into "invoke-direct D.m$C()". This is achieved by also considering the classes
-        // that have been merged into [holder].
-        Set<DexType> mergedTypes = verticallyMergedClassesBuilder.getSourcesFor(holder);
-        for (DexType type : mergedTypes) {
-          DexMethod signatureInType = oldTargetReference.withHolder(type, dexItemFactory);
-          // Resolution would have succeeded if the method used to be in [type], or if one of
-          // its super classes declared the method.
-          // TODO(b/315283244): Should not rely on lens for this. Instead precompute this before
-          //  merging any classes.
-          boolean resolutionSucceededBeforeMerge =
-              outerLensBuilder.hasMappingForSignatureInContext(holder, signatureInType)
-                  || appView.appInfo().lookupSuperTarget(signatureInHolder, holder, appView)
-                      != null;
-          if (resolutionSucceededBeforeMerge) {
-            lensBuilder.mapVirtualMethodToDirectInType(signatureInType, oldTarget, target.type);
-          }
-        }
-        holder =
-            holder.hasSuperType()
-                ? asProgramClassOrNull(appView.definitionFor(holder.getSuperType()))
-                : null;
-      }
-    }
   }
 
   private void blockRedirectionOfSuperCalls(DexEncodedMethod method) {
