@@ -26,12 +26,12 @@ public class Regress316744331Test extends DebugTestBase {
 
   static final String EXPECTED = StringUtils.lines("No null fields");
 
-  static final int ENTRY_LINE = 22;
-  static final int IN_STREAM_CHECK_LINE = 23;
-  static final int IN_STREAM_IS_NULL_LINE = 24;
-  static final int OUT_STREAM_CHECK_LINE = 29;
-  static final int OUT_STREAM_IS_NULL_LINE = 30;
-  static final int NORMAL_EXIT_LINE = 33;
+  static final int ENTRY_LINE = 23;
+  static final int IN_STREAM_CHECK_LINE = ENTRY_LINE + 1;
+  static final int IN_STREAM_IS_NULL_LINE = ENTRY_LINE + 2;
+  static final int OUT_STREAM_CHECK_LINE = ENTRY_LINE + 7;
+  static final int OUT_STREAM_IS_NULL_LINE = ENTRY_LINE + 8;
+  static final int NORMAL_EXIT_LINE = ENTRY_LINE + 11;
 
   static final Value NULL_VALUE = Value.createObjectValue(Tag.OBJECT_TAG, 0);
 

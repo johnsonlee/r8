@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.regress.b316744331;
 
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -41,7 +42,7 @@ public class Regress316744331TestClass {
     if (jarIndex < 0) {
       jarIndex = cp.indexOf(".zip");
     }
-    int start = cp.lastIndexOf(':', jarIndex);
+    int start = cp.lastIndexOf(File.pathSeparatorChar, jarIndex);
     String filename = cp.substring(Math.max(start, 0), jarIndex + 4);
     new Regress316744331TestClass(filename).foo();
   }
