@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.asm;
 
+import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.AccessVisibility;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Binding;
@@ -18,7 +19,6 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants.MemberAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.MethodAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Option;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Target;
-import com.android.tools.r8.keepanno.ast.AnnotationConstants.TypePattern;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.UsedByReflection;
 import com.android.tools.r8.keepanno.ast.KeepAnnotationParserException;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
@@ -62,7 +62,6 @@ import com.android.tools.r8.keepanno.ast.ParsingContext.AnnotationParsingContext
 import com.android.tools.r8.keepanno.ast.ParsingContext.ClassParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.FieldParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.MethodParsingContext;
-import com.android.tools.r8.keepanno.utils.Unimplemented;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1533,21 +1532,19 @@ public class KeepEdgeReader implements Opcodes {
   private static class MethodReturnTypeDeclaration
       extends SingleDeclaration<KeepMethodReturnTypePattern> {
 
-    private final TypeParser typeParser;
+    private final MethodReturnTypeParser typeParser;
 
     private MethodReturnTypeDeclaration(ParsingContext parsingContext) {
       super(parsingContext);
-      typeParser =
-          new TypeParser(parsingContext)
-              .setKind("return type")
-              .enableTypePattern(Item.methodReturnTypePattern)
-              .enableTypeName(Item.methodReturnType)
-              .enableTypeConstant(Item.methodReturnTypeConstant);
+      typeParser = new MethodReturnTypeParser(parsingContext);
+      typeParser.setProperty(Item.methodReturnType, TypeProperty.TYPE_NAME);
+      typeParser.setProperty(Item.methodReturnTypeConstant, TypeProperty.TYPE_CONSTANT);
+      typeParser.setProperty(Item.methodReturnTypePattern, TypeProperty.TYPE_PATTERN);
     }
 
     @Override
     String kind() {
-      return "return type";
+      return typeParser.kind();
     }
 
     @Override
@@ -1555,54 +1552,33 @@ public class KeepEdgeReader implements Opcodes {
       return KeepMethodReturnTypePattern.any();
     }
 
-    KeepMethodReturnTypePattern fromType(KeepTypePattern typePattern) {
-      if (typePattern == null) {
-        return null;
-      }
-      // Special-case method return types to allow void.
-      String descriptor = typePattern.getDescriptor();
-      if (descriptor.equals("V") || descriptor.equals("Lvoid;")) {
-        return KeepMethodReturnTypePattern.voidType();
-      }
-      return KeepMethodReturnTypePattern.fromType(typePattern);
-    }
-
     @Override
     public KeepMethodReturnTypePattern parse(String name, Object value) {
-      return fromType(typeParser.tryParse(name, value));
+      return typeParser.tryParse(name, value);
     }
 
     @Override
     public AnnotationVisitor parseAnnotation(
         String name, String descriptor, Consumer<KeepMethodReturnTypePattern> setValue) {
-      return typeParser.tryParseAnnotation(name, descriptor, t -> setValue.accept(fromType(t)));
+      return typeParser.tryParseAnnotation(name, descriptor, setValue);
     }
   }
 
   private static class MethodParametersDeclaration
       extends SingleDeclaration<KeepMethodParametersPattern> {
 
-    private final ParsingContext parsingContext;
-    private KeepMethodParametersPattern pattern = null;
+    private final MethodParametersParser parser;
 
     public MethodParametersDeclaration(ParsingContext parsingContext) {
       super(parsingContext);
-      this.parsingContext = parsingContext;
-    }
-
-    private void setPattern(
-        KeepMethodParametersPattern pattern, Consumer<KeepMethodParametersPattern> setValue) {
-      assert setValue != null;
-      if (this.pattern != null) {
-        throw parsingContext.error("Cannot declare multiple patterns for the parameter list");
-      }
-      setValue.accept(pattern);
-      this.pattern = pattern;
+      parser = new MethodParametersParser(parsingContext);
+      parser.setProperty(Item.methodParameters, TypeProperty.TYPE_NAME);
+      parser.setProperty(Item.methodParameterTypePatterns, TypeProperty.TYPE_PATTERN);
     }
 
     @Override
     String kind() {
-      return "parameters";
+      return parser.kind();
     }
 
     @Override
@@ -1617,29 +1593,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     AnnotationVisitor parseArray(String name, Consumer<KeepMethodParametersPattern> setValue) {
-      if (name.equals(Item.methodParameters)) {
-        return new StringArrayVisitor(
-            getParsingContext(),
-            params -> {
-              KeepMethodParametersPattern.Builder builder = KeepMethodParametersPattern.builder();
-              for (String param : params) {
-                builder.addParameterTypePattern(KeepEdgeReaderUtils.typePatternFromString(param));
-              }
-              setPattern(builder.build(), setValue);
-            });
-      }
-      if (name.equals(Item.methodParameterTypePatterns)) {
-        return new TypePatternsArrayVisitor(
-            getParsingContext(),
-            params -> {
-              KeepMethodParametersPattern.Builder builder = KeepMethodParametersPattern.builder();
-              for (KeepTypePattern param : params) {
-                builder.addParameterTypePattern(param);
-              }
-              setPattern(builder.build(), setValue);
-            });
-      }
-      return super.parseArray(name, setValue);
+      return parser.tryParseArray(name, setValue);
     }
   }
 
@@ -1717,16 +1671,14 @@ public class KeepEdgeReader implements Opcodes {
 
   private static class FieldTypeDeclaration extends SingleDeclaration<KeepFieldTypePattern> {
 
-    private final TypeParser typeParser;
+    private final FieldTypeParser typeParser;
 
     private FieldTypeDeclaration(ParsingContext parsingContext) {
       super(parsingContext);
-      this.typeParser =
-          new TypeParser(parsingContext)
-              .setKind("field type")
-              .enableTypePattern(Item.fieldTypePattern)
-              .enableTypeName(Item.fieldType)
-              .enableTypeConstant(Item.fieldTypeConstant);
+      typeParser = new FieldTypeParser(parsingContext);
+      typeParser.setProperty(Item.fieldTypePattern, TypeProperty.TYPE_PATTERN);
+      typeParser.setProperty(Item.fieldType, TypeProperty.TYPE_NAME);
+      typeParser.setProperty(Item.fieldTypeConstant, TypeProperty.TYPE_CONSTANT);
     }
 
     @Override
@@ -1741,18 +1693,13 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public KeepFieldTypePattern parse(String name, Object value) {
-      KeepTypePattern typePattern = typeParser.tryParse(name, value);
-      if (typePattern != null) {
-        return KeepFieldTypePattern.fromType(typePattern);
-      }
-      return null;
+      return typeParser.tryParse(name, value);
     }
 
     @Override
     public AnnotationVisitor parseAnnotation(
         String name, String descriptor, Consumer<KeepFieldTypePattern> setValue) {
-      return typeParser.tryParseAnnotation(
-          name, descriptor, t -> setValue.accept(KeepFieldTypePattern.fromType(t)));
+      return typeParser.tryParseAnnotation(name, descriptor, setValue);
     }
   }
 
@@ -2311,89 +2258,6 @@ public class KeepEdgeReader implements Opcodes {
         setValue.accept(declaration.getValue());
       }
       super.visitEnd();
-    }
-  }
-
-  private static class TypePatternVisitor extends AnnotationVisitorBase {
-    private final ParsingContext parsingContext;
-    private final Consumer<KeepTypePattern> consumer;
-    private KeepTypePattern result = null;
-
-    private TypePatternVisitor(ParsingContext parsingContext, Consumer<KeepTypePattern> consumer) {
-      super(parsingContext);
-      this.parsingContext = parsingContext;
-      this.consumer = consumer;
-    }
-
-    private void setResult(KeepTypePattern result) {
-      if (this.result != null) {
-        throw parsingContext.error("Invalid type annotation defining multiple properties.");
-      }
-      this.result = result;
-    }
-
-    @Override
-    public void visit(String name, Object value) {
-      if (TypePattern.name.equals(name) && value instanceof String) {
-        setResult(KeepEdgeReaderUtils.typePatternFromString((String) value));
-        return;
-      }
-      if (TypePattern.constant.equals(name) && value instanceof Type) {
-        Type type = (Type) value;
-        setResult(KeepTypePattern.fromDescriptor(type.getDescriptor()));
-        return;
-      }
-      super.visit(name, value);
-    }
-
-    @Override
-    public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-      if (TypePattern.classNamePattern.equals(name)
-          && descriptor.equals(ClassNamePattern.DESCRIPTOR)) {
-        return new ClassNamePatternVisitor(
-            new AnnotationParsingContext(parsingContext, descriptor),
-            p -> {
-              if (p.isExact()) {
-                setResult(KeepTypePattern.fromDescriptor(p.getExactDescriptor()));
-              } else {
-                // TODO(b/248408342): Extend the AST type patterns.
-                throw new Unimplemented("Non-exact class patterns are not implemented yet");
-              }
-            });
-      }
-      return super.visitAnnotation(name, descriptor);
-    }
-
-    @Override
-    public void visitEnd() {
-      consumer.accept(result != null ? result : KeepTypePattern.any());
-    }
-  }
-
-  private static class TypePatternsArrayVisitor extends AnnotationVisitorBase {
-    private final ParsingContext parsingContext;
-    private final Consumer<List<KeepTypePattern>> fn;
-    private final List<KeepTypePattern> patterns = new ArrayList<>();
-
-    public TypePatternsArrayVisitor(
-        ParsingContext parsingContext, Consumer<List<KeepTypePattern>> fn) {
-      super(parsingContext);
-      this.parsingContext = parsingContext;
-      this.fn = fn;
-    }
-
-    @Override
-    public AnnotationVisitor visitAnnotation(String unusedName, String descriptor) {
-      if (TypePattern.DESCRIPTOR.equals(descriptor)) {
-        return new TypePatternVisitor(parsingContext, patterns::add);
-      }
-      return null;
-    }
-
-    @Override
-    public void visitEnd() {
-      super.visitEnd();
-      fn.accept(patterns);
     }
   }
 

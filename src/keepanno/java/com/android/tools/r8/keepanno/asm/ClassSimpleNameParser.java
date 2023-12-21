@@ -10,8 +10,7 @@ import com.android.tools.r8.keepanno.ast.ParsingContext;
 import java.util.function.Consumer;
 
 public class ClassSimpleNameParser
-    extends PropertyParserBase<
-        KeepUnqualfiedClassNamePattern, ClassSimpleNameProperty, ClassSimpleNameParser> {
+    extends PropertyParserBase<KeepUnqualfiedClassNamePattern, ClassSimpleNameProperty> {
 
   public ClassSimpleNameParser(ParsingContext parsingContext) {
     super(parsingContext);
@@ -19,11 +18,6 @@ public class ClassSimpleNameParser
 
   public enum ClassSimpleNameProperty {
     NAME
-  }
-
-  @Override
-  public ClassSimpleNameParser self() {
-    return this;
   }
 
   @Override

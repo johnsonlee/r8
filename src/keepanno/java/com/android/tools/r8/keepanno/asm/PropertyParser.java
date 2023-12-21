@@ -7,13 +7,11 @@ package com.android.tools.r8.keepanno.asm;
 import java.util.function.Consumer;
 import org.objectweb.asm.AnnotationVisitor;
 
-public interface PropertyParser<T, P, S> {
-
-  S self();
+public interface PropertyParser<T, P> {
 
   String kind();
 
-  S setProperty(P property, String name);
+  void setProperty(String name, P property);
 
   boolean isDeclared();
 
@@ -23,7 +21,16 @@ public interface PropertyParser<T, P, S> {
 
   T getValue();
 
-  boolean tryParse(String name, Object value, Consumer<T> setValue);
+  T tryParse(String name, Object value);
+
+  default boolean tryParse(String name, Object value, Consumer<T> setValue) {
+    T result = tryParse(name, value);
+    if (result != null) {
+      setValue.accept(result);
+      return true;
+    }
+    return false;
+  }
 
   boolean tryParseEnum(String name, String descriptor, String value, Consumer<T> setValue);
 

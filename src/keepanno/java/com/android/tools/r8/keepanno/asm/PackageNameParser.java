@@ -9,8 +9,7 @@ import com.android.tools.r8.keepanno.ast.KeepPackagePattern;
 import com.android.tools.r8.keepanno.ast.ParsingContext;
 import java.util.function.Consumer;
 
-public class PackageNameParser
-    extends PropertyParserBase<KeepPackagePattern, PackageNameProperty, PackageNameParser> {
+public class PackageNameParser extends PropertyParserBase<KeepPackagePattern, PackageNameProperty> {
 
   public PackageNameParser(ParsingContext parsingContext) {
     super(parsingContext);
@@ -18,11 +17,6 @@ public class PackageNameParser
 
   public enum PackageNameProperty {
     NAME
-  }
-
-  @Override
-  public PackageNameParser self() {
-    return this;
   }
 
   @Override

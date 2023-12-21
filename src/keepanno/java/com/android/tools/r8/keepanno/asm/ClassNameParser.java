@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 import org.objectweb.asm.AnnotationVisitor;
 
 public class ClassNameParser
-    extends PropertyParserBase<KeepQualifiedClassNamePattern, ClassNameProperty, ClassNameParser> {
+    extends PropertyParserBase<KeepQualifiedClassNamePattern, ClassNameProperty> {
 
   public ClassNameParser(ParsingContext parsingContext) {
     super(parsingContext);
@@ -26,11 +26,6 @@ public class ClassNameParser
 
   public enum ClassNameProperty {
     PATTERN
-  }
-
-  @Override
-  public ClassNameParser self() {
-    return this;
   }
 
   @Override
@@ -44,12 +39,10 @@ public class ClassNameParser
         {
           AnnotationParsingContext parsingContext =
               new AnnotationParsingContext(getParsingContext(), descriptor);
-          PackageNameParser packageParser =
-              new PackageNameParser(parsingContext)
-                  .setProperty(PackageNameProperty.NAME, ClassNamePattern.packageName);
-          ClassSimpleNameParser nameParser =
-              new ClassSimpleNameParser(parsingContext)
-                  .setProperty(ClassSimpleNameProperty.NAME, ClassNamePattern.simpleName);
+          PackageNameParser packageParser = new PackageNameParser(parsingContext);
+          ClassSimpleNameParser nameParser = new ClassSimpleNameParser(parsingContext);
+          packageParser.setProperty(ClassNamePattern.packageName, PackageNameProperty.NAME);
+          nameParser.setProperty(ClassNamePattern.simpleName, ClassSimpleNameProperty.NAME);
           return new ParserVisitor(
               parsingContext,
               descriptor,
