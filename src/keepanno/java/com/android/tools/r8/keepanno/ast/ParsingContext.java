@@ -14,6 +14,13 @@ public abstract class ParsingContext {
     throw new KeepAnnotationParserException(this, message);
   }
 
+  public KeepAnnotationParserException rethrow(RuntimeException e) {
+    if (e instanceof KeepAnnotationParserException) {
+      throw e;
+    }
+    throw new KeepAnnotationParserException(this, e);
+  }
+
   public abstract String getHolderName();
 
   public ParsingContext getParentContext() {

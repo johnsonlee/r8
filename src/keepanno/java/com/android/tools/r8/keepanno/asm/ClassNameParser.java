@@ -7,6 +7,7 @@ package com.android.tools.r8.keepanno.asm;
 import com.android.tools.r8.keepanno.asm.ClassNameParser.ClassNameProperty;
 import com.android.tools.r8.keepanno.asm.ClassSimpleNameParser.ClassSimpleNameProperty;
 import com.android.tools.r8.keepanno.asm.PackageNameParser.PackageNameProperty;
+import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.ClassNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepPackagePattern;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
@@ -25,7 +26,39 @@ public class ClassNameParser
   }
 
   public enum ClassNameProperty {
-    PATTERN
+    PATTERN,
+    NAME,
+    CONSTANT,
+  }
+
+  @Override
+  boolean tryProperty(
+      ClassNameProperty property,
+      String name,
+      Object value,
+      Consumer<KeepQualifiedClassNamePattern> setValue) {
+    switch (property) {
+      case NAME:
+        return new TypeParser(getParsingContext())
+            .tryProperty(
+                TypeProperty.TYPE_NAME,
+                name,
+                value,
+                type ->
+                    setValue.accept(
+                        KeepQualifiedClassNamePattern.exactFromDescriptor(type.getDescriptor())));
+      case CONSTANT:
+        return new TypeParser(getParsingContext())
+            .tryProperty(
+                TypeProperty.TYPE_CONSTANT,
+                name,
+                value,
+                type ->
+                    setValue.accept(
+                        KeepQualifiedClassNamePattern.exactFromDescriptor(type.getDescriptor())));
+      default:
+        return false;
+    }
   }
 
   @Override

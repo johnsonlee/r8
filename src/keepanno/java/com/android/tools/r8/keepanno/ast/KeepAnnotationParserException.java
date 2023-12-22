@@ -4,12 +4,17 @@
 
 package com.android.tools.r8.keepanno.ast;
 
-public class KeepAnnotationParserException extends KeepEdgeException {
+public class KeepAnnotationParserException extends RuntimeException {
 
   private final ParsingContext context;
 
   public KeepAnnotationParserException(ParsingContext context, String message) {
     super(message);
+    this.context = context;
+  }
+
+  public KeepAnnotationParserException(ParsingContext context, RuntimeException cause) {
+    super(cause);
     this.context = context;
   }
 

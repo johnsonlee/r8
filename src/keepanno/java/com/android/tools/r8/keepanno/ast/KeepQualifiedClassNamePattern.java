@@ -18,6 +18,13 @@ public final class KeepQualifiedClassNamePattern {
         .build();
   }
 
+  public static KeepQualifiedClassNamePattern exactFromDescriptor(String classDescriptor) {
+    if (!classDescriptor.startsWith("L") && classDescriptor.endsWith(";")) {
+      throw new KeepEdgeException("Invalid class descriptor: " + classDescriptor);
+    }
+    return exact(classDescriptor.substring(1, classDescriptor.length() - 1).replace('/', '.'));
+  }
+
   public static KeepQualifiedClassNamePattern exact(String qualifiedClassName) {
     int pkgSeparator = qualifiedClassName.lastIndexOf('.');
     if (pkgSeparator == 0) {

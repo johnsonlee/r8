@@ -51,7 +51,8 @@ public abstract class ConvertingPropertyParser<T1, T2, P> implements PropertyPar
 
   @Override
   public T2 tryParse(String name, Object value) {
-    return converter.apply(parser.tryParse(name, value));
+    T1 t1 = parser.tryParse(name, value);
+    return t1 == null ? null : converter.apply(t1);
   }
 
   @Override

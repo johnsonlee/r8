@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.keepanno.asm;
 
-import com.android.tools.r8.keepanno.ast.KeepEdgeException;
 import com.android.tools.r8.keepanno.ast.ParsingContext;
 import java.util.HashMap;
 import java.util.Map;
@@ -66,7 +65,7 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
   }
 
   private void error(String name) {
-    throw new KeepEdgeException(
+    throw parsingContext.error(
         "Multiple properties defining "
             + kind()
             + ": '"
@@ -111,7 +110,11 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
   public final T tryParse(String name, Object value) {
     P prop = mapping.get(name);
     if (prop != null) {
-      tryProperty(prop, name, value, wrap(name, unused -> {}));
+      try {
+        tryProperty(prop, name, value, wrap(name, unused -> {}));
+      } catch (RuntimeException e) {
+        throw parsingContext.rethrow(e);
+      }
       return resultValue;
     }
     return null;
@@ -122,7 +125,11 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
       String name, String descriptor, String value, Consumer<T> setValue) {
     P prop = mapping.get(name);
     if (prop != null) {
-      return tryPropertyEnum(prop, name, descriptor, value, wrap(name, setValue));
+      try {
+        return tryPropertyEnum(prop, name, descriptor, value, wrap(name, setValue));
+      } catch (RuntimeException e) {
+        throw parsingContext.rethrow(e);
+      }
     }
     return false;
   }
@@ -131,7 +138,11 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
   public final AnnotationVisitor tryParseArray(String name, Consumer<T> setValue) {
     P prop = mapping.get(name);
     if (prop != null) {
-      return tryPropertyArray(prop, name, wrap(name, setValue));
+      try {
+        return tryPropertyArray(prop, name, wrap(name, setValue));
+      } catch (RuntimeException e) {
+        throw parsingContext.rethrow(e);
+      }
     }
     return null;
   }
@@ -141,7 +152,11 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
       String name, String descriptor, Consumer<T> setValue) {
     P prop = mapping.get(name);
     if (prop != null) {
-      return tryPropertyAnnotation(prop, name, descriptor, wrap(name, setValue));
+      try {
+        return tryPropertyAnnotation(prop, name, descriptor, wrap(name, setValue));
+      } catch (RuntimeException e) {
+        throw parsingContext.rethrow(e);
+      }
     }
     return null;
   }

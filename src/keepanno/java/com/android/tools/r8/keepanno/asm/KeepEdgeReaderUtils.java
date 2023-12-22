@@ -86,9 +86,12 @@ public class KeepEdgeReaderUtils {
         {
           StringBuilder builder = new StringBuilder(type.length());
           int i = type.length() - 1;
+          if (i < 0) {
+            throw new KeepEdgeException("Invalid empty type");
+          }
           while (type.charAt(i) == ']') {
             if (type.charAt(--i) != '[') {
-              throw new KeepEdgeException("Invalid type: " + type);
+              throw new KeepEdgeException("Invalid type: '" + type + "'");
             }
             builder.append('[');
             --i;

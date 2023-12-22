@@ -16,8 +16,8 @@ import com.android.tools.r8.keepanno.annotations.KeepOption;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
+import com.android.tools.r8.keepanno.ast.KeepAnnotationParserException;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
-import com.android.tools.r8.keepanno.ast.KeepEdgeException;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,7 +52,7 @@ public class KeepInvalidTargetTest extends TestBase {
   private void assertThrowsWith(ThrowingRunnable fn, Matcher<String> matcher) {
     try {
       fn.run();
-    } catch (KeepEdgeException e) {
+    } catch (KeepAnnotationParserException e) {
       assertThat(e.getMessage(), matcher);
       return;
     } catch (Throwable e) {
@@ -66,7 +66,7 @@ public class KeepInvalidTargetTest extends TestBase {
     assertThrowsWith(
         () -> extractRuleForClass(MultipleClassDeclarations.class),
         allOf(
-            containsString("Multiple declarations"),
+            containsString("Multiple properties"),
             containsString("className"),
             containsString("classConstant")));
   }
@@ -88,8 +88,7 @@ public class KeepInvalidTargetTest extends TestBase {
 
   static class BindingAndClassDeclarations {
 
-    // Both properties are using the "default" value of an empty string, but should still fail.
-    @UsesReflection({@KeepTarget(classFromBinding = "", className = "")})
+    @UsesReflection({@KeepTarget(classFromBinding = "BINDING", className = "CLASS")})
     public static void main(String[] args) {
       System.out.println("Hello, world");
     }

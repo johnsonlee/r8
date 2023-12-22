@@ -15,8 +15,8 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.keepanno.annotations.MemberAccessFlags;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
+import com.android.tools.r8.keepanno.ast.KeepAnnotationParserException;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
-import com.android.tools.r8.keepanno.ast.KeepEdgeException;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,7 +51,7 @@ public class KeepInvalidForApiTest extends TestBase {
   private void assertThrowsWith(ThrowingRunnable fn, Matcher<String> matcher) {
     try {
       fn.run();
-    } catch (KeepEdgeException e) {
+    } catch (KeepAnnotationParserException e) {
       assertThat(e.getMessage(), matcher);
       return;
     } catch (Throwable e) {
