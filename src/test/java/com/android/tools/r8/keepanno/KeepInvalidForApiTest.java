@@ -66,8 +66,9 @@ public class KeepInvalidForApiTest extends TestBase {
         () -> extractRuleForClass(RefineMemberAccess.class),
         allOf(
             containsString("Unexpected array"),
-            containsString("@KeepForApi"),
-            containsString("memberAccess")));
+            containsString("memberAccess"),
+            containsString("at annotation: @KeepForApi"),
+            containsString("at method: void main")));
   }
 
   static class RefineMemberAccess {
@@ -84,8 +85,9 @@ public class KeepInvalidForApiTest extends TestBase {
         () -> extractRuleForClass(RefineMethodName.class),
         allOf(
             containsString("Unexpected value"),
-            containsString("@KeepForApi"),
-            containsString("methodName")));
+            containsString("methodName"),
+            containsString("at annotation: @KeepForApi"),
+            containsString("at method: void main")));
   }
 
   static class RefineMethodName {
@@ -102,8 +104,9 @@ public class KeepInvalidForApiTest extends TestBase {
         () -> extractRuleForClass(RefineFieldName.class),
         allOf(
             containsString("Unexpected value"),
-            containsString("@KeepForApi"),
-            containsString("fieldName")));
+            containsString("fieldName"),
+            containsString("at annotation: @KeepForApi"),
+            containsString("at method: void main")));
   }
 
   static class RefineFieldName {

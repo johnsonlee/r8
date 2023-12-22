@@ -27,7 +27,11 @@ public class KeepAnnotationParserException extends RuntimeException {
     StringBuilder builder = new StringBuilder();
     ParsingContext current = context;
     while (current != null) {
-      builder.append("\n  in ").append(current.getContextFrameAsString());
+      builder
+          .append("\n  at ")
+          .append(current.getContextType())
+          .append(": ")
+          .append(current.getContextFrameAsString());
       current = current.getParentContext();
     }
     return builder.toString();

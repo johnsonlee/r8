@@ -27,7 +27,13 @@ public abstract class ParsingContext {
     return null;
   }
 
+  public abstract String getContextType();
+
   public abstract String getContextFrameAsString();
+
+  public GroupParsingContext group(String propertyGroupDescription) {
+    return new GroupParsingContext(this, propertyGroupDescription);
+  }
 
   public static class ClassParsingContext extends ParsingContext {
     private final String className;
@@ -39,6 +45,11 @@ public abstract class ParsingContext {
     @Override
     public String getHolderName() {
       return className;
+    }
+
+    @Override
+    public String getContextType() {
+      return "class";
     }
 
     @Override
@@ -78,11 +89,15 @@ public abstract class ParsingContext {
     }
 
     @Override
+    public String getContextType() {
+      return "method";
+    }
+
+    @Override
     public String getContextFrameAsString() {
       Type methodType = Type.getMethodType(methodDescriptor);
       StringBuilder builder = new StringBuilder();
       builder
-          .append("method ")
           .append(getJavaTypeFromDescriptor(methodType.getReturnType().getDescriptor()))
           .append(' ')
           .append(methodName)
@@ -113,8 +128,13 @@ public abstract class ParsingContext {
     }
 
     @Override
+    public String getContextType() {
+      return "field";
+    }
+
+    @Override
     public String getContextFrameAsString() {
-      return "field " + getJavaTypeFromDescriptor(fieldDescriptor) + " " + fieldName;
+      return getJavaTypeFromDescriptor(fieldDescriptor) + " " + fieldName;
     }
   }
 
@@ -147,8 +167,53 @@ public abstract class ParsingContext {
     }
 
     @Override
+    public String getContextType() {
+      return "annotation";
+    }
+
+    @Override
     public String getContextFrameAsString() {
       return "@" + getSimpleAnnotationName();
+    }
+  }
+
+  public static class GroupParsingContext extends ParsingContext {
+    private final ParsingContext parentContext;
+    private final String propertyGroupDescription;
+
+    public GroupParsingContext(ParsingContext parentContext, String propertyGroupDescription) {
+      // We don't want to maintain nested property groups as they are "synthetic" and only the
+      // inner-most group useful for uses in diagnosing an error.
+      if (parentContext instanceof GroupParsingContext) {
+        parentContext = parentContext.getParentContext();
+      }
+      assert !(parentContext instanceof GroupParsingContext);
+      this.parentContext = parentContext;
+      this.propertyGroupDescription = propertyGroupDescription;
+    }
+
+    public String getPropertyGroupDescription() {
+      return propertyGroupDescription;
+    }
+
+    @Override
+    public String getHolderName() {
+      return parentContext.getHolderName();
+    }
+
+    @Override
+    public ParsingContext getParentContext() {
+      return parentContext;
+    }
+
+    @Override
+    public String getContextType() {
+      return "property-group";
+    }
+
+    @Override
+    public String getContextFrameAsString() {
+      return getPropertyGroupDescription();
     }
   }
 }

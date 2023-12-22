@@ -9,8 +9,6 @@ import org.objectweb.asm.AnnotationVisitor;
 
 public interface PropertyParser<T, P> {
 
-  String kind();
-
   void setProperty(String name, P property);
 
   boolean isDeclared();

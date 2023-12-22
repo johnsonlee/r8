@@ -68,7 +68,8 @@ public class KeepInvalidTargetTest extends TestBase {
         allOf(
             containsString("Multiple properties"),
             containsString("className"),
-            containsString("classConstant")));
+            containsString("classConstant"),
+            containsString("at property-group: class-name")));
   }
 
   static class MultipleClassDeclarations {
@@ -83,7 +84,10 @@ public class KeepInvalidTargetTest extends TestBase {
   public void testInvalidClassDeclWithBinding() {
     assertThrowsWith(
         () -> extractRuleForClass(BindingAndClassDeclarations.class),
-        allOf(containsString("class binding"), containsString("class patterns")));
+        allOf(
+            containsString("class binding"),
+            containsString("class patterns"),
+            containsString("at property-group: class")));
   }
 
   static class BindingAndClassDeclarations {
@@ -99,9 +103,12 @@ public class KeepInvalidTargetTest extends TestBase {
     assertThrowsWith(
         () -> extractRuleForClass(MultipleExtendsDeclarations.class),
         allOf(
-            containsString("Multiple declarations"),
+            containsString("Multiple properties"),
             containsString("extendsClassName"),
-            containsString("extendsClassConstant")));
+            containsString("extendsClassConstant"),
+            containsString("at property-group: instance-of"),
+            containsString("at annotation: @UsesReflection"),
+            containsString("at method: void main")));
   }
 
   static class MultipleExtendsDeclarations {
@@ -119,7 +126,10 @@ public class KeepInvalidTargetTest extends TestBase {
   public void testInvalidMemberDecl() {
     assertThrowsWith(
         () -> extractRuleForClass(MultipleMemberDeclarations.class),
-        allOf(containsString("field"), containsString("method")));
+        allOf(
+            containsString("field"),
+            containsString("method"),
+            containsString("at property-group: member")));
   }
 
   static class MultipleMemberDeclarations {
@@ -134,7 +144,11 @@ public class KeepInvalidTargetTest extends TestBase {
   public void testInvalidOptionsDecl() {
     assertThrowsWith(
         () -> extractRuleForClass(MultipleOptionDeclarations.class),
-        allOf(containsString("options"), containsString("allow"), containsString("disallow")));
+        allOf(
+            containsString("Multiple properties"),
+            containsString("allow"),
+            containsString("disallow"),
+            containsString("at property-group: constraints")));
   }
 
   static class MultipleOptionDeclarations {

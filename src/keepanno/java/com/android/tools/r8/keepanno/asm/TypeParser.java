@@ -51,8 +51,8 @@ public class TypeParser extends PropertyParserBase<KeepTypePattern, TypeProperty
         {
           AnnotationParsingContext parsingContext =
               new AnnotationParsingContext(getParsingContext(), descriptor);
-          TypeParser typeParser = new TypeParser(parsingContext);
-          typeParser.setKind(kind());
+          TypeParser typeParser =
+              new TypeParser(parsingContext.group(TypePattern.typePatternGroup));
           typeParser.setProperty(TypePattern.name, TypeProperty.TYPE_NAME);
           typeParser.setProperty(TypePattern.constant, TypeProperty.TYPE_CONSTANT);
           typeParser.setProperty(TypePattern.classNamePattern, TypeProperty.CLASS_NAME_PATTERN);
@@ -65,7 +65,6 @@ public class TypeParser extends PropertyParserBase<KeepTypePattern, TypeProperty
       case CLASS_NAME_PATTERN:
         {
           ClassNameParser parser = new ClassNameParser(getParsingContext());
-          parser.setKind(kind());
           return parser.tryPropertyAnnotation(
               ClassNameProperty.PATTERN,
               name,

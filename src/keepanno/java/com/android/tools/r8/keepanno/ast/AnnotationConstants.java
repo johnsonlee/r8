@@ -65,11 +65,15 @@ public final class AnnotationConstants {
 
   /** Item properties common to binding items, conditions and targets. */
   public static final class Item {
+    public static final String classGroup = "class";
     public static final String classFromBinding = "classFromBinding";
+    public static final String memberGroup = "member";
     public static final String memberFromBinding = "memberFromBinding";
+    public static final String classNameGroup = "class-name";
     public static final String className = "className";
     public static final String classConstant = "classConstant";
     public static final String classNamePattern = "classNamePattern";
+    public static final String instanceOfGroup = "instance-of";
     public static final String instanceOfClassName = "instanceOfClassName";
     public static final String instanceOfClassNameExclusive = "instanceOfClassNameExclusive";
     public static final String instanceOfClassConstant = "instanceOfClassConstant";
@@ -80,13 +84,16 @@ public final class AnnotationConstants {
     public static final String memberAccess = "memberAccess";
     public static final String methodAccess = "methodAccess";
     public static final String methodName = "methodName";
+    public static final String returnTypeGroup = "return-type";
     public static final String methodReturnType = "methodReturnType";
     public static final String methodReturnTypeConstant = "methodReturnTypeConstant";
     public static final String methodReturnTypePattern = "methodReturnTypePattern";
+    public static final String parametersGroup = "parameters";
     public static final String methodParameters = "methodParameters";
     public static final String methodParameterTypePatterns = "methodParameterTypePatterns";
     public static final String fieldAccess = "fieldAccess";
     public static final String fieldName = "fieldName";
+    public static final String fieldTypeGroup = "field-type";
     public static final String fieldType = "fieldType";
     public static final String fieldTypeConstant = "fieldTypeConstant";
     public static final String fieldTypePattern = "fieldTypePattern";
@@ -107,6 +114,7 @@ public final class AnnotationConstants {
     public static final String DESCRIPTOR =
         "Lcom/android/tools/r8/keepanno/annotations/KeepTarget;";
     public static final String kind = "kind";
+    public static final String constraintsGroup = "constraints";
     public static final String constraints = "constraints";
     public static final String allow = "allow";
     public static final String disallow = "disallow";
@@ -185,6 +193,7 @@ public final class AnnotationConstants {
   public static final class TypePattern {
     public static final String DESCRIPTOR =
         "Lcom/android/tools/r8/keepanno/annotations/TypePattern;";
+    public static final String typePatternGroup = "type-pattern";
     public static final String name = "name";
     public static final String constant = "constant";
     public static final String classNamePattern = "classNamePattern";

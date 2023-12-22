@@ -15,7 +15,6 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
 
   private final ParsingContext parsingContext;
 
-  private String kind;
   private final Map<String, P> mapping = new HashMap<>();
   private String resultPropertyName = null;
   private T resultValue = null;
@@ -66,13 +65,7 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
 
   private void error(String name) {
     throw parsingContext.error(
-        "Multiple properties defining "
-            + kind()
-            + ": '"
-            + resultPropertyName
-            + "' and '"
-            + name
-            + "'");
+        "Multiple properties: '" + resultPropertyName + "' and '" + name + "'");
   }
 
   public final boolean isDeclared() {
@@ -88,14 +81,6 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
   public T getValueOrDefault(T defaultValue) {
     assert (resultPropertyName != null) == (resultValue != null);
     return isDeclared() ? resultValue : defaultValue;
-  }
-
-  public String kind() {
-    return kind != null ? kind : "";
-  }
-
-  public void setKind(String kind) {
-    this.kind = kind;
   }
 
   /** Add property parsing for the given property-name. */

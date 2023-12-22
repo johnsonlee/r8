@@ -254,6 +254,8 @@ public @interface KeepCondition {
    * <p>Mutually exclusive with all field and method properties as use restricts the match to both
    * types of members.
    *
+   * <p>Mutually exclusive with the property `memberFromBinding` also defining member-access.
+   *
    * @return The member access-flag constraints that must be met.
    */
   MemberAccessFlags[] memberAccess() default {};
@@ -266,6 +268,8 @@ public @interface KeepCondition {
    * <p>If none, and other properties define this item as a method, the default matches any
    * method-access flags.
    *
+   * <p>Mutually exclusive with the property `memberFromBinding` also defining method-access.
+   *
    * @return The method access-flag constraints that must be met.
    */
   MethodAccessFlags[] methodAccess() default {};
@@ -277,6 +281,8 @@ public @interface KeepCondition {
    *
    * <p>If none, and other properties define this item as a method, the default matches any method
    * name.
+   *
+   * <p>Mutually exclusive with the property `memberFromBinding` also defining method-name.
    *
    * @return The exact method name of the method.
    */
@@ -295,6 +301,7 @@ public @interface KeepCondition {
    * <ul>
    *   <li>methodReturnTypeConstant
    *   <li>methodReturnTypePattern
+   *   <li>memberFromBinding
    * </ul>
    *
    * @return The qualified type name of the method return type.
@@ -314,6 +321,7 @@ public @interface KeepCondition {
    * <ul>
    *   <li>methodReturnType
    *   <li>methodReturnTypePattern
+   *   <li>memberFromBinding
    * </ul>
    *
    * @return A class constant denoting the type of the method return type.
@@ -333,6 +341,7 @@ public @interface KeepCondition {
    * <ul>
    *   <li>methodReturnType
    *   <li>methodReturnTypeConstant
+   *   <li>memberFromBinding
    * </ul>
    *
    * @return The pattern of the method return type.
@@ -347,7 +356,12 @@ public @interface KeepCondition {
    * <p>If none, and other properties define this item as a method, the default matches any
    * parameters.
    *
-   * <p>Mutually exclusive with the property `methodParameterTypePatterns` also defining parameters.
+   * <p>Mutually exclusive with the following other properties defining parameters:
+   *
+   * <ul>
+   *   <li>methodParameterTypePatterns
+   *   <li>memberFromBinding
+   * </ul>
    *
    * @return The list of qualified type names of the method parameters.
    */
@@ -361,7 +375,12 @@ public @interface KeepCondition {
    * <p>If none, and other properties define this item as a method, the default matches any
    * parameters.
    *
-   * <p>Mutually exclusive with the property `methodParameters` also defining parameters.
+   * <p>Mutually exclusive with the following other properties defining parameters:
+   *
+   * <ul>
+   *   <li>methodParameters
+   *   <li>memberFromBinding
+   * </ul>
    *
    * @return The list of type patterns for the method parameters.
    */
@@ -375,6 +394,8 @@ public @interface KeepCondition {
    * <p>If none, and other properties define this item as a field, the default matches any
    * field-access flags.
    *
+   * <p>Mutually exclusive with the property `memberFromBinding` also defining field-access.
+   *
    * @return The field access-flag constraints that must be met.
    */
   FieldAccessFlags[] fieldAccess() default {};
@@ -386,6 +407,8 @@ public @interface KeepCondition {
    *
    * <p>If none, and other properties define this item as a field, the default matches any field
    * name.
+   *
+   * <p>Mutually exclusive with the property `memberFromBinding` also defining field-name.
    *
    * @return The exact field name of the field.
    */
@@ -403,6 +426,7 @@ public @interface KeepCondition {
    * <ul>
    *   <li>fieldTypeConstant
    *   <li>fieldTypePattern
+   *   <li>memberFromBinding
    * </ul>
    *
    * @return The qualified type name for the field type.
@@ -421,6 +445,7 @@ public @interface KeepCondition {
    * <ul>
    *   <li>fieldType
    *   <li>fieldTypePattern
+   *   <li>memberFromBinding
    * </ul>
    *
    * @return The class constant for the field type.
@@ -439,6 +464,7 @@ public @interface KeepCondition {
    * <ul>
    *   <li>fieldType
    *   <li>fieldTypeConstant
+   *   <li>memberFromBinding
    * </ul>
    *
    * @return The type pattern for the field type.

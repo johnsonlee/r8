@@ -30,11 +30,6 @@ public abstract class ConvertingPropertyParser<T1, T2, P> implements PropertyPar
   }
 
   @Override
-  public String kind() {
-    return parser.kind();
-  }
-
-  @Override
   public void setProperty(String name, P property) {
     parser.setProperty(name, property);
   }
