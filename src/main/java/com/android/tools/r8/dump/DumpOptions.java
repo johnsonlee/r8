@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class DumpOptions {
@@ -45,6 +46,7 @@ public class DumpOptions {
   private static final String DESUGAR_STATE_KEY = "desugar-state";
   private static final String INTERMEDIATE_KEY = "intermediate";
   private static final String INCLUDE_DATA_RESOURCES_KEY = "include-data-resources";
+  private static final String ISOLATED_SPLITS_KEY = "isolated-splits";
   private static final String TREE_SHAKING_KEY = "tree-shaking";
   private static final String MINIFICATION_KEY = "minification";
   private static final String FORCE_PROGUARD_COMPATIBILITY_KEY = "force-proguard-compatibility";
@@ -63,6 +65,7 @@ public class DumpOptions {
   private final DesugarState desugarState;
   private final Optional<Boolean> intermediate;
   private final Optional<Boolean> includeDataResources;
+  private final Optional<Boolean> isolatedSplits;
   private final Optional<Boolean> treeShaking;
   private final Optional<Boolean> minification;
   private final Optional<Boolean> forceProguardCompatibility;
@@ -96,6 +99,7 @@ public class DumpOptions {
       DesugarState desugarState,
       Optional<Boolean> intermediate,
       Optional<Boolean> includeDataResources,
+      Optional<Boolean> isolatedSplits,
       Optional<Boolean> treeShaking,
       Optional<Boolean> minification,
       Optional<Boolean> forceProguardCompatibility,
@@ -120,6 +124,7 @@ public class DumpOptions {
     this.desugarState = desugarState;
     this.intermediate = intermediate;
     this.includeDataResources = includeDataResources;
+    this.isolatedSplits = isolatedSplits;
     this.treeShaking = treeShaking;
     this.minification = minification;
     this.forceProguardCompatibility = forceProguardCompatibility;
@@ -167,6 +172,7 @@ public class DumpOptions {
       }
       addOptionalDumpEntry(buildProperties, INTERMEDIATE_KEY, intermediate);
       addOptionalDumpEntry(buildProperties, INCLUDE_DATA_RESOURCES_KEY, includeDataResources);
+      addOptionalDumpEntry(buildProperties, ISOLATED_SPLITS_KEY, isolatedSplits);
       addOptionalDumpEntry(buildProperties, TREE_SHAKING_KEY, treeShaking);
       addOptionalDumpEntry(
           buildProperties, FORCE_PROGUARD_COMPATIBILITY_KEY, forceProguardCompatibility);
@@ -238,6 +244,9 @@ public class DumpOptions {
         return;
       case INCLUDE_DATA_RESOURCES_KEY:
         builder.setIncludeDataResources(Optional.of(Boolean.parseBoolean(value)));
+        return;
+      case ISOLATED_SPLITS_KEY:
+        builder.setIsolatedSplits(Boolean.parseBoolean(value));
         return;
       case TREE_SHAKING_KEY:
         builder.setTreeShaking(Boolean.parseBoolean(value));
@@ -355,6 +364,7 @@ public class DumpOptions {
     private DesugarState desugarState;
     private Optional<Boolean> intermediate = Optional.empty();
     private Optional<Boolean> includeDataResources = Optional.empty();
+    private Optional<Boolean> isolatedSplits = Optional.empty();
     private Optional<Boolean> treeShaking = Optional.empty();
     private Optional<Boolean> minification = Optional.empty();
     private Optional<Boolean> forceProguardCompatibility = Optional.empty();
@@ -378,6 +388,13 @@ public class DumpOptions {
     private boolean dumpInputToFile;
 
     public Builder() {}
+
+    public Builder applyIf(boolean condition, Consumer<Builder> thenConsumer) {
+      if (condition) {
+        thenConsumer.accept(this);
+      }
+      return this;
+    }
 
     public Builder setBackend(Backend backend) {
       this.backend = backend;
@@ -432,6 +449,11 @@ public class DumpOptions {
 
     public Builder setIncludeDataResources(Optional<Boolean> includeDataResources) {
       this.includeDataResources = includeDataResources;
+      return this;
+    }
+
+    public Builder setIsolatedSplits(boolean isolatedSplits) {
+      this.isolatedSplits = Optional.of(isolatedSplits);
       return this;
     }
 
@@ -530,6 +552,7 @@ public class DumpOptions {
           desugarState,
           intermediate,
           includeDataResources,
+          isolatedSplits,
           treeShaking,
           minification,
           forceProguardCompatibility,

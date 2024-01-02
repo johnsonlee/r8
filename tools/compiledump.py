@@ -102,14 +102,13 @@ def make_parser():
         'Enable additional test assertions when running the compiler (default disabled)',
         default=False,
         action='store_true')
-    parser.add_argument(
-        '--java-opts',
-        '--java-opts',
-        '-J',
-        metavar='<JVM argument(s)>',
-        default=[],
-        action='append',
-        help='Additional options to pass to JVM invocation')
+    parser.add_argument('--java-opts',
+                        '--java-opts',
+                        '-J',
+                        metavar='<JVM argument(s)>',
+                        default=[],
+                        action='append',
+                        help='Additional options to pass to JVM invocation')
     parser.add_argument('--classfile',
                         help='Run with classfile output',
                         default=False,
@@ -158,15 +157,14 @@ def make_parser():
     parser.add_argument(
         '--ignore-features',
         help="Don't split into features when features are present."
-            ' Instead include feature code in main app output.'
-            ' This is always the case when compiler is d8.',
+        ' Instead include feature code in main app output.'
+        ' This is always the case when compiler is d8.',
         default=False,
         action='store_true')
-    parser.add_argument(
-        '--no-build',
-        help="Don't build when using --version main",
-        default=False,
-        action='store_true')
+    parser.add_argument('--no-build',
+                        help="Don't build when using --version main",
+                        default=False,
+                        action='store_true')
     return parser
 
 
@@ -319,6 +317,14 @@ def determine_compiler(args, build_properties):
     return compiler
 
 
+def determine_isolated_splits(build_properties, feature_jars):
+    if feature_jars and 'isolated-splits' in build_properties:
+        isolated_splits = build_properties.get('isolated-splits')
+        assert isolated_splits == 'true' or isolated_splits == 'false'
+        return isolated_splits == 'true'
+    return None
+
+
 def determine_trace_references_commands(build_properties, output):
     trace_ref_consumer = build_properties.get('trace_references_consumer')
     if trace_ref_consumer == 'com.android.tools.r8.tracereferences.TraceReferencesCheckConsumer':
@@ -432,9 +438,8 @@ def download_distribution(version, args, temp):
     nolib = args.nolib
     if version == 'main':
         if not args.no_build:
-          gradle.RunGradle(
-            [utils.GRADLE_TASK_R8] if nolib else [utils.GRADLE_TASK_R8LIB]
-          )
+            gradle.RunGradle(
+                [utils.GRADLE_TASK_R8] if nolib else [utils.GRADLE_TASK_R8LIB])
         return utils.R8_JAR if nolib else utils.R8LIB_JAR
     if version == 'source':
         return '%s:%s' % (utils.BUILD_JAVA_MAIN_DIR, utils.ALL_DEPS_JAR)
@@ -576,6 +581,9 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.append('-ea')
         if args.enable_test_assertions:
             cmd.append('-Dcom.android.tools.r8.enableTestAssertions=1')
+        feature_jars = dump.feature_jars()
+        if determine_isolated_splits(build_properties, feature_jars):
+            cmd.append('-Dcom.android.tools.r8.isolatedSplits=1')
         if args.print_times:
             cmd.append('-Dcom.android.tools.r8.printtimes=1')
         if args.r8_flags:
@@ -609,7 +617,7 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.extend(['--output', out])
         else:
             cmd.extend(['--source', program_jar])
-        for feature_jar in dump.feature_jars():
+        for feature_jar in feature_jars:
             if not args.ignore_features and compiler != 'd8':
                 cmd.extend([
                     '--feature-jar', feature_jar,
