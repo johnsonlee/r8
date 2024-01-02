@@ -86,7 +86,8 @@ public class Regress316744331Test extends DebugTestBase {
         breakpoint(fooMethod, IN_STREAM_IS_NULL_LINE),
         breakpoint(fooMethod, NORMAL_EXIT_LINE),
         run(),
-        checkLine(IN_STREAM_IS_NULL_LINE),
+        // TODO(b/316744331): D8 incorrectly optimizing out the code after the null check.
+        checkLine(parameters.isCfRuntime() ? IN_STREAM_IS_NULL_LINE : NORMAL_EXIT_LINE),
         run());
   }
 
@@ -104,7 +105,8 @@ public class Regress316744331Test extends DebugTestBase {
         breakpoint(fooMethod, OUT_STREAM_IS_NULL_LINE),
         breakpoint(fooMethod, NORMAL_EXIT_LINE),
         run(),
-        checkLine(OUT_STREAM_IS_NULL_LINE),
+        // TODO(b/316744331): D8 incorrectly optimizing out the code after the null check.
+        checkLine(parameters.isCfRuntime() ? OUT_STREAM_IS_NULL_LINE : NORMAL_EXIT_LINE),
         run());
   }
 }
