@@ -42,45 +42,43 @@ public class PackagePrivateIsolatedSplitCrossBoundaryReferenceTest extends TestB
   }
 
   @Test
+  public void testPublicToProtected() throws Exception {
+    MethodReference accessedMethod =
+        Reference.methodFromMethod(NonPublicBase.class.getDeclaredMethod("protectedMethod"));
+    MethodReference main =
+        Reference.methodFromMethod(Feature.class.getDeclaredMethod("testPublicToProtected"));
+    runTestWithExpectedFailure(main, getExpectedDiagnosticMessage(accessedMethod, main));
+  }
+
+  @Test
+  public void testPublicToProtectedFromSubclass() throws Exception {
+    MethodReference main =
+        Reference.methodFromMethod(FeatureSub.class.getDeclaredMethod("testPublicToProtected"));
+    runTest(main, TestDiagnosticMessages::assertNoMessages);
+  }
+
+  @Test
   public void testPublicToPublic() throws Exception {
-    runTest("testPublicToPublic", TestDiagnosticMessages::assertNoMessages);
+    MethodReference main =
+        Reference.methodFromMethod(Feature.class.getDeclaredMethod("testPublicToPublic"));
+    runTest(main, TestDiagnosticMessages::assertNoMessages);
   }
 
   @Test
   public void testPublicToNonPublic() throws Exception {
     MethodReference accessedMethod =
         Reference.methodFromMethod(NonPublicBase.class.getDeclaredMethod("nonPublicMethod"));
-    MethodReference context =
+    MethodReference main =
         Reference.methodFromMethod(Feature.class.getDeclaredMethod("testPublicToNonPublic"));
-    assertFailsCompilationIf(
-        enableIsolatedSplits,
-        () ->
-            runTest(
-                "testPublicToNonPublic",
-                diagnostics ->
-                    diagnostics.assertErrorsMatch(
-                        allOf(
-                            diagnosticType(IllegalAccessWithIsolatedFeatureSplitsDiagnostic.class),
-                            diagnosticMessage(
-                                equalTo(getExpectedDiagnosticMessage(accessedMethod, context)))))));
+    runTestWithExpectedFailure(main, getExpectedDiagnosticMessage(accessedMethod, main));
   }
 
   @Test
   public void testNonPublicToPublic() throws Exception {
     ClassReference accessedClass = Reference.classFromClass(NonPublicBaseSub.class);
-    MethodReference context =
+    MethodReference main =
         Reference.methodFromMethod(Feature.class.getDeclaredMethod("testNonPublicToPublic"));
-    assertFailsCompilationIf(
-        enableIsolatedSplits,
-        () ->
-            runTest(
-                "testNonPublicToPublic",
-                diagnostics ->
-                    diagnostics.assertErrorsMatch(
-                        allOf(
-                            diagnosticType(IllegalAccessWithIsolatedFeatureSplitsDiagnostic.class),
-                            diagnosticMessage(
-                                equalTo(getExpectedDiagnosticMessage(accessedClass, context)))))));
+    runTestWithExpectedFailure(main, getExpectedDiagnosticMessage(accessedClass, main));
   }
 
   private static String getExpectedDiagnosticMessage(
@@ -103,13 +101,32 @@ public class PackagePrivateIsolatedSplitCrossBoundaryReferenceTest extends TestB
         + ").";
   }
 
-  private void runTest(String name, DiagnosticsConsumer inspector) throws Exception {
+  private void runTestWithExpectedFailure(MethodReference main, String expectedDiagnosticMessage)
+      throws Exception {
+    assertFailsCompilationIf(
+        enableIsolatedSplits,
+        () ->
+            runTest(
+                main,
+                diagnostics ->
+                    diagnostics.assertErrorsMatch(
+                        allOf(
+                            diagnosticType(IllegalAccessWithIsolatedFeatureSplitsDiagnostic.class),
+                            diagnosticMessage(equalTo(expectedDiagnosticMessage))))));
+  }
+
+  private void runTest(MethodReference main, DiagnosticsConsumer inspector) throws Exception {
     testForR8(parameters.getBackend())
         .addProgramClasses(NonPublicBase.class, PublicBaseSub.class, NonPublicBaseSub.class)
         .addKeepClassAndMembersRules(
             NonPublicBase.class, PublicBaseSub.class, NonPublicBaseSub.class)
-        .addFeatureSplit(Feature.class)
-        .addKeepRules("-keep class " + Feature.class.getTypeName() + " { void " + name + "(); }")
+        .addFeatureSplit(Feature.class, FeatureSub.class)
+        .addKeepRules(
+            "-keep class "
+                + main.getHolderClass().getTypeName()
+                + " { void "
+                + main.getMethodName()
+                + "(); }")
         .enableIsolatedSplits(enableIsolatedSplits)
         .setMinApi(parameters)
         .compileWithExpectedDiagnostics(enableIsolatedSplits ? inspector : this::assertNoMessages);
@@ -120,6 +137,10 @@ public class PackagePrivateIsolatedSplitCrossBoundaryReferenceTest extends TestB
   }
 
   static class NonPublicBase {
+
+    protected static void protectedMethod() {
+      // Intentionally empty.
+    }
 
     public static void publicMethod() {
       // Intentionally empty.
@@ -136,6 +157,10 @@ public class PackagePrivateIsolatedSplitCrossBoundaryReferenceTest extends TestB
 
   public static class Feature {
 
+    public static void testPublicToProtected() {
+      PublicBaseSub.protectedMethod();
+    }
+
     public static void testPublicToPublic() {
       PublicBaseSub.publicMethod();
     }
@@ -146,6 +171,13 @@ public class PackagePrivateIsolatedSplitCrossBoundaryReferenceTest extends TestB
 
     public static void testNonPublicToPublic() {
       NonPublicBaseSub.publicMethod();
+    }
+  }
+
+  public static class FeatureSub extends NonPublicBase {
+
+    public static void testPublicToProtected() {
+      PublicBaseSub.protectedMethod();
     }
   }
 }

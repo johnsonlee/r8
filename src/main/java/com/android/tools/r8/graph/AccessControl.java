@@ -78,20 +78,19 @@ public class AccessControl {
       }
       return classAccessibility;
     }
+    if (!member.getHolderType().isSamePackage(context.getContextType())) {
+      if (memberFlags.isPackagePrivate()
+          || !appInfo.isSubtype(context.getContextType(), member.getHolderType())) {
+        return OptionalBool.FALSE;
+      }
+    }
     if (appView.hasClassHierarchy()
         && context.isProgramDefinition()
         && !FeatureSplitBoundaryOptimizationUtils.isSafeForAccess(
             member, context.asProgramDefinition(), appView.withClassHierarchy())) {
       return OptionalBool.UNKNOWN;
     }
-    if (member.getHolderType().isSamePackage(context.getContextType())) {
-      return classAccessibility;
-    }
-    if (memberFlags.isProtected()
-        && appInfo.isSubtype(context.getContextType(), member.getHolderType())) {
-      return classAccessibility;
-    }
-    return OptionalBool.FALSE;
+    return classAccessibility;
   }
 
   private static boolean isNestMate(DexClass clazz, DexClass context) {

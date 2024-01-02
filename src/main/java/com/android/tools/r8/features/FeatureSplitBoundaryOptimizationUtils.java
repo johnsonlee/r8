@@ -42,10 +42,21 @@ public class FeatureSplitBoundaryOptimizationUtils {
     if (!classToFeatureSplitMap.isInBase(definition, appView)) {
       return false;
     }
-    // If isolated splits are enabled then the resolved method must be public.
-    if (appView.options().getFeatureSplitConfiguration().isIsolatedSplitsEnabled()
-        && !definition.getAccessFlags().isPublic()) {
-      return false;
+    // If isolated splits are enabled then the resolved item must be either (1) public or (2)
+    // a protected member and the access is in a subclass of the resolved member's holder.
+    if (appView.options().getFeatureSplitConfiguration().isIsolatedSplitsEnabled()) {
+      if (definition.isClass()) {
+        if (!definition.getAccessFlags().isPublic()) {
+          return false;
+        }
+      } else if (definition.getAccessFlags().isPackagePrivateOrProtected()) {
+        if (definition.getAccessFlags().isPackagePrivate()
+            || !appView
+                .appInfo()
+                .isSubtype(context.getContextClass(), definition.getContextClass())) {
+          return false;
+        }
+      }
     }
     return true;
   }

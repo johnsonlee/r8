@@ -80,6 +80,10 @@ public class IsolatedFeatureSplitsChecker
         || features.isInSameFeature(accessedItem, context, appView)) {
       return;
     }
+    if (accessedItem.getAccessFlags().isProtected()
+        && appView.appInfo().isSubtype(context.getContextClass(), accessedItem.getContextClass())) {
+      return;
+    }
     DontWarnConfiguration dontWarnConfiguration = appView.getDontWarnConfiguration();
     if (dontWarnConfiguration.matches(accessedItem) || dontWarnConfiguration.matches(context)) {
       return;
