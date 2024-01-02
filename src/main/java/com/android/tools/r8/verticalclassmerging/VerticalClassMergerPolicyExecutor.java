@@ -49,15 +49,11 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
 
   private final AppView<AppInfoWithLiveness> appView;
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
-  private final Set<DexProgramClass> pinnedClasses;
 
   VerticalClassMergerPolicyExecutor(
-      AppView<AppInfoWithLiveness> appView,
-      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
-      Set<DexProgramClass> pinnedClasses) {
+      AppView<AppInfoWithLiveness> appView, ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
     this.appView = appView;
     this.immediateSubtypingInfo = immediateSubtypingInfo;
-    this.pinnedClasses = pinnedClasses;
   }
 
   ConnectedComponentVerticalClassMerger run(
@@ -69,7 +65,7 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
         List.of(
             new NoDirectlyInstantiatedClassesPolicy(appView),
             new NoInterfacesWithUnknownSubtypesPolicy(appView),
-            new NoKeptClassesPolicy(appView, pinnedClasses),
+            new NoKeptClassesPolicy(appView),
             new SameFeatureSplitPolicy(appView),
             new SameStartupPartitionPolicy(appView),
             new NoServiceInterfacesPolicy(appView),
