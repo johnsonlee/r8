@@ -209,7 +209,8 @@ public final class ClassInliner {
         // Inline the class instance.
         AffectedValues affectedValues = new AffectedValues();
         try {
-          anyInlinedMethods |= processor.processInlining(code, affectedValues, inliningIRProvider);
+          anyInlinedMethods |=
+              processor.processInlining(code, affectedValues, feedback, inliningIRProvider);
         } catch (IllegalClassInlinerStateException e) {
           // We introduced a user that we cannot handle in the class inliner as a result of force
           // inlining. Abort gracefully from class inlining without removing the instance.

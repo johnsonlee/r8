@@ -51,7 +51,6 @@ import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.optimize.SimpleDominatingEffectAnalysis.SimpleEffectAnalysisResult;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
-import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.ir.optimize.inliner.DefaultInliningReasonStrategy;
 import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.InliningReasonStrategy;
@@ -905,19 +904,13 @@ public class Inliner {
       ProgramMethod method,
       IRCode code,
       Map<? extends InvokeMethod, InliningInfo> invokesToInline,
+      OptimizationFeedback feedback,
       InliningIRProvider inliningIRProvider,
       MethodProcessor methodProcessor,
       Timing timing) {
     ForcedInliningOracle oracle = new ForcedInliningOracle(appView, invokesToInline);
     performInliningImpl(
-        oracle,
-        oracle,
-        method,
-        code,
-        OptimizationFeedbackIgnore.getInstance(),
-        inliningIRProvider,
-        methodProcessor,
-        timing);
+        oracle, oracle, method, code, feedback, inliningIRProvider, methodProcessor, timing);
   }
 
   public void performInlining(
