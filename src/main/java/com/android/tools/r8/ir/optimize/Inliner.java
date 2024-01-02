@@ -910,7 +910,7 @@ public class Inliner {
       Timing timing) {
     ForcedInliningOracle oracle = new ForcedInliningOracle(appView, invokesToInline);
     performInliningImpl(
-        oracle, oracle, method, code, feedback, inliningIRProvider, methodProcessor, timing);
+        oracle, method, code, feedback, inliningIRProvider, methodProcessor, timing);
   }
 
   public void performInlining(
@@ -946,7 +946,7 @@ public class Inliner {
         new InliningIRProvider(appView, method, code, lensCodeRewriter, methodProcessor);
     assert inliningIRProvider.verifyIRCacheIsEmpty();
     performInliningImpl(
-        oracle, oracle, method, code, feedback, inliningIRProvider, methodProcessor, timing);
+        oracle, method, code, feedback, inliningIRProvider, methodProcessor, timing);
   }
 
   public InliningReasonStrategy createDefaultInliningReasonStrategy(
@@ -983,7 +983,6 @@ public class Inliner {
   }
 
   private void performInliningImpl(
-      InliningStrategy strategy,
       InliningOracle oracle,
       ProgramMethod context,
       IRCode code,
@@ -1067,13 +1066,13 @@ public class Inliner {
             continue;
           }
 
-          if (!strategy.stillHasBudget(action, whyAreYouNotInliningReporter)) {
+          if (!singleTargetOracle.stillHasBudget(action, whyAreYouNotInliningReporter)) {
             assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
             continue;
           }
 
           IRCode inlinee = action.buildInliningIR(appView, invoke, context, inliningIRProvider);
-          if (strategy.willExceedBudget(
+          if (singleTargetOracle.willExceedBudget(
               action, code, inlinee, invoke, block, whyAreYouNotInliningReporter)) {
             assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
             continue;
@@ -1087,7 +1086,11 @@ public class Inliner {
           // Inline the inlinee code in place of the invoke instruction
           // Back up before the invoke instruction.
           iterator.previous();
-          strategy.markInlined(inlinee);
+
+          // Intentionally not using singleTargetOracle here, so that we decrease the inlining
+          // instruction allowance on the default inlining oracle when force inlining methods.
+          oracle.markInlined(inlinee);
+
           iterator.inlineInvoke(
               appView, code, inlinee, blockIterator, blocksToRemove, action.getDowncastClass());
 

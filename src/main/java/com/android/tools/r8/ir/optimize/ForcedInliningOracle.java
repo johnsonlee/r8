@@ -20,7 +20,7 @@ import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Map;
 
-final class ForcedInliningOracle implements InliningOracle, InliningStrategy {
+final class ForcedInliningOracle implements InliningOracle {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final Map<? extends InvokeMethod, Inliner.InliningInfo> invokesToInline;
