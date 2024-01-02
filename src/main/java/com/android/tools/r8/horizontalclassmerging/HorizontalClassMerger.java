@@ -6,6 +6,7 @@ package com.android.tools.r8.horizontalclassmerging;
 
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppInfo;
@@ -40,24 +41,11 @@ import java.util.function.Consumer;
 
 public class HorizontalClassMerger {
 
-  public enum Mode {
-    INITIAL,
-    FINAL;
-
-    public boolean isInitial() {
-      return this == INITIAL;
-    }
-
-    public boolean isFinal() {
-      return this == FINAL;
-    }
-  }
-
   private final AppView<?> appView;
-  private final Mode mode;
+  private final ClassMergerMode mode;
   private final HorizontalClassMergerOptions options;
 
-  private HorizontalClassMerger(AppView<?> appView, Mode mode) {
+  private HorizontalClassMerger(AppView<?> appView, ClassMergerMode mode) {
     this.appView = appView;
     this.mode = mode;
     this.options = appView.options().horizontalClassMergerOptions();
@@ -65,17 +53,17 @@ public class HorizontalClassMerger {
 
   public static HorizontalClassMerger createForInitialClassMerging(
       AppView<AppInfoWithLiveness> appView) {
-    return new HorizontalClassMerger(appView, Mode.INITIAL);
+    return new HorizontalClassMerger(appView, ClassMergerMode.INITIAL);
   }
 
   public static HorizontalClassMerger createForFinalClassMerging(
       AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return new HorizontalClassMerger(appView, Mode.FINAL);
+    return new HorizontalClassMerger(appView, ClassMergerMode.FINAL);
   }
 
   public static HorizontalClassMerger createForD8ClassMerging(AppView<?> appView) {
     assert appView.options().horizontalClassMergerOptions().isRestrictedToSynthetics();
-    return new HorizontalClassMerger(appView, Mode.FINAL);
+    return new HorizontalClassMerger(appView, ClassMergerMode.FINAL);
   }
 
   public void runIfNecessary(ExecutorService executorService, Timing timing)
@@ -113,7 +101,7 @@ public class HorizontalClassMerger {
   }
 
   private MutableMethodConversionOptions getConversionOptions() {
-    return mode == Mode.INITIAL
+    return mode == ClassMergerMode.INITIAL
         ? MethodConversionOptions.forPreLirPhase(appView)
         : MethodConversionOptions.forPostLirPhase(appView);
   }
@@ -423,7 +411,7 @@ public class HorizontalClassMerger {
   private HorizontalClassMergerGraphLens createLens(
       HorizontallyMergedClasses mergedClasses,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
-      Mode mode,
+      ClassMergerMode mode,
       ProfileCollectionAdditions profileCollectionAdditions,
       SyntheticArgumentClass syntheticArgumentClass,
       ExecutorService executorService,

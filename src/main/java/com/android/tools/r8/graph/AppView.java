@@ -6,6 +6,7 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.contexts.CompilationContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
@@ -19,7 +20,6 @@ import com.android.tools.r8.graph.lens.ClearCodeRewritingGraphLens;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.InitClassLens;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraintFactory;
 import com.android.tools.r8.ir.analysis.proto.EnumLiteProtoShrinker;
@@ -843,7 +843,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   public void setHorizontallyMergedClasses(
-      HorizontallyMergedClasses horizontallyMergedClasses, HorizontalClassMerger.Mode mode) {
+      HorizontallyMergedClasses horizontallyMergedClasses, ClassMergerMode mode) {
     assert !hasHorizontallyMergedClasses() || mode.isFinal();
     this.horizontallyMergedClasses = horizontallyMergedClasses().extend(horizontallyMergedClasses);
     testing()

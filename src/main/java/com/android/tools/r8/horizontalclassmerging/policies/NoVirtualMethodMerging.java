@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -13,7 +14,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.IterableUtils;
@@ -34,7 +34,8 @@ public class NoVirtualMethodMerging extends MultiClassPolicy {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
 
-  public NoVirtualMethodMerging(AppView<? extends AppInfoWithClassHierarchy> appView, Mode mode) {
+  public NoVirtualMethodMerging(
+      AppView<? extends AppInfoWithClassHierarchy> appView, ClassMergerMode mode) {
     assert mode.isFinal();
     this.appView = appView;
   }

@@ -4,10 +4,10 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.ClassMergerTreeFixer;
 import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.utils.Timing;
 import java.util.concurrent.ExecutionException;
@@ -24,13 +24,13 @@ class HorizontalClassMergerTreeFixer
         HorizontalClassMergerGraphLens,
         HorizontallyMergedClasses> {
 
-  private final Mode mode;
+  private final ClassMergerMode mode;
 
   public HorizontalClassMergerTreeFixer(
       AppView<?> appView,
       HorizontallyMergedClasses mergedClasses,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
-      Mode mode,
+      ClassMergerMode mode,
       ProfileCollectionAdditions profileCollectionAdditions,
       SyntheticArgumentClass syntheticArgumentClass) {
     super(appView, lensBuilder, mergedClasses, profileCollectionAdditions, syntheticArgumentClass);

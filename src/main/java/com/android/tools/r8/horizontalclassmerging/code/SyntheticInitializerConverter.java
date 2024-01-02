@@ -4,13 +4,13 @@
 
 package com.android.tools.r8.horizontalclassmerging.code;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.IRCodeProvider;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRConverter;
@@ -33,7 +33,7 @@ public class SyntheticInitializerConverter {
 
   private final AppView<?> appView;
   private final IRCodeProvider codeProvider;
-  private final Mode mode;
+  private final ClassMergerMode mode;
 
   private final List<ProgramMethod> classInitializers;
 
@@ -43,7 +43,7 @@ public class SyntheticInitializerConverter {
   private SyntheticInitializerConverter(
       AppView<?> appView,
       IRCodeProvider codeProvider,
-      Mode mode,
+      ClassMergerMode mode,
       List<ProgramMethod> classInitializers,
       Set<DexProgramClass> instanceInitializers) {
     this.appView = appView;
@@ -53,7 +53,8 @@ public class SyntheticInitializerConverter {
     this.instanceInitializers = instanceInitializers;
   }
 
-  public static Builder builder(AppView<?> appView, IRCodeProvider codeProvider, Mode mode) {
+  public static Builder builder(
+      AppView<?> appView, IRCodeProvider codeProvider, ClassMergerMode mode) {
     return new Builder(appView, codeProvider, mode);
   }
 
@@ -135,12 +136,12 @@ public class SyntheticInitializerConverter {
 
     private final AppView<?> appView;
     private final IRCodeProvider codeProvider;
-    private final Mode mode;
+    private final ClassMergerMode mode;
 
     private final List<ProgramMethod> classInitializers = new ArrayList<>();
     private final Set<DexProgramClass> instanceInitializers = Sets.newIdentityHashSet();
 
-    private Builder(AppView<?> appView, IRCodeProvider codeProvider, Mode mode) {
+    private Builder(AppView<?> appView, IRCodeProvider codeProvider, ClassMergerMode mode) {
       this.appView = appView;
       this.codeProvider = codeProvider;
       this.mode = mode;

@@ -15,12 +15,12 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.ToolHelper.ProcessResult;
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -105,7 +105,7 @@ public class R8InliningTest extends TestBase {
   private void fixInliningNullabilityClass(
       DexItemFactory dexItemFactory,
       HorizontallyMergedClasses horizontallyMergedClasses,
-      HorizontalClassMerger.Mode mode) {
+      ClassMergerMode mode) {
     DexType originalType =
         dexItemFactory.createType(DescriptorUtils.javaTypeToDescriptor("inlining.Nullability"));
     nullabilityClass =

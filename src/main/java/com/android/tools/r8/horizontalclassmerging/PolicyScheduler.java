@@ -4,12 +4,12 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.policies.AllInstantiatedOrUninstantiated;
 import com.android.tools.r8.horizontalclassmerging.policies.CheckAbstractClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.CheckSyntheticClasses;
@@ -76,7 +76,7 @@ public class PolicyScheduler {
   public static List<Policy> getPolicies(
       AppView<?> appView,
       IRCodeProvider codeProvider,
-      Mode mode,
+      ClassMergerMode mode,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     if (appView.hasClassHierarchy()) {
       return getPoliciesForR8(
@@ -86,7 +86,7 @@ public class PolicyScheduler {
     }
   }
 
-  private static List<Policy> getPoliciesForD8(AppView<AppInfo> appView, Mode mode) {
+  private static List<Policy> getPoliciesForD8(AppView<AppInfo> appView, ClassMergerMode mode) {
     assert mode.isFinal();
     List<Policy> policies =
         ImmutableList.<Policy>builder()
@@ -101,7 +101,7 @@ public class PolicyScheduler {
   private static List<Policy> getPoliciesForR8(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       IRCodeProvider codeProvider,
-      Mode mode,
+      ClassMergerMode mode,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     List<Policy> policies =
         ImmutableList.<Policy>builder()
@@ -115,7 +115,7 @@ public class PolicyScheduler {
 
   private static List<SingleClassPolicy> getSingleClassPolicies(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      Mode mode,
+      ClassMergerMode mode,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     ImmutableList.Builder<SingleClassPolicy> builder = ImmutableList.builder();
 
@@ -141,7 +141,7 @@ public class PolicyScheduler {
   }
 
   private static List<SingleClassPolicy> getSingleClassPoliciesForD8(
-      AppView<AppInfo> appView, Mode mode) {
+      AppView<AppInfo> appView, ClassMergerMode mode) {
     ImmutableList.Builder<SingleClassPolicy> builder =
         ImmutableList.<SingleClassPolicy>builder()
             .add(new CheckSyntheticClasses(appView))
@@ -162,7 +162,7 @@ public class PolicyScheduler {
 
   private static void addSingleClassPoliciesForMergingNonSyntheticClasses(
       AppView<AppInfoWithLiveness> appView,
-      Mode mode,
+      ClassMergerMode mode,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo,
       ImmutableList.Builder<SingleClassPolicy> builder) {
     builder.add(
@@ -183,7 +183,7 @@ public class PolicyScheduler {
 
   private static boolean verifySingleClassPoliciesIrrelevantForMergingSynthetics(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      Mode mode,
+      ClassMergerMode mode,
       ImmutableList.Builder<SingleClassPolicy> builder) {
     List<SingleClassPolicy> policies =
         ImmutableList.of(
@@ -203,7 +203,9 @@ public class PolicyScheduler {
   }
 
   private static boolean verifySingleClassPoliciesIrrelevantForMergingSyntheticsInD8(
-      AppView<AppInfo> appView, Mode mode, ImmutableList.Builder<SingleClassPolicy> builder) {
+      AppView<AppInfo> appView,
+      ClassMergerMode mode,
+      ImmutableList.Builder<SingleClassPolicy> builder) {
     List<SingleClassPolicy> policies =
         ImmutableList.of(
             new NoResourceClasses(),
@@ -222,7 +224,7 @@ public class PolicyScheduler {
   private static List<Policy> getMultiClassPolicies(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       IRCodeProvider codeProvider,
-      Mode mode,
+      ClassMergerMode mode,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     ImmutableList.Builder<Policy> builder = ImmutableList.builder();
 
@@ -262,7 +264,7 @@ public class PolicyScheduler {
   }
 
   private static List<? extends Policy> getMultiClassPoliciesForD8(
-      AppView<AppInfo> appView, Mode mode) {
+      AppView<AppInfo> appView, ClassMergerMode mode) {
     ImmutableList.Builder<MultiClassPolicy> builder = ImmutableList.builder();
     builder.add(
         new CheckAbstractClasses(appView),
@@ -281,7 +283,7 @@ public class PolicyScheduler {
 
   private static void addRequiredMultiClassPolicies(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      Mode mode,
+      ClassMergerMode mode,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo,
       ImmutableList.Builder<Policy> builder) {
     ImmediateProgramSubtypingInfo immediateSubtypingInfo =
@@ -313,7 +315,7 @@ public class PolicyScheduler {
 
   private static void addMultiClassPoliciesForInterfaceMerging(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      Mode mode,
+      ClassMergerMode mode,
       ImmutableList.Builder<Policy> builder) {
     builder.add(
         new NoDefaultInterfaceMethodMerging(appView, mode),
@@ -323,7 +325,9 @@ public class PolicyScheduler {
   }
 
   private static boolean verifyMultiClassPoliciesIrrelevantForMergingSyntheticsInD8(
-      AppView<AppInfo> appView, Mode mode, ImmutableList.Builder<MultiClassPolicy> builder) {
+      AppView<AppInfo> appView,
+      ClassMergerMode mode,
+      ImmutableList.Builder<MultiClassPolicy> builder) {
     List<MultiClassPolicy> policies =
         ImmutableList.of(new SyntheticItemsPolicy(appView, mode), new SameParentClass());
     policies.stream().map(VerifyMultiClassPolicyAlwaysSatisfied::new).forEach(builder::add);

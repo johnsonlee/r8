@@ -195,7 +195,6 @@ public final class L8Command extends BaseCompilerCommand {
     // Assert some of R8 optimizations are disabled.
     assert !internal.inlinerOptions().enableInlining;
     assert !internal.enableClassInlining;
-    assert internal.getVerticalClassMergerOptions().isDisabled();
     assert !internal.enableEnumValueOptimization;
     assert !internal.outline.enabled;
     assert !internal.enableTreeShakingOfLibraryMethodOverrides;

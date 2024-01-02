@@ -4,12 +4,12 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.WorkList;
@@ -35,7 +35,7 @@ public class NoDefaultInterfaceMethodMerging extends MultiClassPolicy {
   private final AppView<?> appView;
   private final DexType MULTIPLE_SENTINEL;
 
-  public NoDefaultInterfaceMethodMerging(AppView<?> appView, Mode mode) {
+  public NoDefaultInterfaceMethodMerging(AppView<?> appView, ClassMergerMode mode) {
     this.appView = appView;
     // Use the java.lang.Object type to indicate more than one interface type, as that type
     // itself is not an interface type.

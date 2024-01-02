@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.verticalclassmerging;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.utils.InternalOptions;
 
 public class VerticalClassMergerOptions {
@@ -19,12 +20,8 @@ public class VerticalClassMergerOptions {
     setEnabled(false);
   }
 
-  public boolean isDisabled() {
-    return !isEnabled();
-  }
-
-  public boolean isEnabled() {
-    return enabled && options.isOptimizing() && options.isShrinking();
+  public boolean isEnabled(ClassMergerMode mode) {
+    return enabled && options.isOptimizing() && options.isShrinking() && mode.isInitial();
   }
 
   public void setEnabled(boolean enabled) {

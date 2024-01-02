@@ -26,6 +26,7 @@ import com.android.tools.r8.SyntheticInfoConsumer;
 import com.android.tools.r8.Version;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.cf.CfVersion;
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.debuginfo.DebugRepresentation;
 import com.android.tools.r8.dex.ApplicationReader.ProgramClassConflictResolver;
@@ -66,7 +67,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.ResourceAccessAnalysis;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.analysis.proto.ProtoReferences;
@@ -878,12 +878,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     WholeProgramOptimizations wholeProgramOptimizations = WholeProgramOptimizations.ON;
     if (mode.isInitialTreeShaking()) {
       return horizontalClassMergerOptions.isEnabled(
-              HorizontalClassMerger.Mode.INITIAL, wholeProgramOptimizations)
+              ClassMergerMode.INITIAL, wholeProgramOptimizations)
           && !horizontalClassMergerOptions.isRestrictedToSynthetics();
     }
     if (mode.isFinalTreeShaking()) {
       return horizontalClassMergerOptions.isEnabled(
-              HorizontalClassMerger.Mode.FINAL, wholeProgramOptimizations)
+              ClassMergerMode.FINAL, wholeProgramOptimizations)
           && !horizontalClassMergerOptions.isRestrictedToSynthetics();
     }
     assert false;
@@ -1873,7 +1873,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
 
     public boolean isEnabled(
-        HorizontalClassMerger.Mode mode, WholeProgramOptimizations wholeProgramOptimizations) {
+        ClassMergerMode mode, WholeProgramOptimizations wholeProgramOptimizations) {
       if (!enable || debug || intermediate) {
         return false;
       }
@@ -1901,7 +1901,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       return enableSyntheticMerging;
     }
 
-    public boolean isInterfaceMergingEnabled(HorizontalClassMerger.Mode mode) {
+    public boolean isInterfaceMergingEnabled(ClassMergerMode mode) {
       if (!enableInterfaceMerging) {
         return false;
       }
@@ -2359,7 +2359,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public Function<AppView<AppInfoWithLiveness>, RepackagingConfiguration>
         repackagingConfigurationFactory = DefaultRepackagingConfiguration::new;
 
-    public TriConsumer<DexItemFactory, HorizontallyMergedClasses, HorizontalClassMerger.Mode>
+    public TriConsumer<DexItemFactory, HorizontallyMergedClasses, ClassMergerMode>
         horizontallyMergedClassesConsumer = ConsumerUtils.emptyTriConsumer();
     public Function<List<Policy>, List<Policy>> horizontalClassMergingPolicyRewriter =
         Function.identity();

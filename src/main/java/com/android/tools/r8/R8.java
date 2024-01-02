@@ -499,7 +499,8 @@ public class R8 {
 
       assert ArtProfileCompletenessChecker.verify(appView);
 
-      VerticalClassMerger.runIfNecessary(appViewWithLiveness, executorService, timing);
+      VerticalClassMerger.createForInitialClassMerging(appViewWithLiveness)
+          .runIfNecessary(executorService, timing);
       HorizontalClassMerger.createForInitialClassMerging(appViewWithLiveness)
           .runIfNecessary(
               executorService,
@@ -736,6 +737,11 @@ public class R8 {
 
       GenericSignatureContextBuilder genericContextBuilderBeforeFinalMerging =
           GenericSignatureContextBuilder.create(appView);
+
+      if (appView.hasLiveness()) {
+        VerticalClassMerger.createForFinalClassMerging(appView.withLiveness())
+            .runIfNecessary(executorService, timing);
+      }
 
       // Run horizontal class merging. This runs even if shrinking is disabled to ensure synthetics
       // are always merged.

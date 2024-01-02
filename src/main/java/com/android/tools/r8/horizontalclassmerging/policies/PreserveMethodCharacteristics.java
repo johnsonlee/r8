@@ -4,12 +4,12 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.MethodAccessFlags;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -92,7 +92,7 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
 
   private final AppView<AppInfoWithLiveness> appView;
 
-  public PreserveMethodCharacteristics(AppView<AppInfoWithLiveness> appView, Mode mode) {
+  public PreserveMethodCharacteristics(AppView<AppInfoWithLiveness> appView, ClassMergerMode mode) {
     // This policy checks that method merging does invalidate various properties. Thus there is no
     // reason to run this policy if method merging is not allowed.
     assert mode.isInitial();

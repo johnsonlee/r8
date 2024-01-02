@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -11,7 +12,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldAccessFlags;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.MultiClassSameReferencePolicy;
 import com.android.tools.r8.horizontalclassmerging.policies.SameInstanceFields.InstanceFieldInfo;
 import com.google.common.collect.HashMultiset;
@@ -21,9 +21,10 @@ import java.util.Objects;
 public class SameInstanceFields extends MultiClassSameReferencePolicy<Multiset<InstanceFieldInfo>> {
 
   private final DexItemFactory dexItemFactory;
-  private final Mode mode;
+  private final ClassMergerMode mode;
 
-  public SameInstanceFields(AppView<? extends AppInfoWithClassHierarchy> appView, Mode mode) {
+  public SameInstanceFields(
+      AppView<? extends AppInfoWithClassHierarchy> appView, ClassMergerMode mode) {
     this.dexItemFactory = appView.dexItemFactory();
     this.mode = mode;
   }

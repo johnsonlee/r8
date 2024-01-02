@@ -8,6 +8,7 @@ import static com.android.tools.r8.graph.MethodResolutionResult.SingleResolution
 import static com.android.tools.r8.utils.collections.ThrowingSet.isThrowingSet;
 
 import com.android.tools.r8.cf.CfVersion;
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -50,7 +51,6 @@ import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.UnknownDispatchTargetLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
@@ -447,8 +447,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   }
 
   @Override
-  public void notifyHorizontalClassMergerFinished(
-      HorizontalClassMerger.Mode horizontalClassMergerMode) {
+  public void notifyHorizontalClassMergerFinished(ClassMergerMode horizontalClassMergerMode) {
     if (horizontalClassMergerMode.isInitial()) {
       getMethodAccessInfoCollection().destroy();
     }

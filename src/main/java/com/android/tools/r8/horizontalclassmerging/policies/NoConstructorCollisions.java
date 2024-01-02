@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -11,7 +12,6 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
 import com.android.tools.r8.utils.ArrayUtils;
@@ -44,7 +44,7 @@ public class NoConstructorCollisions extends MultiClassPolicyWithPreprocessing<S
   private final AppView<?> appView;
   private final DexItemFactory dexItemFactory;
 
-  public NoConstructorCollisions(AppView<?> appView, Mode mode) {
+  public NoConstructorCollisions(AppView<?> appView, ClassMergerMode mode) {
     assert mode.isFinal();
     this.appView = appView;
     this.dexItemFactory = appView.dexItemFactory();

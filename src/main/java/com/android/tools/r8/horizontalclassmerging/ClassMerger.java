@@ -7,6 +7,7 @@ package com.android.tools.r8.horizontalclassmerging;
 import static com.google.common.base.Predicates.not;
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -25,7 +26,6 @@ import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.code.ClassInitializerMerger;
 import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
 import com.android.tools.r8.ir.analysis.value.NumberFromIntervalValue;
@@ -59,7 +59,7 @@ public class ClassMerger {
   private static final OptimizationFeedback feedback = OptimizationFeedbackSimple.getInstance();
 
   private final AppView<?> appView;
-  private final Mode mode;
+  private final ClassMergerMode mode;
   private final HorizontalMergeGroup group;
   private final DexItemFactory dexItemFactory;
   private final HorizontalClassMergerGraphLens.Builder lensBuilder;
@@ -79,7 +79,7 @@ public class ClassMerger {
   private ClassMerger(
       AppView<?> appView,
       IRCodeProvider codeProvider,
-      Mode mode,
+      ClassMergerMode mode,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       HorizontalMergeGroup group,
       Collection<VirtualMethodMerger> virtualMethodMergers) {
@@ -375,11 +375,14 @@ public class ClassMerger {
   public static class Builder {
     private final AppView<?> appView;
     private final IRCodeProvider codeProvider;
-    private final Mode mode;
+    private final ClassMergerMode mode;
     private final HorizontalMergeGroup group;
 
     public Builder(
-        AppView<?> appView, IRCodeProvider codeProvider, HorizontalMergeGroup group, Mode mode) {
+        AppView<?> appView,
+        IRCodeProvider codeProvider,
+        HorizontalMergeGroup group,
+        ClassMergerMode mode) {
       this.appView = appView;
       this.codeProvider = codeProvider;
       this.group = group;

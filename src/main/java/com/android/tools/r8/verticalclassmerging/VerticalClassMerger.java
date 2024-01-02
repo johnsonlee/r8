@@ -6,6 +6,7 @@ package com.android.tools.r8.verticalclassmerging;
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -54,12 +55,24 @@ public class VerticalClassMerger {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final DexItemFactory dexItemFactory;
+  private final ClassMergerMode mode;
   private final InternalOptions options;
 
-  public VerticalClassMerger(AppView<AppInfoWithLiveness> appView) {
+  public VerticalClassMerger(AppView<AppInfoWithLiveness> appView, ClassMergerMode mode) {
     this.appView = appView;
     this.dexItemFactory = appView.dexItemFactory();
+    this.mode = mode;
     this.options = appView.options();
+  }
+
+  public static VerticalClassMerger createForInitialClassMerging(
+      AppView<AppInfoWithLiveness> appView) {
+    return new VerticalClassMerger(appView, ClassMergerMode.INITIAL);
+  }
+
+  public static VerticalClassMerger createForFinalClassMerging(
+      AppView<AppInfoWithLiveness> appView) {
+    return new VerticalClassMerger(appView, ClassMergerMode.FINAL);
   }
 
   // Returns a set of types that must not be merged into other types.
@@ -162,12 +175,11 @@ public class VerticalClassMerger {
     pinnedClasses.add(clazz);
   }
 
-  public static void runIfNecessary(
-      AppView<AppInfoWithLiveness> appView, ExecutorService executorService, Timing timing)
+  public void runIfNecessary(ExecutorService executorService, Timing timing)
       throws ExecutionException {
     timing.begin("VerticalClassMerger");
-    if (shouldRun(appView)) {
-      new VerticalClassMerger(appView).run(executorService, timing);
+    if (shouldRun()) {
+      run(executorService, timing);
     } else {
       appView.setVerticallyMergedClasses(VerticallyMergedClasses.empty());
     }
@@ -176,8 +188,8 @@ public class VerticalClassMerger {
     timing.end();
   }
 
-  private static boolean shouldRun(AppView<AppInfoWithLiveness> appView) {
-    return appView.options().getVerticalClassMergerOptions().isEnabled()
+  private boolean shouldRun() {
+    return options.getVerticalClassMergerOptions().isEnabled(mode)
         && !appView.hasCfByteCodePassThroughMethods();
   }
 

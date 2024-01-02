@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -14,7 +15,6 @@ import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.TraversalContinuation;
@@ -28,9 +28,10 @@ import java.util.Map;
 public class RespectPackageBoundaries extends MultiClassPolicy {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
-  private final Mode mode;
+  private final ClassMergerMode mode;
 
-  public RespectPackageBoundaries(AppView<? extends AppInfoWithClassHierarchy> appView, Mode mode) {
+  public RespectPackageBoundaries(
+      AppView<? extends AppInfoWithClassHierarchy> appView, ClassMergerMode mode) {
     this.appView = appView;
     this.mode = mode;
   }

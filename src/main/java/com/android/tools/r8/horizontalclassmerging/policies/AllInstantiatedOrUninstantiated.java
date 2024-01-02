@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.MultiClassSameReferencePolicy;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
@@ -14,7 +14,8 @@ public class AllInstantiatedOrUninstantiated extends MultiClassSameReferencePoli
 
   private final AppView<AppInfoWithLiveness> appView;
 
-  public AllInstantiatedOrUninstantiated(AppView<AppInfoWithLiveness> appView, Mode mode) {
+  public AllInstantiatedOrUninstantiated(
+      AppView<AppInfoWithLiveness> appView, ClassMergerMode mode) {
     // This policy is only used to prevent that horizontal class merging regresses the
     // uninstantiated type optimization. Since there won't be any IR processing after the final
     // round of horizontal class merging, there is no need to use the policy.

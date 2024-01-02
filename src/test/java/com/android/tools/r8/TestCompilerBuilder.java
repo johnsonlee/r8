@@ -10,8 +10,8 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.debug.DebugTestConfig;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorEventConsumer;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.testing.AndroidBuildVersion;
@@ -199,12 +199,12 @@ public abstract class TestCompilerBuilder<
 
   public T addHorizontallyMergedClassesInspector(
       ThrowableConsumer<HorizontallyMergedClassesInspector> inspector) {
-    return addHorizontallyMergedClassesInspector(inspector, HorizontalClassMerger.Mode::isFinal);
+    return addHorizontallyMergedClassesInspector(inspector, ClassMergerMode::isFinal);
   }
 
   public T addHorizontallyMergedClassesInspector(
       ThrowableConsumer<HorizontallyMergedClassesInspector> inspector,
-      Predicate<HorizontalClassMerger.Mode> predicate) {
+      Predicate<ClassMergerMode> predicate) {
     return addOptionsModification(
         options ->
             options.testing.horizontallyMergedClassesConsumer =

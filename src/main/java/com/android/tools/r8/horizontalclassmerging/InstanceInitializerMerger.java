@@ -7,6 +7,7 @@ package com.android.tools.r8.horizontalclassmerging;
 import static com.android.tools.r8.dex.Constants.TEMPORARY_INSTANCE_INITIALIZER_PREFIX;
 
 import com.android.tools.r8.cf.CfVersion;
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -19,7 +20,6 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeUtils;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.code.ConstructorEntryPointSynthesizedCode;
 import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
 import com.android.tools.r8.ir.conversion.ExtraConstantIntParameter;
@@ -49,7 +49,7 @@ public class InstanceInitializerMerger {
   private final List<ProgramMethod> instanceInitializers;
   private final InstanceInitializerDescription instanceInitializerDescription;
   private final HorizontalClassMergerGraphLens.Builder lensBuilder;
-  private final Mode mode;
+  private final ClassMergerMode mode;
 
   InstanceInitializerMerger(
       AppView<? extends AppInfoWithClassHierarchy> appView,
@@ -57,7 +57,7 @@ public class InstanceInitializerMerger {
       HorizontalMergeGroup group,
       List<ProgramMethod> instanceInitializers,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
-      Mode mode) {
+      ClassMergerMode mode) {
     this(appView, classIdentifiers, group, instanceInitializers, lensBuilder, mode, null);
   }
 
@@ -67,7 +67,7 @@ public class InstanceInitializerMerger {
       HorizontalMergeGroup group,
       List<ProgramMethod> instanceInitializers,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
-      Mode mode,
+      ClassMergerMode mode,
       InstanceInitializerDescription instanceInitializerDescription) {
     this.appView = appView;
     this.classIdentifiers = classIdentifiers;
@@ -175,13 +175,13 @@ public class InstanceInitializerMerger {
     private int estimatedDexCodeSize;
     private final List<List<ProgramMethod>> instanceInitializerGroups = new ArrayList<>();
     private final HorizontalClassMergerGraphLens.Builder lensBuilder;
-    private final Mode mode;
+    private final ClassMergerMode mode;
 
     public Builder(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         Reference2IntMap<DexType> classIdentifiers,
         HorizontalClassMergerGraphLens.Builder lensBuilder,
-        Mode mode) {
+        ClassMergerMode mode) {
       this.appView = appView;
       this.classIdentifiers = classIdentifiers;
       this.lensBuilder = lensBuilder;

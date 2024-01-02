@@ -6,6 +6,7 @@ package com.android.tools.r8.horizontalclassmerging.policies;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -18,7 +19,6 @@ import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.MethodAccessInfoCollection;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.horizontalclassmerging.ClassInstanceFieldsMerger;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.IRCodeProvider;
 import com.android.tools.r8.horizontalclassmerging.InstanceInitializerAnalysis;
@@ -64,7 +64,7 @@ public class NoInstanceInitializerMerging
   public NoInstanceInitializerMerging(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       IRCodeProvider codeProvider,
-      Mode mode) {
+      ClassMergerMode mode) {
     assert mode.isFinal();
     this.appView = appView;
     this.codeProvider = codeProvider;

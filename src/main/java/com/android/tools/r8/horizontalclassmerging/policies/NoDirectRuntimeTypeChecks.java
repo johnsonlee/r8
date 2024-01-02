@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.SingleClassPolicy;
 import com.android.tools.r8.shaking.RuntimeTypeCheckInfo;
 import com.android.tools.r8.synthesis.SyntheticItems;
@@ -18,12 +18,12 @@ public class NoDirectRuntimeTypeChecks extends SingleClassPolicy {
   private final RuntimeTypeCheckInfo runtimeTypeCheckInfo;
   private final SyntheticItems syntheticItems;
 
-  public NoDirectRuntimeTypeChecks(AppView<?> appView, Mode mode) {
+  public NoDirectRuntimeTypeChecks(AppView<?> appView, ClassMergerMode mode) {
     this(appView, mode, null);
   }
 
   public NoDirectRuntimeTypeChecks(
-      AppView<?> appView, Mode mode, RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
+      AppView<?> appView, ClassMergerMode mode, RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     assert runtimeTypeCheckInfo != null || mode.isFinal();
     this.options = appView.options();
     this.runtimeTypeCheckInfo = runtimeTypeCheckInfo;

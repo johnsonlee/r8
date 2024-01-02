@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.SyntheticInfoConsumer;
 import com.android.tools.r8.SyntheticInfoConsumerData;
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.contexts.CompilationContext.UniqueContext;
 import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
@@ -36,7 +37,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ProgramOrClasspathDefinition;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.ClassReference;
@@ -403,7 +403,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     return committed.containsType(type) || pending.definitions.containsKey(type);
   }
 
-  public boolean isEligibleForClassMerging(DexProgramClass clazz, HorizontalClassMerger.Mode mode) {
+  public boolean isEligibleForClassMerging(DexProgramClass clazz, ClassMergerMode mode) {
     assert isSyntheticClass(clazz);
     return mode.isFinal() || isSyntheticLambda(clazz);
   }

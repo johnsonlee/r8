@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.ListUtils;
@@ -26,9 +26,9 @@ import java.util.Set;
 public class FinalizeMergeGroup extends MultiClassPolicy {
 
   private final AppView<?> appView;
-  private final Mode mode;
+  private final ClassMergerMode mode;
 
-  public FinalizeMergeGroup(AppView<?> appView, Mode mode) {
+  public FinalizeMergeGroup(AppView<?> appView, ClassMergerMode mode) {
     this.appView = appView;
     this.mode = mode;
   }

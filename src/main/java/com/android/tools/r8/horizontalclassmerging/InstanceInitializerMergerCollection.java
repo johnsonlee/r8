@@ -6,12 +6,12 @@ package com.android.tools.r8.horizontalclassmerging;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.InstanceInitializerMerger.Builder;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -44,7 +44,7 @@ public class InstanceInitializerMergerCollection {
       IRCodeProvider codeProvider,
       HorizontalMergeGroup group,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
-      Mode mode) {
+      ClassMergerMode mode) {
     if (!appView.hasClassHierarchy()) {
       assert appView.options().horizontalClassMergerOptions().isRestrictedToSynthetics();
       assert verifyNoInstanceInitializers(group);

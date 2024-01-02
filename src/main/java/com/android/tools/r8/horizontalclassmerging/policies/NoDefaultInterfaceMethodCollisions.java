@@ -8,6 +8,7 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.BottomUpClassHierarchyTraversal;
@@ -18,7 +19,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger.Mode;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
 import com.android.tools.r8.horizontalclassmerging.policies.NoDefaultInterfaceMethodCollisions.InterfaceInfo;
@@ -73,10 +73,10 @@ public class NoDefaultInterfaceMethodCollisions
     extends MultiClassPolicyWithPreprocessing<Map<DexType, InterfaceInfo>> {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
-  private final Mode mode;
+  private final ClassMergerMode mode;
 
   public NoDefaultInterfaceMethodCollisions(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Mode mode) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, ClassMergerMode mode) {
     this.appView = appView;
     this.mode = mode;
   }

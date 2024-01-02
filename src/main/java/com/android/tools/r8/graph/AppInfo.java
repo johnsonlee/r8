@@ -4,7 +4,7 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.DesugarGraphConsumer;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.origin.GlobalSyntheticOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -295,8 +295,7 @@ public class AppInfo implements DexDefinitionSupplier {
         : FieldResolutionResult.unknown();
   }
 
-  public void notifyHorizontalClassMergerFinished(
-      HorizontalClassMerger.Mode horizontalClassMergerMode) {
+  public void notifyHorizontalClassMergerFinished(ClassMergerMode horizontalClassMergerMode) {
     // Intentionally empty.
   }
 }
