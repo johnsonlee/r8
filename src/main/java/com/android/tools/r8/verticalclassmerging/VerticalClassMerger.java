@@ -73,7 +73,7 @@ public class VerticalClassMerger {
     if (shouldRun()) {
       run(executorService, timing);
     } else {
-      appView.setVerticallyMergedClasses(VerticallyMergedClasses.empty());
+      appView.setVerticallyMergedClasses(VerticallyMergedClasses.empty(), mode);
     }
     assert appView.hasVerticallyMergedClasses();
     assert ArtProfileCompletenessChecker.verify(appView);
@@ -104,7 +104,8 @@ public class VerticalClassMerger {
     VerticalClassMergerResult verticalClassMergerResult =
         mergeClassesInConnectedComponents(
             connectedComponents, immediateSubtypingInfo, executorService, timing);
-    appView.setVerticallyMergedClasses(verticalClassMergerResult.getVerticallyMergedClasses());
+    appView.setVerticallyMergedClasses(
+        verticalClassMergerResult.getVerticallyMergedClasses(), mode);
     if (verticalClassMergerResult.isEmpty()) {
       return;
     }

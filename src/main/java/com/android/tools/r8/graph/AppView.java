@@ -863,10 +863,16 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return verticallyMergedClasses;
   }
 
-  public void setVerticallyMergedClasses(VerticallyMergedClasses verticallyMergedClasses) {
-    assert this.verticallyMergedClasses == null;
-    this.verticallyMergedClasses = verticallyMergedClasses;
-    testing().verticallyMergedClassesConsumer.accept(dexItemFactory(), verticallyMergedClasses);
+  public void setVerticallyMergedClasses(
+      VerticallyMergedClasses verticallyMergedClasses, ClassMergerMode mode) {
+    if (mode.isInitial()) {
+      assert this.verticallyMergedClasses == null;
+      this.verticallyMergedClasses = verticallyMergedClasses;
+      testing().verticallyMergedClassesConsumer.accept(dexItemFactory(), verticallyMergedClasses);
+    } else {
+      assert this.verticallyMergedClasses != null;
+      assert verticallyMergedClasses.isEmpty();
+    }
   }
 
   public OpenClosedInterfacesCollection getOpenClosedInterfacesCollection() {
