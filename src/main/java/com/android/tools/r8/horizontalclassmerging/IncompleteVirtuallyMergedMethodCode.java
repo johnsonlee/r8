@@ -18,11 +18,11 @@ import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.CfCodeWithLens;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.horizontalclassmerging.VirtualMethodMerger.SuperMethodReference;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -153,13 +153,8 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
     } else {
       instructions.add(new CfReturn(ValueType.fromDexType(method.getReturnType())));
     }
-    return new CfCode(originalMethod.getHolderType(), maxStack, maxLocals, instructions) {
-
-      @Override
-      public GraphLens getCodeLens(AppView<?> appView) {
-        return lens;
-      }
-    };
+    return new CfCodeWithLens(
+        lens, originalMethod.getHolderType(), maxStack, maxLocals, instructions);
   }
 
   private static CfFrame createCfFrameForSwitchCase(ProgramMethod representative, int localsSize) {

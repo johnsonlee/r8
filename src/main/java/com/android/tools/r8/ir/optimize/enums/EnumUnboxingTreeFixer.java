@@ -10,6 +10,7 @@ import static com.android.tools.r8.ir.optimize.enums.EnumUnboxerImpl.ordinalToUn
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.CfCodeWithLens;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedField.Builder;
@@ -62,7 +63,6 @@ import com.android.tools.r8.ir.optimize.info.DefaultMethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfo;
-import com.android.tools.r8.ir.synthetic.EnumUnboxingCfCodeProvider.CfCodeWithLens;
 import com.android.tools.r8.ir.synthetic.EnumUnboxingCfCodeProvider.EnumUnboxingMethodDispatchCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.ThrowCfCodeProvider;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;

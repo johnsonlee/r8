@@ -14,13 +14,14 @@ import com.android.tools.r8.cf.code.CfReturn;
 import com.android.tools.r8.cf.code.CfReturnVoid;
 import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
-import com.android.tools.r8.cf.code.CfTryCatch;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.CfCodeWithLens;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +43,8 @@ public class ForwardMethodBuilder {
   }
 
   private final DexItemFactory factory;
+
+  private GraphLens codeLens = null;
 
   private DexMethod sourceMethod = null;
   private DexMethod targetMethod = null;
@@ -78,6 +81,11 @@ public class ForwardMethodBuilder {
     } else {
       elseConsumer.accept(this);
     }
+    return this;
+  }
+
+  public ForwardMethodBuilder setCodeLens(GraphLens codeLens) {
+    this.codeLens = codeLens;
     return this;
   }
 
@@ -205,15 +213,11 @@ public class ForwardMethodBuilder {
       }
       instructions.add(new CfReturn(getSourceReturnType()));
     }
-    ImmutableList<CfTryCatch> tryCatchRanges = ImmutableList.of();
-    ImmutableList<CfCode.LocalVariableInfo> localVariables = ImmutableList.of();
-    return new CfCode(
-        sourceMethod.holder,
-        maxStack,
-        maxLocals,
-        instructions.build(),
-        tryCatchRanges,
-        localVariables);
+    if (codeLens != null) {
+      return new CfCodeWithLens(
+          codeLens, sourceMethod.holder, maxStack, maxLocals, instructions.build());
+    }
+    return new CfCode(sourceMethod.holder, maxStack, maxLocals, instructions.build());
   }
 
   @SuppressWarnings({"BadImport", "ReferenceEquality"})

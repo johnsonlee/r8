@@ -5,7 +5,6 @@ package com.android.tools.r8.verticalclassmerging;
 
 import static com.android.tools.r8.dex.Constants.TEMPORARY_INSTANCE_INITIALIZER_PREFIX;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
-import static com.android.tools.r8.ir.code.InvokeType.DIRECT;
 import static com.android.tools.r8.ir.code.InvokeType.STATIC;
 import static com.android.tools.r8.ir.code.InvokeType.VIRTUAL;
 import static java.util.function.Predicate.not;
@@ -13,6 +12,7 @@ import static java.util.function.Predicate.not;
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AccessControl;
+import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DefaultInstanceInitializerCode;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -76,12 +76,12 @@ class ClassMerger {
   private final DexProgramClass source;
   private final DexProgramClass target;
 
-  private final List<SynthesizedBridgeCode> synthesizedBridges;
+  private final List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges;
 
   ClassMerger(
       AppView<AppInfoWithLiveness> appView,
       VerticalClassMergerGraphLens.Builder outerLensBuilder,
-      List<SynthesizedBridgeCode> synthesizedBridges,
+      List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges,
       VerticallyMergedClasses.Builder verticallyMergedClassesBuilder,
       VerticalMergeGroup group) {
     this.appView = appView;
@@ -252,8 +252,12 @@ class ClassMerger {
         assert availableMethodSignatures.test(resultingMethodReference);
         resultingMethod =
             virtualMethod.toTypeSubstitutedMethodAsInlining(
-                resultingMethodReference, dexItemFactory);
-        makeStatic(resultingMethod);
+                resultingMethodReference,
+                dexItemFactory,
+                builder ->
+                    builder
+                        .modifyAccessFlags(AccessFlags::setStatic)
+                        .unsetIsLibraryMethodOverride());
       } else {
         // This virtual method could be called directly from a sub class via an invoke-super
         // instruction. Therefore, we translate this virtual method into an instance method with a
@@ -550,15 +554,11 @@ class ClassMerger {
     accessFlags.setSynthetic();
     accessFlags.unsetAbstract();
 
-    assert invocationTarget.isStatic()
-        || invocationTarget.isNonPrivateVirtualMethod()
-        || invocationTarget.isNonStaticPrivateMethod();
-    SynthesizedBridgeCode code =
-        new SynthesizedBridgeCode(
+    assert invocationTarget.isStatic() || invocationTarget.isNonPrivateVirtualMethod();
+    IncompleteVerticalClassMergerBridgeCode code =
+        new IncompleteVerticalClassMergerBridgeCode(
             method.getReference(),
-            invocationTarget.isStatic()
-                ? STATIC
-                : (invocationTarget.isNonPrivateVirtualMethod() ? VIRTUAL : DIRECT),
+            invocationTarget.isStatic() ? STATIC : VIRTUAL,
             target.isInterface());
 
     // Add the bridge to the list of synthesized bridges such that the method signatures will
@@ -753,10 +753,5 @@ class ClassMerger {
     accessFlags.unsetProtected();
     accessFlags.setPublic();
     accessFlags.setFinal();
-  }
-
-  private void makeStatic(DexEncodedMethod method) {
-    method.getAccessFlags().setStatic();
-    assert method.getCode().isCfCode();
   }
 }

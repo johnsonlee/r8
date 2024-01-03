@@ -20,7 +20,8 @@ public class ConnectedComponentVerticalClassMerger {
   private final VerticalClassMergerGraphLens.Builder lensBuilder;
 
   // All the bridge methods that have been synthesized during vertical class merging.
-  private final List<SynthesizedBridgeCode> synthesizedBridges = new ArrayList<>();
+  private final List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges =
+      new ArrayList<>();
 
   private final VerticallyMergedClasses.Builder verticallyMergedClassesBuilder =
       VerticallyMergedClasses.builder();

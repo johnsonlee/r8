@@ -20,11 +20,11 @@ import com.android.tools.r8.cf.code.CfSafeCheckCast;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.CfCodeWithLens;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.ir.analysis.value.SingleConstValue;
 import com.android.tools.r8.ir.analysis.value.SingleDexItemBasedStringValue;
@@ -166,17 +166,12 @@ public class IncompleteMergedInstanceInitializerCode extends IncompleteHorizonta
     // Return.
     instructionBuilder.add(new CfReturnVoid());
 
-    return new CfCode(
+    return new CfCodeWithLens(
+        lens,
         originalMethodReference.getHolderType(),
         maxStack.get(),
         maxLocals,
-        instructionBuilder.build()) {
-
-      @Override
-      public GraphLens getCodeLens(AppView<?> appView) {
-        return lens;
-      }
-    };
+        instructionBuilder.build());
   }
 
   private static void addCfInstructionsForInstanceFieldAssignments(

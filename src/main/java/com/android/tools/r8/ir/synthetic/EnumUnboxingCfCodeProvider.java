@@ -25,11 +25,11 @@ import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.CfCodeWithLens;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.ValueType;
@@ -153,7 +153,7 @@ public abstract class EnumUnboxingCfCodeProvider extends SyntheticCfCodeProvider
       assert paramRegisterSize < 256;
       int maxStack = 2 * paramRegisterSize + 16;
       int maxLocals = paramRegisterSize + 16;
-      return new CfCodeWithLens(getHolder(), maxStack, maxLocals, instructions);
+      return new CfCodeWithLens(null, getHolder(), maxStack, maxLocals, instructions);
     }
 
     private void addReturnInvoke(List<CfInstruction> instructions, DexMethod method) {
@@ -300,26 +300,6 @@ public abstract class EnumUnboxingCfCodeProvider extends SyntheticCfCodeProvider
               false));
       instructions.add(new CfThrow());
       return standardCfCodeFromInstructions(instructions);
-    }
-  }
-
-  public static class CfCodeWithLens extends CfCode {
-
-    private GraphLens codeLens;
-
-    public void setCodeLens(GraphLens codeLens) {
-      this.codeLens = codeLens;
-    }
-
-    public CfCodeWithLens(
-        DexType originalHolder, int maxStack, int maxLocals, List<CfInstruction> instructions) {
-      super(originalHolder, maxStack, maxLocals, instructions);
-    }
-
-    @Override
-    public GraphLens getCodeLens(AppView<?> appView) {
-      assert codeLens != null;
-      return codeLens;
     }
   }
 }

@@ -138,6 +138,19 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
   private final com.android.tools.r8.position.Position diagnosticPosition;
   private final BytecodeMetadata<CfInstruction> metadata;
 
+  public CfCode(CfCode code) {
+    this(
+        code.originalHolder,
+        code.maxStack,
+        code.maxLocals,
+        code.instructions,
+        code.tryCatchRanges,
+        code.localVariables,
+        code.diagnosticPosition,
+        code.metadata);
+    this.stackMapStatus = code.stackMapStatus;
+  }
+
   public CfCode(
       DexType originalHolder, int maxStack, int maxLocals, List<CfInstruction> instructions) {
     this(
@@ -896,7 +909,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
   }
 
   @Override
-  public Code getCodeAsInlining(
+  public CfCode getCodeAsInlining(
       DexMethod caller,
       boolean isCallerD8R8Synthesized,
       DexMethod callee,

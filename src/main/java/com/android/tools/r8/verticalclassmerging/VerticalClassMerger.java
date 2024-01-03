@@ -117,7 +117,7 @@ public class VerticalClassMerger {
     assert verifyGraphLens(lens, verticalClassMergerResult);
     updateArtProfiles(profileCollectionAdditions, lens, verticalClassMergerResult);
     appView.rewriteWithLens(lens, executorService, timing);
-    updateKeepInfoForSynthesizedBridges(verticalClassMergerResult);
+    finalizeSynthesizedBridges(verticalClassMergerResult.getSynthesizedBridges(), lens);
     appView.notifyOptimizationFinishedForTesting();
   }
 
@@ -223,9 +223,9 @@ public class VerticalClassMerger {
       VerticalClassMergerResult verticalClassMergerResult) {
     // Include bridges in art profiles.
     if (!profileCollectionAdditions.isNop()) {
-      List<SynthesizedBridgeCode> synthesizedBridges =
+      List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges =
           verticalClassMergerResult.getSynthesizedBridges();
-      for (SynthesizedBridgeCode synthesizedBridge : synthesizedBridges) {
+      for (IncompleteVerticalClassMergerBridgeCode synthesizedBridge : synthesizedBridges) {
         profileCollectionAdditions.applyIfContextIsInProfile(
             verticalClassMergerLens.getPreviousMethodSignature(synthesizedBridge.getMethod()),
             additionsBuilder -> additionsBuilder.addRule(synthesizedBridge.getMethod()));
@@ -247,26 +247,24 @@ public class VerticalClassMerger {
         });
   }
 
-  private void updateKeepInfoForSynthesizedBridges(
-      VerticalClassMergerResult verticalClassMergerResult) {
-    // Copy keep info to newly synthesized methods.
+  private void finalizeSynthesizedBridges(
+      List<IncompleteVerticalClassMergerBridgeCode> bridges, VerticalClassMergerGraphLens lens) {
     KeepInfoCollection keepInfo = appView.getKeepInfo();
-    keepInfo.mutate(
-        mutator -> {
-          List<SynthesizedBridgeCode> synthesizedBridges =
-              verticalClassMergerResult.getSynthesizedBridges();
-          for (SynthesizedBridgeCode synthesizedBridge : synthesizedBridges) {
-            ProgramMethod bridge =
-                asProgramMethodOrNull(appView.definitionFor(synthesizedBridge.getMethod()));
-            ProgramMethod target =
-                asProgramMethodOrNull(appView.definitionFor(synthesizedBridge.getTarget()));
-            if (bridge != null && target != null) {
-              mutator.joinMethod(bridge, info -> info.merge(appView.getKeepInfo(target).joiner()));
-              continue;
-            }
-            assert false;
-          }
-        });
+    for (IncompleteVerticalClassMergerBridgeCode code : bridges) {
+      ProgramMethod bridge = asProgramMethodOrNull(appView.definitionFor(code.getMethod()));
+      assert bridge != null;
+
+      ProgramMethod target = asProgramMethodOrNull(appView.definitionFor(code.getTarget()));
+      assert target != null;
+
+      // Finalize code.
+      bridge.setCode(code.toCfCode(dexItemFactory, lens), appView);
+
+      // Copy keep info to newly synthesized methods.
+      keepInfo.mutate(
+          mutator ->
+              mutator.joinMethod(bridge, info -> info.merge(appView.getKeepInfo(target).joiner())));
+    }
   }
 
   private boolean verifyGraphLens(
@@ -307,14 +305,15 @@ public class VerticalClassMerger {
         DexMethod renamedMethod = graphLens.getRenamedMethodSignature(originalMethod);
 
         // Must be able to map back and forth.
-        if (encodedMethod.hasCode() && encodedMethod.getCode() instanceof SynthesizedBridgeCode) {
+        if (encodedMethod.hasCode()
+            && encodedMethod.getCode() instanceof IncompleteVerticalClassMergerBridgeCode) {
           // For virtual methods, the vertical class merger creates two methods in the sub class
           // in order to deal with invoke-super instructions (one that is private and one that is
           // virtual). Therefore, it is not possible to go back and forth. Instead, we check that
           // the two methods map back to the same original method, and that the original method
           // can be mapped to the implementation method.
           DexMethod implementationMethod =
-              ((SynthesizedBridgeCode) encodedMethod.getCode()).getTarget();
+              ((IncompleteVerticalClassMergerBridgeCode) encodedMethod.getCode()).getTarget();
           DexMethod originalImplementationMethod =
               graphLens.getOriginalMethodSignature(implementationMethod);
           assert originalMethod.isIdenticalTo(originalImplementationMethod);

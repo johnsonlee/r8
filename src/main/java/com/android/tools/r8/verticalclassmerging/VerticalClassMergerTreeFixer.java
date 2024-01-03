@@ -19,7 +19,7 @@ class VerticalClassMergerTreeFixer
         VerticalClassMergerGraphLens,
         VerticallyMergedClasses> {
 
-  private final List<SynthesizedBridgeCode> synthesizedBridges;
+  private final List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges;
 
   VerticalClassMergerTreeFixer(
       AppView<AppInfoWithLiveness> appView,
@@ -39,7 +39,7 @@ class VerticalClassMergerTreeFixer
   public VerticalClassMergerGraphLens run(ExecutorService executorService, Timing timing)
       throws ExecutionException {
     VerticalClassMergerGraphLens lens = super.run(executorService, timing);
-    for (SynthesizedBridgeCode synthesizedBridge : synthesizedBridges) {
+    for (IncompleteVerticalClassMergerBridgeCode synthesizedBridge : synthesizedBridges) {
       synthesizedBridge.updateMethodSignatures(lens);
     }
     return lens;

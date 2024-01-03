@@ -4,16 +4,33 @@
 
 package com.android.tools.r8.horizontalclassmerging.code;
 
-import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.ClasspathMethod;
+import com.android.tools.r8.graph.Code;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
+import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.horizontalclassmerging.ConstructorEntryPoint;
-import com.android.tools.r8.ir.synthetic.AbstractSynthesizedCode;
+import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.NumberGenerator;
+import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.Position.SyntheticPosition;
+import com.android.tools.r8.ir.conversion.IRBuilder;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
+import com.android.tools.r8.ir.conversion.SourceCode;
+import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.RetracerForCodePrinting;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
-import java.util.function.Consumer;
 
-public class ConstructorEntryPointSynthesizedCode extends AbstractSynthesizedCode {
+public class ConstructorEntryPointSynthesizedCode extends Code {
+
   private final DexMethod newConstructor;
   private final DexField classIdField;
   private final Int2ReferenceSortedMap<DexMethod> typeConstructors;
@@ -27,18 +44,7 @@ public class ConstructorEntryPointSynthesizedCode extends AbstractSynthesizedCod
     this.classIdField = classIdField;
   }
 
-  @Override
-  public SourceCodeProvider getSourceCodeProvider() {
-    return (ignored, position) ->
-        new ConstructorEntryPoint(typeConstructors, newConstructor, classIdField, position);
-  }
-
-  @Override
-  public Consumer<UseRegistry> getRegistryCallback(DexClassAndMethod method) {
-    return this::registerReachableDefinitions;
-  }
-
-  private void registerReachableDefinitions(UseRegistry registry) {
+  private void registerReachableDefinitions(UseRegistry<?> registry) {
     assert registry.getTraversalContinuation().shouldContinue();
     for (DexMethod typeConstructor : typeConstructors.values()) {
       registry.registerInvokeDirect(typeConstructor);
@@ -51,5 +57,92 @@ public class ConstructorEntryPointSynthesizedCode extends AbstractSynthesizedCod
   @Override
   public boolean isHorizontalClassMergerCode() {
     return true;
+  }
+
+  @Override
+  public final boolean isEmptyVoidMethod() {
+    return false;
+  }
+
+  @Override
+  public final IRCode buildIR(
+      ProgramMethod method,
+      AppView<?> appView,
+      Origin origin,
+      MutableMethodConversionOptions conversionOptions) {
+    SyntheticPosition position =
+        SyntheticPosition.builder()
+            .setLine(0)
+            .setMethod(method.getReference())
+            .setIsD8R8Synthesized(true)
+            .build();
+    SourceCode sourceCode =
+        new ConstructorEntryPoint(typeConstructors, newConstructor, classIdField, position);
+    return IRBuilder.create(method, appView, sourceCode, origin).build(method, conversionOptions);
+  }
+
+  @Override
+  public final IRCode buildInliningIR(
+      ProgramMethod context,
+      ProgramMethod method,
+      AppView<?> appView,
+      GraphLens codeLens,
+      NumberGenerator valueNumberGenerator,
+      Position callerPosition,
+      Origin origin,
+      RewrittenPrototypeDescription protoChanges) {
+    SourceCode sourceCode =
+        new ConstructorEntryPoint(typeConstructors, newConstructor, classIdField, callerPosition);
+    return IRBuilder.createForInlining(
+            method, appView, codeLens, sourceCode, origin, valueNumberGenerator, protoChanges)
+        .build(context, MethodConversionOptions.nonConverting());
+  }
+
+  @Override
+  public final Code getCodeAsInlining(
+      DexMethod caller,
+      boolean isCallerD8R8Synthesized,
+      DexMethod callee,
+      boolean isCalleeD8R8Synthesized,
+      DexItemFactory factory) {
+    // This code object is synthesized so "inlining" just "strips" the callee position.
+    assert isCalleeD8R8Synthesized;
+    return this;
+  }
+
+  @Override
+  public final String toString() {
+    return toString(null, RetracerForCodePrinting.empty());
+  }
+
+  @Override
+  public final void registerCodeReferences(ProgramMethod method, UseRegistry registry) {
+    registerReachableDefinitions(registry);
+  }
+
+  @Override
+  public final void registerCodeReferencesForDesugaring(
+      ClasspathMethod method, UseRegistry registry) {
+    registerReachableDefinitions(registry);
+  }
+
+  @Override
+  protected final int computeHashCode() {
+    throw new Unreachable();
+  }
+
+  @Override
+  protected final boolean computeEquals(Object other) {
+    throw new Unreachable();
+  }
+
+  @Override
+  public final String toString(DexEncodedMethod method, RetracerForCodePrinting retracer) {
+    return this.getClass().getSimpleName();
+  }
+
+  @Override
+  public final int estimatedDexCodeSizeUpperBoundInBytes() {
+    return Integer.MAX_VALUE;
   }
 }

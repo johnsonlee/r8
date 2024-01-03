@@ -11,12 +11,12 @@ import java.util.List;
 public class VerticalClassMergerResult {
 
   private final VerticalClassMergerGraphLens.Builder lensBuilder;
-  private final List<SynthesizedBridgeCode> synthesizedBridges;
+  private final List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges;
   private final VerticallyMergedClasses verticallyMergedClasses;
 
   public VerticalClassMergerResult(
       VerticalClassMergerGraphLens.Builder lensBuilder,
-      List<SynthesizedBridgeCode> synthesizedBridges,
+      List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges,
       VerticallyMergedClasses verticallyMergedClasses) {
     this.lensBuilder = lensBuilder;
     this.synthesizedBridges = synthesizedBridges;
@@ -29,7 +29,7 @@ public class VerticalClassMergerResult {
 
   public static Builder builder(
       VerticalClassMergerGraphLens.Builder lensBuilder,
-      List<SynthesizedBridgeCode> synthesizedBridges,
+      List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges,
       VerticallyMergedClasses.Builder verticallyMergedClassesBuilder) {
     return new Builder(lensBuilder, synthesizedBridges, verticallyMergedClassesBuilder);
   }
@@ -38,7 +38,7 @@ public class VerticalClassMergerResult {
     return lensBuilder;
   }
 
-  List<SynthesizedBridgeCode> getSynthesizedBridges() {
+  List<IncompleteVerticalClassMergerBridgeCode> getSynthesizedBridges() {
     return synthesizedBridges;
   }
 
@@ -53,7 +53,7 @@ public class VerticalClassMergerResult {
   public static class Builder {
 
     private final VerticalClassMergerGraphLens.Builder lensBuilder;
-    private final List<SynthesizedBridgeCode> synthesizedBridges;
+    private final List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges;
     private final VerticallyMergedClasses.Builder verticallyMergedClassesBuilder;
 
     Builder(AppView<AppInfoWithLiveness> appView) {
@@ -65,7 +65,7 @@ public class VerticalClassMergerResult {
 
     Builder(
         VerticalClassMergerGraphLens.Builder lensBuilder,
-        List<SynthesizedBridgeCode> synthesizedBridges,
+        List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges,
         VerticallyMergedClasses.Builder verticallyMergedClassesBuilder) {
       this.lensBuilder = lensBuilder;
       this.synthesizedBridges = synthesizedBridges;
