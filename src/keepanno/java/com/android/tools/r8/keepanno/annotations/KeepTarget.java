@@ -379,11 +379,35 @@ public @interface KeepTarget {
    * <p>If none, and other properties define this item as a method, the default matches any method
    * name.
    *
-   * <p>Mutually exclusive with the property `memberFromBinding` also defining method-name.
+   * <p>Mutually exclusive with the following other properties defining method-name:
+   *
+   * <ul>
+   *   <li>methodNamePattern
+   *   <li>memberFromBinding
+   * </ul>
    *
    * @return The exact method name of the method.
    */
   String methodName() default "";
+
+  /**
+   * Define the method-name pattern by a string pattern.
+   *
+   * <p>Mutually exclusive with all field properties.
+   *
+   * <p>If none, and other properties define this item as a method, the default matches any method
+   * name.
+   *
+   * <p>Mutually exclusive with the following other properties defining method-name:
+   *
+   * <ul>
+   *   <li>methodName
+   *   <li>memberFromBinding
+   * </ul>
+   *
+   * @return The string pattern of the method name.
+   */
+  StringPattern methodNamePattern() default @StringPattern(exact = "");
 
   /**
    * Define the method return-type pattern by a fully qualified type or 'void'.

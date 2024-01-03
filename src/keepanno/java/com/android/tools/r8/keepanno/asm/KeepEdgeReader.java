@@ -4,6 +4,7 @@
 package com.android.tools.r8.keepanno.asm;
 
 import com.android.tools.r8.keepanno.asm.ClassNameParser.ClassNameProperty;
+import com.android.tools.r8.keepanno.asm.StringPatternParser.StringProperty;
 import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.AccessVisibility;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants;
@@ -52,6 +53,7 @@ import com.android.tools.r8.keepanno.ast.KeepOptions;
 import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
 import com.android.tools.r8.keepanno.ast.KeepPreconditions;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
+import com.android.tools.r8.keepanno.ast.KeepStringPattern;
 import com.android.tools.r8.keepanno.ast.KeepTarget;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
 import com.android.tools.r8.keepanno.ast.ParsingContext;
@@ -1493,6 +1495,7 @@ public class KeepEdgeReader implements Opcodes {
     private final ParsingContext parsingContext;
     private KeepMethodAccessPattern.Builder accessBuilder = null;
     private KeepMethodPattern.Builder builder = null;
+    private final StringPatternParser nameParser;
     private final MethodReturnTypeParser returnTypeParser;
     private final MethodParametersParser parametersParser;
 
@@ -1500,6 +1503,10 @@ public class KeepEdgeReader implements Opcodes {
 
     private MethodDeclaration(ParsingContext parsingContext) {
       this.parsingContext = parsingContext;
+
+      nameParser = new StringPatternParser(parsingContext.group(Item.methodNameGroup));
+      nameParser.setProperty(Item.methodName, StringProperty.EXACT);
+      nameParser.setProperty(Item.methodNamePattern, StringProperty.PATTERN);
 
       returnTypeParser = new MethodReturnTypeParser(parsingContext.group(Item.returnTypeGroup));
       returnTypeParser.setProperty(Item.methodReturnType, TypeProperty.TYPE_NAME);
@@ -1510,7 +1517,7 @@ public class KeepEdgeReader implements Opcodes {
       parametersParser.setProperty(Item.methodParameters, TypeProperty.TYPE_NAME);
       parametersParser.setProperty(Item.methodParameterTypePatterns, TypeProperty.TYPE_PATTERN);
 
-      parsers = ImmutableList.of(returnTypeParser, parametersParser);
+      parsers = ImmutableList.of(nameParser, returnTypeParser, parametersParser);
     }
 
     @Override
@@ -1534,6 +1541,10 @@ public class KeepEdgeReader implements Opcodes {
       if (accessBuilder != null) {
         getBuilder().setAccessPattern(accessBuilder.build());
       }
+      if (!nameParser.isDefault()) {
+        KeepStringPattern namePattern = nameParser.getValue();
+        getBuilder().setNamePattern(KeepMethodNamePattern.fromStringPattern(namePattern));
+      }
       if (!returnTypeParser.isDefault()) {
         getBuilder().setReturnTypePattern(returnTypeParser.getValue());
       }
@@ -1541,15 +1552,6 @@ public class KeepEdgeReader implements Opcodes {
         getBuilder().setParametersPattern(parametersParser.getValue());
       }
       return builder != null ? builder.build() : null;
-    }
-
-    @Override
-    boolean tryParse(String name, Object value) {
-      if (name.equals(Item.methodName) && value instanceof String) {
-        getBuilder().setNamePattern(KeepMethodNamePattern.exact((String) value));
-        return true;
-      }
-      return super.tryParse(name, value);
     }
 
     @Override

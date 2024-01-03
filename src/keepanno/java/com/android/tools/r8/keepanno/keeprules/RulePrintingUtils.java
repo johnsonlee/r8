@@ -24,6 +24,7 @@ import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
 import com.android.tools.r8.keepanno.ast.KeepPackagePattern;
 import com.android.tools.r8.keepanno.ast.KeepPrimitiveTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
+import com.android.tools.r8.keepanno.ast.KeepStringPattern;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepUnqualfiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.ModifierPattern;
@@ -160,6 +161,20 @@ public abstract class RulePrintingUtils {
     return builder.append(")");
   }
 
+  private static RulePrinter printStringPattern(RulePrinter printer, KeepStringPattern pattern) {
+    if (pattern.isExact()) {
+      return printer.append(pattern.asExactString());
+    }
+    if (pattern.hasPrefix()) {
+      printer.append(pattern.getPrefixString());
+    }
+    printer.appendStar();
+    if (pattern.hasSuffix()) {
+      printer.append(pattern.getSuffixString());
+    }
+    return printer;
+  }
+
   private static RulePrinter printFieldName(RulePrinter builder, KeepFieldNamePattern namePattern) {
     return namePattern.isAny()
         ? builder.appendStar()
@@ -168,9 +183,7 @@ public abstract class RulePrintingUtils {
 
   private static RulePrinter printMethodName(
       RulePrinter builder, KeepMethodNamePattern namePattern) {
-    return namePattern.isAny()
-        ? builder.appendStar()
-        : builder.append(namePattern.asExact().getName());
+    return printStringPattern(builder, namePattern.asStringPattern());
   }
 
   private static RulePrinter printReturnType(

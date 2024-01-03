@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
-import com.android.tools.r8.keepanno.ast.KeepMethodNamePattern.KeepMethodNameExactPattern;
 import java.util.Objects;
 
 public final class KeepMethodPattern extends KeepMemberPattern {
@@ -55,9 +54,7 @@ public final class KeepMethodPattern extends KeepMemberPattern {
 
     public KeepMethodPattern build() {
       KeepMethodReturnTypePattern returnTypePattern = this.returnTypePattern;
-      KeepMethodNameExactPattern exactName = namePattern.asExact();
-      if (exactName != null
-          && (exactName.getName().equals("<init>") || exactName.getName().equals("<clinit>"))) {
+      if (namePattern.isInstanceInitializer() || namePattern.isClassInitializer()) {
         if (!this.returnTypePattern.isAny() && !this.returnTypePattern.isVoid()) {
           throw new KeepEdgeException("Method constructor pattern must match 'void' type.");
         }

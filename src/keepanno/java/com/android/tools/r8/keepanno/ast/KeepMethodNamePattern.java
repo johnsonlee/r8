@@ -5,99 +5,115 @@ package com.android.tools.r8.keepanno.ast;
 
 
 public abstract class KeepMethodNamePattern {
+  private static final String INIT_STRING = "<init>";
+  private static final String CLINIT_STRING = "<clinit>";
 
   public static KeepMethodNamePattern any() {
-    return Any.getInstance();
+    return SomePattern.ANY;
   }
 
   public static KeepMethodNamePattern initializer() {
-    return new KeepMethodNameExactPattern("<init>");
+    return SomePattern.INSTANCE_INIT;
   }
 
   public static KeepMethodNamePattern exact(String methodName) {
-    return new KeepMethodNameExactPattern(methodName);
+    return fromStringPattern(KeepStringPattern.exact(methodName));
+  }
+
+  public static KeepMethodNamePattern fromStringPattern(KeepStringPattern pattern) {
+    if (pattern.isAny()) {
+      return SomePattern.ANY;
+    }
+    if (pattern.isExact()) {
+      String exact = pattern.asExactString();
+      if (INIT_STRING.equals(exact)) {
+        return SomePattern.INSTANCE_INIT;
+      }
+      if (CLINIT_STRING.equals(exact)) {
+        return SomePattern.CLASS_INIT;
+      }
+    }
+    return new SomePattern(pattern);
   }
 
   private KeepMethodNamePattern() {}
 
-  public boolean isAny() {
-    return false;
-  }
+  public abstract boolean isAny();
 
-  public final boolean isExact() {
-    return asExact() != null;
-  }
+  public abstract boolean isInstanceInitializer();
 
-  public KeepMethodNameExactPattern asExact() {
-    return null;
-  }
+  public abstract boolean isClassInitializer();
 
-  private static class Any extends KeepMethodNamePattern {
-    private static final Any INSTANCE = new Any();
+  public abstract boolean isExact();
 
-    public static Any getInstance() {
-      return INSTANCE;
+  public abstract String asExactString();
+
+  public abstract KeepStringPattern asStringPattern();
+
+  private static class SomePattern extends KeepMethodNamePattern {
+    private static final SomePattern ANY = new SomePattern(KeepStringPattern.any());
+    private static final KeepMethodNamePattern INSTANCE_INIT =
+        new SomePattern(KeepStringPattern.exact("<init>"));
+    private static final KeepMethodNamePattern CLASS_INIT =
+        new SomePattern(KeepStringPattern.exact("<clinit>"));
+
+    private final KeepStringPattern pattern;
+
+    public SomePattern(KeepStringPattern pattern) {
+      assert pattern != null;
+      this.pattern = pattern;
     }
 
     @Override
-    public boolean isAny() {
-      return true;
+    public KeepStringPattern asStringPattern() {
+      return pattern;
     }
 
     @Override
-    public boolean equals(Object obj) {
-      return this == obj;
-    }
-
-    @Override
-    public int hashCode() {
-      return System.identityHashCode(this);
-    }
-
-    @Override
-    public String toString() {
-      return "*";
-    }
-  }
-
-  public static class KeepMethodNameExactPattern extends KeepMethodNamePattern {
-    private final String name;
-
-    public KeepMethodNameExactPattern(String name) {
-      assert name != null;
-      this.name = name;
-    }
-
-    @Override
-    public KeepMethodNameExactPattern asExact() {
-      return this;
-    }
-
-    public String getName() {
-      return name;
-    }
-
-    @Override
-    @SuppressWarnings("EqualsGetClass")
     public boolean equals(Object o) {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof SomePattern)) {
         return false;
       }
-      KeepMethodNameExactPattern that = (KeepMethodNameExactPattern) o;
-      return name.equals(that.name);
+      SomePattern that = (SomePattern) o;
+      return pattern.equals(that.pattern);
     }
 
     @Override
     public int hashCode() {
-      return name.hashCode();
+      return pattern.hashCode();
     }
 
     @Override
     public String toString() {
-      return name;
+      return pattern.toString();
+    }
+
+    @Override
+    public boolean isAny() {
+      return ANY == this;
+    }
+
+    @Override
+    public boolean isClassInitializer() {
+      return CLASS_INIT == this;
+    }
+
+    @Override
+    public boolean isInstanceInitializer() {
+      return INSTANCE_INIT == this;
+    }
+
+    @Override
+    public boolean isExact() {
+      return pattern.isExact();
+    }
+
+    @Override
+    public String asExactString() {
+      return pattern.asExactString();
     }
   }
 }

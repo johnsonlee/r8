@@ -17,7 +17,6 @@ import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
 import com.android.tools.r8.keepanno.ast.KeepItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberPattern;
-import com.android.tools.r8.keepanno.ast.KeepMethodNamePattern.KeepMethodNameExactPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodPattern;
 import com.android.tools.r8.keepanno.ast.KeepPreconditions;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
@@ -203,9 +202,9 @@ public class KeepEdgeWriter implements Opcodes {
   }
 
   private void writeMethod(KeepMethodPattern method, AnnotationVisitor targetVisitor) {
-    KeepMethodNameExactPattern exactMethodName = method.getNamePattern().asExact();
+    String exactMethodName = method.getNamePattern().asExactString();
     if (exactMethodName != null) {
-      targetVisitor.visit(Item.methodName, exactMethodName.getName());
+      targetVisitor.visit(Item.methodName, exactMethodName);
     } else {
       throw new Unimplemented();
     }
@@ -213,9 +212,8 @@ public class KeepEdgeWriter implements Opcodes {
       throw new Unimplemented();
     }
     if (!method.getReturnTypePattern().isAny()) {
-      if (exactMethodName != null
-          && (exactMethodName.getName().equals("<init>")
-              || exactMethodName.getName().equals("<clinit>"))
+      if ((method.getNamePattern().isInstanceInitializer()
+              || method.getNamePattern().isClassInitializer())
           && method.getReturnTypePattern().isVoid()) {
         // constructors have implicit void return.
       } else {

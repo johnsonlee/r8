@@ -14,6 +14,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.annotations.KeepOption;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
+import com.android.tools.r8.keepanno.annotations.StringPattern;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
 import com.android.tools.r8.keepanno.ast.KeepAnnotationParserException;
@@ -158,6 +159,28 @@ public class KeepInvalidTargetTest extends TestBase {
             classConstant = A.class,
             allow = {KeepOption.OPTIMIZATION},
             disallow = {KeepOption.SHRINKING}))
+    public static void main(String[] args) {
+      System.out.println("Hello, world");
+    }
+  }
+
+  @Test
+  public void testStringPattern() {
+    assertThrowsWith(
+        () -> extractRuleForClass(StringPatternWithExactAndPrefix.class),
+        allOf(
+            containsString("Cannot specify both"),
+            containsString("exact"),
+            containsString("prefix"),
+            containsString("at property: methodNamePattern")));
+  }
+
+  static class StringPatternWithExactAndPrefix {
+
+    @UsesReflection(
+        @KeepTarget(
+            classConstant = A.class,
+            methodNamePattern = @StringPattern(exact = "foo", startsWith = "f")))
     public static void main(String[] args) {
       System.out.println("Hello, world");
     }
