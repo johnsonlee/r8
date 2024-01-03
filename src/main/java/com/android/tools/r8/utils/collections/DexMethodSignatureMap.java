@@ -52,7 +52,11 @@ public class DexMethodSignatureMap<T> implements Map<DexMethodSignature, T> {
   }
 
   public T put(DexEncodedMethod method, T value) {
-    return put(method.getReference(), value);
+    return put(method.getSignature(), value);
+  }
+
+  public T put(DexClassAndMethod method, T value) {
+    return put(method.getMethodSignature(), value);
   }
 
   @Override
@@ -163,6 +167,10 @@ public class DexMethodSignatureMap<T> implements Map<DexMethodSignature, T> {
     return containsKey(method.getSignature());
   }
 
+  public boolean containsKey(DexClassAndMethod method) {
+    return containsKey(method.getMethodSignature());
+  }
+
   @Override
   public boolean containsKey(Object o) {
     return backing.containsKey(o);
@@ -180,6 +188,10 @@ public class DexMethodSignatureMap<T> implements Map<DexMethodSignature, T> {
 
   public T get(DexEncodedMethod method) {
     return get(method.getSignature());
+  }
+
+  public T get(DexClassAndMethod method) {
+    return get(method.getMethodSignature());
   }
 
   public boolean containsKey(DexMethodSignature signature) {

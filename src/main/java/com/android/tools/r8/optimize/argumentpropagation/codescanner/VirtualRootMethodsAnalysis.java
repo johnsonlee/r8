@@ -8,17 +8,16 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorCodeScanner;
 import com.android.tools.r8.optimize.argumentpropagation.utils.DepthFirstTopDownClassHierarchyTraversal;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.collections.DexMethodSignatureMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,13 +44,13 @@ public class VirtualRootMethodsAnalysis extends DepthFirstTopDownClassHierarchyT
     }
 
     VirtualRootMethod(ProgramMethod root, VirtualRootMethod parent) {
+      assert root != null;
       this.parent = parent;
       this.root = root;
     }
 
-    @SuppressWarnings("ReferenceEquality")
     void addOverride(ProgramMethod override) {
-      assert override != root;
+      assert override.getDefinition() != root.getDefinition();
       assert override.getMethodSignature().equals(root.getMethodSignature());
       overrides.add(override);
       if (hasParent()) {
@@ -103,7 +102,7 @@ public class VirtualRootMethodsAnalysis extends DepthFirstTopDownClassHierarchyT
     }
   }
 
-  private final Map<DexProgramClass, Map<DexMethodSignature, VirtualRootMethod>>
+  private final Map<DexProgramClass, DexMethodSignatureMap<VirtualRootMethod>>
       virtualRootMethodsPerClass = new IdentityHashMap<>();
 
   private final Set<DexMethod> monomorphicVirtualMethods = Sets.newIdentityHashSet();
@@ -138,17 +137,18 @@ public class VirtualRootMethodsAnalysis extends DepthFirstTopDownClassHierarchyT
 
   @Override
   public void visit(DexProgramClass clazz) {
-    Map<DexMethodSignature, VirtualRootMethod> state = computeVirtualRootMethodsState(clazz);
+    DexMethodSignatureMap<VirtualRootMethod> state = computeVirtualRootMethodsState(clazz);
     virtualRootMethodsPerClass.put(clazz, state);
   }
 
-  private Map<DexMethodSignature, VirtualRootMethod> computeVirtualRootMethodsState(
+  private DexMethodSignatureMap<VirtualRootMethod> computeVirtualRootMethodsState(
       DexProgramClass clazz) {
-    Map<DexMethodSignature, VirtualRootMethod> virtualRootMethodsForClass = new HashMap<>();
+    DexMethodSignatureMap<VirtualRootMethod> virtualRootMethodsForClass =
+        DexMethodSignatureMap.create();
     immediateSubtypingInfo.forEachImmediateProgramSuperClass(
         clazz,
         superclass -> {
-          Map<DexMethodSignature, VirtualRootMethod> virtualRootMethodsForSuperclass =
+          DexMethodSignatureMap<VirtualRootMethod> virtualRootMethodsForSuperclass =
               virtualRootMethodsPerClass.get(superclass);
           virtualRootMethodsForSuperclass.forEach(
               (signature, info) ->
@@ -157,11 +157,10 @@ public class VirtualRootMethodsAnalysis extends DepthFirstTopDownClassHierarchyT
         });
     clazz.forEachProgramVirtualMethod(
         method -> {
-          DexMethodSignature signature = method.getMethodSignature();
-          if (virtualRootMethodsForClass.containsKey(signature)) {
-            virtualRootMethodsForClass.get(signature).getParent().addOverride(method);
+          if (virtualRootMethodsForClass.containsKey(method)) {
+            virtualRootMethodsForClass.get(method).getParent().addOverride(method);
           } else {
-            virtualRootMethodsForClass.put(signature, new VirtualRootMethod(method));
+            virtualRootMethodsForClass.put(method, new VirtualRootMethod(method));
           }
         });
     return virtualRootMethodsForClass;
@@ -170,7 +169,7 @@ public class VirtualRootMethodsAnalysis extends DepthFirstTopDownClassHierarchyT
   @Override
   public void prune(DexProgramClass clazz) {
     // Record the overrides for each virtual method that is rooted at this class.
-    Map<DexMethodSignature, VirtualRootMethod> virtualRootMethodsForClass =
+    DexMethodSignatureMap<VirtualRootMethod> virtualRootMethodsForClass =
         virtualRootMethodsPerClass.remove(clazz);
     clazz.forEachProgramVirtualMethod(
         rootCandidate -> {
