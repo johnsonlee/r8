@@ -3,13 +3,19 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.gson;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.ProguardVersion;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
@@ -43,6 +49,13 @@ public class GsonNoDefaultConstructorTest extends GsonTestBase {
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("Hello, world!");
 
+  private void inspect(CodeInspector inspector) {
+    ClassSubject dataSubject = inspector.clazz(Data.class);
+    assertThat(dataSubject, isPresentAndRenamed());
+    assertThat(dataSubject.uniqueFieldWithOriginalName("s"), isPresentAndRenamed());
+    assertTrue(dataSubject.allMethods(FoundMethodSubject::isInstanceInitializer).isEmpty());
+  }
+
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
@@ -52,6 +65,9 @@ public class GsonNoDefaultConstructorTest extends GsonTestBase {
         .apply(GsonTestBase::addGsonLibraryAndKeepRules)
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
+        .compile()
+        .inspect(this::serializedNamePresentAndRenamed)
+        .inspect(this::inspect)
         .run(parameters.getRuntime(), TestClass.class, enableUnsafe ? "enable" : "disable")
         .applyIf(
             enableUnsafe,
