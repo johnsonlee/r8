@@ -9,4 +9,8 @@ public class B {
   public static String foo() {
     return "pkg1.B";
   }
+
+  public static void foo(String arg) {
+    System.out.println("pkg1.B: " + arg);
+  }
 }

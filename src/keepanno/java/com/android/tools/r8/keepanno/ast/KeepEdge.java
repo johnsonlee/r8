@@ -44,7 +44,15 @@ package com.android.tools.r8.keepanno.ast;
  *   CLASS_ITEM_PATTERN ::= class QUALIFIED_CLASS_NAME_PATTERN instance-of INSTANCE_OF_PATTERN
  *   MEMBER_ITEM_PATTERN ::= CLASS_ITEM_REFERENCE { MEMBER_PATTERN }
  *
- *   TYPE_PATTERN ::= any | exact type-descriptor
+ *   TYPE_PATTERN
+ *     ::= any
+ *       | PRIMITIVE_TYPE_PATTERN
+ *       | ARRAY_TYPE_PATTERN
+ *       | QUALIFIED_CLASS_NAME_PATTERN
+ *
+ *   PRIMITIVE_TYPE_PATTERN ::= any | boolean | byte | char | short | int | long | float | double
+ *   ARRAY_TYPE_PATTERN ::= any | TYPE_PATTERN dimensions(N > 0)
+ *
  *   PACKAGE_PATTERN ::= any | exact package-name
  *
  *   QUALIFIED_CLASS_NAME_PATTERN

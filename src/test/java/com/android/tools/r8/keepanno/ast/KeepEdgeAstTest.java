@@ -53,7 +53,7 @@ public class KeepEdgeAstTest extends TestBase {
             .build();
     assertEquals(
         StringUtils.unixLines(
-            "-keep class * { void finalize(); }", "-keepclassmembers class * { *; }"),
+            "-keep class ** { void finalize(); }", "-keepclassmembers class ** { *; }"),
         extract(edge));
   }
 
@@ -83,8 +83,8 @@ public class KeepEdgeAstTest extends TestBase {
     // targeted members.
     assertEquals(
         StringUtils.unixLines(
-            "-keep,allow" + allows + " class * { void finalize(); }",
-            "-keepclassmembers,allow" + allows + " class * { *; }"),
+            "-keep,allow" + allows + " class ** { void finalize(); }",
+            "-keepclassmembers,allow" + allows + " class ** { *; }"),
         extract(edge));
   }
 
@@ -110,8 +110,8 @@ public class KeepEdgeAstTest extends TestBase {
     // Allow is just the ordered list of options.
     assertEquals(
         StringUtils.unixLines(
-            "-keep,allowshrinking,allowobfuscation class * { void finalize(); }",
-            "-keepclassmembers,allowshrinking,allowobfuscation class * { *; }"),
+            "-keep,allowshrinking,allowobfuscation class ** { void finalize(); }",
+            "-keepclassmembers,allowshrinking,allowobfuscation class ** { *; }"),
         extract(edge));
   }
 

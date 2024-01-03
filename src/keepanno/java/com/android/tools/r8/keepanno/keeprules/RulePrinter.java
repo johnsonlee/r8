@@ -25,6 +25,7 @@ public class RulePrinter {
   public RulePrinter append(String str) {
     assert !str.contains("*");
     assert !str.contains("(...)");
+    assert !str.contains("%");
     return appendWithoutBackReferenceAssert(str);
   }
 
@@ -43,6 +44,10 @@ public class RulePrinter {
 
   public RulePrinter appendTripleStar() {
     return appendWithoutBackReferenceAssert("***");
+  }
+
+  public RulePrinter appendPercent() {
+    return appendWithoutBackReferenceAssert("%");
   }
 
   public RulePrinter appendAnyParameters() {
@@ -88,6 +93,11 @@ public class RulePrinter {
     @Override
     public RulePrinter appendTripleStar() {
       return addBackRef("***");
+    }
+
+    @Override
+    public RulePrinter appendPercent() {
+      return addBackRef("%");
     }
 
     @Override

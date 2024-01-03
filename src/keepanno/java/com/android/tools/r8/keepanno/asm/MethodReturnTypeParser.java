@@ -8,26 +8,74 @@ import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.KeepMethodReturnTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
 import com.android.tools.r8.keepanno.ast.ParsingContext;
+import java.util.function.Consumer;
+import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.Type;
 
+/**
+ * Parser for parsing method return types.
+ *
+ * <p>This parser wraps a type parser and adds support for parsing the string name {@code "void"} or
+ * the class constant {@code void.class} as the void method return type.
+ */
 public class MethodReturnTypeParser
-    extends ConvertingPropertyParser<KeepTypePattern, KeepMethodReturnTypePattern, TypeProperty> {
+    extends PropertyParserBase<KeepMethodReturnTypePattern, TypeProperty> {
+
+  private final TypeParser typeParser;
 
   public MethodReturnTypeParser(ParsingContext parsingContext) {
-    super(new TypeParser(parsingContext), MethodReturnTypeParser::fromType);
+    super(parsingContext);
+    typeParser = new TypeParser(parsingContext);
   }
 
-  // TODO(b/248408342): It may be problematic dealing with the "void" value at the point of return
-  //  as it is not actually a type in the normal sense. Consider a set up where the "void" cases are
-  //  special cased before dispatch to the underlying type parser.
-  private static KeepMethodReturnTypePattern fromType(KeepTypePattern typePattern) {
-    if (typePattern == null) {
-      return null;
+  static Consumer<KeepTypePattern> wrap(Consumer<KeepMethodReturnTypePattern> fn) {
+    return t -> fn.accept(KeepMethodReturnTypePattern.fromType(t));
+  }
+
+  @Override
+  public KeepMethodReturnTypePattern getValue() {
+    return super.getValue();
+  }
+
+  @Override
+  boolean tryProperty(
+      TypeProperty property,
+      String name,
+      Object value,
+      Consumer<KeepMethodReturnTypePattern> setValue) {
+    if (property == TypeProperty.TYPE_NAME && "void".equals(value)) {
+      setValue.accept(KeepMethodReturnTypePattern.voidType());
+      return true;
     }
-    // Special-case method return types to allow void.
-    String descriptor = typePattern.getDescriptor();
-    if (descriptor.equals("V") || descriptor.equals("Lvoid;")) {
-      return KeepMethodReturnTypePattern.voidType();
+    if (property == TypeProperty.TYPE_CONSTANT && Type.getType("V").equals(value)) {
+      setValue.accept(KeepMethodReturnTypePattern.voidType());
+      return true;
     }
-    return KeepMethodReturnTypePattern.fromType(typePattern);
+    return typeParser.tryProperty(property, name, value, wrap(setValue));
+  }
+
+  @Override
+  public boolean tryPropertyEnum(
+      TypeProperty property,
+      String name,
+      String descriptor,
+      String value,
+      Consumer<KeepMethodReturnTypePattern> setValue) {
+    return typeParser.tryPropertyEnum(property, name, descriptor, value, wrap(setValue));
+  }
+
+  @Override
+  AnnotationVisitor tryPropertyArray(
+      TypeProperty property, String name, Consumer<KeepMethodReturnTypePattern> setValue) {
+    return typeParser.tryPropertyArray(property, name, wrap(setValue));
+  }
+
+  @Override
+  AnnotationVisitor tryPropertyAnnotation(
+      TypeProperty property,
+      String name,
+      String descriptor,
+      Consumer<KeepMethodReturnTypePattern> setValue) {
+    return typeParser.tryPropertyAnnotation(property, name, descriptor, wrap(setValue));
   }
 }

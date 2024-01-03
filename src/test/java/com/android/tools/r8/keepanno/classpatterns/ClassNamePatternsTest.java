@@ -30,7 +30,19 @@ public class ClassNamePatternsTest extends TestBase {
   static final Class<?> A2 = com.android.tools.r8.keepanno.classpatterns.pkg2.A.class;
   static final Class<?> B2 = com.android.tools.r8.keepanno.classpatterns.pkg2.B.class;
 
-  static final String EXPECTED_ALL = StringUtils.lines("pkg1.A", "pkg1.B", "pkg2.A", "pkg2.B");
+  static final String EXPECTED_ALL =
+      StringUtils.lines(
+          "pkg1.A",
+          "pkg1.A: pkg1.A",
+          "pkg1.B",
+          "pkg1.B: pkg1.B",
+          "pkg2.A",
+          "pkg2.A: pkg2.A",
+          "pkg2.B",
+          "pkg2.B: pkg2.B");
+
+  static final String EXPECTED_ALL_NON_VOID =
+      StringUtils.lines("pkg1.A", "pkg1.B", "pkg2.A", "pkg2.B");
   static final String EXPECTED_PKG = StringUtils.lines("pkg1.A", "pkg1.B");
   static final String EXPECTED_NAME = StringUtils.lines("pkg1.B", "pkg2.B");
   static final String EXPECTED_SINGLE = StringUtils.lines("pkg2.A");
@@ -71,6 +83,11 @@ public class ClassNamePatternsTest extends TestBase {
   }
 
   @Test
+  public void testAllNoVoidR8() throws Exception {
+    runTestR8(TestAllNoVoid.class, EXPECTED_ALL_NON_VOID);
+  }
+
+  @Test
   public void testPkgR8() throws Exception {
     runTestR8(TestPkg.class, EXPECTED_PKG);
   }
@@ -85,6 +102,11 @@ public class ClassNamePatternsTest extends TestBase {
     runTestR8(TestSingle.class, EXPECTED_SINGLE);
   }
 
+  @Test
+  public void testSingleNonExactR8() throws Exception {
+    runTestR8(TestSingleWithNonExactReturnTypeClassPattern.class, EXPECTED_SINGLE);
+  }
+
   public List<Class<?>> getBaseInputClasses() {
     return ImmutableList.of(Util.class, A1, B1, A2, B2);
   }
@@ -97,6 +119,7 @@ public class ClassNamePatternsTest extends TestBase {
           try {
             Class<?> clazz = Class.forName(type);
             System.out.println(clazz.getDeclaredMethod("foo").invoke(null));
+            clazz.getDeclaredMethod("foo", String.class).invoke(null, pkg + "." + name);
           } catch (ClassNotFoundException ignored) {
           } catch (IllegalAccessException ignored) {
           } catch (InvocationTargetException ignored) {
@@ -115,7 +138,8 @@ public class ClassNamePatternsTest extends TestBase {
           // The empty class pattern is equivalent to "any class".
           classNamePattern = @ClassNamePattern(),
           methodName = "foo",
-          methodReturnTypeConstant = String.class)
+          // The empty type pattern used in a return-type context will match 'void'.
+          methodReturnTypePattern = @TypePattern())
     })
     public void foo() throws Exception {
       Util.lookupClassesAndInvokeMethods();
@@ -124,6 +148,25 @@ public class ClassNamePatternsTest extends TestBase {
     @UsedByReflection(kind = KeepItemKind.CLASS_AND_METHODS)
     public static void main(String[] args) throws Exception {
       new TestAll().foo();
+    }
+  }
+
+  static class TestAllNoVoid {
+
+    @UsesReflection({
+      @KeepTarget(
+          kind = KeepItemKind.CLASS_AND_METHODS,
+          methodName = "foo",
+          // Matching any class does not include 'void'.
+          methodReturnTypePattern = @TypePattern(classNamePattern = @ClassNamePattern()))
+    })
+    public void foo() throws Exception {
+      Util.lookupClassesAndInvokeMethods();
+    }
+
+    @UsedByReflection(kind = KeepItemKind.CLASS_AND_METHODS)
+    public static void main(String[] args) throws Exception {
+      new TestAllNoVoid().foo();
     }
   }
 
@@ -187,6 +230,28 @@ public class ClassNamePatternsTest extends TestBase {
     @UsedByReflection(kind = KeepItemKind.CLASS_AND_METHODS)
     public static void main(String[] args) throws Exception {
       new TestSingle().foo();
+    }
+  }
+
+  static class TestSingleWithNonExactReturnTypeClassPattern {
+
+    @UsesReflection(
+        @KeepTarget(
+            kind = KeepItemKind.CLASS_AND_METHODS,
+            classNamePattern =
+                @ClassNamePattern(
+                    simpleName = "A",
+                    packageName = "com.android.tools.r8.keepanno.classpatterns.pkg2"),
+            methodName = "foo",
+            methodReturnTypePattern =
+                @TypePattern(classNamePattern = @ClassNamePattern(simpleName = "String"))))
+    public void foo() throws Exception {
+      Util.lookupClassesAndInvokeMethods();
+    }
+
+    @UsedByReflection(kind = KeepItemKind.CLASS_AND_METHODS)
+    public static void main(String[] args) throws Exception {
+      new TestSingleWithNonExactReturnTypeClassPattern().foo();
     }
   }
 }

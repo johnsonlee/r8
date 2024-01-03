@@ -3,9 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.asm;
 
-import com.android.tools.r8.keepanno.ast.KeepEdgeException;
-import com.android.tools.r8.keepanno.ast.KeepMethodReturnTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
+import com.android.tools.r8.keepanno.ast.ParsingContext.PropertyParsingContext;
+import java.util.function.Function;
 
 /**
  * Utilities for mapping the syntax used in annotations to the keep-edge AST.
@@ -57,14 +57,20 @@ public class KeepEdgeReaderUtils {
     throw new IllegalStateException("Unexpected descriptor: " + descriptor);
   }
 
-  public static KeepTypePattern typePatternFromString(String string) {
+  public static KeepTypePattern typePatternFromString(
+      String string, PropertyParsingContext property) {
     if (string.equals("<any>")) {
       return KeepTypePattern.any();
     }
-    return KeepTypePattern.fromDescriptor(getDescriptorFromJavaType(string));
+    return KeepTypePattern.fromDescriptor(internalDescriptorFromJavaType(string, property::error));
   }
 
   public static String getDescriptorFromJavaType(String type) {
+    return internalDescriptorFromJavaType(type, IllegalStateException::new);
+  }
+
+  private static String internalDescriptorFromJavaType(
+      String type, Function<String, RuntimeException> onError) {
     switch (type) {
       case "boolean":
         return "Z";
@@ -87,11 +93,11 @@ public class KeepEdgeReaderUtils {
           StringBuilder builder = new StringBuilder(type.length());
           int i = type.length() - 1;
           if (i < 0) {
-            throw new KeepEdgeException("Invalid empty type");
+            throw onError.apply("Invalid empty type");
           }
           while (type.charAt(i) == ']') {
             if (type.charAt(--i) != '[') {
-              throw new KeepEdgeException("Invalid type: '" + type + "'");
+              throw onError.apply("Invalid type: '" + type + "'");
             }
             builder.append('[');
             --i;
@@ -105,20 +111,5 @@ public class KeepEdgeReaderUtils {
           return builder.toString();
         }
     }
-  }
-
-  public static KeepMethodReturnTypePattern methodReturnTypeFromTypeName(String returnType) {
-    if ("void".equals(returnType)) {
-      return KeepMethodReturnTypePattern.voidType();
-    }
-    return KeepMethodReturnTypePattern.fromType(typePatternFromString(returnType));
-  }
-
-  public static KeepMethodReturnTypePattern methodReturnTypeFromTypeDescriptor(
-      String returnTypeDesc) {
-    if ("V".equals(returnTypeDesc)) {
-      return KeepMethodReturnTypePattern.voidType();
-    }
-    return KeepMethodReturnTypePattern.fromType(KeepTypePattern.fromDescriptor(returnTypeDesc));
   }
 }
