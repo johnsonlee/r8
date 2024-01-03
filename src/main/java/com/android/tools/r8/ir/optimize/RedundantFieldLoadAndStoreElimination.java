@@ -233,7 +233,7 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
     private final ProgramMethod method;
     private final IRCode code;
     private final int maxCapacityPerBlock;
-    private final boolean release;
+    private final boolean release = true;
 
     // Values that may require type propagation.
     private final AffectedValues affectedValues = new AffectedValues();
@@ -254,7 +254,7 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       this.code = code;
       this.maxCapacityPerBlock =
           Math.max(MIN_CAPACITY_PER_BLOCK, MAX_CAPACITY / code.blocks.size());
-      this.release = !appView.options().debug;
+      assert !appView.options().debug;
     }
 
     class ExistingValue implements FieldValue {
