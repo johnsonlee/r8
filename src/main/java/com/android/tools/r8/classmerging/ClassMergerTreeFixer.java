@@ -184,8 +184,9 @@ public abstract class ClassMergerTreeFixer<
     if (newMethodSignature == null) {
       newMethodSignature = fixupMethodReference(originalMethodReference).getSignature();
 
-      // If the signature is already reserved by another interface, find a fresh one.
-      if (reservedInterfaceSignatures.containsValue(newMethodSignature)) {
+      // If the signature is kept or already reserved by another interface, find a fresh one.
+      if (keptSignatures.contains(newMethodSignature)
+          || reservedInterfaceSignatures.containsValue(newMethodSignature)) {
         DexString name =
             dexItemFactory.createGloballyFreshMemberString(
                 originalMethodReference.getName().toSourceString());
