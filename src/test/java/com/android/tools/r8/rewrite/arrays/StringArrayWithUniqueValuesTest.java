@@ -11,7 +11,6 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.dex.Constants;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -48,11 +47,6 @@ public class StringArrayWithUniqueValuesTest extends TestBase {
   private static final String EXPECTED_OUTPUT =
       StringUtils.lines("[A, B, C, D, E]", "[F, G, H, I, J]", "100");
 
-  public boolean canUseFilledNewArrayOfStrings(TestParameters parameters) {
-    return parameters.isDexRuntime()
-        && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.K);
-  }
-
   private enum State {
     EXPECTING_CONSTSTRING,
     EXPECTING_APUTOBJECT
@@ -60,7 +54,7 @@ public class StringArrayWithUniqueValuesTest extends TestBase {
 
   private void inspect(MethodSubject method, int puts, boolean insideCatchHandler) {
     boolean expectingFilledNewArray =
-        canUseFilledNewArrayOfStrings(parameters) && !insideCatchHandler;
+        canUseFilledNewArrayOfStringObjects(parameters) && !insideCatchHandler;
     assertEquals(
         expectingFilledNewArray ? 0 : puts,
         method.streamInstructions().filter(InstructionSubject::isArrayPut).count());

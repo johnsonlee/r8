@@ -1787,6 +1787,20 @@ public class TestBase {
             ToolHelper.getDexVersionForApiLevel(apiLevelWithJavaTime()));
   }
 
+  public boolean canUseFilledNewArrayOfInteger(TestParameters parameters) {
+    return parameters.isDexRuntime();
+  }
+
+  public boolean canUseFilledNewArrayOfStringObjects(TestParameters parameters) {
+    return parameters.isDexRuntime()
+        && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.K);
+  }
+
+  public boolean canUseFilledNewArrayOfNonStringObjects(TestParameters parameters) {
+    return parameters.isDexRuntime()
+        && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N);
+  }
+
   // TODO(b/131130038): Do not allow accessmodification when kept.
   public boolean isForceAccessModifyingPackagePrivateAndProtectedMethods() {
     return true;

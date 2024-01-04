@@ -11,7 +11,6 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.dex.Constants;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -48,11 +47,6 @@ public class ConstClassArrayWithUniqueValuesTest extends TestBase {
   private static final String EXPECTED_OUTPUT =
       StringUtils.lines("[A00, A01, A02, A03, A04]", "[A00, A01, A02, A03, A04]", "100");
 
-  public boolean canUseFilledNewArrayOfClass(TestParameters parameters) {
-    return parameters.isDexRuntime()
-        && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N);
-  }
-
   private enum State {
     EXPECTING_CONSTCLASS,
     EXPECTING_APUTOBJECT
@@ -60,7 +54,7 @@ public class ConstClassArrayWithUniqueValuesTest extends TestBase {
 
   private void inspect(MethodSubject method, int puts, boolean insideCatchHandler) {
     boolean expectingFilledNewArray =
-        canUseFilledNewArrayOfClass(parameters) && !insideCatchHandler;
+        canUseFilledNewArrayOfNonStringObjects(parameters) && !insideCatchHandler;
     assertEquals(
         expectingFilledNewArray ? 0 : puts,
         method.streamInstructions().filter(InstructionSubject::isArrayPut).count());

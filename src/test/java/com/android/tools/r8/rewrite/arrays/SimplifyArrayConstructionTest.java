@@ -212,14 +212,12 @@ public class SimplifyArrayConstructionTest extends TestBase {
       assertArrayTypes(reversedArray, DexFilledNewArray.class);
     }
 
-    // Cannot use filled-new-array of String before K.
-    if (parameters.getApiLevel().isLessThan(AndroidApiLevel.K)) {
+    if (!canUseFilledNewArrayOfStringObjects(parameters)) {
       assertArrayTypes(stringArrays, DexNewArray.class);
     } else {
       assertArrayTypes(stringArrays, DexFilledNewArray.class);
     }
-    // Cannot use filled-new-array of Object before L.
-    if (parameters.getApiLevel().isLessThan(AndroidApiLevel.N)) {
+    if (!canUseFilledNewArrayOfNonStringObjects(parameters)) {
       assertArrayTypes(referenceArraysNoCasts, DexNewArray.class);
       assertArrayTypes(referenceArraysWithSubclasses, DexNewArray.class);
       assertArrayTypes(referenceArraysWithInterfaceImplementations, DexNewArray.class);

@@ -41,10 +41,6 @@ public class IntegerArrayTest extends TestBase {
       StringUtils.lines(
           "[-2147483648, -1, 0, 1, 2147483647]", "[-2147483647, -2, 0, 2, 2147483646]");
 
-  public boolean canUseFilledNewArrayOfInteger(TestParameters parameters) {
-    return parameters.isDexRuntime();
-  }
-
   private void inspect(MethodSubject main) {
     assertEquals(
         canUseFilledNewArrayOfInteger(parameters) ? 0 : 5,

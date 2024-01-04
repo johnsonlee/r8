@@ -12,7 +12,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.dex.Constants;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -47,15 +46,10 @@ public class ConstClassArrayWithNonUniqueValuesTest extends TestBase {
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("100", "104");
 
-  public boolean canUseFilledNewArrayOfClass(TestParameters parameters) {
-    return parameters.isDexRuntime()
-        && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N);
-  }
-
   private void inspect(
       MethodSubject method, int constClasses, int puts, boolean insideCatchHandler) {
     boolean expectingFilledNewArray =
-        canUseFilledNewArrayOfClass(parameters) && !insideCatchHandler;
+        canUseFilledNewArrayOfNonStringObjects(parameters) && !insideCatchHandler;
     assertEquals(
         expectingFilledNewArray ? 0 : puts,
         method.streamInstructions().filter(InstructionSubject::isArrayPut).count());

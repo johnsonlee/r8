@@ -41,11 +41,6 @@ public class ConstClassArrayTest extends TestBase {
   private static final String EXPECTED_OUTPUT =
       StringUtils.lines("[A, B, C, D, E]", "[E, D, C, B, A]");
 
-  public boolean canUseFilledNewArrayOfNonStringObjects(TestParameters parameters) {
-    return parameters.isDexRuntime()
-        && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N);
-  }
-
   private enum State {
     EXPECTING_CONSTCLASS,
     EXPECTING_APUTOBJECT

@@ -12,7 +12,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.dex.Constants;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -47,14 +46,9 @@ public class StaticGetArrayWithNonUniqueValuesTest extends TestBase {
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("100", "50");
 
-  public boolean canUseFilledNewArrayOfObject(TestParameters parameters) {
-    return parameters.isDexRuntime()
-        && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N);
-  }
-
   private void inspect(MethodSubject method, int staticGets, int puts, boolean insideCatchHandler) {
     boolean expectingFilledNewArray =
-        canUseFilledNewArrayOfObject(parameters) && !insideCatchHandler;
+        canUseFilledNewArrayOfNonStringObjects(parameters) && !insideCatchHandler;
     assertEquals(
         expectingFilledNewArray ? 0 : puts,
         method.streamInstructions().filter(InstructionSubject::isArrayPut).count());
@@ -74,12 +68,14 @@ public class StaticGetArrayWithNonUniqueValuesTest extends TestBase {
   private void inspectD8(CodeInspector inspector) {
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"),
-        canUseFilledNewArrayOfObject(parameters) ? 100 : 1,
+        canUseFilledNewArrayOfNonStringObjects(parameters) ? 100 : 1,
         100,
         false);
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
-        canUseFilledNewArrayOfObject(parameters) ? 50 : (maxMaterializingConstants == 2 ? 42 : 10),
+        canUseFilledNewArrayOfNonStringObjects(parameters)
+            ? 50
+            : (maxMaterializingConstants == 2 ? 42 : 10),
         50,
         false);
   }
