@@ -5,6 +5,7 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+import static com.google.common.base.Predicates.alwaysFalse;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -16,6 +17,7 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
@@ -28,15 +30,22 @@ import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.shaking.KeepFieldInfo.Joiner;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.Streams;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 // Non-mutable collection of keep information pertaining to a program.
@@ -252,6 +261,8 @@ public abstract class KeepInfoCollection {
       Timing timing);
 
   public abstract KeepInfoCollection mutate(Consumer<MutableKeepInfoCollection> mutator);
+
+  public abstract void writeToDirectory(Path directory) throws IOException;
 
   // Mutation interface for building up the keep info.
   public static class MutableKeepInfoCollection extends KeepInfoCollection {
@@ -610,6 +621,54 @@ public abstract class KeepInfoCollection {
               consumer.accept(field);
             }
           });
+    }
+
+    @Override
+    public void writeToDirectory(Path directory) throws IOException {
+      writePropertyToFile(
+          directory.resolve("no-horizontal-class-merging.txt"),
+          classInfo -> !classInfo.internalIsHorizontalClassMergingAllowed(),
+          alwaysFalse(),
+          alwaysFalse());
+      writePropertyToFile(
+          directory.resolve("no-optimization.txt"),
+          classInfo -> !classInfo.internalIsOptimizationAllowed(),
+          fieldInfo -> !fieldInfo.internalIsOptimizationAllowed(),
+          methodInfo -> !methodInfo.internalIsOptimizationAllowed());
+      writePropertyToFile(
+          directory.resolve("no-shrinking.txt"),
+          classInfo -> !classInfo.internalIsShrinkingAllowed(),
+          fieldInfo -> !fieldInfo.internalIsShrinkingAllowed(),
+          methodInfo -> !methodInfo.internalIsShrinkingAllowed());
+    }
+
+    private void writePropertyToFile(
+        Path path,
+        Predicate<KeepClassInfo> classInfoPredicate,
+        Predicate<KeepFieldInfo> fieldInfoPredicate,
+        Predicate<KeepMethodInfo> methodInfoPredicate)
+        throws IOException {
+      List<DexReference> lines = new ArrayList<>();
+      keepClassInfo.forEach(
+          (clazz, info) -> {
+            if (classInfoPredicate.test(info)) {
+              lines.add(clazz);
+            }
+          });
+      keepFieldInfo.forEach(
+          (field, info) -> {
+            if (fieldInfoPredicate.test(info)) {
+              lines.add(field);
+            }
+          });
+      keepMethodInfo.forEach(
+          (method, info) -> {
+            if (methodInfoPredicate.test(info)) {
+              lines.add(method);
+            }
+          });
+      lines.sort(DexReference::compareTo);
+      Files.write(path, ListUtils.map(lines, DexItem::toSourceString));
     }
   }
 }
