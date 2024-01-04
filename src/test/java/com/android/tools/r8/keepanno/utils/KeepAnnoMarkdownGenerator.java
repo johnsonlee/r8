@@ -421,7 +421,7 @@ public class KeepAnnoMarkdownGenerator {
     }
 
     public String getIdAnchor() {
-      return name + "<a id=" + quote(id) + "></a>";
+      return name + "<a name=" + quote(id) + "></a>";
     }
   }
 }

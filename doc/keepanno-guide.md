@@ -31,7 +31,7 @@ bugs](https://issuetracker.google.com/issues/new?component=326788) in the
 
 
 
-## Introduction<a id="introduction"></a>
+## Introduction<a name="introduction"></a>
 
 When using a Java/Kotlin shrinker such as R8 or Proguard, developers must inform
 the shrinker about parts of the program that are used either externally from the
@@ -50,7 +50,7 @@ allowing more precise shrinking.  In addition, the annotations are defined
 independent from keep rules and have a hopefully more clear and direct meaning.
 
 
-## Build configuration<a id="build-configuration"></a>
+## Build configuration<a name="build-configuration"></a>
 
 To use the keep annotations your build must include the library of
 annotations. It is currently built as part of each R8 build and if used with R8,
@@ -77,7 +77,7 @@ java -Dcom.android.tools.r8.enableKeepAnnotations=1 \
 ```
 
 
-## Annotating code using reflection<a id="using-reflection"></a>
+## Annotating code using reflection<a name="using-reflection"></a>
 
 The keep annotation library defines a family of annotations depending on your
 use case. You should generally prefer [@UsesReflection](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsesReflection.html) where applicable.
@@ -85,7 +85,7 @@ Common uses of reflection are to lookup fields and methods on classes. Examples
 of such use cases are detailed below.
 
 
-### Invoking methods<a id="using-reflection-methods"></a>
+### Invoking methods<a name="using-reflection-methods"></a>
 
 For example, if your program is reflectively invoking a method, you
 should annotate the method that is doing the reflection. The annotation must describe the
@@ -117,7 +117,7 @@ public class MyHiddenMethodCaller {
 
 
 
-### Accessing fields<a id="using-reflection-fields"></a>
+### Accessing fields<a name="using-reflection-fields"></a>
 
 For example, if your program is reflectively accessing the fields on a class, you should
 annotate the method that is doing the reflection.
@@ -152,7 +152,7 @@ public class MyFieldValuePrinter {
 
 
 
-## Annotating code used by reflection (or via JNI)<a id="used-by-reflection"></a>
+## Annotating code used by reflection (or via JNI)<a name="used-by-reflection"></a>
 
 Sometimes reflecting code cannot be annotated. For example, the reflection can
 be done in native code or in a library outside your control. In such cases you
@@ -232,7 +232,7 @@ public class MyClassWithFields implements PrintableFieldInterface {
 
 
 
-## Annotating APIs<a id="apis"></a>
+## Annotating APIs<a name="apis"></a>
 
 If your code is being shrunk before release as a library, or if you have an API
 surface that is used via dynamic loading at runtime, then you need to keep the
@@ -298,7 +298,7 @@ public class MyOtherApi {
 
 
 
-## Migrating rules to annotations<a id="migrating-rules"></a>
+## Migrating rules to annotations<a name="migrating-rules"></a>
 
 There is no automatic migration of keep rules. Keep annotations often invert the
 direction and rules have no indication of where the reflection is taking
@@ -338,7 +338,7 @@ public class SomeClass {
 
 
 
-## My use case is not covered!<a id="other-uses"></a>
+## My use case is not covered!<a name="other-uses"></a>
 
 The annotation library is in active development and not all use cases are
 described here or supported. Reach out to the R8 team by
@@ -346,7 +346,7 @@ described here or supported. Reach out to the R8 team by
 Describe your use case and we will look at how best to support it.
 
 
-## Troubleshooting<a id="troubleshooting"></a>
+## Troubleshooting<a name="troubleshooting"></a>
 
 If an annotation is not working as expected it may be helpful to inspect the
 rules that have been extracted for the annotation. This can be done by
