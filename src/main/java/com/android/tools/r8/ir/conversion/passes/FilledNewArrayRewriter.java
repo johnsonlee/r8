@@ -114,7 +114,6 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
     return CodeRewriterResult.HAS_CHANGED;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private boolean canUseNewArrayFilled(NewArrayFilled newArrayFilled) {
     if (!options.isGeneratingDex()) {
       return false;
@@ -125,7 +124,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
     }
     // filled-new-array is implemented only for int[] and Object[].
     DexType arrayType = newArrayFilled.getArrayType();
-    if (arrayType == dexItemFactory.intArrayType) {
+    if (arrayType.isIdenticalTo(dexItemFactory.intArrayType)) {
       // For int[], using filled-new-array is usually smaller than filled-array-data.
       // filled-new-array supports up to 5 registers before it's filled-new-array/range.
       if (size > rewriteArrayOptions.maxSizeForFilledNewArrayOfInts) {
@@ -143,7 +142,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
       if (size > rewriteArrayOptions.maxSizeForFilledNewArrayOfReferences) {
         return false;
       }
-      if (arrayType == dexItemFactory.stringArrayType) {
+      if (arrayType.isIdenticalTo(dexItemFactory.stringArrayType)) {
         return rewriteArrayOptions.canUseFilledNewArrayOfStrings();
       }
       if (!rewriteArrayOptions.canUseFilledNewArrayOfNonStringObjects()) {
@@ -155,7 +154,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
       }
       // Check that all arguments to the array is the array type or that the array is type Object[].
       if (rewriteArrayOptions.canHaveSubTypesInFilledNewArrayBug()
-          && arrayType != dexItemFactory.objectArrayType
+          && arrayType.isNotIdenticalTo(dexItemFactory.objectArrayType)
           && !arrayType.isPrimitiveArrayType()) {
         DexType arrayElementType = arrayType.toArrayElementType(dexItemFactory);
         for (Value elementValue : newArrayFilled.inValues()) {
@@ -169,9 +168,8 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
     return false;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private boolean canStoreElementInNewArrayFilled(TypeElement valueType, DexType elementType) {
-    if (elementType == dexItemFactory.objectType) {
+    if (elementType.isIdenticalTo(dexItemFactory.objectType)) {
       return true;
     }
     if (valueType.isNullType() && !elementType.isPrimitiveType()) {
