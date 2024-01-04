@@ -829,9 +829,6 @@ public class KeepEdgeReader implements Opcodes {
         if (!descriptor.equals(itemDescriptor)) {
           throw parsingContext.error("must reference its class context " + className);
         }
-        if (itemPattern.isMemberItemPattern() && items.size() == 1) {
-          throw parsingContext.error("kind must include its class");
-        }
         if (!holderPattern.getInstanceOfPattern().isAny()) {
           throw parsingContext.error("cannot define an 'extends' pattern.");
         }

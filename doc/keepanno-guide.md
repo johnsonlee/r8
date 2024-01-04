@@ -154,7 +154,82 @@ public class MyFieldValuePrinter {
 
 ## Annotating code used by reflection (or via JNI)<a id="used-by-reflection"></a>
 
-TODO
+Sometimes reflecting code cannot be annotated. For example, the reflection can
+be done in native code or in a library outside your control. In such cases you
+can annotate the code that is being used by reflection with either
+[@UsedByReflection](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html) or [@UsedByNative](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByNative.html). These two annotations are equivalent.
+Use the one that best matches why the annotation is needed.
+
+Let's consider some code with reflection outside our control.
+For example, the same field printing as in the above example might be part of a library.
+
+In this example, the `MyClassWithFields` is a class you are passing to the
+field-printing utility of the library. Since the library is reflectively accessing each field
+we annotate them with the [@UsedByReflection](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html) annotation.
+
+We could additionally add the [@UsedByReflection.constraints](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html#constraints()) property as we did previously.
+We elide it here for brevity.
+
+
+```
+public static class MyClassWithFields implements PrintableFieldInterface {
+  @UsedByReflection final int intField = 42;
+
+  @UsedByReflection String stringField = "Hello!";
+}
+
+public static void run() throws Exception {
+  new FieldValuePrinterLibrary().printFieldValues(new MyClassWithFields());
+}
+```
+
+
+Rather than annotate the individual fields we can annotate the holder and add a specification
+similar to the [@KeepTarget](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html). The [@UsedByReflection.kind](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html#kind()) specifies that only the fields are
+used reflectively. In particular, the "field printer" example we are considering here does not
+make reflective assumptions about the holder class, so we should not constrain it.
+
+To be more precise let's add the [@UsedByReflection.constraints](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html#constraints()) property now. This specifies
+that the fields are looked up, their names are used/assumed and their values are read.
+
+
+```
+@UsedByReflection(
+    kind = KeepItemKind.ONLY_FIELDS,
+    constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
+public static class MyClassWithFields implements PrintableFieldInterface {
+  final int intField = 42;
+  String stringField = "Hello!";
+}
+```
+
+
+Our use of [@UsedByReflection](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html) is still not as flexible as the original [@UsesReflection](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsesReflection.html). In
+particular, if we change our code to no longer have any call to the library method
+`printFieldValues` the shrinker will still keep all of the fields on our annotated class.
+
+This is because the [@UsesReflection](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsesReflection.html) implicitly encodes as a precondition that the annotated
+method is actually used in the program. If not, the [@UsesReflection](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsesReflection.html) annotation is not
+"active".
+
+Luckily we can specify the same precondition using [@UsedByReflection.preconditions](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html#preconditions()).
+
+
+```
+@UsedByReflection(
+    preconditions = {
+      @KeepCondition(
+          classConstant = FieldValuePrinterLibrary.class,
+          methodName = "printFieldValues")
+    },
+    kind = KeepItemKind.ONLY_FIELDS,
+    constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
+public static class MyClassWithFields implements PrintableFieldInterface {
+  final int intField = 42;
+  String stringField = "Hello!";
+}
+```
+
 
 
 ## Annotating APIs<a id="apis"></a>

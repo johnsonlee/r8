@@ -6,9 +6,11 @@ package com.android.tools.r8.keepanno.doctests;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.keepanno.annotations.KeepCondition;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
+import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
@@ -22,8 +24,17 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class UsesReflectionDocumentationTest extends TestBase {
 
+  static final String EXPECTED_METHOD_EXAMPLE = StringUtils.joinLines("on Base", "on Sub");
+  static final String EXPECTED_FIELD_EXAMPLE =
+      StringUtils.joinLines("intField = 42", "stringField = Hello!");
+
   static final String EXPECTED =
-      StringUtils.lines("on Base", "on Sub", "intField = 42", "stringField = Hello!");
+      StringUtils.lines(
+          EXPECTED_METHOD_EXAMPLE,
+          EXPECTED_FIELD_EXAMPLE,
+          EXPECTED_FIELD_EXAMPLE,
+          EXPECTED_FIELD_EXAMPLE,
+          EXPECTED_FIELD_EXAMPLE);
 
   private final TestParameters parameters;
 
@@ -58,7 +69,8 @@ public class UsesReflectionDocumentationTest extends TestBase {
   }
 
   public List<Class<?>> getExampleClasses() {
-    return ImmutableList.of(Example1.class, Example2.class);
+    return ImmutableList.of(
+        Example1.class, Example2.class, Example3.class, Example4.class, Example5.class);
   }
 
   static class Example1 {
@@ -160,11 +172,137 @@ public class UsesReflectionDocumentationTest extends TestBase {
     }
   }
 
+  static class Example3 {
+
+    interface PrintableFieldInterface {}
+
+    /* INCLUDE DOC: UsedByReflectionFieldPrinterOnFields
+    For example, the same field printing as in the above example might be part of a library.
+
+    In this example, the `MyClassWithFields` is a class you are passing to the
+    field-printing utility of the library. Since the library is reflectively accessing each field
+    we annotate them with the `@UsedByReflection` annotation.
+
+    We could additionally add the `@UsedByReflection#constraints` property as we did previously.
+    We elide it here for brevity.
+    INCLUDE END */
+
+    // INCLUDE CODE: UsedByReflectionFieldPrinterOnFields
+    public static class MyClassWithFields implements PrintableFieldInterface {
+      @UsedByReflection final int intField = 42;
+
+      @UsedByReflection String stringField = "Hello!";
+    }
+
+    public static void run() throws Exception {
+      new FieldValuePrinterLibrary().printFieldValues(new MyClassWithFields());
+    }
+
+    // INCLUDE END
+
+    public static class FieldValuePrinterLibrary {
+
+      public void printFieldValues(PrintableFieldInterface objectWithFields) throws Exception {
+        for (Field field : objectWithFields.getClass().getDeclaredFields()) {
+          System.out.println(field.getName() + " = " + field.get(objectWithFields));
+        }
+      }
+    }
+  }
+
+  static class Example4 {
+
+    interface PrintableFieldInterface {}
+
+    /* INCLUDE DOC: UsedByReflectionFieldPrinterOnClass
+    Rather than annotate the individual fields we can annotate the holder and add a specification
+    similar to the `@KeepTarget`. The `@UsedByReflection#kind` specifies that only the fields are
+    used reflectively. In particular, the "field printer" example we are considering here does not
+    make reflective assumptions about the holder class, so we should not constrain it.
+
+    To be more precise let's add the `@UsedByReflection#constraints` property now. This specifies
+    that the fields are looked up, their names are used/assumed and their values are read.
+    INCLUDE END */
+
+    // INCLUDE CODE: UsedByReflectionFieldPrinterOnClass
+    @UsedByReflection(
+        kind = KeepItemKind.ONLY_FIELDS,
+        constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
+    public static class MyClassWithFields implements PrintableFieldInterface {
+      final int intField = 42;
+      String stringField = "Hello!";
+    }
+
+    // INCLUDE END
+
+    public static void run() throws Exception {
+      new FieldValuePrinterLibrary().printFieldValues(new MyClassWithFields());
+    }
+
+    public static class FieldValuePrinterLibrary {
+
+      public void printFieldValues(PrintableFieldInterface objectWithFields) throws Exception {
+        for (Field field : objectWithFields.getClass().getDeclaredFields()) {
+          System.out.println(field.getName() + " = " + field.get(objectWithFields));
+        }
+      }
+    }
+  }
+
+  static class Example5 {
+
+    interface PrintableFieldInterface {}
+
+    /* INCLUDE DOC: UsedByReflectionFieldPrinterConditional
+    Our use of `@UsedByReflection` is still not as flexible as the original `@UsesReflection`. In
+    particular, if we change our code to no longer have any call to the library method
+    `printFieldValues` the shrinker will still keep all of the fields on our annotated class.
+
+    This is because the `@UsesReflection` implicitly encodes as a precondition that the annotated
+    method is actually used in the program. If not, the `@UsesReflection` annotation is not
+    "active".
+
+    Luckily we can specify the same precondition using `@UsedByReflection#preconditions`.
+    INCLUDE END */
+
+    // INCLUDE CODE: UsedByReflectionFieldPrinterConditional
+    @UsedByReflection(
+        preconditions = {
+          @KeepCondition(
+              classConstant = FieldValuePrinterLibrary.class,
+              methodName = "printFieldValues")
+        },
+        kind = KeepItemKind.ONLY_FIELDS,
+        constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
+    public static class MyClassWithFields implements PrintableFieldInterface {
+      final int intField = 42;
+      String stringField = "Hello!";
+    }
+
+    // INCLUDE END
+
+    public static void run() throws Exception {
+      new FieldValuePrinterLibrary().printFieldValues(new MyClassWithFields());
+    }
+
+    public static class FieldValuePrinterLibrary {
+
+      public void printFieldValues(PrintableFieldInterface objectWithFields) throws Exception {
+        for (Field field : objectWithFields.getClass().getDeclaredFields()) {
+          System.out.println(field.getName() + " = " + field.get(objectWithFields));
+        }
+      }
+    }
+  }
+
   static class TestClass {
 
     public static void main(String[] args) throws Exception {
       Example1.run();
       Example2.run();
+      Example3.run();
+      Example4.run();
+      Example5.run();
     }
   }
 }
