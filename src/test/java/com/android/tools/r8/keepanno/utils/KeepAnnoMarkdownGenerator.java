@@ -20,6 +20,7 @@ import com.android.tools.r8.keepanno.annotations.MethodAccessFlags;
 import com.android.tools.r8.keepanno.annotations.UsedByNative;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
+import com.android.tools.r8.keepanno.doctests.ForApiDocumentationTest;
 import com.android.tools.r8.keepanno.doctests.MainMethodsDocumentationTest;
 import com.android.tools.r8.keepanno.doctests.UsesReflectionDocumentationTest;
 import com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.Generator;
@@ -92,7 +93,9 @@ public class KeepAnnoMarkdownGenerator {
             MethodAccessFlags.class,
             FieldAccessFlags.class);
     populateCodeAndDocReplacements(
-        UsesReflectionDocumentationTest.class, MainMethodsDocumentationTest.class);
+        UsesReflectionDocumentationTest.class,
+        ForApiDocumentationTest.class,
+        MainMethodsDocumentationTest.class);
   }
 
   private Map<String, String> getTypeLinkReplacements(Class<?>... classes) {

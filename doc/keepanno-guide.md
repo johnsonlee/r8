@@ -172,7 +172,7 @@ We elide it here for brevity.
 
 
 ```
-public static class MyClassWithFields implements PrintableFieldInterface {
+public class MyClassWithFields implements PrintableFieldInterface {
   @UsedByReflection final int intField = 42;
 
   @UsedByReflection String stringField = "Hello!";
@@ -197,7 +197,7 @@ that the fields are looked up, their names are used/assumed and their values are
 @UsedByReflection(
     kind = KeepItemKind.ONLY_FIELDS,
     constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
-public static class MyClassWithFields implements PrintableFieldInterface {
+public class MyClassWithFields implements PrintableFieldInterface {
   final int intField = 42;
   String stringField = "Hello!";
 }
@@ -224,7 +224,7 @@ Luckily we can specify the same precondition using [@UsedByReflection.preconditi
     },
     kind = KeepItemKind.ONLY_FIELDS,
     constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
-public static class MyClassWithFields implements PrintableFieldInterface {
+public class MyClassWithFields implements PrintableFieldInterface {
   final int intField = 42;
   String stringField = "Hello!";
 }
@@ -234,7 +234,68 @@ public static class MyClassWithFields implements PrintableFieldInterface {
 
 ## Annotating APIs<a id="apis"></a>
 
-TODO
+If your code is being shrunk before release as a library, or if you have an API
+surface that is used via dynamic loading at runtime, then you need to keep the
+API surface. For that you should use the [@KeepForApi](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepForApi.html) annotation.
+
+When annotating a class the default for [@KeepForApi](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepForApi.html) is to keep the class as well as all of its
+public and protected members:
+
+
+```
+@KeepForApi
+public class MyApi {
+  public void thisPublicMethodIsKept() {
+    /* ... */
+  }
+
+  protected void thisProtectedMethodIsKept() {
+    /* ... */
+  }
+
+  void thisPackagePrivateMethodIsNotKept() {
+    /* ... */
+  }
+
+  private void thisPrivateMethodIsNotKept() {
+    /* ... */
+  }
+}
+```
+
+
+The default can be changed using the [@KeepForApi.memberAccess](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepForApi.html#memberAccess()) property:
+
+
+```
+@KeepForApi(
+    memberAccess = {
+      MemberAccessFlags.PUBLIC,
+      MemberAccessFlags.PROTECTED,
+      MemberAccessFlags.PACKAGE_PRIVATE
+    })
+```
+
+
+The [@KeepForApi](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepForApi.html) annotation can also be placed directly on members and avoid keeping
+unannotated members. The holder class is implicitly kept. When annotating the members
+directly, the access does not matter as illustrated here by annotating a package private method:
+
+
+```
+public class MyOtherApi {
+
+  public void notKept() {
+    /* ... */
+  }
+
+  @KeepForApi
+  void isKept() {
+    /* ... */
+  }
+}
+```
+
 
 
 ## Migrating rules to annotations<a id="migrating-rules"></a>

@@ -187,8 +187,9 @@ public class UsesReflectionDocumentationTest extends TestBase {
     We elide it here for brevity.
     INCLUDE END */
 
+    static
     // INCLUDE CODE: UsedByReflectionFieldPrinterOnFields
-    public static class MyClassWithFields implements PrintableFieldInterface {
+    public class MyClassWithFields implements PrintableFieldInterface {
       @UsedByReflection final int intField = 42;
 
       @UsedByReflection String stringField = "Hello!";
@@ -224,11 +225,12 @@ public class UsesReflectionDocumentationTest extends TestBase {
     that the fields are looked up, their names are used/assumed and their values are read.
     INCLUDE END */
 
+    static
     // INCLUDE CODE: UsedByReflectionFieldPrinterOnClass
     @UsedByReflection(
         kind = KeepItemKind.ONLY_FIELDS,
         constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
-    public static class MyClassWithFields implements PrintableFieldInterface {
+    public class MyClassWithFields implements PrintableFieldInterface {
       final int intField = 42;
       String stringField = "Hello!";
     }
@@ -265,6 +267,7 @@ public class UsesReflectionDocumentationTest extends TestBase {
     Luckily we can specify the same precondition using `@UsedByReflection#preconditions`.
     INCLUDE END */
 
+    static
     // INCLUDE CODE: UsedByReflectionFieldPrinterConditional
     @UsedByReflection(
         preconditions = {
@@ -274,7 +277,7 @@ public class UsesReflectionDocumentationTest extends TestBase {
         },
         kind = KeepItemKind.ONLY_FIELDS,
         constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
-    public static class MyClassWithFields implements PrintableFieldInterface {
+    public class MyClassWithFields implements PrintableFieldInterface {
       final int intField = 42;
       String stringField = "Hello!";
     }

@@ -108,7 +108,21 @@ Let's consider some code with reflection outside our control.
 
 ## [Annotating APIs](apis)
 
-TODO
+If your code is being shrunk before release as a library, or if you have an API
+surface that is used via dynamic loading at runtime, then you need to keep the
+API surface. For that you should use the `@KeepForApi` annotation.
+
+[[[INCLUDE DOC:ApiClass]]]
+
+[[[INCLUDE CODE:ApiClass]]]
+
+[[[INCLUDE DOC:ApiClassMemberAccess]]]
+
+[[[INCLUDE CODE:ApiClassMemberAccess]]]
+
+[[[INCLUDE DOC:ApiMember]]]
+
+[[[INCLUDE CODE:ApiMember]]]
 
 
 ## [Migrating rules to annotations](migrating-rules)
