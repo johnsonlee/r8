@@ -821,7 +821,14 @@ public class KeepItemAnnotationGenerator {
                   .addParagraph(getMutuallyExclusiveForFieldProperties())
                   .addParagraph(getFieldDefaultDoc("any field name"))
                   .setDocReturn("The exact field name of the field.")
-                  .defaultEmptyString());
+                  .defaultEmptyString())
+          .addMember(
+              new GroupMember("fieldNamePattern")
+                  .setDocTitle("Define the field-name pattern by a string pattern.")
+                  .addParagraph(getMutuallyExclusiveForFieldProperties())
+                  .addParagraph(getFieldDefaultDoc("any field name"))
+                  .setDocReturn("The string pattern of the field name.")
+                  .defaultValue(StringPattern.class, DEFAULT_INVALID_STRING_PATTERN));
     }
 
     private Group createFieldTypeGroup() {

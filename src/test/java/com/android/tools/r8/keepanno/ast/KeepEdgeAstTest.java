@@ -250,7 +250,7 @@ public class KeepEdgeAstTest extends TestBase {
 
   private KeepMemberPattern defaultInitializerPattern() {
     return KeepMethodPattern.builder()
-        .setNamePattern(KeepMethodNamePattern.initializer())
+        .setNamePattern(KeepMethodNamePattern.instanceInitializer())
         .setParametersPattern(KeepMethodParametersPattern.none())
         .setReturnTypeVoid()
         .build();

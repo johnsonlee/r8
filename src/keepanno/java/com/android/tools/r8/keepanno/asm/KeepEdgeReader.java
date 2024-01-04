@@ -1567,6 +1567,7 @@ public class KeepEdgeReader implements Opcodes {
   private static class FieldDeclaration extends Declaration<KeepFieldPattern> {
 
     private final ParsingContext parsingContext;
+    private final StringPatternParser nameParser;
     private final FieldTypeParser typeParser;
     private KeepFieldAccessPattern.Builder accessBuilder = null;
     private KeepFieldPattern.Builder builder = null;
@@ -1574,12 +1575,16 @@ public class KeepEdgeReader implements Opcodes {
 
     public FieldDeclaration(ParsingContext parsingContext) {
       this.parsingContext = parsingContext;
+      nameParser = new StringPatternParser(parsingContext.group(Item.fieldNameGroup));
+      nameParser.setProperty(Item.fieldName, StringProperty.EXACT);
+      nameParser.setProperty(Item.fieldNamePattern, StringProperty.PATTERN);
+
       typeParser = new FieldTypeParser(parsingContext.group(Item.fieldTypeGroup));
       typeParser.setProperty(Item.fieldTypePattern, TypeProperty.TYPE_PATTERN);
       typeParser.setProperty(Item.fieldType, TypeProperty.TYPE_NAME);
       typeParser.setProperty(Item.fieldTypeConstant, TypeProperty.TYPE_CONSTANT);
 
-      parsers = Collections.singletonList(typeParser);
+      parsers = ImmutableList.of(nameParser, typeParser);
     }
 
     @Override
@@ -1603,19 +1608,13 @@ public class KeepEdgeReader implements Opcodes {
       if (accessBuilder != null) {
         getBuilder().setAccessPattern(accessBuilder.build());
       }
+      if (!nameParser.isDefault()) {
+        getBuilder().setNamePattern(KeepFieldNamePattern.fromStringPattern(nameParser.getValue()));
+      }
       if (!typeParser.isDefault()) {
         getBuilder().setTypePattern(typeParser.getValue());
       }
       return builder != null ? builder.build() : null;
-    }
-
-    @Override
-    boolean tryParse(String name, Object value) {
-      if (name.equals(Item.fieldName) && value instanceof String) {
-        getBuilder().setNamePattern(KeepFieldNamePattern.exact((String) value));
-        return true;
-      }
-      return super.tryParse(name, value);
     }
 
     @Override

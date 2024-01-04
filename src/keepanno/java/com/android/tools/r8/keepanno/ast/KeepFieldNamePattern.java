@@ -3,96 +3,44 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
-public abstract class KeepFieldNamePattern {
+public class KeepFieldNamePattern {
+
+  private static final KeepFieldNamePattern ANY = new KeepFieldNamePattern(KeepStringPattern.any());
 
   public static KeepFieldNamePattern any() {
-    return Any.getInstance();
+    return ANY;
   }
 
   public static KeepFieldNamePattern exact(String methodName) {
-    return new KeepFieldNameExactPattern(methodName);
+    return fromStringPattern(KeepStringPattern.exact(methodName));
   }
 
-  private KeepFieldNamePattern() {}
+  public static KeepFieldNamePattern fromStringPattern(KeepStringPattern pattern) {
+    if (pattern.isAny()) {
+      return ANY;
+    }
+    return new KeepFieldNamePattern(pattern);
+  }
+
+  private final KeepStringPattern pattern;
+
+  private KeepFieldNamePattern(KeepStringPattern pattern) {
+    this.pattern = pattern;
+  }
+
+  public KeepStringPattern asStringPattern() {
+    return pattern;
+  }
 
   public boolean isAny() {
-    return false;
+    return ANY == this;
   }
 
   public final boolean isExact() {
-    return asExact() != null;
+    return pattern.isExact();
   }
 
-  public KeepFieldNameExactPattern asExact() {
-    return null;
-  }
-
-  private static class Any extends KeepFieldNamePattern {
-    private static final Any INSTANCE = new Any();
-
-    public static Any getInstance() {
-      return INSTANCE;
-    }
-
-    @Override
-    public boolean isAny() {
-      return true;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return this == obj;
-    }
-
-    @Override
-    public int hashCode() {
-      return System.identityHashCode(this);
-    }
-
-    @Override
-    public String toString() {
-      return "*";
-    }
-  }
-
-  public static class KeepFieldNameExactPattern extends KeepFieldNamePattern {
-    private final String name;
-
-    public KeepFieldNameExactPattern(String name) {
-      assert name != null;
-      this.name = name;
-    }
-
-    @Override
-    public KeepFieldNameExactPattern asExact() {
-      return this;
-    }
-
-    public String getName() {
-      return name;
-    }
-
-    @Override
-    @SuppressWarnings("EqualsGetClass")
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      KeepFieldNameExactPattern that = (KeepFieldNameExactPattern) o;
-      return name.equals(that.name);
-    }
-
-    @Override
-    public int hashCode() {
-      return name.hashCode();
-    }
-
-    @Override
-    public String toString() {
-      return name;
-    }
+  public String asExactString() {
+    return pattern.asExactString();
   }
 }

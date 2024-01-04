@@ -253,9 +253,25 @@ public @interface UsedByNative {
    * <p>If none, and other properties define this item as a field, the default matches any field
    * name.
    *
+   * <p>Mutually exclusive with the property `fieldNamePattern` also defining field-name.
+   *
    * @return The exact field name of the field.
    */
   String fieldName() default "";
+
+  /**
+   * Define the field-name pattern by a string pattern.
+   *
+   * <p>Mutually exclusive with all method properties.
+   *
+   * <p>If none, and other properties define this item as a field, the default matches any field
+   * name.
+   *
+   * <p>Mutually exclusive with the property `fieldName` also defining field-name.
+   *
+   * @return The string pattern of the field name.
+   */
+  StringPattern fieldNamePattern() default @StringPattern(exact = "");
 
   /**
    * Define the field-type pattern by a fully qualified type.

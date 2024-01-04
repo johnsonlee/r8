@@ -12,7 +12,6 @@ import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.ast.KeepEdgeException;
-import com.android.tools.r8.keepanno.ast.KeepFieldNamePattern.KeepFieldNameExactPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
 import com.android.tools.r8.keepanno.ast.KeepItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
@@ -187,9 +186,9 @@ public class KeepEdgeWriter implements Opcodes {
   }
 
   private void writeField(KeepFieldPattern field, AnnotationVisitor targetVisitor) {
-    KeepFieldNameExactPattern exactFieldName = field.getNamePattern().asExact();
+    String exactFieldName = field.getNamePattern().asExactString();
     if (exactFieldName != null) {
-      targetVisitor.visit(Item.fieldName, exactFieldName.getName());
+      targetVisitor.visit(Item.fieldName, exactFieldName);
     } else {
       throw new Unimplemented();
     }

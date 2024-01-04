@@ -176,9 +176,7 @@ public abstract class RulePrintingUtils {
   }
 
   private static RulePrinter printFieldName(RulePrinter builder, KeepFieldNamePattern namePattern) {
-    return namePattern.isAny()
-        ? builder.appendStar()
-        : builder.append(namePattern.asExact().getName());
+    return printStringPattern(builder, namePattern.asStringPattern());
   }
 
   private static RulePrinter printMethodName(

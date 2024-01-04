@@ -94,7 +94,9 @@ public final class AnnotationConstants {
     public static final String methodParameters = "methodParameters";
     public static final String methodParameterTypePatterns = "methodParameterTypePatterns";
     public static final String fieldAccess = "fieldAccess";
+    public static final String fieldNameGroup = "field-name";
     public static final String fieldName = "fieldName";
+    public static final String fieldNamePattern = "fieldNamePattern";
     public static final String fieldTypeGroup = "field-type";
     public static final String fieldType = "fieldType";
     public static final String fieldTypeConstant = "fieldTypeConstant";
