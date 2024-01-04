@@ -122,6 +122,20 @@ def PrintResourceInfo():
     print('INFO: Open files hard limit: %s' % hard)
 
 
+def RSyncDir(src_dir, version_or_path, dst_dir, is_main, options):
+    destination = GetUploadDestination(version_or_path, dst_dir, is_main)
+    print(f'RSyncing {src_dir} to {destination}')
+    if options.dry_run:
+        if options.dry_run_output:
+            dry_run_destination = os.path.join(options.dry_run_output, version_or_path, dst_dir)
+            print(f'Dry run, not actually syncing. Copying to {dry_run_destination}')
+            shutil.copytree(src_dir, dry_run_destination)
+        else:
+            print('Dry run, not actually uploading')
+    else:
+        utils.rsync_directory_to_cloud_storage(src_dir, destination)
+        print(f'Directory available at: {GetUrl(version_or_path, dst_dir, is_main)}')
+
 def UploadDir(src_dir, version_or_path, dst_dir, is_main, options):
     destination = GetUploadDestination(version_or_path, dst_dir, is_main)
     print(f'Uploading {src_dir} to {destination}')
@@ -250,7 +264,7 @@ def Run(options):
         if is_main:
             version_or_path = 'docs'
             dst_dir = 'keepanno/javadoc'
-            UploadDir(utils.KEEPANNO_ANNOTATIONS_DOC, version_or_path, dst_dir, is_main, options)
+            RSyncDir(utils.KEEPANNO_ANNOTATIONS_DOC, version_or_path, dst_dir, is_main, options)
 
         # Upload directories.
         dirs_for_archiving = [

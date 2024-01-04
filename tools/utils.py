@@ -393,11 +393,36 @@ def upload_file_to_cloud_storage(source, destination):
     PrintCmd(cmd)
     subprocess.check_call(cmd)
 
+def check_dir_args(source, destination):
+    # We require that the dirname of the paths coincide, e.g., src/dirname and dst/dirname
+    # The target is then stripped so the upload command will be: cp -R src/dirname dst/
+    (destination_parent, destination_file) = os.path.split(destination)
+    if os.path.basename(source) != destination_file:
+        raise Exception(
+            'Attempt to upload directory with non-matching directory name: ' +
+            f'{source} and {destination}')
+    if len(destination_parent.strip()) == 0:
+        raise Exception(
+            'Attempt to upload directory to empty destination directory: '
+            + destination)
+    return destination_parent
+
 def upload_directory_to_cloud_storage(source, destination, parallel=True):
+    destination_parent = check_dir_args(source, destination)
     cmd = [get_gsutil()]
     if parallel:
         cmd += ['-m']
     cmd += ['cp', '-R']
+    cmd += [source, destination_parent + '/']
+    PrintCmd(cmd)
+    subprocess.check_call(cmd)
+
+def rsync_directory_to_cloud_storage(source, destination, parallel=True):
+    check_dir_args(source, destination)
+    cmd = [get_gsutil()]
+    if parallel:
+        cmd += ['-m']
+    cmd += ['rsync', '-R']
     cmd += [source, destination]
     PrintCmd(cmd)
     subprocess.check_call(cmd)
