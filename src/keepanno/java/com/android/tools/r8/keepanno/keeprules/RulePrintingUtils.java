@@ -98,6 +98,12 @@ public abstract class RulePrintingUtils {
       StringBuilder builder,
       KeepClassItemPattern classPattern,
       BiConsumer<StringBuilder, KeepQualifiedClassNamePattern> printClassName) {
+    KeepQualifiedClassNamePattern annotatedByPattern = classPattern.getAnnotatedByPattern();
+    if (!annotatedByPattern.isAny()) {
+      builder.append("@");
+      printClassName(annotatedByPattern, RulePrinter.withoutBackReferences(builder));
+      builder.append(" ");
+    }
     builder.append("class ");
     printClassName.accept(builder, classPattern.getClassNamePattern());
     KeepInstanceOfPattern extendsPattern = classPattern.getInstanceOfPattern();

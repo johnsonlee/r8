@@ -81,6 +81,9 @@ public @interface KeepBinding {
    *   <li>instanceOfClassConstantExclusive
    *   <li>extendsClassName
    *   <li>extendsClassConstant
+   *   <li>classAnnotatedByClassName
+   *   <li>classAnnotatedByClassConstant
+   *   <li>classAnnotatedByClassNamePattern
    * </ul>
    *
    * <p>If none are specified the default is to match any class.
@@ -275,6 +278,60 @@ public @interface KeepBinding {
    */
   @Deprecated
   Class<?> extendsClassConstant() default Object.class;
+
+  /**
+   * Define the class-annotated-by pattern by fully qualified class name.
+   *
+   * <p>Mutually exclusive with the following other properties defining class-annotated-by:
+   *
+   * <ul>
+   *   <li>classAnnotatedByClassConstant
+   *   <li>classAnnotatedByClassNamePattern
+   *   <li>classFromBinding
+   * </ul>
+   *
+   * <p>If none are specified the default is to match any class regardless of what the class is
+   * annotated by.
+   *
+   * @return The qualified class name that defines the annotation.
+   */
+  String classAnnotatedByClassName() default "";
+
+  /**
+   * Define the class-annotated-by pattern by reference to a Class constant.
+   *
+   * <p>Mutually exclusive with the following other properties defining class-annotated-by:
+   *
+   * <ul>
+   *   <li>classAnnotatedByClassName
+   *   <li>classAnnotatedByClassNamePattern
+   *   <li>classFromBinding
+   * </ul>
+   *
+   * <p>If none are specified the default is to match any class regardless of what the class is
+   * annotated by.
+   *
+   * @return The class-constant that defines the annotation.
+   */
+  Class<?> classAnnotatedByClassConstant() default Object.class;
+
+  /**
+   * Define the class-annotated-by pattern by reference to a class-name pattern.
+   *
+   * <p>Mutually exclusive with the following other properties defining class-annotated-by:
+   *
+   * <ul>
+   *   <li>classAnnotatedByClassName
+   *   <li>classAnnotatedByClassConstant
+   *   <li>classFromBinding
+   * </ul>
+   *
+   * <p>If none are specified the default is to match any class regardless of what the class is
+   * annotated by.
+   *
+   * @return The class-name pattern that defines the annotation.
+   */
+  ClassNamePattern classAnnotatedByClassNamePattern() default @ClassNamePattern(simpleName = "");
 
   /**
    * Define the member-access pattern by matching on access flags.

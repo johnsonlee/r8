@@ -297,6 +297,7 @@ public class KeepItemAnnotationGenerator {
     private static String CLASS_GROUP = "class";
     private static String CLASS_NAME_GROUP = "class-name";
     private static String INSTANCE_OF_GROUP = "instance-of";
+    private static String CLASS_ANNOTATED_BY_GROUP = "class-annotated-by";
 
     private Group createDescriptionGroup() {
       return new Group("description")
@@ -681,6 +682,44 @@ public class KeepItemAnnotationGenerator {
               "If none are specified the default is to match any class instance.");
     }
 
+    private GroupMember classAnnotatedByClassName() {
+      return new GroupMember("classAnnotatedByClassName")
+          .setDocTitle(
+              "Define the " + CLASS_ANNOTATED_BY_GROUP + " pattern by fully qualified class name.")
+          .setDocReturn("The qualified class name that defines the annotation.")
+          .defaultEmptyString();
+    }
+
+    private GroupMember classAnnotatedByClassConstant() {
+      return new GroupMember("classAnnotatedByClassConstant")
+          .setDocTitle(
+              "Define the "
+                  + CLASS_ANNOTATED_BY_GROUP
+                  + " pattern by reference to a Class constant.")
+          .setDocReturn("The class-constant that defines the annotation.")
+          .defaultObjectClass();
+    }
+
+    private GroupMember classAnnotatedByClassNamePattern() {
+      return new GroupMember("classAnnotatedByClassNamePattern")
+          .setDocTitle(
+              "Define the "
+                  + CLASS_ANNOTATED_BY_GROUP
+                  + " pattern by reference to a class-name pattern.")
+          .setDocReturn("The class-name pattern that defines the annotation.")
+          .defaultValue(ClassNamePattern.class, DEFAULT_INVALID_CLASS_NAME_PATTERN);
+    }
+
+    private Group createClassAnnotatedByPatternGroup() {
+      return new Group(CLASS_ANNOTATED_BY_GROUP)
+          .addMember(classAnnotatedByClassName())
+          .addMember(classAnnotatedByClassConstant())
+          .addMember(classAnnotatedByClassNamePattern())
+          .addDocFooterParagraph(
+              "If none are specified the default is to match any class "
+                  + "regardless of what the class is annotated by.");
+    }
+
     private Group createMemberBindingGroup() {
       return new Group("member")
           .allowMutuallyExclusiveWithOtherGroups()
@@ -870,13 +909,17 @@ public class KeepItemAnnotationGenerator {
         Group bindingGroup = createClassBindingGroup();
         Group classNameGroup = createClassNamePatternGroup();
         Group classInstanceOfGroup = createClassInstanceOfPatternGroup();
-        bindingGroup.addMutuallyExclusiveGroups(classNameGroup, classInstanceOfGroup);
+        Group classAnnotatedByGroup = createClassAnnotatedByPatternGroup();
+        bindingGroup.addMutuallyExclusiveGroups(
+            classNameGroup, classInstanceOfGroup, classAnnotatedByGroup);
 
         bindingGroup.generate(this);
         println();
         classNameGroup.generate(this);
         println();
         classInstanceOfGroup.generate(this);
+        println();
+        classAnnotatedByGroup.generate(this);
         println();
       }
 
@@ -1434,6 +1477,7 @@ public class KeepItemAnnotationGenerator {
             // Classes.
             createClassNamePatternGroup().generateConstants(this);
             createClassInstanceOfPatternGroup().generateConstants(this);
+            createClassAnnotatedByPatternGroup().generateConstants(this);
             // Members.
             createMemberAccessGroup().generateConstants(this);
             // Methods.

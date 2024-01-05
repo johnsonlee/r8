@@ -81,6 +81,11 @@ public final class AnnotationConstants {
         "instanceOfClassConstantExclusive";
     public static final String extendsClassName = "extendsClassName";
     public static final String extendsClassConstant = "extendsClassConstant";
+    public static final String classAnnotatedByGroup = "class-annotated-by";
+    public static final String classAnnotatedByClassName = "classAnnotatedByClassName";
+    public static final String classAnnotatedByClassConstant = "classAnnotatedByClassConstant";
+    public static final String classAnnotatedByClassNamePattern =
+        "classAnnotatedByClassNamePattern";
     public static final String memberAccess = "memberAccess";
     public static final String methodAccess = "methodAccess";
     public static final String methodNameGroup = "method-name";

@@ -1085,7 +1085,8 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public AnnotationVisitor visitAnnotation(String name, String descriptor) {
       if (descriptor.equals(Target.DESCRIPTOR)) {
-        return KeepTargetVisitor.create(parsingContext, builder::addTarget, bindingsHelper);
+        return KeepTargetVisitor.create(
+            parsingContext.annotation(descriptor), builder::addTarget, bindingsHelper);
       }
       return super.visitAnnotation(name, descriptor);
     }
@@ -1403,6 +1404,7 @@ public class KeepEdgeReader implements Opcodes {
 
     private KeepClassItemReference boundClassItemReference = null;
     private final ClassNameParser classNameParser;
+    private final ClassNameParser annotatedByParser;
     private final InstanceOfDeclaration instanceOfDeclaration;
     private final List<Declaration<?>> declarations;
     private final List<PropertyParser<?, ?>> parsers;
@@ -1415,7 +1417,14 @@ public class KeepEdgeReader implements Opcodes {
       classNameParser.setProperty(Item.className, ClassNameProperty.NAME);
       classNameParser.setProperty(Item.classConstant, ClassNameProperty.CONSTANT);
       classNameParser.setProperty(Item.classNamePattern, ClassNameProperty.PATTERN);
-      parsers = ImmutableList.of(classNameParser);
+
+      annotatedByParser = new ClassNameParser(parsingContext.group(Item.classAnnotatedByGroup));
+      annotatedByParser.setProperty(Item.classAnnotatedByClassName, ClassNameProperty.NAME);
+      annotatedByParser.setProperty(Item.classAnnotatedByClassConstant, ClassNameProperty.CONSTANT);
+      annotatedByParser.setProperty(
+          Item.classAnnotatedByClassNamePattern, ClassNameProperty.PATTERN);
+
+      parsers = ImmutableList.of(classNameParser, annotatedByParser);
 
       instanceOfDeclaration = new InstanceOfDeclaration(parsingContext);
       declarations = ImmutableList.of(instanceOfDeclaration);
@@ -1435,12 +1444,14 @@ public class KeepEdgeReader implements Opcodes {
       return boundClassItemReference != null;
     }
 
-    private boolean classPatternsAreDefined() {
-      return !classNameParser.isDefault() || !instanceOfDeclaration.isDefault();
+    private boolean classPatternsAreDeclared() {
+      return classNameParser.isDeclared()
+          || annotatedByParser.isDeclared()
+          || !instanceOfDeclaration.isDefault();
     }
 
     private void checkAllowedDefinitions() {
-      if (isBindingReferenceDefined() && classPatternsAreDefined()) {
+      if (isBindingReferenceDefined() && classPatternsAreDeclared()) {
         throw parsingContext.error(
             "Cannot reference a class binding and class patterns for a single class item");
       }
@@ -1456,10 +1467,12 @@ public class KeepEdgeReader implements Opcodes {
       if (isBindingReferenceDefined()) {
         return boundClassItemReference;
       }
-      if (classPatternsAreDefined()) {
+      if (classPatternsAreDeclared()) {
         return KeepClassItemPattern.builder()
             .setClassNamePattern(
                 classNameParser.getValueOrDefault(KeepQualifiedClassNamePattern.any()))
+            .setAnnotatedByPattern(
+                annotatedByParser.getValueOrDefault(KeepQualifiedClassNamePattern.any()))
             .setInstanceOfPattern(instanceOfDeclaration.getValue())
             .build()
             .toClassItemReference();
@@ -2016,14 +2029,14 @@ public class KeepEdgeReader implements Opcodes {
     private final KeepTarget.Builder builder = KeepTarget.builder();
 
     static KeepTargetVisitor create(
-        ParsingContext parsingContext,
+        AnnotationParsingContext parsingContext,
         Parent<KeepTarget> parent,
         UserBindingsHelper bindingsHelper) {
       return new KeepTargetVisitor(parsingContext, parent, bindingsHelper);
     }
 
     private KeepTargetVisitor(
-        ParsingContext parsingContext,
+        AnnotationParsingContext parsingContext,
         Parent<KeepTarget> parent,
         UserBindingsHelper bindingsHelper) {
       super(parsingContext);
