@@ -40,7 +40,9 @@ public class RClassStaticValuesIgnoreTest extends TestBase {
   }
 
   private byte[] getRClassWithReferenceToUnused() throws IOException {
-    return transformer(ToBeRenamedToR.class).setClassDescriptor(RClassDescriptor).transform();
+    return transformer(ToBeRenamedToRDollarString.class)
+        .setClassDescriptor(RClassDescriptor)
+        .transform();
   }
 
   @Test
@@ -75,7 +77,7 @@ public class RClassStaticValuesIgnoreTest extends TestBase {
   }
 
   // Simulate R class usage of unused_string
-  public static class ToBeRenamedToR {
+  public static class ToBeRenamedToRDollarString {
     public static int use_the_unused = RClassStaticValuesIgnoreTest.R.string.unused_string;
   }
 
