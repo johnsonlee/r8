@@ -907,7 +907,9 @@ public class R8 {
           }
         }
       }
-
+      if (options.androidResourceProguardMapStrings != null) {
+        resourceShrinkerBuilder.setProguardMapStrings(options.androidResourceProguardMapStrings);
+      }
       LegacyResourceShrinker shrinker = resourceShrinkerBuilder.build();
       ShrinkerResult shrinkerResult;
       if (options.resourceShrinkerConfiguration.isOptimizedShrinking()) {

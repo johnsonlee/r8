@@ -58,9 +58,8 @@ public class RClassStaticValuesIgnoreTest extends TestBase {
         .inspectShrunkenResources(
             resourceTableInspector -> {
               resourceTableInspector.assertContainsResourceWithName("string", "bar");
-              // TODO(b/315763804): We should not keep unused_string, which is only referenced
-              // from clinit on the R class
-              resourceTableInspector.assertContainsResourceWithName("string", "unused_string");
+              resourceTableInspector.assertDoesNotContainResourceWithName(
+                  "string", "unused_string");
             })
         .run(parameters.getRuntime(), FooBar.class)
         .assertSuccess();

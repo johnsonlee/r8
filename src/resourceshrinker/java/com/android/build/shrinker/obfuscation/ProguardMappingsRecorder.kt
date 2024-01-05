@@ -24,9 +24,12 @@ import java.nio.file.Path
 /**
  * Records obfuscation mappings from single file in proguard format.
  *
- * @param mappingsFile path to proguard.map file.
+ * @param mapping file lines or the mapping file path.
  */
-class ProguardMappingsRecorder(private val mappingsFile: Path) : ObfuscationMappingsRecorder {
+class ProguardMappingsRecorder(private val mappingLines: List<String>) : ObfuscationMappingsRecorder {
+
+    constructor(mappingsFile: Path)
+      : this(Files.readAllLines(mappingsFile, StandardCharsets.UTF_8));
 
     override fun recordObfuscationMappings(model: ResourceShrinkerModel) {
         model.obfuscatedClasses = extractObfuscatedResourceClasses()
@@ -41,9 +44,8 @@ class ProguardMappingsRecorder(private val mappingsFile: Path) : ObfuscationMapp
         // com.package.R -> a.b:
         // com.package.R$style -> a.b.a:
         //     int Toolbar_android_gravity -> i1
-
         val builder = ObfuscatedClasses.Builder()
-        Files.readAllLines(mappingsFile, StandardCharsets.UTF_8).forEach { line ->
+        mappingLines.forEach { line ->
             when {
                 isMethodMapping(line) -> builder.addMethodMapping(extractMethodMapping(line))
                 isClassMapping(line) -> builder.addClassMapping(extractClassMapping(line))

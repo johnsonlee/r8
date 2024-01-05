@@ -15,6 +15,7 @@ import com.android.build.shrinker.ResourceShrinkerImplKt;
 import com.android.build.shrinker.ResourceTableUtilKt;
 import com.android.build.shrinker.graph.ProtoResourcesGraphBuilder;
 import com.android.build.shrinker.graph.ResFolderFileTree;
+import com.android.build.shrinker.obfuscation.ProguardMappingsRecorder;
 import com.android.build.shrinker.r8integration.R8ResourceShrinkerState.R8ResourceShrinkerModel;
 import com.android.build.shrinker.usages.DexFileAnalysisCallback;
 import com.android.build.shrinker.usages.ProtoAndroidManifestUsageRecorderKt;
@@ -48,6 +49,7 @@ public class LegacyResourceShrinker {
   private final Map<String, byte[]> dexInputs;
   private final List<PathAndBytes> resFolderInputs;
   private final List<PathAndBytes> xmlInputs;
+  private List<String> proguardMapStrings;
   private final List<PathAndBytes> manifest;
   private final Map<PathAndBytes, FeatureSplit> resourceTables;
 
@@ -59,6 +61,7 @@ public class LegacyResourceShrinker {
 
     private final List<PathAndBytes> manifests = new ArrayList<>();
     private final Map<PathAndBytes, FeatureSplit> resourceTables = new HashMap<>();
+    private List<String> proguardMapStrings;
 
     private Builder() {}
 
@@ -96,7 +99,11 @@ public class LegacyResourceShrinker {
     public LegacyResourceShrinker build() {
       assert manifests != null && resourceTables != null;
       return new LegacyResourceShrinker(
-          dexInputs, resFolderInputs, manifests, resourceTables, xmlInputs);
+          dexInputs, resFolderInputs, manifests, resourceTables, xmlInputs, proguardMapStrings);
+    }
+
+    public void setProguardMapStrings(List<String> proguardMapStrings) {
+      this.proguardMapStrings = proguardMapStrings;
     }
   }
 
@@ -105,12 +112,14 @@ public class LegacyResourceShrinker {
       List<PathAndBytes> resFolderInputs,
       List<PathAndBytes> manifests,
       Map<PathAndBytes, FeatureSplit> resourceTables,
-      List<PathAndBytes> xmlInputs) {
+      List<PathAndBytes> xmlInputs,
+      List<String> proguardMapStrings) {
     this.dexInputs = dexInputs;
     this.resFolderInputs = resFolderInputs;
     this.manifest = manifests;
     this.resourceTables = resourceTables;
     this.xmlInputs = xmlInputs;
+    this.proguardMapStrings = proguardMapStrings;
   }
 
   public static Builder builder() {
@@ -127,6 +136,10 @@ public class LegacyResourceShrinker {
   }
 
   public ShrinkerResult shrinkModel(R8ResourceShrinkerModel model) throws IOException {
+    if (proguardMapStrings != null) {
+      new ProguardMappingsRecorder(proguardMapStrings).recordObfuscationMappings(model);
+      proguardMapStrings = null;
+    }
     for (Entry<String, byte[]> entry : dexInputs.entrySet()) {
       // The analysis needs an origin for the dex files, synthesize an easy recognizable one.
       Path inMemoryR8 = Paths.get("in_memory_r8_" + entry.getKey() + ".dex");

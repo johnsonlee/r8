@@ -1177,13 +1177,21 @@ public final class R8Command extends BaseCompilerCommand {
     MapConsumer mapConsumer =
         wrapExistingMapConsumerIfNotNull(
             internal.mapConsumer, partitionMapConsumer, MapConsumerToPartitionMapConsumer::new);
-    internal.mapConsumer =
+    mapConsumer =
         wrapExistingMapConsumerIfNotNull(
             mapConsumer,
             stringConsumer,
             nonNullStringConsumer ->
                 ProguardMapStringConsumer.builder().setStringConsumer(stringConsumer).build());
 
+    internal.mapConsumer =
+        wrapExistingMapConsumerIfNotNull(
+            mapConsumer,
+            androidResourceConsumer,
+            nonNulStringConsumer ->
+                ProguardMapStringConsumer.builder()
+                    .setStringConsumer(new ResourceShrinkerMapStringConsumer(internal))
+                    .build());
     // Amend the usage information consumer with options from the proguard configuration.
     internal.usageInformationConsumer =
         wrapStringConsumer(
@@ -1306,6 +1314,27 @@ public final class R8Command extends BaseCompilerCommand {
       }
     }
     return optionConsumer;
+  }
+
+  private static class ResourceShrinkerMapStringConsumer implements StringConsumer {
+
+    private final InternalOptions internal;
+    private StringBuilder resultBuilder = new StringBuilder();
+
+    public ResourceShrinkerMapStringConsumer(InternalOptions internal) {
+      this.internal = internal;
+    }
+
+    @Override
+    public void accept(String string, DiagnosticsHandler handler) {
+      resultBuilder.append(string);
+    }
+
+    @Override
+    public void finished(DiagnosticsHandler handler) {
+      internal.androidResourceProguardMapStrings = StringUtils.splitLines(resultBuilder.toString());
+      resultBuilder = null;
+    }
   }
 
   private static class StandardOutConsumer extends StringConsumer.ForwardingConsumer {
