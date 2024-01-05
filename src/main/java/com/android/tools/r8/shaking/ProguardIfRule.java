@@ -253,7 +253,6 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
     if (getMemberRules() != null) {
       memberRules =
           getMemberRules().stream()
-              .filter(rule -> rule.getRuleType().includesMethods())
               .map(memberRule -> memberRule.materialize(dexItemFactory))
               .collect(Collectors.toList());
     }
