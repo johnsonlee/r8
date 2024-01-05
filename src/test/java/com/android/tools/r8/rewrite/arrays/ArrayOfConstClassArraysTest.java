@@ -61,8 +61,7 @@ public class ArrayOfConstClassArraysTest extends TestBase {
   }
 
   private void inspect(CodeInspector inspector) {
-    // TODO(b/315753861): Don't use 4 locals.
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 5, 4);
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 5, 1);
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
         0,

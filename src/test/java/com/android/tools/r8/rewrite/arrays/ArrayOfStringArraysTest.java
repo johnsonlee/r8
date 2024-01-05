@@ -67,8 +67,7 @@ public class ArrayOfStringArraysTest extends TestBase {
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"),
         (canUseFilledNewArrayOfStringObjects(parameters) ? 4 : 0)
             + (canUseFilledNewArrayOfNonStringObjects(parameters) ? 1 : 0),
-        // TODO(b/315753861): Don't use 4 locals.
-        4);
+        1);
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
         0,

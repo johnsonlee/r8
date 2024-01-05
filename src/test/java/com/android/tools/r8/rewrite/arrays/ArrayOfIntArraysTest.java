@@ -62,8 +62,7 @@ public class ArrayOfIntArraysTest extends TestBase {
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"),
         4 + (canUseFilledNewArrayOfNonStringObjects(parameters) ? 1 : 0),
-        // TODO(b/315753861): Don't use 4 locals.
-        4);
+        1);
     // With catch handler the int[][] creation is not converted to filled-new-array.
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),

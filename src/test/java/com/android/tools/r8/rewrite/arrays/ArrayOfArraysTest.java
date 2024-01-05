@@ -68,8 +68,7 @@ public class ArrayOfArraysTest extends TestBase {
         2
             + (canUseFilledNewArrayOfStringObjects(parameters) ? 2 : 0)
             + (canUseFilledNewArrayOfNonStringObjects(parameters) ? 2 : 0),
-        // TODO(b/315753861): Don't use 17 locals.
-        17);
+        2);
     inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"), 2, 2);
   }
 
