@@ -319,6 +319,15 @@ public class VirtualFile {
     }
 
     public abstract List<VirtualFile> run();
+
+    void addMarkers(VirtualFile virtualFile) {
+      if (writer.markerStrings != null && !writer.markerStrings.isEmpty()) {
+        for (DexString markerString : writer.markerStrings) {
+          virtualFile.transaction.addString(markerString);
+        }
+        virtualFile.commitTransaction();
+      }
+    }
   }
 
   /**
@@ -359,6 +368,7 @@ public class VirtualFile {
         }
         VirtualFile file = new VirtualFile(virtualFiles.size(), appView, clazz);
         virtualFiles.add(file);
+        addMarkers(file);
         file.addClass(clazz);
         files.put(clazz.getType(), file);
         // Commit this early, so that we do not keep the transaction state around longer than
@@ -402,15 +412,6 @@ public class VirtualFile {
       originalNames =
           computeOriginalNameMapping(
               classes, appView.graphLens(), appView.appInfo().app().getProguardMap());
-    }
-
-    private void addMarkers(VirtualFile virtualFile) {
-      if (writer.markerStrings != null && !writer.markerStrings.isEmpty()) {
-        for (DexString markerString : writer.markerStrings) {
-          virtualFile.transaction.addString(markerString);
-        }
-        virtualFile.commitTransaction();
-      }
     }
 
     protected void fillForMainDexList(Set<DexProgramClass> classes) {

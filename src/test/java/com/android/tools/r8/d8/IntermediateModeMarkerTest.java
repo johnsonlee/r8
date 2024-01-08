@@ -4,15 +4,30 @@
 
 package com.android.tools.r8.d8;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.OutputMode;
+import com.android.tools.r8.ByteDataView;
+import com.android.tools.r8.CompilationFailedException;
+import com.android.tools.r8.DexFilePerClassFileConsumer;
+import com.android.tools.r8.DexIndexedConsumer;
+import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.ExtractMarker;
+import com.android.tools.r8.ExtractMarkerCommand;
+import com.android.tools.r8.MarkerInfo;
+import com.android.tools.r8.MarkerInfoConsumer;
+import com.android.tools.r8.MarkerInfoConsumerData;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.dex.Marker;
+import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.StringUtils;
-import java.nio.file.Path;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,53 +51,142 @@ public class IntermediateModeMarkerTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    Path outA =
-        testForD8(Backend.DEX)
-            .addProgramClasses(A.class)
-            .setMinApi(AndroidApiLevel.B)
-            .setOutputMode(OutputMode.DexFilePerClass)
-            .setIntermediate(true)
-            .compile()
-            .inspect(
-                inspector -> {
-                  // TODO(b/147249767): Add markers to per-file intermediate builds.
-                  assertTrue(inspector.getMarkers().isEmpty());
-                })
-            .writeToZip();
-    Path outB =
-        testForD8(Backend.DEX)
-            .addProgramClasses(B.class)
-            .setMinApi(AndroidApiLevel.B)
-            .setOutputMode(OutputMode.DexFilePerClassFile)
-            .setIntermediate(true)
-            .compile()
-            .inspect(
-                inspector -> {
-                  // TODO(b/147249767): Add markers to per-file intermediate builds.
-                  assertTrue(inspector.getMarkers().isEmpty());
-                })
-            .writeToZip();
+    Map<String, byte[]> intermediatesA = new HashMap<>();
+    Map<String, byte[]> intermediatesB = new HashMap<>();
+    Map<String, byte[]> intermediatesC = new HashMap<>();
 
     testForD8(Backend.DEX)
-        .addProgramFiles(outA, outB)
+        .addProgramClasses(A.class)
+        .setMinApi(1)
+        .setProgramConsumer(
+            new DexFilePerClassFileConsumer.ForwardingConsumer(null) {
+              @Override
+              public void accept(
+                  String primaryClassDescriptor,
+                  ByteDataView data,
+                  Set<String> descriptors,
+                  DiagnosticsHandler handler) {
+                byte[] old = intermediatesA.put(primaryClassDescriptor, data.copyByteData());
+                assertNull(old);
+              }
+
+              @Override
+              public boolean combineSyntheticClassesWithPrimaryClass() {
+                return false;
+              }
+            })
+        .compile();
+
+    testForD8(Backend.DEX)
+        .addProgramClasses(B.class)
+        .setMinApi(2)
+        .setProgramConsumer(
+            new DexFilePerClassFileConsumer.ForwardingConsumer(null) {
+              @Override
+              public void accept(
+                  String primaryClassDescriptor,
+                  ByteDataView data,
+                  Set<String> descriptors,
+                  DiagnosticsHandler handler) {
+                byte[] old = intermediatesB.put(primaryClassDescriptor, data.copyByteData());
+                assertNull(old);
+              }
+
+              @Override
+              public boolean combineSyntheticClassesWithPrimaryClass() {
+                return true;
+              }
+            })
+        .compile();
+
+    testForD8(Backend.DEX)
+        .addProgramClasses(C.class)
+        .setMinApi(3)
+        .setIntermediate(true)
+        .setProgramConsumer(
+            new DexIndexedConsumer.ForwardingConsumer(null) {
+              @Override
+              public void accept(
+                  int fileIndex,
+                  ByteDataView data,
+                  Set<String> descriptors,
+                  DiagnosticsHandler handler) {
+                assertEquals(2, descriptors.size());
+                byte[] old = intermediatesC.put("indexed", data.copyByteData());
+                assertNull(old);
+              }
+            })
+        .compile();
+
+    // The per-class output has two outputs. Each has min-api 1.
+    assertEquals(2, intermediatesA.size());
+    assertMinApiMarkers(1, intermediatesA.values());
+    // The per-input-class-file output has one output with min-api 2.
+    assertEquals(1, intermediatesB.size());
+    assertMinApiMarkers(2, intermediatesB.values());
+    // The indexed output has one output with min-api 3.
+    assertEquals(1, intermediatesC.size());
+    assertMinApiMarkers(3, intermediatesC.values());
+
+    testForD8(Backend.DEX)
+        .addProgramDexFileData(intermediatesA.values())
+        .addProgramDexFileData(intermediatesB.values())
+        .addProgramDexFileData(intermediatesC.values())
+        .setMinApi(4)
         .compile()
         .inspect(
             inspector -> {
-              // TODO(b/147249767): Merging per-file intermediate builds has no marker info.
-              assertTrue(inspector.getMarkers().isEmpty());
+              // Final merge has exactly three markers, one for each min-api intermediate.
+              // The merge does not add a new marker.
+              Collection<Marker> markers = inspector.getMarkers();
+              assertEquals(3, markers.size());
+              assertTrue(markers.stream().anyMatch(m -> m.getMinApi() == 1));
+              assertTrue(markers.stream().anyMatch(m -> m.getMinApi() == 2));
+              assertTrue(markers.stream().anyMatch(m -> m.getMinApi() == 3));
+              assertTrue(markers.stream().noneMatch(m -> m.getMinApi() == 4));
             })
         .run(parameters.getRuntime(), A.class)
         .assertSuccessWithOutput(EXPECTED);
   }
 
+  private static void assertMinApiMarkers(int expectedMinApi, Collection<byte[]> dexPayloads)
+      throws CompilationFailedException {
+    for (byte[] data : dexPayloads) {
+      ExtractMarker.run(
+          ExtractMarkerCommand.builder()
+              .addDexProgramData(data, Origin.unknown())
+              .setMarkerInfoConsumer(
+                  new MarkerInfoConsumer() {
+                    @Override
+                    public void acceptMarkerInfo(MarkerInfoConsumerData data) {
+                      assertTrue(data.hasMarkers());
+                      for (MarkerInfo marker : data.getMarkers()) {
+                        assertEquals(expectedMinApi, marker.getMinApi());
+                      }
+                    }
+
+                    @Override
+                    public void finished() {}
+                  })
+              .build());
+    }
+  }
+
   public static class A {
 
     public static void main(String[] args) {
-      B.foo(() -> "Hello, ");
+      B.foo(() -> "Hello");
     }
   }
 
   public static class B {
+
+    public static void foo(Supplier<String> fn) {
+      C.foo(() -> fn.get() + ", ");
+    }
+  }
+
+  public static class C {
 
     public static void foo(Supplier<String> fn) {
       bar(() -> fn.get() + "world");
