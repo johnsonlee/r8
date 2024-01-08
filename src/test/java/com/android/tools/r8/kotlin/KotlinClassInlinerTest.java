@@ -257,6 +257,7 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                 testBuilder.addKeepRules(
                     "-neverinline class kotlin.jvm.internal.Intrinsics {",
                     "  *** checkNotNullParameter(...);",
+                    "  *** checkParameterIsNotNull(...);",
                     "}"))
         .inspect(
             inspector -> {
