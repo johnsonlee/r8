@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.google.common.base.Predicates.alwaysFalse;
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
@@ -154,8 +155,9 @@ public class TreePruner {
       retainReachableInterfacesFrom(type, reachableInterfaces);
     }
     if (!reachableInterfaces.isEmpty()) {
+      boolean pinnedHolder = !appView.getKeepInfo(clazz).isOptimizationAllowed(appView.options());
       removeInterfacesImplementedDirectlyAndIndirectlyByClassFromSet(
-          clazz.superType, reachableInterfaces);
+          pinnedHolder, clazz.superType, reachableInterfaces, clazz);
     }
     if (reachableInterfaces.isEmpty()) {
       clazz.interfaces = DexTypeList.empty();
@@ -165,7 +167,7 @@ public class TreePruner {
   }
 
   private void removeInterfacesImplementedDirectlyAndIndirectlyByClassFromSet(
-      DexType type, Set<DexType> interfaces) {
+      boolean pinnedRoot, DexType type, Set<DexType> interfaces, DexProgramClass context) {
     DexClass clazz = appView.definitionFor(type);
     if (clazz == null) {
       return;
@@ -176,13 +178,22 @@ public class TreePruner {
       return;
     }
     for (DexType itf : clazz.interfaces) {
+      if (pinnedRoot) {
+        DexProgramClass itfClass = asProgramClassOrNull(appView.definitionFor(itf, context));
+        if (itfClass == null
+            || !appView.getKeepInfo(itfClass).isOptimizationAllowed(appView.options())) {
+          // If root-holder and interface are pinned then retain the interface on the root-holder.
+          continue;
+        }
+      }
       if (interfaces.remove(itf) && interfaces.isEmpty()) {
         return;
       }
     }
     if (clazz.superType != null) {
       assert !interfaces.isEmpty();
-      removeInterfacesImplementedDirectlyAndIndirectlyByClassFromSet(clazz.superType, interfaces);
+      removeInterfacesImplementedDirectlyAndIndirectlyByClassFromSet(
+          pinnedRoot, clazz.superType, interfaces, context);
     }
   }
 
