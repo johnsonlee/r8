@@ -244,6 +244,10 @@ public class IRMetadata implements StructuralItem<IRMetadata> {
     return get(Opcodes.MUL);
   }
 
+  public boolean mayHaveNewArrayEmpty() {
+    return get(Opcodes.NEW_ARRAY_EMPTY);
+  }
+
   public boolean mayHaveNewArrayFilled() {
     return get(Opcodes.NEW_ARRAY_FILLED);
   }

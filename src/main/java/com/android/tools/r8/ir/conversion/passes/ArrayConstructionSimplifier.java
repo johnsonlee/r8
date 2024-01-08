@@ -101,7 +101,7 @@ public class ArrayConstructionSimplifier extends CodeRewriterPass<AppInfo> {
 
   @Override
   protected boolean shouldRewriteCode(IRCode code) {
-    return true;
+    return code.metadata().mayHaveNewArrayEmpty();
   }
 
   private boolean simplifyArrayConstructionBlock(
