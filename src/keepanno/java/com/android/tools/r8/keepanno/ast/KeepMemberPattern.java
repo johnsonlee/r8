@@ -46,12 +46,11 @@ public abstract class KeepMemberPattern {
     }
 
     @Override
-    @SuppressWarnings("EqualsGetClass")
     public boolean equals(Object o) {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof Some)) {
         return false;
       }
       Some some = (Some) o;
@@ -99,7 +98,7 @@ public abstract class KeepMemberPattern {
 
     @Override
     public String toString() {
-      return "*";
+      return "<all>";
     }
   }
 

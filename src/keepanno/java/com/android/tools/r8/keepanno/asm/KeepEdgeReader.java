@@ -4,13 +4,14 @@
 package com.android.tools.r8.keepanno.asm;
 
 import com.android.tools.r8.keepanno.asm.ClassNameParser.ClassNameProperty;
+import com.android.tools.r8.keepanno.asm.InstanceOfParser.InstanceOfProperties;
+import com.android.tools.r8.keepanno.asm.OptionsParser.OptionsProperty;
 import com.android.tools.r8.keepanno.asm.StringPatternParser.StringProperty;
 import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.AccessVisibility;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Binding;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Condition;
-import com.android.tools.r8.keepanno.ast.AnnotationConstants.Constraints;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Edge;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.FieldAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.ForApi;
@@ -18,7 +19,6 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants.Item;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Kind;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.MemberAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.MethodAccess;
-import com.android.tools.r8.keepanno.ast.AnnotationConstants.Option;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Target;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.UsedByReflection;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
@@ -60,17 +60,14 @@ import com.android.tools.r8.keepanno.ast.ParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.AnnotationParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.ClassParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.FieldParsingContext;
-import com.android.tools.r8.keepanno.ast.ParsingContext.GroupParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.MethodParsingContext;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -478,7 +475,7 @@ public class KeepEdgeReader implements Opcodes {
   }
 
   // Interface for providing AST result(s) for a sub-tree back up to its parent.
-  private interface Parent<T> {
+  public interface Parent<T> {
     void accept(T result);
   }
 
@@ -748,7 +745,7 @@ public class KeepEdgeReader implements Opcodes {
     private final KeepConsequences.Builder consequences = KeepConsequences.builder();
     private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
-    private final OptionsDeclaration optionsDeclaration;
+    private final OptionsParser optionsParser;
 
     UsedByReflectionClassVisitor(
         AnnotationParsingContext parsingContext,
@@ -762,7 +759,10 @@ public class KeepEdgeReader implements Opcodes {
       addContext.accept(metaInfoBuilder);
       // The class context/holder is the annotated class.
       visit(Item.className, className);
-      optionsDeclaration = new OptionsDeclaration(parsingContext);
+      optionsParser = new OptionsParser(parsingContext);
+      optionsParser.setProperty(Target.constraints, OptionsProperty.CONSTRAINTS);
+      optionsParser.setProperty(Target.allow, OptionsProperty.ALLOW);
+      optionsParser.setProperty(Target.disallow, OptionsProperty.DISALLOW);
     }
 
     @Override
@@ -793,7 +793,7 @@ public class KeepEdgeReader implements Opcodes {
             },
             bindingsHelper);
       }
-      AnnotationVisitor visitor = optionsDeclaration.tryParseArray(name);
+      AnnotationVisitor visitor = optionsParser.tryParseArray(name, unused -> {});
       if (visitor != null) {
         return visitor;
       }
@@ -829,7 +829,7 @@ public class KeepEdgeReader implements Opcodes {
         consequences.addTarget(
             KeepTarget.builder()
                 .setItemPattern(itemPattern)
-                .setOptions(getKeepOptionsOrDefault(optionsDeclaration.getValue()))
+                .setOptions(getKeepOptionsOrDefault(optionsParser.getValue()))
                 .build());
       }
       parent.accept(
@@ -856,7 +856,7 @@ public class KeepEdgeReader implements Opcodes {
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
     private final KeepConsequences.Builder consequences = KeepConsequences.builder();
     private ItemKind kind = KeepEdgeReader.ItemKind.ONLY_MEMBERS;
-    private final OptionsDeclaration optionsDeclaration;
+    private final OptionsParser optionsParser;
 
     UsedByReflectionMemberVisitor(
         AnnotationParsingContext parsingContext,
@@ -868,7 +868,10 @@ public class KeepEdgeReader implements Opcodes {
       this.parent = parent;
       this.context = context;
       addContext.accept(metaInfoBuilder);
-      optionsDeclaration = new OptionsDeclaration(parsingContext);
+      optionsParser = new OptionsParser(parsingContext);
+      optionsParser.setProperty(Target.constraints, OptionsProperty.CONSTRAINTS);
+      optionsParser.setProperty(Target.allow, OptionsProperty.ALLOW);
+      optionsParser.setProperty(Target.disallow, OptionsProperty.DISALLOW);
     }
 
     @Override
@@ -907,7 +910,7 @@ public class KeepEdgeReader implements Opcodes {
             },
             bindingsHelper);
       }
-      AnnotationVisitor visitor = optionsDeclaration.tryParseArray(name);
+      AnnotationVisitor visitor = optionsParser.tryParseArray(name, unused -> {});
       if (visitor != null) {
         return visitor;
       }
@@ -928,7 +931,7 @@ public class KeepEdgeReader implements Opcodes {
       validateConsistentKind(memberContext.getMemberPattern());
       consequences.addTarget(
           KeepTarget.builder()
-              .setOptions(getKeepOptionsOrDefault(optionsDeclaration.getValue()))
+              .setOptions(getKeepOptionsOrDefault(optionsParser.getValue()))
               .setItemPattern(context)
               .build());
       parent.accept(
@@ -1185,10 +1188,10 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
-  abstract static class Declaration<T> {
+  abstract static class Declaration {
 
     boolean isDefault() {
-      for (Declaration<?> declaration : declarations()) {
+      for (Declaration declaration : declarations()) {
         if (!declaration.isDefault()) {
           return false;
         }
@@ -1196,7 +1199,7 @@ public class KeepEdgeReader implements Opcodes {
       return true;
     }
 
-    List<Declaration<?>> declarations() {
+    List<Declaration> declarations() {
       return Collections.emptyList();
     }
 
@@ -1207,7 +1210,7 @@ public class KeepEdgeReader implements Opcodes {
     private void ignore(Object arg) {}
 
     boolean tryParse(String name, Object value) {
-      for (Declaration<?> declaration : declarations()) {
+      for (Declaration declaration : declarations()) {
         if (declaration.tryParse(name, value)) {
           return true;
         }
@@ -1221,7 +1224,7 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     AnnotationVisitor tryParseArray(String name) {
-      for (Declaration<?> declaration : declarations()) {
+      for (Declaration declaration : declarations()) {
         AnnotationVisitor visitor = declaration.tryParseArray(name);
         if (visitor != null) {
           return visitor;
@@ -1237,7 +1240,7 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     AnnotationVisitor tryParseAnnotation(String name, String descriptor) {
-      for (Declaration<?> declaration : declarations()) {
+      for (Declaration declaration : declarations()) {
         AnnotationVisitor visitor = declaration.tryParseAnnotation(name, descriptor);
         if (visitor != null) {
           return visitor;
@@ -1253,145 +1256,7 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
-  private abstract static class SingleDeclaration<T> extends Declaration<T> {
-    private final ParsingContext parsingContext;
-    private String declarationName = null;
-    private T declarationValue = null;
-    private AnnotationVisitor declarationVisitor = null;
-
-    private SingleDeclaration(GroupParsingContext parsingContext) {
-      this.parsingContext = parsingContext;
-    }
-
-    public ParsingContext getParsingContext() {
-      return parsingContext;
-    }
-
-    abstract T getDefaultValue();
-
-    abstract T parse(String name, Object value);
-
-    AnnotationVisitor parseArray(String name, Consumer<T> setValue) {
-      return null;
-    }
-
-    AnnotationVisitor parseAnnotation(String name, String descriptor, Consumer<T> setValue) {
-      return null;
-    }
-
-    @Override
-    boolean isDefault() {
-      return !hasDeclaration();
-    }
-
-    private boolean hasDeclaration() {
-      return declarationValue != null || declarationVisitor != null;
-    }
-
-    private void error(String name) {
-      throw parsingContext.error(
-          "Multiple properties: '" + declarationName + "' and '" + name + "'");
-    }
-
-    final T getValue() {
-      return declarationValue == null ? getDefaultValue() : declarationValue;
-    }
-
-    @Override
-    final boolean tryParse(String name, Object value) {
-      T result = parse(name, value);
-      if (result != null) {
-        if (hasDeclaration()) {
-          error(name);
-        }
-        declarationName = name;
-        declarationValue = result;
-        return true;
-      }
-      return false;
-    }
-
-    @Override
-    final AnnotationVisitor tryParseArray(String name) {
-      AnnotationVisitor visitor = parseArray(name, v -> declarationValue = v);
-      if (visitor != null) {
-        if (hasDeclaration()) {
-          error(name);
-        }
-        declarationName = name;
-        declarationVisitor = visitor;
-        return visitor;
-      }
-      return null;
-    }
-
-    @Override
-    final AnnotationVisitor tryParseAnnotation(String name, String descriptor) {
-      AnnotationVisitor visitor = parseAnnotation(name, descriptor, v -> declarationValue = v);
-      if (visitor != null) {
-        if (hasDeclaration()) {
-          error(name);
-        }
-        declarationName = name;
-        declarationVisitor = visitor;
-        return visitor;
-      }
-      return null;
-    }
-  }
-
-  private static class InstanceOfDeclaration extends SingleDeclaration<KeepInstanceOfPattern> {
-
-    private InstanceOfDeclaration(ParsingContext parsingContext) {
-      super(parsingContext.group(Item.instanceOfGroup));
-    }
-
-    @Override
-    KeepInstanceOfPattern getDefaultValue() {
-      return KeepInstanceOfPattern.any();
-    }
-
-    @Override
-    KeepInstanceOfPattern parse(String name, Object value) {
-      if (name.equals(Item.instanceOfClassConstant) && value instanceof Type) {
-        return KeepInstanceOfPattern.builder()
-            .classPattern(KeepQualifiedClassNamePattern.exact(((Type) value).getClassName()))
-            .build();
-      }
-      if (name.equals(Item.instanceOfClassName) && value instanceof String) {
-        return KeepInstanceOfPattern.builder()
-            .classPattern(KeepQualifiedClassNamePattern.exact(((String) value)))
-            .build();
-      }
-      if (name.equals(Item.instanceOfClassConstantExclusive) && value instanceof Type) {
-        return KeepInstanceOfPattern.builder()
-            .classPattern(KeepQualifiedClassNamePattern.exact(((Type) value).getClassName()))
-            .setInclusive(false)
-            .build();
-      }
-      if (name.equals(Item.instanceOfClassNameExclusive) && value instanceof String) {
-        return KeepInstanceOfPattern.builder()
-            .classPattern(KeepQualifiedClassNamePattern.exact(((String) value)))
-            .setInclusive(false)
-            .build();
-      }
-      if (name.equals(Item.extendsClassConstant) && value instanceof Type) {
-        return KeepInstanceOfPattern.builder()
-            .classPattern(KeepQualifiedClassNamePattern.exact(((Type) value).getClassName()))
-            .setInclusive(false)
-            .build();
-      }
-      if (name.equals(Item.extendsClassName) && value instanceof String) {
-        return KeepInstanceOfPattern.builder()
-            .classPattern(KeepQualifiedClassNamePattern.exact(((String) value)))
-            .setInclusive(false)
-            .build();
-      }
-      return null;
-    }
-  }
-
-  private static class ClassDeclaration extends Declaration<KeepClassItemReference> {
+  private static class ClassDeclaration extends Declaration {
 
     private final ParsingContext parsingContext;
     private final Supplier<UserBindingsHelper> getBindingsHelper;
@@ -1399,8 +1264,7 @@ public class KeepEdgeReader implements Opcodes {
     private KeepClassItemReference boundClassItemReference = null;
     private final ClassNameParser classNameParser;
     private final ClassNameParser annotatedByParser;
-    private final InstanceOfDeclaration instanceOfDeclaration;
-    private final List<Declaration<?>> declarations;
+    private final InstanceOfParser instanceOfParser;
     private final List<PropertyParser<?, ?>> parsers;
 
     public ClassDeclaration(
@@ -1418,19 +1282,21 @@ public class KeepEdgeReader implements Opcodes {
       annotatedByParser.setProperty(
           Item.classAnnotatedByClassNamePattern, ClassNameProperty.PATTERN);
 
-      parsers = ImmutableList.of(classNameParser, annotatedByParser);
+      instanceOfParser = new InstanceOfParser(parsingContext);
+      instanceOfParser.setProperty(Item.instanceOfClassName, InstanceOfProperties.NAME);
+      instanceOfParser.setProperty(Item.instanceOfClassConstant, InstanceOfProperties.CONSTANT);
+      instanceOfParser.setProperty(
+          Item.instanceOfClassNameExclusive, InstanceOfProperties.NAME_EXCL);
+      instanceOfParser.setProperty(
+          Item.instanceOfClassConstantExclusive, InstanceOfProperties.CONSTANT_EXCL);
+      instanceOfParser.setProperty(Item.extendsClassName, InstanceOfProperties.NAME_EXCL);
+      instanceOfParser.setProperty(Item.extendsClassConstant, InstanceOfProperties.CONSTANT_EXCL);
 
-      instanceOfDeclaration = new InstanceOfDeclaration(parsingContext);
-      declarations = ImmutableList.of(instanceOfDeclaration);
+      parsers = ImmutableList.of(classNameParser, annotatedByParser, instanceOfParser);
     }
 
     @Override
-    List<Declaration<?>> declarations() {
-      return declarations;
-    }
-
-    @Override
-    List<PropertyParser<?, ?>> parsers() {
+    public List<PropertyParser<?, ?>> parsers() {
       return parsers;
     }
 
@@ -1441,7 +1307,7 @@ public class KeepEdgeReader implements Opcodes {
     private boolean classPatternsAreDeclared() {
       return classNameParser.isDeclared()
           || annotatedByParser.isDeclared()
-          || !instanceOfDeclaration.isDefault();
+          || instanceOfParser.isDeclared();
     }
 
     private void checkAllowedDefinitions() {
@@ -1467,7 +1333,7 @@ public class KeepEdgeReader implements Opcodes {
                 classNameParser.getValueOrDefault(KeepQualifiedClassNamePattern.any()))
             .setAnnotatedByPattern(
                 annotatedByParser.getValueOrDefault(KeepQualifiedClassNamePattern.any()))
-            .setInstanceOfPattern(instanceOfDeclaration.getValue())
+            .setInstanceOfPattern(instanceOfParser.getValueOrDefault(KeepInstanceOfPattern.any()))
             .build()
             .toClassItemReference();
       }
@@ -1494,7 +1360,7 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
-  private static class MethodDeclaration extends Declaration<KeepMethodPattern> {
+  private static class MethodDeclaration extends Declaration {
 
     private final ParsingContext parsingContext;
     private KeepMethodAccessPattern.Builder accessBuilder = null;
@@ -1568,7 +1434,7 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
-  private static class FieldDeclaration extends Declaration<KeepFieldPattern> {
+  private static class FieldDeclaration extends Declaration {
 
     private final ParsingContext parsingContext;
     private final StringPatternParser nameParser;
@@ -1631,13 +1497,13 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
-  private static class MemberDeclaration extends Declaration<KeepMemberPattern> {
+  private static class MemberDeclaration extends Declaration {
 
     private final ParsingContext parsingContext;
     private KeepMemberAccessPattern.Builder accessBuilder = null;
     private final MethodDeclaration methodDeclaration;
     private final FieldDeclaration fieldDeclaration;
-    private final List<Declaration<?>> declarations;
+    private final List<Declaration> declarations;
 
     MemberDeclaration(ParsingContext parsingContext) {
       this.parsingContext = parsingContext.group(Item.memberGroup);
@@ -1647,7 +1513,7 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     @Override
-    List<Declaration<?>> declarations() {
+    List<Declaration> declarations() {
       return declarations;
     }
 
@@ -1978,48 +1844,11 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
-  private static class OptionsDeclaration extends SingleDeclaration<KeepOptions> {
-
-    public OptionsDeclaration(ParsingContext parsingContext) {
-      super(parsingContext.group(Target.constraintsGroup));
-    }
-
-    @Override
-    KeepOptions getDefaultValue() {
-      return null;
-    }
-
-    @Override
-    KeepOptions parse(String name, Object value) {
-      return null;
-    }
-
-    @Override
-    AnnotationVisitor parseArray(String name, Consumer<KeepOptions> setValue) {
-      if (name.equals(AnnotationConstants.Target.constraints)) {
-        return new KeepConstraintsVisitor(
-            getParsingContext(),
-            options -> setValue.accept(KeepOptions.disallowBuilder().addAll(options).build()));
-      }
-      if (name.equals(AnnotationConstants.Target.disallow)) {
-        return new KeepOptionsVisitor(
-            getParsingContext(),
-            options -> setValue.accept(KeepOptions.disallowBuilder().addAll(options).build()));
-      }
-      if (name.equals(AnnotationConstants.Target.allow)) {
-        return new KeepOptionsVisitor(
-            getParsingContext(),
-            options -> setValue.accept(KeepOptions.allowBuilder().addAll(options).build()));
-      }
-      return null;
-    }
-  }
-
   private static class KeepTargetVisitor extends KeepItemVisitorBase {
 
     private final Parent<KeepTarget> parent;
     private final UserBindingsHelper bindingsHelper;
-    private final OptionsDeclaration optionsDeclaration;
+    private final OptionsParser optionsParser;
     private final KeepTarget.Builder builder = KeepTarget.builder();
 
     static KeepTargetVisitor create(
@@ -2036,7 +1865,10 @@ public class KeepEdgeReader implements Opcodes {
       super(parsingContext);
       this.parent = parent;
       this.bindingsHelper = bindingsHelper;
-      optionsDeclaration = new OptionsDeclaration(parsingContext);
+      optionsParser = new OptionsParser(parsingContext);
+      optionsParser.setProperty(Target.constraints, OptionsProperty.CONSTRAINTS);
+      optionsParser.setProperty(Target.allow, OptionsProperty.ALLOW);
+      optionsParser.setProperty(Target.disallow, OptionsProperty.DISALLOW);
     }
 
     @Override
@@ -2046,7 +1878,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitArray(String name) {
-      AnnotationVisitor visitor = optionsDeclaration.tryParseArray(name);
+      AnnotationVisitor visitor = optionsParser.tryParseArray(name, unused -> {});
       if (visitor != null) {
         return visitor;
       }
@@ -2056,7 +1888,7 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public void visitEnd() {
       super.visitEnd();
-      builder.setOptions(getKeepOptionsOrDefault(optionsDeclaration.getValue()));
+      builder.setOptions(getKeepOptionsOrDefault(optionsParser.getValue()));
       for (KeepItemReference item : getItemsWithBinding()) {
         parent.accept(builder.setItemReference(item).build());
       }
@@ -2086,116 +1918,6 @@ public class KeepEdgeReader implements Opcodes {
     public void visitEnd() {
       super.visitEnd();
       parent.accept(KeepCondition.builder().setItemReference(getItemReference()).build());
-    }
-  }
-
-  private static class KeepConstraintsVisitor extends AnnotationVisitorBase {
-
-    private final Parent<Collection<KeepOption>> parent;
-    private final Set<KeepOption> options = new HashSet<>();
-
-    public KeepConstraintsVisitor(
-        ParsingContext parsingContext, Parent<Collection<KeepOption>> parent) {
-      super(parsingContext);
-      this.parent = parent;
-    }
-
-    @Override
-    public void visitEnum(String ignore, String descriptor, String value) {
-      if (!descriptor.equals(AnnotationConstants.Constraints.DESCRIPTOR)) {
-        super.visitEnum(ignore, descriptor, value);
-      }
-      switch (value) {
-        case Constraints.LOOKUP:
-          options.add(KeepOption.SHRINKING);
-          break;
-        case Constraints.NAME:
-          options.add(KeepOption.OBFUSCATING);
-          break;
-        case Constraints.VISIBILITY_RELAX:
-          // The compiler currently satisfies that access is never restricted.
-          break;
-        case Constraints.VISIBILITY_RESTRICT:
-          // We don't have directional rules so this prohibits any modification.
-          options.add(KeepOption.ACCESS_MODIFICATION);
-          break;
-        case Constraints.CLASS_INSTANTIATE:
-        case Constraints.METHOD_INVOKE:
-        case Constraints.FIELD_GET:
-        case Constraints.FIELD_SET:
-          // These options are the item-specific actual uses of the items.
-          // Allocating, invoking and read/writing all imply that the item cannot be "optimized"
-          // at compile time. It would be natural to refine the field specific uses but that is
-          // not expressible as keep options.
-          options.add(KeepOption.OPTIMIZING);
-          break;
-        case Constraints.METHOD_REPLACE:
-        case Constraints.FIELD_REPLACE:
-        case Constraints.NEVER_INLINE:
-        case Constraints.CLASS_OPEN_HIERARCHY:
-          options.add(KeepOption.OPTIMIZING);
-          break;
-        case Constraints.ANNOTATIONS:
-          // The annotation constrain only implies that annotations should remain, no restrictions
-          // are on the item otherwise.
-          options.add(KeepOption.ANNOTATION_REMOVAL);
-          break;
-        default:
-          super.visitEnum(ignore, descriptor, value);
-      }
-    }
-
-    @Override
-    public void visitEnd() {
-      parent.accept(options);
-      super.visitEnd();
-    }
-  }
-
-  private static class KeepOptionsVisitor extends AnnotationVisitorBase {
-
-    private final Parent<Collection<KeepOption>> parent;
-    private final Set<KeepOption> options = new HashSet<>();
-
-    public KeepOptionsVisitor(
-        ParsingContext parsingContext, Parent<Collection<KeepOption>> parent) {
-      super(parsingContext);
-      this.parent = parent;
-    }
-
-    @Override
-    public void visitEnum(String ignore, String descriptor, String value) {
-      if (!descriptor.equals(AnnotationConstants.Option.DESCRIPTOR)) {
-        super.visitEnum(ignore, descriptor, value);
-      }
-      KeepOption option;
-      switch (value) {
-        case Option.SHRINKING:
-          option = KeepOption.SHRINKING;
-          break;
-        case Option.OPTIMIZATION:
-          option = KeepOption.OPTIMIZING;
-          break;
-        case Option.OBFUSCATION:
-          option = KeepOption.OBFUSCATING;
-          break;
-        case Option.ACCESS_MODIFICATION:
-          option = KeepOption.ACCESS_MODIFICATION;
-          break;
-        case Option.ANNOTATION_REMOVAL:
-          option = KeepOption.ANNOTATION_REMOVAL;
-          break;
-        default:
-          super.visitEnum(ignore, descriptor, value);
-          return;
-      }
-      options.add(option);
-    }
-
-    @Override
-    public void visitEnd() {
-      parent.accept(options);
-      super.visitEnd();
     }
   }
 
