@@ -222,7 +222,7 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     private AnnotationParsingContext annotationParsingContext(String descriptor) {
-      return new AnnotationParsingContext(parsingContext, descriptor);
+      return parsingContext.annotation(descriptor);
     }
 
     @Override
@@ -251,7 +251,6 @@ public class KeepEdgeReader implements Opcodes {
           || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
         return new UsedByReflectionClassVisitor(
             annotationParsingContext(descriptor),
-            descriptor,
             parent::accept,
             this::setContext,
             className);
@@ -339,7 +338,7 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     private AnnotationParsingContext annotationParsingContext(String descriptor) {
-      return new AnnotationParsingContext(parsingContext, descriptor);
+      return parsingContext.annotation(descriptor);
     }
 
     @Override
@@ -370,7 +369,6 @@ public class KeepEdgeReader implements Opcodes {
           || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
         return new UsedByReflectionMemberVisitor(
             annotationParsingContext(descriptor),
-            descriptor,
             parent::accept,
             this::setContext,
             createMethodItemContext());
@@ -423,7 +421,7 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     private AnnotationParsingContext annotationParsingContext(String descriptor) {
-      return new AnnotationParsingContext(parsingContext, descriptor);
+      return parsingContext.annotation(descriptor);
     }
 
     private KeepMemberItemPattern createMemberItemContext() {
@@ -471,7 +469,6 @@ public class KeepEdgeReader implements Opcodes {
           || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
         return new UsedByReflectionMemberVisitor(
             annotationParsingContext(descriptor),
-            descriptor,
             parent,
             this::setContext,
             createMemberItemContext());
@@ -514,7 +511,7 @@ public class KeepEdgeReader implements Opcodes {
 
   private static class KeepEdgeVisitor extends AnnotationVisitorBase {
 
-    private final AnnotationParsingContext parsingContext;
+    private final ParsingContext parsingContext;
     private final Parent<KeepEdge> parent;
     private final KeepEdge.Builder builder = KeepEdge.builder();
     private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
@@ -571,7 +568,7 @@ public class KeepEdgeReader implements Opcodes {
    */
   private static class ForApiClassVisitor extends KeepItemVisitorBase {
 
-    private final AnnotationParsingContext parsingContext;
+    private final ParsingContext parsingContext;
     private final String className;
     private final Parent<KeepEdge> parent;
     private final KeepEdge.Builder builder = KeepEdge.builder();
@@ -670,7 +667,7 @@ public class KeepEdgeReader implements Opcodes {
    */
   private static class ForApiMemberVisitor extends AnnotationVisitorBase {
 
-    private final AnnotationParsingContext parsingContext;
+    private final ParsingContext parsingContext;
     private final Parent<KeepEdge> parent;
     private final KeepEdge.Builder builder = KeepEdge.builder();
     private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
@@ -744,8 +741,7 @@ public class KeepEdgeReader implements Opcodes {
    */
   private static class UsedByReflectionClassVisitor extends KeepItemVisitorBase {
 
-    private final AnnotationParsingContext parsingContext;
-    private final String annotationDescriptor;
+    private final ParsingContext parsingContext;
     private final String className;
     private final Parent<KeepEdge> parent;
     private final KeepEdge.Builder builder = KeepEdge.builder();
@@ -756,13 +752,11 @@ public class KeepEdgeReader implements Opcodes {
 
     UsedByReflectionClassVisitor(
         AnnotationParsingContext parsingContext,
-        String annotationDescriptor,
         Parent<KeepEdge> parent,
         Consumer<KeepEdgeMetaInfo.Builder> addContext,
         String className) {
       super(parsingContext);
       this.parsingContext = parsingContext;
-      this.annotationDescriptor = annotationDescriptor;
       this.className = className;
       this.parent = parent;
       addContext.accept(metaInfoBuilder);
@@ -854,7 +848,7 @@ public class KeepEdgeReader implements Opcodes {
    */
   private static class UsedByReflectionMemberVisitor extends AnnotationVisitorBase {
 
-    private final AnnotationParsingContext parsingContext;
+    private final ParsingContext parsingContext;
     private final Parent<KeepEdge> parent;
     private final KeepItemPattern context;
     private final KeepEdge.Builder builder = KeepEdge.builder();
@@ -866,7 +860,6 @@ public class KeepEdgeReader implements Opcodes {
 
     UsedByReflectionMemberVisitor(
         AnnotationParsingContext parsingContext,
-        String annotationDescriptor,
         Parent<KeepEdge> parent,
         Consumer<KeepEdgeMetaInfo.Builder> addContext,
         KeepItemPattern context) {
@@ -961,7 +954,7 @@ public class KeepEdgeReader implements Opcodes {
 
   private static class UsesReflectionVisitor extends AnnotationVisitorBase {
 
-    private final AnnotationParsingContext parsingContext;
+    private final ParsingContext parsingContext;
     private final Parent<KeepEdge> parent;
     private final KeepEdge.Builder builder = KeepEdge.builder();
     private final KeepPreconditions.Builder preconditions = KeepPreconditions.builder();
@@ -1018,10 +1011,10 @@ public class KeepEdgeReader implements Opcodes {
   }
 
   private static class KeepBindingsVisitor extends AnnotationVisitorBase {
-    private final AnnotationParsingContext parsingContext;
+    private final ParsingContext parsingContext;
     private final UserBindingsHelper helper;
 
-    public KeepBindingsVisitor(AnnotationParsingContext parsingContext, UserBindingsHelper helper) {
+    public KeepBindingsVisitor(ParsingContext parsingContext, UserBindingsHelper helper) {
       super(parsingContext);
       this.parsingContext = parsingContext;
       this.helper = helper;
@@ -1030,20 +1023,20 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public AnnotationVisitor visitAnnotation(String name, String descriptor) {
       if (descriptor.equals(AnnotationConstants.Binding.DESCRIPTOR)) {
-        return new KeepBindingVisitor(parsingContext, helper);
+        return new KeepBindingVisitor(parsingContext.annotation(descriptor), helper);
       }
       return super.visitAnnotation(name, descriptor);
     }
   }
 
   private static class KeepPreconditionsVisitor extends AnnotationVisitorBase {
-    private final AnnotationParsingContext parsingContext;
+    private final ParsingContext parsingContext;
     private final Parent<KeepPreconditions> parent;
     private final KeepPreconditions.Builder builder = KeepPreconditions.builder();
     private final UserBindingsHelper bindingsHelper;
 
     public KeepPreconditionsVisitor(
-        AnnotationParsingContext parsingContext,
+        ParsingContext parsingContext,
         Parent<KeepPreconditions> parent,
         UserBindingsHelper bindingsHelper) {
       super(parsingContext);
@@ -1055,7 +1048,8 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public AnnotationVisitor visitAnnotation(String name, String descriptor) {
       if (descriptor.equals(Condition.DESCRIPTOR)) {
-        return new KeepConditionVisitor(parsingContext, builder::addCondition, bindingsHelper);
+        return new KeepConditionVisitor(
+            parsingContext.annotation(descriptor), builder::addCondition, bindingsHelper);
       }
       return super.visitAnnotation(name, descriptor);
     }
@@ -1067,13 +1061,13 @@ public class KeepEdgeReader implements Opcodes {
   }
 
   private static class KeepConsequencesVisitor extends AnnotationVisitorBase {
-    private final AnnotationParsingContext parsingContext;
+    private final ParsingContext parsingContext;
     private final Parent<KeepConsequences> parent;
     private final KeepConsequences.Builder builder = KeepConsequences.builder();
     private final UserBindingsHelper bindingsHelper;
 
     public KeepConsequencesVisitor(
-        AnnotationParsingContext parsingContext,
+        ParsingContext parsingContext,
         Parent<KeepConsequences> parent,
         UserBindingsHelper bindingsHelper) {
       super(parsingContext);
@@ -1100,7 +1094,7 @@ public class KeepEdgeReader implements Opcodes {
   /** Parsing of @CheckRemoved and @CheckOptimizedOut on a class context. */
   private static class CheckRemovedClassVisitor extends AnnotationVisitorBase {
 
-    private final AnnotationParsingContext parsingContext;
+    private final ParsingContext parsingContext;
     private final Parent<KeepCheck> parent;
     private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
     private final String className;
@@ -1942,7 +1936,7 @@ public class KeepEdgeReader implements Opcodes {
 
   private static class KeepBindingVisitor extends KeepItemVisitorBase {
 
-    private final AnnotationParsingContext parsingContext;
+    private final ParsingContext parsingContext;
     private final UserBindingsHelper helper;
     private String bindingName;
 
@@ -2075,7 +2069,7 @@ public class KeepEdgeReader implements Opcodes {
     private final UserBindingsHelper bindingsHelper;
 
     public KeepConditionVisitor(
-        ParsingContext parsingContext,
+        AnnotationParsingContext parsingContext,
         Parent<KeepCondition> parent,
         UserBindingsHelper bindingsHelper) {
       super(parsingContext);
