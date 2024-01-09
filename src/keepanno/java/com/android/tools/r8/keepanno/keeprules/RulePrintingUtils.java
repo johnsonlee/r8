@@ -28,6 +28,7 @@ import com.android.tools.r8.keepanno.ast.KeepStringPattern;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepUnqualfiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.ModifierPattern;
+import com.android.tools.r8.keepanno.ast.OptionalPattern;
 import com.android.tools.r8.keepanno.utils.Unimplemented;
 import java.util.List;
 import java.util.Set;
@@ -98,10 +99,11 @@ public abstract class RulePrintingUtils {
       StringBuilder builder,
       KeepClassItemPattern classPattern,
       BiConsumer<StringBuilder, KeepQualifiedClassNamePattern> printClassName) {
-    KeepQualifiedClassNamePattern annotatedByPattern = classPattern.getAnnotatedByPattern();
-    if (!annotatedByPattern.isAny()) {
+    OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern =
+        classPattern.getAnnotatedByPattern();
+    if (annotatedByPattern.isPresent()) {
       builder.append("@");
-      printClassName(annotatedByPattern, RulePrinter.withoutBackReferences(builder));
+      printClassName(annotatedByPattern.get(), RulePrinter.withoutBackReferences(builder));
       builder.append(" ");
     }
     builder.append("class ");

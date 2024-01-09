@@ -22,7 +22,8 @@ public class KeepClassItemPattern extends KeepItemPattern {
 
     private KeepQualifiedClassNamePattern classNamePattern = KeepQualifiedClassNamePattern.any();
     private KeepInstanceOfPattern instanceOfPattern = KeepInstanceOfPattern.any();
-    private KeepQualifiedClassNamePattern annotatedByPattern = KeepQualifiedClassNamePattern.any();
+    private OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern =
+        OptionalPattern.absent();
 
     private Builder() {}
 
@@ -42,7 +43,9 @@ public class KeepClassItemPattern extends KeepItemPattern {
       return this;
     }
 
-    public Builder setAnnotatedByPattern(KeepQualifiedClassNamePattern annotatedByPattern) {
+    public Builder setAnnotatedByPattern(
+        OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern) {
+      assert annotatedByPattern != null;
       this.annotatedByPattern = annotatedByPattern;
       return this;
     }
@@ -54,12 +57,12 @@ public class KeepClassItemPattern extends KeepItemPattern {
 
   private final KeepQualifiedClassNamePattern classNamePattern;
   private final KeepInstanceOfPattern instanceOfPattern;
-  private final KeepQualifiedClassNamePattern annotatedByPattern;
+  private final OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern;
 
   public KeepClassItemPattern(
       KeepQualifiedClassNamePattern classNamePattern,
       KeepInstanceOfPattern instanceOfPattern,
-      KeepQualifiedClassNamePattern annotatedByPattern) {
+      OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern) {
     assert classNamePattern != null;
     assert instanceOfPattern != null;
     assert annotatedByPattern != null;
@@ -95,12 +98,12 @@ public class KeepClassItemPattern extends KeepItemPattern {
     return instanceOfPattern;
   }
 
-  public KeepQualifiedClassNamePattern getAnnotatedByPattern() {
+  public OptionalPattern<KeepQualifiedClassNamePattern> getAnnotatedByPattern() {
     return annotatedByPattern;
   }
 
   public boolean isAny() {
-    return classNamePattern.isAny() && instanceOfPattern.isAny() && annotatedByPattern.isAny();
+    return classNamePattern.isAny() && instanceOfPattern.isAny() && annotatedByPattern.isAbsent();
   }
 
   @Override

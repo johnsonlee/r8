@@ -56,6 +56,7 @@ import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepStringPattern;
 import com.android.tools.r8.keepanno.ast.KeepTarget;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
+import com.android.tools.r8.keepanno.ast.OptionalPattern;
 import com.android.tools.r8.keepanno.ast.ParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.AnnotationParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.ClassParsingContext;
@@ -1331,8 +1332,7 @@ public class KeepEdgeReader implements Opcodes {
         return KeepClassItemPattern.builder()
             .setClassNamePattern(
                 classNameParser.getValueOrDefault(KeepQualifiedClassNamePattern.any()))
-            .setAnnotatedByPattern(
-                annotatedByParser.getValueOrDefault(KeepQualifiedClassNamePattern.any()))
+            .setAnnotatedByPattern(OptionalPattern.ofNullable(annotatedByParser.getValue()))
             .setInstanceOfPattern(instanceOfParser.getValueOrDefault(KeepInstanceOfPattern.any()))
             .build()
             .toClassItemReference();

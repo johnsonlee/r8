@@ -17,6 +17,8 @@ package com.android.tools.r8.keepanno.ast;
  * <p>TODO(b/248408342): Update the BNF and AST to be complete.
  *
  * <pre>
+ *   OPT(T) ::= absent | present T
+ *
  *   EDGE ::= METAINFO BINDINGS PRECONDITIONS -> CONSEQUENCES
  *   METAINFO ::= [CONTEXT] [DESCRIPTION]
  *   CONTEXT ::= class-descriptor | method-descriptor | field-descriptor
@@ -42,7 +44,7 @@ package com.android.tools.r8.keepanno.ast;
  *
  *   ITEM_PATTERN ::= CLASS_ITEM_PATTERN | MEMBER_ITEM_PATTERN
  *   CLASS_ITEM_PATTERN ::= class QUALIFIED_CLASS_NAME_PATTERN
- *                              annotated-by ANNOTATED_BY_PATTERN
+ *                              annotated-by OPT(ANNOTATED_BY_PATTERN)
  *                              instance-of INSTANCE_OF_PATTERN
  *   MEMBER_ITEM_PATTERN ::= CLASS_ITEM_REFERENCE { MEMBER_PATTERN }
  *
