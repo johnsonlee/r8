@@ -48,6 +48,10 @@ public class DexDebugEventBuilder {
   // Mapping from register to local for currently open/visible locals.
   private Int2ReferenceMap<DebugLocalInfo> pendingLocals = null;
 
+  // The method's preamble position. This is used in release mode to preserve the preamble position
+  // for methods without throwing instructions that have been moved (i.e., have a caller position).
+  private Position preamblePosition;
+
   // Conservative pending-state of locals to avoid some equality checks on locals.
   // pendingLocalChanges == true ==> localsEqual(emittedLocals, pendingLocals).
   private boolean pendingLocalChanges = false;
@@ -81,6 +85,9 @@ public class DexDebugEventBuilder {
     // Initialize locals state on block entry.
     if (isBlockEntry) {
       updateBlockEntry(instruction);
+      if (preamblePosition == null) {
+        preamblePosition = instruction.getPosition();
+      }
     }
     assert pendingLocals != null;
 
@@ -116,8 +123,17 @@ public class DexDebugEventBuilder {
   public DexDebugInfo build() {
     assert pendingLocals == null;
     assert !pendingLocalChanges;
+    assert preamblePosition != null;
     if (startLine == NO_LINE_INFO) {
-      return null;
+      if (!preamblePosition.hasCallerPosition()) {
+        return null;
+      }
+      return new EventBasedDebugInfo(
+          0,
+          new DexString[method.getReference().getArity()],
+          new DexDebugEvent[] {
+            factory.createPositionFrame(preamblePosition), factory.zeroChangeDefaultEvent
+          });
     }
     DexString[] params = new DexString[method.getReference().getArity()];
     if (arguments != null) {

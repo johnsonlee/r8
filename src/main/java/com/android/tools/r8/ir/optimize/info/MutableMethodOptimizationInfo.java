@@ -297,6 +297,10 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     return this;
   }
 
+  public void unsetArgumentInfos() {
+    argumentInfos = CallSiteOptimizationInfo.top();
+  }
+
   @Override
   public ClassInlinerMethodConstraint getClassInlinerMethodConstraint() {
     return classInlinerConstraint;

@@ -84,6 +84,10 @@ public class MutableFieldOptimizationInfo extends FieldOptimizationInfo
         abstractValue.rewrittenWithLens(appView, field.getType(), lens, codeLens), field);
   }
 
+  public void unsetAbstractValue() {
+    abstractValue = AbstractValue.unknown();
+  }
+
   @Override
   public int getReadBits() {
     return readBits;
@@ -109,6 +113,10 @@ public class MutableFieldOptimizationInfo extends FieldOptimizationInfo
 
   void setDynamicType(DynamicType dynamicType) {
     this.dynamicType = dynamicType;
+  }
+
+  public void unsetDynamicType() {
+    setDynamicType(DynamicType.unknown());
   }
 
   @Override

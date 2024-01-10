@@ -18,20 +18,18 @@ import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class EnumUnboxingMappingTest extends EnumUnboxingTestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withDexRuntimes().withAllApiLevels().build();
-  }
-
-  public EnumUnboxingMappingTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -64,14 +62,14 @@ public class EnumUnboxingMappingTest extends EnumUnboxingTestBase {
     assertEquals("int", debugInfoMethod.getFinalSignature().asMethodSignature().parameters[0]);
     assertEquals("int", noDebugInfoMethod.getFinalSignature().asMethodSignature().parameters[0]);
 
-    assertEquals(MyEnum.class.getName(), debugInfoMethod.getOriginalSignature().parameters[0]);
-    // TODO(b/314076309): The original parameter should be MyEnum.class but is int.
-    assertEquals("int", noDebugInfoMethod.getOriginalSignature().parameters[0]);
+    assertEquals(MyEnum.class.getTypeName(), debugInfoMethod.getOriginalSignature().parameters[0]);
+    assertEquals(
+        MyEnum.class.getTypeName(), noDebugInfoMethod.getOriginalSignature().parameters[0]);
 
     ClassSubject indirection = codeInspector.clazz(Indirection.class);
     MethodSubject abstractMethod = indirection.uniqueMethodWithOriginalName("intermediate");
     assertTrue(abstractMethod.isAbstract());
-    assertEquals(MyEnum.class.getName(), abstractMethod.getOriginalSignature().parameters[0]);
+    assertEquals(MyEnum.class.getTypeName(), abstractMethod.getOriginalSignature().parameters[0]);
   }
 
   @NeverClassInline

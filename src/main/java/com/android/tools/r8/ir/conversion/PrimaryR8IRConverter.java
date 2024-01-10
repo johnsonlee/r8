@@ -27,6 +27,7 @@ import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagator;
 import com.android.tools.r8.optimize.compose.ComposableOptimizationPass;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -335,7 +336,6 @@ public class PrimaryR8IRConverter extends IRConverter {
     appView.setGraphLens(rewrittenMemberRebindingLens);
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private static void finalizeLirMethodToOutputFormat(
       ProgramMethod method,
       DeadCodeRemover deadCodeRemover,
@@ -349,7 +349,7 @@ public class PrimaryR8IRConverter extends IRConverter {
     LirCode<Integer> lirCode = code.asLirCode();
     LirCode<Integer> rewrittenLirCode =
         lirCode.rewriteWithSimpleLens(method, appView, rewriterUtils);
-    if (lirCode != rewrittenLirCode) {
+    if (ObjectUtils.notIdentical(lirCode, rewrittenLirCode)) {
       method.setCode(rewrittenLirCode, appView);
     }
     IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));

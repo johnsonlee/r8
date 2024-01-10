@@ -54,6 +54,7 @@ import com.android.tools.r8.ir.optimize.NestReducer;
 import com.android.tools.r8.ir.optimize.SwitchMapCollector;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxingCfMethods;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
+import com.android.tools.r8.ir.optimize.info.OptimizationInfoRemover;
 import com.android.tools.r8.ir.optimize.templates.CfUtilityMethodsForCodeOptimizations;
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
@@ -715,13 +716,15 @@ public class R8 {
         SyntheticFinalization.finalizeWithClassHierarchy(appView, executorService, timing);
       }
 
-      // TODO(b/225838009): Move further down.
-      PrimaryR8IRConverter.finalizeLirToOutputFormat(appView, timing, executorService);
-
       // Read any -applymapping input to allow for repackaging to not relocate the classes.
       timing.begin("read -applymapping file");
       appView.loadApplyMappingSeedMapper();
       timing.end();
+
+      // Remove optimization info before remaining optimizations, since these optimization currently
+      // do not rewrite the optimization info, which is OK since the optimization info should
+      // already have been leveraged.
+      OptimizationInfoRemover.run(appView, executorService);
 
       // Perform repackaging.
       if (appView.hasLiveness()) {
@@ -730,6 +733,9 @@ public class R8 {
         }
         assert Repackaging.verifyIdentityRepackaging(appView.withLiveness(), executorService);
       }
+
+      // TODO(b/225838009): Move further down.
+      PrimaryR8IRConverter.finalizeLirToOutputFormat(appView, timing, executorService);
 
       // Clear the reference type lattice element cache. This is required since class merging may
       // need to build IR.

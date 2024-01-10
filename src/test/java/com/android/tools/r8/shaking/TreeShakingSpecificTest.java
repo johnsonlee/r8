@@ -95,7 +95,7 @@ public class TreeShakingSpecificTest extends TestBase {
         "shaking1.Used -> a.a:",
         "# {'id':'sourceFile','fileName':'Used.java'}",
         "    java.lang.String name -> a",
-        "    1:14:void <init>(java.lang.String):0:13 -> <init>",
+        "    1:2:void <init>(java.lang.String):12:13 -> <init>",
         "    1:1:java.lang.String method():17:17 -> a",
         "    1:1:java.lang.String aMethodThatIsNotUsedButKept():21:21 "
             + "-> aMethodThatIsNotUsedButKept");
