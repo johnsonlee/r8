@@ -57,7 +57,6 @@ import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.ir.optimize.PeepholeOptimizer;
 import com.android.tools.r8.ir.optimize.PhiOptimizations;
 import com.android.tools.r8.ir.optimize.peepholes.BasicBlockMuncher;
-import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.Sets;
@@ -91,7 +90,6 @@ public class CfBuilder {
   private CfRegisterAllocator registerAllocator;
 
   private Position currentPosition = Position.none();
-  private Position preamblePosition = null;
 
   private final Int2ReferenceMap<DebugLocalInfo> emittedLocals = new Int2ReferenceOpenHashMap<>();
   private Int2ReferenceMap<DebugLocalInfo> pendingLocals = null;
@@ -415,7 +413,6 @@ public class CfBuilder {
     if (method.getDefinition().getCode().isCfCode()) {
       diagnosticPosition = method.getDefinition().getCode().asCfCode().getDiagnosticPosition();
     }
-    materializePreamblePosition();
     return new CfCode(
         method.getHolderType(),
         stackHeightTracker.maxHeight,
@@ -425,25 +422,6 @@ public class CfBuilder {
         localVariablesTable,
         diagnosticPosition,
         bytecodeMetadataBuilder.build());
-  }
-
-  private void materializePreamblePosition() {
-    if (!currentPosition.isNone()
-        || preamblePosition == null
-        || !preamblePosition.hasCallerPosition()) {
-      return;
-    }
-    CfLabel existingLabel = ListUtils.first(instructions).asLabel();
-    int instructionIncrement = existingLabel != null ? 1 : 2;
-    List<CfInstruction> newInstructions =
-        new ArrayList<>(instructions.size() + instructionIncrement);
-    CfLabel label = existingLabel != null ? existingLabel : new CfLabel();
-    newInstructions.add(label);
-    newInstructions.add(new CfPosition(label, preamblePosition));
-    for (int i = existingLabel == null ? 0 : 1; i < instructions.size(); i++) {
-      newInstructions.add(instructions.get(i));
-    }
-    instructions = newInstructions;
   }
 
   private static boolean isNopInstruction(Instruction instruction, BasicBlock nextBlock) {
@@ -581,9 +559,6 @@ public class CfBuilder {
   @SuppressWarnings("ReferenceEquality")
   private void updatePositionAndLocals(Instruction instruction) {
     Position position = instruction.getPosition();
-    if (preamblePosition == null) {
-      preamblePosition = position;
-    }
     boolean didLocalsChange = localsChanged();
     boolean didPositionChange =
         position.isSome()

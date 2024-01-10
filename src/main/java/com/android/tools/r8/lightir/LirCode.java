@@ -38,7 +38,6 @@ import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.ComparatorUtils;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
@@ -199,32 +198,6 @@ public class LirCode<EV> extends Code
     @Override
     public StructuralMapping<TryCatchTable> getStructuralMapping() {
       return TryCatchTable::specify;
-    }
-
-    public TryCatchTable rewriteWithLens(GraphLens graphLens, GraphLens codeLens) {
-      Int2ReferenceMap<CatchHandlers<Integer>> newTryCatchHandlers = null;
-      for (Int2ReferenceMap.Entry<CatchHandlers<Integer>> entry :
-          tryCatchHandlers.int2ReferenceEntrySet()) {
-        int block = entry.getIntKey();
-        CatchHandlers<Integer> blockHandlers = entry.getValue();
-        CatchHandlers<Integer> newBlockHandlers =
-            blockHandlers.rewriteWithLens(graphLens, codeLens);
-        if (newTryCatchHandlers == null) {
-          if (ObjectUtils.identical(newBlockHandlers, blockHandlers)) {
-            continue;
-          }
-          newTryCatchHandlers = new Int2ReferenceOpenHashMap<>(tryCatchHandlers.size());
-          for (Int2ReferenceMap.Entry<CatchHandlers<Integer>> previousEntry :
-              tryCatchHandlers.int2ReferenceEntrySet()) {
-            if (previousEntry == entry) {
-              break;
-            }
-            newTryCatchHandlers.put(previousEntry.getIntKey(), previousEntry.getValue());
-          }
-        }
-        newTryCatchHandlers.put(block, newBlockHandlers);
-      }
-      return newTryCatchHandlers != null ? new TryCatchTable(newTryCatchHandlers) : this;
     }
 
     private static void specify(StructuralSpecification<TryCatchTable, ?> spec) {
@@ -795,24 +768,6 @@ public class LirCode<EV> extends Code
         instructions,
         instructionCount,
         tryCatchTable,
-        debugLocalInfoTable,
-        strategyInfo,
-        useDexEstimationStrategy,
-        metadataMap);
-  }
-
-  public LirCode<EV> newCodeWithRewrittenTryCatchTable(TryCatchTable rewrittenTryCatchTable) {
-    if (rewrittenTryCatchTable == tryCatchTable) {
-      return this;
-    }
-    return new LirCode<>(
-        irMetadata,
-        constants,
-        positionTable,
-        argumentCount,
-        instructions,
-        instructionCount,
-        rewrittenTryCatchTable,
         debugLocalInfoTable,
         strategyInfo,
         useDexEstimationStrategy,

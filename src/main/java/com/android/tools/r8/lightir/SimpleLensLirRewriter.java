@@ -4,13 +4,10 @@
 
 package com.android.tools.r8.lightir;
 
-import static com.android.tools.r8.graph.UseRegistry.MethodHandleUse.NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
-
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -20,8 +17,6 @@ import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Opcodes;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
-import com.android.tools.r8.lightir.LirBuilder.RecordFieldValuesPayload;
-import com.android.tools.r8.lightir.LirCode.TryCatchTable;
 import com.android.tools.r8.utils.ArrayUtils;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
@@ -71,12 +66,6 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
 
   public void onCallSiteReference(DexCallSite callSite) {
     addRewrittenMapping(callSite, helper.rewriteCallSite(callSite, context));
-  }
-
-  public void onMethodHandleReference(DexMethodHandle methodHandle) {
-    addRewrittenMapping(
-        methodHandle,
-        helper.rewriteDexMethodHandle(methodHandle, NOT_ARGUMENT_TO_LAMBDA_METAFACTORY, context));
   }
 
   public void onProtoReference(DexProto proto) {
@@ -154,8 +143,7 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
 
   public LirCode<EV> rewrite() {
     LirCode<EV> rewritten = rewriteConstantPoolAndScanForTypeChanges(getCode());
-    rewritten = rewriteInstructionsWithInvokeTypeChanges(rewritten);
-    return rewriteTryCatchTable(rewritten);
+    return rewriteInstructionsWithInvokeTypeChanges(rewritten);
   }
 
   private LirCode<EV> rewriteConstantPoolAndScanForTypeChanges(LirCode<EV> code) {
@@ -164,16 +152,12 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
     // fields/methods that need to be examined.
     boolean hasPotentialRewrittenMethod = false;
     for (LirConstant constant : code.getConstantPool()) {
-      // RecordFieldValuesPayload is lowered to NewArrayEmpty before lens code rewriting any LIR.
-      assert !(constant instanceof RecordFieldValuesPayload);
       if (constant instanceof DexType) {
         onTypeReference((DexType) constant);
       } else if (constant instanceof DexField) {
         onFieldReference((DexField) constant);
       } else if (constant instanceof DexCallSite) {
         onCallSiteReference((DexCallSite) constant);
-      } else if (constant instanceof DexMethodHandle) {
-        onMethodHandleReference((DexMethodHandle) constant);
       } else if (constant instanceof DexProto) {
         onProtoReference((DexProto) constant);
       } else if (!hasPotentialRewrittenMethod && constant instanceof DexMethod) {
@@ -280,14 +264,5 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
             ArrayUtils.appendElements(code.getConstantPool(), methodsToAppend),
             byteWriter.toByteArray());
     return newCode;
-  }
-
-  private LirCode<EV> rewriteTryCatchTable(LirCode<EV> code) {
-    TryCatchTable tryCatchTable = code.getTryCatchTable();
-    if (tryCatchTable == null) {
-      return code;
-    }
-    TryCatchTable newTryCatchTable = tryCatchTable.rewriteWithLens(graphLens, codeLens);
-    return code.newCodeWithRewrittenTryCatchTable(newTryCatchTable);
   }
 }
