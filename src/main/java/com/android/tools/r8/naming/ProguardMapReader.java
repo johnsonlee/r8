@@ -123,7 +123,11 @@ public class ProguardMapReader implements AutoCloseable {
   private MapVersion version;
 
   private int peekCodePoint() {
-    return lineOffset < line.length() ? line.codePointAt(lineOffset) : '\n';
+    return peekCodePoint(0);
+  }
+
+  private int peekCodePoint(int distance) {
+    return lineOffset + distance < line.length() ? line.codePointAt(lineOffset + distance) : '\n';
   }
 
   private char peekChar(int distance) {
@@ -436,7 +440,7 @@ public class ProguardMapReader implements AutoCloseable {
         break;
       }
       skipWhitespace();
-      Range mappedRange = parseRange();
+      Range mappedRange = parseRange(true);
       if (mappedRange != null) {
         if (mappedRange.isCardinal) {
           throw new ParseException(
@@ -452,7 +456,7 @@ public class ProguardMapReader implements AutoCloseable {
         // This is a mapping or inlining definition
         nextChar();
         skipWhitespace();
-        originalRange = parseRange();
+        originalRange = parseRange(false);
         if (originalRange == null) {
           throw new ParseException("No number follows the colon after the method signature.");
         }
@@ -825,10 +829,25 @@ public class ProguardMapReader implements AutoCloseable {
     return '0' <= c && c <= '9';
   }
 
-  private Range parseRange() {
+  private Range parseRange(boolean colonTerminated) {
     if (!isSimpleDigit(peekChar(0))) {
       return null;
     }
+    // A colon-terminated range must be of the form "<digit>+<whitespace>*<colon>". If it is not,
+    // then we must not consume any of the text as it may then be part of an identifier.
+    if (colonTerminated) {
+      int i = 1;
+      while (isSimpleDigit(peekChar(i))) {
+        i++;
+      }
+      while (StringUtils.isWhitespace(peekCodePoint(i))) {
+        i++;
+      }
+      if (peekChar(i) != ':') {
+        return null;
+      }
+    }
+
     int from = parseNumber();
     skipWhitespace();
     if (peekChar(0) != ':') {
