@@ -86,7 +86,17 @@ public final class AnnotationConstants {
     public static final String classAnnotatedByClassConstant = "classAnnotatedByClassConstant";
     public static final String classAnnotatedByClassNamePattern =
         "classAnnotatedByClassNamePattern";
+    public static final String memberAnnotatedByGroup = "member-annotated-by";
+    public static final String memberAnnotatedByClassName = "memberAnnotatedByClassName";
+    public static final String memberAnnotatedByClassConstant = "memberAnnotatedByClassConstant";
+    public static final String memberAnnotatedByClassNamePattern =
+        "memberAnnotatedByClassNamePattern";
     public static final String memberAccess = "memberAccess";
+    public static final String methodAnnotatedByGroup = "method-annotated-by";
+    public static final String methodAnnotatedByClassName = "methodAnnotatedByClassName";
+    public static final String methodAnnotatedByClassConstant = "methodAnnotatedByClassConstant";
+    public static final String methodAnnotatedByClassNamePattern =
+        "methodAnnotatedByClassNamePattern";
     public static final String methodAccess = "methodAccess";
     public static final String methodNameGroup = "method-name";
     public static final String methodName = "methodName";
@@ -98,6 +108,11 @@ public final class AnnotationConstants {
     public static final String parametersGroup = "parameters";
     public static final String methodParameters = "methodParameters";
     public static final String methodParameterTypePatterns = "methodParameterTypePatterns";
+    public static final String fieldAnnotatedByGroup = "field-annotated-by";
+    public static final String fieldAnnotatedByClassName = "fieldAnnotatedByClassName";
+    public static final String fieldAnnotatedByClassConstant = "fieldAnnotatedByClassConstant";
+    public static final String fieldAnnotatedByClassNamePattern =
+        "fieldAnnotatedByClassNamePattern";
     public static final String fieldAccess = "fieldAccess";
     public static final String fieldNameGroup = "field-name";
     public static final String fieldName = "fieldName";

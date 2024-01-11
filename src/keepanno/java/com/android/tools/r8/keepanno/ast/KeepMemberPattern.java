@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import java.util.Objects;
+
 public abstract class KeepMemberPattern {
 
   public static KeepMemberPattern allMembers() {
@@ -14,7 +16,14 @@ public abstract class KeepMemberPattern {
   }
 
   public static class Builder {
+    private OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern;
     private KeepMemberAccessPattern accessPattern = KeepMemberAccessPattern.anyMemberAccess();
+
+    public Builder setAnnotatedByPattern(
+        OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern) {
+      this.annotatedByPattern = annotatedByPattern;
+      return this;
+    }
 
     public Builder setAccessPattern(KeepMemberAccessPattern accessPattern) {
       this.accessPattern = accessPattern;
@@ -22,21 +31,30 @@ public abstract class KeepMemberPattern {
     }
 
     public KeepMemberPattern build() {
-      if (accessPattern.isAny()) {
+      if (annotatedByPattern.isAbsent() && accessPattern.isAny()) {
         return allMembers();
       }
-      return new Some(accessPattern);
+      return new Some(annotatedByPattern, accessPattern);
     }
   }
 
   private static class Some extends KeepMemberPattern {
     private static final KeepMemberPattern ANY =
-        new Some(KeepMemberAccessPattern.anyMemberAccess());
+        new Some(OptionalPattern.absent(), KeepMemberAccessPattern.anyMemberAccess());
 
+    private final OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern;
     private final KeepMemberAccessPattern accessPattern;
 
-    public Some(KeepMemberAccessPattern accessPattern) {
+    public Some(
+        OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern,
+        KeepMemberAccessPattern accessPattern) {
+      this.annotatedByPattern = annotatedByPattern;
       this.accessPattern = accessPattern;
+    }
+
+    @Override
+    public OptionalPattern<KeepQualifiedClassNamePattern> getAnnotatedByPattern() {
+      return annotatedByPattern;
     }
 
     @Override
@@ -53,17 +71,18 @@ public abstract class KeepMemberPattern {
         return false;
       }
       Some some = (Some) o;
-      return accessPattern.equals(some.accessPattern);
+      return annotatedByPattern.equals(some.annotatedByPattern)
+          && accessPattern.equals(some.accessPattern);
     }
 
     @Override
     public int hashCode() {
-      return accessPattern.hashCode();
+      return Objects.hash(annotatedByPattern, accessPattern);
     }
 
     @Override
     public String toString() {
-      return "Member{" + "access=" + accessPattern + '}';
+      return "Member{" + "annotated-by=" + annotatedByPattern + ", access=" + accessPattern + '}';
     }
   }
 
@@ -94,4 +113,6 @@ public abstract class KeepMemberPattern {
   }
 
   public abstract KeepMemberAccessPattern getAccessPattern();
+
+  public abstract OptionalPattern<KeepQualifiedClassNamePattern> getAnnotatedByPattern();
 }

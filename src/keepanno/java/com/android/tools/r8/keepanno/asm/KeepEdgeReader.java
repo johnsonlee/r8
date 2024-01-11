@@ -1297,6 +1297,7 @@ public class KeepEdgeReader implements Opcodes {
     private final ParsingContext parsingContext;
     private KeepMethodAccessPattern.Builder accessBuilder = null;
     private KeepMethodPattern.Builder builder = null;
+    private final ClassNameParser annotatedByParser;
     private final StringPatternParser nameParser;
     private final MethodReturnTypeParser returnTypeParser;
     private final MethodParametersParser parametersParser;
@@ -1305,6 +1306,13 @@ public class KeepEdgeReader implements Opcodes {
 
     private MethodDeclarationParser(ParsingContext parsingContext) {
       this.parsingContext = parsingContext;
+
+      annotatedByParser = new ClassNameParser(parsingContext.group(Item.methodAnnotatedByGroup));
+      annotatedByParser.setProperty(Item.methodAnnotatedByClassName, ClassNameProperty.NAME);
+      annotatedByParser.setProperty(
+          Item.methodAnnotatedByClassConstant, ClassNameProperty.CONSTANT);
+      annotatedByParser.setProperty(
+          Item.methodAnnotatedByClassNamePattern, ClassNameProperty.PATTERN);
 
       nameParser = new StringPatternParser(parsingContext.group(Item.methodNameGroup));
       nameParser.setProperty(Item.methodName, StringProperty.EXACT);
@@ -1319,7 +1327,7 @@ public class KeepEdgeReader implements Opcodes {
       parametersParser.setProperty(Item.methodParameters, TypeProperty.TYPE_NAME);
       parametersParser.setProperty(Item.methodParameterTypePatterns, TypeProperty.TYPE_PATTERN);
 
-      parsers = ImmutableList.of(nameParser, returnTypeParser, parametersParser);
+      parsers = ImmutableList.of(annotatedByParser, nameParser, returnTypeParser, parametersParser);
     }
 
     @Override
@@ -1343,14 +1351,17 @@ public class KeepEdgeReader implements Opcodes {
       if (accessBuilder != null) {
         getBuilder().setAccessPattern(accessBuilder.build());
       }
-      if (!nameParser.isDefault()) {
+      if (annotatedByParser.isDeclared()) {
+        getBuilder().setAnnotatedByPattern(OptionalPattern.of(annotatedByParser.getValue()));
+      }
+      if (nameParser.isDeclared()) {
         KeepStringPattern namePattern = nameParser.getValue();
         getBuilder().setNamePattern(KeepMethodNamePattern.fromStringPattern(namePattern));
       }
-      if (!returnTypeParser.isDefault()) {
+      if (returnTypeParser.isDeclared()) {
         getBuilder().setReturnTypePattern(returnTypeParser.getValue());
       }
-      if (!parametersParser.isDefault()) {
+      if (parametersParser.isDeclared()) {
         getBuilder().setParametersPattern(parametersParser.getValue());
       }
       return builder != null ? builder.build() : null;
@@ -1369,6 +1380,7 @@ public class KeepEdgeReader implements Opcodes {
   private static class FieldDeclarationParser extends DeclarationParser<KeepFieldPattern> {
 
     private final ParsingContext parsingContext;
+    private final ClassNameParser annotatedByParser;
     private final StringPatternParser nameParser;
     private final FieldTypeParser typeParser;
     private KeepFieldAccessPattern.Builder accessBuilder = null;
@@ -1377,6 +1389,12 @@ public class KeepEdgeReader implements Opcodes {
 
     public FieldDeclarationParser(ParsingContext parsingContext) {
       this.parsingContext = parsingContext;
+      annotatedByParser = new ClassNameParser(parsingContext.group(Item.fieldAnnotatedByGroup));
+      annotatedByParser.setProperty(Item.fieldAnnotatedByClassName, ClassNameProperty.NAME);
+      annotatedByParser.setProperty(Item.fieldAnnotatedByClassConstant, ClassNameProperty.CONSTANT);
+      annotatedByParser.setProperty(
+          Item.fieldAnnotatedByClassNamePattern, ClassNameProperty.PATTERN);
+
       nameParser = new StringPatternParser(parsingContext.group(Item.fieldNameGroup));
       nameParser.setProperty(Item.fieldName, StringProperty.EXACT);
       nameParser.setProperty(Item.fieldNamePattern, StringProperty.PATTERN);
@@ -1386,7 +1404,7 @@ public class KeepEdgeReader implements Opcodes {
       typeParser.setProperty(Item.fieldType, TypeProperty.TYPE_NAME);
       typeParser.setProperty(Item.fieldTypeConstant, TypeProperty.TYPE_CONSTANT);
 
-      parsers = ImmutableList.of(nameParser, typeParser);
+      parsers = ImmutableList.of(annotatedByParser, nameParser, typeParser);
     }
 
     @Override
@@ -1403,17 +1421,20 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public boolean isDeclared() {
-      return accessBuilder != null || builder != null;
+      return accessBuilder != null || builder != null || super.isDeclared();
     }
 
     public KeepFieldPattern getValue() {
       if (accessBuilder != null) {
         getBuilder().setAccessPattern(accessBuilder.build());
       }
-      if (!nameParser.isDefault()) {
+      if (annotatedByParser.isDeclared()) {
+        getBuilder().setAnnotatedByPattern(OptionalPattern.of(annotatedByParser.getValue()));
+      }
+      if (nameParser.isDeclared()) {
         getBuilder().setNamePattern(KeepFieldNamePattern.fromStringPattern(nameParser.getValue()));
       }
-      if (!typeParser.isDefault()) {
+      if (typeParser.isDeclared()) {
         getBuilder().setTypePattern(typeParser.getValue());
       }
       return builder != null ? builder.build() : null;
@@ -1433,15 +1454,25 @@ public class KeepEdgeReader implements Opcodes {
 
     private final ParsingContext parsingContext;
     private KeepMemberAccessPattern.Builder accessBuilder = null;
+    private final ClassNameParser annotatedByParser;
+
     private final MethodDeclarationParser methodDeclaration;
     private final FieldDeclarationParser fieldDeclaration;
     private final List<Parser<?>> parsers;
 
     MemberDeclarationParser(ParsingContext parsingContext) {
       this.parsingContext = parsingContext.group(Item.memberGroup);
+
+      annotatedByParser = new ClassNameParser(parsingContext.group(Item.memberAnnotatedByGroup));
+      annotatedByParser.setProperty(Item.memberAnnotatedByClassName, ClassNameProperty.NAME);
+      annotatedByParser.setProperty(
+          Item.memberAnnotatedByClassConstant, ClassNameProperty.CONSTANT);
+      annotatedByParser.setProperty(
+          Item.memberAnnotatedByClassNamePattern, ClassNameProperty.PATTERN);
+
       methodDeclaration = new MethodDeclarationParser(parsingContext);
       fieldDeclaration = new FieldDeclarationParser(parsingContext);
-      parsers = ImmutableList.of(methodDeclaration, fieldDeclaration);
+      parsers = ImmutableList.of(annotatedByParser, methodDeclaration, fieldDeclaration);
     }
 
     @Override
@@ -1451,20 +1482,23 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public boolean isDeclared() {
-      return accessBuilder != null
-          || methodDeclaration.isDeclared()
-          || fieldDeclaration.isDeclared();
+      return accessBuilder != null || super.isDeclared();
     }
 
     public KeepMemberPattern getValue() {
       KeepMethodPattern method = methodDeclaration.getValue();
       KeepFieldPattern field = fieldDeclaration.getValue();
-      if (accessBuilder != null) {
+      if (accessBuilder != null || annotatedByParser.isDeclared()) {
         if (method != null || field != null) {
           throw parsingContext.error(
               "Cannot define common member access as well as field or method pattern");
         }
-        return KeepMemberPattern.memberBuilder().setAccessPattern(accessBuilder.build()).build();
+        KeepMemberPattern.Builder builder = KeepMemberPattern.memberBuilder();
+        if (accessBuilder != null) {
+          builder.setAccessPattern(accessBuilder.build());
+        }
+        builder.setAnnotatedByPattern(OptionalPattern.ofNullable(annotatedByParser.getValue()));
+        return builder.build();
       }
       if (method != null && field != null) {
         throw parsingContext.error("Cannot define both a field and a method pattern");

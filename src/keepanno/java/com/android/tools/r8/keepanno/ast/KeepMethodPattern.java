@@ -17,6 +17,8 @@ public final class KeepMethodPattern extends KeepMemberPattern {
 
   public static class Builder {
 
+    private OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern =
+        OptionalPattern.absent();
     private KeepMethodAccessPattern accessPattern = KeepMethodAccessPattern.anyMethodAccess();
     private KeepMethodNamePattern namePattern = KeepMethodNamePattern.any();
     private KeepMethodReturnTypePattern returnTypePattern = KeepMethodReturnTypePattern.any();
@@ -34,6 +36,12 @@ public final class KeepMethodPattern extends KeepMemberPattern {
           KeepMethodAccessPattern.builder()
               .copyOfMemberAccess(memberPattern.getAccessPattern())
               .build());
+    }
+
+    public Builder setAnnotatedByPattern(
+        OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern) {
+      this.annotatedByPattern = annotatedByPattern;
+      return this;
     }
 
     public Builder setAccessPattern(KeepMethodAccessPattern accessPattern) {
@@ -69,24 +77,28 @@ public final class KeepMethodPattern extends KeepMemberPattern {
         returnTypePattern = KeepMethodReturnTypePattern.voidType();
       }
       return new KeepMethodPattern(
-          accessPattern, namePattern, returnTypePattern, parametersPattern);
+          annotatedByPattern, accessPattern, namePattern, returnTypePattern, parametersPattern);
     }
   }
 
+  private final OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern;
   private final KeepMethodAccessPattern accessPattern;
   private final KeepMethodNamePattern namePattern;
   private final KeepMethodReturnTypePattern returnTypePattern;
   private final KeepMethodParametersPattern parametersPattern;
 
   private KeepMethodPattern(
+      OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern,
       KeepMethodAccessPattern accessPattern,
       KeepMethodNamePattern namePattern,
       KeepMethodReturnTypePattern returnTypePattern,
       KeepMethodParametersPattern parametersPattern) {
+    assert annotatedByPattern != null;
     assert accessPattern != null;
     assert namePattern != null;
     assert returnTypePattern != null;
     assert parametersPattern != null;
+    this.annotatedByPattern = annotatedByPattern;
     this.accessPattern = accessPattern;
     this.namePattern = namePattern;
     this.returnTypePattern = returnTypePattern;
@@ -99,10 +111,16 @@ public final class KeepMethodPattern extends KeepMemberPattern {
   }
 
   public boolean isAnyMethod() {
-    return accessPattern.isAny()
+    return annotatedByPattern.isAbsent()
+        && accessPattern.isAny()
         && namePattern.isAny()
         && returnTypePattern.isAny()
         && parametersPattern.isAny();
+  }
+
+  @Override
+  public OptionalPattern<KeepQualifiedClassNamePattern> getAnnotatedByPattern() {
+    return annotatedByPattern;
   }
 
   @Override
@@ -131,7 +149,8 @@ public final class KeepMethodPattern extends KeepMemberPattern {
       return false;
     }
     KeepMethodPattern that = (KeepMethodPattern) o;
-    return accessPattern.equals(that.accessPattern)
+    return annotatedByPattern.equals(that.annotatedByPattern)
+        && accessPattern.equals(that.accessPattern)
         && namePattern.equals(that.namePattern)
         && returnTypePattern.equals(that.returnTypePattern)
         && parametersPattern.equals(that.parametersPattern);
@@ -139,12 +158,15 @@ public final class KeepMethodPattern extends KeepMemberPattern {
 
   @Override
   public int hashCode() {
-    return Objects.hash(accessPattern, namePattern, returnTypePattern, parametersPattern);
+    return Objects.hash(
+        annotatedByPattern, accessPattern, namePattern, returnTypePattern, parametersPattern);
   }
 
   @Override
   public String toString() {
     return "KeepMethodPattern{"
+        + "annotated-by="
+        + annotatedByPattern
         + "access="
         + accessPattern
         + ", name="
