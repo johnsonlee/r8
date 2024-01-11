@@ -268,7 +268,7 @@ public class BackportedMethodListCommand {
       StringResource desugaredLibrarySpecificationResource =
           desugaredLibrarySpecificationResources.get(0);
       return DesugaredLibrarySpecificationParser.parseDesugaredLibrarySpecification(
-          desugaredLibrarySpecificationResource, factory, null, false, getMinApiLevel());
+          desugaredLibrarySpecificationResource, factory, reporter, false, getMinApiLevel());
     }
 
     /** Output file for the backported method list */
