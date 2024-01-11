@@ -65,7 +65,7 @@ public class KeepEdgeNormalizer {
             target -> {
               consequencesBuilder.addTarget(
                   KeepTarget.builder()
-                      .setOptions(target.getOptions())
+                      .setConstraints(target.getConstraints())
                       .setItemReference(normalizeItemReference(target.getItem()))
                       .build());
             });

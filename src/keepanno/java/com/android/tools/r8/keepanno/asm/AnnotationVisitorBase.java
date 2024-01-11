@@ -21,6 +21,10 @@ public abstract class AnnotationVisitorBase extends AnnotationVisitor {
     return Type.getType(descriptor).getClassName();
   }
 
+  public ParsingContext getParsingContext() {
+    return parsingContext;
+  }
+
   @Override
   public void visit(String name, Object value) {
     throw parsingContext.error("Unexpected value for property " + name + " with value " + value);

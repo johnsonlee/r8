@@ -11,6 +11,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
+import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.MemberAccessFlags;
@@ -186,14 +187,29 @@ public class KeepAccessVisibilityFlagsTest extends TestBase {
       @KeepTarget(
           kind = KeepItemKind.CLASS_AND_MEMBERS,
           classConstant = FieldRuleTarget.class,
+          constraints = {
+            KeepConstraint.LOOKUP,
+            KeepConstraint.NAME,
+            KeepConstraint.VISIBILITY_INVARIANT
+          },
           fieldAccess = {FieldAccessFlags.NON_PRIVATE}),
       @KeepTarget(
           kind = KeepItemKind.CLASS_AND_MEMBERS,
           classConstant = MethodRuleTarget.class,
+          constraints = {
+            KeepConstraint.LOOKUP,
+            KeepConstraint.NAME,
+            KeepConstraint.VISIBILITY_INVARIANT
+          },
           methodAccess = {MethodAccessFlags.NON_PACKAGE_PRIVATE}),
       @KeepTarget(
           kind = KeepItemKind.CLASS_AND_MEMBERS,
           classConstant = MemberRuleTarget.class,
+          constraints = {
+            KeepConstraint.LOOKUP,
+            KeepConstraint.NAME,
+            KeepConstraint.VISIBILITY_INVARIANT
+          },
           memberAccess = {MemberAccessFlags.PACKAGE_PRIVATE, MemberAccessFlags.PRIVATE}),
     })
     void foo() {

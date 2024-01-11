@@ -7,19 +7,16 @@ package com.android.tools.r8.keepanno.asm;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader.Parent;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Constraints;
-import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
+import com.android.tools.r8.keepanno.ast.KeepConstraint;
+import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.ParsingContext;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 
 public class KeepConstraintsVisitor extends AnnotationVisitorBase {
 
-  private final Parent<Collection<KeepOption>> parent;
-  private final Set<KeepOption> options = new HashSet<>();
+  private final Parent<KeepConstraints> parent;
+  private final KeepConstraints.Builder builder = KeepConstraints.builder();
 
-  public KeepConstraintsVisitor(
-      ParsingContext parsingContext, Parent<Collection<KeepOption>> parent) {
+  public KeepConstraintsVisitor(ParsingContext parsingContext, Parent<KeepConstraints> parent) {
     super(parsingContext);
     this.parent = parent;
   }
@@ -31,38 +28,47 @@ public class KeepConstraintsVisitor extends AnnotationVisitorBase {
     }
     switch (value) {
       case Constraints.LOOKUP:
-        options.add(KeepOption.SHRINKING);
+        builder.add(KeepConstraint.lookup());
         break;
       case Constraints.NAME:
-        options.add(KeepOption.OBFUSCATING);
+        builder.add(KeepConstraint.name());
         break;
       case Constraints.VISIBILITY_RELAX:
-        // The compiler currently satisfies that access is never restricted.
+        builder.add(KeepConstraint.visibilityRelax());
         break;
       case Constraints.VISIBILITY_RESTRICT:
-        // We don't have directional rules so this prohibits any modification.
-        options.add(KeepOption.ACCESS_MODIFICATION);
+        builder.add(KeepConstraint.visibilityRestrict());
+        break;
+      case Constraints.VISIBILITY_INVARIANT:
+        builder.add(KeepConstraint.visibilityRelax());
+        builder.add(KeepConstraint.visibilityRestrict());
         break;
       case Constraints.CLASS_INSTANTIATE:
+        builder.add(KeepConstraint.classInstantiate());
+        break;
       case Constraints.METHOD_INVOKE:
+        builder.add(KeepConstraint.methodInvoke());
+        break;
       case Constraints.FIELD_GET:
+        builder.add(KeepConstraint.fieldGet());
+        break;
       case Constraints.FIELD_SET:
-        // These options are the item-specific actual uses of the items.
-        // Allocating, invoking and read/writing all imply that the item cannot be "optimized"
-        // at compile time. It would be natural to refine the field specific uses but that is
-        // not expressible as keep options.
-        options.add(KeepOption.OPTIMIZING);
+        builder.add(KeepConstraint.fieldSet());
         break;
       case Constraints.METHOD_REPLACE:
+        builder.add(KeepConstraint.methodReplace());
+        break;
       case Constraints.FIELD_REPLACE:
+        builder.add(KeepConstraint.fieldReplace());
+        break;
       case Constraints.NEVER_INLINE:
+        builder.add(KeepConstraint.neverInline());
+        break;
       case Constraints.CLASS_OPEN_HIERARCHY:
-        options.add(KeepOption.OPTIMIZING);
+        builder.add(KeepConstraint.classOpenHierarchy());
         break;
       case Constraints.ANNOTATIONS:
-        // The annotation constrain only implies that annotations should remain, no restrictions
-        // are on the item otherwise.
-        options.add(KeepOption.ANNOTATION_REMOVAL);
+        builder.add(KeepConstraint.annotationsAll());
         break;
       default:
         super.visitEnum(ignore, descriptor, value);
@@ -71,7 +77,7 @@ public class KeepConstraintsVisitor extends AnnotationVisitorBase {
 
   @Override
   public void visitEnd() {
-    parent.accept(options);
+    parent.accept(builder.build());
     super.visitEnd();
   }
 }

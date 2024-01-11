@@ -35,6 +35,24 @@ package com.android.tools.r8.keepanno.ast;
  *
  *   CONSEQUENCES ::= TARGET+
  *   TARGET ::= OPTIONS ITEM_REFERENCE
+ *
+ *   CONSTRAINTS ::= CONSTRAINT+ | OPTIONS (legacy)
+ *   CONSTRAINT
+ *       ::= lookup
+ *         | name
+ *         | visibility-relax
+ *         | visibility-restrict
+ *         | annotations(QUALIFIED_CLASS_NAME_PATTERN*)
+ *         | never-inline
+ *         | class-instantiate
+ *         | class-open-hierarchy
+ *         | method-invoke
+ *         | method-replace
+ *         | field-get
+ *         | field-set
+ *         | field-replace
+ *
+ *   (legacy options - deprecated)
  *   OPTIONS ::= keep-all | OPTION+
  *   OPTION ::= shrinking | optimizing | obfuscating | access-modification | annotation-removal
  *

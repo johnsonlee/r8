@@ -53,7 +53,8 @@ public class KeepEdgeAstTest extends TestBase {
             .build();
     assertEquals(
         StringUtils.unixLines(
-            "-keep class ** { void finalize(); }", "-keepclassmembers class ** { *; }"),
+            "-keep,allowaccessmodification class ** { void finalize(); }",
+            "-keepclassmembers,allowaccessmodification class ** { *; }"),
         extract(edge));
   }
 
@@ -121,7 +122,9 @@ public class KeepEdgeAstTest extends TestBase {
     KeepConsequences consequences = KeepConsequences.builder().addTarget(target).build();
     KeepEdge edge = KeepEdge.builder().setConsequences(consequences).build();
     assertEquals(
-        StringUtils.unixLines("-keep class " + CLASS + " { void finalize(); }"), extract(edge));
+        StringUtils.unixLines(
+            "-keep,allowaccessmodification class " + CLASS + " { void finalize(); }"),
+        extract(edge));
   }
 
   @Test
@@ -142,7 +145,8 @@ public class KeepEdgeAstTest extends TestBase {
                     .build())
             .build();
     assertEquals(
-        StringUtils.unixLines("-keepclassmembers class " + CLASS + " { void <init>(); }"),
+        StringUtils.unixLines(
+            "-keepclassmembers,allowaccessmodification class " + CLASS + " { void <init>(); }"),
         extract(edge));
   }
 
@@ -158,7 +162,11 @@ public class KeepEdgeAstTest extends TestBase {
             .build();
     assertEquals(
         StringUtils.unixLines(
-            "-if class " + CLASS + " -keep class " + CLASS + " { void finalize(); }"),
+            "-if class "
+                + CLASS
+                + " -keep,allowaccessmodification class "
+                + CLASS
+                + " { void finalize(); }"),
         extract(edge));
   }
 
@@ -182,8 +190,12 @@ public class KeepEdgeAstTest extends TestBase {
             .build();
     assertEquals(
         StringUtils.unixLines(
-            "-keepclassmembers class " + CLASS + " { void <init>(); }",
-            "-if class " + CLASS + " -keep class " + CLASS + " { void finalize(); }"),
+            "-keepclassmembers,allowaccessmodification class " + CLASS + " { void <init>(); }",
+            "-if class "
+                + CLASS
+                + " -keep,allowaccessmodification class "
+                + CLASS
+                + " { void finalize(); }"),
         extract(edge));
   }
 
@@ -216,7 +228,7 @@ public class KeepEdgeAstTest extends TestBase {
         StringUtils.unixLines(
             "-if class "
                 + CLASS
-                + " -keepclasseswithmembers class "
+                + " -keepclasseswithmembers,allowaccessmodification class "
                 + CLASS
                 + " { void <init>(); }"),
         extract(edge));

@@ -124,10 +124,6 @@ public class KeepEdgeWriter implements Opcodes {
         target -> {
           AnnotationVisitor targetVisitor =
               arrayVisitor.visitAnnotation(ignoredArrayValueName, Target.DESCRIPTOR);
-          // No options imply keep all.
-          if (!target.getOptions().isKeepAll()) {
-            throw new Unimplemented();
-          }
           if (target.getItem().isBindingReference()) {
             throw new Unimplemented();
           }

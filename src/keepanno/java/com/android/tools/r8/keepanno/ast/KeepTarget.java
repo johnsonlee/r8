@@ -10,7 +10,7 @@ public class KeepTarget {
   public static class Builder {
 
     private KeepItemReference item;
-    private KeepOptions options = KeepOptions.keepAll();
+    private KeepConstraints constraints = KeepConstraints.defaultConstraints();
 
     private Builder() {}
 
@@ -24,7 +24,11 @@ public class KeepTarget {
     }
 
     public Builder setOptions(KeepOptions options) {
-      this.options = options;
+      return setConstraints(KeepConstraints.fromLegacyOptions(options));
+    }
+
+    public Builder setConstraints(KeepConstraints constraints) {
+      this.constraints = constraints;
       return this;
     }
 
@@ -32,18 +36,18 @@ public class KeepTarget {
       if (item == null) {
         throw new KeepEdgeException("Target must define an item pattern");
       }
-      return new KeepTarget(item, options);
+      return new KeepTarget(item, constraints);
     }
   }
 
   private final KeepItemReference item;
-  private final KeepOptions options;
+  private final KeepConstraints constraints;
 
-  private KeepTarget(KeepItemReference item, KeepOptions options) {
+  private KeepTarget(KeepItemReference item, KeepConstraints constraints) {
     assert item != null;
-    assert options != null;
+    assert constraints != null;
     this.item = item;
-    this.options = options;
+    this.constraints = constraints;
   }
 
   public static Builder builder() {
@@ -54,30 +58,29 @@ public class KeepTarget {
     return item;
   }
 
-  public KeepOptions getOptions() {
-    return options;
+  public KeepConstraints getConstraints() {
+    return constraints;
   }
 
   @Override
-  @SuppressWarnings("EqualsGetClass")
   public boolean equals(Object o) {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof KeepTarget)) {
       return false;
     }
     KeepTarget that = (KeepTarget) o;
-    return item.equals(that.item) && options.equals(that.options);
+    return item.equals(that.item) && constraints.equals(that.constraints);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(item, options);
+    return Objects.hash(item, constraints);
   }
 
   @Override
   public String toString() {
-    return "KeepTarget{" + "item=" + item + ", options=" + options + '}';
+    return "KeepTarget{" + "item=" + item + ", constraints=" + constraints + '}';
   }
 }

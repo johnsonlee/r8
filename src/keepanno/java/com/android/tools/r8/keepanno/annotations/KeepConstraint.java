@@ -80,6 +80,16 @@ public enum KeepConstraint {
   VISIBILITY_RESTRICT,
 
   /**
+   * Indicates that the visibility of the target must remain as declared.
+   *
+   * <p>Note that this constraint does not place any restrictions on any other accesses flags than
+   * visibility. In particular, flags such a static, final and abstract may change.
+   *
+   * <p>This is equivalent to using both {@link #VISIBILITY_RELAX} and {@link #VISIBILITY_RESTRICT}.
+   */
+  VISIBILITY_INVARIANT,
+
+  /**
    * Indicates that the class target is being instantiated reflectively.
    *
    * <p>This usage constraint is only valid on class targets.

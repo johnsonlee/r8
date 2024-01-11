@@ -4,8 +4,8 @@
 package com.android.tools.r8.keepanno.asm;
 
 import com.android.tools.r8.keepanno.asm.ClassNameParser.ClassNameProperty;
+import com.android.tools.r8.keepanno.asm.ConstraintsParser.ConstraintsProperty;
 import com.android.tools.r8.keepanno.asm.InstanceOfParser.InstanceOfProperties;
-import com.android.tools.r8.keepanno.asm.OptionsParser.OptionsProperty;
 import com.android.tools.r8.keepanno.asm.StringPatternParser.StringProperty;
 import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.AccessVisibility;
@@ -30,6 +30,7 @@ import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepClassItemReference;
 import com.android.tools.r8.keepanno.ast.KeepCondition;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
+import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.ast.KeepEdgeMetaInfo;
@@ -49,8 +50,6 @@ import com.android.tools.r8.keepanno.ast.KeepMethodNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodParametersPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodReturnTypePattern;
-import com.android.tools.r8.keepanno.ast.KeepOptions;
-import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
 import com.android.tools.r8.keepanno.ast.KeepPreconditions;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepStringPattern;
@@ -96,22 +95,8 @@ public class KeepEdgeReader implements Opcodes {
         KeepQualifiedClassNamePattern.exact(className));
   }
 
-  private static KeepOptions getKeepOptionsOrDefault(KeepOptions options) {
-    // TODO(b/248408342): These should be constraints computed/filtered based on the item type but
-    //   currently the constraints default to the same set of options.
-    if (options != null) {
-      return options;
-    }
-    return KeepOptions.disallowBuilder()
-        // LOOKUP (same for any type of item).
-        .add(KeepOption.SHRINKING)
-        // NAME (same for any type of item).
-        .add(KeepOption.OBFUSCATING)
-        // CLASS_INSTANTIATE / METHOD_INVOKE / FIELD_GET & FIELD_SET:
-        .add(KeepOption.OPTIMIZING)
-        .add(KeepOption.ACCESS_MODIFICATION)
-        // ACCESS_ALLOW - currently no options needed.
-        .build();
+  private static KeepConstraints getClassConstraintsOrDefault(KeepConstraints constraints) {
+    return constraints != null ? constraints : KeepConstraints.defaultConstraints();
   }
 
   /** Internal copy of the user-facing KeepItemKind */
@@ -746,7 +731,7 @@ public class KeepEdgeReader implements Opcodes {
     private final KeepConsequences.Builder consequences = KeepConsequences.builder();
     private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
-    private final OptionsParser optionsParser;
+    private final ConstraintsParser constraintsParser;
 
     UsedByReflectionClassVisitor(
         AnnotationParsingContext parsingContext,
@@ -760,10 +745,10 @@ public class KeepEdgeReader implements Opcodes {
       addContext.accept(metaInfoBuilder);
       // The class context/holder is the annotated class.
       visit(Item.className, className);
-      optionsParser = new OptionsParser(parsingContext);
-      optionsParser.setProperty(Target.constraints, OptionsProperty.CONSTRAINTS);
-      optionsParser.setProperty(Target.allow, OptionsProperty.ALLOW);
-      optionsParser.setProperty(Target.disallow, OptionsProperty.DISALLOW);
+      constraintsParser = new ConstraintsParser(parsingContext);
+      constraintsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
+      constraintsParser.setProperty(Target.allow, ConstraintsProperty.ALLOW);
+      constraintsParser.setProperty(Target.disallow, ConstraintsProperty.DISALLOW);
     }
 
     @Override
@@ -794,7 +779,7 @@ public class KeepEdgeReader implements Opcodes {
             },
             bindingsHelper);
       }
-      AnnotationVisitor visitor = optionsParser.tryParseArray(name, unused -> {});
+      AnnotationVisitor visitor = constraintsParser.tryParseArray(name, unused -> {});
       if (visitor != null) {
         return visitor;
       }
@@ -830,7 +815,8 @@ public class KeepEdgeReader implements Opcodes {
         consequences.addTarget(
             KeepTarget.builder()
                 .setItemPattern(itemPattern)
-                .setOptions(getKeepOptionsOrDefault(optionsParser.getValue()))
+                .setConstraints(
+                    constraintsParser.getValueOrDefault(KeepConstraints.defaultConstraints()))
                 .build());
       }
       parent.accept(
@@ -857,7 +843,7 @@ public class KeepEdgeReader implements Opcodes {
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
     private final KeepConsequences.Builder consequences = KeepConsequences.builder();
     private ItemKind kind = KeepEdgeReader.ItemKind.ONLY_MEMBERS;
-    private final OptionsParser optionsParser;
+    private final ConstraintsParser constraintsParser;
 
     UsedByReflectionMemberVisitor(
         AnnotationParsingContext parsingContext,
@@ -869,10 +855,10 @@ public class KeepEdgeReader implements Opcodes {
       this.parent = parent;
       this.context = context;
       addContext.accept(metaInfoBuilder);
-      optionsParser = new OptionsParser(parsingContext);
-      optionsParser.setProperty(Target.constraints, OptionsProperty.CONSTRAINTS);
-      optionsParser.setProperty(Target.allow, OptionsProperty.ALLOW);
-      optionsParser.setProperty(Target.disallow, OptionsProperty.DISALLOW);
+      constraintsParser = new ConstraintsParser(parsingContext);
+      constraintsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
+      constraintsParser.setProperty(Target.allow, ConstraintsProperty.ALLOW);
+      constraintsParser.setProperty(Target.disallow, ConstraintsProperty.DISALLOW);
     }
 
     @Override
@@ -911,7 +897,7 @@ public class KeepEdgeReader implements Opcodes {
             },
             bindingsHelper);
       }
-      AnnotationVisitor visitor = optionsParser.tryParseArray(name, unused -> {});
+      AnnotationVisitor visitor = constraintsParser.tryParseArray(name, unused -> {});
       if (visitor != null) {
         return visitor;
       }
@@ -932,7 +918,8 @@ public class KeepEdgeReader implements Opcodes {
       validateConsistentKind(memberContext.getMemberPattern());
       consequences.addTarget(
           KeepTarget.builder()
-              .setOptions(getKeepOptionsOrDefault(optionsParser.getValue()))
+              .setConstraints(
+                  constraintsParser.getValueOrDefault(KeepConstraints.defaultConstraints()))
               .setItemPattern(context)
               .build());
       parent.accept(
@@ -1803,7 +1790,7 @@ public class KeepEdgeReader implements Opcodes {
 
     private final Parent<KeepTarget> parent;
     private final UserBindingsHelper bindingsHelper;
-    private final OptionsParser optionsParser;
+    private final ConstraintsParser optionsParser;
     private final KeepTarget.Builder builder = KeepTarget.builder();
 
     static KeepTargetVisitor create(
@@ -1820,10 +1807,10 @@ public class KeepEdgeReader implements Opcodes {
       super(parsingContext);
       this.parent = parent;
       this.bindingsHelper = bindingsHelper;
-      optionsParser = new OptionsParser(parsingContext);
-      optionsParser.setProperty(Target.constraints, OptionsProperty.CONSTRAINTS);
-      optionsParser.setProperty(Target.allow, OptionsProperty.ALLOW);
-      optionsParser.setProperty(Target.disallow, OptionsProperty.DISALLOW);
+      optionsParser = new ConstraintsParser(parsingContext);
+      optionsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
+      optionsParser.setProperty(Target.allow, ConstraintsProperty.ALLOW);
+      optionsParser.setProperty(Target.disallow, ConstraintsProperty.DISALLOW);
     }
 
     @Override
@@ -1843,7 +1830,7 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public void visitEnd() {
       super.visitEnd();
-      builder.setOptions(getKeepOptionsOrDefault(optionsParser.getValue()));
+      builder.setConstraints(optionsParser.getValueOrDefault(KeepConstraints.defaultConstraints()));
       for (KeepItemReference item : getItemsWithBinding()) {
         parent.accept(builder.setItemReference(item).build());
       }

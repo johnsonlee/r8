@@ -163,6 +163,7 @@ public final class AnnotationConstants {
     public static final String NAME = "NAME";
     public static final String VISIBILITY_RELAX = "VISIBILITY_RELAX";
     public static final String VISIBILITY_RESTRICT = "VISIBILITY_RESTRICT";
+    public static final String VISIBILITY_INVARIANT = "VISIBILITY_INVARIANT";
     public static final String CLASS_INSTANTIATE = "CLASS_INSTANTIATE";
     public static final String METHOD_INVOKE = "METHOD_INVOKE";
     public static final String FIELD_GET = "FIELD_GET";

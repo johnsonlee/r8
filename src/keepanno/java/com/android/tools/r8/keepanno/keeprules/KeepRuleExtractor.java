@@ -10,6 +10,7 @@ import com.android.tools.r8.keepanno.ast.KeepCheck;
 import com.android.tools.r8.keepanno.ast.KeepCheck.KeepCheckKind;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepCondition;
+import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.ast.KeepEdgeException;
@@ -208,6 +209,11 @@ public class KeepRuleExtractor {
     }
   }
 
+  private static KeepOptions defaultOptions =
+      KeepOptions.disallowBuilder()
+          .addAll(KeepOption.SHRINKING, KeepOption.OBFUSCATING, KeepOption.OPTIMIZING)
+          .build();
+
   private static class BindingUsers {
 
     final Holder holder;
@@ -229,8 +235,10 @@ public class KeepRuleExtractor {
 
     public void addTarget(KeepTarget target) {
       assert target.getItem().isBindingReference();
+      KeepConstraints constraints = target.getConstraints();
+      KeepOptions options = constraints.convertToKeepOptions(defaultOptions);
       targetRefs
-          .computeIfAbsent(target.getOptions(), k -> new HashSet<>())
+          .computeIfAbsent(options, k -> new HashSet<>())
           .add(target.getItem().asBindingReference().getName());
     }
   }
