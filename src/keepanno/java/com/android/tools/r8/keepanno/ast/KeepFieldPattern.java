@@ -27,6 +27,14 @@ public final class KeepFieldPattern extends KeepMemberPattern {
       return this;
     }
 
+    public Builder copyFromMemberPattern(KeepMemberPattern memberPattern) {
+      assert memberPattern.isGeneralMember();
+      return setAccessPattern(
+          KeepFieldAccessPattern.builder()
+              .copyOfMemberAccess(memberPattern.getAccessPattern())
+              .build());
+    }
+
     public Builder setAccessPattern(KeepFieldAccessPattern accessPattern) {
       this.accessPattern = accessPattern;
       return self();

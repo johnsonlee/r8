@@ -1475,7 +1475,7 @@ public class KeepEdgeReader implements Opcodes {
       if (field != null) {
         return field;
       }
-      return KeepMemberPattern.none();
+      return null;
     }
 
     @Override
@@ -1649,87 +1649,75 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnd() {
+      // Item defined by binding reference.
       if (memberBindingReference != null) {
-        if (!classDeclaration.isDefault()
-            || !memberDeclaration.getValue().isNone()
-            || kind != null) {
+        if (classDeclaration.isDeclared() || memberDeclaration.isDeclared() || kind != null) {
           throw parsingContext.error(
               "Cannot define an item explicitly and via a member-binding reference");
         }
         KeepBindingSymbol symbol = getBindingsHelper().resolveUserBinding(memberBindingReference);
         itemReference = KeepBindingReference.forMember(symbol).toItemReference();
-      } else {
-        KeepMemberPattern memberPattern = memberDeclaration.getValue();
-        // If no explicit kind is set, extract it based on the member pattern.
-        if (kind == null) {
-          if (memberPattern.isMethod()) {
-            kind = ItemKind.ONLY_METHODS;
-          } else if (memberPattern.isField()) {
-            kind = ItemKind.ONLY_FIELDS;
-          } else if (memberPattern.isGeneralMember()) {
-            kind = ItemKind.ONLY_MEMBERS;
-          } else {
-            assert memberPattern.isNone();
-            kind = ItemKind.ONLY_CLASS;
-          }
-        }
+        return;
+      }
 
-        if (kind.isOnlyClass() && !memberPattern.isNone()) {
-          throw parsingContext.error("Item pattern for members is incompatible with kind " + kind);
-        }
-
-        // Refine the member pattern to be as precise as the specified kind.
-        if (kind.requiresMethods() && !memberPattern.isMethod()) {
-          if (memberPattern.isGeneralMember()) {
-            memberPattern =
-                KeepMethodPattern.builder()
-                    .setAccessPattern(
-                        KeepMethodAccessPattern.builder()
-                            .copyOfMemberAccess(memberPattern.getAccessPattern())
-                            .build())
-                    .build();
-          } else if (memberPattern.isNone()) {
-            memberPattern = KeepMethodPattern.allMethods();
-          } else {
-            assert memberPattern.isField();
-            throw parsingContext.error("Item pattern for fields is incompatible with kind " + kind);
-          }
-        }
-
-        if (kind.requiresFields() && !memberPattern.isField()) {
-          if (memberPattern.isGeneralMember()) {
-            memberPattern =
-                KeepFieldPattern.builder()
-                    .setAccessPattern(
-                        KeepFieldAccessPattern.builder()
-                            .copyOfMemberAccess(memberPattern.getAccessPattern())
-                            .build())
-                    .build();
-          } else if (memberPattern.isNone()) {
-            memberPattern = KeepFieldPattern.allFields();
-          } else {
-            assert memberPattern.isMethod();
-            throw parsingContext.error(
-                "Item pattern for methods is incompatible with kind " + kind);
-          }
-        }
-
-        if (kind.requiresMembers() && memberPattern.isNone()) {
-          memberPattern = KeepMemberPattern.allMembers();
-        }
-
-        KeepClassItemReference classReference = classDeclaration.getValue();
-        if (kind.isOnlyClass()) {
-          itemReference = classReference;
+      // If no explicit kind is set, extract it based on the member pattern.
+      KeepMemberPattern memberPattern = memberDeclaration.getValue();
+      if (kind == null) {
+        if (memberPattern == null) {
+          kind = ItemKind.ONLY_CLASS;
+        } else if (memberPattern.isMethod()) {
+          kind = ItemKind.ONLY_METHODS;
+        } else if (memberPattern.isField()) {
+          kind = ItemKind.ONLY_FIELDS;
+        } else if (memberPattern.isGeneralMember()) {
+          kind = ItemKind.ONLY_MEMBERS;
         } else {
-          KeepItemPattern itemPattern =
-              KeepMemberItemPattern.builder()
-                  .setClassReference(classReference)
-                  .setMemberPattern(memberPattern)
-                  .build();
-          itemReference = itemPattern.toItemReference();
+          assert false;
         }
       }
+
+      // If the pattern is only for a class set it and exit.
+      if (kind.isOnlyClass()) {
+        if (memberDeclaration.isDeclared()) {
+          throw parsingContext.error("Item pattern for members is incompatible with kind " + kind);
+        }
+        itemReference = classDeclaration.getValue();
+        return;
+      }
+
+      // At this point the pattern must include members.
+      // If no explicit member pattern is defined the implicit pattern is all members.
+      // Then refine the member pattern to be as precise as the specified kind.
+      assert kind.requiresMembers();
+      if (memberPattern == null) {
+        memberPattern = KeepMemberPattern.allMembers();
+      }
+
+      if (kind.requiresMethods() && !memberPattern.isMethod()) {
+        if (memberPattern.isGeneralMember()) {
+          memberPattern = KeepMethodPattern.builder().copyFromMemberPattern(memberPattern).build();
+        } else {
+          assert memberPattern.isField();
+          throw parsingContext.error("Item pattern for fields is incompatible with kind " + kind);
+        }
+      }
+
+      if (kind.requiresFields() && !memberPattern.isField()) {
+        if (memberPattern.isGeneralMember()) {
+          memberPattern = KeepFieldPattern.builder().copyFromMemberPattern(memberPattern).build();
+        } else {
+          assert memberPattern.isMethod();
+          throw parsingContext.error("Item pattern for methods is incompatible with kind " + kind);
+        }
+      }
+
+      KeepClassItemReference classReference = classDeclaration.getValue();
+      KeepItemPattern itemPattern =
+          KeepMemberItemPattern.builder()
+              .setClassReference(classReference)
+              .setMemberPattern(memberPattern)
+              .build();
+      itemReference = itemPattern.toItemReference();
     }
   }
 

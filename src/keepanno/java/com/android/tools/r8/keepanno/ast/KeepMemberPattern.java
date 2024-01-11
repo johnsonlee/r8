@@ -5,12 +5,8 @@ package com.android.tools.r8.keepanno.ast;
 
 public abstract class KeepMemberPattern {
 
-  public static KeepMemberPattern none() {
-    return None.getInstance();
-  }
-
   public static KeepMemberPattern allMembers() {
-    return All.getInstance();
+    return Some.ANY;
   }
 
   public static Builder memberBuilder() {
@@ -34,6 +30,9 @@ public abstract class KeepMemberPattern {
   }
 
   private static class Some extends KeepMemberPattern {
+    private static final KeepMemberPattern ANY =
+        new Some(KeepMemberAccessPattern.anyMemberAccess());
+
     private final KeepMemberAccessPattern accessPattern;
 
     public Some(KeepMemberAccessPattern accessPattern) {
@@ -68,81 +67,14 @@ public abstract class KeepMemberPattern {
     }
   }
 
-  private static class All extends KeepMemberPattern {
-
-    private static final All INSTANCE = new All();
-
-    public static All getInstance() {
-      return INSTANCE;
-    }
-
-    @Override
-    public boolean isAllMembers() {
-      return true;
-    }
-
-    @Override
-    public KeepMemberAccessPattern getAccessPattern() {
-      return KeepMemberAccessPattern.anyMemberAccess();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return this == obj;
-    }
-
-    @Override
-    public int hashCode() {
-      return System.identityHashCode(this);
-    }
-
-    @Override
-    public String toString() {
-      return "<all>";
-    }
-  }
-
-  private static class None extends KeepMemberPattern {
-
-    private static final None INSTANCE = new None();
-
-    public static None getInstance() {
-      return INSTANCE;
-    }
-
-    @Override
-    public boolean isNone() {
-      return true;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return this == obj;
-    }
-
-    @Override
-    public int hashCode() {
-      return System.identityHashCode(this);
-    }
-
-    @Override
-    public String toString() {
-      return "<none>";
-    }
-  }
-
   KeepMemberPattern() {}
 
   public boolean isAllMembers() {
-    return false;
-  }
-
-  public boolean isNone() {
-    return false;
+    return this == Some.ANY;
   }
 
   public final boolean isGeneralMember() {
-    return !isNone() && !isMethod() && !isField();
+    return !isMethod() && !isField();
   }
 
   public final boolean isMethod() {
@@ -161,7 +93,5 @@ public abstract class KeepMemberPattern {
     return null;
   }
 
-  public KeepMemberAccessPattern getAccessPattern() {
-    throw new KeepEdgeException("Invalid access to member access pattern");
-  }
+  public abstract KeepMemberAccessPattern getAccessPattern();
 }

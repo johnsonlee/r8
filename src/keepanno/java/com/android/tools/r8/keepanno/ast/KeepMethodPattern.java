@@ -28,6 +28,14 @@ public final class KeepMethodPattern extends KeepMemberPattern {
       return this;
     }
 
+    public Builder copyFromMemberPattern(KeepMemberPattern memberPattern) {
+      assert memberPattern.isGeneralMember();
+      return setAccessPattern(
+          KeepMethodAccessPattern.builder()
+              .copyOfMemberAccess(memberPattern.getAccessPattern())
+              .build());
+    }
+
     public Builder setAccessPattern(KeepMethodAccessPattern accessPattern) {
       this.accessPattern = accessPattern;
       return self();
