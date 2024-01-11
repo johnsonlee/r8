@@ -92,17 +92,16 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
   }
 
   @Override
-  public final T tryParse(String name, Object value) {
+  public final boolean tryParse(String name, Object value, Consumer<T> setValue) {
     P prop = mapping.get(name);
     if (prop != null) {
       try {
-        tryProperty(prop, name, value, wrap(name, unused -> {}));
+        return tryProperty(prop, name, value, wrap(name, setValue));
       } catch (RuntimeException e) {
         throw parsingContext.rethrow(e);
       }
-      return resultValue;
     }
-    return null;
+    return false;
   }
 
   @Override

@@ -98,6 +98,7 @@ public class StringPatternParser extends PropertyParserBase<KeepStringPattern, S
       assert Property.STRING.equals(property);
       if (value instanceof String) {
         setValue.accept((String) value);
+        return true;
       }
       return false;
     }
