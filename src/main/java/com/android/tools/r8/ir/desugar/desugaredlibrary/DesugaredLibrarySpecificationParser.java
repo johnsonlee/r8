@@ -21,7 +21,7 @@ public class DesugaredLibrarySpecificationParser {
 
   public static final String CONFIGURATION_FORMAT_VERSION_KEY = "configuration_format_version";
   private static final int MIN_HUMAN_CONFIGURATION_FORMAT_VERSION = 100;
-  private static final int MIN_MACHINE_CONFIGURATION_FORMAT_VERSION = 200;
+  public static final int MIN_MACHINE_CONFIGURATION_FORMAT_VERSION = 200;
 
   public static DesugaredLibrarySpecification parseDesugaredLibrarySpecification(
       StringResource stringResource,

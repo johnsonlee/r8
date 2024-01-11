@@ -56,7 +56,7 @@ import java.util.TreeMap;
 
 public class MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter {
 
-  private static final int MACHINE_VERSION_NUMBER = 200;
+  static final int MACHINE_VERSION_NUMBER = 201;
 
   private final DexItemFactory factory;
   private final Map<String, String> packageMap = new TreeMap<>();

@@ -39,6 +39,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecificationParser;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.memberparser.MachineFieldParser;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.memberparser.MachineMethodParser;
 import com.android.tools.r8.origin.Origin;
@@ -61,8 +62,10 @@ import java.util.Map;
 
 public class MachineDesugaredLibrarySpecificationParser {
 
-  private static final int MIN_SUPPORTED_VERSION = 200;
-  private static final int MAX_SUPPORTED_VERSION = 200;
+  private static final int MIN_SUPPORTED_VERSION =
+      DesugaredLibrarySpecificationParser.MIN_MACHINE_CONFIGURATION_FORMAT_VERSION;
+  private static final int MAX_SUPPORTED_VERSION =
+      MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter.MACHINE_VERSION_NUMBER;
 
   private static final String ERROR_MESSAGE_PREFIX = "Invalid desugared library specification: ";
 
