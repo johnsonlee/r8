@@ -1,14 +1,13 @@
-// Copyright (c) 2023, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.androidresources;
+package com.android.tools.r8.androidresources.optimizedshrinking;
 
 import com.android.tools.r8.ResourceShrinkerConfiguration;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
-import com.android.tools.r8.androidresources.TestOptimizedShrinking.R.styleable;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.util.List;
 import org.junit.Test;
@@ -85,8 +84,14 @@ public class TestOptimizedShrinking extends TestBase {
                   "styleable", "unused_styleable");
               // We do remove the attributes pointed at by the unreachable styleable.
               for (int i = 0; i < 4; i++) {
-                resourceTableInspector.assertContainsResourceWithName(
-                    "attr", "attr_our_styleable" + i);
+                if (optimized) {
+                  resourceTableInspector.assertContainsResourceWithName(
+                      "attr", "attr_our_styleable" + i);
+                } else {
+                  // TODO(b/319802261): We should not remove these in legacy mode
+                  resourceTableInspector.assertDoesNotContainResourceWithName(
+                      "attr", "attr_our_styleable" + i);
+                }
                 if (!debug || optimized) {
                   resourceTableInspector.assertDoesNotContainResourceWithName(
                       "attr", "attr_unused_styleable" + i);
@@ -104,28 +109,8 @@ public class TestOptimizedShrinking extends TestBase {
         System.out.println(R.drawable.foobar);
         System.out.println(R.string.bar);
         System.out.println(R.string.foo);
-        System.out.println(styleable.our_styleable);
+        System.out.println(R.styleable.our_styleable);
       }
-    }
-  }
-
-  public static class R {
-
-    public static class string {
-      public static int bar;
-      public static int foo;
-      public static int unused_string;
-    }
-
-    public static class styleable {
-      public static int[] our_styleable;
-      public static int[] unused_styleable;
-    }
-
-    public static class drawable {
-
-      public static int foobar;
-      public static int unused_drawable;
     }
   }
 }

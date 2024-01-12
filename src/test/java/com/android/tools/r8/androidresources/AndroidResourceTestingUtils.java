@@ -269,7 +269,7 @@ public class AndroidResourceTestingUtils {
     // This takes the actual inner classes (e.g., R$String)
     // These R classes will be used to rewrite the namespace and class names on the aapt2
     // generated names.
-    AndroidTestResourceBuilder addRClassInitializeWithDefaultValues(Class<?>... rClasses) {
+    public AndroidTestResourceBuilder addRClassInitializeWithDefaultValues(Class<?>... rClasses) {
       for (Class<?> rClass : rClasses) {
         classesToRemap.add(rClass);
         RClassType rClassType = RClassType.fromClass(rClass);
@@ -301,7 +301,7 @@ public class AndroidResourceTestingUtils {
       return this;
     }
 
-    AndroidTestResourceBuilder withSimpleManifestAndAppNameString() {
+    public AndroidTestResourceBuilder withSimpleManifestAndAppNameString() {
       this.manifest = SIMPLE_MANIFEST_WITH_APP_NAME;
       addStringValue("app_name", "Most important app ever.");
       return this;
@@ -337,7 +337,7 @@ public class AndroidResourceTestingUtils {
       return this;
     }
 
-    AndroidTestResource build(TemporaryFolder temp) throws IOException {
+    public AndroidTestResource build(TemporaryFolder temp) throws IOException {
       Path manifestPath =
           FileUtils.writeTextFile(temp.newFile("AndroidManifest.xml").toPath(), this.manifest);
       Path resFolder = temp.newFolder("res").toPath();
