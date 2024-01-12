@@ -147,7 +147,13 @@ public class GeneratedMessageLiteBuilderShrinker {
 
                 ProgramMethod constructorMethod =
                     superClass.lookupProgramMethod(
-                        references.generatedMessageLiteBuilderMethods.constructorMethod);
+                        superClass
+                                .getType()
+                                .isIdenticalTo(references.generatedMessageLiteBuilderType)
+                            ? references.generatedMessageLiteBuilderMethods.constructorMethod
+                            : references
+                                .generatedMessageLiteExtendableBuilderMethods
+                                .constructorMethod);
                 if (constructorMethod != null) {
                   MethodAccessFlags constructorFlags = constructorMethod.getAccessFlags();
                   if (!constructorFlags.isPublic()) {
