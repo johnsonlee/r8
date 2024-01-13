@@ -787,7 +787,7 @@ public class Value implements Comparable<Value> {
           Value constNumberValue = constNumber.outValue();
           int intValue = (int) constNumber.getRawValue();
           boolean useBinaryRepresentation =
-              !constNumberValue.hasPhiUsers()
+              (constNumberValue.phiUsers == null || !constNumberValue.hasPhiUsers())
                   && constNumberValue.uniqueUsers().stream()
                       .allMatch(
                           user ->
