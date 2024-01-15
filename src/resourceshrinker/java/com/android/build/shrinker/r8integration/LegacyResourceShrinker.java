@@ -23,6 +23,7 @@ import com.android.build.shrinker.usages.R8ResourceShrinker;
 import com.android.build.shrinker.usages.ToolsAttributeUsageRecorderKt;
 import com.android.ide.common.resources.ResourcesUtil;
 import com.android.ide.common.resources.usage.ResourceStore;
+import com.android.ide.common.resources.usage.ResourceUsageModel.Resource;
 import com.android.tools.r8.FeatureSplit;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -183,7 +184,8 @@ public class LegacyResourceShrinker {
     // Transitively mark the reachable resources in the model.
     // Finds unused resources in provided resources collection.
     // Marks all used resources as 'reachable' in original collection.
-    ResourcesUtil.findUnusedResources(model.getResourceStore().getResources(), x -> {});
+    List<Resource> unusedResources =
+        ResourcesUtil.findUnusedResources(model.getResourceStore().getResources(), x -> {});
     ImmutableSet.Builder<String> resEntriesToKeep = new ImmutableSet.Builder<>();
     for (PathAndBytes xmlInput : Iterables.concat(xmlInputs, resFolderInputs)) {
       if (ResourceShrinkerImplKt.isJarPathReachable(resourceStore, xmlInput.path.toString())) {
@@ -191,10 +193,7 @@ public class LegacyResourceShrinker {
       }
     }
     List<Integer> resourceIdsToRemove =
-        model.getResourceStore().getResources().stream()
-            .filter(r -> !r.isReachable())
-            .map(r -> r.value)
-            .collect(Collectors.toList());
+        unusedResources.stream().map(resource -> resource.value).collect(Collectors.toList());
     Map<FeatureSplit, ResourceTable> shrunkenTables = new HashMap<>();
     for (Entry<PathAndBytes, FeatureSplit> entry : resourceTables.entrySet()) {
       ResourceTable shrunkenResourceTable =
