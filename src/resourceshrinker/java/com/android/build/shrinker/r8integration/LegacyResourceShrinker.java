@@ -131,12 +131,13 @@ public class LegacyResourceShrinker {
     R8ResourceShrinkerModel model = new R8ResourceShrinkerModel(NoDebugReporter.INSTANCE, true);
     for (PathAndBytes pathAndBytes : resourceTables.keySet()) {
       ResourceTable loadedResourceTable = ResourceTable.parseFrom(pathAndBytes.bytes);
-      model.instantiateFromResourceTable(loadedResourceTable);
+      model.instantiateFromResourceTable(loadedResourceTable, false);
     }
-    return shrinkModel(model);
+    return shrinkModel(model, false);
   }
 
-  public ShrinkerResult shrinkModel(R8ResourceShrinkerModel model) throws IOException {
+  public ShrinkerResult shrinkModel(
+      R8ResourceShrinkerModel model, boolean exactMatchingOfStyleablesAndAttr) throws IOException {
     if (proguardMapStrings != null) {
       new ProguardMappingsRecorder(proguardMapStrings).recordObfuscationMappings(model);
       proguardMapStrings = null;
@@ -193,7 +194,7 @@ public class LegacyResourceShrinker {
       }
     }
     List<Integer> resourceIdsToRemove =
-        unusedResources.stream().map(resource -> resource.value).collect(Collectors.toList());
+        getResourceIdsToRemove(unusedResources, model, exactMatchingOfStyleablesAndAttr);
     Map<FeatureSplit, ResourceTable> shrunkenTables = new HashMap<>();
     for (Entry<PathAndBytes, FeatureSplit> entry : resourceTables.entrySet()) {
       ResourceTable shrunkenResourceTable =
@@ -202,6 +203,19 @@ public class LegacyResourceShrinker {
       shrunkenTables.put(entry.getValue(), shrunkenResourceTable);
     }
     return new ShrinkerResult(resEntriesToKeep.build(), shrunkenTables);
+  }
+
+  private static List<Integer> getResourceIdsToRemove(
+      List<Resource> unusedResources,
+      R8ResourceShrinkerModel model,
+      boolean exactMatchingOfStyleablesAndAttr) {
+    if (!exactMatchingOfStyleablesAndAttr) {
+      return unusedResources.stream().map(resource -> resource.value).collect(Collectors.toList());
+    }
+    return model.getResourceStore().getResources().stream()
+        .filter(r -> !r.isReachable())
+        .map(r -> r.value)
+        .collect(Collectors.toList());
   }
 
   // Lifted from com/android/utils/XmlUtils.java which we can't easily update internal dependency

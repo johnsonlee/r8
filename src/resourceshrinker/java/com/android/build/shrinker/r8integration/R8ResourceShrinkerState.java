@@ -36,7 +36,7 @@ public class R8ResourceShrinkerState {
 
   public void setResourceTableInput(InputStream inputStream) {
     r8ResourceShrinkerModel = new R8ResourceShrinkerModel(NoDebugReporter.INSTANCE, true);
-    r8ResourceShrinkerModel.instantiateFromResourceTable(inputStream);
+    r8ResourceShrinkerModel.instantiateFromResourceTable(inputStream, true);
   }
 
   public R8ResourceShrinkerModel getR8ResourceShrinkerModel() {
@@ -56,16 +56,16 @@ public class R8ResourceShrinkerState {
     }
 
     // Similar to instantiation in ProtoResourceTableGatherer, but using an inputstream.
-    void instantiateFromResourceTable(InputStream inputStream) {
+    void instantiateFromResourceTable(InputStream inputStream, boolean includeStyleables) {
       try {
         ResourceTable resourceTable = ResourceTable.parseFrom(inputStream);
-        instantiateFromResourceTable(resourceTable);
+        instantiateFromResourceTable(resourceTable, includeStyleables);
       } catch (IOException ex) {
         throw new RuntimeException(ex);
       }
     }
 
-    void instantiateFromResourceTable(ResourceTable resourceTable) {
+    void instantiateFromResourceTable(ResourceTable resourceTable, boolean includeStyleables) {
       ResourceTableUtilKt.entriesSequence(resourceTable)
           .iterator()
           .forEachRemaining(
@@ -74,7 +74,7 @@ public class R8ResourceShrinkerState {
                 Entry entry = entryWrapper.getEntry();
                 int entryId = entryWrapper.getId();
                 recordSingleValueResources(resourceType, entry, entryId);
-                if (resourceType != ResourceType.STYLEABLE) {
+                if (resourceType != ResourceType.STYLEABLE || includeStyleables) {
                   this.addResource(
                       resourceType,
                       entryWrapper.getPackageName(),

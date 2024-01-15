@@ -77,11 +77,28 @@ public class TestOptimizedShrinking extends TestBase {
                 resourceTableInspector.assertDoesNotContainResourceWithName(
                     "drawable", "unused_drawable");
               }
-              resourceTableInspector.assertContainsResourceWithName("styleable", "our_styleable");
-              // The resource shrinker is currently keeping all styleables,
-              // so we don't remove this even when it is unused.
-              resourceTableInspector.assertContainsResourceWithName(
-                  "styleable", "unused_styleable");
+              if (!optimized) {
+                resourceTableInspector.assertContainsResourceWithName("styleable", "our_styleable");
+                // The resource shrinker is currently keeping all styleables,
+                // so we don't remove this even when it is unused.
+                resourceTableInspector.assertContainsResourceWithName(
+                    "styleable", "unused_styleable");
+              } else {
+                // The styleable works by inlining the resource attr values into the array in the R
+                // class.
+                // public static final class styleable {
+                //   public static final int[] our_styleable={
+                //     0x7f010000, 0x7f010001, 0x7f010002, 0x7f010003
+                //   };
+                // ....
+                // This means there are no actual references to the styleable in the resource
+                // table from code, only to the attributes that are used (0x7f01000{0,1,2,3} are
+                // attr references, not styleable references)
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "styleable", "our_styleable");
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "styleable", "unused_styleable");
+              }
               // We do remove the attributes pointed at by the unreachable styleable.
               for (int i = 0; i < 4; i++) {
 
@@ -90,8 +107,13 @@ public class TestOptimizedShrinking extends TestBase {
 
                 // In optimized mode we track these correctly, so we should not unconditionally keep
                 // all attributes.
-                resourceTableInspector.assertContainsResourceWithName(
-                    "attr", "attr_unused_styleable" + i);
+                if (optimized) {
+                  resourceTableInspector.assertDoesNotContainResourceWithName(
+                      "attr", "attr_unused_styleable" + i);
+                } else {
+                  resourceTableInspector.assertContainsResourceWithName(
+                      "attr", "attr_unused_styleable" + i);
+                }
               }
             })
         .run(parameters.getRuntime(), FooBar.class)
