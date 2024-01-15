@@ -4,6 +4,7 @@
 package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
+import java.util.Set;
 
 public abstract class KeepConstraint {
 
@@ -24,6 +25,10 @@ public abstract class KeepConstraint {
   }
 
   public abstract void convertToDisallowKeepOptions(KeepOptions.Builder builder);
+
+  public void addRequiredKeepAttributes(Set<KeepAttribute> attributes) {
+    // Common case is no required attributes.
+  }
 
   public final boolean validForClass() {
     return !isMethodOnly() && !isFieldOnly();
@@ -296,6 +301,7 @@ public abstract class KeepConstraint {
     private final KeepQualifiedClassNamePattern classNamePattern;
 
     private Annotation(KeepQualifiedClassNamePattern classNamePattern) {
+      assert classNamePattern != null;
       this.classNamePattern = classNamePattern;
     }
 
@@ -308,6 +314,16 @@ public abstract class KeepConstraint {
     }
 
     @Override
+    public void addRequiredKeepAttributes(Set<KeepAttribute> attributes) {
+      attributes.add(KeepAttribute.RUNTIME_VISIBLE_ANNOTATIONS);
+      attributes.add(KeepAttribute.RUNTIME_VISIBLE_PARAMETER_ANNOTATIONS);
+      attributes.add(KeepAttribute.RUNTIME_VISIBLE_TYPE_ANNOTATIONS);
+      attributes.add(KeepAttribute.RUNTIME_INVISIBLE_ANNOTATIONS);
+      attributes.add(KeepAttribute.RUNTIME_INVISIBLE_PARAMETER_ANNOTATIONS);
+      attributes.add(KeepAttribute.RUNTIME_INVISIBLE_TYPE_ANNOTATIONS);
+    }
+
+    @Override
     public boolean equals(Object o) {
       if (this == o) {
         return true;
@@ -316,7 +332,7 @@ public abstract class KeepConstraint {
         return false;
       }
       Annotation that = (Annotation) o;
-      return classNamePattern.equals(that);
+      return classNamePattern.equals(that.classNamePattern);
     }
 
     @Override

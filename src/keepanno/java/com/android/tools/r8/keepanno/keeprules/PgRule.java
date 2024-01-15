@@ -5,11 +5,13 @@ package com.android.tools.r8.keepanno.keeprules;
 
 import static com.android.tools.r8.keepanno.keeprules.RulePrintingUtils.CHECK_DISCARD;
 import static com.android.tools.r8.keepanno.keeprules.RulePrintingUtils.KEEP;
+import static com.android.tools.r8.keepanno.keeprules.RulePrintingUtils.KEEP_ATTRIBUTES;
 import static com.android.tools.r8.keepanno.keeprules.RulePrintingUtils.KEEP_CLASSES_WITH_MEMBERS;
 import static com.android.tools.r8.keepanno.keeprules.RulePrintingUtils.KEEP_CLASS_MEMBERS;
 import static com.android.tools.r8.keepanno.keeprules.RulePrintingUtils.printClassHeader;
 import static com.android.tools.r8.keepanno.keeprules.RulePrintingUtils.printMemberClause;
 
+import com.android.tools.r8.keepanno.ast.KeepAttribute;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepEdgeException;
@@ -19,11 +21,13 @@ import com.android.tools.r8.keepanno.ast.KeepOptions;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor.Holder;
 import com.android.tools.r8.keepanno.keeprules.RulePrinter.BackReferencePrinter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 
 public abstract class PgRule {
@@ -40,14 +44,16 @@ public abstract class PgRule {
             .thenComparingInt(
                 p -> {
                   switch (p.getConsequenceKeepType()) {
-                    case KEEP:
+                    case KEEP_ATTRIBUTES:
                       return 0;
-                    case KEEP_CLASSES_WITH_MEMBERS:
+                    case KEEP:
                       return 1;
-                    case KEEP_CLASS_MEMBERS:
+                    case KEEP_CLASSES_WITH_MEMBERS:
                       return 2;
-                    case CHECK_DISCARD:
+                    case KEEP_CLASS_MEMBERS:
                       return 3;
+                    case CHECK_DISCARD:
+                      return 4;
                     default:
                       throw new KeepEdgeException(
                           "Unexpected consequence keep type: " + p.getConsequenceKeepType());
@@ -92,6 +98,10 @@ public abstract class PgRule {
   private PgRule(KeepEdgeMetaInfo metaInfo, KeepOptions options) {
     this.metaInfo = metaInfo;
     this.options = options;
+  }
+
+  public KeepEdgeMetaInfo getMetaInfo() {
+    return metaInfo;
   }
 
   // Helper to print the class-name pattern in a class-item.
@@ -225,6 +235,49 @@ public abstract class PgRule {
     void printTargetMember(StringBuilder builder, KeepBindingSymbol memberReference) {
       KeepMemberPattern memberPattern = memberPatterns.get(memberReference);
       printMemberClause(memberPattern, RulePrinter.withoutBackReferences(builder));
+    }
+  }
+
+  static class PgKeepAttributeRule extends PgRule {
+
+    private final Set<KeepAttribute> attributes;
+
+    public PgKeepAttributeRule(KeepEdgeMetaInfo metaInfo, Set<KeepAttribute> attributes) {
+      super(metaInfo, null);
+      assert !attributes.isEmpty();
+      this.attributes = attributes;
+    }
+
+    @Override
+    public void printRule(StringBuilder builder) {
+      RulePrintingUtils.printHeader(builder, getMetaInfo());
+      builder.append(getConsequenceKeepType()).append(" ");
+      List<KeepAttribute> sorted = new ArrayList<>(attributes);
+      sorted.sort(KeepAttribute::compareTo);
+      builder.append(sorted.get(0).getPrintName());
+      for (int i = 1; i < sorted.size(); i++) {
+        builder.append(',').append(sorted.get(i).getPrintName());
+      }
+    }
+
+    @Override
+    String getConsequenceKeepType() {
+      return KEEP_ATTRIBUTES;
+    }
+
+    @Override
+    List<KeepBindingSymbol> getTargetMembers() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    void printTargetHolder(StringBuilder builder) {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    void printTargetMember(StringBuilder builder, KeepBindingSymbol member) {
+      throw new IllegalStateException();
     }
   }
 

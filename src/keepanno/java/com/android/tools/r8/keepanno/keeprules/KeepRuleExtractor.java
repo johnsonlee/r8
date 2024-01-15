@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.keeprules;
 
+import com.android.tools.r8.keepanno.ast.KeepAttribute;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepBindings;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
@@ -30,6 +31,7 @@ import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepTarget;
 import com.android.tools.r8.keepanno.keeprules.PgRule.PgConditionalRule;
 import com.android.tools.r8.keepanno.keeprules.PgRule.PgDependentMembersRule;
+import com.android.tools.r8.keepanno.keeprules.PgRule.PgKeepAttributeRule;
 import com.android.tools.r8.keepanno.keeprules.PgRule.PgUnconditionalRule;
 import com.android.tools.r8.keepanno.keeprules.PgRule.TargetKeepKind;
 import java.util.ArrayDeque;
@@ -246,7 +248,8 @@ public class KeepRuleExtractor {
   @SuppressWarnings("UnnecessaryParentheses")
   private static List<PgRule> doSplit(KeepEdge edge) {
     List<PgRule> rules = new ArrayList<>();
-
+    // Collection for all attribute constraints required for this edge.
+    Set<KeepAttribute> allAttributeConstraints = new HashSet<>();
     // First step after normalizing is to group up all conditions and targets on their target class.
     // Here we use the normalized binding as the notion of identity on a class.
     KeepBindings bindings = edge.getBindings();
@@ -264,6 +267,7 @@ public class KeepRuleExtractor {
     edge.getConsequences()
         .forEachTarget(
             target -> {
+              allAttributeConstraints.addAll(target.getConstraints().getRequiredKeepAttributes());
               KeepBindingSymbol classReference =
                   getClassItemBindingReference(target.getItem(), bindings);
               assert classReference != null;
@@ -271,6 +275,11 @@ public class KeepRuleExtractor {
                   .computeIfAbsent(classReference, k -> BindingUsers.create(k, bindings))
                   .addTarget(target);
             });
+
+    // Generate at most one `-keepattributes` rule for the edge if needed.
+    if (!allAttributeConstraints.isEmpty()) {
+      rules.add(new PgKeepAttributeRule(edge.getMetaInfo(), allAttributeConstraints));
+    }
 
     bindingUsers.forEach(
         (targetBindingName, users) -> {

@@ -59,10 +59,6 @@ public class ClassAnnotatedByAnyAnnoPatternTest extends TestBase {
         .enableExperimentalKeepAnnotations()
         .addProgramClasses(getInputClasses())
         .setMinApi(parameters)
-        // TODO(b/248408342): Make this implicit when annotations are kept by the keep-annotation.
-        .addKeepRuntimeVisibleAnnotations()
-        .compile()
-        .apply(b -> System.out.println(b.getProguardConfiguration()))
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
         .inspect(this::checkOutput);
