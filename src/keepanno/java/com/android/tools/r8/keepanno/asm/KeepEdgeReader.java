@@ -747,6 +747,7 @@ public class KeepEdgeReader implements Opcodes {
       visit(Item.className, className);
       constraintsParser = new ConstraintsParser(parsingContext);
       constraintsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
+      constraintsParser.setProperty(Target.constraintAdditions, ConstraintsProperty.ADDITIONS);
       constraintsParser.setProperty(Target.allow, ConstraintsProperty.ALLOW);
       constraintsParser.setProperty(Target.disallow, ConstraintsProperty.DISALLOW);
     }
@@ -857,6 +858,7 @@ public class KeepEdgeReader implements Opcodes {
       addContext.accept(metaInfoBuilder);
       constraintsParser = new ConstraintsParser(parsingContext);
       constraintsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
+      constraintsParser.setProperty(Target.constraintAdditions, ConstraintsProperty.ADDITIONS);
       constraintsParser.setProperty(Target.allow, ConstraintsProperty.ALLOW);
       constraintsParser.setProperty(Target.disallow, ConstraintsProperty.DISALLOW);
     }
@@ -1809,6 +1811,7 @@ public class KeepEdgeReader implements Opcodes {
       this.bindingsHelper = bindingsHelper;
       optionsParser = new ConstraintsParser(parsingContext);
       optionsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
+      optionsParser.setProperty(Target.constraintAdditions, ConstraintsProperty.ADDITIONS);
       optionsParser.setProperty(Target.allow, ConstraintsProperty.ALLOW);
       optionsParser.setProperty(Target.disallow, ConstraintsProperty.DISALLOW);
     }

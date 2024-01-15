@@ -122,19 +122,19 @@ public class MembersAnnotatedByPatternsTest extends TestBase {
           classConstant = OnMembers.class,
           kind = KeepItemKind.CLASS_AND_MEMBERS,
           memberAnnotatedByClassConstant = A.class,
-          constraints = {KeepConstraint.LOOKUP, KeepConstraint.ANNOTATIONS, KeepConstraint.NAME}),
+          constraintAdditions = {KeepConstraint.ANNOTATIONS}),
       @KeepTarget(
           classConstant = OnFields.class,
           kind = KeepItemKind.CLASS_AND_FIELDS,
           fieldAnnotatedByClassName =
               "com.android.tools.r8.keepanno.MembersAnnotatedByPatternsTest$B",
-          constraints = {KeepConstraint.LOOKUP, KeepConstraint.ANNOTATIONS, KeepConstraint.NAME}),
+          constraintAdditions = {KeepConstraint.ANNOTATIONS}),
       @KeepTarget(
           classConstant = OnMethods.class,
           kind = KeepItemKind.CLASS_AND_METHODS,
           methodAnnotatedByClassNamePattern =
               @ClassNamePattern(simpleName = "MembersAnnotatedByPatternsTest$C"),
-          constraints = {KeepConstraint.LOOKUP, KeepConstraint.ANNOTATIONS, KeepConstraint.NAME})
+          constraintAdditions = {KeepConstraint.ANNOTATIONS})
     })
     public void foo(Class<?> clazz) throws Exception {
       for (Field field : clazz.getDeclaredFields()) {

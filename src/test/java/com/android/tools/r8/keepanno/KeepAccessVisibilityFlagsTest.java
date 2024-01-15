@@ -187,29 +187,17 @@ public class KeepAccessVisibilityFlagsTest extends TestBase {
       @KeepTarget(
           kind = KeepItemKind.CLASS_AND_MEMBERS,
           classConstant = FieldRuleTarget.class,
-          constraints = {
-            KeepConstraint.LOOKUP,
-            KeepConstraint.NAME,
-            KeepConstraint.VISIBILITY_INVARIANT
-          },
+          constraintAdditions = {KeepConstraint.VISIBILITY_INVARIANT},
           fieldAccess = {FieldAccessFlags.NON_PRIVATE}),
       @KeepTarget(
           kind = KeepItemKind.CLASS_AND_MEMBERS,
           classConstant = MethodRuleTarget.class,
-          constraints = {
-            KeepConstraint.LOOKUP,
-            KeepConstraint.NAME,
-            KeepConstraint.VISIBILITY_INVARIANT
-          },
+          constraintAdditions = {KeepConstraint.VISIBILITY_INVARIANT},
           methodAccess = {MethodAccessFlags.NON_PACKAGE_PRIVATE}),
       @KeepTarget(
           kind = KeepItemKind.CLASS_AND_MEMBERS,
           classConstant = MemberRuleTarget.class,
-          constraints = {
-            KeepConstraint.LOOKUP,
-            KeepConstraint.NAME,
-            KeepConstraint.VISIBILITY_INVARIANT
-          },
+          constraintAdditions = {KeepConstraint.VISIBILITY_INVARIANT},
           memberAccess = {MemberAccessFlags.PACKAGE_PRIVATE, MemberAccessFlags.PRIVATE}),
     })
     void foo() {

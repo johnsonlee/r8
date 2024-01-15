@@ -16,6 +16,7 @@ public class ConstraintsParser extends PropertyParserBase<KeepConstraints, Const
 
   public enum ConstraintsProperty {
     CONSTRAINTS,
+    ADDITIONS,
     ALLOW,
     DISALLOW
   }
@@ -27,19 +28,24 @@ public class ConstraintsParser extends PropertyParserBase<KeepConstraints, Const
   @Override
   AnnotationVisitor tryPropertyArray(
       ConstraintsProperty property, String name, Consumer<KeepConstraints> setValue) {
+    ParsingContext parsingContext = getParsingContext().property(name);
     switch (property) {
+      case ADDITIONS:
+        return new KeepConstraintsVisitor(
+            parsingContext,
+            constraints -> setValue.accept(KeepConstraints.defaultAdditions(constraints)));
       case CONSTRAINTS:
-        return new KeepConstraintsVisitor(getParsingContext(), setValue::accept);
+        return new KeepConstraintsVisitor(parsingContext, setValue::accept);
       case ALLOW:
         return new KeepOptionsVisitor(
-            getParsingContext(),
+            parsingContext,
             options ->
                 setValue.accept(
                     KeepConstraints.fromLegacyOptions(
                         KeepOptions.allowBuilder().addAll(options).build())));
       case DISALLOW:
         return new KeepOptionsVisitor(
-            getParsingContext(),
+            parsingContext,
             options ->
                 setValue.accept(
                     KeepConstraints.fromLegacyOptions(

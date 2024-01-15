@@ -490,6 +490,7 @@ public class KeepItemAnnotationGenerator {
     private Group getKeepConstraintsGroup() {
       return new Group(CONSTRAINTS_GROUP)
           .addMember(constraints())
+          .addMember(constraintAdditions())
           .addMember(
               new GroupMember("allow")
                   .setDeprecated("Use " + docLink(constraints()) + " instead.")
@@ -540,6 +541,17 @@ public class KeepItemAnnotationGenerator {
                       KeepConstraint.FIELD_GET,
                       KeepConstraint.FIELD_SET))
           .setDocReturn("Usage constraints for the target.")
+          .defaultArrayEmpty(KeepConstraint.class);
+    }
+
+    private static GroupMember constraintAdditions() {
+      return new GroupMember("constraintAdditions")
+          .setDocTitle("Add additional usage constraints of the target.")
+          .addParagraph(
+              "The specified constraints must remain valid for the target",
+              "in addition to the default constraints.")
+          .addParagraph("The default constraints are documented in " + docLink(constraints()))
+          .setDocReturn("Additional usage constraints for the target.")
           .defaultArrayEmpty(KeepConstraint.class);
     }
 

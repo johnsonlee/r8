@@ -140,6 +140,7 @@ public final class AnnotationConstants {
     public static final String kind = "kind";
     public static final String constraintsGroup = "constraints";
     public static final String constraints = "constraints";
+    public static final String constraintAdditions = "constraintAdditions";
     public static final String allow = "allow";
     public static final String disallow = "disallow";
   }

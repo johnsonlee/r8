@@ -75,6 +75,7 @@ public @interface KeepTarget {
    * <p>Mutually exclusive with the following other properties defining constraints:
    *
    * <ul>
+   *   <li>constraintAdditions
    *   <li>allow
    *   <li>disallow
    * </ul>
@@ -86,6 +87,28 @@ public @interface KeepTarget {
   KeepConstraint[] constraints() default {};
 
   /**
+   * Add additional usage constraints of the target.
+   *
+   * <p>The specified constraints must remain valid for the target in addition to the default
+   * constraints.
+   *
+   * <p>The default constraints are documented in {@link #constraints}
+   *
+   * <p>Mutually exclusive with the following other properties defining constraints:
+   *
+   * <ul>
+   *   <li>constraints
+   *   <li>allow
+   *   <li>disallow
+   * </ul>
+   *
+   * <p>If nothing is specified for constraints the default is the default for {@link #constraints}.
+   *
+   * @return Additional usage constraints for the target.
+   */
+  KeepConstraint[] constraintAdditions() default {};
+
+  /**
    * Define the constraints that are allowed to be modified.
    *
    * <p>The specified option constraints do not need to be preserved for the target.
@@ -94,6 +117,7 @@ public @interface KeepTarget {
    *
    * <ul>
    *   <li>constraints
+   *   <li>constraintAdditions
    *   <li>disallow
    * </ul>
    *
@@ -114,6 +138,7 @@ public @interface KeepTarget {
    *
    * <ul>
    *   <li>constraints
+   *   <li>constraintAdditions
    *   <li>allow
    * </ul>
    *

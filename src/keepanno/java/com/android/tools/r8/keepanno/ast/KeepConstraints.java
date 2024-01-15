@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
 import com.google.common.collect.ImmutableSet;
 import java.util.Collections;
 import java.util.HashSet;
@@ -19,6 +20,10 @@ public abstract class KeepConstraints {
 
   public static KeepConstraints defaultConstraints() {
     return Defaults.INSTANCE;
+  }
+
+  public static KeepConstraints defaultAdditions(KeepConstraints additionalConstraints) {
+    return new Additions(additionalConstraints);
   }
 
   public static Builder builder() {
@@ -84,6 +89,32 @@ public abstract class KeepConstraints {
     public Set<KeepAttribute> getRequiredKeepAttributes() {
       // The default set of keep rules for any kind of target requires no additional attributes.
       return Collections.emptySet();
+    }
+  }
+
+  private static class Additions extends KeepConstraints {
+
+    private final KeepConstraints additions;
+
+    public Additions(KeepConstraints additions) {
+      this.additions = additions;
+    }
+
+    @Override
+    public KeepOptions convertToKeepOptions(KeepOptions defaultOptions) {
+      KeepOptions additionalOptions = additions.convertToKeepOptions(defaultOptions);
+      KeepOptions.Builder builder = KeepOptions.disallowBuilder();
+      for (KeepOption option : KeepOption.values()) {
+        if (!additionalOptions.isAllowed(option) || !defaultOptions.isAllowed(option)) {
+          builder.add(option);
+        }
+      }
+      return builder.build();
+    }
+
+    @Override
+    public Set<KeepAttribute> getRequiredKeepAttributes() {
+      return additions.getRequiredKeepAttributes();
     }
   }
 
