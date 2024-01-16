@@ -11,12 +11,16 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.keepanno.annotations.KeepCondition;
+import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByNative;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.Method;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,7 +29,7 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class KeepUsedByNativeAnnotationTest extends TestBase {
 
-  static final String EXPECTED = StringUtils.lines("Hello, world");
+  static final String EXPECTED = StringUtils.lines("@Anno.value = anno-on-bar", "Hello, world");
 
   private final TestParameters parameters;
 
@@ -59,7 +63,7 @@ public class KeepUsedByNativeAnnotationTest extends TestBase {
   }
 
   public List<Class<?>> getInputClasses() {
-    return ImmutableList.of(TestClass.class, A.class, B.class, C.class);
+    return ImmutableList.of(TestClass.class, Anno.class, A.class, B.class, C.class);
   }
 
   private void checkOutput(CodeInspector inspector) {
@@ -69,6 +73,11 @@ public class KeepUsedByNativeAnnotationTest extends TestBase {
     assertThat(inspector.clazz(A.class).method("void", "bar"), isPresent());
     assertThat(inspector.clazz(B.class).method("void", "bar"), isPresent());
     assertThat(inspector.clazz(B.class).method("void", "bar", "int"), isAbsent());
+  }
+
+  @Retention(RetentionPolicy.RUNTIME)
+  private @interface Anno {
+    String value();
   }
 
   @UsedByNative(
@@ -81,7 +90,10 @@ public class KeepUsedByNativeAnnotationTest extends TestBase {
 
     public void foo() throws Exception {
       Class<?> clazz = Class.forName(A.class.getTypeName().replace("$A", "$B"));
-      clazz.getDeclaredMethod("bar").invoke(clazz);
+      Method bar = clazz.getDeclaredMethod("bar");
+      Anno annotation = bar.getAnnotation(Anno.class);
+      System.out.println("@Anno.value = " + annotation.value());
+      bar.invoke(clazz);
     }
 
     public void bar() {
@@ -95,7 +107,9 @@ public class KeepUsedByNativeAnnotationTest extends TestBase {
         // Only if A.foo is live do we need to keep this.
         preconditions = {@KeepCondition(classConstant = A.class, methodName = "foo")},
         // Both the class and method are reflectively accessed.
-        kind = KeepItemKind.CLASS_AND_MEMBERS)
+        kind = KeepItemKind.CLASS_AND_MEMBERS,
+        constraintAdditions = {KeepConstraint.ANNOTATIONS})
+    @Anno("anno-on-bar")
     public static void bar() {
       System.out.println("Hello, world");
     }

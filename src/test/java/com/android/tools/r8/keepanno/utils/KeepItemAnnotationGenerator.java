@@ -1294,7 +1294,7 @@ public class KeepItemAnnotationGenerator {
                         + " if annotating a member.")
                 .generate(this);
             println();
-            constraints().generate(this);
+            getKeepConstraintsGroup().generate(this);
             println();
             generateMemberPropertiesNoBinding();
           });

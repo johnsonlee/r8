@@ -111,9 +111,25 @@ public @interface UsedByReflection {
    *   <li>{@link KeepConstraint#FIELD_SET}
    * </ul>
    *
+   * <p>Mutually exclusive with the property `constraintAdditions` also defining constraints.
+   *
    * @return Usage constraints for the target.
    */
   KeepConstraint[] constraints() default {};
+
+  /**
+   * Add additional usage constraints of the target.
+   *
+   * <p>The specified constraints must remain valid for the target in addition to the default
+   * constraints.
+   *
+   * <p>The default constraints are documented in {@link #constraints}
+   *
+   * <p>Mutually exclusive with the property `constraints` also defining constraints.
+   *
+   * @return Additional usage constraints for the target.
+   */
+  KeepConstraint[] constraintAdditions() default {};
 
   /**
    * Define the member-annotated-by pattern by fully qualified class name.
