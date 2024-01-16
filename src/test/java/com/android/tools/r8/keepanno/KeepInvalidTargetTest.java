@@ -12,7 +12,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.keepanno.annotations.KeepOption;
+import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.StringPattern;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
@@ -100,24 +100,24 @@ public class KeepInvalidTargetTest extends TestBase {
   }
 
   @Test
-  public void testInvalidExtendsDecl() {
+  public void testInvalidInstanceOfDecl() {
     assertThrowsWith(
-        () -> extractRuleForClass(MultipleExtendsDeclarations.class),
+        () -> extractRuleForClass(MultipleInstanceOfDeclarations.class),
         allOf(
             containsString("Multiple properties"),
-            containsString("extendsClassName"),
-            containsString("extendsClassConstant"),
+            containsString("instanceOfClassName"),
+            containsString("instanceOfClassConstant"),
             containsString("at property-group: instance-of"),
             containsString("at annotation: @UsesReflection"),
             containsString("at method: void main")));
   }
 
-  static class MultipleExtendsDeclarations {
+  static class MultipleInstanceOfDeclarations {
 
     @UsesReflection(
         @KeepTarget(
-            extendsClassName = "foo",
-            extendsClassConstant = MultipleClassDeclarations.class))
+            instanceOfClassName = "foo",
+            instanceOfClassConstant = MultipleClassDeclarations.class))
     public static void main(String[] args) {
       System.out.println("Hello, world");
     }
@@ -144,21 +144,21 @@ public class KeepInvalidTargetTest extends TestBase {
   @Test
   public void testInvalidOptionsDecl() {
     assertThrowsWith(
-        () -> extractRuleForClass(MultipleOptionDeclarations.class),
+        () -> extractRuleForClass(MultipleConstraintDeclarations.class),
         allOf(
             containsString("Multiple properties"),
-            containsString("allow"),
-            containsString("disallow"),
+            containsString("constraints"),
+            containsString("constraintAdditions"),
             containsString("at property-group: constraints")));
   }
 
-  static class MultipleOptionDeclarations {
+  static class MultipleConstraintDeclarations {
 
     @UsesReflection(
         @KeepTarget(
             classConstant = A.class,
-            allow = {KeepOption.OPTIMIZATION},
-            disallow = {KeepOption.SHRINKING}))
+            constraints = {KeepConstraint.LOOKUP},
+            constraintAdditions = {KeepConstraint.NAME}))
     public static void main(String[] args) {
       System.out.println("Hello, world");
     }

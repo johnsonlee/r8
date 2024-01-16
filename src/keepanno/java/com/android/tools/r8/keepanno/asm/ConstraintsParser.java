@@ -7,7 +7,6 @@ package com.android.tools.r8.keepanno.asm;
 import com.android.tools.r8.keepanno.asm.ConstraintsParser.ConstraintsProperty;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Target;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
-import com.android.tools.r8.keepanno.ast.KeepOptions;
 import com.android.tools.r8.keepanno.ast.ParsingContext;
 import java.util.function.Consumer;
 import org.objectweb.asm.AnnotationVisitor;
@@ -16,9 +15,7 @@ public class ConstraintsParser extends PropertyParserBase<KeepConstraints, Const
 
   public enum ConstraintsProperty {
     CONSTRAINTS,
-    ADDITIONS,
-    ALLOW,
-    DISALLOW
+    ADDITIONS
   }
 
   public ConstraintsParser(ParsingContext parsingContext) {
@@ -36,20 +33,6 @@ public class ConstraintsParser extends PropertyParserBase<KeepConstraints, Const
             constraints -> setValue.accept(KeepConstraints.defaultAdditions(constraints)));
       case CONSTRAINTS:
         return new KeepConstraintsVisitor(parsingContext, setValue::accept);
-      case ALLOW:
-        return new KeepOptionsVisitor(
-            parsingContext,
-            options ->
-                setValue.accept(
-                    KeepConstraints.fromLegacyOptions(
-                        KeepOptions.allowBuilder().addAll(options).build())));
-      case DISALLOW:
-        return new KeepOptionsVisitor(
-            parsingContext,
-            options ->
-                setValue.accept(
-                    KeepConstraints.fromLegacyOptions(
-                        KeepOptions.disallowBuilder().addAll(options).build())));
       default:
         return null;
     }

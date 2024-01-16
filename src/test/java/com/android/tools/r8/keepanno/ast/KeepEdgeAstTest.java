@@ -9,7 +9,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
-import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
@@ -59,8 +58,14 @@ public class KeepEdgeAstTest extends TestBase {
   }
 
   @Test
-  public void testSoftPinViaDisallow() {
-    KeepOptions disallowOptions = KeepOptions.disallow(KeepOption.OPTIMIZING);
+  public void testSoftPinViaConstraints() {
+    KeepConstraints constraints =
+        KeepConstraints.builder()
+            .add(KeepConstraint.classInstantiate())
+            .add(KeepConstraint.methodInvoke())
+            .add(KeepConstraint.fieldGet())
+            .add(KeepConstraint.fieldSet())
+            .build();
     KeepEdge edge =
         KeepEdge.builder()
             .setConsequences(
@@ -68,16 +73,17 @@ public class KeepEdgeAstTest extends TestBase {
                     .addTarget(
                         KeepTarget.builder()
                             .setItemPattern(KeepItemPattern.anyClass())
-                            .setOptions(disallowOptions)
+                            .setConstraints(constraints)
                             .build())
                     .addTarget(
                         KeepTarget.builder()
                             .setItemPattern(KeepItemPattern.anyMember())
-                            .setOptions(disallowOptions)
+                            .setConstraints(constraints)
                             .build())
                     .build())
             .build();
-    // Disallow will issue the full inverse of the known options, e.g., 'allowaccessmodification'.
+    // Pinning just the use constraints points will issue the full inverse of the known options,
+    // e.g., 'allowaccessmodification'.
     List<String> options = ImmutableList.of("shrinking", "obfuscation", "accessmodification");
     String allows = String.join(",allow", options);
     // The "any" item will be split in two rules, one for the targeted types and one for the
@@ -88,34 +94,6 @@ public class KeepEdgeAstTest extends TestBase {
             "-keepclassmembers,allow" + allows + " class ** { *; }"),
         extract(edge));
   }
-
-  @Test
-  public void testSoftPinViaAllow() {
-    KeepOptions allowOptions = KeepOptions.allow(KeepOption.OBFUSCATING, KeepOption.SHRINKING);
-    KeepEdge edge =
-        KeepEdge.builder()
-            .setConsequences(
-                KeepConsequences.builder()
-                    .addTarget(
-                        KeepTarget.builder()
-                            .setItemPattern(KeepItemPattern.anyClass())
-                            .setOptions(allowOptions)
-                            .build())
-                    .addTarget(
-                        KeepTarget.builder()
-                            .setItemPattern(KeepItemPattern.anyMember())
-                            .setOptions(allowOptions)
-                            .build())
-                    .build())
-            .build();
-    // Allow is just the ordered list of options.
-    assertEquals(
-        StringUtils.unixLines(
-            "-keep,allowshrinking,allowobfuscation class ** { void finalize(); }",
-            "-keepclassmembers,allowshrinking,allowobfuscation class ** { *; }"),
-        extract(edge));
-  }
-
   @Test
   public void testKeepClass() {
     KeepTarget target = target(classItem(CLASS));

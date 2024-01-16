@@ -79,8 +79,6 @@ public @interface KeepBinding {
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstant
    *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassName
-   *   <li>extendsClassConstant
    *   <li>classAnnotatedByClassName
    *   <li>classAnnotatedByClassConstant
    *   <li>classAnnotatedByClassNamePattern
@@ -152,8 +150,6 @@ public @interface KeepBinding {
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstant
    *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassName
-   *   <li>extendsClassConstant
    *   <li>classFromBinding
    * </ul>
    *
@@ -175,8 +171,6 @@ public @interface KeepBinding {
    *   <li>instanceOfClassName
    *   <li>instanceOfClassConstant
    *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassName
-   *   <li>extendsClassConstant
    *   <li>classFromBinding
    * </ul>
    *
@@ -195,8 +189,6 @@ public @interface KeepBinding {
    *   <li>instanceOfClassName
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassName
-   *   <li>extendsClassConstant
    *   <li>classFromBinding
    * </ul>
    *
@@ -218,8 +210,6 @@ public @interface KeepBinding {
    *   <li>instanceOfClassName
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstant
-   *   <li>extendsClassName
-   *   <li>extendsClassConstant
    *   <li>classFromBinding
    * </ul>
    *
@@ -228,56 +218,6 @@ public @interface KeepBinding {
    * @return The class constant that defines what instance-of the class must be.
    */
   Class<?> instanceOfClassConstantExclusive() default Object.class;
-
-  /**
-   * Define the instance-of pattern as classes extending the fully qualified class name.
-   *
-   * <p>The pattern is exclusive in that it does not match classes that are instances of the
-   * pattern, but only those that are instances of classes that are subclasses of the pattern.
-   *
-   * <p>Mutually exclusive with the following other properties defining instance-of:
-   *
-   * <ul>
-   *   <li>instanceOfClassName
-   *   <li>instanceOfClassNameExclusive
-   *   <li>instanceOfClassConstant
-   *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassConstant
-   *   <li>classFromBinding
-   * </ul>
-   *
-   * <p>If none are specified the default is to match any class instance.
-   *
-   * @return The class name that defines what the class must extend.
-   * @deprecated This property is deprecated, use {@link #instanceOfClassName} instead.
-   */
-  @Deprecated
-  String extendsClassName() default "";
-
-  /**
-   * Define the instance-of pattern as classes extending the referenced Class constant.
-   *
-   * <p>The pattern is exclusive in that it does not match classes that are instances of the
-   * pattern, but only those that are instances of classes that are subclasses of the pattern.
-   *
-   * <p>Mutually exclusive with the following other properties defining instance-of:
-   *
-   * <ul>
-   *   <li>instanceOfClassName
-   *   <li>instanceOfClassNameExclusive
-   *   <li>instanceOfClassConstant
-   *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassName
-   *   <li>classFromBinding
-   * </ul>
-   *
-   * <p>If none are specified the default is to match any class instance.
-   *
-   * @return The class constant that defines what the class must extend.
-   * @deprecated This property is deprecated, use {@link #instanceOfClassConstant} instead.
-   */
-  @Deprecated
-  Class<?> extendsClassConstant() default Object.class;
 
   /**
    * Define the class-annotated-by pattern by fully qualified class name.

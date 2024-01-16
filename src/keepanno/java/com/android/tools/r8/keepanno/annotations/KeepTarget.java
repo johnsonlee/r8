@@ -61,26 +61,35 @@ public @interface KeepTarget {
    *
    * <p>The specified constraints must remain valid for the target.
    *
-   * <p>The default constraints depend on the type of the target.
+   * <p>The default constraints depend on the kind of the target. For all targets the default
+   * constraints include:
    *
    * <ul>
-   *   <li>For classes, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
-   *       {@link KeepConstraint#CLASS_INSTANTIATE}}
-   *   <li>For methods, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
-   *       {@link KeepConstraint#METHOD_INVOKE}}
-   *   <li>For fields, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
-   *       {@link KeepConstraint#FIELD_GET}, {@link KeepConstraint#FIELD_SET}}
+   *   <li>{@link KeepConstraint#LOOKUP}
+   *   <li>{@link KeepConstraint#NAME}
+   *   <li>{@link KeepConstraint#VISIBILITY_RELAX}
    * </ul>
    *
-   * <p>Mutually exclusive with the following other properties defining constraints:
+   * <p>For classes the default constraints also include:
    *
    * <ul>
-   *   <li>constraintAdditions
-   *   <li>allow
-   *   <li>disallow
+   *   <li>{@link KeepConstraint#CLASS_INSTANTIATE}
    * </ul>
    *
-   * <p>If nothing is specified for constraints the default is the default for {@link #constraints}.
+   * <p>For methods the default constraints also include:
+   *
+   * <ul>
+   *   <li>{@link KeepConstraint#METHOD_INVOKE}
+   * </ul>
+   *
+   * <p>For fields the default constraints also include:
+   *
+   * <ul>
+   *   <li>{@link KeepConstraint#FIELD_GET}
+   *   <li>{@link KeepConstraint#FIELD_SET}
+   * </ul>
+   *
+   * <p>Mutually exclusive with the property `constraintAdditions` also defining constraints.
    *
    * @return Usage constraints for the target.
    */
@@ -94,61 +103,11 @@ public @interface KeepTarget {
    *
    * <p>The default constraints are documented in {@link #constraints}
    *
-   * <p>Mutually exclusive with the following other properties defining constraints:
-   *
-   * <ul>
-   *   <li>constraints
-   *   <li>allow
-   *   <li>disallow
-   * </ul>
-   *
-   * <p>If nothing is specified for constraints the default is the default for {@link #constraints}.
+   * <p>Mutually exclusive with the property `constraints` also defining constraints.
    *
    * @return Additional usage constraints for the target.
    */
   KeepConstraint[] constraintAdditions() default {};
-
-  /**
-   * Define the constraints that are allowed to be modified.
-   *
-   * <p>The specified option constraints do not need to be preserved for the target.
-   *
-   * <p>Mutually exclusive with the following other properties defining constraints:
-   *
-   * <ul>
-   *   <li>constraints
-   *   <li>constraintAdditions
-   *   <li>disallow
-   * </ul>
-   *
-   * <p>If nothing is specified for constraints the default is the default for {@link #constraints}.
-   *
-   * @return Option constraints allowed to be modified for the target.
-   * @deprecated Use {@link #constraints} instead.
-   */
-  @Deprecated
-  KeepOption[] allow() default {};
-
-  /**
-   * Define the constraints that are not allowed to be modified.
-   *
-   * <p>The specified option constraints *must* be preserved for the target.
-   *
-   * <p>Mutually exclusive with the following other properties defining constraints:
-   *
-   * <ul>
-   *   <li>constraints
-   *   <li>constraintAdditions
-   *   <li>allow
-   * </ul>
-   *
-   * <p>If nothing is specified for constraints the default is the default for {@link #constraints}.
-   *
-   * @return Option constraints not allowed to be modified for the target.
-   * @deprecated Use {@link #constraints} instead.
-   */
-  @Deprecated
-  KeepOption[] disallow() default {};
 
   /**
    * Define the class pattern by reference to a binding.
@@ -163,8 +122,6 @@ public @interface KeepTarget {
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstant
    *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassName
-   *   <li>extendsClassConstant
    *   <li>classAnnotatedByClassName
    *   <li>classAnnotatedByClassConstant
    *   <li>classAnnotatedByClassNamePattern
@@ -236,8 +193,6 @@ public @interface KeepTarget {
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstant
    *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassName
-   *   <li>extendsClassConstant
    *   <li>classFromBinding
    * </ul>
    *
@@ -259,8 +214,6 @@ public @interface KeepTarget {
    *   <li>instanceOfClassName
    *   <li>instanceOfClassConstant
    *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassName
-   *   <li>extendsClassConstant
    *   <li>classFromBinding
    * </ul>
    *
@@ -279,8 +232,6 @@ public @interface KeepTarget {
    *   <li>instanceOfClassName
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassName
-   *   <li>extendsClassConstant
    *   <li>classFromBinding
    * </ul>
    *
@@ -302,8 +253,6 @@ public @interface KeepTarget {
    *   <li>instanceOfClassName
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstant
-   *   <li>extendsClassName
-   *   <li>extendsClassConstant
    *   <li>classFromBinding
    * </ul>
    *
@@ -312,56 +261,6 @@ public @interface KeepTarget {
    * @return The class constant that defines what instance-of the class must be.
    */
   Class<?> instanceOfClassConstantExclusive() default Object.class;
-
-  /**
-   * Define the instance-of pattern as classes extending the fully qualified class name.
-   *
-   * <p>The pattern is exclusive in that it does not match classes that are instances of the
-   * pattern, but only those that are instances of classes that are subclasses of the pattern.
-   *
-   * <p>Mutually exclusive with the following other properties defining instance-of:
-   *
-   * <ul>
-   *   <li>instanceOfClassName
-   *   <li>instanceOfClassNameExclusive
-   *   <li>instanceOfClassConstant
-   *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassConstant
-   *   <li>classFromBinding
-   * </ul>
-   *
-   * <p>If none are specified the default is to match any class instance.
-   *
-   * @return The class name that defines what the class must extend.
-   * @deprecated This property is deprecated, use {@link #instanceOfClassName} instead.
-   */
-  @Deprecated
-  String extendsClassName() default "";
-
-  /**
-   * Define the instance-of pattern as classes extending the referenced Class constant.
-   *
-   * <p>The pattern is exclusive in that it does not match classes that are instances of the
-   * pattern, but only those that are instances of classes that are subclasses of the pattern.
-   *
-   * <p>Mutually exclusive with the following other properties defining instance-of:
-   *
-   * <ul>
-   *   <li>instanceOfClassName
-   *   <li>instanceOfClassNameExclusive
-   *   <li>instanceOfClassConstant
-   *   <li>instanceOfClassConstantExclusive
-   *   <li>extendsClassName
-   *   <li>classFromBinding
-   * </ul>
-   *
-   * <p>If none are specified the default is to match any class instance.
-   *
-   * @return The class constant that defines what the class must extend.
-   * @deprecated This property is deprecated, use {@link #instanceOfClassConstant} instead.
-   */
-  @Deprecated
-  Class<?> extendsClassConstant() default Object.class;
 
   /**
    * Define the class-annotated-by pattern by fully qualified class name.

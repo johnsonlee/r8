@@ -83,15 +83,32 @@ public @interface UsedByReflection {
    *
    * <p>The specified constraints must remain valid for the target.
    *
-   * <p>The default constraints depend on the type of the target.
+   * <p>The default constraints depend on the kind of the target. For all targets the default
+   * constraints include:
    *
    * <ul>
-   *   <li>For classes, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
-   *       {@link KeepConstraint#CLASS_INSTANTIATE}}
-   *   <li>For methods, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
-   *       {@link KeepConstraint#METHOD_INVOKE}}
-   *   <li>For fields, the default is {{@link KeepConstraint#LOOKUP}, {@link KeepConstraint#NAME},
-   *       {@link KeepConstraint#FIELD_GET}, {@link KeepConstraint#FIELD_SET}}
+   *   <li>{@link KeepConstraint#LOOKUP}
+   *   <li>{@link KeepConstraint#NAME}
+   *   <li>{@link KeepConstraint#VISIBILITY_RELAX}
+   * </ul>
+   *
+   * <p>For classes the default constraints also include:
+   *
+   * <ul>
+   *   <li>{@link KeepConstraint#CLASS_INSTANTIATE}
+   * </ul>
+   *
+   * <p>For methods the default constraints also include:
+   *
+   * <ul>
+   *   <li>{@link KeepConstraint#METHOD_INVOKE}
+   * </ul>
+   *
+   * <p>For fields the default constraints also include:
+   *
+   * <ul>
+   *   <li>{@link KeepConstraint#FIELD_GET}
+   *   <li>{@link KeepConstraint#FIELD_SET}
    * </ul>
    *
    * @return Usage constraints for the target.

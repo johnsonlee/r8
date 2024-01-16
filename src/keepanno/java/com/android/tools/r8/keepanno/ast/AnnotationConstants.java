@@ -79,8 +79,6 @@ public final class AnnotationConstants {
     public static final String instanceOfClassConstant = "instanceOfClassConstant";
     public static final String instanceOfClassConstantExclusive =
         "instanceOfClassConstantExclusive";
-    public static final String extendsClassName = "extendsClassName";
-    public static final String extendsClassConstant = "extendsClassConstant";
     public static final String classAnnotatedByGroup = "class-annotated-by";
     public static final String classAnnotatedByClassName = "classAnnotatedByClassName";
     public static final String classAnnotatedByClassConstant = "classAnnotatedByClassConstant";
@@ -141,8 +139,6 @@ public final class AnnotationConstants {
     public static final String constraintsGroup = "constraints";
     public static final String constraints = "constraints";
     public static final String constraintAdditions = "constraintAdditions";
-    public static final String allow = "allow";
-    public static final String disallow = "disallow";
   }
 
   public static final class Kind {

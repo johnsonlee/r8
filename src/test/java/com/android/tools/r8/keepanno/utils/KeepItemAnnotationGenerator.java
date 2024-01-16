@@ -488,34 +488,7 @@ public class KeepItemAnnotationGenerator {
     }
 
     private Group getKeepConstraintsGroup() {
-      return new Group(CONSTRAINTS_GROUP)
-          .addMember(constraints())
-          .addMember(constraintAdditions())
-          .addMember(
-              new GroupMember("allow")
-                  .setDeprecated("Use " + docLink(constraints()) + " instead.")
-                  .setDocTitle(
-                      "Define the " + CONSTRAINTS_GROUP + " that are allowed to be modified.")
-                  .addParagraph(
-                      "The specified option constraints do not need to be preserved for the"
-                          + " target.")
-                  .setDocReturn("Option constraints allowed to be modified for the target.")
-                  .defaultArrayEmpty(KeepOption.class))
-          .addMember(
-              new GroupMember("disallow")
-                  .setDeprecated("Use " + docLink(constraints()) + " instead.")
-                  .setDocTitle(
-                      "Define the " + CONSTRAINTS_GROUP + " that are not allowed to be modified.")
-                  .addParagraph(
-                      "The specified option constraints *must* be preserved for the target.")
-                  .setDocReturn("Option constraints not allowed to be modified for the target.")
-                  .defaultArrayEmpty(KeepOption.class))
-          .addDocFooterParagraph(
-              "If nothing is specified for "
-                  + CONSTRAINTS_GROUP
-                  + " the default is the default for "
-                  + docLink(constraints())
-                  + ".");
+      return new Group(CONSTRAINTS_GROUP).addMember(constraints()).addMember(constraintAdditions());
     }
 
     private static String docLinkList(Enum<?>... values) {
@@ -526,20 +499,19 @@ public class KeepItemAnnotationGenerator {
       return new GroupMember("constraints")
           .setDocTitle("Define the usage constraints of the target.")
           .addParagraph("The specified constraints must remain valid for the target.")
-          .addParagraph("The default constraints depend on the type of the target.")
+          .addParagraph(
+              "The default constraints depend on the kind of the target.",
+              "For all targets the default constraints include:")
           .addUnorderedList(
-              "For classes, the default is "
-                  + docLinkList(
-                      KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.CLASS_INSTANTIATE),
-              "For methods, the default is "
-                  + docLinkList(
-                      KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.METHOD_INVOKE),
-              "For fields, the default is "
-                  + docLinkList(
-                      KeepConstraint.LOOKUP,
-                      KeepConstraint.NAME,
-                      KeepConstraint.FIELD_GET,
-                      KeepConstraint.FIELD_SET))
+              docLink(KeepConstraint.LOOKUP),
+              docLink(KeepConstraint.NAME),
+              docLink(KeepConstraint.VISIBILITY_RELAX))
+          .addParagraph("For classes the default constraints also include:")
+          .addUnorderedList(docLink(KeepConstraint.CLASS_INSTANTIATE))
+          .addParagraph("For methods the default constraints also include:")
+          .addUnorderedList(docLink(KeepConstraint.METHOD_INVOKE))
+          .addParagraph("For fields the default constraints also include:")
+          .addUnorderedList(docLink(KeepConstraint.FIELD_GET), docLink(KeepConstraint.FIELD_SET))
           .setDocReturn("Usage constraints for the target.")
           .defaultArrayEmpty(KeepConstraint.class);
     }
@@ -657,42 +629,12 @@ public class KeepItemAnnotationGenerator {
           .defaultObjectClass();
     }
 
-    private GroupMember extendsClassName() {
-      return new GroupMember("extendsClassName")
-          .setDocTitle(
-              "Define the "
-                  + INSTANCE_OF_GROUP
-                  + " pattern as classes extending the fully qualified class name.")
-          .addParagraph(getInstanceOfExclusiveDoc())
-          .setDeprecated(
-              "This property is deprecated, use " + docLink(instanceOfClassName()) + " instead.")
-          .setDocReturn("The class name that defines what the class must extend.")
-          .defaultEmptyString();
-    }
-
-    private GroupMember extendsClassConstant() {
-      return new GroupMember("extendsClassConstant")
-          .setDocTitle(
-              "Define the "
-                  + INSTANCE_OF_GROUP
-                  + " pattern as classes extending the referenced Class constant.")
-          .addParagraph(getInstanceOfExclusiveDoc())
-          .setDeprecated(
-              "This property is deprecated, use "
-                  + docLink(instanceOfClassConstant())
-                  + " instead.")
-          .setDocReturn("The class constant that defines what the class must extend.")
-          .defaultObjectClass();
-    }
-
     private Group createClassInstanceOfPatternGroup() {
       return new Group(INSTANCE_OF_GROUP)
           .addMember(instanceOfClassName())
           .addMember(instanceOfClassNameExclusive())
           .addMember(instanceOfClassConstant())
           .addMember(instanceOfClassConstantExclusive())
-          .addMember(extendsClassName())
-          .addMember(extendsClassConstant())
           .addDocFooterParagraph(
               "If none are specified the default is to match any class instance.");
     }

@@ -23,10 +23,6 @@ public class KeepTarget {
       return setItemReference(itemPattern.toItemReference());
     }
 
-    public Builder setOptions(KeepOptions options) {
-      return setConstraints(KeepConstraints.fromLegacyOptions(options));
-    }
-
     public Builder setConstraints(KeepConstraints constraints) {
       this.constraints = constraints;
       return this;

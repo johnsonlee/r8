@@ -14,10 +14,6 @@ import java.util.stream.Collectors;
 
 public abstract class KeepConstraints {
 
-  public static KeepConstraints fromLegacyOptions(KeepOptions options) {
-    return new LegacyOptions(options);
-  }
-
   public static KeepConstraints defaultConstraints() {
     return Defaults.INSTANCE;
   }
@@ -43,31 +39,6 @@ public abstract class KeepConstraints {
 
     public KeepConstraints build() {
       return new Constraints(constraints);
-    }
-  }
-
-  private static class LegacyOptions extends KeepConstraints {
-
-    private final KeepOptions options;
-
-    private LegacyOptions(KeepOptions options) {
-      this.options = options;
-    }
-
-    @Override
-    public String toString() {
-      return options.toString();
-    }
-
-    @Override
-    public KeepOptions convertToKeepOptions(KeepOptions defaultOptions) {
-      return options;
-    }
-
-    @Override
-    public Set<KeepAttribute> getRequiredKeepAttributes() {
-      // The legacy option specification does not have any implicit/required attributes.
-      return Collections.emptySet();
     }
   }
 

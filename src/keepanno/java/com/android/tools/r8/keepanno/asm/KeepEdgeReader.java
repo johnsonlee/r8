@@ -748,8 +748,6 @@ public class KeepEdgeReader implements Opcodes {
       constraintsParser = new ConstraintsParser(parsingContext);
       constraintsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
       constraintsParser.setProperty(Target.constraintAdditions, ConstraintsProperty.ADDITIONS);
-      constraintsParser.setProperty(Target.allow, ConstraintsProperty.ALLOW);
-      constraintsParser.setProperty(Target.disallow, ConstraintsProperty.DISALLOW);
     }
 
     @Override
@@ -859,8 +857,6 @@ public class KeepEdgeReader implements Opcodes {
       constraintsParser = new ConstraintsParser(parsingContext);
       constraintsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
       constraintsParser.setProperty(Target.constraintAdditions, ConstraintsProperty.ADDITIONS);
-      constraintsParser.setProperty(Target.allow, ConstraintsProperty.ALLOW);
-      constraintsParser.setProperty(Target.disallow, ConstraintsProperty.DISALLOW);
     }
 
     @Override
@@ -1211,8 +1207,6 @@ public class KeepEdgeReader implements Opcodes {
           Item.instanceOfClassNameExclusive, InstanceOfProperties.NAME_EXCL);
       instanceOfParser.setProperty(
           Item.instanceOfClassConstantExclusive, InstanceOfProperties.CONSTANT_EXCL);
-      instanceOfParser.setProperty(Item.extendsClassName, InstanceOfProperties.NAME_EXCL);
-      instanceOfParser.setProperty(Item.extendsClassConstant, InstanceOfProperties.CONSTANT_EXCL);
 
       parsers = ImmutableList.of(classNameParser, annotatedByParser, instanceOfParser);
     }
@@ -1812,8 +1806,6 @@ public class KeepEdgeReader implements Opcodes {
       optionsParser = new ConstraintsParser(parsingContext);
       optionsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
       optionsParser.setProperty(Target.constraintAdditions, ConstraintsProperty.ADDITIONS);
-      optionsParser.setProperty(Target.allow, ConstraintsProperty.ALLOW);
-      optionsParser.setProperty(Target.disallow, ConstraintsProperty.DISALLOW);
     }
 
     @Override
