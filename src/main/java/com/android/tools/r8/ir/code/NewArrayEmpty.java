@@ -11,6 +11,7 @@ import com.android.tools.r8.dex.code.DexNewArray;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexTypeUtils;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.analysis.type.Nullability;
@@ -86,10 +87,17 @@ public class NewArrayEmpty extends Instruction {
       ProgramMethod context,
       AbstractValueSupplier abstractValueSupplier,
       SideEffectAssumption assumption) {
-    return !(size().definition != null
-        && size().definition.isConstNumber()
-        && size().definition.asConstNumber().getRawValue() >= 0
-        && size().definition.asConstNumber().getRawValue() < Integer.MAX_VALUE);
+    assert type.isArrayType();
+    return isArrayTypeInaccessible(appView, context) || isArraySizeMaybeNegative();
+  }
+
+  private boolean isArrayTypeInaccessible(AppView<?> appView, ProgramMethod context) {
+    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    return !DexTypeUtils.isTypeAccessibleInMethodContext(appView, baseType, context);
+  }
+
+  private boolean isArraySizeMaybeNegative() {
+    return sizeIfConst() < 0;
   }
 
   @Override
@@ -111,12 +119,7 @@ public class NewArrayEmpty extends Instruction {
     if (instructionInstanceCanThrow(appView, code.context())) {
       return DeadInstructionResult.notDead();
     }
-    // This would belong better in instructionInstanceCanThrow, but that is not passed an appInfo.
-    DexType baseType = type.toBaseType(appView.dexItemFactory());
-    if (baseType.isPrimitiveType() || appView.definitionFor(baseType) != null) {
-      return DeadInstructionResult.deadIfOutValueIsDead();
-    }
-    return DeadInstructionResult.notDead();
+    return DeadInstructionResult.deadIfOutValueIsDead();
   }
 
   @Override

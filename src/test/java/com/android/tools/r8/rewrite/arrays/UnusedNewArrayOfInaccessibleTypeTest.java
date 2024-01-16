@@ -45,8 +45,7 @@ public class UnusedNewArrayOfInaccessibleTypeTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/320442110): Should fail.
-        .assertSuccessWithEmptyOutput();
+        .assertFailureWithErrorThatThrows(IllegalAccessError.class);
   }
 
   @Test
@@ -58,8 +57,7 @@ public class UnusedNewArrayOfInaccessibleTypeTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/320442110): Should fail.
-        .assertSuccessWithEmptyOutput();
+        .assertFailureWithErrorThatThrows(IllegalAccessError.class);
   }
 
   private static List<byte[]> getProgramClassFileData() throws Exception {

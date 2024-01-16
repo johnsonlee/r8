@@ -60,4 +60,31 @@ public class DexTypeUtils {
     // Always just return the object type since this is safe for all api versions.
     return factory.objectType;
   }
+
+  public static boolean isTypeAccessibleInMethodContext(
+      AppView<?> appView, DexType type, ProgramMethod context) {
+    if (type.isPrimitiveType()) {
+      return true;
+    }
+    if (type.isIdenticalTo(context.getHolderType())
+        || (context.getHolder().hasSuperType()
+            && type.isIdenticalTo(context.getHolder().getSuperType()))
+        || context.getHolder().getInterfaces().contains(type)) {
+      // In principle we don't know if the supertypes are guaranteed to be accessible in the current
+      // context. However, if they aren't, the current class will never be successfully loaded
+      // anyway.
+      return true;
+    }
+    DexClass clazz = appView.definitionFor(type, context);
+    if (clazz == null) {
+      return false;
+    }
+    if (clazz.isLibraryClass()) {
+      return AndroidApiLevelUtils.isApiSafeForReference(clazz.asLibraryClass(), appView);
+    }
+    if (appView.hasClassHierarchy()) {
+      return AccessControl.isClassAccessible(clazz, context, appView.withClassHierarchy()).isTrue();
+    }
+    return false;
+  }
 }
