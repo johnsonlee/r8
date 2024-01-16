@@ -61,7 +61,7 @@ public class IntermediateModeMarkerTest extends TestBase {
         .setProgramConsumer(
             new DexFilePerClassFileConsumer.ForwardingConsumer(null) {
               @Override
-              public void accept(
+              public synchronized void accept(
                   String primaryClassDescriptor,
                   ByteDataView data,
                   Set<String> descriptors,
@@ -83,7 +83,7 @@ public class IntermediateModeMarkerTest extends TestBase {
         .setProgramConsumer(
             new DexFilePerClassFileConsumer.ForwardingConsumer(null) {
               @Override
-              public void accept(
+              public synchronized void accept(
                   String primaryClassDescriptor,
                   ByteDataView data,
                   Set<String> descriptors,
@@ -106,7 +106,7 @@ public class IntermediateModeMarkerTest extends TestBase {
         .setProgramConsumer(
             new DexIndexedConsumer.ForwardingConsumer(null) {
               @Override
-              public void accept(
+              public synchronized void accept(
                   int fileIndex,
                   ByteDataView data,
                   Set<String> descriptors,
