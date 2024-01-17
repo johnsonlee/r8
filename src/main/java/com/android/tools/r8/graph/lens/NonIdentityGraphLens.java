@@ -12,8 +12,6 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.utils.ThrowingAction;
 import com.google.common.collect.Streams;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
 public abstract class NonIdentityGraphLens extends GraphLens {
@@ -21,8 +19,6 @@ public abstract class NonIdentityGraphLens extends GraphLens {
   protected final AppView<?> appView;
   private final DexItemFactory dexItemFactory;
   private GraphLens previousLens;
-
-  private final Map<DexType, DexType> arrayTypeCache = new ConcurrentHashMap<>();
 
   public NonIdentityGraphLens(AppView<?> appView) {
     this(appView, appView.graphLens());
@@ -104,20 +100,14 @@ public abstract class NonIdentityGraphLens extends GraphLens {
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
   public final DexType lookupType(DexType type, GraphLens appliedLens) {
     if (type.isClassType()) {
       return lookupClassType(type, appliedLens);
     }
     if (type.isArrayType()) {
-      DexType result = arrayTypeCache.get(type);
-      if (result == null) {
-        DexType baseType = type.toBaseType(dexItemFactory);
-        DexType newType = lookupType(baseType, appliedLens);
-        result = baseType == newType ? type : type.replaceBaseType(newType, dexItemFactory);
-        arrayTypeCache.put(type, result);
-      }
-      return result;
+      DexType baseType = type.toBaseType(dexItemFactory);
+      DexType newType = lookupType(baseType, appliedLens);
+      return baseType.isIdenticalTo(newType) ? type : type.replaceBaseType(newType, dexItemFactory);
     }
     assert type.isNullValueType() || type.isPrimitiveType() || type.isVoidType();
     return type;
