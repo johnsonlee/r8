@@ -24,6 +24,7 @@ import com.android.tools.r8.graph.SortedProgramPackageCollection;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
 import com.android.tools.r8.graph.lens.NestedGraphLens;
 import com.android.tools.r8.naming.Minifier.MinificationPackageNamingStrategy;
+import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
 import com.android.tools.r8.repackaging.RepackagingLens.Builder;
 import com.android.tools.r8.shaking.AnnotationFixer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -78,6 +79,7 @@ public class Repackaging {
     if (lens != null) {
       appView.rewriteWithLensAndApplication(lens, appBuilder.build(), executorService, timing);
       appView.testing().repackagingLensConsumer.accept(appView.dexItemFactory(), lens);
+      new GenericSignatureRewriter(appView).run(appView.appInfo().classes(), executorService);
     }
     appView.notifyOptimizationFinishedForTesting();
     timing.end();

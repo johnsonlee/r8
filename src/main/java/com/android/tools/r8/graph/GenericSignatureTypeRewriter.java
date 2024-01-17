@@ -38,7 +38,7 @@ public class GenericSignatureTypeRewriter {
         appView.appInfo().hasLiveness()
             ? appView.appInfo().withLiveness()::wasPruned
             : alwaysFalse(),
-        appView.graphLens()::lookupType,
+        type -> appView.graphLens().lookupType(type, appView.getGenericSignaturesLens()),
         context,
         hasGenericTypeVariables);
   }

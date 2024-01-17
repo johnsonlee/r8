@@ -116,5 +116,6 @@ public class GenericSignatureRewriter {
         },
         appView.options().getThreadingModule(),
         executorService);
+    appView.setGenericSignaturesLens(appView.graphLens());
   }
 }

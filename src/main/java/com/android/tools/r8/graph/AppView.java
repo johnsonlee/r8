@@ -101,6 +101,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   private final WholeProgramOptimizations wholeProgramOptimizations;
   private GraphLens codeLens = GraphLens.getIdentityLens();
   private GraphLens graphLens = GraphLens.getIdentityLens();
+  private GraphLens genericSignaturesLens = GraphLens.getIdentityLens();
   private InitClassLens initClassLens;
   private GraphLens kotlinMetadataLens = GraphLens.getIdentityLens();
   private NamingLens namingLens = NamingLens.getIdentityLens();
@@ -676,6 +677,14 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       return true;
     }
     return false;
+  }
+
+  public GraphLens getGenericSignaturesLens() {
+    return genericSignaturesLens;
+  }
+
+  public void setGenericSignaturesLens(GraphLens genericSignaturesLens) {
+    this.genericSignaturesLens = genericSignaturesLens;
   }
 
   private boolean disallowFurtherInitClassUses = false;
