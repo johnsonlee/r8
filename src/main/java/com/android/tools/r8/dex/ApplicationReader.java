@@ -229,7 +229,9 @@ public class ApplicationReader {
     if (!options.isGeneratingDex()) {
       return true;
     }
-    AndroidApiLevel nativeMultiDex = AndroidApiLevel.L;
+    // Native multidex is supported from L, but the compiler supports compiling to L/21 using
+    // legacy multidex as there are some devices that have issues with it still.
+    AndroidApiLevel nativeMultiDex = AndroidApiLevel.L_MR1;
     if (options.getMinApiLevel().isLessThan(nativeMultiDex)) {
       return true;
     }

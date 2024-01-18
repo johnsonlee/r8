@@ -455,11 +455,11 @@ public final class D8Command extends BaseCompilerCommand {
         reporter.error(
             "Option --main-dex-list-output requires --main-dex-rules and/or --main-dex-list");
       }
-      if (getMinApiLevel() >= AndroidApiLevel.L.getLevel()) {
+      if (getMinApiLevel() >= AndroidApiLevel.L_MR1.getLevel()) {
         if (getMainDexListConsumer() != null || getAppBuilder().hasMainDexList()) {
           reporter.error(
               "D8 does not support main-dex inputs and outputs when compiling to API level "
-                  + AndroidApiLevel.L.getLevel()
+                  + AndroidApiLevel.L_MR1.getLevel()
                   + " and above");
         }
       }

@@ -329,15 +329,25 @@ public class D8CommandTest extends CommandTestBase<D8Command> {
     assertTrue(ToolHelper.getApp(command).hasMainDexListResources());
   }
 
+  @Test
+  public void mainDexListNonLegacyMinApiL() throws Throwable {
+    Path mainDexList = temp.newFile("main-dex-list.txt").toPath();
+    D8Command command =
+        parse(
+            "--min-api", Integer.toString(AndroidApiLevel.L.getLevel()),
+            "--main-dex-list", mainDexList.toString());
+    assertTrue(ToolHelper.getApp(command).hasMainDexListResources());
+  }
+
   @Test(expected = CompilationFailedException.class)
-  public void mainDexListWithNonLegacyMinApi() throws Throwable {
+  public void mainDexListWithNonLegacyMinApiAboveL() throws Throwable {
     Path mainDexList = temp.newFile("main-dex-list.txt").toPath();
     DiagnosticsChecker.checkErrorsContains(
         "does not support main-dex",
         (handler) ->
             D8Command.builder(handler)
                 .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
-                .setMinApiLevel(AndroidApiLevel.L.getLevel())
+                .setMinApiLevel(AndroidApiLevel.L_MR1.getLevel())
                 .addMainDexListFiles(mainDexList)
                 .build());
   }
