@@ -39,8 +39,6 @@ public final class LambdaDescriptor {
 
   final String uniqueId;
   final DexMethod mainMethod;
-  public final DexString name;
-  final DexProto erasedProto;
   final DexProto enforcedProto;
   public final DexMethodHandle implHandle;
 
@@ -54,8 +52,6 @@ public final class LambdaDescriptor {
 
   private LambdaDescriptor() {
     uniqueId = null;
-    name = null;
-    erasedProto = null;
     enforcedProto = null;
     implHandle = null;
     captures = null;
@@ -64,8 +60,16 @@ public final class LambdaDescriptor {
     mainMethod = null;
   }
 
+  public DexProto getErasedProto() {
+    return mainMethod.getProto();
+  }
+
   public DexMethod getMainMethod() {
     return mainMethod;
+  }
+
+  public DexString getName() {
+    return mainMethod.getName();
   }
 
   private LambdaDescriptor(
@@ -89,8 +93,6 @@ public final class LambdaDescriptor {
     assert captures != null;
     this.mainMethod = appInfo.dexItemFactory().createMethod(mainInterface, erasedProto, name);
     this.uniqueId = callSite.getHash();
-    this.name = name;
-    this.erasedProto = erasedProto;
     this.enforcedProto = enforcedProto;
     this.implHandle = implHandle;
     this.captures = captures;
@@ -179,7 +181,7 @@ public final class LambdaDescriptor {
     return method.getDefinition().isPublicized() && isInstanceMethod(method);
   }
 
-  public final boolean verifyTargetFoundInClass(DexType type) {
+  public boolean verifyTargetFoundInClass(DexType type) {
     return targetHolder.isIdenticalTo(type);
   }
 
@@ -189,14 +191,15 @@ public final class LambdaDescriptor {
   }
 
   public void forEachErasedAndEnforcedTypes(BiConsumer<DexType, DexType> consumer) {
-    consumer.accept(erasedProto.returnType, enforcedProto.returnType);
+    DexProto erasedProto = getErasedProto();
+    consumer.accept(erasedProto.getReturnType(), enforcedProto.getReturnType());
     for (int i = 0; i < enforcedProto.getArity(); i++) {
       consumer.accept(erasedProto.getParameter(i), enforcedProto.getParameter(i));
     }
   }
 
   /** Is a stateless lambda, i.e. lambda does not capture any values */
-  final boolean isStateless() {
+  boolean isStateless() {
     return captures.isEmpty();
   }
 

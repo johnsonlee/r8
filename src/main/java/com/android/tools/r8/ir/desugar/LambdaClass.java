@@ -178,9 +178,7 @@ public final class LambdaClass {
   // Synthesize virtual methods.
   private void synthesizeVirtualMethods(
       SyntheticProgramClassBuilder builder, DesugarInvoke desugarInvoke) {
-    DexMethod mainMethod =
-        appView.dexItemFactory().createMethod(type, descriptor.erasedProto, descriptor.name);
-
+    DexMethod mainMethod = descriptor.getMainMethod().withHolder(type, appView.dexItemFactory());
     List<DexEncodedMethod> methods = new ArrayList<>(1 + descriptor.bridges.size());
 
     // Synthesize main method.
@@ -198,7 +196,7 @@ public final class LambdaClass {
     // Synthesize bridge methods.
     for (DexProto bridgeProto : descriptor.bridges) {
       DexMethod bridgeMethod =
-          appView.dexItemFactory().createMethod(type, bridgeProto, descriptor.name);
+          appView.dexItemFactory().createMethod(type, bridgeProto, descriptor.getName());
       methods.add(
           DexEncodedMethod.syntheticBuilder()
               .setMethod(bridgeMethod)

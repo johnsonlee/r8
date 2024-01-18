@@ -24,6 +24,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
@@ -181,8 +182,8 @@ final class LambdaMainMethodSourceCode {
 
     DexMethod methodToCall = target.callTarget;
     DexType[] capturedTypes = lambda.descriptor.captures.values;
-    DexType[] erasedParams = lambda.descriptor.erasedProto.parameters.values;
-    DexType erasedReturnType = lambda.descriptor.erasedProto.returnType;
+    DexTypeList erasedParams = lambda.descriptor.getErasedProto().getParameters();
+    DexType erasedReturnType = lambda.descriptor.getErasedProto().getReturnType();
     DexType[] enforcedParams = lambda.descriptor.enforcedProto.parameters.values;
     DexType enforcedReturnType = lambda.descriptor.enforcedProto.returnType;
     if (enforcedReturnType.isPrimitiveType() && mainMethod.getReturnType().isReferenceType()) {
@@ -244,14 +245,14 @@ final class LambdaMainMethodSourceCode {
 
     // Prepare arguments.
     int maxLocals = 1; // Local 0 is the lambda/receiver.
-    for (int i = 0; i < erasedParams.length; i++) {
+    for (int i = 0; i < erasedParams.size(); i++) {
       ValueType valueType = ValueType.fromDexType(mainMethod.getParameters().values[i]);
       instructions.add(new CfLoad(valueType, maxLocals));
       maxLocals += valueType.requiredRegisters();
       DexType expectedParamType = implReceiverAndArgs.get(i + capturedValues);
       maxStack +=
           prepareParameterValue(
-              erasedParams[i], enforcedParams[i], expectedParamType, instructions, factory);
+              erasedParams.get(i), enforcedParams[i], expectedParamType, instructions, factory);
     }
 
     CfInvoke invoke =

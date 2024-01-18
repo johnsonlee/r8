@@ -512,7 +512,7 @@ public class Tracer {
                     }
                     for (DexProto bridgeProto : descriptor.bridges) {
                       DexEncodedMethod bridgeMethod =
-                          interfaceDefinition.lookupMethod(bridgeProto, descriptor.name);
+                          interfaceDefinition.lookupMethod(bridgeProto, descriptor.getName());
                       if (bridgeMethod != null) {
                         registerInvokeInterface(bridgeMethod.getReference());
                       }
