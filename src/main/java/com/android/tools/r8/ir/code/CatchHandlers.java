@@ -5,7 +5,9 @@ package com.android.tools.r8.ir.code;
 
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.CatchHandlers.CatchHandler;
+import com.android.tools.r8.utils.ListUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
@@ -108,6 +110,12 @@ public class CatchHandlers<T> implements Iterable<CatchHandler<T>> {
           }
         });
     return new CatchHandlers<>(newGuards, newTargets);
+  }
+
+  public CatchHandlers<T> rewriteWithLens(GraphLens graphLens, GraphLens codeLens) {
+    List<DexType> newGuards =
+        ListUtils.mapOrElse(guards, guard -> graphLens.lookupType(guard, codeLens), null);
+    return newGuards != null ? new CatchHandlers<>(newGuards, targets) : this;
   }
 
   public void forEach(BiConsumer<DexType, T> consumer) {
