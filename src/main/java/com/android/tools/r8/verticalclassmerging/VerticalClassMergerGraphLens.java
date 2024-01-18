@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.classmerging.ClassMergerGraphLens;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -283,7 +284,10 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
     }
     if (type.isInterface()
         && mergedClasses.hasInterfaceBeenMergedIntoClass(previousMethod.getHolderType())) {
-      return InvokeType.VIRTUAL;
+      DexClass newMethodHolder = appView.definitionForHolder(newMethod);
+      if (newMethodHolder != null && !newMethodHolder.isInterface()) {
+        return InvokeType.VIRTUAL;
+      }
     }
     return type;
   }

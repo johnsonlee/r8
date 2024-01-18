@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.classmerging.vertical;
 
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
@@ -32,21 +31,20 @@ public class VerticalClassMergerInvokeVirtualToInterfaceTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    assertFailsCompilation(
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .addKeepMainRule(Main.class)
-                .addVerticallyMergedClassesInspector(
-                    inspector ->
-                        inspector.assertMergedIntoSubtype(J.class).assertNoOtherClassesMerged())
-                .enableInliningAnnotations()
-                .enableNeverClassInliningAnnotations()
-                .enableNoParameterTypeStrengtheningAnnotations()
-                .enableNoUnusedInterfaceRemovalAnnotations()
-                .enableNoVerticalClassMergingAnnotations()
-                .setMinApi(parameters)
-                .compile());
+    testForR8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addKeepMainRule(Main.class)
+        .addVerticallyMergedClassesInspector(
+            inspector -> inspector.assertMergedIntoSubtype(J.class).assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoParameterTypeStrengtheningAnnotations()
+        .enableNoUnusedInterfaceRemovalAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
+        .setMinApi(parameters)
+        .compile()
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("Hello, world!", "Hello, world!");
   }
 
   static class Main {
