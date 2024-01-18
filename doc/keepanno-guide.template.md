@@ -83,6 +83,19 @@ of such use cases are detailed below.
 
 [[[INCLUDE CODE:UsesReflectionFieldPrinter]]]
 
+### [Accessing annotations](using-reflection-annotations)
+
+[[[INCLUDE DOC:UsesReflectionOnAnnotations]]]
+
+[[[INCLUDE CODE:UsesReflectionOnAnnotations]]]
+
+If the annotations that need to be kept are not runtime
+visible annotations, then you must specify that by including the `RetentionPolicy.CLASS` value in the
+`@AnnotationPattern#retention` property.
+An annotation is runtime visible if its definition is explicitly annotated with
+`Retention(RetentionPolicy.RUNTIME)`.
+
+
 
 ## [Annotating code used by reflection (or via JNI)](used-by-reflection)
 

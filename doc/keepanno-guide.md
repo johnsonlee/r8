@@ -23,6 +23,7 @@ bugs](https://issuetracker.google.com/issues/new?component=326788) in the
 - [Annotating code using reflection](#using-reflection)
   - [Invoking methods](#using-reflection-methods)
   - [Accessing fields](#using-reflection-fields)
+  - [Accessing annotations](#using-reflection-annotations)
 - [Annotating code used by reflection (or via JNI)](#used-by-reflection)
 - [Annotating APIs](#apis)
 - [Migrating rules to annotations](#migrating-rules)
@@ -149,6 +150,79 @@ public class MyFieldValuePrinter {
   }
 }
 ```
+
+
+### Accessing annotations<a name="using-reflection-annotations"></a>
+
+If your program is reflectively inspecting annotations on classes, methods or fields, you
+will need to declare additional "annotation constraints" about what assumptions are made
+about the annotations.
+
+In the following example, we have defined an annotation that will record the printing name we
+would like to use for fields instead of printing the concrete field name. That may be useful
+so that the field can be renamed to follow coding conventions for example.
+
+We are only interested in matching objects that contain fields annotated by `MyNameAnnotation`,
+that is specified using [@KeepTarget.fieldAnnotatedByClassConstant](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html#fieldAnnotatedByClassConstant()).
+
+At runtime we need to be able to find the annotation too, so we add a constraint on the
+annotation using [@KeepTarget.constrainAnnotations](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html#constrainAnnotations()).
+
+Finally, for the sake of example, we don't actually care about the name of the fields
+themselves, so we explicitly declare the smaller set of constraints to be
+[KeepConstraint.LOOKUP](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#LOOKUP) since we must find the fields via `Class.getDeclaredFields` as well as
+[KeepConstraint.VISIBILITY_RELAX](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#VISIBILITY_RELAX) and [KeepConstraint.FIELD_GET](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#FIELD_GET) in order to be able to get
+the actual field value without accessibility errors.
+
+The effect is that the default constraint [KeepConstraint.NAME](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#NAME) is not specified which allows
+the shrinker to rename the fields at will.
+
+
+```
+public class MyAnnotationPrinter {
+
+  @Target(ElementType.FIELD)
+  @Retention(RetentionPolicy.RUNTIME)
+  public @interface MyNameAnnotation {
+    String value();
+  }
+
+  public static class MyClass {
+    @MyNameAnnotation("fieldOne")
+    public int mFieldOne = 1;
+
+    @MyNameAnnotation("fieldTwo")
+    public int mFieldTwo = 2;
+
+    public int mFieldThree = 3;
+  }
+
+  @UsesReflection(
+      @KeepTarget(
+          fieldAnnotatedByClassConstant = MyNameAnnotation.class,
+          constrainAnnotations = @AnnotationPattern(constant = MyNameAnnotation.class),
+          constraints = {
+            KeepConstraint.LOOKUP,
+            KeepConstraint.VISIBILITY_RELAX,
+            KeepConstraint.FIELD_GET
+          }))
+  public void printMyNameAnnotatedFields(Object obj) throws Exception {
+    for (Field field : obj.getClass().getDeclaredFields()) {
+      if (field.isAnnotationPresent(MyNameAnnotation.class)) {
+        System.out.println(
+            field.getAnnotation(MyNameAnnotation.class).value() + " = " + field.get(obj));
+      }
+    }
+  }
+}
+```
+
+
+If the annotations that need to be kept are not runtime
+visible annotations, then you must specify that by including the `RetentionPolicy.CLASS` value in the
+[@AnnotationPattern.retention](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/AnnotationPattern.html#retention()) property.
+An annotation is runtime visible if its definition is explicitly annotated with
+`Retention(RetentionPolicy.RUNTIME)`.
 
 
 

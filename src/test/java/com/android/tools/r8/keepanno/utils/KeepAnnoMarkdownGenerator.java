@@ -7,6 +7,7 @@ package com.android.tools.r8.keepanno.utils;
 import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.quote;
 
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepBinding;
 import com.android.tools.r8.keepanno.annotations.KeepCondition;
@@ -17,11 +18,14 @@ import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.MemberAccessFlags;
 import com.android.tools.r8.keepanno.annotations.MethodAccessFlags;
+import com.android.tools.r8.keepanno.annotations.StringPattern;
+import com.android.tools.r8.keepanno.annotations.TypePattern;
 import com.android.tools.r8.keepanno.annotations.UsedByNative;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.keepanno.doctests.ForApiDocumentationTest;
 import com.android.tools.r8.keepanno.doctests.MainMethodsDocumentationTest;
+import com.android.tools.r8.keepanno.doctests.UsesReflectionAnnotationsDocumentationTest;
 import com.android.tools.r8.keepanno.doctests.UsesReflectionDocumentationTest;
 import com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.Generator;
 import com.android.tools.r8.utils.FileUtils;
@@ -86,6 +90,9 @@ public class KeepAnnoMarkdownGenerator {
             UsedByReflection.class,
             UsedByNative.class,
             KeepForApi.class,
+            StringPattern.class,
+            TypePattern.class,
+            AnnotationPattern.class,
             // Enums.
             KeepConstraint.class,
             KeepItemKind.class,
@@ -94,6 +101,7 @@ public class KeepAnnoMarkdownGenerator {
             FieldAccessFlags.class);
     populateCodeAndDocReplacements(
         UsesReflectionDocumentationTest.class,
+        UsesReflectionAnnotationsDocumentationTest.class,
         ForApiDocumentationTest.class,
         MainMethodsDocumentationTest.class);
   }
