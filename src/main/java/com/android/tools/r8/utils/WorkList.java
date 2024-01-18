@@ -145,8 +145,8 @@ public class WorkList<T> {
     return seen.contains(item);
   }
 
-  public void markAsSeen(T item) {
-    seen.add(item);
+  public boolean markAsSeen(T item) {
+    return seen.add(item);
   }
 
   public void markAsSeen(Iterable<T> items) {
@@ -154,14 +154,21 @@ public class WorkList<T> {
   }
 
   public T next() {
-    assert hasNext();
     return workingList.removeFirst();
+  }
+
+  public T removeLast() {
+    return workingList.removeLast();
   }
 
   public T removeSeen() {
     T next = next();
     seen.remove(next);
     return next;
+  }
+
+  public void clearSeen() {
+    seen.clear();
   }
 
   public Set<T> getSeenSet() {

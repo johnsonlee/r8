@@ -62,10 +62,7 @@ public class ArrayOfConstClassArraysTest extends TestBase {
 
   private void inspect(CodeInspector inspector) {
     inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 5, 1);
-    inspect(
-        inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
-        0,
-        compilationMode.isDebug() ? 1 : 2);
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"), 5, 4);
   }
 
   @Test

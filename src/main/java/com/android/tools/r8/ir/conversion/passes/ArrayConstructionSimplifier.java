@@ -7,25 +7,28 @@ package com.android.tools.r8.ir.conversion.passes;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexTypeUtils;
 import com.android.tools.r8.ir.code.ArrayPut;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
-import com.android.tools.r8.ir.code.LinearFlowInstructionListIterator;
 import com.android.tools.r8.ir.code.NewArrayEmpty;
 import com.android.tools.r8.ir.code.NewArrayFilled;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
-import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.DominatorChecker;
 import com.android.tools.r8.utils.InternalOptions.RewriteArrayOptions;
-import com.android.tools.r8.utils.SetUtils;
+import com.android.tools.r8.utils.ValueUtils;
+import com.android.tools.r8.utils.ValueUtils.ArrayValues;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -80,8 +83,11 @@ import java.util.Set;
  */
 public class ArrayConstructionSimplifier extends CodeRewriterPass<AppInfo> {
 
+  private final RewriteArrayOptions rewriteArrayOptions;
+
   public ArrayConstructionSimplifier(AppView<?> appView) {
     super(appView);
+    rewriteArrayOptions = options.rewriteArrayOptions();
   }
 
   @Override
@@ -91,13 +97,13 @@ public class ArrayConstructionSimplifier extends CodeRewriterPass<AppInfo> {
 
   @Override
   protected CodeRewriterResult rewriteCode(IRCode code) {
-    boolean hasChanged = false;
-    WorkList<BasicBlock> worklist = WorkList.newIdentityWorkList(code.blocks);
-    while (worklist.hasNext()) {
-      BasicBlock block = worklist.next();
-      hasChanged |= simplifyArrayConstructionBlock(block, worklist, code, appView.options());
+    ArrayList<ArrayValues> candidates = findOptimizableArrays(code);
+
+    if (candidates.isEmpty()) {
+      return CodeRewriterResult.NO_CHANGE;
     }
-    return CodeRewriterResult.hasChanged(hasChanged);
+    applyChanges(code, candidates);
+    return CodeRewriterResult.HAS_CHANGED;
   }
 
   @Override
@@ -105,214 +111,257 @@ public class ArrayConstructionSimplifier extends CodeRewriterPass<AppInfo> {
     return code.metadata().mayHaveNewArrayEmpty();
   }
 
-  private boolean simplifyArrayConstructionBlock(
-      BasicBlock block, WorkList<BasicBlock> worklist, IRCode code, InternalOptions options) {
-    boolean hasChanged = false;
-    RewriteArrayOptions rewriteOptions = options.rewriteArrayOptions();
-    InstructionListIterator it = block.listIterator(code);
-    while (it.hasNext()) {
-      FilledArrayCandidate candidate = computeFilledArrayCandidate(it.next(), rewriteOptions);
-      if (candidate == null) {
-        continue;
-      }
-      FilledArrayConversionInfo info =
-          computeConversionInfo(
-              code, candidate, new LinearFlowInstructionListIterator(code, block, it.nextIndex()));
-      if (info == null) {
-        continue;
-      }
-
-      Instruction instructionAfterCandidate = it.peekNext();
-      NewArrayEmpty newArrayEmpty = candidate.newArrayEmpty;
-      DexType arrayType = newArrayEmpty.type;
-      int size = candidate.size;
-      Set<Instruction> instructionsToRemove = SetUtils.newIdentityHashSet(size + 1);
-      assert newArrayEmpty.getLocalInfo() == null;
-      Instruction lastArrayPut = info.lastArrayPutIterator.peekPrevious();
-      Value invokeValue = code.createValue(newArrayEmpty.getOutType(), null);
-      NewArrayFilled invoke =
-          new NewArrayFilled(arrayType, invokeValue, Arrays.asList(info.values));
-      invoke.setPosition(lastArrayPut.getPosition());
-      for (Value value : newArrayEmpty.inValues()) {
-        value.removeUser(newArrayEmpty);
-      }
-      newArrayEmpty.outValue().replaceUsers(invokeValue);
-      instructionsToRemove.add(newArrayEmpty);
-
-      boolean originalAllocationPointHasHandlers = block.hasCatchHandlers();
-      boolean insertionPointHasHandlers = lastArrayPut.getBlock().hasCatchHandlers();
-
-      if (!insertionPointHasHandlers && !originalAllocationPointHasHandlers) {
-        info.lastArrayPutIterator.add(invoke);
-      } else {
-        BasicBlock insertionBlock = info.lastArrayPutIterator.split(code);
-        if (originalAllocationPointHasHandlers) {
-          if (!insertionBlock.isTrivialGoto()) {
-            BasicBlock blockAfterInsertion = insertionBlock.listIterator(code).split(code);
-            assert insertionBlock.isTrivialGoto();
-            worklist.addIfNotSeen(blockAfterInsertion);
-          }
-          insertionBlock.moveCatchHandlers(block);
-        } else {
-          worklist.addIfNotSeen(insertionBlock);
-        }
-        insertionBlock.listIterator(code).add(invoke);
-      }
-
-      instructionsToRemove.addAll(info.arrayPutsToRemove);
-      Set<BasicBlock> visitedBlocks = Sets.newIdentityHashSet();
-      for (Instruction instruction : instructionsToRemove) {
-        BasicBlock ownerBlock = instruction.getBlock();
-        // If owner block is null, then the instruction has been removed already. We can't rely on
-        // just having the block pointer nulled, so the visited blocks guards reprocessing.
-        if (ownerBlock != null && visitedBlocks.add(ownerBlock)) {
-          InstructionListIterator removeIt = ownerBlock.listIterator(code);
-          while (removeIt.hasNext()) {
-            if (instructionsToRemove.contains(removeIt.next())) {
-              removeIt.removeOrReplaceByDebugLocalRead();
-            }
-          }
+  private ArrayList<ArrayValues> findOptimizableArrays(IRCode code) {
+    ArrayList<ArrayValues> candidates = new ArrayList<>();
+    for (Instruction instruction : code.instructions()) {
+      NewArrayEmpty newArrayEmpty = instruction.asNewArrayEmpty();
+      if (newArrayEmpty != null) {
+        ArrayValues arrayValues = analyzeCandidate(newArrayEmpty, code);
+        if (arrayValues != null) {
+          candidates.add(arrayValues);
         }
       }
-
-      // The above has invalidated the block iterator so reset it and continue.
-      it = block.listIterator(code, instructionAfterCandidate);
-      hasChanged = true;
     }
-    if (hasChanged) {
-      code.removeRedundantBlocks();
-    }
-
-    return hasChanged;
+    return candidates;
   }
 
-  private static class FilledArrayConversionInfo {
-
-    Value[] values;
-    List<ArrayPut> arrayPutsToRemove;
-    LinearFlowInstructionListIterator lastArrayPutIterator;
-
-    public FilledArrayConversionInfo(int size) {
-      values = new Value[size];
-      arrayPutsToRemove = new ArrayList<>(size);
+  private ArrayValues analyzeCandidate(NewArrayEmpty newArrayEmpty, IRCode code) {
+    if (newArrayEmpty.getLocalInfo() != null) {
+      return null;
     }
+    if (!rewriteArrayOptions.isPotentialSize(newArrayEmpty.sizeIfConst())) {
+      return null;
+    }
+
+    ArrayValues arrayValues = ValueUtils.computeInitialArrayValues(newArrayEmpty);
+    // Holes (default-initialized entries) could be supported, but they are rare and would
+    // complicate the logic.
+    if (arrayValues == null || arrayValues.containsHoles()) {
+      return null;
+    }
+
+    // See if all instructions are in the same try/catch.
+    ArrayPut lastArrayPut = ArrayUtils.last(arrayValues.getArrayPutsByIndex());
+    if (!newArrayEmpty.getBlock().hasEquivalentCatchHandlers(lastArrayPut.getBlock())) {
+      // Possible improvements:
+      // 1) Ignore catch handlers that do not catch OutOfMemoryError / NoClassDefFoundError.
+      // 2) Use the catch handlers from the new-array-empty if all exception blocks exit without
+      //    side effects (e.g. no method calls & no monitor instructions).
+      return null;
+    }
+
+    if (!checkTypesAreCompatible(arrayValues, code)) {
+      return null;
+    }
+    if (!checkDominance(arrayValues)) {
+      return null;
+    }
+    return arrayValues;
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  private FilledArrayConversionInfo computeConversionInfo(
-      IRCode code, FilledArrayCandidate candidate, LinearFlowInstructionListIterator it) {
-    NewArrayEmpty newArrayEmpty = candidate.newArrayEmpty;
-    assert it.peekPrevious() == newArrayEmpty;
-    Value arrayValue = newArrayEmpty.outValue();
-    int size = candidate.size;
-
+  private boolean checkTypesAreCompatible(ArrayValues arrayValues, IRCode code) {
     // aput-object allows any object for arrays of interfaces, but new-filled-array fails to verify
     // if types require a cast.
     // TODO(b/246971330): Check if adding a checked-cast would have the same observable result. E.g.
     //   if aput-object throws a ClassCastException if given an object that does not implement the
     //   desired interface, then we could add check-cast instructions for arguments we're not sure
     //   about.
+    NewArrayEmpty newArrayEmpty = arrayValues.getDefinition().asNewArrayEmpty();
     DexType elementType = newArrayEmpty.type.toArrayElementType(dexItemFactory);
     boolean needsTypeCheck =
-        !elementType.isPrimitiveType() && elementType != dexItemFactory.objectType;
+        !elementType.isPrimitiveType() && elementType.isNotIdenticalTo(dexItemFactory.objectType);
+    if (!needsTypeCheck) {
+      return true;
+    }
 
-    FilledArrayConversionInfo info = new FilledArrayConversionInfo(size);
-    Value[] values = info.values;
-    int remaining = size;
-    Set<Instruction> users = newArrayEmpty.outValue().uniqueUsers();
-    while (it.hasNext()) {
-      Instruction instruction = it.next();
-      BasicBlock block = instruction.getBlock();
-      // If we encounter an instruction that can throw an exception we need to bail out of the
-      // optimization so that we do not transform half-initialized arrays into fully initialized
-      // arrays on exceptional edges. If the block has no handlers it is not observable so
-      // we perform the rewriting.
-      if (block.hasCatchHandlers()
-          && instruction.instructionInstanceCanThrow(appView, code.context())) {
-        return null;
-      }
-      if (!users.contains(instruction)) {
-        // If any instruction can transfer control between the new-array and the last array put
-        // then it is not safe to move the new array to the point of the last put.
-        if (block.hasCatchHandlers() && instruction.instructionTypeCanThrow()) {
-          return null;
-        }
+    // Not safe to move allocation if NoClassDefError is possible.
+    // TODO(b/246971330): Make this work for D8 where it ~always returns false by checking that
+    // all instructions between new-array-empty and the last array-put report
+    // !instruction.instructionMayHaveSideEffects(). Alternatively, we could replace the
+    // new-array-empty with a const-class instruction in this case.
+    if (!DexTypeUtils.isTypeAccessibleInMethodContext(
+        appView, elementType.toBaseType(dexItemFactory), code.context())) {
+      return false;
+    }
+
+    for (ArrayPut arrayPut : arrayValues.getArrayPutsByIndex()) {
+      Value value = arrayPut.value();
+      if (value.isAlwaysNull(appView)) {
         continue;
       }
-      ArrayPut arrayPut = instruction.asArrayPut();
-      // If the initialization sequence is broken by another use we cannot use a fill-array-data
-      // instruction.
+      DexType valueDexType = value.getType().asReferenceType().toDexType(dexItemFactory);
+      if (elementType.isArrayType()) {
+        if (elementType.isNotIdenticalTo(valueDexType)) {
+          return false;
+        }
+      } else if (valueDexType.isArrayType()) {
+        // isSubtype asserts for this case.
+        return false;
+      } else if (valueDexType.isNullValueType()) {
+        // Assume instructions can cause value.isAlwaysNull() == false while the DexType is
+        // null.
+        // TODO(b/246971330): Figure out how to write a test in SimplifyArrayConstructionTest
+        //   that hits this case.
+      } else {
+        // TODO(b/246971330): When in d8 mode, we might still be able to see if this is true for
+        //   library types (which this helper does not do).
+        if (appView.isSubtype(valueDexType, elementType).isPossiblyFalse()) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  private static boolean checkDominance(ArrayValues arrayValues) {
+    Value arrayValue = arrayValues.getArrayValue();
+
+    Set<BasicBlock> usageBlocks = Sets.newIdentityHashSet();
+    Set<Instruction> uniqueUsers = arrayValue.uniqueUsers();
+    for (Instruction user : uniqueUsers) {
+      ArrayPut arrayPut = user.asArrayPut();
       if (arrayPut == null || arrayPut.array() != arrayValue) {
-        return null;
+        usageBlocks.add(user.getBlock());
       }
-      int index = arrayPut.indexIfConstAndInBounds(values.length);
-      if (index < 0 || values[index] != null) {
-        return null;
+    }
+
+    // Ensure all blocks for users of the array are dominated by the last array-put's block.
+    ArrayPut lastArrayPut = ArrayUtils.last(arrayValues.getArrayPutsByIndex());
+    BasicBlock lastArrayPutBlock = lastArrayPut.getBlock();
+    BasicBlock subgraphEntryBlock = arrayValue.definition.getBlock();
+    for (BasicBlock usageBlock : usageBlocks) {
+      if (!DominatorChecker.check(subgraphEntryBlock, usageBlock, lastArrayPutBlock)) {
+        return false;
       }
-      if (arrayPut.instructionInstanceCanThrow(appView, code.context())) {
-        return null;
+    }
+
+    // Ensure all array users in the same block appear after the last array-put
+    for (Instruction inst : lastArrayPutBlock.getInstructions()) {
+      if (inst == lastArrayPut) {
+        break;
       }
-      Value value = arrayPut.value();
-      if (needsTypeCheck && !value.isAlwaysNull(appView)) {
-        DexType valueDexType = value.getType().asReferenceType().toDexType(dexItemFactory);
-        if (elementType.isArrayType()) {
-          if (elementType != valueDexType) {
-            return null;
-          }
-        } else if (valueDexType.isArrayType()) {
-          // isSubtype asserts for this case.
-          return null;
-        } else if (valueDexType.isNullValueType()) {
-          // Assume instructions can cause value.isAlwaysNull() == false while the DexType is null.
-          // TODO(b/246971330): Figure out how to write a test in SimplifyArrayConstructionTest
-          //   that hits this case.
-        } else {
-          // TODO(b/246971330): When in d8 mode, we might still be able to see if this is true for
-          //   library types (which this helper does not do).
-          if (appView.isSubtype(valueDexType, elementType).isPossiblyFalse()) {
-            return null;
+      if (uniqueUsers.contains(inst)) {
+        ArrayPut arrayPut = inst.asArrayPut();
+        if (arrayPut == null || arrayPut.array() != arrayValue) {
+          return false;
+        }
+      }
+    }
+
+    // It will not be the case that the newArrayEmpty dominates the phi user (or else it would
+    // just be a normal user). It is safe to optimize if all paths from the new-array-empty to the
+    // phi user include the last array-put (where the filled-new-array will end up).
+    if (anyPhiUsersReachableWhenOptimized(arrayValues)) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Determines if there are any paths from the new-array-empty to any of its phi users that do not
+   * go through the last array-put, and that do not go through exceptional edges for new-array-empty
+   * / array-puts that will be removed.
+   */
+  private static boolean anyPhiUsersReachableWhenOptimized(ArrayValues arrayValues) {
+    Value arrayValue = arrayValues.getArrayValue();
+    if (!arrayValue.hasPhiUsers()) {
+      return false;
+    }
+    Set<BasicBlock> phiUserBlocks = arrayValue.uniquePhiUserBlocks();
+    WorkList<BasicBlock> workList = WorkList.newIdentityWorkList();
+    // Mark the last array-put as seen in order to find paths that do not contain it.
+    workList.markAsSeen(ArrayUtils.last(arrayValues.getArrayPutsByIndex()).getBlock());
+    // Start with normal successors since if optimized, the new-array-empty block will have no
+    // throwing instructions.
+    workList.addIfNotSeen(arrayValue.definition.getBlock().getNormalSuccessors());
+    while (workList.hasNext()) {
+      BasicBlock current = workList.removeLast();
+      if (phiUserBlocks.contains(current)) {
+        return true;
+      }
+      if (current.hasCatchHandlers()) {
+        Instruction throwingInstruction = current.exceptionalExit();
+        if (throwingInstruction != null) {
+          ArrayPut arrayPut = throwingInstruction.asArrayPut();
+          // Ignore exceptional edges that will be remove if optimized.
+          if (arrayPut != null && arrayPut.array() == arrayValue) {
+            workList.addIfNotSeen(current.getNormalSuccessors());
+            continue;
           }
         }
       }
-      info.arrayPutsToRemove.add(arrayPut);
-      values[index] = value;
-      --remaining;
-      if (remaining == 0) {
-        info.lastArrayPutIterator = it;
-        return info;
+      workList.addIfNotSeen(current.getSuccessors());
+    }
+    return false;
+  }
+
+  private void applyChanges(IRCode code, List<ArrayValues> candidates) {
+    Set<BasicBlock> relevantBlocks = Sets.newIdentityHashSet();
+    // All keys instructionsToChange are removed, and also maps lastArrayPut -> newArrayFilled.
+    Map<Instruction, Instruction> instructionsToChange = new IdentityHashMap<>();
+    boolean needToRemoveUnreachableBlocks = false;
+
+    for (ArrayValues arrayValues : candidates) {
+      NewArrayEmpty newArrayEmpty = arrayValues.getDefinition().asNewArrayEmpty();
+      instructionsToChange.put(newArrayEmpty, newArrayEmpty);
+      BasicBlock allocationBlock = newArrayEmpty.getBlock();
+      relevantBlocks.add(allocationBlock);
+
+      ArrayPut[] arrayPutsByIndex = arrayValues.getArrayPutsByIndex();
+      int lastArrayPutIndex = arrayPutsByIndex.length - 1;
+      for (int i = 0; i < lastArrayPutIndex; ++i) {
+        ArrayPut arrayPut = arrayPutsByIndex[i];
+        instructionsToChange.put(arrayPut, arrayPut);
+        relevantBlocks.add(arrayPut.getBlock());
+      }
+      ArrayPut lastArrayPut = arrayPutsByIndex[lastArrayPutIndex];
+      BasicBlock lastArrayPutBlock = lastArrayPut.getBlock();
+      relevantBlocks.add(lastArrayPutBlock);
+
+      // newArrayEmpty's outValue must be cleared before trying to remove newArrayEmpty. Rather than
+      // store the outValue for later, create and store newArrayFilled.
+      Value arrayValue = newArrayEmpty.clearOutValue();
+      NewArrayFilled newArrayFilled =
+          new NewArrayFilled(newArrayEmpty.type, arrayValue, arrayValues.getElementValues());
+      newArrayFilled.setPosition(lastArrayPut.getPosition());
+      instructionsToChange.put(lastArrayPut, newArrayFilled);
+
+      if (arrayValue.hasPhiUsers() && allocationBlock.hasCatchHandlers()) {
+        // When phi users exist, the phis belong to the exceptional successors of the allocation
+        // block. In order to preserve them, move them to the new allocation block.
+        // This is safe because we've already checked hasEquivalentCatchHandlers().
+        lastArrayPutBlock.removeAllExceptionalSuccessors();
+        lastArrayPutBlock.moveCatchHandlers(allocationBlock);
+        needToRemoveUnreachableBlocks = true;
       }
     }
-    return null;
-  }
 
-  private static class FilledArrayCandidate {
+    for (BasicBlock block : relevantBlocks) {
+      boolean hasCatchHandlers = block.hasCatchHandlers();
+      InstructionListIterator it = block.listIterator(code);
+      while (it.hasNext()) {
+        Instruction possiblyNewArray = instructionsToChange.get(it.next());
+        if (possiblyNewArray != null) {
+          if (possiblyNewArray.isNewArrayFilled()) {
+            // Change the last array-put to the new-array-filled.
+            it.replaceCurrentInstruction(possiblyNewArray);
+          } else {
+            it.removeOrReplaceByDebugLocalRead();
+            if (hasCatchHandlers) {
+              // Removing these catch handlers shrinks their ranges to be only that where the
+              // allocation occurs.
+              needToRemoveUnreachableBlocks = true;
+              assert !block.canThrow();
+              block.removeAllExceptionalSuccessors();
+            }
+          }
+        }
+      }
+    }
 
-    final NewArrayEmpty newArrayEmpty;
-    final int size;
-
-    public FilledArrayCandidate(NewArrayEmpty newArrayEmpty, int size) {
-      assert size > 0;
-      this.newArrayEmpty = newArrayEmpty;
-      this.size = size;
+    if (needToRemoveUnreachableBlocks) {
+      code.removeUnreachableBlocks();
     }
-  }
-
-  private FilledArrayCandidate computeFilledArrayCandidate(
-      Instruction instruction, RewriteArrayOptions options) {
-    NewArrayEmpty newArrayEmpty = instruction.asNewArrayEmpty();
-    if (newArrayEmpty == null) {
-      return null;
-    }
-    if (instruction.getLocalInfo() != null) {
-      return null;
-    }
-    if (!newArrayEmpty.size().isConstant()) {
-      return null;
-    }
-    int size = newArrayEmpty.size().getConstInstruction().asConstNumber().getIntValue();
-    if (!options.isPotentialSize(size)) {
-      return null;
-    }
-    return new FilledArrayCandidate(newArrayEmpty, size);
+    code.removeRedundantBlocks();
   }
 }

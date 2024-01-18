@@ -63,28 +63,27 @@ public class ArrayOfStringArraysTest extends TestBase {
   }
 
   private void inspect(CodeInspector inspector) {
+    int canUseStrings = canUseFilledNewArrayOfStringObjects(parameters) ? 1 : 0;
+    int canUseObjects = canUseFilledNewArrayOfNonStringObjects(parameters) ? 1 : 0;
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"),
-        (canUseFilledNewArrayOfStringObjects(parameters) ? 4 : 0)
-            + (canUseFilledNewArrayOfNonStringObjects(parameters) ? 1 : 0),
+        4 * canUseStrings + 1 * canUseObjects,
         1);
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
-        0,
-        compilationMode.isDebug() ? 2 : 1);
+        4 * canUseStrings + 1 * canUseObjects,
+        4);
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m3"),
-        (canUseFilledNewArrayOfStringObjects(parameters) ? 4 : 0)
-            + (canUseFilledNewArrayOfNonStringObjects(parameters) ? 5 : 0),
+        4 * canUseStrings + 5 * canUseObjects,
         5);
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m4"),
-        0,
-        compilationMode.isDebug() ? 2 : 1);
+        4 * canUseStrings + 5 * canUseObjects,
+        5);
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m5"),
-        (canUseFilledNewArrayOfStringObjects(parameters) ? 4 : 0)
-            + (canUseFilledNewArrayOfNonStringObjects(parameters) ? 1 : 0),
+        4 * canUseStrings + 1 * canUseObjects,
         compilationMode.isDebug() ? 6 : 4);
   }
 

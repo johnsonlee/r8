@@ -59,15 +59,15 @@ public class ArrayOfIntArraysTest extends TestBase {
 
   private void inspect(CodeInspector inspector) {
     // This test use smaller int arrays, where filled-new-array is preferred over filled-array-data.
+    int canUseObjects = canUseFilledNewArrayOfNonStringObjects(parameters) ? 1 : 0;
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"),
-        4 + (canUseFilledNewArrayOfNonStringObjects(parameters) ? 1 : 0),
+        4 + 1 * canUseObjects,
         1);
-    // With catch handler the int[][] creation is not converted to filled-new-array.
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
-        4,
-        compilationMode.isDebug() ? 1 : 2);
+        4 + 1 * canUseObjects,
+        4);
   }
 
   @Test

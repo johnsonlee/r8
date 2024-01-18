@@ -10,7 +10,6 @@ import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -46,9 +45,8 @@ public class ConstClassArrayTest extends TestBase {
     EXPECTING_APUTOBJECT
   }
 
-  private void inspect(MethodSubject method, boolean insideCatchHandler) {
-    boolean expectingFilledNewArray =
-        canUseFilledNewArrayOfNonStringObjects(parameters) && !insideCatchHandler;
+  private void inspect(MethodSubject method) {
+    boolean expectingFilledNewArray = canUseFilledNewArrayOfNonStringObjects(parameters);
     assertEquals(
         expectingFilledNewArray ? 0 : 5,
         method.streamInstructions().filter(InstructionSubject::isArrayPut).count());
@@ -78,8 +76,8 @@ public class ConstClassArrayTest extends TestBase {
   }
 
   private void inspect(CodeInspector inspector) {
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), false);
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"), true);
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"));
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"));
   }
 
   @Test

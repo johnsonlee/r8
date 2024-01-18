@@ -72,7 +72,7 @@ public class NewArraySynchronizedBlockTest extends TestBase {
       int[] array;
       synchronized (TestClass.class) {
         array = new int[1];
-      } // monitor exit here prohibits optimization as its failure could observe the lack of init.
+      }
       array[0] = value;
       return array[0];
     }

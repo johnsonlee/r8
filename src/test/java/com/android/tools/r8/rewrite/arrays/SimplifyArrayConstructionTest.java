@@ -63,7 +63,18 @@ public class SimplifyArrayConstructionTest extends TestBase {
     "[1, null, 2]",
     "[1, null, 2]",
     "[1]",
-    "[1, 2]",
+    "[1, 2, 3]",
+    "[2, 2, 2]",
+    "[6, 7]",
+    "[7]",
+    "[3, 4]",
+    "[99]",
+    "[0, 1]",
+    "[0, 1]",
+    "[0, 1]",
+    "[0, 1]",
+    "[0, 1]",
+    "[0, 1]",
     "[1, 2, 3, 4, 5]",
     "[1]",
     "[a, 1, null, d, e, f]",
@@ -91,11 +102,15 @@ public class SimplifyArrayConstructionTest extends TestBase {
     "[0, 1, 2, 3, 4]",
     "[4, 0, 0, 0, 0]",
     "[4, 1, 2, 3, 4]",
+    "[9]",
+    "[*]",
+    "[*]",
+    "finally: [1, 2]",
+    "[1, 2]",
+    "[1, 2]",
+    "[1, 2]",
+    "[1, 2]",
     "[0, 1, 2]",
-    "[0]",
-    "[0, 1, 2]",
-    "[1, 2, 3]",
-    "[1, 2, 3, 4, 5, 6]",
     "[0]",
     "[null, null]",
   };
@@ -176,6 +191,20 @@ public class SimplifyArrayConstructionTest extends TestBase {
         mainClass.uniqueMethodWithOriginalName("interfaceArrayWithRawObject");
 
     MethodSubject phiFilledNewArray = mainClass.uniqueMethodWithOriginalName("phiFilledNewArray");
+    MethodSubject phiFilledNewArrayBlocks =
+        mainClass.uniqueMethodWithOriginalName("phiFilledNewArrayBlocks");
+    MethodSubject arrayWithDominatingPhiUsers =
+        mainClass.uniqueMethodWithOriginalName("arrayWithDominatingPhiUsers");
+    MethodSubject arrayWithNonDominatingPhiUsers =
+        mainClass.uniqueMethodWithOriginalName("arrayWithNonDominatingPhiUsers");
+    MethodSubject phiWithExceptionalPhiUser =
+        mainClass.uniqueMethodWithOriginalName("phiWithExceptionalPhiUser");
+    MethodSubject phiWithNestedCatchHandler =
+        mainClass.uniqueMethodWithOriginalName("phiWithNestedCatchHandler");
+    MethodSubject multiUseArray = mainClass.uniqueMethodWithOriginalName("multiUseArray");
+    MethodSubject arrayWithHole = mainClass.uniqueMethodWithOriginalName("arrayWithHole");
+    MethodSubject reassignmentDoesNotOptimize =
+        mainClass.uniqueMethodWithOriginalName("reassignmentDoesNotOptimize");
     MethodSubject intsThatUseFilledNewArray =
         mainClass.uniqueMethodWithOriginalName("intsThatUseFilledNewArray");
     MethodSubject twoDimensionalArrays =
@@ -191,26 +220,60 @@ public class SimplifyArrayConstructionTest extends TestBase {
         mainClass.uniqueMethodWithOriginalName("arrayWithCorrectCountButIncompleteCoverage");
     MethodSubject arrayWithExtraInitialPuts =
         mainClass.uniqueMethodWithOriginalName("arrayWithExtraInitialPuts");
-    MethodSubject catchHandlerThrowing =
-        mainClass.uniqueMethodWithOriginalName("catchHandlerThrowing");
-    MethodSubject catchHandlerNonThrowingFilledNewArray =
-        mainClass.uniqueMethodWithOriginalName("catchHandlerNonThrowingFilledNewArray");
-    MethodSubject catchHandlerNonThrowingFillArrayData =
-        mainClass.uniqueMethodWithOriginalName("catchHandlerNonThrowingFillArrayData");
+    MethodSubject catchHandlerWithoutSideeffects =
+        mainClass.uniqueMethodWithOriginalName("catchHandlerWithoutSideeffects");
+    MethodSubject allocationWithCatchHandler =
+        mainClass.uniqueMethodWithOriginalName("allocationWithCatchHandler");
+    MethodSubject allocationWithoutCatchHandler =
+        mainClass.uniqueMethodWithOriginalName("allocationWithoutCatchHandler");
+    MethodSubject catchHandlerWithFinally =
+        mainClass.uniqueMethodWithOriginalName("catchHandlerWithFinally");
+    MethodSubject simpleSynchronized1 =
+        mainClass.uniqueMethodWithOriginalName("simpleSynchronized1");
+    MethodSubject simpleSynchronized2 =
+        mainClass.uniqueMethodWithOriginalName("simpleSynchronized2");
+    MethodSubject simpleSynchronized3 =
+        mainClass.uniqueMethodWithOriginalName("simpleSynchronized3");
+    MethodSubject simpleSynchronized4 =
+        mainClass.uniqueMethodWithOriginalName("simpleSynchronized4");
+    MethodSubject arrayInsideCatchHandler =
+        mainClass.uniqueMethodWithOriginalName("arrayInsideCatchHandler");
     MethodSubject assumedValues = mainClass.uniqueMethodWithOriginalName("assumedValues");
+
+    // The explicit assignments can't be collapsed without breaking the debugger's ability to
+    // visit each line.
+    Class<?> filledNewArrayInRelease =
+        compilationMode == CompilationMode.DEBUG ? DexNewArray.class : DexFilledNewArray.class;
 
     assertArrayTypes(arraysThatUseNewArrayEmpty, DexNewArray.class);
     assertArrayTypes(intsThatUseFilledNewArray, DexFilledNewArray.class);
     assertFilledArrayData(arraysThatUseFilledData);
-    assertFilledArrayData(catchHandlerNonThrowingFillArrayData);
 
-    if (compilationMode == CompilationMode.DEBUG) {
-      // The explicit assignments can't be collapsed without breaking the debugger's ability to
-      // visit each line.
-      assertArrayTypes(reversedArray, DexNewArray.class);
-    } else {
-      assertArrayTypes(reversedArray, DexFilledNewArray.class);
-    }
+    // Algorithm does not support out-of-order assignment.
+    assertArrayTypes(reversedArray, DexNewArray.class);
+    // Algorithm does not support assigning to array elements multiple times.
+    assertArrayTypes(reassignmentDoesNotOptimize, DexNewArray.class);
+    // Algorithm does not support default-initialized array elements.
+    assertArrayTypes(arrayWithHole, DexNewArray.class);
+    // ArrayPuts not dominated by return statement.
+    assertArrayTypes(phiFilledNewArrayBlocks, DexNewArray.class);
+    assertArrayTypes(arrayWithDominatingPhiUsers, filledNewArrayInRelease);
+    assertArrayTypes(arrayWithNonDominatingPhiUsers, DexNewArray.class);
+    assertArrayTypes(phiWithNestedCatchHandler, DexNewArray.class);
+    assertArrayTypes(phiWithExceptionalPhiUser, DexFilledNewArray.class, filledNewArrayInRelease);
+    // Not safe to change catch handlers.
+    assertArrayTypes(allocationWithoutCatchHandler, DexNewArray.class);
+    // Not safe to change catch handlers.
+    assertArrayTypes(allocationWithCatchHandler, DexNewArray.class);
+    assertArrayTypes(catchHandlerWithFinally, DexNewArray.class);
+    assertArrayTypes(simpleSynchronized1, DexFilledNewArray.class);
+    assertArrayTypes(simpleSynchronized2, DexFilledNewArray.class);
+    assertArrayTypes(simpleSynchronized3, DexNewArray.class);
+    assertArrayTypes(simpleSynchronized4, DexNewArray.class);
+    // Could be optimized if we had side-effect analysis of exceptional blocks.
+    assertArrayTypes(catchHandlerWithoutSideeffects, DexNewArray.class);
+    assertArrayTypes(arrayInsideCatchHandler, filledNewArrayInRelease);
+    assertArrayTypes(multiUseArray, filledNewArrayInRelease);
 
     if (!canUseFilledNewArrayOfStringObjects(parameters)) {
       assertArrayTypes(stringArrays, DexNewArray.class);
@@ -239,9 +302,7 @@ public class SimplifyArrayConstructionTest extends TestBase {
         assertArrayTypes(referenceArraysWithInterfaceImplementations, DexNewArray.class);
       }
 
-      // TODO(b/246971330): Add support for arrays whose values have conditionals.
-      // assertArrayTypes(phiFilledNewArray, DexFilledNewArray.class);
-
+      assertArrayTypes(phiFilledNewArray, DexFilledNewArray.class);
       assertArrayTypes(
           objectArraysFilledNewArrayRange, DexFilledNewArrayRange.class, DexNewArray.class);
 
@@ -261,9 +322,6 @@ public class SimplifyArrayConstructionTest extends TestBase {
     // haven't bothered.
     assertArrayTypes(arrayWithExtraInitialPuts, DexNewArray.class);
     assertArrayTypes(arrayWithCorrectCountButIncompleteCoverage, DexNewArray.class);
-
-    assertArrayTypes(catchHandlerThrowing, DexNewArray.class);
-    assertArrayTypes(catchHandlerNonThrowingFilledNewArray, DexFilledNewArray.class);
   }
 
   private static Predicate<InstructionSubject> isInstruction(List<Class<?>> allowlist) {
@@ -310,6 +368,14 @@ public class SimplifyArrayConstructionTest extends TestBase {
       referenceArraysWithInterfaceImplementations();
       interfaceArrayWithRawObject();
       phiFilledNewArray();
+      phiFilledNewArrayBlocks();
+      arrayWithDominatingPhiUsers();
+      arrayWithNonDominatingPhiUsers();
+      phiWithNestedCatchHandler();
+      phiWithExceptionalPhiUser();
+      multiUseArray();
+      arrayWithHole();
+      reassignmentDoesNotOptimize();
       intsThatUseFilledNewArray();
       twoDimensionalArrays();
       objectArraysFilledNewArrayRange();
@@ -318,9 +384,15 @@ public class SimplifyArrayConstructionTest extends TestBase {
       reversedArray();
       arrayWithCorrectCountButIncompleteCoverage();
       arrayWithExtraInitialPuts();
-      catchHandlerThrowing();
-      catchHandlerNonThrowingFilledNewArray();
-      catchHandlerNonThrowingFillArrayData();
+      arrayInsideCatchHandler();
+      allocationWithCatchHandler();
+      allocationWithoutCatchHandler();
+      catchHandlerWithFinally();
+      simpleSynchronized1();
+      simpleSynchronized2();
+      simpleSynchronized3();
+      simpleSynchronized4();
+      catchHandlerWithoutSideeffects();
       arrayIntoAnotherArray();
       assumedValues();
     }
@@ -411,21 +483,12 @@ public class SimplifyArrayConstructionTest extends TestBase {
     }
 
     @NeverInline
-    private static void catchHandlerNonThrowingFilledNewArray() {
+    private static void arrayInsideCatchHandler() {
       try {
-        int[] arr1 = {1, 2, 3};
+        // Test filled-new-array with a throwing instruction before the last array-put.
+        int[] arr = new int[1];
         System.currentTimeMillis();
-        System.out.println(Arrays.toString(arr1));
-      } catch (Throwable t) {
-        throw new RuntimeException(t);
-      }
-    }
-
-    @NeverInline
-    private static void catchHandlerNonThrowingFillArrayData() {
-      try {
-        int[] arr = {1, 2, 3, 4, 5, 6};
-        System.currentTimeMillis();
+        arr[0] = 9;
         System.out.println(Arrays.toString(arr));
       } catch (Throwable t) {
         throw new RuntimeException(t);
@@ -433,37 +496,115 @@ public class SimplifyArrayConstructionTest extends TestBase {
     }
 
     @NeverInline
-    private static void catchHandlerThrowing() {
-      int[] arr1 = new int[3];
-      arr1[0] = 0;
-      arr1[1] = 1;
-      // Since the array is used in only one spot, and that spot is not within the try/catch, it
-      // should be safe to use filled-new-array, but we don't.
+    private static void allocationWithCatchHandler() {
+      Object[] arr;
       try {
-        System.currentTimeMillis();
+        arr = new Object[1];
+      } catch (NoClassDefFoundError | OutOfMemoryError t) {
+        throw new RuntimeException(t);
+      }
+
+      // new-array-empty dominates this, but catch handlers are relevant
+      arr[0] = "*";
+      System.out.println(Arrays.toString(arr));
+    }
+
+    @NeverInline
+    private static void allocationWithoutCatchHandler() {
+      Object[] arr = new Object[1];
+      try {
+        // new-array-empty dominates this, but catch handlers are relevant.
+        arr[0] = "*";
+      } catch (NoClassDefFoundError | OutOfMemoryError t) {
+        throw new RuntimeException(t);
+      }
+      System.out.println(Arrays.toString(arr));
+    }
+
+    @NeverInline
+    private static void catchHandlerWithFinally() {
+      Object[] arr = new Object[2];
+      try {
+        System.out.print("finally: ");
+      } finally {
+        // This will be duplicated into the throwing and non-throwing blocks.
+        arr[0] = "1";
+      }
+      arr[1] = "2";
+      System.out.println(Arrays.toString(arr));
+    }
+
+    @NeverInline
+    private static void simpleSynchronized1() {
+      // Should optimize since array is contained within a try block.
+      synchronized (Main.class) {
+        int[] arr = new int[] {1, 2};
+        System.out.println(Arrays.toString(arr));
+      }
+    }
+
+    @NeverInline
+    private static synchronized void simpleSynchronized2() {
+      // Should optimize since array is contained within a try block.
+      try {
+        try {
+          int[] arr = new int[] {1, 2};
+          System.out.println(Arrays.toString(arr));
+        } catch (Throwable t) {
+          throw new RuntimeException(t);
+        } finally {
+          System.currentTimeMillis();
+        }
+      } catch (Exception e) {
+        // Ignore.
+      }
+    }
+
+    @NeverInline
+    private static void simpleSynchronized3() {
+      // Does not optimize because allocation has different catch handlers.
+      int[] arr = new int[2];
+      synchronized (Main.class) {
+        arr[0] = 1;
+        arr[1] = 2;
+      }
+      System.out.println(Arrays.toString(arr));
+    }
+
+    @NeverInline
+    private static void simpleSynchronized4() {
+      // Does not optimize because allocation has different catch handlers.
+      int[] arr;
+      synchronized (Main.class) {
+        arr = new int[2];
+      }
+      arr[0] = 1;
+      arr[1] = 2;
+      System.out.println(Arrays.toString(arr));
+    }
+
+    @NeverInline
+    private static void catchHandlerWithoutSideeffects() {
+      // If we added logic to show that catch handlers exit without side-effects, we could optimize
+      // this case.z
+      int[] arr1;
+      try {
+        arr1 = new int[3];
+      } catch (Throwable t) {
+        throw new RuntimeException("1");
+      }
+      try {
+        arr1[0] = 0;
+      } catch (Throwable t) {
+        throw new RuntimeException("2");
+      }
+      arr1[1] = 1;
+      try {
         arr1[2] = 2;
       } catch (Throwable t) {
-        throw new RuntimeException(t);
+        throw new RuntimeException("3");
       }
       System.out.println(Arrays.toString(arr1));
-
-      try {
-        // Test filled-new-array with a throwing instruction before the last array-put.
-        int[] arr2 = new int[1];
-        System.currentTimeMillis();
-        arr2[0] = 0;
-        System.out.println(Arrays.toString(arr2));
-
-        // Test filled-array-data with a throwing instruction before the last array-put.
-        short[] arr3 = new short[3];
-        arr3[0] = 0;
-        arr3[1] = 1;
-        System.currentTimeMillis();
-        arr3[2] = 2;
-        System.out.println(Arrays.toString(arr3));
-      } catch (Throwable t) {
-        throw new RuntimeException(t);
-      }
     }
 
     @NeverInline
@@ -485,8 +626,120 @@ public class SimplifyArrayConstructionTest extends TestBase {
     @NeverInline
     private static void phiFilledNewArray() {
       // The presence of ? should not affect use of filled-new-array.
-      Integer[] phiArray = {1, System.nanoTime() > 0 ? 2 : 3};
+      Integer[] phiArray = {1, System.nanoTime() > 0 ? 2 : 3, 3};
       System.out.println(Arrays.toString(phiArray));
+    }
+
+    @NeverInline
+    private static void phiFilledNewArrayBlocks() {
+      int[] phiArray = new int[3];
+      if (System.currentTimeMillis() > 0) {
+        phiArray[0] = 2;
+        phiArray[1] = 2;
+        phiArray[2] = 2;
+      }
+      System.out.println(Arrays.toString(phiArray));
+    }
+
+    @NeverInline
+    private static void arrayWithDominatingPhiUsers() {
+      int[] phiArray = null;
+      try {
+        phiArray = new int[2];
+        phiArray[0] = 6;
+        phiArray[1] = 7;
+      } catch (Throwable t) {
+        System.out.println("Not reached");
+      }
+      System.out.println(Arrays.toString(phiArray));
+    }
+
+    @NeverInline
+    private static void arrayWithNonDominatingPhiUsers() {
+      int[] phiArray = null;
+      try {
+        phiArray = new int[1];
+        // If currentTimeMillis() throws, phiArray will have value of [0].
+        phiArray[0] = System.currentTimeMillis() > 0 ? 7 : 0;
+      } catch (Throwable t) {
+        System.out.println("Not reached");
+      }
+      System.out.println(Arrays.toString(phiArray));
+    }
+
+    @NeverInline
+    private static void phiWithNestedCatchHandler() {
+      int[] phiArray = null;
+      try {
+        phiArray = new int[2];
+        // If currentTimeMillis() throws, phiArray will have value of [0, 0].
+        try {
+          System.currentTimeMillis();
+        } catch (RuntimeException r) {
+          throw new RuntimeException(r);
+        }
+        phiArray[0] = 3;
+        phiArray[1] = 4;
+      } catch (Throwable t) {
+        System.out.println("Not reached");
+      }
+      System.out.println(Arrays.toString(phiArray));
+    }
+
+    @NeverInline
+    private static void phiWithExceptionalPhiUser() {
+      int[] arr = null;
+      try {
+        // Both of these should optimize, but care must be taken to ensure the phiUsers are properly
+        // dominated post-optimization.
+        if (System.currentTimeMillis() > 0) {
+          arr = new int[1];
+          arr[0] = 99;
+        } else {
+          arr = new int[] {1, 2};
+        }
+      } catch (RuntimeException e) {
+        // fall through
+      }
+      System.out.println(Arrays.toString(arr));
+    }
+
+    @NeverInline
+    private static void multiUseArray() {
+      int[] arr = new int[2];
+      arr[0] = 0;
+      arr[1] = System.nanoTime() > 0 ? 1 : 2;
+      System.out.println(Arrays.toString(arr));
+      System.out.println(Arrays.toString(arr));
+      // Usage in a different basic block.
+      if (System.nanoTime() > 0) {
+        System.nanoTime();
+      }
+      System.out.println(Arrays.toString(arr));
+    }
+
+    @NeverInline
+    private static void arrayWithHole() {
+      int[] arr = new int[2];
+      arr[1] = 1;
+      System.out.println(Arrays.toString(arr));
+    }
+
+    @NeverInline
+    private static void reassignmentDoesNotOptimize() {
+      // Reassignment in same block, and of last index.
+      Integer[] arr = new Integer[2];
+      arr[0] = 0;
+      arr[1] = 2;
+      arr[1] = 1;
+      System.out.println(Arrays.toString(arr));
+
+      // Reassignment across blocks, of non-last index.
+      arr = new Integer[2];
+      arr[0] = 3;
+      arr[1] = System.nanoTime() > 0 ? 1 : 2;
+      arr[0] = 0;
+      System.out.println(Arrays.toString(arr));
     }
 
     @NeverInline

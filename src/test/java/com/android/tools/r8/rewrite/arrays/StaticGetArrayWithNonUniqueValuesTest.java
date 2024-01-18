@@ -46,9 +46,9 @@ public class StaticGetArrayWithNonUniqueValuesTest extends TestBase {
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("100", "50");
 
-  private void inspect(MethodSubject method, int staticGets, int puts, boolean insideCatchHandler) {
-    boolean expectingFilledNewArray =
-        canUseFilledNewArrayOfNonStringObjects(parameters) && !insideCatchHandler;
+  private void inspect(MethodSubject method, int staticGets, int puts, boolean isD8) {
+    // D8 cannot optimize due to risk of NoClassDefFoundError.
+    boolean expectingFilledNewArray = !isD8 && canUseFilledNewArrayOfNonStringObjects(parameters);
     assertEquals(
         expectingFilledNewArray ? 0 : puts,
         method.streamInstructions().filter(InstructionSubject::isArrayPut).count());
@@ -66,18 +66,9 @@ public class StaticGetArrayWithNonUniqueValuesTest extends TestBase {
   }
 
   private void inspectD8(CodeInspector inspector) {
-    inspect(
-        inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"),
-        canUseFilledNewArrayOfNonStringObjects(parameters) ? 100 : 1,
-        100,
-        false);
-    inspect(
-        inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
-        canUseFilledNewArrayOfNonStringObjects(parameters)
-            ? 50
-            : (maxMaterializingConstants == 2 ? 42 : 10),
-        50,
-        false);
+    // D8 cannot optimize due to risk of NoClassDefFoundError.
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 100, 100, true);
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"), 50, 50, true);
   }
 
   @Test

@@ -52,9 +52,8 @@ public class ConstClassArrayWithUniqueValuesTest extends TestBase {
     EXPECTING_APUTOBJECT
   }
 
-  private void inspect(MethodSubject method, int puts, boolean insideCatchHandler) {
-    boolean expectingFilledNewArray =
-        canUseFilledNewArrayOfNonStringObjects(parameters) && !insideCatchHandler;
+  private void inspect(MethodSubject method, int puts) {
+    boolean expectingFilledNewArray = canUseFilledNewArrayOfNonStringObjects(parameters);
     assertEquals(
         expectingFilledNewArray ? 0 : puts,
         method.streamInstructions().filter(InstructionSubject::isArrayPut).count());
@@ -86,9 +85,9 @@ public class ConstClassArrayWithUniqueValuesTest extends TestBase {
   }
 
   private void inspect(CodeInspector inspector) {
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 5, false);
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"), 5, true);
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m3"), 100, false);
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 5);
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"), 5);
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m3"), 100);
   }
 
   @Test

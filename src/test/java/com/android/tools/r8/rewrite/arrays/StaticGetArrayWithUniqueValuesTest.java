@@ -52,9 +52,9 @@ public class StaticGetArrayWithUniqueValuesTest extends TestBase {
     EXPECTING_APUTOBJECT
   }
 
-  private void inspect(MethodSubject method, int puts, boolean insideCatchHandler) {
-    boolean expectingFilledNewArray =
-        canUseFilledNewArrayOfNonStringObjects(parameters) && !insideCatchHandler;
+  private void inspect(boolean isR8, MethodSubject method, int puts) {
+    // D8 cannot optimize due to risk of NoClassDefFoundError.
+    boolean expectingFilledNewArray = isR8 && canUseFilledNewArrayOfNonStringObjects(parameters);
     assertEquals(
         expectingFilledNewArray ? 0 : puts,
         method.streamInstructions().filter(InstructionSubject::isArrayPut).count());
@@ -84,10 +84,10 @@ public class StaticGetArrayWithUniqueValuesTest extends TestBase {
     }
   }
 
-  private void inspect(CodeInspector inspector) {
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 5, false);
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"), 5, true);
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m3"), 100, false);
+  private void inspect(CodeInspector inspector, boolean isR8) {
+    inspect(isR8, inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 5);
+    inspect(isR8, inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"), 5);
+    inspect(isR8, inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m3"), 100);
   }
 
   @Test
@@ -97,7 +97,7 @@ public class StaticGetArrayWithUniqueValuesTest extends TestBase {
         .addInnerClasses(getClass())
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
-        .inspect(this::inspect)
+        .inspect(inspector -> inspect(inspector, false))
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
@@ -110,7 +110,7 @@ public class StaticGetArrayWithUniqueValuesTest extends TestBase {
         .enableInliningAnnotations()
         .addDontObfuscate()
         .run(parameters.getRuntime(), TestClass.class)
-        .inspect(this::inspect)
+        .inspect(inspector -> inspect(inspector, true))
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 

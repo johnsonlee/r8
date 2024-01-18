@@ -63,13 +63,16 @@ public class ArrayOfArraysTest extends TestBase {
   }
 
   private void inspect(CodeInspector inspector) {
+    int canUseStrings = canUseFilledNewArrayOfStringObjects(parameters) ? 1 : 0;
+    int canUseObjects = canUseFilledNewArrayOfNonStringObjects(parameters) ? 1 : 0;
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"),
-        2
-            + (canUseFilledNewArrayOfStringObjects(parameters) ? 2 : 0)
-            + (canUseFilledNewArrayOfNonStringObjects(parameters) ? 2 : 0),
+        2 + 2 * canUseStrings + 2 * canUseObjects,
         2);
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"), 2, 2);
+    inspect(
+        inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
+        2 + 2 * canUseStrings + 1 * canUseObjects,
+        compilationMode.isDebug() ? 10 : 11);
   }
 
   @Test
@@ -129,32 +132,32 @@ public class ArrayOfArraysTest extends TestBase {
 
     @NeverInline
     public static void m2() {
+      Object[] array = null;
       try {
-        Object[] array = {
-          new byte[] {(byte) 1},
-          new short[] {(short) 1},
-          new int[] {1},
-          new long[] {1L},
-          new char[] {(char) 1},
-          new float[] {1.0f},
-          new double[] {1.0d},
-          new String[] {"one"},
-          new Object[] {
-            new byte[] {(byte) 2},
-            new short[] {(short) 2},
-            new int[] {2},
-            new long[] {2L},
-            new char[] {(char) 2},
-            new float[] {2.0f},
-            new double[] {2.0d},
-            new String[] {"two"},
-          }
-        };
-        printArray(array);
-        System.out.println();
+        array = new Object[9];
+        array[0] = new byte[] {(byte) 1};
+        array[1] = new short[] {(short) 1};
+        array[2] = new int[] {1};
+        array[3] = new long[] {1L};
+        array[4] = new char[] {(char) 1};
+        array[5] = new float[] {1.0f};
+        array[6] = new double[] {1.0d};
+        array[7] = new String[] {"one"};
+        array[8] =
+            new Object[] {
+              new byte[] {(byte) 2},
+              new short[] {(short) 2},
+              new int[] {2},
+              new long[] {2L},
+              new char[] {(char) 2},
+              new float[] {2.0f},
+              new double[] {2.0d},
+              new String[] {"two"},
+            };
       } catch (Exception e) {
-        throw new RuntimeException();
       }
+      printArray(array);
+      System.out.println();
     }
 
     @NeverInline

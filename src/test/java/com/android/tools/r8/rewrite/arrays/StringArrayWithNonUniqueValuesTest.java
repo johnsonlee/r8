@@ -46,10 +46,8 @@ public class StringArrayWithNonUniqueValuesTest extends TestBase {
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("100", "104");
 
-  private void inspect(
-      MethodSubject method, int constStrings, int puts, boolean insideCatchHandler) {
-    boolean expectingFilledNewArray =
-        canUseFilledNewArrayOfStringObjects(parameters) && !insideCatchHandler;
+  private void inspect(MethodSubject method, int constStrings, int puts) {
+    boolean expectingFilledNewArray = canUseFilledNewArrayOfStringObjects(parameters);
     assertEquals(
         expectingFilledNewArray ? 0 : puts,
         method.streamInstructions().filter(InstructionSubject::isArrayPut).count());
@@ -68,12 +66,11 @@ public class StringArrayWithNonUniqueValuesTest extends TestBase {
   }
 
   private void inspect(CodeInspector inspector) {
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 1, 100, false);
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 1, 100);
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
         maxMaterializingConstants == 2 ? 32 : 26,
-        104,
-        false);
+        104);
   }
 
   @Test

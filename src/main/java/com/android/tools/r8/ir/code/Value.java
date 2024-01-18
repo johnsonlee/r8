@@ -406,6 +406,14 @@ public class Value implements Comparable<Value> {
     return uniquePhiUsers = ImmutableSet.copyOf(phiUsers);
   }
 
+  public Set<BasicBlock> uniquePhiUserBlocks() {
+    Set<BasicBlock> ret = Sets.newIdentityHashSet();
+    for (Phi phi : phiUsers) {
+      ret.add(phi.getBlock());
+    }
+    return ret;
+  }
+
   public Set<Instruction> debugUsers() {
     return debugData == null ? null : Collections.unmodifiableSet(debugData.users);
   }

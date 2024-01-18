@@ -115,8 +115,7 @@ public class FilledArray {
     }
 
     try {
-      // Array creation that cannot be turned into fill-array-data because an exception would
-      // cause the initialization sequence to be interrupted.
+      // Exception does not prevent fill-array-data since only usage is within the try.
       int[] ints = new int[5];
       ints[0] = 0;
       ints[1] = 1;

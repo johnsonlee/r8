@@ -46,10 +46,8 @@ public class ConstClassArrayWithNonUniqueValuesTest extends TestBase {
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("100", "104");
 
-  private void inspect(
-      MethodSubject method, int constClasses, int puts, boolean insideCatchHandler) {
-    boolean expectingFilledNewArray =
-        canUseFilledNewArrayOfNonStringObjects(parameters) && !insideCatchHandler;
+  private void inspect(MethodSubject method, int constClasses, int puts) {
+    boolean expectingFilledNewArray = canUseFilledNewArrayOfNonStringObjects(parameters);
     assertEquals(
         expectingFilledNewArray ? 0 : puts,
         method.streamInstructions().filter(InstructionSubject::isArrayPut).count());
@@ -68,12 +66,11 @@ public class ConstClassArrayWithNonUniqueValuesTest extends TestBase {
   }
 
   private void inspectD8(CodeInspector inspector) {
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 1, 100, false);
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 1, 100);
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
         maxMaterializingConstants == 2 ? 98 : 26,
-        104,
-        false);
+        104);
   }
 
   @Test
@@ -89,12 +86,11 @@ public class ConstClassArrayWithNonUniqueValuesTest extends TestBase {
   }
 
   private void inspectR8(CodeInspector inspector) {
-    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 1, 100, false);
+    inspect(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m1"), 1, 100);
     inspect(
         inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m2"),
         maxMaterializingConstants == 2 ? 32 : 26,
-        104,
-        false);
+        104);
   }
 
   @Test

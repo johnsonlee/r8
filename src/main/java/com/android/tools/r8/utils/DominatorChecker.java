@@ -5,7 +5,6 @@ package com.android.tools.r8.utils;
 
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.google.common.collect.Sets;
-import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Set;
 
@@ -32,20 +31,20 @@ public interface DominatorChecker {
   }
 
   class TraversingDominatorChecker implements DominatorChecker {
-    private final BasicBlock sourceBlock;
-    private final BasicBlock destBlock;
+    private final BasicBlock subgraphEntryBlock;
+    private final BasicBlock subgraphExitBlock;
     private final Set<BasicBlock> knownDominators;
-    private final ArrayDeque<BasicBlock> workQueue = new ArrayDeque<>();
-    private final Set<BasicBlock> visited;
+    private final WorkList<BasicBlock> workList = WorkList.newIdentityWorkList();
     private BasicBlock prevTargetBlock;
 
     private TraversingDominatorChecker(
-        BasicBlock sourceBlock, BasicBlock destBlock, Set<BasicBlock> knownDominators) {
-      this.sourceBlock = sourceBlock;
-      this.destBlock = destBlock;
+        BasicBlock subgraphEntryBlock,
+        BasicBlock subgraphExitBlock,
+        Set<BasicBlock> knownDominators) {
+      this.subgraphEntryBlock = subgraphEntryBlock;
+      this.subgraphExitBlock = subgraphExitBlock;
       this.knownDominators = knownDominators;
-      this.visited = Sets.newIdentityHashSet();
-      prevTargetBlock = destBlock;
+      prevTargetBlock = subgraphExitBlock;
     }
 
     @Override
@@ -60,7 +59,7 @@ public interface DominatorChecker {
       if (firstSplittingBlock.hasUniqueSuccessor()) {
         do {
           // knownDominators prevents firstSplittingBlock from being destBlock.
-          assert firstSplittingBlock != destBlock;
+          assert firstSplittingBlock != subgraphExitBlock;
           firstSplittingBlock = firstSplittingBlock.getUniqueSuccessor();
         } while (firstSplittingBlock.hasUniqueSuccessor());
 
@@ -73,13 +72,12 @@ public interface DominatorChecker {
       boolean ret;
       // Since we know the previously checked block is a dominator, narrow the check by using it for
       // either sourceBlock or destBlock.
-      if (visited.contains(targetBlock)) {
-        visited.clear();
-        ret =
-            checkWithTraversal(prevTargetBlock, destBlock, firstSplittingBlock, visited, workQueue);
+      if (workList.isSeen(targetBlock)) {
+        workList.clearSeen();
+        ret = checkWithTraversal(prevTargetBlock, subgraphExitBlock, firstSplittingBlock, workList);
         prevTargetBlock = firstSplittingBlock;
       } else {
-        ret = checkWithTraversal(sourceBlock, prevTargetBlock, targetBlock, visited, workQueue);
+        ret = checkWithTraversal(subgraphEntryBlock, prevTargetBlock, targetBlock, workList);
         prevTargetBlock = targetBlock;
       }
       if (ret) {
@@ -93,70 +91,71 @@ public interface DominatorChecker {
       return ret;
     }
 
+    /**
+     * Within the subgraph defined by the given entry/exit blocks, returns whether targetBlock
+     * dominates the exit block.
+     */
     private static boolean checkWithTraversal(
-        BasicBlock sourceBlock,
-        BasicBlock destBlock,
+        BasicBlock subgraphEntryBlock,
+        BasicBlock subgraphExitBlock,
         BasicBlock targetBlock,
-        Set<BasicBlock> visited,
-        ArrayDeque<BasicBlock> workQueue) {
-      assert workQueue.isEmpty();
+        WorkList<BasicBlock> workList) {
+      assert workList.isEmpty();
 
-      visited.add(targetBlock);
-
-      workQueue.addAll(destBlock.getPredecessors());
-      do {
-        BasicBlock curBlock = workQueue.removeLast();
-        if (!visited.add(curBlock)) {
-          continue;
-        }
-        if (curBlock == sourceBlock) {
-          // There is a path from sourceBlock -> destBlock that does not go through block.
+      workList.markAsSeen(targetBlock);
+      workList.addIfNotSeen(subgraphExitBlock.getPredecessors());
+      while (!workList.isEmpty()) {
+        BasicBlock curBlock = workList.removeLast();
+        if (curBlock == subgraphEntryBlock) {
+          // There is a path from subgraphExitBlock -> subgraphEntryBlock that does not go through
+          // targetBlock.
           return false;
         }
-        assert !curBlock.isEntry() : "sourceBlock did not dominate destBlock";
-        workQueue.addAll(curBlock.getPredecessors());
-      } while (!workQueue.isEmpty());
+        assert !curBlock.isEntry() : "subgraphEntryBlock did not dominate subgraphExitBlock";
+        workList.addIfNotSeen(curBlock.getPredecessors());
+      }
 
       return true;
     }
   }
 
-  static DominatorChecker create(BasicBlock sourceBlock, BasicBlock destBlock) {
+  static DominatorChecker create(BasicBlock subgraphEntryBlock, BasicBlock subgraphExitBlock) {
     // Fast-path: blocks are the same.
     // As of Nov 2023: in Chrome for String.format() optimization, this covers 77% of cases.
-    if (sourceBlock == destBlock) {
-      return new PrecomputedDominatorChecker(Collections.singleton(sourceBlock));
+    if (subgraphEntryBlock == subgraphExitBlock) {
+      return new PrecomputedDominatorChecker(Collections.singleton(subgraphEntryBlock));
     }
 
-    // Shrink the subgraph by moving sourceBlock forward to the first block with multiple
+    // Shrink the subgraph by moving subgraphEntryBlock forward to the first block with multiple
     // successors.
     Set<BasicBlock> headAndTailDominators = Sets.newIdentityHashSet();
-    headAndTailDominators.add(sourceBlock);
-    while (sourceBlock.hasUniqueSuccessor()) {
-      sourceBlock = sourceBlock.getUniqueSuccessor();
-      if (!headAndTailDominators.add(sourceBlock)) {
+    headAndTailDominators.add(subgraphEntryBlock);
+    while (subgraphEntryBlock.hasUniqueSuccessor()) {
+      subgraphEntryBlock = subgraphEntryBlock.getUniqueSuccessor();
+      if (!headAndTailDominators.add(subgraphEntryBlock)) {
         // Hit an infinite loop. Code would not verify in this case.
         assert false;
         return FALSE_CHECKER;
       }
-      if (sourceBlock == destBlock) {
+      if (subgraphEntryBlock == subgraphExitBlock) {
         // As of Nov 2023: in Chrome for String.format() optimization, a linear path from
         // source->dest was 14% of cases.
         return new PrecomputedDominatorChecker(headAndTailDominators);
       }
     }
-    if (sourceBlock.getSuccessors().isEmpty()) {
+    if (subgraphEntryBlock.getSuccessors().isEmpty()) {
       return FALSE_CHECKER;
     }
 
-    // Shrink the subgraph by moving destBlock back to the first block with multiple predecessors.
-    headAndTailDominators.add(destBlock);
-    while (destBlock.hasUniquePredecessor()) {
-      destBlock = destBlock.getUniquePredecessor();
-      if (!headAndTailDominators.add(destBlock)) {
-        if (sourceBlock == destBlock) {
-          // This normally happens when moving sourceBlock forwards, but when moving destBlock
-          // backwards when sourceBlock has multiple successors.
+    // Shrink the subgraph by moving subgraphExitBlock back to the first block with multiple
+    // predecessors.
+    headAndTailDominators.add(subgraphExitBlock);
+    while (subgraphExitBlock.hasUniquePredecessor()) {
+      subgraphExitBlock = subgraphExitBlock.getUniquePredecessor();
+      if (!headAndTailDominators.add(subgraphExitBlock)) {
+        if (subgraphEntryBlock == subgraphExitBlock) {
+          // This normally happens when moving subgraphEntryBlock forwards, but can also occur when
+          // moving subgraphExitBlock backwards when subgraphEntryBlock has multiple successors.
           return new PrecomputedDominatorChecker(headAndTailDominators);
         }
         // Hit an infinite loop. Code would not verify in this case.
@@ -165,10 +164,28 @@ public interface DominatorChecker {
       }
     }
 
-    if (destBlock.isEntry()) {
+    if (subgraphExitBlock.isEntry()) {
       return FALSE_CHECKER;
     }
 
-    return new TraversingDominatorChecker(sourceBlock, destBlock, headAndTailDominators);
+    return new TraversingDominatorChecker(
+        subgraphEntryBlock, subgraphExitBlock, headAndTailDominators);
+  }
+
+  /**
+   * Returns whether targetBlock dominates subgraphExitBlock by performing a depth-first traversal
+   * from subgraphExitBlock to subgraphEntryBlock with targetBlock removed from the graph.
+   */
+  @SuppressWarnings("InconsistentOverloads")
+  static boolean check(
+      BasicBlock subgraphEntryBlock, BasicBlock subgraphExitBlock, BasicBlock targetBlock) {
+    if (targetBlock == subgraphExitBlock) {
+      return true;
+    }
+    if (subgraphEntryBlock == subgraphExitBlock) {
+      return false;
+    }
+    return TraversingDominatorChecker.checkWithTraversal(
+        subgraphEntryBlock, subgraphExitBlock, targetBlock, WorkList.newIdentityWorkList());
   }
 }

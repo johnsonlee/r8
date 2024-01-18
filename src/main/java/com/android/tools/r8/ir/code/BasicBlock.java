@@ -438,6 +438,17 @@ public class BasicBlock {
     }
   }
 
+  public void removeAllExceptionalSuccessors() {
+    assert hasCatchHandlers();
+    IntList successorsToRemove = new IntArrayList();
+    int numberOfExceptionalSuccessors = numberOfExceptionalSuccessors();
+    for (int i = 0; i < numberOfExceptionalSuccessors; i++) {
+      successorsToRemove.add(i);
+      successors.get(i).getMutablePredecessors().remove(this);
+    }
+    removeSuccessorsByIndex(successorsToRemove);
+  }
+
   public void swapSuccessors(BasicBlock a, BasicBlock b) {
     assert a != b;
     int aIndex = successors.indexOf(a);
@@ -1149,6 +1160,36 @@ public class BasicBlock {
       assert lastIndex == lastSuccessorIndex // All successors are catch successors.
           || lastIndex == lastSuccessorIndex - 1; // All but one successors are catch successors.
       assert lastIndex == lastSuccessorIndex || !exit().isThrow();
+    }
+    return true;
+  }
+
+  private boolean isExceptionTrampoline() {
+    boolean ret = instructions.size() == 2 && entry().isMoveException() && exit().isGoto();
+    assert !ret || !hasCatchHandlers() : "Trampoline should not have catch handlers";
+    return ret;
+  }
+
+  /** Returns whether the given blocks are in the same try block. */
+  public boolean hasEquivalentCatchHandlers(BasicBlock other) {
+    if (this == other) {
+      return true;
+    }
+    List<Integer> targets1 = catchHandlers.getAllTargets();
+    List<Integer> targets2 = other.catchHandlers.getAllTargets();
+    int numHandlers = targets1.size();
+    if (numHandlers != targets2.size()) {
+      return false;
+    }
+    // If all catch handlers are trampolines to the same block, then they are from the same try.
+    for (int i = 0; i < numHandlers; ++i) {
+      BasicBlock catchBlock1 = successors.get(targets1.get(i));
+      BasicBlock catchBlock2 = other.successors.get(targets2.get(i));
+      if (!catchBlock1.isExceptionTrampoline()
+          || !catchBlock2.isExceptionTrampoline()
+          || catchBlock1.getUniqueSuccessor() != catchBlock2.getUniqueSuccessor()) {
+        return false;
+      }
     }
     return true;
   }
