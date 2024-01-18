@@ -710,7 +710,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     setDynamicType(newDynamicType);
   }
 
-  private MutableMethodOptimizationInfo setDynamicType(DynamicType dynamicType) {
+  public MutableMethodOptimizationInfo setDynamicType(DynamicType dynamicType) {
     assert !dynamicType.hasDynamicUpperBoundType()
         || !dynamicType.asDynamicTypeWithUpperBound().getDynamicUpperBoundType().isPrimitiveType();
     this.dynamicType = dynamicType;

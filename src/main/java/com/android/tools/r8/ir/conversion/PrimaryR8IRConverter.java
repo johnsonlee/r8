@@ -430,10 +430,6 @@ public class PrimaryR8IRConverter extends IRConverter {
     if (inliner != null) {
       inliner.onLastWaveDone(postMethodProcessorBuilder, executorService, timing);
     }
-    if (instanceInitializerOutliner != null) {
-      instanceInitializerOutliner.onLastWaveDone(postMethodProcessorBuilder);
-      instanceInitializerOutliner = null;
-    }
     if (serviceLoaderRewriter != null) {
       serviceLoaderRewriter.onLastWaveDone(postMethodProcessorBuilder);
       serviceLoaderRewriter = null;

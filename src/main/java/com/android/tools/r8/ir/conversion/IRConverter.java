@@ -85,7 +85,6 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.shaking.LibraryMethodOverrideAnalysis;
 import com.android.tools.r8.utils.Action;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -129,7 +128,6 @@ public class IRConverter {
   protected ServiceLoaderRewriter serviceLoaderRewriter;
   protected final EnumUnboxer enumUnboxer;
   protected final NumberUnboxer numberUnboxer;
-  protected InstanceInitializerOutliner instanceInitializerOutliner;
   protected final RemoveVerificationErrorForUnknownReturnedValues
       removeVerificationErrorForUnknownReturnedValues;
 
@@ -218,7 +216,6 @@ public class IRConverter {
       this.enumUnboxer = EnumUnboxer.empty();
       this.numberUnboxer = NumberUnboxer.empty();
       this.assumeInserter = null;
-      this.instanceInitializerOutliner = null;
       this.removeVerificationErrorForUnknownReturnedValues = null;
       return;
     }
@@ -230,13 +227,6 @@ public class IRConverter {
         options.processCovariantReturnTypeAnnotations
             ? new CovariantReturnTypeAnnotationTransformer(appView, this)
             : null;
-    if (appView.options().desugarState.isOn()
-        && appView.options().apiModelingOptions().enableOutliningOfMethods
-        && appView.options().getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L)) {
-      this.instanceInitializerOutliner = new InstanceInitializerOutliner(appView);
-    } else {
-      this.instanceInitializerOutliner = null;
-    }
     removeVerificationErrorForUnknownReturnedValues =
         (appView.options().apiModelingOptions().enableLibraryApiModeling
                 && appView.options().canHaveVerifyErrorForUnknownUnusedReturnValue())
@@ -652,12 +642,9 @@ public class IRConverter {
     timing.end();
     previous = printMethod(code, "IR after enum-switch optimization (SSA)", previous);
 
-    if (instanceInitializerOutliner != null) {
-      instanceInitializerOutliner.rewriteInstanceInitializers(
-          code, context, methodProcessor, methodProcessingContext);
-      assert code.verifyTypes(appView);
-      previous = printMethod(code, "IR after instance initializer outlining (SSA)", previous);
-    }
+    new InstanceInitializerOutliner(appView)
+        .run(code, methodProcessor, methodProcessingContext, timing);
+    previous = printMethod(code, "IR after instance initializer outlining (SSA)", previous);
 
     // Update the IR code if collected call site optimization info has something useful.
     // While aggregation of parameter information at call sites would be more precise than static

@@ -17,6 +17,10 @@ public abstract class MethodProcessor {
     return null;
   }
 
+  public boolean isD8MethodProcessor() {
+    return false;
+  }
+
   public boolean isPrimaryMethodProcessor() {
     return false;
   }

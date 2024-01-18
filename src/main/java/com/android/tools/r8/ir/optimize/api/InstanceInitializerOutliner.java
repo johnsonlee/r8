@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.AndroidApiLevelUtils.isOutlinedAtSameOr
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
+import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -16,7 +17,6 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
@@ -29,13 +29,14 @@ import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
-import com.android.tools.r8.ir.conversion.PostMethodProcessor;
-import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
+import com.android.tools.r8.ir.conversion.passes.CodeRewriterPass;
+import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
+import com.android.tools.r8.ir.optimize.info.DefaultMethodOptimizationInfo;
 import com.android.tools.r8.ir.synthetic.ForwardMethodBuilder;
 import com.android.tools.r8.ir.synthetic.NewInstanceSourceCode;
 import com.android.tools.r8.shaking.ComputeApiLevelUseRegistry;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.google.common.collect.Sets;
-import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,32 +47,21 @@ import java.util.Set;
  * Unlike the ApiInvokeOutlinerDesugaring that works on CF, this works on IR to properly replace the
  * users of the NewInstance call.
  */
-public class InstanceInitializerOutliner {
+public class InstanceInitializerOutliner extends CodeRewriterPass<AppInfo> {
 
-  private final AppView<?> appView;
   private final DexItemFactory factory;
 
-  private final List<ProgramMethod> synthesizedMethods = new ArrayList<>();
-
   public InstanceInitializerOutliner(AppView<?> appView) {
-    this.appView = appView;
+    super(appView);
     this.factory = appView.dexItemFactory();
   }
 
-  public List<ProgramMethod> getSynthesizedMethods() {
-    return synthesizedMethods;
-  }
-
-  public void rewriteInstanceInitializers(
+  @Override
+  protected CodeRewriterResult rewriteCode(
       IRCode code,
-      ProgramMethod context,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext) {
     assert !methodProcessor.isPostMethodProcessor();
-    // Do not outline from already synthesized methods.
-    if (context.getDefinition().isD8R8Synthesized()) {
-      return;
-    }
     Map<NewInstance, Value> rewrittenNewInstances = new IdentityHashMap<>();
     ComputedApiLevel minApiLevel = appView.computedMinApiLevel();
     InstructionListIterator iterator = code.instructionListIterator();
@@ -104,7 +94,7 @@ public class InstanceInitializerOutliner {
         continue;
       }
       // Check if this is already outlined.
-      if (isOutlinedAtSameOrLowerLevel(context.getHolder(), apiReferenceLevel)) {
+      if (isOutlinedAtSameOrLowerLevel(code.context().getHolder(), apiReferenceLevel)) {
         continue;
       }
       DexEncodedMethod synthesizedInstanceInitializer =
@@ -125,7 +115,7 @@ public class InstanceInitializerOutliner {
       rewrittenNewInstances.put(newInstance, outlinedMethodInvoke.outValue());
     }
     if (rewrittenNewInstances.isEmpty()) {
-      return;
+      return CodeRewriterResult.NO_CHANGE;
     }
     // Scan over NewInstance calls that needs to be outlined. We insert a call to a synthetic method
     // with a NewInstance to preserve class-init semantics.
@@ -173,14 +163,10 @@ public class InstanceInitializerOutliner {
     // the outline again in R8 - but allow inlining of other calls to min api level methods, we have
     // to recompute the api level.
     if (appView.enableWholeProgramOptimizations()) {
-      recomputeApiLevel(context, code);
+      recomputeApiLevel(code.context(), code);
     }
 
-    assert code.isConsistentSSA(appView);
-  }
-
-  public void onLastWaveDone(PostMethodProcessor.Builder postMethodProcessorBuilder) {
-    postMethodProcessorBuilder.addAll(synthesizedMethods, appView.graphLens());
+    return CodeRewriterResult.HAS_CHANGED;
   }
 
   private boolean canSkipClInit(
@@ -249,9 +235,7 @@ public class InstanceInitializerOutliner {
     methodProcessor
         .getEventConsumer()
         .acceptInstanceInitializerOutline(method, methodProcessingContext.getMethodContext());
-    synchronized (synthesizedMethods) {
-      synthesizedMethods.add(method);
-    }
+    methodProcessor.scheduleDesugaredMethodForProcessing(method);
     return method.getDefinition();
   }
 
@@ -271,31 +255,56 @@ public class InstanceInitializerOutliner {
                 kinds -> kinds.API_MODEL_OUTLINE,
                 methodProcessingContext.createUniqueContext(),
                 appView,
-                builder ->
-                    builder
-                        .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
-                        .setProto(proto)
-                        .setApiLevelForDefinition(appView.computedMinApiLevel())
-                        .setApiLevelForCode(computedApiLevel)
-                        .setCode(
-                            m ->
-                                ForwardMethodBuilder.builder(appView.dexItemFactory())
-                                    .setConstructorTargetWithNewInstance(targetMethod)
-                                    .setStaticSource(m)
-                                    .build()));
+                builder -> {
+                  DynamicType exactDynamicReturnType =
+                      DynamicType.createExact(
+                          targetMethod
+                              .getHolderType()
+                              .toTypeElement(appView, Nullability.definitelyNotNull())
+                              .asClassType());
+                  builder
+                      .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
+                      .setProto(proto)
+                      .setApiLevelForDefinition(appView.computedMinApiLevel())
+                      .setApiLevelForCode(computedApiLevel)
+                      .setCode(
+                          m ->
+                              ForwardMethodBuilder.builder(appView.dexItemFactory())
+                                  .setConstructorTargetWithNewInstance(targetMethod)
+                                  .setStaticSource(m)
+                                  .build())
+                      .setOptimizationInfo(
+                          DefaultMethodOptimizationInfo.getInstance()
+                              .toMutableOptimizationInfo()
+                              .setDynamicType(exactDynamicReturnType));
+                });
     methodProcessor
         .getEventConsumer()
         .acceptInstanceInitializerOutline(method, methodProcessingContext.getMethodContext());
-    synchronized (synthesizedMethods) {
-      synthesizedMethods.add(method);
-      ClassTypeElement exactType =
-          targetMethod
-              .getHolderType()
-              .toTypeElement(appView, Nullability.definitelyNotNull())
-              .asClassType();
-      OptimizationFeedback.getSimpleFeedback()
-          .setDynamicReturnType(method, appView, DynamicType.createExact(exactType));
-    }
+    methodProcessor.scheduleDesugaredMethodForProcessing(method);
     return method.getDefinition();
+  }
+
+  @Override
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
+    if (!appView.options().desugarState.isOn()
+        || !appView.options().apiModelingOptions().enableOutliningOfMethods
+        || !appView.options().getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L)) {
+      return false;
+    }
+    // Only outline in primary optimization pass.
+    if (!methodProcessor.isD8MethodProcessor() && !methodProcessor.isPrimaryMethodProcessor()) {
+      return false;
+    }
+    // Do not outline from already synthesized methods.
+    if (code.context().getDefinition().isD8R8Synthesized()) {
+      return false;
+    }
+    return true;
+  }
+
+  @Override
+  protected String getRewriterId() {
+    return "InstanceInitializerOutliner";
   }
 }

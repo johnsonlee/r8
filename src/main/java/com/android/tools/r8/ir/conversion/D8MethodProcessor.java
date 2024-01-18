@@ -67,6 +67,11 @@ public class D8MethodProcessor extends MethodProcessor {
   }
 
   @Override
+  public boolean isD8MethodProcessor() {
+    return true;
+  }
+
+  @Override
   public boolean isProcessedConcurrently(ProgramMethod method) {
     // In D8 all methods are considered independently compiled.
     return true;

@@ -71,10 +71,6 @@ public class PrimaryD8L8IRConverter extends IRConverter {
     reportNestDesugarDependencies();
     clearNestAttributes();
 
-    if (instanceInitializerOutliner != null) {
-      processSimpleSynthesizeMethods(
-          instanceInitializerOutliner.getSynthesizedMethods(), executorService);
-    }
     if (assertionErrorTwoArgsConstructorRewriter != null) {
       processSimpleSynthesizeMethods(
           assertionErrorTwoArgsConstructorRewriter.getSynthesizedMethods(), executorService);
