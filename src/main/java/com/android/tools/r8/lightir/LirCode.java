@@ -36,9 +36,9 @@ import com.android.tools.r8.lightir.LirConstant.LirConstantStructuralAcceptor;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.ComparatorUtils;
+import com.android.tools.r8.utils.FastMapUtils;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
@@ -202,28 +202,11 @@ public class LirCode<EV> extends Code
     }
 
     public TryCatchTable rewriteWithLens(GraphLens graphLens, GraphLens codeLens) {
-      Int2ReferenceMap<CatchHandlers<Integer>> newTryCatchHandlers = null;
-      for (Int2ReferenceMap.Entry<CatchHandlers<Integer>> entry :
-          tryCatchHandlers.int2ReferenceEntrySet()) {
-        int block = entry.getIntKey();
-        CatchHandlers<Integer> blockHandlers = entry.getValue();
-        CatchHandlers<Integer> newBlockHandlers =
-            blockHandlers.rewriteWithLens(graphLens, codeLens);
-        if (newTryCatchHandlers == null) {
-          if (ObjectUtils.identical(newBlockHandlers, blockHandlers)) {
-            continue;
-          }
-          newTryCatchHandlers = new Int2ReferenceOpenHashMap<>(tryCatchHandlers.size());
-          for (Int2ReferenceMap.Entry<CatchHandlers<Integer>> previousEntry :
-              tryCatchHandlers.int2ReferenceEntrySet()) {
-            if (previousEntry == entry) {
-              break;
-            }
-            newTryCatchHandlers.put(previousEntry.getIntKey(), previousEntry.getValue());
-          }
-        }
-        newTryCatchHandlers.put(block, newBlockHandlers);
-      }
+      Int2ReferenceMap<CatchHandlers<Integer>> newTryCatchHandlers =
+          FastMapUtils.mapInt2ReferenceOpenHashMapOrElse(
+              tryCatchHandlers,
+              (block, blockHandlers) -> blockHandlers.rewriteWithLens(graphLens, codeLens),
+              null);
       return newTryCatchHandlers != null ? new TryCatchTable(newTryCatchHandlers) : this;
     }
 
