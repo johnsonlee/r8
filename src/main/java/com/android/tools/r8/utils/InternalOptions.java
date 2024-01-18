@@ -65,14 +65,11 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.ResourceAccessAnalysis;
-import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
-import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.analysis.proto.ProtoReferences;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.desugar.TypeRewriter;
 import com.android.tools.r8.ir.desugar.TypeRewriter.MachineTypeRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
@@ -80,9 +77,6 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.Mac
 import com.android.tools.r8.ir.desugar.nest.Nest;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
-import com.android.tools.r8.lightir.IR2LirConverter;
-import com.android.tools.r8.lightir.LirCode;
-import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.naming.MapConsumer;
 import com.android.tools.r8.naming.MapVersion;
@@ -133,8 +127,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -2200,56 +2192,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     private LirPhase currentPhase = LirPhase.PRE;
 
-    public void enterLirSupportedPhase(AppView<?> appView, ExecutorService executorService)
-        throws ExecutionException {
+    public void enterLirSupportedPhase() {
       assert isPreLirPhase();
       currentPhase = LirPhase.SUPPORTED;
-      if (!canUseLir(appView)) {
-        return;
-      }
-      // Convert code objects to LIR.
-      ThreadUtils.processItems(
-          appView.appInfo().classes(),
-          clazz -> {
-            // TODO(b/225838009): Also convert instance initializers to LIR, by adding support for
-            //  computing the inlining constraint for LIR and using that in the class mergers, and
-            //  class initializers, by updating the concatenation of clinits in horizontal class
-            //  merging.
-            clazz.forEachProgramMethodMatching(
-                method ->
-                    method.hasCode()
-                        && !method.isInitializer()
-                        && !appView.isCfByteCodePassThrough(method),
-                method -> {
-                  IRCode code =
-                      method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
-                  LirCode<Integer> lirCode =
-                      IR2LirConverter.translate(
-                          code,
-                          BytecodeMetadataProvider.empty(),
-                          LirStrategy.getDefaultStrategy().getEncodingStrategy(),
-                          appView.options());
-                  // TODO(b/312890994): Setting a custom code lens is only needed until we convert
-                  //  code objects to LIR before we create the first code object with a custom code
-                  //  lens (horizontal class merging).
-                  GraphLens codeLens = method.getDefinition().getCode().getCodeLens(appView);
-                  if (codeLens != appView.codeLens()) {
-                    lirCode =
-                        new LirCode<>(lirCode) {
-                          @Override
-                          public GraphLens getCodeLens(AppView<?> appView) {
-                            return codeLens;
-                          }
-                        };
-                  }
-                  method.setCode(lirCode, appView);
-                });
-          },
-          appView.options().getThreadingModule(),
-          executorService);
-      // Conversion to LIR via IR will allocate type elements.
-      // They are not needed after construction so remove them again.
-      appView.dexItemFactory().clearTypeElementsCache();
     }
 
     public void exitLirSupportedPhase() {

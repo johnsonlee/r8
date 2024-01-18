@@ -37,6 +37,7 @@ import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAn
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.PrimaryR8IRConverter;
@@ -508,7 +509,7 @@ public class R8 {
               initialRuntimeTypeCheckInfoBuilder.build(appView.graphLens()));
 
       // TODO(b/225838009): Horizontal merging currently assumes pre-phase CF conversion.
-      appView.testing().enterLirSupportedPhase(appView, executorService);
+      LirConverter.enterLirSupportedPhase(appView, executorService);
 
       new ProtoNormalizer(appViewWithLiveness).run(executorService, timing);
 
@@ -715,8 +716,11 @@ public class R8 {
         SyntheticFinalization.finalizeWithClassHierarchy(appView, executorService, timing);
       }
 
+      // Rewrite LIR with lens to allow building IR from LIR in class mergers.
+      LirConverter.rewriteLirWithLens(appView, timing, executorService);
+
       // TODO(b/225838009): Move further down.
-      PrimaryR8IRConverter.finalizeLirToOutputFormat(appView, timing, executorService);
+      LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
 
       // Read any -applymapping input to allow for repackaging to not relocate the classes.
       timing.begin("read -applymapping file");

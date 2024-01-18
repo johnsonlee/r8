@@ -6,28 +6,17 @@ package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
-import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.ir.analysis.fieldaccess.TrivialFieldAccessReprocessor;
-import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
-import com.android.tools.r8.ir.optimize.ConstantCanonicalizer;
-import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.ir.optimize.info.MethodResolutionOptimizationInfoAnalysis;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
-import com.android.tools.r8.lightir.LirCode;
-import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagator;
 import com.android.tools.r8.optimize.compose.ComposableOptimizationPass;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.io.IOException;
@@ -237,139 +226,6 @@ public class PrimaryR8IRConverter extends IRConverter {
     // Assure that no more optimization feedback left after post processing.
     assert feedback.noUpdatesLeft();
     return appView.appInfo().app();
-  }
-
-  public static void finalizeLirToOutputFormat(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      Timing timing,
-      ExecutorService executorService)
-      throws ExecutionException {
-    appView.testing().exitLirSupportedPhase();
-    if (!appView.testing().canUseLir(appView)) {
-      return;
-    }
-    LensCodeRewriterUtils rewriterUtils = new LensCodeRewriterUtils(appView, true);
-    DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
-    String output = appView.options().isGeneratingClassFiles() ? "CF" : "DEX";
-    timing.begin("LIR->IR->" + output);
-    ThreadUtils.processItems(
-        appView.appInfo().classes(),
-        clazz ->
-            clazz.forEachProgramMethod(
-                m -> finalizeLirMethodToOutputFormat(m, deadCodeRemover, appView, rewriterUtils)),
-        appView.options().getThreadingModule(),
-        executorService);
-    appView
-        .getSyntheticItems()
-        .getPendingSyntheticClasses()
-        .forEach(
-            clazz ->
-                clazz.forEachProgramMethod(
-                    m ->
-                        finalizeLirMethodToOutputFormat(
-                            m, deadCodeRemover, appView, rewriterUtils)));
-    timing.end();
-    // Clear the reference type cache after conversion to reduce memory pressure.
-    appView.dexItemFactory().clearTypeElementsCache();
-    // At this point all code has been mapped according to the graph lens.
-    updateCodeLens(appView);
-  }
-
-  private static void updateCodeLens(AppView<? extends AppInfoWithClassHierarchy> appView) {
-    final NonIdentityGraphLens lens = appView.graphLens().asNonIdentityLens();
-    if (lens == null) {
-      assert false;
-      return;
-    }
-
-    // If the current graph lens is the member rebinding identity lens then code lens is simply
-    // the previous lens. This is the same structure as the more complicated case below but where
-    // there is no need to rewrite any previous pointers.
-    if (lens.isMemberRebindingIdentityLens()) {
-      appView.setCodeLens(lens.getPrevious());
-      return;
-    }
-
-    // Otherwise search out where the lens pointing to the member rebinding identity lens.
-    NonIdentityGraphLens lensAfterMemberRebindingIdentityLens =
-        lens.find(p -> p.getPrevious().isMemberRebindingIdentityLens());
-    if (lensAfterMemberRebindingIdentityLens == null) {
-      // With the current compiler structure we expect to always find the lens.
-      assert false;
-      appView.setCodeLens(lens);
-      return;
-    }
-
-    GraphLens codeLens = appView.codeLens();
-    MemberRebindingIdentityLens memberRebindingIdentityLens =
-        lensAfterMemberRebindingIdentityLens.getPrevious().asMemberRebindingIdentityLens();
-
-    // We are assuming that the member rebinding identity lens is always installed after the current
-    // applied lens/code lens and also that there should not be a rebinding lens from the compilers
-    // first phase (this subroutine is only used after IR conversion for now).
-    assert memberRebindingIdentityLens
-        == lens.findPrevious(
-            p -> p == memberRebindingIdentityLens || p == codeLens || p.isMemberRebindingLens());
-
-    // Rewrite the graph lens effects from 'lens' and up to the member rebinding identity lens.
-    MemberRebindingIdentityLens rewrittenMemberRebindingLens =
-        memberRebindingIdentityLens.toRewrittenMemberRebindingIdentityLens(
-            appView, lens, memberRebindingIdentityLens, lens);
-
-    // The current previous pointers for the graph lenses are:
-    //   lens -> ... -> lensAfterMemberRebindingIdentityLens -> memberRebindingIdentityLens -> g
-    // we rewrite them now to:
-    //   rewrittenMemberRebindingLens -> lens -> ... -> lensAfterMemberRebindingIdentityLens -> g
-
-    // The above will construct the new member rebinding lens such that it points to the new
-    // code-lens point already.
-    assert rewrittenMemberRebindingLens.getPrevious() == lens;
-
-    // Update the previous pointer on the new code lens to jump over the old member rebinding
-    // identity lens.
-    lensAfterMemberRebindingIdentityLens.setPrevious(memberRebindingIdentityLens.getPrevious());
-
-    // The applied lens can now be updated and the rewritten member rebinding lens installed as
-    // the current "unapplied lens".
-    appView.setCodeLens(lens);
-    appView.setGraphLens(rewrittenMemberRebindingLens);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private static void finalizeLirMethodToOutputFormat(
-      ProgramMethod method,
-      DeadCodeRemover deadCodeRemover,
-      AppView<?> appView,
-      LensCodeRewriterUtils rewriterUtils) {
-    Code code = method.getDefinition().getCode();
-    if (!(code instanceof LirCode)) {
-      return;
-    }
-    Timing onThreadTiming = Timing.empty();
-    LirCode<Integer> lirCode = code.asLirCode();
-    LirCode<Integer> rewrittenLirCode =
-        lirCode.rewriteWithSimpleLens(method, appView, rewriterUtils);
-    if (lirCode != rewrittenLirCode) {
-      method.setCode(rewrittenLirCode, appView);
-    }
-    IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
-    FilledNewArrayRewriter filledNewArrayRewriter = new FilledNewArrayRewriter(appView);
-    boolean changed = filledNewArrayRewriter.run(irCode, onThreadTiming).hasChanged().toBoolean();
-    if (appView.options().isGeneratingDex() && changed) {
-      ConstantCanonicalizer constantCanonicalizer =
-          new ConstantCanonicalizer(appView, method, irCode);
-      constantCanonicalizer.canonicalize();
-    }
-    // Processing is done and no further uses of the meta-data should arise.
-    BytecodeMetadataProvider noMetadata = BytecodeMetadataProvider.empty();
-    // During processing optimization info may cause previously live code to become dead.
-    // E.g., we may now have knowledge that an invoke does not have side effects.
-    // Thus, we re-run the dead-code remover now as it is assumed complete by CF/DEX finalization.
-    deadCodeRemover.run(irCode, onThreadTiming);
-    MethodConversionOptions conversionOptions = irCode.getConversionOptions();
-    assert !conversionOptions.isGeneratingLir();
-    IRFinalizer<?> finalizer = conversionOptions.getFinalizer(deadCodeRemover, appView);
-    method.setCode(finalizer.finalizeCode(irCode, noMetadata, onThreadTiming), appView);
   }
 
   private void clearDexMethodCompilationState() {
