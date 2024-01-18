@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.utils.CollectionUtils;
@@ -139,7 +140,7 @@ public class ParentConstructorHoistingCodeRewriter
 
   /** Only run this when the rewriting may actually enable more constructor inlining. */
   @Override
-  protected boolean shouldRewriteCode(IRCode code) {
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
     if (!appView.hasClassHierarchy()) {
       return false;
     }

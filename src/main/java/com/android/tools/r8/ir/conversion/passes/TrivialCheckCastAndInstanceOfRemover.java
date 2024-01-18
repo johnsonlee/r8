@@ -46,7 +46,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
   }
 
   @Override
-  protected boolean shouldRewriteCode(IRCode code) {
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
     return appView.enableWholeProgramOptimizations()
         && appView.options().testing.enableCheckCastAndInstanceOfRemoval
         && (code.metadata().mayHaveCheckCast() || code.metadata().mayHaveInstanceOf());

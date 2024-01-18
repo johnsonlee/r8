@@ -13,6 +13,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.utils.ListUtils;
@@ -38,7 +39,7 @@ public class SplitBranch extends CodeRewriterPass<AppInfo> {
   }
 
   @Override
-  protected boolean shouldRewriteCode(IRCode code) {
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
     // This is relevant only if there is a diamond followed by an if which is a minimum of 6 blocks.
     return code.metadata().mayHaveIf() && code.getBlocks().size() >= 6;
   }

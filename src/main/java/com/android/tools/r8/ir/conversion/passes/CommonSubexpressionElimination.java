@@ -15,6 +15,7 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.base.Equivalence;
@@ -35,7 +36,7 @@ public class CommonSubexpressionElimination extends CodeRewriterPass<AppInfo> {
   }
 
   @Override
-  protected boolean shouldRewriteCode(IRCode code) {
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
     return true;
   }
 

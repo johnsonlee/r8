@@ -29,6 +29,7 @@ import com.android.tools.r8.ir.code.Sub;
 import com.android.tools.r8.ir.code.Ushr;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.Xor;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.ImmutableMap;
@@ -244,7 +245,7 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
   }
 
   @Override
-  protected boolean shouldRewriteCode(IRCode code) {
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
     return options.testing.enableBinopOptimization
         && !isDebugMode(code.context())
         && code.metadata().mayHaveArithmeticOrLogicalBinop();

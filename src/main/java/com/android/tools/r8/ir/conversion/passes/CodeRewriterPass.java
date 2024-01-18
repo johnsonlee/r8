@@ -50,7 +50,7 @@ public abstract class CodeRewriterPass<T extends AppInfo> {
       IRCode code,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext) {
-    if (shouldRewriteCode(code)) {
+    if (shouldRewriteCode(code, methodProcessor)) {
       assert verifyConsistentCode(code, isAcceptingSSA(), "before");
       CodeRewriterResult result = rewriteCode(code, methodProcessor, methodProcessingContext);
       assert result.hasChanged().isFalse() || verifyConsistentCode(code, isProducingSSA(), "after");
@@ -100,5 +100,5 @@ public abstract class CodeRewriterPass<T extends AppInfo> {
     return rewriteCode(code);
   }
 
-  protected abstract boolean shouldRewriteCode(IRCode code);
+  protected abstract boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor);
 }

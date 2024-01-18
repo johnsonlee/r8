@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.utils.LazyBox;
 import it.unimi.dsi.fastutil.longs.Long2ReferenceMap;
@@ -51,7 +52,7 @@ public class RedundantConstNumberRemover extends CodeRewriterPass<AppInfo> {
   }
 
   @Override
-  protected boolean shouldRewriteCode(IRCode code) {
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
     if (appView.options().canHaveDalvikIntUsedAsNonIntPrimitiveTypeBug()
         && !appView.options().testing.forceRedundantConstNumberRemoval) {
       // See also b/124152497.
