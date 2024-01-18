@@ -10,15 +10,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.R8FullTestBuilder;
-import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -115,35 +115,32 @@ public class ConfigurationDebuggingTest extends TestBase {
             .inspect(this::inspect)
             .writeToZip();
 
-    R8FullTestBuilder builder =
-        testForR8(parameters.getBackend())
-            .addLibraryClasses(BaseClass.class, UninstantiatedClass.class, TestClass.class)
-            .addDefaultRuntimeLibrary(parameters)
-            .addProgramClasses(Caller.class)
-            .addKeepMainRule(Caller.class)
-            .setMinApi(parameters);
-    R8TestRunResult result =
-        builder
-            .compile()
-            .addRunClasspathFiles(firstRunArchive)
-            .run(parameters.getRuntime(), Caller.class);
-    // TODO(b/117302947): Dex runtime should be able to find that framework class.
-    if (parameters.isDexRuntime()) {
-      result.assertFailureWithErrorThatMatches(containsString("NoClassDefFoundError"));
-      result.assertFailureWithErrorThatMatches(containsString("android.util.Log"));
-      return;
-    }
-    result
-        .assertFailureWithErrorThatMatches(
-            containsString(createExpectedMessage(UninstantiatedClass.class)))
-        .assertFailureWithErrorThatMatches(containsString("void <init>()"))
-        .assertFailureWithErrorThatMatches(containsString("void <init>(java.lang.String)"))
-        .assertFailureWithErrorThatMatches(
-            containsString(createExpectedMessage(TestClass.class)))
-        .assertFailureWithErrorThatMatches(containsString("void foo(int,long)"))
-        .assertFailureWithErrorThatMatches(
-            containsString("void bar(" + PACKAGE_NAME + ".TestClass" +")"))
-        .assertFailureWithErrorThatMatches(containsString("Reaching the end"));
+    testForR8(parameters.getBackend())
+        .addLibraryClasses(BaseClass.class, UninstantiatedClass.class, TestClass.class)
+        .addDefaultRuntimeLibrary(parameters)
+        .addProgramClasses(Caller.class)
+        .addKeepMainRule(Caller.class)
+        .setMinApi(parameters)
+        .compile()
+        .addRunClasspathFiles(firstRunArchive)
+        .run(parameters.getRuntime(), Caller.class)
+        .applyIf(
+            parameters.isDexRuntime()
+                && parameters.getDexRuntimeVersion().isEqualToOneOf(Version.V5_1_1, Version.V6_0_1),
+            runResult -> runResult.assertFailureWithErrorThatThrows(FileNotFoundException.class),
+            runResult ->
+                runResult
+                    .assertFailureWithErrorThatMatches(
+                        containsString(createExpectedMessage(UninstantiatedClass.class)))
+                    .assertFailureWithErrorThatMatches(containsString("void <init>()"))
+                    .assertFailureWithErrorThatMatches(
+                        containsString("void <init>(java.lang.String)"))
+                    .assertFailureWithErrorThatMatches(
+                        containsString(createExpectedMessage(TestClass.class)))
+                    .assertFailureWithErrorThatMatches(containsString("void foo(int,long)"))
+                    .assertFailureWithErrorThatMatches(
+                        containsString("void bar(" + PACKAGE_NAME + ".TestClass" + ")"))
+                    .assertFailureWithErrorThatMatches(containsString("Reaching the end")));
   }
 
   private String createExpectedMessage(Class<?> clazz) {

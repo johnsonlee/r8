@@ -10,6 +10,8 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
+import java.io.FileNotFoundException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -39,13 +41,9 @@ public class ConfigurationDebuggingWithInliningTest extends TestBase {
         .run(parameters.getRuntime(), Main.class)
         // AddConfigurationDebugging will insert a call to android.util.log.
         .applyIf(
-            parameters.isDexRuntime(),
-            result ->
-                result
-                    .assertFailureWithErrorThatThrows(NoClassDefFoundError.class)
-                    .assertFailureWithErrorThatMatches(containsString("Landroid/util/Log;")))
-        .applyIf(
-            parameters.isCfRuntime(),
+            parameters.isDexRuntime()
+                && parameters.getDexRuntimeVersion().isEqualToOneOf(Version.V5_1_1, Version.V6_0_1),
+            result -> result.assertFailureWithErrorThatThrows(FileNotFoundException.class),
             result ->
                 result.assertFailureWithErrorThatMatches(
                     containsString("Missing method in " + typeName(Bar.class))));
