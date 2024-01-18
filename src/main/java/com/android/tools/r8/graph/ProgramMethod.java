@@ -204,18 +204,16 @@ public final class ProgramMethod extends DexClassAndMethod
     return appView.options().debug || getOrComputeReachabilitySensitive(appView);
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public ProgramMethod rewrittenWithLens(
       GraphLens lens, GraphLens appliedLens, DexDefinitionSupplier definitions) {
     DexMethod newMethod = lens.getRenamedMethodSignature(getReference(), appliedLens);
-    if (newMethod == getReference() && !getDefinition().isObsolete()) {
+    if (newMethod.isIdenticalTo(getReference()) && !getDefinition().isObsolete()) {
       assert verifyIsConsistentWithLookup(definitions);
       return this;
     }
     return asProgramMethodOrNull(definitions.definitionFor(newMethod));
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private boolean verifyIsConsistentWithLookup(DexDefinitionSupplier definitions) {
     DexClassAndMethod lookupMethod = definitions.definitionFor(getReference());
     assert getDefinition() == lookupMethod.getDefinition();
