@@ -8,14 +8,19 @@ import static com.android.tools.r8.TestBase.toDexType;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.verticalclassmerging.VerticallyMergedClasses;
+import java.util.HashSet;
+import java.util.Set;
 
 public class VerticallyMergedClassesInspector {
 
   private final DexItemFactory dexItemFactory;
   private final VerticallyMergedClasses verticallyMergedClasses;
+
+  private final Set<ClassReference> seen = new HashSet<>();
 
   public VerticallyMergedClassesInspector(
       DexItemFactory dexItemFactory, VerticallyMergedClasses verticallyMergedClasses) {
@@ -24,8 +29,7 @@ public class VerticallyMergedClassesInspector {
   }
 
   public VerticallyMergedClassesInspector assertMergedIntoSubtype(Class<?> clazz) {
-    assertTrue(verticallyMergedClasses.hasBeenMergedIntoSubtype(toDexType(clazz, dexItemFactory)));
-    return this;
+    return assertMergedIntoSubtype(Reference.classFromClass(clazz));
   }
 
   public VerticallyMergedClassesInspector assertMergedIntoSubtype(Class<?>... classes) {
@@ -39,6 +43,7 @@ public class VerticallyMergedClassesInspector {
     assertTrue(
         verticallyMergedClasses.hasBeenMergedIntoSubtype(
             toDexType(classReference, dexItemFactory)));
+    seen.add(classReference);
     return this;
   }
 
@@ -51,6 +56,13 @@ public class VerticallyMergedClassesInspector {
 
   public VerticallyMergedClassesInspector assertNoClassesMerged() {
     assertTrue(verticallyMergedClasses.isEmpty());
+    return this;
+  }
+
+  public VerticallyMergedClassesInspector assertNoOtherClassesMerged() {
+    for (DexType source : verticallyMergedClasses.getSources()) {
+      assertTrue(source.getTypeName(), seen.contains(source.asClassReference()));
+    }
     return this;
   }
 }
