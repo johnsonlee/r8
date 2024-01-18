@@ -9,7 +9,9 @@ import com.android.tools.r8.utils.LensUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Timing;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -101,5 +103,18 @@ public class FieldAccessInfoCollectionImpl
   public boolean verifyMappingIsOneToOne() {
     assert infos.values().size() == SetUtils.newIdentityHashSet(infos.values()).size();
     return true;
+  }
+
+  public FieldAccessInfoCollectionImpl withoutPrunedItems(PrunedItems prunedItems) {
+    Iterator<Entry<DexField, FieldAccessInfoImpl>> iterator = infos.entrySet().iterator();
+    while (iterator.hasNext()) {
+      Entry<DexField, FieldAccessInfoImpl> entry = iterator.next();
+      if (prunedItems.isRemoved(entry.getKey())) {
+        iterator.remove();
+      } else {
+        entry.setValue(entry.getValue().withoutPrunedItems(prunedItems));
+      }
+    }
+    return this;
   }
 }

@@ -8,6 +8,7 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.shaking.GraphReporter;
 import com.android.tools.r8.shaking.InstantiationReason;
@@ -144,14 +145,17 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
 
   @Override
   public ObjectAllocationInfoCollectionImpl rewrittenWithLens(
-      DexDefinitionSupplier definitions, GraphLens lens, Timing timing) {
+      DexDefinitionSupplier definitions, GraphLens lens, GraphLens appliedLens, Timing timing) {
     return timing.time(
-        "Rewrite ObjectAllocationInfoCollectionImpl", () -> rewrittenWithLens(definitions, lens));
+        "Rewrite ObjectAllocationInfoCollectionImpl",
+        () -> rewrittenWithLens(definitions, lens, appliedLens));
   }
 
   private ObjectAllocationInfoCollectionImpl rewrittenWithLens(
-      DexDefinitionSupplier definitions, GraphLens lens) {
-    return builder(true, null).rewrittenWithLens(this, definitions, lens).build(definitions);
+      DexDefinitionSupplier definitions, GraphLens lens, GraphLens appliedLens) {
+    return builder(true, null)
+        .rewrittenWithLens(this, definitions, lens, appliedLens)
+        .build(definitions);
   }
 
   public ObjectAllocationInfoCollectionImpl withoutPrunedItems(PrunedItems prunedItems) {
@@ -474,11 +478,12 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
     Builder rewrittenWithLens(
         ObjectAllocationInfoCollectionImpl objectAllocationInfos,
         DexDefinitionSupplier definitions,
-        GraphLens lens) {
+        GraphLens lens,
+        GraphLens appliedLens) {
       instantiatedHierarchy = null;
       objectAllocationInfos.classesWithoutAllocationSiteTracking.forEach(
           clazz -> {
-            DexType type = lens.lookupType(clazz.type);
+            DexType type = lens.lookupType(clazz.type, appliedLens);
             if (type.isPrimitiveType()) {
               return;
             }
@@ -488,7 +493,7 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
           });
       objectAllocationInfos.classesWithAllocationSiteTracking.forEach(
           (clazz, allocationSitesForClass) -> {
-            DexType type = lens.lookupType(clazz.type);
+            DexType type = lens.lookupType(clazz.type, appliedLens);
             if (type.isPrimitiveType()) {
               return;
             }
@@ -507,7 +512,7 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
           });
       for (DexProgramClass abstractType :
           objectAllocationInfos.interfacesWithUnknownSubtypeHierarchy) {
-        DexType type = lens.lookupType(abstractType.type);
+        DexType type = lens.lookupType(abstractType.type, appliedLens);
         if (type.isPrimitiveType()) {
           assert false;
           continue;
@@ -517,15 +522,19 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
         assert !interfacesWithUnknownSubtypeHierarchy.contains(rewrittenClass);
         interfacesWithUnknownSubtypeHierarchy.add(rewrittenClass);
       }
+      LensCodeRewriterUtils rewriter = new LensCodeRewriterUtils(definitions, lens, appliedLens);
       objectAllocationInfos.instantiatedLambdas.forEach(
           (iface, lambdas) -> {
-            DexType type = lens.lookupType(iface);
+            DexType type = lens.lookupType(iface, appliedLens);
             if (type.isPrimitiveType()) {
               assert false;
               return;
             }
-            // TODO(b/150277553): Rewrite lambda descriptor.
-            instantiatedLambdas.computeIfAbsent(type, ignoreKey(ArrayList::new)).addAll(lambdas);
+            List<LambdaDescriptor> newLambdas =
+                instantiatedLambdas.computeIfAbsent(type, ignoreKey(ArrayList::new));
+            for (LambdaDescriptor lambda : lambdas) {
+              newLambdas.add(lambda.rewrittenWithLens(lens, appliedLens, rewriter));
+            }
           });
       return this;
     }

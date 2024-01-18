@@ -13,6 +13,7 @@ import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Definition;
+import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
@@ -316,8 +317,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         pruneMethods(previous.bootstrapMethods, prunedItems, tasks),
         pruneMethods(previous.virtualMethodsTargetedByInvokeDirect, prunedItems, tasks),
         pruneMethods(previous.liveMethods, prunedItems, tasks),
-        previous.fieldAccessInfoCollection,
-        previous.methodAccessInfoCollection.withoutPrunedItems(prunedItems),
+        previous.fieldAccessInfoCollection.withoutPrunedItems(prunedItems),
+        previous.methodAccessInfoCollection.withoutPrunedContexts(prunedItems),
         previous.objectAllocationInfoCollection.withoutPrunedItems(prunedItems),
         pruneCallSites(previous.callSites, prunedItems),
         extendPinnedItems(previous, prunedItems.getAdditionalPinnedItems()),
@@ -1090,12 +1091,19 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return appInfoWithLiveness;
   }
 
+  public AppInfoWithLiveness rebuildWithLiveness(DexApplication application) {
+    return rebuildWithLiveness(getSyntheticItems().commit(application));
+  }
+
   public AppInfoWithLiveness rebuildWithLiveness(CommittedItems committedItems) {
     return new AppInfoWithLiveness(this, committedItems);
   }
 
   public AppInfoWithLiveness rewrittenWithLens(
-      DirectMappedDexApplication application, NonIdentityGraphLens lens, Timing timing) {
+      DirectMappedDexApplication application,
+      NonIdentityGraphLens lens,
+      GraphLens appliedLens,
+      Timing timing) {
     assert checkIfObsolete();
 
     // Switchmap classes should never be affected by renaming.
@@ -1126,7 +1134,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         lens.rewriteReferences(liveMethods),
         fieldAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens, timing),
         methodAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens, timing),
-        objectAllocationInfoCollection.rewrittenWithLens(definitionSupplier, lens, timing),
+        objectAllocationInfoCollection.rewrittenWithLens(
+            definitionSupplier, lens, appliedLens, timing),
         lens.rewriteCallSites(callSites, definitionSupplier, timing),
         keepInfo.rewrite(definitionSupplier, lens, application.options, timing),
         // Take any rule in case of collisions.

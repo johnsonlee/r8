@@ -17,7 +17,9 @@ import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.collections.ThrowingMap;
 import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
@@ -178,18 +180,18 @@ public class MethodAccessInfoCollection {
     }
   }
 
-  public MethodAccessInfoCollection withoutPrunedItems(PrunedItems prunedItems) {
+  public MethodAccessInfoCollection withoutPrunedContexts(PrunedItems prunedItems) {
     if (!fullyDestroyed) {
-      pruneItems(prunedItems, directInvokes);
-      pruneItems(prunedItems, interfaceInvokes);
-      pruneItems(prunedItems, staticInvokes);
-      pruneItems(prunedItems, superInvokes);
-      pruneItems(prunedItems, virtualInvokes);
+      pruneContexts(prunedItems, directInvokes);
+      pruneContexts(prunedItems, interfaceInvokes);
+      pruneContexts(prunedItems, staticInvokes);
+      pruneContexts(prunedItems, superInvokes);
+      pruneContexts(prunedItems, virtualInvokes);
     }
     return this;
   }
 
-  private static void pruneItems(
+  private static void pruneContexts(
       PrunedItems prunedItems, Map<DexMethod, ProgramMethodSet> invokes) {
     if (isThrowingMap(invokes)) {
       return;
@@ -210,6 +212,45 @@ public class MethodAccessInfoCollection {
                   });
               return contexts.isEmpty();
             });
+  }
+
+  public MethodAccessInfoCollection withoutPrunedItems(PrunedItems prunedItems) {
+    if (!fullyDestroyed) {
+      pruneItems(prunedItems, directInvokes);
+      pruneItems(prunedItems, interfaceInvokes);
+      pruneItems(prunedItems, staticInvokes);
+      pruneItems(prunedItems, superInvokes);
+      pruneItems(prunedItems, virtualInvokes);
+    }
+    return this;
+  }
+
+  private static void pruneItems(
+      PrunedItems prunedItems, Map<DexMethod, ProgramMethodSet> invokes) {
+    if (isThrowingMap(invokes)) {
+      return;
+    }
+    Iterator<Entry<DexMethod, ProgramMethodSet>> iterator = invokes.entrySet().iterator();
+    while (iterator.hasNext()) {
+      Entry<DexMethod, ProgramMethodSet> entry = iterator.next();
+      if (prunedItems.isRemoved(entry.getKey())) {
+        iterator.remove();
+      } else {
+        ProgramMethodSet contexts = entry.getValue();
+        contexts.removeIf(
+            context -> {
+              if (prunedItems.isRemoved(context.getReference())) {
+                return true;
+              }
+              assert prunedItems.getPrunedApp().definitionFor(context.getReference()) != null
+                  : "Expected method to be present: " + context.getReference().toSourceString();
+              return false;
+            });
+        if (contexts.isEmpty()) {
+          iterator.remove();
+        }
+      }
+    }
   }
 
   public boolean verify(AppView<AppInfoWithLiveness> appView) {

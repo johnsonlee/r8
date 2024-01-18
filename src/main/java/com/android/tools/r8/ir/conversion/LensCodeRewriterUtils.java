@@ -118,15 +118,19 @@ public class LensCodeRewriterUtils {
         .getName();
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public DexMethodHandle rewriteDexMethodHandle(
       DexMethodHandle methodHandle, MethodHandleUse use, ProgramMethod context) {
+    return rewriteDexMethodHandle(methodHandle, use, context.getReference());
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  public DexMethodHandle rewriteDexMethodHandle(
+      DexMethodHandle methodHandle, MethodHandleUse use, DexMethod context) {
     if (methodHandle.isMethodHandle()) {
       DexMethod invokedMethod = methodHandle.asMethod();
       MethodHandleType oldType = methodHandle.type;
       MethodLookupResult lensLookup =
-          graphLens.lookupMethod(
-              invokedMethod, context.getReference(), oldType.toInvokeType(), codeLens);
+          graphLens.lookupMethod(invokedMethod, context, oldType.toInvokeType(), codeLens);
       DexMethod rewrittenTarget = lensLookup.getReference();
       DexMethod actualTarget;
       MethodHandleType newType;
@@ -161,7 +165,7 @@ public class LensCodeRewriterUtils {
         }
       }
       if (newType != oldType || actualTarget != invokedMethod || rewrittenTarget != actualTarget) {
-        DexClass holder = definitions.definitionFor(actualTarget.holder, context);
+        DexClass holder = definitions.definitionFor(actualTarget.holder);
         boolean isInterface = holder != null ? holder.isInterface() : methodHandle.isInterface;
         return definitions
             .dexItemFactory()

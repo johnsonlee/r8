@@ -406,4 +406,10 @@ public class FieldAccessInfoImpl implements FieldAccessInfo {
     merged.writesWithContexts = writesWithContexts.join(impl.writesWithContexts);
     return merged;
   }
+
+  public FieldAccessInfoImpl withoutPrunedItems(PrunedItems prunedItems) {
+    readsWithContexts = readsWithContexts.withoutPrunedItems(prunedItems);
+    writesWithContexts = writesWithContexts.withoutPrunedItems(prunedItems);
+    return this;
+  }
 }

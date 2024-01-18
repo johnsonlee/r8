@@ -880,7 +880,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       testing().verticallyMergedClassesConsumer.accept(dexItemFactory(), verticallyMergedClasses);
     } else {
       assert this.verticallyMergedClasses != null;
-      assert verticallyMergedClasses.isEmpty();
     }
   }
 
@@ -1097,7 +1096,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
                 public void run(Timing timing) {
                   if (appView.hasLiveness()) {
                     result =
-                        appView.appInfoWithLiveness().rewrittenWithLens(application, lens, timing);
+                        appView
+                            .appInfoWithLiveness()
+                            .rewrittenWithLens(
+                                application, lens, appliedLensInModifiedLens, timing);
                   } else {
                     assert appView.hasClassHierarchy();
                     AppView<AppInfoWithClassHierarchy> appViewWithClassHierarchy =
@@ -1254,6 +1256,23 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
                 @Override
                 public boolean shouldRun() {
                   return !appView.getStartupProfile().isEmpty();
+                }
+              },
+              new ThreadTask() {
+                @Override
+                public void run(Timing timing) {
+                  ImmutableSet.Builder<DexMethod> cfByteCodePassThroughBuilder =
+                      ImmutableSet.builder();
+                  for (DexMethod method : appView.cfByteCodePassThrough) {
+                    cfByteCodePassThroughBuilder.add(
+                        lens.getRenamedMethodSignature(method, appliedLensInModifiedLens));
+                  }
+                  appView.cfByteCodePassThrough = cfByteCodePassThroughBuilder.build();
+                }
+
+                @Override
+                public boolean shouldRun() {
+                  return !appView.cfByteCodePassThrough.isEmpty();
                 }
               });
         });

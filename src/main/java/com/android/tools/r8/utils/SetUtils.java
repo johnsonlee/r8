@@ -6,9 +6,11 @@ package com.android.tools.r8.utils;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -115,8 +117,16 @@ public class SetUtils {
     return builder.build();
   }
 
-  public static <T, S> Set<T> mapIdentityHashSet(Set<S> set, Function<S, T> fn) {
+  public static <T, S> Set<T> mapIdentityHashSet(Collection<S> set, Function<S, T> fn) {
     Set<T> out = newIdentityHashSet(set.size());
+    for (S element : set) {
+      out.add(fn.apply(element));
+    }
+    return out;
+  }
+
+  public static <T, S> Set<T> mapLinkedHashSet(Collection<S> set, Function<S, T> fn) {
+    Set<T> out = new LinkedHashSet<>(set.size());
     for (S element : set) {
       out.add(fn.apply(element));
     }

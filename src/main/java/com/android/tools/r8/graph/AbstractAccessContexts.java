@@ -86,6 +86,8 @@ public abstract class AbstractAccessContexts {
   abstract AbstractAccessContexts rewrittenWithLens(
       DexDefinitionSupplier definitions, GraphLens lens);
 
+  abstract AbstractAccessContexts withoutPrunedItems(PrunedItems prunedItems);
+
   public static EmptyAccessContexts empty() {
     return EmptyAccessContexts.getInstance();
   }
@@ -154,6 +156,11 @@ public abstract class AbstractAccessContexts {
     @Override
     public AbstractAccessContexts join(AbstractAccessContexts contexts) {
       return contexts;
+    }
+
+    @Override
+    AbstractAccessContexts withoutPrunedItems(PrunedItems prunedItems) {
+      return this;
     }
   }
 
@@ -378,6 +385,14 @@ public abstract class AbstractAccessContexts {
       contexts.asConcrete().accessesWithContexts.forEach(addAllMethods);
       return new ConcreteAccessContexts(newAccessesWithContexts);
     }
+
+    @Override
+    AbstractAccessContexts withoutPrunedItems(PrunedItems prunedItems) {
+      for (ProgramMethodSet methodSet : accessesWithContexts.values()) {
+        methodSet.removeIf(method -> prunedItems.isRemoved(method.getReference()));
+      }
+      return this;
+    }
   }
 
   public static class UnknownAccessContexts extends AbstractAccessContexts {
@@ -438,6 +453,11 @@ public abstract class AbstractAccessContexts {
 
     @Override
     public AbstractAccessContexts join(AbstractAccessContexts contexts) {
+      return this;
+    }
+
+    @Override
+    AbstractAccessContexts withoutPrunedItems(PrunedItems prunedItems) {
       return this;
     }
   }

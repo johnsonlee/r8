@@ -43,5 +43,5 @@ public interface ObjectAllocationInfoCollection {
       AppInfo appInfo);
 
   ObjectAllocationInfoCollection rewrittenWithLens(
-      DexDefinitionSupplier definitions, GraphLens lens, Timing timing);
+      DexDefinitionSupplier definitions, GraphLens lens, GraphLens appliedLens, Timing timing);
 }
