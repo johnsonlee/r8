@@ -81,7 +81,7 @@ public class IllegalAccessDetector extends UseRegistryWithResult<Boolean, Progra
     DexType baseType =
         rewrittenMethod.getHolderType().toBaseType(appViewWithClassHierarchy.dexItemFactory());
     if (baseType.isClassType() && baseType.isSamePackage(getContext().getHolderType())) {
-      if (checkTypeReference(rewrittenMethod.getHolderType())) {
+      if (checkRewrittenTypeReference(rewrittenMethod.getHolderType())) {
         return checkFoundPackagePrivateAccess();
       }
       MethodResolutionResult resolutionResult =
