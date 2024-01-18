@@ -919,6 +919,7 @@ public class MethodOptimizationInfoCollector {
         feedback.classInitializerMayBePostponed(method);
       } else {
         assert options.debug
+                || appView.getSyntheticItems().isFinalized()
                 || appView
                     .getSyntheticItems()
                     .verifySyntheticLambdaProperty(
