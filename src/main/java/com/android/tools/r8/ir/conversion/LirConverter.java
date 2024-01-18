@@ -6,6 +6,8 @@ package com.android.tools.r8.ir.conversion;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
+import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -84,6 +86,7 @@ public class LirConverter {
     assert appView.testing().canUseLir(appView);
     assert appView.testing().isSupportedLirPhase();
     assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
+    assert verifyLirOnly(appView);
 
     GraphLens graphLens = appView.graphLens();
     assert graphLens.isNonIdentityLens();
@@ -151,6 +154,7 @@ public class LirConverter {
     assert appView.testing().canUseLir(appView);
     assert appView.testing().isSupportedLirPhase();
     assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
+    assert verifyLirOnly(appView);
     appView.testing().exitLirSupportedPhase();
     LensCodeRewriterUtils rewriterUtils = new LensCodeRewriterUtils(appView, true);
     DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
@@ -264,5 +268,17 @@ public class LirConverter {
     assert !conversionOptions.isGeneratingLir();
     IRFinalizer<?> finalizer = conversionOptions.getFinalizer(deadCodeRemover, appView);
     method.setCode(finalizer.finalizeCode(irCode, noMetadata, onThreadTiming), appView);
+  }
+
+  public static boolean verifyLirOnly(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      for (DexEncodedMethod method : clazz.methods(DexEncodedMethod::hasCode)) {
+        assert method.getCode().isLirCode()
+            || method.getCode().isSharedCodeObject()
+            || appView.isCfByteCodePassThrough(method)
+            || appView.options().skipIR;
+      }
+    }
+    return true;
   }
 }

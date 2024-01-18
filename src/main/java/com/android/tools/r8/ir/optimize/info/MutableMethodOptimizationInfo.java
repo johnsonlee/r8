@@ -33,7 +33,6 @@ import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionalBool;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.Set;
 
 public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
@@ -295,6 +294,10 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
       @SuppressWarnings("unused") DexEncodedMethod method, CallSiteOptimizationInfo argumentInfos) {
     this.argumentInfos = argumentInfos;
     return this;
+  }
+
+  public void unsetArgumentInfos() {
+    argumentInfos = CallSiteOptimizationInfo.top();
   }
 
   @Override
@@ -630,11 +633,16 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   }
 
   void markInitializesClassesOnNormalExit(Set<DexType> initializedClassesOnNormalExit) {
-    this.initializedClassesOnNormalExit = initializedClassesOnNormalExit;
+    if (initializedClassesOnNormalExit.isEmpty()) {
+      unsetInitializedClassesOnNormalExit();
+    } else {
+      this.initializedClassesOnNormalExit = initializedClassesOnNormalExit;
+    }
   }
 
   void unsetInitializedClassesOnNormalExit() {
-    initializedClassesOnNormalExit = Collections.emptySet();
+    initializedClassesOnNormalExit =
+        DefaultMethodOptimizationInfo.getInstance().getInitializedClassesOnNormalExit();
   }
 
   void markReturnsArgument(int returnedArgumentIndex) {
@@ -765,6 +773,30 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   @Override
   public boolean returnValueHasBeenPropagated() {
     return isFlagSet(RETURN_VALUE_HAS_BEEN_PROPAGATED_FLAG);
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  public boolean isEffectivelyDefault() {
+    DefaultMethodOptimizationInfo top = DefaultMethodOptimizationInfo.getInstance();
+    return argumentInfos == top.getArgumentInfos()
+        && initializedClassesOnNormalExit == top.getInitializedClassesOnNormalExit()
+        && returnedArgument == top.getReturnedArgument()
+        && abstractReturnValue == top.getAbstractReturnValue()
+        && classInlinerConstraint == top.getClassInlinerMethodConstraint()
+        && convertCheckNotNull == top.isConvertCheckNotNull()
+        && enumUnboxerMethodClassification == top.getEnumUnboxerMethodClassification()
+        && dynamicType == top.getDynamicType()
+        && inlining == InlinePreference.Default
+        && isReturnValueUsed == top.isReturnValueUsed()
+        && bridgeInfo == top.getBridgeInfo()
+        && instanceInitializerInfoCollection.isEmpty()
+        && nonNullParamOrThrow == top.getNonNullParamOrThrow()
+        && nonNullParamOnNormalExits == top.getNonNullParamOnNormalExits()
+        && simpleInliningConstraint == top.getSimpleInliningConstraint()
+        && maxRemovedAndroidLogLevel == top.getMaxRemovedAndroidLogLevel()
+        && parametersWithBitwiseOperations == top.getParametersWithBitwiseOperations()
+        && unusedArguments == top.getUnusedArguments()
+        && flags == DEFAULT_FLAGS;
   }
 
   @Override

@@ -1310,6 +1310,11 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     optimizationInfo = info;
   }
 
+  public void unsetOptimizationInfo() {
+    checkIfObsolete();
+    optimizationInfo = DefaultMethodOptimizationInfo.getInstance();
+  }
+
   public void copyMetadata(AppView<?> appView, DexEncodedMethod from) {
     checkIfObsolete();
     if (from.hasClassFileVersion()) {

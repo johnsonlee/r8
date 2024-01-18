@@ -55,6 +55,7 @@ import com.android.tools.r8.ir.optimize.NestReducer;
 import com.android.tools.r8.ir.optimize.SwitchMapCollector;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxingCfMethods;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
+import com.android.tools.r8.ir.optimize.info.OptimizationInfoRemover;
 import com.android.tools.r8.ir.optimize.templates.CfUtilityMethodsForCodeOptimizations;
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
@@ -533,6 +534,7 @@ public class R8 {
 
       new PrimaryR8IRConverter(appViewWithLiveness, timing)
           .optimize(appViewWithLiveness, executorService);
+      assert LirConverter.verifyLirOnly(appView);
 
       assert ArtProfileCompletenessChecker.verify(
           appView, ALLOW_MISSING_ENUM_UNBOXING_UTILITY_METHODS);
@@ -716,16 +718,15 @@ public class R8 {
         SyntheticFinalization.finalizeWithClassHierarchy(appView, executorService, timing);
       }
 
-      // Rewrite LIR with lens to allow building IR from LIR in class mergers.
-      LirConverter.rewriteLirWithLens(appView, timing, executorService);
-
-      // TODO(b/225838009): Move further down.
-      LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
-
       // Read any -applymapping input to allow for repackaging to not relocate the classes.
       timing.begin("read -applymapping file");
       appView.loadApplyMappingSeedMapper();
       timing.end();
+
+      // Remove optimization info before remaining optimizations, since these optimization currently
+      // do not rewrite the optimization info, which is OK since the optimization info should
+      // already have been leveraged.
+      OptimizationInfoRemover.run(appView, executorService);
 
       // Perform repackaging.
       if (appView.hasLiveness()) {
@@ -735,17 +736,20 @@ public class R8 {
         assert Repackaging.verifyIdentityRepackaging(appView.withLiveness(), executorService);
       }
 
-      // Clear the reference type lattice element cache. This is required since class merging may
-      // need to build IR.
-      appView.dexItemFactory().clearTypeElementsCache();
-
-      GenericSignatureContextBuilder genericContextBuilderBeforeFinalMerging =
-          GenericSignatureContextBuilder.create(appView);
+      // Rewrite LIR with lens to allow building IR from LIR in class mergers.
+      LirConverter.rewriteLirWithLens(appView, timing, executorService);
 
       if (appView.hasLiveness()) {
         VerticalClassMerger.createForFinalClassMerging(appView.withLiveness())
             .runIfNecessary(executorService, timing);
       }
+
+      // TODO(b/225838009): Move further down.
+      LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
+      assert appView.dexItemFactory().verifyNoCachedTypeElements();
+
+      GenericSignatureContextBuilder genericContextBuilderBeforeFinalMerging =
+          GenericSignatureContextBuilder.create(appView);
 
       // Run horizontal class merging. This runs even if shrinking is disabled to ensure synthetics
       // are always merged.

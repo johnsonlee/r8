@@ -122,7 +122,6 @@ public class DefaultMethodOptimizationInfo extends MethodOptimizationInfo {
 
   @Override
   public int getReturnedArgument() {
-    assert returnsArgument();
     return UNKNOWN_RETURNED_ARGUMENT;
   }
 
