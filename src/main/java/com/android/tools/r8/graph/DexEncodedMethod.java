@@ -10,6 +10,7 @@ import static com.android.tools.r8.graph.DexEncodedMethod.CompilationState.PROCE
 import static com.android.tools.r8.graph.DexEncodedMethod.CompilationState.PROCESSED_INLINING_CANDIDATE_SUBCLASS;
 import static com.android.tools.r8.graph.DexEncodedMethod.CompilationState.PROCESSED_NOT_INLINING_CANDIDATE;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getNoKotlinInfo;
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 import static java.util.Objects.requireNonNull;
@@ -30,18 +31,15 @@ import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
 import com.android.tools.r8.cf.code.CfStore;
 import com.android.tools.r8.cf.code.CfThrow;
 import com.android.tools.r8.dex.MixedSectionCollection;
-import com.android.tools.r8.dex.code.DexConstString;
-import com.android.tools.r8.dex.code.DexInstruction;
-import com.android.tools.r8.dex.code.DexInvokeDirect;
-import com.android.tools.r8.dex.code.DexInvokeStatic;
-import com.android.tools.r8.dex.code.DexNewInstance;
-import com.android.tools.r8.dex.code.DexThrow;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexAnnotation.AnnotatedKind;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.NumericType;
+import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.NestUtils;
@@ -52,6 +50,10 @@ import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.synthetic.ForwardMethodBuilder;
 import com.android.tools.r8.kotlin.KotlinMethodLevelInfo;
+import com.android.tools.r8.lightir.LirBuilder;
+import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirEncodingStrategy;
+import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.naming.MemberNaming.MethodSignature;
 import com.android.tools.r8.naming.MemberNaming.Signature;
 import com.android.tools.r8.naming.NamingLens;
@@ -911,28 +913,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return getReference().toSourceString();
   }
 
-  /** Generates a {@link DexCode} object for the given instructions. */
-  private DexCode generateCodeFromTemplate(
-      int numberOfRegisters, int outRegisters, DexInstruction... instructions) {
-    int offset = 0;
-    for (DexInstruction instruction : instructions) {
-      instruction.setOffset(offset);
-      offset += instruction.getSize();
-    }
-    int requiredArgRegisters = accessFlags.isStatic() ? 0 : 1;
-    for (DexType type : getReference().proto.parameters.values) {
-      requiredArgRegisters += ValueType.fromDexType(type).requiredRegisters();
-    }
-    return new DexCode(
-        Math.max(numberOfRegisters, requiredArgRegisters),
-        requiredArgRegisters,
-        outRegisters,
-        instructions,
-        new DexCode.Try[0],
-        new DexCode.TryHandler[0],
-        null);
-  }
-
   public CfCode buildInstanceOfCfCode(DexType type, boolean negate) {
     CfInstruction[] instructions = new CfInstruction[3 + BooleanUtils.intValue(negate) * 2];
     int i = 0;
@@ -950,13 +930,15 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         Arrays.asList(instructions));
   }
 
-  public DexEncodedMethod toMethodThatLogsError(AppView<?> appView) {
+  public DexEncodedMethod toMethodThatLogsError(
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    assert appView.testing().isPreLirPhase() || appView.testing().isSupportedLirPhase();
     Builder builder =
         builder(this)
             .setCode(
-                appView.options().isGeneratingClassFiles()
+                appView.testing().isPreLirPhase()
                     ? toCfCodeThatLogsError(appView.dexItemFactory())
-                    : toDexCodeThatLogsError(appView.dexItemFactory()))
+                    : toLirCodeThatLogsError(appView))
             .setIsLibraryMethodOverrideIf(
                 belongsToVirtualPool() && !isLibraryMethodOverride().isUnknown(),
                 isLibraryMethodOverride())
@@ -979,50 +961,86 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     }
   }
 
-  public static void setDebugInfoWithExtraParameters(
-      Code code, int arity, int extraParameters, AppView<?> appView) {
-    if (code.isDexCode()) {
-      DexCode dexCode = code.asDexCode();
-      DexDebugInfo newDebugInfo =
-          dexCode.debugInfoWithExtraParameters(appView.dexItemFactory(), extraParameters);
-      assert (newDebugInfo == null) || (arity == newDebugInfo.getParameterCount());
-      dexCode.setDebugInfo(newDebugInfo);
-    } else {
-      assert code.isCfCode();
-      // We don't have anything to do for Cf.
-    }
-  }
-
-  private DexCode toDexCodeThatLogsError(DexItemFactory itemFactory) {
+  private LirCode<?> toLirCodeThatLogsError(AppView<? extends AppInfoWithClassHierarchy> appView) {
     checkIfObsolete();
+    DexItemFactory factory = appView.dexItemFactory();
     Signature signature = MethodSignature.fromDexMethod(getReference());
     DexString message =
-        itemFactory.createString(
+        factory.createString(
             CONFIGURATION_DEBUGGING_PREFIX
                 + getReference().holder.toSourceString()
                 + ": "
                 + signature);
-    DexString tag = itemFactory.createString("[R8]");
-    DexType[] args = {itemFactory.stringType, itemFactory.stringType};
-    DexProto proto = itemFactory.createProto(itemFactory.intType, args);
-    DexMethod logMethod =
-        itemFactory.createMethod(
-            itemFactory.androidUtilLogType, proto, itemFactory.createString("e"));
-    DexType exceptionType = itemFactory.runtimeExceptionType;
+    DexString tag = factory.createString("[R8]");
+    DexType logger = factory.javaUtilLoggingLoggerType;
+    DexMethod getLogger =
+        factory.createMethod(
+            logger,
+            factory.createProto(logger, factory.stringType),
+            factory.createString("getLogger"));
+    DexMethod severe =
+        factory.createMethod(
+            logger,
+            factory.createProto(factory.voidType, factory.stringType),
+            factory.createString("severe"));
+    DexType exceptionType = factory.runtimeExceptionType;
     DexMethod exceptionInitMethod =
-        itemFactory.createMethod(
+        factory.createMethod(
             exceptionType,
-            itemFactory.createProto(itemFactory.voidType, itemFactory.stringType),
-            itemFactory.constructorMethodName);
-    return generateCodeFromTemplate(
-        2,
-        2,
-        new DexConstString(0, tag),
-        new DexConstString(1, message),
-        new DexInvokeStatic(2, logMethod, 0, 1, 0, 0, 0),
-        new DexNewInstance(0, exceptionType),
-        new DexInvokeDirect(2, exceptionInitMethod, 0, 1, 0, 0, 0),
-        new DexThrow(0));
+            factory.createProto(factory.voidType, factory.stringType),
+            factory.constructorMethodName);
+
+    TypeElement stringValueType = TypeElement.stringClassType(appView, definitelyNotNull());
+    TypeElement loggerValueType = logger.toTypeElement(appView);
+    TypeElement exceptionValueType = exceptionType.toTypeElement(appView, definitelyNotNull());
+
+    LirEncodingStrategy<Value, Integer> strategy =
+        LirStrategy.getDefaultStrategy().getEncodingStrategy();
+    LirBuilder<Value, Integer> lirBuilder =
+        LirCode.builder(getReference(), isD8R8Synthesized(), strategy, appView.options())
+            .setMetadata(IRMetadata.unknown());
+    int instructionIndex = 0;
+    for (; instructionIndex < getNumberOfArguments(); instructionIndex++) {
+      DexType argumentType = getArgumentType(instructionIndex);
+      lirBuilder.addArgument(instructionIndex, argumentType.isBooleanType());
+    }
+
+    // Load tag.
+    Value tagValue = new Value(instructionIndex, stringValueType, null);
+    strategy.defineValue(tagValue, tagValue.getNumber());
+    lirBuilder.addConstString(tag);
+    instructionIndex++;
+
+    // Get logger.
+    Value loggerValue = new Value(instructionIndex, loggerValueType, null);
+    strategy.defineValue(loggerValue, loggerValue.getNumber());
+    lirBuilder.addInvokeStatic(getLogger, ImmutableList.of(tagValue), false);
+    instructionIndex++;
+
+    // Load message.
+    Value messageValue = new Value(instructionIndex, stringValueType, null);
+    strategy.defineValue(messageValue, messageValue.getNumber());
+    lirBuilder.addConstString(message);
+    instructionIndex++;
+
+    // Call logger.
+    lirBuilder.addInvokeVirtual(severe, ImmutableList.of(loggerValue, messageValue));
+    instructionIndex++;
+
+    // Instantiate exception.
+    Value exceptionValue = new Value(instructionIndex, exceptionValueType, null);
+    strategy.defineValue(exceptionValue, exceptionValue.getNumber());
+    lirBuilder
+        .addNewInstance(exceptionType)
+        .addInvokeDirect(
+            exceptionInitMethod, ImmutableList.of(exceptionValue, messageValue), false);
+    instructionIndex += 2;
+
+    // Throw exception.
+    lirBuilder.addThrow(exceptionValue);
+    instructionIndex++;
+
+    return lirBuilder.build();
   }
 
   private CfCode toCfCodeThatLogsError(DexItemFactory itemFactory) {

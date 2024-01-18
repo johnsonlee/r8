@@ -19,17 +19,24 @@ import com.android.tools.r8.graph.DexCode.TryHandler;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
+import com.android.tools.r8.ir.analysis.type.Nullability;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
+import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.SyntheticStraightLineSourceCode;
+import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirEncodingStrategy;
+import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.IteratorUtils;
@@ -85,7 +92,12 @@ public class DefaultInstanceInitializerCode extends Code
       AppView<?> appView, ProgramMethod method, DexType superType) {
     DexEncodedMethod definition = method.getDefinition();
     assert definition.getCode().isDefaultInstanceInitializerCode();
-    method.setCode(get().toCfCode(method, appView.dexItemFactory(), superType), appView);
+    if (appView.testing().isSupportedLirPhase()) {
+      method.setCode(get().toLirCode(appView, method), appView);
+    } else {
+      assert appView.testing().isPreLirPhase();
+      method.setCode(get().toCfCode(method, appView.dexItemFactory(), superType), appView);
+    }
   }
 
   @Override
@@ -368,6 +380,27 @@ public class DefaultInstanceInitializerCode extends Code
                 Opcodes.INVOKESPECIAL, dexItemFactory.createInstanceInitializer(supertype), false),
             new CfReturnVoid());
     return new CfCode(method.getHolderType(), getMaxStack(), getMaxLocals(method), instructions);
+  }
+
+  public LirCode<?> toLirCode(AppView<?> appView, ProgramMethod method) {
+    TypeElement receiverType =
+        method.getHolder().getType().toTypeElement(appView, Nullability.definitelyNotNull());
+    Value receiver = new Value(0, receiverType, null);
+    DexMethod invokedMethod =
+        appView.dexItemFactory().createInstanceInitializer(method.getHolder().getSuperType());
+    LirEncodingStrategy<Value, Integer> strategy =
+        LirStrategy.getDefaultStrategy().getEncodingStrategy();
+    strategy.defineValue(receiver, 0);
+    return LirCode.builder(
+            method.getReference(),
+            method.getDefinition().isD8R8Synthesized(),
+            strategy,
+            appView.options())
+        .setMetadata(IRMetadata.unknown())
+        .addArgument(0, false)
+        .addInvokeDirect(invokedMethod, ImmutableList.of(receiver), false)
+        .addReturnVoid()
+        .build();
   }
 
   @Override
