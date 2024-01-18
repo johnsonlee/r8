@@ -10,8 +10,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.KeepCondition;
-import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByNative;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -108,7 +108,7 @@ public class KeepUsedByNativeAnnotationTest extends TestBase {
         preconditions = {@KeepCondition(classConstant = A.class, methodName = "foo")},
         // Both the class and method are reflectively accessed.
         kind = KeepItemKind.CLASS_AND_MEMBERS,
-        constraintAdditions = {KeepConstraint.ANNOTATIONS})
+        constrainAnnotations = @AnnotationPattern(constant = Anno.class))
     @Anno("anno-on-bar")
     public static void bar() {
       System.out.println("Hello, world");

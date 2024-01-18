@@ -10,7 +10,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.keepanno.annotations.KeepConstraint;
+import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -106,7 +106,8 @@ public class KeepAnnotationViaSuperTest extends TestBase {
     @UsesReflection({
       @KeepTarget(
           instanceOfClassConstantExclusive = Base.class,
-          constraints = {KeepConstraint.ANNOTATIONS})
+          constraints = {},
+          constrainAnnotations = @AnnotationPattern(constant = Anno.class))
     })
     public Base() {
       Anno annotation = getClass().getAnnotation(Anno.class);

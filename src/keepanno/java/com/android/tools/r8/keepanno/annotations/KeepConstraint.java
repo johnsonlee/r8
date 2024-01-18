@@ -209,12 +209,4 @@ public enum KeepConstraint {
    * non-visible uses requires the same annotations to preserve as for reflective uses.
    */
   CLASS_OPEN_HIERARCHY,
-
-  /**
-   * Indicates that the annotations on the target item are being accessed reflectively.
-   *
-   * <p>If only a particular set of annotations is accessed, you should set the TBD property on the
-   * target item.
-   */
-  ANNOTATIONS,
 }

@@ -542,17 +542,8 @@ public class KeepItemAnnotationGenerator {
               "If the annotation types themselves are used reflectively then they too need a",
               "keep annotation or rule to ensure they remain in the program.")
           .addParagraph(
-              "Setting this to a non-empty array implicitly includes ",
-              docLink(KeepConstraint.ANNOTATIONS),
-              "in the set of active constraints.")
-          .addParagraph(
               "By default no annotation patterns are defined and no annotations are required to",
-              "remain, unless",
-              CONSTRAINTS_GROUP,
-              "explicitly includes",
-              docLink(KeepConstraint.ANNOTATIONS),
-              "in that case the default pattern is the default " + docLink(AnnotationPattern.class),
-              "which matches all annotations with retention policy {@code RetentionPolicy#RUNTIME}")
+              "remain.")
           .setDocReturn("Annotation patterns")
           .defaultArrayEmpty(AnnotationPattern.class);
     }

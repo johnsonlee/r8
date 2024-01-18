@@ -54,9 +54,9 @@ public abstract class KeepConstraints {
       return this;
     }
 
-    public Builder removeAnnotations() {
-      constraints.removeIf(constraint -> constraint instanceof Annotation);
-      return this;
+    public boolean verifyNoAnnotations() {
+      assert constraints.stream().noneMatch(constraint -> constraint instanceof Annotation);
+      return true;
     }
 
     public Builder add(KeepConstraint constraint) {

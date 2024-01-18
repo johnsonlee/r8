@@ -756,30 +756,23 @@ public class KeepEdgeReader implements Opcodes {
       if (isDefault()) {
         return null;
       }
-      // If only the annotations are set, add them as an extension of the defaults.
-      if (constraintsParser.isDefault()) {
-        assert annotationsParser.isDeclared();
-        KeepConstraints.Builder builder = KeepConstraints.builder();
-        annotationsParser
-            .getValue()
-            .forEach(pattern -> builder.add(KeepConstraint.annotation(pattern)));
-        return KeepConstraints.defaultAdditions(builder.build());
-      }
       // If only the constraints are set then those are the constraints as is.
       if (annotationsParser.isDefault()) {
         assert constraintsParser.isDeclared();
         return constraintsParser.getValue();
       }
-      // Finally if both are set, the explicit annotations override the constraint set.
-      // Filter out the default and add all the explicit patterns.
-      assert constraintsParser.isDeclared();
-      assert annotationsParser.isDeclared();
-      KeepConstraints.Builder builder =
-          KeepConstraints.builder().copyFrom(constraintsParser.getValue()).removeAnnotations();
-      List<KeepAnnotationPattern> annotationPatterns = annotationsParser.getValue();
-      for (KeepAnnotationPattern pattern : annotationPatterns) {
-        builder.add(KeepConstraint.annotation(pattern));
+      KeepConstraints.Builder builder;
+      if (constraintsParser.isDeclared()) {
+        // If constraints are set use it as the initial set.
+        builder = KeepConstraints.builder().copyFrom(constraintsParser.getValue());
+        assert builder.verifyNoAnnotations();
+      } else {
+        // If only the annotations are set, add them as an extension of the defaults.
+        builder = KeepConstraints.builder().copyFrom(KeepConstraints.defaultConstraints());
       }
+      annotationsParser
+          .getValue()
+          .forEach(pattern -> builder.add(KeepConstraint.annotation(pattern)));
       return builder.build();
     }
   }

@@ -11,8 +11,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.ClassNamePattern;
-import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
@@ -29,6 +29,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
+import org.checkerframework.checker.units.qual.A;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -122,19 +123,23 @@ public class MembersAnnotatedByPatternsTest extends TestBase {
           classConstant = OnMembers.class,
           kind = KeepItemKind.CLASS_AND_MEMBERS,
           memberAnnotatedByClassConstant = A.class,
-          constraintAdditions = {KeepConstraint.ANNOTATIONS}),
+          constrainAnnotations = @AnnotationPattern(constant = A.class)),
       @KeepTarget(
           classConstant = OnFields.class,
           kind = KeepItemKind.CLASS_AND_FIELDS,
           fieldAnnotatedByClassName =
               "com.android.tools.r8.keepanno.MembersAnnotatedByPatternsTest$B",
-          constraintAdditions = {KeepConstraint.ANNOTATIONS}),
+          constrainAnnotations =
+              @AnnotationPattern(
+                  name = "com.android.tools.r8.keepanno.MembersAnnotatedByPatternsTest$B")),
       @KeepTarget(
           classConstant = OnMethods.class,
           kind = KeepItemKind.CLASS_AND_METHODS,
           methodAnnotatedByClassNamePattern =
               @ClassNamePattern(simpleName = "MembersAnnotatedByPatternsTest$C"),
-          constraintAdditions = {KeepConstraint.ANNOTATIONS})
+          constrainAnnotations =
+              @AnnotationPattern(
+                  namePattern = @ClassNamePattern(simpleName = "MembersAnnotatedByPatternsTest$C")))
     })
     public void foo(Class<?> clazz) throws Exception {
       for (Field field : clazz.getDeclaredFields()) {

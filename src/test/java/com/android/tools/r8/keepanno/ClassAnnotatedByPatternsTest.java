@@ -11,6 +11,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
@@ -95,7 +96,8 @@ public class ClassAnnotatedByPatternsTest extends TestBase {
     @UsesReflection(
         @KeepTarget(
             classAnnotatedByClassConstant = A1.class,
-            constraints = {KeepConstraint.ANNOTATIONS, KeepConstraint.NAME}))
+            constraints = KeepConstraint.NAME,
+            constrainAnnotations = @AnnotationPattern(constant = A1.class)))
     public void foo(Class<?>... classes) throws Exception {
       for (Class<?> clazz : classes) {
         if (clazz.isAnnotationPresent(A1.class)) {

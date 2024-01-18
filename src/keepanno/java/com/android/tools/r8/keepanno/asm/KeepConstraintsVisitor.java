@@ -67,9 +67,6 @@ public class KeepConstraintsVisitor extends AnnotationVisitorBase {
       case Constraints.CLASS_OPEN_HIERARCHY:
         builder.add(KeepConstraint.classOpenHierarchy());
         break;
-      case Constraints.ANNOTATIONS:
-        builder.add(KeepConstraint.annotationsAllWithRuntimeRetention());
-        break;
       default:
         super.visitEnum(ignore, descriptor, value);
     }

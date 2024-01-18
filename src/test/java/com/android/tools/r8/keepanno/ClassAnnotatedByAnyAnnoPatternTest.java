@@ -10,6 +10,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.ClassNamePattern;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
@@ -91,11 +92,14 @@ public class ClassAnnotatedByAnyAnnoPatternTest extends TestBase {
 
   static class Reflector {
 
-    @UsesReflection({
-      @KeepTarget(
-          classAnnotatedByClassNamePattern = @ClassNamePattern,
-          constraints = {KeepConstraint.ANNOTATIONS, KeepConstraint.NAME}),
-    })
+    @UsesReflection(
+        @KeepTarget(
+            classAnnotatedByClassNamePattern = @ClassNamePattern,
+            constraints = KeepConstraint.NAME,
+            constrainAnnotations = {
+              @AnnotationPattern(constant = A1.class),
+              @AnnotationPattern(constant = A2.class)
+            }))
     public void foo(Class<?>... classes) throws Exception {
       for (Class<?> clazz : classes) {
         if (clazz.getAnnotations().length > 0) {

@@ -119,13 +119,7 @@ public @interface KeepTarget {
    * the item will be removed too. If the annotation types themselves are used reflectively then
    * they too need a keep annotation or rule to ensure they remain in the program.
    *
-   * <p>Setting this to a non-empty array implicitly includes {@link KeepConstraint#ANNOTATIONS} in
-   * the set of active constraints.
-   *
-   * <p>By default no annotation patterns are defined and no annotations are required to remain,
-   * unless constraints explicitly includes {@link KeepConstraint#ANNOTATIONS} in that case the
-   * default pattern is the default {@link AnnotationPattern} which matches all annotations with
-   * retention policy {@code RetentionPolicy#RUNTIME}
+   * <p>By default no annotation patterns are defined and no annotations are required to remain.
    *
    * @return Annotation patterns
    */
