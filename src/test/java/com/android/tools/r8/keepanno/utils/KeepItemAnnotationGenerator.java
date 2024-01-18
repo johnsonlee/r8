@@ -7,6 +7,7 @@ package com.android.tools.r8.keepanno.utils;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.cfmethodgeneration.CodeGenerationBase;
+import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.CheckOptimizedOut;
 import com.android.tools.r8.keepanno.annotations.CheckRemoved;
 import com.android.tools.r8.keepanno.annotations.ClassNamePattern;
@@ -301,6 +302,7 @@ public class KeepItemAnnotationGenerator {
     private static String MEMBER_ANNOTATED_BY_GROUP = "member-annotated-by";
     private static String METHOD_ANNOTATED_BY_GROUP = "method-annotated-by";
     private static String FIELD_ANNOTATED_BY_GROUP = "field-annotated-by";
+    private static String ANNOTATION_NAME_GROUP = "annotation-name";
 
     private Group createDescriptionGroup() {
       return new Group("description")
@@ -487,12 +489,13 @@ public class KeepItemAnnotationGenerator {
               docLink(KeepItemKind.ONLY_MEMBERS) + " otherwise.");
     }
 
-    private Group getKeepConstraintsGroup() {
-      return new Group(CONSTRAINTS_GROUP).addMember(constraints()).addMember(constraintAdditions());
+    private void forEachKeepConstraintGroups(Consumer<Group> fn) {
+      fn.accept(getKeepConstraintsGroup());
+      fn.accept(new Group("constrain-annotations").addMember(constrainAnnotations()));
     }
 
-    private static String docLinkList(Enum<?>... values) {
-      return StringUtils.join(", ", values, v -> docLink(v), BraceType.TUBORG);
+    private Group getKeepConstraintsGroup() {
+      return new Group(CONSTRAINTS_GROUP).addMember(constraints()).addMember(constraintAdditions());
     }
 
     private static GroupMember constraints() {
@@ -525,6 +528,78 @@ public class KeepItemAnnotationGenerator {
           .addParagraph("The default constraints are documented in " + docLink(constraints()))
           .setDocReturn("Additional usage constraints for the target.")
           .defaultArrayEmpty(KeepConstraint.class);
+    }
+
+    private static GroupMember constrainAnnotations() {
+      return new GroupMember("constrainAnnotations")
+          .setDocTitle("Patterns for annotations that must remain on the item.")
+          .addParagraph(
+              "The annotations matching any of the patterns must remain on the item",
+              "if the annotation types remain in the program.")
+          .addParagraph(
+              "Note that if the annotation types themselves are unused/removed,",
+              "then their references on the item will be removed too.",
+              "If the annotation types themselves are used reflectively then they too need a",
+              "keep annotation or rule to ensure they remain in the program.")
+          .addParagraph(
+              "Setting this to a non-empty array implicitly includes ",
+              docLink(KeepConstraint.ANNOTATIONS),
+              "in the set of active constraints.")
+          .addParagraph(
+              "By default no annotation patterns are defined and no annotations are required to",
+              "remain, unless",
+              CONSTRAINTS_GROUP,
+              "explicitly includes",
+              docLink(KeepConstraint.ANNOTATIONS),
+              "in that case the default pattern is the default " + docLink(AnnotationPattern.class),
+              "which matches all annotations with retention policy {@code RetentionPolicy#RUNTIME}")
+          .setDocReturn("Annotation patterns")
+          .defaultArrayEmpty(AnnotationPattern.class);
+    }
+
+    private Group annotationNameGroup() {
+      return new Group(ANNOTATION_NAME_GROUP)
+          .addMember(annotationName())
+          .addMember(annotationConstant())
+          .addMember(annotationNamePattern())
+          .addDocFooterParagraph(
+              "If none are specified the default is to match any annotation name.");
+    }
+
+    private GroupMember annotationName() {
+      return new GroupMember("name")
+          .setDocTitle(
+              "Define the " + ANNOTATION_NAME_GROUP + " pattern by fully qualified class name.")
+          .setDocReturn("The qualified class name that defines the annotation.")
+          .defaultEmptyString();
+    }
+
+    private GroupMember annotationConstant() {
+      return new GroupMember("constant")
+          .setDocTitle(
+              "Define the "
+                  + ANNOTATION_NAME_GROUP
+                  + " pattern by reference to a {@code Class} constant.")
+          .setDocReturn("The Class constant that defines the annotation.")
+          .defaultObjectClass();
+    }
+
+    private GroupMember annotationNamePattern() {
+      return new GroupMember("namePattern")
+          .setDocTitle(
+              "Define the "
+                  + ANNOTATION_NAME_GROUP
+                  + " pattern by reference to a class-name pattern.")
+          .setDocReturn("The class-name pattern that defines the annotation.")
+          .defaultValue(ClassNamePattern.class, DEFAULT_INVALID_CLASS_NAME_PATTERN);
+    }
+
+    private static GroupMember annotationRetention() {
+      return new GroupMember("retention")
+          .setDocTitle("Specify which retention policies must be set for the annotations.")
+          .addParagraph("Matches annotations with matching retention policies")
+          .setDocReturn("Retention policies. By default {@code RetentionPolicy.RUNTIME}.")
+          .defaultArrayValue(RetentionPolicy.class, "RetentionPolicy.RUNTIME");
     }
 
     private GroupMember bindingName() {
@@ -1024,6 +1099,30 @@ public class KeepItemAnnotationGenerator {
       println("}");
     }
 
+    private void generateAnnotationPattern() {
+      printCopyRight(2024);
+      printPackage("annotations");
+      printImports(ANNOTATION_IMPORTS);
+      DocPrinter.printer()
+          .setDocTitle("A pattern structure for matching annotations.")
+          .addParagraph(
+              "If no properties are set, the default pattern matches any annotation",
+              "with a runtime retention policy.")
+          .printDoc(this::println);
+      println("@Target(ElementType.ANNOTATION_TYPE)");
+      println("@Retention(RetentionPolicy.CLASS)");
+      println("public @interface " + simpleName(AnnotationPattern.class) + " {");
+      println();
+      withIndent(
+          () -> {
+            annotationNameGroup().generate(this);
+            println();
+            annotationRetention().generate(this);
+          });
+      println();
+      println("}");
+    }
+
     private void generateKeepBinding() {
       printCopyRight(2022);
       printPackage("annotations");
@@ -1073,8 +1172,11 @@ public class KeepItemAnnotationGenerator {
           () -> {
             getKindGroup().generate(this);
             println();
-            getKeepConstraintsGroup().generate(this);
-            println();
+            forEachKeepConstraintGroups(
+                g -> {
+                  g.generate(this);
+                  println();
+                });
             generateClassAndMemberPropertiesWithClassAndMemberBinding();
           });
       println();
@@ -1294,8 +1396,11 @@ public class KeepItemAnnotationGenerator {
                         + " if annotating a member.")
                 .generate(this);
             println();
-            getKeepConstraintsGroup().generate(this);
-            println();
+            forEachKeepConstraintGroups(
+                g -> {
+                  g.generate(this);
+                  println();
+                });
             generateMemberPropertiesNoBinding();
           });
       println();
@@ -1316,6 +1421,10 @@ public class KeepItemAnnotationGenerator {
 
     private static String docLink(Enum<?> kind) {
       return "{@link " + simpleName(kind.getClass()) + "#" + kind.name() + "}";
+    }
+
+    private static String docLinkList(Enum<?>... values) {
+      return StringUtils.join(", ", values, v -> docLink(v), BraceType.TUBORG);
     }
 
     private void generateConstants() {
@@ -1356,6 +1465,7 @@ public class KeepItemAnnotationGenerator {
             generateStringPatternConstants();
             generateTypePatternConstants();
             generateClassNamePatternConstants();
+            generateAnnotationPatternConstants();
           });
       println("}");
     }
@@ -1509,7 +1619,7 @@ public class KeepItemAnnotationGenerator {
           () -> {
             generateAnnotationConstants(KeepTarget.class);
             getKindGroup().generateConstants(this);
-            getKeepConstraintsGroup().generateConstants(this);
+            forEachKeepConstraintGroups(g -> g.generateConstants(this));
           });
       println("}");
       println();
@@ -1663,6 +1773,18 @@ public class KeepItemAnnotationGenerator {
       println();
     }
 
+    private void generateAnnotationPatternConstants() {
+      println("public static final class AnnotationPattern {");
+      withIndent(
+          () -> {
+            generateAnnotationConstants(AnnotationPattern.class);
+            annotationNameGroup().generateConstants(this);
+            annotationRetention().generateConstants(this);
+          });
+      println("}");
+      println();
+    }
+
     private static void writeFile(Path file, Consumer<Generator> fn) throws IOException {
       ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
       PrintStream printStream = new PrintStream(byteStream);
@@ -1691,6 +1813,7 @@ public class KeepItemAnnotationGenerator {
       writeFile(source(annoPkg, StringPattern.class), Generator::generateStringPattern);
       writeFile(source(annoPkg, TypePattern.class), Generator::generateTypePattern);
       writeFile(source(annoPkg, ClassNamePattern.class), Generator::generateClassNamePattern);
+      writeFile(source(annoPkg, AnnotationPattern.class), Generator::generateAnnotationPattern);
       writeFile(source(annoPkg, KeepBinding.class), Generator::generateKeepBinding);
       writeFile(source(annoPkg, KeepTarget.class), Generator::generateKeepTarget);
       writeFile(source(annoPkg, KeepCondition.class), Generator::generateKeepCondition);

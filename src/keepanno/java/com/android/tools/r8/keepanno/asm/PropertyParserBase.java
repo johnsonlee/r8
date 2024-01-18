@@ -7,6 +7,7 @@ package com.android.tools.r8.keepanno.asm;
 import com.android.tools.r8.keepanno.ast.ParsingContext;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.objectweb.asm.AnnotationVisitor;
 
@@ -18,6 +19,7 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
   private final Map<String, P> mapping = new HashMap<>();
   private String resultPropertyName = null;
   private T resultValue = null;
+  private BiConsumer<T, ParsingContext> check = null;
 
   protected PropertyParserBase(ParsingContext parsingContext) {
     this.parsingContext = parsingContext;
@@ -52,6 +54,9 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
   private Consumer<T> wrap(String propertyName, Consumer<T> setValue) {
     return value -> {
       assert value != null;
+      if (check != null) {
+        check.accept(value, parsingContext.property(propertyName));
+      }
       if (resultPropertyName != null) {
         assert resultValue != null;
         error(propertyName);
@@ -143,5 +148,9 @@ public abstract class PropertyParserBase<T, P> implements PropertyParser<T, P> {
       }
     }
     return null;
+  }
+
+  public void setValueCheck(BiConsumer<T, ParsingContext> check) {
+    this.check = check;
   }
 }

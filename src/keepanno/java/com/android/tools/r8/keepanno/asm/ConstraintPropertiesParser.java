@@ -4,21 +4,22 @@
 
 package com.android.tools.r8.keepanno.asm;
 
-import com.android.tools.r8.keepanno.asm.ConstraintsParser.ConstraintsProperty;
+import com.android.tools.r8.keepanno.asm.ConstraintPropertiesParser.ConstraintsProperty;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Target;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.ParsingContext;
 import java.util.function.Consumer;
 import org.objectweb.asm.AnnotationVisitor;
 
-public class ConstraintsParser extends PropertyParserBase<KeepConstraints, ConstraintsProperty> {
+public class ConstraintPropertiesParser
+    extends PropertyParserBase<KeepConstraints, ConstraintsProperty> {
 
   public enum ConstraintsProperty {
     CONSTRAINTS,
     ADDITIONS
   }
 
-  public ConstraintsParser(ParsingContext parsingContext) {
+  public ConstraintPropertiesParser(ParsingContext parsingContext) {
     super(parsingContext.group(Target.constraintsGroup));
   }
 

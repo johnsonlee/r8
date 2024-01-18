@@ -12,6 +12,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.StringPattern;
@@ -181,6 +182,48 @@ public class KeepInvalidTargetTest extends TestBase {
         @KeepTarget(
             classConstant = A.class,
             methodNamePattern = @StringPattern(exact = "foo", startsWith = "f")))
+    public static void main(String[] args) {
+      System.out.println("Hello, world");
+    }
+  }
+
+  @Test
+  public void testEmptyAnnotationConstraints() {
+    assertThrowsWith(
+        () -> extractRuleForClass(EmptyAnnotationConstraints.class),
+        allOf(
+            containsString("Expected non-empty array"),
+            containsString("at property: constrainAnnotations")));
+  }
+
+  static class EmptyAnnotationConstraints {
+
+    @UsesReflection(
+        @KeepTarget(
+            classConstant = A.class,
+            constrainAnnotations = {}))
+    public static void main(String[] args) {
+      System.out.println("Hello, world");
+    }
+  }
+
+  @Test
+  public void testEmptyAnnotationPatternRetention() {
+    assertThrowsWith(
+        () -> extractRuleForClass(EmptyAnnotationPatternRetention.class),
+        allOf(
+            containsString("Expected non-empty array"),
+            containsString("at property: retention"),
+            containsString("at annotation: @AnnotationPattern"),
+            containsString("at property: constrainAnnotations")));
+  }
+
+  static class EmptyAnnotationPatternRetention {
+
+    @UsesReflection(
+        @KeepTarget(
+            classConstant = A.class,
+            constrainAnnotations = @AnnotationPattern(retention = {})))
     public static void main(String[] args) {
       System.out.println("Hello, world");
     }

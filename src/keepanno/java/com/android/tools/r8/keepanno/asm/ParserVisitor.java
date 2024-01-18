@@ -12,33 +12,26 @@ import org.objectweb.asm.AnnotationVisitor;
 /** Convert parser(s) into an annotation visitor. */
 public class ParserVisitor extends AnnotationVisitorBase {
 
-  private final List<PropertyParser<?, ?>> parsers;
+  private final List<Parser<?>> parsers;
   private final Runnable onVisitEnd;
 
   public ParserVisitor(
-      AnnotationParsingContext parsingContext,
-      String annotationDescriptor,
-      List<PropertyParser<?, ?>> parsers,
-      Runnable onVisitEnd) {
+      AnnotationParsingContext parsingContext, List<Parser<?>> parsers, Runnable onVisitEnd) {
     super(parsingContext);
     this.parsers = parsers;
     this.onVisitEnd = onVisitEnd;
-    assert annotationDescriptor.equals(parsingContext.getAnnotationDescriptor());
   }
 
   public ParserVisitor(
-      AnnotationParsingContext parsingContext,
-      String annotationDescriptor,
-      PropertyParser<?, ?> declaration,
-      Runnable onVisitEnd) {
-    this(parsingContext, annotationDescriptor, Collections.singletonList(declaration), onVisitEnd);
+      AnnotationParsingContext parsingContext, Parser<?> parser, Runnable onVisitEnd) {
+    this(parsingContext, Collections.singletonList(parser), onVisitEnd);
   }
 
   private <T> void ignore(T unused) {}
 
   @Override
   public void visit(String name, Object value) {
-    for (PropertyParser<?, ?> parser : parsers) {
+    for (Parser<?> parser : parsers) {
       if (parser.tryParse(name, value, this::ignore)) {
         return;
       }
@@ -48,7 +41,7 @@ public class ParserVisitor extends AnnotationVisitorBase {
 
   @Override
   public AnnotationVisitor visitArray(String name) {
-    for (PropertyParser<?, ?> parser : parsers) {
+    for (Parser<?> parser : parsers) {
       AnnotationVisitor visitor = parser.tryParseArray(name, this::ignore);
       if (visitor != null) {
         return visitor;
@@ -59,7 +52,7 @@ public class ParserVisitor extends AnnotationVisitorBase {
 
   @Override
   public void visitEnum(String name, String descriptor, String value) {
-    for (PropertyParser<?, ?> parser : parsers) {
+    for (Parser<?> parser : parsers) {
       if (parser.tryParseEnum(name, descriptor, value, this::ignore)) {
         return;
       }
@@ -69,7 +62,7 @@ public class ParserVisitor extends AnnotationVisitorBase {
 
   @Override
   public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-    for (PropertyParser<?, ?> parser : parsers) {
+    for (Parser<?> parser : parsers) {
       AnnotationVisitor visitor = parser.tryParseAnnotation(name, descriptor, this::ignore);
       if (visitor != null) {
         return visitor;

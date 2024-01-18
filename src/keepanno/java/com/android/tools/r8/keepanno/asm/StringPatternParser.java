@@ -57,7 +57,6 @@ public class StringPatternParser extends PropertyParserBase<KeepStringPattern, S
           suffixParser.setProperty(StringPattern.endsWith, StringParser.Property.STRING);
           return new ParserVisitor(
               parsingContext,
-              descriptor,
               ImmutableList.of(exactParser, prefixParser, suffixParser),
               () -> {
                 if (exactParser.isDeclared()) {

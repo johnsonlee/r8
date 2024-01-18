@@ -55,6 +55,7 @@ public abstract class ParsingContext {
   }
 
   public PropertyParsingContext property(String propertyName) {
+    assert propertyName != null;
     return new PropertyParsingContext(this, propertyName);
   }
 
@@ -272,6 +273,12 @@ public abstract class ParsingContext {
     @Override
     public String getContextFrameAsString() {
       return getPropertyName();
+    }
+
+    @Override
+    public boolean isSynthetic() {
+      // The value property is the default and usually unnamed property, so we avoid printing it.
+      return "value".equals(propertyName);
     }
   }
 }

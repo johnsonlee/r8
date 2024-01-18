@@ -286,23 +286,42 @@ public abstract class KeepConstraint {
     return Annotation.ALL_INSTANCE;
   }
 
-  public static Annotation annotation(KeepQualifiedClassNamePattern pattern) {
+  public static Annotation annotationsAllWithRuntimeRetention() {
+    return Annotation.ALL_WITH_RUNTIME_RETENTION_INSTANCE;
+  }
+
+  public static Annotation annotationsAllWithClassRetention() {
+    return Annotation.ALL_WITH_CLASS_RETENTION_INSTANCE;
+  }
+
+  public static Annotation annotation(KeepAnnotationPattern pattern) {
     if (pattern.isAny()) {
       return annotationsAll();
+    }
+    if (pattern.isAnyWithRuntimeRetention()) {
+      return annotationsAllWithRuntimeRetention();
+    }
+    if (pattern.isAnyWithClassRetention()) {
+      return annotationsAllWithClassRetention();
     }
     return new Annotation(pattern);
   }
 
   public static final class Annotation extends KeepConstraint {
 
-    private static final Annotation ALL_INSTANCE =
-        new Annotation(KeepQualifiedClassNamePattern.any());
+    private static final Annotation ALL_INSTANCE = new Annotation(KeepAnnotationPattern.any());
 
-    private final KeepQualifiedClassNamePattern classNamePattern;
+    private static final Annotation ALL_WITH_RUNTIME_RETENTION_INSTANCE =
+        new Annotation(KeepAnnotationPattern.anyWithRuntimeRetention());
 
-    private Annotation(KeepQualifiedClassNamePattern classNamePattern) {
-      assert classNamePattern != null;
-      this.classNamePattern = classNamePattern;
+    private static final Annotation ALL_WITH_CLASS_RETENTION_INSTANCE =
+        new Annotation(KeepAnnotationPattern.anyWithClassRetention());
+
+    private final KeepAnnotationPattern annotationPattern;
+
+    private Annotation(KeepAnnotationPattern annotationPattern) {
+      assert annotationPattern != null;
+      this.annotationPattern = annotationPattern;
     }
 
     @Override
@@ -315,12 +334,16 @@ public abstract class KeepConstraint {
 
     @Override
     public void addRequiredKeepAttributes(Set<KeepAttribute> attributes) {
-      attributes.add(KeepAttribute.RUNTIME_VISIBLE_ANNOTATIONS);
-      attributes.add(KeepAttribute.RUNTIME_VISIBLE_PARAMETER_ANNOTATIONS);
-      attributes.add(KeepAttribute.RUNTIME_VISIBLE_TYPE_ANNOTATIONS);
-      attributes.add(KeepAttribute.RUNTIME_INVISIBLE_ANNOTATIONS);
-      attributes.add(KeepAttribute.RUNTIME_INVISIBLE_PARAMETER_ANNOTATIONS);
-      attributes.add(KeepAttribute.RUNTIME_INVISIBLE_TYPE_ANNOTATIONS);
+      if (annotationPattern.includesRuntimeRetention()) {
+        attributes.add(KeepAttribute.RUNTIME_VISIBLE_ANNOTATIONS);
+        attributes.add(KeepAttribute.RUNTIME_VISIBLE_PARAMETER_ANNOTATIONS);
+        attributes.add(KeepAttribute.RUNTIME_VISIBLE_TYPE_ANNOTATIONS);
+      }
+      if (annotationPattern.includesClassRetention()) {
+        attributes.add(KeepAttribute.RUNTIME_INVISIBLE_ANNOTATIONS);
+        attributes.add(KeepAttribute.RUNTIME_INVISIBLE_PARAMETER_ANNOTATIONS);
+        attributes.add(KeepAttribute.RUNTIME_INVISIBLE_TYPE_ANNOTATIONS);
+      }
     }
 
     @Override
@@ -332,12 +355,12 @@ public abstract class KeepConstraint {
         return false;
       }
       Annotation that = (Annotation) o;
-      return classNamePattern.equals(that.classNamePattern);
+      return annotationPattern.equals(that.annotationPattern);
     }
 
     @Override
     public int hashCode() {
-      return classNamePattern.hashCode();
+      return annotationPattern.hashCode();
     }
   }
 }

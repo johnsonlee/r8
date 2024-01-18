@@ -132,6 +132,28 @@ public @interface UsedByNative {
   KeepConstraint[] constraintAdditions() default {};
 
   /**
+   * Patterns for annotations that must remain on the item.
+   *
+   * <p>The annotations matching any of the patterns must remain on the item if the annotation types
+   * remain in the program.
+   *
+   * <p>Note that if the annotation types themselves are unused/removed, then their references on
+   * the item will be removed too. If the annotation types themselves are used reflectively then
+   * they too need a keep annotation or rule to ensure they remain in the program.
+   *
+   * <p>Setting this to a non-empty array implicitly includes {@link KeepConstraint#ANNOTATIONS} in
+   * the set of active constraints.
+   *
+   * <p>By default no annotation patterns are defined and no annotations are required to remain,
+   * unless constraints explicitly includes {@link KeepConstraint#ANNOTATIONS} in that case the
+   * default pattern is the default {@link AnnotationPattern} which matches all annotations with
+   * retention policy {@code RetentionPolicy#RUNTIME}
+   *
+   * @return Annotation patterns
+   */
+  AnnotationPattern[] constrainAnnotations() default {};
+
+  /**
    * Define the member-annotated-by pattern by fully qualified class name.
    *
    * <p>Mutually exclusive with the following other properties defining member-annotated-by:

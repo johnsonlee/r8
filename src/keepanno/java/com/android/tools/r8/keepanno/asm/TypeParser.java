@@ -58,7 +58,6 @@ public class TypeParser extends PropertyParserBase<KeepTypePattern, TypeProperty
           typeParser.setProperty(TypePattern.classNamePattern, TypeProperty.CLASS_NAME_PATTERN);
           return new ParserVisitor(
               context,
-              descriptor,
               typeParser,
               () -> setValue.accept(typeParser.getValueOrDefault(KeepTypePattern.any())));
         }

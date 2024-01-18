@@ -4,7 +4,7 @@
 package com.android.tools.r8.keepanno.asm;
 
 import com.android.tools.r8.keepanno.asm.ClassNameParser.ClassNameProperty;
-import com.android.tools.r8.keepanno.asm.ConstraintsParser.ConstraintsProperty;
+import com.android.tools.r8.keepanno.asm.ConstraintPropertiesParser.ConstraintsProperty;
 import com.android.tools.r8.keepanno.asm.InstanceOfParser.InstanceOfProperties;
 import com.android.tools.r8.keepanno.asm.StringPatternParser.StringProperty;
 import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
@@ -21,6 +21,7 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants.MemberAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.MethodAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Target;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.UsedByReflection;
+import com.android.tools.r8.keepanno.ast.KeepAnnotationPattern;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepBindings;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
@@ -30,6 +31,7 @@ import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepClassItemReference;
 import com.android.tools.r8.keepanno.ast.KeepCondition;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
+import com.android.tools.r8.keepanno.ast.KeepConstraint;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
@@ -61,6 +63,7 @@ import com.android.tools.r8.keepanno.ast.ParsingContext.AnnotationParsingContext
 import com.android.tools.r8.keepanno.ast.ParsingContext.ClassParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.FieldParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.MethodParsingContext;
+import com.android.tools.r8.keepanno.ast.ParsingContext.PropertyParsingContext;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -521,16 +524,17 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitArray(String name) {
+      PropertyParsingContext propertyParsingContext = parsingContext.property(name);
       if (name.equals(Edge.bindings)) {
-        return new KeepBindingsVisitor(parsingContext, bindingsHelper);
+        return new KeepBindingsVisitor(propertyParsingContext, bindingsHelper);
       }
       if (name.equals(Edge.preconditions)) {
         return new KeepPreconditionsVisitor(
-            parsingContext, builder::setPreconditions, bindingsHelper);
+            propertyParsingContext, builder::setPreconditions, bindingsHelper);
       }
       if (name.equals(Edge.consequences)) {
         return new KeepConsequencesVisitor(
-            parsingContext, builder::setConsequences, bindingsHelper);
+            propertyParsingContext, builder::setConsequences, bindingsHelper);
       }
       return super.visitArray(name);
     }
@@ -593,7 +597,7 @@ public class KeepEdgeReader implements Opcodes {
     public AnnotationVisitor visitArray(String name) {
       if (name.equals(ForApi.additionalTargets)) {
         return new KeepConsequencesVisitor(
-            parsingContext,
+            parsingContext.property(name),
             additionalConsequences -> {
               additionalConsequences.forEachTarget(consequences::addTarget);
             },
@@ -695,7 +699,7 @@ public class KeepEdgeReader implements Opcodes {
     public AnnotationVisitor visitArray(String name) {
       if (name.equals(ForApi.additionalTargets)) {
         return new KeepConsequencesVisitor(
-            parsingContext,
+            parsingContext.property(name),
             additionalConsequences -> {
               additionalConsequences.forEachTarget(consequences::addTarget);
             },
@@ -715,6 +719,71 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
+  public static class ConstraintDeclarationParser extends DeclarationParser<KeepConstraints> {
+    private final ConstraintPropertiesParser constraintsParser;
+    private final ArrayPropertyParser<
+            KeepAnnotationPattern, AnnotationPatternParser.AnnotationProperty>
+        annotationsParser;
+
+    public ConstraintDeclarationParser(ParsingContext parsingContext) {
+      constraintsParser = new ConstraintPropertiesParser(parsingContext);
+      constraintsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
+      constraintsParser.setProperty(Target.constraintAdditions, ConstraintsProperty.ADDITIONS);
+
+      annotationsParser = new ArrayPropertyParser<>(parsingContext, AnnotationPatternParser::new);
+      annotationsParser.setProperty(
+          Target.constrainAnnotations, AnnotationPatternParser.AnnotationProperty.PATTERN);
+      annotationsParser.setValueCheck(this::verifyAnnotationList);
+    }
+
+    private void verifyAnnotationList(
+        List<KeepAnnotationPattern> annotationList, ParsingContext parsingContext) {
+      if (annotationList.isEmpty()) {
+        throw parsingContext.error("Expected non-empty array of annotation patterns");
+      }
+    }
+
+    @Override
+    List<Parser<?>> parsers() {
+      return ImmutableList.of(constraintsParser, annotationsParser);
+    }
+
+    public KeepConstraints getValueOrDefault(KeepConstraints defaultValue) {
+      return isDeclared() ? getValue() : defaultValue;
+    }
+
+    public KeepConstraints getValue() {
+      if (isDefault()) {
+        return null;
+      }
+      // If only the annotations are set, add them as an extension of the defaults.
+      if (constraintsParser.isDefault()) {
+        assert annotationsParser.isDeclared();
+        KeepConstraints.Builder builder = KeepConstraints.builder();
+        annotationsParser
+            .getValue()
+            .forEach(pattern -> builder.add(KeepConstraint.annotation(pattern)));
+        return KeepConstraints.defaultAdditions(builder.build());
+      }
+      // If only the constraints are set then those are the constraints as is.
+      if (annotationsParser.isDefault()) {
+        assert constraintsParser.isDeclared();
+        return constraintsParser.getValue();
+      }
+      // Finally if both are set, the explicit annotations override the constraint set.
+      // Filter out the default and add all the explicit patterns.
+      assert constraintsParser.isDeclared();
+      assert annotationsParser.isDeclared();
+      KeepConstraints.Builder builder =
+          KeepConstraints.builder().copyFrom(constraintsParser.getValue()).removeAnnotations();
+      List<KeepAnnotationPattern> annotationPatterns = annotationsParser.getValue();
+      for (KeepAnnotationPattern pattern : annotationPatterns) {
+        builder.add(KeepConstraint.annotation(pattern));
+      }
+      return builder.build();
+    }
+  }
+
   /**
    * Parsing of @UsedByReflection or @UsedByNative on a class context.
    *
@@ -731,7 +800,7 @@ public class KeepEdgeReader implements Opcodes {
     private final KeepConsequences.Builder consequences = KeepConsequences.builder();
     private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
-    private final ConstraintsParser constraintsParser;
+    private final ConstraintDeclarationParser constraintsParser;
 
     UsedByReflectionClassVisitor(
         AnnotationParsingContext parsingContext,
@@ -743,11 +812,9 @@ public class KeepEdgeReader implements Opcodes {
       this.className = className;
       this.parent = parent;
       addContext.accept(metaInfoBuilder);
+      constraintsParser = new ConstraintDeclarationParser(parsingContext);
       // The class context/holder is the annotated class.
       visit(Item.className, className);
-      constraintsParser = new ConstraintsParser(parsingContext);
-      constraintsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
-      constraintsParser.setProperty(Target.constraintAdditions, ConstraintsProperty.ADDITIONS);
     }
 
     @Override
@@ -766,13 +833,14 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitArray(String name) {
+      PropertyParsingContext propertyParsingContext = parsingContext.property(name);
       if (name.equals(Edge.preconditions)) {
         return new KeepPreconditionsVisitor(
-            parsingContext, builder::setPreconditions, bindingsHelper);
+            propertyParsingContext, builder::setPreconditions, bindingsHelper);
       }
       if (name.equals(UsedByReflection.additionalTargets)) {
         return new KeepConsequencesVisitor(
-            parsingContext,
+            propertyParsingContext,
             additionalConsequences -> {
               additionalConsequences.forEachTarget(consequences::addTarget);
             },
@@ -842,7 +910,7 @@ public class KeepEdgeReader implements Opcodes {
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
     private final KeepConsequences.Builder consequences = KeepConsequences.builder();
     private ItemKind kind = KeepEdgeReader.ItemKind.ONLY_MEMBERS;
-    private final ConstraintsParser constraintsParser;
+    private final ConstraintDeclarationParser constraintsParser;
 
     UsedByReflectionMemberVisitor(
         AnnotationParsingContext parsingContext,
@@ -854,9 +922,7 @@ public class KeepEdgeReader implements Opcodes {
       this.parent = parent;
       this.context = context;
       addContext.accept(metaInfoBuilder);
-      constraintsParser = new ConstraintsParser(parsingContext);
-      constraintsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
-      constraintsParser.setProperty(Target.constraintAdditions, ConstraintsProperty.ADDITIONS);
+      constraintsParser = new ConstraintDeclarationParser(parsingContext);
     }
 
     @Override
@@ -883,13 +949,14 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitArray(String name) {
+      PropertyParsingContext propertyParsingContext = parsingContext.property(name);
       if (name.equals(Edge.preconditions)) {
         return new KeepPreconditionsVisitor(
-            parsingContext, builder::setPreconditions, bindingsHelper);
+            propertyParsingContext, builder::setPreconditions, bindingsHelper);
       }
       if (name.equals(UsedByReflection.additionalTargets)) {
         return new KeepConsequencesVisitor(
-            parsingContext,
+            propertyParsingContext,
             additionalConsequences -> {
               additionalConsequences.forEachTarget(consequences::addTarget);
             },
@@ -973,13 +1040,14 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitArray(String name) {
+      PropertyParsingContext propertyParsingContext = parsingContext.property(name);
       if (name.equals(AnnotationConstants.UsesReflection.value)) {
         return new KeepConsequencesVisitor(
-            parsingContext, builder::setConsequences, bindingsHelper);
+            propertyParsingContext, builder::setConsequences, bindingsHelper);
       }
       if (name.equals(AnnotationConstants.UsesReflection.additionalPreconditions)) {
         return new KeepPreconditionsVisitor(
-            parsingContext,
+            propertyParsingContext,
             additionalPreconditions -> {
               additionalPreconditions.forEach(preconditions::addCondition);
             },
@@ -1003,7 +1071,7 @@ public class KeepEdgeReader implements Opcodes {
     private final ParsingContext parsingContext;
     private final UserBindingsHelper helper;
 
-    public KeepBindingsVisitor(ParsingContext parsingContext, UserBindingsHelper helper) {
+    public KeepBindingsVisitor(PropertyParsingContext parsingContext, UserBindingsHelper helper) {
       super(parsingContext);
       this.parsingContext = parsingContext;
       this.helper = helper;
@@ -1011,6 +1079,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+      assert name == null;
       if (descriptor.equals(AnnotationConstants.Binding.DESCRIPTOR)) {
         return new KeepBindingVisitor(parsingContext.annotation(descriptor), helper);
       }
@@ -1025,7 +1094,7 @@ public class KeepEdgeReader implements Opcodes {
     private final UserBindingsHelper bindingsHelper;
 
     public KeepPreconditionsVisitor(
-        ParsingContext parsingContext,
+        PropertyParsingContext parsingContext,
         Parent<KeepPreconditions> parent,
         UserBindingsHelper bindingsHelper) {
       super(parsingContext);
@@ -1036,6 +1105,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+      assert name == null;
       if (descriptor.equals(Condition.DESCRIPTOR)) {
         return new KeepConditionVisitor(
             parsingContext.annotation(descriptor), builder::addCondition, bindingsHelper);
@@ -1056,7 +1126,7 @@ public class KeepEdgeReader implements Opcodes {
     private final UserBindingsHelper bindingsHelper;
 
     public KeepConsequencesVisitor(
-        ParsingContext parsingContext,
+        PropertyParsingContext parsingContext,
         Parent<KeepConsequences> parent,
         UserBindingsHelper bindingsHelper) {
       super(parsingContext);
@@ -1067,6 +1137,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+      assert name == null;
       if (descriptor.equals(Target.DESCRIPTOR)) {
         return KeepTargetVisitor.create(
             parsingContext.annotation(descriptor), builder::addTarget, bindingsHelper);
@@ -1786,7 +1857,7 @@ public class KeepEdgeReader implements Opcodes {
 
     private final Parent<KeepTarget> parent;
     private final UserBindingsHelper bindingsHelper;
-    private final ConstraintsParser optionsParser;
+    private final ConstraintDeclarationParser constraintsParser;
     private final KeepTarget.Builder builder = KeepTarget.builder();
 
     static KeepTargetVisitor create(
@@ -1803,9 +1874,7 @@ public class KeepEdgeReader implements Opcodes {
       super(parsingContext);
       this.parent = parent;
       this.bindingsHelper = bindingsHelper;
-      optionsParser = new ConstraintsParser(parsingContext);
-      optionsParser.setProperty(Target.constraints, ConstraintsProperty.CONSTRAINTS);
-      optionsParser.setProperty(Target.constraintAdditions, ConstraintsProperty.ADDITIONS);
+      constraintsParser = new ConstraintDeclarationParser(parsingContext);
     }
 
     @Override
@@ -1815,7 +1884,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitArray(String name) {
-      AnnotationVisitor visitor = optionsParser.tryParseArray(name, unused -> {});
+      AnnotationVisitor visitor = constraintsParser.tryParseArray(name, unused -> {});
       if (visitor != null) {
         return visitor;
       }
@@ -1825,7 +1894,8 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public void visitEnd() {
       super.visitEnd();
-      builder.setConstraints(optionsParser.getValueOrDefault(KeepConstraints.defaultConstraints()));
+      builder.setConstraints(
+          constraintsParser.getValueOrDefault(KeepConstraints.defaultConstraints()));
       for (KeepItemReference item : getItemsWithBinding()) {
         parent.accept(builder.setItemReference(item).build());
       }

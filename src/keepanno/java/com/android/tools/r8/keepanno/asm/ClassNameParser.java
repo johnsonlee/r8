@@ -89,7 +89,6 @@ public class ClassNameParser
           nameParser.setProperty(ClassNamePattern.simpleName, ClassSimpleNameProperty.NAME);
           return new ParserVisitor(
               parsingContext,
-              descriptor,
               ImmutableList.of(packageParser, nameParser),
               () ->
                   setValue.accept(

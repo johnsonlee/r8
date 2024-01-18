@@ -26,6 +26,7 @@ public class ArrayPropertyParser<T, P> extends PropertyParserBase<List<T>, P> {
   AnnotationVisitor tryPropertyArray(P property, String name, Consumer<List<T>> setValue) {
     // The property name and type is forwarded to the element parser.
     values = new ArrayList<>();
+    // The context is explicitly *not* extended with the property name here as it is forwarded.
     ParsingContext parsingContext = getParsingContext();
     return new AnnotationVisitorBase(parsingContext) {
 

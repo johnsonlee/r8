@@ -122,6 +122,12 @@ package com.android.tools.r8.keepanno.ast;
  *
  *   MEMBER_ACCESS_FLAG
  *     ::= public | protected | package-private | private | static | final | synthetic
+ *
+ *   ANNOTATION_PATTERN
+ *     ::= @QUALIFIED_CLASS_NAME_PATTERN retention(RETENTION_POLICY+)
+ *
+ *   RETENTION_POLICY
+ *     ::= RUNTIME | CLASS
  * </pre>
  */
 public final class KeepEdge extends KeepDeclaration {

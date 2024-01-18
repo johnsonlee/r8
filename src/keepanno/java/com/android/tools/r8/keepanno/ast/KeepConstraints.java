@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.ast.KeepConstraint.Annotation;
 import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
 import com.google.common.collect.ImmutableSet;
 import java.util.Collections;
@@ -19,7 +20,12 @@ public abstract class KeepConstraints {
   }
 
   public static KeepConstraints defaultAdditions(KeepConstraints additionalConstraints) {
-    return new Additions(additionalConstraints);
+    if (additionalConstraints instanceof Constraints) {
+      return new Additions((Constraints) additionalConstraints);
+    }
+    // If no explicit constraints are set, this is just identity on the defaults/additions.
+    assert additionalConstraints instanceof Defaults || additionalConstraints instanceof Additions;
+    return additionalConstraints;
   }
 
   public static Builder builder() {
@@ -28,9 +34,30 @@ public abstract class KeepConstraints {
 
   public static class Builder {
 
+    private boolean defaultAdditions = false;
     private final Set<KeepConstraint> constraints = new HashSet<>();
 
     private Builder() {}
+
+    public Builder copyFrom(KeepConstraints fromConstraints) {
+      if (fromConstraints instanceof Defaults) {
+        // This builder is based on defaults so set the builder as an addition.
+        defaultAdditions = true;
+      } else if (fromConstraints instanceof Additions) {
+        // This builder is an addition, populate the additions into the constraint set.
+        defaultAdditions = true;
+        constraints.addAll(((Additions) fromConstraints).additions.constraints);
+      } else {
+        assert fromConstraints instanceof Constraints;
+        constraints.addAll(((Constraints) fromConstraints).constraints);
+      }
+      return this;
+    }
+
+    public Builder removeAnnotations() {
+      constraints.removeIf(constraint -> constraint instanceof Annotation);
+      return this;
+    }
 
     public Builder add(KeepConstraint constraint) {
       constraints.add(constraint);
@@ -38,7 +65,8 @@ public abstract class KeepConstraints {
     }
 
     public KeepConstraints build() {
-      return new Constraints(constraints);
+      Constraints constraintCollection = new Constraints(constraints);
+      return defaultAdditions ? new Additions(constraintCollection) : constraintCollection;
     }
   }
 
@@ -65,9 +93,9 @@ public abstract class KeepConstraints {
 
   private static class Additions extends KeepConstraints {
 
-    private final KeepConstraints additions;
+    private final Constraints additions;
 
-    public Additions(KeepConstraints additions) {
+    public Additions(Constraints additions) {
       this.additions = additions;
     }
 
