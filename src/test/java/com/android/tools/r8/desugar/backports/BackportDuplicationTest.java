@@ -16,6 +16,8 @@ import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DexFilePerClassFileConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.OutputMode;
+import com.android.tools.r8.SyntheticInfoConsumer;
+import com.android.tools.r8.SyntheticInfoConsumerData;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -23,7 +25,9 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.ArtCommandBuilder;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.desugar.backports.AbstractBackportTest.MiniAssert;
+import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.MethodReference;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.synthesis.SyntheticNaming;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -37,8 +41,10 @@ import com.google.common.collect.Sets.SetView;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -340,6 +346,115 @@ public class BackportDuplicationTest extends TestBase {
             SyntheticItemsTestUtils.syntheticBackportMethod(
                 User2.class, 0, Integer.class.getMethod("compare", int.class, int.class)));
     assertEquals(expectedSynthetics, getSyntheticMethods(inspector));
+  }
+
+  private static class ContextCollector implements SyntheticInfoConsumer {
+
+    Map<ClassReference, Set<ClassReference>> contextToSynthetics = new HashMap<>();
+
+    @Override
+    public synchronized void acceptSyntheticInfo(SyntheticInfoConsumerData data) {
+      contextToSynthetics
+          .computeIfAbsent(data.getSynthesizingContextClass(), k -> new HashSet<>())
+          .add(data.getSyntheticClass());
+    }
+
+    @Override
+    public void finished() {}
+  }
+
+  private static class PerFileCollector extends DexFilePerClassFileConsumer.ForwardingConsumer {
+
+    Map<ClassReference, byte[]> data = new HashMap<>();
+    ContextCollector contexts = new ContextCollector();
+
+    public PerFileCollector() {
+      super(null);
+    }
+
+    @Override
+    public boolean combineSyntheticClassesWithPrimaryClass() {
+      return false;
+    }
+
+    @Override
+    public synchronized void accept(
+        String primaryClassDescriptor,
+        ByteDataView data,
+        Set<String> descriptors,
+        DiagnosticsHandler handler) {
+      super.accept(primaryClassDescriptor, data, descriptors, handler);
+      this.data.put(Reference.classFromDescriptor(primaryClassDescriptor), data.copyByteData());
+    }
+  }
+
+  @Test
+  public void testDoubleCompileSyntheticInputsD8() throws Exception {
+    assumeTrue(parameters.isDexRuntime());
+    // This is a regression test for the pathological case of recompiling intermediates in
+    // intermediate mode, but where the second round of compilation can share more than what was
+    // originally shared. Such a case should never be hit by any reasonable compilation pipeline,
+    // but it could by chance happen if a bytecode transformation was between the two intermediate
+    // steps that ended up making two previously distinct synthetics equivalent. To simulate such
+    // a case the sharing of synthetics is internally disabled so that we know the second round
+    // would see equivalent synthetics.
+
+    // Compile part 1 of the input with sharing completely disabled.
+    PerFileCollector out1 = new PerFileCollector();
+    testForD8(parameters.getBackend())
+        .addOptionsModification(o -> o.testing.enableSyntheticSharing = false)
+        .addProgramClasses(User1.class)
+        .addClasspathClasses(CLASSES)
+        .setMinApi(parameters)
+        .setIntermediate(true)
+        .setProgramConsumer(out1)
+        .apply(b -> b.getBuilder().setSyntheticInfoConsumer(out1.contexts))
+        .compile();
+    // The total number of outputs is 8 of which 7 are synthetics in User1.
+    ClassReference user1 = Reference.classFromClass(User1.class);
+    assertEquals(8, out1.data.size());
+    assertEquals(1, out1.contexts.contextToSynthetics.size());
+    assertEquals(7, out1.contexts.contextToSynthetics.get(user1).size());
+
+    // Recompile a "shard" containing all the synthetics, but not the context.
+    PerFileCollector out2 = new PerFileCollector();
+    testForD8(parameters.getBackend())
+        .apply(
+            b ->
+                out1.contexts
+                    .contextToSynthetics
+                    .get(user1)
+                    .forEach(synthetic -> b.addProgramDexFileData(out1.data.get(synthetic))))
+        .addClasspathClasses(CLASSES)
+        .setMinApi(parameters)
+        .setIntermediate(true)
+        .setProgramConsumer(out2)
+        .apply(b -> b.getBuilder().setSyntheticInfoConsumer(out2.contexts))
+        .compile();
+    // Again the total number of synthetics should remain 7 with no sharing taking place.
+    assertEquals(7, out2.data.size());
+
+    // Compile the remaining program inputs not compiled in the above.
+    // Note: the order of final synthetics depends on compiling to intermediates before merge.
+    Path out3 =
+        testForD8(parameters.getBackend())
+            .addProgramClasses(MiniAssert.class, TestClass.class, User2.class)
+            .setMinApi(parameters)
+            .setIntermediate(true)
+            .compile()
+            .writeToZip();
+
+    // Merge all into a final build.
+    testForD8(parameters.getBackend())
+        .addProgramDexFileData(out1.data.get(user1))
+        .addProgramDexFileData(out2.data.values())
+        .addProgramFiles(out3)
+        .setMinApi(parameters)
+        .setIntermediate(false)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED)
+        .inspect(this::checkNoOriginalsAndNoInternalSynthetics)
+        .inspect(this::checkExpectedSynthetics);
   }
 
   static class User1 {

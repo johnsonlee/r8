@@ -84,9 +84,11 @@ abstract class SyntheticDefinition<
       return hasher.hash();
     }
     if (intermediate) {
-      // If in intermediate mode, include the context type as sharing is restricted to within a
-      // single context.
-      getContext().getSynthesizingContextType().hashWithTypeEquivalence(hasher, map);
+      // If in intermediate mode, include the *input* context type to restrict sharing.
+      // This restricts sharing to only allow sharing the synthetics with the same *input* context.
+      // If the synthetic is itself an input from a previous compilation it is restricted to share
+      // within its own context only. The input context should not be mapped to an equivalence type.
+      getContext().getSynthesizingInputContext(intermediate).hash(hasher);
     }
     hasher.putInt(context.getFeatureSplit().hashCode());
     internalComputeHash(hasher, map);
@@ -103,7 +105,6 @@ abstract class SyntheticDefinition<
     return compareTo(other, includeContext, graphLens, classToFeatureSplitMap) == 0;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   int compareTo(
       D other,
       boolean includeContext,
@@ -138,10 +139,12 @@ abstract class SyntheticDefinition<
     if (graphLens.isNonIdentityLens()) {
       DexType thisOrigType = graphLens.getOriginalType(thisType);
       DexType otherOrigType = graphLens.getOriginalType(otherType);
-      if (thisType != thisOrigType || otherType != otherOrigType) {
+      if (thisType.isNotIdenticalTo(thisOrigType) || otherType.isNotIdenticalTo(otherOrigType)) {
         map =
             t -> {
-              if (t == otherType || t == thisOrigType || t == otherOrigType) {
+              if (DexType.identical(t, otherType)
+                  || DexType.identical(t, thisOrigType)
+                  || DexType.identical(t, otherOrigType)) {
                 return thisType;
               }
               return t;
@@ -149,7 +152,7 @@ abstract class SyntheticDefinition<
       }
     }
     if (map == null) {
-      map = t -> t == otherType ? thisType : t;
+      map = t -> otherType.isIdenticalTo(t) ? thisType : t;
     }
     return internalCompareTo(other, map);
   }
