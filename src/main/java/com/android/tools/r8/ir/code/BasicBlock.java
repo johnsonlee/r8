@@ -426,11 +426,9 @@ public class BasicBlock {
   public void removeAllNormalSuccessors() {
     if (hasCatchHandlers()) {
       IntList successorsToRemove = new IntArrayList();
-      Set<Integer> handlers = catchHandlers.getUniqueTargets();
-      for (int i = 0; i < successors.size(); i++) {
-        if (!handlers.contains(i)) {
-          successorsToRemove.add(i);
-        }
+
+      for (int i = numberOfExceptionalSuccessors(), l = successors.size(); i < l; i++) {
+        successorsToRemove.add(i);
       }
       removeSuccessorsByIndex(successorsToRemove);
     } else {
@@ -1303,10 +1301,12 @@ public class BasicBlock {
   }
 
   public boolean hasCatchSuccessor(BasicBlock block) {
-    if (!hasCatchHandlers()) {
+    int numberOfExceptionalSuccessors = numberOfExceptionalSuccessors();
+    if (numberOfExceptionalSuccessors == 0) {
       return false;
     }
-    return catchHandlers.getUniqueTargets().contains(successors.indexOf(block));
+    int blockIndex = successors.indexOf(block);
+    return blockIndex >= 0 && blockIndex < numberOfExceptionalSuccessors;
   }
 
   public int guardsForCatchSuccessor(BasicBlock block) {
