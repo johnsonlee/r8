@@ -26,10 +26,7 @@ import com.android.tools.r8.ir.optimize.CustomLensCodeRewriter;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxingLens;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
 import com.android.tools.r8.optimize.MemberRebindingLens;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.CollectionUtils;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Timing;
@@ -43,7 +40,6 @@ import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.IdentityHashMap;
@@ -468,35 +464,6 @@ public abstract class GraphLens {
     for (DexEncodedField field : fields) {
       DexField reference = field.getReference();
       assert getRenamedFieldSignature(reference) == reference;
-    }
-    return true;
-  }
-
-  public <T extends DexReference> boolean assertPinnedNotModified(
-      AppView<AppInfoWithLiveness> appView) {
-    List<DexReference> pinnedItems = new ArrayList<>();
-    KeepInfoCollection keepInfo = appView.getKeepInfo();
-    InternalOptions options = appView.options();
-    keepInfo.forEachPinnedType(pinnedItems::add, options);
-    keepInfo.forEachPinnedMethod(pinnedItems::add, options);
-    keepInfo.forEachPinnedField(pinnedItems::add, options);
-    return assertReferencesNotModified(pinnedItems);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  public <T extends DexReference> boolean assertReferencesNotModified(Iterable<T> references) {
-    for (DexReference reference : references) {
-      if (reference.isDexField()) {
-        DexField field = reference.asDexField();
-        assert getRenamedFieldSignature(field) == field;
-      } else if (reference.isDexMethod()) {
-        DexMethod method = reference.asDexMethod();
-        assert getRenamedMethodSignature(method) == method;
-      } else {
-        assert reference.isDexType();
-        DexType type = reference.asDexType();
-        assert lookupType(type) == type;
-      }
     }
     return true;
   }
