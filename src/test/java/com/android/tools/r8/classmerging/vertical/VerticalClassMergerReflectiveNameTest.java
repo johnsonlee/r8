@@ -47,6 +47,8 @@ public class VerticalClassMergerReflectiveNameTest extends TestBase {
     testForR8(parameters.getBackend())
         .addProgramClasses(Main.class, A.class, B.class)
         .addKeepMainRule(Main.class)
+        .addVerticallyMergedClassesInspector(
+            inspector -> inspector.assertMergedIntoSubtype(A.class))
         .setMinApi(parameters)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
@@ -73,7 +75,7 @@ public class VerticalClassMergerReflectiveNameTest extends TestBase {
 
   public static class Main {
 
-    private static final String className =
+    private static String className =
         "com.android.tools.r8.classmerging.vertical.VerticalClassMergerReflectiveNameTest$A";
 
     static {

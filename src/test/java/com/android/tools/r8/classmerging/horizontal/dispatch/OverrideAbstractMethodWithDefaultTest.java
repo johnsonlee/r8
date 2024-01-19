@@ -6,7 +6,7 @@ package com.android.tools.r8.classmerging.horizontal.dispatch;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.onlyIf;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
@@ -47,11 +47,13 @@ public class OverrideAbstractMethodWithDefaultTest extends HorizontalClassMergin
             codeInspector -> {
               assertThat(codeInspector.clazz(I.class), isPresent());
               assertThat(codeInspector.clazz(J.class), isAbsent());
-              assertThat(codeInspector.clazz(A.class), isPresent());
+              assertThat(
+                  codeInspector.clazz(A.class),
+                  isPresentIf(parameters.canUseDefaultAndStaticInterfaceMethods()));
               assertThat(codeInspector.clazz(B1.class), isPresent());
               assertThat(
                   codeInspector.clazz(B2.class),
-                  onlyIf(parameters.canUseDefaultAndStaticInterfaceMethods(), isPresent()));
+                  isPresentIf(parameters.canUseDefaultAndStaticInterfaceMethods()));
               assertThat(codeInspector.clazz(C1.class), isPresent());
               assertThat(codeInspector.clazz(C2.class), isPresent());
             });

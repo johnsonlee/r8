@@ -86,6 +86,7 @@ public class RedundantImplementsClauseTest extends TestBase {
     }
   }
 
+  @NoVerticalClassMerging
   interface I {
 
     void m();

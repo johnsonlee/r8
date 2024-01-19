@@ -48,7 +48,6 @@ import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationIn
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ArrayUtils;
-import com.android.tools.r8.verticalclassmerging.VerticallyMergedClasses;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
@@ -508,10 +507,6 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
     }
 
     private boolean verifyWasInstanceInitializer() {
-      VerticallyMergedClasses verticallyMergedClasses = appView.getVerticallyMergedClasses();
-      assert verticallyMergedClasses != null;
-      assert verticallyMergedClasses.isMergeTarget(method.getHolderType())
-          || appView.horizontallyMergedClasses().isMergeTarget(method.getHolderType());
       assert appView
           .dexItemFactory()
           .isConstructor(appView.graphLens().getOriginalMethodSignature(method.getReference()));

@@ -5025,11 +5025,15 @@ public class Enqueuer {
     }
     DexReference referencedItem = identifierLookupResult.getReference();
     if (referencedItem.isDexType()) {
+      DexType referencedType = referencedItem.asDexType();
+      if (!referencedType.isClassType()
+          || appView.allMergedClasses().isMergeSource(referencedType)) {
+        return;
+      }
       assert identifierLookupResult.isTypeResult();
       IdentifierNameStringTypeLookupResult identifierTypeLookupResult =
           identifierLookupResult.asTypeResult();
-      DexProgramClass clazz =
-          getProgramClassOrNullFromReflectiveAccess(referencedItem.asDexType(), method);
+      DexProgramClass clazz = getProgramClassOrNullFromReflectiveAccess(referencedType, method);
       if (clazz == null) {
         return;
       }

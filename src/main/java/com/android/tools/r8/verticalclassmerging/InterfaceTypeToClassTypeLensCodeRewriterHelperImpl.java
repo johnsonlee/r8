@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -38,13 +39,20 @@ public class InterfaceTypeToClassTypeLensCodeRewriterHelperImpl
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final IRCode code;
+  private final GraphLens graphLens;
+  private final GraphLens codeLens;
 
   private final Map<Instruction, Deque<WorklistItem>> worklist = new IdentityHashMap<>();
 
   public InterfaceTypeToClassTypeLensCodeRewriterHelperImpl(
-      AppView<? extends AppInfoWithClassHierarchy> appView, IRCode code) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      IRCode code,
+      GraphLens graphLens,
+      GraphLens codeLens) {
     this.appView = appView;
     this.code = code;
+    this.graphLens = graphLens;
+    this.codeLens = codeLens;
   }
 
   @Override
@@ -91,7 +99,7 @@ public class InterfaceTypeToClassTypeLensCodeRewriterHelperImpl
       InstructionListIterator instructionIterator) {
     assert !rewrittenReturn.isReturnVoid();
     DexMethod originalMethodSignature =
-        appView.graphLens().getOriginalMethodSignature(code.context().getReference());
+        graphLens.getOriginalMethodSignature(code.context().getReference(), codeLens);
     DexType originalReturnType = originalMethodSignature.getReturnType();
     DexType rewrittenReturnType = code.context().getReturnType();
     if (needsCastForOperand(

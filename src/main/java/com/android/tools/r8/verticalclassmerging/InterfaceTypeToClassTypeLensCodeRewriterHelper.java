@@ -49,7 +49,8 @@ public abstract class InterfaceTypeToClassTypeLensCodeRewriterHelper {
     if (previousLens != null
         && previousLens != codeLens
         && previousLens.isVerticalClassMergerLens()) {
-      return new InterfaceTypeToClassTypeLensCodeRewriterHelperImpl(appView, code);
+      return new InterfaceTypeToClassTypeLensCodeRewriterHelperImpl(
+          appView, code, graphLens, codeLens);
     }
     return new EmptyInterfaceTypeToClassTypeLensCodeRewriterHelper();
   }

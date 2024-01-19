@@ -388,7 +388,6 @@ public class VerticalClassMergerTest extends TestBase {
     Set<String> preservedClassNames =
         ImmutableSet.of(
             "classmerging.NestedDefaultInterfaceMethodsTest",
-            "classmerging.NestedDefaultInterfaceMethodsTest$A",
             "classmerging.NestedDefaultInterfaceMethodsTest$C");
     runTest(
         testForR8(parameters.getBackend())
@@ -411,10 +410,14 @@ public class VerticalClassMergerTest extends TestBase {
           JAVA8_CF_DIR.resolve("NeverInline.class")
         };
     Set<String> preservedClassNames =
-        ImmutableSet.of(
-            "classmerging.NestedDefaultInterfaceMethodsTest",
-            "classmerging.NestedDefaultInterfaceMethodsTest$A",
-            "classmerging.NestedDefaultInterfaceMethodsTest$C");
+        parameters.isCfRuntime()
+            ? ImmutableSet.of(
+                "classmerging.NestedDefaultInterfaceMethodsTest",
+                "classmerging.NestedDefaultInterfaceMethodsTest$A",
+                "classmerging.NestedDefaultInterfaceMethodsTest$C")
+            : ImmutableSet.of(
+                "classmerging.NestedDefaultInterfaceMethodsTest",
+                "classmerging.NestedDefaultInterfaceMethodsTest$C");
     runTestOnInput(
         testForR8(parameters.getBackend())
             .addKeepRules(getProguardConfig(JAVA8_EXAMPLE_KEEP))
@@ -850,7 +853,6 @@ public class VerticalClassMergerTest extends TestBase {
         ImmutableSet.of(
             "classmerging.SuperCallToMergedClassIsRewrittenTest",
             "classmerging.A",
-            "classmerging.B",
             "classmerging.D",
             "classmerging.F");
 

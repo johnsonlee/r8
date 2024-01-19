@@ -3,13 +3,18 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking.examples;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbstract;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.shaking.TreeShakingTest;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -40,7 +45,7 @@ public class TreeShaking9Test extends TreeShakingTest {
   @Test
   public void testKeeprules() throws Exception {
     runTest(
-        TreeShaking9Test::shaking9OnlySuperMethodsKept,
+        this::shaking9OnlySuperMethodsKept,
         null,
         null,
         ImmutableList.of("src/test/examples/shaking9/keep-rules.txt"));
@@ -52,11 +57,19 @@ public class TreeShaking9Test extends TreeShakingTest {
         null, null, null, ImmutableList.of("src/test/examples/shaking9/keep-rules-printusage.txt"));
   }
 
-  private static void shaking9OnlySuperMethodsKept(CodeInspector inspector) {
+  private void shaking9OnlySuperMethodsKept(CodeInspector inspector) {
     ClassSubject superclass = inspector.clazz("shaking9.Superclass");
-    Assert.assertTrue(superclass.isAbstract());
-    Assert.assertTrue(superclass.method("void", "aMethod", ImmutableList.of()).isPresent());
+    if (parameters.canHaveNonReboundConstructorInvoke()) {
+      assertThat(superclass, isAbsent());
+    } else {
+      assertThat(superclass, isAbstract());
+      assertThat(superclass.method("void", "aMethod", ImmutableList.of()), isPresent());
+    }
+
     ClassSubject subclass = inspector.clazz("shaking9.Subclass");
-    Assert.assertFalse(subclass.method("void", "aMethod", ImmutableList.of()).isPresent());
+    assertThat(subclass, isPresent());
+    assertThat(
+        subclass.method("void", "aMethod", ImmutableList.of()),
+        isPresentIf(parameters.canHaveNonReboundConstructorInvoke() && !getMinify().isMinify()));
   }
 }

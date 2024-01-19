@@ -335,6 +335,9 @@ public class MethodCollection {
   }
 
   public void removeMethods(Set<DexEncodedMethod> methods) {
+    if (methods.isEmpty()) {
+      return;
+    }
     backing.removeMethods(methods);
     resetDirectMethodCaches();
     resetVirtualMethodCaches();

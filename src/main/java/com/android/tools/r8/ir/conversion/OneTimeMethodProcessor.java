@@ -32,6 +32,10 @@ public class OneTimeMethodProcessor extends MethodProcessorWithWave {
     this.wave = wave;
   }
 
+  public static Builder builder(MethodProcessorEventConsumer eventConsumer, AppView<?> appView) {
+    return builder(eventConsumer, appView.createProcessorContext());
+  }
+
   public static Builder builder(
       MethodProcessorEventConsumer eventConsumer, ProcessorContext processorContext) {
     return new Builder(eventConsumer, processorContext);

@@ -669,6 +669,10 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     return self();
   }
 
+  public T addNoVerticalClassMergingRule(String clazz) {
+    return addInternalKeepRules("-noverticalclassmerging class " + clazz);
+  }
+
   public T enableMemberValuePropagationAnnotations() {
     return enableMemberValuePropagationAnnotations(true);
   }

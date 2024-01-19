@@ -126,7 +126,7 @@ public class IRConverter {
   private final StringSwitchRemover stringSwitchRemover;
   private final TypeChecker typeChecker;
   protected ServiceLoaderRewriter serviceLoaderRewriter;
-  protected final EnumUnboxer enumUnboxer;
+  protected EnumUnboxer enumUnboxer;
   protected final NumberUnboxer numberUnboxer;
   protected final RemoveVerificationErrorForUnknownReturnedValues
       removeVerificationErrorForUnknownReturnedValues;
@@ -297,6 +297,14 @@ public class IRConverter {
 
   public IRConverter(AppInfo appInfo) {
     this(AppView.createForD8(appInfo));
+  }
+
+  public void clearEnumUnboxer() {
+    enumUnboxer = EnumUnboxer.empty();
+  }
+
+  public void clearServiceLoaderRewriter() {
+    serviceLoaderRewriter = null;
   }
 
   public Inliner getInliner() {
@@ -515,13 +523,14 @@ public class IRConverter {
       feedback.markProcessed(method.getDefinition(), ConstraintWithTarget.NEVER);
       return Timing.empty();
     }
-    return optimize(code, feedback, methodProcessor, methodProcessingContext);
+    return optimize(code, feedback, conversionOptions, methodProcessor, methodProcessingContext);
   }
 
   // TODO(b/140766440): Convert all sub steps an implementer of CodeOptimization
   Timing optimize(
       IRCode code,
       OptimizationFeedback feedback,
+      MethodConversionOptions methodConversionOptions,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext) {
     ProgramMethod context = code.context();
@@ -592,6 +601,14 @@ public class IRConverter {
           timing);
       timing.end();
       markProcessed(code, feedback);
+      return timing;
+    }
+
+    if (methodConversionOptions.shouldFinalizeAfterLensCodeRewriter()) {
+      deadCodeRemover.run(code, timing);
+      timing.begin("Finalize IR");
+      finalizeIR(code, feedback, BytecodeMetadataProvider.empty(), timing);
+      timing.end();
       return timing;
     }
 

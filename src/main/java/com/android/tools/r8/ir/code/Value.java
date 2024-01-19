@@ -197,6 +197,10 @@ public class Value implements Comparable<Value> {
     this.type = type;
   }
 
+  public static Value createNoDebugLocal(int number, TypeElement type) {
+    return new Value(number, type, null);
+  }
+
   public boolean isFixedRegisterValue() {
     return false;
   }

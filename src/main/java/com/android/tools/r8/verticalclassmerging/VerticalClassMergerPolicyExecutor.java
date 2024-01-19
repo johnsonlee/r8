@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.verticalclassmerging;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.classmerging.PolicyExecutor;
 import com.android.tools.r8.graph.AppView;
@@ -17,6 +18,7 @@ import com.android.tools.r8.verticalclassmerging.policies.NoClassInitializationC
 import com.android.tools.r8.verticalclassmerging.policies.NoDirectlyInstantiatedClassesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoEnclosingMethodAttributesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoFieldResolutionChangesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoFinalSourceInstanceFieldsWithConstructorInliningPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoIllegalAccessesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoInnerClassAttributesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy;
@@ -49,11 +51,15 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
 
   private final AppView<AppInfoWithLiveness> appView;
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
+  private final ClassMergerMode mode;
 
   VerticalClassMergerPolicyExecutor(
-      AppView<AppInfoWithLiveness> appView, ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
+      AppView<AppInfoWithLiveness> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
+      ClassMergerMode mode) {
     this.appView = appView;
     this.immediateSubtypingInfo = immediateSubtypingInfo;
+    this.mode = mode;
   }
 
   ConnectedComponentVerticalClassMerger run(
@@ -64,6 +70,7 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
     Collection<Policy> policies =
         List.of(
             new NoDirectlyInstantiatedClassesPolicy(appView),
+            new NoFinalSourceInstanceFieldsWithConstructorInliningPolicy(appView, mode),
             new NoInterfacesWithUnknownSubtypesPolicy(appView),
             new NoKeptClassesPolicy(appView),
             new SameFeatureSplitPolicy(appView),
@@ -82,7 +89,7 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
             new NoMethodResolutionChangesPolicy(appView),
             new NoIllegalAccessesPolicy(appView),
             new NoClassInitializationChangesPolicy(appView),
-            new NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy(appView),
+            new NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy(appView, mode),
             new NoInvokeSuperNoSuchMethodErrorsPolicy(appView),
             new SuccessfulVirtualMethodResolutionInTargetPolicy(appView),
             new NoAbstractMethodsOnAbstractClassesPolicy(appView),

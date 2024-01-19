@@ -21,7 +21,14 @@ public class VerticalClassMergerOptions {
   }
 
   public boolean isEnabled(ClassMergerMode mode) {
-    return enabled && options.isOptimizing() && options.isShrinking() && mode.isInitial();
+    if (!enabled || !options.isOptimizing() || !options.isShrinking()) {
+      return false;
+    }
+    // TODO(b/320431939): Enable final round of vertical class merging for desugared library.
+    if (mode.isFinal() && !options.synthesizedClassPrefix.isEmpty()) {
+      return false;
+    }
+    return true;
   }
 
   public void setEnabled(boolean enabled) {

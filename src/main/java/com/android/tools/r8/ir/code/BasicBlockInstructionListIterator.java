@@ -423,6 +423,13 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
           || invokedMethod.mustBeInlinedIntoInstanceInitializer(appView)) {
         return false;
       }
+    } else if (toBeReplaced.isInvokeVirtual()) {
+      // TODO(b/321171043): This is only needed as long as we change constructors in vertical class
+      //  merging to non-constructors methods.
+      DexMethod invokedMethod = toBeReplaced.asInvokeVirtual().getInvokedMethod();
+      if (invokedMethod.mustBeInlinedIntoInstanceInitializer(appView)) {
+        return false;
+      }
     }
     if (toBeReplaced.instructionMayHaveSideEffects(
         appView, context, Instruction.SideEffectAssumption.RECEIVER_NOT_NULL)) {

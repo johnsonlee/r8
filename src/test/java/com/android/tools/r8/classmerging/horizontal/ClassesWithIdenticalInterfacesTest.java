@@ -35,7 +35,7 @@ public class ClassesWithIdenticalInterfacesTest extends HorizontalClassMergingTe
         .assertSuccessWithOutputLines("bar", "foo y", "foo z")
         .inspect(
             codeInspector -> {
-              assertThat(codeInspector.clazz(I.class), isPresent());
+              assertThat(codeInspector.clazz(I.class), isAbsent());
               assertThat(codeInspector.clazz(X.class), isPresent());
               assertThat(codeInspector.clazz(Y.class), isAbsent());
               assertThat(codeInspector.clazz(Z.class), isAbsent());

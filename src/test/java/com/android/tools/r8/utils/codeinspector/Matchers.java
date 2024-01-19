@@ -341,22 +341,27 @@ public class Matchers {
     };
   }
 
-  public static Matcher<MethodSubject> isAbstract() {
-    return new TypeSafeMatcher<MethodSubject>() {
+  public static Matcher<ClassOrMemberSubject> isAbstract() {
+    return new TypeSafeMatcher<ClassOrMemberSubject>() {
       @Override
-      public boolean matchesSafely(final MethodSubject method) {
-        return method.isPresent() && method.isAbstract();
+      public boolean matchesSafely(ClassOrMemberSubject subject) {
+        if (subject instanceof FoundClassSubject) {
+          return ((FoundClassSubject) subject).isAbstract();
+        }
+        if (subject instanceof FoundMethodSubject) {
+          return ((FoundMethodSubject) subject).isAbstract();
+        }
+        return false;
       }
 
       @Override
-      public void describeTo(final Description description) {
-        description.appendText("method abstract");
+      public void describeTo(Description description) {
+        description.appendText("abstract");
       }
 
       @Override
-      public void describeMismatchSafely(final MethodSubject method, Description description) {
-        description
-            .appendText("method ").appendValue(method.getOriginalName()).appendText(" was not");
+      public void describeMismatchSafely(ClassOrMemberSubject subject, Description description) {
+        description.appendValue(subject.getOriginalName()).appendText(" was not");
       }
     };
   }

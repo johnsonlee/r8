@@ -28,8 +28,7 @@ public class KeepNonVisibilityBridgeMethodsTest extends TestBase {
   @Parameters(name = "{1}, minification: {0}")
   public static List<Object[]> data() {
     return buildParameters(
-        BooleanUtils.values(),
-        getTestParameters().withDexRuntimes().withAllRuntimesAndApiLevels().build());
+        BooleanUtils.values(), getTestParameters().withAllRuntimesAndApiLevels().build());
   }
 
   public KeepNonVisibilityBridgeMethodsTest(boolean minification, TestParameters parameters) {

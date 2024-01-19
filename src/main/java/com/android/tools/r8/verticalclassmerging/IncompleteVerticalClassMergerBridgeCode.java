@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.verticalclassmerging;
 
+import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
+import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
+
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -11,18 +14,29 @@ import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.InvokeType;
+import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.synthetic.ForwardMethodBuilder;
+import com.android.tools.r8.lightir.LirBuilder;
+import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirEncodingStrategy;
+import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * A short-lived piece of code that will be converted into {@link CfCode} using the method {@link
- * IncompleteVerticalClassMergerBridgeCode#toCfCode(DexItemFactory, VerticalClassMergerGraphLens)}.
+ * A short-lived piece of code that will be converted into {@link CfCode} using {@link
+ * #toCfCode(DexItemFactory)} or {@link LirCode} using {@link #toLirCode(AppView)}.
  */
 public class IncompleteVerticalClassMergerBridgeCode extends Code {
 
@@ -84,6 +98,48 @@ public class IncompleteVerticalClassMergerBridgeCode extends Code {
         .setNonStaticSource(method)
         .setCodeLens(lens)
         .build();
+  }
+
+  public LirCode<?> toLirCode(AppView<AppInfoWithLiveness> appView) {
+    boolean isD8R8Synthesized = true;
+    LirEncodingStrategy<Value, Integer> strategy =
+        LirStrategy.getDefaultStrategy().getEncodingStrategy();
+    LirBuilder<Value, Integer> lirBuilder =
+        LirCode.builder(method, isD8R8Synthesized, strategy, appView.options())
+            .setMetadata(IRMetadata.unknown());
+
+    // Add all arguments.
+    List<Value> argumentValues = new ArrayList<>();
+    int instructionIndex = 0;
+    for (; instructionIndex < method.getNumberOfArgumentsForNonStaticMethod(); instructionIndex++) {
+      DexType argumentType = method.getArgumentTypeForNonStaticMethod(instructionIndex);
+      TypeElement argumentTypeElement =
+          argumentType.toTypeElement(
+              appView, instructionIndex == 0 ? definitelyNotNull() : maybeNull());
+      Value argumentValue = Value.createNoDebugLocal(instructionIndex, argumentTypeElement);
+      argumentValues.add(argumentValue);
+      strategy.defineValue(argumentValue, argumentValue.getNumber());
+      lirBuilder.addArgument(instructionIndex, argumentType.isBooleanType());
+    }
+
+    if (type.isStatic()) {
+      lirBuilder.addInvokeStatic(invocationTarget, argumentValues, isInterface);
+    } else if (isInterface) {
+      lirBuilder.addInvokeInterface(invocationTarget, argumentValues);
+    } else {
+      lirBuilder.addInvokeVirtual(invocationTarget, argumentValues);
+    }
+
+    if (method.getReturnType().isVoidType()) {
+      lirBuilder.addReturnVoid();
+    } else {
+      Value returnValue =
+          Value.createNoDebugLocal(instructionIndex, method.getReturnType().toTypeElement(appView));
+      strategy.defineValue(returnValue, returnValue.getNumber());
+      lirBuilder.addReturn(returnValue);
+    }
+
+    return lirBuilder.build();
   }
 
   // Implement Code.

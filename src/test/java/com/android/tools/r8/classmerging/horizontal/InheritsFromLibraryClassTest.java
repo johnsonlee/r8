@@ -31,7 +31,7 @@ public class InheritsFromLibraryClassTest extends HorizontalClassMergingTestBase
         .assertSuccessWithOutputLines("a", "foo a", "b", "foo")
         .inspect(
             codeInspector -> {
-              assertThat(codeInspector.clazz(Parent.class), isPresent());
+              assertThat(codeInspector.clazz(Parent.class), isAbsent());
               assertThat(codeInspector.clazz(A.class), isPresent());
               assertThat(codeInspector.clazz(B.class), isAbsent());
               assertThat(codeInspector.clazz(C.class), isPresent());

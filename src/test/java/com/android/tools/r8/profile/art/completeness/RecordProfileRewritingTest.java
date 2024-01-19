@@ -8,8 +8,9 @@ import static com.android.tools.r8.ir.desugar.records.RecordDesugaring.EQUALS_RE
 import static com.android.tools.r8.ir.desugar.records.RecordDesugaring.GET_FIELDS_AS_OBJECTS_METHOD_NAME;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.ifThen;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
@@ -193,23 +194,24 @@ public class RecordProfileRewritingTest extends TestBase {
     assertThat(mainMethodSubject, isPresent());
 
     ClassSubject recordTagClassSubject = inspector.clazz(recordClassReference);
-    assertThat(recordTagClassSubject, notIf(isPresent(), canUseRecords));
-    if (!canUseRecords) {
+    assertThat(
+        recordTagClassSubject, isAbsentIf(canHaveNonReboundConstructorInvoke || canUseRecords));
+    if (recordTagClassSubject.isPresent()) {
       assertEquals(
           canHaveNonReboundConstructorInvoke ? 0 : 1, recordTagClassSubject.allMethods().size());
     }
 
     MethodSubject recordTagInstanceInitializerSubject = recordTagClassSubject.init();
-    assertThat(
-        recordTagInstanceInitializerSubject,
-        notIf(isPresent(), canHaveNonReboundConstructorInvoke || canUseRecords));
+    assertThat(recordTagInstanceInitializerSubject, isPresentIf(recordTagClassSubject.isPresent()));
 
     ClassSubject personRecordClassSubject = inspector.clazz(PERSON_REFERENCE);
     assertThat(personRecordClassSubject, isPresent());
     assertEquals(
-        canUseRecords
-            ? inspector.getTypeSubject(RECORD_REFERENCE.getTypeName())
-            : recordTagClassSubject.asTypeSubject(),
+        canHaveNonReboundConstructorInvoke
+            ? inspector.getTypeSubject(Object.class.getTypeName())
+            : canUseRecords
+                ? inspector.getTypeSubject(RECORD_REFERENCE.getTypeName())
+                : recordTagClassSubject.asTypeSubject(),
         personRecordClassSubject.getSuperType());
     assertEquals(canUseRecords ? 6 : 10, personRecordClassSubject.allMethods().size());
 
@@ -226,7 +228,7 @@ public class RecordProfileRewritingTest extends TestBase {
             SyntheticItemsTestUtils.syntheticNestInstanceFieldGetter(
                     Reference.field(PERSON_REFERENCE, "name", STRING_REFERENCE))
                 .getMethodName());
-    assertThat(nameNestAccessorMethodSubject, notIf(isPresent(), canUseNestBasedAccesses));
+    assertThat(nameNestAccessorMethodSubject, isAbsentIf(canUseNestBasedAccesses));
 
     // Age getters.
     MethodSubject ageMethodSubject = personRecordClassSubject.uniqueMethodWithOriginalName("age");
@@ -237,16 +239,16 @@ public class RecordProfileRewritingTest extends TestBase {
             SyntheticItemsTestUtils.syntheticNestInstanceFieldGetter(
                     Reference.field(PERSON_REFERENCE, "age", Reference.INT))
                 .getMethodName());
-    assertThat(ageNestAccessorMethodSubject, notIf(isPresent(), canUseNestBasedAccesses));
+    assertThat(ageNestAccessorMethodSubject, isAbsentIf(canUseNestBasedAccesses));
 
     // boolean equals(Object)
     MethodSubject getFieldsAsObjectsMethodSubject =
         personRecordClassSubject.uniqueMethodWithOriginalName(GET_FIELDS_AS_OBJECTS_METHOD_NAME);
-    assertThat(getFieldsAsObjectsMethodSubject, notIf(isPresent(), canUseRecords));
+    assertThat(getFieldsAsObjectsMethodSubject, isAbsentIf(canUseRecords));
 
     MethodSubject equalsHelperMethodSubject =
         personRecordClassSubject.uniqueMethodWithOriginalName(EQUALS_RECORD_METHOD_NAME);
-    assertThat(equalsHelperMethodSubject, notIf(isPresent(), canUseRecords));
+    assertThat(equalsHelperMethodSubject, isAbsentIf(canUseRecords));
 
     MethodSubject equalsMethodSubject =
         personRecordClassSubject.uniqueMethodWithOriginalName("equals");
@@ -257,10 +259,10 @@ public class RecordProfileRewritingTest extends TestBase {
     // int hashCode()
     ClassSubject hashCodeHelperClassSubject =
         inspector.clazz(SyntheticItemsTestUtils.syntheticRecordHelperClass(PERSON_REFERENCE, 1));
-    assertThat(hashCodeHelperClassSubject, notIf(isPresent(), canUseRecords));
+    assertThat(hashCodeHelperClassSubject, isAbsentIf(canUseRecords));
 
     MethodSubject hashCodeHelperMethodSubject = hashCodeHelperClassSubject.uniqueMethod();
-    assertThat(hashCodeHelperMethodSubject, notIf(isPresent(), canUseRecords));
+    assertThat(hashCodeHelperMethodSubject, isAbsentIf(canUseRecords));
 
     MethodSubject hashCodeMethodSubject =
         personRecordClassSubject.uniqueMethodWithOriginalName("hashCode");
@@ -274,10 +276,10 @@ public class RecordProfileRewritingTest extends TestBase {
     // String toString()
     ClassSubject toStringHelperClassSubject =
         inspector.clazz(SyntheticItemsTestUtils.syntheticRecordHelperClass(PERSON_REFERENCE, 0));
-    assertThat(toStringHelperClassSubject, notIf(isPresent(), canUseRecords));
+    assertThat(toStringHelperClassSubject, isAbsentIf(canUseRecords));
 
     MethodSubject toStringHelperMethodSubject = toStringHelperClassSubject.uniqueMethod();
-    assertThat(toStringHelperMethodSubject, notIf(isPresent(), canUseRecords));
+    assertThat(toStringHelperMethodSubject, isAbsentIf(canUseRecords));
 
     MethodSubject toStringMethodSubject =
         personRecordClassSubject.uniqueMethodWithOriginalName("toString");
@@ -306,10 +308,7 @@ public class RecordProfileRewritingTest extends TestBase {
         .applyIf(
             !canUseRecords,
             i ->
-                i.assertContainsClassRules(
-                        recordTagClassSubject,
-                        hashCodeHelperClassSubject,
-                        toStringHelperClassSubject)
+                i.assertContainsClassRules(hashCodeHelperClassSubject, toStringHelperClassSubject)
                     .assertContainsMethodRules(
                         equalsHelperMethodSubject,
                         getFieldsAsObjectsMethodSubject,
@@ -317,7 +316,9 @@ public class RecordProfileRewritingTest extends TestBase {
                         toStringHelperMethodSubject)
                     .applyIf(
                         !canHaveNonReboundConstructorInvoke,
-                        j -> j.assertContainsMethodRule(recordTagInstanceInitializerSubject)))
+                        j ->
+                            j.assertContainsClassRules(recordTagClassSubject)
+                                .assertContainsMethodRule(recordTagInstanceInitializerSubject)))
         .assertContainsNoOtherRules();
   }
 }

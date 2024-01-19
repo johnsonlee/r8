@@ -58,7 +58,7 @@ public abstract class TreeShakingTest extends TestBase {
 
   protected abstract String getMainClass();
 
-  private final TestParameters parameters;
+  protected final TestParameters parameters;
   private final MinifyMode minify;
 
   public TestParameters getParameters() {

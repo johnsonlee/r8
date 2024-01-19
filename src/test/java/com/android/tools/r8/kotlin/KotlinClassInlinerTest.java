@@ -143,7 +143,8 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                     // TODO(jsjeon): Introduce @NeverInline to kotlinR8TestResources
                     .addKeepRules("-neverinline class * { void test*State*(...); }")
                     .addNoHorizontalClassMergingRule(
-                        "class_inliner_lambda_j_style.SamIface$Consumer"))
+                        "class_inliner_lambda_j_style.SamIface$Consumer")
+                    .addNoVerticalClassMergingRule("class_inliner_lambda_j_style.SamIface"))
         .inspect(
             inspector -> {
               if (testParameters.isCfRuntime() && !hasKotlinCGeneratedLambdaClasses) {

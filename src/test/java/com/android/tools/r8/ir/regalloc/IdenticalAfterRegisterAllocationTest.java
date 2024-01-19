@@ -154,6 +154,11 @@ public class IdenticalAfterRegisterAllocationTest {
               public boolean isStringSwitchConversionEnabled() {
                 return false;
               }
+
+              @Override
+              public boolean shouldFinalizeAfterLensCodeRewriter() {
+                return false;
+              }
             }));
   }
 }

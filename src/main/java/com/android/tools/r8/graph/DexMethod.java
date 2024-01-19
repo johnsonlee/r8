@@ -105,8 +105,16 @@ public class DexMethod extends DexMember<DexEncodedMethod, DexMethod> {
     return getParameter(argumentIndex - 1);
   }
 
+  public DexType getArgumentTypeForNonStaticMethod(int argumentIndex) {
+    return getArgumentType(argumentIndex, false);
+  }
+
   public int getNumberOfArguments(boolean isStatic) {
     return getArity() + BooleanUtils.intValue(!isStatic);
+  }
+
+  public int getNumberOfArgumentsForNonStaticMethod() {
+    return getNumberOfArguments(false);
   }
 
   public DexType getParameter(int index) {

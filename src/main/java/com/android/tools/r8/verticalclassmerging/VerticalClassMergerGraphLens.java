@@ -283,6 +283,12 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
   @Override
   protected InvokeType mapInvocationType(
       DexMethod newMethod, DexMethod previousMethod, InvokeType type) {
+    // TODO(b/321171043): Remove the need to map constructor calls to invoke-virtual.
+    if (dexItemFactory().isConstructor(previousMethod)
+        && !dexItemFactory().isConstructor(newMethod)) {
+      assert newMethod.getName().startsWith(dexItemFactory().temporaryConstructorMethodPrefix);
+      return InvokeType.VIRTUAL;
+    }
     if (isStaticized(newMethod)) {
       return InvokeType.STATIC;
     }

@@ -4,9 +4,10 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
@@ -32,9 +33,11 @@ public class RemapMethodTest extends HorizontalClassMergingTestBase {
         .inspect(
             codeInspector -> {
               assertThat(codeInspector.clazz(A.class), isPresent());
-              assertThat(codeInspector.clazz(C.class), isPresent());
-              assertThat(codeInspector.clazz(B.class), not(isPresent()));
-              assertThat(codeInspector.clazz(D.class), not(isPresent()));
+              assertThat(
+                  codeInspector.clazz(C.class),
+                  isAbsentIf(parameters.canHaveNonReboundConstructorInvoke()));
+              assertThat(codeInspector.clazz(B.class), isAbsent());
+              assertThat(codeInspector.clazz(D.class), isAbsent());
             });
   }
 

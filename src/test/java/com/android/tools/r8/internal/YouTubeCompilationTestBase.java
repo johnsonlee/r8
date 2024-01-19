@@ -38,7 +38,8 @@ public abstract class YouTubeCompilationTestBase extends CompilationTestBase {
 
   public YouTubeCompilationTestBase(int majorVersion, int minorVersion, AndroidApiLevel apiLevel) {
     this.base =
-        "third_party/youtube/youtube.android_"
+        ToolHelper.THIRD_PARTY_DIR
+            + "youtube/youtube.android_"
             + majorVersion
             + "."
             + String.format("%02d", minorVersion)

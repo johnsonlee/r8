@@ -35,7 +35,7 @@ public class MergingProducesFieldCollisionTest extends HorizontalClassMergingTes
         .assertSuccess()
         .inspect(
             codeInspector -> {
-              assertThat(codeInspector.clazz(Parent.class), isPresent());
+              assertThat(codeInspector.clazz(Parent.class), isAbsent());
 
               ClassSubject aClassSubject = codeInspector.clazz(A.class);
               assertThat(aClassSubject, isPresent());

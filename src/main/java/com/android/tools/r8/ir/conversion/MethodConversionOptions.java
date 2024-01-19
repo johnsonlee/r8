@@ -84,11 +84,14 @@ public abstract class MethodConversionOptions {
 
   public abstract boolean isStringSwitchConversionEnabled();
 
+  public abstract boolean shouldFinalizeAfterLensCodeRewriter();
+
   public static class MutableMethodConversionOptions extends MethodConversionOptions {
 
     private Target target;
     private boolean enablePeepholeOptimizations = true;
     private boolean enableStringSwitchConversion;
+    private boolean finalizeAfterLensCodeRewriter;
 
     private MutableMethodConversionOptions(Target target, boolean enableStringSwitchConversion) {
       this.target = target;
@@ -106,6 +109,11 @@ public abstract class MethodConversionOptions {
 
     public MutableMethodConversionOptions disableStringSwitchConversion() {
       enableStringSwitchConversion = false;
+      return this;
+    }
+
+    public MutableMethodConversionOptions setFinalizeAfterLensCodeRewriter() {
+      finalizeAfterLensCodeRewriter = true;
       return this;
     }
 
@@ -132,6 +140,11 @@ public abstract class MethodConversionOptions {
     @Override
     public boolean isStringSwitchConversionEnabled() {
       return enableStringSwitchConversion;
+    }
+
+    @Override
+    public boolean shouldFinalizeAfterLensCodeRewriter() {
+      return finalizeAfterLensCodeRewriter;
     }
   }
 

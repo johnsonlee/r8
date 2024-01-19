@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.DefaultInstanceInitializerCode;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexEncodedMethod.CompilationState;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMember;
@@ -44,6 +45,7 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
+import com.android.tools.r8.utils.OptionalBool;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
 import java.util.Collection;
@@ -193,7 +195,7 @@ class ClassMerger {
                     candidate ->
                         availableMethodSignatures.test(candidate)
                             && source.lookupVirtualMethod(candidate) == null);
-            add(directMethods, resultingConstructor, MethodSignatureEquivalence.get());
+            add(virtualMethods, resultingConstructor, MethodSignatureEquivalence.get());
             blockRedirectionOfSuperCalls(resultingConstructor);
           } else {
             DexEncodedMethod resultingDirectMethod =
@@ -264,7 +266,7 @@ class ClassMerger {
         // unique name, such that relevant invoke-super instructions can be rewritten to target
         // this method directly.
         resultingMethod = renameMethod(virtualMethod, availableMethodSignatures, Rename.ALWAYS);
-        makePublicFinal(resultingMethod);
+        makePublicFinal(resultingMethod.getAccessFlags());
       }
 
       add(
@@ -664,13 +666,28 @@ class ClassMerger {
     } while (!availableMethodSignatures.test(newSignature));
 
     DexEncodedMethod result =
-        method.toTypeSubstitutedMethodAsInlining(newSignature, dexItemFactory);
+        method.toTypeSubstitutedMethodAsInlining(
+            newSignature,
+            dexItemFactory,
+            // Set the compilation state to satisfy the inliner in the final round of vertical class
+            // merging, which checks that the method is processed.
+            methodBuilder -> {
+              methodBuilder
+                  .modifyAccessFlags(
+                      accessFlags -> {
+                        // TODO(b/321171043): Do not change constructors to non-constructors as this
+                        //  would avoid the need for force inlining (though we would then need to
+                        //  find a fresh constructor signature).
+                        // Renamed constructors turn into ordinary non-constructor methods.
+                        accessFlags.unsetConstructor();
+                        makePublicFinal(accessFlags);
+                      })
+                  .setCompilationState(CompilationState.PROCESSED_INLINING_CANDIDATE_ANY)
+                  .setIsLibraryMethodOverride(OptionalBool.FALSE);
+            });
+    // TODO(b/321171043): Do not mark force inlining.
     result.getMutableOptimizationInfo().markForceInline();
     lensBuilder.recordMove(method, result);
-    // Renamed constructors turn into ordinary private functions. They can be private, as
-    // they are only references from their direct subclass, which they were merged into.
-    result.getAccessFlags().unsetConstructor();
-    makePrivate(result);
     return result;
   }
 
@@ -738,16 +755,7 @@ class ClassMerger {
     return field.toTypeSubstitutedField(appView, newSignature);
   }
 
-  private static void makePrivate(DexEncodedMethod method) {
-    MethodAccessFlags accessFlags = method.getAccessFlags();
-    assert !accessFlags.isAbstract();
-    accessFlags.unsetPublic();
-    accessFlags.unsetProtected();
-    accessFlags.setPrivate();
-  }
-
-  private static void makePublicFinal(DexEncodedMethod method) {
-    MethodAccessFlags accessFlags = method.getAccessFlags();
+  private static void makePublicFinal(MethodAccessFlags accessFlags) {
     assert !accessFlags.isAbstract();
     accessFlags.unsetPrivate();
     accessFlags.unsetProtected();

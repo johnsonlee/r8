@@ -110,6 +110,7 @@ public class NestedInterfaceMethodTest extends TestBase {
   interface J extends I {}
 
   @NeverClassInline
+  @NoVerticalClassMerging
   static class A implements J {
 
     @Override

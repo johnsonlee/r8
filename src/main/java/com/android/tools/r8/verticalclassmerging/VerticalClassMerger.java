@@ -12,10 +12,16 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.ir.conversion.MethodProcessorEventConsumer;
+import com.android.tools.r8.ir.conversion.OneTimeMethodProcessor;
+import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.optimize.argumentpropagation.utils.ProgramClassesBidirectedGraph;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
@@ -26,6 +32,7 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Timing.TimingMerger;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -113,11 +120,29 @@ public class VerticalClassMerger {
         ProfileCollectionAdditions.create(appView);
     VerticalClassMergerGraphLens lens =
         runFixup(profileCollectionAdditions, verticalClassMergerResult, executorService, timing);
-    updateKeepInfoForMergedClasses(verticalClassMergerResult);
     assert verifyGraphLens(lens, verticalClassMergerResult);
+
+    // Update keep info and art profiles.
+    updateKeepInfoForMergedClasses(verticalClassMergerResult);
     updateArtProfiles(profileCollectionAdditions, lens, verticalClassMergerResult);
+
+    // Remove merged classes and rewrite AppView with the new lens.
     appView.rewriteWithLens(lens, executorService, timing);
+
+    // The code must be rewritten before we remove the merged classes from the app. Otherwise we
+    // can't build IR.
+    rewriteCodeWithLens(executorService);
+
+    // Remove force inlined constructors.
+    removeForceInlinedConstructors(executorService);
+    removeMergedClasses(verticalClassMergerResult.getVerticallyMergedClasses());
+
+    // Convert the (incomplete) synthesized bridges to CF or LIR.
     finalizeSynthesizedBridges(verticalClassMergerResult.getSynthesizedBridges(), lens);
+
+    // Finally update the code lens to signal that the code is fully up to date.
+    markRewrittenWithLens(executorService);
+
     appView.notifyOptimizationFinishedForTesting();
   }
 
@@ -148,7 +173,7 @@ public class VerticalClassMerger {
             connectedComponent -> {
               Timing threadTiming = Timing.create("Compute classes to merge in component", options);
               ConnectedComponentVerticalClassMerger connectedComponentMerger =
-                  new VerticalClassMergerPolicyExecutor(appView, immediateSubtypingInfo)
+                  new VerticalClassMergerPolicyExecutor(appView, immediateSubtypingInfo, mode)
                       .run(connectedComponent, executorService, threadTiming);
               if (!connectedComponentMerger.isEmpty()) {
                 synchronized (connectedComponentMergers) {
@@ -217,19 +242,61 @@ public class VerticalClassMerger {
     return lens;
   }
 
+  // TODO(b/320432664): For code objects where the rewriting is an alpha renaming we can rewrite the
+  //  LIR directly without building IR.
+  private void rewriteCodeWithLens(ExecutorService executorService) throws ExecutionException {
+    if (mode.isInitial()) {
+      return;
+    }
+
+    MethodProcessorEventConsumer eventConsumer = MethodProcessorEventConsumer.empty();
+    OneTimeMethodProcessor.Builder methodProcessorBuilder =
+        OneTimeMethodProcessor.builder(eventConsumer, appView);
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      clazz.forEachProgramMethodMatching(
+          method ->
+              method.hasCode()
+                  && !(method.getCode() instanceof IncompleteVerticalClassMergerBridgeCode),
+          methodProcessorBuilder::add);
+    }
+
+    IRConverter converter = new IRConverter(appView);
+    converter.clearEnumUnboxer();
+    converter.clearServiceLoaderRewriter();
+    OneTimeMethodProcessor methodProcessor = methodProcessorBuilder.build();
+    methodProcessor.forEachWaveWithExtension(
+        (method, methodProcessingContext) ->
+            converter.processDesugaredMethod(
+                method,
+                OptimizationFeedbackIgnore.getInstance(),
+                methodProcessor,
+                methodProcessingContext,
+                // TODO(b/321171043): Set setFinalizeAfterLensCodeRewriter() on the
+                //  MethodConversionOptions to improve build speed (no need to run all
+                //  optimizations!). A prerequisite for this is that we remove all uses of force
+                //  inlining in the vertical class merger.
+                MethodConversionOptions.forLirPhase(appView)),
+        options.getThreadingModule(),
+        executorService);
+
+    // Clear type elements created during IR processing.
+    dexItemFactory.clearTypeElementsCache();
+  }
+
   private void updateArtProfiles(
       ProfileCollectionAdditions profileCollectionAdditions,
       VerticalClassMergerGraphLens verticalClassMergerLens,
       VerticalClassMergerResult verticalClassMergerResult) {
     // Include bridges in art profiles.
-    if (!profileCollectionAdditions.isNop()) {
-      List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges =
-          verticalClassMergerResult.getSynthesizedBridges();
-      for (IncompleteVerticalClassMergerBridgeCode synthesizedBridge : synthesizedBridges) {
-        profileCollectionAdditions.applyIfContextIsInProfile(
-            verticalClassMergerLens.getPreviousMethodSignature(synthesizedBridge.getMethod()),
-            additionsBuilder -> additionsBuilder.addRule(synthesizedBridge.getMethod()));
-      }
+    if (profileCollectionAdditions.isNop()) {
+      return;
+    }
+    List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges =
+        verticalClassMergerResult.getSynthesizedBridges();
+    for (IncompleteVerticalClassMergerBridgeCode synthesizedBridge : synthesizedBridges) {
+      profileCollectionAdditions.applyIfContextIsInProfile(
+          verticalClassMergerLens.getPreviousMethodSignature(synthesizedBridge.getMethod()),
+          additionsBuilder -> additionsBuilder.addRule(synthesizedBridge.getMethod()));
     }
     profileCollectionAdditions.commit(appView);
   }
@@ -247,6 +314,55 @@ public class VerticalClassMerger {
         });
   }
 
+  // TODO(b/321171043): No need to forcefully remove these force inlining constructors if we don't
+  //  use force inlining (though it may be desirable to apply inlining also in the final round of
+  //  vertical class merging if a merged constructor has a single caller inside the target class).
+  private void removeForceInlinedConstructors(ExecutorService executorService)
+      throws ExecutionException {
+    if (mode.isInitial()) {
+      return;
+    }
+    PrunedItems.Builder prunedItemsBuilder =
+        PrunedItems.concurrentBuilder().setPrunedApp(appView.app());
+    ThreadUtils.<DexProgramClass, Exception>processItems(
+        consumer -> {
+          for (DexProgramClass clazz : appView.appInfo().classes()) {
+            if (!clazz.isInterface()) {
+              consumer.accept(clazz);
+            }
+          }
+        },
+        clazz -> {
+          Set<DexEncodedMethod> methodsToRemove = Sets.newIdentityHashSet();
+          clazz.forEachProgramMethodMatching(
+              method -> method.willBeInlinedIntoInstanceInitializer(dexItemFactory),
+              method -> methodsToRemove.add(method.getDefinition()));
+          clazz.getMethodCollection().removeMethods(methodsToRemove);
+          methodsToRemove.forEach(
+              removedMethod -> prunedItemsBuilder.addRemovedMethod(removedMethod.getReference()));
+        },
+        options.getThreadingModule(),
+        executorService);
+    PrunedItems prunedItems = prunedItemsBuilder.build();
+    appView.pruneItems(prunedItems, executorService, Timing.empty());
+    appView.appInfo().getMethodAccessInfoCollection().withoutPrunedItems(prunedItems);
+  }
+
+  private void removeMergedClasses(VerticallyMergedClasses verticallyMergedClasses) {
+    if (mode.isInitial()) {
+      return;
+    }
+
+    DirectMappedDexApplication newApplication =
+        appView
+            .app()
+            .asDirect()
+            .builder()
+            .removeProgramClasses(clazz -> verticallyMergedClasses.isMergeSource(clazz.getType()))
+            .build();
+    appView.setAppInfo(appView.appInfo().rebuildWithLiveness(newApplication));
+  }
+
   private void finalizeSynthesizedBridges(
       List<IncompleteVerticalClassMergerBridgeCode> bridges, VerticalClassMergerGraphLens lens) {
     KeepInfoCollection keepInfo = appView.getKeepInfo();
@@ -258,13 +374,24 @@ public class VerticalClassMerger {
       assert target != null;
 
       // Finalize code.
-      bridge.setCode(code.toCfCode(dexItemFactory, lens), appView);
+      assert mode.isInitial() == appView.testing().isPreLirPhase();
+      assert mode.isFinal() == appView.testing().isSupportedLirPhase();
+      bridge.setCode(
+          mode.isInitial() ? code.toCfCode(dexItemFactory, lens) : code.toLirCode(appView),
+          appView);
 
       // Copy keep info to newly synthesized methods.
       keepInfo.mutate(
           mutator ->
               mutator.joinMethod(bridge, info -> info.merge(appView.getKeepInfo(target).joiner())));
     }
+  }
+
+  private void markRewrittenWithLens(ExecutorService executorService) throws ExecutionException {
+    if (mode.isInitial()) {
+      return;
+    }
+    appView.clearCodeRewritings(executorService);
   }
 
   private boolean verifyGraphLens(
@@ -297,12 +424,13 @@ public class VerticalClassMerger {
     // pinned, because this rewriting does not affect A.method() in any way.
     assert graphLens.assertPinnedNotModified(appView);
 
+    GraphLens previousLens = graphLens.getPrevious();
     VerticallyMergedClasses mergedClasses = verticalClassMergerResult.getVerticallyMergedClasses();
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       for (DexEncodedMethod encodedMethod : clazz.methods()) {
         DexMethod method = encodedMethod.getReference();
-        DexMethod originalMethod = graphLens.getOriginalMethodSignature(method);
-        DexMethod renamedMethod = graphLens.getRenamedMethodSignature(originalMethod);
+        DexMethod originalMethod = graphLens.getOriginalMethodSignature(method, previousLens);
+        DexMethod renamedMethod = graphLens.getRenamedMethodSignature(originalMethod, previousLens);
 
         // Must be able to map back and forth.
         if (encodedMethod.hasCode()
@@ -315,7 +443,7 @@ public class VerticalClassMerger {
           DexMethod implementationMethod =
               ((IncompleteVerticalClassMergerBridgeCode) encodedMethod.getCode()).getTarget();
           DexMethod originalImplementationMethod =
-              graphLens.getOriginalMethodSignature(implementationMethod);
+              graphLens.getOriginalMethodSignature(implementationMethod, previousLens);
           assert originalMethod.isIdenticalTo(originalImplementationMethod);
           assert implementationMethod.isIdenticalTo(renamedMethod);
         } else {

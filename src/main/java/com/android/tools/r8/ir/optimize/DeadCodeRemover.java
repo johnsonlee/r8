@@ -59,7 +59,7 @@ public class DeadCodeRemover {
       while (!worklist.isEmpty()) {
         BasicBlock block = worklist.removeLast();
         removeDeadInstructions(worklist, code, block, affectedValues, valueIsDeadAnalysis);
-        removeDeadPhis(worklist, block, valueIsDeadAnalysis);
+        removeDeadAndTrivialPhis(worklist, block, valueIsDeadAnalysis);
       }
       affectedValues.narrowingWithAssumeRemoval(appView, code);
     } while (branchSimplifier
@@ -117,7 +117,7 @@ public class DeadCodeRemover {
     }
   }
 
-  private void removeDeadPhis(
+  private void removeDeadAndTrivialPhis(
       Queue<BasicBlock> worklist, BasicBlock block, ValueIsDeadAnalysis valueIsDeadAnalysis) {
     Iterator<Phi> phiIt = block.getPhis().iterator();
     while (phiIt.hasNext()) {
@@ -128,6 +128,9 @@ public class DeadCodeRemover {
           operand.removePhiUser(phi);
           updateWorklist(worklist, operand);
         }
+      } else if (phi.isTrivialPhi()) {
+        phiIt.remove();
+        phi.removeTrivialPhi();
       }
     }
   }

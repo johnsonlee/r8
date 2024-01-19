@@ -92,7 +92,10 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
 
               MethodSubject virtualMethodSubject =
                   mergeTarget.uniqueMethodThatMatches(
-                      method -> method.isVirtual() && !method.isSynthetic());
+                      method ->
+                          method.isVirtual()
+                              && !method.isSynthetic()
+                              && method.getOriginalName(false).equals("invoke"));
               assertThat(virtualMethodSubject, isPresent());
 
               int found = 0;
