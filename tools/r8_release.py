@@ -1094,9 +1094,7 @@ def main():
             sys.exit(1)
         targets_to_run.append(prepare_release(args))
 
-    if (args.google3 or args.maven or (args.studio and not args.no_sync) or
-        (args.desugar_library and not args.dry_run)):
-        utils.check_gcert()
+    utils.check_gcert()
 
     if args.google3:
         targets_to_run.append(prepare_google3(args))
