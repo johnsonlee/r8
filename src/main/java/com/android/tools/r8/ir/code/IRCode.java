@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.code;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -1504,6 +1505,10 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
   }
 
   public AffectedValues removeUnreachableBlocks() {
+    return removeUnreachableBlocks(emptyConsumer());
+  }
+
+  public AffectedValues removeUnreachableBlocks(Consumer<Value> prunedValueConsumer) {
     AffectedValues affectedValues = new AffectedValues();
     int color = reserveMarkingColor();
     markTransitiveSuccessors(entryBlock(), color);
@@ -1511,7 +1516,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
     while (blockIterator.hasNext()) {
       BasicBlock current = blockIterator.next();
       if (!current.isMarked(color)) {
-        affectedValues.addAll(current.cleanForRemoval());
+        current.cleanForRemoval(affectedValues, prunedValueConsumer);
         blockIterator.remove();
       }
     }

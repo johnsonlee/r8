@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.code;
 
 import static com.android.tools.r8.ir.code.IRCode.INSTRUCTION_NUMBER_DELTA;
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
@@ -1019,15 +1020,14 @@ public class BasicBlock {
     assert successor.predecessors.get(0) == this;
     List<BasicBlock> removedBlocks = new ArrayList<>();
     for (BasicBlock dominated : dominator.dominatedBlocks(successor)) {
-      affectedValues.addAll(dominated.cleanForRemoval());
+      dominated.cleanForRemoval(affectedValues, emptyConsumer());
       removedBlocks.add(dominated);
     }
     assert blocksClean(removedBlocks);
     return removedBlocks;
   }
 
-  public Set<Value> cleanForRemoval() {
-    Set<Value> affectedValues = Sets.newIdentityHashSet();
+  public void cleanForRemoval(Set<Value> affectedValues, Consumer<Value> prunedValueConsumer) {
     for (BasicBlock block : successors) {
       affectedValues.addAll(block.getPhis());
       block.removePredecessor(this, affectedValues);
@@ -1042,13 +1042,14 @@ public class BasicBlock {
       for (Value operand : phi.getOperands()) {
         operand.removePhiUser(phi);
       }
+      prunedValueConsumer.accept(phi);
     }
     getPhis().clear();
     for (Instruction instruction : getInstructions()) {
-      if (instruction.outValue() != null) {
+      if (instruction.hasOutValue()) {
         affectedValues.addAll(instruction.outValue().affectedValues());
         instruction.outValue().clearUsers();
-        instruction.setOutValue(null);
+        prunedValueConsumer.accept(instruction.setOutValue(null));
       }
       for (Value value : instruction.inValues) {
         value.removeUser(instruction);
@@ -1057,7 +1058,6 @@ public class BasicBlock {
         value.removeDebugUser(instruction);
       }
     }
-    return affectedValues;
   }
 
   public void linkCatchSuccessors(List<DexType> guards, List<BasicBlock> targets) {
