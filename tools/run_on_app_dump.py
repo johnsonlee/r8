@@ -730,6 +730,11 @@ def build_app_with_shrinker(app, options, temp_dir, app_dir, shrinker,
             compiledump.clean_config(file, options)
             remove_print_lines(file)
 
+    properties = app.compiler_properties
+    if options.dump_input_to_directory:
+        properties.append(
+            '-Dcom.android.tools.r8.dumpinputtodirectory=%s'
+                % options.dump_input_to_directory)
     args = AttrDict({
         'dump': dump_for_app(app_dir, app),
         'r8_jar': get_r8_jar(options, temp_dir, shrinker),
@@ -741,7 +746,7 @@ def build_app_with_shrinker(app, options, temp_dir, app_dir, shrinker,
         'program_jar': prev_recomp_jar,
         'nolib': not is_minified_r8(shrinker),
         'config_files_consumer': config_files_consumer,
-        'properties': app.compiler_properties,
+        'properties': properties,
         'disable_desugared_lib': False,
         'print_times': options.print_times,
         'java_opts': [],
@@ -992,6 +997,11 @@ def parse_options(argv):
         '(default enabled)',
         default=False,
         action='store_true')
+    result.add_argument(
+        '--dump-input-to-directory',
+        '--dump_input_to_directory',
+        help='Dump all compilations to directory',
+        default=None)
     result.add_argument('--emulator-id',
                         '--emulator_id',
                         help='Id of the emulator to use',
