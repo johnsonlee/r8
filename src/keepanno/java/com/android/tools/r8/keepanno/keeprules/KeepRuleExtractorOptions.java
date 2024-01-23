@@ -8,8 +8,10 @@ import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
 
 public class KeepRuleExtractorOptions {
 
-  private static final KeepRuleExtractorOptions PG_OPTIONS = new KeepRuleExtractorOptions(false);
-  private static final KeepRuleExtractorOptions R8_OPTIONS = new KeepRuleExtractorOptions(true);
+  private static final KeepRuleExtractorOptions PG_OPTIONS =
+      new KeepRuleExtractorOptions(false, false);
+  private static final KeepRuleExtractorOptions R8_OPTIONS =
+      new KeepRuleExtractorOptions(true, true);
 
   public static KeepRuleExtractorOptions getPgOptions() {
     return PG_OPTIONS;
@@ -19,11 +21,18 @@ public class KeepRuleExtractorOptions {
     return R8_OPTIONS;
   }
 
+  private final boolean allowCheckDiscard;
   private final boolean allowAccessModificationOption;
   private final boolean allowAnnotationRemovalOption = false;
 
-  private KeepRuleExtractorOptions(boolean allowAccessModificationOption) {
+  private KeepRuleExtractorOptions(
+      boolean allowCheckDiscard, boolean allowAccessModificationOption) {
+    this.allowCheckDiscard = allowCheckDiscard;
     this.allowAccessModificationOption = allowAccessModificationOption;
+  }
+
+  public boolean hasCheckDiscardSupport() {
+    return allowCheckDiscard;
   }
 
   private boolean hasAllowAccessModificationOptionSupport() {

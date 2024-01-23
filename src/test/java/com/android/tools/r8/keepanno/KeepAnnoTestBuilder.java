@@ -13,7 +13,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestShrinkerBuilder;
-import com.android.tools.r8.examples.sync.Sync.Consumer;
+import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import java.io.IOException;
 import java.util.List;
@@ -55,15 +55,15 @@ public abstract class KeepAnnoTestBuilder {
   public abstract SingleTestRunResult<?> run(Class<?> mainClass) throws Exception;
 
   public KeepAnnoTestBuilder applyIfR8(
-      Consumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> builderConsumer) {
+      ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> builderConsumer) {
     return this;
   }
 
-  public KeepAnnoTestBuilder applyIfR8Native(Consumer<R8TestBuilder<?>> builderConsumer) {
+  public KeepAnnoTestBuilder applyIfR8Native(ThrowableConsumer<R8TestBuilder<?>> builderConsumer) {
     return this;
   }
 
-  public KeepAnnoTestBuilder applyIfPG(Consumer<ProguardTestBuilder> builderConsumer) {
+  public KeepAnnoTestBuilder applyIfPG(ThrowableConsumer<ProguardTestBuilder> builderConsumer) {
     return this;
   }
 
@@ -121,14 +121,15 @@ public abstract class KeepAnnoTestBuilder {
 
     @Override
     public KeepAnnoTestBuilder applyIfR8(
-        Consumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> builderConsumer) {
-      builderConsumer.accept(builder);
+        ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> builderConsumer) {
+      builderConsumer.acceptWithRuntimeException(builder);
       return this;
     }
 
     @Override
-    public KeepAnnoTestBuilder applyIfR8Native(Consumer<R8TestBuilder<?>> builderConsumer) {
-      builderConsumer.accept(builder);
+    public KeepAnnoTestBuilder applyIfR8Native(
+        ThrowableConsumer<R8TestBuilder<?>> builderConsumer) {
+      builderConsumer.acceptWithRuntimeException(builder);
       return this;
     }
 
@@ -167,8 +168,8 @@ public abstract class KeepAnnoTestBuilder {
 
     @Override
     public KeepAnnoTestBuilder applyIfR8(
-        Consumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> builderConsumer) {
-      builderConsumer.accept(builder);
+        ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> builderConsumer) {
+      builderConsumer.acceptWithRuntimeException(builder);
       return this;
     }
 
@@ -207,8 +208,8 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
-    public KeepAnnoTestBuilder applyIfPG(Consumer<ProguardTestBuilder> builderConsumer) {
-      builderConsumer.accept(builder);
+    public KeepAnnoTestBuilder applyIfPG(ThrowableConsumer<ProguardTestBuilder> builderConsumer) {
+      builderConsumer.acceptWithRuntimeException(builder);
       return this;
     }
 

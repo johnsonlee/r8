@@ -3,16 +3,19 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.DiagnosticsLevel;
 import com.android.tools.r8.DiagnosticsMatcher;
-import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.errors.CheckDiscardDiagnostic;
 import com.android.tools.r8.keepanno.annotations.CheckRemoved;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -23,56 +26,86 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 
 @RunWith(Parameterized.class)
-public class CheckRemovedAnnotationTest extends TestBase {
+public class CheckRemovedAnnotationTest extends KeepAnnoTestBase {
 
   static final String EXPECTED = StringUtils.lines("A.foo", "B.baz");
 
-  private final TestParameters parameters;
+  @Parameter public KeepAnnoParameters parameters;
 
   @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build();
-  }
-
-  public CheckRemovedAnnotationTest(TestParameters parameters) {
-    this.parameters = parameters;
+  public static List<KeepAnnoParameters> data() {
+    return createParameters(
+        getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build());
   }
 
   @Test
-  public void testReference() throws Exception {
-    testForRuntime(parameters)
+  public void test() throws Exception {
+    assumeFalse(parameters.isR8());
+    testForKeepAnno(parameters)
         .addProgramClasses(getInputClasses())
-        .run(parameters.getRuntime(), TestClass.class)
+        .addKeepMainRule(TestClass.class)
+        .setExcludedOuterClass(getClass())
+        .run(TestClass.class)
         .assertSuccessWithOutput(EXPECTED);
   }
 
   @Test
-  public void testWithRuleExtraction() throws Exception {
-    testForR8(parameters.getBackend())
-        .enableExperimentalKeepAnnotations()
+  public void testR8Native() throws Exception {
+    assumeTrue(parameters.isR8() && parameters.isNative());
+    testForKeepAnno(parameters)
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
-        .setMinApi(parameters)
-        .allowDiagnosticWarningMessages()
-        .setDiagnosticsLevelModifier(
-            (level, diagnostic) ->
-                level == DiagnosticsLevel.ERROR ? DiagnosticsLevel.WARNING : level)
-        .compileWithExpectedDiagnostics(
-            diagnostics -> {
-              diagnostics
-                  .assertOnlyWarnings()
-                  .assertWarningsMatch(
-                      DiagnosticsMatcher.diagnosticType(CheckDiscardDiagnostic.class));
-              CheckDiscardDiagnostic discard =
-                  (CheckDiscardDiagnostic) diagnostics.getWarnings().get(0);
-              // The discard error should report for both the method A.foo and the class B.
-              assertEquals(discard.getDiagnosticMessage(), 2, discard.getNumberOfFailures());
-            })
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
-        .inspect(this::checkOutput);
+        .applyIfR8Native(
+            b ->
+                b.allowDiagnosticWarningMessages()
+                    .setDiagnosticsLevelModifier(
+                        (level, diagnostic) ->
+                            level == DiagnosticsLevel.ERROR ? DiagnosticsLevel.WARNING : level)
+                    .compileWithExpectedDiagnostics(
+                        diagnostics -> {
+                          diagnostics
+                              .assertOnlyWarnings()
+                              .assertWarningsMatch(
+                                  DiagnosticsMatcher.diagnosticType(CheckDiscardDiagnostic.class));
+                          CheckDiscardDiagnostic discard =
+                              (CheckDiscardDiagnostic) diagnostics.getWarnings().get(0);
+                          // The discard error should report for both the method A.foo and the class
+                          // B.
+                          assertEquals(
+                              discard.getDiagnosticMessage(), 2, discard.getNumberOfFailures());
+                          assertThat(
+                              discard,
+                              diagnosticMessage(
+                                  allOf(
+                                      containsString("A.foo() was not discarded"),
+                                      containsString("B was not discarded"))));
+                        })
+                    .run(parameters.parameters().getRuntime(), TestClass.class)
+                    .assertSuccessWithOutput(EXPECTED)
+                    .inspect(this::checkOutput));
+  }
+
+  @Test
+  public void testR8Extract() throws Throwable {
+    assumeTrue(parameters.isR8() && !parameters.isNative());
+    try {
+      testForKeepAnno(parameters)
+          .addProgramClasses(getInputClasses())
+          .addKeepMainRule(TestClass.class)
+          .run(TestClass.class);
+    } catch (AssertionError e) {
+      assertThat(
+          e.getMessage(),
+          allOf(
+              containsString("Discard checks failed"),
+              containsString("A.foo() was not discarded"),
+              containsString("B was not discarded")));
+      return;
+    }
+    fail("Expected compile failure");
   }
 
   public List<Class<?>> getInputClasses() {
