@@ -134,7 +134,7 @@ public class VerticalClassMerger {
     rewriteCodeWithLens(executorService);
 
     // Remove force inlined constructors.
-    removeForceInlinedConstructors(executorService);
+    removeFullyInlinedInstanceInitializers(executorService);
     removeMergedClasses(verticalClassMergerResult.getVerticallyMergedClasses());
 
     // Convert the (incomplete) synthesized bridges to CF or LIR.
@@ -196,6 +196,7 @@ public class VerticalClassMerger {
       Timing timing)
       throws ExecutionException {
     TimingMerger merger = timing.beginMerger("Merge classes", executorService);
+    ClassMergerSharedData sharedData = new ClassMergerSharedData(appView);
     VerticalClassMergerResult.Builder verticalClassMergerResult =
         VerticalClassMergerResult.builder(appView);
     Collection<Timing> timings =
@@ -204,7 +205,7 @@ public class VerticalClassMerger {
             connectedComponentMerger -> {
               Timing threadTiming = Timing.create("Merge classes in component", options);
               VerticalClassMergerResult.Builder verticalClassMergerComponentResult =
-                  connectedComponentMerger.run();
+                  connectedComponentMerger.run(sharedData);
               verticalClassMergerResult.merge(verticalClassMergerComponentResult);
               threadTiming.end();
               return threadTiming;
@@ -314,10 +315,7 @@ public class VerticalClassMerger {
         });
   }
 
-  // TODO(b/321171043): No need to forcefully remove these force inlining constructors if we don't
-  //  use force inlining (though it may be desirable to apply inlining also in the final round of
-  //  vertical class merging if a merged constructor has a single caller inside the target class).
-  private void removeForceInlinedConstructors(ExecutorService executorService)
+  private void removeFullyInlinedInstanceInitializers(ExecutorService executorService)
       throws ExecutionException {
     if (mode.isInitial()) {
       return;
@@ -334,9 +332,8 @@ public class VerticalClassMerger {
         },
         clazz -> {
           Set<DexEncodedMethod> methodsToRemove = Sets.newIdentityHashSet();
-          clazz.forEachProgramMethodMatching(
-              method -> method.willBeInlinedIntoInstanceInitializer(dexItemFactory),
-              method -> methodsToRemove.add(method.getDefinition()));
+          // TODO(b/321171043): Inline and remove instance initializers that are only called from
+          //  other instance initializers in the same class.
           clazz.getMethodCollection().removeMethods(methodsToRemove);
           methodsToRemove.forEach(
               removedMethod -> prunedItemsBuilder.addRemovedMethod(removedMethod.getReference()));

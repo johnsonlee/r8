@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.ir.optimize.numberunboxer;
 
+import static com.android.tools.r8.ir.conversion.ExtraUnusedParameter.computeExtraUnusedParameters;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
@@ -12,7 +14,7 @@ import com.android.tools.r8.graph.lens.NestedGraphLensWithCustomLensCodeRewriter
 import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.proto.RewrittenTypeInfo;
-import com.android.tools.r8.ir.conversion.ExtraUnusedNullParameter;
+import com.android.tools.r8.ir.conversion.ExtraUnusedParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
@@ -63,10 +65,9 @@ public class NumberUnboxerLens extends NestedGraphLensWithCustomLensCodeRewriter
     public RewrittenPrototypeDescription move(DexEncodedMethod fromEncoded, DexMethod to) {
       DexMethod from = fromEncoded.getReference();
       assert !from.isIdenticalTo(to);
-      List<ExtraUnusedNullParameter> extraUnusedNullParameters =
-          ExtraUnusedNullParameter.computeExtraUnusedNullParameters(from, to);
+      List<ExtraUnusedParameter> extraUnusedParameters = computeExtraUnusedParameters(from, to);
       RewrittenPrototypeDescription prototypeChanges =
-          computePrototypeChanges(from, to, fromEncoded.isStatic(), extraUnusedNullParameters);
+          computePrototypeChanges(from, to, fromEncoded.isStatic(), extraUnusedParameters);
       synchronized (this) {
         newMethodSignatures.put(from, to);
         prototypeChangesPerMethod.put(to, prototypeChanges);
@@ -78,8 +79,8 @@ public class NumberUnboxerLens extends NestedGraphLensWithCustomLensCodeRewriter
         DexMethod from,
         DexMethod to,
         boolean staticMethod,
-        List<ExtraUnusedNullParameter> extraUnusedNullParameters) {
-      assert from.getArity() + extraUnusedNullParameters.size() == to.getArity();
+        List<ExtraUnusedParameter> extraUnusedParameters) {
+      assert from.getArity() + extraUnusedParameters.size() == to.getArity();
       ArgumentInfoCollection.Builder builder =
           ArgumentInfoCollection.builder()
               .setArgumentInfosSize(from.getNumberOfArguments(staticMethod));
@@ -101,7 +102,7 @@ public class NumberUnboxerLens extends NestedGraphLensWithCustomLensCodeRewriter
                   .setNewType(to.getReturnType())
                   .build();
       return RewrittenPrototypeDescription.create(
-          extraUnusedNullParameters, returnInfo, builder.build());
+          extraUnusedParameters, returnInfo, builder.build());
     }
 
     public NumberUnboxerLens build(

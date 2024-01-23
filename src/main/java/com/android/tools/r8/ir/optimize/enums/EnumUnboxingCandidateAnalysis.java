@@ -68,10 +68,12 @@ class EnumUnboxingCandidateAnalysis {
       GraphLens graphLensForPrimaryOptimizationPass,
       DexProgramClass clazz,
       ImmediateProgramSubtypingInfo subtypingInfo) {
+    if (appView.getVerticallyMergedClasses().hasBeenMergedIntoSubtype(clazz.getType())) {
+      return;
+    }
     if (!isSuperEnumUnboxingCandidate(clazz)) {
       return;
     }
-
     List<DexProgramClass> subtypes = subtypingInfo.getSubclasses(clazz);
     for (DexProgramClass subEnum : subtypes) {
       if (!isSubEnumUnboxingCandidate(subEnum)) {

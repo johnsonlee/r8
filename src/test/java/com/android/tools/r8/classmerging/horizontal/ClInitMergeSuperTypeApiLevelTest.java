@@ -6,7 +6,6 @@ package com.android.tools.r8.classmerging.horizontal;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverInline;
@@ -62,10 +61,9 @@ public class ClInitMergeSuperTypeApiLevelTest extends TestBase {
             inspector -> {
               ClassSubject clazz = inspector.clazz(A.class);
               assertThat(clazz, isPresent());
-              MethodSubject init = clazz.uniqueInstanceInitializer();
-              assertThat(init, isPresent());
               TypeReference mergeTypeRef = getMergeReferenceForApiLevel();
-              assertEquals(mergeTypeRef, init.getParameter(0).getTypeReference());
+              MethodSubject init = clazz.init(mergeTypeRef.getTypeName(), "int");
+              assertThat(init, isPresent());
               assertTrue(
                   clazz.allFields().stream()
                       .anyMatch(f -> mergeTypeRef.equals(f.getFinalReference().getFieldType())));

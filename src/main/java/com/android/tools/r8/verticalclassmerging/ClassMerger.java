@@ -3,14 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.verticalclassmerging;
 
-import static com.android.tools.r8.dex.Constants.TEMPORARY_INSTANCE_INITIALIZER_PREFIX;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.code.InvokeType.STATIC;
 import static com.android.tools.r8.ir.code.InvokeType.VIRTUAL;
 import static java.util.function.Predicate.not;
 
 import com.android.tools.r8.cf.CfVersion;
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppView;
@@ -18,13 +16,10 @@ import com.android.tools.r8.graph.DefaultInstanceInitializerCode;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexEncodedMethod.CompilationState;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
@@ -44,10 +39,8 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.CollectionUtils;
-import com.android.tools.r8.utils.MethodSignatureEquivalence;
-import com.android.tools.r8.utils.OptionalBool;
-import com.google.common.base.Equivalence;
-import com.google.common.base.Equivalence.Wrapper;
+import com.android.tools.r8.utils.collections.DexMethodSignatureMap;
+import com.android.tools.r8.utils.collections.DexMethodSignatureSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -62,8 +55,7 @@ class ClassMerger {
 
   private enum Rename {
     ALWAYS,
-    IF_NEEDED,
-    NEVER
+    IF_NEEDED
   }
 
   private static final OptimizationFeedbackSimple feedback =
@@ -78,11 +70,13 @@ class ClassMerger {
   private final DexProgramClass source;
   private final DexProgramClass target;
 
+  private final ClassMergerSharedData sharedData;
   private final List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges;
 
   ClassMerger(
       AppView<AppInfoWithLiveness> appView,
       VerticalClassMergerGraphLens.Builder outerLensBuilder,
+      ClassMergerSharedData sharedData,
       List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges,
       VerticallyMergedClasses.Builder verticallyMergedClassesBuilder,
       VerticalMergeGroup group) {
@@ -90,6 +84,7 @@ class ClassMerger {
     this.dexItemFactory = appView.dexItemFactory();
     this.lensBuilder = new VerticalClassMergerGraphLens.Builder();
     this.outerLensBuilder = outerLensBuilder;
+    this.sharedData = sharedData;
     this.synthesizedBridges = synthesizedBridges;
     this.verticallyMergedClassesBuilder = verticallyMergedClassesBuilder;
     this.source = group.getSource();
@@ -171,42 +166,25 @@ class ClassMerger {
     // Merge the class [clazz] into [targetClass] by adding all methods to
     // targetClass that are not currently contained.
     // Step 1: Merge methods
-    Set<Wrapper<DexMethod>> existingMethods = new HashSet<>();
-    addAll(existingMethods, target.methods(), MethodSignatureEquivalence.get());
+    DexMethodSignatureSet existingMethods = DexMethodSignatureSet.create();
+    existingMethods.addAllMethods(target.methods());
 
-    Map<Wrapper<DexMethod>, DexEncodedMethod> directMethods = new HashMap<>();
-    Map<Wrapper<DexMethod>, DexEncodedMethod> virtualMethods = new HashMap<>();
+    DexMethodSignatureMap<DexEncodedMethod> directMethods = DexMethodSignatureMap.create();
+    DexMethodSignatureMap<DexEncodedMethod> virtualMethods = DexMethodSignatureMap.create();
 
     Predicate<DexMethod> availableMethodSignatures =
-        (method) -> {
-          Wrapper<DexMethod> wrapped = MethodSignatureEquivalence.get().wrap(method);
-          return !existingMethods.contains(wrapped)
-              && !directMethods.containsKey(wrapped)
-              && !virtualMethods.containsKey(wrapped);
-        };
+        method ->
+            !existingMethods.contains(method)
+                && !directMethods.containsKey(method)
+                && !virtualMethods.containsKey(method);
 
     source.forEachProgramDirectMethod(
         directMethod -> {
-          DexEncodedMethod definition = directMethod.getDefinition();
-          if (definition.isInstanceInitializer()) {
-            DexEncodedMethod resultingConstructor =
-                renameConstructor(
-                    definition,
-                    candidate ->
-                        availableMethodSignatures.test(candidate)
-                            && source.lookupVirtualMethod(candidate) == null);
-            add(virtualMethods, resultingConstructor, MethodSignatureEquivalence.get());
-            blockRedirectionOfSuperCalls(resultingConstructor);
-          } else {
-            DexEncodedMethod resultingDirectMethod =
-                renameMethod(
-                    definition,
-                    availableMethodSignatures,
-                    definition.isClassInitializer() ? Rename.NEVER : Rename.IF_NEEDED);
-            add(directMethods, resultingDirectMethod, MethodSignatureEquivalence.get());
-            lensBuilder.recordMove(directMethod.getDefinition(), resultingDirectMethod);
-            blockRedirectionOfSuperCalls(resultingDirectMethod);
-          }
+          DexEncodedMethod method = directMethod.getDefinition();
+          DexEncodedMethod movedMethod = moveDirectMethod(method, availableMethodSignatures);
+          directMethods.put(movedMethod, movedMethod);
+          lensBuilder.recordMove(method, movedMethod);
+          blockRedirectionOfSuperCalls(movedMethod);
         });
 
     for (DexEncodedMethod abstractMethod : source.virtualMethods(DexEncodedMethod::isAbstract)) {
@@ -226,11 +204,10 @@ class ClassMerger {
         // The method is not shadowed. If it is abstract, we can simply move it to the subclass.
         assert target.isAbstract();
         // Update the holder of [virtualMethod] using renameMethod().
-        DexEncodedMethod resultingAbstractMethod =
-            renameMethod(abstractMethod, availableMethodSignatures, Rename.NEVER);
+        DexEncodedMethod resultingAbstractMethod = moveMethod(abstractMethod);
         resultingAbstractMethod.setLibraryMethodOverride(abstractMethod.isLibraryMethodOverride());
         lensBuilder.recordMove(abstractMethod, resultingAbstractMethod);
-        add(virtualMethods, resultingAbstractMethod, MethodSignatureEquivalence.get());
+        virtualMethods.put(resultingAbstractMethod, resultingAbstractMethod);
       }
     }
 
@@ -269,10 +246,9 @@ class ClassMerger {
         makePublicFinal(resultingMethod.getAccessFlags());
       }
 
-      add(
-          resultingMethod.belongsToDirectPool() ? directMethods : virtualMethods,
-          resultingMethod,
-          MethodSignatureEquivalence.get());
+      DexMethodSignatureMap<DexEncodedMethod> methodPool =
+          resultingMethod.belongsToDirectPool() ? directMethods : virtualMethods;
+      methodPool.put(resultingMethod, resultingMethod);
 
       DexEncodedMethod bridge = null;
       DexEncodedMethod override = shadowedBy;
@@ -283,7 +259,7 @@ class ClassMerger {
         // it turns out that the method is never used, it will be removed by the final round
         // of tree shaking.
         bridge = shadowedBy = buildBridgeMethod(virtualMethod, resultingMethod);
-        add(virtualMethods, shadowedBy, MethodSignatureEquivalence.get());
+        virtualMethods.put(shadowedBy, shadowedBy);
       }
 
       // Copy over any keep info from the original virtual method.
@@ -376,7 +352,8 @@ class ClassMerger {
     source.getMethodCollection().clearVirtualMethods();
     source.clearInstanceFields();
     source.clearStaticFields();
-    // Step 5: Merge attributes.
+    // Step 5: Update access flags and merge attributes.
+    fixupAccessFlags();
     if (source.isNestHost()) {
       target.clearNestHost();
       target.setNestMemberAttributes(source.getNestMembersClassAttributes());
@@ -388,6 +365,12 @@ class ClassMerger {
         .isValid();
     outerLensBuilder.merge(lensBuilder);
     verticallyMergedClassesBuilder.add(source, target);
+  }
+
+  private void fixupAccessFlags() {
+    if (source.getAccessFlags().isEnum()) {
+      target.getAccessFlags().setEnum();
+    }
   }
 
   /**
@@ -600,18 +583,6 @@ class ClassMerger {
     return null;
   }
 
-  private <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>> void add(
-      Map<Wrapper<R>, D> map, D item, Equivalence<R> equivalence) {
-    map.put(equivalence.wrap(item.getReference()), item);
-  }
-
-  private <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>> void addAll(
-      Collection<Wrapper<R>> collection, Iterable<D> items, Equivalence<R> equivalence) {
-    for (D item : items) {
-      collection.add(equivalence.wrap(item.getReference()));
-    }
-  }
-
   private <T> Set<T> mergeArrays(T[] one, T[] other) {
     Set<T> merged = new LinkedHashSet<>();
     Collections.addAll(merged, one);
@@ -642,117 +613,58 @@ class ClassMerger {
     return result;
   }
 
-  // Note that names returned by this function are not necessarily unique. Clients should
-  // repeatedly try to generate a fresh name until it is unique.
-  private DexString getFreshName(String nameString, int index, DexType holder) {
-    String freshName = nameString + "$" + holder.toSourceString().replace('.', '$');
-    if (index > 1) {
-      freshName += index;
+  private DexEncodedMethod moveDirectMethod(
+      DexEncodedMethod method, Predicate<DexMethod> availableMethodSignatures) {
+    if (method.isClassInitializer()) {
+      return moveMethod(method);
+    } else if (method.isInstanceInitializer()) {
+      return moveInstanceInitializer(method, availableMethodSignatures);
+    } else {
+      return renameMethod(method, availableMethodSignatures, Rename.IF_NEEDED);
     }
-    return dexItemFactory.createString(freshName);
   }
 
-  private DexEncodedMethod renameConstructor(
+  private DexEncodedMethod moveInstanceInitializer(
       DexEncodedMethod method, Predicate<DexMethod> availableMethodSignatures) {
-    assert method.isInstanceInitializer();
-    DexType oldHolder = method.getHolderType();
+    DexMethod newSignature =
+        dexItemFactory.createInstanceInitializerWithFreshProto(
+            method.getReference().withHolder(target, dexItemFactory),
+            sharedData.getExtraUnusedArgumentTypes(),
+            availableMethodSignatures);
+    return method.toTypeSubstitutedMethodAsInlining(newSignature, dexItemFactory);
+  }
 
-    DexMethod newSignature;
-    int count = 1;
-    do {
-      DexString newName = getFreshName(TEMPORARY_INSTANCE_INITIALIZER_PREFIX, count, oldHolder);
-      newSignature = dexItemFactory.createMethod(target.getType(), method.getProto(), newName);
-      count++;
-    } while (!availableMethodSignatures.test(newSignature));
-
-    DexEncodedMethod result =
-        method.toTypeSubstitutedMethodAsInlining(
-            newSignature,
-            dexItemFactory,
-            // Set the compilation state to satisfy the inliner in the final round of vertical class
-            // merging, which checks that the method is processed.
-            methodBuilder -> {
-              methodBuilder
-                  .modifyAccessFlags(
-                      accessFlags -> {
-                        // TODO(b/321171043): Do not change constructors to non-constructors as this
-                        //  would avoid the need for force inlining (though we would then need to
-                        //  find a fresh constructor signature).
-                        // Renamed constructors turn into ordinary non-constructor methods.
-                        accessFlags.unsetConstructor();
-                        makePublicFinal(accessFlags);
-                      })
-                  .setCompilationState(CompilationState.PROCESSED_INLINING_CANDIDATE_ANY)
-                  .setIsLibraryMethodOverride(OptionalBool.FALSE);
-            });
-    // TODO(b/321171043): Do not mark force inlining.
-    result.getMutableOptimizationInfo().markForceInline();
-    lensBuilder.recordMove(method, result);
-    return result;
+  private DexEncodedMethod moveMethod(DexEncodedMethod method) {
+    DexMethod newSignature = method.getReference().withHolder(target, dexItemFactory);
+    return method.toTypeSubstitutedMethodAsInlining(newSignature, dexItemFactory);
   }
 
   private DexEncodedMethod renameMethod(
       DexEncodedMethod method, Predicate<DexMethod> availableMethodSignatures, Rename strategy) {
-    return renameMethod(method, availableMethodSignatures, strategy, method.getProto());
-  }
-
-  private DexEncodedMethod renameMethod(
-      DexEncodedMethod method,
-      Predicate<DexMethod> availableMethodSignatures,
-      Rename strategy,
-      DexProto newProto) {
-    // We cannot handle renaming static initializers yet and constructors should have been
-    // renamed already.
-    assert !method.accessFlags.isConstructor() || strategy == Rename.NEVER;
-    DexString oldName = method.getName();
-    DexType oldHolder = method.getHolderType();
-
-    DexMethod newSignature;
-    switch (strategy) {
-      case IF_NEEDED:
-        newSignature = dexItemFactory.createMethod(target.getType(), newProto, oldName);
-        if (availableMethodSignatures.test(newSignature)) {
-          break;
-        }
-        // Fall-through to ALWAYS so that we assign a new name.
-
-      case ALWAYS:
-        int count = 1;
-        do {
-          DexString newName = getFreshName(oldName.toSourceString(), count, oldHolder);
-          newSignature = dexItemFactory.createMethod(target.getType(), newProto, newName);
-          count++;
-        } while (!availableMethodSignatures.test(newSignature));
-        break;
-
-      case NEVER:
-        newSignature = dexItemFactory.createMethod(target.getType(), newProto, oldName);
-        assert availableMethodSignatures.test(newSignature);
-        break;
-
-      default:
-        throw new Unreachable();
+    if (strategy == Rename.IF_NEEDED
+        && availableMethodSignatures.test(
+            method.getReference().withHolder(target, dexItemFactory))) {
+      return moveMethod(method);
     }
-
-    return method.toTypeSubstitutedMethodAsInlining(newSignature, dexItemFactory);
+    DexMethod newReference =
+        dexItemFactory.createFreshMethodNameWithHolder(
+            method.getName().toSourceString(),
+            source.getType(),
+            method.getProto(),
+            target.getType(),
+            availableMethodSignatures);
+    return method.toTypeSubstitutedMethodAsInlining(newReference, dexItemFactory);
   }
 
   private DexEncodedField renameFieldIfNeeded(
       DexEncodedField field, Predicate<DexField> availableFieldSignatures) {
-    DexString oldName = field.getName();
-    DexType oldHolder = field.getHolderType();
-
-    DexField newSignature = dexItemFactory.createField(target.getType(), field.getType(), oldName);
-    if (!availableFieldSignatures.test(newSignature)) {
-      int count = 1;
-      do {
-        DexString newName = getFreshName(oldName.toSourceString(), count, oldHolder);
-        newSignature = dexItemFactory.createField(target.getType(), field.getType(), newName);
-        count++;
-      } while (!availableFieldSignatures.test(newSignature));
-    }
-
-    return field.toTypeSubstitutedField(appView, newSignature);
+    DexField newReference =
+        dexItemFactory.createFreshFieldNameWithoutHolder(
+            target.getType(),
+            field.getType(),
+            field.getName().toString(),
+            availableFieldSignatures);
+    return field.toTypeSubstitutedField(appView, newReference);
   }
 
   private static void makePublicFinal(MethodAccessFlags accessFlags) {

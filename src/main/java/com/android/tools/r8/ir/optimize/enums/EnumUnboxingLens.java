@@ -25,7 +25,7 @@ import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
 import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 import com.android.tools.r8.ir.analysis.value.SingleValue;
 import com.android.tools.r8.ir.code.InvokeType;
-import com.android.tools.r8.ir.conversion.ExtraUnusedNullParameter;
+import com.android.tools.r8.ir.conversion.ExtraUnusedParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
@@ -325,9 +325,9 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
         DexMethod to,
         boolean fromStatic,
         boolean toStatic,
-        List<ExtraUnusedNullParameter> extraUnusedNullParameters) {
+        List<ExtraUnusedParameter> extraUnusedParameters) {
       RewrittenPrototypeDescription prototypeChanges =
-          computePrototypeChanges(from, to, fromStatic, toStatic, false, extraUnusedNullParameters);
+          computePrototypeChanges(from, to, fromStatic, toStatic, false, extraUnusedParameters);
       synchronized (this) {
         newMethodSignatures.put(from, to);
         methodMap.put(from, to);
@@ -343,7 +343,7 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
         boolean fromStatic,
         boolean toStatic,
         boolean virtualReceiverAlreadyRemapped,
-        List<ExtraUnusedNullParameter> extraUnusedNullParameters) {
+        List<ExtraUnusedParameter> extraUnusedParameters) {
       assert from != to;
       int offsetDiff = 0;
       int toOffset = BooleanUtils.intValue(!toStatic);
@@ -389,7 +389,7 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
                   .setNewType(to.getReturnType())
                   .build();
       return RewrittenPrototypeDescription.createForRewrittenTypes(returnInfo, builder.build())
-          .withExtraParameters(extraUnusedNullParameters);
+          .withExtraParameters(extraUnusedParameters);
     }
 
     void recordCheckNotZeroMethod(

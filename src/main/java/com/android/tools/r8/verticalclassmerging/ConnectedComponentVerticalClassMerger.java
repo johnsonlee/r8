@@ -37,7 +37,7 @@ public class ConnectedComponentVerticalClassMerger {
     return groups.isEmpty();
   }
 
-  public VerticalClassMergerResult.Builder run() {
+  public VerticalClassMergerResult.Builder run(ClassMergerSharedData sharedData) {
     List<VerticalMergeGroup> groupsSorted =
         ListUtils.sort(groups, Comparator.comparing(group -> group.getSource().getType()));
     List<ClassMerger> classMergers =
@@ -47,6 +47,7 @@ public class ConnectedComponentVerticalClassMerger {
                 new ClassMerger(
                     appView,
                     lensBuilder,
+                    sharedData,
                     synthesizedBridges,
                     verticallyMergedClassesBuilder,
                     group));

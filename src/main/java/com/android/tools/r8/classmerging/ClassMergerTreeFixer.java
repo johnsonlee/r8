@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.classmerging;
 
+import static com.android.tools.r8.ir.conversion.ExtraUnusedParameter.computeExtraUnusedParameters;
+
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DefaultInstanceInitializerCode;
@@ -19,7 +21,6 @@ import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.classmerging.MergedClasses;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
 import com.android.tools.r8.horizontalclassmerging.SubtypingForrestForClasses;
-import com.android.tools.r8.ir.conversion.ExtraUnusedNullParameter;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AnnotationFixer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -302,8 +303,7 @@ public abstract class ClassMergerTreeFixer<
             lensBuilder.addExtraParameters(
                 originalMethodReference,
                 newMethodReference,
-                ExtraUnusedNullParameter.computeExtraUnusedNullParameters(
-                    originalMethodReference, newMethodReference));
+                computeExtraUnusedParameters(originalMethodReference, newMethodReference));
 
             // Amend the art profile collection.
             if (usedSyntheticArgumentClasses.isSet()) {

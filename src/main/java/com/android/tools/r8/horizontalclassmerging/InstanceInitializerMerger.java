@@ -5,6 +5,7 @@
 package com.android.tools.r8.horizontalclassmerging;
 
 import static com.android.tools.r8.dex.Constants.TEMPORARY_INSTANCE_INITIALIZER_PREFIX;
+import static com.android.tools.r8.ir.conversion.ExtraUnusedParameter.computeExtraUnusedParameters;
 
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.classmerging.ClassMergerMode;
@@ -24,7 +25,7 @@ import com.android.tools.r8.horizontalclassmerging.code.ConstructorEntryPointSyn
 import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
 import com.android.tools.r8.ir.conversion.ExtraConstantIntParameter;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
-import com.android.tools.r8.ir.conversion.ExtraUnusedNullParameter;
+import com.android.tools.r8.ir.conversion.ExtraUnusedParameter;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -331,9 +332,8 @@ public class InstanceInitializerMerger {
     }
 
     // Compute the extra unused null parameters.
-    List<ExtraUnusedNullParameter> extraUnusedNullParameters =
-        ExtraUnusedNullParameter.computeExtraUnusedNullParameters(
-            newMethodReferenceTemplate, newMethodReference);
+    List<ExtraUnusedParameter> extraUnusedParameters =
+        computeExtraUnusedParameters(newMethodReferenceTemplate, newMethodReference);
 
     // Verify that the merge is a simple renaming in the final round of merging.
     assert mode.isInitial() || newMethodReference == newMethodReferenceTemplate;
@@ -373,7 +373,7 @@ public class InstanceInitializerMerger {
         int classIdentifier = classIdentifiers.getInt(instanceInitializer.getHolderType());
         extraParameters.add(new ExtraConstantIntParameter(classIdentifier));
       }
-      extraParameters.addAll(extraUnusedNullParameters);
+      extraParameters.addAll(extraUnusedParameters);
       lensBuilder.mapMergedConstructor(
           instanceInitializer.getReference(), newMethodReference, extraParameters);
     }
@@ -390,8 +390,7 @@ public class InstanceInitializerMerger {
           DexEncodedMethod.syntheticBuilder()
               .setMethod(newMethodReference)
               .setAccessFlags(getNewAccessFlags())
-              .setCode(
-                  getNewCode(newMethodReference, needsClassId, extraUnusedNullParameters.size()))
+              .setCode(getNewCode(newMethodReference, needsClassId, extraUnusedParameters.size()))
               .setClassFileVersion(getNewClassFileVersion())
               .setApiLevelForDefinition(representativeMethod.getApiLevelForDefinition())
               .setApiLevelForCode(representativeMethod.getApiLevelForCode())

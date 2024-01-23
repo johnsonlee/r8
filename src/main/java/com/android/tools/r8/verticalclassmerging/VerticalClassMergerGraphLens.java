@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.verticalclassmerging;
 
+import static com.android.tools.r8.ir.conversion.ExtraUnusedParameter.computeExtraUnusedParameters;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.classmerging.ClassMergerGraphLens;
@@ -23,7 +24,6 @@ import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
-import com.android.tools.r8.ir.conversion.ExtraUnusedNullParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.InternalOptions;
@@ -261,7 +261,7 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
       assert dexItemFactory().isConstructor(previousMethod);
       RewrittenPrototypeDescription collisionResolution =
           RewrittenPrototypeDescription.createForExtraParameters(
-              ExtraUnusedNullParameter.computeExtraUnusedNullParameters(previousMethod, newMethod));
+              computeExtraUnusedParameters(previousMethod, newMethod));
       return prototypeChanges.combine(collisionResolution);
     }
     assert newMethod.getArity() == previousMethod.getArity();
@@ -283,12 +283,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
   @Override
   protected InvokeType mapInvocationType(
       DexMethod newMethod, DexMethod previousMethod, InvokeType type) {
-    // TODO(b/321171043): Remove the need to map constructor calls to invoke-virtual.
-    if (dexItemFactory().isConstructor(previousMethod)
-        && !dexItemFactory().isConstructor(newMethod)) {
-      assert newMethod.getName().startsWith(dexItemFactory().temporaryConstructorMethodPrefix);
-      return InvokeType.VIRTUAL;
-    }
     if (isStaticized(newMethod)) {
       return InvokeType.STATIC;
     }

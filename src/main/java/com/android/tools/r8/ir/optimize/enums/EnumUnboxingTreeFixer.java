@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.optimize.enums;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
+import static com.android.tools.r8.ir.conversion.ExtraUnusedParameter.computeExtraUnusedParameters;
 import static com.android.tools.r8.ir.optimize.enums.EnumUnboxerImpl.ordinalToUnboxedInt;
 
 import com.android.tools.r8.cf.CfVersion;
@@ -50,7 +51,7 @@ import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
-import com.android.tools.r8.ir.conversion.ExtraUnusedNullParameter;
+import com.android.tools.r8.ir.conversion.ExtraUnusedParameter;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodProcessorEventConsumer;
@@ -1033,12 +1034,12 @@ class EnumUnboxingTreeFixer implements ProgramClassFixer {
     assert !method.isLibraryMethodOverride().isTrue()
         : "Enum unboxing is changing the signature of a library override in a non unboxed class.";
 
-    List<ExtraUnusedNullParameter> extraUnusedNullParameters =
-        ExtraUnusedNullParameter.computeExtraUnusedNullParameters(method.getReference(), newMethod);
+    List<ExtraUnusedParameter> extraUnusedParameters =
+        computeExtraUnusedParameters(method.getReference(), newMethod);
     boolean isStatic = method.isStatic();
     RewrittenPrototypeDescription prototypeChanges =
         lensBuilder.moveAndMap(
-            method.getReference(), newMethod, isStatic, isStatic, extraUnusedNullParameters);
+            method.getReference(), newMethod, isStatic, isStatic, extraUnusedParameters);
     return method.toTypeSubstitutedMethodAsInlining(
         newMethod,
         factory,
