@@ -1,15 +1,15 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.keepanno;
+package com.android.tools.r8.horizontalclassmerging;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.keepanno.ConditionalMethodRulesAndHorizontalMergingTest.Example1.BaseClass;
-import com.android.tools.r8.keepanno.ConditionalMethodRulesAndHorizontalMergingTest.Example1.MyHiddenMethodCaller;
-import com.android.tools.r8.keepanno.ConditionalMethodRulesAndHorizontalMergingTest.Example2.MyFieldValuePrinter;
-import com.android.tools.r8.keepanno.ConditionalMethodRulesAndHorizontalMergingTest.Example2.PrintableFieldInterface;
+import com.android.tools.r8.horizontalclassmerging.ConditionalMethodRulesAndHorizontalMergingTest.Example1.BaseClass;
+import com.android.tools.r8.horizontalclassmerging.ConditionalMethodRulesAndHorizontalMergingTest.Example1.MyHiddenMethodCaller;
+import com.android.tools.r8.horizontalclassmerging.ConditionalMethodRulesAndHorizontalMergingTest.Example2.MyFieldValuePrinter;
+import com.android.tools.r8.horizontalclassmerging.ConditionalMethodRulesAndHorizontalMergingTest.Example2.PrintableFieldInterface;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
