@@ -179,7 +179,7 @@ public class ObjectsMethodOptimizer extends StatelessLibraryMethodModelCollectio
       BasicBlockIterator blockIterator,
       InstructionListIterator instructionIterator,
       InvokeMethod invoke,
-      Set<Value> affectedValues,
+      AffectedValues affectedValues,
       Set<BasicBlock> blocksToRemove,
       DexClassAndMethod singleTarget) {
     if (invoke.hasOutValue() && invoke.outValue().hasLocalInfo()) {

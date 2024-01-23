@@ -418,7 +418,7 @@ public class NaturalIntLoopRemover extends CodeRewriterPass<AppInfo> {
 
       backPredecessor.replaceSuccessor(comparisonBlock, loopExit);
       backPredecessor.replaceLastInstruction(new Goto(loopExit), code);
-      comparisonBlock.removePredecessor(backPredecessor, Sets.newIdentityHashSet());
+      comparisonBlock.removePredecessor(backPredecessor);
       loopExit.replacePredecessor(comparisonBlock, backPredecessor);
     }
 

@@ -4,8 +4,10 @@
 
 package com.android.tools.r8.ir.optimize;
 
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static com.android.tools.r8.utils.PredicateUtils.not;
+import static com.google.common.base.Predicates.alwaysFalse;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
@@ -477,7 +479,8 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
               affectedPhis.add(value.asPhi());
             }
           });
-      affectedPhis.forEach(phi -> phi.removeTrivialPhi(null, affectedValues));
+      affectedPhis.forEach(
+          phi -> phi.removeTrivialPhi(null, affectedValues, emptyConsumer(), alwaysFalse()));
       affectedValues.narrowingWithAssumeRemoval(appView, code);
       if (hasChanged) {
         code.removeRedundantBlocks();

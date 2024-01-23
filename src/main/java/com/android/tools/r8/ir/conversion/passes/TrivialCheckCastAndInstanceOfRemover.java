@@ -27,11 +27,11 @@ import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
+import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.CodeRewriter;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations.UtilityMethodForCodeOptimizations;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.google.common.collect.Sets;
 import java.util.Set;
 
 public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppInfoWithLiveness> {
@@ -80,7 +80,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     // removal.
     TypeAnalysis typeAnalysis =
         new TypeAnalysis(appView, code).setKeepRedundantBlocksAfterAssumeRemoval(true);
-    Set<Value> affectedValues = Sets.newIdentityHashSet();
+    AffectedValues affectedValues = new AffectedValues();
     InstructionListIterator it = code.instructionListIterator();
     boolean needToRemoveTrivialPhis = false;
     while (it.hasNext()) {

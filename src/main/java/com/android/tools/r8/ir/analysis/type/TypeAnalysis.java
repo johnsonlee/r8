@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.AssumeRemover;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ConsumerUtils;
@@ -104,7 +105,7 @@ public class TypeAnalysis {
     while (assumeRemover.removeRedundantAssumeInstructions(
         affectedValuesFromAssumeRemoval, redundantAssumeConsumer)) {
       widening(affectedValuesFromAssumeRemoval);
-      Set<Value> affectedValuesFromPhiRemoval = Sets.newIdentityHashSet();
+      AffectedValues affectedValuesFromPhiRemoval = new AffectedValues();
       code.removeAllDeadAndTrivialPhis(affectedValuesFromPhiRemoval);
       narrowing(affectedValuesFromPhiRemoval);
       affectedValuesFromAssumeRemoval.clear();

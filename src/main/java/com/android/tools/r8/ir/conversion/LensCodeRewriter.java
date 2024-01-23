@@ -898,10 +898,7 @@ public class LensCodeRewriter {
       }
     }
     if (mayHaveUnreachableBlocks) {
-      Set<Value> prunedValues = Sets.newIdentityHashSet();
-      code.removeUnreachableBlocks(prunedValues::add);
-      affectedPhis.removeAll(prunedValues);
-      affectedValues.removeAll(prunedValues);
+      code.removeUnreachableBlocks(affectedValues, prunedValue -> affectedPhis.remove(prunedValue));
     }
     affectedValues.narrowingWithAssumeRemoval(appView, code);
     if (!affectedPhis.isEmpty()) {

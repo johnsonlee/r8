@@ -233,7 +233,7 @@ public interface InstructionListIterator
       BasicBlockIterator blockIterator,
       Value exceptionValue,
       Set<BasicBlock> blocksToRemove,
-      Set<Value> affectedValues);
+      AffectedValues affectedValues);
 
   /**
    * Replace the current instruction with null throwing instructions.
@@ -254,7 +254,7 @@ public interface InstructionListIterator
       IRCode code,
       ListIterator<BasicBlock> blockIterator,
       Set<BasicBlock> blocksToRemove,
-      Set<Value> affectedValues);
+      AffectedValues affectedValues);
 
   /**
    * Split the block into two blocks at the point of the {@link ListIterator} cursor. The existing

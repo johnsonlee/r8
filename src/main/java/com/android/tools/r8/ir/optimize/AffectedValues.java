@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.optimize;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
+import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Value;
 import com.google.common.collect.ImmutableSet;
@@ -13,6 +14,7 @@ import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.function.Predicate;
 
 public class AffectedValues implements Set<Value> {
 
@@ -52,6 +54,14 @@ public class AffectedValues implements Set<Value> {
   @Override
   public boolean addAll(Collection<? extends Value> c) {
     return affectedValues.addAll(c);
+  }
+
+  public void addLiveAffectedValuesOf(Value value, Predicate<BasicBlock> removedBlocks) {
+    for (Value affectedValue : value.affectedValues()) {
+      if (affectedValue.hasBlock() && !removedBlocks.test(affectedValue.getBlock())) {
+        add(affectedValue);
+      }
+    }
   }
 
   @Override

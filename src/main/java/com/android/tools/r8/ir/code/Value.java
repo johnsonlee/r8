@@ -1082,6 +1082,10 @@ public class Value implements Comparable<Value> {
         && !appView.enableWholeProgramOptimizations();
   }
 
+  public boolean hasBlock() {
+    return definition.hasBlock();
+  }
+
   public BasicBlock getBlock() {
     return definition.getBlock();
   }

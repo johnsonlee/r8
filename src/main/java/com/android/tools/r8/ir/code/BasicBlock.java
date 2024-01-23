@@ -5,6 +5,7 @@ package com.android.tools.r8.ir.code;
 
 import static com.android.tools.r8.ir.code.IRCode.INSTRUCTION_NUMBER_DELTA;
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+import static com.google.common.base.Predicates.alwaysFalse;
 
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
@@ -23,6 +24,7 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Phi.RegisterReadType;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.conversion.IRBuilder;
+import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
@@ -400,26 +402,35 @@ public class BasicBlock {
     removeSuccessorsByIndex(new IntArrayList(new int[] {index}));
   }
 
-  public void removePredecessor(BasicBlock block, Set<Value> affectedValues) {
+  public void removePredecessor(BasicBlock block) {
+    removePredecessor(block, null);
+  }
+
+  public void removePredecessor(BasicBlock block, AffectedValues affectedValues) {
+    removePredecessor(block, affectedValues, emptyConsumer(), alwaysFalse());
+  }
+
+  public void removePredecessor(
+      BasicBlock block,
+      AffectedValues affectedValues,
+      Consumer<Value> prunedValueConsumer,
+      Predicate<BasicBlock> removedBlocks) {
     int index = predecessors.indexOf(block);
     assert index >= 0 : "removePredecessor did not find the predecessor to remove";
     getMutablePredecessors().remove(index);
-    if (phis != null) {
+    if (hasPhis()) {
       for (Phi phi : getPhis()) {
-        phi.removeOperand(index);
+        phi.removeOperand(index, affectedValues, removedBlocks);
       }
       // Collect and remove trivial phis after block removal.
       List<Phi> trivials = new ArrayList<>();
       for (Phi phi : getPhis()) {
         if (phi.isTrivialPhi()) {
           trivials.add(phi);
-          if (affectedValues != null) {
-            affectedValues.addAll(phi.affectedValues());
-          }
         }
       }
       for (Phi phi : trivials) {
-        phi.removeTrivialPhi(null, affectedValues);
+        phi.removeTrivialPhi(null, affectedValues, prunedValueConsumer, removedBlocks);
       }
     }
   }
@@ -673,7 +684,7 @@ public class BasicBlock {
   }
 
   public boolean hasPhis() {
-    return !phis.isEmpty();
+    return phis != null && !phis.isEmpty();
   }
 
   public List<Phi> getPhis() {
@@ -858,9 +869,18 @@ public class BasicBlock {
   }
 
   public void removePhi(Phi phi) {
+    removePhi(phi, null, emptyConsumer());
+  }
+
+  public void removePhi(
+      Phi phi, AffectedValues affectedValues, Consumer<Value> prunedValueConsumer) {
     phis.remove(phi);
     assert currentDefinitions == null || !currentDefinitions.containsValue(phi)
         : "Attempt to remove Phi " + phi + " which is present in currentDefinitions";
+    if (affectedValues != null) {
+      affectedValues.remove(phi);
+    }
+    prunedValueConsumer.accept(phi);
   }
 
   public void removePhis(Collection<Phi> phisToRemove) {
@@ -898,11 +918,11 @@ public class BasicBlock {
     successor.getMutablePredecessors().add(this);
   }
 
-  private static boolean blocksClean(List<BasicBlock> blocks) {
+  private static boolean blocksClean(Collection<BasicBlock> blocks) {
     blocks.forEach(
         b -> {
-          assert b.predecessors.size() == 0;
-          assert b.successors.size() == 0;
+          assert b.predecessors.isEmpty();
+          assert b.successors.isEmpty();
         });
     return true;
   }
@@ -1012,25 +1032,27 @@ public class BasicBlock {
     getMutableSuccessors().clear();
   }
 
-  public List<BasicBlock> unlink(
-      BasicBlock successor, DominatorTree dominator, Set<Value> affectedValues) {
+  public Set<BasicBlock> unlink(
+      BasicBlock successor, DominatorTree dominator, AffectedValues affectedValues) {
     assert affectedValues != null;
     assert successors.contains(successor);
     assert successor.predecessors.size() == 1; // There are no critical edges.
     assert successor.predecessors.get(0) == this;
-    List<BasicBlock> removedBlocks = new ArrayList<>();
-    for (BasicBlock dominated : dominator.dominatedBlocks(successor)) {
-      dominated.cleanForRemoval(affectedValues, emptyConsumer());
-      removedBlocks.add(dominated);
+    Set<BasicBlock> dominatedBlocks =
+        dominator.dominatedBlocks(successor, Sets.newIdentityHashSet());
+    for (BasicBlock dominatedBlock : dominatedBlocks) {
+      dominatedBlock.cleanForRemoval(affectedValues, emptyConsumer(), dominatedBlocks::contains);
     }
-    assert blocksClean(removedBlocks);
-    return removedBlocks;
+    assert blocksClean(dominatedBlocks);
+    return dominatedBlocks;
   }
 
-  public void cleanForRemoval(Set<Value> affectedValues, Consumer<Value> prunedValueConsumer) {
+  public void cleanForRemoval(
+      AffectedValues affectedValues,
+      Consumer<Value> prunedValueConsumer,
+      Predicate<BasicBlock> removedBlocks) {
     for (BasicBlock block : successors) {
-      affectedValues.addAll(block.getPhis());
-      block.removePredecessor(this, affectedValues);
+      block.removePredecessor(this, affectedValues, prunedValueConsumer, removedBlocks);
     }
     getMutableSuccessors().clear();
     for (BasicBlock block : predecessors) {
@@ -1038,20 +1060,24 @@ public class BasicBlock {
     }
     getMutablePredecessors().clear();
     for (Phi phi : getPhis()) {
-      affectedValues.addAll(phi.affectedValues());
+      affectedValues.addLiveAffectedValuesOf(phi, removedBlocks);
       for (Value operand : phi.getOperands()) {
         operand.removePhiUser(phi);
       }
+      affectedValues.remove(phi);
       prunedValueConsumer.accept(phi);
     }
     getPhis().clear();
     for (Instruction instruction : getInstructions()) {
       if (instruction.hasOutValue()) {
-        affectedValues.addAll(instruction.outValue().affectedValues());
-        instruction.outValue().clearUsers();
-        prunedValueConsumer.accept(instruction.setOutValue(null));
+        Value outValue = instruction.outValue();
+        affectedValues.addLiveAffectedValuesOf(outValue, removedBlocks);
+        outValue.clearUsers();
+        instruction.setOutValue(null);
+        affectedValues.remove(outValue);
+        prunedValueConsumer.accept(outValue);
       }
-      for (Value value : instruction.inValues) {
+      for (Value value : instruction.inValues()) {
         value.removeUser(instruction);
       }
       for (Value value : instruction.getDebugValues()) {

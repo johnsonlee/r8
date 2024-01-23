@@ -18,7 +18,6 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Assume;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -72,7 +71,7 @@ public class CodeRewriter {
     // to mark z as non-null. However, cleanupNonNull() have now replaced y by a nullable value x.
     // Since z is defined as "z = (T) x", and x is nullable, it is no longer sound to have that z
     // is not nullable. This is fixed by rerunning the type analysis for the affected values.
-    Set<Value> valuesThatRequireWidening = Sets.newIdentityHashSet();
+    AffectedValues valuesThatRequireWidening = new AffectedValues();
 
     InstructionListIterator it = code.instructionListIterator();
     boolean needToCheckTrivialPhis = false;
@@ -113,9 +112,7 @@ public class CodeRewriter {
       code.removeAllDeadAndTrivialPhis(valuesThatRequireWidening);
     }
 
-    if (!valuesThatRequireWidening.isEmpty()) {
-      new TypeAnalysis(appView, code).widening(valuesThatRequireWidening);
-    }
+    valuesThatRequireWidening.widening(appView, code);
 
     code.removeRedundantBlocks();
 

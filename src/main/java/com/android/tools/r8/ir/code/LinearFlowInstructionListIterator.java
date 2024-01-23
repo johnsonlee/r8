@@ -141,7 +141,7 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
       BasicBlockIterator blockIterator,
       Value exceptionValue,
       Set<BasicBlock> blocksToRemove,
-      Set<Value> affectedValues) {
+      AffectedValues affectedValues) {
     currentBlockIterator.replaceCurrentInstructionWithThrow(
         appView, code, blockIterator, exceptionValue, blocksToRemove, affectedValues);
   }
@@ -152,7 +152,7 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
       IRCode code,
       ListIterator<BasicBlock> blockIterator,
       Set<BasicBlock> blocksToRemove,
-      Set<Value> affectedValues) {
+      AffectedValues affectedValues) {
     currentBlockIterator.replaceCurrentInstructionWithThrowNull(
         appView, code, blockIterator, blocksToRemove, affectedValues);
   }

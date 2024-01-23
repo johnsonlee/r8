@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.code;
 
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+import static com.google.common.base.Predicates.alwaysFalse;
 
 import com.android.tools.r8.cf.TypeVerificationHelper;
 import com.android.tools.r8.errors.CompilationError;
@@ -17,6 +19,7 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock.EdgeType;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.TypeConstraintResolver;
+import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.ListUtils;
@@ -31,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public class Phi extends Value implements InstructionOrPhi {
@@ -79,12 +83,21 @@ public class Phi extends Value implements InstructionOrPhi {
   }
 
   @Override
+  public boolean hasBlock() {
+    return block != null;
+  }
+
+  @Override
   public BasicBlock getBlock() {
     return block;
   }
 
   public void setBlock(BasicBlock block) {
     this.block = block;
+  }
+
+  public void unsetBlock() {
+    setBlock(null);
   }
 
   @Override
@@ -140,7 +153,7 @@ public class Phi extends Value implements InstructionOrPhi {
       builder.constrainType(operand, readConstraint);
       appendOperand(operand);
     }
-    removeTrivialPhi(builder, null);
+    removeTrivialPhi(builder, null, emptyConsumer(), alwaysFalse());
   }
 
   public void addOperands(List<Value> operands) {
@@ -189,8 +202,16 @@ public class Phi extends Value implements InstructionOrPhi {
   }
 
   public void removeOperand(int index) {
+    removeOperand(index, null, alwaysFalse());
+  }
+
+  public void removeOperand(
+      int index, AffectedValues affectedValues, Predicate<BasicBlock> removedBlocks) {
     operands.get(index).removePhiUser(this);
     operands.remove(index);
+    if (affectedValues != null && !removedBlocks.test(block)) {
+      affectedValues.add(this);
+    }
   }
 
   public void removeOperandsByIndex(List<Integer> operandsToRemove) {
@@ -254,12 +275,16 @@ public class Phi extends Value implements InstructionOrPhi {
     return true;
   }
 
-  public boolean removeTrivialPhi() {
-    return removeTrivialPhi(null, null);
+  public void removeTrivialPhi() {
+    removeTrivialPhi(null, null, emptyConsumer(), alwaysFalse());
   }
 
   @SuppressWarnings("ReferenceEquality")
-  public boolean removeTrivialPhi(IRBuilder builder, Set<Value> affectedValues) {
+  public boolean removeTrivialPhi(
+      IRBuilder builder,
+      AffectedValues affectedValues,
+      Consumer<Value> prunedValueConsumer,
+      Predicate<BasicBlock> removedBlocks) {
     Value same = null;
     for (Value op : operands) {
       if (op == same || op == this) {
@@ -297,7 +322,7 @@ public class Phi extends Value implements InstructionOrPhi {
       builder.constrainType(same, ValueTypeConstraint.fromTypeLattice(type));
     }
     if (affectedValues != null) {
-      affectedValues.addAll(this.affectedValues());
+      affectedValues.addLiveAffectedValuesOf(this, removedBlocks);
     }
     // Removing this phi, so get rid of it as a phi user from all of the operands to avoid
     // recursively getting back here with the same phi. If the phi has itself as an operand
@@ -324,11 +349,11 @@ public class Phi extends Value implements InstructionOrPhi {
       replaceUsers(same);
       // Try to simplify phi users that might now have become trivial.
       for (Phi user : phiUsersToSimplify) {
-        user.removeTrivialPhi(builder, affectedValues);
+        user.removeTrivialPhi(builder, affectedValues, prunedValueConsumer, removedBlocks);
       }
     }
     // Get rid of the phi itself.
-    block.removePhi(this);
+    block.removePhi(this, affectedValues, prunedValueConsumer);
     return true;
   }
 

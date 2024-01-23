@@ -132,7 +132,7 @@ public class RegisterMoveSchedulerTest {
         BasicBlockIterator blockIterator,
         Value exceptionValue,
         Set<BasicBlock> blocksToRemove,
-        Set<Value> affectedValues) {
+        AffectedValues affectedValues) {
       throw new Unimplemented();
     }
 
@@ -142,7 +142,7 @@ public class RegisterMoveSchedulerTest {
         IRCode code,
         ListIterator<BasicBlock> blockIterator,
         Set<BasicBlock> blocksToRemove,
-        Set<Value> affectedValues) {
+        AffectedValues affectedValues) {
       throw new Unimplemented();
     }
 
