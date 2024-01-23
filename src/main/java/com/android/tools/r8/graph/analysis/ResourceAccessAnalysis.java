@@ -11,9 +11,11 @@ import com.android.tools.r8.AndroidResourceInput.Kind;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -64,7 +66,7 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
 
   public static void register(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
-    if (enabled(appView, enqueuer)) {
+    if (enabled(appView)) {
       enqueuer.registerFieldAccessAnalysis(new ResourceAccessAnalysis(appView, enqueuer));
     }
   }
@@ -76,13 +78,9 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
     EnqueuerFieldAccessAnalysis.super.done(enqueuer);
   }
 
-  private static boolean enabled(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
-    // For now, we only do the resource tracing in the initial round since we don't track inlining
-    // of values yet.
+  private static boolean enabled(AppView<? extends AppInfoWithClassHierarchy> appView) {
     return appView.options().androidResourceProvider != null
-        && appView.options().resourceShrinkerConfiguration.isOptimizedShrinking()
-        && enqueuer.getMode().isInitialTreeShaking();
+        && appView.options().resourceShrinkerConfiguration.isOptimizedShrinking();
   }
 
   @Override
@@ -116,11 +114,17 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
     // TODO(287398085): Pending discussions with the AAPT2 team, we might need to harden this
     // to not fail if we wrongly classify an unrelated class as R class in our heuristic..
     RClassFieldToValueStore.Builder rClassValueBuilder = new RClassFieldToValueStore.Builder();
+    analyzeStaticFields(field, rClassValueBuilder);
     ProgramMethod programClassInitializer = field.getHolder().getProgramClassInitializer();
-    if (programClassInitializer == null) {
-      // No initialization of fields, empty R class.
-      return;
+    if (programClassInitializer != null) {
+      analyzeClassInitializer(rClassValueBuilder, programClassInitializer);
     }
+
+    fieldToValueMapping.put(field.getHolderType(), rClassValueBuilder.build());
+  }
+
+  private void analyzeClassInitializer(
+      RClassFieldToValueStore.Builder rClassValueBuilder, ProgramMethod programClassInitializer) {
     IRCode code = programClassInitializer.buildIR(appView, MethodConversionOptions.nonConverting());
 
     // We handle two cases:
@@ -165,8 +169,20 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
       }
       rClassValueBuilder.addMapping(staticPut.getField(), values);
     }
+  }
 
-    fieldToValueMapping.put(field.getHolderType(), rClassValueBuilder.build());
+  private void analyzeStaticFields(
+      ProgramField field, RClassFieldToValueStore.Builder rClassValueBuilder) {
+    for (DexEncodedField staticField :
+        field.getHolder().staticFields(DexEncodedField::hasExplicitStaticValue)) {
+      DexValue staticValue = staticField.getStaticValue();
+      if (staticValue.isDexValueInt()) {
+        assert !enqueuer.getMode().isInitialTreeShaking();
+        IntList values = new IntArrayList(1);
+        values.add(staticValue.asDexValueInt().getValue());
+        rClassValueBuilder.addMapping(staticField.getReference(), values);
+      }
+    }
   }
 
   private final Map<DexProgramClass, Boolean> cachedClassLookups = new IdentityHashMap<>();

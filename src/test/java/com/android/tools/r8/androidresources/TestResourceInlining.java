@@ -93,8 +93,13 @@ public class TestResourceInlining extends TestBase {
         .compile()
         .inspectShrunkenResources(
             resourceTableInspector -> {
-              // We should eventually remove this when optimizing
-              resourceTableInspector.assertContainsResourceWithName("string", "foo");
+              if (optimize && !addResourcesSubclass) {
+                resourceTableInspector.assertDoesNotContainResourceWithName("string", "foo");
+              } else {
+                // When there are resource subclasses we should not inline, since this can have
+                // side effects (or return different values).
+                resourceTableInspector.assertContainsResourceWithName("string", "foo");
+              }
               // Has multiple values, don't inline
               resourceTableInspector.assertContainsResourceWithName("string", "bar");
               // Has overlayable value, don't inline
