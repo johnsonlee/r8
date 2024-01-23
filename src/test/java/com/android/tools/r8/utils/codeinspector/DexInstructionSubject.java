@@ -49,6 +49,7 @@ import com.android.tools.r8.dex.code.DexDivIntLit16;
 import com.android.tools.r8.dex.code.DexDivIntLit8;
 import com.android.tools.r8.dex.code.DexDivLong;
 import com.android.tools.r8.dex.code.DexDivLong2Addr;
+import com.android.tools.r8.dex.code.DexFillArrayData;
 import com.android.tools.r8.dex.code.DexFilledNewArray;
 import com.android.tools.r8.dex.code.DexFilledNewArrayRange;
 import com.android.tools.r8.dex.code.DexGoto;
@@ -644,6 +645,11 @@ public class DexInstructionSubject implements InstructionSubject {
   public boolean isFilledNewArray() {
     return instruction instanceof DexFilledNewArray
         || instruction instanceof DexFilledNewArrayRange;
+  }
+
+  @Override
+  public boolean isFilledNewArrayData() {
+    return instruction instanceof DexFillArrayData;
   }
 
   @Override

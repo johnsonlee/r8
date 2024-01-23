@@ -166,6 +166,8 @@ public interface InstructionSubject {
 
   boolean isFilledNewArray();
 
+  boolean isFilledNewArrayData();
+
   int size();
 
   InstructionOffsetSubject getOffset(MethodSubject methodSubject);

@@ -402,6 +402,11 @@ public class CfInstructionSubject implements InstructionSubject {
   }
 
   @Override
+  public boolean isFilledNewArrayData() {
+    return false;
+  }
+
+  @Override
   public boolean isNewArray() {
     return instruction instanceof CfNewArray;
   }
