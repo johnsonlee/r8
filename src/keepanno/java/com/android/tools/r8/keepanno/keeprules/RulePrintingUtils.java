@@ -84,13 +84,10 @@ public abstract class RulePrintingUtils {
     return string;
   }
 
-  public static void printKeepOptions(StringBuilder builder, KeepOptions options) {
+  public static void printKeepOptions(
+      StringBuilder builder, KeepOptions options, KeepRuleExtractorOptions extractorOptions) {
     for (KeepOption option : KeepOption.values()) {
-      if (option == KeepOption.ANNOTATION_REMOVAL) {
-        // Annotation removal is a testing option, we can't reliably extract it out into rules.
-        continue;
-      }
-      if (options.isAllowed(option)) {
+      if (options.isAllowed(option) && extractorOptions.isKeepOptionSupported(option)) {
         builder.append(",allow").append(getOptionString(option));
       }
     }

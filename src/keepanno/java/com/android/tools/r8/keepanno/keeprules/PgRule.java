@@ -114,14 +114,14 @@ public abstract class PgRule {
     };
   }
 
-  void printKeepOptions(StringBuilder builder) {
-    RulePrintingUtils.printKeepOptions(builder, options);
+  void printKeepOptions(StringBuilder builder, KeepRuleExtractorOptions extractorOptions) {
+    RulePrintingUtils.printKeepOptions(builder, options, extractorOptions);
   }
 
-  public void printRule(StringBuilder builder) {
+  public void printRule(StringBuilder builder, KeepRuleExtractorOptions extractorOptions) {
     RulePrintingUtils.printHeader(builder, metaInfo);
     printCondition(builder);
-    printConsequence(builder);
+    printConsequence(builder, extractorOptions);
   }
 
   void printCondition(StringBuilder builder) {
@@ -141,9 +141,9 @@ public abstract class PgRule {
     }
   }
 
-  void printConsequence(StringBuilder builder) {
+  void printConsequence(StringBuilder builder, KeepRuleExtractorOptions extractorOptions) {
     builder.append(getConsequenceKeepType());
-    printKeepOptions(builder);
+    printKeepOptions(builder, extractorOptions);
     builder.append(' ');
     printTargetHolder(builder);
     List<KeepBindingSymbol> members = getTargetMembers();
@@ -249,7 +249,7 @@ public abstract class PgRule {
     }
 
     @Override
-    public void printRule(StringBuilder builder) {
+    public void printRule(StringBuilder builder, KeepRuleExtractorOptions options) {
       RulePrintingUtils.printHeader(builder, getMetaInfo());
       builder.append(getConsequenceKeepType()).append(" ");
       List<KeepAttribute> sorted = new ArrayList<>(attributes);

@@ -49,10 +49,16 @@ import java.util.function.Consumer;
 /** Extract the PG keep rules that over-approximate a keep edge. */
 public class KeepRuleExtractor {
 
+  private final KeepRuleExtractorOptions options;
   private final Consumer<String> ruleConsumer;
 
   public KeepRuleExtractor(Consumer<String> ruleConsumer) {
+    this(ruleConsumer, KeepRuleExtractorOptions.getR8Options());
+  }
+
+  public KeepRuleExtractor(Consumer<String> ruleConsumer, KeepRuleExtractorOptions options) {
     this.ruleConsumer = ruleConsumer;
+    this.options = options;
   }
 
   public void extract(KeepDeclaration declaration) {
@@ -60,7 +66,7 @@ public class KeepRuleExtractor {
     PgRule.groupByKinds(rules);
     StringBuilder builder = new StringBuilder();
     for (PgRule rule : rules) {
-      rule.printRule(builder);
+      rule.printRule(builder, options);
       builder.append("\n");
     }
     ruleConsumer.accept(builder.toString());
