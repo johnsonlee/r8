@@ -6,12 +6,7 @@ package com.android.tools.r8.keepanno;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.ProguardVersion;
-import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.keepanno.annotations.KeepCondition;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
@@ -26,112 +21,50 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class KeepUsedByReflectionAnnotationTest extends TestBase {
+public class KeepUsedByReflectionAnnotationTest extends KeepAnnoTestBase {
 
   static final String EXPECTED = StringUtils.lines("Hello, world");
 
-  private final TestParameters parameters;
+  private final KeepAnnoParameters parameters;
 
   @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build();
+  public static List<KeepAnnoParameters> data() {
+    return createParameters(
+        getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build());
   }
 
-  public KeepUsedByReflectionAnnotationTest(TestParameters parameters) {
+  public KeepUsedByReflectionAnnotationTest(KeepAnnoParameters parameters) {
     this.parameters = parameters;
   }
 
   @Test
-  public void testReference() throws Exception {
-    testForRuntime(parameters)
+  public void test() throws Exception {
+    Class<?> mainClass = TestClass.class;
+    testForKeepAnno(parameters)
         .addProgramClasses(getInputClasses())
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED);
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .enableExperimentalKeepAnnotations()
-        .addProgramClasses(getInputClasses())
-        .addKeepMainRule(TestClass.class)
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
+        .addKeepMainRule(mainClass)
+        .setExcludedOuterClass(getClass())
+        .run(mainClass)
         .assertSuccessWithOutput(EXPECTED)
-        .inspect(this::checkOutput);
+        .applyIf(parameters.isShrinker(), r -> r.inspect(this::checkOutput));
   }
 
   @Test
-  public void testExtractR8() throws Exception {
-    testForExternalR8(parameters.getBackend())
-        .apply(KeepAnnoTestUtils.addInputClassesAndRulesR8(getInputClasses()))
-        .addKeepMainRule(TestClass.class)
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
-        .inspect(this::checkOutput);
-  }
-
-  @Test
-  public void testExtractPG() throws Exception {
-    assumeTrue(parameters.isCfRuntime());
-    testForProguard(KeepAnnoTestUtils.PG_VERSION)
-        .addDontWarn(getClass())
-        .apply(KeepAnnoTestUtils.addInputClassesAndRulesPG(getInputClasses()))
-        .addKeepMainRule(TestClass.class)
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
-        .inspect(this::checkOutput);
-  }
-
-  @Test
-  public void testNoRefReference() throws Exception {
-    testForRuntime(parameters)
+  public void testNoRef() throws Exception {
+    Class<?> mainClass = TestClassNoRef.class;
+    testForKeepAnno(parameters)
         .addProgramClasses(getInputClasses())
-        .run(parameters.getRuntime(), TestClassNoRef.class)
-        .assertSuccessWithOutput(EXPECTED);
-  }
-
-  @Test
-  public void testNoRefR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .enableExperimentalKeepAnnotations()
-        .addProgramClasses(getInputClasses())
-        .addKeepMainRule(TestClassNoRef.class)
+        .addKeepMainRule(mainClass)
         .allowUnusedProguardConfigurationRules()
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClassNoRef.class)
+        .setExcludedOuterClass(getClass())
+        .run(mainClass)
         .assertSuccessWithOutput(EXPECTED)
-        .inspect(this::checkOutputNoRef);
-  }
-
-  @Test
-  public void testNoRefExtractR8() throws Exception {
-    testForExternalR8(parameters.getBackend())
-        .apply(KeepAnnoTestUtils.addInputClassesAndRulesR8(getInputClasses()))
-        .addKeepMainRule(TestClassNoRef.class)
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClassNoRef.class)
-        .assertSuccessWithOutput(EXPECTED)
-        .inspect(this::checkOutputNoRef);
-  }
-
-  @Test
-  public void testNoRefExtractPG() throws Exception {
-    assumeTrue(parameters.isCfRuntime());
-    testForProguard(ProguardVersion.V7_3_2)
-        .addDontWarn(getClass())
-        .apply(KeepAnnoTestUtils.addInputClassesAndRulesPG(getInputClasses()))
-        .addKeepMainRule(TestClassNoRef.class)
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClassNoRef.class)
-        .assertSuccessWithOutput(EXPECTED)
+        .applyIf(parameters.isR8(), r -> r.inspect(this::checkOutputNoRef))
         // PG does not eliminate B so the same output remains.
-        .inspect(this::checkOutput);
+        .applyIf(parameters.isPG(), r -> r.inspect(this::checkOutput));
   }
 
-  public List<Class<?>> getInputClasses() {
+  private List<Class<?>> getInputClasses() {
     return ImmutableList.of(TestClass.class, TestClassNoRef.class, A.class, B.class, C.class);
   }
 

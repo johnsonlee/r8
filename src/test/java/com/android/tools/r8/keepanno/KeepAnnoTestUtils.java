@@ -6,11 +6,7 @@ package com.android.tools.r8.keepanno;
 
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
-import com.android.tools.r8.ExternalR8TestBuilder;
-import com.android.tools.r8.ProguardTestBuilder;
 import com.android.tools.r8.ProguardVersion;
-import com.android.tools.r8.TestShrinkerBuilder;
-import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
@@ -32,7 +28,7 @@ public class KeepAnnoTestUtils {
   public static ProguardVersion PG_VERSION = ProguardVersion.V7_3_2;
 
   // TODO(b/321674067): Downgrade this to oldest supported AGP, such as R8 8.0.35.
-  private static Path R8_LIB = Paths.get(ToolHelper.THIRD_PARTY_DIR, "r8", "r8lib_8.2.20-dev.jar");
+  public static Path R8_LIB = Paths.get(ToolHelper.THIRD_PARTY_DIR, "r8", "r8lib_8.2.20-dev.jar");
 
   public static Path getKeepAnnoLib(TemporaryFolder temp) throws IOException {
     Path archive = temp.newFolder().toPath().resolve("keepanno.jar");
@@ -68,25 +64,4 @@ public class KeepAnnoTestUtils {
     return rules;
   }
 
-  public static ThrowableConsumer<ProguardTestBuilder> addInputClassesAndRulesPG(
-      List<Class<?>> inputClasses) {
-    return builder -> {
-      addInputClassesAndRulesShared(inputClasses, builder);
-    };
-  }
-
-  public static ThrowableConsumer<ExternalR8TestBuilder> addInputClassesAndRulesR8(
-      List<Class<?>> inputClasses) {
-    return builder -> {
-      builder.useProvidedR8(R8_LIB);
-      addInputClassesAndRulesShared(inputClasses, builder);
-    };
-  }
-
-  private static void addInputClassesAndRulesShared(
-      List<Class<?>> inputClasses, TestShrinkerBuilder<?, ?, ?, ?, ?> builder) throws IOException {
-    Path keepAnnoLib = getKeepAnnoLib(builder.getState().getTempFolder());
-    List<String> rules = extractRules(inputClasses, KeepRuleExtractorOptions.getPgOptions());
-    builder.addProgramClasses(inputClasses).addProgramFiles(keepAnnoLib).addKeepRules(rules);
-  }
 }
