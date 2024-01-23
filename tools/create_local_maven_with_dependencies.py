@@ -82,7 +82,6 @@ BUILD_DEPENDENCIES = [
         version=KOTLIN_VERSION),
     'org.jetbrains.kotlinx:kotlinx-metadata-jvm:{version}'.format(
         version=KOTLIN_METADATA_VERSION),
-    'org.gradle.kotlin.kotlin-dsl:org.gradle.kotlin.kotlin-dsl.gradle.plugin:4.1.3',
 ]
 
 TEST_DEPENDENCIES = [
