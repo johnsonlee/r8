@@ -8,6 +8,7 @@ import com.android.tools.r8.ExternalR8TestBuilder;
 import com.android.tools.r8.ProguardTestBuilder;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8TestBuilder;
+import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
@@ -38,9 +39,14 @@ public abstract class KeepAnnoTestBuilder {
   }
 
   private final KeepAnnoParameters keepAnnoParams;
+  private boolean printRules = false;
 
   private KeepAnnoTestBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
     this.keepAnnoParams = params;
+  }
+
+  boolean shouldPrintRules() {
+    return printRules;
   }
 
   public final TestParameters parameters() {
@@ -53,6 +59,13 @@ public abstract class KeepAnnoTestBuilder {
   public abstract KeepAnnoTestBuilder addKeepMainRule(Class<?> mainClass);
 
   public abstract SingleTestRunResult<?> run(Class<?> mainClass) throws Exception;
+
+  public KeepAnnoTestBuilder applyIfShrinker(
+      ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> builderConsumer) {
+    applyIfR8(builderConsumer);
+    applyIfPG(builderConsumer::accept);
+    return this;
+  }
 
   public KeepAnnoTestBuilder applyIfR8(
       ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> builderConsumer) {
@@ -73,6 +86,16 @@ public abstract class KeepAnnoTestBuilder {
 
   public final KeepAnnoTestBuilder allowUnusedProguardConfigurationRules() {
     return applyIfR8Native(R8TestBuilder::allowUnusedProguardConfigurationRules);
+  }
+
+  public final KeepAnnoTestBuilder allowAccessModification() {
+    applyIfShrinker(TestShrinkerBuilder::allowAccessModification);
+    return this;
+  }
+
+  public KeepAnnoTestBuilder printRules() {
+    printRules = true;
+    return this;
   }
 
   private static class ReferenceBuilder extends KeepAnnoTestBuilder {
@@ -147,7 +170,11 @@ public abstract class KeepAnnoTestBuilder {
 
     @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
-      return builder.run(parameters().getRuntime(), mainClass);
+      R8TestCompileResult compileResult = builder.compile();
+      if (shouldPrintRules()) {
+        System.out.println(compileResult.getProguardConfiguration());
+      }
+      return compileResult.run(parameters().getRuntime(), mainClass);
     }
   }
 
@@ -178,6 +205,9 @@ public abstract class KeepAnnoTestBuilder {
       List<String> rules = KeepAnnoTestUtils.extractRules(programClasses, extractorOptions);
       builder.addProgramClasses(programClasses);
       builder.addKeepRules(rules);
+      if (shouldPrintRules()) {
+        rules.forEach(System.out::println);
+      }
       return this;
     }
 
@@ -218,6 +248,9 @@ public abstract class KeepAnnoTestBuilder {
       List<String> rules = KeepAnnoTestUtils.extractRules(programClasses, extractorOptions);
       builder.addProgramClasses(programClasses);
       builder.addKeepRules(rules);
+      if (shouldPrintRules()) {
+        rules.forEach(System.out::println);
+      }
       return this;
     }
 

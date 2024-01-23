@@ -7,9 +7,6 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
@@ -32,57 +29,66 @@ import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 
 @RunWith(Parameterized.class)
-public class KeepAccessVisibilityFlagsTest extends TestBase {
+public class KeepAccessVisibilityFlagsTest extends KeepAnnoTestBase {
 
   static final String EXPECTED =
       StringUtils.lines(
-          // Field targets.
+          "=== non-private fields:",
           "packagePrivateField",
           "protectedField",
           "publicField",
-          // Method targets.
+          "=== non-package-private methods:",
           "privateMethod",
           "protectedMethod",
           "publicMethod",
-          // Member field targets.
+          "=== private and package-private fields:",
           "packagePrivateField",
           "privateField",
-          // Member method targets.
+          "=== private and package-private methods:",
           "packagePrivateMethod",
           "privateMethod");
 
-  private final TestParameters parameters;
+  static final String UNEXPECTED_PG =
+      StringUtils.lines(
+          "=== non-private fields:",
+          "packagePrivateField",
+          "protectedField",
+          "publicField",
+          "=== non-package-private methods:",
+          "privateMethod",
+          "protectedMethod",
+          "publicMethod",
+          "=== private and package-private fields:",
+          // PG will rename and privatize the unused public and protected field!?
+          "a",
+          "b",
+          "packagePrivateField",
+          "privateField",
+          "=== private and package-private methods:",
+          "packagePrivateMethod",
+          "privateMethod");
+
+  @Parameter public KeepAnnoParameters parameters;
 
   @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build();
-  }
-
-  public KeepAccessVisibilityFlagsTest(TestParameters parameters) {
-    this.parameters = parameters;
+  public static List<KeepAnnoParameters> data() {
+    return createParameters(
+        getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build());
   }
 
   @Test
-  public void testReference() throws Exception {
-    testForRuntime(parameters)
-        .addProgramClasses(getInputClasses())
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED);
-  }
-
-  @Test
-  public void testWithRuleExtraction() throws Exception {
-    testForR8(parameters.getBackend())
-        .enableExperimentalKeepAnnotations()
+  public void test() throws Exception {
+    testForKeepAnno(parameters)
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .allowAccessModification()
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
-        .inspect(this::checkOutput);
+        .setExcludedOuterClass(getClass())
+        .run(TestClass.class)
+        .assertSuccessWithOutput(parameters.isPG() ? UNEXPECTED_PG : EXPECTED)
+        .applyIf(parameters.isR8(), r -> r.inspect(this::checkOutput));
   }
 
   public List<Class<?>> getInputClasses() {
@@ -203,6 +209,7 @@ public class KeepAccessVisibilityFlagsTest extends TestBase {
     void foo() {
       // Print all non-private fields.
       {
+        System.out.println("=== non-private fields:");
         List<String> nonPrivateFields = new ArrayList<>();
         for (Field field : FieldRuleTarget.class.getDeclaredFields()) {
           int mod = field.getModifiers();
@@ -214,6 +221,7 @@ public class KeepAccessVisibilityFlagsTest extends TestBase {
       }
       // Print all non-package-private methods.
       {
+        System.out.println("=== non-package-private methods:");
         List<String> nonPackagePrivateMethods = new ArrayList<>();
         for (Method method : MethodRuleTarget.class.getDeclaredMethods()) {
           int mod = method.getModifiers();
@@ -225,6 +233,7 @@ public class KeepAccessVisibilityFlagsTest extends TestBase {
       }
       // Print all private and package-private members.
       {
+        System.out.println("=== private and package-private fields:");
         List<String> privateOrPackagePrivateFields = new ArrayList<>();
         for (Field field : MemberRuleTarget.class.getDeclaredFields()) {
           int mod = field.getModifiers();
@@ -235,6 +244,7 @@ public class KeepAccessVisibilityFlagsTest extends TestBase {
         printSorted(privateOrPackagePrivateFields);
       }
       {
+        System.out.println("=== private and package-private methods:");
         List<String> privateOrPackagePrivateMethods = new ArrayList<>();
         for (Method method : MemberRuleTarget.class.getDeclaredMethods()) {
           int mod = method.getModifiers();
