@@ -1188,30 +1188,44 @@ public class BasicBlock {
     return true;
   }
 
-  private boolean isExceptionTrampoline() {
-    boolean ret = instructions.size() == 2 && entry().isMoveException() && exit().isGoto();
-    assert !ret || !hasCatchHandlers() : "Trampoline should not have catch handlers";
-    return ret;
+  private BasicBlock getExceptionTrampolineTarget() {
+    if (instructions.size() == 2 && entry().isMoveException() && exit().isGoto()) {
+      assert !hasCatchHandlers() : "Trampoline should not have catch handlers";
+      return getUniqueNormalSuccessor();
+    }
+    return null;
   }
 
-  /** Returns whether the given blocks are in the same try block. */
+  /**
+   * Returns whether the given blocks are in the same try block.
+   *
+   * <p>They are considered the same if all catch handlers have the same guards and are trampolines
+   * that point to the same block.
+   */
   public boolean hasEquivalentCatchHandlers(BasicBlock other) {
     if (this == other) {
       return true;
     }
     List<Integer> targets1 = catchHandlers.getAllTargets();
     List<Integer> targets2 = other.catchHandlers.getAllTargets();
+
     int numHandlers = targets1.size();
     if (numHandlers != targets2.size()) {
       return false;
     }
-    // If all catch handlers are trampolines to the same block, then they are from the same try.
+    if (numHandlers == 0) {
+      return true;
+    }
+
+    List<DexType> guards1 = catchHandlers.getGuards();
+    List<DexType> guards2 = other.catchHandlers.getGuards();
     for (int i = 0; i < numHandlers; ++i) {
       BasicBlock catchBlock1 = successors.get(targets1.get(i));
       BasicBlock catchBlock2 = other.successors.get(targets2.get(i));
-      if (!catchBlock1.isExceptionTrampoline()
-          || !catchBlock2.isExceptionTrampoline()
-          || catchBlock1.getUniqueSuccessor() != catchBlock2.getUniqueSuccessor()) {
+      BasicBlock trampolineTarget = catchBlock1.getExceptionTrampolineTarget();
+      if (trampolineTarget == null
+          || trampolineTarget != catchBlock2.getExceptionTrampolineTarget()
+          || guards1.get(i).isNotIdenticalTo(guards2.get(i))) {
         return false;
       }
     }

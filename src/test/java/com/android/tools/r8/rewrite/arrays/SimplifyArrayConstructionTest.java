@@ -485,10 +485,16 @@ public class SimplifyArrayConstructionTest extends TestBase {
     @NeverInline
     private static void arrayInsideCatchHandler() {
       try {
-        // Test filled-new-array with a throwing instruction before the last array-put.
-        int[] arr = new int[1];
-        System.currentTimeMillis();
-        arr[0] = 9;
+        int[] arr;
+        // Use nested try to test hasEquivalentCatchHandlers() with multiple targets.
+        try {
+          // Test filled-new-array with a throwing instruction before the last array-put.
+          arr = new int[1];
+          System.currentTimeMillis();
+          arr[0] = 9;
+        } catch (RuntimeException r) {
+          throw new RuntimeException(r);
+        }
         System.out.println(Arrays.toString(arr));
       } catch (Throwable t) {
         throw new RuntimeException(t);
