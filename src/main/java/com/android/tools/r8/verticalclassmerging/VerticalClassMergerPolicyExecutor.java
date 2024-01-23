@@ -18,7 +18,6 @@ import com.android.tools.r8.verticalclassmerging.policies.NoClassInitializationC
 import com.android.tools.r8.verticalclassmerging.policies.NoDirectlyInstantiatedClassesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoEnclosingMethodAttributesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoFieldResolutionChangesPolicy;
-import com.android.tools.r8.verticalclassmerging.policies.NoFinalSourceInstanceFieldsWithConstructorInliningPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoIllegalAccessesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoInnerClassAttributesPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy;
@@ -70,7 +69,6 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
     Collection<Policy> policies =
         List.of(
             new NoDirectlyInstantiatedClassesPolicy(appView),
-            new NoFinalSourceInstanceFieldsWithConstructorInliningPolicy(appView, mode),
             new NoInterfacesWithUnknownSubtypesPolicy(appView),
             new NoKeptClassesPolicy(appView),
             new SameFeatureSplitPolicy(appView),
