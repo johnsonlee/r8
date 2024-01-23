@@ -14,6 +14,7 @@ import static com.android.tools.r8.ir.code.Opcodes.CONST_CLASS;
 import static com.android.tools.r8.ir.code.Opcodes.IF;
 import static com.android.tools.r8.ir.code.Opcodes.INIT_CLASS;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_GET;
+import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_OF;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_PUT;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_CUSTOM;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_DIRECT;
@@ -68,6 +69,7 @@ import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.InitClass;
 import com.android.tools.r8.ir.code.InstanceGet;
+import com.android.tools.r8.ir.code.InstanceOf;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.ir.code.InvokeMethod;
@@ -283,6 +285,9 @@ public class EnumUnboxerImpl extends EnumUnboxer {
           case CHECK_CAST:
             analyzeCheckCast(instruction.asCheckCast(), eligibleEnums);
             break;
+          case INSTANCE_OF:
+            analyzeInstanceOf(instruction.asInstanceOf());
+            break;
           case INIT_CLASS:
             analyzeInitClass(instruction.asInitClass(), eligibleEnums);
             break;
@@ -450,6 +455,14 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       return;
     }
     markEnumAsUnboxable(Reason.DOWN_CAST, enumClass);
+  }
+
+  private void analyzeInstanceOf(InstanceOf instanceOf) {
+    DexType baseType = instanceOf.type().toBaseType(factory);
+    DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(baseType);
+    if (enumClass != null) {
+      markEnumAsUnboxable(Reason.INSTANCE_OF, enumClass);
+    }
   }
 
   private void analyzeInitClass(InitClass initClass, Set<DexType> eligibleEnums) {

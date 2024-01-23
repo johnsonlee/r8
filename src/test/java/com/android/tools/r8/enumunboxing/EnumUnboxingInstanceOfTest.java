@@ -3,12 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.enumunboxing;
 
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.codeinspector.EnumUnboxingInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -28,14 +28,15 @@ public class EnumUnboxingInstanceOfTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    assertFailsCompilation(
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .addKeepMainRule(Main.class)
-                .enableInliningAnnotations()
-                .setMinApi(parameters)
-                .compile());
+    testForR8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addKeepMainRule(Main.class)
+        .addEnumUnboxingInspector(EnumUnboxingInspector::assertNoEnumsUnboxed)
+        .enableInliningAnnotations()
+        .setMinApi(parameters)
+        .compile()
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("false", "A");
   }
 
   static class Main {
