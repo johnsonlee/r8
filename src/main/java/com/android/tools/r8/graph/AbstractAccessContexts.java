@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.BiConsumer;
@@ -389,7 +390,23 @@ public abstract class AbstractAccessContexts {
     @Override
     AbstractAccessContexts withoutPrunedItems(PrunedItems prunedItems) {
       for (ProgramMethodSet methodSet : accessesWithContexts.values()) {
-        methodSet.removeIf(method -> prunedItems.isRemoved(method.getReference()));
+        Iterator<ProgramMethod> iterator = methodSet.iterator();
+        ProgramMethodSet newAccessContexts = null;
+        while (iterator.hasNext()) {
+          DexMethod methodReference = iterator.next().getReference();
+          if (prunedItems.isRemoved(methodReference)) {
+            iterator.remove();
+            if (prunedItems.isFullyInlined(methodReference)) {
+              if (newAccessContexts == null) {
+                newAccessContexts = ProgramMethodSet.create();
+              }
+              prunedItems.forEachFullyInlinedMethodCaller(methodReference, newAccessContexts::add);
+            }
+          }
+        }
+        if (newAccessContexts != null) {
+          methodSet.addAll(newAccessContexts);
+        }
       }
       return this;
     }

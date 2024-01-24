@@ -31,9 +31,7 @@ public class IllegalStaticGetCanonicalizationAfterSingleCallerInliningTest exten
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/321803511): Should succeed with expected output on DEX where we canonicalize
-        //  constants.
-        .assertSuccessWithOutputLines(parameters.isCfRuntime() ? "Hello, world!" : "null");
+        .assertSuccessWithOutputLines("Hello, world!");
   }
 
   static class Main {

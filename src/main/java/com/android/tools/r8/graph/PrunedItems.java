@@ -7,12 +7,17 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.Sets;
 import java.util.Collection;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public class PrunedItems {
 
   private final DexApplication prunedApp;
   private final Set<DexReference> additionalPinnedItems;
+  private final Map<DexMethod, ProgramMethod> fullyInlinedMethods;
   private final Set<DexType> noLongerSyntheticItems;
   private final Set<DexType> removedClasses;
   private final Set<DexField> removedFields;
@@ -21,19 +26,21 @@ public class PrunedItems {
   private PrunedItems(
       DexApplication prunedApp,
       Set<DexReference> additionalPinnedItems,
+      Map<DexMethod, ProgramMethod> fullyInlinedMethods,
       Set<DexType> noLongerSyntheticItems,
       Set<DexType> removedClasses,
       Set<DexField> removedFields,
       Set<DexMethod> removedMethods) {
     this.prunedApp = prunedApp;
     this.additionalPinnedItems = additionalPinnedItems;
+    this.fullyInlinedMethods = fullyInlinedMethods;
     this.noLongerSyntheticItems = noLongerSyntheticItems;
     this.removedClasses = removedClasses;
     this.removedFields = removedFields;
     this.removedMethods = removedMethods;
   }
 
-  public static Builder concurrentBuilder() {
+  public static ConcurrentBuilder concurrentBuilder() {
     return new ConcurrentBuilder();
   }
 
@@ -50,10 +57,21 @@ public class PrunedItems {
   }
 
   public boolean isEmpty() {
-    return removedClasses.isEmpty()
+    return additionalPinnedItems.isEmpty()
+        && fullyInlinedMethods.isEmpty()
+        && noLongerSyntheticItems.isEmpty()
+        && removedClasses.isEmpty()
         && removedFields.isEmpty()
-        && removedMethods.isEmpty()
-        && additionalPinnedItems.isEmpty();
+        && removedMethods.isEmpty();
+  }
+
+  public boolean isFullyInlined(DexMethod method) {
+    return fullyInlinedMethods.containsKey(method);
+  }
+
+  public void forEachFullyInlinedMethodCaller(DexMethod method, Consumer<ProgramMethod> consumer) {
+    assert isFullyInlined(method);
+    consumer.accept(fullyInlinedMethods.get(method));
   }
 
   public boolean isRemoved(DexField field) {
@@ -78,6 +96,10 @@ public class PrunedItems {
 
   public Set<? extends DexReference> getAdditionalPinnedItems() {
     return additionalPinnedItems;
+  }
+
+  public Map<DexMethod, ProgramMethod> getFullyInlinedMethods() {
+    return fullyInlinedMethods;
   }
 
   public Set<DexType> getNoLongerSyntheticItems() {
@@ -117,6 +139,7 @@ public class PrunedItems {
     private DexApplication prunedApp;
 
     private final Set<DexReference> additionalPinnedItems;
+    private Map<DexMethod, ProgramMethod> fullyInlinedMethods;
     private final Set<DexType> noLongerSyntheticItems;
     private Set<DexType> removedClasses;
     private final Set<DexField> removedFields;
@@ -124,6 +147,7 @@ public class PrunedItems {
 
     Builder() {
       additionalPinnedItems = newEmptySet();
+      fullyInlinedMethods = newEmptyMap();
       noLongerSyntheticItems = newEmptySet();
       removedClasses = newEmptySet();
       removedFields = newEmptySet();
@@ -132,6 +156,7 @@ public class PrunedItems {
 
     Builder(PrunedItems prunedItems) {
       this();
+      assert prunedItems.getFullyInlinedMethods().isEmpty();
       additionalPinnedItems.addAll(prunedItems.getAdditionalPinnedItems());
       noLongerSyntheticItems.addAll(prunedItems.getNoLongerSyntheticItems());
       prunedApp = prunedItems.getPrunedApp();
@@ -144,6 +169,10 @@ public class PrunedItems {
       return Sets.newIdentityHashSet();
     }
 
+    <S, T> Map<S, T> newEmptyMap() {
+      return new IdentityHashMap<>();
+    }
+
     public Builder setPrunedApp(DexApplication prunedApp) {
       this.prunedApp = prunedApp;
       return this;
@@ -153,6 +182,21 @@ public class PrunedItems {
         Collection<? extends DexReference> additionalPinnedItems) {
       this.additionalPinnedItems.addAll(additionalPinnedItems);
       return this;
+    }
+
+    public boolean hasFullyInlinedMethods() {
+      return !fullyInlinedMethods.isEmpty();
+    }
+
+    public Builder addFullyInlinedMethod(DexMethod method, ProgramMethod singleCaller) {
+      assert !fullyInlinedMethods.containsKey(method);
+      fullyInlinedMethods.put(method, singleCaller);
+      removedMethods.add(method);
+      return this;
+    }
+
+    public void clearFullyInlinedMethods() {
+      fullyInlinedMethods.clear();
     }
 
     public Builder addNoLongerSyntheticItems(Set<DexType> noLongerSyntheticItems) {
@@ -182,6 +226,10 @@ public class PrunedItems {
       return this;
     }
 
+    public boolean hasRemovedMethods() {
+      return !removedMethods.isEmpty();
+    }
+
     public Builder addRemovedMethod(DexMethod removedMethod) {
       removedMethods.add(removedMethod);
       return this;
@@ -190,6 +238,10 @@ public class PrunedItems {
     public Builder addRemovedMethods(Collection<DexMethod> removedMethods) {
       this.removedMethods.addAll(removedMethods);
       return this;
+    }
+
+    public void clearRemovedMethods() {
+      removedMethods.clear();
     }
 
     public Builder setRemovedClasses(Set<DexType> removedClasses) {
@@ -206,6 +258,7 @@ public class PrunedItems {
       return new PrunedItems(
           prunedApp,
           additionalPinnedItems,
+          fullyInlinedMethods,
           noLongerSyntheticItems,
           removedClasses,
           removedFields,
@@ -218,6 +271,11 @@ public class PrunedItems {
     @Override
     <T> Set<T> newEmptySet() {
       return SetUtils.newConcurrentHashSet();
+    }
+
+    @Override
+    <S, T> Map<S, T> newEmptyMap() {
+      return new ConcurrentHashMap<>();
     }
 
     @Override

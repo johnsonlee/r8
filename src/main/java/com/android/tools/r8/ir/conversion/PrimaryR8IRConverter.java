@@ -9,7 +9,6 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.fieldaccess.TrivialFieldAccessReprocessor;
 import com.android.tools.r8.ir.optimize.info.MethodResolutionOptimizationInfoAnalysis;
@@ -264,15 +263,11 @@ public class PrimaryR8IRConverter extends IRConverter {
       onWaveDoneActions.forEach(com.android.tools.r8.utils.Action::execute);
       onWaveDoneActions = null;
     }
-    if (!prunedMethodsInWave.isEmpty()) {
+    if (prunedItemsBuilder.hasFullyInlinedMethods() || prunedItemsBuilder.hasRemovedMethods()) {
       appView.pruneItems(
-          PrunedItems.builder()
-              .setRemovedMethods(prunedMethodsInWave)
-              .setPrunedApp(appView.appInfo().app())
-              .build(),
-          executorService,
-          timing);
-      prunedMethodsInWave.clear();
+          prunedItemsBuilder.setPrunedApp(appView.app()).build(), executorService, timing);
+      prunedItemsBuilder.clearFullyInlinedMethods();
+      prunedItemsBuilder.clearRemovedMethods();
     }
   }
 

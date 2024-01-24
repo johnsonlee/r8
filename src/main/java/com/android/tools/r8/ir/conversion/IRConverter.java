@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.analysis.TypeChecker;
@@ -94,10 +95,8 @@ import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
-import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -143,10 +142,10 @@ public class IRConverter {
       new OptimizationFeedbackDelayed();
   protected final OptimizationFeedback simpleOptimizationFeedback =
       OptimizationFeedbackSimple.getInstance();
-  protected DexString highestSortingString;
 
   protected List<Action> onWaveDoneActions = null;
-  protected final Set<DexMethod> prunedMethodsInWave = Sets.newIdentityHashSet();
+  protected final PrunedItems.ConcurrentBuilder prunedItemsBuilder =
+      PrunedItems.concurrentBuilder();
 
   protected final NeverMergeGroup<DexString> neverMerge;
   // Use AtomicBoolean to satisfy TSAN checking (see b/153714743).
@@ -1145,11 +1144,21 @@ public class IRConverter {
     }
   }
 
+  public void onMethodFullyInlined(ProgramMethod method, ProgramMethod singleCaller) {
+    internalOnMethodPruned(method);
+    prunedItemsBuilder.addFullyInlinedMethod(method.getReference(), singleCaller);
+  }
+
   /**
    * Called when a method is pruned as a result of optimizations during IR processing in R8, to
    * allow optimizations that track sets of methods to fixup their state.
    */
   public void onMethodPruned(ProgramMethod method) {
+    internalOnMethodPruned(method);
+    prunedItemsBuilder.addRemovedMethod(method.getReference());
+  }
+
+  private void internalOnMethodPruned(ProgramMethod method) {
     assert appView.enableWholeProgramOptimizations();
     assert method.getHolder().lookupMethod(method.getReference()) == null;
     appView.withArgumentPropagator(argumentPropagator -> argumentPropagator.onMethodPruned(method));
@@ -1160,7 +1169,6 @@ public class IRConverter {
     if (inliner != null) {
       inliner.onMethodPruned(method);
     }
-    prunedMethodsInWave.add(method.getReference());
   }
 
   /**

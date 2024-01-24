@@ -12,6 +12,7 @@ import com.android.tools.r8.androidapi.AvailableApiExceptions;
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -64,9 +65,9 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.ListUtils;
-import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.LongLivedProgramMethodSetBuilder;
+import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -82,6 +83,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class Inliner {
 
@@ -98,8 +100,8 @@ public class Inliner {
 
   // The set of methods that have been single caller inlined in the current wave. These need to be
   // pruned when the wave ends.
-  private final Map<DexProgramClass, ProgramMethodSet> singleCallerInlinedMethodsInWave =
-      new ConcurrentHashMap<>();
+  private final Map<DexProgramClass, ProgramMethodMap<ProgramMethod>>
+      singleCallerInlinedMethodsInWave = new ConcurrentHashMap<>();
   private final Set<DexMethod> singleCallerInlinedPrunedMethodsForTesting =
       Sets.newIdentityHashSet();
 
@@ -1102,8 +1104,8 @@ public class Inliner {
             }
             singleCallerInlinedMethodsInWave
                 .computeIfAbsent(
-                    singleTarget.getHolder(), ignoreKey(ProgramMethodSet::createConcurrent))
-                .add(singleTarget);
+                    singleTarget.getHolder(), ignoreKey(ProgramMethodMap::createConcurrent))
+                .put(singleTarget, context);
           }
 
           classInitializationAnalysis.notifyCodeHasChanged();
@@ -1280,13 +1282,13 @@ public class Inliner {
         (clazz, singleCallerInlinedMethodsForClass) -> {
           // Convert and remove virtual single caller inlined methods to abstract or throw null.
           singleCallerInlinedMethodsForClass.removeIf(
-              method -> {
+              (callee, caller) -> {
                 // TODO(b/203188583): Enable pruning of methods with generic signatures. For this to
                 //  work we need to pass in a seed to GenericSignatureContextBuilder.create in R8.
-                if (method.getDefinition().belongsToVirtualPool()
-                    || method.getDefinition().getGenericSignature().hasSignature()) {
-                  method.convertToAbstractOrThrowNullMethod(appView);
-                  converter.onMethodCodePruned(method);
+                if (callee.getDefinition().belongsToVirtualPool()
+                    || callee.getDefinition().getGenericSignature().hasSignature()) {
+                  callee.convertToAbstractOrThrowNullMethod(appView);
+                  converter.onMethodCodePruned(callee);
                   return true;
                 }
                 return false;
@@ -1294,15 +1296,17 @@ public class Inliner {
 
           // Remove direct single caller inlined methods from the application.
           if (!singleCallerInlinedMethodsForClass.isEmpty()) {
-            clazz
-                .getMethodCollection()
-                .removeMethods(
-                    singleCallerInlinedMethodsForClass.toDefinitionSet(
-                        SetUtils::newIdentityHashSet));
-            for (ProgramMethod method : singleCallerInlinedMethodsForClass) {
-              converter.onMethodPruned(method);
-              singleCallerInlinedPrunedMethodsForTesting.add(method.getReference());
-            }
+            Set<DexEncodedMethod> methodsToRemove =
+                singleCallerInlinedMethodsForClass
+                    .streamKeys()
+                    .map(DexClassAndMember::getDefinition)
+                    .collect(Collectors.toSet());
+            clazz.getMethodCollection().removeMethods(methodsToRemove);
+            singleCallerInlinedMethodsForClass.forEach(
+                (callee, caller) -> {
+                  converter.onMethodFullyInlined(callee, caller);
+                  singleCallerInlinedPrunedMethodsForTesting.add(callee.getReference());
+                });
           }
         });
     singleCallerInlinedMethodsInWave.clear();
