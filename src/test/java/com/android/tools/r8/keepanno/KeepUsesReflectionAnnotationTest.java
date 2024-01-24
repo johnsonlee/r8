@@ -7,9 +7,6 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -20,42 +17,31 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 
 @RunWith(Parameterized.class)
-public class KeepUsesReflectionAnnotationTest extends TestBase {
+public class KeepUsesReflectionAnnotationTest extends KeepAnnoTestBase {
 
   static final String EXPECTED = StringUtils.lines("Hello, world");
 
-  private final TestParameters parameters;
+  @Parameter public KeepAnnoParameters parameters;
 
   @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build();
-  }
-
-  public KeepUsesReflectionAnnotationTest(TestParameters parameters) {
-    this.parameters = parameters;
+  public static List<KeepAnnoParameters> data() {
+    return createParameters(
+        getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build());
   }
 
   @Test
-  public void testReference() throws Exception {
-    testForRuntime(parameters)
-        .addProgramClasses(getInputClasses())
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED);
-  }
-
-  @Test
-  public void testWithRuleExtraction() throws Exception {
-    testForR8(parameters.getBackend())
-        .enableExperimentalKeepAnnotations()
+  public void test() throws Exception {
+    testForKeepAnno(parameters)
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
-        .setMinApi(parameters)
+        .setExcludedOuterClass(getClass())
         .allowUnusedProguardConfigurationRules()
-        .run(parameters.getRuntime(), TestClass.class)
+        .run(TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
-        .inspect(this::checkOutput);
+        .applyIf(parameters.isShrinker(), r -> r.inspect(this::checkOutput));
   }
 
   public List<Class<?>> getInputClasses() {
@@ -65,7 +51,7 @@ public class KeepUsesReflectionAnnotationTest extends TestBase {
   private void checkOutput(CodeInspector inspector) {
     assertThat(inspector.clazz(A.class), isPresent());
     assertThat(inspector.clazz(B.class), isPresent());
-    assertThat(inspector.clazz(C.class), isAbsent());
+    assertThat(inspector.clazz(C.class), parameters.isPG() ? isPresent() : isAbsent());
     assertThat(inspector.clazz(B.class).method("void", "bar"), isPresent());
     assertThat(inspector.clazz(B.class).method("void", "bar", "int"), isAbsent());
   }
