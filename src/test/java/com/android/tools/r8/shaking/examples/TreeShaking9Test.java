@@ -4,9 +4,7 @@
 package com.android.tools.r8.shaking.examples;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbstract;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestParameters;
@@ -45,10 +43,7 @@ public class TreeShaking9Test extends TreeShakingTest {
   @Test
   public void testKeeprules() throws Exception {
     runTest(
-        this::shaking9OnlySuperMethodsKept,
-        null,
-        null,
-        ImmutableList.of("src/test/examples/shaking9/keep-rules.txt"));
+        this::inspect, null, null, ImmutableList.of("src/test/examples/shaking9/keep-rules.txt"));
   }
 
   @Test
@@ -57,19 +52,12 @@ public class TreeShaking9Test extends TreeShakingTest {
         null, null, null, ImmutableList.of("src/test/examples/shaking9/keep-rules-printusage.txt"));
   }
 
-  private void shaking9OnlySuperMethodsKept(CodeInspector inspector) {
+  private void inspect(CodeInspector inspector) {
     ClassSubject superclass = inspector.clazz("shaking9.Superclass");
-    if (parameters.canHaveNonReboundConstructorInvoke()) {
-      assertThat(superclass, isAbsent());
-    } else {
-      assertThat(superclass, isAbstract());
-      assertThat(superclass.method("void", "aMethod", ImmutableList.of()), isPresent());
-    }
+    assertThat(superclass, isAbsent());
 
     ClassSubject subclass = inspector.clazz("shaking9.Subclass");
     assertThat(subclass, isPresent());
-    assertThat(
-        subclass.method("void", "aMethod", ImmutableList.of()),
-        isPresentIf(parameters.canHaveNonReboundConstructorInvoke() && !getMinify().isMinify()));
+    assertThat(subclass.method("void", "aMethod", ImmutableList.of()), isAbsent());
   }
 }

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.classmerging.vertical;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -13,13 +14,12 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
-import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
@@ -28,38 +28,29 @@ import org.junit.runners.Parameterized.Parameters;
 // force-inlining, so the renamed constructor broke the init chain.
 public class VerticalClassMergerInitTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withDexRuntimes().build();
-  }
-
-  public VerticalClassMergerInitTest(TestParameters parameters) {
-    this.parameters = parameters;
+    return getTestParameters().withDexRuntimes().withApiLevel(AndroidApiLevel.K_WATCH).build();
   }
 
   @Test
   public void testMergingClassWithConstructorNotInMainDex()
       throws IOException, CompilationFailedException, ExecutionException {
-    testForR8(parameters.getBackend())
+    testForR8Compat(parameters.getBackend())
         .addInnerClasses(VerticalClassMergerInitTest.class)
         .addKeepMainRule(Main.class)
         .addMainDexRules("-keep class " + Main.class.getTypeName())
-        .enableNeverClassInliningAnnotations()
-        .setMinApi(AndroidApiLevel.K_WATCH)
-        .addOptionsModification(
-            options -> {
-              options.forceProguardCompatibility = true;
-            })
-        // The initializer is small in this example so only allow FORCE inlining.
-        .addOptionsModification(InlinerOptions::setOnlyForceInlining)
         .addVerticallyMergedClassesInspector(
-            VerticallyMergedClassesInspector::assertNoClassesMerged)
+            inspector -> inspector.assertMergedIntoSubtype(Base.class))
+        .enableNeverClassInliningAnnotations()
+        .setMinApi(parameters)
         .compile()
         .inspect(
             inspector -> {
-              assertThat(inspector.clazz(Base.class), isPresent());
+              assertThat(inspector.clazz(Base.class), isAbsent());
               assertThat(inspector.clazz(Child.class), isPresent());
             })
         .run(parameters.getRuntime(), Main.class)

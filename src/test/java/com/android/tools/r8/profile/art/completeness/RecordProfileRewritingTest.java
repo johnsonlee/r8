@@ -166,6 +166,7 @@ public class RecordProfileRewritingTest extends TestBase {
         inspector,
         SyntheticItemsTestUtils.syntheticRecordTagClass(),
         false,
+        false,
         parameters.canUseNestBasedAccessesWhenDesugaring(),
         !isRecordsDesugaredForD8(parameters));
   }
@@ -176,6 +177,7 @@ public class RecordProfileRewritingTest extends TestBase {
         inspector,
         RECORD_REFERENCE,
         parameters.canHaveNonReboundConstructorInvoke(),
+        true,
         parameters.canUseNestBasedAccesses(),
         !isRecordsDesugaredForR8(parameters));
   }
@@ -185,6 +187,7 @@ public class RecordProfileRewritingTest extends TestBase {
       CodeInspector inspector,
       ClassReference recordClassReference,
       boolean canHaveNonReboundConstructorInvoke,
+      boolean canMergeRecordTag,
       boolean canUseNestBasedAccesses,
       boolean canUseRecords) {
     ClassSubject mainClassSubject = inspector.clazz(MAIN_REFERENCE);
@@ -194,8 +197,7 @@ public class RecordProfileRewritingTest extends TestBase {
     assertThat(mainMethodSubject, isPresent());
 
     ClassSubject recordTagClassSubject = inspector.clazz(recordClassReference);
-    assertThat(
-        recordTagClassSubject, isAbsentIf(canHaveNonReboundConstructorInvoke || canUseRecords));
+    assertThat(recordTagClassSubject, isAbsentIf(canMergeRecordTag || canUseRecords));
     if (recordTagClassSubject.isPresent()) {
       assertEquals(
           canHaveNonReboundConstructorInvoke ? 0 : 1, recordTagClassSubject.allMethods().size());
@@ -207,16 +209,25 @@ public class RecordProfileRewritingTest extends TestBase {
     ClassSubject personRecordClassSubject = inspector.clazz(PERSON_REFERENCE);
     assertThat(personRecordClassSubject, isPresent());
     assertEquals(
-        canHaveNonReboundConstructorInvoke
-            ? inspector.getTypeSubject(Object.class.getTypeName())
-            : canUseRecords
-                ? inspector.getTypeSubject(RECORD_REFERENCE.getTypeName())
+        canUseRecords
+            ? inspector.getTypeSubject(RECORD_REFERENCE.getTypeName())
+            : canMergeRecordTag
+                ? inspector.getTypeSubject(Object.class.getTypeName())
                 : recordTagClassSubject.asTypeSubject(),
         personRecordClassSubject.getSuperType());
-    assertEquals(canUseRecords ? 6 : 10, personRecordClassSubject.allMethods().size());
+    assertEquals(
+        canUseRecords ? 6 : canHaveNonReboundConstructorInvoke || !canMergeRecordTag ? 10 : 11,
+        personRecordClassSubject.allMethods().size());
+
+    MethodSubject personDefaultInstanceInitializerSubject = personRecordClassSubject.init();
+    assertThat(
+        personDefaultInstanceInitializerSubject,
+        isPresentIf(!canHaveNonReboundConstructorInvoke && canMergeRecordTag && !canUseRecords));
 
     MethodSubject personInstanceInitializerSubject =
-        personRecordClassSubject.uniqueInstanceInitializer();
+        canMergeRecordTag
+            ? personRecordClassSubject.init(String.class.getTypeName())
+            : personRecordClassSubject.init(String.class.getTypeName(), "int");
     assertThat(personInstanceInitializerSubject, isPresent());
 
     // Name getters.
@@ -306,6 +317,9 @@ public class RecordProfileRewritingTest extends TestBase {
                 i.assertContainsMethodRules(
                     nameNestAccessorMethodSubject, ageNestAccessorMethodSubject))
         .applyIf(
+            !canHaveNonReboundConstructorInvoke && canMergeRecordTag && !canUseRecords,
+            i -> i.assertContainsMethodRule(personDefaultInstanceInitializerSubject))
+        .applyIf(
             !canUseRecords,
             i ->
                 i.assertContainsClassRules(hashCodeHelperClassSubject, toStringHelperClassSubject)
@@ -315,7 +329,7 @@ public class RecordProfileRewritingTest extends TestBase {
                         hashCodeHelperMethodSubject,
                         toStringHelperMethodSubject)
                     .applyIf(
-                        !canHaveNonReboundConstructorInvoke,
+                        !canMergeRecordTag,
                         j ->
                             j.assertContainsClassRules(recordTagClassSubject)
                                 .assertContainsMethodRule(recordTagInstanceInitializerSubject)))

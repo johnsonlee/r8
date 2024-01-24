@@ -29,7 +29,6 @@ import com.android.tools.r8.verticalclassmerging.policies.NoMethodResolutionChan
 import com.android.tools.r8.verticalclassmerging.policies.NoNestedMergingPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoNonSerializableClassIntoSerializableClassPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoServiceInterfacesPolicy;
-import com.android.tools.r8.verticalclassmerging.policies.SafeConstructorInliningPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SameApiReferenceLevelPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SameFeatureSplitPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SameMainDexGroupPolicy;
@@ -76,7 +75,6 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
             new NoServiceInterfacesPolicy(appView),
             new NoAnnotationClassesPolicy(),
             new NoNonSerializableClassIntoSerializableClassPolicy(appView),
-            new SafeConstructorInliningPolicy(appView),
             new NoEnclosingMethodAttributesPolicy(),
             new NoInnerClassAttributesPolicy(),
             new SameNestPolicy(),

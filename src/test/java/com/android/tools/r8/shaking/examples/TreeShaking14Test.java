@@ -3,13 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking.examples;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.shaking.TreeShakingTest;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -48,12 +50,9 @@ public class TreeShaking14Test extends TreeShakingTest {
 
   private static void shaking14EnsureRightStaticMethodsLive(CodeInspector inspector) {
     ClassSubject superclass = inspector.clazz("shaking14.Superclass");
-    Assert.assertFalse(superclass.method("int", "aMethod", ImmutableList.of("int")).isPresent());
-    Assert.assertFalse(
-        superclass.method("double", "anotherMethod", ImmutableList.of("double")).isPresent());
+    assertThat(superclass, isAbsent());
+
     ClassSubject subclass = inspector.clazz("shaking14.Subclass");
-    Assert.assertTrue(subclass.method("int", "aMethod", ImmutableList.of("int")).isPresent());
-    Assert.assertTrue(
-        subclass.method("double", "anotherMethod", ImmutableList.of("double")).isPresent());
+    assertThat(subclass, isAbsent());
   }
 }

@@ -162,11 +162,6 @@ public class OptimizationFeedbackDelayed extends OptimizationFeedback {
   // METHOD OPTIMIZATION INFO:
 
   @Override
-  public void markForceInline(DexEncodedMethod method) {
-    getMethodOptimizationInfoForUpdating(method).markForceInline();
-  }
-
-  @Override
   public synchronized void markInlinedIntoSingleCallSite(DexEncodedMethod method) {
     getMethodOptimizationInfoForUpdating(method).markInlinedIntoSingleCallSite();
   }

@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
@@ -23,6 +23,9 @@ public class SuperConstructorCallsVirtualMethodTest extends HorizontalClassMergi
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters)
@@ -30,9 +33,9 @@ public class SuperConstructorCallsVirtualMethodTest extends HorizontalClassMergi
         .assertSuccessWithOutputLines("5", "foo hello", "B", "bar world", "5", "B")
         .inspect(
             codeInspector -> {
-              assertThat(codeInspector.clazz(Parent.class), isPresent());
+              assertThat(codeInspector.clazz(Parent.class), isAbsent());
               assertThat(codeInspector.clazz(A.class), isPresent());
-              assertThat(codeInspector.clazz(B.class), not(isPresent()));
+              assertThat(codeInspector.clazz(B.class), isAbsent());
             });
   }
 

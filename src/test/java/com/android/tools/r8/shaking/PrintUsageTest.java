@@ -175,11 +175,11 @@ public class PrintUsageTest extends TestBase {
 
   private static void inspectShaking9(PrintUsageInspector inspector) {
     Optional<ClassSubject> superClass = inspector.clazz("shaking9.Superclass");
-    assertFalse(superClass.isPresent());
+    assertTrue(superClass.isPresent());
     Optional<ClassSubject> subClass = inspector.clazz("shaking9.Subclass");
     assertTrue(subClass.isPresent());
     assertTrue(subClass.get().method("void", "aMethod", ImmutableList.of()));
-    assertFalse(subClass.get().method("void", "<init>", ImmutableList.of()));
+    assertTrue(subClass.get().method("void", "<init>", ImmutableList.of()));
   }
 
   private static void inspectShaking12(PrintUsageInspector inspector) {
