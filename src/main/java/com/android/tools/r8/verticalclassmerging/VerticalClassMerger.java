@@ -272,11 +272,9 @@ public class VerticalClassMerger {
                 OptimizationFeedbackIgnore.getInstance(),
                 methodProcessor,
                 methodProcessingContext,
-                // TODO(b/321171043): Set setFinalizeAfterLensCodeRewriter() on the
-                //  MethodConversionOptions to improve build speed (no need to run all
-                //  optimizations!). A prerequisite for this is that we remove all uses of force
-                //  inlining in the vertical class merger.
-                MethodConversionOptions.forLirPhase(appView)),
+                MethodConversionOptions.forLirPhase(appView)
+                    .disableStringSwitchConversion()
+                    .setFinalizeAfterLensCodeRewriter()),
         options.getThreadingModule(),
         executorService);
 
