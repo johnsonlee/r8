@@ -17,7 +17,9 @@ import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import org.junit.rules.TemporaryFolder;
 
 public abstract class KeepAnnoTestBuilder {
@@ -39,14 +41,9 @@ public abstract class KeepAnnoTestBuilder {
   }
 
   private final KeepAnnoParameters keepAnnoParams;
-  private boolean printRules = false;
 
   private KeepAnnoTestBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
     this.keepAnnoParams = params;
-  }
-
-  boolean shouldPrintRules() {
-    return printRules;
   }
 
   public final TestParameters parameters() {
@@ -99,8 +96,12 @@ public abstract class KeepAnnoTestBuilder {
     return this;
   }
 
-  public KeepAnnoTestBuilder printRules() {
-    printRules = true;
+  public final KeepAnnoTestBuilder printRules() {
+    return inspectOutputConfig(System.out::println);
+  }
+
+  public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
+    // Default to ignore the consumer.
     return this;
   }
 
@@ -133,6 +134,7 @@ public abstract class KeepAnnoTestBuilder {
   private static class R8NativeBuilder extends KeepAnnoTestBuilder {
 
     private final R8FullTestBuilder builder;
+    private List<Consumer<R8TestCompileResult>> compileResultConsumers = new ArrayList<>();
 
     public R8NativeBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
       super(params, temp);
@@ -163,11 +165,16 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
+      compileResultConsumers.add(
+          result -> configConsumer.accept(result.getProguardConfiguration()));
+      return this;
+    }
+
+    @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
       R8TestCompileResult compileResult = builder.compile();
-      if (shouldPrintRules()) {
-        System.out.println(compileResult.getProguardConfiguration());
-      }
+      compileResultConsumers.forEach(fn -> fn.accept(compileResult));
       return compileResult.run(parameters().getRuntime(), mainClass);
     }
   }
@@ -177,6 +184,7 @@ public abstract class KeepAnnoTestBuilder {
     private final KeepRuleExtractorOptions extractorOptions =
         KeepRuleExtractorOptions.getR8Options();
     private final ExternalR8TestBuilder builder;
+    private final List<Consumer<List<String>>> configConsumers = new ArrayList<>();
 
     public R8LegacyBuilder(KeepAnnoParameters params, TemporaryFolder temp) throws IOException {
       super(params, temp);
@@ -199,14 +207,18 @@ public abstract class KeepAnnoTestBuilder {
       List<String> rules = KeepAnnoTestUtils.extractRules(programClasses, extractorOptions);
       builder.addProgramClasses(programClasses);
       builder.addKeepRules(rules);
-      if (shouldPrintRules()) {
-        rules.forEach(System.out::println);
-      }
+      return this;
+    }
+
+    @Override
+    public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
+      configConsumers.add(lines -> configConsumer.accept(String.join("\n", lines)));
       return this;
     }
 
     @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
+      configConsumers.forEach(fn -> fn.accept(builder.getConfig()));
       return builder.run(parameters().getRuntime(), mainClass);
     }
   }
@@ -216,6 +228,7 @@ public abstract class KeepAnnoTestBuilder {
     private final KeepRuleExtractorOptions extractorOptions =
         KeepRuleExtractorOptions.getPgOptions();
     private final ProguardTestBuilder builder;
+    private final List<Consumer<List<String>>> configConsumers = new ArrayList<>();
 
     public PGBuilder(KeepAnnoParameters params, TemporaryFolder temp) throws IOException {
       super(params, temp);
@@ -236,15 +249,18 @@ public abstract class KeepAnnoTestBuilder {
       List<String> rules = KeepAnnoTestUtils.extractRules(programClasses, extractorOptions);
       builder.addProgramClasses(programClasses);
       builder.addKeepRules(rules);
-      if (shouldPrintRules()) {
-        rules.forEach(System.out::println);
-      }
       return this;
     }
 
+    @Override
+    public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
+      configConsumers.add(lines -> configConsumer.accept(String.join("\n", lines)));
+      return this;
+    }
 
     @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
+      configConsumers.forEach(fn -> fn.accept(builder.getConfig()));
       return builder.run(parameters().getRuntime(), mainClass);
     }
   }

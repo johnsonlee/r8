@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -50,6 +51,10 @@ public class ProguardTestBuilder
 
   public static ProguardTestBuilder create(TestState state, ProguardVersion version) {
     return new ProguardTestBuilder(state, version, R8Command.builder(), Backend.CF);
+  }
+
+  public List<String> getConfig() {
+    return Collections.unmodifiableList(config);
   }
 
   @Override

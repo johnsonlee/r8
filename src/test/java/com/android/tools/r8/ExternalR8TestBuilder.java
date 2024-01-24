@@ -84,6 +84,10 @@ public class ExternalR8TestBuilder
     return this;
   }
 
+  public List<String> getConfig() {
+    return Collections.unmodifiableList(config);
+  }
+
   public ExternalR8TestBuilder addJvmFlag(String flag) {
     jvmFlags.add(flag);
     return self();
