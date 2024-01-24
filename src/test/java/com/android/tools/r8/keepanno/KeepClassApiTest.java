@@ -6,13 +6,15 @@ package com.android.tools.r8.keepanno;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.keepanno.annotations.MemberAccessFlags;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -22,30 +24,29 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 
 @RunWith(Parameterized.class)
-public class KeepClassApiTest extends TestBase {
+public class KeepClassApiTest extends KeepAnnoTestBase {
 
   static final String EXPECTED = StringUtils.lines("A::bar", "B::foo");
 
-  private final TestParameters parameters;
+  @Parameter public KeepAnnoParameters parameters;
 
   @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters()
-        .withDefaultRuntimes()
-        .withApiLevel(AndroidApiLevel.B)
-        .enableApiLevelsForCf()
-        .build();
-  }
-
-  public KeepClassApiTest(TestParameters parameters) {
-    this.parameters = parameters;
+  public static List<KeepAnnoParameters> data() {
+    return createParameters(
+        getTestParameters()
+            .withDefaultRuntimes()
+            .withApiLevel(AndroidApiLevel.B)
+            .enableApiLevelsForCf()
+            .build());
   }
 
   @Test
   public void testReference() throws Exception {
-    testForRuntime(parameters)
+    assumeTrue(parameters.isReference());
+    testForRuntime(parameters.parameters())
         .addProgramClasses(getLibraryClasses())
         .addProgramClasses(getClientClasses())
         .run(parameters.getRuntime(), TestClass.class)
@@ -53,20 +54,19 @@ public class KeepClassApiTest extends TestBase {
   }
 
   @Test
-  public void testWithRuleExtraction() throws Exception {
-    Path lib =
-        testForR8(parameters.getBackend())
-            .enableExperimentalKeepAnnotations()
-            .addProgramClasses(getLibraryClasses())
-            .setMinApi(parameters)
-            .compile()
-            .inspect(this::checkLibraryOutput)
-            .writeToZip();
+  public void testShrinker() throws Exception {
+    assumeFalse(parameters.isReference());
+    assertTrue(parameters.isShrinker());
+    Box<Path> lib = new Box<>();
+    testForKeepAnno(parameters)
+        .addProgramClasses(getLibraryClasses())
+        .setExcludedOuterClass(getClass())
+        .applyIfShrinker(b -> lib.set(b.compile().inspect(this::checkLibraryOutput).writeToZip()));
 
-    testForD8(parameters.getBackend())
+    assertNotNull(lib.get());
+    testForRuntime(parameters.parameters())
         .addProgramClasses(getClientClasses())
-        .addProgramFiles(lib)
-        .setMinApi(parameters)
+        .addProgramFiles(lib.get())
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED);
   }

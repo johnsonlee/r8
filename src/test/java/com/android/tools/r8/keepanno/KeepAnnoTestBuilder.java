@@ -56,7 +56,13 @@ public abstract class KeepAnnoTestBuilder {
   public abstract KeepAnnoTestBuilder addProgramClasses(List<Class<?>> programClasses)
       throws IOException;
 
-  public abstract KeepAnnoTestBuilder addKeepMainRule(Class<?> mainClass);
+  public final KeepAnnoTestBuilder addKeepMainRule(Class<?> mainClass) {
+    return applyIfShrinker(b -> b.addKeepMainRule(mainClass));
+  }
+
+  public final KeepAnnoTestBuilder addKeepClassRules(Class<?>... classes) {
+    return applyIfShrinker(b -> b.addKeepClassRules(classes));
+  }
 
   public abstract SingleTestRunResult<?> run(Class<?> mainClass) throws Exception;
 
@@ -119,12 +125,6 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
-    public KeepAnnoTestBuilder addKeepMainRule(Class<?> mainClass) {
-      // Nothing to keep in JVM/D8.
-      return this;
-    }
-
-    @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
       return builder.run(parameters().getRuntime(), mainClass);
     }
@@ -159,12 +159,6 @@ public abstract class KeepAnnoTestBuilder {
     @Override
     public KeepAnnoTestBuilder addProgramClasses(List<Class<?>> programClasses) {
       builder.addProgramClasses(programClasses);
-      return this;
-    }
-
-    @Override
-    public KeepAnnoTestBuilder addKeepMainRule(Class<?> mainClass) {
-      builder.addKeepMainRule(mainClass);
       return this;
     }
 
@@ -212,12 +206,6 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
-    public KeepAnnoTestBuilder addKeepMainRule(Class<?> mainClass) {
-      builder.addKeepMainRule(mainClass);
-      return this;
-    }
-
-    @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
       return builder.run(parameters().getRuntime(), mainClass);
     }
@@ -254,11 +242,6 @@ public abstract class KeepAnnoTestBuilder {
       return this;
     }
 
-    @Override
-    public KeepAnnoTestBuilder addKeepMainRule(Class<?> mainClass) {
-      builder.addKeepMainRule(mainClass);
-      return this;
-    }
 
     @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {

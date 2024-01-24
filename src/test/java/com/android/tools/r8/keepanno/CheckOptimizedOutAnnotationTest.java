@@ -80,7 +80,7 @@ public class CheckOptimizedOutAnnotationTest extends KeepAnnoTestBase {
                               discard,
                               diagnosticMessage(containsString("A.toString() was not discarded")));
                         })
-                    .run(parameters.parameters().getRuntime(), TestClass.class)
+                    .run(parameters.getRuntime(), TestClass.class)
                     .assertSuccessWithOutput(EXPECTED)
                     .inspect(this::checkOutput));
   }

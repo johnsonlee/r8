@@ -83,7 +83,7 @@ public class CheckRemovedAnnotationTest extends KeepAnnoTestBase {
                                       containsString("A.foo() was not discarded"),
                                       containsString("B was not discarded"))));
                         })
-                    .run(parameters.parameters().getRuntime(), TestClass.class)
+                    .run(parameters.getRuntime(), TestClass.class)
                     .assertSuccessWithOutput(EXPECTED)
                     .inspect(this::checkOutput));
   }

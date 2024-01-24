@@ -7,9 +7,6 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.keepanno.annotations.KeepBinding;
 import com.android.tools.r8.keepanno.annotations.KeepCondition;
 import com.android.tools.r8.keepanno.annotations.KeepEdge;
@@ -22,54 +19,42 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 
 @RunWith(Parameterized.class)
-public class KeepBindingTest extends TestBase {
+public class KeepBindingTest extends KeepAnnoTestBase {
 
   static final String EXPECTED = StringUtils.lines("A::foo");
 
-  private final TestParameters parameters;
+  @Parameter public KeepAnnoParameters parameters;
 
   @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build();
-  }
-
-  public KeepBindingTest(TestParameters parameters) {
-    this.parameters = parameters;
+  public static List<KeepAnnoParameters> data() {
+    return createParameters(
+        getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build());
   }
 
   @Test
-  public void testReference() throws Exception {
-    testForRuntime(parameters)
-        .addProgramClasses(getInputClasses())
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED);
-  }
-
-  @Test
-  public void testWithRuleExtraction() throws Exception {
-    testForR8(parameters.getBackend())
-        .enableExperimentalKeepAnnotations()
+  public void test() throws Exception {
+    testForKeepAnno(parameters)
         .addProgramClasses(getInputClasses())
         .addKeepClassRules(A.class, B.class)
         .addKeepMainRule(TestClass.class)
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
+        .setExcludedOuterClass(getClass())
+        .run(TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
-        .inspect(i -> checkOutput(i, true));
+        .applyIf(parameters.isShrinker(), r -> r.inspect(i -> checkOutput(i, true)));
   }
 
   @Test
-  public void testWithRuleExtractionAndNoKeepOnClass() throws Exception {
-    testForR8(parameters.getBackend())
-        .enableExperimentalKeepAnnotations()
+  public void testNoKeepOnClass() throws Exception {
+    testForKeepAnno(parameters)
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
+        .setExcludedOuterClass(getClass())
+        .run(TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
-        .inspect(i -> checkOutput(i, false));
+        .applyIf(parameters.isShrinker(), r -> r.inspect(i -> checkOutput(i, false)));
   }
 
   public List<Class<?>> getInputClasses() {
@@ -81,7 +66,9 @@ public class KeepBindingTest extends TestBase {
     assertThat(inspector.clazz(A.class).uniqueMethodWithOriginalName("foo"), isPresent());
     if (expectB) {
       assertThat(inspector.clazz(B.class), isPresent());
-      assertThat(inspector.clazz(B.class).uniqueMethodWithOriginalName("foo"), isAbsent());
+      assertThat(
+          inspector.clazz(B.class).uniqueMethodWithOriginalName("foo"),
+          parameters.isPG() ? isPresent() : isAbsent());
     } else {
       assertThat(inspector.clazz(B.class), isAbsent());
     }

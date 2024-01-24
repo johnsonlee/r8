@@ -4,7 +4,9 @@
 
 package com.android.tools.r8.keepanno;
 
+import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestRuntime;
 
 public class KeepAnnoParameters {
 
@@ -34,6 +36,14 @@ public class KeepAnnoParameters {
 
   public KeepAnnoConfig config() {
     return config;
+  }
+
+  public Backend getBackend() {
+    return parameters.getBackend();
+  }
+
+  public TestRuntime getRuntime() {
+    return parameters.getRuntime();
   }
 
   public boolean isReference() {
