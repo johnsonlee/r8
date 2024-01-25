@@ -280,7 +280,7 @@ public class TestParameters {
         "No need to use is/assumeR8TestParameters() when not using api levels for CF",
         isCfRuntime() && apiLevel == null);
     assertTrue(apiLevel != null || representativeApiLevelForRuntime);
-    return isDexRuntime() || representativeApiLevelForRuntime;
+    return (isDexRuntime() || representativeApiLevelForRuntime) && !isNoneRuntime();
   }
 
   public TestParameters assumeRuntimeTestParameters() {

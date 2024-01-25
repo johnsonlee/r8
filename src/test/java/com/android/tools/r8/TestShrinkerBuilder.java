@@ -4,6 +4,8 @@
 
 package com.android.tools.r8;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.RunInterface;
 import com.android.tools.r8.references.ClassReference;
@@ -479,6 +481,10 @@ public abstract class TestShrinkerBuilder<
   }
 
   public abstract T addApplyMapping(String proguardMap);
+
+  public T addApplyMapping(Path proguardMap) throws IOException {
+    return addApplyMapping(FileUtils.readTextFile(proguardMap, UTF_8));
+  }
 
   public final T addAlwaysClassInlineAnnotation() {
     return addTestingAnnotation(AlwaysClassInline.class);
