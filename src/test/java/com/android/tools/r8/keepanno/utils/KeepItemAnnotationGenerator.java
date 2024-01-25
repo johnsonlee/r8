@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.keepanno.utils;
 
-
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.cfmethodgeneration.CodeGenerationBase;
@@ -40,7 +39,6 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -48,21 +46,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class KeepItemAnnotationGenerator {
 
   public static void main(String[] args) throws IOException {
     Generator.class.getClassLoader().setDefaultAssertionStatus(true);
-    Generator.run(
-        (file, content) -> {
-          try {
-            Files.write(file, content.getBytes(StandardCharsets.UTF_8));
-          } catch (IOException e) {
-            throw new RuntimeException(e);
-          }
-        });
+    Generator.run();
   }
 
   private static final String DEFAULT_INVALID_STRING_PATTERN =
@@ -1786,8 +1776,7 @@ public class KeepItemAnnotationGenerator {
       println();
     }
 
-    private static void writeFile(Path file, Consumer<Generator> fn, BiConsumer<Path, String> write)
-        throws IOException {
+    private static void writeFile(Path file, Consumer<Generator> fn) throws IOException {
       ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
       PrintStream printStream = new PrintStream(byteStream);
       Generator generator = new Generator(printStream);
@@ -1796,46 +1785,38 @@ public class KeepItemAnnotationGenerator {
       if (file.toString().endsWith(".java")) {
         formatted = CodeGenerationBase.formatRawOutput(formatted);
       }
-      Path resolved = Paths.get(ToolHelper.getProjectRoot()).resolve(file);
-      write.accept(resolved, formatted);
+      Files.write(Paths.get(ToolHelper.getProjectRoot()).resolve(file), formatted.getBytes());
     }
 
     public static Path source(Path pkg, Class<?> clazz) {
       return pkg.resolve(simpleName(clazz) + ".java");
     }
 
-    public static void run(BiConsumer<Path, String> write) throws IOException {
-      Path projectRoot = Paths.get(ToolHelper.getProjectRoot());
-      writeFile(
-          Paths.get("doc/keepanno-guide.md"),
-          generator -> KeepAnnoMarkdownGenerator.generateMarkdownDoc(generator, projectRoot),
-          write);
+    public static void run() throws IOException {
+      writeFile(Paths.get("doc/keepanno-guide.md"), KeepAnnoMarkdownGenerator::generateMarkdownDoc);
 
       Path keepAnnoRoot = Paths.get("src/keepanno/java/com/android/tools/r8/keepanno");
 
       Path astPkg = keepAnnoRoot.resolve("ast");
-      writeFile(source(astPkg, AnnotationConstants.class), Generator::generateConstants, write);
+      writeFile(source(astPkg, AnnotationConstants.class), Generator::generateConstants);
 
       Path annoPkg = Paths.get("src/keepanno/java/com/android/tools/r8/keepanno/annotations");
-      writeFile(source(annoPkg, StringPattern.class), Generator::generateStringPattern, write);
-      writeFile(source(annoPkg, TypePattern.class), Generator::generateTypePattern, write);
-      writeFile(
-          source(annoPkg, ClassNamePattern.class), Generator::generateClassNamePattern, write);
-      writeFile(
-          source(annoPkg, AnnotationPattern.class), Generator::generateAnnotationPattern, write);
-      writeFile(source(annoPkg, KeepBinding.class), Generator::generateKeepBinding, write);
-      writeFile(source(annoPkg, KeepTarget.class), Generator::generateKeepTarget, write);
-      writeFile(source(annoPkg, KeepCondition.class), Generator::generateKeepCondition, write);
-      writeFile(source(annoPkg, KeepForApi.class), Generator::generateKeepForApi, write);
-      writeFile(source(annoPkg, UsesReflection.class), Generator::generateUsesReflection, write);
+      writeFile(source(annoPkg, StringPattern.class), Generator::generateStringPattern);
+      writeFile(source(annoPkg, TypePattern.class), Generator::generateTypePattern);
+      writeFile(source(annoPkg, ClassNamePattern.class), Generator::generateClassNamePattern);
+      writeFile(source(annoPkg, AnnotationPattern.class), Generator::generateAnnotationPattern);
+      writeFile(source(annoPkg, KeepBinding.class), Generator::generateKeepBinding);
+      writeFile(source(annoPkg, KeepTarget.class), Generator::generateKeepTarget);
+      writeFile(source(annoPkg, KeepCondition.class), Generator::generateKeepCondition);
+      writeFile(source(annoPkg, KeepForApi.class), Generator::generateKeepForApi);
+      writeFile(source(annoPkg, UsesReflection.class), Generator::generateUsesReflection);
       writeFile(
           source(annoPkg, UsedByReflection.class),
-          g -> g.generateUsedByX("UsedByReflection", "accessed reflectively"),
-          write);
+          g -> g.generateUsedByX("UsedByReflection", "accessed reflectively"));
       writeFile(
           source(annoPkg, UsedByNative.class),
-          g -> g.generateUsedByX("UsedByNative", "accessed from native code via JNI"),
-          write);
+          g -> g.generateUsedByX("UsedByNative", "accessed from native code via JNI"));
     }
   }
+
 }
