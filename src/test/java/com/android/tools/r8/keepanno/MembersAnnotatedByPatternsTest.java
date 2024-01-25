@@ -8,9 +8,6 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotR
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.ClassNamePattern;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
@@ -29,44 +26,32 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
-import org.checkerframework.checker.units.qual.A;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 
 @RunWith(Parameterized.class)
-public class MembersAnnotatedByPatternsTest extends TestBase {
+public class MembersAnnotatedByPatternsTest extends KeepAnnoTestBase {
 
   static final String EXPECTED = StringUtils.lines("b", "bar", "a", "foo");
 
-  private final TestParameters parameters;
+  @Parameter public KeepAnnoParameters parameters;
 
   @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build();
-  }
-
-  public MembersAnnotatedByPatternsTest(TestParameters parameters) {
-    this.parameters = parameters;
+  public static List<KeepAnnoParameters> data() {
+    return createParameters(
+        getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build());
   }
 
   @Test
-  public void testReference() throws Exception {
-    testForRuntime(parameters)
+  public void test() throws Exception {
+    testForKeepAnno(parameters)
         .addProgramClasses(getInputClasses())
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED);
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .enableExperimentalKeepAnnotations()
-        .addProgramClasses(getInputClasses())
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
+        .setExcludedOuterClass(getClass())
+        .run(TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
-        .inspect(this::checkOutput);
+        .applyIf(parameters.isShrinker(), r -> r.inspect(this::checkOutput));
   }
 
   public List<Class<?>> getInputClasses() {
