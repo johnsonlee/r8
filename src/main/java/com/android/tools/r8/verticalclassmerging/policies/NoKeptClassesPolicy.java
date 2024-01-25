@@ -20,23 +20,23 @@ import com.android.tools.r8.verticalclassmerging.VerticalMergeGroup;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-public class NoKeptClassesPolicy
-    extends VerticalClassMergerPolicyWithPreprocessing<Set<DexProgramClass>> {
+public class NoKeptClassesPolicy extends VerticalClassMergerPolicy {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final InternalOptions options;
+  private final Set<DexProgramClass> keptClasses;
 
   public NoKeptClassesPolicy(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
     this.options = appView.options();
+    this.keptClasses = getPinnedClasses();
   }
 
   @Override
-  public boolean canMerge(VerticalMergeGroup group, Set<DexProgramClass> keptClasses) {
+  public boolean canMerge(VerticalMergeGroup group) {
     DexProgramClass sourceClass = group.getSource();
     return appView.getKeepInfo(sourceClass).isVerticalClassMergingAllowed(options)
         && !keptClasses.contains(sourceClass);
@@ -45,11 +45,6 @@ public class NoKeptClassesPolicy
   @Override
   public String getName() {
     return "NoKeptClassesPolicy";
-  }
-
-  @Override
-  public Set<DexProgramClass> preprocess(Collection<VerticalMergeGroup> groups) {
-    return getPinnedClasses();
   }
 
   // Returns a set of types that must not be merged into other types.

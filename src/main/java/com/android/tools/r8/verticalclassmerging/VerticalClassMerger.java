@@ -6,6 +6,7 @@ package com.android.tools.r8.verticalclassmerging;
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 
 import com.android.tools.r8.classmerging.ClassMergerMode;
+import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -163,17 +164,19 @@ public class VerticalClassMerger {
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
+    timing.begin("Compute classes to merge");
     TimingMerger merger = timing.beginMerger("Compute classes to merge", executorService);
     List<ConnectedComponentVerticalClassMerger> connectedComponentMergers =
         new ArrayList<>(connectedComponents.size());
+    Collection<Policy> policies = VerticalClassMergerPolicyScheduler.getPolicies(appView, mode);
     Collection<Timing> timings =
         ThreadUtils.processItemsWithResults(
             connectedComponents,
             connectedComponent -> {
               Timing threadTiming = Timing.create("Compute classes to merge in component", options);
               ConnectedComponentVerticalClassMerger connectedComponentMerger =
-                  new VerticalClassMergerPolicyExecutor(appView, immediateSubtypingInfo, mode)
-                      .run(connectedComponent, executorService, threadTiming);
+                  new VerticalClassMergerPolicyExecutor(appView, immediateSubtypingInfo)
+                      .run(connectedComponent, policies, executorService, threadTiming);
               if (!connectedComponentMerger.isEmpty()) {
                 synchronized (connectedComponentMergers) {
                   connectedComponentMergers.add(connectedComponentMerger);
@@ -186,6 +189,7 @@ public class VerticalClassMerger {
             executorService);
     merger.add(timings);
     merger.end();
+    timing.end();
     return connectedComponentMergers;
   }
 
@@ -194,6 +198,7 @@ public class VerticalClassMerger {
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
+    timing.begin("Merge classes");
     TimingMerger merger = timing.beginMerger("Merge classes", executorService);
     ClassMergerSharedData sharedData = new ClassMergerSharedData(appView);
     VerticalClassMergerResult.Builder verticalClassMergerResult =
@@ -213,6 +218,7 @@ public class VerticalClassMerger {
             executorService);
     merger.add(timings);
     merger.end();
+    timing.end();
     return verticalClassMergerResult.build();
   }
 
