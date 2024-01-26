@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.ir.analysis;
 
-import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -13,7 +12,6 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.environmentdependence.ValueGraph;
@@ -305,8 +303,8 @@ public class ValueMayDependOnEnvironmentAnalysis {
       return false;
     }
 
-    NewInstance newInstance = value.definition.asNewInstance();
-    DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(newInstance.clazz));
+    NewInstance newInstance = value.getDefinition().asNewInstance();
+    DexClass clazz = appView.definitionFor(newInstance.getType(), context);
     if (clazz == null) {
       return false;
     }
