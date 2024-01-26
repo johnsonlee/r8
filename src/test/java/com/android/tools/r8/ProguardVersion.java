@@ -13,7 +13,8 @@ public enum ProguardVersion {
   V5_2_1("5.2.1"),
   V6_0_1("6.0.1"),
   V7_0_0("7.0.0"),
-  V7_3_2("7.3.2");
+  V7_3_2("7.3.2"),
+  V7_4_1("7.4.1");
 
   private final String version;
 
@@ -39,7 +40,7 @@ public enum ProguardVersion {
 
   private Path getScriptDirectory() {
     Path scriptDirectory = Paths.get(ToolHelper.THIRD_PARTY_DIR).resolve("proguard");
-    if (this == V7_0_0 || this == V7_3_2) {
+    if (version.startsWith("7.")) {
       scriptDirectory = scriptDirectory.resolve("proguard-" + version).resolve("bin");
     } else {
       scriptDirectory = scriptDirectory.resolve("proguard" + version).resolve("bin");

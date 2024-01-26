@@ -24,8 +24,7 @@ import org.junit.rules.TemporaryFolder;
 
 public class KeepAnnoTestUtils {
 
-  // TODO(b/321674067): Update this to PG 7.4.
-  public static ProguardVersion PG_VERSION = ProguardVersion.V7_3_2;
+  public static ProguardVersion PG_VERSION = ProguardVersion.V7_4_1;
 
   // TODO(b/321674067): Downgrade this to oldest supported AGP, such as R8 8.0.35.
   public static Path R8_LIB = Paths.get(ToolHelper.THIRD_PARTY_DIR, "r8", "r8lib_8.2.20-dev.jar");
