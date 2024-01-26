@@ -172,16 +172,6 @@ public final class AnnotationConstants {
     public static final String CLASS_OPEN_HIERARCHY = "CLASS_OPEN_HIERARCHY";
   }
 
-  public static final class Option {
-    public static final String DESCRIPTOR =
-        "Lcom/android/tools/r8/keepanno/annotations/KeepOption;";
-    public static final String SHRINKING = "SHRINKING";
-    public static final String OPTIMIZATION = "OPTIMIZATION";
-    public static final String OBFUSCATION = "OBFUSCATION";
-    public static final String ACCESS_MODIFICATION = "ACCESS_MODIFICATION";
-    public static final String ANNOTATION_REMOVAL = "ANNOTATION_REMOVAL";
-  }
-
   public static final class MemberAccess {
     public static final String DESCRIPTOR =
         "Lcom/android/tools/r8/keepanno/annotations/MemberAccessFlags;";

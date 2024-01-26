@@ -44,12 +44,14 @@ public @interface KeepForApi {
   /**
    * Specify the kind of this item pattern.
    *
-   * <p>Default kind is CLASS_AND_MEMBERS , meaning the annotated class and/or member is to be kept.
-   * When annotating a class this can be set to ONLY_CLASS to avoid patterns on any members. That
-   * can be useful when the API members are themselves explicitly annotated.
+   * <p>Default kind is {@link KeepItemKind#CLASS_AND_MEMBERS}, meaning the annotated class and/or
+   * member is to be kept. When annotating a class this can be set to {@link
+   * KeepItemKind#ONLY_CLASS} to avoid patterns on any members. That can be useful when the API
+   * members are themselves explicitly annotated.
    *
-   * <p>It is not possible to use ONLY_CLASS if annotating a member. Also, it is never valid to use
-   * kind ONLY_MEMBERS as the API surface must keep the class if any member is to be accessible.
+   * <p>It is not possible to use {@link KeepItemKind#ONLY_CLASS} if annotating a member. Also, it
+   * is never valid to use kind {@link KeepItemKind#ONLY_MEMBERS} as the API surface must keep the
+   * class if any member is to be accessible.
    *
    * @return The kind for this pattern.
    */
