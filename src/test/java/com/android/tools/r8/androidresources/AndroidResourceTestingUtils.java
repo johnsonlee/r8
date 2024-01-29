@@ -52,7 +52,8 @@ public class AndroidResourceTestingUtils {
     STRING,
     DRAWABLE,
     STYLEABLE,
-    XML;
+    XML,
+    ID;
 
     public static RClassType fromClass(Class clazz) {
       String type = rClassWithoutNamespaceAndOuter(clazz).substring(2);
@@ -118,6 +119,13 @@ public class AndroidResourceTestingUtils {
           + "        name=\"@string/%s\"\n"
           + "        path=\"let/it/be\" />\n"
           + "</paths>";
+
+  public static String XML_FILE_WITH_ID =
+      "<menu xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+          + "    xmlns:app=\"http://schemas.android.com/apk/res-auto\"\n"
+          + "    xmlns:tools=\"http://schemas.android.com/tools\">\n"
+          + "    <item android:id=\"@+id/%s\"/>\n"
+          + "</menu>";
 
   public static class AndroidTestRClass {
     // The original aapt2 generated R.java class
@@ -256,6 +264,7 @@ public class AndroidResourceTestingUtils {
   public static class AndroidTestResourceBuilder {
     private String manifest;
     private final Map<String, String> stringValues = new TreeMap<>();
+    private final Set<String> idValues = new TreeSet<>();
     private final Set<String> stringValuesWithExtraLanguage = new TreeSet<>();
     private final Map<String, String> overlayableValues = new TreeMap<>();
     private final Map<String, Integer> styleables = new TreeMap<>();
@@ -284,6 +293,9 @@ public class AndroidResourceTestingUtils {
           if (rClassType == RClassType.STYLEABLE) {
             // Add 4 different values, i.e., the array will be 4 integers.
             addStyleable(name, 4);
+          }
+          if (rClassType == RClassType.ID) {
+            addIdValue(name);
           }
         }
       }
@@ -314,6 +326,11 @@ public class AndroidResourceTestingUtils {
 
     AndroidTestResourceBuilder addStringValue(String name, String value) {
       stringValues.put(name, value);
+      return this;
+    }
+
+    AndroidTestResourceBuilder addIdValue(String name) {
+      xmlFiles.put(name + ".xml", String.format(XML_FILE_WITH_ID, name));
       return this;
     }
 

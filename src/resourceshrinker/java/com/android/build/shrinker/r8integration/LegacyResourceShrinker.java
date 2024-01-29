@@ -24,6 +24,7 @@ import com.android.build.shrinker.usages.ToolsAttributeUsageRecorderKt;
 import com.android.ide.common.resources.ResourcesUtil;
 import com.android.ide.common.resources.usage.ResourceStore;
 import com.android.ide.common.resources.usage.ResourceUsageModel.Resource;
+import com.android.resources.ResourceType;
 import com.android.tools.r8.FeatureSplit;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -210,10 +211,14 @@ public class LegacyResourceShrinker {
       R8ResourceShrinkerModel model,
       boolean exactMatchingOfStyleablesAndAttr) {
     if (!exactMatchingOfStyleablesAndAttr) {
-      return unusedResources.stream().map(resource -> resource.value).collect(Collectors.toList());
+      return unusedResources.stream()
+          .filter(s -> s.type != ResourceType.ID)
+          .map(resource -> resource.value)
+          .collect(Collectors.toList());
     }
     return model.getResourceStore().getResources().stream()
         .filter(r -> !r.isReachable())
+        .filter(r -> r.type != ResourceType.ID)
         .map(r -> r.value)
         .collect(Collectors.toList());
   }
