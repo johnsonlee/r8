@@ -13,10 +13,12 @@ import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
+import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.ConstantCanonicalizer;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.IR2LirConverter;
 import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirCode.TryCatchTable;
 import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
 import com.android.tools.r8.utils.ObjectUtils;
@@ -129,9 +131,52 @@ public class LirConverter {
       LensCodeRewriterUtils rewriterUtils) {
     LirCode<Integer> lirCode = method.getDefinition().getCode().asLirCode();
     LirCode<Integer> rewrittenLirCode = lirCode.rewriteWithLens(method, appView, rewriterUtils);
-    if (ObjectUtils.notIdentical(lirCode, rewrittenLirCode)) {
-      method.setCode(rewrittenLirCode, appView);
+    if (ObjectUtils.identical(lirCode, rewrittenLirCode)) {
+      return;
     }
+
+    // In the unusual case where a catch handler has been eliminated as a result of class merging
+    // we remove the unreachable blocks.
+    if (hasPrunedCatchHandlers(appView, lirCode, rewrittenLirCode)) {
+      IRCode code =
+          rewrittenLirCode.buildIR(
+              method,
+              appView,
+              method.getOrigin(),
+              MethodConversionOptions.forLirPhase(appView).disableStringSwitchConversion());
+      AffectedValues affectedValues = code.removeUnreachableBlocks();
+      affectedValues.narrowingWithAssumeRemoval(appView, code);
+      DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
+      deadCodeRemover.run(code, Timing.empty());
+      rewrittenLirCode =
+          new IRToLirFinalizer(appView, deadCodeRemover)
+              .finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
+    }
+
+    method.setCode(rewrittenLirCode, appView);
+  }
+
+  private static boolean hasPrunedCatchHandlers(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      LirCode<Integer> lirCode,
+      LirCode<Integer> rewrittenLirCode) {
+    if (!lirCode.hasTryCatchTable()) {
+      return false;
+    }
+    if (!appView.graphLens().isClassMergerLens()) {
+      assert !internalHasPrunedCatchHandlers(lirCode, rewrittenLirCode);
+      return false;
+    }
+    return internalHasPrunedCatchHandlers(lirCode, rewrittenLirCode);
+  }
+
+  private static boolean internalHasPrunedCatchHandlers(
+      LirCode<Integer> lirCode, LirCode<Integer> rewrittenLirCode) {
+    TryCatchTable tryCatchTable = lirCode.getTryCatchTable();
+    TryCatchTable rewrittenTryCatchTable = rewrittenLirCode.getTryCatchTable();
+    return tryCatchTable.hasHandlerThatMatches(
+        (blockIndex, handlers) ->
+            handlers.size() > rewrittenTryCatchTable.getHandlersForBlock(blockIndex).size());
   }
 
   public static void finalizeLirToOutputFormat(
@@ -179,11 +224,6 @@ public class LirConverter {
     }
     IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
     assert irCode.verifyInvokeInterface(appView);
-    if (lirCode.hasTryCatchTable()) {
-      // Vertical class merging may lead to dead catch handlers.
-      // TODO(b/322762660): Ensure IR is valid immediately after IR building.
-      irCode.removeUnreachableBlocks();
-    }
     FilledNewArrayRewriter filledNewArrayRewriter = new FilledNewArrayRewriter(appView);
     boolean changed = filledNewArrayRewriter.run(irCode, onThreadTiming).hasChanged().toBoolean();
     if (appView.options().isGeneratingDex() && changed) {
