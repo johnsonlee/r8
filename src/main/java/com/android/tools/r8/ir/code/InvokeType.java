@@ -28,6 +28,7 @@ import com.android.tools.r8.graph.DexMethodHandle.MethodHandleType;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
+import com.android.tools.r8.lightir.LirOpcodes;
 import org.objectweb.asm.Opcodes;
 
 public enum InvokeType {
@@ -184,6 +185,23 @@ public enum InvokeType {
   public int getDexOpcodeRange() {
     assert dexOpcodeRange >= 0;
     return dexOpcodeRange;
+  }
+
+  public int getLirOpcode(boolean isInterface) {
+    switch (this) {
+      case DIRECT:
+        return isInterface ? LirOpcodes.INVOKEDIRECT_ITF : LirOpcodes.INVOKEDIRECT;
+      case INTERFACE:
+        return LirOpcodes.INVOKEINTERFACE;
+      case STATIC:
+        return isInterface ? LirOpcodes.INVOKESTATIC_ITF : LirOpcodes.INVOKESTATIC;
+      case SUPER:
+        return isInterface ? LirOpcodes.INVOKESUPER_ITF : LirOpcodes.INVOKESUPER;
+      case VIRTUAL:
+        return LirOpcodes.INVOKEVIRTUAL;
+      default:
+        throw new Unreachable();
+    }
   }
 
   public boolean isDirect() {

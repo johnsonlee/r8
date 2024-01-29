@@ -118,7 +118,7 @@ public class PrimaryR8IRConverter extends IRConverter {
     // All the code has been processed so the rewriting required by the lenses is done everywhere,
     // we clear lens code rewriting so that the lens rewriter can be re-executed in phase 2 if new
     // lenses with code rewriting are added.
-    appView.clearCodeRewritings(executorService);
+    appView.clearCodeRewritings(executorService, Timing.empty());
 
     // Commit synthetics from the primary optimization pass.
     commitPendingSyntheticItems(appView);
@@ -203,7 +203,7 @@ public class PrimaryR8IRConverter extends IRConverter {
     // All the code that should be impacted by the lenses inserted between phase 1 and phase 2
     // have now been processed and rewritten, we clear code lens rewriting so that the class
     // staticizer and phase 3 does not perform again the rewriting.
-    appView.clearCodeRewritings(executorService);
+    appView.clearCodeRewritings(executorService, Timing.empty());
 
     // Commit synthetics before creating a builder (otherwise the builder will not include the
     // synthetics.)

@@ -11,7 +11,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
 import com.android.tools.r8.ir.optimize.ConstantCanonicalizer;
@@ -23,6 +22,7 @@ import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.verticalclassmerging.IncompleteVerticalClassMergerBridgeCode;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -90,7 +90,7 @@ public class LirConverter {
 
     GraphLens graphLens = appView.graphLens();
     assert graphLens.isNonIdentityLens();
-    assert appView.codeLens().isAppliedLens();
+    assert appView.codeLens().isAppliedLens() || appView.codeLens().isClearCodeRewritingLens();
 
     MemberRebindingIdentityLens memberRebindingIdentityLens =
         graphLens.asNonIdentityLens().find(GraphLens::isMemberRebindingIdentityLens);
@@ -104,9 +104,6 @@ public class LirConverter {
     timing.begin("LIR->LIR@" + graphLens.getClass().getTypeName());
     rewriteLirWithUnappliedLens(appView, executorService);
     timing.end();
-
-    // At this point all code has been mapped according to the graph lens.
-    updateCodeLens(appView);
   }
 
   private static void rewriteLirWithUnappliedLens(
@@ -117,10 +114,7 @@ public class LirConverter {
         appView.appInfo().classes(),
         clazz ->
             clazz.forEachProgramMethodMatching(
-                m ->
-                    m.hasCode()
-                        && !m.getCode().isSharedCodeObject()
-                        && !appView.isCfByteCodePassThrough(m),
+                m -> m.hasCode() && m.getCode().isLirCode(),
                 m -> rewriteLirMethodWithLens(m, appView, rewriterUtils)),
         appView.options().getThreadingModule(),
         executorService);
@@ -133,14 +127,8 @@ public class LirConverter {
       ProgramMethod method,
       AppView<? extends AppInfoWithClassHierarchy> appView,
       LensCodeRewriterUtils rewriterUtils) {
-    Code code = method.getDefinition().getCode();
-    if (!code.isLirCode()) {
-      assert false;
-      return;
-    }
-    LirCode<Integer> lirCode = code.asLirCode();
-    LirCode<Integer> rewrittenLirCode =
-        lirCode.rewriteWithSimpleLens(method, appView, rewriterUtils);
+    LirCode<Integer> lirCode = method.getDefinition().getCode().asLirCode();
+    LirCode<Integer> rewrittenLirCode = lirCode.rewriteWithLens(method, appView, rewriterUtils);
     if (ObjectUtils.notIdentical(lirCode, rewrittenLirCode)) {
       method.setCode(rewrittenLirCode, appView);
     }
@@ -171,67 +159,7 @@ public class LirConverter {
     // Clear the reference type cache after conversion to reduce memory pressure.
     appView.dexItemFactory().clearTypeElementsCache();
     // At this point all code has been mapped according to the graph lens.
-    updateCodeLens(appView);
-  }
-
-  private static void updateCodeLens(AppView<? extends AppInfoWithClassHierarchy> appView) {
-    final NonIdentityGraphLens lens = appView.graphLens().asNonIdentityLens();
-    if (lens == null) {
-      assert false;
-      return;
-    }
-
-    // If the current graph lens is the member rebinding identity lens then code lens is simply
-    // the previous lens. This is the same structure as the more complicated case below but where
-    // there is no need to rewrite any previous pointers.
-    if (lens.isMemberRebindingIdentityLens()) {
-      appView.setCodeLens(lens.getPrevious());
-      return;
-    }
-
-    // Otherwise search out where the lens pointing to the member rebinding identity lens.
-    NonIdentityGraphLens lensAfterMemberRebindingIdentityLens =
-        lens.find(p -> p.getPrevious().isMemberRebindingIdentityLens());
-    if (lensAfterMemberRebindingIdentityLens == null) {
-      // With the current compiler structure we expect to always find the lens.
-      assert false;
-      appView.setCodeLens(lens);
-      return;
-    }
-
-    GraphLens codeLens = appView.codeLens();
-    MemberRebindingIdentityLens memberRebindingIdentityLens =
-        lensAfterMemberRebindingIdentityLens.getPrevious().asMemberRebindingIdentityLens();
-
-    // We are assuming that the member rebinding identity lens is always installed after the current
-    // applied lens/code lens and also that there should not be a rebinding lens from the compilers
-    // first phase (this subroutine is only used after IR conversion for now).
-    assert memberRebindingIdentityLens
-        == lens.findPrevious(
-            p -> p == memberRebindingIdentityLens || p == codeLens || p.isMemberRebindingLens());
-
-    // Rewrite the graph lens effects from 'lens' and up to the member rebinding identity lens.
-    MemberRebindingIdentityLens rewrittenMemberRebindingLens =
-        memberRebindingIdentityLens.toRewrittenMemberRebindingIdentityLens(
-            appView, lens, memberRebindingIdentityLens, lens);
-
-    // The current previous pointers for the graph lenses are:
-    //   lens -> ... -> lensAfterMemberRebindingIdentityLens -> memberRebindingIdentityLens -> g
-    // we rewrite them now to:
-    //   rewrittenMemberRebindingLens -> lens -> ... -> lensAfterMemberRebindingIdentityLens -> g
-
-    // The above will construct the new member rebinding lens such that it points to the new
-    // code-lens point already.
-    assert rewrittenMemberRebindingLens.getPrevious() == lens;
-
-    // Update the previous pointer on the new code lens to jump over the old member rebinding
-    // identity lens.
-    lensAfterMemberRebindingIdentityLens.setPrevious(memberRebindingIdentityLens.getPrevious());
-
-    // The applied lens can now be updated and the rewritten member rebinding lens installed as
-    // the current "unapplied lens".
-    appView.setCodeLens(lens);
-    appView.setGraphLens(rewrittenMemberRebindingLens);
+    appView.clearCodeRewritings(executorService, timing);
   }
 
   private static void finalizeLirMethodToOutputFormat(
@@ -245,12 +173,17 @@ public class LirConverter {
     }
     Timing onThreadTiming = Timing.empty();
     LirCode<Integer> lirCode = code.asLirCode();
-    LirCode<Integer> rewrittenLirCode =
-        lirCode.rewriteWithSimpleLens(method, appView, rewriterUtils);
+    LirCode<Integer> rewrittenLirCode = lirCode.rewriteWithLens(method, appView, rewriterUtils);
     if (ObjectUtils.notIdentical(lirCode, rewrittenLirCode)) {
       method.setCode(rewrittenLirCode, appView);
     }
     IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
+    assert irCode.verifyInvokeInterface(appView);
+    if (lirCode.hasTryCatchTable()) {
+      // Vertical class merging may lead to dead catch handlers.
+      // TODO(b/322762660): Ensure IR is valid immediately after IR building.
+      irCode.removeUnreachableBlocks();
+    }
     FilledNewArrayRewriter filledNewArrayRewriter = new FilledNewArrayRewriter(appView);
     boolean changed = filledNewArrayRewriter.run(irCode, onThreadTiming).hasChanged().toBoolean();
     if (appView.options().isGeneratingDex() && changed) {
@@ -275,6 +208,7 @@ public class LirConverter {
       for (DexEncodedMethod method : clazz.methods(DexEncodedMethod::hasCode)) {
         assert method.getCode().isLirCode()
             || method.getCode().isSharedCodeObject()
+            || method.getCode() instanceof IncompleteVerticalClassMergerBridgeCode
             || appView.isCfByteCodePassThrough(method)
             || appView.options().skipIR;
       }

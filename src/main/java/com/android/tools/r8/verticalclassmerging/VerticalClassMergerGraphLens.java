@@ -100,6 +100,10 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
     this.staticizedMethods = staticizedMethods;
   }
 
+  public boolean hasInterfaceBeenMergedIntoClass(DexType type) {
+    return mergedClasses.hasInterfaceBeenMergedIntoClass(type);
+  }
+
   private boolean isMerged(DexMethod method) {
     return mergedMethods.contains(method);
   }

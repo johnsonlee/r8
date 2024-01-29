@@ -728,38 +728,43 @@ public class R8 {
       // already have been leveraged.
       OptimizationInfoRemover.run(appView, executorService);
 
-      // Perform repackaging.
-      if (appView.hasLiveness()) {
-        if (options.isRepackagingEnabled()) {
-          new Repackaging(appView.withLiveness()).run(executorService, timing);
+      GenericSignatureContextBuilder genericContextBuilderBeforeFinalMerging = null;
+      if (appView.hasCfByteCodePassThroughMethods()) {
+        LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
+      } else {
+        // Perform repackaging.
+        if (appView.hasLiveness()) {
+          if (options.isRepackagingEnabled()) {
+            new Repackaging(appView.withLiveness()).run(executorService, timing);
+          }
+          assert Repackaging.verifyIdentityRepackaging(appView.withLiveness(), executorService);
         }
-        assert Repackaging.verifyIdentityRepackaging(appView.withLiveness(), executorService);
+
+        // Rewrite LIR with lens to allow building IR from LIR in class mergers.
+        LirConverter.rewriteLirWithLens(appView, timing, executorService);
+        appView.clearCodeRewritings(executorService, timing);
+
+        if (appView.hasLiveness()) {
+          VerticalClassMerger.createForFinalClassMerging(appView.withLiveness())
+              .runIfNecessary(executorService, timing);
+        }
+
+        // TODO(b/225838009): Move further down.
+        LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
+        assert appView.dexItemFactory().verifyNoCachedTypeElements();
+
+        genericContextBuilderBeforeFinalMerging = GenericSignatureContextBuilder.create(appView);
+
+        // Run horizontal class merging. This runs even if shrinking is disabled to ensure
+        // synthetics are always merged.
+        HorizontalClassMerger.createForFinalClassMerging(appView)
+            .runIfNecessary(
+                executorService,
+                timing,
+                finalRuntimeTypeCheckInfoBuilder != null
+                    ? finalRuntimeTypeCheckInfoBuilder.build(appView.graphLens())
+                    : null);
       }
-
-      // Rewrite LIR with lens to allow building IR from LIR in class mergers.
-      LirConverter.rewriteLirWithLens(appView, timing, executorService);
-
-      if (appView.hasLiveness()) {
-        VerticalClassMerger.createForFinalClassMerging(appView.withLiveness())
-            .runIfNecessary(executorService, timing);
-      }
-
-      // TODO(b/225838009): Move further down.
-      LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
-      assert appView.dexItemFactory().verifyNoCachedTypeElements();
-
-      GenericSignatureContextBuilder genericContextBuilderBeforeFinalMerging =
-          GenericSignatureContextBuilder.create(appView);
-
-      // Run horizontal class merging. This runs even if shrinking is disabled to ensure synthetics
-      // are always merged.
-      HorizontalClassMerger.createForFinalClassMerging(appView)
-          .runIfNecessary(
-              executorService,
-              timing,
-              finalRuntimeTypeCheckInfoBuilder != null
-                  ? finalRuntimeTypeCheckInfoBuilder.build(appView.graphLens())
-                  : null);
 
       // Perform minification.
       if (options.getProguardConfiguration().hasApplyMappingFile()) {
@@ -823,8 +828,10 @@ public class R8 {
       new KotlinMetadataRewriter(appView).runForR8(executorService);
       timing.end();
 
-      new GenericSignatureRewriter(appView, genericContextBuilderBeforeFinalMerging)
-          .run(appView.appInfo().classes(), executorService);
+      if (genericContextBuilderBeforeFinalMerging != null) {
+        new GenericSignatureRewriter(appView, genericContextBuilderBeforeFinalMerging)
+            .run(appView.appInfo().classes(), executorService);
+      }
 
       assert appView.checkForTesting(
               () ->

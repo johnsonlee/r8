@@ -7,6 +7,8 @@ package com.android.tools.r8.utils;
 import com.android.tools.r8.naming.ClassNamingForNameMapper.MappedRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntListIterator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -206,6 +208,35 @@ public class ListUtils {
     ArrayList<T> list = new ArrayList<>();
     forEachable.forEach(list::add);
     return list;
+  }
+
+  public static <T> List<T> newArrayListWithoutIndices(List<T> list, IntList indicesToRemove) {
+    // Verify each index to remove is unique and in bounds.
+    assert indicesToRemove.stream().distinct().count() == indicesToRemove.size();
+    assert indicesToRemove.stream().allMatch(indexToRemove -> indexToRemove < list.size());
+    if (indicesToRemove.size() == list.size()) {
+      return new ArrayList<>();
+    }
+    List<T> result = new ArrayList<>(list.size() - indicesToRemove.size());
+    IntListIterator indicesToRemoveIterator = indicesToRemove.iterator();
+    int nextIndexToRemove = indicesToRemoveIterator.nextInt();
+    for (int i = 0; i < list.size(); i++) {
+      assert i <= nextIndexToRemove;
+      if (i == nextIndexToRemove) {
+        if (indicesToRemoveIterator.hasNext()) {
+          nextIndexToRemove = indicesToRemoveIterator.nextInt();
+          assert nextIndexToRemove > i;
+        } else {
+          for (int j = i + 1; j < list.size(); j++) {
+            result.add(list.get(j));
+          }
+          break;
+        }
+      } else {
+        result.add(list.get(i));
+      }
+    }
+    return result;
   }
 
   public static <T> ArrayList<T> newInitializedArrayList(int size, T element) {

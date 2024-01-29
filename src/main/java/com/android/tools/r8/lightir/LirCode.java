@@ -6,6 +6,7 @@ package com.android.tools.r8.lightir;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ArgumentUse;
 import com.android.tools.r8.graph.ClasspathMethod;
@@ -490,6 +491,10 @@ public class LirCode<EV> extends Code
     return positionTable;
   }
 
+  public boolean hasTryCatchTable() {
+    return tryCatchTable != null;
+  }
+
   public TryCatchTable getTryCatchTable() {
     return tryCatchTable;
   }
@@ -802,17 +807,18 @@ public class LirCode<EV> extends Code
         metadataMap);
   }
 
-  public LirCode<EV> rewriteWithSimpleLens(
-      ProgramMethod context, AppView<?> appView, LensCodeRewriterUtils rewriterUtils) {
+  public LirCode<EV> rewriteWithLens(
+      ProgramMethod context,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      LensCodeRewriterUtils rewriterUtils) {
     GraphLens graphLens = appView.graphLens();
     assert graphLens.isNonIdentityLens();
     if (graphLens.isMemberRebindingIdentityLens()) {
       return this;
     }
 
-    GraphLens codeLens = context.getDefinition().getCode().getCodeLens(appView);
-    SimpleLensLirRewriter<EV> rewriter =
-        new SimpleLensLirRewriter<>(this, context, graphLens, codeLens, rewriterUtils);
+    LirLensCodeRewriter<EV> rewriter =
+        new LirLensCodeRewriter<>(appView, this, context, rewriterUtils);
     return rewriter.rewrite();
   }
 

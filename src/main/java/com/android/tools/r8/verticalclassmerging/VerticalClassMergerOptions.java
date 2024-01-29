@@ -11,6 +11,7 @@ public class VerticalClassMergerOptions {
   private final InternalOptions options;
 
   private boolean enabled = true;
+  private boolean enableInitial = true;
 
   public VerticalClassMergerOptions(InternalOptions options) {
     this.options = options;
@@ -20,9 +21,18 @@ public class VerticalClassMergerOptions {
     setEnabled(false);
   }
 
+  public void disableInitial() {
+    enableInitial = false;
+  }
+
   public boolean isEnabled(ClassMergerMode mode) {
-    assert mode != null;
-    return enabled && options.isOptimizing() && options.isShrinking();
+    if (!enabled || !options.isOptimizing() || !options.isShrinking()) {
+      return false;
+    }
+    if (mode.isInitial() && !enableInitial) {
+      return false;
+    }
+    return true;
   }
 
   public void setEnabled(boolean enabled) {

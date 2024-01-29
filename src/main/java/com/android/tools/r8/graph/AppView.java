@@ -438,12 +438,15 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     allCodeProcessed = true;
   }
 
-  public void clearCodeRewritings(ExecutorService executorService) throws ExecutionException {
+  public void clearCodeRewritings(ExecutorService executorService, Timing timing)
+      throws ExecutionException {
+    timing.begin("Clear code rewritings");
     setGraphLens(new ClearCodeRewritingGraphLens(withClassHierarchy()));
 
     MemberRebindingIdentityLens memberRebindingIdentityLens =
         MemberRebindingIdentityLensFactory.rebuild(withClassHierarchy(), executorService);
     setGraphLens(memberRebindingIdentityLens);
+    timing.end();
   }
 
   public void flattenGraphLenses() {

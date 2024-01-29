@@ -11,6 +11,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
@@ -619,6 +620,21 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
     assert validThrowingInstructions();
     assert noCriticalEdges();
     assert verifyNoValueWithOnlyAssumeInstructionAsUsers();
+    return true;
+  }
+
+  public boolean verifyInvokeInterface(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    if (appView.testing().allowInvokeErrors) {
+      return true;
+    }
+    for (InvokeMethod invoke : this.<InvokeMethod>instructions(Instruction::isInvokeMethod)) {
+      DexType holderType = invoke.getInvokedMethod().getHolderType();
+      if (holderType.isArrayType()) {
+        continue;
+      }
+      DexClass holder = appView.definitionFor(holderType, context());
+      assert holder == null || invoke.getInterfaceBit() == holder.isInterface();
+    }
     return true;
   }
 

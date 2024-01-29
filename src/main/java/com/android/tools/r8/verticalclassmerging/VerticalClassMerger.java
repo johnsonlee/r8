@@ -18,11 +18,7 @@ import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.ir.conversion.IRConverter;
-import com.android.tools.r8.ir.conversion.MethodConversionOptions;
-import com.android.tools.r8.ir.conversion.MethodProcessorEventConsumer;
-import com.android.tools.r8.ir.conversion.OneTimeMethodProcessor;
-import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
+import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.optimize.argumentpropagation.utils.ProgramClassesBidirectedGraph;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
@@ -248,46 +244,12 @@ public class VerticalClassMerger {
     return lens;
   }
 
-  // TODO(b/320432664): For code objects where the rewriting is an alpha renaming we can rewrite the
-  //  LIR directly without building IR.
   private void rewriteCodeWithLens(ExecutorService executorService, Timing timing)
       throws ExecutionException {
     if (mode.isInitial()) {
       return;
     }
-
-    timing.begin("Rewrite code");
-    MethodProcessorEventConsumer eventConsumer = MethodProcessorEventConsumer.empty();
-    OneTimeMethodProcessor.Builder methodProcessorBuilder =
-        OneTimeMethodProcessor.builder(eventConsumer, appView);
-    for (DexProgramClass clazz : appView.appInfo().classes()) {
-      clazz.forEachProgramMethodMatching(
-          method ->
-              method.hasCode()
-                  && !(method.getCode() instanceof IncompleteVerticalClassMergerBridgeCode),
-          methodProcessorBuilder::add);
-    }
-
-    IRConverter converter = new IRConverter(appView);
-    converter.clearEnumUnboxer();
-    converter.clearServiceLoaderRewriter();
-    OneTimeMethodProcessor methodProcessor = methodProcessorBuilder.build();
-    methodProcessor.forEachWaveWithExtension(
-        (method, methodProcessingContext) ->
-            converter.processDesugaredMethod(
-                method,
-                OptimizationFeedbackIgnore.getInstance(),
-                methodProcessor,
-                methodProcessingContext,
-                MethodConversionOptions.forLirPhase(appView)
-                    .disableStringSwitchConversion()
-                    .setFinalizeAfterLensCodeRewriter()),
-        options.getThreadingModule(),
-        executorService);
-
-    // Clear type elements created during IR processing.
-    dexItemFactory.clearTypeElementsCache();
-    timing.end();
+    LirConverter.rewriteLirWithLens(appView, timing, executorService);
   }
 
   private void updateArtProfiles(
@@ -410,7 +372,7 @@ public class VerticalClassMerger {
       return;
     }
     timing.begin("Mark rewritten with lens");
-    appView.clearCodeRewritings(executorService);
+    appView.clearCodeRewritings(executorService, timing);
     timing.end();
   }
 

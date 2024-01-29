@@ -16,6 +16,7 @@ import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.collections.BidirectionalOneToOneHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalOneToOneMap;
 import com.android.tools.r8.utils.collections.MutableBidirectionalOneToOneMap;
+import java.util.Collections;
 import java.util.Map;
 
 public class RepackagingLens extends NestedGraphLens {
@@ -36,7 +37,8 @@ public class RepackagingLens extends NestedGraphLens {
 
   @Override
   public String lookupPackageName(String pkg) {
-    return packageRenamings.getOrDefault(getPrevious().lookupPackageName(pkg), pkg);
+    String previousPkg = getPrevious().lookupPackageName(pkg);
+    return packageRenamings.getOrDefault(previousPkg, previousPkg);
   }
 
   @Override
@@ -100,6 +102,17 @@ public class RepackagingLens extends NestedGraphLens {
       assert !newTypes.isEmpty();
       return new RepackagingLens(
           appView, newFieldSignatures, newMethodSignatures, newTypes, packageRenamings);
+    }
+
+    public RepackagingLens buildEmpty(AppView<AppInfoWithLiveness> appView) {
+      return new RepackagingLens(
+          appView, EMPTY_FIELD_MAP, EMPTY_METHOD_MAP, EMPTY_TYPE_MAP, Collections.emptyMap()) {
+
+        @Override
+        protected boolean isLegitimateToHaveEmptyMappings() {
+          return true;
+        }
+      };
     }
   }
 }

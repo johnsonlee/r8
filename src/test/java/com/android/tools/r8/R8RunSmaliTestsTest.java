@@ -36,7 +36,7 @@ public class R8RunSmaliTestsTest extends TestBase {
   @Parameters(name = "{0}: {1}")
   public static Collection<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDexRuntimes().withAllApiLevels().build(), tests.keySet());
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(), tests.keySet());
   }
 
   private static final String SMALI_DIR = ToolHelper.SMALI_BUILD_DIR;
@@ -105,6 +105,8 @@ public class R8RunSmaliTestsTest extends TestBase {
         .build();
     tests = testsBuilder.build();
   }
+
+  private static Set<String> invokeErrors = ImmutableSet.of("bad-codegen", "illegal-invokes");
 
   private static Map<String, Set<String>> missingClasses =
       ImmutableMap.of(
@@ -244,6 +246,10 @@ public class R8RunSmaliTestsTest extends TestBase {
         .addProgramDexFileData(Files.readAllBytes(originalDexFile))
         .applyIf(testJarExists, p -> p.addProgramFiles(testJar))
         .addDontWarn(missingClasses.getOrDefault(directoryName, Collections.emptySet()))
+        .addOptionsModification(
+            options ->
+                options.getTestingOptions().allowInvokeErrors =
+                    invokeErrors.contains(directoryName))
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), "Test")

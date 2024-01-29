@@ -13,13 +13,13 @@ import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.StringUtils;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
@@ -27,25 +27,21 @@ public class InvokeSpecialInterfaceWithBridge3Test extends TestBase {
 
   private static final String EXPECTED = StringUtils.lines("Hello World!");
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public InvokeSpecialInterfaceWithBridge3Test(TestParameters parameters) {
-    this.parameters = parameters;
-  }
-
   @Test
   public void testRuntime() throws Exception {
-    TestRunResult<?> result =
-        testForRuntime(parameters.getRuntime(), parameters.getApiLevel())
-            .addProgramClasses(I.class, A.class, Main.class)
-            .addProgramClassFileData(getClassWithTransformedInvoked())
-            .run(parameters.getRuntime(), Main.class)
-            .apply(this::inspectRunResult);
+    testForRuntime(parameters)
+        .addProgramClasses(I.class, A.class, Main.class)
+        .addProgramClassFileData(getClassWithTransformedInvoked())
+        .run(parameters.getRuntime(), Main.class)
+        .apply(this::inspectRunResult);
   }
 
   private void inspectRunResult(SingleTestRunResult<?> runResult) {
@@ -77,6 +73,7 @@ public class InvokeSpecialInterfaceWithBridge3Test extends TestBase {
         .addProgramClasses(I.class, A.class, Main.class)
         .addProgramClassFileData(getClassWithTransformedInvoked())
         .addKeepMainRule(Main.class)
+        .addOptionsModification(options -> options.getTestingOptions().allowInvokeErrors = true)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .applyIf(

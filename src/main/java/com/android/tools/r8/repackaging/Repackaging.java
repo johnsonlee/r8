@@ -14,7 +14,6 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.InnerClassAttribute;
@@ -22,7 +21,6 @@ import com.android.tools.r8.graph.ProgramPackage;
 import com.android.tools.r8.graph.ProgramPackageCollection;
 import com.android.tools.r8.graph.SortedProgramPackageCollection;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
-import com.android.tools.r8.graph.lens.NestedGraphLens;
 import com.android.tools.r8.naming.Minifier.MinificationPackageNamingStrategy;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
 import com.android.tools.r8.repackaging.RepackagingLens.Builder;
@@ -113,18 +111,7 @@ public class Repackaging {
             assert false;
           }
         }.fixupClasses(appView.appInfo().classesWithDeterministicOrder());
-    NestedGraphLens emptyRepackagingLens =
-        new NestedGraphLens(appView) {
-          @Override
-          protected boolean isLegitimateToHaveEmptyMappings() {
-            return true;
-          }
-
-          @Override
-          public <T extends DexReference> boolean isSimpleRenaming(T from, T to) {
-            return getPrevious().isSimpleRenaming(from, to);
-          }
-        };
+    RepackagingLens emptyRepackagingLens = new RepackagingLens.Builder().buildEmpty(appView);
     DirectMappedDexApplication newApplication =
         appView
             .appInfo()
@@ -477,60 +464,6 @@ public class Repackaging {
       }
       return appView.appInfo().wasPruned(type)
           || appView.appInfo().getMissingClasses().contains(type);
-    }
-  }
-
-  /** Testing only. */
-  public static class SuffixRenamingRepackagingConfiguration implements RepackagingConfiguration {
-
-    private final String classNameSuffix;
-    private final DexItemFactory dexItemFactory;
-
-    public SuffixRenamingRepackagingConfiguration(
-        String classNameSuffix, DexItemFactory dexItemFactory) {
-      this.classNameSuffix = classNameSuffix;
-      this.dexItemFactory = dexItemFactory;
-    }
-
-    @Override
-    public String getNewPackageDescriptor(ProgramPackage pkg, Set<String> seenPackageDescriptors) {
-      // Don't change the package of classes.
-      return pkg.getPackageDescriptor();
-    }
-
-    @Override
-    public boolean isPackageInTargetLocation(ProgramPackage pkg) {
-      return true;
-    }
-
-    @Override
-    public DexType getRepackagedType(
-        DexProgramClass clazz,
-        DexProgramClass outerClass,
-        String newPackageDescriptor,
-        BiMap<DexType, DexType> mappings) {
-      DexType repackagedDexType = clazz.getType();
-      // Rename the class consistently with its outer class.
-      if (outerClass != null) {
-        String simpleName = clazz.getType().getSimpleName();
-        String outerClassSimpleName = outerClass.getType().getSimpleName();
-        if (simpleName.startsWith(outerClassSimpleName + INNER_CLASS_SEPARATOR)) {
-          String newSimpleName =
-              mappings.get(outerClass.getType()).getSimpleName()
-                  + simpleName.substring(outerClassSimpleName.length());
-          repackagedDexType = repackagedDexType.withSimpleName(newSimpleName, dexItemFactory);
-        }
-      }
-      // Append the class name suffix to all classes.
-      repackagedDexType = repackagedDexType.addSuffix(classNameSuffix, dexItemFactory);
-      // Ensure that the generated name is unique.
-      DexType finalRepackagedDexType = repackagedDexType;
-      for (int i = 1; mappings.inverse().containsKey(finalRepackagedDexType); i++) {
-        finalRepackagedDexType =
-            repackagedDexType.addSuffix(
-                Character.toString(INNER_CLASS_SEPARATOR) + i, dexItemFactory);
-      }
-      return finalRepackagedDexType;
     }
   }
 }

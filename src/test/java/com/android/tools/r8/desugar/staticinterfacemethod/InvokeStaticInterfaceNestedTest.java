@@ -5,39 +5,43 @@
 package com.android.tools.r8.desugar.staticinterfacemethod;
 
 import static com.android.tools.r8.desugar.staticinterfacemethod.InvokeStaticInterfaceNestedTest.Library.foo;
-import static org.junit.Assert.assertThrows;
+import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilationIf;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DesugarTestConfiguration;
-import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.utils.BooleanUtils;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class InvokeStaticInterfaceNestedTest extends TestBase {
 
-  private final TestParameters parameters;
-  private final String UNEXPECTED_SUCCESS = "Hello World!";
+  private static final String UNEXPECTED_SUCCESS = "Hello World!";
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+  @Parameter(0)
+  public boolean allowInvokeErrors;
+
+  @Parameter(1)
+  public TestParameters parameters;
+
+  @Parameters(name = "{1}, allow invalid invokes: {0}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        BooleanUtils.values(),
+        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build());
   }
 
-  public InvokeStaticInterfaceNestedTest(TestParameters parameters) {
-    this.parameters = parameters;
-  }
-
-  private void checkDexResult(TestRunResult<?> runResult, boolean isDesugared) {
+  private void inspectRunResult(TestRunResult<?> runResult, boolean isDesugared) {
     boolean didDesugarInterfaceMethods =
         isDesugared && !parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring();
     if (parameters.isCfRuntime()) {
@@ -67,6 +71,7 @@ public class InvokeStaticInterfaceNestedTest extends TestBase {
 
   @Test
   public void testDesugar() throws Exception {
+    assumeFalse(allowInvokeErrors);
     testForDesugaring(parameters)
         .addProgramClassFileData(
             rewriteToUseNonInterfaceMethodReference(Main.class, "main"),
@@ -76,27 +81,27 @@ public class InvokeStaticInterfaceNestedTest extends TestBase {
             result ->
                 result.applyIf(
                     DesugarTestConfiguration::isDesugared,
-                    r -> checkDexResult(r, true),
-                    r -> checkDexResult(r, false)));
+                    r -> inspectRunResult(r, true),
+                    r -> inspectRunResult(r, false)));
   }
 
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    R8FullTestBuilder testBuilder =
-        testForR8(parameters.getBackend())
-            .addProgramClassFileData(
-                rewriteToUseNonInterfaceMethodReference(Main.class, "main"),
-                rewriteToUseNonInterfaceMethodReference(Library.class, "foo"))
-            .addKeepAllClassesRule()
-            .setMinApi(parameters)
-            .addKeepMainRule(Main.class);
-    if (parameters.isDexRuntime()) {
-      checkDexResult(testBuilder.run(parameters.getRuntime(), Main.class), true);
-    } else {
-      // TODO(b/166213037): Should not throw an error.
-      assertThrows(CompilationFailedException.class, testBuilder::compile);
-    }
+    assertFailsCompilationIf(
+        !allowInvokeErrors,
+        () ->
+            testForR8(parameters.getBackend())
+                .addProgramClassFileData(
+                    rewriteToUseNonInterfaceMethodReference(Main.class, "main"),
+                    rewriteToUseNonInterfaceMethodReference(Library.class, "foo"))
+                .addKeepAllClassesRule()
+                .addOptionsModification(
+                    options -> options.getTestingOptions().allowInvokeErrors = allowInvokeErrors)
+                .setMinApi(parameters)
+                .compile()
+                .run(parameters.getRuntime(), Main.class)
+                .apply(runResult -> inspectRunResult(runResult, parameters.isDexRuntime())));
   }
 
   private byte[] rewriteToUseNonInterfaceMethodReference(Class<?> clazz, String methodName)

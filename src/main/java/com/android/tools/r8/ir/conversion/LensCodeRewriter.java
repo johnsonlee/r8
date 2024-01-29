@@ -161,7 +161,7 @@ public class LensCodeRewriter {
   private final DexItemFactory factory;
   private final InternalOptions options;
 
-  LensCodeRewriter(AppView<? extends AppInfoWithClassHierarchy> appView) {
+  public LensCodeRewriter(AppView<? extends AppInfoWithClassHierarchy> appView) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
     this.options = appView.options();

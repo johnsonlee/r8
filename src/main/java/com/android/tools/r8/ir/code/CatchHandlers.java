@@ -10,6 +10,9 @@ import com.android.tools.r8.ir.code.CatchHandlers.CatchHandler;
 import com.android.tools.r8.utils.ListUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -113,9 +116,29 @@ public class CatchHandlers<T> implements Iterable<CatchHandler<T>> {
   }
 
   public CatchHandlers<T> rewriteWithLens(GraphLens graphLens, GraphLens codeLens) {
+    IntList targetIndicesToRemove = new IntArrayList();
+    Set<DexType> seenGuards = Sets.newIdentityHashSet();
     List<DexType> newGuards =
-        ListUtils.mapOrElse(guards, guard -> graphLens.lookupType(guard, codeLens), null);
-    return newGuards != null ? new CatchHandlers<>(newGuards, targets) : this;
+        ListUtils.mapOrElse(
+            guards,
+            (index, guard) -> {
+              DexType newGuard = graphLens.lookupType(guard, codeLens);
+              if (seenGuards.add(newGuard)) {
+                return newGuard;
+              }
+              targetIndicesToRemove.add(index);
+              return null;
+            },
+            null);
+    if (newGuards == null) {
+      assert targetIndicesToRemove.isEmpty();
+      return this;
+    }
+    List<T> newTargets =
+        targetIndicesToRemove.isEmpty()
+            ? targets
+            : ListUtils.newArrayListWithoutIndices(targets, targetIndicesToRemove);
+    return new CatchHandlers<>(newGuards, newTargets);
   }
 
   public void forEach(BiConsumer<DexType, T> consumer) {

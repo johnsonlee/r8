@@ -4,18 +4,19 @@
 
 package com.android.tools.r8.classmerging.vertical;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.android.tools.r8.utils.codeinspector.TypeSubject;
 import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -28,13 +29,17 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class ExceptionTablesTest extends VerticalClassMergerTestBase {
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return TestBase.getTestParameters().withAllRuntimesAndApiLevels().build();
+  private final boolean disableInitial;
+
+  @Parameters(name = "{1}, disable initial: {0}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        BooleanUtils.values(), TestBase.getTestParameters().withAllRuntimesAndApiLevels().build());
   }
 
-  public ExceptionTablesTest(TestParameters parameters) {
+  public ExceptionTablesTest(boolean disableInitial, TestParameters parameters) {
     super(parameters);
+    this.disableInitial = disableInitial;
   }
 
   @Test
@@ -42,7 +47,14 @@ public class ExceptionTablesTest extends VerticalClassMergerTestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(ExceptionTablesTest.class)
         .addKeepMainRule(TestClass.class)
-        .addVerticallyMergedClassesInspector(this::inspectVerticallyMergedClasses)
+        .applyIf(
+            disableInitial,
+            testBuilder ->
+                testBuilder.addOptionsModification(
+                    options -> options.getVerticalClassMergerOptions().disableInitial()),
+            testBuilder ->
+                testBuilder.addVerticallyMergedClassesInspector(
+                    this::inspectVerticallyMergedClasses))
         .setMinApi(parameters)
         .compile()
         .inspect(this::inspect)
@@ -58,8 +70,8 @@ public class ExceptionTablesTest extends VerticalClassMergerTestBase {
     assertThat(inspector.clazz(TestClass.class), isPresent());
     assertThat(inspector.clazz(ExceptionB.class), isPresent());
     assertThat(inspector.clazz(Exception2.class), isPresent());
-    assertThat(inspector.clazz(ExceptionA.class), not(isPresent()));
-    assertThat(inspector.clazz(Exception1.class), not(isPresent()));
+    assertThat(inspector.clazz(ExceptionA.class), isAbsent());
+    assertThat(inspector.clazz(Exception1.class), isAbsent());
 
     // Check that only two exception guard types remain.
     MethodSubject mainMethodSubject = inspector.clazz(TestClass.class).mainMethod();

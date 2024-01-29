@@ -1,4 +1,4 @@
-// Copyright (c) 2023, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -7,22 +7,36 @@ package com.android.tools.r8.lightir;
 import static com.android.tools.r8.graph.UseRegistry.MethodHandleUse.NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
+import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
+import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
+import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRMetadata;
+import com.android.tools.r8.ir.code.IROpcodeUtils;
 import com.android.tools.r8.ir.code.InvokeType;
-import com.android.tools.r8.ir.code.Opcodes;
+import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
+import com.android.tools.r8.ir.conversion.LensCodeRewriter;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.LirBuilder.RecordFieldValuesPayload;
 import com.android.tools.r8.lightir.LirCode.TryCatchTable;
 import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.verticalclassmerging.VerticalClassMergerGraphLens;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.util.ArrayList;
@@ -30,28 +44,31 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> {
+public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
+  private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final ProgramMethod context;
   private final DexMethod contextReference;
   private final GraphLens graphLens;
   private final GraphLens codeLens;
   private final LensCodeRewriterUtils helper;
 
-  private int numberOfInvokeTypeChanges = 0;
+  private int numberOfInvokeOpcodeChanges = 0;
   private Map<LirConstant, LirConstant> constantPoolMapping = null;
 
-  public SimpleLensLirRewriter(
+  private boolean hasNonTrivialRewritings = false;
+
+  public LirLensCodeRewriter(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       LirCode<EV> code,
       ProgramMethod context,
-      GraphLens graphLens,
-      GraphLens codeLens,
       LensCodeRewriterUtils helper) {
     super(code);
+    this.appView = appView;
     this.context = context;
     this.contextReference = context.getReference();
-    this.graphLens = graphLens;
-    this.codeLens = codeLens;
+    this.graphLens = appView.graphLens();
+    this.codeLens = context.getDefinition().getCode().getCodeLens(appView);
     this.helper = helper;
   }
 
@@ -66,7 +83,10 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
   }
 
   public void onFieldReference(DexField field) {
-    addRewrittenMapping(field, graphLens.lookupField(field, codeLens));
+    FieldLookupResult result = graphLens.lookupFieldResult(field, codeLens);
+    assert !result.hasReadCastType();
+    assert !result.hasWriteCastType();
+    addRewrittenMapping(field, result.getReference());
   }
 
   public void onCallSiteReference(DexCallSite callSite) {
@@ -83,16 +103,49 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
     addRewrittenMapping(proto, helper.rewriteProto(proto));
   }
 
-  private void onInvoke(DexMethod method, InvokeType type) {
+  private void onInvoke(DexMethod method, InvokeType type, boolean isInterface) {
     MethodLookupResult result = graphLens.lookupMethod(method, contextReference, type, codeLens);
-    if (result.getType() != type) {
-      assert (type == InvokeType.VIRTUAL && result.getType() == InvokeType.INTERFACE)
-          || (type == InvokeType.INTERFACE && result.getType() == InvokeType.VIRTUAL);
-      numberOfInvokeTypeChanges++;
+    if (hasPotentialNonTrivialInvokeRewriting(method, type, result)) {
+      hasNonTrivialRewritings = true;
+      return;
+    }
+    int opcode = type.getLirOpcode(isInterface);
+    DexMethod newMethod = result.getReference();
+    InvokeType newType = result.getType();
+    boolean newIsInterface = lookupIsInterface(method, opcode, result);
+    int newOpcode = newType.getLirOpcode(newIsInterface);
+    assert newMethod.getArity() == method.getArity();
+    if (newOpcode != opcode) {
+      assert type == newType
+              || (type.isVirtual() && newType.isInterface())
+              || (type.isInterface() && newType.isVirtual())
+              || (type.isSuper() && newType.isVirtual())
+          : type + " -> " + newType;
+      numberOfInvokeOpcodeChanges++;
     } else {
       // All non-type dependent mappings are just rewritten in the content pool.
-      addRewrittenMapping(method, result.getReference());
+      addRewrittenMapping(method, newMethod);
     }
+  }
+
+  private boolean hasPotentialNonTrivialInvokeRewriting(
+      DexMethod method, InvokeType type, MethodLookupResult result) {
+    VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
+    if (verticalClassMergerLens != null) {
+      if (!result.getPrototypeChanges().isEmpty()) {
+        return true;
+      }
+      for (int argumentIndex = 0;
+          argumentIndex < method.getNumberOfArguments(type.isStatic());
+          argumentIndex++) {
+        DexType argumentType = method.getArgumentType(argumentIndex, type.isStatic());
+        if (verticalClassMergerLens.hasInterfaceBeenMergedIntoClass(argumentType)) {
+          return true;
+        }
+      }
+    }
+    assert result.getPrototypeChanges().isEmpty();
+    return false;
   }
 
   private void addRewrittenMapping(LirConstant item, LirConstant rewrittenItem) {
@@ -118,28 +171,53 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
   }
 
   @Override
+  public void onInstancePut(DexField field, EV object, EV value) {
+    onFieldPut(field);
+  }
+
+  @Override
+  public void onStaticPut(DexField field, EV value) {
+    onFieldPut(field);
+  }
+
+  private void onFieldPut(DexField field) {
+    if (hasPotentialNonTrivialFieldPutRewriting(field)) {
+      hasNonTrivialRewritings = true;
+    }
+  }
+
+  private boolean hasPotentialNonTrivialFieldPutRewriting(DexField field) {
+    VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
+    if (verticalClassMergerLens != null
+        && verticalClassMergerLens.hasInterfaceBeenMergedIntoClass(field.getType())) {
+      return true;
+    }
+    return false;
+  }
+
+  @Override
   public void onInvokeDirect(DexMethod method, List<EV> arguments, boolean isInterface) {
-    onInvoke(method, InvokeType.DIRECT);
+    onInvoke(method, InvokeType.DIRECT, isInterface);
   }
 
   @Override
   public void onInvokeSuper(DexMethod method, List<EV> arguments, boolean isInterface) {
-    onInvoke(method, InvokeType.SUPER);
+    onInvoke(method, InvokeType.SUPER, isInterface);
   }
 
   @Override
   public void onInvokeVirtual(DexMethod method, List<EV> arguments) {
-    onInvoke(method, InvokeType.VIRTUAL);
+    onInvoke(method, InvokeType.VIRTUAL, false);
   }
 
   @Override
   public void onInvokeStatic(DexMethod method, List<EV> arguments, boolean isInterface) {
-    onInvoke(method, InvokeType.STATIC);
+    onInvoke(method, InvokeType.STATIC, isInterface);
   }
 
   @Override
   public void onInvokeInterface(DexMethod method, List<EV> arguments) {
-    onInvoke(method, InvokeType.INTERFACE);
+    onInvoke(method, InvokeType.INTERFACE, true);
   }
 
   private InvokeType getInvokeTypeThatMayChange(int opcode) {
@@ -149,19 +227,72 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
     if (opcode == LirOpcodes.INVOKEINTERFACE) {
       return InvokeType.INTERFACE;
     }
+    if (graphLens.isVerticalClassMergerLens()) {
+      if (opcode == LirOpcodes.INVOKESTATIC_ITF) {
+        return InvokeType.STATIC;
+      }
+      if (opcode == LirOpcodes.INVOKESUPER) {
+        return InvokeType.SUPER;
+      }
+    }
     return null;
   }
 
   public LirCode<EV> rewrite() {
+    if (hasNonTrivialMethodChanges()) {
+      return rewriteWithLensCodeRewriter();
+    }
+    assert !hasNonTrivialRewritings;
     LirCode<EV> rewritten = rewriteConstantPoolAndScanForTypeChanges(getCode());
+    if (hasNonTrivialRewritings) {
+      return rewriteWithLensCodeRewriter();
+    }
     rewritten = rewriteInstructionsWithInvokeTypeChanges(rewritten);
     return rewriteTryCatchTable(rewritten);
+  }
+
+  private boolean hasNonTrivialMethodChanges() {
+    VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
+    if (verticalClassMergerLens != null) {
+      DexMethod previousReference =
+          verticalClassMergerLens.getPreviousMethodSignature(contextReference);
+      if (verticalClassMergerLens.hasInterfaceBeenMergedIntoClass(
+          previousReference.getReturnType())) {
+        return true;
+      }
+      RewrittenPrototypeDescription prototypeChanges =
+          graphLens.lookupPrototypeChangesForMethodDefinition(context.getReference(), codeLens);
+      if (!prototypeChanges.isEmpty()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @SuppressWarnings("unchecked")
+  private LirCode<EV> rewriteWithLensCodeRewriter() {
+    IRCode code =
+        context.buildIR(
+            appView,
+            MethodConversionOptions.forLirPhase(appView)
+                .disableStringSwitchConversion()
+                .setFinalizeAfterLensCodeRewriter());
+    // MethodProcessor argument is only used by unboxing lenses.
+    MethodProcessor methodProcessor = null;
+    new LensCodeRewriter(appView).rewrite(code, context, methodProcessor);
+    DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
+    deadCodeRemover.run(code, Timing.empty());
+    IRToLirFinalizer finalizer = new IRToLirFinalizer(appView, deadCodeRemover);
+    LirCode<?> rewritten =
+        finalizer.finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
+    return (LirCode<EV>) rewritten;
   }
 
   private LirCode<EV> rewriteConstantPoolAndScanForTypeChanges(LirCode<EV> code) {
     // The code may need to be rewritten by the lens.
     // First pass scans just the constant pool to see if any types change or if there are any
     // fields/methods that need to be examined.
+    boolean hasFieldReference = false;
     boolean hasPotentialRewrittenMethod = false;
     for (LirConstant constant : code.getConstantPool()) {
       // RecordFieldValuesPayload is lowered to NewArrayEmpty before lens code rewriting any LIR.
@@ -170,6 +301,7 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
         onTypeReference((DexType) constant);
       } else if (constant instanceof DexField) {
         onFieldReference((DexField) constant);
+        hasFieldReference = true;
       } else if (constant instanceof DexCallSite) {
         onCallSiteReference((DexCallSite) constant);
       } else if (constant instanceof DexMethodHandle) {
@@ -185,9 +317,14 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
 
     // If there are potential method rewritings then we need to iterate the instructions as the
     // rewriting is instruction-sensitive (i.e., may be dependent on the invoke type).
-    if (hasPotentialRewrittenMethod) {
+    boolean hasPotentialNonTrivialFieldPutRewriting =
+        hasFieldReference && graphLens.isVerticalClassMergerLens();
+    if (hasPotentialNonTrivialFieldPutRewriting || hasPotentialRewrittenMethod) {
       for (LirInstructionView view : code) {
         view.accept(this);
+        if (hasNonTrivialRewritings) {
+          return null;
+        }
       }
     }
 
@@ -200,7 +337,7 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
   }
 
   private LirCode<EV> rewriteInstructionsWithInvokeTypeChanges(LirCode<EV> code) {
-    if (numberOfInvokeTypeChanges == 0) {
+    if (numberOfInvokeOpcodeChanges == 0) {
       return code;
     }
     // Build a small map from method refs to index in case the type-dependent methods are already
@@ -217,7 +354,7 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
     IRMetadata irMetadata = code.getMetadataForIR();
     ByteArrayWriter byteWriter = new ByteArrayWriter();
     LirWriter lirWriter = new LirWriter(byteWriter);
-    List<LirConstant> methodsToAppend = new ArrayList<>(numberOfInvokeTypeChanges);
+    List<LirConstant> methodsToAppend = new ArrayList<>(numberOfInvokeOpcodeChanges);
     for (LirInstructionView view : code) {
       int opcode = view.getOpcode();
       // Instructions that do not have an invoke-type change are just mapped via identity.
@@ -241,18 +378,13 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
       DexMethod method = (DexMethod) code.getConstantItem(constantIndex);
       MethodLookupResult result =
           graphLens.lookupMethod(method, context.getReference(), type, codeLens);
-      if (result.getType() != type) {
-        --numberOfInvokeTypeChanges;
-        if (result.getType().isVirtual()) {
-          opcode = LirOpcodes.INVOKEVIRTUAL;
-          irMetadata.record(Opcodes.INVOKE_VIRTUAL);
-        } else if (result.getType().isInterface()) {
-          opcode = LirOpcodes.INVOKEINTERFACE;
-          irMetadata.record(Opcodes.INVOKE_INTERFACE);
-        } else {
-          throw new Unreachable(
-              "Unexpected change of invoke that may need an interface bit set: "
-                  + result.getType());
+      boolean newIsInterface = lookupIsInterface(method, opcode, result);
+      InvokeType newType = result.getType();
+      int newOpcode = newType.getLirOpcode(newIsInterface);
+      if (newOpcode != opcode) {
+        --numberOfInvokeOpcodeChanges;
+        if (newType != type) {
+          irMetadata.record(IROpcodeUtils.fromLirInvokeOpcode(newOpcode));
         }
         constantIndex =
             methodIndices.computeIfAbsent(
@@ -264,13 +396,13 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
       }
       int constantIndexSize = ByteUtils.intEncodingSize(constantIndex);
       int remainingSize = view.getRemainingOperandSizeInBytes();
-      lirWriter.writeInstruction(opcode, constantIndexSize + remainingSize);
+      lirWriter.writeInstruction(newOpcode, constantIndexSize + remainingSize);
       ByteUtils.writeEncodedInt(constantIndex, lirWriter::writeOperand);
       while (remainingSize-- > 0) {
         lirWriter.writeOperand(view.getNextU1());
       }
     }
-    assert numberOfInvokeTypeChanges == 0;
+    assert numberOfInvokeOpcodeChanges == 0;
     // Note that since we assume 'null' in the mapping is identity this may end up with a stale
     // reference to a no longer used method. That is not an issue as it will be pruned when
     // building IR again, it is just a small and size overhead.
@@ -280,6 +412,19 @@ public class SimpleLensLirRewriter<EV> extends LirParsedInstructionCallback<EV> 
             ArrayUtils.appendElements(code.getConstantPool(), methodsToAppend),
             byteWriter.toByteArray());
     return newCode;
+  }
+
+  // TODO(b/157111832): This should be part of the graph lens lookup result.
+  private boolean lookupIsInterface(DexMethod method, int opcode, MethodLookupResult result) {
+    VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
+    if (verticalClassMergerLens != null
+        && verticalClassMergerLens.hasInterfaceBeenMergedIntoClass(method.getHolderType())) {
+      DexClass clazz = appView.definitionFor(result.getReference().getHolderType());
+      if (clazz != null) {
+        return clazz.isInterface();
+      }
+    }
+    return LirOpcodeUtils.getInterfaceBitFromInvokeOpcode(opcode);
   }
 
   private LirCode<EV> rewriteTryCatchTable(LirCode<EV> code) {
