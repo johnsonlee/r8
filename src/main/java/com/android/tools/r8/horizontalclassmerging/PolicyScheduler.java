@@ -32,7 +32,6 @@ import com.android.tools.r8.horizontalclassmerging.policies.NoDifferentApiRefere
 import com.android.tools.r8.horizontalclassmerging.policies.NoDirectRuntimeTypeChecks;
 import com.android.tools.r8.horizontalclassmerging.policies.NoEnums;
 import com.android.tools.r8.horizontalclassmerging.policies.NoFailedResolutionTargets;
-import com.android.tools.r8.horizontalclassmerging.policies.NoIllegalInlining;
 import com.android.tools.r8.horizontalclassmerging.policies.NoIndirectRuntimeTypeChecks;
 import com.android.tools.r8.horizontalclassmerging.policies.NoInnerClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoInstanceFieldAnnotations;
@@ -125,7 +124,6 @@ public class PolicyScheduler {
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       builder.add(
           new NoDeadEnumLiteMaps(appViewWithLiveness, mode),
-          new NoIllegalInlining(appViewWithLiveness, mode),
           new NoVerticallyMergedClasses(appViewWithLiveness, mode));
     }
 

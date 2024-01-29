@@ -4,14 +4,13 @@
 
 package com.android.tools.r8.ir.optimize.inliner.sync;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
@@ -38,6 +37,11 @@ public class InlineWithMonitorInConstructorInline extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(InlineWithMonitorInConstructorInline.class)
         .addKeepMainRule(TestClass.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector
+                    .assertIsCompleteMergeGroup(Foo.class, Bar.class)
+                    .assertNoOtherClassesMerged())
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         .inspect(this::inspect)
@@ -48,13 +52,12 @@ public class InlineWithMonitorInConstructorInline extends TestBase {
     ClassSubject classSubject = inspector.clazz(TestClass.class);
     assertThat(classSubject, isPresent());
     ClassSubject utilClassSubject = inspector.clazz(Util.class);
-    if (parameters.isCfRuntime()
-        || parameters.getApiLevel().isLessThanOrEqualTo(AndroidApiLevel.M)) {
+    if (parameters.isCfRuntime()) {
       // We disallow merging methods with monitors into constructors which will be class merged
       // on pre M devices, see b/238399429
       assertThat(utilClassSubject, isPresent());
     } else {
-      assertThat(utilClassSubject, not(isPresent()));
+      assertThat(utilClassSubject, isAbsent());
     }
   }
 

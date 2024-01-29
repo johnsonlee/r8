@@ -7,11 +7,12 @@ package com.android.tools.r8.horizontalclassmerging;
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 
 import com.android.tools.r8.classmerging.ClassMergerMode;
+import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.Policy;
-import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -130,20 +131,17 @@ public class HorizontalClassMerger {
 
     // Merge the classes.
     List<ClassMerger> classMergers = initializeClassMergers(codeProvider, lensBuilder, groups);
+    ClassMergerSharedData classMergerSharedData = new ClassMergerSharedData(appView);
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);
-    SyntheticArgumentClass syntheticArgumentClass =
-        mode.isInitial()
-            ? new SyntheticArgumentClass.Builder(appView.withLiveness()).build(groups)
-            : null;
     SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder =
         SyntheticInitializerConverter.builder(appView, codeProvider, mode);
     List<VirtuallyMergedMethodsKeepInfo> virtuallyMergedMethodsKeepInfos = new ArrayList<>();
     PrunedItems prunedItems =
         applyClassMergers(
             classMergers,
+            classMergerSharedData,
             profileCollectionAdditions,
-            syntheticArgumentClass,
             syntheticInitializerConverterBuilder,
             virtuallyMergedMethodsKeepInfos::add);
 
@@ -159,13 +157,7 @@ public class HorizontalClassMerger {
 
     HorizontalClassMergerGraphLens horizontalClassMergerGraphLens =
         createLens(
-            mergedClasses,
-            lensBuilder,
-            mode,
-            profileCollectionAdditions,
-            syntheticArgumentClass,
-            executorService,
-            timing);
+            classMergerSharedData, mergedClasses, lensBuilder, mode, executorService, timing);
     profileCollectionAdditions =
         profileCollectionAdditions.rewriteMethodReferences(
             horizontalClassMergerGraphLens::getNextMethodToInvoke);
@@ -298,12 +290,19 @@ public class HorizontalClassMerger {
                   definition.hasCode()
                       && definition.getCode().isIncompleteHorizontalClassMergerCode(),
               method -> {
+                // Transform the code object to CfCode. This may return null if the code object does
+                // not have support for generating CfCode. In this case, the call to toCfCode() will
+                // lens rewrite the references of the code object using the lens.
+                //
+                // This should be changed to generate non-null LirCode always.
                 IncompleteHorizontalClassMergerCode code =
                     (IncompleteHorizontalClassMergerCode) method.getDefinition().getCode();
-                method.setCode(
+                CfCode cfCode =
                     code.toCfCode(
-                        appView.withClassHierarchy(), method, horizontalClassMergerGraphLens),
-                    appView);
+                        appView.withClassHierarchy(), method, horizontalClassMergerGraphLens);
+                if (cfCode != null) {
+                  method.setCode(cfCode, appView);
+                }
               });
         },
         appView.options().getThreadingModule(),
@@ -387,16 +386,16 @@ public class HorizontalClassMerger {
   /** Merges all class groups using {@link ClassMerger}. */
   private PrunedItems applyClassMergers(
       Collection<ClassMerger> classMergers,
+      ClassMergerSharedData classMergerSharedData,
       ProfileCollectionAdditions profileCollectionAdditions,
-      SyntheticArgumentClass syntheticArgumentClass,
       SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder,
       Consumer<VirtuallyMergedMethodsKeepInfo> virtuallyMergedMethodsKeepInfoConsumer) {
     PrunedItems.Builder prunedItemsBuilder = PrunedItems.builder().setPrunedApp(appView.app());
     for (ClassMerger merger : classMergers) {
       merger.mergeGroup(
+          classMergerSharedData,
           profileCollectionAdditions,
           prunedItemsBuilder,
-          syntheticArgumentClass,
           syntheticInitializerConverterBuilder,
           virtuallyMergedMethodsKeepInfoConsumer);
     }
@@ -409,21 +408,15 @@ public class HorizontalClassMerger {
    */
   @SuppressWarnings("ReferenceEquality")
   private HorizontalClassMergerGraphLens createLens(
+      ClassMergerSharedData classMergerSharedData,
       HorizontallyMergedClasses mergedClasses,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       ClassMergerMode mode,
-      ProfileCollectionAdditions profileCollectionAdditions,
-      SyntheticArgumentClass syntheticArgumentClass,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
     return new HorizontalClassMergerTreeFixer(
-            appView,
-            mergedClasses,
-            lensBuilder,
-            mode,
-            profileCollectionAdditions,
-            syntheticArgumentClass)
+            appView, classMergerSharedData, mergedClasses, lensBuilder, mode)
         .run(executorService, timing);
   }
 

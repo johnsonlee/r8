@@ -11,7 +11,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.ProguardVersion;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.gson.GsonNoDefaultConstructorTest.Data;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;

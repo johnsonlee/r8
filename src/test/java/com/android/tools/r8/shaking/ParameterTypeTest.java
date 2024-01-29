@@ -141,8 +141,7 @@ public class ParameterTypeTest extends TestBase {
             .inspector();
 
     ClassSubject superInterface1 = inspector.clazz(B112452064SuperInterface1.class);
-    assertThat(
-        superInterface1, isAbsentIf(enableUnusedInterfaceRemoval && enableVerticalClassMerging));
+    assertThat(superInterface1, isAbsentIf(enableVerticalClassMerging));
 
     MethodSubject foo = superInterface1.uniqueMethodWithOriginalName("foo");
     assertThat(foo, isAbsent());

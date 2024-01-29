@@ -8,7 +8,7 @@ import static com.google.common.base.Predicates.not;
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.classmerging.ClassMergerMode;
-import com.android.tools.r8.classmerging.SyntheticArgumentClass;
+import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinition;
@@ -109,11 +109,11 @@ public class ClassMerger {
   }
 
   void mergeDirectMethods(
+      ClassMergerSharedData classMergerSharedData,
       ProfileCollectionAdditions profileCollectionAdditions,
-      SyntheticArgumentClass syntheticArgumentClass,
       SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder) {
     mergeInstanceInitializers(
-        profileCollectionAdditions, syntheticArgumentClass, syntheticInitializerConverterBuilder);
+        classMergerSharedData, profileCollectionAdditions, syntheticInitializerConverterBuilder);
     mergeStaticClassInitializers(syntheticInitializerConverterBuilder);
     group.forEach(this::mergeDirectMethods);
     if (!classInitializerMerger.isEmpty() && classInitializerMerger.isTrivialMerge()) {
@@ -203,26 +203,26 @@ public class ClassMerger {
   }
 
   void mergeInstanceInitializers(
+      ClassMergerSharedData classMergerSharedData,
       ProfileCollectionAdditions profileCollectionAdditions,
-      SyntheticArgumentClass syntheticArgumentClass,
       SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder) {
     instanceInitializerMergers.forEach(
         merger ->
             merger.merge(
+                classMergerSharedData,
                 profileCollectionAdditions,
                 classMethodsBuilder,
-                syntheticArgumentClass,
                 syntheticInitializerConverterBuilder));
   }
 
   void mergeMethods(
+      ClassMergerSharedData classMergerSharedData,
       ProfileCollectionAdditions profileCollectionAdditions,
-      SyntheticArgumentClass syntheticArgumentClass,
       SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder,
       Consumer<VirtuallyMergedMethodsKeepInfo> virtuallyMergedMethodsKeepInfoConsumer) {
     mergeVirtualMethods(profileCollectionAdditions, virtuallyMergedMethodsKeepInfoConsumer);
     mergeDirectMethods(
-        profileCollectionAdditions, syntheticArgumentClass, syntheticInitializerConverterBuilder);
+        classMergerSharedData, profileCollectionAdditions, syntheticInitializerConverterBuilder);
     classMethodsBuilder.setClassMethods(group.getTarget());
   }
 
@@ -352,9 +352,9 @@ public class ClassMerger {
   }
 
   public void mergeGroup(
+      ClassMergerSharedData classMergerSharedData,
       ProfileCollectionAdditions profileCollectionAdditions,
       PrunedItems.Builder prunedItemsBuilder,
-      SyntheticArgumentClass syntheticArgumentClass,
       SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder,
       Consumer<VirtuallyMergedMethodsKeepInfo> virtuallyMergedMethodsKeepInfoConsumer) {
     fixAccessFlags();
@@ -363,8 +363,8 @@ public class ClassMerger {
     mergeInterfaces();
     mergeFields(prunedItemsBuilder);
     mergeMethods(
+        classMergerSharedData,
         profileCollectionAdditions,
-        syntheticArgumentClass,
         syntheticInitializerConverterBuilder,
         virtuallyMergedMethodsKeepInfoConsumer);
     group.getTarget().clearClassSignature();

@@ -21,11 +21,9 @@ import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.classmerging.MergedClasses;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
 import com.android.tools.r8.horizontalclassmerging.SubtypingForrestForClasses;
-import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AnnotationFixer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ArrayUtils;
-import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.BidirectionalOneToOneHashMap;
@@ -50,8 +48,7 @@ public abstract class ClassMergerTreeFixer<
 
   protected final LB lensBuilder;
   protected final MC mergedClasses;
-  private final ProfileCollectionAdditions profileCollectionAdditions;
-  private final SyntheticArgumentClass syntheticArgumentClass;
+  private final ClassMergerSharedData classMergerSharedData;
 
   private final Map<DexProgramClass, DexType> originalSuperTypes = new IdentityHashMap<>();
 
@@ -61,15 +58,13 @@ public abstract class ClassMergerTreeFixer<
 
   public ClassMergerTreeFixer(
       AppView<?> appView,
+      ClassMergerSharedData classMergerSharedData,
       LB lensBuilder,
-      MC mergedClasses,
-      ProfileCollectionAdditions profileCollectionAdditions,
-      SyntheticArgumentClass syntheticArgumentClass) {
+      MC mergedClasses) {
     super(appView);
+    this.classMergerSharedData = classMergerSharedData;
     this.lensBuilder = lensBuilder;
     this.mergedClasses = mergedClasses;
-    this.profileCollectionAdditions = profileCollectionAdditions;
-    this.syntheticArgumentClass = syntheticArgumentClass;
   }
 
   public GL run(ExecutorService executorService, Timing timing) throws ExecutionException {
@@ -289,40 +284,18 @@ public abstract class ClassMergerTreeFixer<
         if (keptSignatures.contains(newMethodReference)
             || newMethodSignatures.containsValue(newMethodReference.getSignature())) {
           // If the method collides with a direct method on the same class then rename it to a
-          // globally
-          // fresh name and record the signature.
+          // globally fresh name and record the signature.
           if (method.isInstanceInitializer()) {
-            // If the method is an instance initializer, then add extra nulls.
-            Box<Set<DexType>> usedSyntheticArgumentClasses = new Box<>();
+            // If the method is an instance initializer, then add extra unused arguments.
             newMethodReference =
                 dexItemFactory.createInstanceInitializerWithFreshProto(
                     newMethodReference,
-                    syntheticArgumentClass.getArgumentClasses(),
-                    tryMethod -> !newMethodSignatures.containsValue(tryMethod.getSignature()),
-                    usedSyntheticArgumentClasses::set);
+                    classMergerSharedData.getExtraUnusedArgumentTypes(),
+                    tryMethod -> !newMethodSignatures.containsValue(tryMethod.getSignature()));
             lensBuilder.addExtraParameters(
                 originalMethodReference,
                 newMethodReference,
                 computeExtraUnusedParameters(originalMethodReference, newMethodReference));
-
-            // Amend the art profile collection.
-            if (usedSyntheticArgumentClasses.isSet()) {
-              Set<DexMethod> previousMethodReferences =
-                  lensBuilder.getOriginalMethodReferences(originalMethodReference);
-              if (previousMethodReferences.isEmpty()) {
-                profileCollectionAdditions.applyIfContextIsInProfile(
-                    originalMethodReference,
-                    additionsBuilder ->
-                        usedSyntheticArgumentClasses.get().forEach(additionsBuilder::addRule));
-              } else {
-                for (DexMethod previousMethodReference : previousMethodReferences) {
-                  profileCollectionAdditions.applyIfContextIsInProfile(
-                      previousMethodReference,
-                      additionsBuilder ->
-                          usedSyntheticArgumentClasses.get().forEach(additionsBuilder::addRule));
-                }
-              }
-            }
           } else {
             newMethodReference =
                 dexItemFactory.createFreshMethodNameWithoutHolder(

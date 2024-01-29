@@ -6,8 +6,8 @@ package com.android.tools.r8.verticalclassmerging;
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 
 import com.android.tools.r8.classmerging.ClassMergerMode;
+import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.Policy;
-import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -25,7 +25,6 @@ import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Timing.TimingMerger;
@@ -33,7 +32,6 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -104,23 +102,26 @@ public class VerticalClassMerger {
     timing.end();
 
     // Apply class merging concurrently in disjoint class hierarchies.
+    ClassMergerSharedData classMergerSharedData = new ClassMergerSharedData(appView);
     VerticalClassMergerResult verticalClassMergerResult =
         mergeClassesInConnectedComponents(
-            connectedComponents, immediateSubtypingInfo, executorService, timing);
+            classMergerSharedData,
+            connectedComponents,
+            immediateSubtypingInfo,
+            executorService,
+            timing);
     appView.setVerticallyMergedClasses(
         verticalClassMergerResult.getVerticallyMergedClasses(), mode);
     if (verticalClassMergerResult.isEmpty()) {
       return;
     }
-    ProfileCollectionAdditions profileCollectionAdditions =
-        ProfileCollectionAdditions.create(appView);
     VerticalClassMergerGraphLens lens =
-        runFixup(profileCollectionAdditions, verticalClassMergerResult, executorService, timing);
+        runFixup(classMergerSharedData, verticalClassMergerResult, executorService, timing);
     assert verifyGraphLens(lens, verticalClassMergerResult);
 
     // Update keep info and art profiles.
     updateKeepInfoForMergedClasses(verticalClassMergerResult, timing);
-    updateArtProfiles(profileCollectionAdditions, lens, verticalClassMergerResult, timing);
+    updateArtProfiles(lens, verticalClassMergerResult, timing);
 
     // Remove merged classes and rewrite AppView with the new lens.
     appView.rewriteWithLens(lens, executorService, timing);
@@ -143,6 +144,7 @@ public class VerticalClassMerger {
   }
 
   private VerticalClassMergerResult mergeClassesInConnectedComponents(
+      ClassMergerSharedData classMergerSharedData,
       List<Set<DexProgramClass>> connectedComponents,
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       ExecutorService executorService,
@@ -151,7 +153,8 @@ public class VerticalClassMerger {
     Collection<ConnectedComponentVerticalClassMerger> connectedComponentMergers =
         getConnectedComponentMergers(
             connectedComponents, immediateSubtypingInfo, executorService, timing);
-    return applyConnectedComponentMergers(connectedComponentMergers, executorService, timing);
+    return applyConnectedComponentMergers(
+        classMergerSharedData, connectedComponentMergers, executorService, timing);
   }
 
   private Collection<ConnectedComponentVerticalClassMerger> getConnectedComponentMergers(
@@ -190,13 +193,13 @@ public class VerticalClassMerger {
   }
 
   private VerticalClassMergerResult applyConnectedComponentMergers(
+      ClassMergerSharedData classMergerSharedData,
       Collection<ConnectedComponentVerticalClassMerger> connectedComponentMergers,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
     timing.begin("Merge classes");
     TimingMerger merger = timing.beginMerger("Merge classes", executorService);
-    ClassMergerSharedData sharedData = new ClassMergerSharedData(appView);
     VerticalClassMergerResult.Builder verticalClassMergerResult =
         VerticalClassMergerResult.builder(appView);
     Collection<Timing> timings =
@@ -205,7 +208,7 @@ public class VerticalClassMerger {
             connectedComponentMerger -> {
               Timing threadTiming = Timing.create("Merge classes in component", options);
               VerticalClassMergerResult.Builder verticalClassMergerComponentResult =
-                  connectedComponentMerger.run(sharedData);
+                  connectedComponentMerger.run(classMergerSharedData);
               verticalClassMergerResult.merge(verticalClassMergerComponentResult);
               threadTiming.end();
               return threadTiming;
@@ -219,29 +222,14 @@ public class VerticalClassMerger {
   }
 
   private VerticalClassMergerGraphLens runFixup(
-      ProfileCollectionAdditions profileCollectionAdditions,
+      ClassMergerSharedData classMergerSharedData,
       VerticalClassMergerResult verticalClassMergerResult,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
-    DexProgramClass deterministicContext =
-        appView
-            .definitionFor(
-                ListUtils.first(
-                    ListUtils.sort(
-                        verticalClassMergerResult.getVerticallyMergedClasses().getTargets(),
-                        Comparator.naturalOrder())))
-            .asProgramClass();
-    SyntheticArgumentClass syntheticArgumentClass =
-        new SyntheticArgumentClass.Builder(appView).build(deterministicContext);
-    VerticalClassMergerGraphLens lens =
-        new VerticalClassMergerTreeFixer(
-                appView,
-                profileCollectionAdditions,
-                syntheticArgumentClass,
-                verticalClassMergerResult)
-            .run(executorService, timing);
-    return lens;
+    return new VerticalClassMergerTreeFixer(
+            appView, classMergerSharedData, verticalClassMergerResult)
+        .run(executorService, timing);
   }
 
   private void rewriteCodeWithLens(ExecutorService executorService, Timing timing)
@@ -253,11 +241,12 @@ public class VerticalClassMerger {
   }
 
   private void updateArtProfiles(
-      ProfileCollectionAdditions profileCollectionAdditions,
       VerticalClassMergerGraphLens verticalClassMergerLens,
       VerticalClassMergerResult verticalClassMergerResult,
       Timing timing) {
     // Include bridges in art profiles.
+    ProfileCollectionAdditions profileCollectionAdditions =
+        ProfileCollectionAdditions.create(appView);
     if (profileCollectionAdditions.isNop()) {
       return;
     }

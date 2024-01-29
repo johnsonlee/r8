@@ -3,10 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.verticalclassmerging;
 
+import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.ClassMergerTreeFixer;
-import com.android.tools.r8.classmerging.SyntheticArgumentClass;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Timing;
 import java.util.List;
@@ -23,15 +22,13 @@ class VerticalClassMergerTreeFixer
 
   VerticalClassMergerTreeFixer(
       AppView<AppInfoWithLiveness> appView,
-      ProfileCollectionAdditions profileCollectionAdditions,
-      SyntheticArgumentClass syntheticArgumentClass,
+      ClassMergerSharedData classMergerSharedData,
       VerticalClassMergerResult verticalClassMergerResult) {
     super(
         appView,
+        classMergerSharedData,
         VerticalClassMergerGraphLens.Builder.createBuilderForFixup(verticalClassMergerResult),
-        verticalClassMergerResult.getVerticallyMergedClasses(),
-        profileCollectionAdditions,
-        syntheticArgumentClass);
+        verticalClassMergerResult.getVerticallyMergedClasses());
     this.synthesizedBridges = verticalClassMergerResult.getSynthesizedBridges();
   }
 

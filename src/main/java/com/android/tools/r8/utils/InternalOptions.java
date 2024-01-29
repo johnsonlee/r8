@@ -1877,7 +1877,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         }
       }
       if (mode.isInitial()) {
-        return enableInitial && inlinerOptions.enableInlining;
+        return enableInitial;
       }
       assert mode.isFinal();
       return true;

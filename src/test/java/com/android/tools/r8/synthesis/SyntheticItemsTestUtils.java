@@ -139,10 +139,6 @@ public class SyntheticItemsTestUtils {
     return syntheticClass(reference, naming.RECORD_HELPER, id);
   }
 
-  public static ClassReference syntheticTwrCloseResourceClass(Class<?> clazz, int id) {
-    return syntheticClass(clazz, naming.TWR_CLOSE_RESOURCE, id);
-  }
-
   public static ClassReference syntheticTwrCloseResourceClass(ClassReference reference, int id) {
     return syntheticClass(reference, naming.TWR_CLOSE_RESOURCE, id);
   }
@@ -300,12 +296,6 @@ public class SyntheticItemsTestUtils {
   public static boolean isExternalNonFixedInitializerTypeArgument(ClassReference reference) {
     return SyntheticNaming.isSynthetic(
         reference, Phase.EXTERNAL, naming.NON_FIXED_INIT_TYPE_ARGUMENT);
-  }
-
-  public static boolean isHorizontalInitializerTypeArgument(ClassReference reference) {
-    return SyntheticNaming.isSynthetic(reference, null, naming.HORIZONTAL_INIT_TYPE_ARGUMENT_1)
-        || SyntheticNaming.isSynthetic(reference, null, naming.HORIZONTAL_INIT_TYPE_ARGUMENT_2)
-        || SyntheticNaming.isSynthetic(reference, null, naming.HORIZONTAL_INIT_TYPE_ARGUMENT_3);
   }
 
   public static boolean isWrapper(ClassReference reference) {

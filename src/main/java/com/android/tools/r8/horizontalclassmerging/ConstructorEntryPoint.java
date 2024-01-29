@@ -6,12 +6,14 @@ package com.android.tools.r8.horizontalclassmerging;
 
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.synthetic.SyntheticSourceCode;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IntBox;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
@@ -35,17 +37,20 @@ import java.util.List;
  */
 public class ConstructorEntryPoint extends SyntheticSourceCode {
   private final DexField classIdField;
+  private final int extraNulls;
   private final Int2ReferenceSortedMap<DexMethod> typeConstructors;
 
   public ConstructorEntryPoint(
       Int2ReferenceSortedMap<DexMethod> typeConstructors,
       DexMethod newConstructor,
       DexField classIdField,
+      int extraNulls,
       Position position) {
     super(newConstructor.holder, newConstructor, position);
 
     this.typeConstructors = typeConstructors;
     this.classIdField = classIdField;
+    this.extraNulls = extraNulls;
   }
 
   private boolean hasClassIdField() {
@@ -55,16 +60,37 @@ public class ConstructorEntryPoint extends SyntheticSourceCode {
   void addConstructorInvoke(DexMethod typeConstructor) {
     add(
         builder -> {
-          List<Value> arguments = new ArrayList<>(typeConstructor.getArity() + 1);
+          int originalNumberOfNonReceiverArguments =
+              builder.hasArgumentValues()
+                  ? (builder.getArgumentValues().size()
+                      - BooleanUtils.intValue(typeConstructors.size() > 1)
+                      - extraNulls)
+                  : 0;
+          int newNumberOfNonReceiverArguments = typeConstructor.getArity();
+          List<Value> arguments = new ArrayList<>(newNumberOfNonReceiverArguments + 1);
           arguments.add(builder.getReceiverValue());
-
-          // If there are any arguments add them to the list.
-          for (int i = 0; i < typeConstructor.getArity(); i++) {
-            arguments.add(builder.getArgumentValues().get(i));
+          if (originalNumberOfNonReceiverArguments >= newNumberOfNonReceiverArguments) {
+            for (int i = 0; i < newNumberOfNonReceiverArguments; i++) {
+              arguments.add(builder.getArgumentValues().get(i));
+            }
+          } else {
+            // Exclude the last argument if it is the synthetic class id parameter, since the
+            // original constructor we are calling does not have it.
+            for (int i = 0; i < originalNumberOfNonReceiverArguments; i++) {
+              arguments.add(builder.getArgumentValues().get(i));
+            }
+            int extraRegister = nextRegister(ValueType.INT);
+            ConstNumber constNumber = builder.addIntConst(extraRegister, 0);
+            while (arguments.size() <= newNumberOfNonReceiverArguments) {
+              assert ValueType.fromDexType(
+                      typeConstructor.getArgumentTypeForNonStaticMethod(arguments.size()))
+                  == ValueType.INT;
+              arguments.add(constNumber.outValue());
+            }
           }
-
+          assert arguments.size() == typeConstructor.getNumberOfArgumentsForNonStaticMethod();
           builder.addInvoke(
-              InvokeType.DIRECT, typeConstructor, typeConstructor.proto, arguments, false);
+              InvokeType.DIRECT, typeConstructor, typeConstructor.getProto(), arguments, false);
         });
   }
 
@@ -84,10 +110,8 @@ public class ConstructorEntryPoint extends SyntheticSourceCode {
 
   protected void prepareMultiConstructorInstructions() {
     int typeConstructorCount = typeConstructors.size();
-    DexMethod exampleTargetConstructor = typeConstructors.values().iterator().next();
     // The class id register is always the first synthetic argument.
-    int idRegister = getParamRegister(exampleTargetConstructor.getArity());
-
+    int idRegister = getParamRegister(method.getArity() - 1 - extraNulls);
     if (hasClassIdField()) {
       addRegisterClassIdAssignment(idRegister);
     }

@@ -9,6 +9,7 @@ import static com.android.tools.r8.ir.code.InvokeType.VIRTUAL;
 import static java.util.function.Predicate.not;
 
 import com.android.tools.r8.cf.CfVersion;
+import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppView;

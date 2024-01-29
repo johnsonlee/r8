@@ -54,9 +54,10 @@ public class EquivalentConstructorsWithClassIdAndDifferentArgumentOrderMergingTe
               assertThat(aClassSubject, isPresent());
 
               // TODO(b/189296638): Enable constructor merging by changing the constructor
-              // arguments.
+              //  arguments.
               assertEquals(
-                  2, aClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
+                  parameters.isCfRuntime() ? 4 : 2,
+                  aClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("C0", "D1");

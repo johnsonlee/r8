@@ -49,12 +49,6 @@ public class SyntheticNaming {
   public final SyntheticKind WRAPPER = generator.forFixedClass("$Wrapper");
   public final SyntheticKind VIVIFIED_WRAPPER = generator.forFixedClass("$VivifiedWrapper");
   public final SyntheticKind INIT_TYPE_ARGUMENT = generator.forFixedClass("-IA");
-  public final SyntheticKind HORIZONTAL_INIT_TYPE_ARGUMENT_1 =
-      generator.forFixedClass(SYNTHETIC_CLASS_SEPARATOR + "IA$1");
-  public final SyntheticKind HORIZONTAL_INIT_TYPE_ARGUMENT_2 =
-      generator.forFixedClass(SYNTHETIC_CLASS_SEPARATOR + "IA$2");
-  public final SyntheticKind HORIZONTAL_INIT_TYPE_ARGUMENT_3 =
-      generator.forFixedClass(SYNTHETIC_CLASS_SEPARATOR + "IA$3");
   public final SyntheticKind ENUM_CONVERSION = generator.forFixedClass("$EnumConversion");
 
   // Locally generated synthetic classes.

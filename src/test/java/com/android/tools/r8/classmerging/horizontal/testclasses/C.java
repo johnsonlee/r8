@@ -6,11 +6,14 @@ package com.android.tools.r8.classmerging.horizontal.testclasses;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoAccessModification;
 
 @NeverClassInline
 public class C {
-  String field;
 
+  @NoAccessModification String field;
+
+  @NoAccessModification
   protected C(String field) {
     this.field = field;
   }

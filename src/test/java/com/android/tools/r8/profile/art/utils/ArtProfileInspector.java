@@ -30,9 +30,22 @@ public class ArtProfileInspector {
     this.artProfile = artProfile;
   }
 
-  public ArtProfileInspector applyIf(boolean condition, Consumer<ArtProfileInspector> fn) {
+  public ArtProfileInspector applyIf(
+      boolean condition, Consumer<ArtProfileInspector> thenConsumer) {
     if (condition) {
-      fn.accept(this);
+      thenConsumer.accept(this);
+    }
+    return this;
+  }
+
+  public ArtProfileInspector applyIf(
+      boolean condition,
+      Consumer<ArtProfileInspector> thenConsumer,
+      Consumer<ArtProfileInspector> elseConsumer) {
+    if (condition) {
+      thenConsumer.accept(this);
+    } else {
+      elseConsumer.accept(this);
     }
     return this;
   }

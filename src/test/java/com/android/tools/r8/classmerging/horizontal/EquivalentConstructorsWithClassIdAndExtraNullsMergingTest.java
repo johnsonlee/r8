@@ -5,6 +5,7 @@
 package com.android.tools.r8.classmerging.horizontal;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
@@ -53,12 +54,13 @@ public class EquivalentConstructorsWithClassIdAndExtraNullsMergingTest extends T
               ClassSubject aClassSubject = inspector.clazz(A.class);
               assertThat(aClassSubject, isPresent());
               assertEquals(
-                  2, aClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
+                  parameters.isCfRuntime() ? 3 : 2,
+                  aClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
+              assertThat(aClassSubject.init("java.lang.Object", "int"), isPresent());
+              assertThat(aClassSubject.init("java.lang.Object", "int", "int"), isPresent());
               assertThat(
-                  aClassSubject.method("void", "<init>", "java.lang.Object", "int"), isPresent());
-              assertThat(
-                  aClassSubject.method("void", "<init>", "java.lang.Object", "int", "int"),
-                  isPresent());
+                  aClassSubject.init("java.lang.Object", "int", "java.lang.Object"),
+                  isPresentIf(parameters.isCfRuntime()));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("C", "0", "C", "D");

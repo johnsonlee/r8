@@ -517,6 +517,11 @@ public class IRBuilder {
     return targets;
   }
 
+  public boolean hasArgumentValues() {
+    assert argumentValues == null || !argumentValues.isEmpty();
+    return argumentValues != null;
+  }
+
   public List<Value> getArgumentValues() {
     return argumentValues;
   }
@@ -1219,8 +1224,11 @@ public class IRBuilder {
     add(new ConstNumber(writeRegister(dest, getDouble(), ThrowingInfo.NO_THROW), value));
   }
 
-  public void addIntConst(int dest, long value) {
-    add(new ConstNumber(writeRegister(dest, getInt(), ThrowingInfo.NO_THROW), value));
+  public ConstNumber addIntConst(int dest, long value) {
+    ConstNumber constNumber =
+        new ConstNumber(writeRegister(dest, getInt(), ThrowingInfo.NO_THROW), value);
+    add(constNumber);
+    return constNumber;
   }
 
   public void addFloatConst(int dest, long value) {

@@ -4,12 +4,11 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
-import static com.android.tools.r8.dex.Constants.TEMPORARY_INSTANCE_INITIALIZER_PREFIX;
 import static com.android.tools.r8.ir.conversion.ExtraUnusedParameter.computeExtraUnusedParameters;
 
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.classmerging.ClassMergerMode;
-import com.android.tools.r8.classmerging.SyntheticArgumentClass;
+import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -29,7 +28,6 @@ import com.android.tools.r8.ir.conversion.ExtraUnusedParameter;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.BooleanUtils;
-import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.structural.Ordered;
@@ -160,7 +158,7 @@ public class InstanceInitializerMerger {
     for (ProgramMethod instanceInitializer : instanceInitializers) {
       typeConstructorClassMap.put(
           classIdentifiers.getInt(instanceInitializer.getHolderType()),
-          lensBuilder.getRenamedMethodSignature(instanceInitializer.getReference()));
+          instanceInitializer.getReference());
     }
     return typeConstructorClassMap;
   }
@@ -245,27 +243,27 @@ public class InstanceInitializerMerger {
   }
 
   private DexMethod moveInstanceInitializer(
-      ClassMethodsBuilder classMethodsBuilder, ProgramMethod instanceInitializer) {
-    DexMethod method =
-        dexItemFactory.createFreshMethodNameWithHolder(
-            TEMPORARY_INSTANCE_INITIALIZER_PREFIX,
-            instanceInitializer.getHolderType(),
-            instanceInitializer.getProto(),
-            group.getTarget().getType(),
-            classMethodsBuilder::isFresh);
-
-    DexEncodedMethod encodedMethod =
+      ClassMergerSharedData classMergerSharedData,
+      ClassMethodsBuilder classMethodsBuilder,
+      ProgramMethod instanceInitializer,
+      DexMethod reservedMethod) {
+    DexMethod newReference =
+        dexItemFactory.createInstanceInitializerWithFreshProto(
+            instanceInitializer.getReference().withHolder(group.getTarget(), dexItemFactory),
+            classMergerSharedData.getExtraUnusedArgumentTypes(),
+            candidate ->
+                classMethodsBuilder.isFresh(candidate)
+                    && candidate.isNotIdenticalTo(reservedMethod));
+    if (newReference.isIdenticalTo(instanceInitializer.getReference())) {
+      classMethodsBuilder.addDirectMethod(instanceInitializer.getDefinition());
+      return newReference;
+    }
+    DexEncodedMethod newMethod =
         instanceInitializer
             .getDefinition()
-            .toTypeSubstitutedMethodAsInlining(method, dexItemFactory);
-    encodedMethod.getMutableOptimizationInfo().markForceInline();
-    encodedMethod.getAccessFlags().unsetConstructor();
-    encodedMethod.getAccessFlags().unsetPublic();
-    encodedMethod.getAccessFlags().unsetProtected();
-    encodedMethod.getAccessFlags().setPrivate();
-    classMethodsBuilder.addDirectMethod(encodedMethod);
-
-    return method;
+            .toTypeSubstitutedMethodAsInlining(newReference, dexItemFactory);
+    classMethodsBuilder.addDirectMethod(newMethod);
+    return newReference;
   }
 
   private MethodAccessFlags getNewAccessFlags() {
@@ -288,7 +286,8 @@ public class InstanceInitializerMerger {
     return new ConstructorEntryPointSynthesizedCode(
         createClassIdToInstanceInitializerMap(),
         newMethodReference,
-        group.hasClassIdField() ? group.getClassIdField() : null);
+        group.hasClassIdField() ? group.getClassIdField() : null,
+        extraNulls);
   }
 
   private boolean isSingleton() {
@@ -298,9 +297,9 @@ public class InstanceInitializerMerger {
   /** Synthesize a new method which selects the constructor based on a parameter type. */
   @SuppressWarnings("ReferenceEquality")
   void merge(
+      ClassMergerSharedData classMergerSharedData,
       ProfileCollectionAdditions profileCollectionAdditions,
       ClassMethodsBuilder classMethodsBuilder,
-      SyntheticArgumentClass syntheticArgumentClass,
       SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder) {
     ProgramMethod representative = ListUtils.first(instanceInitializers);
 
@@ -313,23 +312,13 @@ public class InstanceInitializerMerger {
     DexMethod newMethodReferenceTemplate = getNewMethodReference(representative, needsClassId);
     assert mode.isInitial() || classMethodsBuilder.isFresh(newMethodReferenceTemplate);
 
-    Box<Set<DexType>> usedSyntheticArgumentClasses = new Box<>();
     DexMethod newMethodReference =
         dexItemFactory.createInstanceInitializerWithFreshProto(
             newMethodReferenceTemplate,
-            mode.isInitial() ? syntheticArgumentClass.getArgumentClasses() : ImmutableList.of(),
-            classMethodsBuilder::isFresh,
-            usedSyntheticArgumentClasses::set);
-
-    // Amend the art profile collection.
-    if (usedSyntheticArgumentClasses.isSet()) {
-      for (ProgramMethod instanceInitializer : instanceInitializers) {
-        profileCollectionAdditions.applyIfContextIsInProfile(
-            instanceInitializer.getReference(),
-            additionsBuilder ->
-                usedSyntheticArgumentClasses.get().forEach(additionsBuilder::addRule));
-      }
-    }
+            mode.isInitial()
+                ? classMergerSharedData.getExtraUnusedArgumentTypes()
+                : ImmutableList.of(),
+            classMethodsBuilder::isFresh);
 
     // Compute the extra unused null parameters.
     List<ExtraUnusedParameter> extraUnusedParameters =
@@ -346,7 +335,11 @@ public class InstanceInitializerMerger {
     } else {
       for (ProgramMethod instanceInitializer : instanceInitializers) {
         DexMethod movedInstanceInitializer =
-            moveInstanceInitializer(classMethodsBuilder, instanceInitializer);
+            moveInstanceInitializer(
+                classMergerSharedData,
+                classMethodsBuilder,
+                instanceInitializer,
+                newMethodReference);
         lensBuilder.mapMethod(movedInstanceInitializer, movedInstanceInitializer);
         lensBuilder.recordNewMethodSignature(
             instanceInitializer.getReference(), movedInstanceInitializer);
@@ -361,7 +354,6 @@ public class InstanceInitializerMerger {
     // Add a mapping from a synthetic name to the synthetic constructor.
     DexMethod syntheticMethodReference =
         getSyntheticMethodReference(classMethodsBuilder, newMethodReference);
-
     if (useSyntheticMethod()) {
       lensBuilder.recordNewMethodSignature(syntheticMethodReference, newMethodReference, true);
     }

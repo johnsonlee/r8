@@ -51,14 +51,36 @@ public class HorizontallyMergedConstructorMethodProfileRewritingTest extends Tes
       ClassSubject aClassSubject = inspector.clazz(A.class);
       assertThat(aClassSubject, isPresent());
 
-      MethodSubject syntheticConstructorSubject = aClassSubject.uniqueMethod();
+      MethodSubject syntheticConstructorSubject =
+          aClassSubject.uniqueMethodThatMatches(
+              method -> method.isInstanceInitializer() && method.isSynthetic());
       assertThat(syntheticConstructorSubject, isPresent());
       assertEquals(2, syntheticConstructorSubject.getParameters().size());
       assertEquals(aClassSubject.asTypeSubject(), syntheticConstructorSubject.getParameter(0));
       assertEquals("int", syntheticConstructorSubject.getParameter(1).getTypeName());
 
+      MethodSubject aConstructorSubject =
+          aClassSubject.uniqueMethodThatMatches(
+              method ->
+                  method.isInstanceInitializer()
+                      && !method.isSynthetic()
+                      && method.getProgramMethod().getReference().getArity() == 1);
+      assertThat(syntheticConstructorSubject, isPresent());
+
+      MethodSubject bConstructorSubject =
+          aClassSubject.uniqueMethodThatMatches(
+              method ->
+                  method.isInstanceInitializer()
+                      && !method.isSynthetic()
+                      && method.getProgramMethod().getReference().getArity() == 2);
+      assertThat(syntheticConstructorSubject, isPresent());
+
       profileInspector
-          .assertContainsMethodRule(syntheticConstructorSubject)
+          .assertContainsMethodRules(syntheticConstructorSubject)
+          .applyIf(
+              this == A_CONSTRUCTOR,
+              i -> i.assertContainsMethodRule(aConstructorSubject),
+              i -> i.assertContainsMethodRule(bConstructorSubject))
           .assertContainsNoOtherRules();
     }
   }
@@ -83,7 +105,7 @@ public class HorizontallyMergedConstructorMethodProfileRewritingTest extends Tes
         .addArtProfileForRewriting(artProfileInputOutput.getArtProfile())
         .addHorizontallyMergedClassesInspector(
             inspector -> inspector.assertMergedInto(B.class, A.class).assertNoOtherClassesMerged())
-        .addOptionsModification(InlinerOptions::setOnlyForceInlining)
+        .addOptionsModification(InlinerOptions::disableInlining)
         .addOptionsModification(
             options -> options.callSiteOptimizationOptions().disableOptimization())
         .enableNeverClassInliningAnnotations()
