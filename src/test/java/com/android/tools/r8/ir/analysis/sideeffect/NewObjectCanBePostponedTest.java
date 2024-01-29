@@ -4,8 +4,8 @@
 package com.android.tools.r8.ir.analysis.sideeffect;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.gradle.internal.impldep.org.junit.Assert.assertTrue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
