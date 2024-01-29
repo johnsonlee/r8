@@ -66,7 +66,9 @@ public class B322478366RegressionTest extends TestBase {
       MethodSubject m2 = inspector.clazz(Main.class).uniqueMethodWithOriginalName("m2");
       // TODO(b/322478366): Cts test CtsPerfettoTestCases.HeapprofdJavaCtsTest#DebuggableAppOom
       //  requires that the array allocation stays.
-      assertEquals(0, m2.streamInstructions().filter(InstructionSubject::isNewArray).count());
+      assertEquals(
+          mode.isDebug() ? 1 : 0,
+          m2.streamInstructions().filter(InstructionSubject::isNewArray).count());
       MethodSubject m3 = inspector.clazz(Main.class).uniqueMethodWithOriginalName("m3");
       assertEquals(
           mode.isDebug() ? 1 : 0,
@@ -74,6 +76,7 @@ public class B322478366RegressionTest extends TestBase {
     } else {
       assertThat(inspector.clazz(Main.class).uniqueMethodWithOriginalName("m1"), isAbsent());
       assertThat(inspector.clazz(Main.class).uniqueMethodWithOriginalName("m2"), isAbsent());
+      assertThat(inspector.clazz(Main.class).uniqueMethodWithOriginalName("m3"), isAbsent());
     }
   }
 

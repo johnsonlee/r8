@@ -88,7 +88,11 @@ public class NewArrayEmpty extends Instruction {
       AbstractValueSupplier abstractValueSupplier,
       SideEffectAssumption assumption) {
     assert type.isArrayType();
-    return isArrayTypeInaccessible(appView, context) || isArraySizeMaybeNegative();
+    return isArrayTypeInaccessible(appView, context)
+        || isArraySizeMaybeNegative()
+        // Cts test relying on dead array allocations of size Integer.MAX_VALUE not getting
+        // removed See b/322478366.
+        || (appView.options().debug && sizeIfConst() == Integer.MAX_VALUE);
   }
 
   private boolean isArrayTypeInaccessible(AppView<?> appView, ProgramMethod context) {
