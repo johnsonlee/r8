@@ -8,7 +8,6 @@ import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -21,8 +20,6 @@ import com.android.tools.r8.ir.conversion.CfSourceCode;
 import com.android.tools.r8.ir.conversion.CfState;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
-import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
-import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
@@ -419,9 +416,6 @@ public abstract class CfInstruction implements CfOrDexInstruction {
   public boolean emitsIR() {
     return true;
   }
-
-  public abstract ConstraintWithTarget inliningConstraint(
-      InliningConstraints inliningConstraints, CfCode code, ProgramMethod context);
 
   public abstract CfFrameState evaluate(
       CfFrameState frame, AppView<?> appView, CfAnalysisConfig config);

@@ -22,7 +22,6 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.NestMemberClassAttribute;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.proto.ProtoInliningReasonStrategy;
 import com.android.tools.r8.ir.analysis.type.Nullability;
@@ -151,8 +150,7 @@ public class Inliner {
     }
 
     ConstraintWithTarget result = ConstraintWithTarget.ALWAYS;
-    InliningConstraints inliningConstraints =
-        new InliningConstraints(appView, GraphLens.getIdentityLens());
+    InliningConstraints inliningConstraints = new InliningConstraints(appView);
     for (Instruction instruction : code.instructions()) {
       ConstraintWithTarget state =
           instructionAllowedForInlining(instruction, inliningConstraints, context);

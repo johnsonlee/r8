@@ -8,17 +8,13 @@ import static com.android.tools.r8.optimize.interfaces.analysis.ErroneousCfFrame
 
 import com.android.tools.r8.cf.code.frame.PreciseFrameType;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.conversion.CfSourceCode;
 import com.android.tools.r8.ir.conversion.CfState;
 import com.android.tools.r8.ir.conversion.CfState.Slot;
 import com.android.tools.r8.ir.conversion.IRBuilder;
-import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
-import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.optimize.interfaces.analysis.ErroneousCfFrameState;
@@ -71,12 +67,6 @@ public class CfInstanceFieldWrite extends CfFieldInstruction {
     Slot value = state.pop();
     Slot object = state.pop();
     builder.addInstancePut(value.register, object.register, getField());
-  }
-
-  @Override
-  public ConstraintWithTarget inliningConstraint(
-      InliningConstraints inliningConstraints, CfCode code, ProgramMethod context) {
-    return inliningConstraints.forInstancePut(getField(), context);
   }
 
   @Override

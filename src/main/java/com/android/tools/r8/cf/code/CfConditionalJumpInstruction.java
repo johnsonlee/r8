@@ -4,12 +4,8 @@
 
 package com.android.tools.r8.cf.code;
 
-import com.android.tools.r8.graph.CfCode;
-import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.ValueType;
-import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
-import com.android.tools.r8.ir.optimize.InliningConstraints;
 
 public abstract class CfConditionalJumpInstruction extends CfJumpInstruction {
 
@@ -26,12 +22,6 @@ public abstract class CfConditionalJumpInstruction extends CfJumpInstruction {
   @Override
   public final int bytecodeSizeUpperBound() {
     return 3;
-  }
-
-  @Override
-  public final ConstraintWithTarget inliningConstraint(
-      InliningConstraints inliningConstraints, CfCode code, ProgramMethod context) {
-    return inliningConstraints.forJumpInstruction();
   }
 
   @Override

@@ -10,7 +10,6 @@ import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.cf.code.frame.PreciseFrameType;
 import com.android.tools.r8.cf.code.frame.UninitializedFrameType;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -23,8 +22,6 @@ import com.android.tools.r8.ir.conversion.CfSourceCode;
 import com.android.tools.r8.ir.conversion.CfState;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
-import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
-import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
@@ -306,12 +303,6 @@ public class CfFrame extends CfInstruction implements Cloneable {
   @Override
   public boolean emitsIR() {
     return false;
-  }
-
-  @Override
-  public ConstraintWithTarget inliningConstraint(
-      InliningConstraints inliningConstraints, CfCode code, ProgramMethod context) {
-    return ConstraintWithTarget.ALWAYS;
   }
 
   @Override

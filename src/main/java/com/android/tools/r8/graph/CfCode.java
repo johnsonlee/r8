@@ -38,11 +38,8 @@ import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
-import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
-import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
@@ -859,25 +856,6 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
   @Override
   public String toString(DexEncodedMethod method, RetracerForCodePrinting retracer) {
     return new CfPrinter(this, method, retracer).toString();
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  public ConstraintWithTarget computeInliningConstraint(
-      AppView<AppInfoWithLiveness> appView,
-      GraphLens graphLens,
-      ProgramMethod context) {
-    InliningConstraints inliningConstraints = new InliningConstraints(appView, graphLens);
-    ConstraintWithTarget constraint = ConstraintWithTarget.ALWAYS;
-    assert inliningConstraints.forMonitor().isAlways();
-    for (CfInstruction insn : instructions) {
-      constraint =
-          ConstraintWithTarget.meet(
-              constraint, insn.inliningConstraint(inliningConstraints, this, context), appView);
-      if (constraint.isNever()) {
-        return constraint;
-      }
-    }
-    return constraint;
   }
 
   void addFakeThisParameter(DexItemFactory factory) {

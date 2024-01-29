@@ -7,11 +7,8 @@ import com.android.tools.r8.cf.CfPrinter;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.CfCompareHelper;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
@@ -28,8 +25,6 @@ import com.android.tools.r8.ir.conversion.CfState;
 import com.android.tools.r8.ir.conversion.CfState.Slot;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
-import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
-import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
@@ -285,68 +280,6 @@ public class CfInvoke extends CfInstruction {
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
-  public ConstraintWithTarget inliningConstraint(
-      InliningConstraints inliningConstraints, CfCode code, ProgramMethod context) {
-    GraphLens graphLens = inliningConstraints.getGraphLens();
-    AppView<?> appView = inliningConstraints.getAppView();
-    DexMethod target = method;
-    // Find the DEX invocation type.
-    InvokeType type;
-    switch (opcode) {
-      case Opcodes.INVOKEINTERFACE:
-        // Could have changed to an invoke-virtual instruction due to vertical class merging
-        // (if an interface is merged into a class).
-        type =
-            graphLens.lookupMethod(target, context.getReference(), InvokeType.INTERFACE).getType();
-        assert type == InvokeType.INTERFACE || type == InvokeType.VIRTUAL;
-        break;
-
-      case Opcodes.INVOKESPECIAL:
-        {
-          InvokeType actualInvokeType =
-              computeInvokeTypeForInvokeSpecial(appView, method, context, code.getOriginalHolder());
-          type = graphLens.lookupMethod(target, context.getReference(), actualInvokeType).getType();
-        }
-        break;
-
-      case Opcodes.INVOKESTATIC:
-        {
-          // Static invokes may have changed as a result of horizontal class merging.
-          MethodLookupResult lookup =
-              graphLens.lookupMethod(target, context.getReference(), InvokeType.STATIC);
-          target = lookup.getReference();
-          type = lookup.getType();
-        }
-        break;
-
-      case Opcodes.INVOKEVIRTUAL:
-        {
-          type = InvokeType.VIRTUAL;
-          // Instructions that target a private method in the same class translates to
-          // invoke-direct.
-          if (target.holder == context.getHolderType()) {
-            DexClass clazz = appView.definitionFor(target.holder);
-            if (clazz != null && clazz.lookupDirectMethod(target) != null) {
-              type = InvokeType.DIRECT;
-            }
-          }
-
-          // Virtual invokes may have changed to interface invokes as a result of member rebinding.
-          MethodLookupResult lookup = graphLens.lookupMethod(target, context.getReference(), type);
-          target = lookup.getReference();
-          type = lookup.getType();
-        }
-        break;
-
-      default:
-        throw new Unreachable("Unexpected opcode " + opcode);
-    }
-
-    return inliningConstraints.forInvoke(target, type, context);
-  }
-
-  @Override
   public CfFrameState evaluate(CfFrameState frame, AppView<?> appView, CfAnalysisConfig config) {
     // ..., objectref, [arg1, [arg2 ...]] →
     // ... [ returnType ]
@@ -369,42 +302,5 @@ public class CfInvoke extends CfInstruction {
       return frame;
     }
     return frame.push(config, method.getReturnType());
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private InvokeType computeInvokeTypeForInvokeSpecial(
-      AppView<?> appView, DexMethod method, ProgramMethod context, DexType originalHolder) {
-    if (appView.dexItemFactory().isConstructor(method)) {
-      return InvokeType.DIRECT;
-    }
-    if (originalHolder != method.getHolderType()) {
-      return InvokeType.SUPER;
-    }
-    return invokeTypeForInvokeSpecialToNonInitMethodOnHolder(context, appView.graphLens());
-  }
-
-  private InvokeType invokeTypeForInvokeSpecialToNonInitMethodOnHolder(
-      ProgramMethod context, GraphLens graphLens) {
-    MethodLookupResult lookupResult =
-        graphLens.lookupMethod(method, context.getReference(), InvokeType.DIRECT);
-    DexEncodedMethod definition = context.getHolder().lookupMethod(lookupResult.getReference());
-    if (definition == null) {
-      return InvokeType.SUPER;
-    }
-
-    if (context.getHolder().isInterface()) {
-      // On interfaces invoke-special should be mapped to invoke-super if the invoke-special
-      // instruction is used to target a default interface method.
-      if (definition.belongsToVirtualPool()) {
-        return InvokeType.SUPER;
-      }
-    } else {
-      // Due to desugaring of invoke-special instructions that target virtual methods, this invoke
-      // should only target a virtual method if the method has been publicized in R8 (in which case
-      // the invoke instruction has a pending rewrite to invoke-virtual).
-      assert definition.isPrivate() || lookupResult.getType().isVirtual();
-    }
-
-    return InvokeType.DIRECT;
   }
 }

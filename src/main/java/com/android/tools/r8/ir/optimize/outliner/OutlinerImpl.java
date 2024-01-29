@@ -1360,7 +1360,7 @@ public class OutlinerImpl extends Outliner {
   public OutlinerImpl(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
     this.dexItemFactory = appView.dexItemFactory();
-    this.inliningConstraints = new InliningConstraints(appView, GraphLens.getIdentityLens());
+    this.inliningConstraints = new InliningConstraints(appView);
   }
 
   @Override
