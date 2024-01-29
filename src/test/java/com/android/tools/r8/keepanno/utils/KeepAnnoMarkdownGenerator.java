@@ -36,7 +36,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -203,10 +202,10 @@ public class KeepAnnoMarkdownGenerator {
   }
 
   private void internalGenerateMarkdownDoc(Path projectRoot) throws IOException {
-    Path relativePath = Paths.get("doc", "keepanno-guide.template.md");
-    Path template = projectRoot.resolve(relativePath);
+    String relativeUnixPath = "doc/keepanno-guide.template.md";
+    Path template = projectRoot.resolve(relativeUnixPath);
     println("[comment]: <> (DO NOT EDIT - GENERATED FILE)");
-    println("[comment]: <> (Changes should be made in " + relativePath + ")");
+    println("[comment]: <> (Changes should be made in " + relativeUnixPath + ")");
     println();
     List<String> readAllLines = FileUtils.readAllLines(template);
     TableEntry root = new TableEntry(0, "root", "root", null);
