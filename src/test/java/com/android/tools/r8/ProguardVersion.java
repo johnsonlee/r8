@@ -23,7 +23,7 @@ public enum ProguardVersion {
   }
 
   public static ProguardVersion getLatest() {
-    return V7_3_2;
+    return V7_4_1;
   }
 
   public Path getProguardScript() {
