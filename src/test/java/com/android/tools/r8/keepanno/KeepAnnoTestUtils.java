@@ -26,8 +26,9 @@ public class KeepAnnoTestUtils {
 
   public static ProguardVersion PG_VERSION = ProguardVersion.V7_4_1;
 
-  // TODO(b/321674067): Downgrade this to oldest supported AGP, such as R8 8.0.35.
-  public static Path R8_LIB = Paths.get(ToolHelper.THIRD_PARTY_DIR, "r8", "r8lib_8.2.20-dev.jar");
+  // Track support for R8 version 8.0.46 which is included in AGP 8.0.2
+  public static Path R8_LIB =
+      Paths.get(ToolHelper.THIRD_PARTY_DIR, "r8-releases", "8.0.46", "r8lib.jar");
 
   public static Path getKeepAnnoLib(TemporaryFolder temp) throws IOException {
     Path archive = temp.newFolder().toPath().resolve("keepanno.jar");

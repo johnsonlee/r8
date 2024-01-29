@@ -584,6 +584,10 @@ object ThirdPartyDeps {
     "r8-v3-2-54",
     Paths.get("third_party", "r8-releases","3.2.54").toFile(),
     Paths.get("third_party", "r8-releases", "3.2.54.tar.gz.sha1").toFile())
+  val r8v8_0_46 = ThirdPartyDependency(
+    "r8-v8-0-46",
+    Paths.get("third_party", "r8-releases","8.0.46").toFile(),
+    Paths.get("third_party", "r8-releases", "8.0.46.tar.gz.sha1").toFile())
   val retraceBenchmark = ThirdPartyDependency(
     "retrace-benchmark",
     Paths.get("third_party", "retrace_benchmark").toFile(),
