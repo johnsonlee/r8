@@ -66,7 +66,7 @@ public interface IRCodeProvider {
       return method
           .getDefinition()
           .getCode()
-          .buildIR(method, appViewForConversion, method.getOrigin(), getConversionOptions.get());
+          .buildIR(method, appViewForConversion, getConversionOptions.get());
     }
 
     @Override

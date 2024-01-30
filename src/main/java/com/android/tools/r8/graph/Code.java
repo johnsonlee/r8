@@ -17,21 +17,19 @@ import com.android.tools.r8.ir.code.Position.PositionBuilder;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.lightir.LirCode;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import java.util.function.Consumer;
 
 public abstract class Code extends CachedHashValueDexItem {
 
-  public final IRCode buildIR(ProgramMethod method, AppView<?> appView, Origin origin) {
-    return buildIR(method, appView, origin, MethodConversionOptions.forLirPhase(appView));
+  public final IRCode buildIR(ProgramMethod method, AppView<?> appView) {
+    return buildIR(method, appView, MethodConversionOptions.forLirPhase(appView));
   }
 
   public abstract IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions);
 
   public IRCode buildInliningIR(
@@ -41,7 +39,6 @@ public abstract class Code extends CachedHashValueDexItem {
       GraphLens codeLens,
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
-      Origin origin,
       RewrittenPrototypeDescription protoChanges) {
     throw new Unreachable("Unexpected attempt to build IR graph for inlining from: "
         + getClass().getCanonicalName());

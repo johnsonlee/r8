@@ -13,7 +13,6 @@ import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.conversion.LensCodeRewriter;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
-import com.android.tools.r8.origin.Origin;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -82,14 +81,12 @@ public class InliningIRProvider {
     if (cached != null) {
       return cached;
     }
-    Origin origin = method.getOrigin();
     IRCode code =
         method.buildInliningIR(
             context,
             appView,
             valueNumberGenerator,
             Position.getPositionForInlining(invoke, context),
-            origin,
             methodProcessor);
     if (lensCodeRewriter != null && methodProcessor.shouldApplyCodeRewritings(method)) {
       lensCodeRewriter.rewrite(code, method, methodProcessor);

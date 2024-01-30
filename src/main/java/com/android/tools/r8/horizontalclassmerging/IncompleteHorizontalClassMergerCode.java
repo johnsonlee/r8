@@ -17,7 +17,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 
 public abstract class IncompleteHorizontalClassMergerCode extends Code {
@@ -55,7 +54,6 @@ public abstract class IncompleteHorizontalClassMergerCode extends Code {
   public IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions) {
     throw new Unreachable();
   }

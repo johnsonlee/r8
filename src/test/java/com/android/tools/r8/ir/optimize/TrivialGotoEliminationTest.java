@@ -30,7 +30,6 @@ import com.android.tools.r8.ir.code.Throw;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.passes.TrivialGotosCollapser;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Timing;
@@ -107,7 +106,6 @@ public class TrivialGotoEliminationTest extends TestBase {
             new NumberGenerator(),
             basicBlockNumberGenerator,
             IRMetadata.unknown(),
-            Origin.unknown(),
             MethodConversionOptions.forD8(appView));
     new TrivialGotosCollapser(appView).run(code, Timing.empty());
     assertTrue(code.entryBlock().isTrivialGoto());
@@ -196,7 +194,6 @@ public class TrivialGotoEliminationTest extends TestBase {
             new NumberGenerator(),
             basicBlockNumberGenerator,
             IRMetadata.unknown(),
-            Origin.unknown(),
             MethodConversionOptions.forD8(appView));
     new TrivialGotosCollapser(appView).run(code, Timing.empty());
     assertTrue(block0.getInstructions().get(1).isIf());

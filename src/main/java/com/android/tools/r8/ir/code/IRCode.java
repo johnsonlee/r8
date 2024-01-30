@@ -30,7 +30,6 @@ import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.optimize.AffectedValues;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -138,8 +137,6 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
   private final IRMetadata metadata;
   private final InternalOptions options;
 
-  public final Origin origin;
-
   public IRCode(
       InternalOptions options,
       ProgramMethod method,
@@ -148,7 +145,6 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
       NumberGenerator valueNumberGenerator,
       NumberGenerator basicBlockNumberGenerator,
       IRMetadata metadata,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions) {
     assert metadata != null;
     assert options != null;
@@ -162,7 +158,6 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
     this.valueNumberGenerator = valueNumberGenerator;
     this.basicBlockNumberGenerator = basicBlockNumberGenerator;
     this.metadata = metadata;
-    this.origin = origin;
   }
 
   public IRMetadata metadata() {

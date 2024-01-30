@@ -5,9 +5,9 @@ package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.ValueType;
-import com.android.tools.r8.origin.Origin;
 
 public class CfState {
 
@@ -74,12 +74,12 @@ public class CfState {
     }
   }
 
-  private final Origin origin;
+  private final ProgramMethod method;
   private Snapshot current;
   private Position position;
 
-  public CfState(Origin origin) {
-    this.origin = origin;
+  public CfState(ProgramMethod method) {
+    this.method = method;
   }
 
   private static final int MAX_UPDATES = 4;
@@ -110,7 +110,7 @@ public class CfState {
     if (current == null) {
       current = snapshot == null ? new BaseSnapshot() : snapshot;
     } else {
-      current = merge(current, snapshot, origin);
+      current = merge(current, snapshot, method);
     }
   }
 
@@ -118,22 +118,22 @@ public class CfState {
     return current;
   }
 
-  public static Snapshot merge(Snapshot current, Snapshot update, Origin origin) {
+  public static Snapshot merge(Snapshot current, Snapshot update, ProgramMethod method) {
     assert update != null;
     if (current == null) {
       return update;
     }
-    return merge(current.asBase(), update.asBase(), origin);
+    return merge(current.asBase(), update.asBase(), method);
   }
 
-  private static Snapshot merge(BaseSnapshot current, BaseSnapshot update, Origin origin) {
+  private static Snapshot merge(BaseSnapshot current, BaseSnapshot update, ProgramMethod method) {
     if (current.stack.length != update.stack.length) {
       throw new CompilationError(
           "Different stack heights at jump target: "
               + current.stack.length
               + " != "
               + update.stack.length,
-          origin);
+          method.getOrigin());
     }
     // At this point, JarState checks if `current` has special "NULL" or "BYTE/BOOL" types
     // that `update` does not have, and if so it computes a refinement.
@@ -149,7 +149,7 @@ public class CfState {
                 + current.stack[i]
                 + " and "
                 + update.stack[i],
-            origin);
+            method.getOrigin());
       }
     }
     // We could check that locals are compatible, but that doesn't make sense since locals can be

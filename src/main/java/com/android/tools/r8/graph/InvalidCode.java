@@ -6,7 +6,6 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 
 public class InvalidCode extends Code {
@@ -28,7 +27,6 @@ public class InvalidCode extends Code {
   public IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions) {
     throw new Unreachable();
   }

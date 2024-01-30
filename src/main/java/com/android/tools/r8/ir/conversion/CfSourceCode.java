@@ -40,7 +40,6 @@ import com.android.tools.r8.ir.code.ValueTypeConstraint;
 import com.android.tools.r8.ir.conversion.CfState.Slot;
 import com.android.tools.r8.ir.conversion.CfState.Snapshot;
 import com.android.tools.r8.ir.conversion.IRBuilder.BlockInfo;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.InternalOutputMode;
 import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
@@ -190,7 +189,6 @@ public class CfSourceCode implements SourceCode {
   private final List<CfCode.LocalVariableInfo> localVariables;
   private final CfCode code;
   private final ProgramMethod method;
-  private final Origin origin;
   private final AppView<?> appView;
 
   private final Reference2IntMap<CfLabel> labelOffsets = new Reference2IntOpenHashMap<>();
@@ -207,15 +205,13 @@ public class CfSourceCode implements SourceCode {
 
   public CfSourceCode(
       CfCode code,
-      List<CfCode.LocalVariableInfo> localVariables,
+      List<LocalVariableInfo> localVariables,
       ProgramMethod method,
       Position callerPosition,
-      Origin origin,
       AppView<?> appView) {
     this.code = code;
     this.localVariables = localVariables;
     this.method = method;
-    this.origin = origin;
     this.appView = appView;
     int cfPositionCount = 0;
     for (int i = 0; i < code.getInstructions().size(); i++) {
@@ -227,7 +223,7 @@ public class CfSourceCode implements SourceCode {
         ++cfPositionCount;
       }
     }
-    this.state = new CfState(origin);
+    this.state = new CfState(method);
     canonicalPositions =
         new CanonicalPositions(
             callerPosition,
@@ -245,14 +241,6 @@ public class CfSourceCode implements SourceCode {
 
   private DexEncodedMethod getMethod() {
     return method.getDefinition();
-  }
-
-  public Origin getOrigin() {
-    return origin;
-  }
-
-  public DexType getOriginalHolder() {
-    return code.getOriginalHolder();
   }
 
   @Override
@@ -573,7 +561,7 @@ public class CfSourceCode implements SourceCode {
 
   private void recordStateForTarget(int target, Snapshot snapshot) {
     Snapshot existing = incomingState.get(target);
-    Snapshot merged = CfState.merge(existing, snapshot, origin);
+    Snapshot merged = CfState.merge(existing, snapshot, method);
     if (merged != existing) {
       incomingState.put(target, merged);
     }
@@ -689,8 +677,7 @@ public class CfSourceCode implements SourceCode {
           .reporter
           .warning(
               new CfCodeDiagnostics(
-                  origin,
-                  method.getReference(),
+                  method,
                   "Could not find stack map for block at offset "
                       + blockOffset
                       + ". This is most likely due to invalid"

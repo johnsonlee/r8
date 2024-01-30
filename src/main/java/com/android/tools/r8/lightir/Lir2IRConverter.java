@@ -352,7 +352,6 @@ public class Lir2IRConverter {
           strategy.getValueNumberGenerator(),
           basicBlockNumberGenerator,
           code.getMetadataForIR(),
-          method.getOrigin(),
           conversionOptions);
     }
 

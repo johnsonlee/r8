@@ -621,9 +621,9 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     if (intervals == null) {
       throw new CompilationError(
           "Unexpected attempt to get register for a value without a register in method `"
-              + code.method().getReference().toSourceString()
+              + code.context().toSourceString()
               + "`.",
-          code.origin);
+          code.context().getOrigin());
     }
     if (intervals.hasSplits()) {
       intervals = intervals.getSplitCovering(instructionNumber);

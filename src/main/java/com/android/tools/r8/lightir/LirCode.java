@@ -34,7 +34,6 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.lightir.LirConstant.LirConstantStructuralAcceptor;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.ComparatorUtils;
 import com.android.tools.r8.utils.FastMapUtils;
@@ -545,7 +544,6 @@ public class LirCode<EV> extends Code
   public IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions) {
     RewrittenPrototypeDescription protoChanges =
         appView.graphLens().lookupPrototypeChangesForMethodDefinition(method.getReference());
@@ -561,7 +559,6 @@ public class LirCode<EV> extends Code
       GraphLens codeLens,
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
-      Origin origin,
       RewrittenPrototypeDescription protoChanges) {
     assert valueNumberGenerator != null;
     assert callerPosition != null;

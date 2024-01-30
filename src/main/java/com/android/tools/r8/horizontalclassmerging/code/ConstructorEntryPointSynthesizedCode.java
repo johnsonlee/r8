@@ -27,7 +27,6 @@ import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.SourceCode;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
@@ -93,7 +92,6 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
   public final IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions) {
     SyntheticPosition position =
         SyntheticPosition.builder()
@@ -104,7 +102,7 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
     SourceCode sourceCode =
         new ConstructorEntryPoint(
             typeConstructors, newConstructor, classIdField, extraNulls, position);
-    return IRBuilder.create(method, appView, sourceCode, origin).build(method, conversionOptions);
+    return IRBuilder.create(method, appView, sourceCode).build(method, conversionOptions);
   }
 
   @Override
@@ -115,13 +113,12 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
       GraphLens codeLens,
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
-      Origin origin,
       RewrittenPrototypeDescription protoChanges) {
     SourceCode sourceCode =
         new ConstructorEntryPoint(
             typeConstructors, newConstructor, classIdField, extraNulls, callerPosition);
     return IRBuilder.createForInlining(
-            method, appView, codeLens, sourceCode, origin, valueNumberGenerator, protoChanges)
+            method, appView, codeLens, sourceCode, valueNumberGenerator, protoChanges)
         .build(context, MethodConversionOptions.nonConverting());
   }
 

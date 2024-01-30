@@ -140,8 +140,7 @@ public class CheckCastAndInstanceOfMethodSpecialization {
               method.getHolderType(), abstractParentReturnValue.isTrue()),
           appView);
       // Rebuild inlining constraints.
-      IRCode code =
-          parentMethodDefinition.getCode().buildIR(parentMethod, appView, parentMethod.getOrigin());
+      IRCode code = parentMethodDefinition.getCode().buildIR(parentMethod, appView);
       converter.markProcessed(code, feedback);
       // Fixup method optimization info (the method no longer returns a constant).
       feedback.fixupUnusedArguments(parentMethod, unusedArguments -> unusedArguments.clear(0));

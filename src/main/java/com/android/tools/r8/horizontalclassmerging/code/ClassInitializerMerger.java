@@ -35,7 +35,6 @@ import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.CfVersionUtils;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
@@ -208,7 +207,6 @@ public class ClassInitializerMerger {
     public IRCode buildIR(
         ProgramMethod method,
         AppView<?> appView,
-        Origin origin,
         MutableMethodConversionOptions conversionOptions) {
       assert !classInitializers.isEmpty();
 
@@ -249,7 +247,6 @@ public class ClassInitializerMerger {
               valueNumberGenerator,
               blockNumberGenerator,
               metadata,
-              origin,
               conversionOptions);
 
       ListIterator<BasicBlock> blockIterator = code.listIterator();
@@ -275,7 +272,6 @@ public class ClassInitializerMerger {
                     appView.codeLens(),
                     valueNumberGenerator,
                     preamblePosition,
-                    classInitializer.getOrigin(),
                     RewrittenPrototypeDescription.none());
         classInitializer.getDefinition().setObsolete();
 

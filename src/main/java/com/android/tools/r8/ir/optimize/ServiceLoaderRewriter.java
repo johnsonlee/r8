@@ -26,7 +26,6 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.desugar.ServiceLoaderSourceCode;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.ListUtils;
@@ -114,7 +113,7 @@ public class ServiceLoaderRewriter {
       // Check that the first argument is a const class.
       Value argument = serviceLoaderLoad.inValues().get(0).getAliasedValue();
       if (argument.isPhi() || !argument.definition.isConstClass()) {
-        report(code.origin, null, "The service loader type could not be determined");
+        report(code.context(), null, "The service loader type could not be determined");
         continue;
       }
 
@@ -122,7 +121,7 @@ public class ServiceLoaderRewriter {
 
       if (invokedMethod != serviceLoaderMethods.loadWithClassLoader) {
         report(
-            code.origin,
+            code.context(),
             constClass.getType(),
             "Inlining is only support for `java.util.ServiceLoader.load(java.lang.Class,"
                 + " java.lang.ClassLoader)`");
@@ -134,7 +133,7 @@ public class ServiceLoaderRewriter {
               + " java.lang.ServiceLoader.iterator()`";
       Value serviceLoaderLoadOut = serviceLoaderLoad.outValue();
       if (serviceLoaderLoadOut.numberOfAllUsers() != 1 || serviceLoaderLoadOut.hasPhiUsers()) {
-        report(code.origin, constClass.getType(), invalidUserMessage);
+        report(code.context(), constClass.getType(), invalidUserMessage);
         continue;
       }
 
@@ -142,13 +141,14 @@ public class ServiceLoaderRewriter {
       if (!serviceLoaderLoadOut.singleUniqueUser().isInvokeVirtual()
           || serviceLoaderLoadOut.singleUniqueUser().asInvokeVirtual().getInvokedMethod()
               != serviceLoaderMethods.iterator) {
-        report(code.origin, constClass.getType(), invalidUserMessage + ", but found other usages");
+        report(
+            code.context(), constClass.getType(), invalidUserMessage + ", but found other usages");
         continue;
       }
 
       // Check that the service is not kept.
       if (appView.appInfo().isPinnedWithDefinitionLookup(constClass.getValue())) {
-        report(code.origin, constClass.getType(), "The service loader type is kept");
+        report(code.context(), constClass.getType(), "The service loader type is kept");
         continue;
       }
 
@@ -162,7 +162,7 @@ public class ServiceLoaderRewriter {
       // Check that we are not service loading anything from a feature into base.
       if (appServices.hasServiceImplementationsInFeature(appView, constClass.getValue())) {
         report(
-            code.origin,
+            code.context(),
             constClass.getType(),
             "The service loader type has implementations in a feature split");
         continue;
@@ -172,7 +172,7 @@ public class ServiceLoaderRewriter {
       // that we are instantiating or NULL.
       if (serviceLoaderLoad.inValues().get(1).isPhi()) {
         report(
-            code.origin,
+            code.context(),
             constClass.getType(),
             "The java.lang.ClassLoader argument must be defined locally as null or "
                 + constClass.getType()
@@ -195,7 +195,7 @@ public class ServiceLoaderRewriter {
                       == constClass.getValue());
       if (!isGetClassLoaderOnConstClassOrNull) {
         report(
-            code.origin,
+            code.context(),
             constClass.getType(),
             "The java.lang.ClassLoader argument must be defined locally as null or "
                 + constClass.getType()
@@ -210,7 +210,7 @@ public class ServiceLoaderRewriter {
         DexClass serviceImplementation = appView.definitionFor(serviceImpl);
         if (serviceImplementation == null) {
           report(
-              code.origin,
+              code.context(),
               constClass.getType(),
               "Unable to find definition for service implementation " + serviceImpl.getTypeName());
           seenNull = true;
@@ -247,11 +247,11 @@ public class ServiceLoaderRewriter {
     postMethodProcessorBuilder.addAll(synthesizedServiceLoadMethods, appView.graphLens());
   }
 
-  private void report(Origin origin, DexType serviceLoaderType, String message) {
+  private void report(ProgramMethod method, DexType serviceLoaderType, String message) {
     if (reporter != null) {
       reporter.info(
           new ServiceLoaderRewriterDiagnostic(
-              origin,
+              method.getOrigin(),
               "Could not inline ServiceLoader.load"
                   + (serviceLoaderType == null
                       ? ""

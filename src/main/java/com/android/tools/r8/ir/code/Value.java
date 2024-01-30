@@ -18,7 +18,6 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
@@ -31,12 +30,12 @@ import com.android.tools.r8.ir.analysis.value.NumberFromIntervalValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.regalloc.LiveIntervals;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.LongInterval;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.common.base.Predicates;
@@ -53,9 +52,8 @@ import java.util.function.Predicate;
 
 public class Value implements Comparable<Value> {
 
-  @SuppressWarnings("ReferenceEquality")
   public void constrainType(
-      ValueTypeConstraint constraint, DexMethod method, Origin origin, Reporter reporter) {
+      ValueTypeConstraint constraint, ProgramMethod method, Reporter reporter) {
     TypeElement constrainedType = constrainedType(constraint);
     if (constrainedType == null) {
       throw reporter.fatalError(
@@ -66,9 +64,9 @@ public class Value implements Comparable<Value> {
                   + this
                   + " by constraint: "
                   + constraint,
-              origin,
-              new MethodPosition(method.asMethodReference())));
-    } else if (constrainedType != type) {
+              method.getOrigin(),
+              new MethodPosition(method.getMethodReference())));
+    } else if (ObjectUtils.notIdentical(constrainedType, type)) {
       setType(constrainedType);
     }
   }

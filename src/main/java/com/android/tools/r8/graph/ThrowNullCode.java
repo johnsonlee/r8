@@ -24,7 +24,6 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.SyntheticStraightLineSourceCode;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import com.google.common.collect.ImmutableList;
@@ -70,10 +69,9 @@ public class ThrowNullCode extends Code implements CfWritableCode, DexWritableCo
   public IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions) {
     ThrowNullSourceCode source = new ThrowNullSourceCode(method);
-    return IRBuilder.create(method, appView, source, origin).build(method, conversionOptions);
+    return IRBuilder.create(method, appView, source).build(method, conversionOptions);
   }
 
   @Override
@@ -84,11 +82,10 @@ public class ThrowNullCode extends Code implements CfWritableCode, DexWritableCo
       GraphLens codeLens,
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
-      Origin origin,
       RewrittenPrototypeDescription protoChanges) {
     ThrowNullSourceCode source = new ThrowNullSourceCode(method, callerPosition);
     return IRBuilder.createForInlining(
-            method, appView, codeLens, source, origin, valueNumberGenerator, protoChanges)
+            method, appView, codeLens, source, valueNumberGenerator, protoChanges)
         .build(context, MethodConversionOptions.nonConverting());
   }
 

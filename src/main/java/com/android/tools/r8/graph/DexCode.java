@@ -39,7 +39,6 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.lightir.ByteUtils;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.DexDebugUtils.PositionInfo;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
@@ -531,7 +530,6 @@ public class DexCode extends Code
   public IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions) {
     DexSourceCode source =
         new DexSourceCode(
@@ -539,7 +537,7 @@ public class DexCode extends Code
             method,
             null,
             appView.dexItemFactory());
-    return IRBuilder.create(method, appView, source, origin).build(method, conversionOptions);
+    return IRBuilder.create(method, appView, source).build(method, conversionOptions);
   }
 
   @Override
@@ -551,7 +549,6 @@ public class DexCode extends Code
       GraphLens codeLens,
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
-      Origin origin,
       RewrittenPrototypeDescription protoChanges) {
     DexSourceCode source =
         new DexSourceCode(
@@ -560,7 +557,7 @@ public class DexCode extends Code
             callerPosition,
             appView.dexItemFactory());
     return IRBuilder.createForInlining(
-            method, appView, codeLens, source, origin, valueNumberGenerator, protoChanges)
+            method, appView, codeLens, source, valueNumberGenerator, protoChanges)
         .build(context, MethodConversionOptions.nonConverting());
   }
 

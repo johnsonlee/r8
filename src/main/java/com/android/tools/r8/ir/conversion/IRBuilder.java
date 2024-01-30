@@ -121,7 +121,6 @@ import com.android.tools.r8.ir.code.ValueTypeConstraint;
 import com.android.tools.r8.ir.code.Xor;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.Pair;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
@@ -405,7 +404,6 @@ public class IRBuilder {
   private ProgramMethod context;
   public final AppView<?> appView;
   private final GraphLens codeLens;
-  private final Origin origin;
   private final RewrittenPrototypeDescription prototypeChanges;
   private Value receiverValue;
   private List<Value> argumentValues;
@@ -437,15 +435,13 @@ public class IRBuilder {
   // then the IR does not necessarily contain a const-string instruction).
   private final IRMetadata metadata = new IRMetadata();
 
-  public static IRBuilder create(
-      ProgramMethod method, AppView<?> appView, SourceCode source, Origin origin) {
+  public static IRBuilder create(ProgramMethod method, AppView<?> appView, SourceCode source) {
     GraphLens codeLens = method.getDefinition().getCode().getCodeLens(appView);
     return new IRBuilder(
         method,
         appView,
         codeLens,
         source,
-        origin,
         lookupPrototypeChanges(appView, method, codeLens),
         new NumberGenerator());
   }
@@ -455,11 +451,9 @@ public class IRBuilder {
       AppView<?> appView,
       GraphLens codeLens,
       SourceCode source,
-      Origin origin,
       NumberGenerator valueNumberGenerator,
       RewrittenPrototypeDescription protoChanges) {
-    return new IRBuilder(
-        method, appView, codeLens, source, origin, protoChanges, valueNumberGenerator);
+    return new IRBuilder(method, appView, codeLens, source, protoChanges, valueNumberGenerator);
   }
 
   public static RewrittenPrototypeDescription lookupPrototypeChanges(
@@ -474,7 +468,6 @@ public class IRBuilder {
       AppView<?> appView,
       GraphLens codeLens,
       SourceCode source,
-      Origin origin,
       RewrittenPrototypeDescription prototypeChanges,
       NumberGenerator valueNumberGenerator) {
     assert source != null;
@@ -482,7 +475,6 @@ public class IRBuilder {
     this.method = method;
     this.appView = appView;
     this.source = source;
-    this.origin = origin;
     this.codeLens = codeLens;
     this.prototypeChanges = prototypeChanges;
     this.valueNumberGenerator = valueNumberGenerator;
@@ -723,7 +715,6 @@ public class IRBuilder {
             valueNumberGenerator,
             basicBlockNumberGenerator,
             metadata,
-            origin,
             conversionOptions);
 
     // Verify critical edges are split so we have a place to insert phi moves if necessary.
@@ -779,7 +770,7 @@ public class IRBuilder {
   }
 
   public void constrainType(Value value, ValueTypeConstraint constraint) {
-    value.constrainType(constraint, method.getReference(), origin, appView.options().reporter);
+    value.constrainType(constraint, method, appView.reporter());
   }
 
   private void addImpreciseInstruction(ImpreciseMemberTypeInstruction instruction) {

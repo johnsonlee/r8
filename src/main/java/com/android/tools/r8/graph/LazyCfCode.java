@@ -260,9 +260,8 @@ public class LazyCfCode extends Code {
   public IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions) {
-    return asCfCode().buildIR(method, appView, origin, conversionOptions);
+    return asCfCode().buildIR(method, appView, conversionOptions);
   }
 
   @Override
@@ -273,7 +272,6 @@ public class LazyCfCode extends Code {
       GraphLens codeLens,
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
-      Origin origin,
       RewrittenPrototypeDescription protoChanges) {
     return asCfCode()
         .buildInliningIR(
@@ -283,7 +281,6 @@ public class LazyCfCode extends Code {
             codeLens,
             valueNumberGenerator,
             callerPosition,
-            origin,
             protoChanges);
   }
 

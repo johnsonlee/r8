@@ -142,7 +142,6 @@ public class LirConverter {
           rewrittenLirCode.buildIR(
               method,
               appView,
-              method.getOrigin(),
               MethodConversionOptions.forLirPhase(appView).disableStringSwitchConversion());
       AffectedValues affectedValues = code.removeUnreachableBlocks();
       affectedValues.narrowingWithAssumeRemoval(appView, code);

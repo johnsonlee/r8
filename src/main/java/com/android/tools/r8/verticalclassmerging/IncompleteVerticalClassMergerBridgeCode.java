@@ -28,7 +28,6 @@ import com.android.tools.r8.lightir.LirBuilder;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirEncodingStrategy;
 import com.android.tools.r8.lightir.LirStrategy;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import java.util.ArrayList;
@@ -148,7 +147,6 @@ public class IncompleteVerticalClassMergerBridgeCode extends Code {
   public IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions) {
     throw new Unreachable();
   }

@@ -38,7 +38,6 @@ import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirEncodingStrategy;
 import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.structural.HashingVisitor;
@@ -167,12 +166,11 @@ public class DefaultInstanceInitializerCode extends Code
   public IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,
-      Origin origin,
       MutableMethodConversionOptions conversionOptions) {
     DefaultInstanceInitializerSourceCode source =
         new DefaultInstanceInitializerSourceCode(
             method.getReference(), method.getDefinition().isD8R8Synthesized());
-    return IRBuilder.create(method, appView, source, origin).build(method, conversionOptions);
+    return IRBuilder.create(method, appView, source).build(method, conversionOptions);
   }
 
   @Override
@@ -183,13 +181,12 @@ public class DefaultInstanceInitializerCode extends Code
       GraphLens codeLens,
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
-      Origin origin,
       RewrittenPrototypeDescription protoChanges) {
     DefaultInstanceInitializerSourceCode source =
         new DefaultInstanceInitializerSourceCode(
             method.getReference(), method.getDefinition().isD8R8Synthesized(), callerPosition);
     return IRBuilder.createForInlining(
-            method, appView, codeLens, source, origin, valueNumberGenerator, protoChanges)
+            method, appView, codeLens, source, valueNumberGenerator, protoChanges)
         .build(context, MethodConversionOptions.nonConverting());
   }
 

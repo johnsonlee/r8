@@ -17,7 +17,6 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodC
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.kotlin.KotlinMethodLevelInfo;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 
@@ -35,9 +34,7 @@ public final class ProgramMethod extends DexClassAndMethod
 
   public IRCode buildIR(AppView<?> appView, MutableMethodConversionOptions conversionOptions) {
     DexEncodedMethod method = getDefinition();
-    return method.hasCode()
-        ? method.getCode().buildIR(this, appView, getOrigin(), conversionOptions)
-        : null;
+    return method.hasCode() ? method.getCode().buildIR(this, appView, conversionOptions) : null;
   }
 
   public IRCode buildInliningIR(
@@ -45,7 +42,6 @@ public final class ProgramMethod extends DexClassAndMethod
       AppView<?> appView,
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
-      Origin origin,
       MethodProcessor methodProcessor) {
     Code code = getDefinition().getCode();
     GraphLens codeLens = appView.graphLens();
@@ -61,7 +57,6 @@ public final class ProgramMethod extends DexClassAndMethod
         codeLens,
         valueNumberGenerator,
         callerPosition,
-        origin,
         protoChanges);
   }
 

@@ -12,15 +12,14 @@ import com.android.tools.r8.errors.InvalidDebugInfoException;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
-import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock.EdgeType;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.TypeConstraintResolver;
 import com.android.tools.r8.ir.optimize.AffectedValues;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Reporter;
@@ -102,11 +101,11 @@ public class Phi extends Value implements InstructionOrPhi {
 
   @Override
   public void constrainType(
-      ValueTypeConstraint constraint, DexMethod method, Origin origin, Reporter reporter) {
+      ValueTypeConstraint constraint, ProgramMethod method, Reporter reporter) {
     if (readType == RegisterReadType.DEBUG) {
       abortOnInvalidDebugInfo(constraint);
     }
-    super.constrainType(constraint, method, origin, reporter);
+    super.constrainType(constraint, method, reporter);
   }
 
   private void abortOnInvalidDebugInfo(ValueTypeConstraint constraint) {

@@ -144,16 +144,15 @@ public class TypeConstraintResolver {
     ArrayList<Value> stillImprecise = constrainValues(true, remainingImpreciseValues);
     if (!stillImprecise.isEmpty()) {
       throw appView
-          .options()
-          .reporter
+          .reporter()
           .fatalError(
               new StringDiagnostic(
                   "Cannot determine precise type for value: "
                       + stillImprecise.get(0)
                       + ", its imprecise type is: "
                       + stillImprecise.get(0).getType(),
-                  code.origin,
-                  new MethodPosition(code.method().getReference().asMethodReference())));
+                  code.context().getOrigin(),
+                  new MethodPosition(code.context().getMethodReference())));
     }
   }
 
