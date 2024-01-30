@@ -77,6 +77,7 @@ public interface InliningOracle {
   void markInlined(IRCode inlinee);
 
   boolean passesInliningConstraints(
+      IRCode code,
       SingleResolutionResult<?> resolutionResult,
       ProgramMethod candidate,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter);

@@ -151,6 +151,29 @@ public class CodeMatchers {
     };
   }
 
+  public static Matcher<MethodSubject> containsConstString(String string) {
+    return new TypeSafeMatcher<MethodSubject>() {
+      @Override
+      protected boolean matchesSafely(MethodSubject subject) {
+        return subject.isPresent()
+            && subject.getMethod().hasCode()
+            && subject
+                .streamInstructions()
+                .anyMatch(instructionSubject -> instructionSubject.isConstString(string));
+      }
+
+      @Override
+      public void describeTo(Description description) {
+        description.appendText("contains const-string");
+      }
+
+      @Override
+      public void describeMismatchSafely(MethodSubject subject, Description description) {
+        description.appendText("method did not");
+      }
+    };
+  }
+
   public static Matcher<MethodSubject> instantiatesClass(Class<?> clazz) {
     return instantiatesClass(clazz.getTypeName());
   }

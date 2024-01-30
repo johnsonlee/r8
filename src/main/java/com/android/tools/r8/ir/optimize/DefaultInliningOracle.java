@@ -134,6 +134,7 @@ public final class DefaultInliningOracle implements InliningOracle {
 
   @Override
   public boolean passesInliningConstraints(
+      IRCode code,
       SingleResolutionResult<?> resolutionResult,
       ProgramMethod singleTarget,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
@@ -158,7 +159,7 @@ public final class DefaultInliningOracle implements InliningOracle {
       return false;
     }
 
-    if (canHaveIssuesWithMonitors(singleTarget, method)) {
+    if (canHaveIssuesWithMonitors(code, singleTarget)) {
       return false;
     }
 
@@ -198,16 +199,20 @@ public final class DefaultInliningOracle implements InliningOracle {
     return true;
   }
 
-  private boolean canHaveIssuesWithMonitors(ProgramMethod singleTarget, ProgramMethod context) {
-    if (options.canHaveIssueWithInlinedMonitors() && hasMonitorsOrIsSynchronized(singleTarget)) {
-      return context.getOptimizationInfo().forceInline() || hasMonitorsOrIsSynchronized(context);
-    }
-    return false;
+  private boolean canHaveIssuesWithMonitors(IRCode code, ProgramMethod singleTarget) {
+    return options.canHaveIssueWithInlinedMonitors()
+        && hasMonitorsOrIsSynchronized(code)
+        && hasMonitorsOrIsSynchronized(singleTarget);
   }
 
-  public static boolean hasMonitorsOrIsSynchronized(ProgramMethod method) {
-    return method.getAccessFlags().isSynchronized()
-        || method.getDefinition().getCode().hasMonitorInstructions();
+  public static boolean hasMonitorsOrIsSynchronized(IRCode code) {
+    return code.context().getAccessFlags().isSynchronized()
+        || code.metadata().mayHaveMonitorInstruction();
+  }
+
+  public static boolean hasMonitorsOrIsSynchronized(ProgramMethod singleTarget) {
+    return singleTarget.getAccessFlags().isSynchronized()
+        || singleTarget.getDefinition().getCode().hasMonitorInstructions();
   }
 
   public boolean satisfiesRequirementsForSimpleInlining(
@@ -438,9 +443,7 @@ public final class DefaultInliningOracle implements InliningOracle {
     }
 
     if (!passesInliningConstraints(
-        resolutionResult,
-        singleTarget,
-        whyAreYouNotInliningReporter)) {
+        code, resolutionResult, singleTarget, whyAreYouNotInliningReporter)) {
       return null;
     }
 

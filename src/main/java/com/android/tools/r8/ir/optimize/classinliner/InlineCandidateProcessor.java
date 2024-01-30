@@ -90,6 +90,7 @@ final class InlineCandidateProcessor {
       AssumeAndCheckCastAliasedValueConfiguration.getInstance();
 
   private final AppView<AppInfoWithLiveness> appView;
+  private final IRCode code;
   private final DexItemFactory dexItemFactory;
   private final Inliner inliner;
   private final MethodProcessor methodProcessor;
@@ -113,11 +114,13 @@ final class InlineCandidateProcessor {
 
   InlineCandidateProcessor(
       AppView<AppInfoWithLiveness> appView,
+      IRCode code,
       Inliner inliner,
       MethodProcessor methodProcessor,
       ProgramMethod method,
       Instruction root) {
     this.appView = appView;
+    this.code = code;
     this.dexItemFactory = appView.dexItemFactory();
     this.inliner = inliner;
     this.method = method;
@@ -1167,9 +1170,7 @@ final class InlineCandidateProcessor {
     // Check if the method is inline-able by standard inliner.
     InliningOracle oracle = defaultOracle.computeIfAbsent();
     if (!oracle.passesInliningConstraints(
-        resolutionResult,
-        singleTarget,
-        NopWhyAreYouNotInliningReporter.getInstance())) {
+        code, resolutionResult, singleTarget, NopWhyAreYouNotInliningReporter.getInstance())) {
       return false;
     }
 

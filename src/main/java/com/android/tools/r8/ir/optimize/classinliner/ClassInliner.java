@@ -153,12 +153,7 @@ public final class ClassInliner {
       while (rootsIterator.hasNext()) {
         Instruction root = rootsIterator.next();
         InlineCandidateProcessor processor =
-            new InlineCandidateProcessor(
-                appView,
-                inliner,
-                methodProcessor,
-                method,
-                root);
+            new InlineCandidateProcessor(appView, code, inliner, methodProcessor, method, root);
 
         // Assess eligibility of instance and class.
         EligibilityStatus status = processor.isInstanceEligible();

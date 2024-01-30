@@ -44,6 +44,7 @@ final class ForcedInliningOracle implements InliningOracle {
 
   @Override
   public boolean passesInliningConstraints(
+      IRCode code,
       SingleResolutionResult<?> resolutionResult,
       ProgramMethod candidate,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
