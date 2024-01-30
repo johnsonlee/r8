@@ -38,6 +38,8 @@ public interface InstructionVisitor<T> {
 
   T visit(ConstNumber instruction);
 
+  T visit(ResourceConstNumber instruction);
+
   T visit(ConstString instruction);
 
   T visit(DebugLocalRead instruction);

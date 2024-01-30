@@ -158,6 +158,8 @@ public abstract class UseRegistry<T extends Definition> {
     registerTypeReference(type);
   }
 
+  public void registerConstResourceNumber(int value) {}
+
   public void registerCheckCast(DexType type, boolean ignoreCompatRules) {
     registerTypeReference(type);
   }

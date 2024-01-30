@@ -869,6 +869,14 @@ public abstract class Instruction
     return null;
   }
 
+  public boolean isResourceConstNumber() {
+    return false;
+  }
+
+  public ResourceConstNumber asResourceConstNumber() {
+    return null;
+  }
+
   public boolean isConstInstruction() {
     return false;
   }

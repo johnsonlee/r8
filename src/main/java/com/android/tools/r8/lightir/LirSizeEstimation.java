@@ -352,6 +352,9 @@ public class LirSizeEstimation<EV> extends LirParsedInstructionCallback<EV> impl
       case CONSTCLASS_IGNORE_COMPAT:
         return DexConstClass.SIZE;
 
+      case RESOURCENUMBER:
+        return DexConst4.SIZE;
+
       default:
         throw new Unreachable("Unexpected LIR opcode: " + opcode);
     }

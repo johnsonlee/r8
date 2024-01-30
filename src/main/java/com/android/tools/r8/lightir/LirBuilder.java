@@ -579,6 +579,13 @@ public class LirBuilder<V, EV> {
     }
   }
 
+  public LirBuilder<V, EV> addResourceConstNumber(int value) {
+    advanceInstructionState();
+    writer.writeInstruction(LirOpcodes.RESOURCENUMBER, ByteUtils.intEncodingSize(value));
+    ByteUtils.writeEncodedInt(value, writer::writeOperand);
+    return this;
+  }
+
   public LirBuilder<V, EV> addConstString(DexString string) {
     return addOneItemInstruction(LirOpcodes.LDC, string);
   }

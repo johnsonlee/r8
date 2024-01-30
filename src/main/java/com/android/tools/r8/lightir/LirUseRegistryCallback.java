@@ -227,6 +227,11 @@ public class LirUseRegistryCallback<EV> extends LirParsedInstructionCallback<EV>
   }
 
   @Override
+  public void onConstResourceNumber(int value) {
+    registry.registerConstResourceNumber(value);
+  }
+
+  @Override
   public void onRecordFieldValues(DexField[] fields, List<EV> values) {
     registry.registerRecordFieldValues(fields);
   }

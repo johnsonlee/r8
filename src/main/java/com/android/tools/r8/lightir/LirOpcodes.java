@@ -212,6 +212,7 @@ public interface LirOpcodes {
   int CHECKCAST_IGNORE_COMPAT = 225;
   int CONSTCLASS_IGNORE_COMPAT = 226;
   int STRINGSWITCH = 227;
+  int RESOURCENUMBER = 228;
 
   static String toString(int opcode) {
     switch (opcode) {
@@ -551,6 +552,8 @@ public interface LirOpcodes {
         return "CONSTCLASS_IGNORE_COMPAT";
       case STRINGSWITCH:
         return "STRINGSWITCH";
+      case RESOURCENUMBER:
+        return "RESOURCENUMBER";
 
       default:
         throw new Unreachable("Unexpected LIR opcode: " + opcode);

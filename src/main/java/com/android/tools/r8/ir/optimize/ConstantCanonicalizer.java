@@ -8,6 +8,7 @@ import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.DEX_ITEM_BASED_CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_GET;
+import static com.android.tools.r8.ir.code.Opcodes.RESOURCE_CONST_NUMBER;
 import static com.android.tools.r8.ir.code.Opcodes.STATIC_GET;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
@@ -39,6 +40,7 @@ import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.ResourceConstNumber;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.passes.BranchSimplifier;
@@ -164,6 +166,8 @@ public class ConstantCanonicalizer {
                   case CONST_NUMBER:
                     return Long.hashCode(candidate.asConstNumber().getRawValue())
                         + 13 * candidate.outType().hashCode();
+                  case RESOURCE_CONST_NUMBER:
+                    return Integer.hashCode(candidate.asResourceConstNumber().getValue());
                   case CONST_STRING:
                     return candidate.asConstString().getValue().hashCode();
                   case DEX_ITEM_BASED_CONST_STRING:
@@ -349,6 +353,7 @@ public class ConstantCanonicalizer {
     switch (newInstruction.opcode()) {
       case CONST_CLASS:
       case CONST_NUMBER:
+      case RESOURCE_CONST_NUMBER:
       case CONST_STRING:
       case DEX_ITEM_BASED_CONST_STRING:
       case STATIC_GET:
@@ -388,6 +393,8 @@ public class ConstantCanonicalizer {
         return ConstClass.copyOf(code, canonicalizedConstant.asConstClass());
       case CONST_NUMBER:
         return ConstNumber.copyOf(code, canonicalizedConstant.asConstNumber());
+      case RESOURCE_CONST_NUMBER:
+        return ResourceConstNumber.copyOf(code, canonicalizedConstant.asResourceConstNumber());
       case CONST_STRING:
         return ConstString.copyOf(code, canonicalizedConstant.asConstString());
       case DEX_ITEM_BASED_CONST_STRING:
@@ -434,6 +441,7 @@ public class ConstantCanonicalizer {
           return false;
         }
         break;
+      case RESOURCE_CONST_NUMBER:
       case CONST_NUMBER:
         break;
       case CONST_STRING:

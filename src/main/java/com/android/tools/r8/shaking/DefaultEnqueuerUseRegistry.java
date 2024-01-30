@@ -57,6 +57,12 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
   }
 
   @Override
+  public void registerConstResourceNumber(int value) {
+    super.registerConstResourceNumber(value);
+    enqueuer.traceResourceValue(value);
+  }
+
+  @Override
   public void registerInvokeVirtual(DexMethod invokedMethod) {
     super.registerInvokeVirtual(invokedMethod);
     enqueuer.traceInvokeVirtual(invokedMethod, getContext());

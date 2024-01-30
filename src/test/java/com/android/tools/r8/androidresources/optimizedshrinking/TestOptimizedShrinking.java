@@ -71,7 +71,7 @@ public class TestOptimizedShrinking extends TestBase {
               resourceTableInspector.assertContainsResourceWithName("drawable", "foobar");
               // In debug mode legacy shrinker will not attribute our $R inner class as an R class
               // (this is only used for testing, _real_ R classes are not inner classes.
-              if (!debug || optimized) {
+              if (!debug) {
                 resourceTableInspector.assertDoesNotContainResourceWithName(
                     "string", "unused_string");
                 resourceTableInspector.assertDoesNotContainResourceWithName(
@@ -107,7 +107,7 @@ public class TestOptimizedShrinking extends TestBase {
 
                 // In optimized mode we track these correctly, so we should not unconditionally keep
                 // all attributes.
-                if (optimized) {
+                if (optimized && !debug) {
                   resourceTableInspector.assertDoesNotContainResourceWithName(
                       "attr", "attr_unused_styleable" + i);
                 } else {

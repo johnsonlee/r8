@@ -77,4 +77,5 @@ public interface Opcodes {
   int XOR = 68;
   int UNINITIALIZED_THIS_LOCAL_READ = 69;
   int RECORD_FIELD_VALUES = 70;
+  int RESOURCE_CONST_NUMBER = 71;
 }

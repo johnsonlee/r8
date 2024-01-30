@@ -26,6 +26,8 @@ public class AbstractValueFactory {
       new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Long, SingleNumberValue> singleNumberValues =
       new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Integer, SingleResourceNumberValue> singleResourceNumberValues =
+      new ConcurrentHashMap<>();
   private final ConcurrentHashMap<DexString, SingleStringValue> singleStringValues =
       new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Integer, KnownLengthArrayState> knownArrayLengthStates =
@@ -120,6 +122,10 @@ public class AbstractValueFactory {
   public SingleNumberValue createSingleNumberValue(long value, TypeElement type) {
     assert type.isPrimitiveType();
     return createUncheckedSingleNumberValue(value);
+  }
+
+  public SingleResourceNumberValue createSingleResourceNumberValue(int value) {
+    return singleResourceNumberValues.computeIfAbsent(value, SingleResourceNumberValue::new);
   }
 
   public SingleNumberValue createUncheckedSingleNumberValue(long value) {

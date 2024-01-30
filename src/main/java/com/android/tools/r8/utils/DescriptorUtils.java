@@ -17,6 +17,7 @@ import com.android.tools.r8.naming.ClassNameMapper;
 import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -803,6 +804,22 @@ public class DescriptorUtils {
       throw new CompilationError("Unexpected class file name: " + name);
     }
     return new ModuleAndDescriptor(module, 'L' + descriptor + ';');
+  }
+
+  public static boolean isRClassDescriptor(String descriptor) {
+    String simpleClassName = DescriptorUtils.getSimpleClassNameFromDescriptor(descriptor);
+    List<String> split = StringUtils.split(simpleClassName, '$');
+
+    if (split.size() < 2) {
+      return false;
+    }
+    String type = split.get(split.size() - 1);
+    String rClass = split.get(split.size() - 2);
+    // We match on R if:
+    // - The name of the Class is R$type - we allow R to be an inner class.
+    //   - The inner type should be with lower case
+    boolean isRClass = Character.isLowerCase(type.charAt(0)) && rClass.equals("R");
+    return isRClass;
   }
 
   public static String getPathFromDescriptor(String descriptor) {

@@ -946,4 +946,12 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     return addProgramClassFileData(testResource.getRClass().getClassFileData());
   }
 
+  public T setAndroidResourcesFromPath(Path input, Path output) {
+    resourceShrinkerOutput = output;
+    getBuilder()
+        .setAndroidResourceProvider(
+            new ArchiveProtoAndroidResourceProvider(input, new PathOrigin(input)));
+    getBuilder().setAndroidResourceConsumer(new ArchiveProtoAndroidResourceConsumer(output, input));
+    return self();
+  }
 }

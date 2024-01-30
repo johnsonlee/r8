@@ -103,6 +103,10 @@ public class IRMetadata implements StructuralItem<IRMetadata> {
     return get(Opcodes.CONST_NUMBER);
   }
 
+  public boolean mayHaveResourceConstNumber() {
+    return get(Opcodes.RESOURCE_CONST_NUMBER);
+  }
+
   public boolean mayHaveConstString() {
     return get(Opcodes.CONST_STRING);
   }

@@ -440,7 +440,7 @@ public class ClassInitializerDefaultsOptimization {
                     isWrittenBefore.remove(fieldReference);
                   }
                   continue;
-                } else if (fieldReference.type.isPrimitiveType()
+                } else if ((fieldReference.type.isPrimitiveType() && !hasPutOfConstResource(put))
                     || fieldReference.type == dexItemFactory.stringType) {
                   finalFieldPuts.put(field, put);
                   unnecessaryStaticPuts.add(put);
@@ -505,6 +505,10 @@ public class ClassInitializerDefaultsOptimization {
       code.returnMarkingColor(color);
     }
     return validateFinalFieldPuts(finalFieldPuts, isWrittenBefore);
+  }
+
+  private boolean hasPutOfConstResource(StaticPut put) {
+    return put.value().isConstResourceNumber();
   }
 
   private Map<DexEncodedField, StaticPut> validateFinalFieldPuts(

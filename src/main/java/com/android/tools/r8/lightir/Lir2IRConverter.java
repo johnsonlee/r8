@@ -83,6 +83,7 @@ import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.RecordFieldValues;
 import com.android.tools.r8.ir.code.Rem;
+import com.android.tools.r8.ir.code.ResourceConstNumber;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.SafeCheckCast;
 import com.android.tools.r8.ir.code.Shl;
@@ -515,6 +516,12 @@ public class Lir2IRConverter {
 
     TypeElement valueTypeElement(NumericType type) {
       return PrimitiveTypeElement.fromNumericType(type);
+    }
+
+    @Override
+    public void onConstResourceNumber(int value) {
+      Value dest = getOutValueForNextInstruction(TypeElement.getInt());
+      addInstruction(new ResourceConstNumber(dest, value));
     }
 
     @Override

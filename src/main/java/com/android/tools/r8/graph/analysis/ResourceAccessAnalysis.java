@@ -5,10 +5,10 @@
 package com.android.tools.r8.graph.analysis;
 
 import com.android.build.shrinker.r8integration.R8ResourceShrinkerState;
-import com.android.build.shrinker.r8integration.R8ResourceShrinkerState.R8ResourceShrinkerModel;
 import com.android.tools.r8.AndroidResourceInput;
 import com.android.tools.r8.AndroidResourceInput.Kind;
 import com.android.tools.r8.ResourceException;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -19,8 +19,6 @@ import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.PrunedItems;
-import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.NewArrayEmpty;
@@ -29,14 +27,10 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
-import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.utils.DescriptorUtils;
-import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.Timing;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 
 public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
@@ -66,21 +60,23 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
 
   public static void register(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
-    if (enabled(appView)) {
+    if (enabled(appView, enqueuer)) {
       enqueuer.registerFieldAccessAnalysis(new ResourceAccessAnalysis(appView, enqueuer));
     }
   }
 
   @Override
   public void done(Enqueuer enqueuer) {
-    appView.setResourceAnalysisResult(
-        new ResourceAnalysisResult(resourceShrinkerState, fieldToValueMapping));
     EnqueuerFieldAccessAnalysis.super.done(enqueuer);
   }
 
-  private static boolean enabled(AppView<? extends AppInfoWithClassHierarchy> appView) {
+  private static boolean enabled(
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     return appView.options().androidResourceProvider != null
-        && appView.options().resourceShrinkerConfiguration.isOptimizedShrinking();
+        && appView.options().resourceShrinkerConfiguration.isOptimizedShrinking()
+        // Only run this in the first round, we explicitly trace the resource values
+        // with ResourceConstNumber in the optimizing pipeline.
+        && enqueuer.getMode().isInitialTreeShaking();
   }
 
   @Override
@@ -101,8 +97,6 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
       assert fieldToValueMapping.containsKey(holderType);
       RClassFieldToValueStore rClassFieldToValueStore = fieldToValueMapping.get(holderType);
       IntList integers = rClassFieldToValueStore.valueMapping.get(field);
-      enqueuer.applyMinimumKeepInfoWhenLive(
-          resolvedField, KeepFieldInfo.newEmptyJoiner().disallowOptimization());
       for (Integer integer : integers) {
         resourceShrinkerState.trace(integer);
       }
@@ -140,6 +134,8 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
       if (definition.isConstNumber()) {
         values = new IntArrayList(1);
         values.add(definition.asConstNumber().getIntValue());
+      } else if (definition.isResourceConstNumber()) {
+        throw new Unreachable("Only running ResourceAccessAnalysis in initial tree shaking");
       } else if (definition.isNewArrayEmpty()) {
         NewArrayEmpty newArrayEmpty = definition.asNewArrayEmpty();
         values = new IntArrayList();
@@ -148,6 +144,8 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
             Value constValue = uniqueUser.asArrayPut().value();
             if (constValue.isConstNumber()) {
               values.add(constValue.getDefinition().asConstNumber().getIntValue());
+            } else if (constValue.isConstResourceNumber()) {
+              throw new Unreachable("Only running ResourceAccessAnalysis in initial tree shaking");
             }
           } else {
             assert uniqueUser == staticPut;
@@ -162,6 +160,8 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
           Instruction valueDefinition = inValue.definition;
           if (valueDefinition.isConstNumber()) {
             values.add(valueDefinition.asConstNumber().getIntValue());
+          } else if (valueDefinition.isResourceConstNumber()) {
+            throw new Unreachable("Only running ResourceAccessAnalysis in initial tree shaking");
           }
         }
       } else {
@@ -192,77 +192,9 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
     if (result != null) {
       return result;
     }
-    String simpleClassName =
-        DescriptorUtils.getSimpleClassNameFromDescriptor(holder.getType().toDescriptorString());
-    List<String> split = StringUtils.split(simpleClassName, '$');
-
-    if (split.size() < 2) {
-      cachedClassLookups.put(holder, false);
-      return false;
-    }
-    String type = split.get(split.size() - 1);
-    String rClass = split.get(split.size() - 2);
-    // We match on R if:
-    // - The name of the Class is R$type - we allow R to be an inner class.
-    //   - The inner type should be with lower case
-    boolean isRClass = Character.isLowerCase(type.charAt(0)) && rClass.equals("R");
+    boolean isRClass = DescriptorUtils.isRClassDescriptor(holder.getType().toDescriptorString());
     cachedClassLookups.put(holder, isRClass);
     return isRClass;
-  }
-
-  public static class ResourceAnalysisResult {
-
-    private final R8ResourceShrinkerState resourceShrinkerState;
-    private Map<DexType, RClassFieldToValueStore> rClassFieldToValueStoreMap;
-
-    private ResourceAnalysisResult(
-        R8ResourceShrinkerState resourceShrinkerState,
-        Map<DexType, RClassFieldToValueStore> rClassFieldToValueStoreMap) {
-      this.resourceShrinkerState = resourceShrinkerState;
-      this.rClassFieldToValueStoreMap = rClassFieldToValueStoreMap;
-    }
-
-    public R8ResourceShrinkerModel getModel() {
-      return resourceShrinkerState.getR8ResourceShrinkerModel();
-    }
-
-    public void rewrittenWithLens(GraphLens lens, GraphLens appliedLens, Timing timing) {
-      Map<DexType, DexType> changed = new IdentityHashMap<>();
-      for (DexType dexType : rClassFieldToValueStoreMap.keySet()) {
-        DexType rewritten = lens.lookupClassType(dexType, appliedLens);
-        if (rewritten.isNotIdenticalTo(dexType)) {
-          changed.put(dexType, rewritten);
-        }
-      }
-      if (!changed.isEmpty()) {
-        Map<DexType, RClassFieldToValueStore> rewrittenMap = new IdentityHashMap<>();
-        rClassFieldToValueStoreMap.forEach(
-            (type, map) -> {
-              rewrittenMap.put(changed.getOrDefault(type, type), map);
-              map.rewrittenWithLens(lens);
-            });
-        rClassFieldToValueStoreMap = rewrittenMap;
-      }
-    }
-
-    public void withoutPrunedItems(PrunedItems prunedItems, Timing timing) {
-      rClassFieldToValueStoreMap.keySet().removeIf(prunedItems::isRemoved);
-      rClassFieldToValueStoreMap.values().forEach(store -> store.pruneItems(prunedItems));
-    }
-
-    public String getSingleStringValueForField(ProgramField programField) {
-      RClassFieldToValueStore rClassFieldToValueStore =
-          rClassFieldToValueStoreMap.get(programField.getHolderType());
-      if (rClassFieldToValueStore == null) {
-        return null;
-      }
-      if (!rClassFieldToValueStore.hasField(programField.getReference())) {
-        return null;
-      }
-      return getModel()
-          .getStringResourcesWithSingleValue()
-          .get(rClassFieldToValueStore.getResourceId(programField.getReference()));
-    }
   }
 
   private static class RClassFieldToValueStore {
@@ -270,40 +202,6 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
 
     private RClassFieldToValueStore(Map<DexField, IntList> valueMapping) {
       this.valueMapping = valueMapping;
-    }
-
-    boolean hasField(DexField field) {
-      return valueMapping.containsKey(field);
-    }
-
-    void pruneItems(PrunedItems prunedItems) {
-      valueMapping.keySet().removeIf(prunedItems::isRemoved);
-    }
-
-    int getResourceId(DexField field) {
-      IntList integers = valueMapping.get(field);
-      assert integers.size() == 1;
-      return integers.get(0);
-    }
-
-    @SuppressWarnings("ReferenceEquality")
-    public void rewrittenWithLens(GraphLens lens) {
-      Map<DexField, DexField> changed = new IdentityHashMap<>();
-      valueMapping
-          .keySet()
-          .forEach(
-              dexField -> {
-                DexField rewritten = lens.lookupField(dexField);
-                if (rewritten != dexField) {
-                  changed.put(dexField, rewritten);
-                }
-              });
-      if (changed.size() > 0) {
-        Map<DexField, IntList> rewrittenMapping = new IdentityHashMap<>();
-        valueMapping.forEach(
-            (key, value) -> rewrittenMapping.put(changed.getOrDefault(key, key), value));
-        valueMapping = rewrittenMapping;
-      }
     }
 
     public static class Builder {

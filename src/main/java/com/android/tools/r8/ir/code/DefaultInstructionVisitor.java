@@ -95,6 +95,11 @@ public abstract class DefaultInstructionVisitor<T> implements InstructionVisitor
   }
 
   @Override
+  public T visit(ResourceConstNumber instruction) {
+    return null;
+  }
+
+  @Override
   public T visit(ConstString instruction) {
     return null;
   }

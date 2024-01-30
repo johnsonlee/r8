@@ -51,8 +51,8 @@ public class R8ResourceShrinkerState {
       super(debugReporter, supportMultipackages);
     }
 
-    public Map<Integer, String> getStringResourcesWithSingleValue() {
-      return stringResourcesWithSingleValue;
+    public String getSingleStringValueOrNull(int id) {
+      return stringResourcesWithSingleValue.get(id);
     }
 
     // Similar to instantiation in ProtoResourceTableGatherer, but using an inputstream.

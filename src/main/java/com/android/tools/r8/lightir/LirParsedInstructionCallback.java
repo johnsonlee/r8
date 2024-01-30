@@ -82,6 +82,10 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
     onConstNumber(NumericType.INT, value);
   }
 
+  public void onConstResourceNumber(int value) {
+    onInstruction();
+  }
+
   public void onConstFloat(int value) {
     onConstNumber(NumericType.FLOAT, value);
   }
@@ -1276,6 +1280,12 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
               (RecordFieldValuesPayload) getConstantItem(view.getNextConstantOperand());
           List<EV> values = getInvokeInstructionArguments(view);
           onRecordFieldValues(payload.fields, values);
+          return;
+        }
+      case LirOpcodes.RESOURCENUMBER:
+        {
+          int value = view.getNextIntegerOperand();
+          onConstResourceNumber(value);
           return;
         }
       default:

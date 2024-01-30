@@ -442,6 +442,7 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
                       || instruction.isConstMethodHandle()
                       || instruction.isConstMethodType()
                       || instruction.isConstNumber()
+                      || instruction.isResourceConstNumber()
                       || instruction.isConstString()
                       || instruction.isDebugInstruction()
                       || instruction.isDexItemBasedConstString()

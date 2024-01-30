@@ -205,6 +205,14 @@ public abstract class AbstractValue {
     return null;
   }
 
+  public boolean isSingleResourceNumberValue() {
+    return false;
+  }
+
+  public SingleResourceNumberValue asSingleResourceNumberValue() {
+    return null;
+  }
+
   public boolean isSingleStringValue() {
     return false;
   }

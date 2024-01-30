@@ -17,7 +17,11 @@ import static com.android.tools.r8.utils.FunctionUtils.ignoreArgument;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static java.util.Collections.emptySet;
 
+import com.android.build.shrinker.r8integration.R8ResourceShrinkerState;
+import com.android.tools.r8.AndroidResourceInput;
+import com.android.tools.r8.AndroidResourceInput.Kind;
 import com.android.tools.r8.Diagnostic;
+import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
@@ -479,6 +483,8 @@ public class Enqueuer {
 
   private final ProfileCollectionAdditions profileCollectionAdditions;
 
+  private final R8ResourceShrinkerState r8ResourceShrinkerState;
+
   Enqueuer(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ProfileCollectionAdditions profileCollectionAdditions,
@@ -537,6 +543,27 @@ public class Enqueuer {
 
     objectAllocationInfoCollection =
         ObjectAllocationInfoCollectionImpl.builder(mode.isInitialTreeShaking(), graphReporter);
+    r8ResourceShrinkerState = setupResourceShrinkerState(appView);
+  }
+
+  private R8ResourceShrinkerState setupResourceShrinkerState(
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    R8ResourceShrinkerState r8ResourceShrinkerState = new R8ResourceShrinkerState();
+    if (options.resourceShrinkerConfiguration.isOptimizedShrinking()
+        && options.androidResourceProvider != null) {
+      try {
+        for (AndroidResourceInput androidResource :
+            options.androidResourceProvider.getAndroidResources()) {
+          if (androidResource.getKind() == Kind.RESOURCE_TABLE) {
+            r8ResourceShrinkerState.setResourceTableInput(androidResource.getByteStream());
+            break;
+          }
+        }
+      } catch (ResourceException e) {
+        throw appView.reporter().fatalError("Failed initializing resource table");
+      }
+    }
+    return r8ResourceShrinkerState;
   }
 
   private AppInfoWithClassHierarchy appInfo() {
@@ -1105,6 +1132,10 @@ public class Enqueuer {
     if (registerReflectiveFieldRead(field, context)) {
       markFieldAsReachable(field, context, KeepReason.reflectiveUseIn(context));
     }
+  }
+
+  public void traceResourceValue(int value) {
+    r8ResourceShrinkerState.trace(value);
   }
 
   public void traceReflectiveFieldWrite(ProgramField field, ProgramMethod context) {
@@ -3740,6 +3771,7 @@ public class Enqueuer {
     EnqueuerResult result = createEnqueuerResult(appInfo, timing);
     profileCollectionAdditions.commit(appView);
     timing.end();
+    appView.setResourceShrinkerState(r8ResourceShrinkerState);
     return result;
   }
 

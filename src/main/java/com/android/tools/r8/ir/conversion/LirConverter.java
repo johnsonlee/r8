@@ -12,6 +12,8 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.conversion.passes.ConstResourceNumberRemover;
+import com.android.tools.r8.ir.conversion.passes.ConstResourceNumberRewriter;
 import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
 import com.android.tools.r8.ir.optimize.ConstantCanonicalizer;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
@@ -34,6 +36,8 @@ public class LirConverter {
     assert appView.testing().canUseLir(appView);
     assert appView.testing().isPreLirPhase();
     appView.testing().enterLirSupportedPhase();
+    ConstResourceNumberRewriter constResourceNumberRewriter =
+        new ConstResourceNumberRewriter(appView);
     // Convert code objects to LIR.
     ThreadUtils.processItems(
         appView.appInfo().classes(),
@@ -45,10 +49,11 @@ public class LirConverter {
           clazz.forEachProgramMethodMatching(
               method ->
                   method.hasCode()
-                      && !method.isInitializer()
+                      && !method.isInstanceInitializer()
                       && !appView.isCfByteCodePassThrough(method),
               method -> {
                 IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
+                constResourceNumberRewriter.run(code, Timing.empty());
                 LirCode<Integer> lirCode =
                     IR2LirConverter.translate(
                         code,
@@ -179,6 +184,8 @@ public class LirConverter {
     }
     IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
     assert irCode.verifyInvokeInterface(appView);
+    ConstResourceNumberRemover constResourceNumberRemover = new ConstResourceNumberRemover(appView);
+    constResourceNumberRemover.run(irCode, onThreadTiming);
     FilledNewArrayRewriter filledNewArrayRewriter = new FilledNewArrayRewriter(appView);
     boolean changed = filledNewArrayRewriter.run(irCode, onThreadTiming).hasChanged().toBoolean();
     if (appView.options().isGeneratingDex() && changed) {

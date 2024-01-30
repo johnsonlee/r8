@@ -928,7 +928,9 @@ public class R8 {
       LegacyResourceShrinker shrinker = resourceShrinkerBuilder.build();
       ShrinkerResult shrinkerResult;
       if (options.resourceShrinkerConfiguration.isOptimizedShrinking()) {
-        shrinkerResult = shrinker.shrinkModel(appView.getResourceAnalysisResult().getModel(), true);
+        shrinkerResult =
+            shrinker.shrinkModel(
+                appView.getResourceShrinkerState().getR8ResourceShrinkerModel(), true);
       } else {
         shrinkerResult = shrinker.run();
       }

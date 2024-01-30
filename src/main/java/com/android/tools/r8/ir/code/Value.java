@@ -842,6 +842,10 @@ public class Value implements Comparable<Value> {
     return isConstant() && getConstInstruction().isConstNumber();
   }
 
+  public boolean isConstResourceNumber() {
+    return isConstant() && getConstInstruction().isResourceConstNumber();
+  }
+
   public boolean isConstNumber(long rawValue) {
     return isConstant()
         && getConstInstruction().isConstNumber()

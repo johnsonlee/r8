@@ -9,6 +9,7 @@ import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.DEX_ITEM_BASED_CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_GET;
+import static com.android.tools.r8.ir.code.Opcodes.RESOURCE_CONST_NUMBER;
 import static com.android.tools.r8.ir.code.Opcodes.STATIC_GET;
 
 import com.android.tools.r8.errors.Unreachable;
@@ -29,6 +30,7 @@ import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InstructionOrPhi;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.ResourceConstNumber;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
@@ -465,6 +467,9 @@ public class DexConstantOptimizer extends CodeRewriterPass<AppInfo> {
           break;
         case CONST_NUMBER:
           copy = ConstNumber.copyOf(code, instruction.asConstNumber());
+          break;
+        case RESOURCE_CONST_NUMBER:
+          copy = ResourceConstNumber.copyOf(code, instruction.asResourceConstNumber());
           break;
         case CONST_STRING:
           copy = ConstString.copyOf(code, instruction.asConstString());

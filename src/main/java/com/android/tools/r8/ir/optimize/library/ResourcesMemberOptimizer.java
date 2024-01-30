@@ -8,13 +8,10 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.FieldResolutionResult;
-import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
@@ -127,19 +124,16 @@ public class ResourcesMemberOptimizer extends StatelessLibraryMethodModelCollect
       assert invokedMethod.isIdenticalTo(dexItemFactory.androidResourcesGetStringMethod);
       assert invoke.inValues().size() == 2;
       Instruction valueDefinition = invoke.getLastArgument().definition;
-      if (valueDefinition != null && valueDefinition.isStaticGet()) {
-        DexField field = valueDefinition.asStaticGet().getField();
-        FieldResolutionResult fieldResolutionResult =
-            appView.appInfo().resolveField(field, code.context());
-        ProgramField resolvedField = fieldResolutionResult.getProgramField();
-        if (resolvedField != null) {
-          String singleStringValueForField =
-              appView.getResourceAnalysisResult().getSingleStringValueForField(resolvedField);
-          if (singleStringValueForField != null) {
-            DexString value = dexItemFactory.createString(singleStringValueForField);
-            instructionIterator.replaceCurrentInstructionWithConstString(
-                appView, code, value, affectedValues);
-          }
+      if (valueDefinition.isResourceConstNumber()) {
+        String singleStringValue =
+            appView
+                .getResourceShrinkerState()
+                .getR8ResourceShrinkerModel()
+                .getSingleStringValueOrNull(valueDefinition.asResourceConstNumber().getValue());
+        if (singleStringValue != null) {
+          DexString value = dexItemFactory.createString(singleStringValue);
+          instructionIterator.replaceCurrentInstructionWithConstString(
+              appView, code, value, affectedValues);
         }
       }
     }

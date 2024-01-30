@@ -153,6 +153,11 @@ public class LirPrinter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   @Override
+  public void onConstResourceNumber(int value) {
+    appendOutValue().append(value);
+  }
+
+  @Override
   public void onConstFloat(int value) {
     appendOutValue().append(Float.intBitsToFloat(value));
   }
