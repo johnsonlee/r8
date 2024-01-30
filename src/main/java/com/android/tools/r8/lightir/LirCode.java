@@ -38,6 +38,7 @@ import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.ComparatorUtils;
 import com.android.tools.r8.utils.FastMapUtils;
 import com.android.tools.r8.utils.IntBox;
+import com.android.tools.r8.utils.IntObjPredicate;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
@@ -47,6 +48,7 @@ import com.android.tools.r8.utils.structural.StructuralItem;
 import com.android.tools.r8.utils.structural.StructuralMapping;
 import com.android.tools.r8.utils.structural.StructuralSpecification;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.util.ArrayList;
@@ -181,6 +183,12 @@ public class LirCode<EV> extends Code
       assert !tryCatchHandlers.isEmpty();
       // Copy the map to ensure it has not over-allocated the backing store.
       this.tryCatchHandlers = new Int2ReferenceOpenHashMap<>(tryCatchHandlers);
+    }
+
+    public boolean hasHandlerThatMatches(IntObjPredicate<CatchHandlers<Integer>> predicate) {
+      return Iterables.any(
+          tryCatchHandlers.int2ReferenceEntrySet(),
+          entry -> predicate.test(entry.getIntKey(), entry.getValue()));
     }
 
     public CatchHandlers<Integer> getHandlersForBlock(int blockIndex) {

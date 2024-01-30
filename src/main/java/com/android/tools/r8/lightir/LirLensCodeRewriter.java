@@ -31,6 +31,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriter;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.LirBuilder.RecordFieldValuesPayload;
 import com.android.tools.r8.lightir.LirCode.TryCatchTable;
@@ -248,7 +249,13 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
       return rewriteWithLensCodeRewriter();
     }
     rewritten = rewriteInstructionsWithInvokeTypeChanges(rewritten);
-    return rewriteTryCatchTable(rewritten);
+    rewritten = rewriteTryCatchTable(rewritten);
+    // In the unusual case where a catch handler has been eliminated as a result of class merging
+    // we remove the unreachable blocks.
+    if (hasPrunedCatchHandlers(rewritten)) {
+      rewritten = removeUnreachableBlocks(rewritten);
+    }
+    return rewritten;
   }
 
   private boolean hasNonTrivialMethodChanges() {
@@ -267,6 +274,42 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
       }
     }
     return false;
+  }
+
+  private boolean hasPrunedCatchHandlers(LirCode<EV> rewritten) {
+    if (!getCode().hasTryCatchTable()) {
+      return false;
+    }
+    if (!appView.graphLens().isClassMergerLens()) {
+      assert !internalHasPrunedCatchHandlers(rewritten);
+      return false;
+    }
+    return internalHasPrunedCatchHandlers(rewritten);
+  }
+
+  private boolean internalHasPrunedCatchHandlers(LirCode<EV> rewritten) {
+    TryCatchTable tryCatchTable = getCode().getTryCatchTable();
+    TryCatchTable rewrittenTryCatchTable = rewritten.getTryCatchTable();
+    return tryCatchTable.hasHandlerThatMatches(
+        (blockIndex, handlers) ->
+            handlers.size() > rewrittenTryCatchTable.getHandlersForBlock(blockIndex).size());
+  }
+
+  @SuppressWarnings("unchecked")
+  private LirCode<EV> removeUnreachableBlocks(LirCode<EV> rewritten) {
+    IRCode code =
+        rewritten.buildIR(
+            context,
+            appView,
+            MethodConversionOptions.forLirPhase(appView).disableStringSwitchConversion());
+    AffectedValues affectedValues = code.removeUnreachableBlocks();
+    affectedValues.narrowingWithAssumeRemoval(appView, code);
+    DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
+    deadCodeRemover.run(code, Timing.empty());
+    LirCode<Integer> result =
+        new IRToLirFinalizer(appView, deadCodeRemover)
+            .finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
+    return (LirCode<EV>) result;
   }
 
   @SuppressWarnings("unchecked")

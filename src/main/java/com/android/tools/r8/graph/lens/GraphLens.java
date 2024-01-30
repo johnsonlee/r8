@@ -401,6 +401,10 @@ public abstract class GraphLens {
     return false;
   }
 
+  public final boolean isClassMergerLens() {
+    return isHorizontalClassMergerGraphLens() || isVerticalClassMergerLens();
+  }
+
   public boolean isClearCodeRewritingLens() {
     return false;
   }

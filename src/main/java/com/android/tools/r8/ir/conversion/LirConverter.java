@@ -179,11 +179,6 @@ public class LirConverter {
     }
     IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
     assert irCode.verifyInvokeInterface(appView);
-    if (lirCode.hasTryCatchTable()) {
-      // Vertical class merging may lead to dead catch handlers.
-      // TODO(b/322762660): Ensure IR is valid immediately after IR building.
-      irCode.removeUnreachableBlocks();
-    }
     FilledNewArrayRewriter filledNewArrayRewriter = new FilledNewArrayRewriter(appView);
     boolean changed = filledNewArrayRewriter.run(irCode, onThreadTiming).hasChanged().toBoolean();
     if (appView.options().isGeneratingDex() && changed) {
