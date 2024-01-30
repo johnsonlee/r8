@@ -115,7 +115,8 @@ public abstract class RulePrintingUtils {
     return builder;
   }
 
-  public static RulePrinter printMemberClause(KeepMemberPattern member, RulePrinter printer) {
+  public static RulePrinter printMemberClause(
+      KeepMemberPattern member, RulePrinter printer, KeepRuleExtractorOptions options) {
     if (member.isAllMembers()) {
       // Note: the rule language does not allow backref to a full member. A rule matching all
       // members via a binding must be split in two up front: one for methods and one for fields.
@@ -127,10 +128,10 @@ public abstract class RulePrintingUtils {
       printer.append(" ");
     }
     if (member.isMethod()) {
-      return printMethod(member.asMethod(), printer);
+      return printMethod(member.asMethod(), printer, options);
     }
     if (member.isField()) {
-      return printField(member.asField(), printer);
+      return printField(member.asField(), printer, options);
     }
     // The pattern is a restricted member pattern, e.g., it must apply to fields and methods
     // without any specifics not common to both. For now that is annotated-by and access patterns.
@@ -139,27 +140,37 @@ public abstract class RulePrintingUtils {
     return printer.appendWithoutBackReferenceAssert("*").append(";");
   }
 
-  private static RulePrinter printField(KeepFieldPattern fieldPattern, RulePrinter printer) {
+  private static RulePrinter printField(
+      KeepFieldPattern fieldPattern, RulePrinter printer, KeepRuleExtractorOptions options) {
     printFieldAccess(printer, fieldPattern.getAccessPattern());
-    printType(printer, fieldPattern.getTypePattern().asType());
+    printType(
+        printer.allowBackReferencesIf(options.hasFieldTypeBackReference()),
+        fieldPattern.getTypePattern().asType());
     printer.append(" ");
     printFieldName(printer, fieldPattern.getNamePattern());
     return printer.append(";");
   }
 
-  private static RulePrinter printMethod(KeepMethodPattern methodPattern, RulePrinter printer) {
+  private static RulePrinter printMethod(
+      KeepMethodPattern methodPattern, RulePrinter printer, KeepRuleExtractorOptions options) {
     printMethodAccess(printer, methodPattern.getAccessPattern());
-    printReturnType(printer, methodPattern.getReturnTypePattern());
+    printReturnType(
+        printer.allowBackReferencesIf(options.hasMethodReturnTypeBackReference()),
+        methodPattern.getReturnTypePattern());
     printer.append(" ");
     printMethodName(printer, methodPattern.getNamePattern());
-    printParameters(printer, methodPattern.getParametersPattern());
+    printParameters(printer, methodPattern.getParametersPattern(), options);
     return printer.append(";");
   }
 
   private static RulePrinter printParameters(
-      RulePrinter builder, KeepMethodParametersPattern parametersPattern) {
+      RulePrinter builder,
+      KeepMethodParametersPattern parametersPattern,
+      KeepRuleExtractorOptions options) {
     if (parametersPattern.isAny()) {
-      return builder.appendAnyParameters();
+      return builder
+          .allowBackReferencesIf(options.hasMethodParameterListBackReference())
+          .appendAnyParameters();
     }
     builder.append("(");
     List<KeepTypePattern> patterns = parametersPattern.asList();
@@ -167,7 +178,9 @@ public abstract class RulePrintingUtils {
       if (i > 0) {
         builder.append(", ");
       }
-      printType(builder, patterns.get(i));
+      printType(
+          builder.allowBackReferencesIf(options.hasMethodParameterTypeBackReference()),
+          patterns.get(i));
     }
     return builder.append(")");
   }

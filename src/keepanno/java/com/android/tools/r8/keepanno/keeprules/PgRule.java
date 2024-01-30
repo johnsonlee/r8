@@ -94,14 +94,21 @@ public abstract class PgRule {
 
   private final KeepEdgeMetaInfo metaInfo;
   private final KeepOptions options;
+  private final KeepRuleExtractorOptions extractorOptions;
 
-  private PgRule(KeepEdgeMetaInfo metaInfo, KeepOptions options) {
+  private PgRule(
+      KeepEdgeMetaInfo metaInfo, KeepOptions options, KeepRuleExtractorOptions extractorOptions) {
     this.metaInfo = metaInfo;
     this.options = options;
+    this.extractorOptions = extractorOptions;
   }
 
   public KeepEdgeMetaInfo getMetaInfo() {
     return metaInfo;
+  }
+
+  public KeepRuleExtractorOptions getExtractorOptions() {
+    return extractorOptions;
   }
 
   // Helper to print the class-name pattern in a class-item.
@@ -203,8 +210,9 @@ public abstract class PgRule {
         KeepOptions options,
         Map<KeepBindingSymbol, KeepMemberPattern> memberPatterns,
         List<KeepBindingSymbol> targetMembers,
-        TargetKeepKind targetKeepKind) {
-      super(metaInfo, options);
+        TargetKeepKind targetKeepKind,
+        KeepRuleExtractorOptions extractorOptions) {
+      super(metaInfo, options, extractorOptions);
       assert !targetKeepKind.equals(TargetKeepKind.JUST_MEMBERS);
       this.holderNamePattern = holder.getNamePattern();
       this.holderPattern = holder.getClassItemPattern();
@@ -234,7 +242,8 @@ public abstract class PgRule {
     @Override
     void printTargetMember(StringBuilder builder, KeepBindingSymbol memberReference) {
       KeepMemberPattern memberPattern = memberPatterns.get(memberReference);
-      printMemberClause(memberPattern, RulePrinter.withoutBackReferences(builder));
+      printMemberClause(
+          memberPattern, RulePrinter.withoutBackReferences(builder), getExtractorOptions());
     }
   }
 
@@ -242,8 +251,11 @@ public abstract class PgRule {
 
     private final Set<KeepAttribute> attributes;
 
-    public PgKeepAttributeRule(KeepEdgeMetaInfo metaInfo, Set<KeepAttribute> attributes) {
-      super(metaInfo, null);
+    public PgKeepAttributeRule(
+        KeepEdgeMetaInfo metaInfo,
+        Set<KeepAttribute> attributes,
+        KeepRuleExtractorOptions extractorOptions) {
+      super(metaInfo, null, extractorOptions);
       assert !attributes.isEmpty();
       this.attributes = attributes;
     }
@@ -308,8 +320,9 @@ public abstract class PgRule {
         Map<KeepBindingSymbol, KeepMemberPattern> memberPatterns,
         List<KeepBindingSymbol> memberConditions,
         List<KeepBindingSymbol> memberTargets,
-        TargetKeepKind keepKind) {
-      super(metaInfo, options);
+        TargetKeepKind keepKind,
+        KeepRuleExtractorOptions extractorOptions) {
+      super(metaInfo, options, extractorOptions);
       this.classCondition = classCondition.getClassItemPattern();
       this.classTarget = classTarget.getClassItemPattern();
       this.memberPatterns = memberPatterns;
@@ -336,7 +349,8 @@ public abstract class PgRule {
     @Override
     void printConditionMember(StringBuilder builder, KeepBindingSymbol member) {
       KeepMemberPattern memberPattern = memberPatterns.get(member);
-      printMemberClause(memberPattern, RulePrinter.withoutBackReferences(builder));
+      printMemberClause(
+          memberPattern, RulePrinter.withoutBackReferences(builder), getExtractorOptions());
     }
 
     @Override
@@ -360,7 +374,8 @@ public abstract class PgRule {
     @Override
     void printTargetMember(StringBuilder builder, KeepBindingSymbol member) {
       KeepMemberPattern memberPattern = memberPatterns.get(member);
-      printMemberClause(memberPattern, RulePrinter.withoutBackReferences(builder));
+      printMemberClause(
+          memberPattern, RulePrinter.withoutBackReferences(builder), getExtractorOptions());
     }
 
     private void printClassName(StringBuilder builder, KeepQualifiedClassNamePattern clazzName) {
@@ -402,8 +417,9 @@ public abstract class PgRule {
         Map<KeepBindingSymbol, KeepMemberPattern> memberPatterns,
         List<KeepBindingSymbol> memberConditions,
         List<KeepBindingSymbol> memberTargets,
-        TargetKeepKind keepKind) {
-      super(metaInfo, options);
+        TargetKeepKind keepKind,
+        KeepRuleExtractorOptions extractorOptions) {
+      super(metaInfo, options, extractorOptions);
       this.holderNamePattern = holder.getNamePattern();
       this.holderPattern = holder.getClassItemPattern();
       this.memberPatterns = memberPatterns;
@@ -458,7 +474,7 @@ public abstract class PgRule {
       KeepMemberPattern memberPattern = memberPatterns.get(member);
       BackReferencePrinter printer =
           RulePrinter.withBackReferences(builder, this::getNextBackReferenceNumber);
-      printMemberClause(memberPattern, printer);
+      printMemberClause(memberPattern, printer, getExtractorOptions());
       membersBackReferencePatterns.put(member, printer.getBackReference());
     }
 
@@ -492,7 +508,8 @@ public abstract class PgRule {
         }
       }
       KeepMemberPattern memberPattern = memberPatterns.get(member);
-      printMemberClause(memberPattern, RulePrinter.withoutBackReferences(builder));
+      printMemberClause(
+          memberPattern, RulePrinter.withoutBackReferences(builder), getExtractorOptions());
     }
   }
 }

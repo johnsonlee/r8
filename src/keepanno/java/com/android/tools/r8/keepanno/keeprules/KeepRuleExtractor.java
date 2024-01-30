@@ -49,16 +49,17 @@ import java.util.function.Consumer;
 /** Extract the PG keep rules that over-approximate a keep edge. */
 public class KeepRuleExtractor {
 
-  private final KeepRuleExtractorOptions options;
+  private final KeepRuleExtractorOptions extractorOptions;
   private final Consumer<String> ruleConsumer;
 
   public KeepRuleExtractor(Consumer<String> ruleConsumer) {
     this(ruleConsumer, KeepRuleExtractorOptions.getR8Options());
   }
 
-  public KeepRuleExtractor(Consumer<String> ruleConsumer, KeepRuleExtractorOptions options) {
+  public KeepRuleExtractor(
+      Consumer<String> ruleConsumer, KeepRuleExtractorOptions extractorOptions) {
     this.ruleConsumer = ruleConsumer;
-    this.options = options;
+    this.extractorOptions = extractorOptions;
   }
 
   public void extract(KeepDeclaration declaration) {
@@ -66,7 +67,7 @@ public class KeepRuleExtractor {
     PgRule.groupByKinds(rules);
     StringBuilder builder = new StringBuilder();
     for (PgRule rule : rules) {
-      rule.printRule(builder, options);
+      rule.printRule(builder, extractorOptions);
       builder.append("\n");
     }
     ruleConsumer.accept(builder.toString());
@@ -80,7 +81,7 @@ public class KeepRuleExtractor {
   }
 
   private List<PgRule> generateCheckRules(KeepCheck check) {
-    if (!options.hasCheckDiscardSupport()) {
+    if (!extractorOptions.hasCheckDiscardSupport()) {
       return Collections.emptyList();
     }
     KeepItemPattern itemPattern = check.getItemPattern();
@@ -114,7 +115,8 @@ public class KeepRuleExtractor {
             KeepOptions.keepAll(),
             memberPatterns,
             targetMembers,
-            TargetKeepKind.CHECK_DISCARD));
+            TargetKeepKind.CHECK_DISCARD,
+            extractorOptions));
     // If the check declaration is to ensure full removal we generate a soft-pin rule to disallow
     // moving/inlining the items.
     if (isRemovedPattern) {
@@ -130,7 +132,8 @@ public class KeepRuleExtractor {
                 allowShrinking,
                 Collections.singletonMap(memberSymbol, KeepMemberPattern.allMembers()),
                 Collections.singletonList(memberSymbol),
-                TargetKeepKind.CLASS_OR_MEMBERS));
+                TargetKeepKind.CLASS_OR_MEMBERS,
+                extractorOptions));
       } else {
         // A check removal on members just soft-pins the members.
         rules.add(
@@ -141,7 +144,8 @@ public class KeepRuleExtractor {
                 memberPatterns,
                 Collections.emptyList(),
                 targetMembers,
-                TargetKeepKind.JUST_MEMBERS));
+                TargetKeepKind.JUST_MEMBERS,
+                extractorOptions));
       }
     }
     return rules;
@@ -255,7 +259,7 @@ public class KeepRuleExtractor {
   }
 
   @SuppressWarnings("UnnecessaryParentheses")
-  private static List<PgRule> doSplit(KeepEdge edge) {
+  private List<PgRule> doSplit(KeepEdge edge) {
     List<PgRule> rules = new ArrayList<>();
     // Collection for all attribute constraints required for this edge.
     Set<KeepAttribute> allAttributeConstraints = new HashSet<>();
@@ -287,7 +291,8 @@ public class KeepRuleExtractor {
 
     // Generate at most one `-keepattributes` rule for the edge if needed.
     if (!allAttributeConstraints.isEmpty()) {
-      rules.add(new PgKeepAttributeRule(edge.getMetaInfo(), allAttributeConstraints));
+      rules.add(
+          new PgKeepAttributeRule(edge.getMetaInfo(), allAttributeConstraints, extractorOptions));
     }
 
     bindingUsers.forEach(
@@ -400,7 +405,7 @@ public class KeepRuleExtractor {
             callback.accept(newTargetHolder, memberPatterns, targetMembers, finalKeepKind));
   }
 
-  private static void createUnconditionalRules(
+  private void createUnconditionalRules(
       List<PgRule> rules,
       Holder holder,
       KeepEdgeMetaInfo metaInfo,
@@ -423,7 +428,8 @@ public class KeepRuleExtractor {
                     memberPatterns,
                     Collections.emptyList(),
                     targetMembers,
-                    targetKeepKind));
+                    targetKeepKind,
+                    extractorOptions));
           } else {
             rules.add(
                 new PgUnconditionalRule(
@@ -432,12 +438,13 @@ public class KeepRuleExtractor {
                     options,
                     memberPatterns,
                     targetMembers,
-                    targetKeepKind));
+                    targetKeepKind,
+                    extractorOptions));
           }
         });
   }
 
-  private static void createConditionalRules(
+  private void createConditionalRules(
       List<PgRule> rules,
       KeepEdgeMetaInfo metaInfo,
       Holder conditionHolder,
@@ -472,10 +479,11 @@ public class KeepRuleExtractor {
                     memberPatterns,
                     conditionMembers,
                     targetMembers,
-                    targetKeepKind)));
+                    targetKeepKind,
+                    extractorOptions)));
   }
 
-  private static void createDependentRules(
+  private void createDependentRules(
       List<PgRule> rules,
       Holder initialHolder,
       KeepEdgeMetaInfo metaInfo,
@@ -510,7 +518,8 @@ public class KeepRuleExtractor {
                       copyWithMethod,
                       conditionMembers,
                       Collections.singletonList(targetMember),
-                      targetKeepKind));
+                      targetKeepKind,
+                      extractorOptions));
               HashMap<KeepBindingSymbol, KeepMemberPattern> copyWithField =
                   new HashMap<>(memberPatterns);
               copyWithField.put(targetMember, copyFieldFromMember(memberPattern));
@@ -522,7 +531,8 @@ public class KeepRuleExtractor {
                       copyWithField,
                       conditionMembers,
                       Collections.singletonList(targetMember),
-                      targetKeepKind));
+                      targetKeepKind,
+                      extractorOptions));
             } else {
               nonAllMemberTargets.add(targetMember);
             }
@@ -538,7 +548,8 @@ public class KeepRuleExtractor {
                   memberPatterns,
                   conditionMembers,
                   nonAllMemberTargets,
-                  targetKeepKind));
+                  targetKeepKind,
+                  extractorOptions));
         });
   }
 

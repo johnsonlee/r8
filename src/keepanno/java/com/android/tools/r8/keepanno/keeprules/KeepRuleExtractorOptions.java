@@ -6,12 +6,86 @@ package com.android.tools.r8.keepanno.keeprules;
 
 import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
 
-public class KeepRuleExtractorOptions {
+public abstract class KeepRuleExtractorOptions {
 
   private static final KeepRuleExtractorOptions PG_OPTIONS =
-      new KeepRuleExtractorOptions(false, false);
+      new KeepRuleExtractorOptions() {
+        @Override
+        public boolean hasCheckDiscardSupport() {
+          return false;
+        }
+
+        @Override
+        public boolean hasAllowAccessModificationOptionSupport() {
+          return false;
+        }
+
+        @Override
+        public boolean hasAllowAnnotationRemovalOptionSupport() {
+          return false;
+        }
+
+        @Override
+        public boolean hasFieldTypeBackReference() {
+          return false;
+        }
+
+        @Override
+        public boolean hasMethodReturnTypeBackReference() {
+          return false;
+        }
+
+        @Override
+        public boolean hasMethodParameterTypeBackReference() {
+          return false;
+        }
+
+        @Override
+        public boolean hasMethodParameterListBackReference() {
+          return false;
+        }
+      };
+
   private static final KeepRuleExtractorOptions R8_OPTIONS =
-      new KeepRuleExtractorOptions(true, true);
+      new KeepRuleExtractorOptions() {
+        @Override
+        public boolean hasCheckDiscardSupport() {
+          return true;
+        }
+
+        @Override
+        public boolean hasAllowAccessModificationOptionSupport() {
+          return true;
+        }
+
+        @Override
+        public boolean hasAllowAnnotationRemovalOptionSupport() {
+          // Allow annotation removal is currently a testing only option.
+          return false;
+        }
+
+        @Override
+        public boolean hasFieldTypeBackReference() {
+          return true;
+        }
+
+        @Override
+        public boolean hasMethodReturnTypeBackReference() {
+          return true;
+        }
+
+        @Override
+        public boolean hasMethodParameterTypeBackReference() {
+          return true;
+        }
+
+        @Override
+        public boolean hasMethodParameterListBackReference() {
+          // TODO(b/265892343): R8 does not support backrefs for `(...)`.
+          //  When resolving this the options need to be split in legacy R8 and current R8.
+          return false;
+        }
+      };
 
   public static KeepRuleExtractorOptions getPgOptions() {
     return PG_OPTIONS;
@@ -21,27 +95,21 @@ public class KeepRuleExtractorOptions {
     return R8_OPTIONS;
   }
 
-  private final boolean allowCheckDiscard;
-  private final boolean allowAccessModificationOption;
-  private final boolean allowAnnotationRemovalOption = false;
+  private KeepRuleExtractorOptions() {}
 
-  private KeepRuleExtractorOptions(
-      boolean allowCheckDiscard, boolean allowAccessModificationOption) {
-    this.allowCheckDiscard = allowCheckDiscard;
-    this.allowAccessModificationOption = allowAccessModificationOption;
-  }
+  public abstract boolean hasCheckDiscardSupport();
 
-  public boolean hasCheckDiscardSupport() {
-    return allowCheckDiscard;
-  }
+  public abstract boolean hasAllowAccessModificationOptionSupport();
 
-  private boolean hasAllowAccessModificationOptionSupport() {
-    return allowAccessModificationOption;
-  }
+  public abstract boolean hasAllowAnnotationRemovalOptionSupport();
 
-  private boolean hasAllowAnnotationRemovalOptionSupport() {
-    return allowAnnotationRemovalOption;
-  }
+  public abstract boolean hasFieldTypeBackReference();
+
+  public abstract boolean hasMethodReturnTypeBackReference();
+
+  public abstract boolean hasMethodParameterTypeBackReference();
+
+  public abstract boolean hasMethodParameterListBackReference();
 
   public boolean isKeepOptionSupported(KeepOption keepOption) {
     switch (keepOption) {

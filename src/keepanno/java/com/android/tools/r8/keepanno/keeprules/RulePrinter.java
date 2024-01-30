@@ -22,6 +22,10 @@ public class RulePrinter {
     this.builder = builder;
   }
 
+  public RulePrinter allowBackReferencesIf(boolean isBackReferenceSupported) {
+    return this;
+  }
+
   public RulePrinter append(String str) {
     assert !str.contains("*");
     assert !str.contains("(...)");
@@ -102,7 +106,51 @@ public class RulePrinter {
 
     @Override
     public RulePrinter appendAnyParameters() {
-      // TODO(b/265892343): R8 does not yet support back reference to `...`.
+      return addBackRef("(...)");
+    }
+
+    @Override
+    public RulePrinter allowBackReferencesIf(boolean isBackReferenceSupported) {
+      return isBackReferenceSupported ? this : new SkipBackreferencePrinter(this);
+    }
+  }
+
+  private static class SkipBackreferencePrinter extends RulePrinter {
+    final BackReferencePrinter printer;
+
+    private SkipBackreferencePrinter(BackReferencePrinter printer) {
+      super(((RulePrinter) printer).builder);
+      this.printer = printer;
+    }
+
+    @Override
+    public RulePrinter appendWithoutBackReferenceAssert(String str) {
+      printer.appendWithoutBackReferenceAssert(str);
+      return this;
+    }
+
+    @Override
+    public RulePrinter appendStar() {
+      return appendWithoutBackReferenceAssert("*");
+    }
+
+    @Override
+    public RulePrinter appendDoubleStar() {
+      return appendWithoutBackReferenceAssert("**");
+    }
+
+    @Override
+    public RulePrinter appendTripleStar() {
+      return appendWithoutBackReferenceAssert("***");
+    }
+
+    @Override
+    public RulePrinter appendPercent() {
+      return appendWithoutBackReferenceAssert("%");
+    }
+
+    @Override
+    public RulePrinter appendAnyParameters() {
       return appendWithoutBackReferenceAssert("(...)");
     }
   }

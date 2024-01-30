@@ -27,9 +27,6 @@ public class KeepSameMethodTest extends KeepAnnoTestBase {
 
   static final String EXPECTED = StringUtils.lines("foo");
 
-  // TODO(b/265893433): The use of backreferences does not work in PG.
-  static final String UNEXPECTED_PG = StringUtils.lines("main");
-
   @Parameter public KeepAnnoParameters parameters;
 
   @Parameterized.Parameters(name = "{0}")
@@ -47,7 +44,7 @@ public class KeepSameMethodTest extends KeepAnnoTestBase {
         // The "all members" target will create an unused "all fields" rule.
         .allowUnusedProguardConfigurationRules()
         .run(TestClass.class)
-        .assertSuccessWithOutput(parameters.isPG() ? UNEXPECTED_PG : EXPECTED)
+        .assertSuccessWithOutput(EXPECTED)
         .applyIf(parameters.isR8(), r -> r.inspect(this::checkOutput));
   }
 
