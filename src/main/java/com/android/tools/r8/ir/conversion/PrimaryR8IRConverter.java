@@ -263,17 +263,12 @@ public class PrimaryR8IRConverter extends IRConverter {
       onWaveDoneActions.forEach(com.android.tools.r8.utils.Action::execute);
       onWaveDoneActions = null;
     }
-    if (prunedItemsBuilder.hasFullyInlinedMethods() || prunedItemsBuilder.hasRemovedMethods()) {
-      appView.pruneItems(
-          prunedItemsBuilder.setPrunedApp(appView.app()).build(), executorService, timing);
-      prunedItemsBuilder.clearFullyInlinedMethods();
-      prunedItemsBuilder.clearRemovedMethods();
-    }
   }
 
   private void lastWaveDone(
       PostMethodProcessor.Builder postMethodProcessorBuilder, ExecutorService executorService)
       throws ExecutionException {
+    pruneItems(executorService);
     if (assertionErrorTwoArgsConstructorRewriter != null) {
       assertionErrorTwoArgsConstructorRewriter.onLastWaveDone(postMethodProcessorBuilder);
       assertionErrorTwoArgsConstructorRewriter = null;
@@ -288,5 +283,14 @@ public class PrimaryR8IRConverter extends IRConverter {
 
     // Ensure determinism of method-to-reprocess set.
     appView.testing().checkDeterminism(postMethodProcessorBuilder::dump);
+  }
+
+  public void pruneItems(ExecutorService executorService) throws ExecutionException {
+    if (prunedItemsBuilder.hasFullyInlinedMethods() || prunedItemsBuilder.hasRemovedMethods()) {
+      appView.pruneItems(
+          prunedItemsBuilder.setPrunedApp(appView.app()).build(), executorService, timing);
+      prunedItemsBuilder.clearFullyInlinedMethods();
+      prunedItemsBuilder.clearRemovedMethods();
+    }
   }
 }

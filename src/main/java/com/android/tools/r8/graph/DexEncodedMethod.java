@@ -1354,7 +1354,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     DexClass newHolder = definitions.definitionFor(newMethodReference.getHolderType());
     assert newHolder != null;
     DexEncodedMethod newMethod = newHolder.lookupMethod(newMethodReference);
-    assert newMethod != null;
+    assert newMethod != null : newMethodReference.toSourceString();
     return newMethod;
   }
 

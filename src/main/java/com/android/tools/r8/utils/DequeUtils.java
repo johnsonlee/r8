@@ -5,6 +5,7 @@
 package com.android.tools.r8.utils;
 
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
 
 public class DequeUtils {
@@ -12,6 +13,12 @@ public class DequeUtils {
   public static <T> Deque<T> newArrayDeque(T element) {
     Deque<T> deque = new ArrayDeque<>();
     deque.add(element);
+    return deque;
+  }
+
+  public static <T> Deque<T> newArrayDeque(T... elements) {
+    Deque<T> deque = new ArrayDeque<>();
+    Collections.addAll(deque, elements);
     return deque;
   }
 }

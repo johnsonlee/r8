@@ -88,6 +88,7 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
       converter.onMethodPruned(prunedMethod);
       postMethodProcessorBuilder.remove(prunedMethod, appView.graphLens());
     }
+    converter.pruneItems(executorService);
     converter.waveDone(ProgramMethodSet.empty(), executorService);
   }
 
