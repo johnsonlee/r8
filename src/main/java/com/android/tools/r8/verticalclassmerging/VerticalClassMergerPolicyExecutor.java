@@ -14,6 +14,7 @@ import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.verticalclassmerging.policies.VerticalClassMergerPolicyWithPreprocessing;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
@@ -69,7 +70,15 @@ public class VerticalClassMergerPolicyExecutor extends PolicyExecutor<VerticalMe
       VerticalClassMergerPolicyWithPreprocessing<T> policy,
       LinkedList<VerticalMergeGroup> linkedGroups) {
     T data = policy.preprocess(linkedGroups);
-    linkedGroups.removeIf(group -> !policy.canMerge(group, data));
+    linkedGroups.removeIf(
+        group -> {
+          if (policy.canMerge(group, data)) {
+            return false;
+          }
+          assert policy.recordRemovedClassesForDebugging(
+              group.getSource().isInterface(), group.size(), Collections.emptyList());
+          return true;
+        });
     return linkedGroups;
   }
 }

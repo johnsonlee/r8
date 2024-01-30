@@ -89,10 +89,12 @@ public abstract class Policy {
     }
     assert previousNumberOfRemovedClasses >= newNumberOfRemovedClasses;
     int change = previousNumberOfRemovedClasses - newNumberOfRemovedClasses;
-    if (isInterfaceGroup) {
-      numberOfRemovedInterfaces += change;
-    } else {
-      numberOfRemovedClasses += change;
+    synchronized (this) {
+      if (isInterfaceGroup) {
+        numberOfRemovedInterfaces += change;
+      } else {
+        numberOfRemovedClasses += change;
+      }
     }
     return true;
   }
