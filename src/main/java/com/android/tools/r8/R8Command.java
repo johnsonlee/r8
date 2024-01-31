@@ -481,6 +481,7 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     @Deprecated
+    @SuppressWarnings("InlineMeSuggester")
     public Builder setEnableExperimentalIsolatedSplits(boolean enableIsolatedSplits) {
       return setEnableIsolatedSplits(enableIsolatedSplits);
     }
