@@ -418,7 +418,8 @@ public class KeepItemAnnotationGenerator {
       if (line.length() > 0) {
         writer.print(Strings.repeat(" ", indent));
       }
-      writer.println(line);
+      writer.print(line);
+      writer.print('\n');
     }
 
     private void printCopyRight(int year) {
