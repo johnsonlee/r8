@@ -6,6 +6,7 @@ package com.android.tools.r8.verticalclassmerging;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.code.InvokeType.STATIC;
 import static com.android.tools.r8.ir.code.InvokeType.VIRTUAL;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static java.util.function.Predicate.not;
 
 import com.android.tools.r8.cf.CfVersion;
@@ -73,6 +74,7 @@ class ClassMerger {
 
   private final ClassMergerSharedData sharedData;
   private final List<IncompleteVerticalClassMergerBridgeCode> synthesizedBridges;
+  private Predicate<DexEncodedMethod> virtualMethodsTargetedByInvokeSuperInImmediateSubclass;
 
   ClassMerger(
       AppView<AppInfoWithLiveness> appView,
@@ -93,6 +95,7 @@ class ClassMerger {
   }
 
   public void setup() {
+    setupVirtualMethodsTargetedByInvokeSuperInImmediateSubclass();
     setupInvokeSuperMapping();
   }
 
@@ -101,6 +104,11 @@ class ClassMerger {
   }
 
   private void redirectSuperCallsToMethod(ProgramMethod sourceMethod) {
+    if (!virtualMethodsTargetedByInvokeSuperInImmediateSubclass.test(
+        sourceMethod.getDefinition())) {
+      // Not targeted by invoke-super.
+      return;
+    }
     if (sourceMethod.getAccessFlags().belongsToDirectPool()) {
       redirectSuperCallsToDirectMethod(sourceMethod);
     } else {
@@ -214,6 +222,22 @@ class ClassMerger {
     for (DexEncodedMethod virtualMethod :
         source.virtualMethods(not(DexEncodedMethod::isAbstract))) {
       DexEncodedMethod shadowedBy = findMethodInTarget(virtualMethod);
+      if (!virtualMethodsTargetedByInvokeSuperInImmediateSubclass.test(virtualMethod)) {
+        if (shadowedBy != null) {
+          // Similarly to abstract methods that are overridden, we remove overridden non-abstract
+          // methods that are never targeted by invoke-super. These are guaranteed to be dead as we
+          // currently only allow merging uninstantiated classes into instantiated classes.
+          lensBuilder.recordSplit(virtualMethod, shadowedBy, null, null);
+        } else {
+          DexEncodedMethod movedMethod =
+              virtualMethod.toTypeSubstitutedMethodAsInlining(
+                  virtualMethod.getReference().withHolder(target, dexItemFactory), dexItemFactory);
+          virtualMethods.put(movedMethod, movedMethod);
+          lensBuilder.recordMove(virtualMethod, movedMethod);
+        }
+        continue;
+      }
+
       DexEncodedMethod resultingMethod;
       if (source.isInterface()) {
         // Moving a default interface method into its subtype. This method could be hit directly
@@ -365,6 +389,25 @@ class ClassMerger {
         .isValid();
     outerLensBuilder.merge(lensBuilder);
     verticallyMergedClassesBuilder.add(source, target);
+  }
+
+  private void setupVirtualMethodsTargetedByInvokeSuperInImmediateSubclass() {
+    if (!appView.options().getVerticalClassMergerOptions().isBridgeAnalysisEnabled()) {
+      virtualMethodsTargetedByInvokeSuperInImmediateSubclass = alwaysTrue();
+      return;
+    }
+    DexMethodSignatureSet methodsOfInterest = DexMethodSignatureSet.create();
+    source.forEachProgramMethodMatching(
+        method -> method.hasCode() && method.isVirtualMethod(), methodsOfInterest::add);
+    DexMethodSignatureSet result = DexMethodSignatureSet.create();
+    target.forEachProgramMethodMatching(
+        DexEncodedMethod::hasCode,
+        method -> {
+          InvokeSuperExtractor invokeSuperExtractor =
+              new InvokeSuperExtractor(appView, method, methodsOfInterest, result, source);
+          method.registerCodeReferences(invokeSuperExtractor);
+        });
+    virtualMethodsTargetedByInvokeSuperInImmediateSubclass = result::contains;
   }
 
   private void fixupAccessFlags() {

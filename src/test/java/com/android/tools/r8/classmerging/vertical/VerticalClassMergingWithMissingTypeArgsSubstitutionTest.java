@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.classmerging.vertical;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -13,10 +14,11 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.lang.reflect.TypeVariable;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -27,11 +29,15 @@ import org.junit.runners.Parameterized.Parameters;
 public class VerticalClassMergingWithMissingTypeArgsSubstitutionTest extends TestBase {
 
   @Parameter(0)
+  public boolean enableBridgeAnalysis;
+
+  @Parameter(1)
   public TestParameters parameters;
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+  @Parameters(name = "{1}, bridge analysis: {0}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        BooleanUtils.values(), getTestParameters().withAllRuntimesAndApiLevels().build());
   }
 
   @Test
@@ -41,8 +47,13 @@ public class VerticalClassMergingWithMissingTypeArgsSubstitutionTest extends Tes
         .addKeepMainRule(Main.class)
         .addKeepClassRules(A.class)
         .addKeepAttributeSignature()
+        .addOptionsModification(
+            options ->
+                options
+                    .getVerticalClassMergerOptions()
+                    .setEnableBridgeAnalysis(enableBridgeAnalysis))
         .addVerticallyMergedClassesInspector(
-            inspector -> inspector.assertMergedIntoSubtype(B.class))
+            inspector -> inspector.assertMergedIntoSubtype(B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNoMethodStaticizingAnnotations()
         .enableConstantArgumentAnnotations()
@@ -56,9 +67,11 @@ public class VerticalClassMergingWithMissingTypeArgsSubstitutionTest extends Tes
               assertEquals(
                   "<T:Ljava/lang/Object;>L" + binaryName(A.class) + "<Ljava/lang/Object;>;",
                   classSubject.getFinalSignatureAttribute());
+
               MethodSubject bar = classSubject.uniqueMethodWithOriginalName("bar");
               assertThat(bar, isPresentAndRenamed());
               assertEquals("(TT;)V", bar.getFinalSignatureAttribute());
+
               // The NeverInline is transferred to the private vertically merged method but also
               // copied to the virtual bridge.
               MethodSubject fooMovedFromB =
@@ -72,6 +85,7 @@ public class VerticalClassMergingWithMissingTypeArgsSubstitutionTest extends Tes
               assertEquals(
                   "(Ljava/lang/Object;)Ljava/lang/Object;",
                   fooMovedFromB.getFinalSignatureAttribute());
+
               MethodSubject fooBridge =
                   classSubject.uniqueMethodThatMatches(
                       method ->
@@ -79,9 +93,14 @@ public class VerticalClassMergingWithMissingTypeArgsSubstitutionTest extends Tes
                               && method.isVirtual()
                               && method.isSynthetic()
                               && method.getOriginalName(false).equals("foo"));
-              assertThat(fooBridge, isPresentAndRenamed());
-              assertEquals(
-                  "(Ljava/lang/Object;)Ljava/lang/Object;", fooBridge.getFinalSignatureAttribute());
+              if (enableBridgeAnalysis) {
+                assertThat(fooBridge, isAbsent());
+              } else {
+                assertThat(fooBridge, isPresentAndRenamed());
+                assertEquals(
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    fooBridge.getFinalSignatureAttribute());
+              }
             });
   }
 

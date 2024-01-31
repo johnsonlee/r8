@@ -113,14 +113,14 @@ public class ApplyMappingAfterVerticalMergingMethodTest extends TestBase {
               assertThat(inspector.clazz(LibrarySubclass.class), isPresent());
               List<FoundMethodSubject> methods =
                   inspector.clazz(LibrarySubclass.class).allMethods();
-              assertEquals(backend.isCf() ? 5 : 4, methods.size());
+              assertEquals(backend.isCf() ? 4 : 3, methods.size());
               assertEquals(
                   backend.isCf() ? 2 : 1,
                   methods.stream().filter(FoundMethodSubject::isInstanceInitializer).count());
               assertEquals(
                   1, methods.stream().filter(m -> m.getFinalName().contains("main")).count());
               assertEquals(
-                  2, methods.stream().filter(m -> m.getOriginalName().contains("foo")).count());
+                  1, methods.stream().filter(m -> m.getOriginalName().contains("foo")).count());
             });
   }
 

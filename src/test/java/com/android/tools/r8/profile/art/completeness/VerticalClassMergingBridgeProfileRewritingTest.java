@@ -41,9 +41,12 @@ public class VerticalClassMergingBridgeProfileRewritingTest extends TestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addArtProfileForRewriting(getArtProfile())
-        .addOptionsModification(InlinerOptions::setOnlyForceInlining)
+        .addOptionsModification(InlinerOptions::disableInlining)
         .addOptionsModification(
-            options -> options.callSiteOptimizationOptions().disableOptimization())
+            options -> {
+              options.callSiteOptimizationOptions().disableOptimization();
+              options.getVerticalClassMergerOptions().setEnableBridgeAnalysis(false);
+            })
         .addVerticallyMergedClassesInspector(
             inspector -> inspector.assertMergedIntoSubtype(A.class))
         .enableNeverClassInliningAnnotations()

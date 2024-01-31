@@ -270,7 +270,10 @@ public class VerticalClassMergerTest extends TestBase {
                 testForR8(parameters.getBackend())
                     .addKeepRules(getProguardConfig(EXAMPLE_KEEP))
                     .addOptionsModification(this::configure)
-                    .addOptionsModification(InlinerOptions::setOnlyForceInlining)
+                    .addOptionsModification(
+                        options ->
+                            options.getVerticalClassMergerOptions().setEnableBridgeAnalysis(false))
+                    .addOptionsModification(InlinerOptions::disableInlining)
                     .allowUnusedProguardConfigurationRules(),
                 main,
                 readProgramFiles(programFiles),

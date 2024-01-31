@@ -27,22 +27,34 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class VerticalClassMergingRetraceTest extends RetraceTestBase {
 
-  @Parameters(name = "{0}, mode: {1}, compat: {2}")
+  @Parameters(name = "{0}, mode: {1}, compat: {2}, bridge analysis: {3}")
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
         CompilationMode.values(),
+        BooleanUtils.values(),
         BooleanUtils.values());
   }
 
+  private final boolean enableBridgeAnalysis;
+
   public VerticalClassMergingRetraceTest(
-      TestParameters parameters, CompilationMode mode, boolean compat) {
+      TestParameters parameters,
+      CompilationMode mode,
+      boolean compat,
+      boolean enableBridgeAnalysis) {
     super(parameters, mode, compat);
+    this.enableBridgeAnalysis = enableBridgeAnalysis;
   }
 
   @Override
-  public void configure(R8TestBuilder builder) {
+  public void configure(R8TestBuilder<?> builder) {
     builder
+        .addOptionsModification(
+            options ->
+                options
+                    .getVerticalClassMergerOptions()
+                    .setEnableBridgeAnalysis(enableBridgeAnalysis))
         .enableInliningAnnotations()
         .enableKeepUnusedReturnValueAnnotations()
         .enableNeverClassInliningAnnotations();
@@ -59,8 +71,9 @@ public class VerticalClassMergingRetraceTest extends RetraceTestBase {
   }
 
   private int expectedActualStackTraceHeight() {
-    // In RELEASE mode, a synthetic bridge will be added by vertical class merger.
-    return mode == CompilationMode.RELEASE ? 3 : 2;
+    // In RELEASE mode a synthetic bridge is added by the vertical class merger if the method is
+    // targeted by the invoke-super (which is modeled by setting enableBridgeAnalysis to false).
+    return mode == CompilationMode.DEBUG || enableBridgeAnalysis ? 2 : 3;
   }
 
   private boolean filterSynthesizedMethodWhenLineNumberAvailable(

@@ -513,7 +513,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
       }
 
       if (implementation == null) {
-        assert from.isAbstract();
         return;
       }
 

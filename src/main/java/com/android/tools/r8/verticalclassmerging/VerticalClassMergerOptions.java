@@ -12,6 +12,7 @@ public class VerticalClassMergerOptions {
 
   private boolean enabled = true;
   private boolean enableInitial = true;
+  private boolean enableBridgeAnalysis = true;
 
   public VerticalClassMergerOptions(InternalOptions options) {
     this.options = options;
@@ -35,7 +36,15 @@ public class VerticalClassMergerOptions {
     return true;
   }
 
+  public boolean isBridgeAnalysisEnabled() {
+    return enableBridgeAnalysis;
+  }
+
   public void setEnabled(boolean enabled) {
     this.enabled = enabled;
+  }
+
+  public void setEnableBridgeAnalysis(boolean enableBridgeAnalysis) {
+    this.enableBridgeAnalysis = enableBridgeAnalysis;
   }
 }

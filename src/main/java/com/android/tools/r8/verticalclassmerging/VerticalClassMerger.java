@@ -28,7 +28,6 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Timing.TimingMerger;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -130,8 +129,7 @@ public class VerticalClassMerger {
     // can't build IR.
     rewriteCodeWithLens(executorService, timing);
 
-    // Remove force inlined constructors.
-    removeFullyInlinedInstanceInitializers(executorService, timing);
+    // Remove merged classes from app now that the code is fully rewritten.
     removeMergedClasses(verticalClassMergerResult.getVerticallyMergedClasses(), timing);
 
     // Convert the (incomplete) synthesized bridges to CF or LIR.
@@ -275,38 +273,6 @@ public class VerticalClassMerger {
                   .setRemovedClasses(verticallyMergedClasses.getSources())
                   .build());
         });
-    timing.end();
-  }
-
-  private void removeFullyInlinedInstanceInitializers(
-      ExecutorService executorService, Timing timing) throws ExecutionException {
-    if (mode.isInitial()) {
-      return;
-    }
-    timing.begin("Remove fully inlined instance initializers");
-    PrunedItems.Builder prunedItemsBuilder =
-        PrunedItems.concurrentBuilder().setPrunedApp(appView.app());
-    ThreadUtils.<DexProgramClass, Exception>processItems(
-        consumer -> {
-          for (DexProgramClass clazz : appView.appInfo().classes()) {
-            if (!clazz.isInterface()) {
-              consumer.accept(clazz);
-            }
-          }
-        },
-        clazz -> {
-          Set<DexEncodedMethod> methodsToRemove = Sets.newIdentityHashSet();
-          // TODO(b/321171043): Inline and remove instance initializers that are only called from
-          //  other instance initializers in the same class.
-          clazz.getMethodCollection().removeMethods(methodsToRemove);
-          methodsToRemove.forEach(
-              removedMethod -> prunedItemsBuilder.addRemovedMethod(removedMethod.getReference()));
-        },
-        options.getThreadingModule(),
-        executorService);
-    PrunedItems prunedItems = prunedItemsBuilder.build();
-    appView.pruneItems(prunedItems, executorService, Timing.empty());
-    appView.appInfo().getMethodAccessInfoCollection().withoutPrunedItems(prunedItems);
     timing.end();
   }
 
