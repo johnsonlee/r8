@@ -138,7 +138,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     ToolHelper.addSyntheticProguardRulesConsumerForTesting(
         builder, rules -> box.syntheticProguardRules = rules);
     libraryDesugaringTestConfiguration.configure(builder);
-    builder.setEnableExperimentalIsolatedSplits(enableIsolatedSplits);
+    builder.setEnableIsolatedSplits(enableIsolatedSplits);
     builder.setEnableExperimentalMissingLibraryApiModeling(enableMissingLibraryApiModeling);
     builder.setEnableStartupLayoutOptimization(enableStartupLayoutOptimization);
     StringBuilder pgConfOutput = wrapProguardConfigConsumer(builder);

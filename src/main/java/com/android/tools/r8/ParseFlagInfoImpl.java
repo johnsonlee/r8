@@ -8,6 +8,7 @@ import static com.android.tools.r8.BaseCompilerCommandParser.MAP_DIAGNOSTICS;
 import static com.android.tools.r8.BaseCompilerCommandParser.MIN_API_FLAG;
 import static com.android.tools.r8.BaseCompilerCommandParser.THREAD_COUNT_FLAG;
 import static com.android.tools.r8.D8CommandParser.STARTUP_PROFILE_FLAG;
+import static com.android.tools.r8.R8CommandParser.ISOLATED_SPLITS_FLAG;
 
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.google.common.collect.ImmutableList;
@@ -180,6 +181,13 @@ public class ParseFlagInfoImpl implements ParseFlagInfo {
 
   public static ParseFlagInfoImpl getStartupProfile() {
     return flag1(STARTUP_PROFILE_FLAG, "<file>", "Startup profile <file> to use for dex layout.");
+  }
+
+  public static ParseFlagInfoImpl getIsolatedSplits() {
+    return flag0(
+        ISOLATED_SPLITS_FLAG,
+        "Specifies that the application is using isolated splits, i.e., if split APKs installed "
+            + "for this application are loaded into their own Context objects.");
   }
 
   public static ParseFlagInfoImpl flag0(String flag, String... help) {

@@ -54,7 +54,6 @@ import com.android.tools.r8.utils.SemanticVersion;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.SystemPropertyUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -133,10 +132,7 @@ public final class R8Command extends BaseCompilerCommand {
     private GraphConsumer mainDexKeptGraphConsumer = null;
     private InputDependencyGraphConsumer inputDependencyGraphConsumer = null;
     private final FeatureSplitConfiguration.Builder featureSplitConfigurationBuilder =
-        FeatureSplitConfiguration.builder()
-            .setEnableIsolatedSplits(
-                SystemPropertyUtils.parseSystemPropertyOrDefault(
-                    "com.android.tools.r8.isolatedSplits", false));
+        FeatureSplitConfiguration.builder();
     private String synthesizedClassPrefix = "";
     private boolean enableMissingLibraryApiModeling = false;
     private boolean enableExperimentalKeepAnnotations =
@@ -479,9 +475,14 @@ public final class R8Command extends BaseCompilerCommand {
      * <p>See also <a href="https://developer.android.com/reference/android/R.attr#isolatedSplits">
      * R.attr#isolatedSplits</a>.
      */
-    public Builder setEnableExperimentalIsolatedSplits(boolean enableIsolatedSplits) {
+    public Builder setEnableIsolatedSplits(boolean enableIsolatedSplits) {
       featureSplitConfigurationBuilder.setEnableIsolatedSplits(enableIsolatedSplits);
       return this;
+    }
+
+    @Deprecated
+    public Builder setEnableExperimentalIsolatedSplits(boolean enableIsolatedSplits) {
+      return setEnableIsolatedSplits(enableIsolatedSplits);
     }
 
     /**

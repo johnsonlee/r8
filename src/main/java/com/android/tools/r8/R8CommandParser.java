@@ -29,6 +29,8 @@ import java.util.Set;
 
 public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Command.Builder> {
 
+  static final String ISOLATED_SPLITS_FLAG = "--isolated-splits";
+
   // Note: this must be a super-set of OPTIONS_WITH_TWO_PARAMETERS.
   private static final Set<String> OPTIONS_WITH_ONE_PARAMETER =
       ImmutableSet.of(
@@ -99,6 +101,7 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
                 "<output>",
                 "Add feature <input> file to <output> file. Several ",
                 "occurrences can map to the same output."))
+        .add(ParseFlagInfoImpl.getIsolatedSplits())
         .add(flag1("--main-dex-list-output", "<file>", "Output the full main-dex list in <file>."))
         .addAll(ParseFlagInfoImpl.getAssertionsFlags())
         .add(ParseFlagInfoImpl.getThreadCount())
@@ -291,6 +294,8 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
         featureSplitJars
             .computeIfAbsent(Paths.get(nextNextArg), k -> new ArrayList<>())
             .add(Paths.get(nextArg));
+      } else if (arg.equals(ISOLATED_SPLITS_FLAG)) {
+        builder.setEnableIsolatedSplits(true);
       } else if (arg.equals("--main-dex-list")) {
         builder.addMainDexListFiles(Paths.get(nextArg));
       } else if (arg.equals("--main-dex-list-output")) {
