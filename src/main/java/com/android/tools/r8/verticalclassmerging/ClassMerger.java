@@ -185,7 +185,6 @@ class ClassMerger {
           DexEncodedMethod movedMethod = moveDirectMethod(method, availableMethodSignatures);
           directMethods.put(movedMethod, movedMethod);
           lensBuilder.recordMove(method, movedMethod);
-          blockRedirectionOfSuperCalls(movedMethod);
         });
 
     for (DexEncodedMethod abstractMethod : source.virtualMethods(DexEncodedMethod::isAbstract)) {
@@ -510,26 +509,6 @@ class ClassMerger {
         TypeParameterContext.empty().addPrunedSubstitutions(substitutionMap),
         (type1, type2) -> true,
         type -> true);
-  }
-
-  private void blockRedirectionOfSuperCalls(DexEncodedMethod method) {
-    // We are merging a class B into C. The methods from B are being moved into C, and then we
-    // subsequently rewrite the invoke-super instructions in C that hit a method in B, such that
-    // they use an invoke-direct instruction instead. In this process, we need to avoid rewriting
-    // the invoke-super instructions that originally was in the superclass B.
-    //
-    // Example:
-    //   class A {
-    //     public void m() {}
-    //   }
-    //   class B extends A {
-    //     public void m() { super.m(); } <- invoke must not be rewritten to invoke-direct
-    //                                       (this would lead to an infinite loop)
-    //   }
-    //   class C extends B {
-    //     public void m() { super.m(); } <- invoke needs to be rewritten to invoke-direct
-    //   }
-    lensBuilder.markMethodAsMerged(method);
   }
 
   private DexEncodedMethod buildBridgeMethod(

@@ -75,7 +75,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
   private final Map<DexType, Map<DexMethod, DexMethod>> contextualSuperToImplementationInContexts;
   private final BidirectionalOneToOneMap<DexMethod, DexMethod> extraNewMethodSignatures;
 
-  private final Set<DexMethod> mergedMethods;
   private final Set<DexMethod> staticizedMethods;
 
   private VerticalClassMergerGraphLens(
@@ -85,7 +84,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
       Map<DexType, Map<DexMethod, DexMethod>> contextualSuperToImplementationInContexts,
       BidirectionalManyToOneRepresentativeMap<DexMethod, DexMethod> newMethodSignatures,
       BidirectionalOneToOneMap<DexMethod, DexMethod> extraNewMethodSignatures,
-      Set<DexMethod> mergedMethods,
       Set<DexMethod> staticizedMethods) {
     super(
         appView,
@@ -96,7 +94,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
     this.mergedClasses = mergedClasses;
     this.contextualSuperToImplementationInContexts = contextualSuperToImplementationInContexts;
     this.extraNewMethodSignatures = extraNewMethodSignatures;
-    this.mergedMethods = mergedMethods;
     this.staticizedMethods = staticizedMethods;
   }
 
@@ -105,7 +102,8 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
   }
 
   private boolean isMerged(DexMethod method) {
-    return mergedMethods.contains(method);
+    DexMethod previousMethod = getPreviousMethodSignature(method);
+    return mergedClasses.hasBeenMergedIntoSubtype(previousMethod.getHolderType());
   }
 
   private boolean isStaticized(DexMethod method) {
@@ -365,9 +363,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
     private final Map<DexMethod, DexMethod> pendingExtraNewMethodSignatureUpdates =
         new IdentityHashMap<>();
 
-    private final Set<DexMethod> mergedMethods = Sets.newIdentityHashSet();
-    private final Map<DexMethod, DexMethod> pendingMergedMethodUpdates = new IdentityHashMap<>();
-
     private final Set<DexMethod> staticizedMethods = Sets.newIdentityHashSet();
     private final Map<DexMethod, DexMethod> pendingStaticizedMethodUpdates =
         new IdentityHashMap<>();
@@ -422,11 +417,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
       extraNewMethodSignatures.putAll(pendingExtraNewMethodSignatureUpdates);
       pendingExtraNewMethodSignatureUpdates.clear();
 
-      // Commit merged methods.
-      mergedMethods.removeAll(pendingMergedMethodUpdates.keySet());
-      mergedMethods.addAll(pendingMergedMethodUpdates.values());
-      pendingMergedMethodUpdates.clear();
-
       // Commit staticized methods.
       staticizedMethods.removeAll(pendingStaticizedMethodUpdates.keySet());
       staticizedMethods.addAll(pendingStaticizedMethodUpdates.values());
@@ -447,10 +437,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
         pendingExtraNewMethodSignatureUpdates.put(originalMethodSignature, newMethodSignature);
       } else {
         pendingNewMethodSignatureUpdates.put(oldMethodSignature, newMethodSignature);
-      }
-
-      if (mergedMethods.contains(oldMethodSignature)) {
-        pendingMergedMethodUpdates.put(oldMethodSignature, newMethodSignature);
       }
 
       if (staticizedMethods.contains(oldMethodSignature)) {
@@ -500,12 +486,7 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
           contextualSuperToImplementationInContexts,
           newMethodSignatures,
           extraNewMethodSignatures,
-          mergedMethods,
           staticizedMethods);
-    }
-
-    public void markMethodAsMerged(DexEncodedMethod method) {
-      mergedMethods.add(method.getReference());
     }
 
     public void recordMove(DexEncodedField from, DexEncodedField to) {
@@ -537,7 +518,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
       }
 
       extraNewMethodSignatures.put(from.getReference(), implementation.getReference());
-      mergedMethods.add(implementation.getReference());
 
       if (implementation.isStatic()) {
         staticizedMethods.add(implementation.getReference());
@@ -553,7 +533,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
 
     public void merge(VerticalClassMergerGraphLens.Builder builder) {
       newFieldSignatures.putAll(builder.newFieldSignatures);
-      mergedMethods.addAll(builder.mergedMethods);
       builder.newMethodSignatures.forEachManyToOneMapping(
           (keys, value, representative) -> {
             boolean isRemapping =
