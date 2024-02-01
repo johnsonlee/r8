@@ -85,14 +85,6 @@ public class Minifier {
     NamingLens lens = new MinifiedRenaming(appView, classRenaming, methodRenaming, fieldRenaming);
     assert lens.verifyNoCollisions(appView.appInfo().classes(), appView.dexItemFactory());
 
-    timing.begin("MinifyIdentifiers");
-    new IdentifierMinifier(appView, lens).run(executorService);
-    timing.end();
-
-    timing.begin("RecordInvokeDynamicRewrite");
-    new RecordInvokeDynamicInvokeCustomRewriter(appView, lens).run(executorService);
-    timing.end();
-
     appView.testing().namingLensConsumer.accept(appView.dexItemFactory(), lens);
     appView.notifyOptimizationFinishedForTesting();
     appView.setNamingLens(lens);

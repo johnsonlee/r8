@@ -170,6 +170,10 @@ public class IRMetadata implements StructuralItem<IRMetadata> {
     return get(Opcodes.INT_SWITCH);
   }
 
+  public boolean mayHaveInvokeCustom() {
+    return get(Opcodes.INVOKE_CUSTOM);
+  }
+
   public boolean mayHaveInvokeDirect() {
     return get(Opcodes.INVOKE_DIRECT);
   }

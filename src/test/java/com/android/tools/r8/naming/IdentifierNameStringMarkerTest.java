@@ -121,12 +121,9 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
             DexSgetObject.class,
             DexConstString.class,
             DexInvokeVirtual.class,
-            DexConstString.class,
             DexIputObject.class,
             DexReturnVoid.class));
     DexConstString constString = (DexConstString) code.instructions[2];
-    assertEquals(BOO, constString.getString().toString());
-    constString = (DexConstString) code.instructions[4];
     assertEquals(BOO, constString.getString().toString());
   }
 
@@ -233,12 +230,9 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
             DexSgetObject.class,
             DexConstString.class,
             DexInvokeVirtual.class,
-            DexConstString.class,
             DexSputObject.class,
             DexReturnVoid.class));
     DexConstString constString = (DexConstString) code.instructions[1];
-    assertEquals(BOO, constString.getString().toString());
-    constString = (DexConstString) code.instructions[3];
     assertEquals(BOO, constString.getString().toString());
   }
 
@@ -462,12 +456,9 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
             DexSgetObject.class,
             DexConstString.class,
             DexInvokeVirtual.class,
-            DexConstString.class,
             DexInvokeStatic.class,
             DexReturnVoid.class));
     DexConstString constString = (DexConstString) code.instructions[2];
-    assertEquals(BOO, constString.getString().toString());
-    constString = (DexConstString) code.instructions[4];
     assertEquals(BOO, constString.getString().toString());
   }
 

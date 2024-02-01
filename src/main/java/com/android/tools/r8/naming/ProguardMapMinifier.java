@@ -156,15 +156,6 @@ public class ProguardMapMinifier {
     NamingLens lens =
         new ProguardMapMinifiedRenaming(
             appView, classRenaming, methodRenaming, fieldRenaming, notMappedReferences);
-
-    timing.begin("MinifyIdentifiers");
-    new IdentifierMinifier(appView, lens).run(executorService);
-    timing.end();
-
-    timing.begin("RecordInvokeDynamicRewrite");
-    new RecordInvokeDynamicInvokeCustomRewriter(appView, lens).run(executorService);
-    timing.begin("MinifyIdentifiers");
-
     appView.notifyOptimizationFinishedForTesting();
     return lens;
   }

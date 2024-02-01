@@ -10,8 +10,8 @@ import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexCode.TryHandler;
 import com.android.tools.r8.graph.DexCode.TryHandler.TypeAddrPair;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -23,6 +23,8 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.LibraryClass;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ThrowExceptionCode;
+import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirCode.TryCatchTable;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.synthesis.CommittedItems;
 import com.android.tools.r8.synthesis.SyntheticItems;
@@ -135,14 +137,24 @@ public class ApiReferenceStubber {
     clazz.forEachProgramMethodMatching(
         DexEncodedMethod::hasCode,
         method -> {
-          Code code = method.getDefinition().getCode();
-          if (!code.isDexCode()) {
-            return;
-          }
-          for (TryHandler handler : code.asDexCode().getHandlers()) {
-            for (TypeAddrPair pair : handler.pairs) {
-              DexType rewrittenType = appView.graphLens().lookupType(pair.getType());
-              findReferencedLibraryClasses(rewrittenType, clazz);
+          if (appView.enableWholeProgramOptimizations()) {
+            LirCode<Integer> code = method.getDefinition().getCode().asLirCode();
+            if (code != null && code.hasTryCatchTable()) {
+              TryCatchTable tryCatchTable = code.getTryCatchTable();
+              tryCatchTable.forEachHandler(
+                  (blockIndex, handlers) ->
+                      handlers
+                          .getGuards()
+                          .forEach(guard -> findReferencedLibraryClasses(guard, clazz)));
+            }
+          } else {
+            DexCode code = method.getDefinition().getCode().asDexCode();
+            if (code != null) {
+              for (TryHandler handler : code.getHandlers()) {
+                for (TypeAddrPair pair : handler.pairs) {
+                  findReferencedLibraryClasses(pair.getType(), clazz);
+                }
+              }
             }
           }
         });

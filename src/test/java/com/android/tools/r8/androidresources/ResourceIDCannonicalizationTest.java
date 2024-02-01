@@ -48,8 +48,8 @@ public class ResourceIDCannonicalizationTest extends TestBase {
         .inspect(
             codeInspector -> {
               // We should canonicalize the resource numbers separately from the normal const
-              // numbers.
-              // This implies that the output have two distinct const numbers with the same value.
+              // numbers. When mapping from LIR to DEX in the backend we then reapply
+              // canonicalization after changing each resource number to a const number.
               long constNumbers =
                   codeInspector
                       .clazz(FooBar.class)
@@ -57,7 +57,7 @@ public class ResourceIDCannonicalizationTest extends TestBase {
                       .streamInstructions()
                       .filter(i -> i.isConstNumber(EXPECTED_RESOURCE_NUMBER))
                       .count();
-              assertEquals(2, constNumbers);
+              assertEquals(1, constNumbers);
             })
         .inspectShrunkenResources(
             resourceTableInspector -> {

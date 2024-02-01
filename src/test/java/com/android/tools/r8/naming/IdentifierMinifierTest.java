@@ -182,10 +182,11 @@ public class IdentifierMinifierTest extends TestBase {
     assertThat(main, isPresent());
     verifyPresenceOfConstString(main);
 
+    // Output differs due to canonicalization which happens only on DEX.
     ClassSubject a = inspector.clazz("getmembers.A");
     Set<InstructionSubject> constStringInstructions =
         getRenamedMemberIdentifierConstStrings(a, main);
-    assertEquals(2, constStringInstructions.size());
+    assertEquals(parameters.isCfRuntime() ? 2 : 1, constStringInstructions.size());
 
     ClassSubject b = inspector.clazz("getmembers.B");
     MethodSubject inliner = b.uniqueMethodWithOriginalName("inliner");
@@ -243,10 +244,11 @@ public class IdentifierMinifierTest extends TestBase {
     assertThat(main, isPresent());
     verifyPresenceOfConstString(main);
 
+    // Output differs due to canonicalization which happens only on DEX.
     ClassSubject b = inspector.clazz("identifiernamestring.B");
     Set<InstructionSubject> constStringInstructions =
         getRenamedMemberIdentifierConstStrings(b, main);
-    assertEquals(2, constStringInstructions.size());
+    assertEquals(parameters.isCfRuntime() ? 2 : 1, constStringInstructions.size());
   }
 
   private static void verifyPresenceOfConstString(MethodSubject method) {

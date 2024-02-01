@@ -9,16 +9,22 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.constant.SparseConditionalConstantPropagation;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.optimize.RedundantFieldLoadAndStoreElimination;
 import com.android.tools.r8.ir.optimize.enums.EnumValueOptimizer;
 import com.android.tools.r8.ir.optimize.string.StringBuilderAppendOptimizer;
 import com.android.tools.r8.utils.Timing;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class CodeRewriterPassCollection {
 
   private final List<CodeRewriterPass<?>> passes;
+
+  public CodeRewriterPassCollection(CodeRewriterPass<?>... passes) {
+    this(Arrays.asList(passes));
+  }
 
   public CodeRewriterPassCollection(List<CodeRewriterPass<?>> passes) {
     this.passes = passes;
@@ -46,14 +52,17 @@ public class CodeRewriterPassCollection {
     return new CodeRewriterPassCollection(passes);
   }
 
-  public void run(
+  public boolean run(
       IRCode code,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext,
       Timing timing) {
+    boolean changed = false;
     for (CodeRewriterPass<?> pass : passes) {
-      pass.run(code, methodProcessor, methodProcessingContext, timing);
       // TODO(b/286345542): Run printMethod after each run.
+      CodeRewriterResult result = pass.run(code, methodProcessor, methodProcessingContext, timing);
+      changed |= result.hasChanged().isTrue();
     }
+    return changed;
   }
 }

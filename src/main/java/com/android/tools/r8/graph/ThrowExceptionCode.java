@@ -195,7 +195,9 @@ public class ThrowExceptionCode extends Code implements DexWritableCode {
 
   @Override
   public void registerCodeReferences(ProgramMethod method, UseRegistry registry) {
-    throw new Unreachable("Should not be called");
+    registry.registerNewInstance(exceptionType);
+    registry.registerInvokeDirect(
+        registry.dexItemFactory().createInstanceInitializer(exceptionType));
   }
 
   @Override

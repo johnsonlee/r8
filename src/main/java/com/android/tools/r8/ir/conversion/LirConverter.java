@@ -12,14 +12,18 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.conversion.passes.AdaptClassStringsRewriter;
+import com.android.tools.r8.ir.conversion.passes.CodeRewriterPassCollection;
 import com.android.tools.r8.ir.conversion.passes.ConstResourceNumberRemover;
 import com.android.tools.r8.ir.conversion.passes.ConstResourceNumberRewriter;
+import com.android.tools.r8.ir.conversion.passes.DexItemBasedConstStringRemover;
 import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
 import com.android.tools.r8.ir.optimize.ConstantCanonicalizer;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.IR2LirConverter;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirStrategy;
+import com.android.tools.r8.naming.RecordInvokeDynamicInvokeCustomRewriter;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -152,11 +156,20 @@ public class LirConverter {
     DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
     String output = appView.options().isGeneratingClassFiles() ? "CF" : "DEX";
     timing.begin("LIR->IR->" + output);
+    CodeRewriterPassCollection codeRewriterPassCollection =
+        new CodeRewriterPassCollection(
+            new AdaptClassStringsRewriter(appView),
+            new ConstResourceNumberRemover(appView),
+            new DexItemBasedConstStringRemover(appView),
+            new RecordInvokeDynamicInvokeCustomRewriter(appView),
+            new FilledNewArrayRewriter(appView));
     ThreadUtils.processItems(
         appView.appInfo().classes(),
         clazz ->
             clazz.forEachProgramMethod(
-                m -> finalizeLirMethodToOutputFormat(m, deadCodeRemover, appView)),
+                m ->
+                    finalizeLirMethodToOutputFormat(
+                        m, deadCodeRemover, appView, codeRewriterPassCollection)),
         appView.options().getThreadingModule(),
         executorService);
     timing.end();
@@ -169,7 +182,8 @@ public class LirConverter {
   private static void finalizeLirMethodToOutputFormat(
       ProgramMethod method,
       DeadCodeRemover deadCodeRemover,
-      AppView<? extends AppInfoWithClassHierarchy> appView) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      CodeRewriterPassCollection codeRewriterPassCollection) {
     Code code = method.getDefinition().getCode();
     if (!(code instanceof LirCode)) {
       return;
@@ -177,10 +191,7 @@ public class LirConverter {
     Timing onThreadTiming = Timing.empty();
     IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
     assert irCode.verifyInvokeInterface(appView);
-    ConstResourceNumberRemover constResourceNumberRemover = new ConstResourceNumberRemover(appView);
-    constResourceNumberRemover.run(irCode, onThreadTiming);
-    FilledNewArrayRewriter filledNewArrayRewriter = new FilledNewArrayRewriter(appView);
-    boolean changed = filledNewArrayRewriter.run(irCode, onThreadTiming).hasChanged().toBoolean();
+    boolean changed = codeRewriterPassCollection.run(irCode, null, null, onThreadTiming);
     if (appView.options().isGeneratingDex() && changed) {
       ConstantCanonicalizer constantCanonicalizer =
           new ConstantCanonicalizer(appView, method, irCode);

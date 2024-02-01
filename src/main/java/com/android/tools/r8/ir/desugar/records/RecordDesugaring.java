@@ -115,7 +115,7 @@ public class RecordDesugaring
       ProgramMethod context,
       RecordInstructionDesugaringEventConsumer eventConsumer) {
     RecordInvokeDynamic recordInvokeDynamic =
-        parseInvokeDynamicOnRecord(invokeDynamic, appView, context);
+        parseInvokeDynamicOnRecord(invokeDynamic.getCallSite(), appView);
     if (recordInvokeDynamic.getMethodName() == factory.toStringMethodName
         || recordInvokeDynamic.getMethodName() == factory.hashCodeMethodName) {
       ensureGetFieldsAsObjects(recordInvokeDynamic, programAdditions, context, eventConsumer);

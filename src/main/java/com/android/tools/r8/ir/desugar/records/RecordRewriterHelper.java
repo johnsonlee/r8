@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.ir.desugar.records;
 
+import static com.android.tools.r8.graph.lens.GraphLens.getIdentityLens;
+
 import com.android.tools.r8.cf.code.CfInvokeDynamic;
 import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.dex.code.DexInvokeCustom;
@@ -22,6 +24,7 @@ import com.android.tools.r8.graph.DexValue.DexValueMethodHandle;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.DexValue.DexValueType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.naming.dexitembasedstring.RecordFieldNamesComputationInfo;
 
 public class RecordRewriterHelper {
@@ -34,6 +37,11 @@ public class RecordRewriterHelper {
   public static boolean isInvokeCustomOnRecord(
       DexInstruction invokeCustom, AppView<?> appView, ProgramMethod context) {
     assert invokeCustom instanceof DexInvokeCustom || invokeCustom instanceof DexInvokeCustomRange;
+    return isInvokeDynamicOnRecord(invokeCustom.getCallSite(), appView, context);
+  }
+
+  public static boolean isInvokeCustomOnRecord(
+      InvokeCustom invokeCustom, AppView<?> appView, ProgramMethod context) {
     return isInvokeDynamicOnRecord(invokeCustom.getCallSite(), appView, context);
   }
 
@@ -117,17 +125,17 @@ public class RecordRewriterHelper {
   public static RecordInvokeDynamic parseInvokeDynamicOnRecord(
       CfInvokeDynamic invokeDynamic, AppView<?> appView, ProgramMethod context) {
     assert isInvokeDynamicOnRecord(invokeDynamic, appView, context);
-    return parseInvokeDynamicOnRecord(invokeDynamic.getCallSite(), appView, context);
+    return parseInvokeDynamicOnRecord(invokeDynamic.getCallSite(), appView);
   }
 
   public static RecordInvokeDynamic parseInvokeCustomOnRecord(
-      DexInstruction invokeCustom, AppView<?> appView, ProgramMethod context) {
+      InvokeCustom invokeCustom, AppView<?> appView, ProgramMethod context) {
     assert isInvokeCustomOnRecord(invokeCustom, appView, context);
-    return parseInvokeDynamicOnRecord(invokeCustom.getCallSite(), appView, context);
+    return parseInvokeDynamicOnRecord(invokeCustom.getCallSite(), appView);
   }
 
   public static RecordInvokeDynamic parseInvokeDynamicOnRecord(
-      DexCallSite callSite, AppView<?> appView, ProgramMethod context) {
+      DexCallSite callSite, AppView<?> appView) {
     DexValueType recordValueType = callSite.bootstrapArgs.get(0).asDexValueType();
     DexValueString valueString = callSite.bootstrapArgs.get(1).asDexValueString();
     DexString fieldNames = valueString.getValue();
@@ -137,13 +145,16 @@ public class RecordRewriterHelper {
       fields[i - 2] = handle.value.member.asDexField();
     }
     DexType recordCodeType = recordValueType.getValue();
+    // TODO(b/323336433): Is this the right choice of code lens?
     DexProgramClass recordClass =
-        appView.definitionFor(appView.graphLens().lookupType(recordCodeType)).asProgramClass();
+        appView
+            .definitionFor(appView.graphLens().lookupType(recordCodeType, getIdentityLens()))
+            .asProgramClass();
     return new RecordInvokeDynamic(
         callSite.methodName, callSite.methodProto, fieldNames, fields, recordClass, recordCodeType);
   }
 
-  static class RecordInvokeDynamic {
+  public static class RecordInvokeDynamic {
 
     private final DexString methodName;
     private final DexProto methodProto;
@@ -167,20 +178,20 @@ public class RecordRewriterHelper {
       this.recordCodeType = recordCodeType;
     }
 
-    RecordInvokeDynamic withFieldNamesAndFields(DexString fieldNames, DexField[] fields) {
+    public RecordInvokeDynamic withFieldNamesAndFields(DexString fieldNames, DexField[] fields) {
       return new RecordInvokeDynamic(
           methodName, methodProto, fieldNames, fields, recordClass, recordCodeType);
     }
 
-    DexField[] getFields() {
+    public DexField[] getFields() {
       return fields;
     }
 
-    DexType getRecordType() {
+    public DexType getRecordType() {
       return recordClass.getType();
     }
 
-    DexType getRecordCodeType() {
+    public DexType getRecordCodeType() {
       return recordCodeType;
     }
 
@@ -188,19 +199,19 @@ public class RecordRewriterHelper {
       return recordClass;
     }
 
-    DexString getFieldNames() {
+    public DexString getFieldNames() {
       return fieldNames;
     }
 
-    DexString getMethodName() {
+    public DexString getMethodName() {
       return methodName;
     }
 
-    DexProto getMethodProto() {
+    public DexProto getMethodProto() {
       return methodProto;
     }
 
-    RecordFieldNamesComputationInfo computeRecordFieldNamesComputationInfo() {
+    public RecordFieldNamesComputationInfo computeRecordFieldNamesComputationInfo() {
       return RecordFieldNamesComputationInfo.forFieldNamesAndFields(getFieldNames(), getFields());
     }
   }
