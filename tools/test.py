@@ -259,6 +259,10 @@ def ParseOptions():
                         help='Pass --stacktrace to the gradle run',
                         default=False,
                         action='store_true')
+    result.add_argument('--no-daemon',
+                        help='Pass --no-daemon to the gradle run',
+                        default=False,
+                        action='store_true')
     result.add_argument(
         '--kotlin-compiler-dev',
         help='Specify to download a kotlin dev compiler and run '
@@ -352,7 +356,7 @@ def Main():
     if options.stacktrace or utils.is_bot():
         gradle_args.append('--stacktrace')
 
-    if utils.is_bot():
+    if options.no_daemon or utils.is_bot():
         # Bots don't like dangling processes.
         gradle_args.append('--no-daemon')
 
