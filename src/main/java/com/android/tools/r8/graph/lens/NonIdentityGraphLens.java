@@ -155,6 +155,19 @@ public abstract class NonIdentityGraphLens extends GraphLens {
   protected abstract MethodLookupResult internalDescribeLookupMethod(
       MethodLookupResult previous, DexMethod context, GraphLens codeLens);
 
+  public final DexType getNextType(DexType type) {
+    if (type.isArrayType()) {
+      DexType baseType = type.toBaseType(dexItemFactory());
+      DexType newBaseType = getNextClassType(baseType);
+      if (newBaseType.isNotIdenticalTo(baseType)) {
+        return type.replaceBaseType(newBaseType, dexItemFactory());
+      }
+    } else if (type.isClassType()) {
+      return getNextClassType(type);
+    }
+    return type;
+  }
+
   protected abstract DexType getNextClassType(DexType type);
 
   public abstract DexField getPreviousFieldSignature(DexField field);
