@@ -174,7 +174,7 @@ public abstract class Code extends CachedHashValueDexItem {
   }
 
   public DexCode asDexCode() {
-    throw new Unreachable(getClass().getCanonicalName() + ".asDexCode()");
+    return null;
   }
 
   public DexWritableCode asDexWritableCode() {
