@@ -4,13 +4,9 @@
 
 package com.android.tools.r8.horizontalclassmerging.code;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.Code;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.horizontalclassmerging.IRCodeProvider;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRConverter;
@@ -18,10 +14,8 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
-import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -33,71 +27,31 @@ public class SyntheticInitializerConverter {
 
   private final AppView<?> appView;
   private final IRCodeProvider codeProvider;
-  private final ClassMergerMode mode;
 
   private final List<ProgramMethod> classInitializers;
 
-  // Classes with one or more instance initializers that need to have their code processed into dex.
-  private final Set<DexProgramClass> instanceInitializers;
-
   private SyntheticInitializerConverter(
-      AppView<?> appView,
-      IRCodeProvider codeProvider,
-      ClassMergerMode mode,
-      List<ProgramMethod> classInitializers,
-      Set<DexProgramClass> instanceInitializers) {
+      AppView<?> appView, IRCodeProvider codeProvider, List<ProgramMethod> classInitializers) {
     this.appView = appView;
     this.codeProvider = codeProvider;
-    this.mode = mode;
     this.classInitializers = classInitializers;
-    this.instanceInitializers = instanceInitializers;
   }
 
-  public static Builder builder(
-      AppView<?> appView, IRCodeProvider codeProvider, ClassMergerMode mode) {
-    return new Builder(appView, codeProvider, mode);
+  public static Builder builder(AppView<?> appView, IRCodeProvider codeProvider) {
+    return new Builder(appView, codeProvider);
   }
 
   public void convertClassInitializers(ExecutorService executorService) throws ExecutionException {
     if (!classInitializers.isEmpty()) {
+      assert appView.dexItemFactory().verifyNoCachedTypeElements();
       IRConverter converter = new IRConverter(createAppViewForConversion());
       ThreadUtils.processItems(
           classInitializers,
           method -> processMethod(method, converter),
           appView.options().getThreadingModule(),
           executorService);
+      appView.dexItemFactory().clearTypeElementsCache();
     }
-  }
-
-  public void convertInstanceInitializers(ExecutorService executorService)
-      throws ExecutionException {
-    if (!instanceInitializers.isEmpty()) {
-      IRConverter converter = new IRConverter(createAppViewForConversion());
-      ThreadUtils.processItems(
-          instanceInitializers,
-          clazz -> processInstanceInitializers(clazz, converter),
-          appView.options().getThreadingModule(),
-          executorService);
-    }
-  }
-
-  private void processInstanceInitializers(DexProgramClass clazz, IRConverter converter) {
-    assert appView.options().isGeneratingDex();
-    assert mode.isFinal();
-    clazz.forEachProgramInstanceInitializerMatching(
-        method -> method.getCode().isCfCode(),
-        method -> {
-          GraphLens codeLens = method.getDefinition().getCode().getCodeLens(appView);
-          assert codeLens != appView.codeLens();
-
-          // Convert to dex.
-          processMethod(method, converter);
-
-          // Recover code lens.
-          Code code = method.getDefinition().getCode();
-          assert code.isDexCode();
-          method.setCode(code.asDexCode().withCodeLens(codeLens), appView);
-        });
   }
 
   private AppView<AppInfo> createAppViewForConversion() {
@@ -129,22 +83,19 @@ public class SyntheticInitializerConverter {
   }
 
   public boolean isEmpty() {
-    return classInitializers.isEmpty() && instanceInitializers.isEmpty();
+    return classInitializers.isEmpty();
   }
 
   public static class Builder {
 
     private final AppView<?> appView;
     private final IRCodeProvider codeProvider;
-    private final ClassMergerMode mode;
 
     private final List<ProgramMethod> classInitializers = new ArrayList<>();
-    private final Set<DexProgramClass> instanceInitializers = Sets.newIdentityHashSet();
 
-    private Builder(AppView<?> appView, IRCodeProvider codeProvider, ClassMergerMode mode) {
+    private Builder(AppView<?> appView, IRCodeProvider codeProvider) {
       this.appView = appView;
       this.codeProvider = codeProvider;
-      this.mode = mode;
     }
 
     public Builder addClassInitializer(ProgramMethod method) {
@@ -152,17 +103,8 @@ public class SyntheticInitializerConverter {
       return this;
     }
 
-    public Builder addInstanceInitializer(ProgramMethod method) {
-      // Record that the holder has an instance initializer that needs processing to dex. We avoid
-      // storing the collection of exact initializers that need processing, since that requires lens
-      // code rewriting after the fixup has been made.
-      this.instanceInitializers.add(method.getHolder());
-      return this;
-    }
-
     public SyntheticInitializerConverter build() {
-      return new SyntheticInitializerConverter(
-          appView, codeProvider, mode, classInitializers, instanceInitializers);
+      return new SyntheticInitializerConverter(appView, codeProvider, classInitializers);
     }
   }
 }

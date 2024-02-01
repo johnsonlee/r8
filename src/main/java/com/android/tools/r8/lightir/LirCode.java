@@ -644,20 +644,13 @@ public class LirCode<EV> extends Code
 
   @Override
   public int estimatedDexCodeSizeUpperBoundInBytes() {
-    throw new Unimplemented();
+    return getEstimatedDexSizeForInlining();
   }
 
   @Override
   public int getEstimatedSizeForInliningIfLessThanOrEquals(int threshold) {
     if (useDexEstimationStrategy) {
-      LirSizeEstimation<EV> estimation = new LirSizeEstimation<>(this);
-      for (LirInstructionView view : this) {
-        estimation.onInstructionView(view);
-        if (estimation.getSizeEstimate() > threshold) {
-          return -1;
-        }
-      }
-      return estimation.getSizeEstimate();
+      return getEstimatedDexSizeForInliningIfLessThanOrEquals(threshold);
     } else {
       // TODO(b/225838009): Currently the size estimation for CF has size one for each instruction
       //  (even switches!) and ignores stack instructions, thus loads to arguments are not included.
@@ -669,6 +662,21 @@ public class LirCode<EV> extends Code
       }
       return -1;
     }
+  }
+
+  private int getEstimatedDexSizeForInlining() {
+    return getEstimatedDexSizeForInliningIfLessThanOrEquals(Integer.MAX_VALUE);
+  }
+
+  private int getEstimatedDexSizeForInliningIfLessThanOrEquals(int threshold) {
+    LirSizeEstimation<EV> estimation = new LirSizeEstimation<>(this);
+    for (LirInstructionView view : this) {
+      estimation.onInstructionView(view);
+      if (estimation.getSizeEstimate() > threshold) {
+        return -1;
+      }
+    }
+    return estimation.getSizeEstimate();
   }
 
   public Position getPreamblePosition(DexMethod method, boolean isD8R8Synthesized) {

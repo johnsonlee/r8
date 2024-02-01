@@ -21,7 +21,6 @@ import com.android.tools.r8.graph.DexTypeUtils;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.horizontalclassmerging.code.ConstructorEntryPointSynthesizedCode;
-import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
 import com.android.tools.r8.ir.conversion.ExtraConstantIntParameter;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.ir.conversion.ExtraUnusedParameter;
@@ -299,8 +298,7 @@ public class InstanceInitializerMerger {
   void merge(
       ClassMergerSharedData classMergerSharedData,
       ProfileCollectionAdditions profileCollectionAdditions,
-      ClassMethodsBuilder classMethodsBuilder,
-      SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder) {
+      ClassMethodsBuilder classMethodsBuilder) {
     ProgramMethod representative = ListUtils.first(instanceInitializers);
 
     // Create merged instance initializer reference.
@@ -390,16 +388,10 @@ public class InstanceInitializerMerger {
     }
     classMethodsBuilder.addDirectMethod(newInstanceInitializer);
 
-    if (mode.isFinal()) {
-      if (appView.options().isGeneratingDex() && !newInstanceInitializer.getCode().isDexCode()) {
-        syntheticInitializerConverterBuilder.addInstanceInitializer(
-            new ProgramMethod(group.getTarget(), newInstanceInitializer));
-      } else {
-        assert appView.options().isGeneratingDex()
-            || newInstanceInitializer.getCode().isCfWritableCode()
-            || newInstanceInitializer.getCode().isIncompleteHorizontalClassMergerCode();
-      }
-    }
+    assert mode.isInitial()
+        || newInstanceInitializer.getCode().isDefaultInstanceInitializerCode()
+        || newInstanceInitializer.getCode().isLirCode()
+        || newInstanceInitializer.getCode().isIncompleteHorizontalClassMergerCode();
   }
 
   void setObsolete() {

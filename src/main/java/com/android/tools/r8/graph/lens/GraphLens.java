@@ -20,6 +20,7 @@ import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
+import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerGraphLens;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.optimize.CustomLensCodeRewriter;
@@ -423,6 +424,10 @@ public abstract class GraphLens {
 
   public boolean isHorizontalClassMergerGraphLens() {
     return false;
+  }
+
+  public HorizontalClassMergerGraphLens asHorizontalClassMergerGraphLens() {
+    return null;
   }
 
   public abstract boolean isIdentityLens();

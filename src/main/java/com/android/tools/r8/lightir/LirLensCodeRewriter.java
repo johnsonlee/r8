@@ -22,6 +22,7 @@ import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
+import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerGraphLens;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.IROpcodeUtils;
@@ -85,8 +86,8 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   public void onFieldReference(DexField field) {
     FieldLookupResult result = graphLens.lookupFieldResult(field, codeLens);
-    assert !result.hasReadCastType();
-    assert !result.hasWriteCastType();
+    assert !result.hasReadCastType() || graphLens.isHorizontalClassMergerGraphLens();
+    assert !result.hasWriteCastType() || graphLens.isHorizontalClassMergerGraphLens();
     addRewrittenMapping(field, result.getReference());
   }
 
@@ -172,6 +173,32 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   @Override
+  public void onInstanceGet(DexField field, EV object) {
+    onFieldGet(field);
+  }
+
+  @Override
+  public void onStaticGet(DexField field) {
+    onFieldGet(field);
+  }
+
+  private void onFieldGet(DexField field) {
+    if (hasPotentialNonTrivialFieldGetRewriting(field)) {
+      hasNonTrivialRewritings = true;
+    }
+  }
+
+  private boolean hasPotentialNonTrivialFieldGetRewriting(DexField field) {
+    HorizontalClassMergerGraphLens horizontalClassMergerLens =
+        graphLens.asHorizontalClassMergerGraphLens();
+    if (horizontalClassMergerLens != null) {
+      FieldLookupResult result = horizontalClassMergerLens.lookupFieldResult(field, codeLens);
+      return result.hasReadCastType();
+    }
+    return false;
+  }
+
+  @Override
   public void onInstancePut(DexField field, EV object, EV value) {
     onFieldPut(field);
   }
@@ -188,6 +215,12 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   private boolean hasPotentialNonTrivialFieldPutRewriting(DexField field) {
+    HorizontalClassMergerGraphLens horizontalClassMergerLens =
+        graphLens.asHorizontalClassMergerGraphLens();
+    if (horizontalClassMergerLens != null) {
+      FieldLookupResult result = horizontalClassMergerLens.lookupFieldResult(field, codeLens);
+      return result.hasWriteCastType();
+    }
     VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
     if (verticalClassMergerLens != null
         && verticalClassMergerLens.hasInterfaceBeenMergedIntoClass(field.getType())) {
@@ -360,9 +393,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
     // If there are potential method rewritings then we need to iterate the instructions as the
     // rewriting is instruction-sensitive (i.e., may be dependent on the invoke type).
-    boolean hasPotentialNonTrivialFieldPutRewriting =
-        hasFieldReference && graphLens.isVerticalClassMergerLens();
-    if (hasPotentialNonTrivialFieldPutRewriting || hasPotentialRewrittenMethod) {
+    boolean hasPotentialNonTrivialFieldAccessRewriting =
+        hasFieldReference && graphLens.isClassMergerLens();
+    if (hasPotentialNonTrivialFieldAccessRewriting || hasPotentialRewrittenMethod) {
       for (LirInstructionView view : code) {
         view.accept(this);
         if (hasNonTrivialRewritings) {

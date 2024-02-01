@@ -19,6 +19,7 @@ import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -36,6 +37,7 @@ import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.utils.CfVersionUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
@@ -84,18 +86,23 @@ public class ClassInitializerMerger {
     return new IRProvider(classInitializers);
   }
 
-  public CfVersion getCfVersion() {
-    ProgramMethod classInitializer = ListUtils.first(classInitializers);
-    if (classInitializers.size() == 1) {
-      DexEncodedMethod method = classInitializer.getDefinition();
-      return method.hasClassFileVersion() ? method.getClassFileVersion() : null;
+  public CfVersion getCfVersion(InternalOptions options) {
+    return options.isGeneratingClassFiles() ? CfVersionUtils.max(classInitializers) : null;
+  }
+
+  public boolean isSingleton() {
+    return classInitializers.size() == 1;
+  }
+
+  public DexEncodedMethod moveSingleton(HorizontalMergeGroup group, DexItemFactory dexItemFactory) {
+    assert isSingleton();
+    ProgramMethod method = ListUtils.first(classInitializers);
+    DexEncodedMethod definition = method.getDefinition();
+    if (method.getHolder() == group.getTarget()) {
+      return definition;
     }
-    if (classInitializer.getDefinition().getCode().isCfCode()) {
-      assert IterableUtils.allIdentical(
-          classInitializers, method -> method.getDefinition().getCode().isCfCode());
-      return CfVersionUtils.max(classInitializers);
-    }
-    return null;
+    DexMethod newReference = method.getReference().withHolder(group.getTarget(), dexItemFactory);
+    return definition.toTypeSubstitutedMethodAsInlining(newReference, dexItemFactory);
   }
 
   public boolean isTrivialMerge() {
@@ -113,6 +120,10 @@ public class ClassInitializerMerger {
 
   public void setObsolete() {
     classInitializers.forEach(classInitializer -> classInitializer.getDefinition().setObsolete());
+  }
+
+  public int size() {
+    return classInitializers.size();
   }
 
   public static class Builder {
@@ -195,7 +206,7 @@ public class ClassInitializerMerger {
    * Provides a piece of {@link IRCode} that is the concatenation of a collection of class
    * initializers.
    */
-  static class IRProvider extends Code {
+  public static class IRProvider extends Code {
 
     private final ImmutableList<ProgramMethod> classInitializers;
 

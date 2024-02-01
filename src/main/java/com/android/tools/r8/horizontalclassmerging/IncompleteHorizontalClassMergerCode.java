@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
+import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 
 public abstract class IncompleteHorizontalClassMergerCode extends Code {
@@ -32,6 +33,11 @@ public abstract class IncompleteHorizontalClassMergerCode extends Code {
   }
 
   public abstract CfCode toCfCode(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ProgramMethod method,
+      HorizontalClassMergerGraphLens lens);
+
+  public abstract LirCode<Integer> toLirCode(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ProgramMethod method,
       HorizontalClassMergerGraphLens lens);

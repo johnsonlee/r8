@@ -27,6 +27,7 @@ import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.horizontalclassmerging.code.ClassInitializerMerger;
+import com.android.tools.r8.horizontalclassmerging.code.ClassInitializerMerger.IRProvider;
 import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
 import com.android.tools.r8.ir.analysis.value.NumberFromIntervalValue;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
@@ -112,11 +113,10 @@ public class ClassMerger {
       ClassMergerSharedData classMergerSharedData,
       ProfileCollectionAdditions profileCollectionAdditions,
       SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder) {
-    mergeInstanceInitializers(
-        classMergerSharedData, profileCollectionAdditions, syntheticInitializerConverterBuilder);
+    mergeInstanceInitializers(classMergerSharedData, profileCollectionAdditions);
     mergeStaticClassInitializers(syntheticInitializerConverterBuilder);
     group.forEach(this::mergeDirectMethods);
-    if (!classInitializerMerger.isEmpty() && classInitializerMerger.isTrivialMerge()) {
+    if (classInitializerMerger.size() > 1 && classInitializerMerger.isTrivialMerge()) {
       classInitializerMerger.setObsolete();
     }
     instanceInitializerMergers.setObsolete();
@@ -125,6 +125,13 @@ public class ClassMerger {
   void mergeStaticClassInitializers(
       SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder) {
     if (classInitializerMerger.isEmpty()) {
+      return;
+    }
+
+    if (classInitializerMerger.isSingleton()) {
+      DexEncodedMethod classInitializer =
+          classInitializerMerger.moveSingleton(group, dexItemFactory);
+      classMethodsBuilder.addDirectMethod(classInitializer);
       return;
     }
 
@@ -144,17 +151,15 @@ public class ClassMerger {
             .setMethod(newMethodReference)
             .setAccessFlags(MethodAccessFlags.createForClassInitializer())
             .setCode(classInitializerMerger.getCode(newMethodReference))
-            .setClassFileVersion(classInitializerMerger.getCfVersion())
+            .setClassFileVersion(classInitializerMerger.getCfVersion(appView.options()))
             .setApiLevelForDefinition(apiReferenceLevel)
             .setApiLevelForCode(apiReferenceLevel)
             .build();
     classMethodsBuilder.addDirectMethod(definition);
 
-    // In case we didn't synthesize CF code, we register the class initializer for conversion to dex
-    // after merging.
-    if (!definition.getCode().isCfCode()) {
-      assert appView.options().isGeneratingDex();
-      assert mode.isFinal();
+    // Convert the synthetic code object to LIR before exiting class merging.
+    if (mode.isFinal()) {
+      assert definition.getCode() instanceof IRProvider;
       syntheticInitializerConverterBuilder.addClassInitializer(
           new ProgramMethod(group.getTarget(), definition));
     }
@@ -204,15 +209,10 @@ public class ClassMerger {
 
   void mergeInstanceInitializers(
       ClassMergerSharedData classMergerSharedData,
-      ProfileCollectionAdditions profileCollectionAdditions,
-      SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder) {
+      ProfileCollectionAdditions profileCollectionAdditions) {
     instanceInitializerMergers.forEach(
         merger ->
-            merger.merge(
-                classMergerSharedData,
-                profileCollectionAdditions,
-                classMethodsBuilder,
-                syntheticInitializerConverterBuilder));
+            merger.merge(classMergerSharedData, profileCollectionAdditions, classMethodsBuilder));
   }
 
   void mergeMethods(

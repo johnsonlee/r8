@@ -149,7 +149,6 @@ public class LirConverter {
     assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
     assert verifyLirOnly(appView);
     appView.testing().exitLirSupportedPhase();
-    LensCodeRewriterUtils rewriterUtils = new LensCodeRewriterUtils(appView, true);
     DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
     String output = appView.options().isGeneratingClassFiles() ? "CF" : "DEX";
     timing.begin("LIR->IR->" + output);
@@ -157,7 +156,7 @@ public class LirConverter {
         appView.appInfo().classes(),
         clazz ->
             clazz.forEachProgramMethod(
-                m -> finalizeLirMethodToOutputFormat(m, deadCodeRemover, appView, rewriterUtils)),
+                m -> finalizeLirMethodToOutputFormat(m, deadCodeRemover, appView)),
         appView.options().getThreadingModule(),
         executorService);
     timing.end();
@@ -170,18 +169,12 @@ public class LirConverter {
   private static void finalizeLirMethodToOutputFormat(
       ProgramMethod method,
       DeadCodeRemover deadCodeRemover,
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      LensCodeRewriterUtils rewriterUtils) {
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
     Code code = method.getDefinition().getCode();
     if (!(code instanceof LirCode)) {
       return;
     }
     Timing onThreadTiming = Timing.empty();
-    LirCode<Integer> lirCode = code.asLirCode();
-    LirCode<Integer> rewrittenLirCode = lirCode.rewriteWithLens(method, appView, rewriterUtils);
-    if (ObjectUtils.notIdentical(lirCode, rewrittenLirCode)) {
-      method.setCode(rewrittenLirCode, appView);
-    }
     IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
     assert irCode.verifyInvokeInterface(appView);
     ConstResourceNumberRemover constResourceNumberRemover = new ConstResourceNumberRemover(appView);

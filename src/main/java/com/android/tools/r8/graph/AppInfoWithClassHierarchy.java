@@ -89,6 +89,10 @@ public class AppInfoWithClassHierarchy extends AppInfo {
     return new AppInfoWithClassHierarchy(WITNESS, appInfo);
   }
 
+  public final AppInfoWithClassHierarchy rebuildWithClassHierarchy(DexApplication application) {
+    return rebuildWithClassHierarchy(getSyntheticItems().commit(application));
+  }
+
   public final AppInfoWithClassHierarchy rebuildWithClassHierarchy(CommittedItems commit) {
     return new AppInfoWithClassHierarchy(
         commit, getClassToFeatureSplitMap(), getMainDexInfo(), getMissingClasses());

@@ -70,6 +70,11 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
   }
 
   @Override
+  public HorizontalClassMergerGraphLens asHorizontalClassMergerGraphLens() {
+    return this;
+  }
+
+  @Override
   protected Iterable<DexType> internalGetOriginalTypes(DexType previous) {
     return IterableUtils.prependSingleton(previous, mergedClasses.getSourcesFor(previous));
   }

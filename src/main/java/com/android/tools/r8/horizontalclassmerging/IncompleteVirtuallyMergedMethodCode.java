@@ -15,6 +15,7 @@ import com.android.tools.r8.cf.code.CfReturnVoid;
 import com.android.tools.r8.cf.code.CfSwitch;
 import com.android.tools.r8.cf.code.CfSwitch.Kind;
 import com.android.tools.r8.cf.code.frame.FrameType;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -25,6 +26,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.horizontalclassmerging.VirtualMethodMerger.SuperMethodReference;
 import com.android.tools.r8.ir.code.ValueType;
+import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IterableUtils;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
@@ -155,6 +157,14 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
     }
     return new CfCodeWithLens(
         lens, originalMethod.getHolderType(), maxStack, maxLocals, instructions);
+  }
+
+  @Override
+  public LirCode<Integer> toLirCode(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ProgramMethod method,
+      HorizontalClassMergerGraphLens lens) {
+    throw new Unreachable();
   }
 
   private static CfFrame createCfFrameForSwitchCase(ProgramMethod representative, int localsSize) {

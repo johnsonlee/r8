@@ -12,13 +12,14 @@ import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
+import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
@@ -102,9 +103,9 @@ public class HorizontalClassMerger {
   }
 
   private MutableMethodConversionOptions getConversionOptions() {
-    return mode == ClassMergerMode.INITIAL
+    return mode.isInitial()
         ? MethodConversionOptions.forPreLirPhase(appView)
-        : MethodConversionOptions.forPostLirPhase(appView);
+        : MethodConversionOptions.forLirPhase(appView);
   }
 
   private void run(
@@ -135,7 +136,7 @@ public class HorizontalClassMerger {
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);
     SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder =
-        SyntheticInitializerConverter.builder(appView, codeProvider, mode);
+        SyntheticInitializerConverter.builder(appView, codeProvider);
     List<VirtuallyMergedMethodsKeepInfo> virtuallyMergedMethodsKeepInfos = new ArrayList<>();
     PrunedItems prunedItems =
         applyClassMergers(
@@ -177,7 +178,6 @@ public class HorizontalClassMerger {
 
     // Finalize synthetic code.
     transformIncompleteCode(groups, horizontalClassMergerGraphLens, executorService);
-    syntheticInitializerConverter.convertInstanceInitializers(executorService);
 
     // Must rewrite AppInfoWithLiveness before pruning the merged classes, to ensure that allocation
     // sites, fields accesses, etc. are correctly transferred to the target classes.
@@ -187,8 +187,23 @@ public class HorizontalClassMerger {
       KeepInfoCollection keepInfo = appView.getKeepInfo();
       keepInfo.mutate(mutator -> mutator.removeKeepInfoForMergedClasses(prunedItems));
       assert appView.hasClassHierarchy();
-      appView.rewriteWithLensAndApplication(
-          horizontalClassMergerGraphLens, newApplication.toDirect(), executorService, timing);
+      if (mode.isInitial()) {
+        appView.rewriteWithLensAndApplication(
+            horizontalClassMergerGraphLens, newApplication.toDirect(), executorService, timing);
+      } else {
+        appView.rewriteWithLens(horizontalClassMergerGraphLens, executorService, timing);
+        LirConverter.rewriteLirWithLens(appView.withClassHierarchy(), timing, executorService);
+        if (appView.hasLiveness()) {
+          appView
+              .withLiveness()
+              .setAppInfo(appView.appInfoWithLiveness().rebuildWithLiveness(newApplication));
+        } else {
+          appView
+              .withClassHierarchy()
+              .setAppInfo(
+                  appView.appInfoWithClassHierarchy().rebuildWithClassHierarchy(newApplication));
+        }
+      }
     } else {
       assert mode.isFinal();
       SyntheticItems syntheticItems = appView.appInfo().getSyntheticItems();
@@ -297,11 +312,14 @@ public class HorizontalClassMerger {
                 // This should be changed to generate non-null LirCode always.
                 IncompleteHorizontalClassMergerCode code =
                     (IncompleteHorizontalClassMergerCode) method.getDefinition().getCode();
-                CfCode cfCode =
-                    code.toCfCode(
-                        appView.withClassHierarchy(), method, horizontalClassMergerGraphLens);
-                if (cfCode != null) {
-                  method.setCode(cfCode, appView);
+                Code newCode =
+                    mode.isInitial()
+                        ? code.toCfCode(
+                            appView.withClassHierarchy(), method, horizontalClassMergerGraphLens)
+                        : code.toLirCode(
+                            appView.withClassHierarchy(), method, horizontalClassMergerGraphLens);
+                if (newCode != null) {
+                  method.setCode(newCode, appView);
                 }
               });
         },
@@ -399,6 +417,7 @@ public class HorizontalClassMerger {
           syntheticInitializerConverterBuilder,
           virtuallyMergedMethodsKeepInfoConsumer);
     }
+    appView.dexItemFactory().clearTypeElementsCache();
     return prunedItemsBuilder.build();
   }
 

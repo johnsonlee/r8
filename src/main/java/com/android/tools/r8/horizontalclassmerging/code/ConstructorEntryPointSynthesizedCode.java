@@ -27,6 +27,7 @@ import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.SourceCode;
+import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
@@ -81,6 +82,14 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
       entry.setValue(lens.getNextMethodSignature(entry.getValue()));
     }
     return null;
+  }
+
+  @Override
+  public LirCode<Integer> toLirCode(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ProgramMethod method,
+      HorizontalClassMergerGraphLens lens) {
+    throw new Unreachable();
   }
 
   @Override

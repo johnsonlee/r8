@@ -730,7 +730,7 @@ public class R8 {
 
       GenericSignatureContextBuilder genericContextBuilderBeforeFinalMerging = null;
       if (appView.hasCfByteCodePassThroughMethods()) {
-        LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
+        LirConverter.rewriteLirWithLens(appView, timing, executorService);
       } else {
         // Perform repackaging.
         if (appView.hasLiveness()) {
@@ -743,15 +743,13 @@ public class R8 {
         // Rewrite LIR with lens to allow building IR from LIR in class mergers.
         LirConverter.rewriteLirWithLens(appView, timing, executorService);
         appView.clearCodeRewritings(executorService, timing);
+        assert appView.dexItemFactory().verifyNoCachedTypeElements();
 
         if (appView.hasLiveness()) {
           VerticalClassMerger.createForFinalClassMerging(appView.withLiveness())
               .runIfNecessary(executorService, timing);
+          assert appView.dexItemFactory().verifyNoCachedTypeElements();
         }
-
-        // TODO(b/225838009): Move further down.
-        LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
-        assert appView.dexItemFactory().verifyNoCachedTypeElements();
 
         genericContextBuilderBeforeFinalMerging = GenericSignatureContextBuilder.create(appView);
 
@@ -764,7 +762,12 @@ public class R8 {
                 finalRuntimeTypeCheckInfoBuilder != null
                     ? finalRuntimeTypeCheckInfoBuilder.build(appView.graphLens())
                     : null);
+        assert appView.dexItemFactory().verifyNoCachedTypeElements();
       }
+
+      // TODO(b/225838009): Move further down.
+      LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
+      assert appView.dexItemFactory().verifyNoCachedTypeElements();
 
       // Perform minification.
       if (options.getProguardConfiguration().hasApplyMappingFile()) {
