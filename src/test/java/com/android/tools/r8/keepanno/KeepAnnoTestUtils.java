@@ -13,6 +13,7 @@ import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.ListUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,15 +54,28 @@ public class KeepAnnoTestUtils {
   }
 
   public static List<String> extractRules(
-      List<Class<?>> inputClasses, KeepRuleExtractorOptions extractorOptions) throws IOException {
+      List<Class<?>> inputClasses, KeepRuleExtractorOptions extractorOptions) {
+    return extractRulesFromBytes(
+        ListUtils.map(
+            inputClasses,
+            clazz -> {
+              try {
+                return ToolHelper.getClassAsBytes(clazz);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            }),
+        extractorOptions);
+  }
+
+  public static List<String> extractRulesFromBytes(
+      List<byte[]> inputClasses, KeepRuleExtractorOptions extractorOptions) {
     List<String> rules = new ArrayList<>();
-    for (Class<?> inputClass : inputClasses) {
-      byte[] bytes = ToolHelper.getClassAsBytes(inputClass);
+    for (byte[] bytes : inputClasses) {
       List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(bytes);
       KeepRuleExtractor extractor = new KeepRuleExtractor(rules::add, extractorOptions);
       declarations.forEach(extractor::extract);
     }
     return rules;
   }
-
 }

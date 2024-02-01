@@ -248,7 +248,14 @@ public class ExternalR8TestBuilder
 
   @Override
   public ExternalR8TestBuilder addProgramClassFileData(Collection<byte[]> classes) {
-    throw new Unimplemented("No support for adding classfile data directly");
+    try {
+      Path out = getState().getNewTempFolder().resolve("out.jar");
+      TestBase.writeClassFileDataToJar(out, classes);
+      programJars.add(out);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    return self();
   }
 
   @Override

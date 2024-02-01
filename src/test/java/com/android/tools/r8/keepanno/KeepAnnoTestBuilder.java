@@ -18,6 +18,7 @@ import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 import org.junit.rules.TemporaryFolder;
@@ -51,6 +52,14 @@ public abstract class KeepAnnoTestBuilder {
   }
 
   public abstract KeepAnnoTestBuilder addProgramClasses(List<Class<?>> programClasses)
+      throws IOException;
+
+  public final KeepAnnoTestBuilder addProgramClassFileData(byte[]... programClasses)
+      throws IOException {
+    return addProgramClassFileData(Arrays.asList(programClasses));
+  }
+
+  public abstract KeepAnnoTestBuilder addProgramClassFileData(List<byte[]> programClasses)
       throws IOException;
 
   public final KeepAnnoTestBuilder addKeepMainRule(Class<?> mainClass) {
@@ -126,6 +135,13 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder addProgramClassFileData(List<byte[]> programClasses)
+        throws IOException {
+      builder.addProgramClassFileData(programClasses);
+      return this;
+    }
+
+    @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
       return builder.run(parameters().getRuntime(), mainClass);
     }
@@ -161,6 +177,14 @@ public abstract class KeepAnnoTestBuilder {
     @Override
     public KeepAnnoTestBuilder addProgramClasses(List<Class<?>> programClasses) {
       builder.addProgramClasses(programClasses);
+      return this;
+    }
+
+    @Override
+    public KeepAnnoTestBuilder addProgramClassFileData(List<byte[]> programClasses)
+        throws IOException {
+
+      builder.addProgramClassFileData(programClasses);
       return this;
     }
 
@@ -211,6 +235,16 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder addProgramClassFileData(List<byte[]> programClasses)
+        throws IOException {
+      List<String> rules =
+          KeepAnnoTestUtils.extractRulesFromBytes(programClasses, extractorOptions);
+      builder.addProgramClassFileData(programClasses);
+      builder.addKeepRules(rules);
+      return this;
+    }
+
+    @Override
     public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
       configConsumers.add(lines -> configConsumer.accept(String.join("\n", lines)));
       return this;
@@ -248,6 +282,16 @@ public abstract class KeepAnnoTestBuilder {
     public KeepAnnoTestBuilder addProgramClasses(List<Class<?>> programClasses) throws IOException {
       List<String> rules = KeepAnnoTestUtils.extractRules(programClasses, extractorOptions);
       builder.addProgramClasses(programClasses);
+      builder.addKeepRules(rules);
+      return this;
+    }
+
+    @Override
+    public KeepAnnoTestBuilder addProgramClassFileData(List<byte[]> programClasses)
+        throws IOException {
+      List<String> rules =
+          KeepAnnoTestUtils.extractRulesFromBytes(programClasses, extractorOptions);
+      builder.addProgramClassFileData(programClasses);
       builder.addKeepRules(rules);
       return this;
     }
