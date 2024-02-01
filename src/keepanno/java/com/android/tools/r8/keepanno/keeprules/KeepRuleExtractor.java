@@ -386,15 +386,25 @@ public class KeepRuleExtractor {
       OnTargetCallback callback) {
     TargetKeepKind keepKind = TargetKeepKind.JUST_MEMBERS;
     List<KeepBindingSymbol> targetMembers = new ArrayList<>();
+    boolean isAllMembersTarget = false;
     for (KeepBindingSymbol targetReference : targets) {
       KeepItemPattern item = bindings.get(targetReference).getItem();
       if (item.isClassItemPattern()) {
         keepKind = TargetKeepKind.CLASS_AND_MEMBERS;
-      } else {
+      } else if (!isAllMembersTarget) {
         KeepMemberItemPattern memberItemPattern = item.asMemberItemPattern();
+        if (memberItemPattern.getMemberPattern().isAllMembers()) {
+          targetMembers.clear();
+          isAllMembersTarget = true;
+        }
         memberPatterns.putIfAbsent(targetReference, memberItemPattern.getMemberPattern());
         targetMembers.add(targetReference);
       }
+    }
+    if (isAllMembersTarget && keepKind == TargetKeepKind.CLASS_AND_MEMBERS) {
+      // If the rule is keeping the class and all of its members, the member pattern should
+      // match even the empty set of members, e.g., be disjoint from keeping the class.
+      keepKind = TargetKeepKind.CLASS_OR_MEMBERS;
     }
     if (targetMembers.isEmpty()) {
       keepKind = TargetKeepKind.CLASS_OR_MEMBERS;

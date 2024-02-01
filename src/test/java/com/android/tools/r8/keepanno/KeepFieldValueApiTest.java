@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -68,11 +67,7 @@ public class KeepFieldValueApiTest extends KeepAnnoTestBase {
         .addProgramFiles(lib.get())
         .setMinApi(parameters.parameters())
         .run(parameters.getRuntime(), TestClass.class)
-        // TODO(b/322104143): The -keepclasseswithmembers rule does not keep B and its members.
-        .applyIf(
-            parameters.isPG(),
-            r -> r.assertFailureWithErrorThatThrows(ClassNotFoundException.class),
-            r -> r.assertSuccessWithOutput(EXPECTED));
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   public List<Class<?>> getLibraryClasses() {
@@ -88,11 +83,6 @@ public class KeepFieldValueApiTest extends KeepAnnoTestBase {
     assertThat(aClass, isPresent());
     assertThat(aClass.uniqueFieldWithFinalName("CLASS"), isPresent());
     ClassSubject bClass = inspector.clazz(B.class);
-    if (parameters.isPG()) {
-      // TODO(b/322104143): The -keepclasseswithmembers rule does not keep B and its members.
-      assertThat(bClass, isAbsent());
-      return;
-    }
     assertThat(bClass, isPresent());
     assertThat(bClass.uniqueMethodWithOriginalName("foo"), isPresent());
     assertThat(bClass.uniqueMethodWithOriginalName("bar"), isPresent());

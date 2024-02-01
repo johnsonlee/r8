@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
@@ -25,7 +25,6 @@ import org.junit.runners.Parameterized.Parameter;
 public class KeepEmptyClassTest extends KeepAnnoTestBase {
 
   static final String EXPECTED = StringUtils.lines("B, #members: 0");
-  static final String UNEXPECTED = StringUtils.lines("b, #members: 0");
 
   @Parameter public KeepAnnoParameters parameters;
 
@@ -43,8 +42,7 @@ public class KeepEmptyClassTest extends KeepAnnoTestBase {
             transformer(B.class).removeMethods(MethodPredicate.all()).transform())
         .setExcludedOuterClass(getClass())
         .run(TestClass.class)
-        // TODO(b/322104143): The any-member pattern does not match due to classeswithmembers.
-        .assertSuccessWithOutput(parameters.isReference() ? EXPECTED : UNEXPECTED)
+        .assertSuccessWithOutput(EXPECTED)
         .applyIf(parameters.isShrinker(), r -> r.inspect(this::checkOutput));
   }
 
@@ -53,8 +51,7 @@ public class KeepEmptyClassTest extends KeepAnnoTestBase {
   }
 
   private void checkOutput(CodeInspector inspector) {
-    // TODO(b/322104143): The class should not be renamed.
-    assertThat(inspector.clazz(B.class), isPresentAndRenamed());
+    assertThat(inspector.clazz(B.class), isPresentAndNotRenamed());
   }
 
   static class A {
