@@ -34,14 +34,16 @@ val keepAnnoJarTask = projectTask("keepanno", "jar")
 val keepAnnoCompileTask = projectTask("keepanno", "compileJava")
 val mainCompileTask = projectTask("main", "compileJava")
 val mainDepsJarTask = projectTask("main", "depsJar")
+val resourceShrinkerJavaCompileTask = projectTask("resourceshrinker", "compileJava")
+val resourceShrinkerKotlinCompileTask = projectTask("resourceshrinker", "compileKotlin")
 val resourceShrinkerDepsJarTask = projectTask("resourceshrinker", "depsJar")
 
 dependencies {
   implementation(keepAnnoJarTask.outputs.files)
   implementation(mainCompileTask.outputs.files)
   implementation(projectTask("main", "processResources").outputs.files)
-  implementation(projectTask("resourceshrinker", "compileJava").outputs.files)
-  implementation(projectTask("resourceshrinker", "compileKotlin").outputs.files)
+  implementation(resourceShrinkerJavaCompileTask.outputs.files)
+  implementation(resourceShrinkerKotlinCompileTask.outputs.files)
   implementation(resourceShrinkerDepsJarTask.outputs.files)
   implementation(Deps.asm)
   implementation(Deps.asmCommons)
@@ -138,7 +140,9 @@ tasks {
       "R8_RUNTIME_PATH",
       mainCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
         File.pathSeparator + mainDepsJarTask.outputs.files.singleFile +
-        File.pathSeparator + getRoot().resolveAll("src", "main", "resources"))
+        File.pathSeparator + getRoot().resolveAll("src", "main", "resources") +
+        File.pathSeparator + resourceShrinkerJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
+        File.pathSeparator + resourceShrinkerKotlinCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[1])
     systemProperty(
       "RETRACE_RUNTIME_PATH",
       mainCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
