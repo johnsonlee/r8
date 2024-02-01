@@ -143,11 +143,6 @@ tasks {
         File.pathSeparator + getRoot().resolveAll("src", "main", "resources") +
         File.pathSeparator + resourceShrinkerJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
         File.pathSeparator + resourceShrinkerKotlinCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[1])
-    systemProperty(
-      "RETRACE_RUNTIME_PATH",
-      mainCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
-        File.pathSeparator + mainDepsJarTask.outputs.files.singleFile +
-        File.pathSeparator + getRoot().resolveAll("src", "main", "resources"))
     systemProperty("R8_DEPS", mainDepsJarTask.outputs.files.singleFile)
     systemProperty("com.android.tools.r8.artprofilerewritingcompletenesscheck", "true")
   }

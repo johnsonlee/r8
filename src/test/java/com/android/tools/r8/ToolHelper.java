@@ -182,8 +182,7 @@ public class ToolHelper {
   }
 
   public static Path getRetracePath() {
-    assert System.getProperty("RETRACE_RUNTIME_PATH") != null;
-    return Paths.get(System.getProperty("RETRACE_RUNTIME_PATH"));
+    return getR8MainPath();
   }
 
   public static Path getKeepAnnoPath() {

@@ -354,7 +354,6 @@ tasks {
     systemProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR",
             getRoot().resolveAll("build", "test", "examplesJava11", "classes"))
     systemProperty("R8_RUNTIME_PATH", r8LibJar)
-    systemProperty("RETRACE_RUNTIME_PATH", r8LibJar)
     systemProperty("R8_DEPS", mainDepsJarTask.getSingleOutputFile())
     systemProperty("com.android.tools.r8.artprofilerewritingcompletenesscheck", "true")
 
