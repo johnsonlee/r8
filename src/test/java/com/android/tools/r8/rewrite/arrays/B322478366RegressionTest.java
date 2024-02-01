@@ -64,19 +64,20 @@ public class B322478366RegressionTest extends TestBase {
       MethodSubject m1 = inspector.clazz(Main.class).uniqueMethodWithOriginalName("m1");
       assertEquals(0, m1.streamInstructions().filter(InstructionSubject::isNewArray).count());
       MethodSubject m2 = inspector.clazz(Main.class).uniqueMethodWithOriginalName("m2");
-      // TODO(b/322478366): Cts test CtsPerfettoTestCases.HeapprofdJavaCtsTest#DebuggableAppOom
-      //  requires that the array allocation stays.
-      assertEquals(
-          mode.isDebug() ? 1 : 0,
-          m2.streamInstructions().filter(InstructionSubject::isNewArray).count());
+      assertEquals(0, m2.streamInstructions().filter(InstructionSubject::isNewArray).count());
       MethodSubject m3 = inspector.clazz(Main.class).uniqueMethodWithOriginalName("m3");
       assertEquals(
           mode.isDebug() ? 1 : 0,
           m3.streamInstructions().filter(InstructionSubject::isNewArray).count());
+      MethodSubject m4 = inspector.clazz(Main.class).uniqueMethodWithOriginalName("m4");
+      assertEquals(
+          mode.isDebug() ? 1 : 0,
+          m4.streamInstructions().filter(InstructionSubject::isNewArray).count());
     } else {
       assertThat(inspector.clazz(Main.class).uniqueMethodWithOriginalName("m1"), isAbsent());
       assertThat(inspector.clazz(Main.class).uniqueMethodWithOriginalName("m2"), isAbsent());
       assertThat(inspector.clazz(Main.class).uniqueMethodWithOriginalName("m3"), isAbsent());
+      assertThat(inspector.clazz(Main.class).uniqueMethodWithOriginalName("m4"), isAbsent());
     }
   }
 
@@ -110,10 +111,22 @@ public class B322478366RegressionTest extends TestBase {
       }
     }
 
+    @NeverInline
+    public static void m4() {
+      try {
+        byte[] bytes = new byte[Integer.MAX_VALUE];
+        // Local information from javac for bytes, as the return statement makes it observable
+        // in a debugger.
+        return;
+      } catch (OutOfMemoryError e) {
+      }
+    }
+
     public static void main(String[] args) {
       m1();
       m2();
       m3();
+      m4();
     }
   }
 }
