@@ -1379,12 +1379,19 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     // e == MyEnum.X
     TypeElement leftType = theIf.lhs().getType();
     TypeElement rightType = theIf.rhs().getType();
-    if (leftType.equalUpToNullability(rightType)) {
-      assert leftType.isClassType();
-      assert leftType.asClassType().getClassType() == enumClass.type;
+    if (isEqualEnumCandidateType(leftType, rightType, enumClass)) {
       return Reason.ELIGIBLE;
     }
     return Reason.INVALID_IF_TYPES;
+  }
+
+  private boolean isEqualEnumCandidateType(
+      TypeElement leftType, TypeElement rightType, DexProgramClass enumClass) {
+    if (!leftType.isClassType() || !rightType.isClassType()) {
+      return false;
+    }
+    return getEnumUnboxingCandidateOrNull(leftType) == enumClass
+        && getEnumUnboxingCandidateOrNull(rightType) == enumClass;
   }
 
   @SuppressWarnings({"ReferenceEquality", "UnusedVariable"})
