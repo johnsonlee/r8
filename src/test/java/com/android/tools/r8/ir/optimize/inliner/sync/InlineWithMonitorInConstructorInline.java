@@ -6,8 +6,8 @@ package com.android.tools.r8.ir.optimize.inliner.sync;
 
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.containsConstString;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -62,40 +62,36 @@ public class InlineWithMonitorInConstructorInline extends TestBase {
     ClassSubject fooClassSubject = inspector.clazz(Bar.class);
     assertThat(fooClassSubject, isPresent());
 
-    // When compiling to CF we do not allow inlining methods into constructors.
-    // TODO(b/136458109): Util class should be absent when compiling to CF.
     ClassSubject utilClassSubject = inspector.clazz(Util.class);
-    assertThat(utilClassSubject, isPresentIf(parameters.isCfRuntime()));
+    assertThat(utilClassSubject, isAbsent());
 
-    // The Util class is fully inlined when compiling to DEX. Verify that the two monitor
-    // instructions are not inlined into the same method.
-    if (parameters.isDexRuntime()) {
-      if (parameters.getApiLevel().isLessThanOrEqualTo(AndroidApiLevel.M)) {
-        // Find the synthetic constructor with an added `int classId` parameter. Verify that only
-        // Foo.<init> has been inlined this constructor.
-        MethodSubject syntheticInit = fooClassSubject.init("int");
-        assertThat(syntheticInit, isPresent());
-        assertThat(syntheticInit, containsConstString("foo"));
-        assertThat(syntheticInit, not(containsConstString("bar")));
-        assertEquals(1, numberOfMonitorEnterInstructions(syntheticInit));
+    // Verify that the two monitor instructions are not inlined into the same method.
+    if (parameters.isCfRuntime()
+        || parameters.getApiLevel().isLessThanOrEqualTo(AndroidApiLevel.M)) {
+      // Find the synthetic constructor with an added `int classId` parameter. Verify that only
+      // Foo.<init> has been inlined this constructor.
+      MethodSubject syntheticInit = fooClassSubject.init("int");
+      assertThat(syntheticInit, isPresent());
+      assertThat(syntheticInit, containsConstString("foo"));
+      assertThat(syntheticInit, not(containsConstString("bar")));
+      assertEquals(1, numberOfMonitorEnterInstructions(syntheticInit));
 
-        // Find the non-synthetic constructor corresponding to Bar.<init>.
-        MethodSubject barInit = fooClassSubject.init();
-        assertThat(barInit, isPresent());
-        assertThat(barInit, containsConstString("bar"));
-        assertThat(barInit, not(containsConstString("foo")));
-        assertEquals(1, numberOfMonitorEnterInstructions(barInit));
+      // Find the non-synthetic constructor corresponding to Bar.<init>.
+      MethodSubject barInit = fooClassSubject.init();
+      assertThat(barInit, isPresent());
+      assertThat(barInit, containsConstString("bar"));
+      assertThat(barInit, not(containsConstString("foo")));
+      assertEquals(1, numberOfMonitorEnterInstructions(barInit));
 
-        // Finally verify that the synthetic constructor calls the non-synthetic constructor, due to
-        // inlining being prohibited.
-        assertThat(syntheticInit, invokesMethod(barInit));
-      } else {
-        MethodSubject syntheticInit = fooClassSubject.uniqueInstanceInitializer();
-        assertThat(syntheticInit, isPresent());
-        assertThat(syntheticInit, containsConstString("bar"));
-        assertThat(syntheticInit, containsConstString("foo"));
-        assertEquals(2, numberOfMonitorEnterInstructions(syntheticInit));
-      }
+      // Finally verify that the synthetic constructor calls the non-synthetic constructor, due to
+      // inlining being prohibited.
+      assertThat(syntheticInit, invokesMethod(barInit));
+    } else {
+      MethodSubject syntheticInit = fooClassSubject.uniqueInstanceInitializer();
+      assertThat(syntheticInit, isPresent());
+      assertThat(syntheticInit, containsConstString("bar"));
+      assertThat(syntheticInit, containsConstString("foo"));
+      assertEquals(2, numberOfMonitorEnterInstructions(syntheticInit));
     }
   }
 

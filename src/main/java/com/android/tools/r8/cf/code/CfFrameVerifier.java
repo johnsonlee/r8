@@ -306,9 +306,7 @@ public class CfFrameVerifier {
         : CfFrameState.error("No destination frame");
   }
 
-  @SuppressWarnings("UnusedVariable")
   private TraversalContinuation<CfCodeDiagnostics, CfFrameState> computeInitialState() {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
     CfFrameState state = new ConcreteCfFrameState();
     int localIndex = 0;
     DexMethod context = previousMethod.orElse(method.getReference());

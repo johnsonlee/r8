@@ -89,11 +89,7 @@ public class NestAttributesInDexShrinkingFieldsTest extends NestAttributesInDexT
         .setMinApi(parameters)
         .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
         .compile()
-        // TODO(b/136250031, b/136458109): Allow inlining of constructors into constructors when
-        //  compiling to CF.
-        .inspect(
-            inspector ->
-                assertEquals(parameters.isCfRuntime() ? 2 : 1, inspector.allClasses().size()))
+        .inspect(inspector -> assertEquals(1, inspector.allClasses().size()))
         .run(parameters.getRuntime(), "Host")
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }

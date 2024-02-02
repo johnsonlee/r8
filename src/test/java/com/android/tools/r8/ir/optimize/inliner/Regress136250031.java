@@ -4,9 +4,13 @@
 
 package com.android.tools.r8.ir.optimize.inliner;
 
+import static org.junit.Assert.assertTrue;
+
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.codeinspector.InstructionSubject;
+import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -21,7 +25,19 @@ public class Regress136250031 extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+    return TestParameters.builder()
+        .withCfRuntimes()
+        .withDefaultDexRuntime()
+        .withMaximumApiLevel()
+        .build();
+  }
+
+  @Test
+  public void testReference() throws Exception {
+    testForRuntime(parameters)
+        .addInnerClasses(Regress136250031.class)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines("42");
   }
 
   @Test
@@ -34,12 +50,29 @@ public class Regress136250031 extends TestBase {
             inspector -> inspector.assertMergedIntoSubtype(A.class).assertNoOtherClassesMerged())
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutputLines("42");
+        .assertSuccessWithOutputLines("42")
+        .inspect(
+            inspector -> {
+              MethodSubject initMethod = inspector.clazz(B.class).init();
+              assertTrue(
+                  "Expected 'throw null' in " + initMethod.getMethod().codeToString(),
+                  initMethod.streamInstructions().anyMatch(InstructionSubject::isThrow));
+            });
   }
 
   static class TestClass {
+
+    // This method is inlined into the constructor for B between entry and the subsequent <init>
+    // on Object (after vertically merging A into B).
+    public static final String maybeAbort() {
+      if (System.currentTimeMillis() < 0) {
+        throw null;
+      }
+      return "42";
+    }
+
     public static void main(String[] args) {
-      new B(new C());
+      new B();
     }
   }
 
@@ -50,21 +83,10 @@ public class Regress136250031 extends TestBase {
   }
 
   public static class B extends A {
-    B(C c) {
-      super(c.instance.toString());
-    }
-  }
-
-  public static class C {
-    public C instance;
-
-    C() {
-      instance = System.currentTimeMillis() > 0 ? this : null;
-    }
-
-    @Override
-    public String toString() {
-      return "42";
+    B() {
+      // The merge and inlining will result in a jump to an non-normal exit.
+      // The frame must retain the uninitialized this.
+      super(TestClass.maybeAbort());
     }
   }
 }

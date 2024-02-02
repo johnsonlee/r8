@@ -45,8 +45,7 @@ public class ConstructorMergingOverlapTest extends HorizontalClassMergingTestBas
               assertThat(firstInitSubject, isPresent());
               assertThat(firstInitSubject, writesInstanceField(classIdFieldSubject.getDexField()));
 
-              MethodSubject otherInitSubject =
-                  aClassSubject.init("int", parameters.isCfRuntime() ? "java.lang.Object" : "int");
+              MethodSubject otherInitSubject = aClassSubject.init("int", "int");
               assertThat(otherInitSubject, isPresent());
               assertThat(otherInitSubject, writesInstanceField(classIdFieldSubject.getDexField()));
 

@@ -144,13 +144,6 @@ public final class DefaultInliningOracle implements InliningOracle {
       return false;
     }
 
-    // We don't inline into constructors when producing class files since this can mess up
-    // the stackmap, see b/136250031
-    if (method.getDefinition().isInstanceInitializer() && options.isGeneratingClassFiles()) {
-      whyAreYouNotInliningReporter.reportNoInliningIntoConstructorsWhenGeneratingClassFiles();
-      return false;
-    }
-
     if (method.isStructurallyEqualTo(singleTarget)) {
       // Cannot handle recursive inlining at this point.
       // Force inlined method should never be recursive.

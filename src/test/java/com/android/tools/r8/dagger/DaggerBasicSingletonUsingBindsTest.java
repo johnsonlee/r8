@@ -80,9 +80,6 @@ public class DaggerBasicSingletonUsingBindsTest extends DaggerBasicTestBase {
                 "basic.MainUsingBinds",
                 "dagger.internal.DoubleCheck",
                 "javax.inject.Provider");
-    if (parameters.isCfRuntime()) {
-      expectedClasses.add("basic.DaggerMainComponentUsingBinds");
-    }
     if (target.equals("1.8") || parameters.isDexRuntime()) {
       expectedClasses.add("basic.DaggerMainComponentUsingBinds$Builder");
     }

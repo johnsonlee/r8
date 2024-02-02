@@ -60,9 +60,6 @@ public class DaggerBasicSingletonUsingProvidesTest extends DaggerBasicTestBase {
                 "basic.MainUsingProvides",
                 "dagger.internal.DoubleCheck",
                 "javax.inject.Provider");
-    if (parameters.isCfRuntime()) {
-      expectedClasses.add("basic.DaggerMainComponentUsingProvides");
-    }
     if (target.equals("1.8") || parameters.isDexRuntime()) {
       expectedClasses.add("basic.DaggerMainComponentUsingProvides$Builder");
     }
