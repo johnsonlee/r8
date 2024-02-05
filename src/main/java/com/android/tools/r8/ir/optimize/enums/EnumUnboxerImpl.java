@@ -1354,7 +1354,6 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     return Reason.ELIGIBLE;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   // All invokes in the library are invalid, besides a few cherry picked cases such as ordinal().
   private Reason analyzeInvokeUser(
       InvokeMethod invoke,
@@ -1362,12 +1361,28 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       ProgramMethod context,
       DexProgramClass enumClass,
       Value enumValue) {
-    if (invoke.getInvokedMethod().holder.isArrayType()) {
+    DexType holder = invoke.getInvokedMethod().getHolderType();
+    if (holder.isArrayType()) {
       // The only valid methods is clone for values() to be correct.
-      if (invoke.getInvokedMethod().name == factory.cloneMethodName) {
+      if (invoke.getInvokedMethod().name.isIdenticalTo(factory.cloneMethodName)) {
         return Reason.ELIGIBLE;
       }
       return Reason.INVALID_INVOKE_ON_ARRAY;
+    }
+    // Also allow clone on Object, as when kotlinc 2.0 generates the `values()` method it uses
+    // signature `Ljava/lang/Object;.clone:()Ljava/lang/Object;` and not
+    // `[Ljava/lang/Object;.clone:()Ljava/lang/Object;` as kotlinc 1.9 and before to create a clone
+    // of the $VALUES array. javac use the signature `[LEnumClass;.clone:()Ljava/lang/Object;`.
+    if (holder.isIdenticalTo(factory.objectType)
+        && invoke.getInvokedMethod().getName().isIdenticalTo(factory.cloneMethodName)
+        && invoke.getFirstArgument().getType().isArrayType()
+        && invoke
+            .getFirstArgument()
+            .getType()
+            .asArrayType()
+            .getBaseType()
+            .isClassType(enumClass.getType())) {
+      return Reason.ELIGIBLE;
     }
 
     DexClassAndMethod resolvedMethod =
