@@ -56,8 +56,6 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.objectstate.EnumValuesObjectState;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
-import com.android.tools.r8.ir.code.ArrayGet;
-import com.android.tools.r8.ir.code.ArrayLength;
 import com.android.tools.r8.ir.code.ArrayPut;
 import com.android.tools.r8.ir.code.Assume;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -78,7 +76,6 @@ import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.NewArrayFilled;
 import com.android.tools.r8.ir.code.Phi;
-import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
@@ -348,7 +345,6 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private void analyzeInvokeCustom(
       InvokeCustom invoke, Set<DexType> eligibleEnums, ProgramMethod context) {
     invoke.getCallSite().getMethodProto().forEachType(t -> markEnumEligible(t, eligibleEnums));
@@ -366,7 +362,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
 
     lambdaDescriptor.forEachErasedAndEnforcedTypes(
         (erasedType, enforcedType) -> {
-          if (erasedType != enforcedType) {
+          if (erasedType.isNotIdenticalTo(enforcedType)) {
             invalidateEnum(erasedType);
             invalidateEnum(enforcedType);
           }
@@ -1179,27 +1175,24 @@ public class EnumUnboxerImpl extends EnumUnboxer {
                 .mayHaveOtherSideEffectsThanInstanceFieldAssignments());
   }
 
-  @SuppressWarnings("UnusedVariable")
   private Reason instructionAllowEnumUnboxing(
       Instruction instruction, IRCode code, DexProgramClass enumClass, Value enumValue) {
     ProgramMethod context = code.context();
     switch (instruction.opcode()) {
       case ASSUME:
-        return analyzeAssumeUser(instruction.asAssume(), code, context, enumClass, enumValue);
+        return analyzeAssumeUser(instruction.asAssume(), code, enumClass);
       case ARRAY_GET:
-        return analyzeArrayGetUser(instruction.asArrayGet(), code, context, enumClass, enumValue);
+        return analyzeArrayGetUser();
       case ARRAY_LENGTH:
-        return analyzeArrayLengthUser(
-            instruction.asArrayLength(), code, context, enumClass, enumValue);
+        return analyzeArrayLengthUser();
       case ARRAY_PUT:
-        return analyzeArrayPutUser(instruction.asArrayPut(), code, context, enumClass, enumValue);
+        return analyzeArrayPutUser(instruction.asArrayPut());
       case CHECK_CAST:
-        return analyzeCheckCastUser(instruction.asCheckCast(), code, context, enumClass, enumValue);
+        return analyzeCheckCastUser(instruction.asCheckCast());
       case IF:
-        return analyzeIfUser(instruction.asIf(), code, context, enumClass, enumValue);
+        return analyzeIfUser(instruction.asIf(), enumClass);
       case INSTANCE_GET:
-        return analyzeInstanceGetUser(
-            instruction.asInstanceGet(), code, context, enumClass, enumValue);
+        return analyzeInstanceGetUser(instruction.asInstanceGet(), enumClass);
       case INSTANCE_PUT:
         return analyzeFieldPutUser(
             instruction.asInstancePut(), code, context, enumClass, enumValue);
@@ -1211,10 +1204,9 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       case INVOKE_VIRTUAL:
         return analyzeInvokeUser(instruction.asInvokeMethod(), code, context, enumClass, enumValue);
       case NEW_ARRAY_FILLED:
-        return analyzeNewArrayFilledUser(
-            instruction.asNewArrayFilled(), code, context, enumClass, enumValue);
+        return analyzeNewArrayFilledUser(instruction.asNewArrayFilled(), enumClass);
       case RETURN:
-        return analyzeReturnUser(instruction.asReturn(), code, context, enumClass, enumValue);
+        return analyzeReturnUser(context, enumClass);
       case STATIC_PUT:
         return analyzeFieldPutUser(instruction.asStaticPut(), code, context, enumClass, enumValue);
       default:
@@ -1222,39 +1214,20 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     }
   }
 
-  @SuppressWarnings("UnusedVariable")
-  private Reason analyzeAssumeUser(
-      Assume assume,
-      IRCode code,
-      ProgramMethod context,
-      DexProgramClass enumClass,
-      Value enumValue) {
+  private Reason analyzeAssumeUser(Assume assume, IRCode code, DexProgramClass enumClass) {
     return validateEnumUsages(code, assume.outValue(), enumClass);
   }
 
-  @SuppressWarnings("UnusedVariable")
-  private Reason analyzeArrayGetUser(
-      ArrayGet arrayGet,
-      IRCode code,
-      ProgramMethod context,
-      DexProgramClass enumClass,
-      Value enumValue) {
+  private Reason analyzeArrayGetUser() {
     // MyEnum[] array = ...; array[0]; is valid.
     return Reason.ELIGIBLE;
   }
 
-  @SuppressWarnings("UnusedVariable")
-  private Reason analyzeArrayLengthUser(
-      ArrayLength arrayLength,
-      IRCode code,
-      ProgramMethod context,
-      DexProgramClass enumClass,
-      Value enumValue) {
+  private Reason analyzeArrayLengthUser() {
     // MyEnum[] array = ...; array.length; is valid.
     return Reason.ELIGIBLE;
   }
 
-  @SuppressWarnings("UnusedVariable")
   private boolean isAssignableToArray(Value value, ClassTypeElement arrayBaseType) {
     TypeElement valueType = value.getType();
     if (valueType.isNullType()) {
@@ -1267,13 +1240,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
         valueBaseType.asClassType().getClassType(), arrayBaseType.getClassType());
   }
 
-  @SuppressWarnings("UnusedVariable")
-  private Reason analyzeArrayPutUser(
-      ArrayPut arrayPut,
-      IRCode code,
-      ProgramMethod context,
-      DexProgramClass enumClass,
-      Value enumValue) {
+  private Reason analyzeArrayPutUser(ArrayPut arrayPut) {
     // MyEnum[] array; array[0] = MyEnum.A; is valid.
     // MyEnum[][] array2d; MyEnum[] array; array2d[0] = array; is valid.
     // MyEnum[]^N array; MyEnum[]^(N-1) element; array[0] = element; is valid.
@@ -1289,13 +1256,8 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     return Reason.INVALID_ARRAY_PUT;
   }
 
-  @SuppressWarnings({"ReferenceEquality", "UnusedVariable"})
   private Reason analyzeNewArrayFilledUser(
-      NewArrayFilled newArrayFilled,
-      IRCode code,
-      ProgramMethod context,
-      DexProgramClass enumClass,
-      Value enumValue) {
+      NewArrayFilled newArrayFilled, DexProgramClass enumClass) {
     // MyEnum[] array = new MyEnum[] { MyEnum.A }; is valid.
     // We need to prove that the value to put in and the array have correct types.
     TypeElement arrayType = newArrayFilled.getOutType();
@@ -1306,7 +1268,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       assert false;
       return Reason.INVALID_INVOKE_NEW_ARRAY;
     }
-    if (arrayBaseType.getClassType() != enumClass.type) {
+    if (enumClass.type.isNotIdenticalTo(arrayBaseType.getClassType())) {
       return Reason.INVALID_INVOKE_NEW_ARRAY;
     }
 
@@ -1318,20 +1280,13 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     return Reason.ELIGIBLE;
   }
 
-  @SuppressWarnings("UnusedVariable")
-  private Reason analyzeCheckCastUser(
-      CheckCast checkCast,
-      IRCode code,
-      ProgramMethod context,
-      DexProgramClass enumClass,
-      Value enumValue) {
+  private Reason analyzeCheckCastUser(CheckCast checkCast) {
     if (allowCheckCast(checkCast)) {
       return Reason.ELIGIBLE;
     }
     return Reason.DOWN_CAST;
   }
 
-  @SuppressWarnings("UnusedVariable")
   // A field put is valid only if the field is not on an enum, and the field type and the valuePut
   // have identical enum type.
   private Reason analyzeFieldPutUser(
@@ -1365,11 +1320,9 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     return Reason.ELIGIBLE;
   }
 
-  @SuppressWarnings({"ReferenceEquality", "UnusedVariable"})
   // An If using enum as inValue is valid if it matches e == null
   // or e == X with X of same enum type as e. Ex: if (e == MyEnum.A).
-  private Reason analyzeIfUser(
-      If theIf, IRCode code, ProgramMethod context, DexProgramClass enumClass, Value enumValue) {
+  private Reason analyzeIfUser(If theIf, DexProgramClass enumClass) {
     assert (theIf.getType() == IfType.EQ || theIf.getType() == IfType.NE)
         : "Comparing a reference with " + theIf.getType().toString();
     // e == null.
@@ -1394,14 +1347,8 @@ public class EnumUnboxerImpl extends EnumUnboxer {
         && getEnumUnboxingCandidateOrNull(rightType) == enumClass;
   }
 
-  @SuppressWarnings({"ReferenceEquality", "UnusedVariable"})
-  private Reason analyzeInstanceGetUser(
-      InstanceGet instanceGet,
-      IRCode code,
-      ProgramMethod context,
-      DexProgramClass enumClass,
-      Value enumValue) {
-    assert instanceGet.getField().holder == enumClass.type;
+  private Reason analyzeInstanceGetUser(InstanceGet instanceGet, DexProgramClass enumClass) {
+    assert instanceGet.getField().holder.isIdenticalTo(enumClass.type);
     DexField field = instanceGet.getField();
     enumUnboxingCandidatesInfo.addRequiredEnumInstanceFieldData(enumClass, field);
     return Reason.ELIGIBLE;
@@ -1512,7 +1459,6 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     Reason reason =
         analyzeLibraryInvoke(
             invoke,
-            code,
             context,
             enumClass,
             enumValue,
@@ -1526,7 +1472,6 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     return reason;
   }
 
-  @SuppressWarnings("UnusedVariable")
   private Reason comparableAsUnboxedValues(InvokeMethod invoke) {
     assert invoke.inValues().size() == 2;
     TypeElement type1 = invoke.getFirstArgument().getType();
@@ -1545,33 +1490,31 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     return new UnboxedValueNonComparable(invoke.getInvokedMethod(), type1, type2);
   }
 
-  @SuppressWarnings({"ReferenceEquality", "UnusedVariable"})
   private Reason analyzeLibraryInvoke(
       InvokeMethod invoke,
-      IRCode code,
       ProgramMethod context,
       DexProgramClass enumClass,
       Value enumValue,
       DexMethod singleTargetReference,
       DexClass targetHolder) {
     // Calls to java.lang.Enum.
-    if (targetHolder.getType() == factory.enumType) {
+    if (targetHolder.getType().isIdenticalTo(factory.enumType)) {
       // TODO(b/147860220): EnumSet and EnumMap may be interesting to model.
-      if (singleTargetReference == factory.enumMembers.compareTo
-          || singleTargetReference == factory.enumMembers.compareToWithObject) {
+      if (singleTargetReference.isIdenticalTo(factory.enumMembers.compareTo)
+          || singleTargetReference.isIdenticalTo(factory.enumMembers.compareToWithObject)) {
         return comparableAsUnboxedValues(invoke);
-      } else if (singleTargetReference == factory.enumMembers.equals) {
+      } else if (singleTargetReference.isIdenticalTo(factory.enumMembers.equals)) {
         return comparableAsUnboxedValues(invoke);
-      } else if (singleTargetReference == factory.enumMembers.nameMethod
-          || singleTargetReference == factory.enumMembers.toString) {
+      } else if (singleTargetReference.isIdenticalTo(factory.enumMembers.nameMethod)
+          || singleTargetReference.isIdenticalTo(factory.enumMembers.toString)) {
         assert invoke.asInvokeMethodWithReceiver().getReceiver() == enumValue;
         addRequiredNameData(enumClass);
         return Reason.ELIGIBLE;
-      } else if (singleTargetReference == factory.enumMembers.ordinalMethod) {
+      } else if (singleTargetReference.isIdenticalTo(factory.enumMembers.ordinalMethod)) {
         return Reason.ELIGIBLE;
-      } else if (singleTargetReference == factory.enumMembers.hashCode) {
+      } else if (singleTargetReference.isIdenticalTo(factory.enumMembers.hashCode)) {
         return Reason.ELIGIBLE;
-      } else if (singleTargetReference == factory.enumMembers.constructor) {
+      } else if (singleTargetReference.isIdenticalTo(factory.enumMembers.constructor)) {
         assert invoke.getFirstArgument() == enumValue;
         if (appView.options().canInitNewInstanceUsingSuperclassConstructor()) {
           // Enum constructor call is allowed if called from any enum initializer.
@@ -1599,48 +1542,50 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     }
 
     // Calls to java.lang.Object.
-    if (targetHolder.getType() == factory.objectType) {
+    if (targetHolder.getType().isIdenticalTo(factory.objectType)) {
       // Object#getClass without outValue is important since R8 rewrites explicit null checks to
       // such instructions.
-      if (singleTargetReference == factory.objectMembers.getClass && invoke.hasUnusedOutValue()) {
+      if (singleTargetReference.isIdenticalTo(factory.objectMembers.getClass)
+          && invoke.hasUnusedOutValue()) {
         // This is a hidden null check.
         return Reason.ELIGIBLE;
       }
-      if (singleTargetReference == factory.objectMembers.toString) {
+      if (singleTargetReference.isIdenticalTo(factory.objectMembers.toString)) {
         assert invoke.asInvokeMethodWithReceiver().getReceiver() == enumValue;
         addRequiredNameData(enumClass);
         return Reason.ELIGIBLE;
       }
-      if (singleTargetReference == factory.objectMembers.hashCode) {
+      if (singleTargetReference.isIdenticalTo(factory.objectMembers.hashCode)) {
         return Reason.ELIGIBLE;
       }
-      if (singleTargetReference == factory.objectMembers.equals) {
+      if (singleTargetReference.isIdenticalTo(factory.objectMembers.equals)) {
         return comparableAsUnboxedValues(invoke);
       }
       return new UnsupportedLibraryInvokeReason(singleTargetReference);
     }
 
     // Calls to java.lang.Objects.
-    if (targetHolder.getType() == factory.objectsType) {
+    if (targetHolder.getType().isIdenticalTo(factory.objectsType)) {
       // Objects#requireNonNull is important since R8 rewrites explicit null checks to such
       // instructions.
-      if (singleTargetReference == factory.objectsMethods.requireNonNull
-          || singleTargetReference == factory.objectsMethods.requireNonNullWithMessage) {
+      if (singleTargetReference.isIdenticalTo(factory.objectsMethods.requireNonNull)
+          || singleTargetReference.isIdenticalTo(
+              factory.objectsMethods.requireNonNullWithMessage)) {
         return Reason.ELIGIBLE;
       }
-      if (singleTargetReference == factory.objectsMethods.toStringWithObject) {
+      if (singleTargetReference.isIdenticalTo(factory.objectsMethods.toStringWithObject)) {
         addRequiredNameData(enumClass);
         return Reason.ELIGIBLE;
       }
-      if (singleTargetReference == factory.objectsMethods.equals) {
+      if (singleTargetReference.isIdenticalTo(factory.objectsMethods.equals)) {
         return comparableAsUnboxedValues(invoke);
       }
       return new UnsupportedLibraryInvokeReason(singleTargetReference);
     }
 
     // Calls to java.lang.String.
-    if (targetHolder.getType() == factory.stringType) {
-      if (singleTargetReference == factory.stringMembers.valueOf) {
+    if (targetHolder.getType().isIdenticalTo(factory.stringType)) {
+      if (singleTargetReference.isIdenticalTo(factory.stringMembers.valueOf)) {
         addRequiredNameData(enumClass);
         return Reason.ELIGIBLE;
       }
@@ -1648,10 +1593,10 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     }
 
     // Calls to java.lang.StringBuilder and java.lang.StringBuffer.
-    if (targetHolder.getType() == factory.stringBuilderType
-        || targetHolder.getType() == factory.stringBufferType) {
-      if (singleTargetReference == factory.stringBuilderMethods.appendObject
-          || singleTargetReference == factory.stringBufferMethods.appendObject) {
+    if (targetHolder.getType().isIdenticalTo(factory.stringBuilderType)
+        || targetHolder.getType().isIdenticalTo(factory.stringBufferType)) {
+      if (singleTargetReference.isIdenticalTo(factory.stringBuilderMethods.appendObject)
+          || singleTargetReference.isIdenticalTo(factory.stringBufferMethods.appendObject)) {
         addRequiredNameData(enumClass);
         return Reason.ELIGIBLE;
       }
@@ -1659,13 +1604,13 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     }
 
     // Calls to java.lang.System.
-    if (targetHolder.getType() == factory.javaLangSystemType) {
-      if (singleTargetReference == factory.javaLangSystemMembers.arraycopy) {
+    if (targetHolder.getType().isIdenticalTo(factory.javaLangSystemType)) {
+      if (singleTargetReference.isIdenticalTo(factory.javaLangSystemMembers.arraycopy)) {
         // Important for Kotlin 1.5 enums, which use arraycopy to create a copy of $VALUES instead
         // of int[].clone().
         return Reason.ELIGIBLE;
       }
-      if (singleTargetReference == factory.javaLangSystemMembers.identityHashCode) {
+      if (singleTargetReference.isIdenticalTo(factory.javaLangSystemMembers.identityHashCode)) {
         // Important for proto enum unboxing.
         return Reason.ELIGIBLE;
       }
@@ -1676,16 +1621,11 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     return new UnsupportedLibraryInvokeReason(singleTargetReference);
   }
 
-  @SuppressWarnings({"ReferenceEquality", "UnusedVariable"})
   // Return is used for valueOf methods.
-  private Reason analyzeReturnUser(
-      Return theReturn,
-      IRCode code,
-      ProgramMethod context,
-      DexProgramClass enumClass,
-      Value enumValue) {
+  private Reason analyzeReturnUser(ProgramMethod context, DexProgramClass enumClass) {
     DexType returnType = context.getReturnType();
-    if (returnType != enumClass.type && returnType.toBaseType(factory) != enumClass.type) {
+    if (returnType.isNotIdenticalTo(enumClass.type)
+        && returnType.toBaseType(factory).isNotIdenticalTo(enumClass.type)) {
       return Reason.IMPLICIT_UP_CAST_IN_RETURN;
     }
     return Reason.ELIGIBLE;
