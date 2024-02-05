@@ -95,7 +95,7 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
   public PreserveMethodCharacteristics(AppView<AppInfoWithLiveness> appView, ClassMergerMode mode) {
     // This policy checks that method merging does invalidate various properties. Thus there is no
     // reason to run this policy if method merging is not allowed.
-    assert mode.isInitial();
+    assert !mode.isRestrictedToAlphaRenamingInR8();
     this.appView = appView;
   }
 

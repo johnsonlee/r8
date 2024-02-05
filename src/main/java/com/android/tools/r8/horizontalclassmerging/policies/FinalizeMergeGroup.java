@@ -36,7 +36,7 @@ public class FinalizeMergeGroup extends MultiClassPolicy {
   @Override
   public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     if (appView.enableWholeProgramOptimizations()) {
-      if (mode.isInitial() || group.isInterfaceGroup()) {
+      if (group.isInterfaceGroup() || !mode.isRestrictedToAlphaRenamingInR8()) {
         group.selectTarget(appView);
         group.selectInstanceFieldMap(appView.withClassHierarchy());
       } else {

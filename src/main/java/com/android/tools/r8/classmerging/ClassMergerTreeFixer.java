@@ -92,8 +92,6 @@ public abstract class ClassMergerTreeFixer<
     return lens;
   }
 
-  public abstract boolean isRunningBeforePrimaryOptimizationPass();
-
   public void preprocess() {
     // Intentionally empty.
   }
@@ -236,8 +234,7 @@ public abstract class ClassMergerTreeFixer<
       DexProgramClass clazz, DexEncodedMethod method, DexMethod newMethodReference) {
     // Convert out of DefaultInstanceInitializerCode, since this piece of code will require lens
     // code rewriting.
-    if (isRunningBeforePrimaryOptimizationPass()
-        && method.hasCode()
+    if (method.hasCode()
         && method.getCode().isDefaultInstanceInitializerCode()
         && mergedClasses.isMergeSourceOrTarget(clazz.getSuperType())) {
       DexType originalSuperType = originalSuperTypes.getOrDefault(clazz, clazz.getSuperType());

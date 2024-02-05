@@ -93,7 +93,10 @@ public class RespectPackageBoundaries extends MultiClassPolicy {
 
                         @Override
                         protected boolean checkRewrittenFieldType(DexClassAndField field) {
-                          if (mode.isInitial()) {
+                          if (mode.isRestrictedToAlphaRenamingInR8()) {
+                            // No relaxing of field types, hence no insertion of casts where we need
+                            // to guarantee visibility.
+                          } else {
                             // If the type of the field is package private, we need to keep the
                             // current class in its package in case we end up synthesizing a
                             // check-cast for the field type after relaxing the type of the field
@@ -105,9 +108,6 @@ public class RespectPackageBoundaries extends MultiClassPolicy {
                                 return setFoundPackagePrivateAccess();
                               }
                             }
-                          } else {
-                            // No relaxing of field types, hence no insertion of casts where we need
-                            // to guarantee visibility.
                           }
                           return continueSearchForPackagePrivateAccess();
                         }

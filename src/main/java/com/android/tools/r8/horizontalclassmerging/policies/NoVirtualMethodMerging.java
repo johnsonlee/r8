@@ -36,7 +36,7 @@ public class NoVirtualMethodMerging extends MultiClassPolicy {
 
   public NoVirtualMethodMerging(
       AppView<? extends AppInfoWithClassHierarchy> appView, ClassMergerMode mode) {
-    assert mode.isFinal();
+    assert mode.isRestrictedToAlphaRenamingInR8();
     this.appView = appView;
   }
 

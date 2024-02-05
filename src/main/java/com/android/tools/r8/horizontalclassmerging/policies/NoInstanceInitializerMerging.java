@@ -65,7 +65,7 @@ public class NoInstanceInitializerMerging
       AppView<? extends AppInfoWithClassHierarchy> appView,
       IRCodeProvider codeProvider,
       ClassMergerMode mode) {
-    assert mode.isFinal();
+    assert mode.isRestrictedToAlphaRenamingInR8();
     this.appView = appView;
     this.codeProvider = codeProvider;
   }

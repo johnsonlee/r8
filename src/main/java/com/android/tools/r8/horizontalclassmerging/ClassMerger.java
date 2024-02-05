@@ -242,7 +242,7 @@ public class ClassMerger {
 
   void appendClassIdField() {
     assert appView.hasLiveness();
-    assert mode.isInitial();
+    assert !mode.isRestrictedToAlphaRenamingInR8();
 
     DexEncodedField classIdField =
         DexEncodedField.syntheticBuilder()
@@ -473,7 +473,7 @@ public class ClassMerger {
           virtualMethodMergers.stream()
               .anyMatch(virtualMethodMerger -> !virtualMethodMerger.isNopOrTrivial());
       if (requiresClassIdField) {
-        assert mode.isInitial();
+        assert !mode.isRestrictedToAlphaRenaming();
         createClassIdField();
       }
 

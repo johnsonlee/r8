@@ -157,8 +157,7 @@ public class HorizontalClassMerger {
     appView.setHorizontallyMergedClasses(mergedClasses, mode);
 
     HorizontalClassMergerGraphLens horizontalClassMergerGraphLens =
-        createLens(
-            classMergerSharedData, mergedClasses, lensBuilder, mode, executorService, timing);
+        createLens(classMergerSharedData, mergedClasses, lensBuilder, executorService, timing);
     profileCollectionAdditions =
         profileCollectionAdditions.rewriteMethodReferences(
             horizontalClassMergerGraphLens::getNextMethodToInvoke);
@@ -166,10 +165,10 @@ public class HorizontalClassMerger {
     assert verifyNoCyclesInInterfaceHierarchies(appView, groups);
 
     FieldAccessInfoCollectionModifier fieldAccessInfoCollectionModifier = null;
-    if (mode.isInitial()) {
-      fieldAccessInfoCollectionModifier = createFieldAccessInfoCollectionModifier(groups);
-    } else {
+    if (mode.isRestrictedToAlphaRenaming()) {
       assert groups.stream().noneMatch(HorizontalMergeGroup::hasClassIdField);
+    } else {
+      fieldAccessInfoCollectionModifier = createFieldAccessInfoCollectionModifier(groups);
     }
 
     // Set the new graph lens before finalizing any synthetic code.
@@ -269,7 +268,6 @@ public class HorizontalClassMerger {
 
   private FieldAccessInfoCollectionModifier createFieldAccessInfoCollectionModifier(
       Collection<HorizontalMergeGroup> groups) {
-    assert mode.isInitial();
     FieldAccessInfoCollectionModifier.Builder builder =
         new FieldAccessInfoCollectionModifier.Builder();
     for (HorizontalMergeGroup group : groups) {
@@ -425,21 +423,18 @@ public class HorizontalClassMerger {
    * Fix all references to merged classes using the {@link HorizontalClassMergerTreeFixer}.
    * Construct a graph lens containing all changes performed by horizontal class merging.
    */
-  @SuppressWarnings("ReferenceEquality")
   private HorizontalClassMergerGraphLens createLens(
       ClassMergerSharedData classMergerSharedData,
       HorizontallyMergedClasses mergedClasses,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
-      ClassMergerMode mode,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
     return new HorizontalClassMergerTreeFixer(
-            appView, classMergerSharedData, mergedClasses, lensBuilder, mode)
+            appView, classMergerSharedData, mergedClasses, lensBuilder)
         .run(executorService, timing);
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private static boolean verifyNoCyclesInInterfaceHierarchies(
       AppView<?> appView, Collection<HorizontalMergeGroup> groups) {
     for (HorizontalMergeGroup group : groups) {
@@ -454,7 +449,7 @@ public class HorizontalClassMerger {
           .traverseSuperTypes(
               interfaceClass,
               (superType, subclass, isInterface) -> {
-                assert superType != interfaceClass.getType()
+                assert superType.isNotIdenticalTo(interfaceClass.getType())
                     : "Interface " + interfaceClass.getTypeName() + " inherits from itself";
                 return TraversalContinuation.doContinue();
               });

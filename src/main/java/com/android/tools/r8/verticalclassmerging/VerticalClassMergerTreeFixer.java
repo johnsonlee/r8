@@ -59,9 +59,4 @@ class VerticalClassMergerTreeFixer
   public void postprocess() {
     lensBuilder.fixupContextualVirtualToDirectMethodMaps();
   }
-
-  @Override
-  public boolean isRunningBeforePrimaryOptimizationPass() {
-    return true;
-  }
 }

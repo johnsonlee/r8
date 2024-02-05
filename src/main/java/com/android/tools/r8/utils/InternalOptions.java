@@ -1862,10 +1862,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       return 100;
     }
 
-    public boolean isConstructorMergingEnabled() {
-      return true;
-    }
-
     public boolean isClassInitializerDeadlockDetectionEnabled() {
       return enableClassInitializerDeadlockDetection;
     }

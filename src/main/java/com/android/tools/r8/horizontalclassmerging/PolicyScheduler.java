@@ -233,24 +233,24 @@ public class PolicyScheduler {
       addMultiClassPoliciesForMergingNonSyntheticClasses(appViewWithLiveness, builder);
     }
 
-    if (mode.isInitial()) {
-      AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+    if (mode.isRestrictedToAlphaRenamingInR8()) {
       builder.add(
-          new AllInstantiatedOrUninstantiated(appViewWithLiveness, mode),
+          new NoVirtualMethodMerging(appView, mode), new NoConstructorCollisions(appView, mode));
+    } else {
+      AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+      if (mode.isInitial()) {
+        builder.add(new AllInstantiatedOrUninstantiated(appViewWithLiveness, mode));
+      }
+      builder.add(
           new PreserveMethodCharacteristics(appViewWithLiveness, mode),
           new MinimizeInstanceFieldCasts());
-    } else {
-      assert mode.isFinal();
-      builder.add(
-          new NoVirtualMethodMerging(appView, mode),
-          new NoConstructorCollisions(appView, mode));
     }
 
     addMultiClassPoliciesForInterfaceMerging(appView, mode, builder);
 
     builder.add(new LimitClassGroups(appView));
 
-    if (mode.isFinal()) {
+    if (mode.isRestrictedToAlphaRenamingInR8()) {
       // This needs to reason about equivalence of instance initializers, which relies on the
       // mapping from instance fields on source classes to the instance fields on target classes.
       // This policy therefore selects a target for each merge group and creates the mapping for

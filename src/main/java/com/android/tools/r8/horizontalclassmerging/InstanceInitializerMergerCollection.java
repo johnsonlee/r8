@@ -98,28 +98,18 @@ public class InstanceInitializerMergerCollection {
 
     // Merge instance initializers with different behavior.
     List<InstanceInitializerMerger> instanceInitializerMergers = new ArrayList<>();
-    if (appView.options().horizontalClassMergerOptions().isConstructorMergingEnabled()) {
-      Map<DexProto, Builder> buildersByProto = new LinkedHashMap<>();
-      buildersWithoutDescription.forEach(
-          instanceInitializer ->
-              buildersByProto
-                  .computeIfAbsent(
-                      instanceInitializer.getDefinition().getProto(),
-                      ignore ->
-                          new InstanceInitializerMerger.Builder(
-                              appViewWithClassHierarchy, classIdentifiers, lensBuilder, mode))
-                  .add(instanceInitializer));
-      for (InstanceInitializerMerger.Builder builder : buildersByProto.values()) {
-        instanceInitializerMergers.addAll(builder.build(group));
-      }
-    } else {
-      buildersWithoutDescription.forEach(
-          instanceInitializer ->
-              instanceInitializerMergers.addAll(
-                  new InstanceInitializerMerger.Builder(
-                          appViewWithClassHierarchy, classIdentifiers, lensBuilder, mode)
-                      .add(instanceInitializer)
-                      .build(group)));
+    Map<DexProto, Builder> buildersByProto = new LinkedHashMap<>();
+    buildersWithoutDescription.forEach(
+        instanceInitializer ->
+            buildersByProto
+                .computeIfAbsent(
+                    instanceInitializer.getDefinition().getProto(),
+                    ignore ->
+                        new InstanceInitializerMerger.Builder(
+                            appViewWithClassHierarchy, classIdentifiers, lensBuilder, mode))
+                .add(instanceInitializer));
+    for (InstanceInitializerMerger.Builder builder : buildersByProto.values()) {
+      instanceInitializerMergers.addAll(builder.build(group));
     }
 
     // Try and merge the constructors with the most arguments first, to avoid using synthetic

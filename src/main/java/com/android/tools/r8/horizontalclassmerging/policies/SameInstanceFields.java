@@ -36,9 +36,9 @@ public class SameInstanceFields extends MultiClassSameReferencePolicy<Multiset<I
       // We do not allow merging fields with different types in the final round of horizontal class
       // merging, since that requires inserting check-cast instructions at reads.
       InstanceFieldInfo instanceFieldInfo =
-          mode.isInitial()
-              ? InstanceFieldInfo.createRelaxed(field, dexItemFactory)
-              : InstanceFieldInfo.createExact(field);
+          mode.isRestrictedToAlphaRenamingInR8()
+              ? InstanceFieldInfo.createExact(field)
+              : InstanceFieldInfo.createRelaxed(field, dexItemFactory);
       fields.add(instanceFieldInfo);
     }
     return fields;

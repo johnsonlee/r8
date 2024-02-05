@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.ClassMergerTreeFixer;
 import com.android.tools.r8.graph.AppView;
@@ -23,16 +22,12 @@ class HorizontalClassMergerTreeFixer
         HorizontalClassMergerGraphLens,
         HorizontallyMergedClasses> {
 
-  private final ClassMergerMode mode;
-
   public HorizontalClassMergerTreeFixer(
       AppView<?> appView,
       ClassMergerSharedData classMergerSharedData,
       HorizontallyMergedClasses mergedClasses,
-      HorizontalClassMergerGraphLens.Builder lensBuilder,
-      ClassMergerMode mode) {
+      HorizontalClassMergerGraphLens.Builder lensBuilder) {
     super(appView, classMergerSharedData, lensBuilder, mergedClasses);
-    this.mode = mode;
   }
 
   /**
@@ -92,10 +87,5 @@ class HorizontalClassMergerTreeFixer
   public HorizontalClassMergerGraphLens run(ExecutorService executorService, Timing timing)
       throws ExecutionException {
     return super.run(executorService, timing);
-  }
-
-  @Override
-  public boolean isRunningBeforePrimaryOptimizationPass() {
-    return mode.isInitial();
   }
 }

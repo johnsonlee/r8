@@ -305,17 +305,18 @@ public class InstanceInitializerMerger {
     boolean needsClassId =
         instanceInitializers.size() > 1
             && (!hasInstanceInitializerDescription() || group.hasClassIdField());
-    assert mode.isInitial() || !needsClassId;
+    assert !mode.isRestrictedToAlphaRenamingInR8() || !needsClassId;
 
     DexMethod newMethodReferenceTemplate = getNewMethodReference(representative, needsClassId);
-    assert mode.isInitial() || classMethodsBuilder.isFresh(newMethodReferenceTemplate);
+    assert !mode.isRestrictedToAlphaRenamingInR8()
+        || classMethodsBuilder.isFresh(newMethodReferenceTemplate);
 
     DexMethod newMethodReference =
         dexItemFactory.createInstanceInitializerWithFreshProto(
             newMethodReferenceTemplate,
-            mode.isInitial()
-                ? classMergerSharedData.getExtraUnusedArgumentTypes()
-                : ImmutableList.of(),
+            mode.isRestrictedToAlphaRenamingInR8()
+                ? ImmutableList.of()
+                : classMergerSharedData.getExtraUnusedArgumentTypes(),
             classMethodsBuilder::isFresh);
 
     // Compute the extra unused null parameters.
@@ -323,7 +324,8 @@ public class InstanceInitializerMerger {
         computeExtraUnusedParameters(newMethodReferenceTemplate, newMethodReference);
 
     // Verify that the merge is a simple renaming in the final round of merging.
-    assert mode.isInitial() || newMethodReference == newMethodReferenceTemplate;
+    assert !mode.isRestrictedToAlphaRenamingInR8()
+        || newMethodReference == newMethodReferenceTemplate;
 
     // Move instance initializers to target class.
     if (hasInstanceInitializerDescription()) {
