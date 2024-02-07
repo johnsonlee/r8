@@ -35,6 +35,7 @@ public class KeepUsesReflectionAnnotationTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
+        .skipEdgeExtraction()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .setExcludedOuterClass(getClass())

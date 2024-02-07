@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.keepanno.ast;
 
+import com.google.common.base.Strings;
 import java.util.Objects;
 
 public class KeepArrayTypePattern {
@@ -37,6 +38,22 @@ public class KeepArrayTypePattern {
     return dimensions;
   }
 
+  public String getDescriptor() {
+    if (isAny()) {
+      throw new KeepEdgeException("No descriptor exists for 'any' array");
+    }
+    return Strings.repeat("[", dimensions)
+        + baseType.match(
+            () -> {
+              throw new KeepEdgeException("No descriptor exists for 'any primitive' array");
+            },
+            primitive -> primitive.getDescriptor(),
+            array -> {
+              throw new KeepEdgeException("Unexpected nested array");
+            },
+            clazz -> clazz.getExactDescriptor());
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -52,5 +69,10 @@ public class KeepArrayTypePattern {
   @Override
   public int hashCode() {
     return Objects.hash(baseType, dimensions);
+  }
+
+  @Override
+  public String toString() {
+    return baseType + Strings.repeat("[]", dimensions);
   }
 }

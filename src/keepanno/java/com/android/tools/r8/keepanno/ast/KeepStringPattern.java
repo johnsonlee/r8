@@ -90,4 +90,15 @@ public class KeepStringPattern {
   public String getSuffixString() {
     return suffix;
   }
+
+  @Override
+  public String toString() {
+    if (isAny()) {
+      return "<*>";
+    }
+    if (isExact()) {
+      return exact;
+    }
+    return (hasPrefix() ? prefix : "") + "<*>" + (hasSuffix() ? suffix : "");
+  }
 }

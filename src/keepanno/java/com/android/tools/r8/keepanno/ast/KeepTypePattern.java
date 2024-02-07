@@ -61,10 +61,6 @@ public abstract class KeepTypePattern {
     return false;
   }
 
-  public String getDescriptor() {
-    return null;
-  }
-
   private static class Any extends KeepTypePattern {
 
     private static final Any INSTANCE = new Any();
@@ -135,7 +131,7 @@ public abstract class KeepTypePattern {
 
     @Override
     public String toString() {
-      return getDescriptor();
+      return type.getDescriptor();
     }
 
     @Override
@@ -180,6 +176,11 @@ public abstract class KeepTypePattern {
     public int hashCode() {
       return Objects.hash(type);
     }
+
+    @Override
+    public String toString() {
+      return type.toString();
+    }
   }
 
   private static class ArrayType extends KeepTypePattern {
@@ -213,6 +214,11 @@ public abstract class KeepTypePattern {
     @Override
     public int hashCode() {
       return Objects.hash(type);
+    }
+
+    @Override
+    public String toString() {
+      return type.toString();
     }
   }
 }

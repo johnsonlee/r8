@@ -118,7 +118,7 @@ public final class KeepFieldPattern extends KeepMemberPattern {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof KeepFieldPattern)) {
       return false;
     }
     KeepFieldPattern that = (KeepFieldPattern) o;
@@ -136,8 +136,7 @@ public final class KeepFieldPattern extends KeepMemberPattern {
   @Override
   public String toString() {
     return "KeepFieldPattern{"
-        + "annotated-by="
-        + annotatedByPattern
+        + annotatedByPattern.mapOrDefault(p -> "@" + p + ", ", "")
         + "access="
         + accessPattern
         + ", name="

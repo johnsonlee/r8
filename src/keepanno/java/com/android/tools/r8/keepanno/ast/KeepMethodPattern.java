@@ -145,7 +145,7 @@ public final class KeepMethodPattern extends KeepMemberPattern {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof KeepMethodPattern)) {
       return false;
     }
     KeepMethodPattern that = (KeepMethodPattern) o;
@@ -165,8 +165,7 @@ public final class KeepMethodPattern extends KeepMemberPattern {
   @Override
   public String toString() {
     return "KeepMethodPattern{"
-        + "annotated-by="
-        + annotatedByPattern
+        + annotatedByPattern.mapOrDefault(p -> "@" + p + ", ", "")
         + "access="
         + accessPattern
         + ", name="

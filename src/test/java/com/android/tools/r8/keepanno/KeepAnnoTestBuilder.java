@@ -120,7 +120,7 @@ public abstract class KeepAnnoTestBuilder {
     return inspectOutputConfig(System.out::println);
   }
 
-  public KeepAnnoTestBuilder enableEdgeExtraction() {
+  public KeepAnnoTestBuilder skipEdgeExtraction() {
     return this;
   }
 
@@ -166,7 +166,7 @@ public abstract class KeepAnnoTestBuilder {
 
     private final R8FullTestBuilder builder;
     private List<Consumer<R8TestCompileResult>> compileResultConsumers = new ArrayList<>();
-    private boolean useEdgeExtraction = false;
+    private boolean useEdgeExtraction = true;
 
     public R8NativeBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
       super(params, temp);
@@ -174,13 +174,15 @@ public abstract class KeepAnnoTestBuilder {
           TestBase.testForR8(temp, parameters().getBackend())
               .enableExperimentalKeepAnnotations()
               .setMinApi(parameters());
+      builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
+      builder.getBuilder().setEnableExperimentalVersionedKeepEdgeAnnotations(true);
     }
 
     @Override
-    public KeepAnnoTestBuilder enableEdgeExtraction() {
-      useEdgeExtraction = true;
-      builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
-      builder.getBuilder().setEnableExperimentalVersionedKeepEdgeAnnotations(true);
+    public KeepAnnoTestBuilder skipEdgeExtraction() {
+      useEdgeExtraction = false;
+      builder.getBuilder().setEnableExperimentalKeepAnnotations(true);
+      builder.getBuilder().setEnableExperimentalVersionedKeepEdgeAnnotations(false);
       return this;
     }
 
