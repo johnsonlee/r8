@@ -71,6 +71,12 @@ public class LirConverter {
                 if (codeLens != appView.codeLens()) {
                   lirCode =
                       new LirCode<>(lirCode) {
+
+                        @Override
+                        public boolean hasExplicitCodeLens() {
+                          return true;
+                        }
+
                         @Override
                         public GraphLens getCodeLens(AppView<?> appView) {
                           return codeLens;

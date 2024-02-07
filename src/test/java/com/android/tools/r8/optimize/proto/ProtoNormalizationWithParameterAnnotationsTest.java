@@ -43,11 +43,9 @@ public class ProtoNormalizationWithParameterAnnotationsTest extends TestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addKeepClassAndMembersRules(Foo.class, Bar.class)
-        .addKeepRuntimeVisibleAnnotations()
+        .addKeepRuntimeVisibleParameterAnnotations()
         .enableInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
-        // TODO(b/173398086): uniqueMethodWithName() does not work with proto changes.
-        .addDontObfuscate()
         .setMinApi(parameters)
         .compile()
         .inspect(

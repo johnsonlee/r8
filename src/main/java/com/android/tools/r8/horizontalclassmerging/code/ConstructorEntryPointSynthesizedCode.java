@@ -61,6 +61,11 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
   }
 
   @Override
+  public boolean hasExplicitCodeLens() {
+    return true;
+  }
+
+  @Override
   public GraphLens getCodeLens(AppView<?> appView) {
     return appView
         .graphLens()

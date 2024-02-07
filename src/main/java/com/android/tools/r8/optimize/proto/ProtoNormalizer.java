@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
+import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.utils.DepthFirstSearchWorkListBase.StatefulDepthFirstSearchWorkList;
@@ -154,6 +155,8 @@ public class ProtoNormalizer {
 
     if (!lensBuilder.isEmpty()) {
       appView.rewriteWithLens(lensBuilder.build(), executorService, timing);
+      LirConverter.rewriteLirWithLens(appView, timing, executorService);
+      appView.clearCodeRewritings(executorService, timing);
     }
     appView.notifyOptimizationFinishedForTesting();
     timing.end();

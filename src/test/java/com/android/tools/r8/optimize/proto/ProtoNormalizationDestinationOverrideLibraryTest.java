@@ -46,7 +46,6 @@ public class ProtoNormalizationDestinationOverrideLibraryTest extends TestBase {
         .addLibraryClasses(LibraryClass.class)
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
-        .addDontObfuscate()
         .enableInliningAnnotations()
         .enableNoMethodStaticizingAnnotations()
         .compile()

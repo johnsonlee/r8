@@ -202,6 +202,7 @@ public class HorizontalClassMerger {
               .setAppInfo(
                   appView.appInfoWithClassHierarchy().rebuildWithClassHierarchy(newApplication));
         }
+        appView.clearCodeRewritings(executorService, timing);
       }
     } else {
       assert mode.isFinal();

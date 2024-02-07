@@ -164,6 +164,11 @@ public class DexCode extends Code
     return new DexCode(this) {
 
       @Override
+      public boolean hasExplicitCodeLens() {
+        return true;
+      }
+
+      @Override
       public GraphLens getCodeLens(AppView<?> appView) {
         return codeLens;
       }

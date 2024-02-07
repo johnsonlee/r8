@@ -27,6 +27,11 @@ public class CfCodeWithLens extends CfCode {
   }
 
   @Override
+  public boolean hasExplicitCodeLens() {
+    return true;
+  }
+
+  @Override
   public GraphLens getCodeLens(AppView<?> appView) {
     assert codeLens != null;
     assert !codeLens.isIdentityLens();

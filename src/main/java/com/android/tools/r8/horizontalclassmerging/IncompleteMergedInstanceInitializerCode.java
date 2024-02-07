@@ -305,6 +305,11 @@ public class IncompleteMergedInstanceInitializerCode extends IncompleteHorizonta
     return new LirCode<>(lirBuilder.build()) {
 
       @Override
+      public boolean hasExplicitCodeLens() {
+        return true;
+      }
+
+      @Override
       public GraphLens getCodeLens(AppView<?> appView) {
         return lens;
       }

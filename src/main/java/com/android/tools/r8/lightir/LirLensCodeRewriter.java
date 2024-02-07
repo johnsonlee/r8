@@ -132,6 +132,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   private boolean hasPotentialNonTrivialInvokeRewriting(
       DexMethod method, InvokeType type, MethodLookupResult result) {
+    if (graphLens.isProtoNormalizerLens()) {
+      return result.getPrototypeChanges().getArgumentInfoCollection().hasArgumentPermutation();
+    }
     VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
     if (verticalClassMergerLens != null) {
       if (!result.getPrototypeChanges().isEmpty()) {
@@ -273,6 +276,13 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   public LirCode<EV> rewrite() {
+    if (getCode().hasExplicitCodeLens()) {
+      // Only happens when the code is already rewritten, so simply clear the code lens and return.
+      assert getCode().getCodeLens(appView) == graphLens;
+      LirCode<EV> rewritten = new LirCode<>(getCode());
+      assert !rewritten.hasExplicitCodeLens();
+      return rewritten;
+    }
     if (hasNonTrivialMethodChanges()) {
       return rewriteWithLensCodeRewriter();
     }
@@ -288,10 +298,16 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     if (hasPrunedCatchHandlers(rewritten)) {
       rewritten = removeUnreachableBlocks(rewritten);
     }
+    assert !rewritten.hasExplicitCodeLens();
     return rewritten;
   }
 
   private boolean hasNonTrivialMethodChanges() {
+    if (graphLens.isProtoNormalizerLens()) {
+      RewrittenPrototypeDescription prototypeChanges =
+          graphLens.lookupPrototypeChangesForMethodDefinition(context.getReference(), codeLens);
+      return prototypeChanges.getArgumentInfoCollection().hasArgumentPermutation();
+    }
     VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
     if (verticalClassMergerLens != null) {
       DexMethod previousReference =

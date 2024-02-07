@@ -510,8 +510,6 @@ public class R8 {
       // TODO(b/225838009): Horizontal merging currently assumes pre-phase CF conversion.
       LirConverter.enterLirSupportedPhase(appView, executorService);
 
-      new ProtoNormalizer(appViewWithLiveness).run(executorService, timing);
-
       // Clear traced methods roots to not hold on to the main dex live method set.
       appView.appInfo().getMainDexInfo().clearTracedMethodRoots();
 
@@ -761,6 +759,10 @@ public class R8 {
                     ? finalRuntimeTypeCheckInfoBuilder.build(appView.graphLens())
                     : null);
         assert appView.dexItemFactory().verifyNoCachedTypeElements();
+
+        if (appView.hasLiveness()) {
+          new ProtoNormalizer(appViewWithLiveness).run(executorService, timing);
+        }
       }
 
       // Perform minification.

@@ -456,6 +456,10 @@ public abstract class GraphLens {
     return null;
   }
 
+  public boolean isProtoNormalizerLens() {
+    return false;
+  }
+
   public boolean isVerticalClassMergerLens() {
     return false;
   }

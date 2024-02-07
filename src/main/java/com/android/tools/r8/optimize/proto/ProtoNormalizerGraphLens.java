@@ -41,6 +41,11 @@ public class ProtoNormalizerGraphLens extends DefaultNonIdentityGraphLens {
   }
 
   @Override
+  public boolean isProtoNormalizerLens() {
+    return true;
+  }
+
+  @Override
   @SuppressWarnings("ReferenceEquality")
   public RewrittenPrototypeDescription lookupPrototypeChangesForMethodDefinition(
       DexMethod method, GraphLens codeLens) {
