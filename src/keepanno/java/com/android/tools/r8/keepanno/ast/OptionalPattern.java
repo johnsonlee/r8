@@ -31,8 +31,12 @@ public abstract class OptionalPattern<T> {
     throw new KeepEdgeException("Unexpected attempt to get absent value");
   }
 
-  public <S> OptionalPattern<S> map(Function<T, S> fn) {
-    return absent();
+  public final <S> OptionalPattern<S> map(Function<T, S> fn) {
+    return mapOrDefault(fn.andThen(OptionalPattern::of), absent());
+  }
+
+  public <S> S mapOrDefault(Function<T, S> fn, S defaultValue) {
+    return defaultValue;
   }
 
   private static final class Absent extends OptionalPattern {
@@ -51,6 +55,11 @@ public abstract class OptionalPattern<T> {
     @Override
     public int hashCode() {
       return System.identityHashCode(this);
+    }
+
+    @Override
+    public String toString() {
+      return "<absent>";
     }
   }
 
@@ -72,8 +81,8 @@ public abstract class OptionalPattern<T> {
     }
 
     @Override
-    public <S> OptionalPattern<S> map(Function<T, S> fn) {
-      return of(fn.apply(value));
+    public <S> S mapOrDefault(Function<T, S> fn, S defaultValue) {
+      return fn.apply(value);
     }
 
     @Override
@@ -91,6 +100,11 @@ public abstract class OptionalPattern<T> {
     @Override
     public int hashCode() {
       return value.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return value.toString();
     }
   }
 }

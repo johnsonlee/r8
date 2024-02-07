@@ -7,8 +7,17 @@ import java.util.Objects;
 
 public class KeepEdgeMetaInfo {
 
+  public enum KeepEdgeVersion {
+    UNKNOWN;
+
+    public String toVersionString() {
+      return name();
+    }
+  }
+
   private static final KeepEdgeMetaInfo NONE =
-      new KeepEdgeMetaInfo(KeepEdgeContext.none(), KeepEdgeDescription.empty());
+      new KeepEdgeMetaInfo(
+          KeepEdgeVersion.UNKNOWN, KeepEdgeContext.none(), KeepEdgeDescription.empty());
 
   public static KeepEdgeMetaInfo none() {
     return NONE;
@@ -18,10 +27,13 @@ public class KeepEdgeMetaInfo {
     return new Builder();
   }
 
+  private final KeepEdgeVersion version;
   private final KeepEdgeContext context;
   private final KeepEdgeDescription description;
 
-  private KeepEdgeMetaInfo(KeepEdgeContext context, KeepEdgeDescription description) {
+  private KeepEdgeMetaInfo(
+      KeepEdgeVersion version, KeepEdgeContext context, KeepEdgeDescription description) {
+    this.version = version;
     this.context = context;
     this.description = description;
   }
@@ -40,6 +52,14 @@ public class KeepEdgeMetaInfo {
 
   public boolean hasContext() {
     return !KeepEdgeContext.none().equals(context);
+  }
+
+  public boolean hasVersion() {
+    return version != KeepEdgeVersion.UNKNOWN;
+  }
+
+  public KeepEdgeVersion getVersion() {
+    return version;
   }
 
   public static class Builder {
@@ -73,7 +93,7 @@ public class KeepEdgeMetaInfo {
           && description.equals(KeepEdgeDescription.empty())) {
         return none();
       }
-      return new KeepEdgeMetaInfo(context, description);
+      return new KeepEdgeMetaInfo(KeepEdgeVersion.UNKNOWN, context, description);
     }
   }
 

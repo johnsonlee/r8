@@ -15,13 +15,24 @@ import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.ThrowableConsumer;
+import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.graph.ClassAccessFlags;
+import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
+import com.android.tools.r8.keepanno.asm.KeepEdgeWriter;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
+import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
+import com.android.tools.r8.keepanno.utils.Unimplemented;
+import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 import org.junit.rules.TemporaryFolder;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 
 public abstract class KeepAnnoTestBuilder {
 
@@ -109,6 +120,10 @@ public abstract class KeepAnnoTestBuilder {
     return inspectOutputConfig(System.out::println);
   }
 
+  public KeepAnnoTestBuilder enableEdgeExtraction() {
+    return this;
+  }
+
   public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
     // Default to ignore the consumer.
     return this;
@@ -151,6 +166,7 @@ public abstract class KeepAnnoTestBuilder {
 
     private final R8FullTestBuilder builder;
     private List<Consumer<R8TestCompileResult>> compileResultConsumers = new ArrayList<>();
+    private boolean useEdgeExtraction = false;
 
     public R8NativeBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
       super(params, temp);
@@ -158,6 +174,14 @@ public abstract class KeepAnnoTestBuilder {
           TestBase.testForR8(temp, parameters().getBackend())
               .enableExperimentalKeepAnnotations()
               .setMinApi(parameters());
+    }
+
+    @Override
+    public KeepAnnoTestBuilder enableEdgeExtraction() {
+      useEdgeExtraction = true;
+      builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
+      builder.getBuilder().setEnableExperimentalVersionedKeepEdgeAnnotations(true);
+      return this;
     }
 
     @Override
@@ -175,16 +199,19 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
-    public KeepAnnoTestBuilder addProgramClasses(List<Class<?>> programClasses) {
-      builder.addProgramClasses(programClasses);
+    public KeepAnnoTestBuilder addProgramClasses(List<Class<?>> programClasses) throws IOException {
+      for (Class<?> programClass : programClasses) {
+        extractAndAdd(ToolHelper.getClassAsBytes(programClass));
+      }
       return this;
     }
 
     @Override
     public KeepAnnoTestBuilder addProgramClassFileData(List<byte[]> programClasses)
         throws IOException {
-
-      builder.addProgramClassFileData(programClasses);
+      for (byte[] programClass : programClasses) {
+        extractAndAdd(programClass);
+      }
       return this;
     }
 
@@ -193,6 +220,40 @@ public abstract class KeepAnnoTestBuilder {
       compileResultConsumers.add(
           result -> configConsumer.accept(result.getProguardConfiguration()));
       return this;
+    }
+
+    private void extractAndAdd(byte[] classFileData) throws IOException {
+      builder.addProgramClassFileData(classFileData);
+      if (useEdgeExtraction) {
+        List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(classFileData);
+        if (!declarations.isEmpty()) {
+          String binaryName =
+              DescriptorUtils.getBinaryNameFromDescriptor(
+                  TestBase.extractClassDescriptor(classFileData));
+          String synthesizingTarget = binaryName + "$$ExtractedKeepEdges";
+          ClassWriter classWriter = new ClassWriter(InternalOptions.ASM_VERSION);
+          classWriter.visit(
+              Opcodes.V1_8,
+              ClassAccessFlags.createPublicFinalSynthetic().getAsCfAccessFlags(),
+              synthesizingTarget,
+              null,
+              "java/lang/Object",
+              null);
+          for (KeepDeclaration decl : declarations) {
+            if (!decl.isKeepEdge()) {
+              throw new Unimplemented("Support check declarations...");
+            } else {
+              KeepEdge edge = decl.asKeepEdge();
+              KeepEdgeWriter.writeExtractedEdge(
+                  edge,
+                  (descriptor, visible) ->
+                      KeepAnnoTestUtils.wrap(classWriter.visitAnnotation(descriptor, visible)));
+            }
+          }
+          classWriter.visitEnd();
+          builder.addProgramClassFileData(classWriter.toByteArray());
+        }
+      }
     }
 
     @Override

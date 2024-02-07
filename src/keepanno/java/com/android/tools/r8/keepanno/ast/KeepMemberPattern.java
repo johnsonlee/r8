@@ -82,7 +82,11 @@ public abstract class KeepMemberPattern {
 
     @Override
     public String toString() {
-      return "Member{" + "annotated-by=" + annotatedByPattern + ", access=" + accessPattern + '}';
+      return "Member{"
+          + annotatedByPattern.mapOrDefault(p -> "@" + p + ", ", "")
+          + "access="
+          + accessPattern
+          + '}';
     }
   }
 

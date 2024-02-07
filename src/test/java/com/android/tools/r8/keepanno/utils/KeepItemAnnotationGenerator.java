@@ -79,6 +79,8 @@ public class KeepItemAnnotationGenerator {
   private static final ClassReference USED_BY_NATIVE = annoClass("UsedByNative");
   private static final ClassReference CHECK_REMOVED = annoClass("CheckRemoved");
   private static final ClassReference CHECK_OPTIMIZED_OUT = annoClass("CheckOptimizedOut");
+  private static final ClassReference EXTRACTED_KEEP_ANNOTATIONS =
+      annoClass("ExtractedKeepAnnotations");
   private static final ClassReference KEEP_EDGE = annoClass("KeepEdge");
   private static final ClassReference KEEP_BINDING = annoClass("KeepBinding");
   private static final ClassReference KEEP_TARGET = annoClass("KeepTarget");
@@ -1583,6 +1585,7 @@ public class KeepItemAnnotationGenerator {
       withIndent(
           () -> {
             // Root annotations.
+            generateExtractedKeepAnnotationsConstants();
             generateKeepEdgeConstants();
             generateKeepForApiConstants();
             generateUsesReflectionConstants();
@@ -1613,6 +1616,28 @@ public class KeepItemAnnotationGenerator {
     private void generateAnnotationConstants(ClassReference clazz) {
       String desc = clazz.getDescriptor();
       println("public static final String DESCRIPTOR = " + quote(desc) + ";");
+    }
+
+    private void generateExtractedKeepAnnotationsConstants() {
+      println("public static final class Extracted {");
+      withIndent(
+          () -> {
+            generateAnnotationConstants(EXTRACTED_KEEP_ANNOTATIONS);
+            new GroupMember("version")
+                .setDocTitle("Extraction version used to generate this keep annotation.")
+                .requiredStringValue()
+                .generateConstants(this);
+            new GroupMember("context")
+                .setDocTitle("Extraction context from which this keep annotation is generated.")
+                .requiredStringValue()
+                .generateConstants(this);
+            new GroupMember("edges")
+                .setDocTitle("Extracted normalized keep edges.")
+                .requiredArrayValue(KEEP_EDGE)
+                .generateConstants(this);
+          });
+      println("}");
+      println();
     }
 
     private void generateKeepEdgeConstants() {

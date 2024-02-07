@@ -6,6 +6,8 @@ package com.android.tools.r8.keepanno.ast;
 /** Base class for the declarations represented in the keep annoations library. */
 public abstract class KeepDeclaration {
 
+  public abstract KeepEdgeMetaInfo getMetaInfo();
+
   public final boolean isKeepEdge() {
     return asKeepEdge() != null;
   }

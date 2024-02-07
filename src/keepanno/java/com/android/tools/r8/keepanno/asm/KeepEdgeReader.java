@@ -13,6 +13,7 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Binding;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Condition;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Edge;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.Extracted;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.FieldAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.ForApi;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Item;
@@ -35,6 +36,7 @@ import com.android.tools.r8.keepanno.ast.KeepConstraint;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
+import com.android.tools.r8.keepanno.ast.KeepEdgeException;
 import com.android.tools.r8.keepanno.ast.KeepEdgeMetaInfo;
 import com.android.tools.r8.keepanno.ast.KeepFieldAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldNamePattern;
@@ -87,9 +89,19 @@ public class KeepEdgeReader implements Opcodes {
   public static int ASM_VERSION = ASM9;
 
   public static List<KeepDeclaration> readKeepEdges(byte[] classFileBytes) {
+    return internalReadKeepEdges(classFileBytes, false);
+  }
+
+  public static List<KeepDeclaration> readExtractedKeepEdges(byte[] classFileBytes) {
+    return internalReadKeepEdges(classFileBytes, true);
+  }
+
+  private static List<KeepDeclaration> internalReadKeepEdges(
+      byte[] classFileBytes, boolean onlyExtracted) {
     ClassReader reader = new ClassReader(classFileBytes);
     List<KeepDeclaration> declarations = new ArrayList<>();
-    reader.accept(new KeepEdgeClassVisitor(declarations::add), ClassReader.SKIP_CODE);
+    reader.accept(
+        new KeepEdgeClassVisitor(onlyExtracted, declarations::add), ClassReader.SKIP_CODE);
     return declarations;
   }
 
@@ -181,12 +193,14 @@ public class KeepEdgeReader implements Opcodes {
   }
 
   private static class KeepEdgeClassVisitor extends ClassVisitor {
+    private final boolean onlyExtracted;
     private final Parent<KeepDeclaration> parent;
     private String className;
     private ClassParsingContext parsingContext;
 
-    KeepEdgeClassVisitor(Parent<KeepDeclaration> parent) {
+    KeepEdgeClassVisitor(boolean onlyExtracted, Parent<KeepDeclaration> parent) {
       super(ASM_VERSION);
+      this.onlyExtracted = onlyExtracted;
       this.parent = parent;
     }
 
@@ -215,6 +229,18 @@ public class KeepEdgeReader implements Opcodes {
     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
       // Skip any visible annotations as @KeepEdge is not runtime visible.
       if (visible) {
+        return null;
+      }
+      if (descriptor.equals(Extracted.DESCRIPTOR)) {
+        if (!onlyExtracted) {
+          // Annotation reading always ignores extracted edges.
+          // Note that we may reconsider this if R8 is to support a mixed-mode input.
+          return null;
+        }
+        return new ExtractedAnnotationVisitor(annotationParsingContext(descriptor), parent::accept);
+      }
+      if (onlyExtracted) {
+        // When reading extracted edges ignore all non-extracted annotations.
         return null;
       }
       if (descriptor.equals(Edge.DESCRIPTOR)) {
@@ -492,6 +518,86 @@ public class KeepEdgeReader implements Opcodes {
 
     public KeepBindings build() {
       return builder.build();
+    }
+  }
+
+  private static class ExtractedAnnotationVisitor extends AnnotationVisitorBase {
+
+    private final Parent<KeepDeclaration> parent;
+    private String context = null;
+    private String version = null;
+    private List<KeepEdgeVisitor> edgeVisitors = new ArrayList<>();
+
+    public ExtractedAnnotationVisitor(
+        AnnotationParsingContext parsingContext, Parent<KeepDeclaration> parent) {
+      super(parsingContext);
+      this.parent = parent;
+    }
+
+    private void ensureVersion(ParsingContext parsingContext) {
+      if (version == null) {
+        parsingContext.error("Property 'version' must be defined before any other property");
+      }
+    }
+
+    @Override
+    public void visit(String name, Object value) {
+      if (name.equals(Extracted.version) && value instanceof String) {
+        version = (String) value;
+        return;
+      }
+      ensureVersion(getParsingContext().property(name));
+      if (name.equals(Extracted.context) && value instanceof String) {
+        context = (String) value;
+        return;
+      }
+      super.visit(name, value);
+    }
+
+    @Override
+    public AnnotationVisitor visitArray(String name) {
+      if (name.equals(Extracted.edges)) {
+        PropertyParsingContext parsingContext = getParsingContext().property(name);
+        ensureVersion(parsingContext);
+        return new AnnotationVisitorBase(parsingContext) {
+          @Override
+          public AnnotationVisitor visitAnnotation(String nullName, String descriptor) {
+            assert nullName == null;
+            if (descriptor.equals(Edge.DESCRIPTOR)) {
+              KeepEdgeVisitor visitor =
+                  new KeepEdgeVisitor(
+                      parsingContext.annotation(descriptor), edge -> {}, builder -> {});
+              edgeVisitors.add(visitor);
+              return visitor;
+            }
+            return super.visitAnnotation(nullName, descriptor);
+          }
+        };
+      }
+      return super.visitArray(name);
+    }
+
+    @Override
+    public void visitEnd() {
+      if (version == null) {
+        throw new KeepEdgeException("Invalid extracted edge, expected a version property.");
+      }
+      if (context == null) {
+        throw new KeepEdgeException("Invalid extracted edge, expected a context property.");
+      }
+      for (KeepEdgeVisitor visitor : edgeVisitors) {
+        parent.accept(
+            visitor
+                .builder
+                .setMetaInfo(
+                    visitor
+                        .metaInfoBuilder
+                        // TODO(b/323815449): This may be a method or field descriptor!
+                        .setContextFromClassDescriptor(context)
+                        .build())
+                .build());
+      }
+      super.visitEnd();
     }
   }
 

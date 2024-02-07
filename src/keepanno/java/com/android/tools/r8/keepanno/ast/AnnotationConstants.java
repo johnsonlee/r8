@@ -15,6 +15,14 @@ package com.android.tools.r8.keepanno.ast;
  * annotations which overlap in name with the actual semantic AST types.
  */
 public final class AnnotationConstants {
+  public static final class Extracted {
+    public static final String DESCRIPTOR =
+        "Lcom/android/tools/r8/keepanno/annotations/ExtractedKeepAnnotations;";
+    public static final String version = "version";
+    public static final String context = "context";
+    public static final String edges = "edges";
+  }
+
   public static final class Edge {
     public static final String DESCRIPTOR = "Lcom/android/tools/r8/keepanno/annotations/KeepEdge;";
     public static final String description = "description";
