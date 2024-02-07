@@ -23,6 +23,7 @@ import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import com.android.tools.r8.keepanno.utils.Unimplemented;
+import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import java.io.IOException;
@@ -224,7 +225,7 @@ public abstract class KeepAnnoTestBuilder {
       return this;
     }
 
-    private void extractAndAdd(byte[] classFileData) throws IOException {
+    private void extractAndAdd(byte[] classFileData) {
       builder.addProgramClassFileData(classFileData);
       if (useEdgeExtraction) {
         List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(classFileData);
@@ -253,7 +254,16 @@ public abstract class KeepAnnoTestBuilder {
             }
           }
           classWriter.visitEnd();
-          builder.addProgramClassFileData(classWriter.toByteArray());
+          builder
+              .getBuilder()
+              .addClassProgramData(
+                  classWriter.toByteArray(),
+                  new Origin(Origin.root()) {
+                    @Override
+                    public String part() {
+                      return "edge-extraction";
+                    }
+                  });
         }
       }
     }

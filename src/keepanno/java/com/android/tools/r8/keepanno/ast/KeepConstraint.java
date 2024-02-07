@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.Constraints;
 import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
 import java.util.Set;
 
@@ -22,6 +23,12 @@ public abstract class KeepConstraint {
   @Override
   public int hashCode() {
     return System.identityHashCode(this);
+  }
+
+  public abstract String getEnumValue();
+
+  public KeepAnnotationPattern asAnnotationPattern() {
+    return null;
   }
 
   public abstract void convertToDisallowKeepOptions(KeepOptions.Builder builder);
@@ -65,6 +72,11 @@ public abstract class KeepConstraint {
     private Lookup() {}
 
     @Override
+    public String getEnumValue() {
+      return Constraints.LOOKUP;
+    }
+
+    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.SHRINKING);
     }
@@ -79,6 +91,11 @@ public abstract class KeepConstraint {
     private static final Name INSTANCE = new Name();
 
     private Name() {}
+
+    @Override
+    public String getEnumValue() {
+      return Constraints.NAME;
+    }
 
     @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
@@ -97,6 +114,11 @@ public abstract class KeepConstraint {
     private VisibilityRelax() {}
 
     @Override
+    public String getEnumValue() {
+      return Constraints.VISIBILITY_RELAX;
+    }
+
+    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       // The compiler currently satisfies that access is never restricted.
     }
@@ -111,6 +133,11 @@ public abstract class KeepConstraint {
     private static final VisibilityRestrict INSTANCE = new VisibilityRestrict();
 
     private VisibilityRestrict() {}
+
+    @Override
+    public String getEnumValue() {
+      return Constraints.VISIBILITY_RESTRICT;
+    }
 
     @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
@@ -128,6 +155,11 @@ public abstract class KeepConstraint {
     private static final NeverInline INSTANCE = new NeverInline();
 
     private NeverInline() {}
+
+    @Override
+    public String getEnumValue() {
+      return Constraints.NEVER_INLINE;
+    }
 
     @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
@@ -148,6 +180,11 @@ public abstract class KeepConstraint {
     @Override
     boolean isClassOnly() {
       return true;
+    }
+
+    @Override
+    public String getEnumValue() {
+      return Constraints.CLASS_INSTANTIATE;
     }
 
     @Override
@@ -172,6 +209,11 @@ public abstract class KeepConstraint {
     }
 
     @Override
+    public String getEnumValue() {
+      return Constraints.CLASS_OPEN_HIERARCHY;
+    }
+
+    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
@@ -190,6 +232,11 @@ public abstract class KeepConstraint {
     @Override
     boolean isMethodOnly() {
       return true;
+    }
+
+    @Override
+    public String getEnumValue() {
+      return Constraints.METHOD_INVOKE;
     }
 
     @Override
@@ -214,6 +261,11 @@ public abstract class KeepConstraint {
     }
 
     @Override
+    public String getEnumValue() {
+      return Constraints.METHOD_REPLACE;
+    }
+
+    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
@@ -232,6 +284,11 @@ public abstract class KeepConstraint {
     @Override
     boolean isFieldOnly() {
       return true;
+    }
+
+    @Override
+    public String getEnumValue() {
+      return Constraints.FIELD_GET;
     }
 
     @Override
@@ -256,6 +313,11 @@ public abstract class KeepConstraint {
     }
 
     @Override
+    public String getEnumValue() {
+      return Constraints.FIELD_SET;
+    }
+
+    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
@@ -274,6 +336,11 @@ public abstract class KeepConstraint {
     @Override
     boolean isFieldOnly() {
       return true;
+    }
+
+    @Override
+    public String getEnumValue() {
+      return Constraints.FIELD_REPLACE;
     }
 
     @Override
@@ -322,6 +389,17 @@ public abstract class KeepConstraint {
     private Annotation(KeepAnnotationPattern annotationPattern) {
       assert annotationPattern != null;
       this.annotationPattern = annotationPattern;
+    }
+
+    @Override
+    public KeepAnnotationPattern asAnnotationPattern() {
+      return annotationPattern;
+    }
+
+    @Override
+    public String getEnumValue() {
+      // The annotation constraints cannot be represented by an enum value.
+      return null;
     }
 
     @Override

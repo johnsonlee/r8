@@ -37,7 +37,6 @@ public class KeepBindingTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
-        .skipEdgeExtraction()
         .addProgramClasses(getInputClasses())
         .addKeepClassRules(A.class, B.class)
         .addKeepMainRule(TestClass.class)
@@ -50,7 +49,6 @@ public class KeepBindingTest extends KeepAnnoTestBase {
   @Test
   public void testNoKeepOnClass() throws Exception {
     testForKeepAnno(parameters)
-        .skipEdgeExtraction()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .setExcludedOuterClass(getClass())

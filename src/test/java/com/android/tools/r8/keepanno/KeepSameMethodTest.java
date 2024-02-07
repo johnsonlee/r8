@@ -38,11 +38,10 @@ public class KeepSameMethodTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
-        .skipEdgeExtraction()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .setExcludedOuterClass(getClass())
-        // The "all members" target will create an unused "all fields" rule.
+        // The extraction based "all members" target will create an unused "all fields" rule.
         .allowUnusedProguardConfigurationRules()
         .run(TestClass.class)
         .assertSuccessWithOutput(EXPECTED)

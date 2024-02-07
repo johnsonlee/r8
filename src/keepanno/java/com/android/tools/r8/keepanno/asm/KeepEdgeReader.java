@@ -89,19 +89,20 @@ public class KeepEdgeReader implements Opcodes {
   public static int ASM_VERSION = ASM9;
 
   public static List<KeepDeclaration> readKeepEdges(byte[] classFileBytes) {
-    return internalReadKeepEdges(classFileBytes, false);
+    return internalReadKeepEdges(classFileBytes, true, false);
   }
 
   public static List<KeepDeclaration> readExtractedKeepEdges(byte[] classFileBytes) {
-    return internalReadKeepEdges(classFileBytes, true);
+    return internalReadKeepEdges(classFileBytes, false, true);
   }
 
   private static List<KeepDeclaration> internalReadKeepEdges(
-      byte[] classFileBytes, boolean onlyExtracted) {
+      byte[] classFileBytes, boolean readEmbedded, boolean readExtracted) {
     ClassReader reader = new ClassReader(classFileBytes);
     List<KeepDeclaration> declarations = new ArrayList<>();
     reader.accept(
-        new KeepEdgeClassVisitor(onlyExtracted, declarations::add), ClassReader.SKIP_CODE);
+        new KeepEdgeClassVisitor(readEmbedded, readExtracted, declarations::add),
+        ClassReader.SKIP_CODE);
     return declarations;
   }
 
@@ -193,14 +194,17 @@ public class KeepEdgeReader implements Opcodes {
   }
 
   private static class KeepEdgeClassVisitor extends ClassVisitor {
-    private final boolean onlyExtracted;
+    private final boolean readEmbedded;
+    private final boolean readExtracted;
     private final Parent<KeepDeclaration> parent;
     private String className;
     private ClassParsingContext parsingContext;
 
-    KeepEdgeClassVisitor(boolean onlyExtracted, Parent<KeepDeclaration> parent) {
+    KeepEdgeClassVisitor(
+        boolean readEmbedded, boolean readExtracted, Parent<KeepDeclaration> parent) {
       super(ASM_VERSION);
-      this.onlyExtracted = onlyExtracted;
+      this.readEmbedded = readEmbedded;
+      this.readExtracted = readExtracted;
       this.parent = parent;
     }
 
@@ -231,16 +235,10 @@ public class KeepEdgeReader implements Opcodes {
       if (visible) {
         return null;
       }
-      if (descriptor.equals(Extracted.DESCRIPTOR)) {
-        if (!onlyExtracted) {
-          // Annotation reading always ignores extracted edges.
-          // Note that we may reconsider this if R8 is to support a mixed-mode input.
-          return null;
-        }
+      if (readExtracted && descriptor.equals(Extracted.DESCRIPTOR)) {
         return new ExtractedAnnotationVisitor(annotationParsingContext(descriptor), parent::accept);
       }
-      if (onlyExtracted) {
-        // When reading extracted edges ignore all non-extracted annotations.
+      if (!readEmbedded) {
         return null;
       }
       if (descriptor.equals(Edge.DESCRIPTOR)) {
@@ -294,13 +292,21 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public MethodVisitor visitMethod(
         int access, String name, String descriptor, String signature, String[] exceptions) {
-      return new KeepEdgeMethodVisitor(parsingContext, parent::accept, className, name, descriptor);
+      if (readEmbedded) {
+        return new KeepEdgeMethodVisitor(
+            parsingContext, parent::accept, className, name, descriptor);
+      }
+      return null;
     }
 
     @Override
     public FieldVisitor visitField(
         int access, String name, String descriptor, String signature, Object value) {
-      return new KeepEdgeFieldVisitor(parsingContext, parent::accept, className, name, descriptor);
+      if (readEmbedded) {
+        return new KeepEdgeFieldVisitor(
+            parsingContext, parent::accept, className, name, descriptor);
+      }
+      return null;
     }
   }
 

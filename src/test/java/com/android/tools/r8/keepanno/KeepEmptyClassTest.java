@@ -37,7 +37,6 @@ public class KeepEmptyClassTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
-        .skipEdgeExtraction()
         .addProgramClasses(getInputClasses())
         .addProgramClassFileData(
             transformer(B.class).removeMethods(MethodPredicate.all()).transform())

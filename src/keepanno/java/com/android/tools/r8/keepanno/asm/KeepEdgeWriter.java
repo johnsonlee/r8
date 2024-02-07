@@ -4,34 +4,58 @@
 package com.android.tools.r8.keepanno.asm;
 
 import com.android.tools.r8.keepanno.ast.AccessVisibility;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.AnnotationPattern;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.Binding;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.ClassNamePattern;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Condition;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.Constraints;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Edge;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Extracted;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.FieldAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Item;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.Kind;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.MemberAccess;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.MethodAccess;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.StringPattern;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Target;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.TypePattern;
+import com.android.tools.r8.keepanno.ast.KeepAnnotationPattern;
+import com.android.tools.r8.keepanno.ast.KeepBindingReference;
+import com.android.tools.r8.keepanno.ast.KeepBindings;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
+import com.android.tools.r8.keepanno.ast.KeepClassItemReference;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
+import com.android.tools.r8.keepanno.ast.KeepConstraint;
+import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.ast.KeepEdgeMetaInfo;
+import com.android.tools.r8.keepanno.ast.KeepFieldAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
 import com.android.tools.r8.keepanno.ast.KeepItemPattern;
+import com.android.tools.r8.keepanno.ast.KeepItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberPattern;
+import com.android.tools.r8.keepanno.ast.KeepMethodAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodParametersPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodReturnTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepPackagePattern;
 import com.android.tools.r8.keepanno.ast.KeepPreconditions;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
+import com.android.tools.r8.keepanno.ast.KeepStringPattern;
+import com.android.tools.r8.keepanno.ast.KeepTarget;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepUnqualfiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.ModifierPattern;
 import com.android.tools.r8.keepanno.ast.OptionalPattern;
 import com.android.tools.r8.keepanno.utils.Unimplemented;
+import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import org.objectweb.asm.AnnotationVisitor;
@@ -126,11 +150,59 @@ public class KeepEdgeWriter implements Opcodes {
 
   private void writeEdge(KeepEdge edge, AnnotationVisitor visitor) {
     writeMetaInfo(visitor, edge.getMetaInfo());
+    writeBindings(visitor, edge.getBindings());
     writePreconditions(visitor, edge.getPreconditions());
     writeConsequences(visitor, edge.getConsequences());
   }
 
-  private void writeMetaInfo(AnnotationVisitor visitor, KeepEdgeMetaInfo metaInfo) {}
+  private void writeMetaInfo(AnnotationVisitor visitor, KeepEdgeMetaInfo metaInfo) {
+    // The edge version and context is written in the extraction header.
+    if (metaInfo.hasDescription()) {
+      visitor.visit(Edge.description, metaInfo.getDescriptionString());
+    }
+  }
+
+  private void writeBindings(AnnotationVisitor visitor, KeepBindings bindings) {
+    if (bindings.isEmpty()) {
+      return;
+    }
+    withNewVisitor(
+        visitor.visitArray(Edge.bindings),
+        arrayVisitor -> {
+          bindings.forEach(
+              (symbol, item) -> {
+                withNewVisitor(
+                    arrayVisitor.visitAnnotation(null, Binding.DESCRIPTOR),
+                    bindingVisitor -> {
+                      bindingVisitor.visit(Binding.bindingName, symbol.toString());
+                      // The item is written directly into the binding annotation.
+                      writeItem(bindingVisitor, item);
+                    });
+              });
+        });
+  }
+
+  private void writeStringPattern(
+      KeepStringPattern stringPattern, String propertyName, AnnotationVisitor visitor) {
+    withNewVisitor(
+        visitor.visitAnnotation(propertyName, AnnotationConstants.StringPattern.DESCRIPTOR),
+        v -> {
+          if (stringPattern.isAny()) {
+            // The emtpy pattern matches any string.
+            return;
+          }
+          if (stringPattern.isExact()) {
+            v.visit(StringPattern.exact, stringPattern.asExactString());
+            return;
+          }
+          if (stringPattern.hasPrefix()) {
+            v.visit(StringPattern.startsWith, stringPattern.getPrefixString());
+          }
+          if (stringPattern.hasSuffix()) {
+            v.visit(StringPattern.endsWith, stringPattern.getSuffixString());
+          }
+        });
+  }
 
   private void writePreconditions(AnnotationVisitor visitor, KeepPreconditions preconditions) {
     if (preconditions.isAlways()) {
@@ -144,12 +216,8 @@ public class KeepEdgeWriter implements Opcodes {
                 condition ->
                     withNewVisitor(
                         arrayVisitor.visitAnnotation(ignoredArrayValueName, Condition.DESCRIPTOR),
-                        conditionVisitor -> {
-                          if (condition.getItem().isBindingReference()) {
-                            throw new Unimplemented();
-                          }
-                          writeItem(conditionVisitor, condition.getItem().asItemPattern());
-                        })));
+                        conditionVisitor ->
+                            writeItemReference(conditionVisitor, condition.getItem()))));
   }
 
   private void writeConsequences(AnnotationVisitor visitor, KeepConsequences consequences) {
@@ -162,12 +230,106 @@ public class KeepEdgeWriter implements Opcodes {
                 target ->
                     withNewVisitor(
                         arrayVisitor.visitAnnotation(ignoredArrayValueName, Target.DESCRIPTOR),
-                        targetVisitor -> {
-                          if (target.getItem().isBindingReference()) {
-                            throw new Unimplemented();
-                          }
-                          writeItem(targetVisitor, target.getItem().asItemPattern());
-                        })));
+                        targetVisitor -> writeTarget(target, targetVisitor))));
+  }
+
+  private void writeTarget(KeepTarget target, AnnotationVisitor visitor) {
+    writeConstraints(visitor, target.getConstraints(), target.getItem());
+    writeItemReference(visitor, target.getItem());
+  }
+
+  private void writeConstraints(
+      AnnotationVisitor visitor, KeepConstraints constraints, KeepItemReference item) {
+    Set<KeepConstraint> typedConstraints;
+    if (item.isClassItemReference()) {
+      typedConstraints = constraints.getClassConstraints();
+    } else if (item.isMemberItemPattern()) {
+      KeepMemberPattern memberPattern = item.asMemberItemPattern().getMemberPattern();
+      if (memberPattern.isMethod()) {
+        typedConstraints = constraints.getMethodConstraints();
+      } else if (memberPattern.isField()) {
+        typedConstraints = constraints.getFieldConstraints();
+      } else {
+        typedConstraints = constraints.getMemberConstraints();
+      }
+    } else {
+      typedConstraints = constraints.getMemberConstraints();
+    }
+
+    List<String> constraintEnumValues = new ArrayList<>();
+    List<KeepAnnotationPattern> annotationConstraints = new ArrayList<>();
+    for (KeepConstraint constraint : typedConstraints) {
+      String value = constraint.getEnumValue();
+      if (value != null) {
+        constraintEnumValues.add(value);
+        continue;
+      }
+      KeepAnnotationPattern annotationPattern = constraint.asAnnotationPattern();
+      if (annotationPattern != null) {
+        annotationConstraints.add(annotationPattern);
+        continue;
+      }
+      throw new Unimplemented("Missing: " + constraint.getClass().toString());
+    }
+    if (!constraintEnumValues.isEmpty()) {
+      constraintEnumValues.sort(String::compareTo);
+      withNewVisitor(
+          visitor.visitArray(Target.constraints),
+          arrayVisitor ->
+              constraintEnumValues.forEach(
+                  c -> arrayVisitor.visitEnum(null, Constraints.DESCRIPTOR, c)));
+    }
+    if (!annotationConstraints.isEmpty()) {
+      if (annotationConstraints.size() > 1) {
+        annotationConstraints.sort(
+            Comparator.comparing((KeepAnnotationPattern p) -> p.getNamePattern().toString())
+                .thenComparingInt(p -> p.includesClassRetention() ? 1 : 0)
+                .thenComparingInt(p -> p.includesRuntimeRetention() ? 1 : 0));
+      }
+      withNewVisitor(
+          visitor.visitArray(Target.constrainAnnotations),
+          arrayVisitor ->
+              annotationConstraints.forEach(
+                  annotation -> {
+                    withNewVisitor(
+                        arrayVisitor.visitAnnotation(null, AnnotationPattern.DESCRIPTOR),
+                        annoVisitor -> {
+                          writeClassNamePattern(
+                              annotation.getNamePattern(),
+                              AnnotationPattern.namePattern,
+                              annoVisitor);
+                          assert annotation.includesClassRetention()
+                              || annotation.includesRuntimeRetention();
+                          withNewVisitor(
+                              annoVisitor.visitArray(AnnotationPattern.retention),
+                              retentionArrayVisitor -> {
+                                if (annotation.includesClassRetention()) {
+                                  retentionArrayVisitor.visitEnum(
+                                      null,
+                                      "Ljava/lang/annotation/RetentionPolicy;",
+                                      RetentionPolicy.CLASS.name());
+                                }
+                                if (annotation.includesRuntimeRetention()) {
+                                  retentionArrayVisitor.visitEnum(
+                                      null,
+                                      "Ljava/lang/annotation/RetentionPolicy;",
+                                      RetentionPolicy.RUNTIME.name());
+                                }
+                              });
+                        });
+                  }));
+    }
+  }
+
+  private void writeItemReference(AnnotationVisitor visitor, KeepItemReference itemReference) {
+    if (itemReference.isBindingReference()) {
+      KeepBindingReference bindingReference = itemReference.asBindingReference();
+      String bindingProperty =
+          bindingReference.isClassType() ? Item.classFromBinding : Item.memberFromBinding;
+      visitor.visit(bindingProperty, bindingReference.getName().toString());
+    } else {
+      writeItem(visitor, itemReference.asItemPattern());
+    }
   }
 
   private void writeItem(AnnotationVisitor itemVisitor, KeepItemPattern item) {
@@ -193,18 +355,21 @@ public class KeepEdgeWriter implements Opcodes {
 
   private void writeMemberItem(
       KeepMemberItemPattern memberItemPattern, AnnotationVisitor itemVisitor) {
-    if (memberItemPattern.getClassReference().isBindingReference()) {
-      throw new Unimplemented();
+    KeepClassItemReference classReference = memberItemPattern.getClassReference();
+    if (classReference.isBindingReference()) {
+      KeepBindingReference bindingReference = classReference.asBindingReference();
+      itemVisitor.visit(Item.classFromBinding, bindingReference.getName().toString());
+    } else {
+      writeClassItem(classReference.asClassItemPattern(), itemVisitor);
     }
-    writeClassItem(memberItemPattern.getClassReference().asClassItemPattern(), itemVisitor);
     writeMember(memberItemPattern.getMemberPattern(), itemVisitor);
   }
 
   private void writeMember(KeepMemberPattern memberPattern, AnnotationVisitor targetVisitor) {
     if (memberPattern.isAllMembers()) {
-      throw new Unimplemented();
-    }
-    if (memberPattern.isMethod()) {
+      // Due to the empty default being a class, we need to set the kind to members.
+      targetVisitor.visitEnum(Target.kind, Kind.DESCRIPTOR, Kind.ONLY_MEMBERS);
+    } else if (memberPattern.isMethod()) {
       writeMethod(memberPattern.asMethod(), targetVisitor);
     } else if (memberPattern.isField()) {
       writeField(memberPattern.asField(), targetVisitor);
@@ -219,34 +384,26 @@ public class KeepEdgeWriter implements Opcodes {
     assert !member.isMethod();
     writeAnnotatedBy(
         Item.memberAnnotatedByClassNamePattern, member.getAnnotatedByPattern(), targetVisitor);
-    writeAccessPattern(Item.memberAccess, member.getAccessPattern(), targetVisitor);
+    writeGeneralMemberAccessPattern(Item.memberAccess, member.getAccessPattern(), targetVisitor);
   }
 
   private void writeField(KeepFieldPattern field, AnnotationVisitor targetVisitor) {
-    String exactFieldName = field.getNamePattern().asExactString();
-    if (exactFieldName != null) {
-      targetVisitor.visit(Item.fieldName, exactFieldName);
-    } else {
-      throw new Unimplemented();
-    }
-    if (!field.getAccessPattern().isAny()) {
-      throw new Unimplemented();
-    }
+    writeAnnotatedBy(
+        Item.fieldAnnotatedByClassNamePattern, field.getAnnotatedByPattern(), targetVisitor);
+    writeFieldAccessPattern(Item.fieldAccess, field.getAccessPattern(), targetVisitor);
+    writeStringPattern(
+        field.getNamePattern().asStringPattern(), Item.fieldNamePattern, targetVisitor);
     if (!field.getTypePattern().isAny()) {
-      throw new Unimplemented();
+      writeTypePattern(field.getTypePattern().asType(), Item.fieldTypePattern, targetVisitor);
     }
   }
 
   private void writeMethod(KeepMethodPattern method, AnnotationVisitor targetVisitor) {
-    String exactMethodName = method.getNamePattern().asExactString();
-    if (exactMethodName != null) {
-      targetVisitor.visit(Item.methodName, exactMethodName);
-    } else {
-      throw new Unimplemented();
-    }
-    if (!method.getAccessPattern().isAny()) {
-      throw new Unimplemented();
-    }
+    writeAnnotatedBy(
+        Item.methodAnnotatedByClassNamePattern, method.getAnnotatedByPattern(), targetVisitor);
+    writeMethodAccessPattern(Item.methodAccess, method.getAccessPattern(), targetVisitor);
+    writeStringPattern(
+        method.getNamePattern().asStringPattern(), Item.methodNamePattern, targetVisitor);
     writeMethodReturnType(method.getReturnTypePattern(), targetVisitor);
     writeMethodParameters(method.getParametersPattern(), targetVisitor);
   }
@@ -343,13 +500,65 @@ public class KeepEdgeWriter implements Opcodes {
     }
     if (pattern.isOnlyPositive()) {
       arrayVisitor.visitEnum(null, desc, value);
+      return;
     }
     assert pattern.isOnlyNegative();
     arrayVisitor.visitEnum(null, desc, MemberAccess.NEGATION_PREFIX + value);
   }
 
-  private void writeAccessPattern(
+  private void writeGeneralMemberAccessPattern(
       String propertyName, KeepMemberAccessPattern accessPattern, AnnotationVisitor targetVisitor) {
+    internalWriteAccessPattern(
+        propertyName, accessPattern, targetVisitor, MemberAccess.DESCRIPTOR, v -> {});
+  }
+
+  private void writeFieldAccessPattern(
+      String propertyName, KeepFieldAccessPattern accessPattern, AnnotationVisitor targetVisitor) {
+    String enumDescriptor = FieldAccess.DESCRIPTOR;
+    internalWriteAccessPattern(
+        propertyName,
+        accessPattern,
+        targetVisitor,
+        enumDescriptor,
+        visitor -> {
+          writeModifierEnumValue(
+              accessPattern.getVolatilePattern(), FieldAccess.VOLATILE, enumDescriptor, visitor);
+          writeModifierEnumValue(
+              accessPattern.getTransientPattern(), FieldAccess.TRANSIENT, enumDescriptor, visitor);
+        });
+  }
+
+  private void writeMethodAccessPattern(
+      String propertyName, KeepMethodAccessPattern accessPattern, AnnotationVisitor targetVisitor) {
+    String enumDescriptor = MethodAccess.DESCRIPTOR;
+    internalWriteAccessPattern(
+        propertyName,
+        accessPattern,
+        targetVisitor,
+        enumDescriptor,
+        visitor -> {
+          writeModifierEnumValue(
+              accessPattern.getSynchronizedPattern(),
+              MethodAccess.SYNCHRONIZED,
+              enumDescriptor,
+              visitor);
+          writeModifierEnumValue(
+              accessPattern.getBridgePattern(), MethodAccess.BRIDGE, enumDescriptor, visitor);
+          writeModifierEnumValue(
+              accessPattern.getNativePattern(), MethodAccess.NATIVE, enumDescriptor, visitor);
+          writeModifierEnumValue(
+              accessPattern.getAbstractPattern(), MethodAccess.ABSTRACT, enumDescriptor, visitor);
+          writeModifierEnumValue(
+              accessPattern.getStrictFpPattern(), MethodAccess.STRICT_FP, enumDescriptor, visitor);
+        });
+  }
+
+  private void internalWriteAccessPattern(
+      String propertyName,
+      KeepMemberAccessPattern accessPattern,
+      AnnotationVisitor targetVisitor,
+      String enumDescriptor,
+      Consumer<AnnotationVisitor> typeSpecificSettings) {
     if (accessPattern.isAny()) {
       return;
     }
@@ -360,35 +569,28 @@ public class KeepEdgeWriter implements Opcodes {
             for (AccessVisibility visibility : accessPattern.getAllowedAccessVisibilities()) {
               switch (visibility) {
                 case PUBLIC:
-                  visitor.visitEnum(null, MemberAccess.DESCRIPTOR, MemberAccess.PUBLIC);
+                  visitor.visitEnum(null, enumDescriptor, MemberAccess.PUBLIC);
                   break;
                 case PROTECTED:
-                  visitor.visitEnum(null, MemberAccess.DESCRIPTOR, MemberAccess.PROTECTED);
+                  visitor.visitEnum(null, enumDescriptor, MemberAccess.PROTECTED);
                   break;
                 case PACKAGE_PRIVATE:
-                  visitor.visitEnum(null, MemberAccess.DESCRIPTOR, MemberAccess.PACKAGE_PRIVATE);
+                  visitor.visitEnum(null, enumDescriptor, MemberAccess.PACKAGE_PRIVATE);
                   break;
                 case PRIVATE:
-                  visitor.visitEnum(null, MemberAccess.DESCRIPTOR, MemberAccess.PRIVATE);
+                  visitor.visitEnum(null, enumDescriptor, MemberAccess.PRIVATE);
                   break;
               }
             }
           }
           writeModifierEnumValue(
-              accessPattern.getStaticPattern(),
-              MemberAccess.STATIC,
-              MemberAccess.DESCRIPTOR,
-              visitor);
+              accessPattern.getStaticPattern(), MemberAccess.STATIC, enumDescriptor, visitor);
           writeModifierEnumValue(
-              accessPattern.getFinalPattern(),
-              MemberAccess.FINAL,
-              MemberAccess.DESCRIPTOR,
-              visitor);
+              accessPattern.getFinalPattern(), MemberAccess.FINAL, enumDescriptor, visitor);
           writeModifierEnumValue(
-              accessPattern.getSyntheticPattern(),
-              MemberAccess.SYNTHETIC,
-              MemberAccess.DESCRIPTOR,
-              visitor);
+              accessPattern.getSyntheticPattern(), MemberAccess.SYNTHETIC, enumDescriptor, visitor);
+
+          typeSpecificSettings.accept(visitor);
         });
   }
 }

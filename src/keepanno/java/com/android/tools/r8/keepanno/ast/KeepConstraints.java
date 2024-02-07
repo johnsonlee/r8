@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public abstract class KeepConstraints {
@@ -70,9 +71,48 @@ public abstract class KeepConstraints {
     }
   }
 
+  abstract Set<KeepConstraint> getConstraints();
+
+  private Set<KeepConstraint> getConstraintsMatching(Predicate<KeepConstraint> predicate) {
+    ImmutableSet.Builder<KeepConstraint> builder = ImmutableSet.builder();
+    for (KeepConstraint constraint : getConstraints()) {
+      if (predicate.test(constraint)) {
+        builder.add(constraint);
+      }
+    }
+    return builder.build();
+  }
+
+  public final Set<KeepConstraint> getClassConstraints() {
+    return getConstraintsMatching(KeepConstraint::validForClass);
+  }
+
+  public final Set<KeepConstraint> getMethodConstraints() {
+    return getConstraintsMatching(KeepConstraint::validForMethod);
+  }
+
+  public final Set<KeepConstraint> getFieldConstraints() {
+    return getConstraintsMatching(KeepConstraint::validForField);
+  }
+
+  public final Set<KeepConstraint> getMemberConstraints() {
+    return getConstraintsMatching(c -> c.validForMethod() || c.validForField());
+  }
+
   private static class Defaults extends KeepConstraints {
 
     private static final Defaults INSTANCE = new Defaults();
+
+    @Override
+    Set<KeepConstraint> getConstraints() {
+      return ImmutableSet.of(
+          KeepConstraint.lookup(),
+          KeepConstraint.name(),
+          KeepConstraint.classInstantiate(),
+          KeepConstraint.methodInvoke(),
+          KeepConstraint.fieldGet(),
+          KeepConstraint.fieldSet());
+    }
 
     @Override
     public KeepOptions convertToKeepOptions(KeepOptions defaultOptions) {
@@ -100,6 +140,14 @@ public abstract class KeepConstraints {
     }
 
     @Override
+    Set<KeepConstraint> getConstraints() {
+      return ImmutableSet.<KeepConstraint>builder()
+          .addAll(Defaults.INSTANCE.getConstraints())
+          .addAll(additions.getConstraints())
+          .build();
+    }
+
+    @Override
     public KeepOptions convertToKeepOptions(KeepOptions defaultOptions) {
       KeepOptions additionalOptions = additions.convertToKeepOptions(defaultOptions);
       KeepOptions.Builder builder = KeepOptions.disallowBuilder();
@@ -123,6 +171,11 @@ public abstract class KeepConstraints {
 
     public Constraints(Set<KeepConstraint> constraints) {
       this.constraints = ImmutableSet.copyOf(constraints);
+    }
+
+    @Override
+    public Set<KeepConstraint> getConstraints() {
+      return constraints;
     }
 
     @Override
