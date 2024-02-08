@@ -81,6 +81,8 @@ public class KeepItemAnnotationGenerator {
   private static final ClassReference CHECK_OPTIMIZED_OUT = annoClass("CheckOptimizedOut");
   private static final ClassReference EXTRACTED_KEEP_ANNOTATIONS =
       annoClass("ExtractedKeepAnnotations");
+  private static final ClassReference EXTRACTED_KEEP_ANNOTATION =
+      annoClass("ExtractedKeepAnnotation");
   private static final ClassReference KEEP_EDGE = annoClass("KeepEdge");
   private static final ClassReference KEEP_BINDING = annoClass("KeepBinding");
   private static final ClassReference KEEP_TARGET = annoClass("KeepTarget");
@@ -1619,10 +1621,21 @@ public class KeepItemAnnotationGenerator {
     }
 
     private void generateExtractedKeepAnnotationsConstants() {
-      println("public static final class Extracted {");
+      println("public static final class ExtractedAnnotations {");
       withIndent(
           () -> {
             generateAnnotationConstants(EXTRACTED_KEEP_ANNOTATIONS);
+            new GroupMember("value")
+                .setDocTitle("Extracted normalized keep edges.")
+                .requiredArrayValue(KEEP_EDGE)
+                .generateConstants(this);
+          });
+      println("}");
+      println();
+      println("public static final class ExtractedAnnotation {");
+      withIndent(
+          () -> {
+            generateAnnotationConstants(EXTRACTED_KEEP_ANNOTATION);
             new GroupMember("version")
                 .setDocTitle("Extraction version used to generate this keep annotation.")
                 .requiredStringValue()
@@ -1631,9 +1644,9 @@ public class KeepItemAnnotationGenerator {
                 .setDocTitle("Extraction context from which this keep annotation is generated.")
                 .requiredStringValue()
                 .generateConstants(this);
-            new GroupMember("edges")
-                .setDocTitle("Extracted normalized keep edges.")
-                .requiredArrayValue(KEEP_EDGE)
+            new GroupMember("edge")
+                .setDocTitle("Extracted normalized keep edge.")
+                .requiredValue(KEEP_EDGE)
                 .generateConstants(this);
           });
       println("}");

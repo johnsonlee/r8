@@ -20,9 +20,7 @@ import com.android.tools.r8.graph.ClassAccessFlags;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
 import com.android.tools.r8.keepanno.asm.KeepEdgeWriter;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
-import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
-import com.android.tools.r8.keepanno.utils.Unimplemented;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -242,17 +240,10 @@ public abstract class KeepAnnoTestBuilder {
               null,
               "java/lang/Object",
               null);
-          for (KeepDeclaration decl : declarations) {
-            if (!decl.isKeepEdge()) {
-              throw new Unimplemented("Support check declarations...");
-            } else {
-              KeepEdge edge = decl.asKeepEdge();
-              KeepEdgeWriter.writeExtractedEdge(
-                  edge,
-                  (descriptor, visible) ->
-                      KeepAnnoTestUtils.wrap(classWriter.visitAnnotation(descriptor, visible)));
-            }
-          }
+          KeepEdgeWriter.writeExtractedEdges(
+              declarations,
+              (descriptor, visible) ->
+                  KeepAnnoTestUtils.wrap(classWriter.visitAnnotation(descriptor, visible)));
           classWriter.visitEnd();
           builder
               .getBuilder()

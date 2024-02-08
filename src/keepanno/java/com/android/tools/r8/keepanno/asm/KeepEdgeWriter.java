@@ -11,7 +11,8 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants.ClassNamePattern;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Condition;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Constraints;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Edge;
-import com.android.tools.r8.keepanno.ast.AnnotationConstants.Extracted;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.ExtractedAnnotation;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.ExtractedAnnotations;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.FieldAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Item;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Kind;
@@ -28,6 +29,7 @@ import com.android.tools.r8.keepanno.ast.KeepClassItemReference;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
 import com.android.tools.r8.keepanno.ast.KeepConstraint;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.ast.KeepEdgeMetaInfo;
 import com.android.tools.r8.keepanno.ast.KeepFieldAccessPattern;
@@ -121,19 +123,35 @@ public class KeepEdgeWriter implements Opcodes {
     visitor.visitEnd();
   }
 
-  public static void writeExtractedEdge(
-      KeepEdge edge, BiFunction<String, Boolean, AnnotationVisitorInterface> getVisitor) {
+  public static void writeExtractedEdges(
+      List<KeepDeclaration> declarations,
+      BiFunction<String, Boolean, AnnotationVisitorInterface> getVisitor) {
+    if (declarations.isEmpty()) {
+      return;
+    }
     withNewVisitor(
-        wrap(getVisitor.apply(Extracted.DESCRIPTOR, false)),
-        extractVisitor -> {
-          extractVisitor.visit("version", edge.getMetaInfo().getVersion().toVersionString());
-          extractVisitor.visit("context", edge.getMetaInfo().getContextDescriptorString());
-          withNewVisitor(
-              extractVisitor.visitArray("edges"),
-              edgeVisitor ->
-                  writeEdgeInternal(
-                      edge, (desc, visible) -> edgeVisitor.visitAnnotation(null, desc)));
-        });
+        wrap(getVisitor.apply(ExtractedAnnotations.DESCRIPTOR, false)),
+        containerVisitor ->
+            withNewVisitor(
+                containerVisitor.visitArray(ExtractedAnnotations.value),
+                arrayVisitor ->
+                    declarations.forEach(
+                        decl ->
+                            withNewVisitor(
+                                arrayVisitor.visitAnnotation(null, ExtractedAnnotation.DESCRIPTOR),
+                                extractVisitor -> writeExtractedEdge(extractVisitor, decl)))));
+  }
+
+  private static void writeExtractedEdge(AnnotationVisitor visitor, KeepDeclaration decl) {
+    if (decl.isKeepCheck()) {
+      throw new Unimplemented("Checks not yet supported for extraction");
+    }
+    KeepEdgeMetaInfo metaInfo = decl.getMetaInfo();
+    visitor.visit(ExtractedAnnotation.version, metaInfo.getVersion().toVersionString());
+    visitor.visit(ExtractedAnnotation.context, metaInfo.getContextDescriptorString());
+    writeEdgeInternal(
+        decl.asKeepEdge(),
+        (desc, visible) -> visitor.visitAnnotation(ExtractedAnnotation.edge, desc));
   }
 
   public static void writeEdge(

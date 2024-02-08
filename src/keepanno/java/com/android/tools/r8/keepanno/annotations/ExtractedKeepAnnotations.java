@@ -8,24 +8,15 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * Collection of extracted keep annotations.
+ *
+ * <p>This annotation is just a collection of the extracted annotations. It is version independent
+ * and is assumed to never change. Any version specific changes are to be made within the single
+ * element structure of {@link ExtractedKeepAnnotation}.
+ */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.CLASS)
 public @interface ExtractedKeepAnnotations {
-  /**
-   * The version of defining this extracted keep annotation.
-   *
-   * <p>Note: this version property must be the first property defined. Its content may determine
-   * the subsequent parsing.
-   */
-  String version();
-
-  /**
-   * The context giving rise to this extracted keep annotation.
-   *
-   * <p>The context must be a class descriptor, method descriptor or field descriptor.
-   */
-  String context();
-
-  /** The extracted edges. */
-  KeepEdge[] edges();
+  ExtractedKeepAnnotation[] value();
 }

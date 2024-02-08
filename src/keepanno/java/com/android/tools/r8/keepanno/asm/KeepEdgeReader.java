@@ -13,7 +13,8 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Binding;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Condition;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Edge;
-import com.android.tools.r8.keepanno.ast.AnnotationConstants.Extracted;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.ExtractedAnnotation;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.ExtractedAnnotations;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.FieldAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.ForApi;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Item;
@@ -235,8 +236,9 @@ public class KeepEdgeReader implements Opcodes {
       if (visible) {
         return null;
       }
-      if (readExtracted && descriptor.equals(Extracted.DESCRIPTOR)) {
-        return new ExtractedAnnotationVisitor(annotationParsingContext(descriptor), parent::accept);
+      if (readExtracted && descriptor.equals(ExtractedAnnotations.DESCRIPTOR)) {
+        return new ExtractedAnnotationsVisitor(
+            annotationParsingContext(descriptor), parent::accept);
       }
       if (!readEmbedded) {
         return null;
@@ -527,12 +529,52 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
+  private static class ExtractedAnnotationsVisitor extends AnnotationVisitorBase {
+
+    private final Parent<KeepDeclaration> parent;
+    private List<KeepDeclaration> declarations = new ArrayList<>();
+
+    public ExtractedAnnotationsVisitor(
+        AnnotationParsingContext parsingContext, Parent<KeepDeclaration> parent) {
+      super(parsingContext);
+      this.parent = parent;
+    }
+
+    @Override
+    public AnnotationVisitor visitArray(String name) {
+      if (name.equals(ExtractedAnnotations.value)) {
+        PropertyParsingContext parsingContext = getParsingContext().property(name);
+        return new AnnotationVisitorBase(parsingContext) {
+          @Override
+          public AnnotationVisitor visitAnnotation(String nullName, String descriptor) {
+            assert nullName == null;
+            if (descriptor.equals(ExtractedAnnotation.DESCRIPTOR)) {
+              return new ExtractedAnnotationVisitor(
+                  parsingContext.annotation(descriptor), declarations::add);
+            }
+            return super.visitAnnotation(nullName, descriptor);
+          }
+        };
+      }
+      return super.visitArray(name);
+    }
+
+    @Override
+    public void visitEnd() {
+      if (declarations.isEmpty()) {
+        throw new KeepEdgeException("Invalid extracted annotation set, expected non-empty.");
+      }
+      declarations.forEach(parent::accept);
+      super.visitEnd();
+    }
+  }
+
   private static class ExtractedAnnotationVisitor extends AnnotationVisitorBase {
 
     private final Parent<KeepDeclaration> parent;
     private String context = null;
     private String version = null;
-    private List<KeepEdgeVisitor> edgeVisitors = new ArrayList<>();
+    private KeepEdgeVisitor edgeVisitor = null;
 
     public ExtractedAnnotationVisitor(
         AnnotationParsingContext parsingContext, Parent<KeepDeclaration> parent) {
@@ -548,12 +590,12 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visit(String name, Object value) {
-      if (name.equals(Extracted.version) && value instanceof String) {
+      if (name.equals(ExtractedAnnotation.version) && value instanceof String) {
         version = (String) value;
         return;
       }
       ensureVersion(getParsingContext().property(name));
-      if (name.equals(Extracted.context) && value instanceof String) {
+      if (name.equals(ExtractedAnnotation.context) && value instanceof String) {
         context = (String) value;
         return;
       }
@@ -561,48 +603,37 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     @Override
-    public AnnotationVisitor visitArray(String name) {
-      if (name.equals(Extracted.edges)) {
-        PropertyParsingContext parsingContext = getParsingContext().property(name);
-        ensureVersion(parsingContext);
-        return new AnnotationVisitorBase(parsingContext) {
-          @Override
-          public AnnotationVisitor visitAnnotation(String nullName, String descriptor) {
-            assert nullName == null;
-            if (descriptor.equals(Edge.DESCRIPTOR)) {
-              KeepEdgeVisitor visitor =
-                  new KeepEdgeVisitor(
-                      parsingContext.annotation(descriptor), edge -> {}, builder -> {});
-              edgeVisitors.add(visitor);
-              return visitor;
-            }
-            return super.visitAnnotation(nullName, descriptor);
-          }
-        };
+    public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+      if (name.equals(ExtractedAnnotation.edge) && descriptor.equals(Edge.DESCRIPTOR)) {
+        edgeVisitor =
+            new KeepEdgeVisitor(
+                getParsingContext().annotation(descriptor), edge -> {}, builder -> {});
+        return edgeVisitor;
       }
-      return super.visitArray(name);
+      return super.visitAnnotation(name, descriptor);
     }
 
     @Override
     public void visitEnd() {
       if (version == null) {
-        throw new KeepEdgeException("Invalid extracted edge, expected a version property.");
+        throw new KeepEdgeException("Invalid extracted annotation, expected a version property.");
       }
       if (context == null) {
-        throw new KeepEdgeException("Invalid extracted edge, expected a context property.");
+        throw new KeepEdgeException("Invalid extracted annotation, expected a context property.");
       }
-      for (KeepEdgeVisitor visitor : edgeVisitors) {
-        parent.accept(
-            visitor
-                .builder
-                .setMetaInfo(
-                    visitor
-                        .metaInfoBuilder
-                        // TODO(b/323815449): This may be a method or field descriptor!
-                        .setContextFromClassDescriptor(context)
-                        .build())
-                .build());
+      if (edgeVisitor == null) {
+        throw new KeepEdgeException("Invalid extracted annotation, expected an edge property.");
       }
+      parent.accept(
+          edgeVisitor
+              .builder
+              .setMetaInfo(
+                  edgeVisitor
+                      .metaInfoBuilder
+                      // TODO(b/323815449): This may be a method or field descriptor!
+                      .setContextFromClassDescriptor(context)
+                      .build())
+              .build());
       super.visitEnd();
     }
   }
