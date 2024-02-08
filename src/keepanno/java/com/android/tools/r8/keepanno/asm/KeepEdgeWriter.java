@@ -14,6 +14,7 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants.Edge;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.ExtractedAnnotation;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.ExtractedAnnotations;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.FieldAccess;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.InstanceOfPattern;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Item;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Kind;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.MemberAccess;
@@ -34,6 +35,7 @@ import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.ast.KeepEdgeMetaInfo;
 import com.android.tools.r8.keepanno.ast.KeepFieldAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
+import com.android.tools.r8.keepanno.ast.KeepInstanceOfPattern;
 import com.android.tools.r8.keepanno.ast.KeepItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberAccessPattern;
@@ -289,14 +291,13 @@ public class KeepEdgeWriter implements Opcodes {
       }
       throw new Unimplemented("Missing: " + constraint.getClass().toString());
     }
-    if (!constraintEnumValues.isEmpty()) {
-      constraintEnumValues.sort(String::compareTo);
-      withNewVisitor(
-          visitor.visitArray(Target.constraints),
-          arrayVisitor ->
-              constraintEnumValues.forEach(
-                  c -> arrayVisitor.visitEnum(null, Constraints.DESCRIPTOR, c)));
-    }
+    // The default constraints is *not* the empty set, so always write it as defined.
+    constraintEnumValues.sort(String::compareTo);
+    withNewVisitor(
+        visitor.visitArray(Target.constraints),
+        arrayVisitor ->
+            constraintEnumValues.forEach(
+                c -> arrayVisitor.visitEnum(null, Constraints.DESCRIPTOR, c)));
     if (!annotationConstraints.isEmpty()) {
       if (annotationConstraints.size() > 1) {
         annotationConstraints.sort(
@@ -366,9 +367,21 @@ public class KeepEdgeWriter implements Opcodes {
         itemVisitor);
     writeClassNamePattern(
         classItemPattern.getClassNamePattern(), Item.classNamePattern, itemVisitor);
-    if (!classItemPattern.getInstanceOfPattern().isAny()) {
-      throw new Unimplemented();
+    writeInstanceOfPattern(classItemPattern.getInstanceOfPattern(), itemVisitor);
+  }
+
+  private void writeInstanceOfPattern(
+      KeepInstanceOfPattern instanceOfPattern, AnnotationVisitor visitor) {
+    if (instanceOfPattern.isAny()) {
+      return;
     }
+    withNewVisitor(
+        visitor.visitAnnotation(Item.instanceOfPattern, InstanceOfPattern.DESCRIPTOR),
+        v -> {
+          v.visit(InstanceOfPattern.inclusive, instanceOfPattern.isInclusive());
+          writeClassNamePattern(
+              instanceOfPattern.getClassNamePattern(), InstanceOfPattern.classNamePattern, v);
+        });
   }
 
   private void writeMemberItem(

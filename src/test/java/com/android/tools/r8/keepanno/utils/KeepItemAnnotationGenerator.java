@@ -73,6 +73,7 @@ public class KeepItemAnnotationGenerator {
   private static final ClassReference STRING_PATTERN = annoClass("StringPattern");
   private static final ClassReference TYPE_PATTERN = annoClass("TypePattern");
   private static final ClassReference CLASS_NAME_PATTERN = annoClass("ClassNamePattern");
+  private static final ClassReference INSTANCE_OF_PATTERN = annoClass("InstanceOfPattern");
   private static final ClassReference ANNOTATION_PATTERN = annoClass("AnnotationPattern");
   private static final ClassReference USES_REFLECTION = annoClass("UsesReflection");
   private static final ClassReference USED_BY_REFLECTION = annoClass("UsedByReflection");
@@ -202,6 +203,8 @@ public class KeepItemAnnotationGenerator {
       "@" + simpleName(TYPE_PATTERN) + "(name = \"\")";
   private static final String DEFAULT_INVALID_CLASS_NAME_PATTERN =
       "@" + simpleName(CLASS_NAME_PATTERN) + "(simpleName = \"\")";
+  private static final String DEFAULT_ANY_INSTANCE_OF_PATTERN =
+      "@" + simpleName(INSTANCE_OF_PATTERN) + "()";
 
   private static ClassReference astClass(String simpleName) {
     return classFromTypeName(AST_PKG + simpleName);
@@ -277,6 +280,11 @@ public class KeepItemAnnotationGenerator {
 
     public GroupMember requiredStringValue() {
       return requiredValue(JAVA_STRING);
+    }
+
+    public GroupMember defaultBooleanValue(boolean value) {
+      setType("boolean");
+      return setValue(value ? "true" : "false");
     }
 
     public GroupMember defaultValue(ClassReference type, String value) {
@@ -593,6 +601,44 @@ public class KeepItemAnnotationGenerator {
       // boolean anyReference() default false;
     }
 
+    private Group instanceOfPatternInclusive() {
+      return new Group("instance-of-inclusive")
+          .addMember(
+              new GroupMember("inclusive")
+                  .setDocTitle("True if the pattern should include the directly matched classes.")
+                  .addParagraph(
+                      "If false, the pattern is exclusive and only matches classes that are",
+                      "strict subclasses of the pattern.")
+                  .defaultBooleanValue(true));
+    }
+
+    private Group instanceOfPatternClassNamePattern() {
+      return new Group("instance-of-class-name-pattern")
+          .addMember(
+              new GroupMember("classNamePattern")
+                  .setDocTitle("Instances of classes matching the class-name pattern.")
+                  .defaultValue(CLASS_NAME_PATTERN, DEFAULT_INVALID_CLASS_NAME_PATTERN));
+    }
+
+    private Group classNamePatternFullNameGroup() {
+      return new Group(CLASS_NAME_GROUP)
+          .allowMutuallyExclusiveWithOtherGroups()
+          .addMember(
+              new GroupMember("name")
+                  .setDocTitle(
+                      "Define the " + CLASS_NAME_GROUP + " pattern by fully qualified class name.")
+                  .setDocReturn("The qualified class name that defines the class.")
+                  .defaultEmptyString())
+          .addMember(
+              new GroupMember("constant")
+                  .setDocTitle(
+                      "Define the "
+                          + CLASS_NAME_GROUP
+                          + " pattern by reference to a Class constant.")
+                  .setDocReturn("The class-constant that defines the class.")
+                  .defaultObjectClass());
+    }
+
     private Group classNamePatternSimpleNameGroup() {
       return new Group("class-simple-name")
           .addMember(
@@ -850,12 +896,20 @@ public class KeepItemAnnotationGenerator {
           .defaultObjectClass();
     }
 
+    private GroupMember instanceOfPattern() {
+      return new GroupMember("instanceOfPattern")
+          .setDocTitle("Define the " + INSTANCE_OF_GROUP + " with a pattern.")
+          .setDocReturn("The pattern that defines what instance-of the class must be.")
+          .defaultValue(INSTANCE_OF_PATTERN, DEFAULT_ANY_INSTANCE_OF_PATTERN);
+    }
+
     private Group createClassInstanceOfPatternGroup() {
       return new Group(INSTANCE_OF_GROUP)
           .addMember(instanceOfClassName())
           .addMember(instanceOfClassNameExclusive())
           .addMember(instanceOfClassConstant())
           .addMember(instanceOfClassConstantExclusive())
+          .addMember(instanceOfPattern())
           .addDocFooterParagraph(
               "If none are specified the default is to match any class instance.");
     }
@@ -1237,9 +1291,38 @@ public class KeepItemAnnotationGenerator {
       println();
       withIndent(
           () -> {
-            classNamePatternSimpleNameGroup().generate(this);
+            Group exactNameGroup = classNamePatternFullNameGroup();
+            Group simpleNameGroup = classNamePatternSimpleNameGroup();
+            Group packageGroup = classNamePatternPackageGroup();
+            exactNameGroup.addMutuallyExclusiveGroups(simpleNameGroup, packageGroup);
+
+            exactNameGroup.generate(this);
             println();
-            classNamePatternPackageGroup().generate(this);
+            simpleNameGroup.generate(this);
+            println();
+            packageGroup.generate(this);
+          });
+      println();
+      println("}");
+    }
+
+    private void generateInstanceOfPattern() {
+      printCopyRight(2024);
+      printPackage("annotations");
+      printImports(ANNOTATION_IMPORTS);
+      DocPrinter.printer()
+          .setDocTitle("A pattern structure for matching instances of classes and interfaces.")
+          .addParagraph("If no properties are set, the default pattern matches any instance.")
+          .printDoc(this::println);
+      println("@Target(ElementType.ANNOTATION_TYPE)");
+      println("@Retention(RetentionPolicy.CLASS)");
+      println("public @interface " + simpleName(INSTANCE_OF_PATTERN) + " {");
+      println();
+      withIndent(
+          () -> {
+            instanceOfPatternInclusive().generate(this);
+            println();
+            instanceOfPatternClassNamePattern().generate(this);
           });
       println();
       println("}");
@@ -1610,6 +1693,7 @@ public class KeepItemAnnotationGenerator {
             generateStringPatternConstants();
             generateTypePatternConstants();
             generateClassNamePatternConstants();
+            generateInstanceOfPatternConstants();
             generateAnnotationPatternConstants();
           });
       println("}");
@@ -1932,8 +2016,21 @@ public class KeepItemAnnotationGenerator {
       withIndent(
           () -> {
             generateAnnotationConstants(CLASS_NAME_PATTERN);
+            classNamePatternFullNameGroup().generateConstants(this);
             classNamePatternSimpleNameGroup().generateConstants(this);
             classNamePatternPackageGroup().generateConstants(this);
+          });
+      println("}");
+      println();
+    }
+
+    private void generateInstanceOfPatternConstants() {
+      println("public static final class InstanceOfPattern {");
+      withIndent(
+          () -> {
+            generateAnnotationConstants(INSTANCE_OF_PATTERN);
+            instanceOfPatternInclusive().generateConstants(this);
+            instanceOfPatternClassNamePattern().generateConstants(this);
           });
       println("}");
       println();
@@ -1980,6 +2077,7 @@ public class KeepItemAnnotationGenerator {
       writeFile(source(STRING_PATTERN), Generator::generateStringPattern, write);
       writeFile(source(TYPE_PATTERN), Generator::generateTypePattern, write);
       writeFile(source(CLASS_NAME_PATTERN), Generator::generateClassNamePattern, write);
+      writeFile(source(INSTANCE_OF_PATTERN), Generator::generateInstanceOfPattern, write);
       writeFile(source(ANNOTATION_PATTERN), Generator::generateAnnotationPattern, write);
       writeFile(source(KEEP_BINDING), Generator::generateKeepBinding, write);
       writeFile(source(KEEP_TARGET), Generator::generateKeepTarget, write);

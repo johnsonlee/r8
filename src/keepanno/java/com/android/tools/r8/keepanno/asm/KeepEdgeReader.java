@@ -1408,6 +1408,7 @@ public class KeepEdgeReader implements Opcodes {
           Item.classAnnotatedByClassNamePattern, ClassNameProperty.PATTERN);
 
       instanceOfParser = new InstanceOfParser(parsingContext);
+      instanceOfParser.setProperty(Item.instanceOfPattern, InstanceOfProperties.PATTERN);
       instanceOfParser.setProperty(Item.instanceOfClassName, InstanceOfProperties.NAME);
       instanceOfParser.setProperty(Item.instanceOfClassConstant, InstanceOfProperties.CONSTANT);
       instanceOfParser.setProperty(

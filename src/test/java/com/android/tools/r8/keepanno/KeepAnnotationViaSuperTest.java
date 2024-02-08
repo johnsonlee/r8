@@ -8,6 +8,8 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
+import com.android.tools.r8.keepanno.annotations.ClassNamePattern;
+import com.android.tools.r8.keepanno.annotations.InstanceOfPattern;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -41,7 +43,6 @@ public class KeepAnnotationViaSuperTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
-        .skipEdgeExtraction()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .setExcludedOuterClass(getClass())
@@ -92,7 +93,10 @@ public class KeepAnnotationViaSuperTest extends KeepAnnoTestBase {
 
     @UsesReflection({
       @KeepTarget(
-          instanceOfClassConstantExclusive = Base.class,
+          instanceOfPattern =
+              @InstanceOfPattern(
+                  inclusive = false,
+                  classNamePattern = @ClassNamePattern(constant = Base.class)),
           constraints = {},
           constrainAnnotations = @AnnotationPattern(constant = Anno.class))
     })

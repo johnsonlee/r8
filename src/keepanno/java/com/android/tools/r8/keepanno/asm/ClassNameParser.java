@@ -83,21 +83,35 @@ public class ClassNameParser
         {
           AnnotationParsingContext parsingContext =
               getParsingContext().property(name).annotation(descriptor);
+          ClassNameParser fullNameParser = new ClassNameParser(parsingContext);
           PackageNameParser packageParser = new PackageNameParser(parsingContext);
-          ClassSimpleNameParser nameParser = new ClassSimpleNameParser(parsingContext);
+          ClassSimpleNameParser simpleNameParser = new ClassSimpleNameParser(parsingContext);
+          fullNameParser.setProperty(ClassNamePattern.name, ClassNameProperty.NAME);
+          fullNameParser.setProperty(ClassNamePattern.constant, ClassNameProperty.CONSTANT);
           packageParser.setProperty(ClassNamePattern.packageName, PackageNameProperty.NAME);
-          nameParser.setProperty(ClassNamePattern.simpleName, ClassSimpleNameProperty.NAME);
+          simpleNameParser.setProperty(ClassNamePattern.simpleName, ClassSimpleNameProperty.NAME);
           return new ParserVisitor(
               parsingContext,
-              ImmutableList.of(packageParser, nameParser),
-              () ->
-                  setValue.accept(
-                      KeepQualifiedClassNamePattern.builder()
-                          .setPackagePattern(
-                              packageParser.getValueOrDefault(KeepPackagePattern.any()))
-                          .setNamePattern(
-                              nameParser.getValueOrDefault(KeepUnqualfiedClassNamePattern.any()))
-                          .build()));
+              ImmutableList.of(fullNameParser, packageParser, simpleNameParser),
+              () -> {
+                if (fullNameParser.isDeclared()) {
+                  if (simpleNameParser.isDeclared() || packageParser.isDeclared()) {
+                    throw parsingContext.error(
+                        "Cannot specify both the full class name and its "
+                            + (simpleNameParser.isDeclared() ? "simple name" : "package"));
+                  }
+                  setValue.accept(fullNameParser.getValue());
+                  return;
+                }
+                setValue.accept(
+                    KeepQualifiedClassNamePattern.builder()
+                        .setPackagePattern(
+                            packageParser.getValueOrDefault(KeepPackagePattern.any()))
+                        .setNamePattern(
+                            simpleNameParser.getValueOrDefault(
+                                KeepUnqualfiedClassNamePattern.any()))
+                        .build());
+              });
         }
       default:
         return null;

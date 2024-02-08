@@ -23,11 +23,48 @@ import java.lang.annotation.Target;
 public @interface ClassNamePattern {
 
   /**
+   * Define the class-name pattern by fully qualified class name.
+   *
+   * <p>Mutually exclusive with the following other properties defining class-name:
+   *
+   * <ul>
+   *   <li>constant
+   *   <li>simpleName
+   *   <li>packageName
+   * </ul>
+   *
+   * @return The qualified class name that defines the class.
+   */
+  String name() default "";
+
+  /**
+   * Define the class-name pattern by reference to a Class constant.
+   *
+   * <p>Mutually exclusive with the following other properties defining class-name:
+   *
+   * <ul>
+   *   <li>name
+   *   <li>simpleName
+   *   <li>packageName
+   * </ul>
+   *
+   * @return The class-constant that defines the class.
+   */
+  Class<?> constant() default Object.class;
+
+  /**
    * Exact simple name of the class or interface.
    *
    * <p>For example, the simple name of {@code com.example.MyClass} is {@code MyClass}.
    *
    * <p>The default matches any simple name.
+   *
+   * <p>Mutually exclusive with the following other properties defining class-simple-name:
+   *
+   * <ul>
+   *   <li>name
+   *   <li>constant
+   * </ul>
    */
   String simpleName() default "";
 
@@ -37,6 +74,13 @@ public @interface ClassNamePattern {
    * <p>For example, the package of {@code com.example.MyClass} is {@code com.example}.
    *
    * <p>The default matches any package.
+   *
+   * <p>Mutually exclusive with the following other properties defining class-package-name:
+   *
+   * <ul>
+   *   <li>name
+   *   <li>constant
+   * </ul>
    */
   String packageName() default "";
 }

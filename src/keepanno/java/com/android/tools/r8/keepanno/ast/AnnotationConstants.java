@@ -93,6 +93,7 @@ public final class AnnotationConstants {
     public static final String instanceOfClassConstant = "instanceOfClassConstant";
     public static final String instanceOfClassConstantExclusive =
         "instanceOfClassConstantExclusive";
+    public static final String instanceOfPattern = "instanceOfPattern";
     public static final String classAnnotatedByGroup = "class-annotated-by";
     public static final String classAnnotatedByClassName = "classAnnotatedByClassName";
     public static final String classAnnotatedByClassConstant = "classAnnotatedByClassConstant";
@@ -237,8 +238,18 @@ public final class AnnotationConstants {
   public static final class ClassNamePattern {
     public static final String DESCRIPTOR =
         "Lcom/android/tools/r8/keepanno/annotations/ClassNamePattern;";
+    public static final String classNameGroup = "class-name";
+    public static final String name = "name";
+    public static final String constant = "constant";
     public static final String simpleName = "simpleName";
     public static final String packageName = "packageName";
+  }
+
+  public static final class InstanceOfPattern {
+    public static final String DESCRIPTOR =
+        "Lcom/android/tools/r8/keepanno/annotations/InstanceOfPattern;";
+    public static final String inclusive = "inclusive";
+    public static final String classNamePattern = "classNamePattern";
   }
 
   public static final class AnnotationPattern {

@@ -138,6 +138,7 @@ public @interface KeepTarget {
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstant
    *   <li>instanceOfClassConstantExclusive
+   *   <li>instanceOfPattern
    *   <li>classAnnotatedByClassName
    *   <li>classAnnotatedByClassConstant
    *   <li>classAnnotatedByClassNamePattern
@@ -209,6 +210,7 @@ public @interface KeepTarget {
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstant
    *   <li>instanceOfClassConstantExclusive
+   *   <li>instanceOfPattern
    *   <li>classFromBinding
    * </ul>
    *
@@ -230,6 +232,7 @@ public @interface KeepTarget {
    *   <li>instanceOfClassName
    *   <li>instanceOfClassConstant
    *   <li>instanceOfClassConstantExclusive
+   *   <li>instanceOfPattern
    *   <li>classFromBinding
    * </ul>
    *
@@ -248,6 +251,7 @@ public @interface KeepTarget {
    *   <li>instanceOfClassName
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstantExclusive
+   *   <li>instanceOfPattern
    *   <li>classFromBinding
    * </ul>
    *
@@ -269,6 +273,7 @@ public @interface KeepTarget {
    *   <li>instanceOfClassName
    *   <li>instanceOfClassNameExclusive
    *   <li>instanceOfClassConstant
+   *   <li>instanceOfPattern
    *   <li>classFromBinding
    * </ul>
    *
@@ -277,6 +282,25 @@ public @interface KeepTarget {
    * @return The class constant that defines what instance-of the class must be.
    */
   Class<?> instanceOfClassConstantExclusive() default Object.class;
+
+  /**
+   * Define the instance-of with a pattern.
+   *
+   * <p>Mutually exclusive with the following other properties defining instance-of:
+   *
+   * <ul>
+   *   <li>instanceOfClassName
+   *   <li>instanceOfClassNameExclusive
+   *   <li>instanceOfClassConstant
+   *   <li>instanceOfClassConstantExclusive
+   *   <li>classFromBinding
+   * </ul>
+   *
+   * <p>If none are specified the default is to match any class instance.
+   *
+   * @return The pattern that defines what instance-of the class must be.
+   */
+  InstanceOfPattern instanceOfPattern() default @InstanceOfPattern();
 
   /**
    * Define the class-annotated-by pattern by fully qualified class name.
