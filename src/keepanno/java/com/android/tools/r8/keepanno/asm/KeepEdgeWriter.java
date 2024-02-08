@@ -32,6 +32,7 @@ import com.android.tools.r8.keepanno.ast.KeepConstraint;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
+import com.android.tools.r8.keepanno.ast.KeepEdgeException;
 import com.android.tools.r8.keepanno.ast.KeepEdgeMetaInfo;
 import com.android.tools.r8.keepanno.ast.KeepFieldAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
@@ -145,27 +146,29 @@ public class KeepEdgeWriter implements Opcodes {
   }
 
   private static void writeExtractedEdge(AnnotationVisitor visitor, KeepDeclaration decl) {
-    if (decl.isKeepCheck()) {
-      throw new Unimplemented("Checks not yet supported for extraction");
-    }
     KeepEdgeMetaInfo metaInfo = decl.getMetaInfo();
     visitor.visit(ExtractedAnnotation.version, metaInfo.getVersion().toVersionString());
     visitor.visit(ExtractedAnnotation.context, metaInfo.getContextDescriptorString());
-    writeEdgeInternal(
-        decl.asKeepEdge(),
-        (desc, visible) -> visitor.visitAnnotation(ExtractedAnnotation.edge, desc));
-  }
-
-  public static void writeEdge(
-      KeepEdge edge, BiFunction<String, Boolean, AnnotationVisitorInterface> getVisitor) {
-    writeEdgeInternal(edge, (descriptor, visible) -> wrap(getVisitor.apply(descriptor, visible)));
-  }
-
-  public static void writeEdgeInternal(
-      KeepEdge edge, BiFunction<String, Boolean, AnnotationVisitor> getVisitor) {
-    withNewVisitor(
-        getVisitor.apply(Edge.DESCRIPTOR, false),
-        visitor -> new KeepEdgeWriter().writeEdge(edge, visitor));
+    decl.match(
+        edge -> {
+          withNewVisitor(
+              visitor.visitAnnotation(ExtractedAnnotation.edge, Edge.DESCRIPTOR),
+              v -> new KeepEdgeWriter().writeEdge(edge, v));
+          return null;
+        },
+        check -> {
+          switch (check.getKind()) {
+            case REMOVED:
+              visitor.visit(ExtractedAnnotation.checkRemoved, true);
+              break;
+            case OPTIMIZED_OUT:
+              visitor.visit(ExtractedAnnotation.checkOptimizedOut, true);
+              break;
+            default:
+              throw new KeepEdgeException("Unexpected keep check kind: " + check.getKind());
+          }
+          return null;
+        });
   }
 
   private void writeEdge(KeepEdge edge, AnnotationVisitor visitor) {

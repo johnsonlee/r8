@@ -27,4 +27,8 @@ public @interface ExtractedKeepAnnotation {
 
   /** The extracted edge. */
   KeepEdge edge();
+
+  boolean isCheckRemoved() default false;
+
+  boolean isCheckOptimizedOut() default false;
 }

@@ -57,7 +57,6 @@ public class CheckOptimizedOutAnnotationTest extends KeepAnnoTestBase {
   public void testR8Native() throws Throwable {
     assumeTrue(parameters.isR8() && parameters.isNative());
     testForKeepAnno(parameters)
-        .skipEdgeExtraction()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .applyIfR8Native(

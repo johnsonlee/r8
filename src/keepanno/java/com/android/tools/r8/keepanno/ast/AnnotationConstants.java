@@ -26,7 +26,10 @@ public final class AnnotationConstants {
         "Lcom/android/tools/r8/keepanno/annotations/ExtractedKeepAnnotation;";
     public static final String version = "version";
     public static final String context = "context";
+    public static final String keepAnnotationGroup = "keep-annotation";
     public static final String edge = "edge";
+    public static final String checkRemoved = "checkRemoved";
+    public static final String checkOptimizedOut = "checkOptimizedOut";
   }
 
   public static final class Edge {

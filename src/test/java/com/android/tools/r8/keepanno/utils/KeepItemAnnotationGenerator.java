@@ -1728,9 +1728,19 @@ public class KeepItemAnnotationGenerator {
                 .setDocTitle("Extraction context from which this keep annotation is generated.")
                 .requiredStringValue()
                 .generateConstants(this);
-            new GroupMember("edge")
-                .setDocTitle("Extracted normalized keep edge.")
-                .requiredValue(KEEP_EDGE)
+            new Group("keep-annotation")
+                .addMember(
+                    new GroupMember("edge")
+                        .setDocTitle("Extracted normalized keep edge.")
+                        .requiredValue(KEEP_EDGE))
+                .addMember(
+                    new GroupMember("checkRemoved")
+                        .setDocTitle("Extracted check removed.")
+                        .defaultBooleanValue(false))
+                .addMember(
+                    new GroupMember("checkOptimizedOut")
+                        .setDocTitle("Extracted check optimized out.")
+                        .defaultBooleanValue(false))
                 .generateConstants(this);
           });
       println("}");

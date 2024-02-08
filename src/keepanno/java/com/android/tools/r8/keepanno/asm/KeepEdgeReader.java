@@ -572,9 +572,11 @@ public class KeepEdgeReader implements Opcodes {
   private static class ExtractedAnnotationVisitor extends AnnotationVisitorBase {
 
     private final Parent<KeepDeclaration> parent;
-    private String context = null;
+    private ContextDescriptor context = null;
     private String version = null;
     private KeepEdgeVisitor edgeVisitor = null;
+    private boolean isCheckRemoved = false;
+    private boolean isCheckOptimizedOut = false;
 
     public ExtractedAnnotationVisitor(
         AnnotationParsingContext parsingContext, Parent<KeepDeclaration> parent) {
@@ -594,9 +596,18 @@ public class KeepEdgeReader implements Opcodes {
         version = (String) value;
         return;
       }
-      ensureVersion(getParsingContext().property(name));
+      ParsingContext parsingContext = getParsingContext().property(name);
+      ensureVersion(parsingContext);
       if (name.equals(ExtractedAnnotation.context) && value instanceof String) {
-        context = (String) value;
+        context = ContextDescriptor.parse((String) value, parsingContext);
+        return;
+      }
+      if (name.equals(ExtractedAnnotation.checkRemoved) && value instanceof Boolean) {
+        isCheckRemoved = true;
+        return;
+      }
+      if (name.equals(ExtractedAnnotation.checkOptimizedOut) && value instanceof Boolean) {
+        isCheckOptimizedOut = true;
         return;
       }
       super.visit(name, value);
@@ -616,23 +627,42 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public void visitEnd() {
       if (version == null) {
-        throw new KeepEdgeException("Invalid extracted annotation, expected a version property.");
+        throw getParsingContext()
+            .error("Invalid extracted annotation, expected a version property.");
       }
       if (context == null) {
-        throw new KeepEdgeException("Invalid extracted annotation, expected a context property.");
+        throw getParsingContext()
+            .error("Invalid extracted annotation, expected a context property.");
       }
-      if (edgeVisitor == null) {
-        throw new KeepEdgeException("Invalid extracted annotation, expected an edge property.");
+      if (edgeVisitor != null) {
+        if (isCheckRemoved || isCheckOptimizedOut) {
+          throw getParsingContext()
+              .error("Invalid extracted annotation, cannot be both an edge and check.");
+        }
+        parent.accept(
+            edgeVisitor
+                .builder
+                .setMetaInfo(context.applyToMetadata(edgeVisitor.metaInfoBuilder).build())
+                .build());
+        return;
       }
+      if (isCheckRemoved && isCheckOptimizedOut) {
+        throw getParsingContext()
+            .error(
+                "Invalid extracted annotation, cannot be both a removed and optimized-out check.");
+      }
+      if (!isCheckRemoved && !isCheckOptimizedOut) {
+        throw getParsingContext()
+            .error(
+                "Invalid extracted annotation, must specify either an edge, a removed check, or an"
+                    + " optimized-out check.");
+      }
+      KeepCheckKind kind = isCheckRemoved ? KeepCheckKind.REMOVED : KeepCheckKind.OPTIMIZED_OUT;
       parent.accept(
-          edgeVisitor
-              .builder
-              .setMetaInfo(
-                  edgeVisitor
-                      .metaInfoBuilder
-                      // TODO(b/323815449): This may be a method or field descriptor!
-                      .setContextFromClassDescriptor(context)
-                      .build())
+          KeepCheck.builder()
+              .setMetaInfo(context.applyToMetadata(KeepEdgeMetaInfo.builder()).build())
+              .setKind(kind)
+              .setItemPattern(context.toItemPattern())
               .build());
       super.visitEnd();
     }
@@ -2211,4 +2241,5 @@ public class KeepEdgeReader implements Opcodes {
       }
     }
   }
+
 }
