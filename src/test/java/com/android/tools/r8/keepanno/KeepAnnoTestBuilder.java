@@ -40,8 +40,10 @@ public abstract class KeepAnnoTestBuilder {
     switch (params.config()) {
       case REFERENCE:
         return new ReferenceBuilder(params, temp);
-      case R8_NATIVE:
-        return new R8NativeBuilder(params, temp);
+      case R8_DIRECT:
+        return new R8NativeBuilder(false, params, temp);
+      case R8_EXTRACT:
+        return new R8NativeBuilder(true, params, temp);
       case R8_LEGACY:
         return new R8LegacyBuilder(params, temp);
       case PG:
@@ -119,10 +121,6 @@ public abstract class KeepAnnoTestBuilder {
     return inspectOutputConfig(System.out::println);
   }
 
-  public KeepAnnoTestBuilder skipEdgeExtraction() {
-    return this;
-  }
-
   public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
     // Default to ignore the consumer.
     return this;
@@ -165,24 +163,23 @@ public abstract class KeepAnnoTestBuilder {
 
     private final R8FullTestBuilder builder;
     private List<Consumer<R8TestCompileResult>> compileResultConsumers = new ArrayList<>();
-    private boolean useEdgeExtraction = true;
+    private final boolean useEdgeExtraction;
 
-    public R8NativeBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
+    private R8NativeBuilder(
+        boolean useEdgeExtraction, KeepAnnoParameters params, TemporaryFolder temp) {
       super(params, temp);
       builder =
           TestBase.testForR8(temp, parameters().getBackend())
               .enableExperimentalKeepAnnotations()
               .setMinApi(parameters());
-      builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
-      builder.getBuilder().setEnableExperimentalVersionedKeepEdgeAnnotations(true);
-    }
-
-    @Override
-    public KeepAnnoTestBuilder skipEdgeExtraction() {
-      useEdgeExtraction = false;
-      builder.getBuilder().setEnableExperimentalKeepAnnotations(true);
-      builder.getBuilder().setEnableExperimentalVersionedKeepEdgeAnnotations(false);
-      return this;
+      this.useEdgeExtraction = useEdgeExtraction;
+      if (useEdgeExtraction) {
+        builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
+        builder.getBuilder().setEnableExperimentalVersionedKeepEdgeAnnotations(true);
+      } else {
+        builder.getBuilder().setEnableExperimentalKeepAnnotations(true);
+        builder.getBuilder().setEnableExperimentalVersionedKeepEdgeAnnotations(false);
+      }
     }
 
     @Override
