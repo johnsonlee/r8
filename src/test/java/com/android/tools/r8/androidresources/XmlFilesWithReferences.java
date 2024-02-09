@@ -23,7 +23,7 @@ public class XmlFilesWithReferences extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDexRuntimes().withAllApiLevels().build();
+    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
   }
 
   public static AndroidTestResource getTestResources(TemporaryFolder temp) throws Exception {

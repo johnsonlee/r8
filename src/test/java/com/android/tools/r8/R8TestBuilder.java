@@ -920,16 +920,19 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   public T addFeatureSplitAndroidResources(AndroidTestResource testResource, String featureName)
       throws IOException {
     Path outputFile = getState().getNewTempFile("resourceshrinkeroutput_" + featureName + ".zip");
+    Path programOut = getState().getNewTempFile("feature_output" + featureName + ".jar");
     resourceShrinkerOutputForFeatures.put(featureName, outputFile);
     getBuilder()
         .addFeatureSplit(
             featureSplitGenerator -> {
-              featureSplitGenerator.setAndroidResourceConsumer(
-                  new ArchiveProtoAndroidResourceConsumer(outputFile));
               Path resourceZip = testResource.getResourceZip();
-              featureSplitGenerator.setAndroidResourceProvider(
-                  new ArchiveProtoAndroidResourceProvider(
-                      resourceZip, new PathOrigin(resourceZip)));
+              featureSplitGenerator
+                  .setAndroidResourceConsumer(new ArchiveProtoAndroidResourceConsumer(outputFile))
+                  .setAndroidResourceProvider(
+                      new ArchiveProtoAndroidResourceProvider(
+                          resourceZip, new PathOrigin(resourceZip)))
+                  .setProgramConsumer(DexIndexedConsumer.emptyConsumer());
+
               return featureSplitGenerator.build();
             });
     return addProgramClassFileData(testResource.getRClass().getClassFileData());

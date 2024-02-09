@@ -64,6 +64,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.TestingOptions;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Reporter;
+import com.android.tools.r8.utils.ResourceShrinkerUtils;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.threads.ThreadTask;
@@ -217,6 +218,9 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       this.argumentPropagator = new ArgumentPropagator(withLiveness());
     } else {
       this.argumentPropagator = null;
+    }
+    if (enableWholeProgramOptimizations() && options().isOptimizedResourceShrinking()) {
+      resourceShrinkerState = ResourceShrinkerUtils.createResourceShrinkerState(this);
     }
     timing.end();
     this.libraryMethodSideEffectModelCollection =

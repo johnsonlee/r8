@@ -5,9 +5,6 @@
 package com.android.tools.r8.graph.analysis;
 
 import com.android.build.shrinker.r8integration.R8ResourceShrinkerState;
-import com.android.tools.r8.AndroidResourceInput;
-import com.android.tools.r8.AndroidResourceInput.Kind;
-import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -44,18 +41,7 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     this.appView = appView;
     this.enqueuer = enqueuer;
-    this.resourceShrinkerState = new R8ResourceShrinkerState();
-    try {
-      for (AndroidResourceInput androidResource :
-          appView.options().androidResourceProvider.getAndroidResources()) {
-        if (androidResource.getKind() == Kind.RESOURCE_TABLE) {
-          resourceShrinkerState.setResourceTableInput(androidResource.getByteStream());
-          break;
-        }
-      }
-    } catch (ResourceException e) {
-      throw appView.reporter().fatalError("Failed initializing resource table");
-    }
+    this.resourceShrinkerState = appView.getResourceShrinkerState();
   }
 
   public static void register(
@@ -68,6 +54,8 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
   @Override
   public void done(Enqueuer enqueuer) {
     EnqueuerFieldAccessAnalysis.super.done(enqueuer);
+    // We clear the bits here, since we will trace the final reachable entries in the second round.
+    resourceShrinkerState.clearReachableBits();
   }
 
   private static boolean enabled(

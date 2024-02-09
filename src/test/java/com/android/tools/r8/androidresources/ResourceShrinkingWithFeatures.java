@@ -8,15 +8,17 @@ import static org.junit.Assert.fail;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
 import com.android.tools.r8.androidresources.ResourceShrinkingWithFeatures.FeatureSplit.FeatureSplitMain;
+import com.android.tools.r8.utils.BooleanUtils;
 import java.io.IOException;
+import java.util.List;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -30,9 +32,14 @@ public class ResourceShrinkingWithFeatures extends TestBase {
   @Parameter(0)
   public TestParameters parameters;
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection parameters() {
-    return getTestParameters().withDexRuntimes().withAllApiLevels().build();
+  @Parameter(1)
+  public boolean optimized;
+
+  @Parameters(name = "{0}, optimized: {1}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        BooleanUtils.values());
   }
 
   public static AndroidTestResource getTestResources(TemporaryFolder temp) throws Exception {
@@ -57,6 +64,7 @@ public class ResourceShrinkingWithFeatures extends TestBase {
       testForR8(parameters.getBackend())
           .setMinApi(parameters)
           .addProgramClasses(Base.class)
+          .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
           .addFeatureSplit(builder -> builder.build())
           .compileWithExpectedDiagnostics(
               diagnostics -> {
@@ -95,6 +103,7 @@ public class ResourceShrinkingWithFeatures extends TestBase {
             .addAndroidResources(getTestResources(temp))
             .addFeatureSplitAndroidResources(
                 getFeatureSplitTestResources(featureSplitTemp), FeatureSplit.class.getName())
+            .applyIf(optimized, R8FullTestBuilder::enableOptimizedShrinking)
             .addKeepMainRule(Base.class)
             .addKeepMainRule(FeatureSplitMain.class)
             .compile();

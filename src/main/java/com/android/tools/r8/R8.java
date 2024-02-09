@@ -918,7 +918,7 @@ public class R8 {
     dexFileContent.forEach(resourceShrinkerBuilder::addDexInput);
     try {
       addResourcesToBuilder(
-          resourceShrinkerBuilder, reporter, options.androidResourceProvider, null);
+          resourceShrinkerBuilder, reporter, options.androidResourceProvider, FeatureSplit.BASE);
       if (options.featureSplitConfiguration != null) {
         for (FeatureSplit featureSplit : options.featureSplitConfiguration.getFeatureSplits()) {
           if (featureSplit.getAndroidResourceProvider() != null) {
@@ -936,9 +936,7 @@ public class R8 {
       LegacyResourceShrinker shrinker = resourceShrinkerBuilder.build();
       ShrinkerResult shrinkerResult;
       if (options.resourceShrinkerConfiguration.isOptimizedShrinking()) {
-        shrinkerResult =
-            shrinker.shrinkModel(
-                appView.getResourceShrinkerState().getR8ResourceShrinkerModel(), true);
+        shrinkerResult = appView.getResourceShrinkerState().shrinkModel();
       } else {
         shrinkerResult = shrinker.run();
       }
@@ -949,7 +947,7 @@ public class R8 {
           toKeep,
           options.androidResourceProvider,
           options.androidResourceConsumer,
-          null);
+          FeatureSplit.BASE);
       if (options.featureSplitConfiguration != null) {
         for (FeatureSplit featureSplit : options.featureSplitConfiguration.getFeatureSplits()) {
           if (featureSplit.getAndroidResourceProvider() != null) {

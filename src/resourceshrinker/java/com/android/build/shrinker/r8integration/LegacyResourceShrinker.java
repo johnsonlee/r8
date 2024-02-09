@@ -14,7 +14,6 @@ import com.android.build.shrinker.NoDebugReporter;
 import com.android.build.shrinker.ResourceShrinkerImplKt;
 import com.android.build.shrinker.ResourceTableUtilKt;
 import com.android.build.shrinker.graph.ProtoResourcesGraphBuilder;
-import com.android.build.shrinker.graph.ResFolderFileTree;
 import com.android.build.shrinker.obfuscation.ProguardMappingsRecorder;
 import com.android.build.shrinker.r8integration.R8ResourceShrinkerState.R8ResourceShrinkerModel;
 import com.android.build.shrinker.usages.DexFileAnalysisCallback;
@@ -134,11 +133,6 @@ public class LegacyResourceShrinker {
       ResourceTable loadedResourceTable = ResourceTable.parseFrom(pathAndBytes.bytes);
       model.instantiateFromResourceTable(loadedResourceTable, false);
     }
-    return shrinkModel(model, false);
-  }
-
-  public ShrinkerResult shrinkModel(
-      R8ResourceShrinkerModel model, boolean exactMatchingOfStyleablesAndAttr) throws IOException {
     if (proguardMapStrings != null) {
       new ProguardMappingsRecorder(proguardMapStrings).recordObfuscationMappings(model);
       proguardMapStrings = null;
@@ -171,13 +165,7 @@ public class LegacyResourceShrinker {
     for (PathAndBytes pathAndBytes : resourceTables.keySet()) {
       ResourceTable resourceTable = ResourceTable.parseFrom(pathAndBytes.bytes);
       new ProtoResourcesGraphBuilder(
-              new ResFolderFileTree() {
-                @Override
-                public byte[] getEntryByName(String pathInRes) {
-                  return resFolderMappings.get(pathInRes).getBytes();
-                }
-              },
-              unused -> resourceTable)
+              pathInRes -> resFolderMappings.get(pathInRes).getBytes(), unused -> resourceTable)
           .buildGraph(model);
     }
     ResourceStore resourceStore = model.getResourceStore();
@@ -194,8 +182,7 @@ public class LegacyResourceShrinker {
         resEntriesToKeep.add(xmlInput.path.toString());
       }
     }
-    List<Integer> resourceIdsToRemove =
-        getResourceIdsToRemove(unusedResources, model, exactMatchingOfStyleablesAndAttr);
+    List<Integer> resourceIdsToRemove = getResourceIdsToRemove(unusedResources);
     Map<FeatureSplit, ResourceTable> shrunkenTables = new HashMap<>();
     for (Entry<PathAndBytes, FeatureSplit> entry : resourceTables.entrySet()) {
       ResourceTable shrunkenResourceTable =
@@ -206,21 +193,11 @@ public class LegacyResourceShrinker {
     return new ShrinkerResult(resEntriesToKeep.build(), shrunkenTables);
   }
 
-  private static List<Integer> getResourceIdsToRemove(
-      List<Resource> unusedResources,
-      R8ResourceShrinkerModel model,
-      boolean exactMatchingOfStyleablesAndAttr) {
-    if (!exactMatchingOfStyleablesAndAttr) {
+  private static List<Integer> getResourceIdsToRemove(List<Resource> unusedResources) {
       return unusedResources.stream()
           .filter(s -> s.type != ResourceType.ID)
           .map(resource -> resource.value)
           .collect(Collectors.toList());
-    }
-    return model.getResourceStore().getResources().stream()
-        .filter(r -> !r.isReachable())
-        .filter(r -> r.type != ResourceType.ID)
-        .map(r -> r.value)
-        .collect(Collectors.toList());
   }
 
   // Lifted from com/android/utils/XmlUtils.java which we can't easily update internal dependency

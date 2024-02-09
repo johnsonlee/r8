@@ -35,7 +35,7 @@ public class SimpleNoCodeReferenceAndroidResourceTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDexRuntimes().withAllApiLevels().build();
+    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
   }
 
   @Test
