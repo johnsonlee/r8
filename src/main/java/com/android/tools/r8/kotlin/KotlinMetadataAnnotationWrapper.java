@@ -56,12 +56,10 @@ public class KotlinMetadataAnnotationWrapper implements kotlin.Metadata {
   }
 
   public static KotlinMetadataAnnotationWrapper wrap(KotlinClassMetadata classMetadata) {
-    Metadata annotationData =
-        KotlinClassMetadataReader.extractMetadataWithPossiblyUnsupportedMetadataVersion(
-            classMetadata);
+    Metadata annotationData = classMetadata.getAnnotationData$kotlinx_metadata_jvm();
     return new KotlinMetadataAnnotationWrapper(
         annotationData.k(),
-        KotlinJvmMetadataVersionUtils.toIntArray(classMetadata.getVersion()),
+        annotationData.mv(),
         annotationData.d1(),
         annotationData.d2(),
         annotationData.xs(),

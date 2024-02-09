@@ -24,9 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import kotlinx.metadata.jvm.JvmMetadataVersion;
-import kotlinx.metadata.jvm.KmModule;
-import kotlinx.metadata.jvm.KotlinModuleMetadata;
+import kotlinx.metadata.jvm.KotlinModuleMetadata.Writer;
 
 /**
  * The kotlin module synthesizer will scan through all file facades and multiclass files to figure
@@ -157,7 +155,7 @@ public class KotlinModuleSynthesizer {
         }
       }
       Collections.sort(packagesSorted);
-      KmModule kmModule = new KmModule();
+      Writer writer = new Writer();
       for (String newPackage : packagesSorted) {
         // Calling other visitors than visitPackageParts are currently not supported.
         // https://github.com/JetBrains/kotlin/blob/master/libraries/kotlinx-metadata/
@@ -176,15 +174,14 @@ public class KotlinModuleSynthesizer {
                             newMultiFiles.put(classPart, rewrittenName);
                           });
                 });
-        kmModule.visitPackageParts(
+        writer.visitPackageParts(
             newPackage,
             newFacades.getOrDefault(newPackage, Collections.emptyList()),
             newMultiFiles);
       }
       return Optional.of(
           DataEntryResource.fromBytes(
-              new KotlinModuleMetadata(kmModule, new JvmMetadataVersion(metadataVersion.get()))
-                  .write(),
+              writer.write(metadataVersion.get()),
               "META-INF/" + moduleName + ".kotlin_module",
               Origin.unknown()));
     }

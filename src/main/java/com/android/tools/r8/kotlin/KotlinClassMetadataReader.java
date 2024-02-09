@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import kotlin.Metadata;
-import kotlinx.metadata.jvm.JvmMetadataVersion;
+import kotlinx.metadata.InconsistentKotlinMetadataException;
 import kotlinx.metadata.jvm.KotlinClassMetadata;
 import kotlinx.metadata.jvm.KotlinClassMetadata.FileFacade;
 import kotlinx.metadata.jvm.KotlinClassMetadata.MultiFileClassFacade;
@@ -181,9 +181,9 @@ public final class KotlinClassMetadataReader {
     Integer xi = extraInt == null ? null : (Integer) extraInt.value.getBoxedValue();
 
     try {
-      return KotlinClassMetadata.readStrict(
+      return KotlinClassMetadata.read(
           new KotlinMetadataAnnotationWrapper(k, mv, d1, d2, xs, pn, xi));
-    } catch (ClassCastException | IllegalArgumentException | MetadataError e) {
+    } catch (ClassCastException | InconsistentKotlinMetadataException | MetadataError e) {
       throw new KotlinMetadataException(e);
     }
   }
@@ -196,29 +196,15 @@ public final class KotlinClassMetadataReader {
     return (Integer) kind.value.getBoxedValue();
   }
 
-  public static Metadata extractMetadataWithPossiblyUnsupportedMetadataVersion(
-      KotlinClassMetadata kMetadata) {
-    JvmMetadataVersion version = kMetadata.getVersion();
-    if (version.getMajor() == 1 && version.getMinor() < 4) {
-      // From version 0.8.0 the kotlin metadata library cannot write metadata below Kotlin version
-      // 1.4. The writer can be tricked by temporarily setting a high enough version.
-      kMetadata.setVersion(KotlinJvmMetadataVersionUtils.MIN_SUPPORTED_VERSION);
-      Metadata metadata = kMetadata.write();
-      kMetadata.setVersion(version);
-      return metadata;
-    }
-    return kMetadata.write();
-  }
-
   public static KotlinClassLevelInfo createKotlinInfo(
       Kotlin kotlin,
       DexClass clazz,
       KotlinClassMetadata kMetadata,
       AppView<?> appView,
       Consumer<DexEncodedMethod> keepByteCode) {
-    Metadata metadata = extractMetadataWithPossiblyUnsupportedMetadataVersion(kMetadata);
+    Metadata metadata = kMetadata.getAnnotationData$kotlinx_metadata_jvm();
     String packageName = metadata.pn();
-    int[] metadataVersion = KotlinJvmMetadataVersionUtils.toIntArray(kMetadata.getVersion());
+    int[] metadataVersion = metadata.mv();
     if (kMetadata instanceof KotlinClassMetadata.Class) {
       return KotlinClassInfo.create(
           (KotlinClassMetadata.Class) kMetadata,
