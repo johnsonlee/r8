@@ -97,10 +97,10 @@ TEST_DEPENDENCIES = [
 ]
 
 PLUGIN_DEPENDENCIES = [
-  'org.gradle.kotlin.kotlin-dsl:org.gradle.kotlin.kotlin-dsl.gradle.plugin:4.1.0',
+  'org.gradle.kotlin.kotlin-dsl:org.gradle.kotlin.kotlin-dsl.gradle.plugin:pom:4.1.0',
   'org.jetbrains.kotlin:kotlin-gradle-plugin-api:1.9.10',
-  'net.ltgt.errorprone:net.ltgt.errorprone.gradle.plugin:3.0.1',
-  'org.spdx.sbom:org.spdx.sbom.gradle.plugin:0.4.0',
+  'net.ltgt.errorprone:net.ltgt.errorprone.gradle.plugin:pom:3.0.1',
+  'org.spdx.sbom:org.spdx.sbom.gradle.plugin:pom:0.4.0',
   # See https://github.com/FasterXML/jackson-core/issues/999.
   'ch.randelshofer:fastdoubleparser:0.8.0',
 ]
