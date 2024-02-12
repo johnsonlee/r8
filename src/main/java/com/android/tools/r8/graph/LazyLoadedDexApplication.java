@@ -8,6 +8,7 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.dex.ApplicationReader.ProgramClassConflictResolver;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.utils.ClasspathClassCollection;
 import com.android.tools.r8.utils.InternalOptions;
@@ -17,6 +18,7 @@ import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +32,7 @@ public class LazyLoadedDexApplication extends DexApplication {
   private final ProgramClassCollection programClasses;
   private final ClasspathClassCollection classpathClasses;
   private final LibraryClassCollection libraryClasses;
+  private final List<KeepDeclaration> keepDeclarations;
 
   /** Constructor should only be invoked by the DexApplication.Builder. */
   private LazyLoadedDexApplication(
@@ -39,12 +42,18 @@ public class LazyLoadedDexApplication extends DexApplication {
       ImmutableList<DataResourceProvider> dataResourceProviders,
       ClasspathClassCollection classpathClasses,
       LibraryClassCollection libraryClasses,
+      List<KeepDeclaration> keepDeclarations,
       InternalOptions options,
       Timing timing) {
     super(proguardMap, flags, dataResourceProviders, options, timing);
     this.programClasses = programClasses;
     this.classpathClasses = classpathClasses;
     this.libraryClasses = libraryClasses;
+    this.keepDeclarations = keepDeclarations;
+  }
+
+  public List<KeepDeclaration> getKeepDeclarations() {
+    return keepDeclarations;
   }
 
   @Override
@@ -252,6 +261,7 @@ public class LazyLoadedDexApplication extends DexApplication {
 
     private ClasspathClassCollection classpathClasses;
     private LibraryClassCollection libraryClasses;
+    private List<KeepDeclaration> keepDeclarations = Collections.emptyList();
 
     Builder(InternalOptions options, Timing timing) {
       super(options, timing);
@@ -280,6 +290,11 @@ public class LazyLoadedDexApplication extends DexApplication {
       return this;
     }
 
+    public Builder setKeepDeclarations(List<KeepDeclaration> declarations) {
+      this.keepDeclarations = declarations;
+      return this;
+    }
+
     @Override
     public void addProgramClassPotentiallyOverridingNonProgramClass(DexProgramClass clazz) {
       addProgramClass(clazz);
@@ -300,6 +315,7 @@ public class LazyLoadedDexApplication extends DexApplication {
           ImmutableList.copyOf(dataResourceProviders),
           classpathClasses,
           libraryClasses,
+          keepDeclarations,
           options,
           timing);
     }

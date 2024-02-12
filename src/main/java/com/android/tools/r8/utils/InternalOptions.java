@@ -2175,6 +2175,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public static class TestingOptions {
 
+    public boolean enableExtractedKeepAnnotations = false;
+
     public boolean enableNumberUnboxer = false;
     public boolean printNumberUnboxed = false;
     public boolean roundtripThroughLir = false;

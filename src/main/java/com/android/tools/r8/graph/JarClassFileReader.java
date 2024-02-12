@@ -35,6 +35,9 @@ import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.jar.CfApplicationWriter;
+import com.android.tools.r8.keepanno.asm.KeepEdgeReader.ExtractedAnnotationsVisitor;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.ExtractedAnnotations;
+import com.android.tools.r8.keepanno.ast.ParsingContext.ClassParsingContext;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.synthesis.SyntheticMarker;
 import com.android.tools.r8.utils.AsmUtils;
@@ -452,6 +455,17 @@ public class JarClassFileReader<T extends DexClass> {
 
     @Override
     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+      if (!visible && ExtractedAnnotations.DESCRIPTOR.equals(desc)) {
+        if (!application.options.testing.enableExtractedKeepAnnotations) {
+          return null;
+        }
+        if (classKind != ClassKind.PROGRAM) {
+          return null;
+        }
+        return new ExtractedAnnotationsVisitor(
+            new ClassParsingContext(type.getName()).annotation(desc),
+            application::addKeepDeclaration);
+      }
       return createAnnotationVisitor(
           desc, visible, getAnnotations(), application, DexAnnotation::new);
     }

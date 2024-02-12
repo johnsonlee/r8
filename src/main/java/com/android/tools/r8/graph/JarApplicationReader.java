@@ -6,8 +6,10 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.graph.DexMethodHandle.MethodHandleType;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import org.objectweb.asm.Type;
@@ -27,6 +29,7 @@ public class JarApplicationReader {
   private final ConcurrentHashMap<String, DexString> stringCache = new ConcurrentHashMap<>();
   private final ApplicationReaderMap applicationReaderMap;
   private final DexApplicationReadFlags.Builder readFlagsBuilder;
+  private final List<KeepDeclaration> keepDeclarations = new ArrayList<>();
 
   public JarApplicationReader(
       InternalOptions options, DexApplicationReadFlags.Builder readFlagsBuilder) {
@@ -37,6 +40,16 @@ public class JarApplicationReader {
 
   public JarApplicationReader(InternalOptions options) {
     this(options, DexApplicationReadFlags.builder());
+  }
+
+  public void addKeepDeclaration(KeepDeclaration declaration) {
+    synchronized (keepDeclarations) {
+      keepDeclarations.add(declaration);
+    }
+  }
+
+  public List<KeepDeclaration> getKeepDeclarations() {
+    return keepDeclarations;
   }
 
   public Type getAsmObjectType(String name) {

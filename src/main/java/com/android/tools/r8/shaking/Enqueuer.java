@@ -29,6 +29,7 @@ import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.features.IsolatedFeatureSplitsChecker;
@@ -129,6 +130,7 @@ import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicClass;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessor;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.kotlin.KotlinMetadataEnqueuerExtension;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringTypeLookupResult;
@@ -288,6 +290,8 @@ public class Enqueuer {
   private final Map<DexCallSite, ProgramMethodSet> callSites = new IdentityHashMap<>();
 
   private final Set<DexMember<?, ?>> identifierNameStrings = Sets.newIdentityHashSet();
+
+  private List<KeepDeclaration> keepDeclarations = Collections.emptyList();
 
   /**
    * Tracks the dependency between a method and the super-method it calls, if any. Used to make
@@ -640,6 +644,13 @@ public class Enqueuer {
         .registerExceptionGuardAnalysis(analysis)
         .registerInstanceOfAnalysis(analysis)
         .registerNewInstanceAnalysis(analysis);
+  }
+
+  public void setKeepDeclarations(List<KeepDeclaration> keepDeclarations) {
+    // Keep declarations are used during initial tree shaking. Re-runs use the rule instance sets.
+    assert mode.isInitialTreeShaking();
+    assert keepDeclarations != null;
+    this.keepDeclarations = keepDeclarations;
   }
 
   public void setAnnotationRemoverBuilder(AnnotationRemover.Builder annotationRemoverBuilder) {
@@ -3700,6 +3711,9 @@ public class Enqueuer {
     rootSet.pendingMethodMoveInverse.forEach(pendingMethodMoveInverse::put);
     // Translate the result of root-set computation into enqueuer actions.
     timing.begin("Register analysis");
+    // TODO(b/323816623): This check does not include presence of keep declarations.
+    //  The non-presense of PG config seems like a exeedingly rare corner case so maybe just
+    //  make this conditional on tree shaking and the specific option flag.
     if (mode.isTreeShaking()
         && appView.options().hasProguardConfiguration()
         && !options.kotlinOptimizationOptions().disableKotlinSpecificOptimizations) {
@@ -3707,6 +3721,9 @@ public class Enqueuer {
           new KotlinMetadataEnqueuerExtension(
               appView, enqueuerDefinitionSupplier, initialPrunedTypes));
     }
+    // TODO(b/323816623): This check does not include presence of keep declarations.
+    //  We should consider if we should always run the signature analysis and just not emit them
+    //  in the end?
     if (appView.options().getProguardConfiguration() != null
         && appView.options().getProguardConfiguration().getKeepAttributes().signature) {
       registerAnalysis(new GenericSignatureEnqueuerAnalysis(enqueuerDefinitionSupplier));
@@ -3722,6 +3739,10 @@ public class Enqueuer {
     timing.end();
 
     if (mode.isInitialTreeShaking()) {
+      // TODO(b/323816623): Start native interpretation here...
+      if (!keepDeclarations.isEmpty()) {
+        throw new Unimplemented("Native support for keep annotaitons pending");
+      }
       // Amend library methods with covariant return types.
       timing.begin("Model library");
       modelLibraryMethodsWithCovariantReturnTypes(appView);

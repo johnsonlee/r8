@@ -59,6 +59,7 @@ import com.android.tools.r8.ir.optimize.info.OptimizationInfoRemover;
 import com.android.tools.r8.ir.optimize.templates.CfUtilityMethodsForCodeOptimizations;
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.kotlin.KotlinMetadataRewriter;
 import com.android.tools.r8.kotlin.KotlinMetadataUtils;
 import com.android.tools.r8.naming.IdentifierMinifier;
@@ -281,10 +282,12 @@ public class R8 {
     timing.end();
     try {
       AppView<AppInfoWithClassHierarchy> appView;
+      List<KeepDeclaration> keepDeclarations;
       {
         timing.begin("Read app");
         ApplicationReader applicationReader = new ApplicationReader(inputApp, options, timing);
         LazyLoadedDexApplication lazyLoaded = applicationReader.read(executorService);
+        keepDeclarations = lazyLoaded.getKeepDeclarations();
         timing.begin("To direct app");
         DirectMappedDexApplication application = lazyLoaded.toDirect();
         timing.end();
@@ -389,7 +392,8 @@ public class R8 {
                 appView,
                 profileCollectionAdditions,
                 subtypingInfo,
-                initialRuntimeTypeCheckInfoBuilder);
+                initialRuntimeTypeCheckInfoBuilder,
+                keepDeclarations);
         timing.end();
         timing.begin("After enqueuer");
         assert appView.rootSet().verifyKeptFieldsAreAccessedAndLive(appViewWithLiveness);
@@ -1108,12 +1112,14 @@ public class R8 {
       AppView<AppInfoWithClassHierarchy> appView,
       ProfileCollectionAdditions profileCollectionAdditions,
       SubtypingInfo subtypingInfo,
-      RuntimeTypeCheckInfo.Builder classMergingEnqueuerExtensionBuilder)
+      RuntimeTypeCheckInfo.Builder classMergingEnqueuerExtensionBuilder,
+      List<KeepDeclaration> keepDeclarations)
       throws ExecutionException {
     timing.begin("Set up enqueuer");
     Enqueuer enqueuer =
         EnqueuerFactory.createForInitialTreeShaking(
             appView, profileCollectionAdditions, executorService, subtypingInfo);
+    enqueuer.setKeepDeclarations(keepDeclarations);
     enqueuer.setAnnotationRemoverBuilder(annotationRemoverBuilder);
     if (appView.options().enableInitializedClassesInInstanceMethodsAnalysis) {
       enqueuer.registerAnalysis(new InitializedClassesInInstanceMethodsAnalysis(appView));

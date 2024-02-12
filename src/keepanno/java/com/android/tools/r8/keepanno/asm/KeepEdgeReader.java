@@ -529,7 +529,7 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
-  private static class ExtractedAnnotationsVisitor extends AnnotationVisitorBase {
+  public static class ExtractedAnnotationsVisitor extends AnnotationVisitorBase {
 
     private final Parent<KeepDeclaration> parent;
     private List<KeepDeclaration> declarations = new ArrayList<>();

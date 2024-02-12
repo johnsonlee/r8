@@ -503,6 +503,9 @@ public class ApplicationReader {
       if (libraryClassProvider != null) {
         builder.setLibraryClassCollection(new LibraryClassCollection(libraryClassProvider));
       }
+
+      // Transfer the keep declarations found during reading.
+      builder.setKeepDeclarations(application.getKeepDeclarations());
     }
   }
 }
