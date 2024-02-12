@@ -6,6 +6,7 @@ package com.android.tools.r8.keepanno.ast;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -51,11 +52,23 @@ public abstract class KeepTypePattern {
     throw new KeepEdgeException("Invalid type descriptor: " + typeDescriptor);
   }
 
-  public abstract <T> T match(
+  public abstract <T> T apply(
       Supplier<T> onAny,
       Function<KeepPrimitiveTypePattern, T> onPrimitive,
       Function<KeepArrayTypePattern, T> onArray,
       Function<KeepQualifiedClassNamePattern, T> onClass);
+
+  public final void match(
+      Runnable onAny,
+      Consumer<KeepPrimitiveTypePattern> onPrimitive,
+      Consumer<KeepArrayTypePattern> onArray,
+      Consumer<KeepQualifiedClassNamePattern> onClass) {
+    apply(
+        AstUtils.toVoidSupplier(onAny),
+        AstUtils.toVoidFunction(onPrimitive),
+        AstUtils.toVoidFunction(onArray),
+        AstUtils.toVoidFunction(onClass));
+  }
 
   public boolean isAny() {
     return false;
@@ -70,7 +83,7 @@ public abstract class KeepTypePattern {
     }
 
     @Override
-    public <T> T match(
+    public <T> T apply(
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
@@ -135,7 +148,7 @@ public abstract class KeepTypePattern {
     }
 
     @Override
-    public <T> T match(
+    public <T> T apply(
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
@@ -152,7 +165,7 @@ public abstract class KeepTypePattern {
     }
 
     @Override
-    public <T> T match(
+    public <T> T apply(
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
@@ -191,7 +204,7 @@ public abstract class KeepTypePattern {
     }
 
     @Override
-    public <T> T match(
+    public <T> T apply(
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,

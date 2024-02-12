@@ -4,6 +4,8 @@
 package com.android.tools.r8.keepanno.ast;
 
 import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public abstract class KeepMemberPattern {
 
@@ -119,4 +121,28 @@ public abstract class KeepMemberPattern {
   public abstract KeepMemberAccessPattern getAccessPattern();
 
   public abstract OptionalPattern<KeepQualifiedClassNamePattern> getAnnotatedByPattern();
+
+  public <T> T apply(
+      Function<KeepMemberPattern, T> onGeneralMember,
+      Function<KeepFieldPattern, T> onFieldMember,
+      Function<KeepMethodPattern, T> onMethodMember) {
+    if (isGeneralMember()) {
+      return onGeneralMember.apply(this);
+    }
+    if (isField()) {
+      return onFieldMember.apply(asField());
+    }
+    assert isMethod();
+    return onMethodMember.apply(asMethod());
+  }
+
+  public void match(
+      Consumer<KeepMemberPattern> onGeneralMember,
+      Consumer<KeepFieldPattern> onFieldMember,
+      Consumer<KeepMethodPattern> onMethodMember) {
+    apply(
+        AstUtils.toVoidFunction(onGeneralMember),
+        AstUtils.toVoidFunction(onFieldMember),
+        AstUtils.toVoidFunction(onMethodMember));
+  }
 }

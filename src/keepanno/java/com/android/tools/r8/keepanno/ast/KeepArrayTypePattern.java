@@ -43,7 +43,7 @@ public class KeepArrayTypePattern {
       throw new KeepEdgeException("No descriptor exists for 'any' array");
     }
     return Strings.repeat("[", dimensions)
-        + baseType.match(
+        + baseType.apply(
             () -> {
               throw new KeepEdgeException("No descriptor exists for 'any primitive' array");
             },

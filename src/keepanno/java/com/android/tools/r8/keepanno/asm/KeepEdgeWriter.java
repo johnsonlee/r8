@@ -25,7 +25,6 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants.TypePattern;
 import com.android.tools.r8.keepanno.ast.KeepAnnotationPattern;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepBindings;
-import com.android.tools.r8.keepanno.ast.KeepCheck;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepClassItemReference;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
@@ -150,25 +149,24 @@ public class KeepEdgeWriter implements Opcodes {
     KeepEdgeMetaInfo metaInfo = decl.getMetaInfo();
     visitor.visit(ExtractedAnnotation.version, metaInfo.getVersion().toVersionString());
     visitor.visit(ExtractedAnnotation.context, metaInfo.getContextDescriptorString());
-    if (decl.isKeepEdge()) {
-      KeepEdge edge = decl.asKeepEdge();
-      withNewVisitor(
-          visitor.visitAnnotation(ExtractedAnnotation.edge, Edge.DESCRIPTOR),
-          v -> new KeepEdgeWriter().writeEdge(edge, v));
-      return;
-    }
-    assert decl.isKeepCheck();
-    KeepCheck check = decl.asKeepCheck();
-    switch (check.getKind()) {
-      case REMOVED:
-        visitor.visit(ExtractedAnnotation.checkRemoved, true);
-        break;
-      case OPTIMIZED_OUT:
-        visitor.visit(ExtractedAnnotation.checkOptimizedOut, true);
-        break;
-      default:
-        throw new KeepEdgeException("Unexpected keep check kind: " + check.getKind());
-    }
+    decl.match(
+        edge -> {
+          withNewVisitor(
+              visitor.visitAnnotation(ExtractedAnnotation.edge, Edge.DESCRIPTOR),
+              v -> new KeepEdgeWriter().writeEdge(edge, v));
+        },
+        check -> {
+          switch (check.getKind()) {
+            case REMOVED:
+              visitor.visit(ExtractedAnnotation.checkRemoved, true);
+              break;
+            case OPTIMIZED_OUT:
+              visitor.visit(ExtractedAnnotation.checkOptimizedOut, true);
+              break;
+            default:
+              throw new KeepEdgeException("Unexpected keep check kind: " + check.getKind());
+          }
+        });
   }
 
   private void writeEdge(KeepEdge edge, AnnotationVisitor visitor) {
@@ -476,22 +474,18 @@ public class KeepEdgeWriter implements Opcodes {
             typePattern.match(
                 () -> {
                   // The empty type pattern matches any type.
-                  return null;
                 },
                 primitive -> {
                   if (primitive.isAny()) {
                     throw new Unimplemented("No support for any-primitive.");
                   }
                   v.visit(TypePattern.name, Type.getType(primitive.getDescriptor()).getClassName());
-                  return null;
                 },
                 array -> {
                   v.visit(TypePattern.name, Type.getType(array.getDescriptor()).getClassName());
-                  return null;
                 },
                 clazz -> {
                   writeClassNamePattern(clazz, TypePattern.classNamePattern, v);
-                  return null;
                 }));
   }
 

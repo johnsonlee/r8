@@ -4,6 +4,7 @@
 package com.android.tools.r8.keepanno.ast;
 
 import java.util.Collection;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -46,13 +47,18 @@ public abstract class KeepItemPattern {
 
   public abstract KeepItemReference toItemReference();
 
-  public <T> T match(
+  public final <T> T apply(
       Function<KeepClassItemPattern, T> onClass, Function<KeepMemberItemPattern, T> onMember) {
     if (isClassItemPattern()) {
       return onClass.apply(asClassItemPattern());
     }
     assert isMemberItemPattern();
     return onMember.apply(asMemberItemPattern());
+  }
+
+  public final void match(
+      Consumer<KeepClassItemPattern> onClass, Consumer<KeepMemberItemPattern> onMember) {
+    apply(AstUtils.toVoidFunction(onClass), AstUtils.toVoidFunction(onMember));
   }
 }
 

@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /** Base class for the declarations represented in the keep annoations library. */
@@ -10,11 +11,15 @@ public abstract class KeepDeclaration {
 
   public abstract KeepEdgeMetaInfo getMetaInfo();
 
-  public final <T> T match(Function<KeepEdge, T> onEdge, Function<KeepCheck, T> onCheck) {
+  public final <T> T apply(Function<KeepEdge, T> onEdge, Function<KeepCheck, T> onCheck) {
     if (isKeepEdge()) {
       return onEdge.apply(asKeepEdge());
     }
     return onCheck.apply(asKeepCheck());
+  }
+
+  public final void match(Consumer<KeepEdge> onEdge, Consumer<KeepCheck> onCheck) {
+    apply(AstUtils.toVoidFunction(onEdge), AstUtils.toVoidFunction(onCheck));
   }
 
   public final boolean isKeepEdge() {

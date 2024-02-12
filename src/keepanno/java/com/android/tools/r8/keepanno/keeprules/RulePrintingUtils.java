@@ -217,7 +217,7 @@ public abstract class RulePrintingUtils {
   }
 
   private static RulePrinter printType(RulePrinter printer, KeepTypePattern typePattern) {
-    return typePattern.match(
+    return typePattern.apply(
         printer::appendTripleStar,
         primitivePattern -> printPrimitiveType(printer, primitivePattern),
         arrayTypePattern -> printArrayType(printer, arrayTypePattern),

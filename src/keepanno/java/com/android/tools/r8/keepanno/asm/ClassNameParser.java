@@ -61,7 +61,7 @@ public class ClassNameParser
 
   KeepQualifiedClassNamePattern typeToClassType(
       KeepTypePattern typePattern, PropertyParsingContext parsingContext) {
-    return typePattern.match(
+    return typePattern.apply(
         KeepQualifiedClassNamePattern::any,
         primitiveTypePattern -> {
           throw parsingContext.error("Invalid use of primitive type where class type was expected");

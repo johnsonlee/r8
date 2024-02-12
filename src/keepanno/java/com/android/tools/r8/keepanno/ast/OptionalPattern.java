@@ -4,7 +4,9 @@
 
 package com.android.tools.r8.keepanno.ast;
 
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public abstract class OptionalPattern<T> {
 
@@ -37,6 +39,17 @@ public abstract class OptionalPattern<T> {
 
   public <S> S mapOrDefault(Function<T, S> fn, S defaultValue) {
     return defaultValue;
+  }
+
+  public final <S> S apply(Supplier<S> onAbsent, Function<T, S> onPresent) {
+    if (isAbsent()) {
+      return onAbsent.get();
+    }
+    return onPresent.apply(get());
+  }
+
+  public final void match(Runnable onAbsent, Consumer<T> onPresent) {
+    apply(AstUtils.toVoidSupplier(onAbsent), AstUtils.toVoidFunction(onPresent));
   }
 
   private static final class Absent extends OptionalPattern {
