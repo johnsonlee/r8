@@ -437,6 +437,10 @@ object ThirdPartyDeps {
     "dagger",
     Paths.get("third_party", "dagger", "2.41").toFile(),
     Paths.get("third_party", "dagger", "2.41.tar.gz.sha1").toFile())
+  val dartSdk = ThirdPartyDependency(
+    "dart-sdk",
+    Paths.get("third_party", "dart-sdk").toFile(),
+    Paths.get("third_party", "dart-sdk.tar.gz.sha1").toFile())
   val ddmLib = ThirdPartyDependency(
     "ddmlib",
     Paths.get("third_party", "ddmlib").toFile(),
