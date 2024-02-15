@@ -7,5 +7,5 @@ import java.util.function.BiConsumer;
 
 public interface BiForEachable<S, T> {
 
-  void forEach(BiConsumer<S, T> consumer);
+  void forEach(BiConsumer<? super S, ? super T> consumer);
 }

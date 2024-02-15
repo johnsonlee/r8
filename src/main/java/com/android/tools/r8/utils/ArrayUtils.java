@@ -18,6 +18,19 @@ import java.util.function.Predicate;
 
 public class ArrayUtils {
 
+  public static <T> boolean any(T[] array, Predicate<T> predicate) {
+    for (T element : array) {
+      if (predicate.test(element)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public static <T> boolean none(T[] array, Predicate<T> predicate) {
+    return !any(array, predicate);
+  }
+
   public static boolean containsInt(int[] array, int value) {
     for (int element : array) {
       if (element == value) {

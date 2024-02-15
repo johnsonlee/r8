@@ -66,6 +66,7 @@ public class VerticallyMergedClasses implements MergedClasses {
     return mergedClasses.values();
   }
 
+  @Override
   public Collection<DexType> getSourcesFor(DexType type) {
     return mergedClasses.getKeys(type);
   }

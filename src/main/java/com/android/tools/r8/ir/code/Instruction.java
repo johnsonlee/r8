@@ -556,7 +556,6 @@ public abstract class Instruction
       }
     }
     // Finally check that the dex instructions for the generated code actually are the same.
-    InternalOptions options = allocator.options();
     if (conversionOptions.isGeneratingDex()
         && !DexBuilder.identicalInstructionsAfterBuildingDexCode(
             this, other, allocator, conversionOptions)) {

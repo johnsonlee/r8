@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -30,6 +31,11 @@ public class MergedClassesCollection implements MergedClasses {
 
   @Override
   public DexType getMergeTargetOrDefault(DexType type, DexType defaultValue) {
+    throw new Unreachable();
+  }
+
+  @Override
+  public Collection<DexType> getSourcesFor(DexType type) {
     throw new Unreachable();
   }
 

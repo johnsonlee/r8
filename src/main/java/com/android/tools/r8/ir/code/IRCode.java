@@ -645,7 +645,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
             : "Expected reference to "
                 + classTypeLattice.getClassType().getTypeName()
                 + " to be rewritten at instruction "
-                + instruction.toString();
+                + instruction;
         assert !classTypeLattice
             .getInterfaces()
             .anyMatch(

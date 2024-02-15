@@ -92,19 +92,22 @@ public class MethodAccessInfoCollection {
     virtualInvokes.keySet().forEach(ConsumerUtils.acceptIfNotSeen(method, seen));
   }
 
-  public void forEachDirectInvoke(BiConsumer<DexMethod, ProgramMethodSet> consumer) {
+  public void forEachDirectInvoke(
+      BiConsumer<? super DexMethod, ? super ProgramMethodSet> consumer) {
     directInvokes.forEach(consumer);
   }
 
-  public void forEachInterfaceInvoke(BiConsumer<DexMethod, ProgramMethodSet> consumer) {
+  public void forEachInterfaceInvoke(
+      BiConsumer<? super DexMethod, ? super ProgramMethodSet> consumer) {
     interfaceInvokes.forEach(consumer);
   }
 
-  public void forEachStaticInvoke(BiConsumer<DexMethod, ProgramMethodSet> consumer) {
+  public void forEachStaticInvoke(
+      BiConsumer<? super DexMethod, ? super ProgramMethodSet> consumer) {
     staticInvokes.forEach(consumer);
   }
 
-  public void forEachSuperInvoke(BiConsumer<DexMethod, ProgramMethodSet> consumer) {
+  public void forEachSuperInvoke(BiConsumer<? super DexMethod, ? super ProgramMethodSet> consumer) {
     superInvokes.forEach(consumer);
   }
 
@@ -116,7 +119,8 @@ public class MethodAccessInfoCollection {
     superInvokes.getOrDefault(method, ProgramMethodSet.empty()).forEach(consumer);
   }
 
-  public void forEachVirtualInvoke(BiConsumer<DexMethod, ProgramMethodSet> consumer) {
+  public void forEachVirtualInvoke(
+      BiConsumer<? super DexMethod, ? super ProgramMethodSet> consumer) {
     virtualInvokes.forEach(consumer);
   }
 

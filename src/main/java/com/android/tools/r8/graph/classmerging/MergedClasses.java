@@ -7,6 +7,7 @@ package com.android.tools.r8.graph.classmerging;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import java.util.Collection;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
@@ -15,6 +16,8 @@ public interface MergedClasses {
   void forEachMergeGroup(BiConsumer<Set<DexType>, DexType> consumer);
 
   DexType getMergeTargetOrDefault(DexType type, DexType defaultValue);
+
+  Collection<DexType> getSourcesFor(DexType type);
 
   boolean isMergeSource(DexType type);
 

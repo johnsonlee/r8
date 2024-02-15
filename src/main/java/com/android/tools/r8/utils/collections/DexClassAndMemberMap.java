@@ -4,15 +4,18 @@
 
 package com.android.tools.r8.utils.collections;
 
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.DexClassAndMember;
+import com.android.tools.r8.utils.BiForEachable;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.TriPredicate;
 import com.google.common.base.Equivalence.Wrapper;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
@@ -21,7 +24,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V> {
+public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V>
+    implements BiForEachable<K, V>, Map<K, V> {
 
   private final Map<Wrapper<K>, V> backing;
 
@@ -33,6 +37,7 @@ public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V>
     this.backing = backing;
   }
 
+  @Override
   public void clear() {
     backing.clear();
   }
@@ -49,11 +54,28 @@ public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V>
     return backing.computeIfAbsent(wrapper, key -> fn.apply(key.get()));
   }
 
+  @SuppressWarnings("unchecked")
+  @Override
+  public boolean containsKey(Object key) {
+    return containsKey((K) key);
+  }
+
   public boolean containsKey(K member) {
     return backing.containsKey(wrap(member));
   }
 
-  public void forEach(BiConsumer<K, V> consumer) {
+  @Override
+  public boolean containsValue(Object value) {
+    throw new Unimplemented();
+  }
+
+  @Override
+  public Set<Entry<K, V>> entrySet() {
+    throw new Unimplemented();
+  }
+
+  @Override
+  public void forEach(BiConsumer<? super K, ? super V> consumer) {
     backing.forEach((wrapper, value) -> consumer.accept(wrapper.get(), value));
   }
 
@@ -65,6 +87,12 @@ public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V>
     backing.values().forEach(consumer);
   }
 
+  @SuppressWarnings("unchecked")
+  @Override
+  public V get(Object key) {
+    return get((K) key);
+  }
+
   public V get(K member) {
     return backing.get(wrap(member));
   }
@@ -73,10 +101,20 @@ public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V>
     return backing.get(wrapper);
   }
 
-  public List<K> getKeysSorted() {
+  public List<K> getKeys() {
     List<K> keys = new ArrayList<>(size());
     backing.keySet().forEach(key -> keys.add(key.get()));
-    return ListUtils.sort(keys, (x, y) -> x.getReference().compareTo(y.getReference()));
+    return keys;
+  }
+
+  public List<K> getKeysSorted() {
+    return ListUtils.sort(getKeys(), (x, y) -> x.getReference().compareTo(y.getReference()));
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public V getOrDefault(Object key, V defaultValue) {
+    return getOrDefault((K) key, defaultValue);
   }
 
   public V getOrDefault(K member, V defaultValue) {
@@ -88,13 +126,31 @@ public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V>
     return value != null ? value : defaultValue.get();
   }
 
+  @Override
   public boolean isEmpty() {
     return backing.isEmpty();
   }
 
+  @Override
+  public Set<K> keySet() {
+    throw new Unimplemented();
+  }
+
+  @Override
   public V put(K member, V value) {
     Wrapper<K> wrapper = wrap(member);
     return backing.put(wrapper, value);
+  }
+
+  @Override
+  public void putAll(Map<? extends K, ? extends V> m) {
+    throw new Unimplemented();
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public V remove(Object key) {
+    return remove((K) key);
   }
 
   public V remove(K member) {
@@ -113,6 +169,7 @@ public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V>
         .removeIf(entry -> predicate.test(entry.getKey().get(), entry.getValue(), entry));
   }
 
+  @Override
   public int size() {
     return backing.size();
   }
@@ -135,6 +192,11 @@ public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V>
       }
     }
     return TraversalContinuation.doContinue();
+  }
+
+  @Override
+  public Collection<V> values() {
+    throw new Unimplemented();
   }
 
   protected abstract Wrapper<K> wrap(K member);

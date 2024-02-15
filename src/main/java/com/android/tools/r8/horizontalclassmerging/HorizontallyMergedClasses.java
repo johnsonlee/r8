@@ -65,6 +65,7 @@ public class HorizontallyMergedClasses implements MergedClasses {
     return mergedClasses.keySet();
   }
 
+  @Override
   public Set<DexType> getSourcesFor(DexType type) {
     return mergedClasses.getKeys(type);
   }

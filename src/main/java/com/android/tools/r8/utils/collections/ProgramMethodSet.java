@@ -15,6 +15,7 @@ import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.ForEachable;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +57,7 @@ public abstract class ProgramMethodSet extends DexClassAndMethodSetBase<ProgramM
     return result;
   }
 
-  public static ProgramMethodSet create(ProgramMethodSet methodSet) {
+  public static ProgramMethodSet create(Collection<ProgramMethod> methodSet) {
     ProgramMethodSet newMethodSet = create(methodSet.size());
     newMethodSet.addAll(methodSet);
     return newMethodSet;

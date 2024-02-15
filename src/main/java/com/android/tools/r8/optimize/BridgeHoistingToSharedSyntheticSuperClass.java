@@ -59,7 +59,7 @@ public class BridgeHoistingToSharedSyntheticSuperClass {
     if (!options.isOptimizing() || !options.isShrinking()) {
       return;
     }
-    if (!appView.options().canHaveNonReboundConstructorInvoke()) {
+    if (!appView.options().canInitNewInstanceUsingSuperclassConstructor()) {
       // TODO(b/309575527): Extend to all runtimes.
       return;
     }
