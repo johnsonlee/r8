@@ -47,6 +47,7 @@ import com.android.tools.r8.ir.code.DexItemBasedConstString;
 import com.android.tools.r8.ir.code.Div;
 import com.android.tools.r8.ir.code.Goto;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.InitClass;
@@ -171,6 +172,7 @@ public class Lir2IRConverter {
     private final RewrittenPrototypeDescription protoChanges;
 
     private final Int2ReferenceMap<BasicBlock> blocks = new Int2ReferenceOpenHashMap<>();
+    private final IRMetadata irMetadata = new IRMetadata();
 
     private BasicBlock currentBlock = null;
     private int nextInstructionIndex = 0;
@@ -352,7 +354,7 @@ public class Lir2IRConverter {
           blockList,
           strategy.getValueNumberGenerator(),
           basicBlockNumberGenerator,
-          code.getMetadataForIR(),
+          irMetadata,
           conversionOptions);
     }
 
@@ -429,6 +431,7 @@ public class Lir2IRConverter {
       advanceInstructionState();
       instruction.setPosition(currentPosition);
       currentBlock.getInstructions().add(instruction);
+      irMetadata.record(instruction);
       instruction.setBlock(currentBlock);
       int[] debugEndIndices = code.getDebugLocalEnds(index);
       if (debugEndIndices != null) {
@@ -475,6 +478,7 @@ public class Lir2IRConverter {
       Argument argument = new Argument(dest, currentBlock.size(), isBooleanType);
       argument.setPosition(currentPosition);
       currentBlock.getInstructions().add(argument);
+      irMetadata.record(argument);
       argument.setBlock(currentBlock);
       return argument;
     }

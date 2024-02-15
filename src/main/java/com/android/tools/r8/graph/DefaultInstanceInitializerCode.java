@@ -22,7 +22,6 @@ import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
@@ -393,7 +392,6 @@ public class DefaultInstanceInitializerCode extends Code
             method.getDefinition().isD8R8Synthesized(),
             strategy,
             appView.options())
-        .setMetadata(IRMetadata.unknown())
         .addArgument(0, false)
         .addInvokeDirect(invokedMethod, ImmutableList.of(receiver), false)
         .addReturnVoid()

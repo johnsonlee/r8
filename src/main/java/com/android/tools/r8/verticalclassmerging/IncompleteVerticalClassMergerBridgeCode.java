@@ -19,7 +19,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
@@ -104,8 +103,7 @@ public class IncompleteVerticalClassMergerBridgeCode extends Code {
     LirEncodingStrategy<Value, Integer> strategy =
         LirStrategy.getDefaultStrategy().getEncodingStrategy();
     LirBuilder<Value, Integer> lirBuilder =
-        LirCode.builder(method, isD8R8Synthesized, strategy, appView.options())
-            .setMetadata(IRMetadata.unknown());
+        LirCode.builder(method, isD8R8Synthesized, strategy, appView.options());
 
     // Add all arguments.
     List<Value> argumentValues = new ArrayList<>();

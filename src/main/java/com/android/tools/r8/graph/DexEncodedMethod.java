@@ -37,7 +37,6 @@ import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
-import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
@@ -997,8 +996,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     LirEncodingStrategy<Value, Integer> strategy =
         LirStrategy.getDefaultStrategy().getEncodingStrategy();
     LirBuilder<Value, Integer> lirBuilder =
-        LirCode.builder(getReference(), isD8R8Synthesized(), strategy, appView.options())
-            .setMetadata(IRMetadata.unknown());
+        LirCode.builder(getReference(), isD8R8Synthesized(), strategy, appView.options());
     int instructionIndex = 0;
     for (; instructionIndex < getNumberOfArguments(); instructionIndex++) {
       DexType argumentType = getArgumentType(instructionIndex);

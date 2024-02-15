@@ -81,7 +81,6 @@ public class LirBasicCallbackTest extends TestBase {
             .createMethod(Reference.methodFromDescriptor("LFoo;", "bar", "()V"));
     LirCode<?> code =
         LirCode.builder(method, false, new ThrowingStrategy(), options)
-            .setMetadata(IRMetadata.unknown())
             .addConstNull()
             .addConstInt(42)
             .build();

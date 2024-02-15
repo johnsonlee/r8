@@ -16,6 +16,7 @@ public class DequeUtils {
     return deque;
   }
 
+  @SafeVarargs
   public static <T> Deque<T> newArrayDeque(T... elements) {
     Deque<T> deque = new ArrayDeque<>();
     Collections.addAll(deque, elements);

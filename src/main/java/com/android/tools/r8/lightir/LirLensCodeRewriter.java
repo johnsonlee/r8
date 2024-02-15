@@ -24,8 +24,6 @@ import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerGraphLens;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.code.IRMetadata;
-import com.android.tools.r8.ir.code.IROpcodeUtils;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
 import com.android.tools.r8.ir.conversion.LensCodeRewriter;
@@ -443,7 +441,6 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
       }
     }
 
-    IRMetadata irMetadata = code.getMetadataForIR();
     ByteArrayWriter byteWriter = new ByteArrayWriter();
     LirWriter lirWriter = new LirWriter(byteWriter);
     List<LirConstant> methodsToAppend = new ArrayList<>(numberOfInvokeOpcodeChanges);
@@ -475,9 +472,6 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
       int newOpcode = newType.getLirOpcode(newIsInterface);
       if (newOpcode != opcode) {
         --numberOfInvokeOpcodeChanges;
-        if (newType != type) {
-          irMetadata.record(IROpcodeUtils.fromLirInvokeOpcode(newOpcode));
-        }
         constantIndex =
             methodIndices.computeIfAbsent(
                 result.getReference(),
@@ -500,7 +494,6 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     // building IR again, it is just a small and size overhead.
     LirCode<EV> newCode =
         code.copyWithNewConstantsAndInstructions(
-            irMetadata,
             ArrayUtils.appendElements(code.getConstantPool(), methodsToAppend),
             byteWriter.toByteArray());
     return newCode;

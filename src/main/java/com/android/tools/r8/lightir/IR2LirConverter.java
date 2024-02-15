@@ -44,7 +44,6 @@ public class IR2LirConverter<EV> {
                 irCode.context().getDefinition().isD8R8Synthesized(),
                 strategy,
                 options)
-            .setMetadata(irCode.metadata())
             .prepareForBytecodeInstructionMetadata(bytecodeMetadataProvider.size());
   }
 
