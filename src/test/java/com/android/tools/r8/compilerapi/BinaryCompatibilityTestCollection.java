@@ -44,8 +44,8 @@ import org.junit.rules.TemporaryFolder;
  */
 public abstract class BinaryCompatibilityTestCollection<T> {
 
-  /** Jar to run tests against. */
-  public abstract Path getTargetJar();
+  /** Classpath to run tests against. */
+  public abstract List<Path> getTargetClasspath();
 
   /** Jar with tests. */
   public abstract Path getCheckedInTestJar();
@@ -103,7 +103,12 @@ public abstract class BinaryCompatibilityTestCollection<T> {
     verifyConsistency();
     IntBox numberOfTestMethods = new IntBox(0);
     List<Path> classPaths =
-        ImmutableList.of(getJunitDependency(), getHamcrest(), getTargetJar(), testJar);
+        ImmutableList.<Path>builder()
+            .add(getJunitDependency())
+            .add(getHamcrest())
+            .addAll(getTargetClasspath())
+            .add(testJar)
+            .build();
     List<String> args = new ArrayList<>();
     args.add("org.junit.runner.JUnitCore");
     tests.forEach(

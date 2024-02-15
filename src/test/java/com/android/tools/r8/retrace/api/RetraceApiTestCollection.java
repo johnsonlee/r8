@@ -62,8 +62,8 @@ public class RetraceApiTestCollection
   }
 
   @Override
-  public Path getTargetJar() {
-    return ToolHelper.getRetracePath();
+  public List<Path> getTargetClasspath() {
+    return ImmutableList.of(ToolHelper.getRetracePath());
   }
 
   @Override

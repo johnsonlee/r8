@@ -16,6 +16,7 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ListUtils;
 import com.google.common.base.Charsets;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -37,7 +38,7 @@ public class ExternalR8TestBuilder
         ExternalR8TestBuilder> {
 
   // The r8.jar to run.
-  private Path r8jar = ToolHelper.getR8MainPath();
+  private List<Path> r8Classpath = ToolHelper.getClasspathForR8();
 
   // Ordered list of program jar entries.
   private final List<Path> programJars = new ArrayList<>();
@@ -127,11 +128,15 @@ public class ExternalR8TestBuilder
       Path outputJar = outputFolder.resolve("output.jar");
       Path proguardMapFile = outputFolder.resolve("output.jar.map");
 
-      String classPath =
-          addR8ExternalDeps
-              ? r8jar.toAbsolutePath() + CLASSPATH_SEPARATOR + ToolHelper.getDeps()
-              : r8jar.toAbsolutePath().toString();
+      List<Path> classpathList = new ArrayList<>(r8Classpath);
+      if (addR8ExternalDeps) {
+        classpathList.add(ToolHelper.getDeps());
+      }
 
+      String classPath =
+          String.join(
+              CLASSPATH_SEPARATOR,
+              ListUtils.map(classpathList, p -> p.toAbsolutePath().toString()));
       List<String> command = new ArrayList<>();
       if (runtime.isDex()) {
         throw new Unimplemented();
@@ -296,7 +301,7 @@ public class ExternalR8TestBuilder
   }
 
   public ExternalR8TestBuilder useProvidedR8(Path r8jar) {
-    this.r8jar = r8jar;
+    this.r8Classpath = Collections.singletonList(r8jar);
     return self();
   }
 

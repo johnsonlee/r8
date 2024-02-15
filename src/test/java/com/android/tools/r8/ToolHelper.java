@@ -190,6 +190,10 @@ public class ToolHelper {
     return Paths.get(System.getProperty("KEEP_ANNO_JAVAC_BUILD_DIR").split(File.pathSeparator)[0]);
   }
 
+  public static List<Path> getClasspathForR8() {
+    return ImmutableList.of(getKeepAnnoPath(), getR8MainPath());
+  }
+
   public static final Path CHECKED_IN_R8_17_WITH_DEPS =
       Paths.get(THIRD_PARTY_DIR).resolve("r8").resolve("r8_with_deps_17.jar");
 
