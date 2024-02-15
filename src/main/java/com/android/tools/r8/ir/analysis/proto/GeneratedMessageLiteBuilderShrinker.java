@@ -8,6 +8,7 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
 
+import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -361,6 +362,7 @@ public class GeneratedMessageLiteBuilderShrinker {
       IRCode code,
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
+      MethodProcessingContext methodProcessingContext,
       Inliner inliner) {
     strengthenCheckCastInstructions(code);
 
@@ -371,7 +373,8 @@ public class GeneratedMessageLiteBuilderShrinker {
 
     // Run the enum optimization to optimize all Enum.ordinal() invocations. This is required to
     // get rid of the enum switch in dynamicMethod().
-    new EnumValueOptimizer(appView).run(code, Timing.empty());
+    new EnumValueOptimizer(appView)
+        .run(code, methodProcessor, methodProcessingContext, Timing.empty());
   }
 
   /**

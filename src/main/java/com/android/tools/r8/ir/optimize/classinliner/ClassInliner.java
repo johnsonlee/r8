@@ -233,7 +233,7 @@ public final class ClassInliner {
       appView.withGeneratedMessageLiteBuilderShrinker(
           shrinker ->
               shrinker.inlineCallsToDynamicMethod(
-                  method, code, feedback, methodProcessor, inliner));
+                  method, code, feedback, methodProcessor, methodProcessingContext, inliner));
     }
 
     if (anyInlinedMethods) {
