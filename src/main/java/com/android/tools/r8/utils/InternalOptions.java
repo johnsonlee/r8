@@ -924,6 +924,14 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public boolean debug = false;
 
+  public boolean shouldCompileMethodInDebugMode(AppView<?> appView, ProgramMethod method) {
+    return debug || method.getOrComputeReachabilitySensitive(appView);
+  }
+
+  public boolean shouldCompileMethodInReleaseMode(AppView<?> appView, ProgramMethod method) {
+    return !shouldCompileMethodInDebugMode(appView, method);
+  }
+
   private final AccessModifierOptions accessModifierOptions = new AccessModifierOptions(this);
   private final RewriteArrayOptions rewriteArrayOptions = new RewriteArrayOptions();
   private final CallSiteOptimizationOptions callSiteOptimizationOptions =

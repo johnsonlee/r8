@@ -212,7 +212,7 @@ public class CfBuilder {
 
     trivialGotosCollapser.run(code, timing);
     timing.begin("Remove redundant debug positions");
-    DexBuilder.removeRedundantDebugPositions(code);
+    DexBuilder.removeRedundantDebugPositions(appView, code);
     timing.end();
     timing.begin("Build CF Code");
     CfCode code = buildCfCode();

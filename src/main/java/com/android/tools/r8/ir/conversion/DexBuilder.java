@@ -220,7 +220,7 @@ public class DexBuilder {
 
       // Remove redundant debug position instructions. They would otherwise materialize as
       // unnecessary nops.
-      removeRedundantDebugPositions(ir);
+      removeRedundantDebugPositions(appView, ir);
 
       // Reset the state of the builder to start from scratch.
       reset();
@@ -440,8 +440,9 @@ public class DexBuilder {
   //
   // After this pass all remaining debug positions mark places where we must ensure a materializing
   // instruction, eg, for two successive lines without intermediate instructions.
-  public static void removeRedundantDebugPositions(IRCode code) {
-    if (!code.metadata().mayHaveDebugPosition()) {
+  public static void removeRedundantDebugPositions(AppView<?> appView, IRCode code) {
+    if (appView.options().shouldCompileMethodInReleaseMode(appView, code.context())
+        || !code.metadata().mayHaveDebugPosition()) {
       return;
     }
 
