@@ -91,7 +91,7 @@ public class DefaultInstanceInitializerCode extends Code
     DexEncodedMethod definition = method.getDefinition();
     assert definition.getCode().isDefaultInstanceInitializerCode();
     if (appView.testing().isSupportedLirPhase()) {
-      method.setCode(get().toLirCode(appView, method), appView);
+      method.setCode(get().toLirCode(appView, method, superType), appView);
     } else {
       assert appView.testing().isPreLirPhase();
       method.setCode(get().toCfCode(method, appView.dexItemFactory(), superType), appView);
@@ -378,12 +378,11 @@ public class DefaultInstanceInitializerCode extends Code
     return new CfCode(method.getHolderType(), getMaxStack(), getMaxLocals(method), instructions);
   }
 
-  public LirCode<?> toLirCode(AppView<?> appView, ProgramMethod method) {
+  public LirCode<?> toLirCode(AppView<?> appView, ProgramMethod method, DexType supertype) {
     TypeElement receiverType =
         method.getHolder().getType().toTypeElement(appView, Nullability.definitelyNotNull());
     Value receiver = new Value(0, receiverType, null);
-    DexMethod invokedMethod =
-        appView.dexItemFactory().createInstanceInitializer(method.getHolder().getSuperType());
+    DexMethod invokedMethod = appView.dexItemFactory().createInstanceInitializer(supertype);
     LirEncodingStrategy<Value, Integer> strategy =
         LirStrategy.getDefaultStrategy().getEncodingStrategy();
     strategy.defineValue(receiver, 0);

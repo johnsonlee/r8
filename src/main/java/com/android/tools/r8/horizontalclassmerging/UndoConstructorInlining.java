@@ -40,6 +40,7 @@ import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.WorkList;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -106,6 +107,9 @@ public class UndoConstructorInlining {
       return;
     }
 
+    // Extend the mapping to include subclasses.
+    ensureConstructorsOnSubclasses(ensureConstructorsOnClasses);
+
     // Create a mapping from program classes to their strongly connected program component. When we
     // need to synthesize a constructor on a class C we lock on the strongly connected component of
     // C to ensure thread safety.
@@ -114,6 +118,25 @@ public class UndoConstructorInlining {
     new LirRewriter(appView, ensureConstructorsOnClasses, stronglyConnectedComponents)
         .run(executorService);
     appView.dexItemFactory().clearTypeElementsCache();
+  }
+
+  private void ensureConstructorsOnSubclasses(
+      Map<DexType, DexProgramClass> ensureConstructorsOnClasses) {
+    // Perform a top-down traversal from each merge class and record that instantiations of
+    // subclasses of the merge class must not skip any constructors on the merge class.
+    Map<DexType, DexProgramClass> ensureConstructorsOnSubclasses = new IdentityHashMap<>();
+    for (DexProgramClass mergeClass : ensureConstructorsOnClasses.values()) {
+      WorkList.newIdentityWorkList(immediateSubtypingInfo.getSubclasses(mergeClass))
+          .process(
+              (current, worklist) -> {
+                if (ensureConstructorsOnClasses.containsKey(current.getType())) {
+                  return;
+                }
+                ensureConstructorsOnSubclasses.put(current.getType(), mergeClass);
+                worklist.addIfNotSeen(immediateSubtypingInfo.getSubclasses(current));
+              });
+    }
+    ensureConstructorsOnClasses.putAll(ensureConstructorsOnSubclasses);
   }
 
   private Map<DexProgramClass, StronglyConnectedComponent> computeStronglyConnectedComponents() {
@@ -158,14 +181,15 @@ public class UndoConstructorInlining {
     }
 
     private void processClass(DexProgramClass clazz) {
-      clazz.forEachProgramMethodMatching(this::filterMethod, this::processMethod);
+      clazz.forEachProgramMethodMatching(
+          method -> filterMethod(clazz, method), this::processMethod);
     }
 
-    private boolean filterMethod(DexEncodedMethod method) {
+    private boolean filterMethod(DexProgramClass clazz, DexEncodedMethod method) {
       return method.hasCode()
           && method.getCode().isLirCode()
           && mayInstantiateClassOfInterest(
-              method.getCode().asLirCode(), ensureConstructorsOnClasses);
+              clazz, method, method.getCode().asLirCode(), ensureConstructorsOnClasses);
     }
 
     private void processMethod(ProgramMethod method) {
@@ -177,7 +201,15 @@ public class UndoConstructorInlining {
     }
 
     private boolean mayInstantiateClassOfInterest(
-        LirCode<Integer> code, Map<DexType, DexProgramClass> ensureConstructorsOnClasses) {
+        DexProgramClass clazz,
+        DexEncodedMethod method,
+        LirCode<Integer> code,
+        Map<DexType, DexProgramClass> ensureConstructorsOnClasses) {
+      // Treat constructors as allocations of the super class.
+      if (method.isInstanceInitializer()
+          && ensureConstructorsOnClasses.containsKey(clazz.getSuperType())) {
+        return true;
+      }
       return ArrayUtils.any(
           code.getConstantPool(),
           constant ->
@@ -187,8 +219,7 @@ public class UndoConstructorInlining {
     private LirCode<Integer> rewriteLir(ProgramMethod method, LirCode<Integer> code) {
       // Create a mapping from new-instance value index -> new-instance type (limited to the types
       // of interest).
-      Int2ReferenceMap<DexProgramClass> allocationsOfInterest =
-          getAllocationsOfInterest(method, code);
+      Int2ReferenceMap<DexType> allocationsOfInterest = getAllocationsOfInterest(method, code);
       if (allocationsOfInterest.isEmpty()) {
         return code;
       }
@@ -237,22 +268,19 @@ public class UndoConstructorInlining {
               byteWriter.toByteArray());
     }
 
-    private Int2ReferenceMap<DexProgramClass> getAllocationsOfInterest(
+    private Int2ReferenceMap<DexType> getAllocationsOfInterest(
         ProgramMethod method, LirCode<Integer> code) {
-      Int2ReferenceMap<DexProgramClass> allocationsOfInterest = new Int2ReferenceOpenHashMap<>();
+      Int2ReferenceMap<DexType> allocationsOfInterest = new Int2ReferenceOpenHashMap<>();
       if (method.getDefinition().isInstanceInitializer()) {
-        DexProgramClass classOfInterest =
-            ensureConstructorsOnClasses.get(method.getHolder().getSuperType());
-        if (classOfInterest != null) {
-          allocationsOfInterest.put(0, classOfInterest);
+        if (ensureConstructorsOnClasses.containsKey(method.getHolder().getSuperType())) {
+          allocationsOfInterest.put(0, method.getHolder().getSuperType());
         }
       }
       for (LirInstructionView view : code) {
         if (view.getOpcode() == LirOpcodes.NEW) {
           DexType type = (DexType) code.getConstantItem(view.getNextConstantOperand());
-          DexProgramClass classOfInterest = ensureConstructorsOnClasses.get(type);
-          if (classOfInterest != null) {
-            allocationsOfInterest.put(view.getValueIndex(code), classOfInterest);
+          if (ensureConstructorsOnClasses.containsKey(type)) {
+            allocationsOfInterest.put(view.getValueIndex(code), type);
           }
         }
       }
@@ -271,7 +299,7 @@ public class UndoConstructorInlining {
         LirCode<Integer> code,
         LirWriter lirWriter,
         LirInstructionView view,
-        Int2ReferenceMap<DexProgramClass> allocationsOfInterest) {
+        Int2ReferenceMap<DexType> allocationsOfInterest) {
       int opcode = view.getOpcode();
       if (LirOpcodes.isOneByteInstruction(opcode)) {
         lirWriter.writeOneByteInstruction(opcode);
@@ -289,11 +317,13 @@ public class UndoConstructorInlining {
           firstValue = view.getNextValueOperand();
           numReadOperands++;
           int receiver = code.decodeValueIndex(firstValue, view.getValueIndex(code));
-          DexProgramClass classOfInterest = allocationsOfInterest.get(receiver);
-          if (classOfInterest != null
-              && classOfInterest.getType().isNotIdenticalTo(invokedMethod.getHolderType())
-              && !isForwardingConstructorCall(method, invokedMethod, receiver)) {
-            return new InvokeDirectInfo(invokedMethod, firstValue, classOfInterest);
+          DexType newType = allocationsOfInterest.get(receiver);
+          if (newType != null
+              && isConstructorInlined(newType, invokedMethod)
+              && !isForwardingConstructorCall(method, invokedMethod, receiver)
+              && isSkippingRequiredConstructor(newType, invokedMethod)) {
+            return new InvokeDirectInfo(
+                invokedMethod, firstValue, ensureConstructorsOnClasses.get(newType));
           }
         }
       }
@@ -312,12 +342,24 @@ public class UndoConstructorInlining {
       return null;
     }
 
+    private boolean isConstructorInlined(DexType newType, DexMethod invokedMethod) {
+      return newType.isNotIdenticalTo(invokedMethod.getHolderType());
+    }
+
     private boolean isForwardingConstructorCall(
         ProgramMethod method, DexMethod invokedMethod, int receiver) {
       assert invokedMethod.isInstanceInitializer(appView.dexItemFactory());
       return method.getDefinition().isInstanceInitializer()
           && invokedMethod.getHolderType().isIdenticalTo(method.getHolderType())
           && receiver == 0;
+    }
+
+    private boolean isSkippingRequiredConstructor(DexType newType, DexMethod invokedMethod) {
+      DexProgramClass requiredConstructorClass = ensureConstructorsOnClasses.get(newType);
+      assert requiredConstructorClass != null;
+      return !appView
+          .appInfo()
+          .isSubtype(invokedMethod.getHolderType(), requiredConstructorClass.getType());
     }
 
     private StronglyConnectedComponent getStronglyConnectedComponent(DexProgramClass clazz) {
@@ -331,10 +373,10 @@ public class UndoConstructorInlining {
     private final int firstValue;
     private final DexProgramClass programClass;
 
-    InvokeDirectInfo(DexMethod invokedMethod, int firstValue, DexProgramClass programClass) {
+    InvokeDirectInfo(DexMethod invokedMethod, int firstValue, DexProgramClass newType) {
       this.invokedMethod = invokedMethod;
       this.firstValue = firstValue;
-      this.programClass = programClass;
+      this.programClass = newType;
     }
 
     DexMethod getInvokedMethod() {
