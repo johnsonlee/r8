@@ -48,6 +48,7 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.LensCodeRewriter;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.conversion.OneTimeMethodProcessor;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.optimize.SimpleDominatingEffectAnalysis.SimpleEffectAnalysisResult;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
@@ -58,6 +59,7 @@ import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.R8MemberValuePropagation;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -106,6 +108,14 @@ public class Inliner {
 
   private final AvailableApiExceptions availableApiExceptions;
 
+  public Inliner(AppView<AppInfoWithLiveness> appView) {
+    this(appView, null);
+  }
+
+  public Inliner(AppView<AppInfoWithLiveness> appView, IRConverter converter) {
+    this(appView, converter, null);
+  }
+
   public Inliner(
       AppView<AppInfoWithLiveness> appView,
       IRConverter converter,
@@ -121,6 +131,11 @@ public class Inliner {
         appView.options().canHaveDalvikCatchHandlerVerificationBug()
             ? new AvailableApiExceptions(appView.options())
             : null;
+  }
+
+  public WhyAreYouNotInliningReporter createWhyAreYouNotInliningReporter(
+      ProgramMethod singleTarget, ProgramMethod context) {
+    return WhyAreYouNotInliningReporter.createFor(singleTarget, appView, context);
   }
 
   public LensCodeRewriter getLensCodeRewriter() {
@@ -139,6 +154,20 @@ public class Inliner {
 
   @SuppressWarnings("ReferenceEquality")
   public ConstraintWithTarget computeInliningConstraint(IRCode code) {
+    InternalOptions options = appView.options();
+    if (!options.inlinerOptions().enableInlining) {
+      return ConstraintWithTarget.NEVER;
+    }
+    ProgramMethod method = code.context();
+    DexEncodedMethod definition = method.getDefinition();
+    if (definition.isClassInitializer() || method.getOrComputeReachabilitySensitive(appView)) {
+      return ConstraintWithTarget.NEVER;
+    }
+    KeepMethodInfo keepInfo = appView.getKeepInfo(method);
+    if (!keepInfo.isInliningAllowed(options) && !keepInfo.isClassInliningAllowed(options)) {
+      return ConstraintWithTarget.NEVER;
+    }
+
     if (containsPotentialCatchHandlerVerificationError(code)) {
       return ConstraintWithTarget.NEVER;
     }
@@ -1030,7 +1059,8 @@ public class Inliner {
           // TODO(b/156853206): Should not duplicate resolution.
           ProgramMethod singleTarget = oracle.lookupSingleTarget(invoke, context);
           if (singleTarget == null) {
-            WhyAreYouNotInliningReporter.handleInvokeWithUnknownTarget(invoke, appView, context);
+            WhyAreYouNotInliningReporter.handleInvokeWithUnknownTarget(
+                this, invoke, appView, context);
             continue;
           }
 
@@ -1039,7 +1069,7 @@ public class Inliner {
           WhyAreYouNotInliningReporter whyAreYouNotInliningReporter =
               singleTargetOracle.isForcedInliningOracle()
                   ? NopWhyAreYouNotInliningReporter.getInstance()
-                  : WhyAreYouNotInliningReporter.createFor(singleTarget, appView, context);
+                  : createWhyAreYouNotInliningReporter(singleTarget, context);
           InlineResult inlineResult =
               singleTargetOracle.computeInlining(
                   code,
@@ -1095,15 +1125,17 @@ public class Inliner {
               appView, code, inlinee, blockIterator, blocksToRemove, action.getDowncastClass());
 
           if (methodProcessor.getCallSiteInformation().hasSingleCallSite(singleTarget, context)) {
-            assert converter.isInWave();
             feedback.markInlinedIntoSingleCallSite(singleTargetMethod);
-            if (singleCallerInlinedMethodsInWave.isEmpty()) {
-              converter.addWaveDoneAction(this::onWaveDone);
+            if (!(methodProcessor instanceof OneTimeMethodProcessor)) {
+              assert converter.isInWave();
+              if (singleCallerInlinedMethodsInWave.isEmpty()) {
+                converter.addWaveDoneAction(this::onWaveDone);
+              }
+              singleCallerInlinedMethodsInWave
+                  .computeIfAbsent(
+                      singleTarget.getHolder(), ignoreKey(ProgramMethodMap::createConcurrent))
+                  .put(singleTarget, context);
             }
-            singleCallerInlinedMethodsInWave
-                .computeIfAbsent(
-                    singleTarget.getHolder(), ignoreKey(ProgramMethodMap::createConcurrent))
-                .put(singleTarget, context);
           }
 
           classInitializationAnalysis.notifyCodeHasChanged();

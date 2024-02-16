@@ -10,6 +10,9 @@ import com.android.tools.r8.references.MethodReference;
 public abstract class DexClassAndMethod extends DexClassAndMember<DexEncodedMethod, DexMethod>
     implements LookupMethodTarget {
 
+  // To allow creation of sentinels.
+  DexClassAndMethod() {}
+
   DexClassAndMethod(DexClass holder, DexEncodedMethod method) {
     super(holder, method);
     assert holder.isClasspathClass() == (this instanceof ClasspathMethod);

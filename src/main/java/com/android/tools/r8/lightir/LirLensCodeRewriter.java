@@ -351,10 +351,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
             MethodConversionOptions.forLirPhase(appView).disableStringSwitchConversion());
     AffectedValues affectedValues = code.removeUnreachableBlocks();
     affectedValues.narrowingWithAssumeRemoval(appView, code);
-    DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
-    deadCodeRemover.run(code, Timing.empty());
+    new DeadCodeRemover(appView).run(code, Timing.empty());
     LirCode<Integer> result =
-        new IRToLirFinalizer(appView, deadCodeRemover)
+        new IRToLirFinalizer(appView)
             .finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
     return (LirCode<EV>) result;
   }
@@ -370,9 +369,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     // MethodProcessor argument is only used by unboxing lenses.
     MethodProcessor methodProcessor = null;
     new LensCodeRewriter(appView).rewrite(code, context, methodProcessor);
-    DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
-    deadCodeRemover.run(code, Timing.empty());
-    IRToLirFinalizer finalizer = new IRToLirFinalizer(appView, deadCodeRemover);
+    IRToLirFinalizer finalizer = new IRToLirFinalizer(appView);
     LirCode<?> rewritten =
         finalizer.finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
     return (LirCode<EV>) rewritten;

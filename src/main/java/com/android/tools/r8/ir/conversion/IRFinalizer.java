@@ -8,17 +8,14 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.utils.Timing;
 
 public abstract class IRFinalizer<C extends Code> {
 
   protected final AppView<?> appView;
-  protected final DeadCodeRemover deadCodeRemover;
 
-  public IRFinalizer(AppView<?> appView, DeadCodeRemover deadCodeRemover) {
+  public IRFinalizer(AppView<?> appView) {
     this.appView = appView;
-    this.deadCodeRemover = deadCodeRemover;
   }
 
   public abstract C finalizeCode(

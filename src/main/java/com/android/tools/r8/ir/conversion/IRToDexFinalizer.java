@@ -23,10 +23,13 @@ import com.android.tools.r8.utils.Timing;
 public class IRToDexFinalizer extends IRFinalizer<DexCode> {
 
   private static final int PEEPHOLE_OPTIMIZATION_PASSES = 2;
+
+  private final DeadCodeRemover deadCodeRemover;
   private final InternalOptions options;
 
   public IRToDexFinalizer(AppView<?> appView, DeadCodeRemover deadCodeRemover) {
-    super(appView, deadCodeRemover);
+    super(appView);
+    this.deadCodeRemover = deadCodeRemover;
     this.options = appView.options();
   }
 

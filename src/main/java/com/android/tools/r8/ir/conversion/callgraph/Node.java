@@ -8,7 +8,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class Node extends NodeBase<Node> implements Comparable<Node> {
+public class Node extends NodeBase<Node> implements Comparable<Node>, CycleEliminatorNode<Node> {
 
   public static Node[] EMPTY_ARRAY = {};
 
@@ -88,6 +88,7 @@ public class Node extends NodeBase<Node> implements Comparable<Node> {
     }
   }
 
+  @Override
   public void removeCaller(Node caller) {
     boolean callersChanged = callers.remove(caller);
     assert callersChanged;
@@ -96,6 +97,7 @@ public class Node extends NodeBase<Node> implements Comparable<Node> {
     assert !hasReader(caller);
   }
 
+  @Override
   public void removeReader(Node reader) {
     boolean readersChanged = readers.remove(reader);
     assert readersChanged;
@@ -134,6 +136,7 @@ public class Node extends NodeBase<Node> implements Comparable<Node> {
     return callers;
   }
 
+  @Override
   public Set<Node> getCalleesWithDeterministicOrder() {
     return callees;
   }
@@ -142,6 +145,7 @@ public class Node extends NodeBase<Node> implements Comparable<Node> {
     return readers;
   }
 
+  @Override
   public Set<Node> getWritersWithDeterministicOrder() {
     return writers;
   }
@@ -150,18 +154,22 @@ public class Node extends NodeBase<Node> implements Comparable<Node> {
     return numberOfCallSites;
   }
 
+  @Override
   public boolean hasCallee(Node method) {
     return callees.contains(method);
   }
 
+  @Override
   public boolean hasCaller(Node method) {
     return callers.contains(method);
   }
 
+  @Override
   public boolean hasReader(Node method) {
     return readers.contains(method);
   }
 
+  @Override
   public boolean hasWriter(Node method) {
     return writers.contains(method);
   }

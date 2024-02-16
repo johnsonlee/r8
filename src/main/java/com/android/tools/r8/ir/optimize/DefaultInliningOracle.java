@@ -62,7 +62,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-public final class DefaultInliningOracle implements InliningOracle {
+public class DefaultInliningOracle implements InliningOracle {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final InternalOptions options;
@@ -73,7 +73,7 @@ public final class DefaultInliningOracle implements InliningOracle {
   private final InliningReasonStrategy reasonStrategy;
   private int instructionAllowance;
 
-  DefaultInliningOracle(
+  public DefaultInliningOracle(
       AppView<AppInfoWithLiveness> appView,
       InliningReasonStrategy inliningReasonStrategy,
       ProgramMethod method,

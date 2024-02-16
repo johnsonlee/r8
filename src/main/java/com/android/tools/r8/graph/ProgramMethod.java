@@ -24,8 +24,14 @@ import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 public final class ProgramMethod extends DexClassAndMethod
     implements ProgramMember<DexEncodedMethod, DexMethod> {
 
+  private ProgramMethod() {}
+
   public ProgramMethod(DexProgramClass holder, DexEncodedMethod method) {
     super(holder, method);
+  }
+
+  public static ProgramMethod createSentinel() {
+    return new ProgramMethod();
   }
 
   public IRCode buildIR(AppView<?> appView) {

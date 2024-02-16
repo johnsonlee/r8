@@ -7,6 +7,7 @@ import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.conversion.callgraph.CallSiteInformation;
 import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.ThreadUtils.WorkLoad;
@@ -67,6 +68,17 @@ public class OneTimeMethodProcessor extends MethodProcessorWithWave {
       MethodProcessorEventConsumer eventConsumer,
       ProcessorContext processorContext) {
     return new OneTimeMethodProcessor(eventConsumer, processorContext, methodsToProcess);
+  }
+
+  private CallSiteInformation callSiteInformation;
+
+  @Override
+  public CallSiteInformation getCallSiteInformation() {
+    return callSiteInformation != null ? callSiteInformation : super.getCallSiteInformation();
+  }
+
+  public void setCallSiteInformation(CallSiteInformation callSiteInformation) {
+    this.callSiteInformation = callSiteInformation;
   }
 
   @Override

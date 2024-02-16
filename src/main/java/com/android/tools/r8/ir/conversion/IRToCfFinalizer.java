@@ -14,8 +14,11 @@ import com.android.tools.r8.utils.Timing;
 
 public class IRToCfFinalizer extends IRFinalizer<CfCode> {
 
+  private final DeadCodeRemover deadCodeRemover;
+
   public IRToCfFinalizer(AppView<?> appView, DeadCodeRemover deadCodeRemover) {
-    super(appView, deadCodeRemover);
+    super(appView);
+    this.deadCodeRemover = deadCodeRemover;
   }
 
   @Override

@@ -17,7 +17,6 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
-import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.Timing;
 import java.util.List;
@@ -76,9 +75,8 @@ public class TrivialPhiLirRegression299417534Test extends TestBase {
 
                       // Finalize the IR via LIR and rebuild it again.
                       Timing timing = Timing.empty();
-                      DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
                       BytecodeMetadataProvider metadataProvider = BytecodeMetadataProvider.empty();
-                      IRToLirFinalizer finalizer = new IRToLirFinalizer(appView, deadCodeRemover);
+                      IRToLirFinalizer finalizer = new IRToLirFinalizer(appView);
                       LirCode<Integer> lirCode =
                           finalizer.finalizeCode(code, metadataProvider, timing);
                       code.context().setCode(lirCode, appView);

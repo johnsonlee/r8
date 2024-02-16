@@ -7,7 +7,6 @@ package com.android.tools.r8.ir.conversion;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.IR2LirConverter;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirStrategy;
@@ -15,14 +14,13 @@ import com.android.tools.r8.utils.Timing;
 
 public class IRToLirFinalizer extends IRFinalizer<LirCode<Integer>> {
 
-  public IRToLirFinalizer(AppView<?> appView, DeadCodeRemover deadCodeRemover) {
-    super(appView, deadCodeRemover);
+  public IRToLirFinalizer(AppView<?> appView) {
+    super(appView);
   }
 
   @Override
   public LirCode<Integer> finalizeCode(
       IRCode code, BytecodeMetadataProvider bytecodeMetadataProvider, Timing timing) {
-    assert deadCodeRemover.verifyNoDeadCode(code);
     timing.begin("Finalize LIR code");
     LirCode<Integer> lirCode =
         IR2LirConverter.translate(

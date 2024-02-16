@@ -48,7 +48,7 @@ public abstract class MethodConversionOptions {
 
   public IRFinalizer<?> getFinalizer(DeadCodeRemover deadCodeRemover, AppView<?> appView) {
     if (isGeneratingLir()) {
-      return new IRToLirFinalizer(appView, deadCodeRemover);
+      return new IRToLirFinalizer(appView);
     }
     if (isGeneratingClassFiles()) {
       return new IRToCfFinalizer(appView, deadCodeRemover);

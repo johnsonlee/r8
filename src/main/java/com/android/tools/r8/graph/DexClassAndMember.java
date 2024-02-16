@@ -14,6 +14,12 @@ public abstract class DexClassAndMember<D extends DexEncodedMember<D, R>, R exte
   private final DexClass holder;
   private final D definition;
 
+  // To allow creation of sentinels.
+  DexClassAndMember() {
+    this.holder = null;
+    this.definition = null;
+  }
+
   @SuppressWarnings("ReferenceEquality")
   public DexClassAndMember(DexClass holder, D definition) {
     assert holder != null;

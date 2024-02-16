@@ -83,7 +83,6 @@ import com.android.tools.r8.naming.IdentifierNameStringMarker;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorIROptimizer;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.shaking.LibraryMethodOverrideAnalysis;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -1080,27 +1079,9 @@ public class IRConverter {
 
   public void markProcessed(IRCode code, OptimizationFeedback feedback) {
     // After all the optimizations have take place, we compute whether method should be inlined.
-    ProgramMethod method = code.context();
     ConstraintWithTarget state =
-        shouldComputeInliningConstraint(method)
-            ? inliner.computeInliningConstraint(code)
-            : ConstraintWithTarget.NEVER;
-    feedback.markProcessed(method.getDefinition(), state);
-  }
-
-  private boolean shouldComputeInliningConstraint(ProgramMethod method) {
-    if (!options.inlinerOptions().enableInlining || inliner == null) {
-      return false;
-    }
-    DexEncodedMethod definition = method.getDefinition();
-    if (definition.isClassInitializer() || method.getOrComputeReachabilitySensitive(appView)) {
-      return false;
-    }
-    KeepMethodInfo keepInfo = appView.getKeepInfo(method);
-    if (!keepInfo.isInliningAllowed(options) && !keepInfo.isClassInliningAllowed(options)) {
-      return false;
-    }
-    return true;
+        inliner != null ? inliner.computeInliningConstraint(code) : ConstraintWithTarget.NEVER;
+    feedback.markProcessed(code.context().getDefinition(), state);
   }
 
   public void printPhase(String phase) {

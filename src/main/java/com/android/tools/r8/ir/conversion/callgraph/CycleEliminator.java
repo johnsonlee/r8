@@ -21,30 +21,30 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
-public class CycleEliminator {
+public class CycleEliminator<N extends CycleEliminatorNode<N>> {
 
   public static final String CYCLIC_FORCE_INLINING_MESSAGE =
       "Unable to satisfy force inlining constraints due to cyclic force inlining";
 
-  private static class CallEdge {
+  private static class CallEdge<N extends CycleEliminatorNode<N>> {
 
-    private final Node caller;
-    private final Node callee;
+    private final N caller;
+    private final N callee;
 
-    CallEdge(Node caller, Node callee) {
+    CallEdge(N caller, N callee) {
       this.caller = caller;
       this.callee = callee;
     }
   }
 
-  static class StackEntryInfo {
+  static class StackEntryInfo<N extends CycleEliminatorNode<N>> {
 
     final int index;
-    final Node predecessor;
+    final N predecessor;
 
     boolean processed;
 
-    StackEntryInfo(int index, Node predecessor) {
+    StackEntryInfo(int index, N predecessor) {
       this.index = index;
       this.predecessor = predecessor;
     }
@@ -68,42 +68,42 @@ public class CycleEliminator {
   }
 
   // DFS stack.
-  private Deque<Node> stack = new ArrayDeque<>();
+  private Deque<N> stack = new ArrayDeque<>();
 
   // Nodes on the DFS stack.
-  private Map<Node, StackEntryInfo> stackEntryInfo = new IdentityHashMap<>();
+  private Map<N, StackEntryInfo<N>> stackEntryInfo = new IdentityHashMap<>();
 
   // Subset of the DFS stack, where the nodes on the stack are class initializers.
   //
   // This stack is used to efficiently compute if there is a class initializer on the stack.
-  private Deque<Node> clinitCallStack = new ArrayDeque<>();
+  private Deque<N> clinitCallStack = new ArrayDeque<>();
 
   // Subset of the DFS stack, where the nodes on the stack satisfy that the edge from the
   // predecessor to the node itself is a field read edge.
   //
   // This stack is used to efficiently compute if there is a field read edge inside a cycle when
   // a cycle is found.
-  private Deque<Node> writerStack = new ArrayDeque<>();
+  private Deque<N> writerStack = new ArrayDeque<>();
 
   // Set of nodes that have been visited entirely.
-  private Set<Node> marked = Sets.newIdentityHashSet();
+  private Set<N> marked = Sets.newIdentityHashSet();
 
   // Call edges that should be removed when the caller has been processed. These are not removed
   // directly since that would lead to ConcurrentModificationExceptions.
-  private Map<Node, Set<Node>> calleesToBeRemoved = new IdentityHashMap<>();
+  private Map<N, Set<N>> calleesToBeRemoved = new IdentityHashMap<>();
 
   // Field read edges that should be removed when the reader has been processed. These are not
   // removed directly since that would lead to ConcurrentModificationExceptions.
-  private Map<Node, Set<Node>> writersToBeRemoved = new IdentityHashMap<>();
+  private Map<N, Set<N>> writersToBeRemoved = new IdentityHashMap<>();
 
   // Mapping from callee to the set of callers that were removed from the callee.
   private Map<DexEncodedMethod, ProgramMethodSet> removedCallEdges = new IdentityHashMap<>();
 
   // Set of nodes from which cycle elimination must be rerun to ensure that all cycles will be
   // removed.
-  private LinkedHashSet<Node> revisit = new LinkedHashSet<>();
+  private LinkedHashSet<N> revisit = new LinkedHashSet<>();
 
-  public CycleEliminationResult breakCycles(Collection<Node> roots) {
+  public CycleEliminationResult breakCycles(Collection<N> roots) {
     // Break cycles in this call graph by removing edges causing cycles. We do this in a fixpoint
     // because the algorithm does not guarantee that all cycles will be removed from the graph
     // when we remove an edge in the middle of a cycle that contains another cycle.
@@ -139,12 +139,12 @@ public class CycleEliminator {
     removedCallEdges = new IdentityHashMap<>();
   }
 
-  private static class WorkItem {
+  private static class WorkItem<N extends CycleEliminatorNode<N>> {
     boolean isNode() {
       return false;
     }
 
-    NodeWorkItem asNode() {
+    NodeWorkItem<N> asNode() {
       return null;
     }
 
@@ -152,15 +152,15 @@ public class CycleEliminator {
       return false;
     }
 
-    IteratorWorkItem asIterator() {
+    IteratorWorkItem<N> asIterator() {
       return null;
     }
   }
 
-  private static class NodeWorkItem extends WorkItem {
-    private final Node node;
+  private static class NodeWorkItem<N extends CycleEliminatorNode<N>> extends WorkItem<N> {
+    private final N node;
 
-    NodeWorkItem(Node node) {
+    NodeWorkItem(N node) {
       this.node = node;
     }
 
@@ -170,16 +170,16 @@ public class CycleEliminator {
     }
 
     @Override
-    NodeWorkItem asNode() {
+    NodeWorkItem<N> asNode() {
       return this;
     }
   }
 
-  private static class IteratorWorkItem extends WorkItem {
-    private final Node callerOrReader;
-    private final Iterator<Node> calleesAndWriters;
+  private static class IteratorWorkItem<N extends CycleEliminatorNode<N>> extends WorkItem<N> {
+    private final N callerOrReader;
+    private final Iterator<N> calleesAndWriters;
 
-    IteratorWorkItem(Node callerOrReader, Iterator<Node> calleesAndWriters) {
+    IteratorWorkItem(N callerOrReader, Iterator<N> calleesAndWriters) {
       this.callerOrReader = callerOrReader;
       this.calleesAndWriters = calleesAndWriters;
     }
@@ -190,51 +190,51 @@ public class CycleEliminator {
     }
 
     @Override
-    IteratorWorkItem asIterator() {
+    IteratorWorkItem<N> asIterator() {
       return this;
     }
   }
 
-  private void traverse(Collection<Node> roots) {
-    Deque<WorkItem> workItems = new ArrayDeque<>(roots.size());
-    for (Node node : roots) {
-      workItems.addLast(new NodeWorkItem(node));
+  private void traverse(Collection<N> roots) {
+    Deque<WorkItem<N>> workItems = new ArrayDeque<>(roots.size());
+    for (N node : roots) {
+      workItems.addLast(new NodeWorkItem<>(node));
     }
     while (!workItems.isEmpty()) {
-      WorkItem workItem = workItems.removeFirst();
+      WorkItem<N> workItem = workItems.removeFirst();
       if (workItem.isNode()) {
-        Node node = workItem.asNode().node;
+        N node = workItem.asNode().node;
         if (marked.contains(node)) {
           // Already visited all nodes that can be reached from this node.
           continue;
         }
 
-        Node predecessor = stack.isEmpty() ? null : stack.peek();
+        N predecessor = stack.isEmpty() ? null : stack.peek();
         push(node, predecessor);
 
         // The callees and writers must be sorted before calling traverse recursively.
         // This ensures that cycles are broken the same way across multiple compilations.
-        Iterator<Node> calleesAndWriterIterator =
+        Iterator<N> calleesAndWriterIterator =
             Iterators.concat(
                 node.getCalleesWithDeterministicOrder().iterator(),
                 node.getWritersWithDeterministicOrder().iterator());
-        workItems.addFirst(new IteratorWorkItem(node, calleesAndWriterIterator));
+        workItems.addFirst(new IteratorWorkItem<>(node, calleesAndWriterIterator));
       } else {
         assert workItem.isIterator();
-        IteratorWorkItem iteratorWorkItem = workItem.asIterator();
-        Node newCallerOrReader =
+        IteratorWorkItem<N> iteratorWorkItem = workItem.asIterator();
+        N newCallerOrReader =
             iterateCalleesAndWriters(
                 iteratorWorkItem.calleesAndWriters, iteratorWorkItem.callerOrReader);
         if (newCallerOrReader != null) {
           // We did not finish the work on this iterator, so add it again.
           workItems.addFirst(iteratorWorkItem);
-          workItems.addFirst(new NodeWorkItem(newCallerOrReader));
+          workItems.addFirst(new NodeWorkItem<>(newCallerOrReader));
         } else {
           assert !iteratorWorkItem.calleesAndWriters.hasNext();
           pop(iteratorWorkItem.callerOrReader);
           marked.add(iteratorWorkItem.callerOrReader);
 
-          Collection<Node> calleesToBeRemovedFromCaller =
+          Collection<N> calleesToBeRemovedFromCaller =
               calleesToBeRemoved.remove(iteratorWorkItem.callerOrReader);
           if (calleesToBeRemovedFromCaller != null) {
             calleesToBeRemovedFromCaller.forEach(
@@ -244,7 +244,7 @@ public class CycleEliminator {
                 });
           }
 
-          Collection<Node> writersToBeRemovedFromReader =
+          Collection<N> writersToBeRemovedFromReader =
               writersToBeRemoved.remove(iteratorWorkItem.callerOrReader);
           if (writersToBeRemovedFromReader != null) {
             writersToBeRemovedFromReader.forEach(
@@ -255,11 +255,10 @@ public class CycleEliminator {
     }
   }
 
-  private Node iterateCalleesAndWriters(
-      Iterator<Node> calleeOrWriterIterator, Node callerOrReader) {
+  private N iterateCalleesAndWriters(Iterator<N> calleeOrWriterIterator, N callerOrReader) {
     while (calleeOrWriterIterator.hasNext()) {
-      Node calleeOrWriter = calleeOrWriterIterator.next();
-      StackEntryInfo calleeOrWriterStackEntryInfo = stackEntryInfo.get(calleeOrWriter);
+      N calleeOrWriter = calleeOrWriterIterator.next();
+      StackEntryInfo<N> calleeOrWriterStackEntryInfo = stackEntryInfo.get(calleeOrWriter);
       boolean foundCycle = calleeOrWriterStackEntryInfo != null;
       if (!foundCycle) {
         return calleeOrWriter;
@@ -315,11 +314,11 @@ public class CycleEliminator {
 
       // The call edge cannot be removed due to force inlining. Find another call edge in the
       // cycle that can safely be removed instead.
-      LinkedList<Node> cycle = extractCycle(calleeOrWriter);
+      LinkedList<N> cycle = extractCycle(calleeOrWriter);
 
       // Break the cycle by finding an edge that can be removed without breaking force
       // inlining. If that is not possible, this call fails with a compilation error.
-      CallEdge edge = findCallEdgeForRemoval(cycle);
+      CallEdge<N> edge = findCallEdgeForRemoval(cycle);
 
       // The edge will be null if this cycle has already been eliminated as a result of
       // another cycle elimination.
@@ -337,10 +336,10 @@ public class CycleEliminator {
     return null;
   }
 
-  private void push(Node node, Node predecessor) {
+  private void push(N node, N predecessor) {
     stack.push(node);
     assert !stackEntryInfo.containsKey(node);
-    stackEntryInfo.put(node, new StackEntryInfo(stack.size() - 1, predecessor));
+    stackEntryInfo.put(node, new StackEntryInfo<>(stack.size() - 1, predecessor));
     if (predecessor != null) {
       if (node.getMethod().isClassInitializer() && node.hasCaller(predecessor)) {
         clinitCallStack.push(node);
@@ -350,8 +349,8 @@ public class CycleEliminator {
     }
   }
 
-  private void pop(Node node) {
-    Node popped = stack.pop();
+  private void pop(N node) {
+    N popped = stack.pop();
     assert popped == node;
     assert stackEntryInfo.containsKey(node);
     stackEntryInfo.remove(node);
@@ -363,20 +362,20 @@ public class CycleEliminator {
     }
   }
 
-  private void removeCallEdge(Node caller, Node callee) {
+  private void removeCallEdge(N caller, N callee) {
     calleesToBeRemoved.computeIfAbsent(caller, ignore -> Sets.newIdentityHashSet()).add(callee);
   }
 
-  private void removeFieldReadEdge(Node reader, Node writer) {
+  private void removeFieldReadEdge(N reader, N writer) {
     writersToBeRemoved.computeIfAbsent(reader, ignore -> Sets.newIdentityHashSet()).add(writer);
   }
 
   private boolean removeIncomingEdgeOnStack(
-      Node target,
-      Node currentCalleeOrWriter,
-      StackEntryInfo currentCalleeOrWriterStackEntryInfo,
-      BiConsumer<Node, Node> edgeRemover) {
-    StackEntryInfo targetStackEntryInfo = stackEntryInfo.get(target);
+      N target,
+      N currentCalleeOrWriter,
+      StackEntryInfo<N> currentCalleeOrWriterStackEntryInfo,
+      BiConsumer<N, N> edgeRemover) {
+    StackEntryInfo<N> targetStackEntryInfo = stackEntryInfo.get(target);
     boolean cycleContainsTarget =
         targetStackEntryInfo.index > currentCalleeOrWriterStackEntryInfo.index;
     if (cycleContainsTarget) {
@@ -395,8 +394,8 @@ public class CycleEliminator {
 
   // TODO(b/270398965): Replace LinkedList.
   @SuppressWarnings("JdkObsolete")
-  private LinkedList<Node> extractCycle(Node entry) {
-    LinkedList<Node> cycle = new LinkedList<>();
+  private LinkedList<N> extractCycle(N entry) {
+    LinkedList<N> cycle = new LinkedList<>();
     do {
       assert !stack.isEmpty();
       cycle.add(stack.pop());
@@ -404,16 +403,16 @@ public class CycleEliminator {
     return cycle;
   }
 
-  private boolean verifyCycleSatisfies(Node entry, Predicate<LinkedList<Node>> predicate) {
-    LinkedList<Node> cycle = extractCycle(entry);
+  private boolean verifyCycleSatisfies(N entry, Predicate<LinkedList<N>> predicate) {
+    LinkedList<N> cycle = extractCycle(entry);
     assert predicate.test(cycle);
     recoverStack(cycle);
     return true;
   }
 
-  private CallEdge findCallEdgeForRemoval(LinkedList<Node> extractedCycle) {
-    Node callee = extractedCycle.getLast();
-    for (Node caller : extractedCycle) {
+  private CallEdge<N> findCallEdgeForRemoval(LinkedList<N> extractedCycle) {
+    N callee = extractedCycle.getLast();
+    for (N caller : extractedCycle) {
       if (caller.hasWriter(callee)) {
         // Not a call edge.
         assert !caller.hasCallee(callee);
@@ -427,28 +426,29 @@ public class CycleEliminator {
         return null;
       }
       if (callEdgeRemovalIsSafe(caller, callee)) {
-        return new CallEdge(caller, callee);
+        return new CallEdge<N>(caller, callee);
       }
       callee = caller;
     }
     throw new CompilationError(CYCLIC_FORCE_INLINING_MESSAGE);
   }
 
-  private static boolean callEdgeRemovalIsSafe(Node callerOrReader, Node calleeOrWriter) {
+  private static <N extends CycleEliminatorNode<N>> boolean callEdgeRemovalIsSafe(
+      N callerOrReader, N calleeOrWriter) {
     // All call edges where the callee is a method that should be force inlined must be kept,
     // to guarantee that the IR converter will process the callee before the caller.
     assert calleeOrWriter.hasCaller(callerOrReader);
     return !calleeOrWriter.getMethod().getOptimizationInfo().forceInline();
   }
 
-  private void recordCallEdgeRemoval(Node caller, Node callee) {
+  private void recordCallEdgeRemoval(N caller, N callee) {
     removedCallEdges
         .computeIfAbsent(callee.getMethod(), ignore -> ProgramMethodSet.create(2))
         .add(caller.getProgramMethod());
   }
 
-  private void recoverStack(LinkedList<Node> extractedCycle) {
-    Iterator<Node> descendingIt = extractedCycle.descendingIterator();
+  private void recoverStack(LinkedList<N> extractedCycle) {
+    Iterator<N> descendingIt = extractedCycle.descendingIterator();
     while (descendingIt.hasNext()) {
       stack.push(descendingIt.next());
     }

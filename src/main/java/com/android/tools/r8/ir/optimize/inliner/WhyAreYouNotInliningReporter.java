@@ -11,6 +11,7 @@ import com.android.tools.r8.ir.code.InstancePut;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
+import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -27,7 +28,10 @@ public abstract class WhyAreYouNotInliningReporter {
   }
 
   public static void handleInvokeWithUnknownTarget(
-      InvokeMethod invoke, AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
+      Inliner inliner,
+      InvokeMethod invoke,
+      AppView<AppInfoWithLiveness> appView,
+      ProgramMethod context) {
     if (appView.appInfo().hasNoWhyAreYouNotInliningMethods()) {
       return;
     }
@@ -41,7 +45,7 @@ public abstract class WhyAreYouNotInliningReporter {
     }
 
     for (ProgramMethod possibleTarget : possibleProgramTargets) {
-      createFor(possibleTarget, appView, context).reportUnknownTarget();
+      inliner.createWhyAreYouNotInliningReporter(possibleTarget, context).reportUnknownTarget();
     }
   }
 
