@@ -22,7 +22,6 @@ import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
-import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.lightir.ByteArrayWriter;
 import com.android.tools.r8.lightir.ByteUtils;
@@ -263,7 +262,6 @@ public class UndoConstructorInlining {
       return methodsToAppend.isEmpty()
           ? code
           : code.copyWithNewConstantsAndInstructions(
-              code.getMetadataForIR(),
               ArrayUtils.appendElements(code.getConstantPool(), methodsToAppend),
               byteWriter.toByteArray());
     }
@@ -466,8 +464,7 @@ public class UndoConstructorInlining {
       LirEncodingStrategy<Value, Integer> strategy =
           LirStrategy.getDefaultStrategy().getEncodingStrategy();
       LirBuilder<Value, Integer> lirBuilder =
-          LirCode.builder(methodReference, true, strategy, appView.options())
-              .setMetadata(IRMetadata.unknown());
+          LirCode.builder(methodReference, true, strategy, appView.options());
 
       int instructionIndex = 0;
       List<Value> argumentValues = new ArrayList<>();

@@ -28,7 +28,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.horizontalclassmerging.VirtualMethodMerger.SuperMethodReference;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
-import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.lightir.LirBuilder;
@@ -176,11 +175,10 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
         LirStrategy.getDefaultStrategy().getEncodingStrategy();
     LirBuilder<Value, Integer> lirBuilder =
         LirCode.builder(
-                method.getReference(),
-                method.getDefinition().isD8R8Synthesized(),
-                strategy,
-                appView.options())
-            .setMetadata(IRMetadata.unknown());
+            method.getReference(),
+            method.getDefinition().isD8R8Synthesized(),
+            strategy,
+            appView.options());
 
     int instructionIndex = 0;
     List<Value> argumentValues = new ArrayList<>();
