@@ -27,7 +27,11 @@ public class VerticalClassMergerOptions {
   }
 
   public boolean isEnabled(ClassMergerMode mode) {
-    if (!enabled || !options.isOptimizing() || !options.isShrinking()) {
+    if (!enabled
+        || options.debug
+        || options.intermediate
+        || !options.isOptimizing()
+        || !options.isShrinking()) {
       return false;
     }
     if (mode.isInitial() && !enableInitial) {

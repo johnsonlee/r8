@@ -60,18 +60,25 @@ public class VerticalClassMerger {
   }
 
   public static VerticalClassMerger createForInitialClassMerging(
-      AppView<AppInfoWithLiveness> appView) {
+      AppView<AppInfoWithLiveness> appView, Timing timing) {
+    timing.begin("VerticalClassMerger (1/3)");
     return new VerticalClassMerger(appView, ClassMergerMode.INITIAL);
   }
 
+  public static VerticalClassMerger createForIntermediateClassMerging(
+      AppView<AppInfoWithLiveness> appView, Timing timing) {
+    timing.begin("VerticalClassMerger (2/3)");
+    return new VerticalClassMerger(appView, ClassMergerMode.FINAL);
+  }
+
   public static VerticalClassMerger createForFinalClassMerging(
-      AppView<AppInfoWithLiveness> appView) {
+      AppView<AppInfoWithLiveness> appView, Timing timing) {
+    timing.begin("VerticalClassMerger (3/3)");
     return new VerticalClassMerger(appView, ClassMergerMode.FINAL);
   }
 
   public void runIfNecessary(ExecutorService executorService, Timing timing)
       throws ExecutionException {
-    timing.begin("VerticalClassMerger (" + mode.toString() + ")");
     if (shouldRun()) {
       run(executorService, timing);
     } else {

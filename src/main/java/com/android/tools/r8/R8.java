@@ -503,7 +503,7 @@ public class R8 {
 
       assert ArtProfileCompletenessChecker.verify(appView);
 
-      VerticalClassMerger.createForInitialClassMerging(appViewWithLiveness)
+      VerticalClassMerger.createForInitialClassMerging(appViewWithLiveness, timing)
           .runIfNecessary(executorService, timing);
       HorizontalClassMerger.createForInitialClassMerging(appViewWithLiveness)
           .runIfNecessary(
@@ -746,7 +746,7 @@ public class R8 {
         assert appView.dexItemFactory().verifyNoCachedTypeElements();
 
         if (appView.hasLiveness()) {
-          VerticalClassMerger.createForFinalClassMerging(appView.withLiveness())
+          VerticalClassMerger.createForIntermediateClassMerging(appView.withLiveness(), timing)
               .runIfNecessary(executorService, timing);
           assert appView.dexItemFactory().verifyNoCachedTypeElements();
         }
@@ -765,6 +765,10 @@ public class R8 {
         assert appView.dexItemFactory().verifyNoCachedTypeElements();
 
         if (appView.hasLiveness()) {
+          VerticalClassMerger.createForFinalClassMerging(appView.withLiveness(), timing)
+              .runIfNecessary(executorService, timing);
+          assert appView.dexItemFactory().verifyNoCachedTypeElements();
+
           new ProtoNormalizer(appViewWithLiveness).run(executorService, timing);
         }
       }
