@@ -19,6 +19,7 @@ import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeInstructionMetadata;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CatchHandlers;
@@ -248,6 +249,14 @@ public class LirBuilder<V, EV> {
 
     @Override
     public void internalLirConstantAcceptHashing(HashingVisitor visitor) {}
+
+    public NameComputationPayload rewrittenWithLens(GraphLens graphLens, GraphLens codeLens) {
+      NameComputationInfo<?> rewrittenNameComputationInfo =
+          nameComputationInfo.rewrittenWithLens(graphLens, codeLens);
+      return rewrittenNameComputationInfo != nameComputationInfo
+          ? new NameComputationPayload(rewrittenNameComputationInfo)
+          : this;
+    }
   }
 
   public static class RecordFieldValuesPayload extends InstructionPayload {

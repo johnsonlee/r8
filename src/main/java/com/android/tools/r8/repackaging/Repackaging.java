@@ -21,6 +21,7 @@ import com.android.tools.r8.graph.ProgramPackage;
 import com.android.tools.r8.graph.ProgramPackageCollection;
 import com.android.tools.r8.graph.SortedProgramPackageCollection;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
+import com.android.tools.r8.naming.IdentifierMinifier;
 import com.android.tools.r8.naming.Minifier.MinificationPackageNamingStrategy;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
 import com.android.tools.r8.repackaging.RepackagingLens.Builder;
@@ -78,6 +79,7 @@ public class Repackaging {
       appView.rewriteWithLensAndApplication(lens, appBuilder.build(), executorService, timing);
       appView.testing().repackagingLensConsumer.accept(appView.dexItemFactory(), lens);
       new GenericSignatureRewriter(appView).run(appView.appInfo().classes(), executorService);
+      new IdentifierMinifier(appView).rewriteDexItemBasedConstStringInStaticFields(executorService);
     }
     appView.notifyOptimizationFinishedForTesting();
     timing.end();
@@ -125,14 +127,12 @@ public class Repackaging {
     return true;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private RepackagingLens repackageClasses(
       DirectMappedDexApplication.Builder appBuilder, ExecutorService executorService)
       throws ExecutionException {
     if (proguardConfiguration.getPackageObfuscationMode().isNone()) {
       return null;
     }
-
     BiMap<DexType, DexType> mappings = HashBiMap.create();
     Map<String, String> packageMappings = new HashMap<>();
     Set<String> seenPackageDescriptors = new HashSet<>();
@@ -141,7 +141,7 @@ public class Repackaging {
     processPackagesInDesiredLocation(packages, mappings, packageMappings, seenPackageDescriptors);
     processRemainingPackages(
         packages, mappings, packageMappings, seenPackageDescriptors, executorService);
-    mappings.entrySet().removeIf(entry -> entry.getKey() == entry.getValue());
+    mappings.entrySet().removeIf(entry -> entry.getKey().isIdenticalTo(entry.getValue()));
     if (mappings.isEmpty()) {
       return null;
     }

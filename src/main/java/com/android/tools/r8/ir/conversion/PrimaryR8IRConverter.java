@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.fieldaccess.TrivialFieldAccessReprocessor;
 import com.android.tools.r8.ir.optimize.info.MethodResolutionOptimizationInfoAnalysis;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
+import com.android.tools.r8.naming.IdentifierMinifier;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagator;
 import com.android.tools.r8.optimize.compose.ComposableOptimizationPass;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -107,6 +108,9 @@ public class PrimaryR8IRConverter extends IRConverter {
       assert appView.graphLens() == graphLensForPrimaryOptimizationPass;
       timing.end();
     }
+
+    // Rewrite DexItemBasedConstString static field values before updating code lens.
+    new IdentifierMinifier(appView).rewriteDexItemBasedConstStringInStaticFields(executorService);
 
     // The field access info collection is not maintained during IR processing.
     appView.appInfo().withLiveness().getFieldAccessInfoCollection().destroyAccessContexts();

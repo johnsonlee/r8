@@ -10,10 +10,13 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue.DexItemBasedValueString;
 import com.android.tools.r8.graph.DexValue.DexValueString;
+import com.android.tools.r8.graph.ProgramField;
+import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
 import com.android.tools.r8.shaking.ProguardClassFilter;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -25,12 +28,10 @@ public class IdentifierMinifier {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final ProguardClassFilter adaptClassStrings;
-  private final NamingLens lens;
 
   public IdentifierMinifier(AppView<? extends AppInfoWithClassHierarchy> appView) {
     this.appView = appView;
     this.adaptClassStrings = appView.options().getProguardConfiguration().getAdaptClassStrings();
-    this.lens = appView.getNamingLens();
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {
@@ -93,25 +94,50 @@ public class IdentifierMinifier {
       throws ExecutionException {
     ThreadUtils.processItems(
         appView.appInfo().classes(),
-        clazz -> {
-          // Some const strings could be moved to field's static value (from <clinit>).
-          for (DexEncodedField field : clazz.staticFields()) {
-            replaceDexItemBasedConstStringInStaticField(field);
-          }
-        },
+        clazz ->
+            clazz.forEachProgramStaticFieldMatching(
+                IdentifierMinifier::hasExplicitStaticDexItemBasedValueString,
+                this::replaceDexItemBasedConstStringInStaticField),
         appView.options().getThreadingModule(),
         executorService);
   }
 
-  private void replaceDexItemBasedConstStringInStaticField(DexEncodedField field) {
-    assert field.isStatic();
-    DexItemBasedValueString staticValue = field.getStaticValue().asDexItemBasedValueString();
-    if (staticValue != null) {
-      DexString replacement =
-          staticValue
-              .getNameComputationInfo()
-              .computeNameFor(staticValue.getValue(), appView, appView.graphLens(), lens);
-      field.setStaticValue(new DexValueString(replacement));
-    }
+  private void replaceDexItemBasedConstStringInStaticField(ProgramField field) {
+    DexItemBasedValueString staticValue =
+        field.getDefinition().getStaticValue().asDexItemBasedValueString();
+    DexString replacement =
+        staticValue.getNameComputationInfo().computeNameFor(staticValue.getValue(), appView);
+    field.getDefinition().setStaticValue(new DexValueString(replacement));
+  }
+
+  public void rewriteDexItemBasedConstStringInStaticFields(ExecutorService executorService)
+      throws ExecutionException {
+    ThreadUtils.processItems(
+        appView.appInfo().classes(),
+        clazz ->
+            clazz.forEachProgramStaticFieldMatching(
+                IdentifierMinifier::hasExplicitStaticDexItemBasedValueString,
+                this::rewriteDexItemBasedConstStringInStaticFields),
+        appView.options().getThreadingModule(),
+        executorService);
+  }
+
+  private void rewriteDexItemBasedConstStringInStaticFields(ProgramField field) {
+    DexItemBasedValueString staticValue =
+        field.getDefinition().getStaticValue().asDexItemBasedValueString();
+    DexReference rewrittenReference =
+        appView.graphLens().getRenamedReference(staticValue.getValue(), appView.codeLens());
+    NameComputationInfo<?> rewrittenNameComputationInfo =
+        staticValue
+            .getNameComputationInfo()
+            .rewrittenWithLens(appView.graphLens(), appView.codeLens());
+    field
+        .getDefinition()
+        .setStaticValue(
+            new DexItemBasedValueString(rewrittenReference, rewrittenNameComputationInfo));
+  }
+
+  private static boolean hasExplicitStaticDexItemBasedValueString(DexEncodedField field) {
+    return field.hasExplicitStaticValue() && field.getStaticValue().isDexItemBasedValueString();
   }
 }

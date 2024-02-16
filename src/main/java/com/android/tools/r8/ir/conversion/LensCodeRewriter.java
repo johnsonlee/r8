@@ -11,6 +11,7 @@ import static com.android.tools.r8.ir.code.Opcodes.CHECK_CAST;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_CLASS;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_METHOD_HANDLE;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_METHOD_TYPE;
+import static com.android.tools.r8.ir.code.Opcodes.DEX_ITEM_BASED_CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.INIT_CLASS;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_GET;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_OF;
@@ -74,6 +75,7 @@ import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.ConstMethodHandle;
 import com.android.tools.r8.ir.code.ConstMethodType;
+import com.android.tools.r8.ir.code.DexItemBasedConstString;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.FieldPut;
 import com.android.tools.r8.ir.code.IRCode;
@@ -281,6 +283,19 @@ public class LensCodeRewriter {
       while (iterator.hasNext()) {
         Instruction current = iterator.next();
         switch (current.opcode()) {
+          case DEX_ITEM_BASED_CONST_STRING:
+            {
+              DexItemBasedConstString dexItemBasedConstString = current.asDexItemBasedConstString();
+              iterator.replaceCurrentInstruction(
+                  new DexItemBasedConstString(
+                      dexItemBasedConstString.outValue(),
+                      graphLens.getRenamedReference(dexItemBasedConstString.getItem(), codeLens),
+                      dexItemBasedConstString
+                          .getNameComputationInfo()
+                          .rewrittenWithLens(graphLens, codeLens)));
+            }
+            break;
+
           case INVOKE_CUSTOM:
             {
               InvokeCustom invokeCustom = current.asInvokeCustom();

@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
@@ -32,8 +33,10 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
+import com.android.tools.r8.lightir.LirBuilder.NameComputationPayload;
 import com.android.tools.r8.lightir.LirBuilder.RecordFieldValuesPayload;
 import com.android.tools.r8.lightir.LirCode.TryCatchTable;
+import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.verticalclassmerging.VerticalClassMergerGraphLens;
@@ -91,6 +94,11 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   public void onCallSiteReference(DexCallSite callSite) {
     addRewrittenMapping(callSite, helper.rewriteCallSite(callSite, context));
+  }
+
+  public void onNameComputationPayload(NameComputationPayload nameComputationPayload) {
+    addRewrittenMapping(
+        nameComputationPayload, nameComputationPayload.rewrittenWithLens(graphLens, codeLens));
   }
 
   public void onMethodHandleReference(DexMethodHandle methodHandle) {
@@ -171,6 +179,12 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
               + " and "
               + old);
     }
+  }
+
+  @Override
+  public void onDexItemBasedConstString(
+      DexReference item, NameComputationInfo<?> nameComputationInfo) {
+    addRewrittenMapping(item, graphLens.getRenamedReference(item, codeLens));
   }
 
   @Override
@@ -379,6 +393,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     // The code may need to be rewritten by the lens.
     // First pass scans just the constant pool to see if any types change or if there are any
     // fields/methods that need to be examined.
+    boolean hasDexItemBasedConstString = false;
     boolean hasFieldReference = false;
     boolean hasPotentialRewrittenMethod = false;
     for (LirConstant constant : code.getConstantPool()) {
@@ -391,6 +406,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
         hasFieldReference = true;
       } else if (constant instanceof DexCallSite) {
         onCallSiteReference((DexCallSite) constant);
+      } else if (constant instanceof NameComputationPayload) {
+        onNameComputationPayload((NameComputationPayload) constant);
+        hasDexItemBasedConstString = true;
       } else if (constant instanceof DexMethodHandle) {
         onMethodHandleReference((DexMethodHandle) constant);
       } else if (constant instanceof DexProto) {
@@ -406,7 +424,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     // rewriting is instruction-sensitive (i.e., may be dependent on the invoke type).
     boolean hasPotentialNonTrivialFieldAccessRewriting =
         hasFieldReference && graphLens.isClassMergerLens();
-    if (hasPotentialNonTrivialFieldAccessRewriting || hasPotentialRewrittenMethod) {
+    if (hasDexItemBasedConstString
+        || hasPotentialNonTrivialFieldAccessRewriting
+        || hasPotentialRewrittenMethod) {
       for (LirInstructionView view : code) {
         view.accept(this);
         if (hasNonTrivialRewritings) {

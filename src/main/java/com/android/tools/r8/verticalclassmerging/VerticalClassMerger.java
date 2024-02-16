@@ -19,6 +19,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.conversion.LirConverter;
+import com.android.tools.r8.naming.IdentifierMinifier;
 import com.android.tools.r8.optimize.argumentpropagation.utils.ProgramClassesBidirectedGraph;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
@@ -237,6 +238,7 @@ public class VerticalClassMerger {
       return;
     }
     LirConverter.rewriteLirWithLens(appView, timing, executorService);
+    new IdentifierMinifier(appView).rewriteDexItemBasedConstStringInStaticFields(executorService);
   }
 
   private void updateArtProfiles(

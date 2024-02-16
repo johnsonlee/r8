@@ -22,6 +22,8 @@ import java.util.function.Function;
 
 public class DexField extends DexMember<DexEncodedField, DexField> {
 
+  public static DexField[] EMPTY_ARRAY = new DexField[0];
+
   @SuppressWarnings("ReferenceEquality")
   public static boolean identical(DexField t1, DexField t2) {
     return t1 == t2;

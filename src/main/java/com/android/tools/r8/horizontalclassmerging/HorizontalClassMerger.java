@@ -22,6 +22,7 @@ import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConv
 import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
+import com.android.tools.r8.naming.IdentifierMinifier;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -183,24 +184,24 @@ public class HorizontalClassMerger {
     DexApplication newApplication = getNewApplication(mergedClasses);
     if (appView.enableWholeProgramOptimizations()) {
       // Prune keep info.
+      AppView<AppInfoWithClassHierarchy> appViewWithClassHierarchy = appView.withClassHierarchy();
       KeepInfoCollection keepInfo = appView.getKeepInfo();
       keepInfo.mutate(mutator -> mutator.removeKeepInfoForMergedClasses(prunedItems));
-      assert appView.hasClassHierarchy();
       if (mode.isInitial()) {
         appView.rewriteWithLensAndApplication(
             horizontalClassMergerGraphLens, newApplication.toDirect(), executorService, timing);
       } else {
         appView.rewriteWithLens(horizontalClassMergerGraphLens, executorService, timing);
-        LirConverter.rewriteLirWithLens(appView.withClassHierarchy(), timing, executorService);
+        LirConverter.rewriteLirWithLens(appViewWithClassHierarchy, timing, executorService);
+        new IdentifierMinifier(appViewWithClassHierarchy)
+            .rewriteDexItemBasedConstStringInStaticFields(executorService);
         if (appView.hasLiveness()) {
-          appView
-              .withLiveness()
-              .setAppInfo(appView.appInfoWithLiveness().rebuildWithLiveness(newApplication));
+          AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+          appViewWithLiveness.setAppInfo(
+              appViewWithLiveness.appInfo().rebuildWithLiveness(newApplication));
         } else {
-          appView
-              .withClassHierarchy()
-              .setAppInfo(
-                  appView.appInfoWithClassHierarchy().rebuildWithClassHierarchy(newApplication));
+          appViewWithClassHierarchy.setAppInfo(
+              appViewWithClassHierarchy.appInfo().rebuildWithClassHierarchy(newApplication));
         }
         appView.clearCodeRewritings(executorService, timing);
       }

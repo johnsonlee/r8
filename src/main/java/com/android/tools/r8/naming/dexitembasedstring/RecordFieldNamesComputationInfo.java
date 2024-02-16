@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.naming.dexitembasedstring;
 
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -14,6 +13,7 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.ComparatorUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
@@ -85,9 +85,8 @@ public abstract class RecordFieldNamesComputationInfo extends NameComputationInf
     public DexString internalComputeNameFor(
         DexType type,
         DexDefinitionSupplier definitions,
-        GraphLens graphLens,
         NamingLens namingLens) {
-      return internalComputeNameFor(type, definitions, graphLens, i -> fieldNames[i]);
+      return internalComputeNameFor(type, definitions, i -> fieldNames[i]);
     }
 
     @Override
@@ -115,6 +114,16 @@ public abstract class RecordFieldNamesComputationInfo extends NameComputationInf
     void internalAcceptHashing(HashingVisitor visitor) {
       StructuralItem.super.acceptHashing(visitor);
     }
+
+    @Override
+    public NameComputationInfo<DexType> rewrittenWithLens(GraphLens graphLens, GraphLens codeLens) {
+      DexField[] rewrittenFields =
+          ArrayUtils.map(
+              fields, field -> graphLens.lookupField(field, codeLens), DexField.EMPTY_ARRAY);
+      return rewrittenFields != fields
+          ? new MissMatchingRecordFieldNamesComputationInfo(fieldNames, rewrittenFields)
+          : this;
+    }
   }
 
   private static class MatchingRecordFieldNamesComputationInfo
@@ -134,18 +143,11 @@ public abstract class RecordFieldNamesComputationInfo extends NameComputationInf
     public DexString internalComputeNameFor(
         DexType type,
         DexDefinitionSupplier definitions,
-        GraphLens graphLens,
         NamingLens namingLens) {
       return internalComputeNameFor(
           type,
           definitions,
-          graphLens,
-          i ->
-              namingLens
-                  .lookupField(
-                      graphLens.getRenamedFieldSignature(fields[i]), definitions.dexItemFactory())
-                  .name
-                  .toString());
+          i -> namingLens.lookupField(fields[i], definitions.dexItemFactory()).name.toString());
     }
 
     @Override
@@ -172,6 +174,16 @@ public abstract class RecordFieldNamesComputationInfo extends NameComputationInf
     @Override
     void internalAcceptHashing(HashingVisitor visitor) {
       StructuralItem.super.acceptHashing(visitor);
+    }
+
+    @Override
+    public NameComputationInfo<DexType> rewrittenWithLens(GraphLens graphLens, GraphLens codeLens) {
+      DexField[] rewrittenFields =
+          ArrayUtils.map(
+              fields, field -> graphLens.lookupField(field, codeLens), DexField.EMPTY_ARRAY);
+      return rewrittenFields != fields
+          ? new MatchingRecordFieldNamesComputationInfo(rewrittenFields)
+          : this;
     }
   }
 
@@ -204,29 +216,18 @@ public abstract class RecordFieldNamesComputationInfo extends NameComputationInf
   public DexString internalComputeNameFor(
       DexType type,
       DexDefinitionSupplier definitions,
-      GraphLens graphLens,
       IntFunction<String> nameSupplier) {
     DexClass recordClass = definitions.contextIndependentDefinitionFor(type);
     assert recordClass != null;
     List<String> names = new ArrayList<>(fields.length);
     for (int i = 0; i < fields.length; i++) {
-      DexEncodedField recordField =
-          recordClass.lookupInstanceField(graphLens.getRenamedFieldSignature(fields[i]));
+      DexEncodedField recordField = recordClass.lookupInstanceField(fields[i]);
       if (recordField != null) {
         names.add(nameSupplier.apply(i));
       }
     }
     return dexStringFromFieldNames(names, definitions.dexItemFactory());
   }
-
-  @Override
-  DexString internalComputeNameFor(
-      DexType reference, DexDefinitionSupplier definitions, NamingLens namingLens) {
-    throw new Unreachable();
-  }
-
-  public abstract DexString internalComputeNameFor(
-      DexType type, DexDefinitionSupplier definitions, GraphLens graphLens, NamingLens namingLens);
 
   @Override
   public boolean needsToComputeName() {

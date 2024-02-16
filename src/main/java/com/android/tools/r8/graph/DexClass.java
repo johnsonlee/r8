@@ -381,7 +381,7 @@ public abstract class DexClass extends DexDefinition
   }
 
   public void forEachStaticFieldMatching(
-      Predicate<DexEncodedField> predicate, Consumer<DexEncodedField> consumer) {
+      Predicate<? super DexEncodedField> predicate, Consumer<? super DexEncodedField> consumer) {
     staticFields(predicate).forEach(consumer);
   }
 
@@ -399,7 +399,7 @@ public abstract class DexClass extends DexDefinition
     return fieldCollection.staticFieldsAsList();
   }
 
-  public Iterable<DexEncodedField> staticFields(Predicate<DexEncodedField> predicate) {
+  public Iterable<DexEncodedField> staticFields(Predicate<? super DexEncodedField> predicate) {
     return IterableUtils.filter(staticFields(), predicate);
   }
 

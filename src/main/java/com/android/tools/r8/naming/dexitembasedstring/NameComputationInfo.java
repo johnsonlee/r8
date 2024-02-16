@@ -25,34 +25,29 @@ public abstract class NameComputationInfo<T extends DexReference> {
 
   public final DexString computeNameFor(
       DexReference reference, AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return computeNameFor(reference, appView, appView.graphLens(), appView.getNamingLens());
+    return computeNameFor(reference, appView, appView.getNamingLens());
   }
 
-  public final DexString computeNameFor(
-      DexReference reference,
-      DexDefinitionSupplier definitions,
-      GraphLens graphLens,
-      NamingLens namingLens) {
-    GraphLens nameLens = GraphLens.getIdentityLens();
-    DexReference rewritten = graphLens.getRenamedReference(reference, nameLens);
+  private DexString computeNameFor(
+      DexReference reference, DexDefinitionSupplier definitions, NamingLens namingLens) {
     if (needsToComputeName()) {
       if (isFieldNameComputationInfo()) {
         return asFieldNameComputationInfo()
-            .internalComputeNameFor(rewritten.asDexField(), definitions, namingLens);
+            .internalComputeNameFor(reference.asDexField(), definitions, namingLens);
       }
       if (isClassNameComputationInfo()) {
         return asClassNameComputationInfo()
-            .internalComputeNameFor(rewritten.asDexType(), definitions, namingLens);
+            .internalComputeNameFor(reference.asDexType(), definitions, namingLens);
       }
       if (isRecordFieldNamesComputationInfo()) {
         return asRecordFieldNamesComputationInfo()
-            .internalComputeNameFor(rewritten.asDexType(), definitions, graphLens, namingLens);
+            .internalComputeNameFor(reference.asDexType(), definitions, namingLens);
       }
     }
-    return namingLens.lookupName(rewritten, definitions.dexItemFactory());
+    return namingLens.lookupName(reference, definitions.dexItemFactory());
   }
 
-  abstract DexString internalComputeNameFor(
+  public abstract DexString internalComputeNameFor(
       T reference, DexDefinitionSupplier definitions, NamingLens namingLens);
 
   abstract Order getOrder();
@@ -101,4 +96,6 @@ public abstract class NameComputationInfo<T extends DexReference> {
   public RecordFieldNamesComputationInfo asRecordFieldNamesComputationInfo() {
     return null;
   }
+
+  public abstract NameComputationInfo<T> rewrittenWithLens(GraphLens graphLens, GraphLens codeLens);
 }

@@ -272,6 +272,11 @@ public class DexProgramClass extends DexClass
     forEachStaticField(field -> consumer.accept(new ProgramField(this, field)));
   }
 
+  public void forEachProgramStaticFieldMatching(
+      Predicate<? super DexEncodedField> predicate, Consumer<? super ProgramField> consumer) {
+    forEachStaticFieldMatching(predicate, field -> consumer.accept(new ProgramField(this, field)));
+  }
+
   public void forEachProgramStaticMethod(Consumer<? super ProgramMethod> consumer) {
     forEachProgramDirectMethodMatching(DexEncodedMethod::isStatic, consumer);
   }

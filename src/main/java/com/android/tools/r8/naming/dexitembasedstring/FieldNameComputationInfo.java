@@ -8,6 +8,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexString;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
@@ -63,6 +64,11 @@ public class FieldNameComputationInfo extends NameComputationInfo<DexField> {
 
   @Override
   public FieldNameComputationInfo asFieldNameComputationInfo() {
+    return this;
+  }
+
+  @Override
+  public NameComputationInfo<DexField> rewrittenWithLens(GraphLens graphLens, GraphLens codeLens) {
     return this;
   }
 }
