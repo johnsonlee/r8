@@ -2,12 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.ir.conversion;
+package com.android.tools.r8.ir.conversion.passes;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.isClassNameValue;
 
+import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
@@ -19,7 +21,6 @@ import com.android.tools.r8.ir.code.Goto;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.IfType;
-import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.IntSwitch;
 import com.android.tools.r8.ir.code.InvokeVirtual;
@@ -27,12 +28,13 @@ import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.StringSwitch;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.naming.IdentifierNameStringMarker;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceRBTreeMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -44,26 +46,36 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-public class StringSwitchRemover {
+public class StringSwitchRemover extends CodeRewriterPass<AppInfo> {
 
-  private final AppView<?> appView;
   private final IdentifierNameStringMarker identifierNameStringMarker;
   private final ClassTypeElement stringType;
 
-  StringSwitchRemover(AppView<?> appView, IdentifierNameStringMarker identifierNameStringMarker) {
-    this.appView = appView;
+  public StringSwitchRemover(AppView<?> appView) {
+    this(
+        appView,
+        appView.hasLiveness() ? new IdentifierNameStringMarker(appView.withLiveness()) : null);
+  }
+
+  public StringSwitchRemover(
+      AppView<?> appView, IdentifierNameStringMarker identifierNameStringMarker) {
+    super(appView);
     this.identifierNameStringMarker = identifierNameStringMarker;
     this.stringType = TypeElement.stringClassType(appView, definitelyNotNull());
   }
 
-  public void run(IRCode code) {
-    if (!code.metadata().mayHaveStringSwitch()) {
-      assert Streams.stream(code.instructions()).noneMatch(Instruction::isStringSwitch);
-      return;
-    }
+  @Override
+  protected String getRewriterId() {
+    return "StringSwitchRemover";
+  }
 
+  @Override
+  protected CodeRewriterResult rewriteCode(
+      IRCode code,
+      MethodProcessor methodProcessor,
+      MethodProcessingContext methodProcessingContext) {
     if (!prepareForStringSwitchRemoval(code)) {
-      return;
+      return CodeRewriterResult.NO_CHANGE;
     }
 
     Set<BasicBlock> newBlocksWithStrings = Sets.newIdentityHashSet();
@@ -93,12 +105,12 @@ public class StringSwitchRemover {
       }
     }
 
-    if (identifierNameStringMarker != null) {
+    if (identifierNameStringMarker != null && !newBlocksWithStrings.isEmpty()) {
       identifierNameStringMarker.decoupleIdentifierNameStringsInBlocks(code, newBlocksWithStrings);
     }
 
     code.removeRedundantBlocks();
-    assert code.isConsistentSSA(appView);
+    return CodeRewriterResult.HAS_CHANGED;
   }
 
   // Returns true if minification is enabled and the switch value is guaranteed to be a class name.
@@ -150,6 +162,11 @@ public class StringSwitchRemover {
     }
 
     return hasStringSwitch;
+  }
+
+  @Override
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
+    return code.metadata().mayHaveStringSwitch();
   }
 
   private abstract static class SingleStringSwitchRemover {

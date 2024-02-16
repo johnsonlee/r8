@@ -35,6 +35,7 @@ import com.android.tools.r8.ir.conversion.passes.DexConstantOptimizer;
 import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
 import com.android.tools.r8.ir.conversion.passes.MoveResultRewriter;
 import com.android.tools.r8.ir.conversion.passes.ParentConstructorHoistingCodeRewriter;
+import com.android.tools.r8.ir.conversion.passes.StringSwitchRemover;
 import com.android.tools.r8.ir.conversion.passes.ThrowCatchOptimizer;
 import com.android.tools.r8.ir.conversion.passes.TrivialPhiSimplifier;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollection;
@@ -809,9 +810,7 @@ public class IRConverter {
     if (code.getConversionOptions().isStringSwitchConversionEnabled()) {
       // Remove string switches prior to canonicalization to ensure that the constants that are
       // being introduced will be canonicalized if possible.
-      timing.begin("Remove string switch");
-      stringSwitchRemover.run(code);
-      timing.end();
+      stringSwitchRemover.run(code, methodProcessor, methodProcessingContext, timing);
     }
 
     // TODO(mkroghj) Test if shorten live ranges is worth it.
@@ -1002,7 +1001,7 @@ public class IRConverter {
       new FilledNewArrayRewriter(appView).run(code, timing);
     }
     if (stringSwitchRemover != null) {
-      stringSwitchRemover.run(code);
+      stringSwitchRemover.run(code, timing);
     }
     code.removeRedundantBlocks();
     deadCodeRemover.run(code, timing);
