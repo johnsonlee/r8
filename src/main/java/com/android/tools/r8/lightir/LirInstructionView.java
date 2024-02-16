@@ -15,6 +15,9 @@ public interface LirInstructionView {
   /** Convenience method to forward control to a callback. */
   void accept(LirInstructionCallback eventCallback);
 
+  /** Get the current value index. */
+  int getValueIndex(LirCode<Integer> code);
+
   /** Get the instruction index. */
   int getInstructionIndex();
 

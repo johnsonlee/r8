@@ -66,6 +66,11 @@ public class LirIterator implements Iterator<LirInstructionView>, LirInstruction
   }
 
   @Override
+  public int getValueIndex(LirCode<Integer> code) {
+    return code.getArgumentCount() + currentInstructionIndex;
+  }
+
+  @Override
   public int getInstructionIndex() {
     return currentInstructionIndex;
   }
