@@ -109,6 +109,16 @@ def trigger_smali_builder(version):
         version,
         'use semantic version of the smali version to built (pre-releases are not supported)',
         allowPrerelease=False)
+    print("Check that tag %s is created and pushed to the remote (e.g by running" % version)
+    print()
+    print("  git ls-remote origin refs/tags/%s in a smali checkout)" % version)
+    print()
+    print("in a smali checkout)")
+    print()
+    answer = input("Is tag %s present? [y/N]:" % version)
+    if answer != 'y':
+        print('Aborting smali release build')
+        sys.exit(1)
     cmd = [
         'bb', 'add',
         'r8/ci/%s' % SMALI_BOT, '-p',
