@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
+import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.horizontalclassmerging.ConstructorEntryPoint;
@@ -24,11 +25,13 @@ import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.ir.conversion.IRBuilder;
+import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.SourceCode;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
+import com.android.tools.r8.utils.Timing;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
 
@@ -94,7 +97,25 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ProgramMethod method,
       HorizontalClassMergerGraphLens lens) {
-    throw new Unreachable();
+    for (Int2ReferenceMap.Entry<DexMethod> entry : typeConstructors.int2ReferenceEntrySet()) {
+      entry.setValue(lens.getNextMethodSignature(entry.getValue()));
+    }
+    IRCode irCode = buildIR(method, appView);
+    LirCode<Integer> lirCode =
+        new IRToLirFinalizer(appView)
+            .finalizeCode(irCode, BytecodeMetadataProvider.empty(), Timing.empty());
+    return new LirCode<>(lirCode) {
+
+      @Override
+      public boolean hasExplicitCodeLens() {
+        return true;
+      }
+
+      @Override
+      public GraphLens getCodeLens(AppView<?> appView) {
+        return lens;
+      }
+    };
   }
 
   @Override

@@ -39,10 +39,10 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
     private final MethodAccessFlags accessFlags;
     private final boolean isAssumeNoSideEffectsMethod;
     private final OptionalBool isLibraryMethodOverride;
-    private final boolean isMainDexRoot;
+    private final OptionalBool isMainDexRoot;
 
     private MethodCharacteristics(
-        DexEncodedMethod method, boolean isAssumeNoSideEffectsMethod, boolean isMainDexRoot) {
+        DexEncodedMethod method, boolean isAssumeNoSideEffectsMethod, OptionalBool isMainDexRoot) {
       this.accessFlags =
           MethodAccessFlags.builder()
               .setPrivate(method.getAccessFlags().isPrivate())
@@ -57,11 +57,14 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
     }
 
     static MethodCharacteristics create(
-        AppView<AppInfoWithLiveness> appView, DexEncodedMethod method) {
+        AppView<AppInfoWithLiveness> appView, ClassMergerMode mode, DexEncodedMethod method) {
       return new MethodCharacteristics(
           method,
           appView.getAssumeInfoCollection().isSideEffectFree(method.getReference()),
-          appView.appInfo().getMainDexInfo().isTracedMethodRoot(method.getReference()));
+          mode.isInitial()
+              ? OptionalBool.of(
+                  appView.appInfo().getMainDexInfo().isTracedMethodRoot(method.getReference()))
+              : OptionalBool.unknown());
     }
 
     @Override
@@ -91,12 +94,12 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
   }
 
   private final AppView<AppInfoWithLiveness> appView;
+  private final ClassMergerMode mode;
 
   public PreserveMethodCharacteristics(AppView<AppInfoWithLiveness> appView, ClassMergerMode mode) {
-    // This policy checks that method merging does invalidate various properties. Thus there is no
-    // reason to run this policy if method merging is not allowed.
-    assert !mode.isRestrictedToAlphaRenamingInR8();
+    // This policy checks that method merging does invalidate various properties.
     this.appView = appView;
+    this.mode = mode;
   }
 
   public static class TargetGroup {
@@ -108,12 +111,14 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
       return group;
     }
 
-    public boolean tryAdd(AppView<AppInfoWithLiveness> appView, DexProgramClass clazz) {
+    public boolean tryAdd(
+        AppView<AppInfoWithLiveness> appView, ClassMergerMode mode, DexProgramClass clazz) {
       Map<DexMethodSignature, MethodCharacteristics> newMethods = new HashMap<>();
       for (DexEncodedMethod method : clazz.methods(this::isSubjectToMethodMerging)) {
         DexMethodSignature signature = method.getSignature();
         MethodCharacteristics existingCharacteristics = methodMap.get(signature);
-        MethodCharacteristics methodCharacteristics = MethodCharacteristics.create(appView, method);
+        MethodCharacteristics methodCharacteristics =
+            MethodCharacteristics.create(appView, mode, method);
         if (existingCharacteristics == null) {
           newMethods.put(signature, methodCharacteristics);
           continue;
@@ -143,10 +148,11 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
     List<TargetGroup> groups = new ArrayList<>();
 
     for (DexProgramClass clazz : group) {
-      boolean added = Iterables.any(groups, targetGroup -> targetGroup.tryAdd(appView, clazz));
+      boolean added =
+          Iterables.any(groups, targetGroup -> targetGroup.tryAdd(appView, mode, clazz));
       if (!added) {
         TargetGroup newGroup = new TargetGroup();
-        added = newGroup.tryAdd(appView, clazz);
+        added = newGroup.tryAdd(appView, mode, clazz);
         assert added;
         groups.add(newGroup);
       }

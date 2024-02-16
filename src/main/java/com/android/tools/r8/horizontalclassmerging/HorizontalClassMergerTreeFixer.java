@@ -7,6 +7,7 @@ package com.android.tools.r8.horizontalclassmerging;
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.ClassMergerTreeFixer;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.utils.Timing;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -25,9 +26,10 @@ class HorizontalClassMergerTreeFixer
   public HorizontalClassMergerTreeFixer(
       AppView<?> appView,
       ClassMergerSharedData classMergerSharedData,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       HorizontallyMergedClasses mergedClasses,
       HorizontalClassMergerGraphLens.Builder lensBuilder) {
-    super(appView, classMergerSharedData, lensBuilder, mergedClasses);
+    super(appView, classMergerSharedData, immediateSubtypingInfo, lensBuilder, mergedClasses);
   }
 
   /**

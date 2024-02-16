@@ -810,6 +810,10 @@ public class LirBuilder<V, EV> {
     for (int i = 0; i < keys.length; i++) {
       targets[i] = getBlockIndex(keyToTargetMap.get(keys[i]));
     }
+    return addIntSwitch(value, keys, targets);
+  }
+
+  public LirBuilder<V, EV> addIntSwitch(V value, int[] keys, int[] targets) {
     IntSwitchPayload payload = new IntSwitchPayload(keys, targets);
     return addInstructionTemplate(
         LirOpcodes.TABLESWITCH,

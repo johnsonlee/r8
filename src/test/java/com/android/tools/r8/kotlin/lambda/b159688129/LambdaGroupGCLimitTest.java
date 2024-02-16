@@ -66,8 +66,8 @@ public class LambdaGroupGCLimitTest extends TestBase {
                 inspector -> {
                   HorizontalClassMergerOptions defaultHorizontalClassMergerOptions =
                       new InternalOptions().horizontalClassMergerOptions();
-                  assertEquals(4833, inspector.getSources().size());
-                  assertEquals(167, inspector.getTargets().size());
+                  assertEquals(4994, inspector.getSources().size());
+                  assertEquals(173, inspector.getTargets().size());
                   assertTrue(
                       inspector.getMergeGroups().stream()
                           .allMatch(

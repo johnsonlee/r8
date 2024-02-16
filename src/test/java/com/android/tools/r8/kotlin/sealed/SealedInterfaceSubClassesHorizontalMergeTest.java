@@ -13,8 +13,10 @@ import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.BooleanUtils;
-import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
+import com.android.tools.r8.utils.Box;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
@@ -86,6 +88,8 @@ public class SealedInterfaceSubClassesHorizontalMergeTest extends KotlinTestBase
 
   @Test
   public void testR8() throws ExecutionException, CompilationFailedException, IOException {
+    Box<ClassReference> aClassReferenceAfterRepackaging = new Box<>();
+    Box<ClassReference> bClassReferenceAfterRepackaging = new Box<>();
     testForR8(parameters.getBackend())
         .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
@@ -103,11 +107,21 @@ public class SealedInterfaceSubClassesHorizontalMergeTest extends KotlinTestBase
                             inspector
                                 .assertIsCompleteMergeGroup(A, B)
                                 .assertNoOtherClassesMerged()),
-            // TODO(b/296852026): Updates to horizintal class merging can cause this to start
-            // failing as the classes can actually bne merged without -assumenosideeffects rules.
             b ->
                 b.addHorizontallyMergedClassesInspector(
-                    HorizontallyMergedClassesInspector::assertNoClassesMerged))
+                        inspector ->
+                            inspector
+                                .assertIsCompleteMergeGroup(
+                                    aClassReferenceAfterRepackaging.get(),
+                                    bClassReferenceAfterRepackaging.get())
+                                .assertNoOtherClassesMerged())
+                    .addRepackagingInspector(
+                        inspector -> {
+                          aClassReferenceAfterRepackaging.set(
+                              inspector.getTarget(Reference.classFromTypeName(A)));
+                          bClassReferenceAfterRepackaging.set(
+                              inspector.getTarget(Reference.classFromTypeName(B)));
+                        }))
         .compile()
         .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), MAIN)

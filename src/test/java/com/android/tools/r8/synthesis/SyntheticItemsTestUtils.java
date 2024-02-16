@@ -152,6 +152,11 @@ public class SyntheticItemsTestUtils {
         originalMethod.getMethodDescriptor());
   }
 
+  public static ClassReference syntheticInitializerArgumentType(
+      ClassReference classReference, int id) {
+    return syntheticClass(classReference, naming.NON_FIXED_INIT_TYPE_ARGUMENT, id);
+  }
+
   public static ClassReference syntheticNestConstructorArgumentClass(
       ClassReference classReference) {
     return Reference.classFromDescriptor(

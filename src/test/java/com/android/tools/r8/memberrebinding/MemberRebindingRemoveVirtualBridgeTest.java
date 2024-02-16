@@ -62,12 +62,10 @@ public class MemberRebindingRemoveVirtualBridgeTest extends TestBase {
             inspector -> {
               ClassSubject clazz = inspector.clazz(B.class);
               assertThat(clazz, isPresent());
-              if (parameters.canHaveNonReboundConstructorInvoke()) {
-                assertEquals(0, clazz.allMethods().size());
-              } else {
-                assertEquals(1, clazz.allMethods().size());
-                assertThat(clazz.allMethods().get(0), isInstanceInitializer());
-              }
+              // TODO(b/324527514): Initializer should be removed when
+              //  canHaveNonReboundConstructorInvoke().
+              assertEquals(1, clazz.allMethods().size());
+              assertThat(clazz.allMethods().get(0), isInstanceInitializer());
             });
   }
 

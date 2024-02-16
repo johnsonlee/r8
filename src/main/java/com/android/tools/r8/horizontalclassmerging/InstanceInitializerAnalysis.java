@@ -150,7 +150,10 @@ public class InstanceInitializerAnalysis {
 
               // TODO(b/189296638): Consider allowing constructor forwarding.
               if (!lensRewrittenInvokedMethod.isInstanceInitializer(appView.dexItemFactory())
-                  || lensRewrittenInvokedMethod.getHolderType() != group.getSuperType()) {
+                  || !appView
+                      .appInfo()
+                      .isSubtype(
+                          group.getSuperType(), lensRewrittenInvokedMethod.getHolderType())) {
                 return invalid();
               }
 

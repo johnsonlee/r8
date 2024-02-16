@@ -6,7 +6,7 @@ package com.android.tools.r8.apimodel;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
 import static com.android.tools.r8.utils.AndroidApiLevel.L_MR1;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.CoreMatchers.not;
@@ -14,7 +14,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
-import com.android.tools.r8.NoInliningOfDefaultInitializer;
 import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -26,20 +25,18 @@ import java.lang.reflect.Method;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class ApiModelNoVerticalMergingSubReferenceApiTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public ApiModelNoVerticalMergingSubReferenceApiTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test()
@@ -57,7 +54,6 @@ public class ApiModelNoVerticalMergingSubReferenceApiTest extends TestBase {
         .apply(ApiModelingTestHelper::disableOutliningAndStubbing)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
-        .enableNoInliningOfDefaultInitializerAnnotations()
         .enableNoMethodStaticizingAnnotations()
         .addVerticallyMergedClassesInspector(
             inspector -> {
@@ -78,9 +74,7 @@ public class ApiModelNoVerticalMergingSubReferenceApiTest extends TestBase {
                 assertThat(base, not(isPresent()));
                 ClassSubject sub = inspector.clazz(Sub.class);
                 assertThat(sub, isPresent());
-                assertThat(
-                    sub.uniqueInstanceInitializer(),
-                    isAbsentIf(parameters.canHaveNonReboundConstructorInvoke()));
+                assertThat(sub.uniqueInstanceInitializer(), isAbsent());
                 assertEquals(1, sub.virtualMethods().size());
                 FoundMethodSubject callCallApi = sub.virtualMethods().get(0);
                 assertEquals("callCallApi", callCallApi.getOriginalName());
@@ -109,7 +103,6 @@ public class ApiModelNoVerticalMergingSubReferenceApiTest extends TestBase {
   }
 
   @NeverClassInline
-  @NoInliningOfDefaultInitializer
   public static class Sub extends Base {
 
     @NeverInline

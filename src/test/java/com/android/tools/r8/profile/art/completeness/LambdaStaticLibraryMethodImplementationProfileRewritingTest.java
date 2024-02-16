@@ -103,9 +103,7 @@ public class LambdaStaticLibraryMethodImplementationProfileRewritingTest extends
     assertThat(lambdaClassSubject, notIf(isPresent(), canUseLambdas));
 
     MethodSubject lambdaInitializerSubject = lambdaClassSubject.uniqueInstanceInitializer();
-    assertThat(
-        lambdaInitializerSubject,
-        notIf(isPresent(), canHaveNonReboundConstructorInvoke || canUseLambdas));
+    assertThat(lambdaInitializerSubject, notIf(isPresent(), canUseLambdas));
 
     MethodSubject lambdaMainMethodSubject =
         lambdaClassSubject.uniqueMethodThatMatches(FoundMethodSubject::isVirtual);
@@ -116,10 +114,8 @@ public class LambdaStaticLibraryMethodImplementationProfileRewritingTest extends
     } else {
       profileInspector
           .assertContainsClassRules(lambdaClassSubject)
-          .assertContainsMethodRules(mainMethodSubject, lambdaMainMethodSubject)
-          .applyIf(
-              !canHaveNonReboundConstructorInvoke,
-              i -> i.assertContainsMethodRule(lambdaInitializerSubject));
+          .assertContainsMethodRules(
+              mainMethodSubject, lambdaInitializerSubject, lambdaMainMethodSubject);
     }
 
     profileInspector.assertContainsNoOtherRules();

@@ -23,7 +23,6 @@ import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
-import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.InternalOptions;
@@ -40,7 +39,6 @@ import com.google.common.collect.Streams;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -369,12 +367,6 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
 
     static Builder createBuilderForFixup(VerticalClassMergerResult verticalClassMergerResult) {
       return verticalClassMergerResult.getLensBuilder();
-    }
-
-    @Override
-    public void addExtraParameters(
-        DexMethod from, DexMethod to, List<? extends ExtraParameter> extraParameters) {
-      // Intentionally empty.
     }
 
     @Override

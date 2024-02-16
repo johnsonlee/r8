@@ -138,6 +138,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   private boolean hasPotentialNonTrivialInvokeRewriting(
       DexMethod method, InvokeType type, MethodLookupResult result) {
+    if (graphLens.isHorizontalClassMergerGraphLens()) {
+      return !result.getPrototypeChanges().isEmpty();
+    }
     if (graphLens.isProtoNormalizerLens()) {
       return result.getPrototypeChanges().getArgumentInfoCollection().hasArgumentPermutation();
     }
@@ -315,24 +318,28 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   private boolean hasNonTrivialMethodChanges() {
+    if (graphLens.isClassMergerLens()) {
+      RewrittenPrototypeDescription prototypeChanges =
+          graphLens.lookupPrototypeChangesForMethodDefinition(context.getReference(), codeLens);
+      assert prototypeChanges.getArgumentInfoCollection().isEmpty();
+      assert !prototypeChanges.hasRewrittenReturnInfo();
+      if (prototypeChanges.hasExtraParameters()) {
+        return true;
+      }
+      VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
+      if (verticalClassMergerLens != null) {
+        DexMethod previousReference =
+            verticalClassMergerLens.getPreviousMethodSignature(contextReference);
+        return verticalClassMergerLens.hasInterfaceBeenMergedIntoClass(
+            previousReference.getReturnType());
+      }
+    }
     if (graphLens.isProtoNormalizerLens()) {
       RewrittenPrototypeDescription prototypeChanges =
           graphLens.lookupPrototypeChangesForMethodDefinition(context.getReference(), codeLens);
+      assert !prototypeChanges.hasExtraParameters();
+      assert !prototypeChanges.hasRewrittenReturnInfo();
       return prototypeChanges.getArgumentInfoCollection().hasArgumentPermutation();
-    }
-    VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
-    if (verticalClassMergerLens != null) {
-      DexMethod previousReference =
-          verticalClassMergerLens.getPreviousMethodSignature(contextReference);
-      if (verticalClassMergerLens.hasInterfaceBeenMergedIntoClass(
-          previousReference.getReturnType())) {
-        return true;
-      }
-      RewrittenPrototypeDescription prototypeChanges =
-          graphLens.lookupPrototypeChangesForMethodDefinition(context.getReference(), codeLens);
-      if (!prototypeChanges.isEmpty()) {
-        return true;
-      }
     }
     return false;
   }

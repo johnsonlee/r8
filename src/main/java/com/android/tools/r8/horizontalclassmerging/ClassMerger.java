@@ -242,7 +242,6 @@ public class ClassMerger {
 
   void appendClassIdField() {
     assert appView.hasLiveness();
-    assert !mode.isRestrictedToAlphaRenamingInR8();
 
     DexEncodedField classIdField =
         DexEncodedField.syntheticBuilder()
@@ -373,10 +372,13 @@ public class ClassMerger {
   }
 
   public static class Builder {
+
     private final AppView<?> appView;
     private final IRCodeProvider codeProvider;
     private final ClassMergerMode mode;
     private final HorizontalMergeGroup group;
+
+    private List<VirtualMethodMerger> virtualMethodMergers;
 
     public Builder(
         AppView<?> appView,
@@ -389,19 +391,19 @@ public class ClassMerger {
       this.mode = mode;
     }
 
-    @SuppressWarnings("MixedMutabilityReturnType")
-    private List<VirtualMethodMerger> createVirtualMethodMergers() {
+    public Builder initializeVirtualMethodMergers() {
       if (!appView.hasClassHierarchy()) {
         assert getVirtualMethodMergerBuilders().isEmpty();
-        return Collections.emptyList();
+        virtualMethodMergers = Collections.emptyList();
+        return this;
       }
       Map<DexMethodSignature, VirtualMethodMerger.Builder> virtualMethodMergerBuilders =
           getVirtualMethodMergerBuilders();
       if (virtualMethodMergerBuilders.isEmpty()) {
-        return Collections.emptyList();
+        virtualMethodMergers = Collections.emptyList();
+        return this;
       }
-      List<VirtualMethodMerger> virtualMethodMergers =
-          new ArrayList<>(virtualMethodMergerBuilders.size());
+      virtualMethodMergers = new ArrayList<>(virtualMethodMergerBuilders.size());
       List<VirtualMethodMerger> nonNopOrTrivialVirtualMethodMergers =
           new ArrayList<>(virtualMethodMergerBuilders.size());
       for (VirtualMethodMerger.Builder builder : virtualMethodMergerBuilders.values()) {
@@ -418,7 +420,7 @@ public class ClassMerger {
       // first, then the non trivial mergers are processed and correctly deal with conflicting
       // signatures.
       assert verifyNopOrTrivialAreFirst(virtualMethodMergers);
-      return virtualMethodMergers;
+      return this;
     }
 
     private boolean verifyNopOrTrivialAreFirst(List<VirtualMethodMerger> virtualMethodMergers) {
@@ -450,6 +452,16 @@ public class ClassMerger {
       return virtualMethodMergerBuilders;
     }
 
+    public void initializeClassIdField() {
+      boolean requiresClassIdField =
+          virtualMethodMergers.stream()
+              .anyMatch(virtualMethodMerger -> !virtualMethodMerger.isNopOrTrivial());
+      if (requiresClassIdField) {
+        assert appView.enableWholeProgramOptimizations();
+        createClassIdField();
+      }
+    }
+
     private void createClassIdField() {
       DexField field =
           appView
@@ -467,16 +479,6 @@ public class ClassMerger {
 
     public ClassMerger build(
         HorizontalClassMergerGraphLens.Builder lensBuilder) {
-      List<VirtualMethodMerger> virtualMethodMergers = createVirtualMethodMergers();
-
-      boolean requiresClassIdField =
-          virtualMethodMergers.stream()
-              .anyMatch(virtualMethodMerger -> !virtualMethodMerger.isNopOrTrivial());
-      if (requiresClassIdField) {
-        assert !mode.isRestrictedToAlphaRenaming();
-        createClassIdField();
-      }
-
       return new ClassMerger(appView, codeProvider, mode, lensBuilder, group, virtualMethodMergers);
     }
   }

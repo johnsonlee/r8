@@ -22,7 +22,6 @@ import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.horizontalclassmerging.code.ConstructorEntryPointSynthesizedCode;
 import com.android.tools.r8.ir.conversion.ExtraConstantIntParameter;
-import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.ir.conversion.ExtraUnusedParameter;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.utils.ArrayUtils;
@@ -30,7 +29,6 @@ import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.structural.Ordered;
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -275,11 +273,8 @@ public class InstanceInitializerMerger {
       boolean needsClassId,
       int extraNulls) {
     if (hasInstanceInitializerDescription()) {
-      return instanceInitializerDescription.createCfCode(
-          getOriginalMethodReference(),
-          group,
-          needsClassId,
-          extraNulls);
+      return instanceInitializerDescription.createCode(
+          getOriginalMethodReference(), group, needsClassId, extraNulls);
     }
     assert useSyntheticMethod();
     return new ConstructorEntryPointSynthesizedCode(
@@ -305,27 +300,18 @@ public class InstanceInitializerMerger {
     boolean needsClassId =
         instanceInitializers.size() > 1
             && (!hasInstanceInitializerDescription() || group.hasClassIdField());
-    assert !mode.isRestrictedToAlphaRenamingInR8() || !needsClassId;
 
     DexMethod newMethodReferenceTemplate = getNewMethodReference(representative, needsClassId);
-    assert !mode.isRestrictedToAlphaRenamingInR8()
-        || classMethodsBuilder.isFresh(newMethodReferenceTemplate);
 
     DexMethod newMethodReference =
         dexItemFactory.createInstanceInitializerWithFreshProto(
             newMethodReferenceTemplate,
-            mode.isRestrictedToAlphaRenamingInR8()
-                ? ImmutableList.of()
-                : classMergerSharedData.getExtraUnusedArgumentTypes(),
+            classMergerSharedData.getExtraUnusedArgumentTypes(),
             classMethodsBuilder::isFresh);
 
     // Compute the extra unused null parameters.
     List<ExtraUnusedParameter> extraUnusedParameters =
         computeExtraUnusedParameters(newMethodReferenceTemplate, newMethodReference);
-
-    // Verify that the merge is a simple renaming in the final round of merging.
-    assert !mode.isRestrictedToAlphaRenamingInR8()
-        || newMethodReference == newMethodReferenceTemplate;
 
     // Move instance initializers to target class.
     if (hasInstanceInitializerDescription()) {
@@ -360,14 +346,13 @@ public class InstanceInitializerMerger {
 
     // Map each of the instance initializers to the new instance initializer in the graph lens.
     for (ProgramMethod instanceInitializer : instanceInitializers) {
-      List<ExtraParameter> extraParameters = new ArrayList<>();
-      if (needsClassId) {
-        int classIdentifier = classIdentifiers.getInt(instanceInitializer.getHolderType());
-        extraParameters.add(new ExtraConstantIntParameter(classIdentifier));
-      }
-      extraParameters.addAll(extraUnusedParameters);
+      ExtraConstantIntParameter extraParameter =
+          needsClassId
+              ? new ExtraConstantIntParameter(
+                  classIdentifiers.getInt(instanceInitializer.getHolderType()))
+              : null;
       lensBuilder.mapMergedConstructor(
-          instanceInitializer.getReference(), newMethodReference, extraParameters);
+          instanceInitializer.getReference(), newMethodReference, extraParameter);
     }
 
     DexEncodedMethod representativeMethod = representative.getDefinition();

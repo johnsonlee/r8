@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -21,25 +20,16 @@ import java.util.Objects;
 public class SameInstanceFields extends MultiClassSameReferencePolicy<Multiset<InstanceFieldInfo>> {
 
   private final DexItemFactory dexItemFactory;
-  private final ClassMergerMode mode;
 
-  public SameInstanceFields(
-      AppView<? extends AppInfoWithClassHierarchy> appView, ClassMergerMode mode) {
+  public SameInstanceFields(AppView<? extends AppInfoWithClassHierarchy> appView) {
     this.dexItemFactory = appView.dexItemFactory();
-    this.mode = mode;
   }
 
   @Override
   public Multiset<InstanceFieldInfo> getMergeKey(DexProgramClass clazz) {
     Multiset<InstanceFieldInfo> fields = HashMultiset.create();
     for (DexEncodedField field : clazz.instanceFields()) {
-      // We do not allow merging fields with different types in the final round of horizontal class
-      // merging, since that requires inserting check-cast instructions at reads.
-      InstanceFieldInfo instanceFieldInfo =
-          mode.isRestrictedToAlphaRenamingInR8()
-              ? InstanceFieldInfo.createExact(field)
-              : InstanceFieldInfo.createRelaxed(field, dexItemFactory);
-      fields.add(instanceFieldInfo);
+      fields.add(InstanceFieldInfo.createRelaxed(field, dexItemFactory));
     }
     return fields;
   }

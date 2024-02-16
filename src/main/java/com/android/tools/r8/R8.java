@@ -78,6 +78,7 @@ import com.android.tools.r8.optimize.fields.FieldFinalizer;
 import com.android.tools.r8.optimize.interfaces.analysis.CfOpenClosedInterfacesAnalysis;
 import com.android.tools.r8.optimize.proto.ProtoNormalizer;
 import com.android.tools.r8.optimize.redundantbridgeremoval.RedundantBridgeRemover;
+import com.android.tools.r8.optimize.singlecaller.SingleCallerInliner;
 import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
@@ -769,6 +770,7 @@ public class R8 {
               .runIfNecessary(executorService, timing);
           assert appView.dexItemFactory().verifyNoCachedTypeElements();
 
+          new SingleCallerInliner(appViewWithLiveness).runIfNecessary(executorService, timing);
           new ProtoNormalizer(appViewWithLiveness).run(executorService, timing);
         }
       }

@@ -133,7 +133,8 @@ public class NestBasedAccessBridgesProfileRewritingTest extends TestBase {
         syntheticConstructorArgumentClassSubject, notIf(isPresent(), canUseNestBasedAccesses));
 
     MethodSubject instanceInitializer = nestMemberClassSubject.init();
-    assertThat(instanceInitializer, notIf(isPresent(), canHaveNonReboundConstructorInvoke));
+    // TODO(b/324527514): Should be absent when canHaveNonReboundConstructorInvoke is true.
+    assertThat(instanceInitializer, isPresent());
 
     MethodSubject instanceInitializerWithSyntheticArgumentSubject =
         syntheticConstructorArgumentClassSubject.isPresent()

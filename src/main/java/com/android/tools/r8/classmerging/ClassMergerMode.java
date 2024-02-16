@@ -14,17 +14,4 @@ public enum ClassMergerMode {
   public boolean isFinal() {
     return this == FINAL;
   }
-
-  public boolean isRestrictedToAlphaRenaming() {
-    return isFinal();
-  }
-
-  // Similar to isRestrictedToAlphaRenaming(), but used on paths that are R8 specific. All usages of
-  // this method should be removed as a result of running a full final round of horizontal class
-  // merging.
-  @Deprecated
-  @SuppressWarnings("InlineMeSuggester")
-  public boolean isRestrictedToAlphaRenamingInR8() {
-    return isRestrictedToAlphaRenaming();
-  }
 }

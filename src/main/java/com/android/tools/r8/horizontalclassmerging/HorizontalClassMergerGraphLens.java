@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.horizontalclassmerging;
 
+import static com.android.tools.r8.ir.conversion.ExtraUnusedParameter.computeExtraUnusedParameters;
+
 import com.android.tools.r8.classmerging.ClassMergerGraphLens;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMember;
@@ -15,7 +17,9 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
+import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
+import com.android.tools.r8.ir.conversion.ExtraConstantIntParameter;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneHashMap;
@@ -26,7 +30,6 @@ import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneMap;
 import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneRepresentativeMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,13 +37,13 @@ import java.util.Set;
 
 public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
 
-  private final Map<DexMethod, List<ExtraParameter>> methodExtraParameters;
+  private final Map<DexMethod, ExtraConstantIntParameter> methodExtraParameters;
   private final HorizontallyMergedClasses mergedClasses;
 
   private HorizontalClassMergerGraphLens(
       AppView<?> appView,
       HorizontallyMergedClasses mergedClasses,
-      Map<DexMethod, List<ExtraParameter>> methodExtraParameters,
+      Map<DexMethod, ExtraConstantIntParameter> methodExtraParameters,
       BidirectionalManyToOneRepresentativeMap<DexField, DexField> fieldMap,
       BidirectionalManyToOneMap<DexMethod, DexMethod> methodMap,
       BidirectionalManyToOneRepresentativeMap<DexMethod, DexMethod> newMethodSignatures) {
@@ -116,18 +119,7 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
       return super.internalDescribeLookupMethod(previous, context, codeLens);
     }
     assert previous.hasReboundReference();
-    List<ExtraParameter> extraParameters =
-        methodExtraParameters.get(previous.getReboundReference());
-    MethodLookupResult lookup = super.internalDescribeLookupMethod(previous, context, codeLens);
-    if (extraParameters == null) {
-      return lookup;
-    }
-    return MethodLookupResult.builder(this, codeLens)
-        .setReboundReference(lookup.getReboundReference())
-        .setReference(lookup.getReference())
-        .setPrototypeChanges(lookup.getPrototypeChanges().withExtraParameters(extraParameters))
-        .setType(lookup.getType())
-        .build();
+    return super.internalDescribeLookupMethod(previous, context, codeLens);
   }
 
   @Override
@@ -147,6 +139,47 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
         .build();
   }
 
+  @Override
+  protected RewrittenPrototypeDescription internalDescribePrototypeChanges(
+      RewrittenPrototypeDescription prototypeChanges,
+      DexMethod previousMethod,
+      DexMethod newMethod) {
+    if (newMethod.getArity() > previousMethod.getArity()) {
+      assert dexItemFactory().isConstructor(previousMethod);
+      RewrittenPrototypeDescription collisionResolution =
+          RewrittenPrototypeDescription.createForExtraParameters(
+              computeExtraUnusedParameters(previousMethod, newMethod));
+      ExtraConstantIntParameter extraParameter = methodExtraParameters.get(previousMethod);
+      if (extraParameter != null) {
+        List<ExtraParameter> extraParameters =
+            (List<ExtraParameter>) collisionResolution.getExtraParameters();
+        extraParameters.set(0, extraParameter);
+      }
+      return prototypeChanges.combine(collisionResolution);
+    }
+    assert newMethod.getArity() == previousMethod.getArity();
+    return prototypeChanges;
+  }
+
+  @Override
+  public RewrittenPrototypeDescription lookupPrototypeChangesForMethodDefinition(
+      DexMethod newMethod, GraphLens codeLens) {
+    if (this == codeLens) {
+      return getIdentityLens().lookupPrototypeChangesForMethodDefinition(newMethod, codeLens);
+    }
+    DexMethod previousMethod = getPreviousMethodSignature(newMethod);
+    RewrittenPrototypeDescription lookup =
+        getPrevious().lookupPrototypeChangesForMethodDefinition(previousMethod, codeLens);
+    if (newMethod.getArity() > previousMethod.getArity()) {
+      assert dexItemFactory().isConstructor(previousMethod);
+      RewrittenPrototypeDescription collisionResolution =
+          RewrittenPrototypeDescription.createForExtraParameters(
+              computeExtraUnusedParameters(previousMethod, newMethod));
+      return lookup.combine(collisionResolution);
+    }
+    return lookup;
+  }
+
   public static class Builder
       extends BuilderBase<HorizontalClassMergerGraphLens, HorizontallyMergedClasses> {
 
@@ -156,7 +189,7 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
         BidirectionalManyToOneHashMap.newIdentityHashMap();
     private final MutableBidirectionalManyToOneRepresentativeMap<DexMethod, DexMethod>
         newMethodSignatures = BidirectionalManyToOneRepresentativeHashMap.newIdentityHashMap();
-    private final Map<DexMethod, List<ExtraParameter>> methodExtraParameters =
+    private final Map<DexMethod, ExtraConstantIntParameter> methodExtraParameters =
         new IdentityHashMap<>();
 
     private final MutableBidirectionalManyToOneMap<DexMethod, DexMethod> pendingMethodMapUpdates =
@@ -329,28 +362,11 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
      * where many constructors are merged into a single constructor. The synthesized constructor
      * therefore does not have a unique reverse constructor.
      */
-    void mapMergedConstructor(DexMethod from, DexMethod to, List<ExtraParameter> extraParameters) {
+    void mapMergedConstructor(
+        DexMethod from, DexMethod to, ExtraConstantIntParameter extraParameter) {
       mapMethod(from, to);
-      if (!extraParameters.isEmpty()) {
-        methodExtraParameters.put(from, extraParameters);
-      }
-    }
-
-    @Override
-    public void addExtraParameters(
-        DexMethod from, DexMethod to, List<? extends ExtraParameter> extraParameters) {
-      Set<DexMethod> originalMethodSignatures = methodMap.getKeys(from);
-      if (originalMethodSignatures.isEmpty()) {
-        methodExtraParameters
-            .computeIfAbsent(from, ignore -> new ArrayList<>(extraParameters.size()))
-            .addAll(extraParameters);
-      } else {
-        for (DexMethod originalMethodSignature : originalMethodSignatures) {
-          methodExtraParameters
-              .computeIfAbsent(
-                  originalMethodSignature, ignore -> new ArrayList<>(extraParameters.size()))
-              .addAll(extraParameters);
-        }
+      if (extraParameter != null) {
+        methodExtraParameters.put(from, extraParameter);
       }
     }
   }

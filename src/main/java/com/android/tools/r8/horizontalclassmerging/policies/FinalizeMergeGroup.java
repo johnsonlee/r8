@@ -4,16 +4,12 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.ListUtils;
-import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.collections.EmptyBidirectionalOneToOneMap;
 import java.util.Collection;
-import java.util.Set;
 
 /**
  * Identifies when instance initializer merging is required and bails out. This is needed to ensure
@@ -26,24 +22,16 @@ import java.util.Set;
 public class FinalizeMergeGroup extends MultiClassPolicy {
 
   private final AppView<?> appView;
-  private final ClassMergerMode mode;
 
-  public FinalizeMergeGroup(AppView<?> appView, ClassMergerMode mode) {
+  public FinalizeMergeGroup(AppView<?> appView) {
     this.appView = appView;
-    this.mode = mode;
   }
 
   @Override
   public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     if (appView.enableWholeProgramOptimizations()) {
-      if (group.isInterfaceGroup() || !mode.isRestrictedToAlphaRenamingInR8()) {
-        group.selectTarget(appView);
-        group.selectInstanceFieldMap(appView.withClassHierarchy());
-      } else {
-        // In the final round of merging each group should be finalized by the
-        // NoInstanceInitializerMerging policy.
-        assert verifyAlreadyFinalized(group);
-      }
+      group.selectTarget(appView);
+      group.selectInstanceFieldMap(appView.withClassHierarchy());
     } else {
       assert !group.hasTarget();
       assert !group.hasInstanceFieldMap();
@@ -60,23 +48,6 @@ public class FinalizeMergeGroup extends MultiClassPolicy {
 
   @Override
   public boolean isIdentityForInterfaceGroups() {
-    return true;
-  }
-
-  private boolean verifyAlreadyFinalized(HorizontalMergeGroup group) {
-    assert group.hasTarget();
-    assert group.getClasses().contains(group.getTarget());
-    assert group.hasInstanceFieldMap();
-    Set<DexType> types =
-        SetUtils.newIdentityHashSet(
-            builder -> group.forEach(clazz -> builder.accept(clazz.getType())));
-    group
-        .getInstanceFieldMap()
-        .forEach(
-            (sourceField, targetField) -> {
-              assert types.contains(sourceField.getHolderType());
-              assert types.contains(targetField.getHolderType());
-            });
     return true;
   }
 }

@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.bridgeremoval;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.not;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoVerticalClassMerging;
@@ -16,7 +16,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -60,9 +60,12 @@ public class BridgeWithInvokeSuperOnInterfaceTest extends TestBase {
               // Check that we are removing the bridge if we support default methods.
               if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
                 ClassSubject J = inspector.clazz(J.class);
-                assertThat(J, isPresent());
-                MethodSubject fooMethod = J.uniqueMethodWithOriginalName("foo");
-                assertThat(fooMethod, not(isPresent()));
+                assertThat(J, isAbsent());
+                assertTrue(
+                    inspector.allClasses().stream()
+                        .allMatch(
+                            classSubject ->
+                                classSubject.allMethods(FoundMethodSubject::isBridge).isEmpty()));
               }
             })
         .run(parameters.getRuntime(), Main.class)

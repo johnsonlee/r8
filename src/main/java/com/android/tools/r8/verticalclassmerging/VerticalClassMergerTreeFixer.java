@@ -6,6 +6,7 @@ package com.android.tools.r8.verticalclassmerging;
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.ClassMergerTreeFixer;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Timing;
 import java.util.List;
@@ -23,10 +24,12 @@ class VerticalClassMergerTreeFixer
   VerticalClassMergerTreeFixer(
       AppView<AppInfoWithLiveness> appView,
       ClassMergerSharedData classMergerSharedData,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       VerticalClassMergerResult verticalClassMergerResult) {
     super(
         appView,
         classMergerSharedData,
+        immediateSubtypingInfo,
         VerticalClassMergerGraphLens.Builder.createBuilderForFixup(verticalClassMergerResult),
         verticalClassMergerResult.getVerticallyMergedClasses());
     this.synthesizedBridges = verticalClassMergerResult.getSynthesizedBridges();

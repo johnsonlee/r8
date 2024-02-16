@@ -31,7 +31,9 @@ public class AllowHorizontalClassMergingWithIfRuleTest extends TestBase {
         .addKeepRules("-if class * { void foo(); } -keep class " + Main.class.getTypeName())
         .addHorizontallyMergedClassesInspector(
             inspector ->
-                inspector.assertIsCompleteMergeGroup(B.class, C.class).assertNoOtherClassesMerged())
+                inspector
+                    .assertIsCompleteMergeGroup(A.class, B.class, C.class)
+                    .assertNoOtherClassesMerged())
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)

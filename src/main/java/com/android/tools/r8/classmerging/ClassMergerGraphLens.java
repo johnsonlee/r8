@@ -9,10 +9,8 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.classmerging.MergedClasses;
 import com.android.tools.r8.graph.lens.NestedGraphLens;
-import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.utils.collections.BidirectionalManyToManyRepresentativeMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,9 +27,6 @@ public abstract class ClassMergerGraphLens extends NestedGraphLens {
 
   public abstract static class BuilderBase<
       GL extends ClassMergerGraphLens, MC extends MergedClasses> {
-
-    public abstract void addExtraParameters(
-        DexMethod from, DexMethod to, List<? extends ExtraParameter> extraParameters);
 
     public abstract void commitPendingUpdates();
 

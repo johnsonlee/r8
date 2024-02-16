@@ -16,6 +16,7 @@ import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
@@ -116,8 +117,7 @@ public class HorizontalClassMerger {
       Timing timing)
       throws ExecutionException {
     // Run the policies on all program classes to produce a final grouping.
-    List<Policy> policies =
-        PolicyScheduler.getPolicies(appView, codeProvider, mode, runtimeTypeCheckInfo);
+    List<Policy> policies = PolicyScheduler.getPolicies(appView, mode, runtimeTypeCheckInfo);
     Collection<HorizontalMergeGroup> groups =
         new HorizontalClassMergerPolicyExecutor()
             .run(getInitialGroups(), policies, executorService, timing);
@@ -128,12 +128,26 @@ public class HorizontalClassMerger {
       return;
     }
 
+    ClassMergerSharedData classMergerSharedData = new ClassMergerSharedData(appView);
     HorizontalClassMergerGraphLens.Builder lensBuilder =
         new HorizontalClassMergerGraphLens.Builder();
 
-    // Merge the classes.
-    List<ClassMerger> classMergers = initializeClassMergers(codeProvider, lensBuilder, groups);
-    ClassMergerSharedData classMergerSharedData = new ClassMergerSharedData(appView);
+    // Determine which classes need a class id field.
+    List<ClassMerger.Builder> classMergerBuilders = createClassMergerBuilders(codeProvider, groups);
+    initializeClassIdFields(classMergerBuilders);
+
+    // Ensure that all allocations of classes that end up needing a class id use a constructor on
+    // the class itself.
+    ImmediateProgramSubtypingInfo immediateSubtypingInfo =
+        appView.enableWholeProgramOptimizations()
+            ? ImmediateProgramSubtypingInfo.createWithDeterministicOrder(
+                appView.withClassHierarchy())
+            : null;
+    new UndoConstructorInlining(appView, classMergerSharedData, immediateSubtypingInfo)
+        .runIfNecessary(groups, mode, executorService, timing);
+
+    // Merge classes.
+    List<ClassMerger> classMergers = createClassMergers(classMergerBuilders, lensBuilder);
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);
     SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder =
@@ -158,7 +172,13 @@ public class HorizontalClassMerger {
     appView.setHorizontallyMergedClasses(mergedClasses, mode);
 
     HorizontalClassMergerGraphLens horizontalClassMergerGraphLens =
-        createLens(classMergerSharedData, mergedClasses, lensBuilder, executorService, timing);
+        createLens(
+            classMergerSharedData,
+            immediateSubtypingInfo,
+            mergedClasses,
+            lensBuilder,
+            executorService,
+            timing);
     profileCollectionAdditions =
         profileCollectionAdditions.rewriteMethodReferences(
             horizontalClassMergerGraphLens::getNextMethodToInvoke);
@@ -166,10 +186,10 @@ public class HorizontalClassMerger {
     assert verifyNoCyclesInInterfaceHierarchies(appView, groups);
 
     FieldAccessInfoCollectionModifier fieldAccessInfoCollectionModifier = null;
-    if (mode.isRestrictedToAlphaRenaming()) {
-      assert groups.stream().noneMatch(HorizontalMergeGroup::hasClassIdField);
-    } else {
+    if (appView.enableWholeProgramOptimizations()) {
       fieldAccessInfoCollectionModifier = createFieldAccessInfoCollectionModifier(groups);
+    } else {
+      assert groups.stream().noneMatch(HorizontalMergeGroup::hasClassIdField);
     }
 
     // Set the new graph lens before finalizing any synthetic code.
@@ -381,21 +401,34 @@ public class HorizontalClassMerger {
     return initialGroups;
   }
 
-  /**
-   * Prepare horizontal class merging by determining which virtual methods and constructors need to
-   * be merged and how the merging should be performed.
-   */
-  private List<ClassMerger> initializeClassMergers(
-      IRCodeProvider codeProvider,
-      HorizontalClassMergerGraphLens.Builder lensBuilder,
-      Collection<HorizontalMergeGroup> groups) {
-    List<ClassMerger> classMergers = new ArrayList<>(groups.size());
+  private List<ClassMerger.Builder> createClassMergerBuilders(
+      IRCodeProvider codeProvider, Collection<HorizontalMergeGroup> groups) {
+    List<ClassMerger.Builder> classMergerBuilders = new ArrayList<>(groups.size());
     for (HorizontalMergeGroup group : groups) {
       assert group.isNonTrivial();
       assert group.hasInstanceFieldMap();
       assert group.hasTarget();
-      classMergers.add(
-          new ClassMerger.Builder(appView, codeProvider, group, mode).build(lensBuilder));
+      classMergerBuilders.add(new ClassMerger.Builder(appView, codeProvider, group, mode));
+    }
+    return classMergerBuilders;
+  }
+
+  private void initializeClassIdFields(List<ClassMerger.Builder> classMergerBuilders) {
+    for (ClassMerger.Builder classMergerBuilder : classMergerBuilders) {
+      classMergerBuilder.initializeVirtualMethodMergers().initializeClassIdField();
+    }
+  }
+
+  /**
+   * Prepare horizontal class merging by determining which virtual methods and constructors need to
+   * be merged and how the merging should be performed.
+   */
+  private List<ClassMerger> createClassMergers(
+      List<ClassMerger.Builder> classMergerBuilders,
+      HorizontalClassMergerGraphLens.Builder lensBuilder) {
+    List<ClassMerger> classMergers = new ArrayList<>(classMergerBuilders.size());
+    for (ClassMerger.Builder classMergerBuilder : classMergerBuilders) {
+      classMergers.add(classMergerBuilder.build(lensBuilder));
     }
     appView.dexItemFactory().clearTypeElementsCache();
     return classMergers;
@@ -427,13 +460,14 @@ public class HorizontalClassMerger {
    */
   private HorizontalClassMergerGraphLens createLens(
       ClassMergerSharedData classMergerSharedData,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       HorizontallyMergedClasses mergedClasses,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
     return new HorizontalClassMergerTreeFixer(
-            appView, classMergerSharedData, mergedClasses, lensBuilder)
+            appView, classMergerSharedData, immediateSubtypingInfo, mergedClasses, lensBuilder)
         .run(executorService, timing);
   }
 

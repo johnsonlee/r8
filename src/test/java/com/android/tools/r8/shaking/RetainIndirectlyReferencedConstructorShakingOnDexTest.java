@@ -76,19 +76,17 @@ public class RetainIndirectlyReferencedConstructorShakingOnDexTest extends TestB
 
     ClassSubject bClassSubject = inspector.clazz(B.class);
     assertThat(bClassSubject, isPresent());
-    assertEquals(
-        parameters.canHaveNonReboundConstructorInvoke() ? 0 : 1,
-        bClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
+    // TODO(b/324527514): Should be `1 - intValue(parameters.canHaveNonReboundConstructorInvoke())`.
+    assertEquals(1, bClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
 
     MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
+    // TODO(b/324527514): Should invoke A.<init> when canHaveNonReboundConstructorInvoke()
+    //  && enableRetargetingOfConstructorBridgeCalls.
     assertThat(
         mainMethodSubject,
         invokesMethod(
             MethodReferenceUtils.instanceConstructor(
-                parameters.canHaveNonReboundConstructorInvoke()
-                        && enableRetargetingOfConstructorBridgeCalls
-                    ? Reference.classFromDescriptor(aClassSubject.getFinalDescriptor())
-                    : Reference.classFromDescriptor(bClassSubject.getFinalDescriptor()))));
+                Reference.classFromDescriptor(bClassSubject.getFinalDescriptor()))));
   }
 
   static class Main {

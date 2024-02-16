@@ -72,7 +72,7 @@ public class InstanceInitializerDescription {
    *
    * @param originalMethodReference the original reference of the representative method
    */
-  public IncompleteMergedInstanceInitializerCode createCfCode(
+  public IncompleteMergedInstanceInitializerCode createCode(
       DexMethod originalMethodReference,
       HorizontalMergeGroup group,
       boolean hasClassId,

@@ -534,8 +534,11 @@ public class LirCode<EV> extends Code
       ProgramMethod method,
       AppView<?> appView,
       MutableMethodConversionOptions conversionOptions) {
+    GraphLens codeLens = method.getDefinition().getCode().getCodeLens(appView);
     RewrittenPrototypeDescription protoChanges =
-        appView.graphLens().lookupPrototypeChangesForMethodDefinition(method.getReference());
+        appView
+            .graphLens()
+            .lookupPrototypeChangesForMethodDefinition(method.getReference(), codeLens);
     return internalBuildIR(
         method, appView, new NumberGenerator(), null, protoChanges, conversionOptions);
   }

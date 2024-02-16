@@ -709,7 +709,7 @@ public class IRConverter {
     }
 
     if (!isDebugMode) {
-      new StringOptimizer(appView).run(code, timing);
+      new StringOptimizer(appView).run(code, methodProcessor, methodProcessingContext, timing);
       timing.begin("Optimize library methods");
       appView
           .libraryMethodOptimizer()
@@ -821,7 +821,8 @@ public class IRConverter {
       constantCanonicalizer.canonicalize();
       timing.end();
       previous = printMethod(code, "IR after constant canonicalization (SSA)", previous);
-      new DexConstantOptimizer(appView, constantCanonicalizer).run(code, timing);
+      new DexConstantOptimizer(appView, constantCanonicalizer)
+          .run(code, methodProcessor, methodProcessingContext, timing);
       previous = printMethod(code, "IR after dex constant optimization (SSA)", previous);
     }
 
@@ -847,7 +848,8 @@ public class IRConverter {
 
     deadCodeRemover.run(code, timing);
 
-    new ParentConstructorHoistingCodeRewriter(appView).run(code, timing);
+    new ParentConstructorHoistingCodeRewriter(appView)
+        .run(code, methodProcessor, methodProcessingContext, timing);
 
     BytecodeMetadataProvider.Builder bytecodeMetadataProviderBuilder =
         BytecodeMetadataProvider.builder();
@@ -877,7 +879,7 @@ public class IRConverter {
       assert code.isConsistentSSA(appView);
 
       // TODO(b/214496607): Remove when dynamic types are safe w.r.t. interface assignment rules.
-      new MoveResultRewriter(appView).run(code, timing);
+      new MoveResultRewriter(appView).run(code, methodProcessor, methodProcessingContext, timing);
     }
 
     // Assert that we do not have unremoved non-sense code in the output, e.g., v <- non-null NULL.

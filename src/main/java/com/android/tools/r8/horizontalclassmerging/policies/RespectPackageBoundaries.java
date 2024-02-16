@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -28,12 +27,9 @@ import java.util.Map;
 public class RespectPackageBoundaries extends MultiClassPolicy {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
-  private final ClassMergerMode mode;
 
-  public RespectPackageBoundaries(
-      AppView<? extends AppInfoWithClassHierarchy> appView, ClassMergerMode mode) {
+  public RespectPackageBoundaries(AppView<? extends AppInfoWithClassHierarchy> appView) {
     this.appView = appView;
-    this.mode = mode;
   }
 
   boolean shouldRestrictMergingAcrossPackageBoundary(DexProgramClass clazz) {
@@ -93,20 +89,15 @@ public class RespectPackageBoundaries extends MultiClassPolicy {
 
                         @Override
                         protected boolean checkRewrittenFieldType(DexClassAndField field) {
-                          if (mode.isRestrictedToAlphaRenamingInR8()) {
-                            // No relaxing of field types, hence no insertion of casts where we need
-                            // to guarantee visibility.
-                          } else {
-                            // If the type of the field is package private, we need to keep the
-                            // current class in its package in case we end up synthesizing a
-                            // check-cast for the field type after relaxing the type of the field
-                            // after instance field merging.
-                            DexType fieldBaseType = field.getType().toBaseType(dexItemFactory());
-                            if (fieldBaseType.isClassType()) {
-                              DexClass fieldBaseClass = appView.definitionFor(fieldBaseType);
-                              if (fieldBaseClass == null || !fieldBaseClass.isPublic()) {
-                                return setFoundPackagePrivateAccess();
-                              }
+                          // If the type of the field is package private, we need to keep the
+                          // current class in its package in case we end up synthesizing a
+                          // check-cast for the field type after relaxing the type of the field
+                          // after instance field merging.
+                          DexType fieldBaseType = field.getType().toBaseType(dexItemFactory());
+                          if (fieldBaseType.isClassType()) {
+                            DexClass fieldBaseClass = appView.definitionFor(fieldBaseType);
+                            if (fieldBaseClass == null || !fieldBaseClass.isPublic()) {
+                              return setFoundPackagePrivateAccess();
                             }
                           }
                           return continueSearchForPackagePrivateAccess();

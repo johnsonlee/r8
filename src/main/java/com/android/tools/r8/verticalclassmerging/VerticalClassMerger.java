@@ -97,7 +97,7 @@ public class VerticalClassMerger {
   private void run(ExecutorService executorService, Timing timing) throws ExecutionException {
     timing.begin("Setup");
     ImmediateProgramSubtypingInfo immediateSubtypingInfo =
-        ImmediateProgramSubtypingInfo.create(appView);
+        ImmediateProgramSubtypingInfo.createWithDeterministicOrder(appView);
 
     // Compute the disjoint class hierarchies for parallel processing.
     List<Set<DexProgramClass>> connectedComponents =
@@ -123,7 +123,12 @@ public class VerticalClassMerger {
       return;
     }
     VerticalClassMergerGraphLens lens =
-        runFixup(classMergerSharedData, verticalClassMergerResult, executorService, timing);
+        runFixup(
+            classMergerSharedData,
+            immediateSubtypingInfo,
+            verticalClassMergerResult,
+            executorService,
+            timing);
     assert verifyGraphLens(lens, verticalClassMergerResult);
 
     // Update keep info and art profiles.
@@ -230,12 +235,13 @@ public class VerticalClassMerger {
 
   private VerticalClassMergerGraphLens runFixup(
       ClassMergerSharedData classMergerSharedData,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       VerticalClassMergerResult verticalClassMergerResult,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
     return new VerticalClassMergerTreeFixer(
-            appView, classMergerSharedData, verticalClassMergerResult)
+            appView, classMergerSharedData, immediateSubtypingInfo, verticalClassMergerResult)
         .run(executorService, timing);
   }
 

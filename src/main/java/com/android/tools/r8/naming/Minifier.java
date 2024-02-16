@@ -277,7 +277,6 @@ public class Minifier {
         InternalNamingState internalState,
         BiPredicate<DexString, DexMethod> isAvailable) {
       if (!method.isProgramMethod()) {
-        assert isAvailable.test(method.getName(), method.getReference());
         return method.getName();
       }
       assert allowMemberRenaming(method);

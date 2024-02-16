@@ -23,7 +23,6 @@ import com.android.tools.r8.horizontalclassmerging.policies.NoCheckDiscard;
 import com.android.tools.r8.horizontalclassmerging.policies.NoClassAnnotationCollisions;
 import com.android.tools.r8.horizontalclassmerging.policies.NoClassInitializerCycles;
 import com.android.tools.r8.horizontalclassmerging.policies.NoClassInitializerWithObservableSideEffects;
-import com.android.tools.r8.horizontalclassmerging.policies.NoConstructorCollisions;
 import com.android.tools.r8.horizontalclassmerging.policies.NoDeadEnumLiteMaps;
 import com.android.tools.r8.horizontalclassmerging.policies.NoDeadLocks;
 import com.android.tools.r8.horizontalclassmerging.policies.NoDefaultInterfaceMethodCollisions;
@@ -35,7 +34,6 @@ import com.android.tools.r8.horizontalclassmerging.policies.NoFailedResolutionTa
 import com.android.tools.r8.horizontalclassmerging.policies.NoIndirectRuntimeTypeChecks;
 import com.android.tools.r8.horizontalclassmerging.policies.NoInnerClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoInstanceFieldAnnotations;
-import com.android.tools.r8.horizontalclassmerging.policies.NoInstanceInitializerMerging;
 import com.android.tools.r8.horizontalclassmerging.policies.NoInterfaces;
 import com.android.tools.r8.horizontalclassmerging.policies.NoKeepRules;
 import com.android.tools.r8.horizontalclassmerging.policies.NoKotlinMetadata;
@@ -44,7 +42,6 @@ import com.android.tools.r8.horizontalclassmerging.policies.NoRecords;
 import com.android.tools.r8.horizontalclassmerging.policies.NoResourceClasses;
 import com.android.tools.r8.horizontalclassmerging.policies.NoServiceLoaders;
 import com.android.tools.r8.horizontalclassmerging.policies.NoVerticallyMergedClasses;
-import com.android.tools.r8.horizontalclassmerging.policies.NoVirtualMethodMerging;
 import com.android.tools.r8.horizontalclassmerging.policies.NoWeakerAccessPrivileges;
 import com.android.tools.r8.horizontalclassmerging.policies.NotMatchedByNoHorizontalClassMerging;
 import com.android.tools.r8.horizontalclassmerging.policies.NotTwoInitsWithMonitors;
@@ -74,12 +71,10 @@ public class PolicyScheduler {
 
   public static List<Policy> getPolicies(
       AppView<?> appView,
-      IRCodeProvider codeProvider,
       ClassMergerMode mode,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     if (appView.hasClassHierarchy()) {
-      return getPoliciesForR8(
-          appView.withClassHierarchy(), codeProvider, mode, runtimeTypeCheckInfo);
+      return getPoliciesForR8(appView.withClassHierarchy(), mode, runtimeTypeCheckInfo);
     } else {
       return getPoliciesForD8(appView.withoutClassHierarchy(), mode);
     }
@@ -99,13 +94,12 @@ public class PolicyScheduler {
 
   private static List<Policy> getPoliciesForR8(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      IRCodeProvider codeProvider,
       ClassMergerMode mode,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     List<Policy> policies =
         ImmutableList.<Policy>builder()
             .addAll(getSingleClassPolicies(appView, mode, runtimeTypeCheckInfo))
-            .addAll(getMultiClassPolicies(appView, codeProvider, mode, runtimeTypeCheckInfo))
+            .addAll(getMultiClassPolicies(appView, mode, runtimeTypeCheckInfo))
             .build();
     policies = appView.options().testing.horizontalClassMergingPolicyRewriter.apply(policies);
     assert verifyPolicyOrderingConstraints(policies);
@@ -221,44 +215,24 @@ public class PolicyScheduler {
 
   private static List<Policy> getMultiClassPolicies(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      IRCodeProvider codeProvider,
       ClassMergerMode mode,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     ImmutableList.Builder<Policy> builder = ImmutableList.builder();
-
     addRequiredMultiClassPolicies(appView, mode, runtimeTypeCheckInfo, builder);
-
     if (!appView.options().horizontalClassMergerOptions().isRestrictedToSynthetics()) {
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       addMultiClassPoliciesForMergingNonSyntheticClasses(appViewWithLiveness, builder);
     }
-
-    if (mode.isRestrictedToAlphaRenamingInR8()) {
-      builder.add(
-          new NoVirtualMethodMerging(appView, mode), new NoConstructorCollisions(appView, mode));
-    } else {
-      AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
-      if (mode.isInitial()) {
-        builder.add(new AllInstantiatedOrUninstantiated(appViewWithLiveness, mode));
-      }
-      builder.add(
-          new PreserveMethodCharacteristics(appViewWithLiveness, mode),
-          new MinimizeInstanceFieldCasts());
+    if (mode.isInitial()) {
+      assert appView.hasLiveness();
+      builder.add(new AllInstantiatedOrUninstantiated(appView.withLiveness()));
     }
-
+    if (appView.hasLiveness()) {
+      builder.add(new PreserveMethodCharacteristics(appView.withLiveness(), mode));
+    }
+    builder.add(new MinimizeInstanceFieldCasts());
     addMultiClassPoliciesForInterfaceMerging(appView, mode, builder);
-
-    builder.add(new LimitClassGroups(appView));
-
-    if (mode.isRestrictedToAlphaRenamingInR8()) {
-      // This needs to reason about equivalence of instance initializers, which relies on the
-      // mapping from instance fields on source classes to the instance fields on target classes.
-      // This policy therefore selects a target for each merge group and creates the mapping for
-      // instance fields. For this reason we run this policy in the very end.
-      builder.add(new NoInstanceInitializerMerging(appView, codeProvider, mode));
-    }
-
-    return builder.add(new FinalizeMergeGroup(appView, mode)).build();
+    return builder.add(new LimitClassGroups(appView), new FinalizeMergeGroup(appView)).build();
   }
 
   private static List<? extends Policy> getMultiClassPoliciesForD8(
@@ -275,7 +249,7 @@ public class PolicyScheduler {
         new NoDifferentApiReferenceLevel(appView),
         new LimitClassGroups(appView));
     assert verifyMultiClassPoliciesIrrelevantForMergingSyntheticsInD8(appView, mode, builder);
-    builder.add(new FinalizeMergeGroup(appView, mode));
+    builder.add(new FinalizeMergeGroup(appView));
     return builder.build();
   }
 
@@ -292,12 +266,12 @@ public class PolicyScheduler {
         new NoClassAnnotationCollisions(),
         new SameFeatureSplit(appView),
         new SameStartupPartition(appView),
-        new SameInstanceFields(appView, mode),
+        new SameInstanceFields(appView),
         new SameMainDexGroup(appView),
         new SameNestHost(appView),
         new SameParentClass(),
         new SyntheticItemsPolicy(appView, mode),
-        new RespectPackageBoundaries(appView, mode),
+        new RespectPackageBoundaries(appView),
         new NoDifferentApiReferenceLevel(appView),
         new NoIndirectRuntimeTypeChecks(appView, runtimeTypeCheckInfo),
         new NoWeakerAccessPrivileges(appView, immediateSubtypingInfo),

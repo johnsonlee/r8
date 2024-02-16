@@ -12,6 +12,10 @@ import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
+import com.android.tools.r8.utils.Box;
 import org.junit.Test;
 
 public class TreeFixerConstructorCollisionTest extends HorizontalClassMergingTestBase {
@@ -21,14 +25,28 @@ public class TreeFixerConstructorCollisionTest extends HorizontalClassMergingTes
 
   @Test
   public void testR8() throws Exception {
+    Box<ClassReference> aClassReferenceAfterRepackaging = new Box<>();
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addHorizontallyMergedClassesInspector(
-            inspector ->
-                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+            inspector -> {
+              ClassReference aClassReference = aClassReferenceAfterRepackaging.get();
+              inspector
+                  .assertIsCompleteMergeGroup(A.class, B.class)
+                  .assertIsCompleteMergeGroup(
+                      SyntheticItemsTestUtils.syntheticInitializerArgumentType(aClassReference, 0),
+                      SyntheticItemsTestUtils.syntheticInitializerArgumentType(aClassReference, 1),
+                      SyntheticItemsTestUtils.syntheticInitializerArgumentType(aClassReference, 2),
+                      SyntheticItemsTestUtils.syntheticInitializerArgumentType(aClassReference, 3))
+                  .assertNoOtherClassesMerged();
+            })
         .addOptionsModification(
             options -> options.inlinerOptions().setEnableConstructorInlining(false))
+        .addRepackagingInspector(
+            inspector ->
+                aClassReferenceAfterRepackaging.set(
+                    inspector.getTarget(Reference.classFromClass(A.class))))
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()

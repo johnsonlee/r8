@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.classmerging;
 
-import static com.android.tools.r8.ir.conversion.ExtraUnusedParameter.computeExtraUnusedParameters;
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
@@ -18,9 +18,9 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.classmerging.MergedClasses;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
-import com.android.tools.r8.horizontalclassmerging.SubtypingForrestForClasses;
 import com.android.tools.r8.shaking.AnnotationFixer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ArrayUtils;
@@ -32,8 +32,10 @@ import com.android.tools.r8.utils.collections.DexMethodSignatureSet;
 import com.android.tools.r8.utils.collections.MutableBidirectionalOneToOneMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -46,9 +48,10 @@ public abstract class ClassMergerTreeFixer<
         MC extends MergedClasses>
     extends TreeFixerBase {
 
+  private final ClassMergerSharedData classMergerSharedData;
+  private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
   protected final LB lensBuilder;
   protected final MC mergedClasses;
-  private final ClassMergerSharedData classMergerSharedData;
 
   private final Map<DexProgramClass, DexType> originalSuperTypes = new IdentityHashMap<>();
 
@@ -59,10 +62,12 @@ public abstract class ClassMergerTreeFixer<
   public ClassMergerTreeFixer(
       AppView<?> appView,
       ClassMergerSharedData classMergerSharedData,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       LB lensBuilder,
       MC mergedClasses) {
     super(appView);
     this.classMergerSharedData = classMergerSharedData;
+    this.immediateSubtypingInfo = immediateSubtypingInfo;
     this.lensBuilder = lensBuilder;
     this.mergedClasses = mergedClasses;
   }
@@ -78,18 +83,48 @@ public abstract class ClassMergerTreeFixer<
     Iterables.filter(classes, DexProgramClass::isInterface).forEach(this::fixupInterfaceClass);
     classes.forEach(this::fixupAttributes);
     classes.forEach(this::fixupProgramClassSuperTypes);
-    SubtypingForrestForClasses subtypingForrest =
-        new SubtypingForrestForClasses(appView.withClassHierarchy());
+
     // TODO(b/170078037): parallelize this code segment.
-    for (DexProgramClass root : subtypingForrest.getProgramRoots()) {
-      subtypingForrest.traverseNodeDepthFirst(
-          root, new DexMethodSignatureBiMap<>(), this::fixupProgramClass);
+    for (DexProgramClass root : getRoots()) {
+      traverseProgramClassesDepthFirst(root, new DexMethodSignatureBiMap<>());
     }
     postprocess();
     GL lens = lensBuilder.build(appViewWithLiveness, mergedClasses);
     new AnnotationFixer(appView, lens).run(appView.appInfo().classes(), executorService);
     timing.end();
     return lens;
+  }
+
+  private List<DexProgramClass> getRoots() {
+    List<DexProgramClass> roots = new ArrayList<>();
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      if (!clazz.isInterface() && !mergedClasses.isMergeSource(clazz.getType())) {
+        DexProgramClass superClass =
+            asProgramClassOrNull(appView.definitionFor(clazz.getSuperType(), clazz));
+        if (superClass == null) {
+          roots.add(clazz);
+        }
+      }
+    }
+    return roots;
+  }
+
+  private void traverseProgramClassesDepthFirst(
+      DexProgramClass clazz, DexMethodSignatureBiMap<DexMethodSignature> state) {
+    DexMethodSignatureBiMap<DexMethodSignature> newState = fixupProgramClass(clazz, state);
+    for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(clazz)) {
+      traverseProgramClassesDepthFirst(subclass, newState);
+    }
+    if (mergedClasses.isMergeTarget(clazz.getType())) {
+      for (DexType sourceType : mergedClasses.getSourcesFor(clazz.getType())) {
+        DexProgramClass sourceClass = appView.definitionFor(sourceType).asProgramClass();
+        for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(sourceClass)) {
+          if (subclass != clazz) {
+            traverseProgramClassesDepthFirst(subclass, newState);
+          }
+        }
+      }
+    }
   }
 
   public void preprocess() {
@@ -289,10 +324,6 @@ public abstract class ClassMergerTreeFixer<
                     newMethodReference,
                     classMergerSharedData.getExtraUnusedArgumentTypes(),
                     tryMethod -> !newMethodSignatures.containsValue(tryMethod.getSignature()));
-            lensBuilder.addExtraParameters(
-                originalMethodReference,
-                newMethodReference,
-                computeExtraUnusedParameters(originalMethodReference, newMethodReference));
           } else {
             newMethodReference =
                 dexItemFactory.createFreshMethodNameWithoutHolder(
