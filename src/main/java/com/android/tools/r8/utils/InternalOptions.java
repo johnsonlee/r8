@@ -3179,7 +3179,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean canHaveNonReboundConstructorInvoke() {
-    return isGeneratingDex() && minApiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.L);
+    // TODO(b/324527514): Supported on API level L and higher, but we currently do not allow
+    //  non-rebound constructors since we need to account for non-rebound method references when
+    //  looking for fresh constructor signatures.
+    return false;
   }
 
   // b/238399429 Some art 6 vms have issues with multiple monitors in the same method
@@ -3195,6 +3198,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean canInitNewInstanceUsingSuperclassConstructor() {
-    return canHaveNonReboundConstructorInvoke();
+    return isGeneratingDex() && minApiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.L);
   }
 }
