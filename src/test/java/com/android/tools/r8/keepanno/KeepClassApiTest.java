@@ -59,6 +59,7 @@ public class KeepClassApiTest extends KeepAnnoTestBase {
     assertTrue(parameters.isShrinker());
     Box<Path> lib = new Box<>();
     testForKeepAnno(parameters)
+        .enableNativeInterpretation()
         .addProgramClasses(getLibraryClasses())
         .setExcludedOuterClass(getClass())
         .applyIfShrinker(b -> lib.set(b.compile().inspect(this::checkLibraryOutput).writeToZip()));

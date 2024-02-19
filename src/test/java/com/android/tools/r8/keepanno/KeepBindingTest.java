@@ -37,6 +37,7 @@ public class KeepBindingTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
+        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .addKeepClassRules(A.class, B.class)
         .addKeepMainRule(TestClass.class)

@@ -5,25 +5,38 @@
 package com.android.tools.r8.shaking.rules;
 
 import com.android.tools.r8.errors.Unimplemented;
+import com.android.tools.r8.graph.AccessFlags;
+import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationSet;
+import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexEncodedMember;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
+import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.MethodAccessFlags;
-import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.keepanno.ast.AccessVisibility;
 import com.android.tools.r8.keepanno.ast.KeepArrayTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
+import com.android.tools.r8.keepanno.ast.KeepFieldAccessPattern;
+import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
 import com.android.tools.r8.keepanno.ast.KeepInstanceOfPattern;
+import com.android.tools.r8.keepanno.ast.KeepMemberAccessPattern;
+import com.android.tools.r8.keepanno.ast.KeepMemberPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodParametersPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodReturnTypePattern;
+import com.android.tools.r8.keepanno.ast.KeepPackagePattern;
 import com.android.tools.r8.keepanno.ast.KeepPrimitiveTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepStringPattern;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
+import com.android.tools.r8.keepanno.ast.KeepUnqualfiedClassNamePattern;
+import com.android.tools.r8.keepanno.ast.ModifierPattern;
 import com.android.tools.r8.keepanno.ast.OptionalPattern;
 import java.util.List;
 
@@ -48,7 +61,25 @@ public class KeepAnnotationMatcherPredicates {
     if (pattern.isExact()) {
       return type.toDescriptorString().equals(pattern.getExactDescriptor());
     }
-    throw new Unimplemented();
+    return matchesPackage(type.getPackageName(), pattern.getPackagePattern())
+        && matchesSimpleName(type.getSimpleName(), pattern.getNamePattern());
+  }
+
+  private boolean matchesPackage(String packageName, KeepPackagePattern pattern) {
+    if (pattern.isAny()) {
+      return true;
+    }
+    if (pattern.isTop() && packageName.equals("")) {
+      return true;
+    }
+    return packageName.equals(pattern.getExactPackageAsString());
+  }
+
+  public boolean matchesSimpleName(String simpleName, KeepUnqualfiedClassNamePattern pattern) {
+    if (pattern.isAny()) {
+      return true;
+    }
+    return pattern.asExact().getExactNameAsString().equals(simpleName);
   }
 
   private boolean matchesInstanceOfPattern(
@@ -59,30 +90,109 @@ public class KeepAnnotationMatcherPredicates {
     throw new Unimplemented();
   }
 
-  public boolean matchesMethod(KeepMethodPattern methodPattern, ProgramMethod method) {
-    if (methodPattern.isAnyMethod()) {
+  public boolean matchesGeneralMember(DexEncodedMember<?, ?> member, KeepMemberPattern pattern) {
+    assert pattern.isGeneralMember();
+    if (pattern.isAllMembers()) {
       return true;
     }
-    return matchesName(method.getName(), methodPattern.getNamePattern().asStringPattern())
-        && matchesReturnType(method.getReturnType(), methodPattern.getReturnTypePattern())
-        && matchesParameters(method.getParameters(), methodPattern.getParametersPattern())
-        && matchesAnnotatedBy(method.getAnnotations(), methodPattern.getAnnotatedByPattern())
-        && matchesAccess(method.getAccessFlags(), methodPattern.getAccessPattern());
+    return matchesAnnotatedBy(member.annotations(), pattern.getAnnotatedByPattern())
+        && matchesGeneralMemberAccess(member.getAccessFlags(), pattern.getAccessPattern());
   }
 
-  public boolean matchesAccess(MethodAccessFlags access, KeepMethodAccessPattern pattern) {
+  public boolean matchesMethod(DexEncodedMethod method, KeepMethodPattern pattern) {
+    if (pattern.isAnyMethod()) {
+      return true;
+    }
+    return matchesName(method.getName(), pattern.getNamePattern().asStringPattern())
+        && matchesReturnType(method.getReturnType(), pattern.getReturnTypePattern())
+        && matchesParameters(method.getParameters(), pattern.getParametersPattern())
+        && matchesAnnotatedBy(method.annotations(), pattern.getAnnotatedByPattern())
+        && matchesMethodAccess(method.getAccessFlags(), pattern.getAccessPattern());
+  }
+
+  public boolean matchesField(DexEncodedField field, KeepFieldPattern pattern) {
+    if (pattern.isAnyField()) {
+      return true;
+    }
+    return matchesName(field.getName(), pattern.getNamePattern().asStringPattern())
+        && matchesType(field.getType(), pattern.getTypePattern().asType())
+        && matchesAnnotatedBy(field.annotations(), pattern.getAnnotatedByPattern())
+        && matchesFieldAccess(field.getAccessFlags(), pattern.getAccessPattern());
+  }
+
+  public boolean matchesGeneralMemberAccess(
+      AccessFlags<?> access, KeepMemberAccessPattern pattern) {
     if (pattern.isAny()) {
       return true;
     }
-    throw new Unimplemented();
+    if (!pattern.isAnyVisibility() && !pattern.isVisibilityAllowed(getAccessVisibility(access))) {
+      return false;
+    }
+    return matchesModifier(access.isStatic(), pattern.getStaticPattern())
+        && matchesModifier(access.isFinal(), pattern.getFinalPattern())
+        && matchesModifier(access.isSynthetic(), pattern.getSyntheticPattern());
+  }
+
+  public boolean matchesMethodAccess(MethodAccessFlags access, KeepMethodAccessPattern pattern) {
+    if (pattern.isAny()) {
+      return true;
+    }
+    return matchesGeneralMemberAccess(access, pattern)
+        && matchesModifier(access.isSynchronized(), pattern.getSynchronizedPattern())
+        && matchesModifier(access.isBridge(), pattern.getBridgePattern())
+        && matchesModifier(access.isNative(), pattern.getNativePattern())
+        && matchesModifier(access.isAbstract(), pattern.getAbstractPattern())
+        && matchesModifier(access.isStrict(), pattern.getStrictFpPattern());
+  }
+
+  public boolean matchesFieldAccess(FieldAccessFlags access, KeepFieldAccessPattern pattern) {
+    if (pattern.isAny()) {
+      return true;
+    }
+    return matchesGeneralMemberAccess(access, pattern)
+        && matchesModifier(access.isVolatile(), pattern.getVolatilePattern())
+        && matchesModifier(access.isTransient(), pattern.getTransientPattern());
+  }
+
+  private boolean matchesModifier(boolean value, ModifierPattern pattern) {
+    return pattern.isAny() || value == pattern.isOnlyPositive();
+  }
+
+  private AccessVisibility getAccessVisibility(AccessFlags<?> accessFlags) {
+    if (accessFlags.isPublic()) {
+      return AccessVisibility.PUBLIC;
+    }
+    if (accessFlags.isProtected()) {
+      return AccessVisibility.PROTECTED;
+    }
+    if (accessFlags.isPackagePrivate()) {
+      return AccessVisibility.PACKAGE_PRIVATE;
+    }
+    assert accessFlags.isPrivate();
+    return AccessVisibility.PRIVATE;
   }
 
   public boolean matchesAnnotatedBy(
       DexAnnotationSet annotations, OptionalPattern<KeepQualifiedClassNamePattern> pattern) {
     if (pattern.isAbsent()) {
+      // No pattern for annotations matches regardless of annotation content.
       return true;
     }
-    throw new Unimplemented();
+    if (annotations.isEmpty()) {
+      // Fast-path if pattern is present but no annotations.
+      return false;
+    }
+    KeepQualifiedClassNamePattern classNamePattern = pattern.get();
+    if (classNamePattern.isAny()) {
+      // Fast-path the "any" case.
+      return true;
+    }
+    for (DexAnnotation annotation : annotations.getAnnotations()) {
+      if (matchesClassName(annotation.getAnnotationType(), classNamePattern)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public boolean matchesParameters(DexTypeList parameters, KeepMethodParametersPattern pattern) {

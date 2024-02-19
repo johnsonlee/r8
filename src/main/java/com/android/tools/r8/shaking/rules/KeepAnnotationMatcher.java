@@ -239,22 +239,32 @@ public class KeepAnnotationMatcher {
         return;
       }
       KeepClassItemPattern classPattern = schema.classes.get(classIndex);
-      if (!classPattern.getClassNamePattern().isExact()) {
-        throw new Unimplemented();
+      if (classPattern.getClassNamePattern().isExact()) {
+        DexType type =
+            appInfo
+                .dexItemFactory()
+                .createType(classPattern.getClassNamePattern().getExactDescriptor());
+        DexProgramClass clazz = DexProgramClass.asProgramClassOrNull(appInfo.definitionFor(type));
+        if (clazz == null) {
+          // No valid match, so the rule is discarded. This should likely be a diagnostics info.
+          return;
+        }
+        if (!predicates.matchesClass(clazz, classPattern)) {
+          // Invalid match for this class.
+          return;
+        }
+        continueWithClass(classIndex, clazz);
+      } else {
+        // TODO(b/323816623): This repeated iteration on all classes must be avoided.
+        for (DexProgramClass clazz : appInfo.classes()) {
+          if (predicates.matchesClass(clazz, classPattern)) {
+            continueWithClass(classIndex, clazz);
+          }
+        }
       }
-      DexType type =
-          appInfo
-              .dexItemFactory()
-              .createType(classPattern.getClassNamePattern().getExactDescriptor());
-      DexProgramClass clazz = DexProgramClass.asProgramClassOrNull(appInfo.definitionFor(type));
-      if (clazz == null) {
-        // No valid match, so the rule is discarded. This should likely be a diagnostics info.
-        return;
-      }
-      if (!predicates.matchesClass(clazz, classPattern)) {
-        // Invalid match for this class.
-        return;
-      }
+    }
+
+    private void continueWithClass(int classIndex, DexProgramClass clazz) {
       assignment.setClass(classIndex, clazz);
       IntList classMemberIndexList = schema.classMembers.get(classIndex);
       findMatchingMember(0, classMemberIndexList, clazz, classIndex + 1);
@@ -270,48 +280,55 @@ public class KeepAnnotationMatcher {
         findMatchingClass(nextClassIndex);
         return;
       }
-      int nextMemberInHolderIndex = memberInHolderIndex + 1;
       int memberIndex = memberIndexTranslation.getInt(memberInHolderIndex);
       KeepMemberItemPattern memberItemPattern = schema.members.get(memberIndex);
+      Consumer<ProgramDefinition> continueWithMember =
+          m ->
+              continueWithMember(
+                  m, memberIndex, memberInHolderIndex + 1, memberIndexTranslation, nextClassIndex);
       memberItemPattern
           .getMemberPattern()
           .match(
-              generalMember -> {
-                if (!holder.hasMethodsOrFields()) {
+              generalMemberPattern -> {
+                if (!holder.hasMethodsOrFields() && generalMemberPattern.isAllMembers()) {
                   // The empty class can only match the "all member" pattern but with no assignment.
-                  if (generalMember.isAllMembers()) {
-                    assignment.setEmptyMemberMatch(memberIndex);
-                    findMatchingMember(
-                        nextMemberInHolderIndex, memberIndexTranslation, holder, nextClassIndex);
-                  }
-                  return;
+                  continueWithMember.accept(holder);
+                } else {
+                  holder.forEachProgramMember(
+                      m -> {
+                        if (predicates.matchesGeneralMember(
+                            m.getDefinition(), generalMemberPattern)) {
+                          continueWithMember.accept(m);
+                        }
+                      });
                 }
-                if (!generalMember.isAllMembers()) {
-                  throw new Unimplemented();
-                }
-                holder.forEachProgramMember(
-                    f -> {
-                      assignment.setMember(memberIndex, f);
-                      findMatchingMember(
-                          nextMemberInHolderIndex, memberIndexTranslation, holder, nextClassIndex);
-                    });
               },
-              fieldMember -> {
-                throw new Unimplemented();
-              },
-              methodMember -> {
-                holder.forEachProgramMethod(
-                    m -> {
-                      if (predicates.matchesMethod(methodMember, m)) {
-                        assignment.setMember(memberIndex, m);
-                        findMatchingMember(
-                            nextMemberInHolderIndex,
-                            memberIndexTranslation,
-                            holder,
-                            nextClassIndex);
-                      }
-                    });
-              });
+              fieldPattern ->
+                  holder.forEachProgramFieldMatching(
+                      f -> predicates.matchesField(f, fieldPattern), continueWithMember),
+              methodPattern ->
+                  holder.forEachProgramMethodMatching(
+                      m -> predicates.matchesMethod(m, methodPattern), continueWithMember));
+    }
+
+    private void continueWithMember(
+        ProgramDefinition definition,
+        int memberIndex,
+        int nextMemberInHolderIndex,
+        IntList memberIndexTranslation,
+        int nextClassIndex) {
+      if (definition.isProgramMember()) {
+        assignment.setMember(memberIndex, definition.asProgramMember());
+      } else {
+        assert definition.isProgramClass();
+        assert !definition.asProgramClass().hasMethodsOrFields();
+        assignment.setEmptyMemberMatch(memberIndex);
+      }
+      findMatchingMember(
+          nextMemberInHolderIndex,
+          memberIndexTranslation,
+          definition.getContextClass(),
+          nextClassIndex);
     }
   }
 
@@ -336,24 +353,6 @@ public class KeepAnnotationMatcher {
       this.edge = edge;
       edge.getPreconditions().forEach(this::addPrecondition);
       edge.getConsequences().forEachTarget(this::addConsequence);
-      ListUtils.forEachWithIndex(
-          members,
-          (member, memberIndex) -> {
-            member
-                .getClassReference()
-                .matchClassItemReference(
-                    bindingReference -> {
-                      int classIndex = symbolToKey.getInt(bindingReference);
-                      classMembers.get(classIndex).add(memberIndex);
-                    },
-                    classItemPattern -> {
-                      // The member declares its own inline class so link it directly.
-                      IntArrayList memberList = new IntArrayList();
-                      memberList.add(memberIndex);
-                      classes.add(classItemPattern);
-                      classMembers.add(memberList);
-                    });
-          });
     }
 
     public static boolean isClassKeyReference(int keyRef) {
@@ -393,14 +392,17 @@ public class KeepAnnotationMatcher {
 
     private int defineItemPattern(KeepItemPattern item) {
       if (item.isClassItemPattern()) {
-        int key = classes.size();
+        int classIndex = classes.size();
         classes.add(item.asClassItemPattern());
         classMembers.add(new IntArrayList());
-        return encodeClassKey(key);
+        return encodeClassKey(classIndex);
+      } else {
+        int classIndex = defineItemReference(item.asMemberItemPattern().getClassReference());
+        int memberIndex = members.size();
+        members.add(item.asMemberItemPattern());
+        classMembers.get(classIndex).add(memberIndex);
+        return encodeMemberKey(memberIndex);
       }
-      int key = members.size();
-      members.add(item.asMemberItemPattern());
-      return encodeMemberKey(key);
     }
 
     public void addPrecondition(KeepCondition condition) {
