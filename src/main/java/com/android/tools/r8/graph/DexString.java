@@ -468,19 +468,11 @@ public class DexString extends IndexedDexItem
   }
 
   public boolean endsWith(DexString suffix) {
-    return endsWith(suffix.content);
-  }
-
-  public boolean endsWith(String suffix) {
-    return endsWith(encodeToMutf8(suffix));
-  }
-
-  private boolean endsWith(byte[] suffixContent) {
-    if (content.length < suffixContent.length) {
+    if (content.length < suffix.content.length) {
       return false;
     }
-    for (int i = content.length - suffixContent.length, j = 0; i < content.length; i++, j++) {
-      if (content[i] != suffixContent[j]) {
+    for (int i = content.length - suffix.content.length, j = 0; i < content.length; i++, j++) {
+      if (content[i] != suffix.content[j]) {
         return false;
       }
     }

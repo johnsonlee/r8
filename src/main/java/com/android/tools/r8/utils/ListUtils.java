@@ -316,6 +316,24 @@ public class ListUtils {
     return existingMappedRanges == null ? null : last(existingMappedRanges);
   }
 
+  public static <T> boolean all(List<T> items, Predicate<T> predicate) {
+    for (T item : items) {
+      if (!predicate.test(item)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  public static <T> boolean any(List<T> items, Predicate<T> predicate) {
+    for (T item : items) {
+      if (predicate.test(item)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public interface ReferenceAndIntConsumer<T> {
     void accept(T item, int index);
   }
