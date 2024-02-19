@@ -6,7 +6,7 @@ package com.android.tools.r8.shaking.rules;
 
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.MinimumKeepInfoCollection;
-import com.android.tools.r8.utils.ListUtils;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -58,7 +58,7 @@ public class ApplicableRulesEvaluatorImpl<T> extends ApplicableRulesEvaluator {
     }
 
     if (prunedCount == pendingConditionalRules.size()) {
-      assert ListUtils.all(pendingConditionalRules, Objects::isNull);
+      assert Iterables.all(pendingConditionalRules, Objects::isNull);
       prunedCount = 0;
       pendingConditionalRules = Collections.emptyList();
       return;

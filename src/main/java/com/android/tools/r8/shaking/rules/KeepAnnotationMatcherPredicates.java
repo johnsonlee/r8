@@ -90,6 +90,7 @@ public class KeepAnnotationMatcherPredicates {
     if (pattern.isAny()) {
       return true;
     }
+    // TODO(b/323816623): Consider a way to optimize instance matching to avoid repeated traversals.
     if (pattern.isInclusive()) {
       if (matchesClassName(clazz.getType(), pattern.getClassNamePattern())) {
         return true;
@@ -120,7 +121,7 @@ public class KeepAnnotationMatcherPredicates {
     if (pattern.isAnyMethod()) {
       return true;
     }
-    return matchesName(method.getName(), pattern.getNamePattern().asStringPattern())
+    return matchesString(method.getName(), pattern.getNamePattern().asStringPattern())
         && matchesReturnType(method.getReturnType(), pattern.getReturnTypePattern())
         && matchesParameters(method.getParameters(), pattern.getParametersPattern())
         && matchesAnnotatedBy(method.annotations(), pattern.getAnnotatedByPattern())
@@ -131,7 +132,7 @@ public class KeepAnnotationMatcherPredicates {
     if (pattern.isAnyField()) {
       return true;
     }
-    return matchesName(field.getName(), pattern.getNamePattern().asStringPattern())
+    return matchesString(field.getName(), pattern.getNamePattern().asStringPattern())
         && matchesType(field.getType(), pattern.getTypePattern().asType())
         && matchesAnnotatedBy(field.annotations(), pattern.getAnnotatedByPattern())
         && matchesFieldAccess(field.getAccessFlags(), pattern.getAccessPattern());
@@ -229,14 +230,21 @@ public class KeepAnnotationMatcherPredicates {
     return true;
   }
 
-  public boolean matchesName(DexString name, KeepStringPattern namePattern) {
-    if (namePattern.isAny()) {
+  public boolean matchesString(DexString string, KeepStringPattern pattern) {
+    if (pattern.isAny()) {
       return true;
     }
-    if (namePattern.isExact()) {
-      return namePattern.asExactString().equals(name.toString());
+    // TODO(b/323816623): Consider precompiling matches to avoid repeated string decoding.
+    if (pattern.isExact()) {
+      return string.isEqualTo(pattern.asExactString());
     }
-    throw new Unimplemented();
+    if (pattern.hasPrefix() && !string.startsWith(pattern.getPrefixString())) {
+      return false;
+    }
+    if (pattern.hasSuffix() && !string.endsWith(pattern.getSuffixString())) {
+      return false;
+    }
+    return true;
   }
 
   public boolean matchesReturnType(
