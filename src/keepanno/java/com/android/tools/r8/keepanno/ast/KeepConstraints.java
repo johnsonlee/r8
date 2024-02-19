@@ -33,10 +33,6 @@ public abstract class KeepConstraints {
     return new Builder();
   }
 
-  public void forEachAccept(KeepConstraintVisitor visitor) {
-    getConstraints().forEach(c -> c.accept(visitor));
-  }
-
   public static class Builder {
 
     private boolean defaultAdditions = false;

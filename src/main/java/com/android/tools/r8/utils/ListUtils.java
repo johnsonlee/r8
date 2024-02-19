@@ -318,15 +318,6 @@ public class ListUtils {
 
   public static <T> boolean all(List<T> items, Predicate<T> predicate) {
     for (T item : items) {
-      if (!predicate.test(item)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  public static <T> boolean any(List<T> items, Predicate<T> predicate) {
-    for (T item : items) {
       if (predicate.test(item)) {
         return true;
       }

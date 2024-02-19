@@ -507,7 +507,7 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     @Deprecated
-    public Builder setEnableExperimentalExtractedKeepAnnotations(boolean enable) {
+    public Builder setEnableExperimentalVersionedKeepEdgeAnnotations(boolean enable) {
       this.enableExperimentalVersionedKeepEdgeAnnotations = enable;
       return self();
     }

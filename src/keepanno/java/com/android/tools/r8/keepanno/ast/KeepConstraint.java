@@ -25,8 +25,6 @@ public abstract class KeepConstraint {
     return System.identityHashCode(this);
   }
 
-  public abstract void accept(KeepConstraintVisitor visitor);
-
   public abstract String getEnumValue();
 
   public KeepAnnotationPattern asAnnotationPattern() {
@@ -79,11 +77,6 @@ public abstract class KeepConstraint {
     }
 
     @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onLookup(this);
-    }
-
-    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.SHRINKING);
     }
@@ -102,11 +95,6 @@ public abstract class KeepConstraint {
     @Override
     public String getEnumValue() {
       return Constraints.NAME;
-    }
-
-    @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onName(this);
     }
 
     @Override
@@ -131,11 +119,6 @@ public abstract class KeepConstraint {
     }
 
     @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onVisibilityRelax(this);
-    }
-
-    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       // The compiler currently satisfies that access is never restricted.
     }
@@ -154,11 +137,6 @@ public abstract class KeepConstraint {
     @Override
     public String getEnumValue() {
       return Constraints.VISIBILITY_RESTRICT;
-    }
-
-    @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onVisibilityRestrict(this);
     }
 
     @Override
@@ -181,11 +159,6 @@ public abstract class KeepConstraint {
     @Override
     public String getEnumValue() {
       return Constraints.NEVER_INLINE;
-    }
-
-    @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onNeverInline(this);
     }
 
     @Override
@@ -215,11 +188,6 @@ public abstract class KeepConstraint {
     }
 
     @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onClassInstantiate(this);
-    }
-
-    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
@@ -243,11 +211,6 @@ public abstract class KeepConstraint {
     @Override
     public String getEnumValue() {
       return Constraints.CLASS_OPEN_HIERARCHY;
-    }
-
-    @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onClassOpenHierarchy(this);
     }
 
     @Override
@@ -277,11 +240,6 @@ public abstract class KeepConstraint {
     }
 
     @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onMethodInvoke(this);
-    }
-
-    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
@@ -305,11 +263,6 @@ public abstract class KeepConstraint {
     @Override
     public String getEnumValue() {
       return Constraints.METHOD_REPLACE;
-    }
-
-    @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onMethodReplace(this);
     }
 
     @Override
@@ -339,11 +292,6 @@ public abstract class KeepConstraint {
     }
 
     @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onFieldGet(this);
-    }
-
-    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
@@ -370,11 +318,6 @@ public abstract class KeepConstraint {
     }
 
     @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onFieldSet(this);
-    }
-
-    @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
@@ -398,11 +341,6 @@ public abstract class KeepConstraint {
     @Override
     public String getEnumValue() {
       return Constraints.FIELD_REPLACE;
-    }
-
-    @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onFieldReplace(this);
     }
 
     @Override
@@ -462,11 +400,6 @@ public abstract class KeepConstraint {
     public String getEnumValue() {
       // The annotation constraints cannot be represented by an enum value.
       return null;
-    }
-
-    @Override
-    public void accept(KeepConstraintVisitor visitor) {
-      visitor.onAnnotation(this);
     }
 
     @Override

@@ -303,11 +303,6 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
     return DescriptorUtils.isPrimitiveType(descriptor.getFirstByteAsChar());
   }
 
-  public char asPrimitiveTypeDescriptorChar() {
-    assert isPrimitiveType();
-    return descriptor.getFirstByteAsChar();
-  }
-
   public boolean isVoidType() {
     return descriptor.getFirstByteAsChar() == 'V';
   }
@@ -501,25 +496,12 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
     return dexItemFactory.createType(descriptor.toArrayDescriptor(dimensions, dexItemFactory));
   }
 
-  public int getArrayTypeDimensions() {
-    for (int i = 0; i < descriptor.content.length; i++) {
-      if (descriptor.content[i] != '[') {
-        return i;
-      }
-    }
-    return 0;
-  }
-
   public DexType toArrayElementType(DexItemFactory dexItemFactory) {
-    return toArrayElementAfterDimension(1, dexItemFactory);
-  }
-
-  public DexType toArrayElementAfterDimension(int dimension, DexItemFactory dexItemFactory) {
-    assert getArrayTypeDimensions() >= dimension;
+    assert isArrayType();
     DexString newDesc =
         dexItemFactory.createString(
-            descriptor.size - dimension,
-            Arrays.copyOfRange(descriptor.content, dimension, descriptor.content.length));
+            descriptor.size - 1,
+            Arrays.copyOfRange(descriptor.content, 1, descriptor.content.length));
     return dexItemFactory.createType(newDesc);
   }
 
