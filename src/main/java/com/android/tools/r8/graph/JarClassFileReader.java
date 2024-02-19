@@ -35,9 +35,11 @@ import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.jar.CfApplicationWriter;
-import com.android.tools.r8.keepanno.asm.KeepEdgeReader.ExtractedAnnotationsVisitor;
-import com.android.tools.r8.keepanno.ast.AnnotationConstants.ExtractedAnnotations;
+import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
+import com.android.tools.r8.keepanno.ast.ParsingContext.AnnotationParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.ClassParsingContext;
+import com.android.tools.r8.keepanno.ast.ParsingContext.FieldParsingContext;
+import com.android.tools.r8.keepanno.ast.ParsingContext.MethodParsingContext;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.synthesis.SyntheticMarker;
 import com.android.tools.r8.utils.AsmUtils;
@@ -453,17 +455,25 @@ public class JarClassFileReader<T extends DexClass> {
       return new CreateMethodVisitor(access, name, desc, signature, exceptions, this);
     }
 
+    public boolean shouldSkipKeepAnnotations() {
+      return classKind != ClassKind.PROGRAM
+          || !application.options.testing.isKeepAnnotationsEnabled();
+    }
+
     @Override
     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-      if (!visible && ExtractedAnnotations.DESCRIPTOR.equals(desc)) {
-        if (!application.options.testing.enableExtractedKeepAnnotations) {
+      if (KeepEdgeReader.isClassKeepAnnotation(desc, visible)) {
+        if (shouldSkipKeepAnnotations()) {
           return null;
         }
-        if (classKind != ClassKind.PROGRAM) {
-          return null;
-        }
-        return new ExtractedAnnotationsVisitor(
-            new ClassParsingContext(type.getName()).annotation(desc),
+        String className = type.getTypeName();
+        return KeepEdgeReader.createClassKeepAnnotationVisitor(
+            desc,
+            visible,
+            application.options.testing.enableEmbeddedKeepAnnotations,
+            application.options.testing.enableExtractedKeepAnnotations,
+            className,
+            ClassParsingContext.fromName(className).annotation(desc),
             application::addKeepDeclaration);
       }
       return createAnnotationVisitor(
@@ -660,7 +670,7 @@ public class JarClassFileReader<T extends DexClass> {
     private final CreateDexClassVisitor<?> parent;
     private final int access;
     private final String name;
-    private final String desc;
+    private final String fieldTypeDescriptor;
     private final Object value;
     private final FieldTypeSignature fieldSignature;
     private List<DexAnnotation> annotations = null;
@@ -676,7 +686,7 @@ public class JarClassFileReader<T extends DexClass> {
       this.parent = parent;
       this.access = access;
       this.name = name;
-      this.desc = desc;
+      this.fieldTypeDescriptor = desc;
       this.value = value;
       this.fieldSignature =
           parent.application.options.parseSignatureAttribute()
@@ -691,6 +701,26 @@ public class JarClassFileReader<T extends DexClass> {
 
     @Override
     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+      if (KeepEdgeReader.isFieldKeepAnnotation(desc, visible)) {
+        if (parent.shouldSkipKeepAnnotations()) {
+          return null;
+        }
+        String className = parent.type.getTypeName();
+        AnnotationParsingContext parsingContext =
+            new FieldParsingContext(
+                    ClassParsingContext.fromName(className), name, fieldTypeDescriptor)
+                .annotation(desc);
+        return KeepEdgeReader.createFieldKeepAnnotationVisitor(
+            desc,
+            visible,
+            parent.application.options.testing.enableEmbeddedKeepAnnotations,
+            parent.application.options.testing.enableExtractedKeepAnnotations,
+            className,
+            name,
+            fieldTypeDescriptor,
+            parsingContext,
+            parent.application::addKeepDeclaration);
+      }
       return createAnnotationVisitor(
           desc, visible, getAnnotations(), parent.application, DexAnnotation::new);
     }
@@ -705,7 +735,7 @@ public class JarClassFileReader<T extends DexClass> {
     @Override
     public void visitEnd() {
       FieldAccessFlags flags = createFieldAccessFlags(access);
-      DexField dexField = parent.application.getField(parent.type, name, desc);
+      DexField dexField = parent.application.getField(parent.type, name, fieldTypeDescriptor);
       parent.application.checkFieldForRecord(dexField, parent.classKind);
       parent.application.checkFieldForMethodHandlesLookup(dexField, parent.classKind);
       parent.application.checkFieldForVarHandle(dexField, parent.classKind);
@@ -785,6 +815,7 @@ public class JarClassFileReader<T extends DexClass> {
   private static class CreateMethodVisitor extends MethodVisitor {
 
     private final String name;
+    private final String methodDescriptor;
     final CreateDexClassVisitor<?> parent;
     private final int parameterCount;
     private List<DexAnnotation> annotations = null;
@@ -808,6 +839,7 @@ public class JarClassFileReader<T extends DexClass> {
         CreateDexClassVisitor<?> parent) {
       super(ASM_VERSION);
       this.name = name;
+      this.methodDescriptor = desc;
       this.parent = parent;
       this.method = parent.application.getMethod(parent.type, name, desc);
       this.flags = createMethodAccessFlags(name, access);
@@ -834,6 +866,26 @@ public class JarClassFileReader<T extends DexClass> {
 
     @Override
     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+      if (KeepEdgeReader.isMethodKeepAnnotation(desc, visible)) {
+        if (parent.shouldSkipKeepAnnotations()) {
+          return null;
+        }
+        String className = parent.type.getTypeName();
+        AnnotationParsingContext parsingContext =
+            new MethodParsingContext(
+                    ClassParsingContext.fromName(className), name, methodDescriptor)
+                .annotation(desc);
+        return KeepEdgeReader.createMethodKeepAnnotationVisitor(
+            desc,
+            visible,
+            parent.application.options.testing.enableEmbeddedKeepAnnotations,
+            parent.application.options.testing.enableExtractedKeepAnnotations,
+            className,
+            name,
+            methodDescriptor,
+            parsingContext,
+            parent.application::addKeepDeclaration);
+      }
       return createAnnotationVisitor(
           desc, visible, getAnnotations(), parent.application, DexAnnotation::new);
     }
