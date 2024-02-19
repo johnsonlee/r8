@@ -249,7 +249,7 @@ public class KeepAnnotationMatcher {
           // No valid match, so the rule is discarded. This should likely be a diagnostics info.
           return;
         }
-        if (!predicates.matchesClass(clazz, classPattern)) {
+        if (!predicates.matchesClass(clazz, classPattern, appInfo)) {
           // Invalid match for this class.
           return;
         }
@@ -257,7 +257,7 @@ public class KeepAnnotationMatcher {
       } else {
         // TODO(b/323816623): This repeated iteration on all classes must be avoided.
         for (DexProgramClass clazz : appInfo.classes()) {
-          if (predicates.matchesClass(clazz, classPattern)) {
+          if (predicates.matchesClass(clazz, classPattern, appInfo)) {
             continueWithClass(classIndex, clazz);
           }
         }
