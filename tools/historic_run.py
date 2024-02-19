@@ -15,7 +15,7 @@ import sys
 import time
 import utils
 
-MASTER_COMMITS = 'gs://r8-releases/raw/master'
+MASTER_COMMITS = 'gs://r8-releases/raw/main'
 
 
 def ParseOptions(argv):
