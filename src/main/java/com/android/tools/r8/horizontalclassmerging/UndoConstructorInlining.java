@@ -21,8 +21,15 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.InstructionListIterator;
+import com.android.tools.r8.ir.code.InvokeDirect;
+import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
 import com.android.tools.r8.lightir.ByteArrayWriter;
 import com.android.tools.r8.lightir.ByteUtils;
 import com.android.tools.r8.lightir.LirBuilder;
@@ -241,6 +248,10 @@ public class UndoConstructorInlining {
                     newConstructor ->
                         profileCollectionAdditions.addMethodIfContextIsInProfile(
                             newConstructor, method));
+        if (newInvokedMethod.getArity() != info.getInvokedMethod().getArity()) {
+          assert newInvokedMethod.getArity() > info.getInvokedMethod().getArity();
+          return rewriteIR(method, code);
+        }
         int constantIndex =
             methodIndices.computeIfAbsent(
                 newInvokedMethod.getReference(),
@@ -264,6 +275,65 @@ public class UndoConstructorInlining {
           : code.copyWithNewConstantsAndInstructions(
               ArrayUtils.appendElements(code.getConstantPool(), methodsToAppend),
               byteWriter.toByteArray());
+    }
+
+    private LirCode<Integer> rewriteIR(ProgramMethod method, LirCode<Integer> code) {
+      IRCode irCode = code.buildIR(method, appView);
+      InstructionListIterator instructionIterator = irCode.instructionListIterator();
+      InvokeDirect invoke;
+      while ((invoke = instructionIterator.nextUntil(Instruction::isInvokeDirect)) != null) {
+        DexType newType;
+        if (invoke
+            .getReceiver()
+            .getAliasedValue()
+            .isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
+          NewInstance newInstance =
+              invoke.getReceiver().getAliasedValue().getDefinition().asNewInstance();
+          newType = newInstance.getType();
+        } else if (invoke.getReceiver().isThis()
+            && method.getDefinition().isInstanceInitializer()) {
+          newType = method.getHolder().getSuperType();
+        } else {
+          continue;
+        }
+        DexMethod invokedMethod = invoke.getInvokedMethod();
+        if (ensureConstructorsOnClasses.containsKey(newType)
+            && isConstructorInlined(newType, invokedMethod)
+            && !isForwardingConstructorCall(method, invokedMethod, invoke.getReceiver().isThis())
+            && isSkippingRequiredConstructor(newType, invokedMethod)) {
+          DexProgramClass noSkipClass = ensureConstructorsOnClasses.get(newType);
+          ProgramMethod newInvokedMethod =
+              getStronglyConnectedComponent(noSkipClass)
+                  .getOrCreateConstructor(
+                      noSkipClass,
+                      invokedMethod,
+                      ensureConstructorsOnClasses,
+                      newConstructor ->
+                          profileCollectionAdditions.addMethodIfContextIsInProfile(
+                              newConstructor, method));
+          InvokeDirect.Builder invokeDirectBuilder =
+              InvokeDirect.builder()
+                  .setArguments(invoke.arguments())
+                  .setMethod(newInvokedMethod.getReference());
+          if (newInvokedMethod.getArity() > invokedMethod.getArity()) {
+            instructionIterator.previous();
+            Value zeroValue =
+                instructionIterator.insertConstIntInstruction(irCode, appView.options(), 0);
+            List<Value> newArguments =
+                new ArrayList<>(newInvokedMethod.getDefinition().getNumberOfArguments());
+            newArguments.addAll(invoke.arguments());
+            while (newArguments.size() < newInvokedMethod.getDefinition().getNumberOfArguments()) {
+              newArguments.add(zeroValue);
+            }
+            Instruction next = instructionIterator.next();
+            assert next == invoke;
+            invokeDirectBuilder.setArguments(newArguments);
+          }
+          instructionIterator.replaceCurrentInstruction(invokeDirectBuilder.build());
+        }
+      }
+      return new IRToLirFinalizer(appView)
+          .finalizeCode(irCode, BytecodeMetadataProvider.empty(), Timing.empty());
     }
 
     private Int2ReferenceMap<DexType> getAllocationsOfInterest(
@@ -318,7 +388,7 @@ public class UndoConstructorInlining {
           DexType newType = allocationsOfInterest.get(receiver);
           if (newType != null
               && isConstructorInlined(newType, invokedMethod)
-              && !isForwardingConstructorCall(method, invokedMethod, receiver)
+              && !isForwardingConstructorCall(method, invokedMethod, receiver == 0)
               && isSkippingRequiredConstructor(newType, invokedMethod)) {
             return new InvokeDirectInfo(
                 invokedMethod, firstValue, ensureConstructorsOnClasses.get(newType));
@@ -345,11 +415,11 @@ public class UndoConstructorInlining {
     }
 
     private boolean isForwardingConstructorCall(
-        ProgramMethod method, DexMethod invokedMethod, int receiver) {
+        ProgramMethod method, DexMethod invokedMethod, boolean isThisReceiver) {
       assert invokedMethod.isInstanceInitializer(appView.dexItemFactory());
       return method.getDefinition().isInstanceInitializer()
           && invokedMethod.getHolderType().isIdenticalTo(method.getHolderType())
-          && receiver == 0;
+          && isThisReceiver;
     }
 
     private boolean isSkippingRequiredConstructor(DexType newType, DexMethod invokedMethod) {

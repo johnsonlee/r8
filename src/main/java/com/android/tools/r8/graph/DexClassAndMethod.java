@@ -56,6 +56,10 @@ public abstract class DexClassAndMethod extends DexClassAndMember<DexEncodedMeth
     return getDefinition().getAccessFlags();
   }
 
+  public int getArity() {
+    return getReference().getArity();
+  }
+
   public MethodReference getMethodReference() {
     return getReference().asMethodReference();
   }
