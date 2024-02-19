@@ -6,7 +6,6 @@ package com.android.tools.r8.shaking.rules;
 
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AccessFlags;
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -39,7 +38,6 @@ import com.android.tools.r8.keepanno.ast.KeepTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepUnqualfiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.ModifierPattern;
 import com.android.tools.r8.keepanno.ast.OptionalPattern;
-import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.List;
 
 public class KeepAnnotationMatcherPredicates {
@@ -50,11 +48,10 @@ public class KeepAnnotationMatcherPredicates {
     this.factory = factory;
   }
 
-  public boolean matchesClass(
-      DexProgramClass clazz, KeepClassItemPattern classPattern, AppInfoWithClassHierarchy appInfo) {
+  public boolean matchesClass(DexProgramClass clazz, KeepClassItemPattern classPattern) {
     return matchesClassName(clazz.getType(), classPattern.getClassNamePattern())
-        && matchesAnnotatedBy(clazz.annotations(), classPattern.getAnnotatedByPattern())
-        && matchesInstanceOfPattern(clazz, classPattern.getInstanceOfPattern(), appInfo);
+        && matchesInstanceOfPattern(clazz, classPattern.getInstanceOfPattern())
+        && matchesAnnotatedBy(clazz.annotations(), classPattern.getAnnotatedByPattern());
   }
 
   public boolean matchesClassName(DexType type, KeepQualifiedClassNamePattern pattern) {
@@ -86,25 +83,11 @@ public class KeepAnnotationMatcherPredicates {
   }
 
   private boolean matchesInstanceOfPattern(
-      DexProgramClass clazz, KeepInstanceOfPattern pattern, AppInfoWithClassHierarchy appInfo) {
+      DexProgramClass unusedClazz, KeepInstanceOfPattern pattern) {
     if (pattern.isAny()) {
       return true;
     }
-    if (pattern.isInclusive()) {
-      if (matchesClassName(clazz.getType(), pattern.getClassNamePattern())) {
-        return true;
-      }
-    }
-    return appInfo
-        .traverseSuperTypes(
-            clazz,
-            (superType, unusedSubClass, unusedIsInterface) -> {
-              if (matchesClassName(superType, pattern.getClassNamePattern())) {
-                return TraversalContinuation.doBreak();
-              }
-              return TraversalContinuation.doContinue();
-            })
-        .isBreak();
+    throw new Unimplemented();
   }
 
   public boolean matchesGeneralMember(DexEncodedMember<?, ?> member, KeepMemberPattern pattern) {
