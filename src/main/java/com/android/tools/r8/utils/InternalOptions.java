@@ -1822,12 +1822,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public class HorizontalClassMergerOptions {
 
-    // TODO(b/138781768): Set enable to true when this bug is resolved.
     private boolean enable =
-        !Version.isDevelopmentVersion()
-            || System.getProperty("com.android.tools.r8.disableHorizontalClassMerging") == null;
+        System.getProperty("com.android.tools.r8.disableHorizontalClassMerging") == null;
     private boolean enableInitial = true;
-    // TODO(b/205611444): Enable by default.
     private boolean enableClassInitializerDeadlockDetection = true;
     private boolean enableInterfaceMerging =
         System.getProperty("com.android.tools.r8.enableHorizontalInterfaceMerging") != null;
