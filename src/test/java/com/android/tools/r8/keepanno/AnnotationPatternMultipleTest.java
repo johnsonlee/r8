@@ -46,7 +46,6 @@ public class AnnotationPatternMultipleTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
-        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .setExcludedOuterClass(getClass())
         .run(TestClass.class)

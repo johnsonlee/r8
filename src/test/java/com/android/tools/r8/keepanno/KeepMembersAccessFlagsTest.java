@@ -42,7 +42,6 @@ public class KeepMembersAccessFlagsTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
-        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .setExcludedOuterClass(getClass())
