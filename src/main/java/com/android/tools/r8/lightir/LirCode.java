@@ -585,6 +585,11 @@ public class LirCode<EV> extends Code
   @Override
   public void registerCodeReferences(ProgramMethod method, UseRegistry registry) {
     assert registry.getTraversalContinuation().shouldContinue();
+    for (PositionEntry positionEntry : positionTable) {
+      if (positionEntry instanceof StructuredPositionEntry) {
+        registry.registerInliningPosition(((StructuredPositionEntry) positionEntry).position);
+      }
+    }
     LirUseRegistryCallback<EV> registryCallbacks = new LirUseRegistryCallback<>(this, registry);
     for (LirInstructionView view : this) {
       if (metadataMap != null) {

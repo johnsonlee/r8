@@ -131,7 +131,6 @@ import com.android.tools.r8.kotlin.KotlinMetadataEnqueuerExtension;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringTypeLookupResult;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.position.Position;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AnnotationMatchResult.MatchedAnnotation;
 import com.android.tools.r8.shaking.DelayedRootSetActionItem.InterfaceMethodSyntheticBridgeAction;
@@ -314,6 +313,10 @@ public class Enqueuer {
    * for these.
    */
   private final SetWithReportedReason<DexProgramClass> liveTypes = new SetWithReportedReason<>();
+
+  /** Set of effectively live items from the original program. */
+  // TODO(b/323816623): Add reason tracking.
+  private final Set<DexReference> effectivelyLiveOriginalReferences = SetUtils.newIdentityHashSet();
 
   /** Set of interfaces that have been transitioned to being instantiated indirectly. */
   private final Set<DexProgramClass> interfacesTransitionedToInstantiated =
@@ -1629,6 +1632,27 @@ public class Enqueuer {
         markVirtualMethodAsReachable(invokedMethod, false, context, reason);
     invokeAnalyses.forEach(
         analysis -> analysis.traceInvokeVirtual(invokedMethod, resolutionResult, context));
+  }
+
+  void traceMethodPosition(com.android.tools.r8.ir.code.Position position, ProgramMethod context) {
+    if (!options.testing.enableExtractedKeepAnnotations) {
+      // Currently inlining is only intended for the evaluation of keep annotation edges.
+      return;
+    }
+    while (position.hasCallerPosition()) {
+      // Any inner position should not be non-synthetic user methods.
+      assert !position.isD8R8Synthesized();
+      DexMethod method = position.getMethod();
+      // TODO(b/325014359): It might be reasonable to reduce this map size by tracking which methods
+      //  actually are used in preconditions.
+      if (effectivelyLiveOriginalReferences.add(method)) {
+        effectivelyLiveOriginalReferences.add(method.getHolderType());
+      }
+      position = position.getCallerPosition();
+    }
+    // The outer-most position should be equal to the context.
+    // No need to trace this as the method is already traced since it is invoked.
+    assert context.getReference().isIdenticalTo(position.getMethod());
   }
 
   void traceNewInstance(DexType type, ProgramMethod context) {
@@ -3402,6 +3426,35 @@ public class Enqueuer {
     return liveTypes.contains(clazz);
   }
 
+  public boolean isEffectivelyLive(DexProgramClass clazz) {
+    if (isTypeLive(clazz)) {
+      return true;
+    }
+    if (mode.isInitialTreeShaking()) {
+      return false;
+    }
+    // TODO(b/325014359): Replace this by value tracking in instructions (akin to resource values).
+    for (DexEncodedField field : clazz.fields()) {
+      if (field.getOptimizationInfo().valueHasBeenPropagated()) {
+        return true;
+      }
+    }
+    // TODO(b/325014359): Replace this by value or position tracking.
+    //  We need to be careful not to throw away such values/positions.
+    for (DexEncodedMethod method : clazz.methods()) {
+      if (method.getOptimizationInfo().returnValueHasBeenPropagated()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public boolean isOriginalReferenceEffectivelyLive(DexReference reference) {
+    // The effectively-live original set contains types, fields and methods witnessed by
+    // instructions, such as method inlining positions.
+    return effectivelyLiveOriginalReferences.contains(reference);
+  }
+
   public boolean isNonProgramTypeLive(DexClass clazz) {
     assert !clazz.isProgramClass();
     return liveNonProgramTypes.contains(clazz);
@@ -4671,7 +4724,7 @@ public class Enqueuer {
                     context,
                     new InterfaceDesugarMissingTypeDiagnostic(
                         context.getOrigin(),
-                        Position.UNKNOWN,
+                        com.android.tools.r8.position.Position.UNKNOWN,
                         missing.asClassReference(),
                         context.getType().asClassReference(),
                         null)));
