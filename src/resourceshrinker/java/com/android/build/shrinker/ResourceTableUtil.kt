@@ -93,7 +93,7 @@ internal data class EntryWrapper(
     val entry: Resources.Entry
 )
 
-private fun toIdentifier(
+fun toIdentifier(
     resourcePackage: Resources.Package,
     type: Resources.Type,
     entry: Resources.Entry

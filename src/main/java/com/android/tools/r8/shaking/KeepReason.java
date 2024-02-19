@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.origin.Origin;
 
 // TODO(herhut): Canonicalize reason objects.
 public abstract class KeepReason {
@@ -81,6 +82,10 @@ public abstract class KeepReason {
 
   public static ReflectiveUseFrom reflectiveUseIn(ProgramMethod method) {
     return new ReflectiveUseFrom(method.getDefinition());
+  }
+
+  public static ReflectiveUseFromXml reflectiveUseFromXml(Origin origin) {
+    return new ReflectiveUseFromXml(origin);
   }
 
   public static KeepReason methodHandleReferencedIn(ProgramMethod method) {
@@ -296,6 +301,61 @@ public abstract class KeepReason {
     @Override
     String getKind() {
       return "reflective use in";
+    }
+  }
+
+  public static class ReflectiveUseFromXml extends KeepReason {
+
+    private final Origin origin;
+
+    private ReflectiveUseFromXml(Origin origin) {
+      this.origin = origin;
+    }
+
+    @Override
+    public boolean isDueToReflectiveUse() {
+      return true;
+    }
+
+    @Override
+    public EdgeKind edgeKind() {
+      return EdgeKind.ReferencedFromXml;
+    }
+
+    @Override
+    public GraphNode getSourceNode(GraphReporter graphReporter) {
+      return new XmlGraphNode(origin);
+    }
+
+    private static class XmlGraphNode extends GraphNode {
+
+      private final Origin origin;
+
+      public XmlGraphNode(Origin origin) {
+        super(false);
+        this.origin = origin;
+      }
+
+      @Override
+      public boolean equals(Object o) {
+        if (o == this) {
+          return true;
+        }
+        if (!(o instanceof XmlGraphNode)) {
+          return false;
+        }
+        return ((XmlGraphNode) o).origin.equals(this.origin);
+      }
+
+      @Override
+      public int hashCode() {
+        return origin.hashCode();
+      }
+
+      @Override
+      public String toString() {
+        return origin.toString();
+      }
     }
   }
 

@@ -30,7 +30,7 @@ public class XmlFilesWithReferences extends TestBase {
     return new AndroidTestResourceBuilder()
         .withSimpleManifestAndAppNameString()
         .addRClassInitializeWithDefaultValues(R.string.class, R.xml.class)
-        .addXmlWithStringReference("foo_with_reference", "referenced_from_xml")
+        .addXmlWithStringReference("foo_with_reference.xml", "referenced_from_xml")
         .build(temp);
   }
 

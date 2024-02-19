@@ -33,6 +33,7 @@ public class GraphEdgeInfo {
     MethodHandleUseFrom,
     CompanionClass,
     CompanionMethod,
+    ReferencedFromXml,
     Unknown
   }
 
@@ -85,6 +86,8 @@ public class GraphEdgeInfo {
         return "companion class for";
       case CompanionMethod:
         return "companion method for";
+      case ReferencedFromXml:
+        return "referenced from xml";
       default:
         assert false : "Unknown edge kind: " + edgeKind();
         // fall through

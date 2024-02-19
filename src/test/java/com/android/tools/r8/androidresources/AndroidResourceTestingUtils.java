@@ -272,6 +272,7 @@ public class AndroidResourceTestingUtils {
     private final Map<String, String> xmlFiles = new TreeMap<>();
     private final List<Class<?>> classesToRemap = new ArrayList<>();
     private int packageId = 0x7f;
+    private String packageName;
 
     // Create the android resources from the passed in R classes
     // All values will be generated based on the fields in the class.
@@ -334,6 +335,11 @@ public class AndroidResourceTestingUtils {
       return this;
     }
 
+    public AndroidTestResourceBuilder addXml(String name, String content) {
+      xmlFiles.put(name, content);
+      return this;
+    }
+
     AndroidTestResourceBuilder addExtraLanguageString(String name) {
       stringValuesWithExtraLanguage.add(name);
       return this;
@@ -351,6 +357,11 @@ public class AndroidResourceTestingUtils {
 
     AndroidTestResourceBuilder addDrawable(String name, byte[] value) {
       drawables.put(name, value);
+      return this;
+    }
+
+    public AndroidTestResourceBuilder setPackageName(String packageName) {
+      this.packageName = packageName;
       return this;
     }
 
@@ -391,7 +402,10 @@ public class AndroidResourceTestingUtils {
 
       Path output = temp.newFile("resources.zip").toPath();
       Path rClassOutputDir = temp.newFolder("aapt_R_class").toPath();
-      compileWithAapt2(resFolder, manifestPath, rClassOutputDir, output, temp, packageId);
+      String aaptPackageName =
+          packageName != null ? packageName : "thepackage" + packageId + ".foobar";
+      compileWithAapt2(
+          resFolder, manifestPath, rClassOutputDir, output, temp, packageId, aaptPackageName);
       Path rClassJavaFile =
           Files.walk(rClassOutputDir)
               .filter(path -> path.endsWith("R.java"))
@@ -528,7 +542,8 @@ public class AndroidResourceTestingUtils {
       Path rClassFolder,
       Path resourceZip,
       TemporaryFolder temp,
-      int packageId)
+      int packageId,
+      String packageName)
       throws IOException {
     Path compileOutput = temp.newFile("compiled.zip").toPath();
     ProcessResult compileProcessResult =
@@ -552,7 +567,7 @@ public class AndroidResourceTestingUtils {
             "" + packageId,
             "--allow-reserved-package-id",
             "--rename-resources-package",
-            "thepackage" + packageId + ".foobar",
+            packageName,
             "--proto-format",
             compileOutput.toString());
     failOnError(linkProcesResult);

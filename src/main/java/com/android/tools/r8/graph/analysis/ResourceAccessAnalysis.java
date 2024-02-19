@@ -54,8 +54,6 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
   @Override
   public void done(Enqueuer enqueuer) {
     EnqueuerFieldAccessAnalysis.super.done(enqueuer);
-    // We clear the bits here, since we will trace the final reachable entries in the second round.
-    resourceShrinkerState.clearReachableBits();
   }
 
   private static boolean enabled(

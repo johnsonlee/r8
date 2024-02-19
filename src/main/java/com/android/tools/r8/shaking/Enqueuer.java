@@ -130,6 +130,7 @@ import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.kotlin.KotlinMetadataEnqueuerExtension;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringTypeLookupResult;
+import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AnnotationMatchResult.MatchedAnnotation;
@@ -146,6 +147,7 @@ import com.android.tools.r8.shaking.EnqueuerWorklist.TraceStaticFieldWriteAction
 import com.android.tools.r8.shaking.GraphReporter.KeepReasonWitness;
 import com.android.tools.r8.shaking.KeepInfoCollection.MutableKeepInfoCollection;
 import com.android.tools.r8.shaking.KeepMethodInfo.Joiner;
+import com.android.tools.r8.shaking.KeepReason.ReflectiveUseFromXml;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSet;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSet;
@@ -155,6 +157,7 @@ import com.android.tools.r8.shaking.ScopedDexMethodSet.AddMethodIfMoreVisibleRes
 import com.android.tools.r8.synthesis.SyntheticItems.SynthesizingContextOracle;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.Box;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.OptionalBool;
@@ -510,6 +513,9 @@ public class Enqueuer {
             ? ProguardCompatibilityActions.builder()
             : null;
 
+    if (options.isOptimizedResourceShrinking()) {
+      appView.getResourceShrinkerState().setEnqueuerCallback(this::recordReferenceFromResources);
+    }
     if (mode.isTreeShaking()) {
       GetArrayOfMissingTypeVerifyErrorWorkaround.register(appView, this);
       InvokeVirtualToInterfaceVerifyErrorWorkaround.register(appView, this);
@@ -675,6 +681,33 @@ public class Enqueuer {
 
   private void recordTypeReference(DexType type, ProgramDerivedContext context) {
     recordTypeReference(type, context, this::recordNonProgramClass, this::reportMissingClass);
+  }
+
+  private boolean recordReferenceFromResources(String possibleClass, Origin origin) {
+    if (!DescriptorUtils.isValidJavaType(possibleClass)) {
+      return false;
+    }
+    DexType dexType =
+        appView.dexItemFactory().createType(DescriptorUtils.javaTypeToDescriptor(possibleClass));
+    DexProgramClass clazz = appView.definitionForProgramType(dexType);
+    if (clazz != null) {
+      ReflectiveUseFromXml reason = KeepReason.reflectiveUseFromXml(origin);
+      applyMinimumKeepInfoWhenLive(
+          clazz,
+          KeepClassInfo.newEmptyJoiner()
+              .disallowMinification()
+              .disallowRepackaging()
+              .disallowOptimization());
+      markClassAsInstantiatedWithReason(clazz, reason);
+      for (ProgramMethod programInstanceInitializer : clazz.programInstanceInitializers()) {
+        // TODO(b/325884671): Only keep the actually framework targeted constructors.
+        applyMinimumKeepInfoWhenLiveOrTargeted(
+            programInstanceInitializer, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
+        markMethodAsTargeted(programInstanceInitializer, reason);
+        markDirectStaticOrConstructorMethodAsLive(programInstanceInitializer, reason);
+      }
+    }
+    return clazz != null;
   }
 
   private void recordTypeReference(
@@ -3747,6 +3780,9 @@ public class Enqueuer {
     timing.begin("Finish analysis");
     analyses.forEach(analyses -> analyses.done(this));
     fieldAccessAnalyses.forEach(fieldAccessAnalyses -> fieldAccessAnalyses.done(this));
+    if (appView.options().isOptimizedResourceShrinking()) {
+      appView.getResourceShrinkerState().enqueuerDone(this.mode.isFinalTreeShaking());
+    }
     timing.end();
     assert verifyKeptGraph();
     timing.begin("Finish compat building");

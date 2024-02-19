@@ -917,10 +917,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return resourceShrinkerState;
   }
 
-  public void setResourceShrinkerState(R8ResourceShrinkerState resourceShrinkerState) {
-    this.resourceShrinkerState = resourceShrinkerState;
-  }
-
   public boolean validateUnboxedEnumsHaveBeenPruned() {
     for (DexType unboxedEnum : unboxedEnums.computeAllUnboxedEnums()) {
       assert appInfo.definitionForWithoutExistenceAssert(unboxedEnum) == null
