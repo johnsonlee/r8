@@ -19,7 +19,6 @@ import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.code.Position;
 import java.util.ListIterator;
 
 public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
@@ -43,12 +42,6 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
 
   public DexEncodedMethod getContextMethod() {
     return getContext().getDefinition();
-  }
-
-  @Override
-  public void registerInliningPosition(Position position) {
-    super.registerInliningPosition(position);
-    enqueuer.traceMethodPosition(position, getContext());
   }
 
   @Override

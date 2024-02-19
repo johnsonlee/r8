@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
@@ -177,7 +178,23 @@ public class IfRuleEvaluator {
   }
 
   private boolean isEffectivelyLive(DexProgramClass clazz) {
-    return enqueuer.isEffectivelyLive(clazz);
+    // A type is effectively live if (1) it is truly live, (2) the value of one of its fields has
+    // been inlined by the member value propagation, or (3) the return value of one of its methods
+    // has been forwarded by the member value propagation.
+    if (enqueuer.isTypeLive(clazz)) {
+      return true;
+    }
+    for (DexEncodedField field : clazz.fields()) {
+      if (field.getOptimizationInfo().valueHasBeenPropagated()) {
+        return true;
+      }
+    }
+    for (DexEncodedMethod method : clazz.methods()) {
+      if (method.getOptimizationInfo().returnValueHasBeenPropagated()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Determines if {@param clazz} satisfies the given if-rule class specification. */
