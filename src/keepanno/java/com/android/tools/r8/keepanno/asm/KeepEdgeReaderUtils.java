@@ -20,11 +20,7 @@ public class KeepEdgeReaderUtils {
   }
 
   public static String getDescriptorFromClassTypeName(String classTypeName) {
-    return getDescriptorFromBinaryName(getBinaryNameFromClassTypeName(classTypeName));
-  }
-
-  public static String getDescriptorFromBinaryName(String binaryName) {
-    return "L" + binaryName + ";";
+    return "L" + getBinaryNameFromClassTypeName(classTypeName) + ";";
   }
 
   public static String getJavaTypeFromDescriptor(String descriptor) {

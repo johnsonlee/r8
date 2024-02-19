@@ -22,9 +22,7 @@ public abstract class KeepAnnoTestBase extends TestBase {
       keepAnnoParams.add(
           new KeepAnnoParameters(parameters, KeepAnnoParameters.KeepAnnoConfig.R8_DIRECT));
       keepAnnoParams.add(
-          new KeepAnnoParameters(parameters, KeepAnnoParameters.KeepAnnoConfig.R8_NORMALIZED));
-      keepAnnoParams.add(
-          new KeepAnnoParameters(parameters, KeepAnnoParameters.KeepAnnoConfig.R8_RULES));
+          new KeepAnnoParameters(parameters, KeepAnnoParameters.KeepAnnoConfig.R8_EXTRACT));
       keepAnnoParams.add(
           new KeepAnnoParameters(parameters, KeepAnnoParameters.KeepAnnoConfig.R8_LEGACY));
       if (parameters.isCfRuntime()) {

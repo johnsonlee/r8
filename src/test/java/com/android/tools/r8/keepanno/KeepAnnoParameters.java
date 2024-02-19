@@ -13,8 +13,7 @@ public class KeepAnnoParameters {
   public enum KeepAnnoConfig {
     REFERENCE,
     R8_DIRECT,
-    R8_NORMALIZED,
-    R8_RULES,
+    R8_EXTRACT,
     R8_LEGACY,
     PG;
   }
@@ -57,27 +56,21 @@ public class KeepAnnoParameters {
   }
 
   public boolean isR8() {
-    return isCurrentR8() || isLegacyR8();
+    return config == KeepAnnoConfig.R8_DIRECT
+        || config == KeepAnnoConfig.R8_EXTRACT
+        || config == KeepAnnoConfig.R8_LEGACY;
   }
 
   public boolean isPG() {
     return config == KeepAnnoConfig.PG;
   }
 
-  public boolean isCurrentR8() {
-    return isNativeR8() || config == KeepAnnoConfig.R8_RULES;
+  public boolean isNative() {
+    return config == KeepAnnoConfig.R8_DIRECT || config == KeepAnnoConfig.R8_EXTRACT;
   }
 
-  public boolean isLegacyR8() {
-    return config == KeepAnnoConfig.R8_LEGACY;
-  }
-
-  public boolean isNativeR8() {
-    return config == KeepAnnoConfig.R8_DIRECT || config == KeepAnnoConfig.R8_NORMALIZED;
-  }
-
-  public boolean isExtractRules() {
-    return config == KeepAnnoConfig.R8_RULES
+  public boolean isExtract() {
+    return config == KeepAnnoConfig.R8_EXTRACT
         || config == KeepAnnoConfig.R8_LEGACY
         || config == KeepAnnoConfig.PG;
   }

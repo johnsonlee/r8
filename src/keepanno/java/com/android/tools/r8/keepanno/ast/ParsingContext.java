@@ -6,7 +6,6 @@ package com.android.tools.r8.keepanno.ast;
 
 import static com.android.tools.r8.keepanno.asm.KeepEdgeReaderUtils.getJavaTypeFromDescriptor;
 
-import com.android.tools.r8.keepanno.asm.KeepEdgeReaderUtils;
 import org.objectweb.asm.Type;
 
 public abstract class ParsingContext {
@@ -63,17 +62,8 @@ public abstract class ParsingContext {
   public static class ClassParsingContext extends ParsingContext {
     private final String className;
 
-    private ClassParsingContext(String className) {
+    public ClassParsingContext(String className) {
       this.className = className;
-    }
-
-    public static ClassParsingContext fromName(String className) {
-      return new ClassParsingContext(className);
-    }
-
-    public static ClassParsingContext fromDescriptor(String descriptor) {
-      return ClassParsingContext.fromName(
-          KeepEdgeReaderUtils.getJavaTypeFromDescriptor(descriptor));
     }
 
     @Override

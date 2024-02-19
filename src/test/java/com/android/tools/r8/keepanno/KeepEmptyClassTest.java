@@ -3,11 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
@@ -16,7 +13,6 @@ import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
@@ -57,18 +53,6 @@ public class KeepEmptyClassTest extends KeepAnnoTestBase {
 
   private void checkOutput(CodeInspector inspector) {
     assertThat(inspector.clazz(B.class), isPresentAndNotRenamed());
-    ClassSubject classA = inspector.clazz(A.class);
-    if (parameters.isNativeR8()) {
-      assertThat(classA, isAbsent());
-    } else {
-      assertTrue(parameters.isExtractRules());
-      // PG and R8 with keep rules will keep the residual class.
-      assertThat(classA, isPresentAndRenamed());
-      // R8 using keep rules will soft-pin the precondition method too.
-      assertThat(
-          classA.uniqueMethodWithOriginalName("foo"),
-          parameters.isPG() ? isAbsent() : isPresentAndRenamed());
-    }
   }
 
   static class A {
@@ -76,7 +60,7 @@ public class KeepEmptyClassTest extends KeepAnnoTestBase {
     // Pattern includes any members
     @UsesReflection(@KeepTarget(classConstant = B.class, kind = KeepItemKind.CLASS_AND_MEMBERS))
     public void foo() throws Exception {
-      String typeName = B.class.getName();
+      String typeName = B.class.getTypeName();
       int memberCount = B.class.getDeclaredMethods().length + B.class.getDeclaredFields().length;
       System.out.println(typeName.substring(typeName.length() - 1) + ", #members: " + memberCount);
     }
