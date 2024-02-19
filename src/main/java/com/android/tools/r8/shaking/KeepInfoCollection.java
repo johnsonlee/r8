@@ -29,6 +29,8 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.shaking.KeepFieldInfo.Joiner;
+import com.android.tools.r8.shaking.rules.ApplicableRulesEvaluator;
+import com.android.tools.r8.shaking.rules.MaterializedRules;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MapUtils;
@@ -264,6 +266,8 @@ public abstract class KeepInfoCollection {
 
   public abstract void writeToDirectory(Path directory) throws IOException;
 
+  public abstract ApplicableRulesEvaluator getApplicableRules();
+
   // Mutation interface for building up the keep info.
   public static class MutableKeepInfoCollection extends KeepInfoCollection {
 
@@ -278,6 +282,9 @@ public abstract class KeepInfoCollection {
     private final Map<DexField, KeepFieldInfo.Joiner> fieldRuleInstances;
     private final Map<DexMethod, KeepMethodInfo.Joiner> methodRuleInstances;
 
+    // Collection of materialized rules.
+    private MaterializedRules materializedRules;
+
     MutableKeepInfoCollection() {
       this(
           new IdentityHashMap<>(),
@@ -285,7 +292,8 @@ public abstract class KeepInfoCollection {
           new IdentityHashMap<>(),
           new IdentityHashMap<>(),
           new IdentityHashMap<>(),
-          new IdentityHashMap<>());
+          new IdentityHashMap<>(),
+          MaterializedRules.empty());
     }
 
     private MutableKeepInfoCollection(
@@ -294,13 +302,26 @@ public abstract class KeepInfoCollection {
         Map<DexField, KeepFieldInfo> keepFieldInfo,
         Map<DexType, KeepClassInfo.Joiner> classRuleInstances,
         Map<DexField, KeepFieldInfo.Joiner> fieldRuleInstances,
-        Map<DexMethod, KeepMethodInfo.Joiner> methodRuleInstances) {
+        Map<DexMethod, KeepMethodInfo.Joiner> methodRuleInstances,
+        MaterializedRules materializedRules) {
       this.keepClassInfo = keepClassInfo;
       this.keepMethodInfo = keepMethodInfo;
       this.keepFieldInfo = keepFieldInfo;
       this.classRuleInstances = classRuleInstances;
       this.fieldRuleInstances = fieldRuleInstances;
       this.methodRuleInstances = methodRuleInstances;
+      this.materializedRules = materializedRules;
+    }
+
+    public void setMaterializedRules(MaterializedRules materializedRules) {
+      assert this.materializedRules == MaterializedRules.empty();
+      assert materializedRules != null;
+      this.materializedRules = materializedRules;
+    }
+
+    @Override
+    public ApplicableRulesEvaluator getApplicableRules() {
+      return materializedRules.toApplicableRules();
     }
 
     public void removeKeepInfoForMergedClasses(PrunedItems prunedItems) {
@@ -360,12 +381,12 @@ public abstract class KeepInfoCollection {
               rewriteRuleInstances(
                   methodRuleInstances,
                   lens::getRenamedMethodSignature,
-                  KeepMethodInfo::newEmptyJoiner));
+                  KeepMethodInfo::newEmptyJoiner),
+              materializedRules.rewriteWithLens(lens));
       timing.end();
       return result;
     }
 
-    @SuppressWarnings("ReferenceEquality")
     private Map<DexType, KeepClassInfo> rewriteClassInfo(
         NonIdentityGraphLens lens, InternalOptions options, Timing timing) {
       timing.begin("Rewrite class info");
@@ -373,11 +394,11 @@ public abstract class KeepInfoCollection {
       keepClassInfo.forEach(
           (type, info) -> {
             DexType newType = lens.lookupType(type);
-            if (newType == options.dexItemFactory().intType) {
+            if (options.dexItemFactory().intType.isIdenticalTo(newType)) {
               assert !info.isPinned(options);
               return;
             }
-            assert newType == type
+            assert type.isIdenticalTo(newType)
                 || !info.isPinned(options)
                 || info.isMinificationAllowed(options)
                 || info.isRepackagingAllowed(options);
@@ -388,7 +409,6 @@ public abstract class KeepInfoCollection {
       return newClassInfo;
     }
 
-    @SuppressWarnings("ReferenceEquality")
     private Map<DexField, KeepFieldInfo> rewriteFieldInfo(
         NonIdentityGraphLens lens, InternalOptions options, Timing timing) {
       timing.begin("Rewrite field info");
@@ -396,7 +416,7 @@ public abstract class KeepInfoCollection {
       keepFieldInfo.forEach(
           (field, info) -> {
             DexField newField = lens.getRenamedFieldSignature(field);
-            assert newField.name == field.name
+            assert newField.name.isIdenticalTo(field.name)
                 || !info.isPinned(options)
                 || info.isMinificationAllowed(options);
             KeepFieldInfo previous = newFieldInfo.put(newField, info);
@@ -406,7 +426,7 @@ public abstract class KeepInfoCollection {
       return newFieldInfo;
     }
 
-    @SuppressWarnings({"ReferenceEquality", "UnusedVariable"})
+    @SuppressWarnings("UnusedVariable")
     private Map<DexMethod, KeepMethodInfo> rewriteMethodInfo(
         NonIdentityGraphLens lens, InternalOptions options, Timing timing) {
       timing.begin("Rewrite method info");
@@ -416,7 +436,7 @@ public abstract class KeepInfoCollection {
             DexMethod newMethod = lens.getRenamedMethodSignature(method);
             assert !info.isPinned(options)
                 || info.isMinificationAllowed(options)
-                || newMethod.name == method.name;
+                || newMethod.name.isIdenticalTo(method.name);
             assert !info.isPinned(options) || newMethod.getArity() == method.getArity();
             assert !info.isPinned(options)
                 || Streams.zip(
@@ -425,7 +445,7 @@ public abstract class KeepInfoCollection {
                         Object::equals)
                     .allMatch(x -> x);
             assert !info.isPinned(options)
-                || newMethod.getReturnType() == lens.lookupType(method.getReturnType());
+                || newMethod.getReturnType().isIdenticalTo(lens.lookupType(method.getReturnType()));
             KeepMethodInfo previous = newMethodInfo.put(newMethod, info);
             // TODO(b/169927809): Avoid collisions.
             // assert previous == null;
