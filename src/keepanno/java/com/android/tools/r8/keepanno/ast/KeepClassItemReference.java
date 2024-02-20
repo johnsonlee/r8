@@ -5,6 +5,8 @@ package com.android.tools.r8.keepanno.ast;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public abstract class KeepClassItemReference extends KeepItemReference {
 
@@ -26,6 +28,19 @@ public abstract class KeepClassItemReference extends KeepItemReference {
   @Override
   public final KeepClassItemReference asClassItemReference() {
     return this;
+  }
+
+  public final <T> T applyClassItemReference(
+      Function<KeepBindingReference, T> onBinding, Function<KeepClassItemPattern, T> onPattern) {
+    if (isBindingReference()) {
+      return onBinding.apply(asBindingReference());
+    }
+    return onPattern.apply(asClassItemPattern());
+  }
+
+  public final void matchClassItemReference(
+      Consumer<KeepBindingReference> onBinding, Consumer<KeepClassItemPattern> onPattern) {
+    applyClassItemReference(AstUtils.toVoidFunction(onBinding), AstUtils.toVoidFunction(onPattern));
   }
 
   public abstract Collection<KeepBindingReference> getBindingReferences();

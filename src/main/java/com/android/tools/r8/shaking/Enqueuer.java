@@ -25,7 +25,6 @@ import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.features.IsolatedFeatureSplitsChecker;
@@ -153,6 +152,8 @@ import com.android.tools.r8.shaking.RootSetUtils.RootSet;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBase;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.shaking.ScopedDexMethodSet.AddMethodIfMoreVisibleResult;
+import com.android.tools.r8.shaking.rules.ApplicableRulesEvaluator;
+import com.android.tools.r8.shaking.rules.KeepAnnotationMatcher;
 import com.android.tools.r8.synthesis.SyntheticItems.SynthesizingContextOracle;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.Box;
@@ -290,6 +291,7 @@ public class Enqueuer {
   private final Set<DexMember<?, ?>> identifierNameStrings = Sets.newIdentityHashSet();
 
   private List<KeepDeclaration> keepDeclarations = Collections.emptyList();
+  private ApplicableRulesEvaluator applicableRules = ApplicableRulesEvaluator.empty();
 
   /**
    * Tracks the dependency between a method and the super-method it calls, if any. Used to make
@@ -3797,17 +3799,18 @@ public class Enqueuer {
     includeMinimumKeepInfo(rootSet);
     timing.end();
 
+    assert applicableRules == ApplicableRulesEvaluator.empty();
     if (mode.isInitialTreeShaking()) {
-      // TODO(b/323816623): Start native interpretation here...
-      if (!keepDeclarations.isEmpty()) {
-        throw new Unimplemented("Native support for keep annotaitons pending");
-      }
+      applicableRules =
+          KeepAnnotationMatcher.computeInitialRules(
+              appInfo, keepDeclarations, options.getThreadingModule(), executorService);
       // Amend library methods with covariant return types.
       timing.begin("Model library");
       modelLibraryMethodsWithCovariantReturnTypes(appView);
       timing.end();
     } else if (appView.getKeepInfo() != null) {
       timing.begin("Retain keep info");
+      applicableRules = appView.getKeepInfo().getApplicableRules();
       EnqueuerEvent preconditionEvent = UnconditionalKeepInfoEvent.get();
       appView
           .getKeepInfo()
@@ -3820,6 +3823,7 @@ public class Enqueuer {
               this::applyMinimumKeepInfoWhenLiveOrTargeted);
       timing.end();
     }
+    timing.time("Unconditional rules", () -> applicableRules.evaluateUnconditionalRules(this));
     timing.begin("Enqueue all");
     enqueueAllIfNotShrinking();
     timing.end();
@@ -3874,6 +3878,14 @@ public class Enqueuer {
             this::recordDependentMinimumKeepInfo,
             this::recordDependentMinimumKeepInfo,
             this::recordDependentMinimumKeepInfo);
+  }
+
+  public void includeMinimumKeepInfo(MinimumKeepInfoCollection minimumKeepInfo) {
+    minimumKeepInfo.forEach(
+        appView,
+        (i, j) -> recordDependentMinimumKeepInfo(EnqueuerEvent.unconditional(), i, j),
+        (i, j) -> recordDependentMinimumKeepInfo(EnqueuerEvent.unconditional(), i, j),
+        (i, j) -> recordDependentMinimumKeepInfo(EnqueuerEvent.unconditional(), i, j));
   }
 
   private void applyMinimumKeepInfo(DexProgramClass clazz) {
@@ -4442,6 +4454,8 @@ public class Enqueuer {
               : ImmutableSet.of(syntheticClass.getType());
         };
     amendKeepInfoWithCompanionMethods();
+    keepInfo.setMaterializedRules(applicableRules.getMaterializedRules());
+
     timing.begin("Rewrite with deferred results");
     deferredTracing.rewriteApplication(executorService);
     timing.end();
@@ -4629,6 +4643,8 @@ public class Enqueuer {
         // Continue fix-point processing if -if rules are enabled by items that newly became live.
         long numberOfLiveItemsAfterProcessing = getNumberOfLiveItems();
         if (numberOfLiveItemsAfterProcessing > numberOfLiveItems) {
+          timing.time("Conditional rules", () -> applicableRules.evaluateConditionalRules(this));
+
           // Build the mapping of active if rules. We use a single collection of if-rules to allow
           // removing if rules that have a constant sequent keep rule when they materialize.
           if (activeIfRules == null) {

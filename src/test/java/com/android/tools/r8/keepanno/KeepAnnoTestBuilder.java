@@ -104,6 +104,10 @@ public abstract class KeepAnnoTestBuilder {
     return this;
   }
 
+  public KeepAnnoTestBuilder enableNativeInterpretation() {
+    return this;
+  }
+
   public final KeepAnnoTestBuilder setExcludedOuterClass(Class<?> clazz) {
     return applyIfPG(b -> b.addDontWarn(clazz));
   }
@@ -175,11 +179,22 @@ public abstract class KeepAnnoTestBuilder {
       this.useEdgeExtraction = useEdgeExtraction;
       if (useEdgeExtraction) {
         builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
-        builder.getBuilder().setEnableExperimentalVersionedKeepEdgeAnnotations(true);
+        builder.getBuilder().setEnableExperimentalExtractedKeepAnnotations(true);
       } else {
         builder.getBuilder().setEnableExperimentalKeepAnnotations(true);
-        builder.getBuilder().setEnableExperimentalVersionedKeepEdgeAnnotations(false);
+        builder.getBuilder().setEnableExperimentalExtractedKeepAnnotations(false);
       }
+    }
+
+    @Override
+    public KeepAnnoTestBuilder enableNativeInterpretation() {
+      if (useEdgeExtraction) {
+        // This enables native interpretation of the extracted edges.
+        builder.addOptionsModification(o -> o.testing.enableExtractedKeepAnnotations = true);
+        // This disables converting the extracted edges to PG rules in the command reader.
+        builder.getBuilder().setEnableExperimentalExtractedKeepAnnotations(false);
+      }
+      return this;
     }
 
     @Override
