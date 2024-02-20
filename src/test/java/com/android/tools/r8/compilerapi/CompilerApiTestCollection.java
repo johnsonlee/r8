@@ -114,7 +114,7 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
   // The API tests always link against the classpath that the test runner is using.
   @Override
   public List<Path> getTargetClasspath() {
-    return ToolHelper.getClasspathForR8();
+    return ToolHelper.getBuildPropR8RuntimePath();
   }
 
   // Some tests expectations can depend on the lib/nonlib and internal/external behavior.

@@ -38,7 +38,7 @@ public class ExternalR8TestBuilder
         ExternalR8TestBuilder> {
 
   // The r8.jar to run.
-  private List<Path> r8Classpath = ToolHelper.getClasspathForR8();
+  private List<Path> r8Classpath = ToolHelper.getBuildPropR8RuntimePath();
 
   // Ordered list of program jar entries.
   private final List<Path> programJars = new ArrayList<>();

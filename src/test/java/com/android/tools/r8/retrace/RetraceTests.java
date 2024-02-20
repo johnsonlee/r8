@@ -90,6 +90,7 @@ import com.android.tools.r8.retrace.stacktraces.VerboseUnknownStackTrace;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -515,6 +516,10 @@ public class RetraceTests extends TestBase {
     return runRetraceTest(stackTraceForTest, true);
   }
 
+  public static String getRetraceClasspath() {
+    return StringUtils.join(File.pathSeparator, ToolHelper.getBuildPropR8RuntimePath());
+  }
+
   private TestDiagnosticMessagesImpl runRetraceTest(
       StackTraceForTest stackTraceForTest, boolean allowExperimentalMapping) throws Exception {
     String expectedStackTrace =
@@ -541,7 +546,7 @@ public class RetraceTests extends TestBase {
       command.add(parameters.getRuntime().asCf().getJavaExecutable().toString());
       command.add("-ea");
       command.add("-cp");
-      command.add(ToolHelper.getRetracePath().toString());
+      command.add(getRetraceClasspath());
       if (allowExperimentalMapping) {
         command.add("-Dcom.android.tools.r8.experimentalmapping");
       }

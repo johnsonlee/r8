@@ -137,10 +137,11 @@ tasks {
     systemProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR",
                     getRoot().resolveAll("build", "test", "examplesJava11", "classes"))
     systemProperty(
-      "R8_RUNTIME_PATH",
+      "BUILD_PROP_R8_RUNTIME_PATH",
       mainCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
         File.pathSeparator + mainDepsJarTask.outputs.files.singleFile +
         File.pathSeparator + getRoot().resolveAll("src", "main", "resources") +
+        File.pathSeparator + keepAnnoCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
         File.pathSeparator + resourceShrinkerJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
         File.pathSeparator + resourceShrinkerKotlinCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[1])
     systemProperty("R8_DEPS", mainDepsJarTask.outputs.files.singleFile)

@@ -81,7 +81,7 @@ tasks {
                    layout.buildDirectory.dir("classes/java/test").get().toString())
     systemProperty("KEEP_ANNO_JAVAC_BUILD_DIR", keepAnnoCompileTask.outputs.files.getAsPath())
     systemProperty("R8_WITH_RELOCATED_DEPS", mainR8RelocatedTask.outputs.files.singleFile)
-    systemProperty("R8_RUNTIME_PATH", mainR8RelocatedTask.outputs.files.singleFile)
+    systemProperty("BUILD_PROP_R8_RUNTIME_PATH", mainR8RelocatedTask.outputs.files.singleFile)
   }
 
   val testJar by registering(Jar::class) {

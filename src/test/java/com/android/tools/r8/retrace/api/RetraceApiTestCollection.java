@@ -63,7 +63,7 @@ public class RetraceApiTestCollection
 
   @Override
   public List<Path> getTargetClasspath() {
-    return ImmutableList.of(ToolHelper.getRetracePath());
+    return ToolHelper.getBuildPropR8RuntimePath();
   }
 
   @Override

@@ -110,6 +110,29 @@ public class ToolHelper {
     return current + "/";
   }
 
+  private static String getBuildProp(String prop) {
+    assert prop.startsWith("BUILD_PROP_");
+    String value = System.getProperty(prop);
+    assert value != null;
+    return value;
+  }
+
+  public static List<Path> getBuildPropR8RuntimePath() {
+    return ListUtils.map(
+        StringUtils.split(getBuildProp("BUILD_PROP_R8_RUNTIME_PATH"), File.pathSeparatorChar),
+        Paths::get);
+  }
+
+  public static String getExamplesJava11BuildDir() {
+    assert System.getProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR") != null;
+    return System.getProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR");
+  }
+
+  public static Path getKeepAnnoPath() {
+    assert System.getProperty("KEEP_ANNO_JAVAC_BUILD_DIR") != null;
+    return Paths.get(System.getProperty("KEEP_ANNO_JAVAC_BUILD_DIR").split(File.pathSeparator)[0]);
+  }
+
   public enum TestDataSourceSet {
     LEGACY(null),
     TESTS_JAVA_8("tests_java_8/build/classes/java/test"),
@@ -170,29 +193,6 @@ public class ToolHelper {
   public static final String EXAMPLES_JAVA10_BUILD_DIR = TESTS_BUILD_DIR + "examplesJava10/";
   public static final String EXAMPLES_JAVA11_JAR_DIR = TESTS_BUILD_DIR + "examplesJava11/";
   public static final String SMALI_BUILD_DIR = THIRD_PARTY_DIR + "smali/";
-
-  public static String getExamplesJava11BuildDir() {
-    assert System.getProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR") != null;
-    return System.getProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR");
-  }
-
-  public static Path getR8MainPath() {
-    assert System.getProperty("R8_RUNTIME_PATH") != null;
-    return Paths.get(System.getProperty("R8_RUNTIME_PATH"));
-  }
-
-  public static Path getRetracePath() {
-    return getR8MainPath();
-  }
-
-  public static Path getKeepAnnoPath() {
-    assert System.getProperty("KEEP_ANNO_JAVAC_BUILD_DIR") != null;
-    return Paths.get(System.getProperty("KEEP_ANNO_JAVAC_BUILD_DIR").split(File.pathSeparator)[0]);
-  }
-
-  public static List<Path> getClasspathForR8() {
-    return ImmutableList.of(getKeepAnnoPath(), getR8MainPath());
-  }
 
   public static final Path CHECKED_IN_R8_17_WITH_DEPS =
       Paths.get(THIRD_PARTY_DIR).resolve("r8").resolve("r8_with_deps_17.jar");

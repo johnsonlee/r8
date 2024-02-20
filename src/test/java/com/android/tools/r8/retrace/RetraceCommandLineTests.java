@@ -346,7 +346,7 @@ public class RetraceCommandLineTests extends TestBase {
       command.add(ToolHelper.getSystemJavaExecutable());
       command.add("-ea");
       command.add("-cp");
-      command.add(ToolHelper.getRetracePath().toString());
+      command.add(RetraceTests.getRetraceClasspath());
       command.add(mainEntryPointExternal);
       command.addAll(args);
       ProcessBuilder builder = new ProcessBuilder(command);
