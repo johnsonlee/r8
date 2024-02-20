@@ -4,36 +4,44 @@
 
 package com.android.tools.r8.keepanno.utils;
 
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.ANNOTATION_PATTERN;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.FIELD_ACCESS_FLAGS;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.FIELD_ACCESS_VALUES;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_BINDING;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_CONDITION;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_CONSTRAINT;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_CONSTRAINT_VALUES;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_EDGE;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_FOR_API;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_ITEM_KIND;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_ITEM_KIND_VALUES;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_TARGET;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.MEMBER_ACCESS_FLAGS;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.MEMBER_ACCESS_VALUES;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.METHOD_ACCESS_FLAGS;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.METHOD_ACCESS_VALUES;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.STRING_PATTERN;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.TYPE_PATTERN;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.USED_BY_NATIVE;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.USED_BY_REFLECTION;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.USES_REFLECTION;
 import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.quote;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.simpleName;
 
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
-import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
-import com.android.tools.r8.keepanno.annotations.KeepBinding;
-import com.android.tools.r8.keepanno.annotations.KeepCondition;
-import com.android.tools.r8.keepanno.annotations.KeepConstraint;
-import com.android.tools.r8.keepanno.annotations.KeepEdge;
-import com.android.tools.r8.keepanno.annotations.KeepForApi;
-import com.android.tools.r8.keepanno.annotations.KeepItemKind;
-import com.android.tools.r8.keepanno.annotations.KeepTarget;
-import com.android.tools.r8.keepanno.annotations.MemberAccessFlags;
-import com.android.tools.r8.keepanno.annotations.MethodAccessFlags;
-import com.android.tools.r8.keepanno.annotations.StringPattern;
-import com.android.tools.r8.keepanno.annotations.TypePattern;
-import com.android.tools.r8.keepanno.annotations.UsedByNative;
-import com.android.tools.r8.keepanno.annotations.UsedByReflection;
-import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.keepanno.doctests.ForApiDocumentationTest;
 import com.android.tools.r8.keepanno.doctests.MainMethodsDocumentationTest;
 import com.android.tools.r8.keepanno.doctests.UsesReflectionAnnotationsDocumentationTest;
 import com.android.tools.r8.keepanno.doctests.UsesReflectionDocumentationTest;
+import com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.EnumReference;
 import com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.Generator;
+import com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.Group;
+import com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.GroupMember;
+import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -78,26 +86,28 @@ public class KeepAnnoMarkdownGenerator {
 
   public KeepAnnoMarkdownGenerator(Generator generator) {
     this.generator = generator;
-    typeLinkReplacements =
-        getTypeLinkReplacements(
-            // Annotations.
-            KeepEdge.class,
-            KeepBinding.class,
-            KeepTarget.class,
-            KeepCondition.class,
-            UsesReflection.class,
-            UsedByReflection.class,
-            UsedByNative.class,
-            KeepForApi.class,
-            StringPattern.class,
-            TypePattern.class,
-            AnnotationPattern.class,
-            // Enums.
-            KeepConstraint.class,
-            KeepItemKind.class,
-            MemberAccessFlags.class,
-            MethodAccessFlags.class,
-            FieldAccessFlags.class);
+    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    // Annotations.
+    addAnnotationReplacements(KEEP_EDGE, builder, generator.getKeepEdgeGroups());
+    addAnnotationReplacements(KEEP_BINDING, builder, generator.getBindingGroups());
+    addAnnotationReplacements(KEEP_TARGET, builder, generator.getTargetGroups());
+    addAnnotationReplacements(KEEP_CONDITION, builder, generator.getConditionGroups());
+    addAnnotationReplacements(USES_REFLECTION, builder, generator.getUsesReflectionGroups());
+    addAnnotationReplacements(USED_BY_REFLECTION, builder, generator.getUsedByReflectionGroups());
+    addAnnotationReplacements(USED_BY_NATIVE, builder, generator.getUsedByNativeGroups());
+    addAnnotationReplacements(KEEP_FOR_API, builder, generator.getKeepForApiGroups());
+    addAnnotationReplacements(STRING_PATTERN, builder, generator.getStringPatternGroups());
+    addAnnotationReplacements(TYPE_PATTERN, builder, generator.getTypePatternGroups());
+    addAnnotationReplacements(ANNOTATION_PATTERN, builder, generator.getAnnotationPatternGroups());
+
+    // Enums.
+    addEnumReplacements(KEEP_ITEM_KIND, KEEP_ITEM_KIND_VALUES, builder);
+    addEnumReplacements(KEEP_CONSTRAINT, KEEP_CONSTRAINT_VALUES, builder);
+    addEnumReplacements(MEMBER_ACCESS_FLAGS, MEMBER_ACCESS_VALUES, builder);
+    addEnumReplacements(METHOD_ACCESS_FLAGS, METHOD_ACCESS_VALUES, builder);
+    addEnumReplacements(FIELD_ACCESS_FLAGS, FIELD_ACCESS_VALUES, builder);
+
+    typeLinkReplacements = builder.build();
     populateCodeAndDocReplacements(
         UsesReflectionDocumentationTest.class,
         UsesReflectionAnnotationsDocumentationTest.class,
@@ -105,37 +115,51 @@ public class KeepAnnoMarkdownGenerator {
         MainMethodsDocumentationTest.class);
   }
 
-  private Map<String, String> getTypeLinkReplacements(Class<?>... classes) {
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    for (Class<?> clazz : classes) {
-      String prefix = "`@" + clazz.getSimpleName();
-      String suffix = "`";
-      if (clazz.isAnnotation()) {
-        builder.put(prefix + suffix, getMdAnnotationLink(clazz));
-        for (Method method : clazz.getDeclaredMethods()) {
-          builder.put(
-              prefix + "#" + method.getName() + suffix, getMdAnnotationPropertyLink(method));
-        }
-      } else if (clazz.isEnum()) {
-        builder.put(prefix + suffix, getMdEnumLink(clazz));
-        for (Field field : clazz.getDeclaredFields()) {
-          builder.put(prefix + "#" + field.getName() + suffix, getMdEnumFieldLink(field));
-        }
-      } else {
-        throw new RuntimeException("Unexpected type of class for doc links");
+  private static String getPrefix(ClassReference annoType) {
+    return "`@" + simpleName(annoType);
+  }
+
+  private static String getSuffix() {
+    return "`";
+  }
+
+  private void addAnnotationReplacements(
+      ClassReference annoType, ImmutableMap.Builder<String, String> builder, List<Group> groups) {
+    String prefix = getPrefix(annoType);
+    String suffix = getSuffix();
+    builder.put(prefix + suffix, getMdAnnotationLink(annoType));
+    for (Group group : groups) {
+      for (GroupMember member : group.members) {
+        builder.put(
+            prefix + "#" + member.name + suffix, getMdAnnotationPropertyLink(annoType, member));
       }
     }
-    return builder.build();
+  }
+
+  private void addEnumReplacements(
+      ClassReference enumType,
+      List<EnumReference> enumMembers,
+      ImmutableMap.Builder<String, String> builder) {
+    String prefix = getPrefix(enumType);
+    String suffix = getSuffix();
+    builder.put(prefix + suffix, getMdEnumLink(enumType));
+    for (EnumReference enumMember : enumMembers) {
+      builder.put(prefix + "#" + enumMember.name() + suffix, getMdEnumMemberLink(enumMember));
+    }
   }
 
   private void populateCodeAndDocReplacements(Class<?>... classes) {
+    for (Class<?> clazz : classes) {
+      Path sourceFile = ToolHelper.getSourceFileForTestClass(clazz);
+      extractMarkers(sourceFile);
+    }
+  }
+
+  private void extractMarkers(Path sourceFile) {
     try {
-      for (Class<?> clazz : classes) {
-        Path sourceFile = ToolHelper.getSourceFileForTestClass(clazz);
-        String text = FileUtils.readTextFile(sourceFile, StandardCharsets.UTF_8);
-        extractMarkers(text, INCLUDE_DOC_START, INCLUDE_DOC_END, docReplacements);
-        extractMarkers(text, INCLUDE_CODE_START, INCLUDE_CODE_END, codeReplacements);
-      }
+      String text = FileUtils.readTextFile(sourceFile, StandardCharsets.UTF_8);
+      extractMarkers(text, INCLUDE_DOC_START, INCLUDE_DOC_END, docReplacements);
+      extractMarkers(text, INCLUDE_CODE_START, INCLUDE_CODE_END, codeReplacements);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -167,30 +191,29 @@ public class KeepAnnoMarkdownGenerator {
     }
   }
 
-  private static String getClassJavaDocUrl(Class<?> clazz) {
+  private static String getClassJavaDocUrl(ClassReference clazz) {
     return JAVADOC_URL + clazz.getTypeName().replace('.', '/') + ".html";
   }
 
-  private String getMdAnnotationLink(Class<?> clazz) {
-    return "[@" + clazz.getSimpleName() + "](" + getClassJavaDocUrl(clazz) + ")";
+  private String getMdAnnotationLink(ClassReference clazz) {
+    return "[@" + simpleName(clazz) + "](" + getClassJavaDocUrl(clazz) + ")";
   }
 
-  private String getMdAnnotationPropertyLink(Method method) {
-    Class<?> clazz = method.getDeclaringClass();
-    String methodName = method.getName();
+  private String getMdAnnotationPropertyLink(ClassReference clazz, GroupMember method) {
+    String methodName = method.name;
     String url = getClassJavaDocUrl(clazz) + "#" + methodName + "()";
-    return "[@" + clazz.getSimpleName() + "." + methodName + "](" + url + ")";
+    return "[@" + simpleName(clazz) + "." + methodName + "](" + url + ")";
   }
 
-  private String getMdEnumLink(Class<?> clazz) {
-    return "[" + clazz.getSimpleName() + "](" + getClassJavaDocUrl(clazz) + ")";
+  private String getMdEnumLink(ClassReference clazz) {
+    return "[" + simpleName(clazz) + "](" + getClassJavaDocUrl(clazz) + ")";
   }
 
-  private String getMdEnumFieldLink(Field field) {
-    Class<?> clazz = field.getDeclaringClass();
-    String fieldName = field.getName();
-    String url = getClassJavaDocUrl(clazz) + "#" + fieldName;
-    return "[" + clazz.getSimpleName() + "." + fieldName + "](" + url + ")";
+  private String getMdEnumMemberLink(EnumReference enumMember) {
+    ClassReference clazz = enumMember.enumClass;
+    String enumName = enumMember.name();
+    String url = getClassJavaDocUrl(clazz) + "#" + enumName;
+    return "[" + simpleName(clazz) + "." + enumName + "](" + url + ")";
   }
 
   private void println() {

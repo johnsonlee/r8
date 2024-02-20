@@ -47,7 +47,7 @@ public class KeepItemAnnotationGenerator {
         });
   }
 
-  private static class EnumReference {
+  public static class EnumReference {
     public final ClassReference enumClass;
     public final String enumValue;
 
@@ -70,27 +70,25 @@ public class KeepItemAnnotationGenerator {
 
   private static final ClassReference ANNOTATION_CONSTANTS = astClass("AnnotationConstants");
 
-  private static final ClassReference STRING_PATTERN = annoClass("StringPattern");
-  private static final ClassReference TYPE_PATTERN = annoClass("TypePattern");
-  private static final ClassReference CLASS_NAME_PATTERN = annoClass("ClassNamePattern");
-  private static final ClassReference INSTANCE_OF_PATTERN = annoClass("InstanceOfPattern");
-  private static final ClassReference ANNOTATION_PATTERN = annoClass("AnnotationPattern");
-  private static final ClassReference USES_REFLECTION = annoClass("UsesReflection");
-  private static final ClassReference USED_BY_REFLECTION = annoClass("UsedByReflection");
-  private static final ClassReference USED_BY_NATIVE = annoClass("UsedByNative");
-  private static final ClassReference CHECK_REMOVED = annoClass("CheckRemoved");
-  private static final ClassReference CHECK_OPTIMIZED_OUT = annoClass("CheckOptimizedOut");
-  private static final ClassReference EXTRACTED_KEEP_ANNOTATIONS =
-      annoClass("ExtractedKeepAnnotations");
-  private static final ClassReference EXTRACTED_KEEP_ANNOTATION =
-      annoClass("ExtractedKeepAnnotation");
-  private static final ClassReference KEEP_EDGE = annoClass("KeepEdge");
-  private static final ClassReference KEEP_BINDING = annoClass("KeepBinding");
-  private static final ClassReference KEEP_TARGET = annoClass("KeepTarget");
-  private static final ClassReference KEEP_CONDITION = annoClass("KeepCondition");
-  private static final ClassReference KEEP_FOR_API = annoClass("KeepForApi");
+  static final ClassReference STRING_PATTERN = annoClass("StringPattern");
+  static final ClassReference TYPE_PATTERN = annoClass("TypePattern");
+  static final ClassReference CLASS_NAME_PATTERN = annoClass("ClassNamePattern");
+  static final ClassReference INSTANCE_OF_PATTERN = annoClass("InstanceOfPattern");
+  static final ClassReference ANNOTATION_PATTERN = annoClass("AnnotationPattern");
+  static final ClassReference USES_REFLECTION = annoClass("UsesReflection");
+  static final ClassReference USED_BY_REFLECTION = annoClass("UsedByReflection");
+  static final ClassReference USED_BY_NATIVE = annoClass("UsedByNative");
+  static final ClassReference CHECK_REMOVED = annoClass("CheckRemoved");
+  static final ClassReference CHECK_OPTIMIZED_OUT = annoClass("CheckOptimizedOut");
+  static final ClassReference EXTRACTED_KEEP_ANNOTATIONS = annoClass("ExtractedKeepAnnotations");
+  static final ClassReference EXTRACTED_KEEP_ANNOTATION = annoClass("ExtractedKeepAnnotation");
+  static final ClassReference KEEP_EDGE = annoClass("KeepEdge");
+  static final ClassReference KEEP_BINDING = annoClass("KeepBinding");
+  static final ClassReference KEEP_TARGET = annoClass("KeepTarget");
+  static final ClassReference KEEP_CONDITION = annoClass("KeepCondition");
+  static final ClassReference KEEP_FOR_API = annoClass("KeepForApi");
 
-  private static final ClassReference KEEP_ITEM_KIND = annoClass("KeepItemKind");
+  public static final ClassReference KEEP_ITEM_KIND = annoClass("KeepItemKind");
   private static final EnumReference KIND_ONLY_CLASS = enumRef(KEEP_ITEM_KIND, "ONLY_CLASS");
   private static final EnumReference KIND_ONLY_MEMBERS = enumRef(KEEP_ITEM_KIND, "ONLY_MEMBERS");
   private static final EnumReference KIND_ONLY_METHODS = enumRef(KEEP_ITEM_KIND, "ONLY_METHODS");
@@ -101,7 +99,7 @@ public class KeepItemAnnotationGenerator {
       enumRef(KEEP_ITEM_KIND, "CLASS_AND_METHODS");
   private static final EnumReference KIND_CLASS_AND_FIELDS =
       enumRef(KEEP_ITEM_KIND, "CLASS_AND_FIELDS");
-  private static final List<EnumReference> KEEP_ITEM_KIND_VALUES =
+  public static final List<EnumReference> KEEP_ITEM_KIND_VALUES =
       ImmutableList.of(
           KIND_ONLY_CLASS,
           KIND_ONLY_MEMBERS,
@@ -111,7 +109,7 @@ public class KeepItemAnnotationGenerator {
           KIND_CLASS_AND_METHODS,
           KIND_CLASS_AND_FIELDS);
 
-  private static final ClassReference KEEP_CONSTRAINT = annoClass("KeepConstraint");
+  static final ClassReference KEEP_CONSTRAINT = annoClass("KeepConstraint");
   private static final EnumReference CONSTRAINT_LOOKUP = enumRef(KEEP_CONSTRAINT, "LOOKUP");
   private static final EnumReference CONSTRAINT_NAME = enumRef(KEEP_CONSTRAINT, "NAME");
   private static final EnumReference CONSTRAINT_VISIBILITY_RELAX =
@@ -134,7 +132,7 @@ public class KeepItemAnnotationGenerator {
       enumRef(KEEP_CONSTRAINT, "NEVER_INLINE");
   private static final EnumReference CONSTRAINT_CLASS_OPEN_HIERARCHY =
       enumRef(KEEP_CONSTRAINT, "CLASS_OPEN_HIERARCHY");
-  private static final List<EnumReference> KEEP_CONSTRAINT_VALUES =
+  static final List<EnumReference> KEEP_CONSTRAINT_VALUES =
       ImmutableList.of(
           CONSTRAINT_LOOKUP,
           CONSTRAINT_NAME,
@@ -150,7 +148,7 @@ public class KeepItemAnnotationGenerator {
           CONSTRAINT_NEVER_INLINE,
           CONSTRAINT_CLASS_OPEN_HIERARCHY);
 
-  private static final ClassReference MEMBER_ACCESS_FLAGS = annoClass("MemberAccessFlags");
+  static final ClassReference MEMBER_ACCESS_FLAGS = annoClass("MemberAccessFlags");
   private static final EnumReference MEMBER_ACCESS_PUBLIC = enumRef(MEMBER_ACCESS_FLAGS, "PUBLIC");
   private static final EnumReference MEMBER_ACCESS_PROTECTED =
       enumRef(MEMBER_ACCESS_FLAGS, "PROTECTED");
@@ -162,7 +160,7 @@ public class KeepItemAnnotationGenerator {
   private static final EnumReference MEMBER_ACCESS_FINAL = enumRef(MEMBER_ACCESS_FLAGS, "FINAL");
   private static final EnumReference MEMBER_ACCESS_SYNTHETIC =
       enumRef(MEMBER_ACCESS_FLAGS, "SYNTHETIC");
-  private static final List<EnumReference> MEMBER_ACCESS_VALUES =
+  static final List<EnumReference> MEMBER_ACCESS_VALUES =
       ImmutableList.of(
           MEMBER_ACCESS_PUBLIC,
           MEMBER_ACCESS_PROTECTED,
@@ -172,7 +170,7 @@ public class KeepItemAnnotationGenerator {
           MEMBER_ACCESS_FINAL,
           MEMBER_ACCESS_SYNTHETIC);
 
-  private static final ClassReference METHOD_ACCESS_FLAGS = annoClass("MethodAccessFlags");
+  static final ClassReference METHOD_ACCESS_FLAGS = annoClass("MethodAccessFlags");
   private static final EnumReference METHOD_ACCESS_SYNCHRONIZED =
       enumRef(METHOD_ACCESS_FLAGS, "SYNCHRONIZED");
   private static final EnumReference METHOD_ACCESS_BRIDGE = enumRef(METHOD_ACCESS_FLAGS, "BRIDGE");
@@ -181,7 +179,7 @@ public class KeepItemAnnotationGenerator {
       enumRef(METHOD_ACCESS_FLAGS, "ABSTRACT");
   private static final EnumReference METHOD_ACCESS_STRICT_FP =
       enumRef(METHOD_ACCESS_FLAGS, "STRICT_FP");
-  private static final List<EnumReference> METHOD_ACCESS_VALUES =
+  static final List<EnumReference> METHOD_ACCESS_VALUES =
       ImmutableList.of(
           METHOD_ACCESS_SYNCHRONIZED,
           METHOD_ACCESS_BRIDGE,
@@ -189,12 +187,12 @@ public class KeepItemAnnotationGenerator {
           METHOD_ACCESS_ABSTRACT,
           METHOD_ACCESS_STRICT_FP);
 
-  private static final ClassReference FIELD_ACCESS_FLAGS = annoClass("FieldAccessFlags");
+  static final ClassReference FIELD_ACCESS_FLAGS = annoClass("FieldAccessFlags");
   private static final EnumReference FIELD_ACCESS_VOLATILE =
       enumRef(FIELD_ACCESS_FLAGS, "VOLATILE");
   private static final EnumReference FIELD_ACCESS_TRANSIENT =
       enumRef(FIELD_ACCESS_FLAGS, "TRANSIENT");
-  private static final List<EnumReference> FIELD_ACCESS_VALUES =
+  static final List<EnumReference> FIELD_ACCESS_VALUES =
       ImmutableList.of(FIELD_ACCESS_VOLATILE, FIELD_ACCESS_TRANSIENT);
 
   private static final String DEFAULT_INVALID_STRING_PATTERN =
@@ -222,12 +220,12 @@ public class KeepItemAnnotationGenerator {
     return "\"" + str + "\"";
   }
 
-  private static String simpleName(ClassReference clazz) {
+  public static String simpleName(ClassReference clazz) {
     String binaryName = clazz.getBinaryName();
     return binaryName.substring(binaryName.lastIndexOf('/') + 1);
   }
 
-  private static class GroupMember extends DocPrinterBase<GroupMember> {
+  public static class GroupMember extends DocPrinterBase<GroupMember> {
 
     final String name;
     String valueType = null;
@@ -310,7 +308,7 @@ public class KeepItemAnnotationGenerator {
     }
   }
 
-  private static class Group {
+  public static class Group {
 
     final String name;
     final List<GroupMember> members = new ArrayList<>();
@@ -565,7 +563,7 @@ public class KeepItemAnnotationGenerator {
                   .defaultEmptyString());
     }
 
-    private Group typePatternGroup() {
+    public Group typePatternGroup() {
       return new Group("type-pattern")
           .addMember(
               new GroupMember("name")
@@ -1699,6 +1697,11 @@ public class KeepItemAnnotationGenerator {
       println("}");
     }
 
+    void generateGroupConstants(ClassReference annoType, List<Group> groups) {
+      generateAnnotationConstants(annoType);
+      groups.forEach(g -> g.generateConstants(this));
+    }
+
     private void generateAnnotationConstants(ClassReference clazz) {
       String desc = clazz.getDescriptor();
       println("public static final String DESCRIPTOR = " + quote(desc) + ";");
@@ -1747,44 +1750,60 @@ public class KeepItemAnnotationGenerator {
       println();
     }
 
+    List<Group> getKeepEdgeGroups() {
+      return ImmutableList.of(
+          createDescriptionGroup(),
+          createBindingsGroup(),
+          createPreconditionsGroup(),
+          createConsequencesGroup());
+    }
+
     private void generateKeepEdgeConstants() {
       println("public static final class Edge {");
-      withIndent(
-          () -> {
-            generateAnnotationConstants(KEEP_EDGE);
-            createDescriptionGroup().generateConstants(this);
-            createBindingsGroup().generateConstants(this);
-            createPreconditionsGroup().generateConstants(this);
-            createConsequencesGroup().generateConstants(this);
-          });
+      withIndent(() -> generateGroupConstants(KEEP_EDGE, getKeepEdgeGroups()));
       println("}");
       println();
+    }
+
+    List<Group> getKeepForApiGroups() {
+      return ImmutableList.of(
+          createDescriptionGroup(), createAdditionalTargetsGroup("."), createMemberAccessGroup());
     }
 
     private void generateKeepForApiConstants() {
       println("public static final class ForApi {");
-      withIndent(
-          () -> {
-            generateAnnotationConstants(KEEP_FOR_API);
-            createDescriptionGroup().generateConstants(this);
-            createAdditionalTargetsGroup(".").generateConstants(this);
-            createMemberAccessGroup().generateConstants(this);
-          });
+      withIndent(() -> generateGroupConstants(KEEP_FOR_API, getKeepForApiGroups()));
       println("}");
       println();
     }
 
+    List<Group> getUsesReflectionGroups() {
+      return ImmutableList.of(
+          createDescriptionGroup(),
+          createConsequencesAsValueGroup(),
+          createAdditionalPreconditionsGroup());
+    }
+
     private void generateUsesReflectionConstants() {
       println("public static final class UsesReflection {");
-      withIndent(
-          () -> {
-            generateAnnotationConstants(USES_REFLECTION);
-            createDescriptionGroup().generateConstants(this);
-            createConsequencesAsValueGroup().generateConstants(this);
-            createAdditionalPreconditionsGroup().generateConstants(this);
-          });
+      withIndent(() -> generateGroupConstants(USES_REFLECTION, getUsesReflectionGroups()));
       println("}");
       println();
+    }
+
+    List<Group> getUsedByReflectionGroups() {
+      ImmutableList.Builder<Group> builder = ImmutableList.builder();
+      builder.addAll(getItemGroups());
+      builder.add(getKindGroup());
+      forEachExtraUsedByReflectionGroup(builder::add);
+      forEachKeepConstraintGroups(builder::add);
+      return builder.build();
+    }
+
+    private void forEachExtraUsedByReflectionGroup(Consumer<Group> fn) {
+      fn.accept(createDescriptionGroup());
+      fn.accept(createPreconditionsGroup());
+      fn.accept(createAdditionalTargetsGroup("."));
     }
 
     private void generateUsedByReflectionConstants() {
@@ -1792,12 +1811,14 @@ public class KeepItemAnnotationGenerator {
       withIndent(
           () -> {
             generateAnnotationConstants(USED_BY_REFLECTION);
-            createDescriptionGroup().generateConstants(this);
-            createPreconditionsGroup().generateConstants(this);
-            createAdditionalTargetsGroup(".").generateConstants(this);
+            forEachExtraUsedByReflectionGroup(g -> g.generateConstants(this));
           });
       println("}");
       println();
+    }
+
+    List<Group> getUsedByNativeGroups() {
+      return getUsedByReflectionGroups();
     }
 
     private void generateUsedByNativeConstants() {
@@ -1831,37 +1852,46 @@ public class KeepItemAnnotationGenerator {
       println();
     }
 
+    private List<Group> getItemGroups() {
+      return ImmutableList.of(
+          // Bindings.
+          createClassBindingGroup(),
+          createMemberBindingGroup(),
+          // Classes.
+          createClassNamePatternGroup(),
+          createClassInstanceOfPatternGroup(),
+          createClassAnnotatedByPatternGroup(),
+          // Members.
+          createMemberAnnotatedByGroup(),
+          createMemberAccessGroup(),
+          // Methods.
+          createMethodAnnotatedByGroup(),
+          createMethodAccessGroup(),
+          createMethodNameGroup(),
+          createMethodReturnTypeGroup(),
+          createMethodParametersGroup(),
+          // Fields.
+          createFieldAnnotatedByGroup(),
+          createFieldAccessGroup(),
+          createFieldNameGroup(),
+          createFieldTypeGroup());
+    }
+
     private void generateItemConstants() {
       DocPrinter.printer()
           .setDocTitle("Item properties common to binding items, conditions and targets.")
           .printDoc(this::println);
       println("public static final class Item {");
-      withIndent(
-          () -> {
-            // Bindings.
-            createClassBindingGroup().generateConstants(this);
-            createMemberBindingGroup().generateConstants(this);
-            // Classes.
-            createClassNamePatternGroup().generateConstants(this);
-            createClassInstanceOfPatternGroup().generateConstants(this);
-            createClassAnnotatedByPatternGroup().generateConstants(this);
-            // Members.
-            createMemberAnnotatedByGroup().generateConstants(this);
-            createMemberAccessGroup().generateConstants(this);
-            // Methods.
-            createMethodAnnotatedByGroup().generateConstants(this);
-            createMethodAccessGroup().generateConstants(this);
-            createMethodNameGroup().generateConstants(this);
-            createMethodReturnTypeGroup().generateConstants(this);
-            createMethodParametersGroup().generateConstants(this);
-            // Fields.
-            createFieldAnnotatedByGroup().generateConstants(this);
-            createFieldAccessGroup().generateConstants(this);
-            createFieldNameGroup().generateConstants(this);
-            createFieldTypeGroup().generateConstants(this);
-          });
+      withIndent(() -> getItemGroups().forEach(g -> g.generateConstants(this)));
       println("}");
       println();
+    }
+
+    List<Group> getBindingGroups() {
+      return ImmutableList.<Group>builder()
+          .addAll(getItemGroups())
+          .add(new Group("binding-name").addMember(bindingName()))
+          .build();
     }
 
     private void generateBindingConstants() {
@@ -1875,6 +1905,10 @@ public class KeepItemAnnotationGenerator {
       println();
     }
 
+    List<Group> getConditionGroups() {
+      return getItemGroups();
+    }
+
     private void generateConditionConstants() {
       println("public static final class Condition {");
       withIndent(
@@ -1885,13 +1919,24 @@ public class KeepItemAnnotationGenerator {
       println();
     }
 
+    List<Group> getTargetGroups() {
+      ImmutableList.Builder<Group> builder = ImmutableList.builder();
+      builder.addAll(getItemGroups());
+      forEachExtraTargetGroup(builder::add);
+      return builder.build();
+    }
+
+    private void forEachExtraTargetGroup(Consumer<Group> fn) {
+      fn.accept(getKindGroup());
+      forEachKeepConstraintGroups(fn);
+    }
+
     private void generateTargetConstants() {
       println("public static final class Target {");
       withIndent(
           () -> {
             generateAnnotationConstants(KEEP_TARGET);
-            getKindGroup().generateConstants(this);
-            forEachKeepConstraintGroups(g -> g.generateConstants(this));
+            forEachExtraTargetGroup(g -> g.generateConstants(this));
           });
       println("}");
       println();
@@ -1997,17 +2042,24 @@ public class KeepItemAnnotationGenerator {
       println();
     }
 
+    List<Group> getStringPatternGroups() {
+      return ImmutableList.of(
+          stringPatternExactGroup(), stringPatternPrefixGroup(), stringPatternSuffixGroup());
+    }
+
     private void generateStringPatternConstants() {
       println("public static final class StringPattern {");
       withIndent(
           () -> {
             generateAnnotationConstants(STRING_PATTERN);
-            stringPatternExactGroup().generateConstants(this);
-            stringPatternPrefixGroup().generateConstants(this);
-            stringPatternSuffixGroup().generateConstants(this);
+            getStringPatternGroups().forEach(g -> g.generateConstants(this));
           });
       println("}");
       println();
+    }
+
+    List<Group> getTypePatternGroups() {
+      return ImmutableList.of(typePatternGroup());
     }
 
     private void generateTypePatternConstants() {
@@ -2015,7 +2067,7 @@ public class KeepItemAnnotationGenerator {
       withIndent(
           () -> {
             generateAnnotationConstants(TYPE_PATTERN);
-            typePatternGroup().generateConstants(this);
+            getTypePatternGroups().forEach(g -> g.generateConstants((this)));
           });
       println("}");
       println();
@@ -2046,13 +2098,17 @@ public class KeepItemAnnotationGenerator {
       println();
     }
 
+    List<Group> getAnnotationPatternGroups() {
+      return ImmutableList.of(
+          annotationNameGroup(), new Group("retention").addMember(annotationRetention()));
+    }
+
     private void generateAnnotationPatternConstants() {
       println("public static final class AnnotationPattern {");
       withIndent(
           () -> {
             generateAnnotationConstants(ANNOTATION_PATTERN);
-            annotationNameGroup().generateConstants(this);
-            annotationRetention().generateConstants(this);
+            getAnnotationPatternGroups().forEach(g -> g.generateConstants(this));
           });
       println("}");
       println();

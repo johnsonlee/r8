@@ -10,12 +10,10 @@ import com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.Generator
 import com.android.tools.r8.utils.FileUtils;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class KeepItemGeneratedFilesTest {
 
-  @Ignore
   @Test
   public void checkUpToDate() throws IOException {
     Generator.run(
