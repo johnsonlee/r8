@@ -161,6 +161,8 @@ tasks {
     dependsOn(gradle.includedBuild("resourceshrinker").task(":jar"))
     from(testDependencies().map(::zipTree))
     from(resourceShrinkerDepsJarTask.outputs.getFiles().map(::zipTree))
+    from(keepAnnoJarTask.outputs.getFiles().map(::zipTree))
+    exclude("com/android/tools/r8/keepanno/annotations/**")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveFileName.set("deps.jar")
   }

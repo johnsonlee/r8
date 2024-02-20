@@ -298,6 +298,12 @@ val r8WithRelocatedDeps by registering(Exec::class) {
              // com.android.tools.r8.
              "--map",
              "com.android.tools.r8.**->com.android.tools.r8",
+             // Add identify for the public annotation surface of keepanno
+             "--map",
+             "com.android.tools.r8.keepanno.annotations.**->com.android.tools.r8.keepanno.annotations",
+             // Explicitly move all other keepanno utilities.
+             "--map",
+             "com.android.tools.r8.keepanno.**->com.android.tools.r8.relocated.keepanno",
              "--map",
              "com.android.**->com.android.tools.r8.com.android",
              "--map",
