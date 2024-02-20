@@ -33,20 +33,28 @@ internal fun Resources.ResourceTable.entriesSequence(): Sequence<EntryWrapper> =
 
 internal fun Resources.ResourceTable.nullOutEntriesWithIds(ids: List<Int>)
     : Resources.ResourceTable {
+    return nullOutEntriesWithIds(ids, false)
+}
+
+internal fun Resources.ResourceTable.nullOutEntriesWithIds(
+    ids: List<Int>, pruneResourceNames: Boolean): Resources.ResourceTable {
     if (ids.isEmpty()) {
         return this
     }
     val packageMappings = calculatePackageMappings(ids)
     val tableBuilder = this.toBuilder()
-    tableBuilder.packageBuilderList.forEach{
+    tableBuilder.packageBuilderList.forEach {
         val typeMappings = packageMappings[it.packageId.id]
         if (typeMappings != null) {
-            it.typeBuilderList.forEach { type->
+            it.typeBuilderList.forEach { type ->
                 val entryList = typeMappings[type.typeId.id]
                 if (entryList != null) {
                     type.entryBuilderList.forEach { entry ->
                         if (entryList.contains(entry.entryId.id)) {
                             entry.clearConfigValue()
+                            if (pruneResourceNames) {
+                                entry.clearName();
+                            }
                             if (entry.hasOverlayableItem()) {
                                 entry.clearOverlayableItem()
                             }

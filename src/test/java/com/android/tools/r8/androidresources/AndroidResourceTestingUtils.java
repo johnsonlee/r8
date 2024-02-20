@@ -532,8 +532,12 @@ public class AndroidResourceTestingUtils {
     }
   }
 
-  public static void dumpWithAapt2(Path path) throws IOException {
-    System.out.println(ToolHelper.runAapt2("dump", "resources", path.toString()));
+  public static ProcessResult dumpWithAapt2(Path path) throws IOException {
+    return ToolHelper.runAapt2("dump", "resources", path.toString());
+  }
+
+  public static void dumpWithAapt2ToStdout(Path path) throws IOException {
+    System.out.println(dumpWithAapt2(path));
   }
 
   public static void compileWithAapt2(

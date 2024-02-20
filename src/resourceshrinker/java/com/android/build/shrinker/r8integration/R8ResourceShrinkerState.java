@@ -177,7 +177,8 @@ public class R8ResourceShrinkerState {
         (resourceTable, featureSplit) ->
             shrunkenTables.put(
                 featureSplit,
-                ResourceTableUtilKt.nullOutEntriesWithIds(resourceTable, resourceIdsToRemove)));
+                ResourceTableUtilKt.nullOutEntriesWithIds(
+                    resourceTable, resourceIdsToRemove, true)));
 
     return new ShrinkerResult(resEntriesToKeep, shrunkenTables);
   }

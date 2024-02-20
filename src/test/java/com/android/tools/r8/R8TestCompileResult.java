@@ -9,6 +9,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import com.android.tools.r8.ToolHelper.ProcessResult;
+import com.android.tools.r8.androidresources.AndroidResourceTestingUtils;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.ResourceTableInspector;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.SplitRunner;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
@@ -171,6 +172,12 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
         new ResourceTableInspector(
             ZipUtils.readSingleEntry(resourceShrinkerOutput, "resources.pb")));
     return self();
+  }
+
+  public String dumpResources() throws IOException {
+    ProcessResult processResult = AndroidResourceTestingUtils.dumpWithAapt2(resourceShrinkerOutput);
+    assert processResult.exitCode == 0;
+    return processResult.stdout;
   }
 
   public <E extends Throwable> R8TestCompileResult inspectShrunkenResourcesForFeature(
