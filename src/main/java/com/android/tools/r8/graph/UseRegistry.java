@@ -9,6 +9,7 @@ import com.android.tools.r8.dex.code.CfOrDexStaticFieldRead;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeInstructionMetadata;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.InvokeType;
+import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.ListIterator;
 
@@ -58,6 +59,10 @@ public abstract class UseRegistry<T extends Definition> {
 
   public TraversalContinuation<?, ?> getTraversalContinuation() {
     return continuation;
+  }
+
+  public void registerInliningPosition(Position position) {
+    assert position.hasCallerPosition();
   }
 
   public void registerRecordFieldValues(DexField[] fields) {

@@ -77,6 +77,8 @@ public class LirCode<EV> extends Code
 
     public abstract Position getPosition(DexMethod method, boolean isD8R8Synthesized);
 
+    public abstract boolean hasCallerPosition();
+
     abstract int getOrder();
 
     abstract int internalAcceptCompareTo(PositionEntry other, CompareToVisitor visitor);
@@ -122,6 +124,11 @@ public class LirCode<EV> extends Code
     }
 
     @Override
+    public boolean hasCallerPosition() {
+      return false;
+    }
+
+    @Override
     public Position getPosition(DexMethod method, boolean isD8R8Synthesized) {
       return (isD8R8Synthesized ? SyntheticPosition.builder() : SourcePosition.builder())
           .setMethod(method)
@@ -152,6 +159,11 @@ public class LirCode<EV> extends Code
     public StructuredPositionEntry(int fromInstructionIndex, Position position) {
       super(fromInstructionIndex);
       this.position = position;
+    }
+
+    @Override
+    public boolean hasCallerPosition() {
+      return position.hasCallerPosition();
     }
 
     @Override
@@ -585,6 +597,13 @@ public class LirCode<EV> extends Code
   @Override
   public void registerCodeReferences(ProgramMethod method, UseRegistry registry) {
     assert registry.getTraversalContinuation().shouldContinue();
+    for (PositionEntry positionEntry : positionTable) {
+      if (positionEntry.hasCallerPosition()) {
+        registry.registerInliningPosition(
+            positionEntry.getPosition(
+                method.getReference(), method.getDefinition().isD8R8Synthesized()));
+      }
+    }
     LirUseRegistryCallback<EV> registryCallbacks = new LirUseRegistryCallback<>(this, registry);
     for (LirInstructionView view : this) {
       if (metadataMap != null) {
