@@ -65,16 +65,14 @@ public class AndroidManifestWithCodeReferences extends TestBase {
   public void testManifestReferences() throws Exception {
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
-        .addProgramClasses(TestClass.class, Bar.class)
+        .addProgramClasses(Bar.class)
         .addAndroidResources(getTestResources(temp))
-        .addKeepMainRule(TestClass.class)
         .enableOptimizedShrinking()
         .compile()
         .inspectShrunkenResources(
             resourceTableInspector -> {
               resourceTableInspector.assertContainsResourceWithName("string", "app_name");
             })
-        .run(parameters.getRuntime(), TestClass.class)
         .inspect(
             codeInspector -> {
               ClassSubject barClass = codeInspector.clazz(Bar.class);
@@ -82,12 +80,7 @@ public class AndroidManifestWithCodeReferences extends TestBase {
               // We should have two and only two methods, the two constructors.
               assertEquals(barClass.allMethods(MethodSubject::isInstanceInitializer).size(), 2);
               assertEquals(barClass.allMethods().size(), 2);
-            })
-        .assertSuccess();
-  }
-
-  public static class TestClass {
-    public static void main(String[] args) {}
+            });
   }
 
   // Only referenced from Manifest file
