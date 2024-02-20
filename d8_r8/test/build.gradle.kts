@@ -350,7 +350,8 @@ tasks {
     testClassesDirs = unzipRewrittenTests.get().getOutputs().getFiles()
     systemProperty("TEST_DATA_LOCATION", unzipTests.getSingleOutputFile())
     systemProperty(
-            "KEEP_ANNO_JAVAC_BUILD_DIR", keepAnnoCompileTask.getOutputs().getFiles().getAsPath())
+      "BUILD_PROP_KEEPANNO_RUNTIME_PATH",
+      keepAnnoCompileTask.getOutputs().getFiles().getAsPath().split(File.pathSeparator)[0])
     systemProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR",
             getRoot().resolveAll("build", "test", "examplesJava11", "classes"))
     systemProperty("BUILD_PROP_R8_RUNTIME_PATH", r8LibJar)

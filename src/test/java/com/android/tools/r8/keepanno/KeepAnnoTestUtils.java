@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.keepanno;
 
+import static org.junit.Assert.assertTrue;
+
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.ProguardVersion;
@@ -36,21 +38,24 @@ public class KeepAnnoTestUtils {
 
   public static Path getKeepAnnoLib(TemporaryFolder temp) throws IOException {
     Path archive = temp.newFolder().toPath().resolve("keepanno.jar");
-    Path root = ToolHelper.getKeepAnnoPath();
     ArchiveConsumer consumer = new ArchiveConsumer(archive);
-    Path annoDir =
-        root.resolve(Paths.get("com", "android", "tools", "r8", "keepanno", "annotations"));
-    try (Stream<Path> paths = Files.list(annoDir)) {
-      paths.forEach(
-          p -> {
-            if (FileUtils.isClassFile(p)) {
-              byte[] data = FileUtils.uncheckedReadAllBytes(p);
-              String fileName = p.getFileName().toString();
-              String className = fileName.substring(0, fileName.lastIndexOf('.'));
-              String desc = "Lcom/android/tools/r8/keepanno/annotations/" + className + ";";
-              consumer.accept(ByteDataView.of(data), desc, null);
-            }
-          });
+    for (Path root : ToolHelper.getBuildPropKeepAnnoRuntimePath()) {
+      Path annoDir =
+          root.resolve(Paths.get("com", "android", "tools", "r8", "keepanno", "annotations"));
+      assertTrue(Files.isDirectory(root));
+      assertTrue(Files.isDirectory(annoDir));
+      try (Stream<Path> paths = Files.list(annoDir)) {
+        paths.forEach(
+            p -> {
+              if (FileUtils.isClassFile(p)) {
+                byte[] data = FileUtils.uncheckedReadAllBytes(p);
+                String fileName = p.getFileName().toString();
+                String className = fileName.substring(0, fileName.lastIndexOf('.'));
+                String desc = "Lcom/android/tools/r8/keepanno/annotations/" + className + ";";
+                consumer.accept(ByteDataView.of(data), desc, null);
+              }
+            });
+      }
     }
     consumer.finished(null);
     return archive;

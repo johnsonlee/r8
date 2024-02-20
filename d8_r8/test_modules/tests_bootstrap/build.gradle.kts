@@ -79,7 +79,9 @@ tasks {
     dependsOn(mainR8RelocatedTask)
     systemProperty("TEST_DATA_LOCATION",
                    layout.buildDirectory.dir("classes/java/test").get().toString())
-    systemProperty("KEEP_ANNO_JAVAC_BUILD_DIR", keepAnnoCompileTask.outputs.files.getAsPath())
+    systemProperty(
+      "BUILD_PROP_KEEPANNO_RUNTIME_PATH",
+      keepAnnoCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
     systemProperty("R8_WITH_RELOCATED_DEPS", mainR8RelocatedTask.outputs.files.singleFile)
     systemProperty("BUILD_PROP_R8_RUNTIME_PATH", mainR8RelocatedTask.outputs.files.singleFile)
   }

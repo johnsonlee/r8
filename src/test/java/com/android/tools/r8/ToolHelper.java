@@ -117,20 +117,21 @@ public class ToolHelper {
     return value;
   }
 
+  private static List<Path> getBuildPropPaths(String prop) {
+    return ListUtils.map(StringUtils.split(getBuildProp(prop), File.pathSeparatorChar), Paths::get);
+  }
+
   public static List<Path> getBuildPropR8RuntimePath() {
-    return ListUtils.map(
-        StringUtils.split(getBuildProp("BUILD_PROP_R8_RUNTIME_PATH"), File.pathSeparatorChar),
-        Paths::get);
+    return getBuildPropPaths("BUILD_PROP_R8_RUNTIME_PATH");
+  }
+
+  public static List<Path> getBuildPropKeepAnnoRuntimePath() {
+    return getBuildPropPaths("BUILD_PROP_KEEPANNO_RUNTIME_PATH");
   }
 
   public static String getExamplesJava11BuildDir() {
     assert System.getProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR") != null;
     return System.getProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR");
-  }
-
-  public static Path getKeepAnnoPath() {
-    assert System.getProperty("KEEP_ANNO_JAVAC_BUILD_DIR") != null;
-    return Paths.get(System.getProperty("KEEP_ANNO_JAVAC_BUILD_DIR").split(File.pathSeparator)[0]);
   }
 
   public enum TestDataSourceSet {

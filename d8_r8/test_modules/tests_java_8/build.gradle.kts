@@ -132,7 +132,9 @@ tasks {
     dependsOn(sourceSetDependencyTask)
     systemProperty("TEST_DATA_LOCATION",
                    layout.buildDirectory.dir("classes/java/test").get().toString())
-    systemProperty("KEEP_ANNO_JAVAC_BUILD_DIR", keepAnnoCompileTask.outputs.files.getAsPath())
+    systemProperty(
+      "BUILD_PROP_KEEPANNO_RUNTIME_PATH",
+      keepAnnoCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
     // This path is set when compiling examples jar task in DependenciesPlugin.
     systemProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR",
                     getRoot().resolveAll("build", "test", "examplesJava11", "classes"))
