@@ -55,7 +55,7 @@ public class ResourceShrinkerUtils {
     for (AndroidResourceInput androidResource : androidResources) {
       switch (androidResource.getKind()) {
         case MANIFEST:
-          state.setManifestProvider(
+          state.addManifestProvider(
               () -> wrapThrowingInputStreamResource(appView, androidResource));
           break;
         case RESOURCE_TABLE:

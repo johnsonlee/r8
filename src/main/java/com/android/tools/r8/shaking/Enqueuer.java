@@ -3771,6 +3771,7 @@ public class Enqueuer {
     enqueueAllIfNotShrinking();
     timing.end();
     timing.begin("Trace");
+    traceManifests(timing);
     trace(executorService, timing);
     timing.end();
     options.reporter.failIfPendingErrors();
@@ -3802,6 +3803,14 @@ public class Enqueuer {
     profileCollectionAdditions.commit(appView);
     timing.end();
     return result;
+  }
+
+  private void traceManifests(Timing timing) {
+    if (options.isOptimizedResourceShrinking()) {
+      timing.begin("Trace AndroidManifest.xml files");
+      appView.getResourceShrinkerState().traceManifests();
+      timing.end();
+    }
   }
 
   private void includeMinimumKeepInfo(RootSetBase rootSet) {

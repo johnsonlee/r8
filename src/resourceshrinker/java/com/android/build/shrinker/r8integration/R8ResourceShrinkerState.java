@@ -38,6 +38,7 @@ import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -54,7 +55,7 @@ public class R8ResourceShrinkerState {
   private final R8ResourceShrinkerModel r8ResourceShrinkerModel;
   private final Map<String, Supplier<InputStream>> xmlFileProviders = new HashMap<>();
 
-  private Supplier<InputStream> manifestProvider;
+  private final List<Supplier<InputStream>> manifestProviders = new ArrayList<>();
   private final Map<String, Supplier<InputStream>> resfileProviders = new HashMap<>();
   private final Map<ResourceTable, FeatureSplit> resourceTables = new HashMap<>();
   private ClassReferenceCallback enqueuerCallback;
@@ -82,13 +83,19 @@ public class R8ResourceShrinkerState {
       return;
     }
     ResourceUsageModel.markReachable(resource);
-    traceXml(id);
+    traceXmlForResourceId(id);
     if (resource.references != null) {
       for (Resource reference : resource.references) {
         if (!reference.isReachable()) {
           trace(reference.value);
         }
       }
+    }
+  }
+
+  public void traceManifests() {
+    for (Supplier<InputStream> manifestProvider : manifestProviders) {
+      traceXml("AndroidManifest.xml", manifestProvider.get());
     }
   }
 
@@ -111,8 +118,8 @@ public class R8ResourceShrinkerState {
     return packageNames;
   }
 
-  public void setManifestProvider(Supplier<InputStream> manifestProvider) {
-    this.manifestProvider = manifestProvider;
+  public void addManifestProvider(Supplier<InputStream> manifestProvider) {
+    this.manifestProviders.add(manifestProvider);
   }
 
   public void addXmlFileProvider(Supplier<InputStream> inputStreamSupplier, String location) {
@@ -185,18 +192,23 @@ public class R8ResourceShrinkerState {
     return resEntriesToKeep.build();
   }
 
-  private void traceXml(int id) {
+  private void traceXmlForResourceId(int id) {
     String xmlFile = getResourceIdToXmlFiles().get(id);
     if (xmlFile != null) {
       InputStream inputStream = xmlFileProviders.get(xmlFile).get();
-      try {
-        XmlNode xmlNode = XmlNode.parseFrom(inputStream);
-        visitNode(xmlNode, xmlFile);
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+      traceXml(xmlFile, inputStream);
     }
   }
+
+  private void traceXml(String xmlFile, InputStream inputStream) {
+    try {
+      XmlNode xmlNode = XmlNode.parseFrom(inputStream);
+      visitNode(xmlNode, xmlFile);
+    } catch (IOException e) {
+      errorHandler.apply(e);
+    }
+  }
+
 
   private void tryEnqueuerOnString(String possibleClass, String xmlName) {
     // There are a lot of xml tags and attributes that are evaluated over and over, if it is
@@ -264,11 +276,10 @@ public class R8ResourceShrinkerState {
   // Temporary to support updating the reachable entries from the manifest, we need to instead
   // trace these in the enqueuer.
   public void updateModelWithManifestReferences() throws IOException {
-    if (manifestProvider == null) {
-      return;
+    for (Supplier<InputStream> manifestProvider : manifestProviders) {
+      ProtoAndroidManifestUsageRecorderKt.recordUsagesFromNode(
+          XmlNode.parseFrom(manifestProvider.get()), r8ResourceShrinkerModel);
     }
-    ProtoAndroidManifestUsageRecorderKt.recordUsagesFromNode(
-        XmlNode.parseFrom(manifestProvider.get()), r8ResourceShrinkerModel);
   }
 
   public void updateModelWithKeepXmlReferences() throws IOException {
