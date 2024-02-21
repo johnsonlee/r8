@@ -38,12 +38,12 @@ public class VirtualMethodMerger {
       this.reboundReference = reboundReference;
     }
 
-    public DexMethod getReference() {
-      return reference;
-    }
-
-    public DexMethod getReboundReference() {
-      return reboundReference;
+    public DexMethod getRewrittenReference(
+        HorizontalClassMergerGraphLens lens, ProgramMethod context) {
+      DexMethod reboundFallthroughTarget =
+          lens.lookupInvokeSuper(reboundReference, context).getReference();
+      return reboundFallthroughTarget.withHolder(
+          lens.getNextClassType(reference.getHolderType()), lens.dexItemFactory());
     }
   }
 

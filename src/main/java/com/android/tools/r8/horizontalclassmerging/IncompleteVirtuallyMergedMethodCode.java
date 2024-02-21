@@ -146,12 +146,7 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
       fallthroughTarget =
           lens.getNextMethodSignature(mappedMethods.get(mappedMethods.lastIntKey()));
     } else {
-      DexMethod reboundFallthroughTarget =
-          lens.lookupInvokeSuper(superMethod.getReboundReference(), method).getReference();
-      fallthroughTarget =
-          reboundFallthroughTarget.withHolder(
-              lens.getNextClassType(superMethod.getReference().getHolderType()),
-              appView.dexItemFactory());
+      fallthroughTarget = superMethod.getRewrittenReference(lens, method);
     }
     instructions.add(
         new CfInvoke(Opcodes.INVOKESPECIAL, fallthroughTarget, method.getHolder().isInterface()));
@@ -164,6 +159,14 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
     }
     return new CfCodeWithLens(
         lens, originalMethod.getHolderType(), maxStack, maxLocals, instructions);
+  }
+
+  public boolean hasSuperMethod() {
+    return superMethod != null;
+  }
+
+  public SuperMethodReference getSuperMethod() {
+    return superMethod;
   }
 
   @Override
@@ -213,7 +216,7 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
 
     // Emit switch.
     IntBidirectionalIterator classIdIterator = mappedMethods.keySet().iterator();
-    int[] keys = new int[mappedMethods.size() - BooleanUtils.intValue(superMethod == null)];
+    int[] keys = new int[mappedMethods.size() - BooleanUtils.intValue(!hasSuperMethod())];
     int[] targets = new int[keys.length];
     int nextTarget = instructionIndex - argumentValues.size() + 3;
     for (int i = 0; i < keys.length; i++) {
@@ -225,7 +228,10 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
     instructionIndex++;
 
     // Emit switch fallthrough.
-    if (superMethod == null) {
+    if (hasSuperMethod()) {
+      lirBuilder.addInvokeSuper(
+          superMethod.getRewrittenReference(lens, method), argumentValues, false);
+    } else {
       DexMethod fallthroughTarget =
           lens.getNextMethodSignature(mappedMethods.get(mappedMethods.lastIntKey()));
       if (method.getHolder().isInterface()) {
@@ -233,14 +239,6 @@ public class IncompleteVirtuallyMergedMethodCode extends IncompleteHorizontalCla
       } else {
         lirBuilder.addInvokeVirtual(fallthroughTarget, argumentValues);
       }
-    } else {
-      DexMethod reboundFallthroughTarget =
-          lens.lookupInvokeSuper(superMethod.getReboundReference(), method).getReference();
-      DexMethod fallthroughTarget =
-          reboundFallthroughTarget.withHolder(
-              lens.getNextClassType(superMethod.getReference().getHolderType()),
-              appView.dexItemFactory());
-      lirBuilder.addInvokeSuper(fallthroughTarget, argumentValues, false);
     }
     if (method.getReturnType().isVoidType()) {
       lirBuilder.addReturnVoid();
