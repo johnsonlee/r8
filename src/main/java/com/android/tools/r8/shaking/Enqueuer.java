@@ -1637,7 +1637,7 @@ public class Enqueuer {
   }
 
   void traceMethodPosition(com.android.tools.r8.ir.code.Position position, ProgramMethod context) {
-    if (!options.testing.enableExtractedKeepAnnotations) {
+    if (!options.testing.isKeepAnnotationsEnabled()) {
       // Currently inlining is only intended for the evaluation of keep annotation edges.
       return;
     }
@@ -3452,6 +3452,7 @@ public class Enqueuer {
   }
 
   public boolean isOriginalReferenceEffectivelyLive(DexReference reference) {
+    assert options.testing.isKeepAnnotationsEnabled();
     // The effectively-live original set contains types, fields and methods witnessed by
     // instructions, such as method inlining positions.
     return effectivelyLiveOriginalReferences.contains(reference);

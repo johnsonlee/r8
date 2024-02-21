@@ -10,6 +10,7 @@ import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
@@ -54,12 +55,12 @@ public class CheckOptimizedOutAnnotationTest extends KeepAnnoTestBase {
   }
 
   @Test
-  public void testR8Native() throws Throwable {
-    assumeTrue(parameters.isR8() && parameters.isNative());
+  public void testCurrentR8() throws Throwable {
+    assumeTrue(parameters.isR8() && parameters.isCurrentR8());
     testForKeepAnno(parameters)
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
-        .applyIfR8Native(
+        .applyIfR8Current(
             b ->
                 b.allowDiagnosticWarningMessages()
                     .setDiagnosticsLevelModifier(
@@ -86,8 +87,9 @@ public class CheckOptimizedOutAnnotationTest extends KeepAnnoTestBase {
   }
 
   @Test
-  public void testR8Extract() throws Throwable {
-    assumeTrue(parameters.isR8() && !parameters.isNative());
+  public void testLegacyR8() throws Throwable {
+    assumeTrue(parameters.isR8() && !parameters.isCurrentR8());
+    assertTrue(parameters.isLegacyR8());
     try {
       testForKeepAnno(parameters)
           .addProgramClasses(getInputClasses())

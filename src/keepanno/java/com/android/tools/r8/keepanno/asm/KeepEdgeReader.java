@@ -89,6 +89,37 @@ public class KeepEdgeReader implements Opcodes {
 
   public static int ASM_VERSION = ASM9;
 
+  public static boolean isClassKeepAnnotation(String descriptor, boolean visible) {
+    return !visible && (isExtractedAnnotation(descriptor) || isEmbeddedAnnotation(descriptor));
+  }
+
+  public static boolean isFieldKeepAnnotation(String descriptor, boolean visible) {
+    return !visible && isEmbeddedAnnotation(descriptor);
+  }
+
+  public static boolean isMethodKeepAnnotation(String descriptor, boolean visible) {
+    return !visible && isEmbeddedAnnotation(descriptor);
+  }
+
+  private static boolean isExtractedAnnotation(String descriptor) {
+    return ExtractedAnnotations.DESCRIPTOR.equals(descriptor);
+  }
+
+  private static boolean isEmbeddedAnnotation(String descriptor) {
+    switch (descriptor) {
+      case AnnotationConstants.Edge.DESCRIPTOR:
+      case AnnotationConstants.UsesReflection.DESCRIPTOR:
+      case AnnotationConstants.ForApi.DESCRIPTOR:
+      case AnnotationConstants.UsedByReflection.DESCRIPTOR:
+      case AnnotationConstants.UsedByNative.DESCRIPTOR:
+      case AnnotationConstants.CheckRemoved.DESCRIPTOR:
+      case AnnotationConstants.CheckOptimizedOut.DESCRIPTOR:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   public static List<KeepDeclaration> readKeepEdges(byte[] classFileBytes) {
     return internalReadKeepEdges(classFileBytes, true, false);
   }
@@ -105,6 +136,84 @@ public class KeepEdgeReader implements Opcodes {
         new KeepEdgeClassVisitor(readEmbedded, readExtracted, declarations::add),
         ClassReader.SKIP_CODE);
     return declarations;
+  }
+
+  public static AnnotationVisitor createClassKeepAnnotationVisitor(
+      String descriptor,
+      boolean visible,
+      boolean readEmbedded,
+      boolean readExtracted,
+      String className,
+      AnnotationParsingContext parsingContext,
+      Consumer<KeepDeclaration> callback) {
+    return KeepEdgeClassVisitor.createAnnotationVisitor(
+        descriptor,
+        visible,
+        readEmbedded,
+        readExtracted,
+        callback,
+        parsingContext,
+        className,
+        builder -> {
+          builder.setContextFromClassDescriptor(
+              KeepEdgeReaderUtils.getDescriptorFromClassTypeName(className));
+        });
+  }
+
+  public static AnnotationVisitor createFieldKeepAnnotationVisitor(
+      String descriptor,
+      boolean visible,
+      boolean readEmbedded,
+      boolean readExtracted,
+      String className,
+      String fieldName,
+      String fieldTypeDescriptor,
+      AnnotationParsingContext parsingContext,
+      Consumer<KeepDeclaration> callback) {
+    return KeepEdgeFieldVisitor.createAnnotationVisitor(
+        descriptor,
+        visible,
+        readEmbedded,
+        readExtracted,
+        callback::accept,
+        parsingContext,
+        className,
+        fieldName,
+        fieldTypeDescriptor,
+        builder -> {
+          builder.setContextFromFieldDescriptor(
+              KeepEdgeReaderUtils.getDescriptorFromClassTypeName(className),
+              fieldName,
+              fieldTypeDescriptor);
+        });
+  }
+
+  public static AnnotationVisitor createMethodKeepAnnotationVisitor(
+      String descriptor,
+      boolean visible,
+      boolean readEmbedded,
+      boolean readExtracted,
+      String className,
+      String methodName,
+      String methodDescriptor,
+      AnnotationParsingContext parsingContext,
+      Consumer<KeepDeclaration> callback) {
+    return KeepEdgeMethodVisitor.createAnnotationVisitor(
+        descriptor,
+        visible,
+        readEmbedded,
+        readExtracted,
+        callback::accept,
+        parsingContext,
+        className,
+        methodName,
+        methodDescriptor,
+        (KeepEdgeMetaInfo.Builder builder) -> {
+          builder.setContextFromMethodDescriptor(
+              KeepEdgeReaderUtils.getDescriptorFromClassTypeName(className),
+              methodName,
+              methodDescriptor);
+        });
   }
 
   private static KeepClassItemReference classReferenceFromName(String className) {
@@ -223,7 +332,7 @@ public class KeepEdgeReader implements Opcodes {
         String[] interfaces) {
       super.visit(version, access, name, signature, superName, interfaces);
       className = binaryNameToTypeName(name);
-      parsingContext = new ClassParsingContext(className);
+      parsingContext = ClassParsingContext.fromName(className);
     }
 
     private AnnotationParsingContext annotationParsingContext(String descriptor) {
@@ -232,56 +341,62 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+      return createAnnotationVisitor(
+          descriptor,
+          visible,
+          readEmbedded,
+          readExtracted,
+          parent::accept,
+          annotationParsingContext(descriptor),
+          className,
+          this::setContext);
+    }
+
+    private static AnnotationVisitorBase createAnnotationVisitor(
+        String descriptor,
+        boolean visible,
+        boolean readEmbedded,
+        boolean readExtracted,
+        Consumer<KeepDeclaration> parent,
+        AnnotationParsingContext parsingContext,
+        String className,
+        Consumer<KeepEdgeMetaInfo.Builder> setContext) {
       // Skip any visible annotations as @KeepEdge is not runtime visible.
       if (visible) {
         return null;
       }
-      if (readExtracted && descriptor.equals(ExtractedAnnotations.DESCRIPTOR)) {
-        return new ExtractedAnnotationsVisitor(
-            annotationParsingContext(descriptor), parent::accept);
+
+      if (readExtracted && isExtractedAnnotation(descriptor)) {
+        return new ExtractedAnnotationsVisitor(parsingContext, parent::accept);
       }
-      if (!readEmbedded) {
+      if (!readEmbedded || !isEmbeddedAnnotation(descriptor)) {
         return null;
       }
       if (descriptor.equals(Edge.DESCRIPTOR)) {
-        return new KeepEdgeVisitor(
-            annotationParsingContext(descriptor), parent::accept, this::setContext);
+        return new KeepEdgeVisitor(parsingContext, parent::accept, setContext);
       }
       if (descriptor.equals(AnnotationConstants.UsesReflection.DESCRIPTOR)) {
         KeepClassItemPattern classItem =
             KeepClassItemPattern.builder()
                 .setClassNamePattern(KeepQualifiedClassNamePattern.exact(className))
                 .build();
-        return new UsesReflectionVisitor(
-            annotationParsingContext(descriptor), parent::accept, this::setContext, classItem);
+        return new UsesReflectionVisitor(parsingContext, parent::accept, setContext, classItem);
       }
-      if (descriptor.equals(AnnotationConstants.ForApi.DESCRIPTOR)) {
-        return new ForApiClassVisitor(
-            annotationParsingContext(descriptor), parent::accept, this::setContext, className);
+      if (descriptor.equals(ForApi.DESCRIPTOR)) {
+        return new ForApiClassVisitor(parsingContext, parent::accept, setContext, className);
       }
-      if (descriptor.equals(AnnotationConstants.UsedByReflection.DESCRIPTOR)
+      if (descriptor.equals(UsedByReflection.DESCRIPTOR)
           || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
         return new UsedByReflectionClassVisitor(
-            annotationParsingContext(descriptor),
-            parent::accept,
-            this::setContext,
-            className);
+            parsingContext, parent::accept, setContext, className);
       }
       if (descriptor.equals(AnnotationConstants.CheckRemoved.DESCRIPTOR)) {
         return new CheckRemovedClassVisitor(
-            annotationParsingContext(descriptor),
-            parent::accept,
-            this::setContext,
-            className,
-            KeepCheckKind.REMOVED);
+            parsingContext, parent::accept, setContext, className, KeepCheckKind.REMOVED);
       }
       if (descriptor.equals(AnnotationConstants.CheckOptimizedOut.DESCRIPTOR)) {
         return new CheckRemovedClassVisitor(
-            annotationParsingContext(descriptor),
-            parent::accept,
-            this::setContext,
-            className,
-            KeepCheckKind.OPTIMIZED_OUT);
+            parsingContext, parent::accept, setContext, className, KeepCheckKind.OPTIMIZED_OUT);
       }
       return null;
     }
@@ -334,7 +449,8 @@ public class KeepEdgeReader implements Opcodes {
           new MethodParsingContext(classParsingContext, methodName, methodDescriptor);
     }
 
-    private KeepMemberItemPattern createMethodItemContext() {
+    private static KeepMemberItemPattern createMethodItemContext(
+        String className, String methodName, String methodDescriptor) {
       String returnTypeDescriptor = Type.getReturnType(methodDescriptor).getDescriptor();
       Type[] argumentTypes = Type.getArgumentTypes(methodDescriptor);
       KeepMethodParametersPattern.Builder builder = KeepMethodParametersPattern.builder();
@@ -363,50 +479,77 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+      return createAnnotationVisitor(
+          descriptor,
+          visible,
+          true,
+          false,
+          parent::accept,
+          annotationParsingContext(descriptor),
+          className,
+          methodName,
+          methodDescriptor,
+          this::setContext);
+    }
+
+    public static AnnotationVisitor createAnnotationVisitor(
+        String descriptor,
+        boolean visible,
+        boolean readEmbedded,
+        boolean readExtracted,
+        Consumer<KeepDeclaration> parent,
+        AnnotationParsingContext parsingContext,
+        String className,
+        String methodName,
+        String methodDescriptor,
+        Consumer<KeepEdgeMetaInfo.Builder> setContext) {
       // Skip any visible annotations as @KeepEdge is not runtime visible.
       if (visible) {
         return null;
       }
+      if (!readEmbedded) {
+        // Only the embedded annotations can be on methods.
+        return null;
+      }
       if (descriptor.equals(Edge.DESCRIPTOR)) {
-        return new KeepEdgeVisitor(
-            annotationParsingContext(descriptor), parent::accept, this::setContext);
+        return new KeepEdgeVisitor(parsingContext, parent::accept, setContext);
       }
       if (descriptor.equals(AnnotationConstants.UsesReflection.DESCRIPTOR)) {
         return new UsesReflectionVisitor(
-            annotationParsingContext(descriptor),
+            parsingContext,
             parent::accept,
-            this::setContext,
-            createMethodItemContext());
+            setContext,
+            createMethodItemContext(className, methodName, methodDescriptor));
       }
       if (descriptor.equals(AnnotationConstants.ForApi.DESCRIPTOR)) {
         return new ForApiMemberVisitor(
-            annotationParsingContext(descriptor),
+            parsingContext,
             parent::accept,
-            this::setContext,
-            createMethodItemContext());
+            setContext,
+            createMethodItemContext(className, methodName, methodDescriptor));
       }
       if (descriptor.equals(AnnotationConstants.UsedByReflection.DESCRIPTOR)
           || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
         return new UsedByReflectionMemberVisitor(
-            annotationParsingContext(descriptor),
+            parsingContext,
             parent::accept,
-            this::setContext,
-            createMethodItemContext());
+            setContext,
+            createMethodItemContext(className, methodName, methodDescriptor));
       }
       if (descriptor.equals(AnnotationConstants.CheckRemoved.DESCRIPTOR)) {
         return new CheckRemovedMemberVisitor(
-            annotationParsingContext(descriptor),
+            parsingContext,
             parent::accept,
-            this::setContext,
-            createMethodItemContext(),
+            setContext,
+            createMethodItemContext(className, methodName, methodDescriptor),
             KeepCheckKind.REMOVED);
       }
       if (descriptor.equals(AnnotationConstants.CheckOptimizedOut.DESCRIPTOR)) {
         return new CheckRemovedMemberVisitor(
-            annotationParsingContext(descriptor),
+            parsingContext,
             parent::accept,
-            this::setContext,
-            createMethodItemContext(),
+            setContext,
+            createMethodItemContext(className, methodName, methodDescriptor),
             KeepCheckKind.OPTIMIZED_OUT);
       }
       return null;
@@ -422,7 +565,7 @@ public class KeepEdgeReader implements Opcodes {
     private final Parent<KeepEdge> parent;
     private final String className;
     private final String fieldName;
-    private final String fieldDescriptor;
+    private final String fieldTypeDescriptor;
     private final FieldParsingContext parsingContext;
 
     KeepEdgeFieldVisitor(
@@ -430,23 +573,24 @@ public class KeepEdgeReader implements Opcodes {
         Parent<KeepEdge> parent,
         String className,
         String fieldName,
-        String fieldDescriptor) {
+        String fieldTypeDescriptor) {
       super(ASM_VERSION);
       this.parent = parent;
       this.className = className;
       this.fieldName = fieldName;
-      this.fieldDescriptor = fieldDescriptor;
+      this.fieldTypeDescriptor = fieldTypeDescriptor;
       this.parsingContext =
-          new FieldParsingContext(classParsingContext, fieldName, fieldDescriptor);
+          new FieldParsingContext(classParsingContext, fieldName, fieldTypeDescriptor);
     }
 
     private AnnotationParsingContext annotationParsingContext(String descriptor) {
       return parsingContext.annotation(descriptor);
     }
 
-    private KeepMemberItemPattern createMemberItemContext() {
+    private static KeepMemberItemPattern createMemberItemContext(
+        String className, String fieldName, String fieldTypeDescriptor) {
       KeepFieldTypePattern typePattern =
-          KeepFieldTypePattern.fromType(KeepTypePattern.fromDescriptor(fieldDescriptor));
+          KeepFieldTypePattern.fromType(KeepTypePattern.fromDescriptor(fieldTypeDescriptor));
       return KeepMemberItemPattern.builder()
           .setClassReference(classReferenceFromName(className))
           .setMemberPattern(
@@ -459,39 +603,67 @@ public class KeepEdgeReader implements Opcodes {
 
     private void setContext(KeepEdgeMetaInfo.Builder builder) {
       builder.setContextFromFieldDescriptor(
-          KeepEdgeReaderUtils.getDescriptorFromJavaType(className), fieldName, fieldDescriptor);
+          KeepEdgeReaderUtils.getDescriptorFromJavaType(className), fieldName, fieldTypeDescriptor);
     }
 
     @Override
     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+      return createAnnotationVisitor(
+          descriptor,
+          visible,
+          true,
+          false,
+          parent::accept,
+          annotationParsingContext(descriptor),
+          className,
+          fieldName,
+          fieldTypeDescriptor,
+          this::setContext);
+    }
+
+    public static AnnotationVisitor createAnnotationVisitor(
+        String descriptor,
+        boolean visible,
+        boolean readEmbedded,
+        boolean readExtracted,
+        Consumer<KeepEdge> parent,
+        AnnotationParsingContext parsingContext,
+        String className,
+        String fieldName,
+        String fieldTypeDescriptor,
+        Consumer<KeepEdgeMetaInfo.Builder> setContext) {
       // Skip any visible annotations as @KeepEdge is not runtime visible.
       if (visible) {
         return null;
       }
+      if (!readEmbedded) {
+        // Only the embedded annotations can be on fields.
+        return null;
+      }
       if (descriptor.equals(Edge.DESCRIPTOR)) {
-        return new KeepEdgeVisitor(annotationParsingContext(descriptor), parent, this::setContext);
+        return new KeepEdgeVisitor(parsingContext, parent::accept, setContext);
       }
       if (descriptor.equals(AnnotationConstants.UsesReflection.DESCRIPTOR)) {
         return new UsesReflectionVisitor(
-            annotationParsingContext(descriptor),
-            parent,
-            this::setContext,
-            createMemberItemContext());
+            parsingContext,
+            parent::accept,
+            setContext,
+            createMemberItemContext(className, fieldName, fieldTypeDescriptor));
       }
-      if (descriptor.equals(AnnotationConstants.ForApi.DESCRIPTOR)) {
+      if (descriptor.equals(ForApi.DESCRIPTOR)) {
         return new ForApiMemberVisitor(
-            annotationParsingContext(descriptor),
-            parent,
-            this::setContext,
-            createMemberItemContext());
+            parsingContext,
+            parent::accept,
+            setContext,
+            createMemberItemContext(className, fieldName, fieldTypeDescriptor));
       }
-      if (descriptor.equals(AnnotationConstants.UsedByReflection.DESCRIPTOR)
+      if (descriptor.equals(UsedByReflection.DESCRIPTOR)
           || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
         return new UsedByReflectionMemberVisitor(
-            annotationParsingContext(descriptor),
-            parent,
-            this::setContext,
-            createMemberItemContext());
+            parsingContext,
+            parent::accept,
+            setContext,
+            createMemberItemContext(className, fieldName, fieldTypeDescriptor));
       }
       return null;
     }
