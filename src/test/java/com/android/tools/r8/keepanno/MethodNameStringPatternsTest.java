@@ -40,6 +40,7 @@ public class MethodNameStringPatternsTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
+        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .setExcludedOuterClass(getClass())
         .run(TestClass.class)

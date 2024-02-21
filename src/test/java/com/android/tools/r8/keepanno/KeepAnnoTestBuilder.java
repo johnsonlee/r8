@@ -113,8 +113,8 @@ public abstract class KeepAnnoTestBuilder {
     return applyIfPG(b -> b.addDontWarn(clazz));
   }
 
-  public final KeepAnnoTestBuilder allowUnusedProguardConfigurationRules() {
-    return applyIfR8Current(R8TestBuilder::allowUnusedProguardConfigurationRules);
+  public KeepAnnoTestBuilder allowUnusedProguardConfigurationRules() {
+    return this;
   }
 
   public final KeepAnnoTestBuilder allowAccessModification() {
@@ -170,6 +170,7 @@ public abstract class KeepAnnoTestBuilder {
     private List<Consumer<R8TestCompileResult>> compileResultConsumers = new ArrayList<>();
     private final boolean normalizeEdges;
     private final boolean extractRules;
+    private boolean enableNative = false;
 
     private R8NativeBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
       super(params, temp);
@@ -189,10 +190,25 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder allowUnusedProguardConfigurationRules() {
+      if (!enableNative) {
+        builder.allowUnusedProguardConfigurationRules();
+      }
+      return this;
+    }
+
+    @Override
     public KeepAnnoTestBuilder enableNativeInterpretation() {
       if (extractRules) {
         return this;
       }
+      enableNative = true;
+      // TODO(b/323816623): The compiler assumes that this is known prior to tracing.
+      //   We should update the compiler to always read annotations and only remove them after
+      //   initial tracing regardless of -keepattributes.
+      builder.addKeepRuntimeVisibleAnnotations();
+      builder.addKeepRuntimeInvisibleAnnotations();
+
       // This enables native interpretation of all keep annotations.
       builder.addOptionsModification(
           o -> {
