@@ -54,15 +54,8 @@ public class ThrowNullCode extends Code implements CfWritableCode, DexWritableCo
   }
 
   @Override
-  public Code getCodeAsInlining(
-      DexMethod caller,
-      boolean isCallerD8R8Synthesized,
-      DexMethod callee,
-      boolean isCalleeD8R8Synthesized,
-      DexItemFactory factory) {
-    // We don't maintain a position on the throwing stub. We may want to reconsider this as it
-    // would allow retracing to recover inlinings of this stub.
-    return this;
+  public boolean supportsPendingInlineFrame() {
+    return true;
   }
 
   @Override
@@ -70,7 +63,8 @@ public class ThrowNullCode extends Code implements CfWritableCode, DexWritableCo
       ProgramMethod method,
       AppView<?> appView,
       MutableMethodConversionOptions conversionOptions) {
-    ThrowNullSourceCode source = new ThrowNullSourceCode(method);
+    ThrowNullSourceCode source =
+        new ThrowNullSourceCode(method, method.getDefinition().getPendingInlineFrameAsPosition());
     return IRBuilder.create(method, appView, source).build(method, conversionOptions);
   }
 
@@ -83,7 +77,12 @@ public class ThrowNullCode extends Code implements CfWritableCode, DexWritableCo
       NumberGenerator valueNumberGenerator,
       Position callerPosition,
       RewrittenPrototypeDescription protoChanges) {
-    ThrowNullSourceCode source = new ThrowNullSourceCode(method, callerPosition);
+    ThrowNullSourceCode source =
+        new ThrowNullSourceCode(
+            method,
+            method
+                .getDefinition()
+                .getPendingInlineFrameAsPositionWithCallerPosition(callerPosition));
     return IRBuilder.createForInlining(
             method, appView, codeLens, source, valueNumberGenerator, protoChanges)
         .build(context, MethodConversionOptions.nonConverting());

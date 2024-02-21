@@ -951,25 +951,27 @@ class EnumUnboxingTreeFixer implements ProgramClassFixer {
       LocalEnumUnboxingUtilityClass localUtilityClass,
       Predicate<DexMethod> availableMethodSignatures) {
     assert method.getAccessFlags().isAbstract();
-    DexMethod newMethod =
-        createFreshMethodSignature(
-            method, localUtilityClass, availableMethodSignatures, method.getReference());
+    // Replace the code by a throwing stub and then rewrite the method as "inlining".
+    Position position = method.getDefinition().getAndClearPendingInlineFrameAsPosition();
+    method.setCode(
+        new ThrowCfCodeProvider(
+                appView, localUtilityClass.getType(), factory.abstractMethodErrorType, position)
+            .generateCfCode(),
+        appView);
     DexEncodedMethod dexEncodedMethod =
         method
             .getDefinition()
             .toTypeSubstitutedMethodAsInlining(
-                newMethod,
+                createFreshMethodSignature(
+                    method, localUtilityClass, availableMethodSignatures, method.getReference()),
                 factory,
                 builder ->
                     transformMethodForLocalUtility(builder, method)
                         .modifyAccessFlags(MethodAccessFlags::unsetAbstract)
-                        .setCode(
-                            new ThrowCfCodeProvider(
-                                    appView, newMethod, factory.abstractMethodErrorType)
-                                .generateCfCode())
                         .setClassFileVersion(CfVersion.V1_8)
                         .setApiLevelForDefinition(appView.computedMinApiLevel())
                         .setApiLevelForCode(appView.computedMinApiLevel()));
+
     methodsToProcess.add(new ProgramMethod(localUtilityClass.getDefinition(), dexEncodedMethod));
     return dexEncodedMethod;
   }

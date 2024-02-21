@@ -49,6 +49,11 @@ public class ThrowExceptionCode extends Code implements DexWritableCode {
   }
 
   @Override
+  public boolean supportsPendingInlineFrame() {
+    return true;
+  }
+
+  @Override
   public IRCode buildIR(
       ProgramMethod method,
       AppView<?> appView,

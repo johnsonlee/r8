@@ -225,31 +225,58 @@ public class MappedPositionToClassNameMapperBuilder {
         PositionRemapper positionRemapper,
         boolean canUseDexPc) {
       DexEncodedMethod definition = method.getDefinition();
-
-      OneShotCollectionConsumer<MappingInformation> methodSpecificMappingInformation =
-          OneShotCollectionConsumer.wrap(new ArrayList<>());
-      // We only do global synthetic classes when using names from the library. For such classes it
-      // is important that we do not filter out stack frames since they could appear from concrete
-      // classes in the library. Additionally, this is one place where it is helpful for developers
-      // to also get reported synthesized frames since stubbing can change control-flow and
-      // exceptions.
-      boolean canStripOuterFrame = canStripOuterFrame(method, mappedPositions);
-      boolean residualIsD8R8Synthesized =
-          method.getDefinition().isD8R8Synthesized()
-              && !appView.getSyntheticItems().isGlobalSyntheticClass(method.getHolder())
-              // TODO(b/302509457): Currently we can only represent moves on methods that have code
-              //  and thus positions. For methods with no code, use the lens to find the original.
-              && method.getDefinition().hasCode();
-      if (residualIsD8R8Synthesized && !canStripOuterFrame) {
-        methodSpecificMappingInformation.add(CompilerSynthesizedMappingInformation.getInstance());
-      }
-
       DexMethod residualMethod =
           appView.getNamingLens().lookupMethod(method.getReference(), appView.dexItemFactory());
       MethodSignature residualSignature = MethodSignature.fromDexMethod(residualMethod);
 
-      DexMethod originalMethod =
+      // TODO(b/261971803): This original method via lens is just to assert compatibility with the
+      //  previous implementation. Remove this as part of cleaning-up / reducing lens usage.
+      DexMethod lensOriginalMethod =
           appView.graphLens().getOriginalMethodSignatureForMapping(method.getReference());
+
+      DexMethod originalMethod;
+      boolean canStripOuterFrame;
+      boolean residualIsD8R8Synthesized;
+      // TODO(b/325913397): Use residual methods. This requires some test updates to not use names.
+      boolean useResidualForSynthetics = false;
+      if (!definition.supportsPendingInlineFrame()) {
+        residualIsD8R8Synthesized = markAsCompilerSynthetic(method);
+        canStripOuterFrame = canStripOuterFrame(method, mappedPositions);
+        // TODO(b/261971803): Amend code generation of global synthetics to include original
+        //  position as an inline frame and remove this special handling of globals.
+        originalMethod =
+            isGlobalSyntheticMethod(method)
+                ? lensOriginalMethod
+                : (useResidualForSynthetics && residualIsD8R8Synthesized
+                    ? residualMethod
+                    : method.getReference());
+      } else {
+        assert mappedPositions.isEmpty();
+        canStripOuterFrame = false;
+        if (definition.hasPendingInlineFrame()) {
+          originalMethod = definition.getPendingInlineFrame();
+          residualIsD8R8Synthesized = false;
+        } else {
+          residualIsD8R8Synthesized = markAsCompilerSynthetic(method);
+          // TODO(b/261971803): Amend code generation of global synthetics to include original
+          //  position as an inline frame and remove this special handling of globals.
+          originalMethod =
+              isGlobalSyntheticMethod(method)
+                  ? lensOriginalMethod
+                  : (useResidualForSynthetics && residualIsD8R8Synthesized
+                      ? residualMethod
+                      : definition.getReference());
+        }
+      }
+      assert residualIsD8R8Synthesized || originalMethod.isIdenticalTo(lensOriginalMethod);
+
+      OneShotCollectionConsumer<MappingInformation> methodSpecificMappingInformation =
+          OneShotCollectionConsumer.wrap(new ArrayList<>());
+
+      if (residualIsD8R8Synthesized && !canStripOuterFrame) {
+        methodSpecificMappingInformation.add(CompilerSynthesizedMappingInformation.getInstance());
+      }
+
       MethodSignature originalSignature =
           MethodSignature.fromDexMethod(originalMethod, originalMethod.holder != originalType);
 
@@ -444,6 +471,20 @@ public class MappedPositionToClassNameMapperBuilder {
       return this;
     }
 
+    private boolean isGlobalSyntheticMethod(ProgramMethod method) {
+      return method.getDefinition().isD8R8Synthesized()
+          && appView.getSyntheticItems().isGlobalSyntheticClass(method.getHolder());
+    }
+
+    private boolean markAsCompilerSynthetic(ProgramMethod method) {
+      // We only do global synthetic classes when using names from the library. For such classes it
+      // is important that we do not filter out stack frames since they could appear from concrete
+      // classes in the library. Additionally, this is one place where it is helpful for developers
+      // to also get reported synthesized frames since stubbing can change control-flow and
+      // exceptions.
+      return method.getDefinition().isD8R8Synthesized() && !isGlobalSyntheticMethod(method);
+    }
+
     private boolean canStripOuterFrame(ProgramMethod method, List<MappedPosition> mappedPositions) {
       assert verifySyntheticPositions(method, mappedPositions);
       if (!method.getDefinition().isD8R8Synthesized() || mappedPositions.isEmpty()) {
@@ -452,7 +493,7 @@ public class MappedPositionToClassNameMapperBuilder {
       for (MappedPosition mappedPosition : mappedPositions) {
         Position position = mappedPosition.getPosition();
         if (!position.hasCallerPosition()) {
-          // At least one position only has the synthetic method as its frame, so we can't strip it.
+          // At least one position has only the synthetic method as its frame, so we can't strip it.
           return false;
         }
         if (position.isOutline() || position.isOutlineCaller()) {

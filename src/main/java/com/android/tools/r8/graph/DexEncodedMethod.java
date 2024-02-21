@@ -38,6 +38,7 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.NumericType;
+import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
@@ -57,8 +58,10 @@ import com.android.tools.r8.naming.MemberNaming.MethodSignature;
 import com.android.tools.r8.naming.MemberNaming.Signature;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.ConsumerUtils;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
@@ -129,6 +132,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
           DexAnnotationSet.empty(),
           ParameterAnnotationsList.empty(),
           null,
+          null,
           false,
           ComputedApiLevel.notSet(),
           ComputedApiLevel.notSet(),
@@ -142,6 +146,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   public final boolean deprecated;
   public ParameterAnnotationsList parameterAnnotationsList;
   private Code code;
+  private DexMethod pendingInlineFrame;
   // TODO(b/128967328): towards finer-grained inlining constraints,
   //   we need to maintain a set of states with (potentially different) contexts.
   private CompilationState compilationState = CompilationState.NOT_PROCESSED;
@@ -205,20 +210,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return compilationState;
   }
 
-  /**
-   * Flags this method as no longer being obsolete.
-   *
-   * <p>Example use case: The vertical class merger optimistically merges two classes before it is
-   * guaranteed that the two classes can be merged. In this process, methods are moved from the
-   * source class to the target class using {@link #toTypeSubstitutedMethodAsInlining(DexMethod,
-   * DexItemFactory)}, which causes the original methods of the source class to become obsolete. If
-   * vertical class merging is aborted, the original methods of the source class needs to be marked
-   * as not being obsolete.
-   */
-  public void unsetObsolete() {
-    obsolete = false;
-  }
-
   private DexEncodedMethod(
       DexMethod method,
       MethodAccessFlags accessFlags,
@@ -226,6 +217,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       DexAnnotationSet annotations,
       ParameterAnnotationsList parameterAnnotationsList,
       Code code,
+      DexMethod pendingInlineFrame,
       boolean d8R8Synthesized,
       ComputedApiLevel apiLevelForDefinition,
       ComputedApiLevel apiLevelForCode,
@@ -238,11 +230,13 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     this.genericSignature = genericSignature;
     this.parameterAnnotationsList = parameterAnnotationsList;
     this.code = code;
+    this.pendingInlineFrame = pendingInlineFrame;
     this.classFileVersion = classFileVersion;
     this.apiLevelForCode = apiLevelForCode;
     this.optimizationInfo = requireNonNull(optimizationInfo);
     assert accessFlags != null;
     assert code == null || !shouldNotHaveCode();
+    assert supportsPendingInlineFrame() || !hasPendingInlineFrame();
     assert parameterAnnotationsList != null;
     assert apiLevelForDefinition != null;
     assert apiLevelForCode != null;
@@ -275,6 +269,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         .withItem(m -> m.parameterAnnotationsList)
         .withNullableItem(m -> m.classFileVersion)
         .withBool(DexEncodedMember::isD8R8Synthesized)
+        .withNullableItem(m -> m.pendingInlineFrame)
         // TODO(b/171867022): Make signatures structural and include it in the definition.
         .withAssert(m -> m.genericSignature.hasNoSignature())
         .withCustomItem(
@@ -747,8 +742,36 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
   public void setCode(Code code, Int2ReferenceMap<DebugLocalInfo> parameterInfo) {
     checkIfObsolete();
+    if (code != null && !code.supportsPendingInlineFrame() && hasPendingInlineFrame()) {
+      // If the method is set abstract, or the code supports a pending inline frame, then it simply
+      // remains in place. Note that if we start supporting pending frames on instruction-code
+      // objects this implicit keeping of the pending frame would not be correct.
+      assert verifyPendingInlinePositionFoundInCode(code);
+      pendingInlineFrame = null;
+    }
     this.code = code;
     this.parameterInfo = parameterInfo;
+  }
+
+  private boolean verifyPendingInlinePositionFoundInCode(Code code) {
+    BooleanBox foundInlineFrame = new BooleanBox(false);
+    code.forEachPosition(
+        getReference(),
+        isDexEncodedMethod(),
+        position -> {
+          if (foundInlineFrame.isTrue()) {
+            return;
+          }
+          do {
+            if (!position.isD8R8Synthesized() && position.getMethod().equals(pendingInlineFrame)) {
+              foundInlineFrame.set(true);
+              break;
+            }
+            position = position.getCallerPosition();
+          } while (position != null);
+        });
+    assert foundInlineFrame.isTrue();
+    return true;
   }
 
   public void unsetCode() {
@@ -785,6 +808,50 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
   public boolean shouldNotHaveCode() {
     return accessFlags.isAbstract() || accessFlags.isNative();
+  }
+
+  public boolean supportsPendingInlineFrame() {
+    return code == null || code.supportsPendingInlineFrame();
+  }
+
+  public boolean hasPendingInlineFrame() {
+    return pendingInlineFrame != null;
+  }
+
+  public DexMethod getPendingInlineFrame() {
+    return pendingInlineFrame;
+  }
+
+  public Position getAndClearPendingInlineFrameAsPosition() {
+    Position position = getPendingInlineFrameAsPosition();
+    pendingInlineFrame = null;
+    return position;
+  }
+
+  public Position getPendingInlineFrameAsPosition() {
+    if (!hasPendingInlineFrame()) {
+      return null;
+    }
+    // This method is the caller method and must be synthetic.
+    assert isD8R8Synthesized();
+    return getPendingInlineFrameAsPositionWithCallerPosition(
+        Position.SyntheticPosition.builder()
+            .setMethod(getReference())
+            .setIsD8R8Synthesized(isD8R8Synthesized())
+            .setLine(0)
+            .build());
+  }
+
+  public Position getPendingInlineFrameAsPositionWithCallerPosition(Position callerPosition) {
+    assert callerPosition != null;
+    if (!hasPendingInlineFrame()) {
+      return callerPosition;
+    }
+    return Position.SyntheticPosition.builder()
+        .setLine(0)
+        .setMethod(getPendingInlineFrame())
+        .setCallerPosition(callerPosition)
+        .build();
   }
 
   public boolean hasCode() {
@@ -1102,7 +1169,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         method,
         isCallerD8R8Synthesized,
         builder -> {
-          if (code != null) {
+          if (code == null || code.supportsPendingInlineFrame()) {
+            builder.setInlineFrame(getReference(), isD8R8Synthesized());
+          } else {
+            // TODO(b/302509457): Use prepend inline frame here too and delay code rewriting.
             builder.setCode(
                 getCode()
                     .getCodeAsInlining(
@@ -1113,7 +1183,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
                         factory));
           }
           if (consumer != null) {
+            Code oldCode = builder.code;
             consumer.accept(builder);
+            assert ObjectUtils.identical(oldCode, builder.code);
           }
         });
   }
@@ -1389,6 +1461,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     private ComputedApiLevel apiLevelForCode = ComputedApiLevel.notSet();
     private final boolean d8R8Synthesized;
     private boolean deprecated = false;
+    private DexMethod pendingInlineFrame = null;
 
     // Checks to impose on the built method. They should always be active to start with and be
     // lowered on the use site.
@@ -1409,6 +1482,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       genericSignature = from.getGenericSignature();
       annotations = from.annotations();
       code = from.getCode();
+      pendingInlineFrame = from.getPendingInlineFrame();
       apiLevelForDefinition = from.getApiLevelForDefinition();
       apiLevelForCode = from.getApiLevelForCode();
       optimizationInfo =
@@ -1608,6 +1682,18 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
           });
     }
 
+    public Builder setInlineFrame(DexMethod callee, boolean calleeIsD8R8Synthesized) {
+      assert code == null || code.supportsPendingInlineFrame();
+      if (calleeIsD8R8Synthesized) {
+        // No need to record a compiler synthesized inline frame.
+        return this;
+      }
+      // Two pending non-synthetic callee frames should never happen.
+      assert pendingInlineFrame == null;
+      pendingInlineFrame = callee;
+      return this;
+    }
+
     public Builder setCode(Code code) {
       this.code = code;
       return this;
@@ -1672,6 +1758,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
           || parameterAnnotations.size() == method.proto.parameters.size();
       assert !checkAndroidApiLevels || apiLevelForDefinition != null;
       assert !checkAndroidApiLevels || apiLevelForCode != null;
+      assert code == null || code.supportsPendingInlineFrame() || pendingInlineFrame == null;
       DexEncodedMethod result =
           new DexEncodedMethod(
               method,
@@ -1680,6 +1767,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
               annotations,
               parameterAnnotations,
               code,
+              pendingInlineFrame,
               d8R8Synthesized,
               apiLevelForDefinition,
               apiLevelForCode,

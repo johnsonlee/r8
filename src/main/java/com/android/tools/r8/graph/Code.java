@@ -245,4 +245,8 @@ public abstract class Code extends CachedHashValueDexItem {
       DexMethod method, boolean isD8R8Synthesized, Consumer<Position> positionConsumer) {
     // Intentionally empty. Override where we have fully build CF or DEX code.
   }
+
+  public boolean supportsPendingInlineFrame() {
+    return false;
+  }
 }

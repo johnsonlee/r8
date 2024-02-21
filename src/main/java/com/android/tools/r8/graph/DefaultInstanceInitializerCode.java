@@ -7,7 +7,9 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfLabel;
 import com.android.tools.r8.cf.code.CfLoad;
+import com.android.tools.r8.cf.code.CfPosition;
 import com.android.tools.r8.cf.code.CfReturnVoid;
 import com.android.tools.r8.dex.CodeToKeep;
 import com.android.tools.r8.dex.IndexedItemCollection;
@@ -33,6 +35,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.SyntheticStraightLineSourceCode;
+import com.android.tools.r8.lightir.LirBuilder;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirEncodingStrategy;
 import com.android.tools.r8.lightir.LirStrategy;
@@ -42,7 +45,7 @@ import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import com.google.common.collect.ImmutableList;
 import java.nio.ShortBuffer;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
@@ -90,25 +93,20 @@ public class DefaultInstanceInitializerCode extends Code
       AppView<?> appView, ProgramMethod method, DexType superType) {
     DexEncodedMethod definition = method.getDefinition();
     assert definition.getCode().isDefaultInstanceInitializerCode();
+    Position position = method.getDefinition().getAndClearPendingInlineFrameAsPosition();
+    Code newCode;
     if (appView.testing().isSupportedLirPhase()) {
-      method.setCode(get().toLirCode(appView, method, superType), appView);
+      newCode = get().toLirCode(appView, method, superType, position);
     } else {
       assert appView.testing().isPreLirPhase();
-      method.setCode(get().toCfCode(method, appView.dexItemFactory(), superType), appView);
+      newCode = get().toCfCode(method, appView.dexItemFactory(), superType, position);
     }
+    method.setCode(newCode, appView);
   }
 
   @Override
-  public Code getCodeAsInlining(
-      DexMethod caller,
-      boolean isCallerD8R8Synthesized,
-      DexMethod callee,
-      boolean isCalleeD8R8Synthesized,
-      DexItemFactory factory) {
-    // TODO(b/261971803): It is odd this code does not have an original position for the <init>.
-    //  See OverrideParentCollisionTest for a case hitting this inlining where callee is a
-    //  non-synthetic non-default <init> (it has argument String).
-    return this;
+  public boolean supportsPendingInlineFrame() {
+    return true;
   }
 
   private static boolean hasDefaultInstanceInitializerCode(
@@ -168,7 +166,9 @@ public class DefaultInstanceInitializerCode extends Code
       MutableMethodConversionOptions conversionOptions) {
     DefaultInstanceInitializerSourceCode source =
         new DefaultInstanceInitializerSourceCode(
-            method.getReference(), method.getDefinition().isD8R8Synthesized());
+            method.getReference(),
+            method.getDefinition().isD8R8Synthesized(),
+            method.getDefinition().getPendingInlineFrameAsPosition());
     return IRBuilder.create(method, appView, source).build(method, conversionOptions);
   }
 
@@ -183,7 +183,11 @@ public class DefaultInstanceInitializerCode extends Code
       RewrittenPrototypeDescription protoChanges) {
     DefaultInstanceInitializerSourceCode source =
         new DefaultInstanceInitializerSourceCode(
-            method.getReference(), method.getDefinition().isD8R8Synthesized(), callerPosition);
+            method.getReference(),
+            method.getDefinition().isD8R8Synthesized(),
+            method
+                .getDefinition()
+                .getPendingInlineFrameAsPositionWithCallerPosition(callerPosition));
     return IRBuilder.createForInlining(
             method, appView, codeLens, source, valueNumberGenerator, protoChanges)
         .build(context, MethodConversionOptions.nonConverting());
@@ -364,21 +368,24 @@ public class DefaultInstanceInitializerCode extends Code
     // Intentionally empty. This piece of code does not have any call sites.
   }
 
-  public CfCode toCfCode(ProgramMethod method, DexItemFactory dexItemFactory) {
-    return toCfCode(method, dexItemFactory, method.getHolder().getSuperType());
-  }
-
-  public CfCode toCfCode(ProgramMethod method, DexItemFactory dexItemFactory, DexType supertype) {
-    List<CfInstruction> instructions =
-        Arrays.asList(
-            new CfLoad(ValueType.OBJECT, 0),
-            new CfInvoke(
-                Opcodes.INVOKESPECIAL, dexItemFactory.createInstanceInitializer(supertype), false),
-            new CfReturnVoid());
+  public CfCode toCfCode(
+      ProgramMethod method, DexItemFactory dexItemFactory, DexType supertype, Position position) {
+    List<CfInstruction> instructions = new ArrayList<>(position != null ? 5 : 3);
+    if (position != null) {
+      CfLabel entryLabel = new CfLabel();
+      instructions.add(entryLabel);
+      instructions.add(new CfPosition(entryLabel, position));
+    }
+    instructions.add(new CfLoad(ValueType.OBJECT, 0));
+    instructions.add(
+        new CfInvoke(
+            Opcodes.INVOKESPECIAL, dexItemFactory.createInstanceInitializer(supertype), false));
+    instructions.add(new CfReturnVoid());
     return new CfCode(method.getHolderType(), getMaxStack(), getMaxLocals(method), instructions);
   }
 
-  public LirCode<?> toLirCode(AppView<?> appView, ProgramMethod method, DexType supertype) {
+  public LirCode<?> toLirCode(
+      AppView<?> appView, ProgramMethod method, DexType supertype, Position position) {
     TypeElement receiverType =
         method.getHolder().getType().toTypeElement(appView, Nullability.definitelyNotNull());
     Value receiver = new Value(0, receiverType, null);
@@ -386,11 +393,16 @@ public class DefaultInstanceInitializerCode extends Code
     LirEncodingStrategy<Value, Integer> strategy =
         LirStrategy.getDefaultStrategy().getEncodingStrategy();
     strategy.defineValue(receiver, 0);
-    return LirCode.builder(
+    LirBuilder<Value, Integer> builder =
+        LirCode.builder(
             method.getReference(),
             method.getDefinition().isD8R8Synthesized(),
             strategy,
-            appView.options())
+            appView.options());
+    if (position != null) {
+      builder.setCurrentPosition(position);
+    }
+    return builder
         .addArgument(0, false)
         .addInvokeDirect(invokedMethod, ImmutableList.of(receiver), false)
         .addReturnVoid()
@@ -456,10 +468,6 @@ public class DefaultInstanceInitializerCode extends Code
   }
 
   static class DefaultInstanceInitializerSourceCode extends SyntheticStraightLineSourceCode {
-
-    DefaultInstanceInitializerSourceCode(DexMethod method, boolean isD8R8Synthesized) {
-      this(method, isD8R8Synthesized, null);
-    }
 
     DefaultInstanceInitializerSourceCode(
         DexMethod method, boolean isD8R8Synthesized, Position callerPosition) {

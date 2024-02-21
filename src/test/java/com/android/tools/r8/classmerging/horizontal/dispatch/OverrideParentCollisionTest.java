@@ -5,11 +5,13 @@
 package com.android.tools.r8.classmerging.horizontal.dispatch;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsNot.not;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.classmerging.horizontal.HorizontalClassMergingTestBase;
 import org.junit.Test;
@@ -28,6 +30,8 @@ public class OverrideParentCollisionTest extends HorizontalClassMergingTestBase 
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters)
+        .compile()
+        .apply(this::checkMappingOutput)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("foo", "bar", "foo", "parent")
         .inspect(
@@ -35,6 +39,12 @@ public class OverrideParentCollisionTest extends HorizontalClassMergingTestBase 
               assertThat(codeInspector.clazz(A.class), isPresent());
               assertThat(codeInspector.clazz(B.class), not(isPresent()));
             });
+  }
+
+  private void checkMappingOutput(R8TestCompileResult result) {
+    // Merging of Parent, A and B should still emit a stack trace mapping back to the Parent frame.
+    // That frame will be encoded as a qualified method mapping.
+    assertThat(result.getProguardMap(), containsString(Parent.class.getTypeName() + ".<init>()"));
   }
 
   @NeverClassInline
