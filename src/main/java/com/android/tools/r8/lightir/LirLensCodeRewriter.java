@@ -321,11 +321,12 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     if (graphLens.isClassMergerLens()) {
       RewrittenPrototypeDescription prototypeChanges =
           graphLens.lookupPrototypeChangesForMethodDefinition(context.getReference(), codeLens);
-      assert prototypeChanges.getArgumentInfoCollection().isEmpty();
-      assert !prototypeChanges.hasRewrittenReturnInfo();
-      if (prototypeChanges.hasExtraParameters()) {
+      if (prototypeChanges.hasExtraParameters()
+          || prototypeChanges.getArgumentInfoCollection().isConvertedToStaticMethod()) {
         return true;
       }
+      assert prototypeChanges.getArgumentInfoCollection().isEmpty();
+      assert !prototypeChanges.hasRewrittenReturnInfo();
       VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
       if (verticalClassMergerLens != null) {
         DexMethod previousReference =
