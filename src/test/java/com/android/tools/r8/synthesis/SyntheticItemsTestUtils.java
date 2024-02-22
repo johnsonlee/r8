@@ -35,6 +35,10 @@ public class SyntheticItemsTestUtils {
   // id/descriptor content is safe.
   private static final SyntheticNaming naming = new SyntheticNaming();
 
+  public static String syntheticFileNameD8() {
+    return "D8$$SyntheticClass";
+  }
+
   public static String syntheticMethodName() {
     return SyntheticNaming.INTERNAL_SYNTHETIC_METHOD_NAME;
   }
