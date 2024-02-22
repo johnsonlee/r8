@@ -1867,11 +1867,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       CfLabel start = new CfLabel();
       CfLabel end = new CfLabel();
       Position inlinePosition =
-          SourcePosition.builder()
-              .setCallerPosition(position)
-              .setMethod(invoke.getMethod())
-              .setLine(0)
-              .build();
+          SourcePosition.builder().setCallerPosition(position).setMethod(method).setLine(0).build();
       instructionsWithPositions.add(start);
       instructionsWithPositions.add(new CfPosition(start, inlinePosition));
       instructionsWithPositions.addAll(instructions);
@@ -1926,8 +1922,14 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
                       .setProto(getProto(appView.dexItemFactory()))
                       .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
                       .setCode(
-                          methodSig ->
-                              generateTemplateMethod(appView.dexItemFactory(), methodSig)));
+                          methodSig -> {
+                            Code code = generateTemplateMethod(appView.dexItemFactory(), methodSig);
+                            if (appView.options().hasMappingFileSupport()) {
+                              return code.getCodeAsInlining(
+                                  methodSig, true, method, false, appView.dexItemFactory());
+                            }
+                            return code;
+                          }));
     }
 
     public DexProto getProto(DexItemFactory itemFactory) {

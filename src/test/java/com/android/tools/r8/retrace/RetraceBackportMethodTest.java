@@ -100,8 +100,7 @@ public class RetraceBackportMethodTest extends TestBase {
 
   @Test
   public void testD8DebugRetrace() throws Exception {
-    // TODO(b/326196974): Should always have the frame.
-    boolean includeMathFrame = isApiWithFloorDivIntSupport();
+    boolean includeMathFrame = true;
     boolean includeExternalSyntheticFrame = false;
     boolean includeJvmModule = isApiWithFloorDivIntSupport() && isCfVmWithModulePrefix();
     boolean doNotCheckLines = isApiWithFloorDivIntSupport();
@@ -124,8 +123,7 @@ public class RetraceBackportMethodTest extends TestBase {
 
   @Test
   public void testD8ReleaseRetrace() throws Exception {
-    // TODO(b/326196974): Should always have the frame.
-    boolean includeMathFrame = isApiWithFloorDivIntSupport();
+    boolean includeMathFrame = true;
     boolean includeExternalSyntheticFrame = false;
     boolean includeJvmModule = isApiWithFloorDivIntSupport() && isCfVmWithModulePrefix();
     boolean doNotCheckLines = isApiWithFloorDivIntSupport();
@@ -149,9 +147,7 @@ public class RetraceBackportMethodTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    // TODO(b/326196974): Should always have the frame.
-    boolean includeMathFrame = parameters.isCfRuntime() || isApiWithFloorDivIntSupport();
-    ;
+    boolean includeMathFrame = true;
     boolean includeExternalSyntheticFrame = false;
     boolean includeJvmModule = isCfVmWithModulePrefix();
     boolean doNotCheckLines = parameters.isCfRuntime() || isApiWithFloorDivIntSupport();
