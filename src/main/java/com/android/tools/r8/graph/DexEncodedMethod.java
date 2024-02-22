@@ -1238,15 +1238,13 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return new ProgramMethod(holder, newMethod);
   }
 
-  public DexEncodedMethod toForwardingMethod(DexClass newHolder, AppView<?> definitions) {
-    return toForwardingMethod(newHolder, definitions, ConsumerUtils.emptyConsumer());
+  public DexEncodedMethod toForwardingMethod(DexClass newHolder, AppView<?> appView) {
+    return toForwardingMethod(newHolder, appView, ConsumerUtils.emptyConsumer());
   }
 
   public DexEncodedMethod toForwardingMethod(
-      DexClass newHolder,
-      AppView<?> definitions,
-      Consumer<DexEncodedMethod.Builder> builderConsumer) {
-    DexMethod newMethod = getReference().withHolder(newHolder, definitions.dexItemFactory());
+      DexClass newHolder, AppView<?> appView, Consumer<DexEncodedMethod.Builder> builderConsumer) {
+    DexMethod newMethod = getReference().withHolder(newHolder, appView.dexItemFactory());
     checkIfObsolete();
 
     // Clear the final flag, as this method is now overwritten. Do this before creating the builder
@@ -1267,8 +1265,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
             builder ->
                 builder
                     .setCode(
-                        ForwardMethodBuilder.builder(definitions.dexItemFactory())
-                            .setStaticSource(newMethod)
+                        ForwardMethodBuilder.builder(appView.dexItemFactory())
                             .applyIf(
                                 isStatic(),
                                 codeBuilder ->
@@ -1276,18 +1273,14 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
                                         .setStaticSource(newMethod)
                                         .setStaticTarget(
                                             getReference(),
-                                            getReference()
-                                                .getHolderType()
-                                                .isInterface(definitions)),
+                                            getReference().getHolderType().isInterface(appView)),
                                 codeBuilder ->
                                     codeBuilder
                                         .setNonStaticSource(newMethod)
                                         .setSuperTarget(
                                             getReference(),
-                                            getReference()
-                                                .getHolderType()
-                                                .isInterface(definitions)))
-                            .build())
+                                            getReference().getHolderType().isInterface(appView)))
+                            .build(appView))
                     .modifyAccessFlags(MethodAccessFlags::setBridge))
         .setIsLibraryMethodOverrideIf(
             !isStatic() && !isLibraryMethodOverride().isUnknown(), isLibraryMethodOverride())
@@ -1316,7 +1309,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
             ForwardMethodBuilder.builder(factory)
                 .setNonStaticSource(newMethod)
                 .setStaticTarget(forwardMethod, isInterfaceMethodReference)
-                .build())
+                .buildCf())
         .setApiLevelForDefinition(target.getDefinition().getApiLevelForDefinition())
         .setApiLevelForCode(target.getDefinition().getApiLevelForCode())
         .build();

@@ -456,7 +456,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
                                             ForwardMethodBuilder.builder(factory)
                                                 .setStaticTarget(invoke.getMethod(), true)
                                                 .setStaticSource(m)
-                                                .build()));
+                                                .buildCf()));
                 synthesizedMethods.add(newProgramMethod);
                 eventConsumer.acceptInvokeStaticInterfaceOutliningMethod(
                     newProgramMethod, context1);

@@ -501,6 +501,7 @@ public class MemberRebindingAnalysis {
     MemberRebindingLens memberRebindingLens = lensBuilder.build();
     appView.setGraphLens(memberRebindingLens);
     eventConsumer.finished(appView, memberRebindingLens);
+    appView.dexItemFactory().clearTypeElementsCache();
     appView.notifyOptimizationFinishedForTesting();
   }
 }

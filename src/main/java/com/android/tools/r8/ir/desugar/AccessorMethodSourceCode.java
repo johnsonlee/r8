@@ -47,6 +47,6 @@ public class AccessorMethodSourceCode {
       default:
         throw new Unreachable();
     }
-    return forwardMethodBuilder.build();
+    return forwardMethodBuilder.buildCf();
   }
 }

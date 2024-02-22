@@ -467,6 +467,9 @@ public class R8 {
 
       new CfOpenClosedInterfacesAnalysis(appViewWithLiveness).run(executorService);
 
+      // TODO(b/225838009): Move higher up.
+      LirConverter.enterLirSupportedPhase(appView, executorService);
+
       assert verifyNoJarApplicationReaders(appView.appInfo().classes());
       assert appView.checkForTesting(() -> allReferencesAssignedApiLevel(appViewWithLiveness));
       // Build conservative main dex content after first round of tree shaking. This is used
@@ -496,9 +499,6 @@ public class R8 {
       new RedundantBridgeRemover(appViewWithLiveness)
           .setMustRetargetInvokesToTargetMethod()
           .run(executorService, timing);
-
-      // TODO(b/225838009): Move higher up.
-      LirConverter.enterLirSupportedPhase(appView, executorService);
 
       BridgeHoistingToSharedSyntheticSuperClass.run(appViewWithLiveness, executorService, timing);
 

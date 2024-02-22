@@ -117,7 +117,7 @@ public class InvokeSpecialToSelfDesugaring implements CfInstructionDesugaring {
             ForwardMethodBuilder.builder(dexItemFactory)
                 .setDirectTarget(bridgeReference, clazz.isInterface())
                 .setNonStaticSource(method.getReference())
-                .build();
+                .buildCf();
 
         // Add the newly created direct method to its holder.
         clazz.addDirectMethod(newDirectMethod.getDefinition());

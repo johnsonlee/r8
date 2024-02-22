@@ -192,7 +192,7 @@ public final class CovariantReturnTypeAnnotationTransformer {
                     .keepIf(x -> !isCovariantReturnTypeAnnotation(x.annotation)))
             .setParameterAnnotations(
                 methodDefinition.parameterAnnotationsList.keepIf(Predicates.alwaysTrue()))
-            .setCode(forwardMethodBuilder.build())
+            .setCode(forwardMethodBuilder.buildCf())
             .setApiLevelForDefinition(methodDefinition.getApiLevelForDefinition())
             .setApiLevelForCode(methodDefinition.getApiLevelForCode())
             .build();

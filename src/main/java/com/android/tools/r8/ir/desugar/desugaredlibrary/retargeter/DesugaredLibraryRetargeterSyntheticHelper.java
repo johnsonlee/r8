@@ -56,7 +56,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
                                     .setVirtualTarget(retarget, false)
                                     .setNonStaticSource(target)
                                     .setCastResult()
-                                    .build()));
+                                    .buildCf()));
     eventConsumer.acceptCovariantRetargetMethod(method, methodProcessingContext.getMethodContext());
     return method.getReference();
   }

@@ -59,7 +59,7 @@ public class AccessBridgeFactory {
                 ForwardMethodBuilder.builder(dexItemFactory)
                     .setNonStaticSourceWithExtraUnusedParameter(bridgeMethodReference)
                     .setConstructorTarget(method.getReference())
-                    .build())
+                    .buildCf())
             .setMethod(bridgeMethodReference)
             .setApiLevelForDefinition(method.getDefinition().getApiLevelForDefinition())
             .setApiLevelForCode(method.getDefinition().getApiLevelForCode())
@@ -90,7 +90,7 @@ public class AccessBridgeFactory {
                         method.getAccessFlags().isStatic(),
                         builder -> builder.setStaticTarget(method.getReference(), isInterface),
                         builder -> builder.setDirectTarget(method.getReference(), isInterface))
-                    .build())
+                    .buildCf())
             .setMethod(bridgeMethodReference)
             .setApiLevelForDefinition(method.getDefinition().getApiLevelForDefinition())
             .setApiLevelForCode(method.getDefinition().getApiLevelForDefinition())

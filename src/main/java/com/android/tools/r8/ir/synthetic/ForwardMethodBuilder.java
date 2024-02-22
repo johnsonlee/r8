@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.synthetic;
 
+import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
+import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 
 import com.android.tools.r8.cf.code.CfCheckCast;
@@ -14,18 +16,28 @@ import com.android.tools.r8.cf.code.CfReturn;
 import com.android.tools.r8.cf.code.CfReturnVoid;
 import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.CfCodeWithLens;
+import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
+import com.android.tools.r8.lightir.LirBuilder;
+import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirEncodingStrategy;
+import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 import org.objectweb.asm.Opcodes;
 
@@ -159,12 +171,15 @@ public class ForwardMethodBuilder {
     return this;
   }
 
-  @SuppressWarnings({"BadImport", "ReferenceEquality"})
-  public CfCode build() {
+  public Code build(AppView<?> appView) {
+    return appView.testing().isSupportedLirPhase() ? buildLir(appView) : buildCf();
+  }
+
+  public CfCode buildCf() {
     assert validate();
     int maxStack = 0;
     int maxLocals = 0;
-    Builder<CfInstruction> instructions = ImmutableList.builder();
+    ImmutableList.Builder<CfInstruction> instructions = ImmutableList.builder();
     if (isConstructorDelegate) {
       // A constructor delegate allocates a new instance of the type.
       // It is dup'ed on the stack so it is ready to return after the invoke call.
@@ -205,9 +220,10 @@ public class ForwardMethodBuilder {
       assert !isConstructorDelegate;
       instructions.add(new CfReturnVoid());
     } else {
-      if (!isConstructorDelegate && sourceMethod.getReturnType() != targetMethod.getReturnType()) {
+      if (!isConstructorDelegate
+          && sourceMethod.getReturnType().isNotIdenticalTo(targetMethod.getReturnType())) {
         assert castResult;
-        if (sourceMethod.getReturnType() != factory.objectType) {
+        if (sourceMethod.getReturnType().isNotIdenticalTo(factory.objectType)) {
           instructions.add(new CfCheckCast(sourceMethod.getReturnType()));
         }
       }
@@ -220,9 +236,66 @@ public class ForwardMethodBuilder {
     return new CfCode(sourceMethod.holder, maxStack, maxLocals, instructions.build());
   }
 
-  @SuppressWarnings({"BadImport", "ReferenceEquality"})
+  public LirCode<Integer> buildLir(AppView<?> appView) {
+    assert validate();
+    if (castResult
+        || isConstructorDelegate
+        || sourceMethodHasExtraUnusedParameter
+        || appInfoForCastArguments != null
+        || codeLens != null) {
+      throw new Unimplemented();
+    }
+    if (invokeType != InvokeType.STATIC && invokeType != InvokeType.SPECIAL) {
+      throw new Unimplemented();
+    }
+    if (invokeType == InvokeType.SPECIAL
+        && sourceMethod.getHolderType().isIdenticalTo(targetMethod.getHolderType())) {
+      throw new Unimplemented();
+    }
+
+    boolean isD8R8Synthesized = true;
+    LirEncodingStrategy<Value, Integer> strategy =
+        LirStrategy.getDefaultStrategy().getEncodingStrategy();
+    LirBuilder<Value, Integer> lirBuilder =
+        LirCode.builder(sourceMethod, isD8R8Synthesized, strategy, appView.options());
+
+    // Add all arguments.
+    List<Value> argumentValues = new ArrayList<>();
+    int instructionIndex = 0;
+    for (; instructionIndex < sourceMethod.getNumberOfArguments(staticSource); instructionIndex++) {
+      DexType argumentType = sourceMethod.getArgumentType(instructionIndex, staticSource);
+      TypeElement argumentTypeElement =
+          argumentType.toTypeElement(
+              appView, instructionIndex == 0 && !staticSource ? definitelyNotNull() : maybeNull());
+      Value argumentValue = Value.createNoDebugLocal(instructionIndex, argumentTypeElement);
+      argumentValues.add(argumentValue);
+      strategy.defineValue(argumentValue, argumentValue.getNumber());
+      lirBuilder.addArgument(instructionIndex, argumentType.isBooleanType());
+    }
+
+    if (isStaticTarget()) {
+      lirBuilder.addInvokeStatic(targetMethod, argumentValues, isInterface);
+    } else {
+      lirBuilder.addInvokeSuper(targetMethod, argumentValues, isInterface);
+    }
+
+    if (sourceMethod.getReturnType().isVoidType()) {
+      lirBuilder.addReturnVoid();
+    } else {
+      Value returnValue =
+          Value.createNoDebugLocal(
+              instructionIndex, sourceMethod.getReturnType().toTypeElement(appView));
+      strategy.defineValue(returnValue, returnValue.getNumber());
+      lirBuilder.addReturn(returnValue);
+    }
+
+    return lirBuilder.build();
+  }
+
   private void maybeInsertArgumentCast(
-      int argumentIndex, DexType sourceArgumentType, Builder<CfInstruction> instructions) {
+      int argumentIndex,
+      DexType sourceArgumentType,
+      ImmutableList.Builder<CfInstruction> instructions) {
     if (appInfoForCastArguments == null) {
       return;
     }
@@ -235,8 +308,9 @@ public class ForwardMethodBuilder {
         argumentIndex == -1
             ? targetMethod.holder
             : targetMethod.getParameters().values[argumentIndex];
-    if (sourceArgumentType != targetArgumentType
-        && targetArgumentType != appInfoForCastArguments.dexItemFactory().objectType) {
+    if (sourceArgumentType.isNotIdenticalTo(targetArgumentType)
+        && targetArgumentType.isNotIdenticalTo(
+            appInfoForCastArguments.dexItemFactory().objectType)) {
       assert appInfoForCastArguments.isSubtype(targetArgumentType, sourceArgumentType);
       instructions.add(new CfCheckCast(targetArgumentType));
     }

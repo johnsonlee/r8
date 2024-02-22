@@ -272,12 +272,12 @@ public class ApiInvokeOutlinerDesugaring implements CfInstructionDesugaring {
                 return ForwardMethodBuilder.builder(factory)
                     .setVirtualTarget(method, libraryHolder.isInterface())
                     .setNonStaticSource(method)
-                    .build();
+                    .buildCf();
               } else {
                 return ForwardMethodBuilder.builder(factory)
                     .setStaticTarget(method, libraryHolder.isInterface())
                     .setStaticSource(method)
-                    .build();
+                    .buildCf();
               }
             });
   }

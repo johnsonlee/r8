@@ -272,7 +272,7 @@ public class InstanceInitializerOutliner extends CodeRewriterPass<AppInfo> {
                               ForwardMethodBuilder.builder(appView.dexItemFactory())
                                   .setConstructorTargetWithNewInstance(targetMethod)
                                   .setStaticSource(m)
-                                  .build())
+                                  .buildCf())
                       .setOptimizationInfo(
                           DefaultMethodOptimizationInfo.getInstance()
                               .toMutableOptimizationInfo()

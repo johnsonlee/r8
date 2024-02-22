@@ -19,6 +19,6 @@ final class LambdaBridgeMethodSourceCode {
         .setVirtualTarget(mainMethod, false)
         .setCastArguments(lambdaClass.appView.appInfoForDesugaring())
         .setCastResult()
-        .build();
+        .buildCf();
   }
 }
