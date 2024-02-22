@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.verticalclassmerging;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -34,8 +33,7 @@ import java.util.List;
 
 public class VerticalClassMergerPolicyScheduler {
 
-  public static List<Policy> getPolicies(
-      AppView<AppInfoWithLiveness> appView, ClassMergerMode mode) {
+  public static List<Policy> getPolicies(AppView<AppInfoWithLiveness> appView) {
     return List.of(
         new NoDirectlyInstantiatedClassesPolicy(appView),
         new NoInterfacesWithUnknownSubtypesPolicy(appView),
@@ -55,7 +53,7 @@ public class VerticalClassMergerPolicyScheduler {
         new NoMethodResolutionChangesPolicy(appView),
         new NoIllegalAccessesPolicy(appView),
         new NoClassInitializationChangesPolicy(appView),
-        new NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy(appView, mode),
+        new NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy(appView),
         new NoInvokeSuperNoSuchMethodErrorsPolicy(appView),
         new SuccessfulVirtualMethodResolutionInTargetPolicy(appView),
         new NoAbstractMethodsOnAbstractClassesPolicy(appView),

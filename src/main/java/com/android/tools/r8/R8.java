@@ -497,15 +497,15 @@ public class R8 {
           .setMustRetargetInvokesToTargetMethod()
           .run(executorService, timing);
 
+      // TODO(b/225838009): Move higher up.
+      LirConverter.enterLirSupportedPhase(appView, executorService);
+
       BridgeHoistingToSharedSyntheticSuperClass.run(appViewWithLiveness, executorService, timing);
 
       assert ArtProfileCompletenessChecker.verify(appView);
 
       VerticalClassMerger.createForInitialClassMerging(appViewWithLiveness, timing)
           .runIfNecessary(executorService, timing);
-
-      // TODO(b/225838009): Horizontal merging currently assumes pre-phase CF conversion.
-      LirConverter.enterLirSupportedPhase(appView, executorService);
 
       // Clear traced methods roots to not hold on to the main dex live method set.
       appView.appInfo().getMainDexInfo().clearTracedMethodRoots();

@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class NoLineInfoTest extends TestBase {
@@ -35,7 +36,7 @@ public class NoLineInfoTest extends TestBase {
   private final TestParameters parameters;
   private final boolean customSourceFile;
 
-  @Parameterized.Parameters(name = "{0}, custom-sf:{1}")
+  @Parameters(name = "{0}, custom-sf:{1}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
@@ -113,7 +114,7 @@ public class NoLineInfoTest extends TestBase {
                   // If debug info remains it is two canonical items and one null pointer.
                   // The presence of 'null' debug info items is for methods with no actual lines at
                   // all.
-                  assertEquals(3, debugInfos.size());
+                  assertEquals(customSourceFile ? 2 : 3, debugInfos.size());
                 }
               }
             })

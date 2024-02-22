@@ -4,18 +4,11 @@
 
 package com.android.tools.r8.horizontalclassmerging.code;
 
-import static java.lang.Integer.max;
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.cf.CfVersion;
-import com.android.tools.r8.cf.code.CfGoto;
-import com.android.tools.r8.cf.code.CfInstruction;
-import com.android.tools.r8.cf.code.CfLabel;
-import com.android.tools.r8.cf.code.CfPosition;
-import com.android.tools.r8.cf.code.CfReturnVoid;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -38,13 +31,10 @@ import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.utils.CfVersionUtils;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
 
@@ -75,14 +65,7 @@ public class ClassInitializerMerger {
     return classInitializers.isEmpty();
   }
 
-  public Code getCode(DexMethod syntheticMethodReference) {
-    assert !isEmpty();
-    if (isTrivialMerge()) {
-      assert IterableUtils.allIdentical(
-          classInitializers,
-          classInitializer -> classInitializer.getDefinition().getCode().isCfCode());
-      return new CfCodeBuilder().build(syntheticMethodReference);
-    }
+  public Code getCode() {
     return new IRProvider(classInitializers);
   }
 
@@ -103,11 +86,6 @@ public class ClassInitializerMerger {
     }
     DexMethod newReference = method.getReference().withHolder(group.getTarget(), dexItemFactory);
     return definition.toTypeSubstitutedMethodAsInlining(newReference, dexItemFactory);
-  }
-
-  public boolean isTrivialMerge() {
-    ProgramMethod firstClassInitializer = ListUtils.first(classInitializers);
-    return firstClassInitializer.getDefinition().getCode().isCfCode();
   }
 
   public ComputedApiLevel getApiReferenceLevel(AppView<?> appView) {
@@ -138,67 +116,6 @@ public class ClassInitializerMerger {
 
     public ClassInitializerMerger build() {
       return new ClassInitializerMerger(classInitializers.build());
-    }
-  }
-
-  /** Concatenates a collection of class initializers with CF code into a new piece of CF code. */
-  private class CfCodeBuilder {
-
-    private int maxStack = 0;
-    private int maxLocals = 0;
-
-    public CfCode build(DexMethod syntheticMethodReference) {
-      // Building the instructions will adjust maxStack and maxLocals. Build it here before invoking
-      // the CfCode constructor to ensure that the value passed in is the updated values.
-      Position callerPosition =
-          SyntheticPosition.builder()
-              .setLine(0)
-              .setMethod(syntheticMethodReference)
-              .setIsD8R8Synthesized(true)
-              .build();
-      List<CfInstruction> instructions = buildInstructions(callerPosition);
-      return new CfCode(
-          syntheticMethodReference.getHolderType(), maxStack, maxLocals, instructions);
-    }
-
-    private List<CfInstruction> buildInstructions(Position callerPosition) {
-      List<CfInstruction> newInstructions = new ArrayList<>();
-      classInitializers.forEach(
-          classInitializer -> addCfCode(newInstructions, classInitializer, callerPosition));
-      newInstructions.add(new CfReturnVoid());
-      return newInstructions;
-    }
-
-    private void addCfCode(
-        List<CfInstruction> newInstructions, ProgramMethod method, Position callerPosition) {
-      CfCode code = method.getDefinition().getCode().asCfCode();
-      maxStack = max(maxStack, code.getMaxStack());
-      maxLocals = max(maxLocals, code.getMaxLocals());
-      CfLabel endLabel = new CfLabel();
-      boolean requiresLabel = false;
-      int index = 1;
-      boolean calleeD8R8Synthesized = method.getDefinition().isD8R8Synthesized();
-      for (CfInstruction instruction : code.getInstructions()) {
-        if (instruction.isPosition()) {
-          CfPosition calleePosition = instruction.asPosition();
-          newInstructions.add(
-              new CfPosition(
-                  calleePosition.getLabel(),
-                  Code.newInlineePosition(
-                      callerPosition, calleePosition.getPosition(), calleeD8R8Synthesized)));
-        } else if (instruction.isReturn()) {
-          if (code.getInstructions().size() != index) {
-            newInstructions.add(new CfGoto(endLabel));
-            requiresLabel = true;
-          }
-        } else {
-          newInstructions.add(instruction);
-        }
-        index++;
-      }
-      if (requiresLabel) {
-        newInstructions.add(endLabel);
-      }
     }
   }
 

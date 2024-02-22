@@ -47,16 +47,10 @@ public class LirConverter {
     ThreadUtils.processItems(
         appView.appInfo().classes(),
         clazz -> {
-          // TODO(b/225838009): Also convert instance initializers to LIR, by adding support for
-          //  computing the inlining constraint for LIR and using that in the class mergers, and
-          //  class initializers, by updating the concatenation of clinits in horizontal class
-          //  merging.
           clazz.forEachProgramMethodMatching(
-              method ->
-                  method.hasCode()
-                      && !method.isInstanceInitializer()
-                      && !appView.isCfByteCodePassThrough(method),
+              method -> method.hasCode() && !appView.isCfByteCodePassThrough(method),
               method -> {
+                assert !method.getDefinition().getCode().hasExplicitCodeLens();
                 IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
                 constResourceNumberRewriter.run(code, Timing.empty());
                 LirCode<Integer> lirCode =
@@ -65,25 +59,6 @@ public class LirConverter {
                         BytecodeMetadataProvider.empty(),
                         LirStrategy.getDefaultStrategy().getEncodingStrategy(),
                         appView.options());
-                // TODO(b/312890994): Setting a custom code lens is only needed until we convert
-                //  code objects to LIR before we create the first code object with a custom code
-                //  lens (horizontal class merging).
-                GraphLens codeLens = method.getDefinition().getCode().getCodeLens(appView);
-                if (codeLens != appView.codeLens()) {
-                  lirCode =
-                      new LirCode<>(lirCode) {
-
-                        @Override
-                        public boolean hasExplicitCodeLens() {
-                          return true;
-                        }
-
-                        @Override
-                        public GraphLens getCodeLens(AppView<?> appView) {
-                          return codeLens;
-                        }
-                      };
-                }
                 method.setCode(lirCode, appView);
               });
         },

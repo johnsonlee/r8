@@ -84,6 +84,7 @@ public class BridgeHoistingToSharedSyntheticSuperClass {
       updateArtProfiles(groups);
       new BridgeHoisting(appView).run(executorService, timing);
     }
+    appView.dexItemFactory().clearTypeElementsCache();
   }
 
   /** Returns the set of (non-singleton) groups that have the same superclass. */

@@ -5,19 +5,10 @@ package com.android.tools.r8.optimize.bridgehoisting;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
-import com.android.tools.r8.cf.code.CfInstruction;
-import com.android.tools.r8.cf.code.CfInvoke;
-import com.android.tools.r8.dex.code.DexInstruction;
-import com.android.tools.r8.dex.code.DexInvokeVirtual;
-import com.android.tools.r8.dex.code.DexInvokeVirtualRange;
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.BottomUpClassHierarchyTraversal;
-import com.android.tools.r8.graph.CfCode;
-import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMember;
-import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -333,22 +324,9 @@ public class BridgeHoisting {
     return false;
   }
 
-  private Code createCodeForVirtualBridge(ProgramMethod representative, DexMethod methodToInvoke) {
-    Code code = representative.getDefinition().getCode();
-    if (code.isLirCode()) {
-      return createLirCodeForVirtualBridge(code.asLirCode(), methodToInvoke);
-    }
-    if (code.isCfCode()) {
-      return createCfCodeForVirtualBridge(code.asCfCode(), methodToInvoke);
-    }
-    if (code.isDexCode()) {
-      return createDexCodeForVirtualBridge(code.asDexCode(), methodToInvoke);
-    }
-    throw new Unreachable("Unexpected code object of type " + code.getClass().getTypeName());
-  }
-
-  private LirCode<Integer> createLirCodeForVirtualBridge(
-      LirCode<Integer> code, DexMethod methodToInvoke) {
+  private LirCode<Integer> createCodeForVirtualBridge(
+      ProgramMethod representative, DexMethod methodToInvoke) {
+    LirCode<Integer> code = representative.getDefinition().getCode().asLirCode();
     return code.newCodeWithRewrittenConstantPool(
         item -> {
           if (item instanceof DexMethod) {
@@ -357,62 +335,5 @@ public class BridgeHoisting {
           }
           return item;
         });
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private CfCode createCfCodeForVirtualBridge(CfCode code, DexMethod methodToInvoke) {
-    List<CfInstruction> newInstructions = new ArrayList<>();
-    boolean modified = false;
-    for (CfInstruction instruction : code.getInstructions()) {
-      if (instruction.isInvoke() && instruction.asInvoke().getMethod() != methodToInvoke) {
-        CfInvoke invoke = instruction.asInvoke();
-        assert invoke.isInvokeVirtual();
-        assert !invoke.isInterface();
-        assert invoke.getMethod().match(methodToInvoke);
-        newInstructions.add(new CfInvoke(invoke.getOpcode(), methodToInvoke, false));
-        modified = true;
-      } else {
-        newInstructions.add(instruction);
-      }
-    }
-    return modified
-        ? new CfCode(
-            methodToInvoke.holder,
-            code.getMaxStack(),
-            code.getMaxLocals(),
-            newInstructions,
-            code.getTryCatchRanges(),
-            code.getLocalVariables())
-        : code;
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private DexCode createDexCodeForVirtualBridge(DexCode code, DexMethod methodToInvoke) {
-    DexInstruction[] newInstructions = new DexInstruction[code.instructions.length];
-    boolean modified = false;
-    for (int i = 0; i < code.instructions.length; i++) {
-      DexInstruction instruction = code.instructions[i];
-      if (instruction.isInvokeVirtual()
-          && instruction.asInvokeVirtual().getMethod() != methodToInvoke) {
-        DexInvokeVirtual invoke = instruction.asInvokeVirtual();
-        DexInvokeVirtual newInvoke =
-            new DexInvokeVirtual(
-                invoke.A, methodToInvoke, invoke.C, invoke.D, invoke.E, invoke.F, invoke.G);
-        newInvoke.setOffset(invoke.getOffset());
-        newInstructions[i] = newInvoke;
-        modified = true;
-      } else if (instruction.isInvokeVirtualRange()
-          && instruction.asInvokeVirtualRange().getMethod() != methodToInvoke) {
-        DexInvokeVirtualRange invoke = instruction.asInvokeVirtualRange();
-        DexInvokeVirtualRange newInvoke =
-            new DexInvokeVirtualRange(invoke.CCCC, invoke.AA, methodToInvoke);
-        newInvoke.setOffset(invoke.getOffset());
-        modified = true;
-        newInstructions[i] = newInvoke;
-      } else {
-        newInstructions[i] = instruction;
-      }
-    }
-    return modified ? code.withNewInstructions(newInstructions) : code;
   }
 }

@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.verticalclassmerging.policies;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -15,12 +14,10 @@ public class NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy
     extends VerticalClassMergerPolicy {
 
   private final AppView<AppInfoWithLiveness> appView;
-  private final ClassMergerMode mode;
 
   public NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy(
-      AppView<AppInfoWithLiveness> appView, ClassMergerMode mode) {
+      AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
-    this.mode = mode;
   }
 
   @Override
@@ -37,7 +34,7 @@ public class NoInterfacesWithInvokeSpecialToDefaultMethodIntoClassPolicy
             method -> {
               boolean foundInvokeSpecialToDefaultLibraryMethod =
                   method.registerCodeReferencesWithResult(
-                      new InvokeSpecialToDefaultLibraryMethodUseRegistry(appView, method, mode));
+                      new InvokeSpecialToDefaultLibraryMethodUseRegistry(appView, method));
               return TraversalContinuation.breakIf(foundInvokeSpecialToDefaultLibraryMethod);
             });
     return result.shouldContinue();

@@ -6,9 +6,9 @@ package com.android.tools.r8.verticalclassmerging;
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
 
+import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -17,12 +17,12 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
-import com.android.tools.r8.ir.synthetic.ForwardMethodBuilder;
 import com.android.tools.r8.lightir.LirBuilder;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirEncodingStrategy;
@@ -33,8 +33,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A short-lived piece of code that will be converted into {@link CfCode} using {@link
- * #toCfCode(DexItemFactory)} or {@link LirCode} using {@link #toLirCode(AppView)}.
+ * A short-lived piece of code that will be converted into {@link LirCode} using {@link
+ * #toLirCode(AppView)}.
  */
 public class IncompleteVerticalClassMergerBridgeCode extends Code {
 
@@ -87,18 +87,10 @@ public class IncompleteVerticalClassMergerBridgeCode extends Code {
     method = lens.getNextBridgeMethodSignature(method);
   }
 
-  public CfCode toCfCode(DexItemFactory dexItemFactory, VerticalClassMergerGraphLens lens) {
-    return ForwardMethodBuilder.builder(dexItemFactory)
-        .applyIf(
-            type.isStatic(),
-            builder -> builder.setStaticTarget(invocationTarget, isInterface),
-            builder -> builder.setVirtualTarget(invocationTarget, isInterface))
-        .setNonStaticSource(method)
-        .setCodeLens(lens)
-        .build();
-  }
-
-  public LirCode<?> toLirCode(AppView<AppInfoWithLiveness> appView) {
+  public LirCode<?> toLirCode(
+      AppView<AppInfoWithLiveness> appView,
+      VerticalClassMergerGraphLens lens,
+      ClassMergerMode mode) {
     boolean isD8R8Synthesized = true;
     LirEncodingStrategy<Value, Integer> strategy =
         LirStrategy.getDefaultStrategy().getEncodingStrategy();
@@ -136,7 +128,21 @@ public class IncompleteVerticalClassMergerBridgeCode extends Code {
       lirBuilder.addReturn(returnValue);
     }
 
-    return lirBuilder.build();
+    LirCode<Integer> lirCode = lirBuilder.build();
+    return mode.isFinal()
+        ? lirCode
+        : new LirCode<>(lirCode) {
+
+          @Override
+          public boolean hasExplicitCodeLens() {
+            return true;
+          }
+
+          @Override
+          public GraphLens getCodeLens(AppView<?> appView) {
+            return lens;
+          }
+        };
   }
 
   // Implement Code.

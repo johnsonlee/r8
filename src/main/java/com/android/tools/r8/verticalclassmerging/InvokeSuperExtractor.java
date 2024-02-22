@@ -39,20 +39,17 @@ public class InvokeSuperExtractor extends DefaultUseRegistry<ProgramMethod> {
     this.source = source;
   }
 
-  // TODO(b/323022702): This should not need to be overridden, but we sometimes (correctly) map an
-  //  invoke-special to invoke-direct, but then later decides to map the same invoke-special to
-  //  invoke-super.
   @Override
   public void registerInvokeSpecial(DexMethod method) {
-    handleInvokeSpecial(method);
+    assert false;
   }
 
   @Override
   public void registerInvokeSuper(DexMethod method) {
-    handleInvokeSpecial(method);
+    handleInvokeSuper(method);
   }
 
-  private void handleInvokeSpecial(DexMethod method) {
+  private void handleInvokeSuper(DexMethod method) {
     MethodLookupResult lookupResult = graphLens.lookupInvokeSuper(method, getContext(), codeLens);
     DexMethod rewrittenMethod = lookupResult.getReference();
     if (!methodsOfInterest.contains(rewrittenMethod) || result.contains(rewrittenMethod)) {

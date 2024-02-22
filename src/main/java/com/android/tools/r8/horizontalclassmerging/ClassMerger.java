@@ -112,9 +112,6 @@ public class ClassMerger {
     mergeInstanceInitializers(classMergerSharedData, profileCollectionAdditions);
     mergeStaticClassInitializers(syntheticInitializerConverterBuilder);
     group.forEach(this::mergeDirectMethods);
-    if (classInitializerMerger.size() > 1 && classInitializerMerger.isTrivialMerge()) {
-      classInitializerMerger.setObsolete();
-    }
     instanceInitializerMergers.setObsolete();
   }
 
@@ -146,7 +143,7 @@ public class ClassMerger {
         DexEncodedMethod.syntheticBuilder()
             .setMethod(newMethodReference)
             .setAccessFlags(MethodAccessFlags.createForClassInitializer())
-            .setCode(classInitializerMerger.getCode(newMethodReference))
+            .setCode(classInitializerMerger.getCode())
             .setClassFileVersion(classInitializerMerger.getCfVersion(appView.options()))
             .setApiLevelForDefinition(apiReferenceLevel)
             .setApiLevelForCode(apiReferenceLevel)

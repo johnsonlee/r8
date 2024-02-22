@@ -8,6 +8,7 @@ import static com.android.tools.r8.naming.retrace.StackTrace.isSameExceptForFile
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -81,6 +82,7 @@ public class RetraceCompanionWithPreambleTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addKeepAttributeSourceFile()
         .addKeepAttributeLineNumberTable()
+        .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkRunResult)
@@ -129,6 +131,8 @@ public class RetraceCompanionWithPreambleTest extends TestBase {
         .transform();
   }
 
+  // TODO(b/326461837): Enable vertical class merging for I.
+  @NoVerticalClassMerging
   interface I {
 
     default void foo() {

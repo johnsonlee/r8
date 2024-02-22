@@ -146,7 +146,7 @@ public class VerticalClassMerger {
     // Remove merged classes from app now that the code is fully rewritten.
     removeMergedClasses(verticalClassMergerResult.getVerticallyMergedClasses(), timing);
 
-    // Convert the (incomplete) synthesized bridges to CF or LIR.
+    // Convert the (incomplete) synthesized bridges to LIR.
     finalizeSynthesizedBridges(verticalClassMergerResult.getSynthesizedBridges(), lens, timing);
 
     // Finally update the code lens to signal that the code is fully up to date.
@@ -180,7 +180,7 @@ public class VerticalClassMerger {
     TimingMerger merger = timing.beginMerger("Compute classes to merge", executorService);
     List<ConnectedComponentVerticalClassMerger> connectedComponentMergers =
         new ArrayList<>(connectedComponents.size());
-    Collection<Policy> policies = VerticalClassMergerPolicyScheduler.getPolicies(appView, mode);
+    Collection<Policy> policies = VerticalClassMergerPolicyScheduler.getPolicies(appView);
     Collection<Timing> timings =
         ThreadUtils.processItemsWithResults(
             connectedComponents,
@@ -324,11 +324,7 @@ public class VerticalClassMerger {
       assert target != null;
 
       // Finalize code.
-      assert mode.isInitial() == appView.testing().isPreLirPhase();
-      assert mode.isFinal() == appView.testing().isSupportedLirPhase();
-      bridge.setCode(
-          mode.isInitial() ? code.toCfCode(dexItemFactory, lens) : code.toLirCode(appView),
-          appView);
+      bridge.setCode(code.toLirCode(appView, lens, mode), appView);
 
       // Copy keep info to newly synthesized methods.
       keepInfo.mutate(
