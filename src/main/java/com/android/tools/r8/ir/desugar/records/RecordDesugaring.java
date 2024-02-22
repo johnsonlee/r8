@@ -197,7 +197,8 @@ public class RecordDesugaring
   private DesugarDescription desugarInvokeDynamic(CfInstruction instruction) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -217,7 +218,8 @@ public class RecordDesugaring
   private DesugarDescription desugarInvoke(CfInvoke invoke, DexMethod newMethod) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

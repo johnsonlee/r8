@@ -68,7 +68,8 @@ public class InvokeSpecialToSelfDesugaring implements CfInstructionDesugaring {
   private DesugarDescription desugarToInvokeVirtual(CfInvoke invoke) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -84,7 +85,8 @@ public class InvokeSpecialToSelfDesugaring implements CfInstructionDesugaring {
   private DesugarDescription desugarWithBridge(CfInvoke invoke, ProgramMethod method) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

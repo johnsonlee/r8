@@ -46,7 +46,7 @@ public class LineNumberOptimizer {
       Timing timing,
       OriginalSourceFiles originalSourceFiles,
       DebugRepresentationPredicate representation) {
-    assert appView.options().mapConsumer != null;
+    assert appView.options().hasMappingFileSupport();
     if (shouldEmitOriginalMappingFile(appView)) {
       appView.options().reporter.warning(new NotSupportedMapVersionForMappingComposeDiagnostic());
       timing.begin("Write proguard map");

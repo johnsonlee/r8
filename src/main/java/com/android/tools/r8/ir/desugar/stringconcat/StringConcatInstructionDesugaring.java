@@ -91,7 +91,8 @@ public class StringConcatInstructionDesugaring implements CfInstructionDesugarin
   private DesugarDescription desugarMakeConcat(CfInvokeDynamic invoke) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -127,7 +128,8 @@ public class StringConcatInstructionDesugaring implements CfInstructionDesugarin
   private DesugarDescription desugarMakeConcatWithConstants(CfInvokeDynamic invoke) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

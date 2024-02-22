@@ -7,6 +7,7 @@ package com.android.tools.r8.ir.desugar;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor;
@@ -53,6 +54,7 @@ public class EmptyCfInstructionDesugaringCollection extends CfInstructionDesugar
   @Override
   public Collection<CfInstruction> desugarInstruction(
       CfInstruction instruction,
+      Position position,
       FreshLocalProvider freshLocalProvider,
       LocalStackAllocator localStackAllocator,
       CfDesugaringInfo desugaringInfo,

@@ -335,7 +335,8 @@ public class NestBasedAccessDesugaring implements CfInstructionDesugaring {
   private DesugarDescription desugarFieldInstruction(CfFieldInstruction instruction) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -366,7 +367,8 @@ public class NestBasedAccessDesugaring implements CfInstructionDesugaring {
   private DesugarDescription desugarInvokeInstruction(CfInvoke invoke) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

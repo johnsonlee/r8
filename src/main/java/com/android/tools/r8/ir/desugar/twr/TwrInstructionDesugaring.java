@@ -68,7 +68,8 @@ public class TwrInstructionDesugaring implements CfInstructionDesugaring {
         factory.createProto(factory.voidType, factory.throwableType, factory.throwableType);
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -93,7 +94,8 @@ public class TwrInstructionDesugaring implements CfInstructionDesugaring {
             factory.createArrayType(1, factory.throwableType), factory.throwableType);
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -115,7 +117,8 @@ public class TwrInstructionDesugaring implements CfInstructionDesugaring {
     // Synthesize a new method.
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

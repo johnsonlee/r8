@@ -95,7 +95,8 @@ public class ConstantDynamicInstructionDesugaring implements CfInstructionDesuga
     }
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

@@ -41,7 +41,8 @@ public class InvokeToPrivateRewriter implements CfInstructionDesugaring {
   private DesugarDescription desugarInstruction(CfInvoke invoke, DexMethod method) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

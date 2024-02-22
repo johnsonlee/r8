@@ -165,7 +165,8 @@ public class UnrepresentableInDexInstructionRemover implements CfInstructionDesu
       }
       return DesugarDescription.builder()
           .setDesugarRewrite(
-              (freshLocalProvider,
+              (position,
+                  freshLocalProvider,
                   localStackAllocator,
                   desugaringInfo,
                   eventConsumer,
@@ -219,7 +220,8 @@ public class UnrepresentableInDexInstructionRemover implements CfInstructionDesu
       }
       return DesugarDescription.builder()
           .setDesugarRewrite(
-              (freshLocalProvider,
+              (position,
+                  freshLocalProvider,
                   localStackAllocator,
                   desugaringInfo,
                   eventConsumer,
@@ -269,7 +271,8 @@ public class UnrepresentableInDexInstructionRemover implements CfInstructionDesu
       }
       return DesugarDescription.builder()
           .setDesugarRewrite(
-              (freshLocalProvider,
+              (position,
+                  freshLocalProvider,
                   localStackAllocator,
                   desugaringInfo,
                   eventConsumer,
@@ -313,7 +316,8 @@ public class UnrepresentableInDexInstructionRemover implements CfInstructionDesu
       }
       return DesugarDescription.builder()
           .setDesugarRewrite(
-              (freshLocalProvider,
+              (position,
+                  freshLocalProvider,
                   localStackAllocator,
                   desugaringInfo,
                   eventConsumer,
@@ -358,7 +362,8 @@ public class UnrepresentableInDexInstructionRemover implements CfInstructionDesu
       }
       return DesugarDescription.builder()
           .setDesugarRewrite(
-              (freshLocalProvider,
+              (position,
+                  freshLocalProvider,
                   localStackAllocator,
                   desugaringInfo,
                   eventConsumer,

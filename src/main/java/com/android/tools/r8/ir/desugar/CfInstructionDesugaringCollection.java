@@ -10,6 +10,7 @@ import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor;
@@ -66,6 +67,7 @@ public abstract class CfInstructionDesugaringCollection {
   /** Selective desugaring of a single invoke instruction assuming a given context. */
   public abstract Collection<CfInstruction> desugarInstruction(
       CfInstruction instruction,
+      Position position,
       FreshLocalProvider freshLocalProvider,
       LocalStackAllocator localStackAllocator,
       CfDesugaringInfo desugaringInfo,

@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.desugar.apimodel.ApiInvokeOutlinerDesugaring;
 import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
@@ -34,6 +35,7 @@ import com.android.tools.r8.ir.desugar.stringconcat.StringConcatInstructionDesug
 import com.android.tools.r8.ir.desugar.twr.TwrInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
 import com.android.tools.r8.position.MethodPosition;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
@@ -249,13 +251,33 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
 
     CfDesugaringInfoImpl desugaringInfo = new CfDesugaringInfoImpl(cfCode.bytecodeSizeUpperBound());
 
+    Box<Position> currentPosition = new Box<>();
+    boolean maintainPositionForInlineInfo = appView.options().hasMappingFileSupport();
+    if (maintainPositionForInlineInfo) {
+      currentPosition.set(cfCode.getPreamblePosition());
+      if (!currentPosition.isSet()) {
+        currentPosition.set(
+            Position.SyntheticPosition.builder()
+                .setLine(0)
+                .setMethod(method.getReference())
+                .setIsD8R8Synthesized(method.getDefinition().isD8R8Synthesized())
+                .build());
+      }
+    }
     List<CfInstruction> desugaredInstructions =
         ListUtils.flatMapSameType(
             cfCode.getInstructions(),
             instruction -> {
+              if (instruction.isPosition()) {
+                if (maintainPositionForInlineInfo) {
+                  currentPosition.set(instruction.asPosition().getPosition());
+                }
+                return null;
+              }
               Collection<CfInstruction> replacement =
                   desugarInstruction(
                       instruction,
+                      currentPosition.get(),
                       maxLocalsForInstruction::getAndIncrement,
                       maxStackForInstruction::getAndIncrement,
                       desugaringInfo,
@@ -315,6 +337,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
   @Override
   public Collection<CfInstruction> desugarInstruction(
       CfInstruction instruction,
+      Position position,
       FreshLocalProvider freshLocalProvider,
       LocalStackAllocator localStackAllocator,
       CfDesugaringInfo desugaringInfo,
@@ -325,6 +348,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     Collection<CfInstruction> replacement =
         applyDesugaring(
             instruction,
+            position,
             freshLocalProvider,
             localStackAllocator,
             desugaringInfo,
@@ -339,6 +363,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     // desugaring and no other desugaring happened.
     return applyDesugaring(
         instruction,
+        position,
         freshLocalProvider,
         localStackAllocator,
         desugaringInfo,
@@ -350,6 +375,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
 
   private Collection<CfInstruction> applyDesugaring(
       CfInstruction instruction,
+      Position position,
       FreshLocalProvider freshLocalProvider,
       LocalStackAllocator localStackAllocator,
       CfDesugaringInfo desugaringInfo,
@@ -363,6 +389,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
           desugaring
               .compute(instruction, context)
               .desugarInstruction(
+                  position,
                   freshLocalProvider,
                   localStackAllocator,
                   desugaringInfo,

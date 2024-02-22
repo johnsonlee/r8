@@ -294,7 +294,7 @@ public class ApplicationWriter {
   }
 
   private boolean willComputeProguardMap() {
-    return options.mapConsumer != null;
+    return options.hasMappingFileSupport();
   }
 
   /** Writer that never needs the input app to deal with mapping info for kotlin. */

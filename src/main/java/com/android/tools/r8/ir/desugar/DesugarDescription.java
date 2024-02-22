@@ -7,6 +7,7 @@ import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.Position;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -33,6 +34,7 @@ public class DesugarDescription {
   }
 
   public Collection<CfInstruction> desugarInstruction(
+      Position position,
       FreshLocalProvider freshLocalProvider,
       LocalStackAllocator localStackAllocator,
       CfDesugaringInfo desugaringInfo,
@@ -61,6 +63,7 @@ public class DesugarDescription {
   @FunctionalInterface
   public interface DesugarCallback {
     Collection<CfInstruction> desugarInstruction(
+        Position position,
         FreshLocalProvider freshLocalProvider,
         LocalStackAllocator localStackAllocator,
         CfDesugaringInfo desugaringInfo,
@@ -141,6 +144,7 @@ public class DesugarDescription {
 
         @Override
         public Collection<CfInstruction> desugarInstruction(
+            Position position,
             FreshLocalProvider freshLocalProvider,
             LocalStackAllocator localStackAllocator,
             CfDesugaringInfo desugaringInfo,
@@ -152,6 +156,7 @@ public class DesugarDescription {
           return desugarRewrite == null
               ? null
               : desugarRewrite.desugarInstruction(
+                  position,
                   freshLocalProvider,
                   localStackAllocator,
                   desugaringInfo,

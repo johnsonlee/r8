@@ -78,7 +78,8 @@ public class LambdaInstructionDesugaring implements CfInstructionDesugaring {
   private DesugarDescription desugarInstruction(CfInstruction instruction) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -97,6 +98,7 @@ public class LambdaInstructionDesugaring implements CfInstructionDesugaring {
                     (invoke, localProvider, stackAllocator) ->
                         desugaringCollection.desugarInstruction(
                             invoke,
+                            position,
                             localProvider,
                             stackAllocator,
                             desugaringInfo,

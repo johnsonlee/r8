@@ -98,7 +98,8 @@ public class DesugaredLibraryLibRewriter implements CfInstructionDesugaring {
     if (instruction.isInvoke() && rewritings.containsKey(instruction.asInvoke().getMethod())) {
       return DesugarDescription.builder()
           .setDesugarRewrite(
-              (freshLocalProvider,
+              (position,
+                  freshLocalProvider,
                   localStackAllocator,
                   desugaringInfo,
                   eventConsumer,

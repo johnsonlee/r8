@@ -70,7 +70,8 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
       AppView<?> appView, CfInvoke invoke, MethodResolutionResult resolutionResult) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -94,7 +95,8 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
     DesugarDescription.Builder builder =
         DesugarDescription.builder()
             .setDesugarRewrite(
-                (freshLocalProvider,
+                (position,
+                    freshLocalProvider,
                     localStackAllocator,
                     desugaringInfo,
                     eventConsumer,

@@ -9,8 +9,10 @@ import com.android.tools.r8.cf.code.CfInstanceFieldRead;
 import com.android.tools.r8.cf.code.CfInstanceFieldWrite;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfLabel;
 import com.android.tools.r8.cf.code.CfLoad;
 import com.android.tools.r8.cf.code.CfNew;
+import com.android.tools.r8.cf.code.CfPosition;
 import com.android.tools.r8.cf.code.CfReturn;
 import com.android.tools.r8.cf.code.CfReturnVoid;
 import com.android.tools.r8.cf.code.CfStackInstruction;
@@ -39,6 +41,8 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.Position.SourcePosition;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.backports.BackportedMethodDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.backports.BackportedMethods;
@@ -114,7 +118,8 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
   private DesugarDescription desugarInstruction(CfInvoke invoke, MethodProvider methodProvider) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -123,7 +128,12 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
                 desugaringCollection,
                 dexItemFactory) ->
                 methodProvider.rewriteInvoke(
-                    invoke, appView, eventConsumer, methodProcessingContext, localStackAllocator))
+                    position,
+                    invoke,
+                    appView,
+                    eventConsumer,
+                    methodProcessingContext,
+                    localStackAllocator))
         .build();
   }
 
@@ -1823,6 +1833,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
 
     public abstract Collection<CfInstruction> rewriteInvoke(
+        Position position,
         CfInvoke invoke,
         AppView<?> appView,
         BackportedMethodDesugaringEventConsumer eventConsumer,
@@ -1841,12 +1852,32 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
     @Override
     public Collection<CfInstruction> rewriteInvoke(
+        Position position,
         CfInvoke invoke,
         AppView<?> appView,
         BackportedMethodDesugaringEventConsumer eventConsumer,
         MethodProcessingContext methodProcessingContext,
         LocalStackAllocator localStackAllocator) {
-      return rewriter.rewrite(invoke, appView.dexItemFactory(), localStackAllocator);
+      Collection<CfInstruction> instructions =
+          rewriter.rewrite(invoke, appView.dexItemFactory(), localStackAllocator);
+      if (position == null) {
+        return instructions;
+      }
+      ArrayList<CfInstruction> instructionsWithPositions = new ArrayList<>(instructions.size() + 4);
+      CfLabel start = new CfLabel();
+      CfLabel end = new CfLabel();
+      Position inlinePosition =
+          SourcePosition.builder()
+              .setCallerPosition(position)
+              .setMethod(invoke.getMethod())
+              .setLine(0)
+              .build();
+      instructionsWithPositions.add(start);
+      instructionsWithPositions.add(new CfPosition(start, inlinePosition));
+      instructionsWithPositions.addAll(instructions);
+      instructionsWithPositions.add(end);
+      instructionsWithPositions.add(new CfPosition(end, position));
+      return instructionsWithPositions;
     }
   }
 
@@ -1870,6 +1901,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
     @Override
     public Collection<CfInstruction> rewriteInvoke(
+        Position position,
         CfInvoke invoke,
         AppView<?> appView,
         BackportedMethodDesugaringEventConsumer eventConsumer,
@@ -1974,6 +2006,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
     @Override
     public Collection<CfInstruction> rewriteInvoke(
+        Position position,
         CfInvoke invoke,
         AppView<?> appView,
         BackportedMethodDesugaringEventConsumer eventConsumer,

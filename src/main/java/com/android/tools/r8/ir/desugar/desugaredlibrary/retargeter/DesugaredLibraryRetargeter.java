@@ -107,7 +107,8 @@ public class DesugaredLibraryRetargeter implements CfInstructionDesugaring {
           methodProvider) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -134,7 +135,8 @@ public class DesugaredLibraryRetargeter implements CfInstructionDesugaring {
     }
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

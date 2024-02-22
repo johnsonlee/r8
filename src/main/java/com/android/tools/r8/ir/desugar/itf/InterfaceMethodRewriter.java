@@ -431,7 +431,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       }
       return DesugarDescription.builder()
           .setDesugarRewrite(
-              (freshLocalProvider,
+              (position,
+                  freshLocalProvider,
                   localStackAllocator,
                   desugaringInfo,
                   eventConsumer,
@@ -481,7 +482,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     DexClassAndMethod method = resolutionResult.getResolutionPair();
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -528,7 +530,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     }
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -577,7 +580,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       assert directTarget.getDefinition() == singleResolution.getResolutionPair().getDefinition();
       return DesugarDescription.builder()
           .setDesugarRewrite(
-              (freshLocalProvider,
+              (position,
+                  freshLocalProvider,
                   localStackAllocator,
                   desugaringInfo,
                   eventConsumer,
@@ -618,7 +622,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
             == singleResolution.getResolutionPair().getDefinition();
         return DesugarDescription.builder()
             .setDesugarRewrite(
-                (freshLocalProvider,
+                (position,
+                    freshLocalProvider,
                     localStackAllocator,
                     desugaringInfo,
                     eventConsumer,
@@ -739,7 +744,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
         }
         return DesugarDescription.builder()
             .setDesugarRewrite(
-                (freshLocalProvider,
+                (position,
+                    freshLocalProvider,
                     localStackAllocator,
                     desugaringInfo,
                     eventConsumer,
@@ -763,7 +769,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       } else {
         return DesugarDescription.builder()
             .setDesugarRewrite(
-                (freshLocalProvider,
+                (position,
+                    freshLocalProvider,
                     localStackAllocator,
                     desugaringInfo,
                     eventConsumer,
@@ -828,7 +835,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
         if (holder.isLibraryClass() && holder.isInterface()) {
           return DesugarDescription.builder()
               .setDesugarRewrite(
-                  (freshLocalProvider,
+                  (position,
+                      freshLocalProvider,
                       localStackAllocator,
                       desugaringInfo,
                       eventConsumer,
@@ -856,7 +864,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     }
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

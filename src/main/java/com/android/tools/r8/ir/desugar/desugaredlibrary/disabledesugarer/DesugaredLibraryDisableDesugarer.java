@@ -49,7 +49,8 @@ public class DesugaredLibraryDisableDesugarer implements CfInstructionDesugaring
   private DesugarDescription compute(CfInstruction replacement) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

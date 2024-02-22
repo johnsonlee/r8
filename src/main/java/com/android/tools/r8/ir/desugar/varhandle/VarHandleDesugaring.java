@@ -324,7 +324,8 @@ public class VarHandleDesugaring implements CfInstructionDesugaring, CfClassSynt
   public DesugarDescription computeMethodHandlesLookup(DexItemFactory factory) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -351,7 +352,8 @@ public class VarHandleDesugaring implements CfInstructionDesugaring, CfClassSynt
   public DesugarDescription computeMethodHandlesPrivateLookupIn(DexItemFactory factory) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -378,7 +380,8 @@ public class VarHandleDesugaring implements CfInstructionDesugaring, CfClassSynt
   public DesugarDescription computeMethodHandlesArrayElementVarHandle(DexItemFactory factory) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,
@@ -406,7 +409,8 @@ public class VarHandleDesugaring implements CfInstructionDesugaring, CfClassSynt
       CfInvoke invoke, int coordinates) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
-            (freshLocalProvider,
+            (position,
+                freshLocalProvider,
                 localStackAllocator,
                 desugaringInfo,
                 eventConsumer,

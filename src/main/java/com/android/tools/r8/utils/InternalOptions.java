@@ -1158,6 +1158,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // If non null it must be and passed to the consumer.
   public MapConsumer mapConsumer = null;
 
+  public boolean hasMappingFileSupport() {
+    return mapConsumer != null;
+  }
+
   // If null, no usage information needs to be computed.
   // If non-null, it must be and is passed to the consumer.
   public StringConsumer usageInformationConsumer = null;
