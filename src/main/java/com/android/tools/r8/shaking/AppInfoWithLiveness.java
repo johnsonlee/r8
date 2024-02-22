@@ -448,8 +448,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   }
 
   @Override
-  public void notifyHorizontalClassMergerFinished(ClassMergerMode horizontalClassMergerMode) {
-    if (horizontalClassMergerMode.isInitial()) {
+  public void notifyVerticalClassMergerFinished(ClassMergerMode mode) {
+    if (mode.isInitial()) {
       getMethodAccessInfoCollection().destroy();
     }
   }

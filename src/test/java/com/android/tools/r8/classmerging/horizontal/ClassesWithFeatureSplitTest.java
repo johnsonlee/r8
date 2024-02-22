@@ -81,6 +81,8 @@ public class ClassesWithFeatureSplitTest extends HorizontalClassMergingTestBase 
 
   @NeverClassInline
   public static class Base {
+
+    @NeverInline
     public Base() {
       System.out.println("base");
     }
@@ -88,6 +90,8 @@ public class ClassesWithFeatureSplitTest extends HorizontalClassMergingTestBase 
 
   @NeverClassInline
   public static class Feature1Class1 {
+
+    @NeverInline
     public Feature1Class1() {
       System.out.println("feature 1 class 1");
     }
@@ -95,6 +99,8 @@ public class ClassesWithFeatureSplitTest extends HorizontalClassMergingTestBase 
 
   @NeverClassInline
   public static class Feature1Class2 {
+
+    @NeverInline
     public Feature1Class2() {
       System.out.println("feature 1 class 2");
     }
@@ -102,6 +108,7 @@ public class ClassesWithFeatureSplitTest extends HorizontalClassMergingTestBase 
 
   @NeverClassInline
   public static class Feature2Class {
+
     @NeverInline
     public Feature2Class() {
       System.out.println("feature 2");

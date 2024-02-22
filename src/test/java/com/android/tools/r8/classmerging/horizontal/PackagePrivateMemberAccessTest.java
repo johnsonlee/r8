@@ -9,10 +9,11 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.classmerging.horizontal.testclasses.A;
 import com.android.tools.r8.classmerging.horizontal.testclasses.B;
-import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 import org.junit.Test;
 
 public class PackagePrivateMemberAccessTest extends HorizontalClassMergingTestBase {
@@ -27,10 +28,10 @@ public class PackagePrivateMemberAccessTest extends HorizontalClassMergingTestBa
         .addInnerClasses(getClass())
         .addProgramClasses(A.class, B.class)
         .addKeepMainRule(Main.class)
-        .addOptionsModification(InlinerOptions::setOnlyForceInlining)
         .enableConstantArgumentAnnotations()
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("foo", "B", "bar", "0", "foobar")
@@ -44,10 +45,13 @@ public class PackagePrivateMemberAccessTest extends HorizontalClassMergingTestBa
 
   @NeverClassInline
   public static class C {
+
     public C(int v) {
       System.out.println(v);
     }
 
+    @NeverInline
+    @NoMethodStaticizing
     public void foobar() {
       System.out.println("foobar");
     }

@@ -6,6 +6,7 @@ package com.android.tools.r8.classmerging.horizontal.testclasses;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 
 @NeverClassInline
 public class PackagePrivateClassRunner {
@@ -13,6 +14,7 @@ public class PackagePrivateClassRunner {
   public PackagePrivateClassRunner() {}
 
   @NeverInline
+  @NoMethodStaticizing
   public void run() {
     new PackagePrivateClass();
   }

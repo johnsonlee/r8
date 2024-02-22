@@ -8,7 +8,6 @@ import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNul
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.cf.CfVersion;
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -80,22 +79,19 @@ public class UndoConstructorInlining {
 
   public void runIfNecessary(
       Collection<HorizontalMergeGroup> groups,
-      ClassMergerMode mode,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
-    if (shouldRun(mode)) {
+    if (shouldRun()) {
       timing.begin("Undo constructor inlining");
       run(groups, executorService);
       timing.end();
     }
   }
 
-  private boolean shouldRun(ClassMergerMode mode) {
+  private boolean shouldRun() {
     // Only run when constructor inlining is enabled.
-    return appView != null
-        && appView.options().canInitNewInstanceUsingSuperclassConstructor()
-        && mode.isFinal();
+    return appView != null && appView.options().canInitNewInstanceUsingSuperclassConstructor();
   }
 
   private void run(Collection<HorizontalMergeGroup> groups, ExecutorService executorService)
@@ -523,6 +519,11 @@ public class UndoConstructorInlining {
                   MethodAccessFlags.builder().setConstructor().setPublic().setSynthetic().build())
               .setCode(createConstructorCode(methodReference, target))
               .setClassFileVersion(CfVersion.V1_6)
+              // TODO(b/325199754): Compute api level here?
+              .setApiLevelForCode(
+                  appView.apiLevelCompute().computeInitialMinApiLevel(appView.options()))
+              .setApiLevelForDefinition(
+                  appView.apiLevelCompute().computeInitialMinApiLevel(appView.options()))
               .build();
       clazz.addDirectMethod(method);
       ProgramMethod programMethod = method.asProgramMethod(clazz);

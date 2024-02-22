@@ -6,7 +6,6 @@ package com.android.tools.r8.horizontalclassmerging;
 
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.Policy;
 import com.android.tools.r8.graph.AppInfo;
@@ -49,28 +48,21 @@ import java.util.function.Consumer;
 public class HorizontalClassMerger {
 
   private final AppView<?> appView;
-  private final ClassMergerMode mode;
   private final HorizontalClassMergerOptions options;
 
-  private HorizontalClassMerger(AppView<?> appView, ClassMergerMode mode) {
+  private HorizontalClassMerger(AppView<?> appView) {
     this.appView = appView;
-    this.mode = mode;
     this.options = appView.options().horizontalClassMergerOptions();
-  }
-
-  public static HorizontalClassMerger createForInitialClassMerging(
-      AppView<AppInfoWithLiveness> appView) {
-    return new HorizontalClassMerger(appView, ClassMergerMode.INITIAL);
   }
 
   public static HorizontalClassMerger createForFinalClassMerging(
       AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return new HorizontalClassMerger(appView, ClassMergerMode.FINAL);
+    return new HorizontalClassMerger(appView);
   }
 
   public static HorizontalClassMerger createForD8ClassMerging(AppView<?> appView) {
     assert appView.options().horizontalClassMergerOptions().isRestrictedToSynthetics();
-    return new HorizontalClassMerger(appView, ClassMergerMode.FINAL);
+    return new HorizontalClassMerger(appView);
   }
 
   public void runIfNecessary(ExecutorService executorService, Timing timing)
@@ -81,7 +73,7 @@ public class HorizontalClassMerger {
   public void runIfNecessary(
       ExecutorService executorService, Timing timing, RuntimeTypeCheckInfo runtimeTypeCheckInfo)
       throws ExecutionException {
-    timing.begin("HorizontalClassMerger (" + mode.toString() + ")");
+    timing.begin("HorizontalClassMerger");
     if (shouldRun()) {
       IRCodeProvider codeProvider =
           appView.hasClassHierarchy()
@@ -95,22 +87,19 @@ public class HorizontalClassMerger {
       appView.dexItemFactory().clearTypeElementsCache();
       appView.notifyOptimizationFinishedForTesting();
     } else {
-      appView.setHorizontallyMergedClasses(HorizontallyMergedClasses.empty(), mode);
+      appView.setHorizontallyMergedClasses(HorizontallyMergedClasses.empty());
     }
-    appView.appInfo().notifyHorizontalClassMergerFinished(mode);
     assert ArtProfileCompletenessChecker.verify(appView);
     timing.end();
   }
 
   private boolean shouldRun() {
-    return options.isEnabled(mode, appView.getWholeProgramOptimizations())
+    return options.isEnabled(appView.getWholeProgramOptimizations())
         && !appView.hasCfByteCodePassThroughMethods();
   }
 
   private MutableMethodConversionOptions getConversionOptions() {
-    return mode.isInitial()
-        ? MethodConversionOptions.forPreLirPhase(appView)
-        : MethodConversionOptions.forLirPhase(appView);
+    return MethodConversionOptions.forLirPhase(appView);
   }
 
   private void run(
@@ -120,14 +109,14 @@ public class HorizontalClassMerger {
       Timing timing)
       throws ExecutionException {
     // Run the policies on all program classes to produce a final grouping.
-    List<Policy> policies = PolicyScheduler.getPolicies(appView, mode, runtimeTypeCheckInfo);
+    List<Policy> policies = PolicyScheduler.getPolicies(appView, runtimeTypeCheckInfo);
     Collection<HorizontalMergeGroup> groups =
         new HorizontalClassMergerPolicyExecutor()
             .run(getInitialGroups(), policies, executorService, timing);
 
     // If there are no groups, then end horizontal class merging.
     if (groups.isEmpty()) {
-      appView.setHorizontallyMergedClasses(HorizontallyMergedClasses.empty(), mode);
+      appView.setHorizontallyMergedClasses(HorizontallyMergedClasses.empty());
       return;
     }
 
@@ -147,7 +136,7 @@ public class HorizontalClassMerger {
                 appView.withClassHierarchy())
             : null;
     new UndoConstructorInlining(appView, classMergerSharedData, immediateSubtypingInfo)
-        .runIfNecessary(groups, mode, executorService, timing);
+        .runIfNecessary(groups, executorService, timing);
 
     // Merge classes.
     List<ClassMerger> classMergers = createClassMergers(classMergerBuilders, lensBuilder);
@@ -172,7 +161,7 @@ public class HorizontalClassMerger {
     // Generate the graph lens.
     HorizontallyMergedClasses mergedClasses =
         HorizontallyMergedClasses.builder().addMergeGroups(groups).build();
-    appView.setHorizontallyMergedClasses(mergedClasses, mode);
+    appView.setHorizontallyMergedClasses(mergedClasses);
 
     HorizontalClassMergerGraphLens horizontalClassMergerGraphLens =
         createLens(
@@ -211,28 +200,22 @@ public class HorizontalClassMerger {
       AppView<AppInfoWithClassHierarchy> appViewWithClassHierarchy = appView.withClassHierarchy();
       KeepInfoCollection keepInfo = appView.getKeepInfo();
       keepInfo.mutate(mutator -> mutator.removeKeepInfoForMergedClasses(prunedItems));
-      if (mode.isInitial()) {
-        appView.rewriteWithLensAndApplication(
-            horizontalClassMergerGraphLens, newApplication.toDirect(), executorService, timing);
+      appView.rewriteWithLens(horizontalClassMergerGraphLens, executorService, timing);
+      LirConverter.rewriteLirWithLens(appViewWithClassHierarchy, timing, executorService);
+      new IdentifierMinifier(appViewWithClassHierarchy)
+          .rewriteDexItemBasedConstStringInStaticFields(executorService);
+      if (appView.hasLiveness()) {
+        AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+        appViewWithLiveness.setAppInfo(
+            appViewWithLiveness.appInfo().rebuildWithLiveness(newApplication));
       } else {
-        appView.rewriteWithLens(horizontalClassMergerGraphLens, executorService, timing);
-        LirConverter.rewriteLirWithLens(appViewWithClassHierarchy, timing, executorService);
-        new IdentifierMinifier(appViewWithClassHierarchy)
-            .rewriteDexItemBasedConstStringInStaticFields(executorService);
-        if (appView.hasLiveness()) {
-          AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
-          appViewWithLiveness.setAppInfo(
-              appViewWithLiveness.appInfo().rebuildWithLiveness(newApplication));
-        } else {
-          appViewWithClassHierarchy.setAppInfo(
-              appViewWithClassHierarchy.appInfo().rebuildWithClassHierarchy(newApplication));
-        }
-        appView.clearCodeRewritings(executorService, timing);
+        appViewWithClassHierarchy.setAppInfo(
+            appViewWithClassHierarchy.appInfo().rebuildWithClassHierarchy(newApplication));
       }
       amendMethodAccessInfoCollection(
           horizontalClassMergerGraphLens, newNonReboundMethodReferences);
+      appView.clearCodeRewritings(executorService, timing);
     } else {
-      assert mode.isFinal();
       SyntheticItems syntheticItems = appView.appInfo().getSyntheticItems();
       assert !syntheticItems.hasPendingSyntheticClasses();
       appView
@@ -373,11 +356,8 @@ public class HorizontalClassMerger {
                 IncompleteHorizontalClassMergerCode code =
                     (IncompleteHorizontalClassMergerCode) method.getDefinition().getCode();
                 Code newCode =
-                    mode.isInitial()
-                        ? code.toCfCode(
-                            appView.withClassHierarchy(), method, horizontalClassMergerGraphLens)
-                        : code.toLirCode(
-                            appView.withClassHierarchy(), method, horizontalClassMergerGraphLens);
+                    code.toLirCode(
+                        appView.withClassHierarchy(), method, horizontalClassMergerGraphLens);
                 if (newCode != null) {
                   method.setCode(newCode, appView);
                 }
@@ -409,17 +389,13 @@ public class HorizontalClassMerger {
   }
 
   private DexApplication getNewApplication(HorizontallyMergedClasses mergedClasses) {
-    // In the second round of class merging, we must forcefully remove the merged classes from the
-    // application, since we won't run tree shaking before writing the application.
-    if (mode.isInitial()) {
-      return appView.app();
-    } else {
-      return appView
-          .app()
-          .builder()
-          .removeProgramClasses(clazz -> mergedClasses.isMergeSource(clazz.getType()))
-          .build();
-    }
+    // We must forcefully remove the merged classes from the application, since we won't run tree
+    // shaking before writing the application.
+    return appView
+        .app()
+        .builder()
+        .removeProgramClasses(clazz -> mergedClasses.isMergeSource(clazz.getType()))
+        .build();
   }
 
   // TODO(b/270398965): Replace LinkedList.
@@ -448,7 +424,7 @@ public class HorizontalClassMerger {
       assert group.isNonTrivial();
       assert group.hasInstanceFieldMap();
       assert group.hasTarget();
-      classMergerBuilders.add(new ClassMerger.Builder(appView, codeProvider, group, mode));
+      classMergerBuilders.add(new ClassMerger.Builder(appView, codeProvider, group));
     }
     return classMergerBuilders;
   }

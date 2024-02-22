@@ -61,26 +61,18 @@ public class InstanceInitializerDescription {
     return new Builder(appView.dexItemFactory(), instanceInitializer);
   }
 
-  @SuppressWarnings("InvalidParam")
   public static Builder builder(
       AppView<? extends AppInfoWithClassHierarchy> appView, ProgramMethod instanceInitializer) {
     return new Builder(appView.dexItemFactory(), instanceInitializer);
   }
 
-  /**
-   * Transform this description into actual CF code.
-   *
-   * @param originalMethodReference the original reference of the representative method
-   */
   public IncompleteMergedInstanceInitializerCode createCode(
-      DexMethod originalMethodReference,
       HorizontalMergeGroup group,
       boolean hasClassId,
       int extraNulls) {
     return new IncompleteMergedInstanceInitializerCode(
         hasClassId ? group.getClassIdField() : null,
         extraNulls,
-        originalMethodReference,
         instanceFieldAssignmentsPre,
         instanceFieldAssignmentsPost,
         parentConstructor,

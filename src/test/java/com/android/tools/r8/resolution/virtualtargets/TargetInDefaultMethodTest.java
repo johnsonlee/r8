@@ -24,6 +24,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.HashSet;
@@ -32,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
@@ -39,15 +41,12 @@ public class TargetInDefaultMethodTest extends TestBase {
 
   private static final String EXPECTED = "I.foo";
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public TargetInDefaultMethodTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -72,11 +71,7 @@ public class TargetInDefaultMethodTest extends TestBase {
     Set<String> targets = new HashSet<>();
     lookupResult
         .asLookupResultSuccess()
-        .forEach(
-            target -> targets.add(target.getDefinition().qualifiedName()),
-            lambda -> {
-              fail();
-            });
+        .forEach(target -> targets.add(target.getDefinition().qualifiedName()), lambda -> fail());
     ImmutableSet<String> expected =
         ImmutableSet.of(B.class.getTypeName() + ".foo", I.class.getTypeName() + ".foo");
     assertEquals(expected, targets);
@@ -85,7 +80,7 @@ public class TargetInDefaultMethodTest extends TestBase {
   @Test
   public void testRuntime() throws IOException, CompilationFailedException, ExecutionException {
     testForRuntime(parameters)
-        .addInnerClasses(TargetInDefaultMethodTest.class)
+        .addInnerClasses(getClass())
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines(EXPECTED);
   }
@@ -93,11 +88,16 @@ public class TargetInDefaultMethodTest extends TestBase {
   @Test
   public void testR8() throws IOException, CompilationFailedException, ExecutionException {
     testForR8(parameters.getBackend())
-        .addInnerClasses(TargetInDefaultMethodTest.class)
+        .addInnerClasses(getClass())
+        .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(B.class, C.class).assertNoOtherClassesMerged())
+        .addVerticallyMergedClassesInspector(
+            VerticallyMergedClassesInspector::assertNoClassesMerged)
         .enableInliningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .enableNeverClassInliningAnnotations()
-        .addKeepMainRule(Main.class)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines(EXPECTED);

@@ -46,7 +46,7 @@ public class ApiModelClassMergingWithDifferentApiMethodsTest extends TestBase {
             inspector -> {
               if (parameters.isDexRuntime()
                   && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L_MR1)) {
-                inspector.assertClassesMerged(A.class, B.class);
+                inspector.assertIsCompleteMergeGroup(A.class, B.class);
               } else {
                 inspector.assertNoClassesMerged();
               }

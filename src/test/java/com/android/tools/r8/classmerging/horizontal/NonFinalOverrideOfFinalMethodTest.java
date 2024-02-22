@@ -10,6 +10,7 @@ import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -36,10 +37,11 @@ public class NonFinalOverrideOfFinalMethodTest extends HorizontalClassMergingTes
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertMergedInto(B.class, A.class))
+            inspector -> inspector.assertMergedInto(B.class, A.class).assertNoOtherClassesMerged())
         .compile()
         .inspect(
             inspector -> {
@@ -63,9 +65,11 @@ public class NonFinalOverrideOfFinalMethodTest extends HorizontalClassMergingTes
   }
 
   @NeverClassInline
+  @NoVerticalClassMerging
   public static class A {
 
     @NeverInline
+    @NoMethodStaticizing
     public final void foo() {
       System.out.println("A");
     }
@@ -76,6 +80,7 @@ public class NonFinalOverrideOfFinalMethodTest extends HorizontalClassMergingTes
   public static class B {
 
     @NeverInline
+    @NoMethodStaticizing
     public void bar() {
       System.out.println("B");
     }
@@ -85,6 +90,7 @@ public class NonFinalOverrideOfFinalMethodTest extends HorizontalClassMergingTes
   public static class BSub extends B {
 
     @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("BSub");
     }

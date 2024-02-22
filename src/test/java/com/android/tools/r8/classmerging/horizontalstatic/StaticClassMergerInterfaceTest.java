@@ -47,7 +47,7 @@ public class StaticClassMergerInterfaceTest extends TestBase {
               } else {
                 inspector
                     .assertClassesNotMerged(I.class, J.class)
-                    .assertClassReferencesMerged(
+                    .assertIsCompleteMergeGroup(
                         SyntheticItemsTestUtils.syntheticCompanionClass(I.class),
                         SyntheticItemsTestUtils.syntheticCompanionClass(J.class))
                     .assertNoOtherClassesMerged();

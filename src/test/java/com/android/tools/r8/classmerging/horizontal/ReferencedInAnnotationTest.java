@@ -10,7 +10,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.KeepUnusedArguments;
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.graph.DexEncodedAnnotation;
 import com.android.tools.r8.graph.DexType;
@@ -37,7 +39,12 @@ public class ReferencedInAnnotationTest extends HorizontalClassMergingTestBase {
         .addKeepMainRule(TestClass.class)
         .addKeepClassAndMembersRules(Annotation.class)
         .addKeepRuntimeVisibleAnnotations()
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableUnusedArgumentAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutputLines("Hello world!")
@@ -89,6 +96,7 @@ public class ReferencedInAnnotationTest extends HorizontalClassMergingTestBase {
   @NeverClassInline
   public static class A {
 
+    @NeverInline
     public A() {
       System.out.print("Hello");
     }
@@ -97,6 +105,8 @@ public class ReferencedInAnnotationTest extends HorizontalClassMergingTestBase {
   @NeverClassInline
   public static class B {
 
+    @KeepUnusedArguments
+    @NeverInline
     public B(String s) {
       System.out.println(" world!");
     }

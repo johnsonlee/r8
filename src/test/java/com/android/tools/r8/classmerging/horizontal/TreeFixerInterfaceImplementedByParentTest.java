@@ -11,6 +11,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
+import com.android.tools.r8.NoMethodStaticizing;
+import com.android.tools.r8.NoParameterTypeStrengthening;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -22,6 +24,7 @@ import org.junit.Test;
  * changed.
  */
 public class TreeFixerInterfaceImplementedByParentTest extends HorizontalClassMergingTestBase {
+
   public TreeFixerInterfaceImplementedByParentTest(TestParameters parameters) {
     super(parameters);
   }
@@ -34,8 +37,10 @@ public class TreeFixerInterfaceImplementedByParentTest extends HorizontalClassMe
         .addDontObfuscate()
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
-        .enableNoVerticalClassMergingAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
+        .enableNoMethodStaticizingAnnotations()
+        .enableNoParameterTypeStrengtheningAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("print a: parent", "print b: i", "print b: e")
@@ -62,19 +67,22 @@ public class TreeFixerInterfaceImplementedByParentTest extends HorizontalClassMe
   @NeverClassInline
   @NoVerticalClassMerging
   public interface I {
-    @NeverInline
+
     void foo(B b);
   }
 
   @NoVerticalClassMerging
   @NoHorizontalClassMerging
   public static class Parent {
+
     @NeverInline
+    @NoMethodStaticizing
     public void foo(B b) {
       b.print("i");
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void foo(A a) {
       a.print("parent");
     }
@@ -82,7 +90,9 @@ public class TreeFixerInterfaceImplementedByParentTest extends HorizontalClassMe
 
   @NeverClassInline
   public static class A {
+
     @NeverInline
+    @NoMethodStaticizing
     public void print(String v) {
       System.out.println("print a: " + v);
     }
@@ -90,7 +100,9 @@ public class TreeFixerInterfaceImplementedByParentTest extends HorizontalClassMe
 
   @NeverClassInline
   public static class B {
+
     @NeverInline
+    @NoMethodStaticizing
     public void print(String v) {
       System.out.println("print b: " + v);
     }
@@ -101,14 +113,18 @@ public class TreeFixerInterfaceImplementedByParentTest extends HorizontalClassMe
 
   @NeverClassInline
   public static class E implements I {
+
     @NeverInline
+    @NoMethodStaticizing
     public void foo(B b) {
       b.print("e");
     }
   }
 
   public static class Main {
+
     @NeverInline
+    @NoParameterTypeStrengthening
     public static void fooI(I i, B b) {
       i.foo(b);
     }

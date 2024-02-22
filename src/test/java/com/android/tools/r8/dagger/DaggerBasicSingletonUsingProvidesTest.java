@@ -60,9 +60,6 @@ public class DaggerBasicSingletonUsingProvidesTest extends DaggerBasicTestBase {
                 "basic.MainUsingProvides",
                 "dagger.internal.DoubleCheck",
                 "javax.inject.Provider");
-    if (target.equals("1.8") || parameters.isDexRuntime()) {
-      expectedClasses.add("basic.DaggerMainComponentUsingProvides$Builder");
-    }
     assertEquals(
         expectedClasses.build(),
         inspector.allClasses().stream()
@@ -99,37 +96,29 @@ public class DaggerBasicSingletonUsingProvidesTest extends DaggerBasicTestBase {
         .addKeepMainRule(MAIN_CLASS)
         .allowStdoutMessages()
         .addHorizontallyMergedClassesInspector(
-            inspector -> {
-              inspector
-                  .applyIf(
-                      target.equals("1.8") || parameters.isDexRuntime(),
-                      i ->
-                          i.assertIsCompleteMergeGroup(
-                              "basic.DaggerMainComponentUsingProvides$Builder",
-                              "basic.ModuleUsingProvides_I1Factory",
-                              "basic.ModuleUsingProvides_I2Factory",
-                              "basic.ModuleUsingProvides_I3Factory"))
-                  .applyIf(
-                      target.equals("1.8") || parameters.isDexRuntime(),
-                      i ->
-                          i.assertIsCompleteMergeGroup(
-                              "a.ModuleUsingProvides_I1Factory$InstanceHolder",
-                              "a.ModuleUsingProvides_I2Factory$InstanceHolder",
-                              "a.ModuleUsingProvides_I3Factory$InstanceHolder"))
-                  .applyIf(
-                      target.equals("1.8"),
-                      i ->
-                          i.assertIsCompleteMergeGroup(
-                              "basic.ModuleUsingProvides",
-                              "basic.DaggerMainComponentUsingProvides$1",
-                              "dagger.internal.Preconditions"),
-                      i ->
-                          i.assertIsCompleteMergeGroup(
-                              "basic.ModuleUsingProvides", "dagger.internal.Preconditions"))
-                  .assertNoOtherClassesMerged();
-            })
+            inspector ->
+                inspector
+                    .applyIf(
+                        target.equals("1.8") || parameters.isDexRuntime(),
+                        i ->
+                            i.assertIsCompleteMergeGroup(
+                                    "basic.ModuleUsingProvides_I1Factory",
+                                    "basic.ModuleUsingProvides_I2Factory",
+                                    "basic.ModuleUsingProvides_I3Factory")
+                                .assertIsCompleteMergeGroup(
+                                    "basic.ModuleUsingProvides_I1Factory$InstanceHolder",
+                                    "basic.ModuleUsingProvides_I2Factory$InstanceHolder",
+                                    "basic.ModuleUsingProvides_I3Factory$InstanceHolder"))
+                    .assertNoOtherClassesMerged())
         .addVerticallyMergedClassesInspector(
-            inspector -> inspector.assertMergedIntoSubtype("basic.I1", "basic.I2", "basic.I3"))
+            inspector ->
+                inspector
+                    .assertMergedIntoSubtype("basic.I1", "basic.I2", "basic.I3", "basic.MainBase")
+                    .applyIf(
+                        target.equals("1.8") || parameters.isDexRuntime(),
+                        i -> i.assertMergedIntoSubtype("basic.MainComponentUsingProvides"),
+                        i -> i.assertMergedIntoSubtype("basic.MainComponent"))
+                    .assertNoOtherClassesMerged())
         .run(parameters.getRuntime(), MAIN_CLASS)
         .inspect(this::inspect)
         .assertSuccessWithOutputLines(EXPECTED_OUTPUT);

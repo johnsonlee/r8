@@ -8,7 +8,10 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.KeepConstantArguments;
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NeverPropagateValue;
 import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -44,6 +47,9 @@ public class EquivalentConstructorsWithClassIdAndDifferentArgumentOrderMergingTe
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableConstantArgumentAnnotations()
+        .enableInliningAnnotations()
+        .enableMemberValuePropagationAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
         .setMinApi(parameters)
@@ -52,9 +58,9 @@ public class EquivalentConstructorsWithClassIdAndDifferentArgumentOrderMergingTe
             inspector -> {
               ClassSubject aClassSubject = inspector.clazz(A.class);
               assertThat(aClassSubject, isPresent());
-              // TODO(b/189296638): Enable constructor merging by changing the constructor
+              // TODO(b/189296638): Enable constructor merging by changing the constructor.
               assertEquals(
-                  2, aClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
+                  4, aClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("C0", "D1");
@@ -71,9 +77,12 @@ public class EquivalentConstructorsWithClassIdAndDifferentArgumentOrderMergingTe
   @NeverClassInline
   static class A {
 
-    private final C c;
-    private final int i;
+    @NeverPropagateValue private final C c;
 
+    @NeverPropagateValue private final int i;
+
+    @KeepConstantArguments
+    @NeverInline
     A(int i, C c) {
       this.c = c;
       this.i = i;
@@ -88,9 +97,12 @@ public class EquivalentConstructorsWithClassIdAndDifferentArgumentOrderMergingTe
   @NeverClassInline
   static class B {
 
-    private final D d;
-    private final int i;
+    @NeverPropagateValue private final D d;
 
+    @NeverPropagateValue private final int i;
+
+    @KeepConstantArguments
+    @NeverInline
     B(D d, int i) {
       this.d = d;
       this.i = i;

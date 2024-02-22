@@ -12,9 +12,7 @@ import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
-import com.android.tools.r8.graph.FieldResolutionResult.SingleProgramFieldResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerUtils;
 import com.android.tools.r8.ir.analysis.equivalence.BasicBlockBehavioralSubsumption;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.ConstantOrNonConstantNumberValue;
@@ -27,7 +25,6 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.IfType;
-import com.android.tools.r8.ir.code.InstanceGet;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
@@ -43,7 +40,6 @@ import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.controlflow.SwitchCaseAnalyzer;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.InternalOutputMode;
 import com.android.tools.r8.utils.LongInterval;
@@ -719,10 +715,6 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       BasicBlock block,
       InstructionListIterator iterator,
       IntSwitch theSwitch) {
-    if (disableSwitchToIfRewritingForClassIdComparisons(theSwitch)) {
-      return false;
-    }
-
     if (theSwitch.numberOfKeys() == 1) {
       rewriteSingleKeySwitchToIf(code, block, iterator, theSwitch);
       return true;
@@ -817,27 +809,6 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       return true;
     }
     return false;
-  }
-
-  // TODO(b/181732463): We currently disable switch-to-if rewritings for switches on $r8$classId
-  //  field values (from horizontal class merging. See bug for more details.
-  private boolean disableSwitchToIfRewritingForClassIdComparisons(IntSwitch theSwitch) {
-    Value switchValue = theSwitch.value().getAliasedValue();
-    if (!switchValue.isDefinedByInstructionSatisfying(Instruction::isInstanceGet)) {
-      return false;
-    }
-    AppInfoWithLiveness appInfo = appView.appInfoWithLiveness();
-    if (appInfo == null) {
-      return false;
-    }
-    InstanceGet instanceGet = switchValue.getDefinition().asInstanceGet();
-    SingleProgramFieldResolutionResult resolutionResult =
-        appInfo.resolveField(instanceGet.getField()).asSingleProgramFieldResolutionResult();
-    if (resolutionResult == null) {
-      return false;
-    }
-    DexEncodedField resolvedField = resolutionResult.getResolvedField();
-    return HorizontalClassMergerUtils.isClassIdField(appView, resolvedField);
   }
 
   private SwitchCaseEliminator removeUnnecessarySwitchCases(

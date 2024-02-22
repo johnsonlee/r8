@@ -6,7 +6,6 @@ package com.android.tools.r8.horizontalclassmerging.policies;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -59,15 +58,13 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
     extends MultiClassPolicyWithPreprocessing<SubtypingInfo> {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
-  private final ClassMergerMode mode;
 
   // The interface merge groups that this policy has committed to so far.
   private final Map<DexProgramClass, HorizontalMergeGroup> committed = new IdentityHashMap<>();
 
   public OnlyDirectlyConnectedOrUnrelatedInterfaces(
-      AppView<? extends AppInfoWithClassHierarchy> appView, ClassMergerMode mode) {
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
     this.appView = appView;
-    this.mode = mode;
   }
 
   // TODO(b/270398965): Replace LinkedList.
@@ -171,7 +168,7 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
 
   @Override
   public boolean shouldSkipPolicy() {
-    return !appView.options().horizontalClassMergerOptions().isInterfaceMergingEnabled(mode);
+    return !appView.options().horizontalClassMergerOptions().isInterfaceMergingEnabled();
   }
 
   static class MergeGroupWithInfo {

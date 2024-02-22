@@ -5,12 +5,13 @@
 package com.android.tools.r8.classmerging.horizontal;
 
 import static com.android.tools.r8.naming.retrace.StackTrace.isSameExceptForLineNumbers;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static junit.framework.TestCase.assertTrue;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
@@ -97,6 +98,7 @@ public class MergedConstructorWithEquivalenceStackTraceTest extends HorizontalCl
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters)
@@ -105,7 +107,7 @@ public class MergedConstructorWithEquivalenceStackTraceTest extends HorizontalCl
         .inspectStackTrace(
             (stackTrace, codeInspector) -> {
               assertThat(codeInspector.clazz(A.class), isPresent());
-              assertThat(codeInspector.clazz(B.class), not(isPresent()));
+              assertThat(codeInspector.clazz(B.class), isAbsent());
               checkRetracedStackTrace(getUnxpectedStackTrace(), stackTrace);
             });
   }
@@ -121,11 +123,13 @@ public class MergedConstructorWithEquivalenceStackTraceTest extends HorizontalCl
 
   @NeverClassInline
   static class A extends Parent {
+    @NeverInline
     A() {}
   }
 
   @NeverClassInline
   static class B extends Parent {
+    @NeverInline
     B() {}
   }
 

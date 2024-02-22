@@ -41,8 +41,6 @@ public class UndoConstructorInliningWithSubclassesTest extends TestBase {
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
-        .addOptionsModification(
-            options -> options.horizontalClassMergerOptions().disableInitialRoundOfClassMerging())
         // When inlining of ASub.<init> and BSub.<init> is allowed, we test that we correctly deal
         // with the following code:
         //   new-instance {v0}, LASub;

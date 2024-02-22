@@ -4,28 +4,22 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.horizontalclassmerging.SingleClassPolicy;
 import com.android.tools.r8.shaking.RuntimeTypeCheckInfo;
 import com.android.tools.r8.synthesis.SyntheticItems;
-import com.android.tools.r8.utils.InternalOptions;
 
 public class NoDirectRuntimeTypeChecks extends SingleClassPolicy {
 
-  private final InternalOptions options;
   private final RuntimeTypeCheckInfo runtimeTypeCheckInfo;
   private final SyntheticItems syntheticItems;
 
-  public NoDirectRuntimeTypeChecks(AppView<?> appView, ClassMergerMode mode) {
-    this(appView, mode, null);
+  public NoDirectRuntimeTypeChecks(AppView<?> appView) {
+    this(appView, null);
   }
 
-  public NoDirectRuntimeTypeChecks(
-      AppView<?> appView, ClassMergerMode mode, RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
-    assert runtimeTypeCheckInfo != null || mode.isFinal();
-    this.options = appView.options();
+  public NoDirectRuntimeTypeChecks(AppView<?> appView, RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     this.runtimeTypeCheckInfo = runtimeTypeCheckInfo;
     this.syntheticItems = appView.getSyntheticItems();
   }
@@ -43,10 +37,5 @@ public class NoDirectRuntimeTypeChecks extends SingleClassPolicy {
   @Override
   public String getName() {
     return "NoDirectRuntimeTypeChecks";
-  }
-
-  @Override
-  public boolean shouldSkipPolicy() {
-    return options.horizontalClassMergerOptions().isIgnoreRuntimeTypeChecksForTestingEnabled();
   }
 }

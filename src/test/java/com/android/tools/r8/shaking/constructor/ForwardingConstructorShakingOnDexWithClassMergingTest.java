@@ -10,6 +10,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -45,12 +46,12 @@ public class ForwardingConstructorShakingOnDexWithClassMergingTest extends TestB
                 options.testing.horizontalClassMergingTarget =
                     (appView, candidates, target) ->
                         Iterables.find(
-                            candidates,
-                            candidate -> candidate.getTypeName().equals(B.class.getTypeName())))
+                            candidates, candidate -> candidate.getTypeName().endsWith("B")))
         .addHorizontallyMergedClassesInspector(
             inspector -> inspector.assertMergedInto(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .compile()
@@ -86,6 +87,7 @@ public class ForwardingConstructorShakingOnDexWithClassMergingTest extends TestB
     }
   }
 
+  @NeverClassInline
   @NoVerticalClassMerging
   public static class A {
 
@@ -108,6 +110,7 @@ public class ForwardingConstructorShakingOnDexWithClassMergingTest extends TestB
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public String getMessageFromA() {
       return msg;
     }
@@ -124,6 +127,7 @@ public class ForwardingConstructorShakingOnDexWithClassMergingTest extends TestB
     }
   }
 
+  @NeverClassInline
   public static class B {
 
     private final String msg;
@@ -133,6 +137,7 @@ public class ForwardingConstructorShakingOnDexWithClassMergingTest extends TestB
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public String getMessageFromB() {
       return msg;
     }

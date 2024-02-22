@@ -6,6 +6,7 @@ package com.android.tools.r8.classmerging.vertical;
 
 import com.android.tools.r8.KeepUnusedArguments;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NeverPropagateValue;
 import com.android.tools.r8.NoParameterTypeStrengthening;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -35,12 +36,13 @@ public class ConflictWasDetectedTest extends TestBase {
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector
-                    .assertClassesMerged(
+                    .assertIsCompleteMergeGroup(
                         ClassWithConflictingMethod.class, OtherClassWithConflictingMethod.class)
                     .assertNoOtherClassesMerged())
         .addVerticallyMergedClassesInspector(
             inspector -> inspector.assertMergedIntoSubtype(ConflictingInterface.class))
         .enableInliningAnnotations()
+        .enableMemberValuePropagationAnnotations()
         .enableNoParameterTypeStrengtheningAnnotations()
         .enableUnusedArgumentAnnotations()
         .setMinApi(parameters)
@@ -90,6 +92,8 @@ public class ConflictWasDetectedTest extends TestBase {
   public static class ClassWithConflictingMethod {
 
     @KeepUnusedArguments
+    @NeverInline
+    @NeverPropagateValue
     public static int conflict(ConflictingInterface item) {
       return 123;
     }
@@ -98,6 +102,8 @@ public class ConflictWasDetectedTest extends TestBase {
   public static class OtherClassWithConflictingMethod {
 
     @KeepUnusedArguments
+    @NeverInline
+    @NeverPropagateValue
     public static int conflict(ConflictingInterfaceImpl item) {
       return 321;
     }

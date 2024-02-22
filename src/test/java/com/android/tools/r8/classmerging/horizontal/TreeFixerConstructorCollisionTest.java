@@ -8,48 +8,35 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.android.tools.r8.KeepConstantArguments;
+import com.android.tools.r8.KeepUnusedArguments;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.references.ClassReference;
-import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
-import com.android.tools.r8.utils.Box;
 import org.junit.Test;
 
 public class TreeFixerConstructorCollisionTest extends HorizontalClassMergingTestBase {
+
   public TreeFixerConstructorCollisionTest(TestParameters parameters) {
     super(parameters);
   }
 
   @Test
   public void testR8() throws Exception {
-    Box<ClassReference> aClassReferenceAfterRepackaging = new Box<>();
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addHorizontallyMergedClassesInspector(
-            inspector -> {
-              ClassReference aClassReference = aClassReferenceAfterRepackaging.get();
-              inspector
-                  .assertIsCompleteMergeGroup(A.class, B.class)
-                  .assertIsCompleteMergeGroup(
-                      SyntheticItemsTestUtils.syntheticInitializerArgumentType(aClassReference, 0),
-                      SyntheticItemsTestUtils.syntheticInitializerArgumentType(aClassReference, 1),
-                      SyntheticItemsTestUtils.syntheticInitializerArgumentType(aClassReference, 2),
-                      SyntheticItemsTestUtils.syntheticInitializerArgumentType(aClassReference, 3))
-                  .assertNoOtherClassesMerged();
-            })
-        .addOptionsModification(
-            options -> options.inlinerOptions().setEnableConstructorInlining(false))
-        .addRepackagingInspector(
             inspector ->
-                aClassReferenceAfterRepackaging.set(
-                    inspector.getTarget(Reference.classFromClass(A.class))))
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableConstantArgumentAnnotations()
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
+        .enableNoMethodStaticizingAnnotations()
+        .enableUnusedArgumentAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines(
@@ -69,15 +56,20 @@ public class TreeFixerConstructorCollisionTest extends HorizontalClassMergingTes
 
   @NeverClassInline
   public static class A {
+
+    @NeverInline
     public A() {
       System.out.println("constructor a");
     }
 
+    @KeepUnusedArguments
+    @NeverInline
     public A(A a) {
       System.out.println("constructor 2 a");
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public String foo(String v) {
       return "foo a: " + v;
     }
@@ -85,15 +77,20 @@ public class TreeFixerConstructorCollisionTest extends HorizontalClassMergingTes
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B() {
       System.out.println("constructor b");
     }
 
+    @KeepUnusedArguments
+    @NeverInline
     public B(B b) {
       System.out.println("constructor 2 b");
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public String foo(String v) {
       return "foo b: " + v;
     }
@@ -102,10 +99,15 @@ public class TreeFixerConstructorCollisionTest extends HorizontalClassMergingTes
   @NeverClassInline
   @NoHorizontalClassMerging
   public static class C {
+
+    @KeepConstantArguments
+    @NeverInline
     public C(A a, String v) {
       System.out.println("constructor c a: " + a.foo(v));
     }
 
+    @KeepConstantArguments
+    @NeverInline
     public C(B b, String v) {
       System.out.println("constructor c b: " + b.foo(v));
     }

@@ -7,7 +7,6 @@ package com.android.tools.r8.horizontalclassmerging.code;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -39,7 +38,7 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
 
   private final DexMethod newConstructor;
   private final DexField classIdField;
-  private final int extraNulls;
+  private int extraNulls;
   private final Int2ReferenceSortedMap<DexMethod> typeConstructors;
 
   public ConstructorEntryPointSynthesizedCode(
@@ -51,6 +50,11 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
     this.newConstructor = newConstructor;
     this.classIdField = classIdField;
     this.extraNulls = extraNulls;
+  }
+
+  @Override
+  public void addExtraUnusedArguments(int numberOfUnusedArguments) {
+    this.extraNulls += numberOfUnusedArguments;
   }
 
   private void registerReachableDefinitions(UseRegistry<?> registry) {
@@ -79,17 +83,6 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
   @Override
   public boolean isHorizontalClassMergerCode() {
     return true;
-  }
-
-  @Override
-  public CfCode toCfCode(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      ProgramMethod method,
-      HorizontalClassMergerGraphLens lens) {
-    for (Int2ReferenceMap.Entry<DexMethod> entry : typeConstructors.int2ReferenceEntrySet()) {
-      entry.setValue(lens.getNextMethodSignature(entry.getValue()));
-    }
-    return null;
   }
 
   @Override

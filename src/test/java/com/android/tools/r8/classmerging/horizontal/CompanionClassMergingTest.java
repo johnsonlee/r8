@@ -9,6 +9,8 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
 
@@ -22,11 +24,15 @@ public class CompanionClassMergingTest extends HorizontalClassMergingTestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
-        .addOptionsModification(options -> options.enableClassInlining = false)
-        .enableNeverClassInliningAnnotations()
-        .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertMergedInto(B.Companion.class, A.Companion.class))
+            inspector ->
+                inspector
+                    .assertIsCompleteMergeGroup(B.Companion.class, A.Companion.class)
+                    .assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
+        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("foo a 0", "foo b 1")
         .inspect(
@@ -52,6 +58,7 @@ public class CompanionClassMergingTest extends HorizontalClassMergingTestBase {
       return foo;
     }
 
+    @NeverClassInline
     public static class Companion {
       public Companion() {}
 
@@ -59,6 +66,8 @@ public class CompanionClassMergingTest extends HorizontalClassMergingTestBase {
         this();
       }
 
+      @NeverInline
+      @NoMethodStaticizing
       public String getFoo() {
         return access$getFoo$cp();
       }
@@ -78,6 +87,7 @@ public class CompanionClassMergingTest extends HorizontalClassMergingTestBase {
       return foo;
     }
 
+    @NeverClassInline
     public static class Companion {
       public Companion() {}
 
@@ -85,6 +95,8 @@ public class CompanionClassMergingTest extends HorizontalClassMergingTestBase {
         this();
       }
 
+      @NeverInline
+      @NoMethodStaticizing
       public String getFoo() {
         return access$getFoo$cp();
       }

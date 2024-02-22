@@ -4,7 +4,9 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
@@ -19,14 +21,16 @@ public class InheritOverrideInterfaceTest extends HorizontalClassMergingTestBase
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
-        .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertMergedInto(B.class, A.class))
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("A", "B", "A")
-        .inspect(codeInspector -> {});
+        .assertSuccessWithOutputLines("A", "B", "A");
   }
 
   @NoVerticalClassMerging
@@ -37,16 +41,20 @@ public class InheritOverrideInterfaceTest extends HorizontalClassMergingTestBase
     }
   }
 
+  @NeverClassInline
   public static class A implements I {
     @NeverInline
+    @NoMethodStaticizing
     @Override
     public void m() {
       System.out.println("A");
     }
   }
 
+  @NeverClassInline
   public static class B implements I {
     @NeverInline
+    @NoMethodStaticizing
     @Override
     public void m() {
       System.out.println("B");
@@ -60,6 +68,7 @@ public class InheritOverrideInterfaceTest extends HorizontalClassMergingTestBase
     }
   }
 
+  @NeverClassInline
   public static class C extends A implements J {}
 
   public static class Main {

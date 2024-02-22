@@ -5,6 +5,7 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import static com.android.tools.r8.TestBase.toDexType;
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.graph.DexItemFactory;
@@ -14,6 +15,7 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.verticalclassmerging.VerticallyMergedClasses;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class VerticallyMergedClassesInspector {
 
@@ -26,6 +28,23 @@ public class VerticallyMergedClassesInspector {
       DexItemFactory dexItemFactory, VerticallyMergedClasses verticallyMergedClasses) {
     this.dexItemFactory = dexItemFactory;
     this.verticallyMergedClasses = verticallyMergedClasses;
+  }
+
+  public VerticallyMergedClassesInspector applyIf(
+      boolean condition, Consumer<VerticallyMergedClassesInspector> thenConsumer) {
+    return applyIf(condition, thenConsumer, emptyConsumer());
+  }
+
+  public VerticallyMergedClassesInspector applyIf(
+      boolean condition,
+      Consumer<VerticallyMergedClassesInspector> thenConsumer,
+      Consumer<VerticallyMergedClassesInspector> elseConsumer) {
+    if (condition) {
+      thenConsumer.accept(this);
+    } else {
+      elseConsumer.accept(this);
+    }
+    return this;
   }
 
   public VerticallyMergedClassesInspector assertMergedIntoSubtype(Class<?> clazz) {

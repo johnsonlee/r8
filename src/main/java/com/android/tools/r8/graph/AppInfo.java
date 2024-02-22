@@ -295,7 +295,7 @@ public class AppInfo implements DexDefinitionSupplier {
         : FieldResolutionResult.unknown();
   }
 
-  public void notifyHorizontalClassMergerFinished(ClassMergerMode horizontalClassMergerMode) {
+  public void notifyVerticalClassMergerFinished(ClassMergerMode mode) {
     // Intentionally empty.
   }
 }

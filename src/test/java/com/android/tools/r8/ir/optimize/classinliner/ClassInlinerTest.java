@@ -39,6 +39,7 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
+import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import com.google.common.collect.Sets;
 import java.util.Collections;
 import java.util.List;
@@ -47,19 +48,18 @@ import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class ClassInlinerTest extends ClassInlinerTestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public ClassInlinerTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -90,12 +90,7 @@ public class ClassInlinerTest extends ClassInlinerTestBase {
             .addKeepMainRule(main)
             .addKeepAttributes("LineNumberTable")
             .addHorizontallyMergedClassesInspector(
-                inspector ->
-                    inspector
-                        .assertIsCompleteMergeGroup(
-                            Iface1Impl.class, Iface2Impl.class, CycleReferenceBA.class)
-                        .assertMergedInto(CycleReferenceBA.class, Iface1Impl.class)
-                        .assertMergedInto(Iface2Impl.class, Iface1Impl.class))
+                HorizontallyMergedClassesInspector::assertNoClassesMerged)
             .allowAccessModification()
             .addDontObfuscate()
             .setMinApi(parameters)

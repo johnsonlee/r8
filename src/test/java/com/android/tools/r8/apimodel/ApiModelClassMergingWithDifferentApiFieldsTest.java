@@ -44,7 +44,7 @@ public class ApiModelClassMergingWithDifferentApiFieldsTest extends TestBase {
         .enableInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertClassesMerged(A.class, B.class))
+            inspector -> inspector.assertIsCompleteMergeGroup(A.class, B.class))
         .apply(ApiModelingTestHelper::enableApiCallerIdentification)
         .apply(ApiModelingTestHelper::disableCheckAllApiReferencesAreNotUnknown)
         .apply(setMockApiLevelForClass(Api.class, AndroidApiLevel.L_MR1))

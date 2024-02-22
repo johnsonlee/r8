@@ -4,14 +4,17 @@
 
 package com.android.tools.r8.classmerging.horizontal.testclasses;
 
+import com.android.tools.r8.NeverPropagateValue;
+import com.android.tools.r8.NoAccessModification;
 import com.android.tools.r8.NoVerticalClassMerging;
 
 public class NonReboundFieldAccessOnMergedClassTestClasses {
 
+  @NoAccessModification
   @NoVerticalClassMerging
   static class A {
 
-    public String greeting;
+    @NeverPropagateValue public String greeting;
 
     A(String greeting) {
       this.greeting = greeting;

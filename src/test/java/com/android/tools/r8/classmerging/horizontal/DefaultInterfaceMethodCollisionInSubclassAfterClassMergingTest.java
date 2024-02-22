@@ -6,6 +6,7 @@ package com.android.tools.r8.classmerging.horizontal;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.NoUnusedInterfaceRemoval;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
@@ -40,6 +41,7 @@ public class DefaultInterfaceMethodCollisionInSubclassAfterClassMergingTest exte
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .enableNoUnusedInterfaceRemovalAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
@@ -86,6 +88,7 @@ public class DefaultInterfaceMethodCollisionInSubclassAfterClassMergingTest exte
   interface I {
 
     @NeverInline
+    @NoMethodStaticizing
     default void m() {
       System.out.println("I");
     }
@@ -97,6 +100,7 @@ public class DefaultInterfaceMethodCollisionInSubclassAfterClassMergingTest exte
   interface J {
 
     @NeverInline
+    @NoMethodStaticizing
     default void m() {
       System.out.println("J");
     }

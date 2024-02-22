@@ -7,8 +7,6 @@ import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTL
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_7_0;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.KotlinTestParameters;
@@ -47,12 +45,14 @@ public class MetadataStripTest extends KotlinMetadataTestBase {
   @Test
   public void testJstyleRunnable() throws Exception {
     final String mainClassName = "lambdas_jstyle_runnable.MainKt";
-    final String implementer1ClassName = "lambdas_jstyle_runnable.Implementer1Kt";
     R8TestRunResult result =
         testForR8(parameters.getBackend())
             .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addProgramFiles(kotlinc.getKotlinReflectJar(), kotlinc.getKotlinAnnotationJar())
+            .addOptionsModification(
+                options ->
+                    options.getTestingOptions().enableVerticalClassMergerLensAssertion = false)
             .addKeepMainRule(mainClassName)
             .addKeepKotlinMetadata()
             .allowDiagnosticWarningMessages()

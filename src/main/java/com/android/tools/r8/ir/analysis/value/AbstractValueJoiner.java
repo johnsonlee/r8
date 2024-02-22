@@ -10,7 +10,6 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerUtils;
 import com.android.tools.r8.ir.analysis.type.PrimitiveTypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 
@@ -167,18 +166,11 @@ public abstract class AbstractValueJoiner {
 
     public AbstractValue join(
         AbstractValue abstractValue, AbstractValue otherAbstractValue, ProgramField field) {
-      AbstractValueJoinerConfig config = getConfig(field);
+      AbstractValueJoinerConfig config = AbstractValueJoinerConfig.getDefaultConfig();
       TypeElement type = field.getType().toTypeElement(appView);
       AbstractValue result = internalJoin(abstractValue, otherAbstractValue, config, type);
       assert result.equals(internalJoin(otherAbstractValue, abstractValue, config, type));
       return result;
-    }
-
-    private AbstractValueJoinerConfig getConfig(ProgramField field) {
-      if (HorizontalClassMergerUtils.isClassIdField(appView, field)) {
-        return AbstractValueJoinerConfig.getClassIdFieldConfig();
-      }
-      return AbstractValueJoinerConfig.getDefaultConfig();
     }
   }
 
@@ -202,23 +194,14 @@ public abstract class AbstractValueJoiner {
 
   private static class AbstractValueJoinerConfig {
 
-    // The power set lattice is an expensive abstraction, so use it with caution.
-    private static final AbstractValueJoinerConfig CLASS_ID_FIELD_CONFIG =
-        new AbstractValueJoinerConfig().setCanUseNumberIntervalAndNumberSetAbstraction();
-
     private static final AbstractValueJoinerConfig DEFAULT_CONFIG =
         new AbstractValueJoinerConfig().setCanUseDefiniteBitsAbstraction();
-
-    public static AbstractValueJoinerConfig getClassIdFieldConfig() {
-      return CLASS_ID_FIELD_CONFIG;
-    }
 
     public static AbstractValueJoinerConfig getDefaultConfig() {
       return DEFAULT_CONFIG;
     }
 
     private boolean canUseDefiniteBitsAbstraction;
-    private boolean canUseNumberIntervalAndNumberSetAbstraction;
 
     boolean canUseDefiniteBitsAbstraction() {
       return canUseDefiniteBitsAbstraction;
@@ -231,12 +214,7 @@ public abstract class AbstractValueJoiner {
     }
 
     boolean canUseNumberIntervalAndNumberSetAbstraction() {
-      return canUseNumberIntervalAndNumberSetAbstraction;
-    }
-
-    AbstractValueJoinerConfig setCanUseNumberIntervalAndNumberSetAbstraction() {
-      canUseNumberIntervalAndNumberSetAbstraction = true;
-      return this;
+      return false;
     }
   }
 }

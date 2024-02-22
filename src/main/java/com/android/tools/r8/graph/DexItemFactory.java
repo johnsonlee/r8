@@ -35,7 +35,6 @@ import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.synthesis.SyntheticNaming;
 import com.android.tools.r8.utils.ArrayUtils;
-import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.LRUCacheTable;
 import com.android.tools.r8.utils.ListUtils;
@@ -49,6 +48,7 @@ import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -2910,10 +2910,11 @@ public class DexItemFactory {
       return resultWithNoExtraTypes.get();
     }
     assert !extraTypes.isEmpty();
-    Deque<FreshInstanceInitializerCandidate> worklist =
-        DequeUtils.newArrayDeque(
-            new FreshInstanceInitializerCandidate(
-                proto, extraTypes.iterator().next(), Collections.emptySet()));
+    Deque<FreshInstanceInitializerCandidate> worklist = new ArrayDeque<>(extraTypes.size());
+    for (Supplier<DexType> extraTypeSupplier : extraTypes) {
+      worklist.addLast(
+          new FreshInstanceInitializerCandidate(proto, extraTypeSupplier, Collections.emptySet()));
+    }
     int count = 0;
     while (true) {
       assert count++ < 100;

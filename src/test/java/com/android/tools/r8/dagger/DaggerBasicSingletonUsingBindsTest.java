@@ -80,9 +80,6 @@ public class DaggerBasicSingletonUsingBindsTest extends DaggerBasicTestBase {
                 "basic.MainUsingBinds",
                 "dagger.internal.DoubleCheck",
                 "javax.inject.Provider");
-    if (target.equals("1.8") || parameters.isDexRuntime()) {
-      expectedClasses.add("basic.DaggerMainComponentUsingBinds$Builder");
-    }
     assertEquals(
         expectedClasses.build(),
         inspector.allClasses().stream()
@@ -104,23 +101,23 @@ public class DaggerBasicSingletonUsingBindsTest extends DaggerBasicTestBase {
                         target.equals("1.8") || parameters.isDexRuntime(),
                         i ->
                             i.assertIsCompleteMergeGroup(
-                                    "basic.DaggerMainComponentUsingBinds$Builder",
                                     "basic.I1Impl1_Factory",
                                     "basic.I2Impl1_Factory",
                                     "basic.I3Impl1_Factory")
                                 .assertIsCompleteMergeGroup(
-                                    "a.I1Impl1_Factory$InstanceHolder",
-                                    "a.I2Impl1_Factory$InstanceHolder",
-                                    "a.I3Impl1_Factory$InstanceHolder"))
-                    .applyIf(
-                        target.equals("1.8"),
-                        i ->
-                            i.assertIsCompleteMergeGroup(
-                                "dagger.internal.Preconditions",
-                                "basic.DaggerMainComponentUsingBinds$1"))
+                                    "basic.I1Impl1_Factory$InstanceHolder",
+                                    "basic.I2Impl1_Factory$InstanceHolder",
+                                    "basic.I3Impl1_Factory$InstanceHolder"))
                     .assertNoOtherClassesMerged())
         .addVerticallyMergedClassesInspector(
-            inspector -> inspector.assertMergedIntoSubtype("basic.I1", "basic.I2", "basic.I3"))
+            inspector ->
+                inspector
+                    .assertMergedIntoSubtype("basic.I1", "basic.I2", "basic.I3", "basic.MainBase")
+                    .applyIf(
+                        target.equals("1.8") || parameters.isDexRuntime(),
+                        i -> i.assertMergedIntoSubtype("basic.MainComponentUsingBinds"),
+                        i -> i.assertMergedIntoSubtype("basic.MainComponent"))
+                    .assertNoOtherClassesMerged())
         .run(parameters.getRuntime(), MAIN_CLASS)
         .inspect(this::inspect)
         .assertSuccessWithOutputLines(EXPECTED_OUTPUT);

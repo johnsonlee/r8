@@ -6,6 +6,7 @@ package com.android.tools.r8.classmerging.horizontal;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -35,11 +36,12 @@ public class IllegalInliningOfMergedConstructorTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addEnumUnboxingInspector(inspector -> inspector.assertUnboxed(Reprocess.class))
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertMergedInto(B.class, A.class))
+            inspector -> inspector.assertMergedInto(B.class, A.class).assertNoOtherClassesMerged())
         .addOptionsModification(
             options -> options.inlinerOptions().simpleInliningInstructionLimit = 4)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
@@ -67,6 +69,7 @@ public class IllegalInliningOfMergedConstructorTest extends TestBase {
     }
 
     @NeverInline
+    @NoMethodStaticizing
     void foo() {
       System.out.println("rld!");
     }
@@ -78,6 +81,7 @@ public class IllegalInliningOfMergedConstructorTest extends TestBase {
     public B() {}
 
     @NeverInline
+    @NoMethodStaticizing
     void foo() {
       System.out.print("Hello w");
     }

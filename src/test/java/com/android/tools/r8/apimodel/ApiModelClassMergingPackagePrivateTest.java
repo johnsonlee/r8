@@ -131,7 +131,7 @@ public class ApiModelClassMergingPackagePrivateTest extends TestBase {
     if (isGreaterOrEqualToMockLevel()) {
       inspector.assertNoClassesMerged();
     } else {
-      inspector.assertClassReferencesMerged(
+      inspector.assertIsCompleteMergeGroup(
           SyntheticItemsTestUtils.syntheticApiOutlineClass(Reference.classFromClass(Main.class), 0),
           SyntheticItemsTestUtils.syntheticApiOutlineClass(
               Reference.classFromDescriptor(newCallerDescriptor), 0));

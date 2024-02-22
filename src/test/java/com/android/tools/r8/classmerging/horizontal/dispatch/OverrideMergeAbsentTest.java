@@ -10,6 +10,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.NoParameterTypeStrengthening;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
@@ -17,6 +18,7 @@ import com.android.tools.r8.classmerging.horizontal.HorizontalClassMergingTestBa
 import org.junit.Test;
 
 public class OverrideMergeAbsentTest extends HorizontalClassMergingTestBase {
+
   public OverrideMergeAbsentTest(TestParameters parameters) {
     super(parameters);
   }
@@ -28,8 +30,10 @@ public class OverrideMergeAbsentTest extends HorizontalClassMergingTestBase {
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .enableNoParameterTypeStrengtheningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
+        .noInliningOfSynthetics()
         .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
             inspector -> {
@@ -55,6 +59,8 @@ public class OverrideMergeAbsentTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class A {
+
+    @NeverInline
     public A() {
       System.out.println("A");
     }
@@ -62,7 +68,9 @@ public class OverrideMergeAbsentTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class B {
+
     @NeverInline
+    @NoMethodStaticizing
     public void m() {
       System.out.println("B");
     }
@@ -70,7 +78,9 @@ public class OverrideMergeAbsentTest extends HorizontalClassMergingTestBase {
 
   @NoVerticalClassMerging
   interface J {
+
     @NeverInline
+    @NoMethodStaticizing
     default void m() {
       System.out.println("J");
     }

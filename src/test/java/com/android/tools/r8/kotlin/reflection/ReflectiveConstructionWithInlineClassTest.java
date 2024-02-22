@@ -110,12 +110,14 @@ public class ReflectiveConstructionWithInlineClassTest extends KotlinTestBase {
         .allowDiagnosticMessages()
         .allowUnusedDontWarnKotlinReflectJvmInternal()
         .allowUnusedDontWarnJavaLangClassValue()
-        .apply(configureForLibraryWithEmbeddedProguardRules());
+        .apply(configureForLibraryWithEmbeddedProguardRules())
+        .addOptionsModification(
+            options -> options.getTestingOptions().enableVerticalClassMergerLensAssertion = false);
   }
 
   @Test
   public void testR8KeepDataClass() throws Exception {
-    configureR8(testForR8(parameters.getBackend()))
+    configureR8(testForR8(parameters.getBackend()).addDontObfuscate())
         .compile()
         .assertNoErrorMessages()
         .apply(KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)

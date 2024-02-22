@@ -15,6 +15,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
@@ -42,19 +43,12 @@ public class InvokeVirtualToInterfaceVerifyErrorWorkaroundTest extends TestBase 
         .addProgramClasses(A.class)
         .addProgramClassFileData(getProgramClassFileData())
         .addKeepClassAndMembersRules(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            HorizontallyMergedClassesInspector::assertNoClassesMerged)
         // CameraDevice is not present in rt.jar or android.jar when API<L.
         .applyIf(
             parameters.isCfRuntime() || parameters.getApiLevel().isLessThan(AndroidApiLevel.L),
             testBuilder -> testBuilder.addDontWarn("android.hardware.camera2.CameraDevice"))
-        // CameraDeviceUser can only be merged with A when min API>=L.
-        .addHorizontallyMergedClassesInspector(
-            inspector ->
-                inspector
-                    .applyIf(
-                        parameters.isDexRuntime()
-                            && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L),
-                        i -> i.assertIsCompleteMergeGroup(A.class, CameraDeviceUser.class))
-                    .assertNoOtherClassesMerged())
         .setMinApi(parameters)
         .compile()
         // CameraDeviceUser.m() can only be inlined when min API>=L.

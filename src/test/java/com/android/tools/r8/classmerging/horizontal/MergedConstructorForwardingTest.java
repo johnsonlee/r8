@@ -12,6 +12,7 @@ import static org.hamcrest.core.IsNot.not;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.FieldSubject;
@@ -33,6 +34,7 @@ public class MergedConstructorForwardingTest extends HorizontalClassMergingTestB
             inspector -> inspector.assertIsCompleteMergeGroup(A.class, B.class))
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("42", "13", "21", "39", "print a", "print b")
@@ -61,15 +63,19 @@ public class MergedConstructorForwardingTest extends HorizontalClassMergingTestB
 
   @NeverClassInline
   public static class A {
+
+    @NeverInline
     public A() {
       this(42);
     }
 
+    @NeverInline
     public A(long x) {
       System.out.println(x);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void print() {
       System.out.println("print a");
     }
@@ -77,15 +83,19 @@ public class MergedConstructorForwardingTest extends HorizontalClassMergingTestB
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B() {
       this(7);
     }
 
+    @NeverInline
     public B(long y) {
       System.out.println(y * 3);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void print() {
       System.out.println("print b");
     }

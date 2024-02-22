@@ -5,8 +5,8 @@
 package com.android.tools.r8.ir.optimize.inliner.sync;
 
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.containsConstString;
-import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -45,7 +45,9 @@ public class InlineWithMonitorInConstructorInline extends TestBase {
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector
-                    .assertIsCompleteMergeGroup(Foo.class, Bar.class)
+                    .applyIf(
+                        parameters.canInitNewInstanceUsingSuperclassConstructor(),
+                        i -> i.assertIsCompleteMergeGroup(Foo.class, Bar.class))
                     .assertNoOtherClassesMerged())
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
@@ -59,8 +61,12 @@ public class InlineWithMonitorInConstructorInline extends TestBase {
     ClassSubject classSubject = inspector.clazz(TestClass.class);
     assertThat(classSubject, isPresent());
 
-    ClassSubject fooClassSubject = inspector.clazz(Bar.class);
-    assertThat(fooClassSubject, isPresent());
+    ClassSubject fooClassSubject = inspector.clazz(Foo.class);
+    assertThat(
+        fooClassSubject, isAbsentIf(parameters.canInitNewInstanceUsingSuperclassConstructor()));
+
+    ClassSubject barClassSubject = inspector.clazz(Bar.class);
+    assertThat(barClassSubject, isPresent());
 
     ClassSubject utilClassSubject = inspector.clazz(Util.class);
     assertThat(utilClassSubject, isAbsent());
@@ -68,30 +74,26 @@ public class InlineWithMonitorInConstructorInline extends TestBase {
     // Verify that the two monitor instructions are not inlined into the same method.
     if (parameters.isCfRuntime()
         || parameters.getApiLevel().isLessThanOrEqualTo(AndroidApiLevel.M)) {
-      // Find the synthetic constructor with an added `int classId` parameter. Verify that only
-      // Foo.<init> has been inlined this constructor.
-      MethodSubject syntheticInit = fooClassSubject.init("int");
-      assertThat(syntheticInit, isPresent());
-      assertThat(syntheticInit, containsConstString("foo"));
-      assertThat(syntheticInit, not(containsConstString("bar")));
-      assertEquals(1, numberOfMonitorEnterInstructions(syntheticInit));
+      // Find the constructor corresponding to Foo.<init>.
+      MethodSubject fooInit =
+          parameters.canInitNewInstanceUsingSuperclassConstructor()
+              ? classSubject.mainMethod()
+              : fooClassSubject.init();
+      assertThat(fooInit, isPresent());
+      assertThat(fooInit, containsConstString("foo"));
+      assertThat(fooInit, not(containsConstString("bar")));
+      assertEquals(1, numberOfMonitorEnterInstructions(fooInit));
 
-      // Find the non-synthetic constructor corresponding to Bar.<init>.
-      MethodSubject barInit = fooClassSubject.init();
+      // Find the constructor corresponding to Bar.<init>.
+      MethodSubject barInit = barClassSubject.init();
       assertThat(barInit, isPresent());
       assertThat(barInit, containsConstString("bar"));
       assertThat(barInit, not(containsConstString("foo")));
       assertEquals(1, numberOfMonitorEnterInstructions(barInit));
-
-      // Finally verify that the synthetic constructor calls the non-synthetic constructor, due to
-      // inlining being prohibited.
-      assertThat(syntheticInit, invokesMethod(barInit));
     } else {
-      MethodSubject syntheticInit = fooClassSubject.uniqueInstanceInitializer();
-      assertThat(syntheticInit, isPresent());
-      assertThat(syntheticInit, containsConstString("bar"));
-      assertThat(syntheticInit, containsConstString("foo"));
-      assertEquals(2, numberOfMonitorEnterInstructions(syntheticInit));
+      MethodSubject syntheticInit = barClassSubject.uniqueInstanceInitializer();
+      assertThat(syntheticInit, isAbsent());
+      assertEquals(2, numberOfMonitorEnterInstructions(classSubject.mainMethod()));
     }
   }
 

@@ -7,7 +7,6 @@ package com.android.tools.r8.horizontalclassmerging;
 import static com.google.common.base.Predicates.not;
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -60,7 +59,6 @@ public class ClassMerger {
   private static final OptimizationFeedback feedback = OptimizationFeedbackSimple.getInstance();
 
   private final AppView<?> appView;
-  private final ClassMergerMode mode;
   private final HorizontalMergeGroup group;
   private final DexItemFactory dexItemFactory;
   private final HorizontalClassMergerGraphLens.Builder lensBuilder;
@@ -80,7 +78,6 @@ public class ClassMerger {
   private ClassMerger(
       AppView<?> appView,
       IRCodeProvider codeProvider,
-      ClassMergerMode mode,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       HorizontalMergeGroup group,
       Collection<VirtualMethodMerger> virtualMethodMergers) {
@@ -88,7 +85,6 @@ public class ClassMerger {
     this.dexItemFactory = appView.dexItemFactory();
     this.group = group;
     this.lensBuilder = lensBuilder;
-    this.mode = mode;
 
     // Field mergers.
     this.classStaticFieldsMerger = new ClassStaticFieldsMerger(appView, lensBuilder, group);
@@ -98,7 +94,7 @@ public class ClassMerger {
     this.classInitializerMerger = ClassInitializerMerger.create(group);
     this.instanceInitializerMergers =
         InstanceInitializerMergerCollection.create(
-            appView, classIdentifiers, codeProvider, group, lensBuilder, mode);
+            appView, classIdentifiers, codeProvider, group, lensBuilder);
     this.virtualMethodMergers = virtualMethodMergers;
 
     buildClassIdentifierMap();
@@ -158,11 +154,9 @@ public class ClassMerger {
     classMethodsBuilder.addDirectMethod(definition);
 
     // Convert the synthetic code object to LIR before exiting class merging.
-    if (mode.isFinal()) {
-      assert definition.getCode() instanceof IRProvider;
-      syntheticInitializerConverterBuilder.addClassInitializer(
-          new ProgramMethod(group.getTarget(), definition));
-    }
+    assert definition.getCode() instanceof IRProvider;
+    syntheticInitializerConverterBuilder.addClassInitializer(
+        new ProgramMethod(group.getTarget(), definition));
   }
 
   @SuppressWarnings("ReferenceEquality")
@@ -375,20 +369,14 @@ public class ClassMerger {
 
     private final AppView<?> appView;
     private final IRCodeProvider codeProvider;
-    private final ClassMergerMode mode;
     private final HorizontalMergeGroup group;
 
     private List<VirtualMethodMerger> virtualMethodMergers;
 
-    public Builder(
-        AppView<?> appView,
-        IRCodeProvider codeProvider,
-        HorizontalMergeGroup group,
-        ClassMergerMode mode) {
+    public Builder(AppView<?> appView, IRCodeProvider codeProvider, HorizontalMergeGroup group) {
       this.appView = appView;
       this.codeProvider = codeProvider;
       this.group = group;
-      this.mode = mode;
     }
 
     public Builder initializeVirtualMethodMergers() {
@@ -479,7 +467,7 @@ public class ClassMerger {
 
     public ClassMerger build(
         HorizontalClassMergerGraphLens.Builder lensBuilder) {
-      return new ClassMerger(appView, codeProvider, mode, lensBuilder, group, virtualMethodMergers);
+      return new ClassMerger(appView, codeProvider, lensBuilder, group, virtualMethodMergers);
     }
   }
 }

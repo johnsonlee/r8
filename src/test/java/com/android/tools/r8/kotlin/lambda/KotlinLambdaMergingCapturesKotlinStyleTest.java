@@ -101,7 +101,7 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
             lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$10"),
             lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$11"));
     inspector
-        .assertClassReferencesMerged(
+        .assertIsCompleteMergeGroup(
             lambdasInInput.getKStyleLambdas().stream()
                 .filter(not(unmergedLambdas::contains))
                 .collect(Collectors.toList()))

@@ -4,7 +4,10 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -38,6 +41,9 @@ public class NonTrivialClassInitializationAfterMergingTest extends TestBase {
                         !parameters.canUseDefaultAndStaticInterfaceMethods(),
                         i -> i.assertIsCompleteMergeGroup(A.class, B.class))
                     .assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
         .setMinApi(parameters)
         .compile()
@@ -61,13 +67,31 @@ public class NonTrivialClassInitializationAfterMergingTest extends TestBase {
 
     Greeter greeter = new Greeter();
 
-    default void foo() {}
+    @NeverInline
+    @NoMethodStaticizing
+    default void foo() {
+      System.out.print("");
+    }
   }
 
-  static class A {}
+  @NeverClassInline
+  static class A {
+
+    @NeverInline
+    A() {
+      System.out.print("");
+    }
+  }
 
   // Prints " world!" when initialized due to implementing I.
-  static class B implements I {}
+  @NeverClassInline
+  static class B implements I {
+
+    @NeverInline
+    B() {
+      System.out.print("");
+    }
+  }
 
   @NoHorizontalClassMerging
   static class Greeter {

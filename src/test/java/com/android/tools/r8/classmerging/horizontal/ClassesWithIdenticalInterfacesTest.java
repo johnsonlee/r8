@@ -10,6 +10,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.NoParameterTypeStrengthening;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
@@ -26,11 +27,15 @@ public class ClassesWithIdenticalInterfacesTest extends HorizontalClassMergingTe
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .enableNoParameterTypeStrengtheningAnnotations()
         .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
             inspector ->
-                inspector.assertMergedInto(Y.class, X.class).assertMergedInto(Z.class, X.class))
+                inspector
+                    .assertMergedInto(Y.class, X.class)
+                    .assertMergedInto(Z.class, X.class)
+                    .assertNoOtherClassesMerged())
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("bar", "foo y", "foo z")
         .inspect(
@@ -49,6 +54,7 @@ public class ClassesWithIdenticalInterfacesTest extends HorizontalClassMergingTe
   @NeverClassInline
   public static class X {
     @NeverInline
+    @NoMethodStaticizing
     public void bar() {
       System.out.println("bar");
     }
@@ -57,6 +63,7 @@ public class ClassesWithIdenticalInterfacesTest extends HorizontalClassMergingTe
   @NeverClassInline
   public static class Y implements I {
     @NeverInline
+    @NoMethodStaticizing
     @Override
     public void foo() {
       System.out.println("foo y");
@@ -66,6 +73,7 @@ public class ClassesWithIdenticalInterfacesTest extends HorizontalClassMergingTe
   @NeverClassInline
   public static class Z implements I {
     @NeverInline
+    @NoMethodStaticizing
     @Override
     public void foo() {
       System.out.println("foo z");

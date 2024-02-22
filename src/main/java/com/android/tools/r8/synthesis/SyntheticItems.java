@@ -8,7 +8,6 @@ import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.SyntheticInfoConsumer;
 import com.android.tools.r8.SyntheticInfoConsumerData;
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.contexts.CompilationContext.UniqueContext;
 import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
@@ -401,29 +400,6 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   public boolean isSynthetic(DexType type) {
     return committed.containsType(type) || pending.definitions.containsKey(type);
-  }
-
-  public boolean isEligibleForClassMerging(DexProgramClass clazz, ClassMergerMode mode) {
-    assert isSyntheticClass(clazz);
-    return mode.isFinal() || isSyntheticLambda(clazz);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private boolean isSyntheticLambda(DexProgramClass clazz) {
-    if (!isSynthetic(clazz)) {
-      return false;
-    }
-    Iterable<SyntheticReference<?, ?, ?>> references = committed.getItems(clazz.getType());
-    if (!Iterables.isEmpty(references)) {
-      assert Iterables.size(references) == 1;
-      return references.iterator().next().getKind() == naming.LAMBDA;
-    }
-    SyntheticDefinition<?, ?, ?> definition = pending.definitions.get(clazz.getType());
-    if (definition != null) {
-      return definition.getKind() == naming.LAMBDA;
-    }
-    assert false;
-    return false;
   }
 
   public boolean isSubjectToKeepRules(DexProgramClass clazz) {

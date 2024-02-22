@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -54,8 +55,10 @@ public class ClInitMergeSuperTypeApiLevelTest extends TestBase {
         .setMinApi(parameters)
         .addKeepClassAndMembersRules(Main.class)
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertClassesMerged(A.class, B.class))
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
         .compile()
         .inspect(
             inspector -> {
@@ -94,6 +97,7 @@ public class ClInitMergeSuperTypeApiLevelTest extends TestBase {
     abstract Object newInstance() throws Exception;
   }
 
+  @NeverClassInline
   public static class A extends Factory {
 
     public final Constructor<?> constructor;
@@ -109,6 +113,7 @@ public class ClInitMergeSuperTypeApiLevelTest extends TestBase {
     }
   }
 
+  @NeverClassInline
   public static class B extends Factory {
 
     public final Method method;

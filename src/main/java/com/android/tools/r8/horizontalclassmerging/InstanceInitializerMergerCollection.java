@@ -6,7 +6,6 @@ package com.android.tools.r8.horizontalclassmerging;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -43,8 +42,7 @@ public class InstanceInitializerMergerCollection {
       Reference2IntMap<DexType> classIdentifiers,
       IRCodeProvider codeProvider,
       HorizontalMergeGroup group,
-      HorizontalClassMergerGraphLens.Builder lensBuilder,
-      ClassMergerMode mode) {
+      HorizontalClassMergerGraphLens.Builder lensBuilder) {
     if (!appView.hasClassHierarchy()) {
       assert appView.options().horizontalClassMergerOptions().isRestrictedToSynthetics();
       assert verifyNoInstanceInitializers(group);
@@ -71,10 +69,7 @@ public class InstanceInitializerMergerCollection {
                             ignoreKey(
                                 () ->
                                     new InstanceInitializerMerger.Builder(
-                                        appViewWithClassHierarchy,
-                                        classIdentifiers,
-                                        lensBuilder,
-                                        mode)))
+                                        appViewWithClassHierarchy, classIdentifiers, lensBuilder)))
                         .addEquivalent(instanceInitializer);
                   } else {
                     buildersWithoutDescription.add(instanceInitializer);
@@ -106,7 +101,7 @@ public class InstanceInitializerMergerCollection {
                     instanceInitializer.getDefinition().getProto(),
                     ignore ->
                         new InstanceInitializerMerger.Builder(
-                            appViewWithClassHierarchy, classIdentifiers, lensBuilder, mode))
+                            appViewWithClassHierarchy, classIdentifiers, lensBuilder))
                 .add(instanceInitializer));
     for (InstanceInitializerMerger.Builder builder : buildersByProto.values()) {
       instanceInitializerMergers.addAll(builder.build(group));

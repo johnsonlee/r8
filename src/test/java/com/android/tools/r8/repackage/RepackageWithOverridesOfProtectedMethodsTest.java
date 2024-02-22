@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.repackage;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
@@ -12,9 +11,6 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoParameterTypeStrengthening;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.references.ClassReference;
-import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,8 +26,6 @@ public class RepackageWithOverridesOfProtectedMethodsTest extends RepackageTestB
 
   @Test
   public void test() throws Exception {
-    Box<ClassReference> helloGreeterAfterRepackaging = new Box<>();
-    Box<ClassReference> worldGreeterAfterRepackaging = new Box<>();
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)
@@ -39,16 +33,7 @@ public class RepackageWithOverridesOfProtectedMethodsTest extends RepackageTestB
             inspector ->
                 inspector
                     .assertIsCompleteMergeGroup(HelloGreeterBase.class, WorldGreeterBase.class)
-                    .assertIsCompleteMergeGroup(
-                        helloGreeterAfterRepackaging.get(), worldGreeterAfterRepackaging.get())
                     .assertNoOtherClassesMerged())
-        .addRepackagingInspector(
-            inspector -> {
-              helloGreeterAfterRepackaging.set(
-                  inspector.getTarget(Reference.classFromClass(HelloGreeter.class)));
-              worldGreeterAfterRepackaging.set(
-                  inspector.getTarget(Reference.classFromClass(WorldGreeter.class)));
-            })
         .apply(this::configureRepackaging)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
@@ -63,7 +48,7 @@ public class RepackageWithOverridesOfProtectedMethodsTest extends RepackageTestB
 
   private void inspect(CodeInspector inspector) {
     assertThat(HelloGreeter.class, isRepackaged(inspector));
-    assertThat(inspector.clazz(WorldGreeter.class), isAbsent());
+    assertThat(WorldGreeter.class, isRepackaged(inspector));
   }
 
   public static class TestClass {

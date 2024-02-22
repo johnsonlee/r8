@@ -11,8 +11,12 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.DataResourceConsumerForTesting;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -26,12 +30,15 @@ public class AdaptResourceFileContentsTest extends HorizontalClassMergingTestBas
 
   @Test
   public void testR8() throws Exception {
+    Box<ClassReference> aClassReferenceAfterRepackaging = new Box<>();
+    Box<ClassReference> bClassReferenceAfterRepackaging = new Box<>();
     DataResourceConsumerForTesting dataResourceConsumer = new DataResourceConsumerForTesting();
     CodeInspector codeInspector =
         testForR8(parameters.getBackend())
             .addInnerClasses(getClass())
             .addKeepMainRule(Main.class)
             .addOptionsModification(options -> options.dataResourceConsumer = dataResourceConsumer)
+            .enableInliningAnnotations()
             .enableNeverClassInliningAnnotations()
             .addDataEntryResources(
                 DataEntryResource.fromString(
@@ -39,7 +46,19 @@ public class AdaptResourceFileContentsTest extends HorizontalClassMergingTestBas
             .addKeepRules("-adaptresourcefilecontents foo.txt")
             .setMinApi(parameters)
             .addHorizontallyMergedClassesInspector(
-                inspector -> inspector.assertMergedInto(B.class, A.class))
+                inspector ->
+                    inspector
+                        .assertMergedInto(
+                            bClassReferenceAfterRepackaging.get(),
+                            aClassReferenceAfterRepackaging.get())
+                        .assertNoOtherClassesMerged())
+            .addRepackagingInspector(
+                inspector -> {
+                  aClassReferenceAfterRepackaging.set(
+                      inspector.getTarget(Reference.classFromClass(A.class)));
+                  bClassReferenceAfterRepackaging.set(
+                      inspector.getTarget(Reference.classFromClass(B.class)));
+                })
             .compile()
             .run(parameters.getRuntime(), Main.class)
             .assertSuccessWithOutputLines("a", "b")
@@ -60,6 +79,8 @@ public class AdaptResourceFileContentsTest extends HorizontalClassMergingTestBas
 
   @NeverClassInline
   public static class A {
+
+    @NeverInline
     public A() {
       System.out.println("a");
     }
@@ -67,6 +88,8 @@ public class AdaptResourceFileContentsTest extends HorizontalClassMergingTestBas
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B() {
       System.out.println("b");
     }

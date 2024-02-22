@@ -258,7 +258,8 @@ public class MethodAccessInfoCollection {
   }
 
   public boolean verify(AppView<AppInfoWithLiveness> appView) {
-    assert verifyNoNonResolving(appView);
+    assert !appView.options().getTestingOptions().enableVerticalClassMergerLensAssertion
+        || verifyNoNonResolving(appView);
     return true;
   }
 

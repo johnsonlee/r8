@@ -9,6 +9,10 @@ import com.android.tools.r8.NeverInline;
 
 @NeverClassInline
 public class NestHostB {
+  @NeverInline
+  public NestHostB() {
+    privatePrint("NestHostB");
+  }
 
   @NeverInline
   private void privatePrint(String v) {
@@ -22,6 +26,7 @@ public class NestHostB {
 
   @NeverClassInline
   public static class NestMemberA {
+    @NeverInline
     public NestMemberA() {
       NestHostB.privateStaticPrint("NestHostB$NestMemberA");
     }
@@ -29,6 +34,7 @@ public class NestHostB {
 
   @NeverClassInline
   public static class NestMemberB {
+    @NeverInline
     public NestMemberB(NestHostB host) {
       host.privatePrint("NestHostB$NestMemberB");
     }

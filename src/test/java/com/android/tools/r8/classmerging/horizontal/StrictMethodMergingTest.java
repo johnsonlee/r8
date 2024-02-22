@@ -11,6 +11,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -36,10 +37,14 @@ public class StrictMethodMergingTest extends HorizontalClassMergingTestBase {
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
             inspector ->
-                inspector.assertMergedInto(B.class, A.class).assertMergedInto(D.class, C.class))
+                inspector
+                    .assertMergedInto(B.class, A.class)
+                    .assertMergedInto(D.class, C.class)
+                    .assertNoOtherClassesMerged())
         .compile()
         .inspect(
             inspector -> {
@@ -76,6 +81,7 @@ public class StrictMethodMergingTest extends HorizontalClassMergingTestBase {
   public static class A {
 
     @NeverInline
+    @NoMethodStaticizing
     public strictfp void m() {
       System.out.println("A");
     }
@@ -85,6 +91,7 @@ public class StrictMethodMergingTest extends HorizontalClassMergingTestBase {
   public static class B {
 
     @NeverInline
+    @NoMethodStaticizing
     public strictfp void m() {
       System.out.println("B");
     }
@@ -94,6 +101,7 @@ public class StrictMethodMergingTest extends HorizontalClassMergingTestBase {
   public static class C {
 
     @NeverInline
+    @NoMethodStaticizing
     public void m() {
       System.out.println("C");
     }
@@ -103,6 +111,7 @@ public class StrictMethodMergingTest extends HorizontalClassMergingTestBase {
   public static class D {
 
     @NeverInline
+    @NoMethodStaticizing
     public void m() {
       System.out.println("D");
     }

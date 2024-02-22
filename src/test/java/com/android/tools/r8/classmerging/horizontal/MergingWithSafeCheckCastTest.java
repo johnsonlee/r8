@@ -80,6 +80,7 @@ public class MergingWithSafeCheckCastTest extends HorizontalClassMergingTestBase
 
     @NeverPropagateValue @NoAccessModification I f;
 
+    @NeverInline
     A(I f) {
       this.f = f;
     }
@@ -90,6 +91,7 @@ public class MergingWithSafeCheckCastTest extends HorizontalClassMergingTestBase
 
     @NeverPropagateValue @NoAccessModification J f;
 
+    @NeverInline
     B(J f) {
       this.f = f;
     }

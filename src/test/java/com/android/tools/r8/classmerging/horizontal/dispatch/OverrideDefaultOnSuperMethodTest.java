@@ -50,7 +50,7 @@ public class OverrideDefaultOnSuperMethodTest extends HorizontalClassMergingTest
                                     SyntheticItemsTestUtils.syntheticCompanionClass(J.class)))
                     .applyIf(
                         !parameters.canUseDefaultAndStaticInterfaceMethods(),
-                        i -> i.assertClassesMerged(A.class, B.class))
+                        i -> i.assertIsCompleteMergeGroup(A.class, B.class))
                     .assertNoOtherClassesMerged();
               }
             })

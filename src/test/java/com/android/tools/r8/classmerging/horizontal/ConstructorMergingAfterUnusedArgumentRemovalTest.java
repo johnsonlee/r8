@@ -5,6 +5,7 @@
 package com.android.tools.r8.classmerging.horizontal;
 
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
 
@@ -20,6 +21,7 @@ public class ConstructorMergingAfterUnusedArgumentRemovalTest
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
@@ -36,6 +38,7 @@ public class ConstructorMergingAfterUnusedArgumentRemovalTest
   @NeverClassInline
   public static class A {
 
+    @NeverInline
     public A(int unused, int x) {
       System.out.println("A.<init>(?, " + x + ")");
     }
@@ -44,6 +47,7 @@ public class ConstructorMergingAfterUnusedArgumentRemovalTest
   @NeverClassInline
   public static class B {
 
+    @NeverInline
     public B(int x) {
       System.out.println("B.<init>(" + x + ")");
     }
@@ -51,6 +55,8 @@ public class ConstructorMergingAfterUnusedArgumentRemovalTest
 
   @NeverClassInline
   public static class C {
+
+    @NeverInline
     public C() {
       System.out.println("C.<init>()");
     }
@@ -58,6 +64,8 @@ public class ConstructorMergingAfterUnusedArgumentRemovalTest
 
   @NeverClassInline
   public static class D {
+
+    @NeverInline
     public D() {
       System.out.println("D.<init>()");
     }

@@ -17,6 +17,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MemberSubject;
+import com.google.common.collect.Iterables;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -49,12 +50,17 @@ public class ApplyMappingMovedMethodTest extends TestBase {
   public void testR8ApplyMappingSameCompilation() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramClasses(One.class, Other.class, Main.class)
-        .setMinApi(parameters)
         .addKeepMainRule(Main.class)
-        .enableInliningAnnotations()
         .addApplyMapping(mapping)
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertClassesMerged(One.class, Other.class))
+            inspector ->
+                inspector.assertMergedInto(Other.class, One.class).assertNoOtherClassesMerged())
+        .addOptionsModification(
+            options ->
+                options.getTestingOptions().horizontalClassMergingTarget =
+                    (appView, group, target) -> Iterables.getLast(group))
+        .enableInliningAnnotations()
+        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("One::foo")
         .inspect(
@@ -81,7 +87,7 @@ public class ApplyMappingMovedMethodTest extends TestBase {
             .setMinApi(parameters)
             .addKeepMainRule(Main.class)
             .addHorizontallyMergedClassesInspector(
-                inspector -> inspector.assertClassesMerged(One.class, Other.class))
+                inspector -> inspector.assertIsCompleteMergeGroup(One.class, Other.class))
             .enableInliningAnnotations()
             .compile();
     testForR8(parameters.getBackend())

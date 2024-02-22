@@ -460,6 +460,10 @@ public abstract class GraphLens {
     return false;
   }
 
+  public boolean isRepackagingLens() {
+    return false;
+  }
+
   public boolean isVerticalClassMergerLens() {
     return false;
   }

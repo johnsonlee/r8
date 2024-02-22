@@ -4,16 +4,18 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
 
 public class SyntheticConstructorArgumentsMerged extends HorizontalClassMergingTestBase {
+
   public SyntheticConstructorArgumentsMerged(TestParameters parameters) {
     super(parameters);
   }
@@ -25,6 +27,7 @@ public class SyntheticConstructorArgumentsMerged extends HorizontalClassMergingT
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
@@ -32,12 +35,14 @@ public class SyntheticConstructorArgumentsMerged extends HorizontalClassMergingT
         .inspect(
             codeInspector -> {
               assertThat(codeInspector.clazz(A.class), isPresent());
-              assertThat(codeInspector.clazz(B.class), not(isPresent()));
+              assertThat(codeInspector.clazz(B.class), isAbsent());
             });
   }
 
   @NeverClassInline
   public static class A {
+
+    @NeverInline
     public A(B b) {
       b.print(42);
     }
@@ -45,6 +50,8 @@ public class SyntheticConstructorArgumentsMerged extends HorizontalClassMergingT
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B(B b) {
       if (b != null) {
         b.print(5);
@@ -52,6 +59,7 @@ public class SyntheticConstructorArgumentsMerged extends HorizontalClassMergingT
     }
 
     @NeverInline
+    @NoMethodStaticizing
     void print(int v) {
       System.out.println(v);
     }

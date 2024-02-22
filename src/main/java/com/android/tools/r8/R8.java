@@ -349,8 +349,6 @@ public class R8 {
       timing.end();
       timing.begin("Strip unused code");
       timing.begin("Before enqueuer");
-      RuntimeTypeCheckInfo.Builder initialRuntimeTypeCheckInfoBuilder =
-          new RuntimeTypeCheckInfo.Builder(appView);
       List<ProguardConfigurationRule> synthesizedProguardRules;
       try {
         synthesizedProguardRules = ProguardConfigurationUtils.synthesizeRules(appView);
@@ -393,7 +391,6 @@ public class R8 {
                 appView,
                 profileCollectionAdditions,
                 subtypingInfo,
-                initialRuntimeTypeCheckInfoBuilder,
                 keepDeclarations);
         timing.end();
         timing.begin("After enqueuer");
@@ -506,11 +503,6 @@ public class R8 {
 
       VerticalClassMerger.createForInitialClassMerging(appViewWithLiveness, timing)
           .runIfNecessary(executorService, timing);
-      HorizontalClassMerger.createForInitialClassMerging(appViewWithLiveness)
-          .runIfNecessary(
-              executorService,
-              timing,
-              initialRuntimeTypeCheckInfoBuilder.build(appView.graphLens()));
 
       // TODO(b/225838009): Horizontal merging currently assumes pre-phase CF conversion.
       LirConverter.enterLirSupportedPhase(appView, executorService);
@@ -1116,7 +1108,6 @@ public class R8 {
       AppView<AppInfoWithClassHierarchy> appView,
       ProfileCollectionAdditions profileCollectionAdditions,
       SubtypingInfo subtypingInfo,
-      RuntimeTypeCheckInfo.Builder classMergingEnqueuerExtensionBuilder,
       List<KeepDeclaration> keepDeclarations)
       throws ExecutionException {
     timing.begin("Set up enqueuer");
@@ -1134,10 +1125,6 @@ public class R8 {
               appView, OptimizationFeedbackSimple.getInstance());
       enqueuer.registerAnalysis(analysis);
       enqueuer.registerFieldAccessAnalysis(analysis);
-    }
-
-    if (options.isClassMergingExtensionRequired(enqueuer.getMode())) {
-      classMergingEnqueuerExtensionBuilder.attach(enqueuer);
     }
     timing.end();
     timing.begin("Trace application");

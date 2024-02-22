@@ -18,7 +18,6 @@ import com.android.tools.r8.graph.FieldAccessInfoCollection;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerUtils;
 import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteArrayTypeFieldState;
 import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteClassTypeFieldState;
 import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcretePrimitiveTypeFieldState;
@@ -30,7 +29,6 @@ import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.analysis.value.BottomValue;
-import com.android.tools.r8.ir.analysis.value.NonConstantNumberValue;
 import com.android.tools.r8.ir.analysis.value.SingleValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.ir.code.FieldInstruction;
@@ -309,21 +307,6 @@ public class FieldAssignmentTracker {
             }
 
             assert !abstractValue.isBottom();
-
-            // When approximating the possible values for the $r8$classId fields from horizontal
-            // class merging, give up if the set of possible values equals the size of the merge
-            // group. In this case, the information is useless.
-            if (abstractValue.isNumberFromSetValue()) {
-              assert HorizontalClassMergerUtils.isClassIdField(appView, field);
-              NonConstantNumberValue initialAbstractValue =
-                  field.getOptimizationInfo().getAbstractValue().asNonConstantNumberValue();
-              if (initialAbstractValue != null
-                  && abstractValue.asNonConstantNumberValue().getAbstractionSize()
-                      >= initialAbstractValue.getAbstractionSize()) {
-                abstractValue = UnknownValue.getInstance();
-              }
-            }
-
             entry.setValue(abstractValue);
             return abstractValue.isUnknown();
           });

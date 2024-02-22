@@ -8,6 +8,8 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
@@ -96,6 +98,8 @@ public class HorizontallyMergedVirtualMethodProfileRewritingTest extends TestBas
         .addOptionsModification(InlinerOptions::setOnlyForceInlining)
         .addOptionsModification(
             options -> options.callSiteOptimizationOptions().disableOptimization())
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
         .setMinApi(parameters)
         .compile()
         .inspectResidualArtProfile(artProfileInputOutput::inspect)
@@ -111,15 +115,19 @@ public class HorizontallyMergedVirtualMethodProfileRewritingTest extends TestBas
     }
   }
 
+  @NeverClassInline
   static class A {
 
+    @NeverInline
     public void m(B b) {
       System.out.print("Hello");
     }
   }
 
+  @NeverClassInline
   static class B {
 
+    @NeverInline
     public void m(B b) {
       System.out.println(", world!");
     }

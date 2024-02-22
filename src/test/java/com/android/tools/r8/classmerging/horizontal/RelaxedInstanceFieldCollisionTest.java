@@ -4,6 +4,9 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoRedundantFieldLoadElimination;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -51,7 +54,11 @@ public class RelaxedInstanceFieldCollisionTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addKeepClassRules(UnrelatedA.class, UnrelatedB.class, UnrelatedC.class, UnrelatedD.class)
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertClassesMerged(A.class, B.class))
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoRedundantFieldLoadEliminationAnnotations()
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines(EXPECTED);
   }
@@ -108,22 +115,28 @@ public class RelaxedInstanceFieldCollisionTest extends TestBase {
     }
   }
 
+  @NeverClassInline
   public static class A {
 
-    public UnrelatedA field;
-    public UnrelatedB field2; /* will be renamed field */
+    @NoRedundantFieldLoadElimination public UnrelatedA field;
 
+    @NoRedundantFieldLoadElimination public UnrelatedB field2; /* will be renamed field */
+
+    @NeverInline
     public A(UnrelatedA unrelatedA, UnrelatedB unrelatedB) {
       field = unrelatedA;
       field2 = unrelatedB;
     }
   }
 
+  @NeverClassInline
   public static class B {
 
-    public UnrelatedC field;
-    public UnrelatedD field2; /* will be renamed field */
+    @NoRedundantFieldLoadElimination public UnrelatedC field;
 
+    @NoRedundantFieldLoadElimination public UnrelatedD field2; /* will be renamed field */
+
+    @NeverInline
     public B(UnrelatedC unrelatedA, UnrelatedD unrelatedB) {
       field = unrelatedA;
       field2 = unrelatedB;

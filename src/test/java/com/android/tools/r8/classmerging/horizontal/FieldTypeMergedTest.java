@@ -13,6 +13,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.FieldSubject;
@@ -28,8 +29,12 @@ public class FieldTypeMergedTest extends HorizontalClassMergingTestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("a", "b", "bar", "bar", "bar")
@@ -57,6 +62,8 @@ public class FieldTypeMergedTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class A {
+
+    @NeverInline
     public A() {
       System.out.println("a");
     }
@@ -64,11 +71,14 @@ public class FieldTypeMergedTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B() {
       System.out.println("b");
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void bar() {
       System.out.println("bar");
     }

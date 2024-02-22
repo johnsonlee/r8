@@ -8,7 +8,6 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.BottomUpClassHierarchyTraversal;
@@ -73,12 +72,9 @@ public class NoDefaultInterfaceMethodCollisions
     extends MultiClassPolicyWithPreprocessing<Map<DexType, InterfaceInfo>> {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
-  private final ClassMergerMode mode;
 
-  public NoDefaultInterfaceMethodCollisions(
-      AppView<? extends AppInfoWithClassHierarchy> appView, ClassMergerMode mode) {
+  public NoDefaultInterfaceMethodCollisions(AppView<? extends AppInfoWithClassHierarchy> appView) {
     this.appView = appView;
-    this.mode = mode;
   }
 
   @Override
@@ -353,7 +349,7 @@ public class NoDefaultInterfaceMethodCollisions
 
   @Override
   public boolean shouldSkipPolicy() {
-    return !appView.options().horizontalClassMergerOptions().isInterfaceMergingEnabled(mode);
+    return !appView.options().horizontalClassMergerOptions().isInterfaceMergingEnabled();
   }
 
   static class InterfaceInfo {

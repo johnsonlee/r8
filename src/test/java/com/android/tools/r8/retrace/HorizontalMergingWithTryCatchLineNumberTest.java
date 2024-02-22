@@ -80,7 +80,7 @@ public class HorizontalMergingWithTryCatchLineNumberTest extends TestBase {
             .enableInliningAnnotations()
             .addHorizontallyMergedClassesInspector(
                 inspector ->
-                    inspector.assertClassesMerged(
+                    inspector.assertIsCompleteMergeGroup(
                         SynthesizeLineNumber.A.class, SynthesizeLineNumber.B.class))
             .compile();
     // Mock changes to proguard map to simulate what R8 could emit.

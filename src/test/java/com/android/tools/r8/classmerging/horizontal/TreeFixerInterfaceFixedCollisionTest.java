@@ -11,6 +11,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
+import com.android.tools.r8.NoMethodStaticizing;
+import com.android.tools.r8.NoParameterTypeStrengthening;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -22,6 +24,7 @@ import org.junit.Test;
  * changed.
  */
 public class TreeFixerInterfaceFixedCollisionTest extends HorizontalClassMergingTestBase {
+
   public TreeFixerInterfaceFixedCollisionTest(TestParameters parameters) {
     super(parameters);
   }
@@ -34,8 +37,10 @@ public class TreeFixerInterfaceFixedCollisionTest extends HorizontalClassMerging
         .addDontObfuscate()
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
-        .enableNoVerticalClassMergingAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
+        .enableNoMethodStaticizingAnnotations()
+        .enableNoParameterTypeStrengtheningAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("print a: parent", "print b: c", "print b: e")
@@ -63,14 +68,16 @@ public class TreeFixerInterfaceFixedCollisionTest extends HorizontalClassMerging
   @NeverClassInline
   @NoVerticalClassMerging
   public interface I {
-    @NeverInline
+
     void foo(B b);
   }
 
   @NoVerticalClassMerging
   @NoHorizontalClassMerging
   public static class Parent {
+
     @NeverInline
+    @NoMethodStaticizing
     void foo(A a) {
       a.print("parent");
     }
@@ -78,7 +85,9 @@ public class TreeFixerInterfaceFixedCollisionTest extends HorizontalClassMerging
 
   @NeverClassInline
   public static class A {
+
     @NeverInline
+    @NoMethodStaticizing
     public void print(String v) {
       System.out.println("print a: " + v);
     }
@@ -86,7 +95,9 @@ public class TreeFixerInterfaceFixedCollisionTest extends HorizontalClassMerging
 
   @NeverClassInline
   public static class B {
+
     @NeverInline
+    @NoMethodStaticizing
     public void print(String v) {
       System.out.println("print b: " + v);
     }
@@ -94,8 +105,10 @@ public class TreeFixerInterfaceFixedCollisionTest extends HorizontalClassMerging
 
   @NeverClassInline
   public static class C extends Parent implements I {
+
     @Override
     @NeverInline
+    @NoMethodStaticizing
     public void foo(B b) {
       b.print("c");
     }
@@ -103,14 +116,18 @@ public class TreeFixerInterfaceFixedCollisionTest extends HorizontalClassMerging
 
   @NeverClassInline
   public static class E implements I {
+
     @NeverInline
+    @NoMethodStaticizing
     public void foo(B b) {
       b.print("e");
     }
   }
 
   public static class Main {
+
     @NeverInline
+    @NoParameterTypeStrengthening
     public static void fooI(I i, B b) {
       i.foo(b);
     }

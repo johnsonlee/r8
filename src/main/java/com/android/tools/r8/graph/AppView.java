@@ -858,13 +858,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return horizontallyMergedClasses;
   }
 
-  public void setHorizontallyMergedClasses(
-      HorizontallyMergedClasses horizontallyMergedClasses, ClassMergerMode mode) {
-    assert !hasHorizontallyMergedClasses() || mode.isFinal();
-    this.horizontallyMergedClasses = horizontallyMergedClasses().extend(horizontallyMergedClasses);
-    testing()
-        .horizontallyMergedClassesConsumer
-        .accept(dexItemFactory(), horizontallyMergedClasses(), mode);
+  public void setHorizontallyMergedClasses(HorizontallyMergedClasses horizontallyMergedClasses) {
+    assert !hasHorizontallyMergedClasses();
+    this.horizontallyMergedClasses = horizontallyMergedClasses;
+    testing().horizontallyMergedClassesConsumer.accept(this, horizontallyMergedClasses);
   }
 
   public boolean hasVerticallyMergedClasses() {

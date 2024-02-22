@@ -35,10 +35,14 @@ public class JavaLambdaMergingTest extends HorizontalClassMergingTestBase {
                       .filter(JavaLambdaMergingTest::isLambda)
                       .collect(Collectors.toSet());
               assertEquals(3, lambdaSources.size());
-              DexType firstTarget = inspector.getTarget(lambdaSources.iterator().next());
+              DexType firstTarget =
+                  inspector.getRepackagedTargetForNonRepackagedClass(
+                      lambdaSources.iterator().next());
               for (DexType lambdaSource : lambdaSources) {
-                assertTrue(isLambda(inspector.getTarget(lambdaSource)));
-                assertEquals(firstTarget, inspector.getTarget(lambdaSource));
+                assertTrue(
+                    isLambda(inspector.getRepackagedTargetForNonRepackagedClass(lambdaSource)));
+                assertEquals(
+                    firstTarget, inspector.getRepackagedTargetForNonRepackagedClass(lambdaSource));
               }
             })
         .addVerticallyMergedClassesInspector(
@@ -50,7 +54,7 @@ public class JavaLambdaMergingTest extends HorizontalClassMergingTestBase {
   }
 
   private static boolean isLambda(DexType type) {
-    return SyntheticItemsTestUtils.isInternalLambda(
+    return SyntheticItemsTestUtils.isExternalLambda(
         Reference.classFromDescriptor(type.toDescriptorString()));
   }
 

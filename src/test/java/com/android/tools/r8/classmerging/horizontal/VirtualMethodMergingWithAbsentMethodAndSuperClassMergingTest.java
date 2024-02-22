@@ -4,6 +4,9 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.google.common.collect.ImmutableList;
@@ -104,6 +107,9 @@ public class VirtualMethodMergingWithAbsentMethodAndSuperClassMergingTest extend
                         i -> i.assertMergedInto(D.class, C.class),
                         i -> i.assertMergedInto(C.class, D.class))
                     .assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
@@ -120,27 +126,37 @@ public class VirtualMethodMergingWithAbsentMethodAndSuperClassMergingTest extend
     }
   }
 
+  @NeverClassInline
   static class A {
 
+    @NeverInline
+    @NoMethodStaticizing
     void m() {
       System.out.println("A");
     }
   }
 
+  @NeverClassInline
   static class B {
 
+    @NeverInline
+    @NoMethodStaticizing
     void m() {
       System.out.println("B");
     }
   }
 
+  @NeverClassInline
   static class C extends A {
 
+    @NeverInline
+    @NoMethodStaticizing
     @Override
     void m() {
       System.out.println("C");
     }
   }
 
+  @NeverClassInline
   static class D extends A {}
 }

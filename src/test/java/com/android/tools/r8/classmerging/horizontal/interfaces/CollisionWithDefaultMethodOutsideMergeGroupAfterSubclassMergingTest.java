@@ -17,33 +17,28 @@ import com.android.tools.r8.NoUnusedInterfaceRemoval;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class CollisionWithDefaultMethodOutsideMergeGroupAfterSubclassMergingTest extends TestBase {
 
-  private final boolean enableInterfaceMergingInInitial;
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{1}, enableInterfaceMergingInInitial: {0}")
-  public static List<Object[]> data() {
-    return buildParameters(
-        BooleanUtils.values(), getTestParameters().withAllRuntimesAndApiLevels().build());
-  }
-
-  public CollisionWithDefaultMethodOutsideMergeGroupAfterSubclassMergingTest(
-      boolean enableInterfaceMergingInInitial, TestParameters parameters) {
-    this.enableInterfaceMergingInInitial = enableInterfaceMergingInInitial;
-    this.parameters = parameters;
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
   @Test
   public void test() throws Exception {
+    parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
@@ -57,16 +52,8 @@ public class CollisionWithDefaultMethodOutsideMergeGroupAfterSubclassMergingTest
                   .assertMergedInto(B.class, A.class);
               if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
                 inspector.assertClassesNotMerged(I.class, J.class, K.class);
-              } else if (enableInterfaceMergingInInitial) {
-                inspector.assertIsCompleteMergeGroup(I.class, J.class);
               }
               inspector.assertNoOtherClassesMerged();
-            })
-        .addOptionsModification(
-            options -> {
-              if (enableInterfaceMergingInInitial) {
-                options.horizontalClassMergerOptions().setEnableInterfaceMergingInInitial();
-              }
             })
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
@@ -92,7 +79,7 @@ public class CollisionWithDefaultMethodOutsideMergeGroupAfterSubclassMergingTest
               }
             })
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("A", "K", "J");
+        .assertSuccessWithOutputLines("A", "B", "K", "J");
   }
 
   static class Main {
@@ -131,7 +118,9 @@ public class CollisionWithDefaultMethodOutsideMergeGroupAfterSubclassMergingTest
 
   @NeverClassInline
   static class A implements I {
+
     @NeverInline
+    @NoMethodStaticizing
     void keepA() {
       System.out.println("A");
     }
@@ -141,7 +130,13 @@ public class CollisionWithDefaultMethodOutsideMergeGroupAfterSubclassMergingTest
   // This should prevent merging of J into I, since that would contribute the default method J.m()
   // to A.
   @NeverClassInline
-  static class B implements K {}
+  static class B implements K {
+
+    @NeverInline
+    B() {
+      System.out.println("B");
+    }
+  }
 
   @NeverClassInline
   @NoHorizontalClassMerging

@@ -30,7 +30,7 @@ import java.nio.file.Path;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.Test;
-import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 public class NestClassMergingTestRunner extends HorizontalClassMergingTestBase {
 
@@ -62,7 +62,7 @@ public class NestClassMergingTestRunner extends HorizontalClassMergingTestBase {
     super(parameters);
   }
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
         .withCfRuntimesStartingFromIncluding(CfVm.JDK11)
@@ -75,28 +75,30 @@ public class NestClassMergingTestRunner extends HorizontalClassMergingTestBase {
   public void test() throws Exception {
     runTest(
         builder ->
-            builder.addHorizontallyMergedClassesInspector(
-                inspector -> {
-                  if (parameters.canUseNestBasedAccesses()) {
-                    inspector
-                        .assertIsCompleteMergeGroup(
+            builder
+                .addDontObfuscate()
+                .addHorizontallyMergedClassesInspector(
+                    inspector -> {
+                      if (parameters.canUseNestBasedAccesses()) {
+                        inspector
+                            .assertIsCompleteMergeGroup(
+                                nestHostA.getClassReference(),
+                                nestHostA$NestMemberA.getClassReference(),
+                                nestHostA$NestMemberB.getClassReference())
+                            .assertIsCompleteMergeGroup(
+                                nestHostB.getClassReference(),
+                                nestHostB$NestMemberA.getClassReference(),
+                                nestHostB$NestMemberB.getClassReference());
+                      } else {
+                        inspector.assertIsCompleteMergeGroup(
                             nestHostA.getClassReference(),
                             nestHostA$NestMemberA.getClassReference(),
-                            nestHostA$NestMemberB.getClassReference())
-                        .assertIsCompleteMergeGroup(
+                            nestHostA$NestMemberB.getClassReference(),
                             nestHostB.getClassReference(),
                             nestHostB$NestMemberA.getClassReference(),
                             nestHostB$NestMemberB.getClassReference());
-                  } else {
-                    inspector.assertIsCompleteMergeGroup(
-                        nestHostA.getClassReference(),
-                        nestHostA$NestMemberA.getClassReference(),
-                        nestHostA$NestMemberB.getClassReference(),
-                        nestHostB.getClassReference(),
-                        nestHostB$NestMemberA.getClassReference(),
-                        nestHostB$NestMemberB.getClassReference());
-                  }
-                }));
+                      }
+                    }));
   }
 
   @Test
@@ -266,15 +268,19 @@ public class NestClassMergingTestRunner extends HorizontalClassMergingTestBase {
     testForR8(parameters.getBackend())
         .addKeepMainRule(nestClassMergingTest.getClassReference())
         .addProgramFiles(jar())
+        .addKeepRules(
+            "-keeppackagenames horizontalclassmerging",
+            "-nomethodstaticizing class * { void privatePrint(...); }")
         .apply(configuration)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters)
-        .compile()
         .run(parameters.getRuntime(), nestClassMergingTest.getClassReference().getTypeName())
         .assertSuccessWithOutputLines(
+            "NestHostA",
             "NestHostA$NestMemberA",
             "NestHostA$NestMemberB",
+            "NestHostB",
             "NestHostB$NestMemberA",
             "NestHostB$NestMemberB");
   }

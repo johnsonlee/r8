@@ -11,19 +11,13 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
-import org.junit.runners.Parameterized;
 
 public class SynchronizedMethodMergingTest extends HorizontalClassMergingTestBase {
-
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
 
   public SynchronizedMethodMergingTest(TestParameters parameters) {
     super(parameters);
@@ -36,10 +30,14 @@ public class SynchronizedMethodMergingTest extends HorizontalClassMergingTestBas
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
             inspector ->
-                inspector.assertMergedInto(B.class, A.class).assertMergedInto(D.class, C.class))
+                inspector
+                    .assertMergedInto(B.class, A.class)
+                    .assertMergedInto(D.class, C.class)
+                    .assertNoOtherClassesMerged())
         .compile()
         .inspect(
             inspector -> {
@@ -76,6 +74,7 @@ public class SynchronizedMethodMergingTest extends HorizontalClassMergingTestBas
   public static class A {
 
     @NeverInline
+    @NoMethodStaticizing
     public synchronized void m() {
       System.out.println("A");
     }
@@ -85,6 +84,7 @@ public class SynchronizedMethodMergingTest extends HorizontalClassMergingTestBas
   public static class B {
 
     @NeverInline
+    @NoMethodStaticizing
     public synchronized void m() {
       System.out.println("B");
     }
@@ -94,6 +94,7 @@ public class SynchronizedMethodMergingTest extends HorizontalClassMergingTestBas
   public static class C {
 
     @NeverInline
+    @NoMethodStaticizing
     public void m() {
       System.out.println("C");
     }
@@ -103,6 +104,7 @@ public class SynchronizedMethodMergingTest extends HorizontalClassMergingTestBas
   public static class D {
 
     @NeverInline
+    @NoMethodStaticizing
     public void m() {
       System.out.println("D");
     }

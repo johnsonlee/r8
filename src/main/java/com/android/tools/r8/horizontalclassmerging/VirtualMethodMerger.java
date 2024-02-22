@@ -297,7 +297,7 @@ public class VirtualMethodMerger {
     DexMethod newMethodReference = getNewMethodReference();
     IncompleteVirtuallyMergedMethodCode synthesizedCode =
         new IncompleteVirtuallyMergedMethodCode(
-            group.getClassIdField(), classIdToMethodMap, originalMethodReference, superMethod);
+            group.getClassIdField(), classIdToMethodMap, superMethod);
     DexEncodedMethod newMethod =
         DexEncodedMethod.syntheticBuilder()
             .setMethod(newMethodReference)

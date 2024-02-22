@@ -6,6 +6,7 @@ package com.android.tools.r8.classmerging.horizontal;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.NoUnusedInterfaceRemoval;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
@@ -19,27 +20,27 @@ public class PrivateAndInterfaceMethodCollisionTest extends HorizontalClassMergi
 
   @Test
   public void test() throws Exception {
+    parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        // With default method desugaring all uses of J::foo are eliminated so A and B merge.
         .addHorizontallyMergedClassesInspector(
-            i -> {
-              if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
-                i.assertClassesMerged();
-              } else {
-                // With default method desugaring all uses of J::foo are eliminated so A and B
-                // merge.
-                i.assertIsCompleteMergeGroup(A.class, B.class);
-              }
-            })
+            inspector ->
+                inspector
+                    .applyIf(
+                        !parameters.canUseDefaultAndStaticInterfaceMethods(),
+                        i -> i.assertIsCompleteMergeGroup(A.class, B.class))
+                    .assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .enableNoUnusedInterfaceRemovalAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("A.foo()", "B.bar()", "J.foo()");
+        .assertSuccessWithOutputLines("A", "A.foo()", "B.bar()", "C", "J.foo()");
   }
 
   static class Main {
@@ -56,6 +57,7 @@ public class PrivateAndInterfaceMethodCollisionTest extends HorizontalClassMergi
   interface J {
 
     @NeverInline
+    @NoMethodStaticizing
     default void foo() {
       System.out.println("J.foo()");
     }
@@ -65,21 +67,35 @@ public class PrivateAndInterfaceMethodCollisionTest extends HorizontalClassMergi
   static class A {
 
     @NeverInline
+    A() {
+      System.out.println("A");
+    }
+
+    @NeverInline
+    @NoMethodStaticizing
     private void foo() {
       System.out.println("A.foo()");
     }
   }
 
+  @NeverClassInline
   @NoVerticalClassMerging
   static class B {
 
     // Only here to make sure that B is not made abstract as a result of tree shaking.
     @NeverInline
+    @NoMethodStaticizing
     public void bar() {
       System.out.println("B.bar()");
     }
   }
 
   @NeverClassInline
-  static class C extends B implements J {}
+  static class C extends B implements J {
+
+    @NeverInline
+    C() {
+      System.out.println("C");
+    }
+  }
 }

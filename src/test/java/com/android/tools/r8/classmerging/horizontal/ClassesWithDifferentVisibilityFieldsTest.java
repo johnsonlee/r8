@@ -9,8 +9,10 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.readsInstanceField;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.android.tools.r8.KeepConstantArguments;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NeverPropagateValue;
 import com.android.tools.r8.NoAccessModification;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -28,12 +30,15 @@ public class ClassesWithDifferentVisibilityFieldsTest extends HorizontalClassMer
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableConstantArgumentAnnotations()
         .enableInliningAnnotations()
+        .enableMemberValuePropagationAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoAccessModificationAnnotationsForMembers()
         .setMinApi(parameters)
-        .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertMergedInto(B.class, A.class))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines(
             "a. v1: 10, v2: 20", "b. v1: 60, v2: 100", "c. v1: 210, v2: 330")
@@ -69,10 +74,12 @@ public class ClassesWithDifferentVisibilityFieldsTest extends HorizontalClassMer
   @NeverClassInline
   public static class A {
 
-    @NoAccessModification private int v1;
+    @NoAccessModification @NeverPropagateValue private int v1;
 
     public int v2;
 
+    @KeepConstantArguments
+    @NeverInline
     public A(int v) {
       v1 = v;
       v2 = 2 * v;
@@ -101,6 +108,8 @@ public class ClassesWithDifferentVisibilityFieldsTest extends HorizontalClassMer
 
     @NoAccessModification private int v2;
 
+    @KeepConstantArguments
+    @NeverInline
     public B(int v) {
       v1 = 3 * v;
       v2 = 5 * v;
@@ -127,6 +136,8 @@ public class ClassesWithDifferentVisibilityFieldsTest extends HorizontalClassMer
     public int v1;
     public int v2;
 
+    @KeepConstantArguments
+    @NeverInline
     public C(int v) {
       v1 = 7 * v;
       v2 = 11 * v;

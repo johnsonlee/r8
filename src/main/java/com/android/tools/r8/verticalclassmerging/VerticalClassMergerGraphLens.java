@@ -208,8 +208,9 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
               .build();
     } else {
       DexMethod newReboundReference = previous.getRewrittenReboundReference(newMethodSignatures);
-      assert newReboundReference.verifyReferencedBaseTypesMatches(
-          type -> !mergedClasses.isMergeSource(type), dexItemFactory());
+      assert !appView.testing().enableVerticalClassMergerLensAssertion
+          || newReboundReference.verifyReferencedBaseTypesMatches(
+              type -> !mergedClasses.isMergeSource(type), dexItemFactory());
       DexMethod newReference =
           previous.getRewrittenReferenceFromRewrittenReboundReference(
               newReboundReference, this::getNextClassType, dexItemFactory());

@@ -9,6 +9,7 @@ import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
@@ -24,7 +25,9 @@ public class MergeNonFinalAndFinalClassTest extends HorizontalClassMergingTestBa
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertMergedInto(B.class, A.class))
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
@@ -44,6 +47,8 @@ public class MergeNonFinalAndFinalClassTest extends HorizontalClassMergingTestBa
 
   @NeverClassInline
   public static final class A {
+
+    @NeverInline
     public A() {
       System.out.println("a");
     }
@@ -52,6 +57,8 @@ public class MergeNonFinalAndFinalClassTest extends HorizontalClassMergingTestBa
   @NeverClassInline
   @NoVerticalClassMerging
   public static class B {
+
+    @NeverInline
     public B() {
       System.out.println("b");
     }
@@ -59,6 +66,8 @@ public class MergeNonFinalAndFinalClassTest extends HorizontalClassMergingTestBa
 
   @NeverClassInline
   public static class C extends B {
+
+    @NeverInline
     public C() {
       System.out.println("c");
     }

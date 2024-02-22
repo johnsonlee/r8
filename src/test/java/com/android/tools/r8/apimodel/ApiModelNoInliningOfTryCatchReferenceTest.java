@@ -53,7 +53,7 @@ public class ApiModelNoInliningOfTryCatchReferenceTest extends TestBase {
             horizontallyMergedClassesInspector -> {
               if (parameters.isDexRuntime()
                   && parameters.getApiLevel().isGreaterThanOrEqualTo(exceptionApiLevel)) {
-                horizontallyMergedClassesInspector.assertClassesMerged(
+                horizontallyMergedClassesInspector.assertIsCompleteMergeGroup(
                     TestClass.class, Caller.class);
               } else {
                 horizontallyMergedClassesInspector.assertNoClassesMerged();
@@ -87,6 +87,7 @@ public class ApiModelNoInliningOfTryCatchReferenceTest extends TestBase {
 
   public static class TestClass {
 
+    @NeverInline
     public static void testTryCatch() {
       try {
         KeptClass.keptMethodThatMayThrow();

@@ -4,12 +4,11 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
 
@@ -23,23 +22,21 @@ public class EmptyClassTest extends HorizontalClassMergingTestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters)
-        .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertMergedInto(B.class, A.class))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("a", "b: foo")
-        .inspect(
-            codeInspector -> {
-              assertThat(
-                  codeInspector.clazz(A.class),
-                  notIf(isPresent(), parameters.canInitNewInstanceUsingSuperclassConstructor()));
-              assertThat(codeInspector.clazz(B.class), isAbsent());
-            });
+        .inspect(codeInspector -> assertThat(codeInspector.clazz(A.class), isPresent()));
   }
 
   @NeverClassInline
   public static class A {
+
+    @NeverInline
     public A() {
       System.out.println("a");
     }
@@ -47,6 +44,8 @@ public class EmptyClassTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B(String s) {
       System.out.println("b: " + s);
     }

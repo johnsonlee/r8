@@ -109,7 +109,7 @@ public class ApiModelHorizontalMergeAndD8MergeTest extends TestBase {
               if (isGreaterOrEqualToMockLevel() || mode.isDebug()) {
                 inspector.assertNoClassesMerged();
               } else {
-                inspector.assertClassReferencesMerged(
+                inspector.assertIsCompleteMergeGroup(
                     SyntheticItemsTestUtils.syntheticApiOutlineClass(TestCallingFoo.class, 0),
                     SyntheticItemsTestUtils.syntheticApiOutlineClass(TestCallingBar.class, 0));
               }

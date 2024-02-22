@@ -21,6 +21,7 @@ import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.classmerging.MergedClasses;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
+import com.android.tools.r8.horizontalclassmerging.IncompleteHorizontalClassMergerCode;
 import com.android.tools.r8.shaking.AnnotationFixer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ArrayUtils;
@@ -324,6 +325,12 @@ public abstract class ClassMergerTreeFixer<
                     newMethodReference,
                     classMergerSharedData.getExtraUnusedArgumentTypes(),
                     tryMethod -> !newMethodSignatures.containsValue(tryMethod.getSignature()));
+            if (method.getCode() instanceof IncompleteHorizontalClassMergerCode) {
+              IncompleteHorizontalClassMergerCode code =
+                  (IncompleteHorizontalClassMergerCode) method.getCode();
+              code.addExtraUnusedArguments(
+                  newMethodReference.getArity() - originalMethodReference.getArity());
+            }
           } else {
             newMethodReference =
                 dexItemFactory.createFreshMethodNameWithoutHolder(

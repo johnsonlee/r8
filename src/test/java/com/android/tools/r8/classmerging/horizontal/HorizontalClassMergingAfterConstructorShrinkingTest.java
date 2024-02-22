@@ -50,13 +50,11 @@ public class HorizontalClassMergingAfterConstructorShrinkingTest extends TestBas
                     .getRedundantBridgeRemovalOptions()
                     .setEnableRetargetingOfConstructorBridgeCalls(
                         enableRetargetingOfConstructorBridgeCalls))
-        .addOptionsModification(
-            options -> options.horizontalClassMergerOptions().disableInitialRoundOfClassMerging())
         .addHorizontallyMergedClassesInspector(
             i -> {
               if (enableRetargetingOfConstructorBridgeCalls
                   || parameters.canInitNewInstanceUsingSuperclassConstructor()) {
-                i.assertClassesMerged(A.class, B.class);
+                i.assertIsCompleteMergeGroup(A.class, B.class);
               } else {
                 i.assertNoClassesMerged();
               }

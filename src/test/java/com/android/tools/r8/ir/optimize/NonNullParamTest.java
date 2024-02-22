@@ -27,6 +27,7 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
@@ -35,19 +36,18 @@ import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class NonNullParamTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public NonNullParamTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   private void disableDevirtualization(InternalOptions options) {
@@ -235,14 +235,7 @@ public class NonNullParamTest extends TestBase {
             builder ->
                 builder
                     .addHorizontallyMergedClassesInspector(
-                        horizontallyMergedClassesInspector ->
-                            horizontallyMergedClassesInspector
-                                .assertIsCompleteMergeGroup(
-                                    NonNullParamInterfaceImpl.class,
-                                    NonNullParamAfterInvokeInterface.class)
-                                .assertMergedInto(
-                                    NonNullParamAfterInvokeInterface.class,
-                                    NonNullParamInterfaceImpl.class))
+                        HorizontallyMergedClassesInspector::assertNoClassesMerged)
                     .addOptionsModification(this::disableDevirtualization)
                     .addKeepAttributeLineNumberTable()
                     .enableAlwaysInliningAnnotations()
@@ -250,7 +243,7 @@ public class NonNullParamTest extends TestBase {
                     .enableNeverClassInliningAnnotations()
                     .enableNoVerticalClassMergingAnnotations());
 
-    ClassSubject mainSubject = inspector.clazz(NonNullParamInterfaceImpl.class);
+    ClassSubject mainSubject = inspector.clazz(NonNullParamAfterInvokeInterface.class);
     assertThat(mainSubject, isPresent());
 
     MethodSubject checkViaCall = mainSubject.uniqueMethodWithOriginalName("checkViaCall");

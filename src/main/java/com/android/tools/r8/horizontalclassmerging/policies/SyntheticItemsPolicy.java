@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.horizontalclassmerging.MultiClassSameReferencePolicy;
@@ -18,11 +17,9 @@ public class SyntheticItemsPolicy extends MultiClassSameReferencePolicy<ClassKin
     NOT_SYNTHETIC
   }
 
-  private final ClassMergerMode mode;
   private final SyntheticItems syntheticItems;
 
-  public SyntheticItemsPolicy(AppView<?> appView, ClassMergerMode mode) {
-    this.mode = mode;
+  public SyntheticItemsPolicy(AppView<?> appView) {
     this.syntheticItems = appView.getSyntheticItems();
   }
 
@@ -30,9 +27,7 @@ public class SyntheticItemsPolicy extends MultiClassSameReferencePolicy<ClassKin
   public ClassKind getMergeKey(DexProgramClass clazz) {
     // Allow merging non-synthetics with non-synthetics, and synthetics with synthetics.
     if (syntheticItems.isSyntheticClass(clazz)) {
-      return syntheticItems.isEligibleForClassMerging(clazz, mode)
-          ? ClassKind.SYNTHETIC
-          : ineligibleForClassMerging();
+      return ClassKind.SYNTHETIC;
     }
     return ClassKind.NOT_SYNTHETIC;
   }

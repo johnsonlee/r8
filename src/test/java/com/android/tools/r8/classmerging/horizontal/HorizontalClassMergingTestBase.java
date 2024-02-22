@@ -15,6 +15,7 @@ import com.android.tools.r8.utils.codeinspector.FieldSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public abstract class HorizontalClassMergingTestBase extends TestBase {
@@ -25,7 +26,7 @@ public abstract class HorizontalClassMergingTestBase extends TestBase {
     this.parameters = parameters;
   }
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
@@ -38,7 +39,7 @@ public abstract class HorizontalClassMergingTestBase extends TestBase {
     assertTrue(classSubject.isPresent());
     FieldSubject[] classIds =
         classSubject.allFields().stream()
-            .filter(f -> f.getOriginalName().startsWith(ClassMerger.CLASS_ID_FIELD_PREFIX))
+            .filter(f -> f.getOriginalName(false).startsWith(ClassMerger.CLASS_ID_FIELD_PREFIX))
             .toArray(FieldSubject[]::new);
     if (classIds.length == 1) {
       return classIds[0];

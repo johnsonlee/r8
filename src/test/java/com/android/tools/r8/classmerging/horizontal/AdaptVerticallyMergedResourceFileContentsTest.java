@@ -11,6 +11,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DataResourceConsumerForTesting;
@@ -32,6 +33,7 @@ public class AdaptVerticallyMergedResourceFileContentsTest extends HorizontalCla
             .addInnerClasses(getClass())
             .addKeepMainRule(Main.class)
             .addOptionsModification(options -> options.dataResourceConsumer = dataResourceConsumer)
+            .enableInliningAnnotations()
             .enableNeverClassInliningAnnotations()
             .addDataEntryResources(
                 DataEntryResource.fromString(
@@ -70,6 +72,8 @@ public class AdaptVerticallyMergedResourceFileContentsTest extends HorizontalCla
 
   @NeverClassInline
   public static class A extends Parent {
+
+    @NeverInline
     public A() {
       System.out.println("a");
     }
@@ -77,6 +81,8 @@ public class AdaptVerticallyMergedResourceFileContentsTest extends HorizontalCla
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B() {
       System.out.println("b");
     }

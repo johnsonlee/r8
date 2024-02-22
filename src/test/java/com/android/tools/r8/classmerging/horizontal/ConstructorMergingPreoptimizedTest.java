@@ -99,6 +99,7 @@ public class ConstructorMergingPreoptimizedTest extends HorizontalClassMergingTe
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void print() {
       System.out.println("print a");
     }
@@ -112,6 +113,7 @@ public class ConstructorMergingPreoptimizedTest extends HorizontalClassMergingTe
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void print() {
       System.out.println("print b");
     }

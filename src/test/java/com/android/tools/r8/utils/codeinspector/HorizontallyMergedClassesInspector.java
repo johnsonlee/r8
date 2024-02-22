@@ -11,16 +11,18 @@ import static org.junit.Assert.fail;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.ThrowableConsumer;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.repackaging.RepackagingLens;
 import com.android.tools.r8.utils.ClassReferenceUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.Sets;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -34,13 +36,21 @@ public class HorizontallyMergedClassesInspector {
 
   private final DexItemFactory dexItemFactory;
   private final HorizontallyMergedClasses horizontallyMergedClasses;
+  private final NonIdentityGraphLens repackagingLens;
 
   private final Set<ClassReference> seen = new HashSet<>();
 
   public HorizontallyMergedClassesInspector(
-      DexItemFactory dexItemFactory, HorizontallyMergedClasses horizontallyMergedClasses) {
-    this.dexItemFactory = dexItemFactory;
+      AppView<?> appView, HorizontallyMergedClasses horizontallyMergedClasses) {
+    this.dexItemFactory = appView.dexItemFactory();
     this.horizontallyMergedClasses = horizontallyMergedClasses;
+    this.repackagingLens =
+        appView.graphLens().isNonIdentityLens()
+            ? appView
+                .graphLens()
+                .asNonIdentityLens()
+                .find(lens -> lens.isRepackagingLens() && !((RepackagingLens) lens).isEmpty())
+            : null;
   }
 
   public void forEachMergeGroup(BiConsumer<Set<DexType>, DexType> consumer) {
@@ -62,18 +72,51 @@ public class HorizontallyMergedClassesInspector {
     return horizontallyMergedClasses.getSources();
   }
 
+  public Set<DexType> getNonRepackagedSourcesForNonRepackagedClass(DexType clazz) {
+    DexType repackagedClass = getRepackagedType(clazz);
+    Set<DexType> repackagedSources = horizontallyMergedClasses.getSourcesFor(repackagedClass);
+    return SetUtils.mapIdentityHashSet(repackagedSources, this::getNonRepackagedType);
+  }
+
   public ClassReference getTarget(ClassReference classReference) {
     DexType sourceType = ClassReferenceUtils.toDexType(classReference, dexItemFactory);
-    DexType targetType = getTarget(sourceType);
+    DexType targetType = getRepackagedTargetForNonRepackagedClass(sourceType);
     return targetType.asClassReference();
   }
 
-  public DexType getTarget(DexType clazz) {
-    return horizontallyMergedClasses.getMergeTargetOrDefault(clazz, clazz);
+  public DexType getRepackagedTargetForNonRepackagedClass(DexType clazz) {
+    DexType repackagedClass = getRepackagedType(clazz);
+    return horizontallyMergedClasses.getMergeTargetOrDefault(repackagedClass, repackagedClass);
   }
 
-  public Set<DexType> getTargets() {
+  public Set<DexType> getRepackagedTargets() {
     return horizontallyMergedClasses.getTargets();
+  }
+
+  public boolean isNonRepackagedClassMergeSource(DexType clazz) {
+    return horizontallyMergedClasses.isMergeSource(getRepackagedType(clazz));
+  }
+
+  public boolean isNonRepackagedClassMergeTarget(DexType clazz) {
+    return horizontallyMergedClasses.isMergeTarget(getRepackagedType(clazz));
+  }
+
+  private DexType getRepackagedType(DexType type) {
+    return repackagingLens != null ? repackagingLens.getNextType(type) : type;
+  }
+
+  private DexType getNonRepackagedType(DexType type) {
+    return repackagingLens != null ? repackagingLens.getPreviousClassType(type) : type;
+  }
+
+  private void markNonRepackagedClassesAsSeen(DexType... nonRepackagedClasses) {
+    markNonRepackagedClassesAsSeen(Arrays.asList(nonRepackagedClasses));
+  }
+
+  private void markNonRepackagedClassesAsSeen(Iterable<DexType> nonRepackagedClasses) {
+    for (DexType nonRepackagedClass : nonRepackagedClasses) {
+      seen.add(getRepackagedType(nonRepackagedClass).asClassReference());
+    }
   }
 
   public HorizontallyMergedClassesInspector applyIf(
@@ -94,49 +137,17 @@ public class HorizontallyMergedClassesInspector {
   }
 
   public HorizontallyMergedClassesInspector assertMergedInto(Class<?> from, Class<?> target) {
-    return assertMergedInto(Reference.classFromClass(from), Reference.classFromClass(target));
+    return assertMergedInto(toDexType(from), toDexType(target));
   }
 
   public HorizontallyMergedClassesInspector assertMergedInto(
       ClassReference from, ClassReference target) {
-    assertEquals(getTarget(toDexType(from)), toDexType(target));
-    seen.add(toDexType(from).asClassReference());
-    seen.add(toDexType(target).asClassReference());
-    return this;
+    return assertMergedInto(toDexType(from), toDexType(target));
   }
 
-  public HorizontallyMergedClassesInspector assertClassesMerged(Class<?>... classes) {
-    return assertClassesMerged(Arrays.asList(classes));
-  }
-
-  public HorizontallyMergedClassesInspector assertClassesMerged(Collection<Class<?>> classes) {
-    return assertTypesMerged(classes.stream().map(this::toDexType).collect(Collectors.toList()));
-  }
-
-  public HorizontallyMergedClassesInspector assertClassReferencesMerged(
-      ClassReference... classReferences) {
-    return assertClassReferencesMerged(Arrays.asList(classReferences));
-  }
-
-  public HorizontallyMergedClassesInspector assertClassReferencesMerged(
-      Collection<ClassReference> classReferences) {
-    return assertTypesMerged(
-        classReferences.stream().map(this::toDexType).collect(Collectors.toList()));
-  }
-
-  public HorizontallyMergedClassesInspector assertTypesMerged(Collection<DexType> types) {
-    List<DexType> unmerged = new ArrayList<>();
-    for (DexType type : types) {
-      if (!horizontallyMergedClasses.isMergeSourceOrTarget(type)) {
-        unmerged.add(type);
-      }
-    }
-    assertEquals(
-        "Expected the following classes to be merged: "
-            + StringUtils.join(", ", unmerged, DexType::getTypeName),
-        0,
-        unmerged.size());
-    seen.addAll(types.stream().map(DexType::asClassReference).collect(Collectors.toList()));
+  public HorizontallyMergedClassesInspector assertMergedInto(DexType from, DexType target) {
+    assertEquals(getRepackagedTargetForNonRepackagedClass(from), getRepackagedType(target));
+    markNonRepackagedClassesAsSeen(from, target);
     return this;
   }
 
@@ -147,7 +158,7 @@ public class HorizontallyMergedClassesInspector {
           "Expected no classes to be merged, got: "
               + source.getTypeName()
               + " -> "
-              + getTarget(source).getTypeName());
+              + getRepackagedTargetForNonRepackagedClass(source).getTypeName());
     }
     return this;
   }
@@ -217,7 +228,7 @@ public class HorizontallyMergedClassesInspector {
         classReferences.stream().map(this::toDexType).collect(Collectors.toList());
     DexType uniqueTarget = null;
     for (DexType type : types) {
-      if (horizontallyMergedClasses.isMergeTarget(type)) {
+      if (isNonRepackagedClassMergeTarget(type)) {
         if (uniqueTarget == null) {
           uniqueTarget = type;
         } else {
@@ -231,13 +242,16 @@ public class HorizontallyMergedClassesInspector {
     }
     if (uniqueTarget == null) {
       for (DexType type : types) {
-        if (horizontallyMergedClasses.isMergeSource(type)) {
-          fail("Expected merge target " + getTarget(type).getTypeName() + " to be in merge group");
+        if (isNonRepackagedClassMergeSource(type)) {
+          fail(
+              "Expected merge target "
+                  + getRepackagedTargetForNonRepackagedClass(type).getTypeName()
+                  + " to be in merge group");
         }
       }
       fail("Expected to find a merge target, but none found");
     }
-    Set<DexType> sources = horizontallyMergedClasses.getSourcesFor(uniqueTarget);
+    Set<DexType> sources = getNonRepackagedSourcesForNonRepackagedClass(uniqueTarget);
     assertEquals(
         "Expected to find "
             + (classReferences.size() - 1)
@@ -248,7 +262,7 @@ public class HorizontallyMergedClassesInspector {
         classReferences.size() - 1,
         sources.size());
     assertTrue(types.containsAll(sources));
-    seen.addAll(classReferences);
+    markNonRepackagedClassesAsSeen(types);
     return this;
   }
 

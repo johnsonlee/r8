@@ -6,10 +6,12 @@ package com.android.tools.r8.kotlin.lambda.b159688129;
 
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
@@ -73,13 +75,18 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
                         internalOptions.inlinerOptions().inliningInstructionAllowance = 1))
         .addHorizontallyMergedClassesInspector(
             inspector ->
-                inspector.assertIsCompleteMergeGroup(
-                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$1",
-                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$2",
-                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$3",
-                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$4",
-                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$5",
-                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$6"))
+                inspector
+                    .applyIf(
+                        !kotlinc.is(KotlinCompilerVersion.KOTLINC_1_7_0) || splitGroup,
+                        i ->
+                            i.assertIsCompleteMergeGroup(
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$1",
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$2",
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$3",
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$4",
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$5",
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$6"))
+                    .assertNoOtherClassesMerged())
         .allowDiagnosticWarningMessages()
         .compile()
         .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
@@ -88,7 +95,13 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
               ClassSubject mergeTarget =
                   codeInspector.clazz(
                       "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$1");
-              assertThat(mergeTarget, isPresent());
+              assertThat(
+                  mergeTarget,
+                  isPresentIf(!kotlinc.is(KotlinCompilerVersion.KOTLINC_1_7_0) || splitGroup));
+
+              if (mergeTarget.isAbsent()) {
+                return;
+              }
 
               MethodSubject virtualMethodSubject =
                   mergeTarget.uniqueMethodThatMatches(

@@ -227,13 +227,6 @@ public class ConstClassCanonicalizationTest extends TestBase {
         parameters.isCfRuntime() ? ORIGINAL_OUTER_COUNT : CANONICALIZED_OUTER_COUNT;
     int expectedInnerCount =
         parameters.isCfRuntime() ? ORIGINAL_INNER_COUNT : CANONICALIZED_INNER_COUNT;
-    if (!isCompat) {
-      // When not compat we end up class merging inner an outer.
-      if (parameters.isCfRuntime()) {
-        expectedOuterCount = expectedOuterCount + expectedInnerCount;
-      }
-      expectedInnerCount = 0;
-    }
     test(result, expectedMainCount, expectedOuterCount, expectedInnerCount);
   }
 }

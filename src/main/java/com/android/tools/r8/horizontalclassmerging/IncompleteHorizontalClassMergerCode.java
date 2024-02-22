@@ -7,7 +7,6 @@ package com.android.tools.r8.horizontalclassmerging;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -22,6 +21,8 @@ import com.android.tools.r8.utils.RetracerForCodePrinting;
 
 public abstract class IncompleteHorizontalClassMergerCode extends Code {
 
+  public abstract void addExtraUnusedArguments(int numberOfUnusedArguments);
+
   @Override
   public boolean isHorizontalClassMergerCode() {
     return true;
@@ -31,11 +32,6 @@ public abstract class IncompleteHorizontalClassMergerCode extends Code {
   public boolean isIncompleteHorizontalClassMergerCode() {
     return true;
   }
-
-  public abstract CfCode toCfCode(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      ProgramMethod method,
-      HorizontalClassMergerGraphLens lens);
 
   public abstract LirCode<Integer> toLirCode(
       AppView<? extends AppInfoWithClassHierarchy> appView,

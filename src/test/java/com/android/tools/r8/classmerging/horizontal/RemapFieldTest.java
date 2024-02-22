@@ -10,6 +10,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
 
@@ -25,10 +26,14 @@ public class RemapFieldTest extends HorizontalClassMergingTestBase {
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
             inspector ->
-                inspector.assertMergedInto(B.class, A.class).assertMergedInto(D.class, C.class))
+                inspector
+                    .assertMergedInto(B.class, A.class)
+                    .assertMergedInto(D.class, C.class)
+                    .assertNoOtherClassesMerged())
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("A", "B", "foo: foo c", "B", "foo: bar d")
         .inspect(
@@ -42,6 +47,8 @@ public class RemapFieldTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class A {
+
+    @NeverInline
     public A() {
       System.out.println("A");
     }
@@ -49,10 +56,14 @@ public class RemapFieldTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B() {
       System.out.println("B");
     }
 
+    @NeverInline
+    @NoMethodStaticizing
     public void foo(String s) {
       System.out.println("foo: " + s);
     }
@@ -62,11 +73,13 @@ public class RemapFieldTest extends HorizontalClassMergingTestBase {
   public static class C {
     B b;
 
+    @NeverInline
     public C(B b) {
       this.b = b;
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       b.foo("foo c");
     }
@@ -76,17 +89,20 @@ public class RemapFieldTest extends HorizontalClassMergingTestBase {
   public static class D {
     B b;
 
+    @NeverInline
     public D(B b) {
       this.b = b;
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void bar() {
       b.foo("bar d");
     }
   }
 
   public static class Main {
+
     public static void main(String[] args) {
       new A();
       new C(new B()).foo();

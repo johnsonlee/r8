@@ -6,10 +6,12 @@ package com.android.tools.r8.classmerging.horizontal;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
 
 public class MergedVirtualMethodStaticizerTest extends HorizontalClassMergingTestBase {
+
   public MergedVirtualMethodStaticizerTest(TestParameters parameters) {
     super(parameters);
   }
@@ -21,9 +23,13 @@ public class MergedVirtualMethodStaticizerTest extends HorizontalClassMergingTes
         .addKeepClassAndMembersRules(Program.Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertMergedInto(Program.B.class, Program.A.class))
+            inspector ->
+                inspector
+                    .assertMergedInto(Program.B.class, Program.A.class)
+                    .assertNoOtherClassesMerged())
         .run(parameters.getRuntime(), Program.Main.class)
         .assertSuccessWithOutputLines("A::foo", "Staticized::foo", "B::foo");
   }
@@ -43,6 +49,8 @@ public class MergedVirtualMethodStaticizerTest extends HorizontalClassMergingTes
     @NeverClassInline
     public static class A {
 
+      @NeverInline
+      @NoMethodStaticizing
       public void foo() {
         System.out.println("A::foo");
         Staticized.staticized.foo();
@@ -52,6 +60,8 @@ public class MergedVirtualMethodStaticizerTest extends HorizontalClassMergingTes
     @NeverClassInline
     public static class B {
 
+      @NeverInline
+      @NoMethodStaticizing
       public void foo() {
         System.out.println("B::foo");
       }

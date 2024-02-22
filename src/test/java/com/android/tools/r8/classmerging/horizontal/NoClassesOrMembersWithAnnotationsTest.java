@@ -4,15 +4,14 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.onlyIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.KeepConstantArguments;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoAccessModification;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -48,17 +47,17 @@ public class NoClassesOrMembersWithAnnotationsTest extends HorizontalClassMergin
         .addKeepMainRule(Main.class)
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .addHorizontallyMergedClassesInspector(
-            inspector -> {
-              if (enableProguardCompatibilityMode) {
-                inspector.assertIsCompleteMergeGroup(A.class, C.class);
-              } else {
-                inspector.assertIsCompleteMergeGroup(A.class, B.class, C.class);
-              }
-              inspector.assertNoOtherClassesMerged();
-            })
+            inspector ->
+                inspector
+                    .applyIf(
+                        enableProguardCompatibilityMode,
+                        i -> i.assertIsCompleteMergeGroup(A.class, C.class),
+                        i -> i.assertIsCompleteMergeGroup(A.class, B.class, C.class))
+                    .assertNoOtherClassesMerged())
         .enableConstantArgumentAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoAccessModificationAnnotationsForClasses()
+        .enableNoMethodStaticizingAnnotations()
         .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()
@@ -66,11 +65,6 @@ public class NoClassesOrMembersWithAnnotationsTest extends HorizontalClassMergin
             codeInspector -> {
               assertThat(codeInspector.clazz(TypeAnnotation.class), isPresent());
               assertThat(codeInspector.clazz(MethodAnnotation.class), isPresent());
-              assertThat(codeInspector.clazz(A.class), isPresent());
-              assertThat(
-                  codeInspector.clazz(B.class),
-                  onlyIf(enableProguardCompatibilityMode, isPresent()));
-              assertThat(codeInspector.clazz(C.class), isAbsent());
             })
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
@@ -93,6 +87,8 @@ public class NoClassesOrMembersWithAnnotationsTest extends HorizontalClassMergin
   @TypeAnnotation
   @NeverClassInline
   public static class A {
+
+    @NeverInline
     public A() {
       System.out.println("a");
     }
@@ -101,6 +97,8 @@ public class NoClassesOrMembersWithAnnotationsTest extends HorizontalClassMergin
   @TypeAnnotation
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B(String v) {
       System.out.println(v);
     }
@@ -108,18 +106,22 @@ public class NoClassesOrMembersWithAnnotationsTest extends HorizontalClassMergin
 
   @NeverClassInline
   public static class C {
+
+    @NeverInline
     public C(String v) {
       System.out.println(v);
     }
 
     @NeverInline
     @MethodAnnotation
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("foo");
     }
   }
 
   static class Main {
+
     @KeepConstantArguments
     @NeverInline
     public static void foo(TypeAnnotation annotation) {
@@ -145,13 +147,20 @@ public class NoClassesOrMembersWithAnnotationsTest extends HorizontalClassMergin
         }
       }
       foo2(new MethodAnnotationImpl());
-      if (b.getClass().getAnnotations().length > 0) {
+      Object bInDisguise = System.currentTimeMillis() > 0 ? b : new Object();
+      if (bInDisguise.getClass().getAnnotations().length > 0) {
         System.out.println(
-            b.getClass().getAnnotations()[0].toString().replaceFirst(".*", "annotation 1"));
+            bInDisguise
+                .getClass()
+                .getAnnotations()[0]
+                .toString()
+                .replaceFirst(".*", "annotation 1"));
       }
-      if (c.getClass().getMethods()[0].getAnnotations().length > 0) {
+      Object cInDisguise = System.currentTimeMillis() > 0 ? c : new Object();
+      if (cInDisguise.getClass().getMethods()[0].getAnnotations().length > 0) {
         System.out.println(
-            c.getClass()
+            cInDisguise
+                .getClass()
                 .getMethods()[0]
                 .getAnnotations()[0]
                 .toString()

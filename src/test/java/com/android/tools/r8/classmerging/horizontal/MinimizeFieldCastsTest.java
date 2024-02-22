@@ -29,7 +29,10 @@ public class MinimizeFieldCastsTest extends HorizontalClassMergingTestBase {
             inspector ->
                 // Two merge groups are expected since we attempt to merge classes in a way that
                 // avoids merging fields with different types unless strictly required for merging.
-                inspector.assertMergedInto(B.class, A.class).assertMergedInto(D.class, C.class))
+                inspector
+                    .assertMergedInto(B.class, A.class)
+                    .assertMergedInto(D.class, C.class)
+                    .assertNoOtherClassesMerged())
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Foo", "Foo", "Bar", "Bar");
   }
@@ -42,6 +45,7 @@ public class MinimizeFieldCastsTest extends HorizontalClassMergingTestBase {
       this.greeter = greeter;
     }
 
+    @NeverInline
     void greet() {
       greeter.greet();
     }
@@ -55,6 +59,7 @@ public class MinimizeFieldCastsTest extends HorizontalClassMergingTestBase {
       this.greeter = greeter;
     }
 
+    @NeverInline
     void greet() {
       greeter.greet();
     }
@@ -68,6 +73,7 @@ public class MinimizeFieldCastsTest extends HorizontalClassMergingTestBase {
       this.greeter = greeter;
     }
 
+    @NeverInline
     void greet() {
       greeter.greet();
     }
@@ -81,6 +87,7 @@ public class MinimizeFieldCastsTest extends HorizontalClassMergingTestBase {
       this.greeter = greeter;
     }
 
+    @NeverInline
     void greet() {
       greeter.greet();
     }

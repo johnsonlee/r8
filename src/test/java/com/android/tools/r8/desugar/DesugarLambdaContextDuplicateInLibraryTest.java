@@ -65,7 +65,7 @@ public class DesugarLambdaContextDuplicateInLibraryTest extends TestBase {
                   inspector.getSources().stream()
                       .allMatch(t -> t.toDescriptorString().contains(binaryName(PROGRAM_CONTEXT))));
               assertTrue(
-                  inspector.getTargets().stream()
+                  inspector.getRepackagedTargets().stream()
                       .allMatch(t -> t.toDescriptorString().contains(binaryName(LIBRARY_CONTEXT))));
             })
         .run(parameters.getRuntime(), MAIN)

@@ -4,8 +4,11 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import com.android.tools.r8.KeepConstantArguments;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NeverPropagateValue;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.transformers.ClassFileTransformer.FieldPredicate;
 import com.android.tools.r8.transformers.MethodTransformer;
@@ -26,12 +29,15 @@ public class MergeFieldNameConflictTest extends HorizontalClassMergingTestBase {
         .addProgramClassFileData(transform(A.class), transform(B.class))
         .addProgramClasses(Main.class)
         .addKeepMainRule(Main.class)
-        .enableInliningAnnotations()
-        .enableNeverClassInliningAnnotations()
-        .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableConstantArgumentAnnotations()
+        .enableInliningAnnotations()
+        .enableMemberValuePropagationAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
+        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("foo A", "A bar 42", "B bar 2 33");
   }
@@ -57,21 +63,24 @@ public class MergeFieldNameConflictTest extends HorizontalClassMergingTestBase {
   public static class A {
 
     // Will be rewritten to $r8$classId.
-    public int r8ClassId;
+    @NeverPropagateValue public int r8ClassId;
 
-    private String field;
+    @NeverPropagateValue private String field;
 
+    @KeepConstantArguments
     public A(String v) {
       this.r8ClassId = 42;
       this.field = v;
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("foo " + field);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     void bar() {
       System.out.println("A bar " + r8ClassId);
     }
@@ -81,16 +90,18 @@ public class MergeFieldNameConflictTest extends HorizontalClassMergingTestBase {
   public static class B {
 
     // Will be rewritten to $r8$classId.
-    public int r8ClassId;
+    @NeverPropagateValue public int r8ClassId;
 
-    private String field;
+    @NeverPropagateValue private String field;
 
+    @KeepConstantArguments
     public B(int v) {
       this.r8ClassId = 33;
       this.field = Integer.toString(v);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void bar() {
       System.out.println("B bar " + field + " " + r8ClassId);
     }

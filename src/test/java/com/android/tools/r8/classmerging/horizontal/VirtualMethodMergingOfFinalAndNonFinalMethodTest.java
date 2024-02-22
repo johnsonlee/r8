@@ -10,6 +10,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
@@ -26,8 +27,12 @@ public class VirtualMethodMergingOfFinalAndNonFinalMethodTest
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .compile()
@@ -42,9 +47,11 @@ public class VirtualMethodMergingOfFinalAndNonFinalMethodTest
   }
 
   @NeverClassInline
+  @NoVerticalClassMerging
   public static class A {
 
     @NeverInline
+    @NoMethodStaticizing
     public final void foo() {
       System.out.println("A.foo()");
     }
@@ -55,6 +62,7 @@ public class VirtualMethodMergingOfFinalAndNonFinalMethodTest
   public static class B {
 
     @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("B.foo()");
     }
@@ -64,6 +72,7 @@ public class VirtualMethodMergingOfFinalAndNonFinalMethodTest
   public static class C extends B {
 
     @NeverInline
+    @NoMethodStaticizing
     @Override
     public void foo() {
       System.out.println("C.foo()");

@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.repackage;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
@@ -35,7 +34,6 @@ public class RepackageWithOverridesOfPackagePrivateMethodsTest extends Repackage
             inspector ->
                 inspector
                     .assertIsCompleteMergeGroup(HelloGreeterBase.class, WorldGreeterBase.class)
-                    .assertIsCompleteMergeGroup(HelloGreeter.class, WorldGreeter.class)
                     .assertNoOtherClassesMerged())
         .apply(this::configureRepackaging)
         .enableInliningAnnotations()
@@ -52,7 +50,7 @@ public class RepackageWithOverridesOfPackagePrivateMethodsTest extends Repackage
 
   private void inspect(CodeInspector inspector) {
     assertThat(HelloGreeter.class, isNotRepackaged(inspector));
-    assertThat(inspector.clazz(WorldGreeter.class), isAbsent());
+    assertThat(WorldGreeter.class, isNotRepackaged(inspector));
   }
 
   public static class TestClass {

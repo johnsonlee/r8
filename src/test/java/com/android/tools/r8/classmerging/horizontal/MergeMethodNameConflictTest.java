@@ -6,8 +6,11 @@ package com.android.tools.r8.classmerging.horizontal;
 
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 
+import com.android.tools.r8.KeepConstantArguments;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NeverPropagateValue;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
@@ -18,6 +21,7 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
@@ -26,13 +30,11 @@ public class MergeMethodNameConflictTest extends TestBase {
   private static final String CONFLICTING_NAME =
       "bar$com$android$tools$r8$classmerging$horizontal$MergeNameConflictTest$A";
 
-  protected final TestParameters parameters;
-  private final boolean toPrivate;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  public MergeMethodNameConflictTest(TestParameters parameters, boolean toPrivate) {
-    this.parameters = parameters;
-    this.toPrivate = toPrivate;
-  }
+  @Parameter(1)
+  public boolean toPrivate;
 
   @Parameters(name = "{0}, pvt: {1}")
   public static List<Object[]> data() {
@@ -46,12 +48,15 @@ public class MergeMethodNameConflictTest extends TestBase {
         .addProgramClassFileData(transformedA(toPrivate))
         .addProgramClasses(B.class, Main.class)
         .addKeepMainRule(Main.class)
-        .enableInliningAnnotations()
-        .enableNeverClassInliningAnnotations()
-        .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableConstantArgumentAnnotations()
+        .enableInliningAnnotations()
+        .enableMemberValuePropagationAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
+        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("foo A", "A bar A", "ConflictingName", "B bar 2");
   }
@@ -90,18 +95,21 @@ public class MergeMethodNameConflictTest extends TestBase {
   @NeverClassInline
   public static class A {
 
-    private String field;
+    @NeverPropagateValue private String field;
 
+    @KeepConstantArguments
     public A(String v) {
       this.field = v;
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("foo " + field);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     void bar() {
       System.out.println("A bar " + field);
       toRename();
@@ -109,6 +117,7 @@ public class MergeMethodNameConflictTest extends TestBase {
 
     // Will be renamed to bar$com$android$tools$r8$classmerging$horizontal$MergeNameConflictTest$A.
     @NeverInline
+    @NoMethodStaticizing
     void toRename() {
       System.out.println("ConflictingName");
     }
@@ -117,13 +126,15 @@ public class MergeMethodNameConflictTest extends TestBase {
   @NeverClassInline
   public static class B {
 
-    private String field;
+    @NeverPropagateValue private String field;
 
+    @KeepConstantArguments
     public B(int v) {
       this.field = Integer.toString(v);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void bar() {
       System.out.println("B bar " + field);
     }

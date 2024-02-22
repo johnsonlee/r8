@@ -12,6 +12,7 @@ import com.android.tools.r8.*;
 import org.junit.Test;
 
 public class IdenticalFieldMembersTest extends HorizontalClassMergingTestBase {
+
   public IdenticalFieldMembersTest(TestParameters parameters) {
     super(parameters);
   }
@@ -21,8 +22,14 @@ public class IdenticalFieldMembersTest extends HorizontalClassMergingTestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableConstantArgumentAnnotations()
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableMemberValuePropagationAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("foo A", "bar 2")
@@ -35,13 +42,16 @@ public class IdenticalFieldMembersTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class A {
-    private String field;
 
+    @NeverPropagateValue private String field;
+
+    @KeepConstantArguments
     public A(String v) {
       this.field = v;
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("foo " + field);
     }
@@ -49,13 +59,16 @@ public class IdenticalFieldMembersTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class B {
-    private String field;
 
+    @NeverPropagateValue private String field;
+
+    @KeepConstantArguments
     public B(int v) {
       this.field = Integer.toString(v);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void bar() {
       System.out.println("bar " + field);
     }

@@ -18,16 +18,14 @@ import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class StaticClassMergerVisibilityTest extends TestBase {
 
-  private final TestParameters parameters;
-
-  public StaticClassMergerVisibilityTest(TestParameters parameters) {
-    this.parameters = parameters;
-  }
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -37,8 +35,9 @@ public class StaticClassMergerVisibilityTest extends TestBase {
   @Test
   public void testStaticClassIsRemoved() throws Exception {
     testForR8(parameters.getBackend())
-        .addInnerClasses(StaticClassMergerVisibilityTest.class)
+        .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addKeepPackageNamesRule(getClass().getPackage())
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector

@@ -33,9 +33,7 @@ public class OverrideAbstractMethodWithDefaultTest extends HorizontalClassMergin
                     .applyIf(
                         parameters.canUseDefaultAndStaticInterfaceMethods(),
                         i -> i.assertIsCompleteMergeGroup(I.class, J.class),
-                        i ->
-                            i.assertIsCompleteMergeGroup(B1.class, B2.class)
-                                .assertIsCompleteMergeGroup(C1.class, C2.class))
+                        i -> i.assertIsCompleteMergeGroup(B1.class, B2.class))
                     .assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
@@ -55,9 +53,7 @@ public class OverrideAbstractMethodWithDefaultTest extends HorizontalClassMergin
                   codeInspector.clazz(B2.class),
                   isPresentIf(parameters.canUseDefaultAndStaticInterfaceMethods()));
               assertThat(codeInspector.clazz(C1.class), isPresent());
-              assertThat(
-                  codeInspector.clazz(C2.class),
-                  isPresentIf(parameters.canUseDefaultAndStaticInterfaceMethods()));
+              assertThat(codeInspector.clazz(C2.class), isPresent());
             });
   }
 

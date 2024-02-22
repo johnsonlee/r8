@@ -55,7 +55,7 @@ public class EquivalentConstructorsWithClassIdAndExtraNullsMergingTest extends T
               assertEquals(
                   2, aClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
               assertThat(aClassSubject.init("java.lang.Object", "int"), isPresent());
-              assertThat(aClassSubject.init("java.lang.Object", "int", "int"), isPresent());
+              assertThat(aClassSubject.init("java.lang.Object", "int", "byte"), isPresent());
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("C", "0", "C", "D");

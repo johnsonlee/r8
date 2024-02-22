@@ -11,6 +11,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoAccessModification;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
 
@@ -24,22 +25,29 @@ public class ConstructorCantInlineTest extends HorizontalClassMergingTestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(C.class, D.class).assertNoOtherClassesMerged())
+        .addVerticallyMergedClassesInspector(
+            inspector -> inspector.assertMergedIntoSubtype(A.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoAccessModificationAnnotationsForMembers()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("c", "foo: foo")
         .inspect(
             codeInspector -> {
               assertThat(codeInspector.clazz(A.class), isAbsent());
-              assertThat(codeInspector.clazz(B.class), isAbsent());
+              assertThat(codeInspector.clazz(B.class), isPresent());
               assertThat(codeInspector.clazz(C.class), isPresent());
               assertThat(codeInspector.clazz(D.class), isAbsent());
             });
   }
 
   public static class A {
+    @NoMethodStaticizing
     public String foo() {
       return "foo";
     }
@@ -51,21 +59,24 @@ public class ConstructorCantInlineTest extends HorizontalClassMergingTestBase {
   @NeverClassInline
   public static class C {
 
+    @NeverInline
     @NoAccessModification
     C() {
       System.out.println("c");
     }
   }
 
+  @NeverClassInline
   public static class D {
 
+    @NeverInline
     @NoAccessModification
     D() {
       foo(new B());
     }
 
-    @NoAccessModification
     @NeverInline
+    @NoAccessModification
     static void foo(A a) {
       System.out.println("foo: " + a.foo());
     }

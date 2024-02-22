@@ -23,10 +23,6 @@ public abstract class MethodSubject extends MemberSubject {
 
   public abstract IRCode buildIR(AppView<?> appView);
 
-  public final boolean isAbsent() {
-    return !isPresent();
-  }
-
   public abstract boolean isAbstract();
 
   public abstract boolean isBridge();

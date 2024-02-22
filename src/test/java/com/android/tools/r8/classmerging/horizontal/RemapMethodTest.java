@@ -4,17 +4,17 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import org.junit.Test;
 
 public class RemapMethodTest extends HorizontalClassMergingTestBase {
+
   public RemapMethodTest(TestParameters parameters) {
     super(parameters);
   }
@@ -24,8 +24,15 @@ public class RemapMethodTest extends HorizontalClassMergingTestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector
+                    .assertMergedInto(B.class, A.class)
+                    .assertMergedInto(D.class, C.class)
+                    .assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
@@ -33,17 +40,15 @@ public class RemapMethodTest extends HorizontalClassMergingTestBase {
         .inspect(
             codeInspector -> {
               assertThat(codeInspector.clazz(A.class), isPresent());
-              assertThat(
-                  codeInspector.clazz(C.class),
-                  isAbsentIf(parameters.canHaveNonReboundConstructorInvoke()));
-              assertThat(codeInspector.clazz(B.class), isAbsent());
-              assertThat(codeInspector.clazz(D.class), isAbsent());
+              assertThat(codeInspector.clazz(C.class), isPresent());
             });
   }
 
   @NeverClassInline
   public static class A {
+
     @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("foo");
     }
@@ -51,10 +56,9 @@ public class RemapMethodTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class B {
-    // TODO(b/164924717): remove non overlapping constructor requirement
-    public B(String s) {}
 
     @NeverInline
+    @NoMethodStaticizing
     public void bar(D d) {
       d.bar();
     }
@@ -62,6 +66,7 @@ public class RemapMethodTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class Other {
+
     String field;
 
     public Other() {
@@ -71,7 +76,9 @@ public class RemapMethodTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class C extends Other {
+
     @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("foo");
     }
@@ -79,11 +86,13 @@ public class RemapMethodTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class D extends Other {
+
     public D(String s) {
       System.out.println(s);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void bar() {
       System.out.println("bar");
     }
@@ -93,7 +102,7 @@ public class RemapMethodTest extends HorizontalClassMergingTestBase {
     public static void main(String[] args) {
       A a = new A();
       a.foo();
-      B b = new B("bar");
+      B b = new B();
       C c = new C();
       c.foo();
       D d = new D("bar");

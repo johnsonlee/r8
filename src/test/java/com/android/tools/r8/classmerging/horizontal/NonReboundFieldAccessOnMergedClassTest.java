@@ -25,8 +25,10 @@ public class NonReboundFieldAccessOnMergedClassTest extends HorizontalClassMergi
         .addInnerClasses(NonReboundFieldAccessOnMergedClassTestClasses.class)
         .addKeepMainRule(Main.class)
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertMergedInto(D.class, C.class))
+            inspector -> inspector.assertMergedInto(D.class, C.class).assertNoOtherClassesMerged())
+        .enableMemberValuePropagationAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoAccessModificationAnnotationsForClasses()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .compile()

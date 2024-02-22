@@ -6,9 +6,11 @@ package com.android.tools.r8.classmerging.horizontal;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
+import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.KeepConstantArguments;
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -24,6 +26,11 @@ public class ConstructorMergingWithArgumentsTest extends HorizontalClassMergingT
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableConstantArgumentAnnotations()
+        .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
@@ -31,17 +38,29 @@ public class ConstructorMergingWithArgumentsTest extends HorizontalClassMergingT
         .inspect(
             codeInspector -> {
               ClassSubject aClassSubject = codeInspector.clazz(A.class);
-
               assertThat(aClassSubject, isPresent());
-              assertThat(codeInspector.clazz(B.class), not(isPresent()));
 
-              MethodSubject initSubject = aClassSubject.init(String.class.getName(), "int");
-              assertThat(initSubject, isPresent());
+              MethodSubject fooInitSubject = aClassSubject.init(String.class.getName());
+              assertThat(fooInitSubject, isPresent());
+              assertTrue(
+                  fooInitSubject
+                      .streamInstructions()
+                      .anyMatch(instruction -> instruction.isConstString("foo ")));
+
+              MethodSubject barInitSubject = aClassSubject.init(String.class.getName(), "boolean");
+              assertThat(barInitSubject, isPresent());
+              assertTrue(
+                  barInitSubject
+                      .streamInstructions()
+                      .anyMatch(instruction -> instruction.isConstString("bar ")));
             });
   }
 
   @NeverClassInline
   public static class A {
+
+    @KeepConstantArguments
+    @NeverInline
     public A(String arg) {
       System.out.println("foo " + arg);
     }
@@ -49,6 +68,9 @@ public class ConstructorMergingWithArgumentsTest extends HorizontalClassMergingT
 
   @NeverClassInline
   public static class B {
+
+    @KeepConstantArguments
+    @NeverInline
     public B(String arg) {
       System.out.println("bar " + arg);
     }

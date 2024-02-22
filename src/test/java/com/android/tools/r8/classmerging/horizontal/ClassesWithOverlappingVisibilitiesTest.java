@@ -13,12 +13,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoAccessModification;
+import com.android.tools.r8.NoMethodStaticizing;
+import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 
 public class ClassesWithOverlappingVisibilitiesTest extends HorizontalClassMergingTestBase {
+
   public ClassesWithOverlappingVisibilitiesTest(TestParameters parameters) {
     super(parameters);
   }
@@ -28,9 +31,17 @@ public class ClassesWithOverlappingVisibilitiesTest extends HorizontalClassMergi
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector
+                    .assertIsCompleteMergeGroup(B.class, C.class)
+                    .assertIsCompleteMergeGroup(D.class, E.class)
+                    .assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoAccessModificationAnnotationsForMembers()
+        .enableNoMethodStaticizingAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("foo A", "FOO B", "FOO C", "foo D", "FOO E")
@@ -59,6 +70,7 @@ public class ClassesWithOverlappingVisibilitiesTest extends HorizontalClassMergi
   }
 
   @NeverClassInline
+  @NoVerticalClassMerging
   public static class A {
     @NeverInline
     @NoAccessModification
@@ -76,6 +88,7 @@ public class ClassesWithOverlappingVisibilitiesTest extends HorizontalClassMergi
     @Override
     @NeverInline
     @NoAccessModification
+    @NoMethodStaticizing
     void foo() {
       System.out.println("FOO B");
     }
@@ -91,6 +104,7 @@ public class ClassesWithOverlappingVisibilitiesTest extends HorizontalClassMergi
     @Override
     @NeverInline
     @NoAccessModification
+    @NoMethodStaticizing
     void foo() {
       System.out.println("FOO C");
     }
@@ -100,6 +114,7 @@ public class ClassesWithOverlappingVisibilitiesTest extends HorizontalClassMergi
   @NeverClassInline
   public static class D {
     @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("foo D");
     }
@@ -107,11 +122,13 @@ public class ClassesWithOverlappingVisibilitiesTest extends HorizontalClassMergi
 
   @NeverClassInline
   public static class E {
+
     public E() {
       foo();
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("FOO E");
     }

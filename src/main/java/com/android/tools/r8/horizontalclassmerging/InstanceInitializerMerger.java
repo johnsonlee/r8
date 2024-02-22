@@ -7,7 +7,6 @@ package com.android.tools.r8.horizontalclassmerging;
 import static com.android.tools.r8.ir.conversion.ExtraUnusedParameter.computeExtraUnusedParameters;
 
 import com.android.tools.r8.cf.CfVersion;
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -45,16 +44,14 @@ public class InstanceInitializerMerger {
   private final List<ProgramMethod> instanceInitializers;
   private final InstanceInitializerDescription instanceInitializerDescription;
   private final HorizontalClassMergerGraphLens.Builder lensBuilder;
-  private final ClassMergerMode mode;
 
   InstanceInitializerMerger(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       Reference2IntMap<DexType> classIdentifiers,
       HorizontalMergeGroup group,
       List<ProgramMethod> instanceInitializers,
-      HorizontalClassMergerGraphLens.Builder lensBuilder,
-      ClassMergerMode mode) {
-    this(appView, classIdentifiers, group, instanceInitializers, lensBuilder, mode, null);
+      HorizontalClassMergerGraphLens.Builder lensBuilder) {
+    this(appView, classIdentifiers, group, instanceInitializers, lensBuilder, null);
   }
 
   InstanceInitializerMerger(
@@ -63,7 +60,6 @@ public class InstanceInitializerMerger {
       HorizontalMergeGroup group,
       List<ProgramMethod> instanceInitializers,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
-      ClassMergerMode mode,
       InstanceInitializerDescription instanceInitializerDescription) {
     this.appView = appView;
     this.classIdentifiers = classIdentifiers;
@@ -72,7 +68,6 @@ public class InstanceInitializerMerger {
     this.instanceInitializers = instanceInitializers;
     this.instanceInitializerDescription = instanceInitializerDescription;
     this.lensBuilder = lensBuilder;
-    this.mode = mode;
 
     // Constructors should not be empty and all constructors should have the same prototype unless
     // equivalent.
@@ -125,14 +120,6 @@ public class InstanceInitializerMerger {
     return dexItemFactory.createInstanceInitializer(group.getTarget().getType(), newParameters);
   }
 
-  private DexMethod getOriginalMethodReference() {
-    return appView.graphLens().getOriginalMethodSignature(getRepresentative().getReference());
-  }
-
-  private ProgramMethod getRepresentative() {
-    return ListUtils.first(instanceInitializers);
-  }
-
   /**
    * Returns a special original method signature for the synthesized constructor that did not exist
    * prior to horizontal class merging. Otherwise we might accidentally think that the synthesized
@@ -171,17 +158,14 @@ public class InstanceInitializerMerger {
     private int estimatedDexCodeSize;
     private final List<List<ProgramMethod>> instanceInitializerGroups = new ArrayList<>();
     private final HorizontalClassMergerGraphLens.Builder lensBuilder;
-    private final ClassMergerMode mode;
 
     public Builder(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         Reference2IntMap<DexType> classIdentifiers,
-        HorizontalClassMergerGraphLens.Builder lensBuilder,
-        ClassMergerMode mode) {
+        HorizontalClassMergerGraphLens.Builder lensBuilder) {
       this.appView = appView;
       this.classIdentifiers = classIdentifiers;
       this.lensBuilder = lensBuilder;
-      this.mode = mode;
       createNewGroup();
     }
 
@@ -216,7 +200,7 @@ public class InstanceInitializerMerger {
           instanceInitializerGroups,
           instanceInitializers ->
               new InstanceInitializerMerger(
-                  appView, classIdentifiers, group, instanceInitializers, lensBuilder, mode));
+                  appView, classIdentifiers, group, instanceInitializers, lensBuilder));
     }
 
     public InstanceInitializerMerger buildSingle(
@@ -230,7 +214,6 @@ public class InstanceInitializerMerger {
           group,
           instanceInitializers,
           lensBuilder,
-          mode,
           instanceInitializerDescription);
     }
   }
@@ -273,8 +256,7 @@ public class InstanceInitializerMerger {
       boolean needsClassId,
       int extraNulls) {
     if (hasInstanceInitializerDescription()) {
-      return instanceInitializerDescription.createCode(
-          getOriginalMethodReference(), group, needsClassId, extraNulls);
+      return instanceInitializerDescription.createCode(group, needsClassId, extraNulls);
     }
     assert useSyntheticMethod();
     return new ConstructorEntryPointSynthesizedCode(
@@ -375,8 +357,7 @@ public class InstanceInitializerMerger {
     }
     classMethodsBuilder.addDirectMethod(newInstanceInitializer);
 
-    assert mode.isInitial()
-        || newInstanceInitializer.getCode().isDefaultInstanceInitializerCode()
+    assert newInstanceInitializer.getCode().isDefaultInstanceInitializerCode()
         || newInstanceInitializer.getCode().isLirCode()
         || newInstanceInitializer.getCode().isIncompleteHorizontalClassMergerCode();
   }

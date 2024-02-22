@@ -74,19 +74,14 @@ public class HorizontalClassMergingAfterConstructorShrinkingWithRepackagingTest 
                     .getRedundantBridgeRemovalOptions()
                     .setEnableRetargetingOfConstructorBridgeCalls(
                         enableRetargetingOfConstructorBridgeCalls))
-        .addOptionsModification(
-            options -> options.horizontalClassMergerOptions().disableInitialRoundOfClassMerging())
         .addHorizontallyMergedClassesInspector(
-            i -> {
-              if (enableRetargetingOfConstructorBridgeCalls
-                  || parameters.canInitNewInstanceUsingSuperclassConstructor()) {
-                // Repackaging will have moved both classes to top-level package, so rename them.
-                i.assertClassReferencesMerged(
-                    moveToTopLevelPackage(A.class), moveToTopLevelPackage(B.class));
-              } else {
-                i.assertNoClassesMerged();
-              }
-            })
+            inspector ->
+                inspector
+                    .applyIf(
+                        enableRetargetingOfConstructorBridgeCalls
+                            || parameters.canInitNewInstanceUsingSuperclassConstructor(),
+                        i -> i.assertIsCompleteMergeGroup(A.class, B.class))
+                    .assertNoOtherClassesMerged())
         .enableConstantArgumentAnnotations()
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()

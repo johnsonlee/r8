@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.compose;
 
-import static com.google.common.base.Predicates.alwaysTrue;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -107,8 +106,7 @@ public class NestedComposableArgumentPropagationTest extends TestBase {
                 updateMainActivityKt(
                     HorizontallyMergedClassesInspector::getTarget,
                     mainActivityKtClassReference,
-                    false),
-                alwaysTrue())
+                    false))
             .addRepackagingInspector(
                 updateMainActivityKt(
                     RepackagingInspector::getTarget, mainActivityKtClassReference, true))

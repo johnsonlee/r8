@@ -99,7 +99,7 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
             lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                 getTestName(), "inner.InnerKt$testInnerStateless$7"));
     inspector
-        .assertClassReferencesMerged(
+        .assertIsCompleteMergeGroup(
             lambdasInInput.getKStyleLambdas().stream()
                 .filter(not(unmergedLambdas::contains))
                 .collect(Collectors.toList()))

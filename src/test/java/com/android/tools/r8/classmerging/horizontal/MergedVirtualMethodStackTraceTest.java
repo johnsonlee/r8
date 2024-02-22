@@ -7,22 +7,22 @@ package com.android.tools.r8.classmerging.horizontal;
 import static com.android.tools.r8.naming.retrace.StackTrace.isSame;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.naming.retrace.StackTrace;
-import com.android.tools.r8.utils.BooleanUtils;
-import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
-import java.util.List;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class MergedVirtualMethodStackTraceTest extends TestBase {
@@ -32,13 +32,9 @@ public class MergedVirtualMethodStackTraceTest extends TestBase {
   @Parameter(0)
   public TestParameters parameters;
 
-  @Parameter(1)
-  public boolean forceInlineOnly;
-
-  @Parameterized.Parameters(name = "{0}, forceInlineOnly={1}")
-  public static List<Object[]> data() {
-    return buildParameters(
-        getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
   @BeforeClass
@@ -59,16 +55,16 @@ public class MergedVirtualMethodStackTraceTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addKeepAttributeLineNumberTable()
         .addKeepAttributeSourceFile()
-        .enableNeverClassInliningAnnotations()
-        .setMinApi(parameters)
-        .applyIf(
-            forceInlineOnly, b -> b.addOptionsModification(InlinerOptions::setOnlyForceInlining))
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertMergedInto(B.class, A.class))
+            inspector -> inspector.assertMergedInto(B.class, A.class).assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
+        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .inspectStackTrace(
             (stackTrace, codeInspector) -> {
-              assertThat(codeInspector.clazz(A.class), notIf(isPresent(), !forceInlineOnly));
+              assertThat(codeInspector.clazz(A.class), isPresent());
               assertThat(codeInspector.clazz(B.class), isAbsent());
               assertThat(stackTrace, isSame(expectedStackTrace));
             });
@@ -76,6 +72,9 @@ public class MergedVirtualMethodStackTraceTest extends TestBase {
 
   @NeverClassInline
   public static class A {
+
+    @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("foo a");
     }
@@ -83,6 +82,9 @@ public class MergedVirtualMethodStackTraceTest extends TestBase {
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       throw new RuntimeException();
     }

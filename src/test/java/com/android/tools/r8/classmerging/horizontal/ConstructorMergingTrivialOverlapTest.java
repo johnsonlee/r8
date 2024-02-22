@@ -12,6 +12,7 @@ import static org.hamcrest.core.IsNot.not;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.FieldSubject;
@@ -29,8 +30,12 @@ public class ConstructorMergingTrivialOverlapTest extends HorizontalClassMerging
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("7", "42", "13", "print a", "print b")
@@ -45,7 +50,7 @@ public class ConstructorMergingTrivialOverlapTest extends HorizontalClassMerging
               assertThat(firstInitSubject, isPresent());
               assertThat(firstInitSubject, writesInstanceField(classIdFieldSubject.getDexField()));
 
-              MethodSubject otherInitSubject = aClassSubject.init("int", "int");
+              MethodSubject otherInitSubject = aClassSubject.init("int", "byte");
               assertThat(otherInitSubject, isPresent());
               assertThat(otherInitSubject, writesInstanceField(classIdFieldSubject.getDexField()));
 
@@ -59,11 +64,14 @@ public class ConstructorMergingTrivialOverlapTest extends HorizontalClassMerging
 
   @NeverClassInline
   public static class A {
+
+    @NeverInline
     public A() {
       System.out.println(7);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void print() {
       System.out.println("print a");
     }
@@ -71,15 +79,19 @@ public class ConstructorMergingTrivialOverlapTest extends HorizontalClassMerging
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B() {
       this(42);
     }
 
+    @NeverInline
     public B(int x) {
       System.out.println(x);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     public void print() {
       System.out.println("print b");
     }

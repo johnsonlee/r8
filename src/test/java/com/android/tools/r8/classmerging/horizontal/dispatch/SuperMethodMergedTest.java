@@ -4,12 +4,13 @@
 
 package com.android.tools.r8.classmerging.horizontal.dispatch;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.classmerging.horizontal.HorizontalClassMergingTestBase;
@@ -27,6 +28,7 @@ public class SuperMethodMergedTest extends HorizontalClassMergingTestBase {
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
@@ -34,15 +36,17 @@ public class SuperMethodMergedTest extends HorizontalClassMergingTestBase {
         .inspect(
             codeInspector -> {
               assertThat(codeInspector.clazz(ParentA.class), isPresent());
-              assertThat(codeInspector.clazz(ParentB.class), not(isPresent()));
+              assertThat(codeInspector.clazz(ParentB.class), isAbsent());
               assertThat(codeInspector.clazz(X.class), isPresent());
-              assertThat(codeInspector.clazz(Y.class), not(isPresent()));
+              assertThat(codeInspector.clazz(Y.class), isAbsent());
             });
   }
 
   @NeverClassInline
   public static class ParentA {
+
     @NeverInline
+    @NoMethodStaticizing
     void foo() {
       System.out.println("foo");
     }
@@ -51,7 +55,9 @@ public class SuperMethodMergedTest extends HorizontalClassMergingTestBase {
   @NoVerticalClassMerging
   @NeverClassInline
   public static class ParentB {
+
     @NeverInline
+    @NoMethodStaticizing
     void print() {
       System.out.println("parent b");
     }
@@ -59,11 +65,13 @@ public class SuperMethodMergedTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class X extends ParentB {
+
     public X() {
       print();
     }
 
     @NeverInline
+    @NoMethodStaticizing
     @Override
     void print() {
       super.print();
@@ -73,6 +81,7 @@ public class SuperMethodMergedTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class Y extends ParentB {
+
     public Y() {
       print();
     }

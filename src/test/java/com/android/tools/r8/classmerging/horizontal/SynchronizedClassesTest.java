@@ -11,12 +11,14 @@ import static org.hamcrest.core.IsNot.not;
 import com.android.tools.r8.KeepConstantArguments;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import org.junit.Test;
 
 public class SynchronizedClassesTest extends HorizontalClassMergingTestBase {
+
   public SynchronizedClassesTest(TestParameters parameters) {
     super(parameters);
   }
@@ -36,10 +38,11 @@ public class SynchronizedClassesTest extends HorizontalClassMergingTestBase {
         .enableConstantArgumentAnnotations()
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("foo", "b", "bar", "1", "true")
+        .assertSuccessWithOutputLines("A", "foo", "b", "bar", "1", "true")
         .inspect(
             codeInspector -> {
               assertThat(codeInspector.clazz(A.class), isPresent());
@@ -57,6 +60,11 @@ public class SynchronizedClassesTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class A {
+
+    public A() {
+      System.out.println("A");
+    }
+
     @NeverInline
     static synchronized void foo() {
       System.out.println("foo");
@@ -65,11 +73,14 @@ public class SynchronizedClassesTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class B {
+
+    @NeverInline
     public B(String foo) {
       System.out.println(foo);
     }
 
     @NeverInline
+    @NoMethodStaticizing
     void bar() {
       synchronized (B.class) {
         System.out.println("bar");
@@ -79,7 +90,9 @@ public class SynchronizedClassesTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class C {
+
     @KeepConstantArguments
+    @NeverInline
     public C(long v) {
       System.out.println(v);
     }
@@ -87,7 +100,9 @@ public class SynchronizedClassesTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class D {
+
     @KeepConstantArguments
+    @NeverInline
     public D(boolean v) {
       System.out.println(v);
     }

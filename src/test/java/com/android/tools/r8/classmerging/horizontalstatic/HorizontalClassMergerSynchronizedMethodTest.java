@@ -12,18 +12,21 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import java.io.IOException;
 import java.lang.Thread.State;
 import java.util.concurrent.ExecutionException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class HorizontalClassMergerSynchronizedMethodTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -32,10 +35,6 @@ public class HorizontalClassMergerSynchronizedMethodTest extends TestBase {
         .withDexRuntimesStartingFromExcluding(Version.V4_0_4)
         .withAllApiLevels()
         .build();
-  }
-
-  public HorizontalClassMergerSynchronizedMethodTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -55,8 +54,14 @@ public class HorizontalClassMergerSynchronizedMethodTest extends TestBase {
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector
-                    .assertClassesNotMerged(LockOne.class, LockTwo.class, LockThree.class)
-                    .assertMergedInto(AcquireThree.class, AcquireOne.class))
+                    .applyIf(
+                        parameters.canHaveIssueWithInlinedMonitors(),
+                        i -> i.assertIsCompleteMergeGroup(AcquireOne.class, AcquireThree.class))
+                    .assertIsCompleteMergeGroup(
+                        SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 0),
+                        SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 1),
+                        SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 2))
+                    .assertNoOtherClassesMerged())
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)

@@ -9,6 +9,9 @@ import static org.junit.Assume.assumeFalse;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 
+import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoMethodStaticizing;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -58,12 +61,13 @@ public class InvokeSpecialToMissingMethodDeclaredInSuperClassTest extends TestBa
                     .addProgramClasses(MainWithHorizontalClassMerging.class, MergeIntoB.class)
                     .addKeepMainRule(MainWithHorizontalClassMerging.class)
                     .addHorizontallyMergedClassesInspector(
-                        inspector -> {
-                          if (testHorizontalClassMerging) {
-                            inspector.assertMergedInto(MergeIntoB.class, B.class);
-                          }
-                          inspector.assertNoOtherClassesMerged();
-                        }))
+                        inspector ->
+                            inspector
+                                .assertMergedInto(MergeIntoB.class, B.class)
+                                .assertNoOtherClassesMerged()))
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoMethodStaticizingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("A.foo()");
@@ -89,8 +93,11 @@ public class InvokeSpecialToMissingMethodDeclaredInSuperClassTest extends TestBa
     }
   }
 
+  @NeverClassInline
   public static class B extends A {
 
+    @NeverInline
+    @NoMethodStaticizing
     public void bar() {
       // Will be rewritten to invoke-special B.foo() which is missing (except when testing
       // horizontal class merging), but found in A.
@@ -107,8 +114,11 @@ public class InvokeSpecialToMissingMethodDeclaredInSuperClassTest extends TestBa
 
   // Extra program inputs when testing horizontal class merging.
 
+  @NeverClassInline
   public static class MergeIntoB extends A {
 
+    @NeverInline
+    @NoMethodStaticizing
     public void foo() {
       System.out.println("MergeIntoB.foo()");
     }

@@ -8,6 +8,10 @@ import com.android.tools.r8.errors.Unimplemented;
 
 public abstract class Subject {
 
+  public final boolean isAbsent() {
+    return !isPresent();
+  }
+
   public abstract boolean isPresent();
 
   public abstract boolean isRenamed();

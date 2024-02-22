@@ -15,23 +15,22 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class InlineConstructorsWithMonitors extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public InlineConstructorsWithMonitors(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -40,12 +39,7 @@ public class InlineConstructorsWithMonitors extends TestBase {
         .addInnerClasses(InlineConstructorsWithMonitors.class)
         .addKeepMainRule(TestClass.class)
         .addHorizontallyMergedClassesInspector(
-            inspector ->
-                inspector
-                    .applyIf(
-                        !parameters.canHaveIssueWithInlinedMonitors(),
-                        i -> i.assertMergedInto(Foo.class, Bar.class))
-                    .assertNoOtherClassesMerged())
+            HorizontallyMergedClassesInspector::assertNoClassesMerged)
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), TestClass.class)
@@ -71,8 +65,7 @@ public class InlineConstructorsWithMonitors extends TestBase {
       assertThat(barClassSubject, hasDefaultConstructor());
     } else {
       assertThat(fooClassSubject, isAbsent());
-      assertThat(barClassSubject, isPresent());
-      assertThat(barClassSubject.uniqueInstanceInitializer(), isPresent());
+      assertThat(barClassSubject, isAbsent());
     }
   }
 

@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethodSignature;
@@ -39,10 +38,8 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
     private final MethodAccessFlags accessFlags;
     private final boolean isAssumeNoSideEffectsMethod;
     private final OptionalBool isLibraryMethodOverride;
-    private final OptionalBool isMainDexRoot;
 
-    private MethodCharacteristics(
-        DexEncodedMethod method, boolean isAssumeNoSideEffectsMethod, OptionalBool isMainDexRoot) {
+    private MethodCharacteristics(DexEncodedMethod method, boolean isAssumeNoSideEffectsMethod) {
       this.accessFlags =
           MethodAccessFlags.builder()
               .setPrivate(method.getAccessFlags().isPrivate())
@@ -53,27 +50,18 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
               .build();
       this.isAssumeNoSideEffectsMethod = isAssumeNoSideEffectsMethod;
       this.isLibraryMethodOverride = method.isLibraryMethodOverride();
-      this.isMainDexRoot = isMainDexRoot;
     }
 
     static MethodCharacteristics create(
-        AppView<AppInfoWithLiveness> appView, ClassMergerMode mode, DexEncodedMethod method) {
+        AppView<AppInfoWithLiveness> appView, DexEncodedMethod method) {
       return new MethodCharacteristics(
-          method,
-          appView.getAssumeInfoCollection().isSideEffectFree(method.getReference()),
-          mode.isInitial()
-              ? OptionalBool.of(
-                  appView.appInfo().getMainDexInfo().isTracedMethodRoot(method.getReference()))
-              : OptionalBool.unknown());
+          method, appView.getAssumeInfoCollection().isSideEffectFree(method.getReference()));
     }
 
     @Override
     public int hashCode() {
       return Objects.hash(
-          accessFlags,
-          isAssumeNoSideEffectsMethod,
-          isLibraryMethodOverride.ordinal(),
-          isMainDexRoot);
+          accessFlags, isAssumeNoSideEffectsMethod, isLibraryMethodOverride.ordinal());
     }
 
     @Override
@@ -88,18 +76,15 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
       MethodCharacteristics characteristics = (MethodCharacteristics) obj;
       return accessFlags.equals(characteristics.accessFlags)
           && isAssumeNoSideEffectsMethod == characteristics.isAssumeNoSideEffectsMethod
-          && isLibraryMethodOverride == characteristics.isLibraryMethodOverride
-          && isMainDexRoot == characteristics.isMainDexRoot;
+          && isLibraryMethodOverride == characteristics.isLibraryMethodOverride;
     }
   }
 
   private final AppView<AppInfoWithLiveness> appView;
-  private final ClassMergerMode mode;
 
-  public PreserveMethodCharacteristics(AppView<AppInfoWithLiveness> appView, ClassMergerMode mode) {
+  public PreserveMethodCharacteristics(AppView<AppInfoWithLiveness> appView) {
     // This policy checks that method merging does invalidate various properties.
     this.appView = appView;
-    this.mode = mode;
   }
 
   public static class TargetGroup {
@@ -111,14 +96,12 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
       return group;
     }
 
-    public boolean tryAdd(
-        AppView<AppInfoWithLiveness> appView, ClassMergerMode mode, DexProgramClass clazz) {
+    public boolean tryAdd(AppView<AppInfoWithLiveness> appView, DexProgramClass clazz) {
       Map<DexMethodSignature, MethodCharacteristics> newMethods = new HashMap<>();
       for (DexEncodedMethod method : clazz.methods(this::isSubjectToMethodMerging)) {
         DexMethodSignature signature = method.getSignature();
         MethodCharacteristics existingCharacteristics = methodMap.get(signature);
-        MethodCharacteristics methodCharacteristics =
-            MethodCharacteristics.create(appView, mode, method);
+        MethodCharacteristics methodCharacteristics = MethodCharacteristics.create(appView, method);
         if (existingCharacteristics == null) {
           newMethods.put(signature, methodCharacteristics);
           continue;
@@ -148,11 +131,10 @@ public class PreserveMethodCharacteristics extends MultiClassPolicy {
     List<TargetGroup> groups = new ArrayList<>();
 
     for (DexProgramClass clazz : group) {
-      boolean added =
-          Iterables.any(groups, targetGroup -> targetGroup.tryAdd(appView, mode, clazz));
+      boolean added = Iterables.any(groups, targetGroup -> targetGroup.tryAdd(appView, clazz));
       if (!added) {
         TargetGroup newGroup = new TargetGroup();
-        added = newGroup.tryAdd(appView, mode, clazz);
+        added = newGroup.tryAdd(appView, clazz);
         assert added;
         groups.add(newGroup);
       }

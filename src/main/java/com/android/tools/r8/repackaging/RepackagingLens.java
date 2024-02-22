@@ -41,6 +41,15 @@ public class RepackagingLens extends NestedGraphLens {
     return packageRenamings.getOrDefault(previousPkg, previousPkg);
   }
 
+  public boolean isEmpty() {
+    return false;
+  }
+
+  @Override
+  public boolean isRepackagingLens() {
+    return true;
+  }
+
   @Override
   @SuppressWarnings("ReferenceEquality")
   public <T extends DexReference> boolean isSimpleRenaming(T from, T to) {
@@ -107,6 +116,11 @@ public class RepackagingLens extends NestedGraphLens {
     public RepackagingLens buildEmpty(AppView<AppInfoWithLiveness> appView) {
       return new RepackagingLens(
           appView, EMPTY_FIELD_MAP, EMPTY_METHOD_MAP, EMPTY_TYPE_MAP, Collections.emptyMap()) {
+
+        @Override
+        public boolean isEmpty() {
+          return true;
+        }
 
         @Override
         protected boolean isLegitimateToHaveEmptyMappings() {
