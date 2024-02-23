@@ -5,7 +5,7 @@
 package com.android.tools.r8.ir.analysis.proto;
 
 import static com.android.tools.r8.ir.analysis.proto.ProtoUtils.getInfoValueFromMessageInfoConstructionInvoke;
-import static com.android.tools.r8.ir.analysis.proto.ProtoUtils.getObjectsValueFromMessageInfoConstructionInvoke;
+import static com.android.tools.r8.ir.analysis.proto.ProtoUtils.getObjectsArrayValuesFromMessageInfoConstructionInvoke;
 
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -24,23 +24,19 @@ import com.android.tools.r8.ir.analysis.proto.schema.ProtoObject;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoObjectFromInvokeStatic;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoObjectFromStaticGet;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoTypeObject;
-import com.android.tools.r8.ir.code.ArrayPut;
-import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.ConstString;
 import com.android.tools.r8.ir.code.DexItemBasedConstString;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeStatic;
-import com.android.tools.r8.ir.code.NewArrayEmpty;
-import com.android.tools.r8.ir.code.NewArrayFilled;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
 import com.android.tools.r8.utils.ThrowingCharIterator;
 import com.android.tools.r8.utils.ThrowingIntIterator;
 import com.android.tools.r8.utils.ThrowingIterator;
+import com.android.tools.r8.utils.ValueUtils.ArrayValues;
 import java.io.UTFDataFormatException;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,11 +78,13 @@ public class RawMessageInfoDecoder {
   public ProtoMessageInfo run(ProgramMethod dynamicMethod, InvokeMethod invoke) {
     assert references.isMessageInfoConstruction(invoke);
     Value infoValue = getInfoValueFromMessageInfoConstructionInvoke(invoke, references);
-    Value objectsValue = getObjectsValueFromMessageInfoConstructionInvoke(invoke, references);
-    return run(dynamicMethod, infoValue, objectsValue);
+    ArrayValues objectsValues =
+        getObjectsArrayValuesFromMessageInfoConstructionInvoke(invoke, references);
+    return run(dynamicMethod, infoValue, objectsValues);
   }
 
-  public ProtoMessageInfo run(ProgramMethod dynamicMethod, Value infoValue, Value objectsValue) {
+  public ProtoMessageInfo run(
+      ProgramMethod dynamicMethod, Value infoValue, ArrayValues objectsValues) {
     try {
       ProtoMessageInfo.Builder builder = ProtoMessageInfo.builder(dynamicMethod);
       ThrowingIntIterator<InvalidRawMessageInfoException> infoIterator =
@@ -120,8 +118,11 @@ public class RawMessageInfoDecoder {
         infoIterator.nextIntComputeIfAbsent(this::invalidInfoFailure);
       }
 
+      if (objectsValues == null) {
+        throw new InvalidRawMessageInfoException();
+      }
       ThrowingIterator<Value, InvalidRawMessageInfoException> objectIterator =
-          createObjectIterator(objectsValue);
+          ThrowingIterator.fromIterator(objectsValues.getElementValues().iterator());
 
       for (int i = 0; i < numberOfOneOfObjects; i++) {
         ProtoObject oneOfObject =
@@ -295,103 +296,6 @@ public class RawMessageInfoDecoder {
         }
       }
     };
-  }
-
-  /**
-   * Returns an iterator that yields the values that are stored in the `objects` array that is
-   * passed to GeneratedMessageLite.newMessageInfo(). The array values are returned in-order, i.e.,
-   * the value objects[i] will be returned prior to the value objects[i+1].
-   */
-  private static ThrowingIterator<Value, InvalidRawMessageInfoException> createObjectIterator(
-      Value objectsValue) throws InvalidRawMessageInfoException {
-    if (objectsValue.isPhi()) {
-      throw new InvalidRawMessageInfoException();
-    }
-
-    NewArrayEmpty newArrayEmpty = objectsValue.definition.asNewArrayEmpty();
-    NewArrayFilled newArrayFilled = objectsValue.definition.asNewArrayFilled();
-
-    if (newArrayEmpty == null && newArrayFilled == null) {
-      throw new InvalidRawMessageInfoException();
-    }
-    // Verify that the array is used in only one spot.
-    if (newArrayFilled != null) {
-      if (!objectsValue.hasSingleUniqueUser()) {
-        throw new InvalidRawMessageInfoException();
-      }
-      return ThrowingIterator.fromIterator(newArrayFilled.inValues().iterator());
-    }
-
-    Value sizeValue = newArrayEmpty.size().getAliasedValue();
-    if (sizeValue.isPhi() || !sizeValue.definition.isConstNumber()) {
-      throw new InvalidRawMessageInfoException();
-    }
-    int arraySize = sizeValue.definition.asConstNumber().getIntValue();
-    if (arraySize != objectsValue.uniqueUsers().size() - 1) {
-      throw new InvalidRawMessageInfoException();
-    }
-
-    // Create an iterator for the block of interest.
-    InstructionIterator instructionIterator = newArrayEmpty.getBlock().iterator();
-    instructionIterator.nextUntil(instruction -> instruction == newArrayEmpty);
-    return new ArrayPutIterator(instructionIterator, objectsValue);
-  }
-
-  private static class ArrayPutIterator
-      extends ThrowingIterator<Value, InvalidRawMessageInfoException> {
-
-    private InstructionIterator instructionIterator;
-    private final Value objectsValue;
-    private int expectedNextIndex;
-
-    public ArrayPutIterator(InstructionIterator instructionIterator, Value objectsValue) {
-      this.instructionIterator = instructionIterator;
-      this.objectsValue = objectsValue;
-      expectedNextIndex = 0;
-    }
-
-    @Override
-    public boolean hasNext() {
-      while (instructionIterator.hasNext()) {
-        Instruction next = instructionIterator.peekNext();
-        if (isArrayPutOfInterest(next)) {
-          return true;
-        }
-        if (next.isGoto()) {
-          // We may have split the block so allow continuing in linear jumps.
-          BasicBlock target = next.asGoto().getTarget();
-          assert target.hasUniquePredecessor();
-          instructionIterator = target.iterator();
-          continue;
-        }
-        if (next.isJumpInstruction()) {
-          return false;
-        }
-        instructionIterator.next();
-      }
-      return false;
-    }
-
-    @Override
-    public Value next() throws InvalidRawMessageInfoException {
-      if (!hasNext()) {
-        throw new NoSuchElementException();
-      }
-      ArrayPut arrayPut = instructionIterator.next().asArrayPut();
-
-      // Verify that the index correct.
-      if (arrayPut.indexOrDefault(-1) != expectedNextIndex) {
-        throw new InvalidRawMessageInfoException();
-      }
-
-      expectedNextIndex++;
-      return arrayPut.value().getAliasedValue();
-    }
-
-    private boolean isArrayPutOfInterest(Instruction instruction) {
-      return instruction.isArrayPut()
-          && instruction.asArrayPut().array().getAliasedValue() == objectsValue;
-    }
   }
 
   private static class InvalidRawMessageInfoException extends Exception {}

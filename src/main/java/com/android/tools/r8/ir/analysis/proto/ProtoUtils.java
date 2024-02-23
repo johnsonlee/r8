@@ -9,6 +9,8 @@ import com.android.tools.r8.ir.code.InstancePut;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.utils.ValueUtils;
+import com.android.tools.r8.utils.ValueUtils.ArrayValues;
 
 public class ProtoUtils {
 
@@ -43,7 +45,7 @@ public class ProtoUtils {
   }
 
   @SuppressWarnings("ReferenceEquality")
-  static Value getObjectsValueFromMessageInfoConstructionInvoke(
+  private static Value getObjectsValueFromMessageInfoConstructionInvoke(
       InvokeMethod invoke, ProtoReferences references) {
     assert references.isMessageInfoConstruction(invoke);
     if (invoke.getInvokedMethod().match(references.newMessageInfoMethod)) {
@@ -62,6 +64,12 @@ public class ProtoUtils {
       }
     }
     throw new Unreachable();
+  }
+
+  static ArrayValues getObjectsArrayValuesFromMessageInfoConstructionInvoke(
+      InvokeMethod invoke, ProtoReferences references) {
+    Value arrayValue = getObjectsValueFromMessageInfoConstructionInvoke(invoke, references);
+    return ValueUtils.computeSingleUseArrayValues(arrayValue, invoke);
   }
 
   @SuppressWarnings("ReferenceEquality")

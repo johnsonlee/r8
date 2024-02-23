@@ -7,7 +7,7 @@ package com.android.tools.r8.ir.analysis.proto;
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.analysis.proto.ProtoUtils.getInfoValueFromMessageInfoConstructionInvoke;
-import static com.android.tools.r8.ir.analysis.proto.ProtoUtils.getObjectsValueFromMessageInfoConstructionInvoke;
+import static com.android.tools.r8.ir.analysis.proto.ProtoUtils.getObjectsArrayValuesFromMessageInfoConstructionInvoke;
 import static com.android.tools.r8.ir.analysis.proto.ProtoUtils.setObjectsValueForMessageInfoConstructionInvoke;
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 
@@ -49,6 +49,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.DependentMinimumKeepInfoCollection;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.ValueUtils.ArrayValues;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.ArrayList;
 import java.util.List;
@@ -297,17 +298,19 @@ public class GeneratedMessageLiteShrinker {
     if (newMessageInfoInvoke != null) {
       Value infoValue =
           getInfoValueFromMessageInfoConstructionInvoke(newMessageInfoInvoke, references);
-      Value objectsValue =
-          getObjectsValueFromMessageInfoConstructionInvoke(newMessageInfoInvoke, references);
+      ArrayValues objectsValues =
+          getObjectsArrayValuesFromMessageInfoConstructionInvoke(newMessageInfoInvoke, references);
 
       // Decode the arguments passed to newMessageInfo().
-      ProtoMessageInfo protoMessageInfo = decoder.run(method, infoValue, objectsValue);
+      ProtoMessageInfo protoMessageInfo = decoder.run(method, infoValue, objectsValues);
       if (protoMessageInfo != null) {
         // Rewrite the arguments to newMessageInfo().
         rewriteArgumentsToNewMessageInfo(code, newMessageInfoInvoke, infoValue, protoMessageInfo);
 
         // Ensure that the definition of the original `objects` value is removed.
-        IRCodeUtils.removeArrayAndTransitiveInputsIfNotUsed(code, objectsValue.definition);
+        if (objectsValues != null) {
+          IRCodeUtils.removeArrayAndTransitiveInputsIfNotUsed(code, objectsValues.getDefinition());
+        }
       } else {
         // We should generally be able to decode the arguments passed to newMessageInfo().
         assert false;
