@@ -268,7 +268,10 @@ public class MappedPositionToClassNameMapperBuilder {
                       : definition.getReference());
         }
       }
-      assert residualIsD8R8Synthesized || originalMethod.isIdenticalTo(lensOriginalMethod);
+      assert residualIsD8R8Synthesized
+          || originalMethod.isIdenticalTo(lensOriginalMethod)
+          // TODO(b/326562454): In some case the lens is mapping two methods to a common original.
+          || originalMethod.getHolderType().isIdenticalTo(lensOriginalMethod.getHolderType());
 
       OneShotCollectionConsumer<MappingInformation> methodSpecificMappingInformation =
           OneShotCollectionConsumer.wrap(new ArrayList<>());
