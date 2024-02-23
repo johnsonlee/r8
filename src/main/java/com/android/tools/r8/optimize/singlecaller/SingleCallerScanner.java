@@ -181,7 +181,10 @@ public class SingleCallerScanner {
           ProgramMethodMap<Integer> counters = ProgramMethodMap.create();
           for (LirInstructionView view : code) {
             int opcode = view.getOpcode();
-            if (opcode != LirOpcodes.INVOKEDIRECT && opcode != LirOpcodes.INVOKEDIRECT_ITF) {
+            if (opcode != LirOpcodes.INVOKEDIRECT
+                && opcode != LirOpcodes.INVOKEDIRECT_ITF
+                // JDK 17 generates invokevirtual to private methods.
+                && opcode != LirOpcodes.INVOKEVIRTUAL) {
               continue;
             }
             DexMethod invokedMethod =
@@ -195,9 +198,9 @@ public class SingleCallerScanner {
               counters.put(resolvedMethod, counters.getOrDefault(resolvedMethod, 0) + 1);
             }
           }
-          counters.forEach(
-              (callee, counter) -> {
-                if (counter > 1) {
+          callees.forEach(
+              (callee) -> {
+                if (!counters.containsKey(callee) || counters.get(callee) > 1) {
                   singleCallerMethodCandidates.remove(callee);
                 }
               });
