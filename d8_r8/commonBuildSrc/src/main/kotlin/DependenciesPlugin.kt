@@ -562,6 +562,11 @@ object ThirdPartyDeps {
     Paths.get("third_party", "nest", "nest_20180926_7c6cfb.tar.gz.sha1").toFile(),
     DependencyType.X20)
   val proguards = getThirdPartyProguards()
+  val proguardsettings = ThirdPartyDependency(
+    "proguardsettings",
+    Paths.get("third_party", "proguardsettings").toFile(),
+    Paths.get("third_party", "proguardsettings.tar.gz.sha1").toFile(),
+    DependencyType.X20)
   val proto = ThirdPartyDependency(
     "proto",
     Paths.get("third_party", "proto").toFile(),
@@ -625,6 +630,11 @@ object ThirdPartyDeps {
     "tivi",
     Paths.get("third_party", "opensource-apps", "tivi").toFile(),
     Paths.get("third_party", "opensource-apps", "tivi.tar.gz.sha1").toFile())
+  val youtube1719 = ThirdPartyDependency(
+    "youtube-17.19",
+    Paths.get("third_party", "youtube", "youtube.android_17.19").toFile(),
+    Paths.get("third_party", "youtube", "youtube.android_17.19.tar.gz.sha1").toFile(),
+    DependencyType.X20)
 }
 
 fun getThirdPartyAndroidJars() : List<ThirdPartyDependency> {
