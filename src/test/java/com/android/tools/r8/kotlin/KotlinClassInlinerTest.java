@@ -10,7 +10,6 @@ import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTL
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.onlyIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -71,35 +70,26 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                         "class_inliner_lambda_j_style.SamIface$Consumer")
                     .addHorizontallyMergedClassesInspector(
                         inspector -> {
-                          if (!hasKotlinCGeneratedLambdaClasses && testParameters.isCfRuntime()) {
-                            inspector.assertNoClassesMerged();
-                          } else if (!hasKotlinCGeneratedLambdaClasses) {
+                          if (hasKotlinCGeneratedLambdaClasses) {
+                            inspector.assertIsCompleteMergeGroup(
+                                "class_inliner_lambda_j_style.MainKt$testStateful$1",
+                                "class_inliner_lambda_j_style.MainKt$testStateful$2",
+                                "class_inliner_lambda_j_style.MainKt$testStateful$2$1",
+                                "class_inliner_lambda_j_style.MainKt$testStateful$3",
+                                "class_inliner_lambda_j_style.MainKt$testStateful2$1",
+                                "class_inliner_lambda_j_style.MainKt$testStateful3$1");
+                          } else if (testParameters.isDexRuntime()) {
                             Set<Set<DexType>> mergeGroups = inspector.getMergeGroups();
                             assertEquals(1, mergeGroups.size());
-                            inspector
-                                .assertIsCompleteMergeGroup(
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda0",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda4",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda3",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda5",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda6")
-                                .assertNoOtherClassesMerged();
-                          } else {
-                            inspector
-                                .assertIsCompleteMergeGroup(
-                                    "class_inliner_lambda_j_style.MainKt$testStateless$1",
-                                    "class_inliner_lambda_j_style.MainKt$testStateless$2",
-                                    "class_inliner_lambda_j_style.MainKt$testStateless$3")
-                                .assertIsCompleteMergeGroup(
-                                    "class_inliner_lambda_j_style.MainKt$testStateful$1",
-                                    "class_inliner_lambda_j_style.MainKt$testStateful$2",
-                                    "class_inliner_lambda_j_style.MainKt$testStateful$2$1",
-                                    "class_inliner_lambda_j_style.MainKt$testStateful$3",
-                                    "class_inliner_lambda_j_style.MainKt$testStateful2$1",
-                                    "class_inliner_lambda_j_style.MainKt$testStateful3$1")
-                                .assertNoOtherClassesMerged();
+                            inspector.assertIsCompleteMergeGroup(
+                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda0",
+                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2",
+                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda4",
+                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda3",
+                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda5",
+                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda6");
                           }
+                          inspector.assertNoOtherClassesMerged();
                         })
                     .noClassInlining())
         .inspect(
@@ -118,7 +108,7 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
               } else {
                 assertThat(
                     inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateless$1"),
-                    isPresent());
+                    isAbsent());
                 assertThat(
                     inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateful$1"),
                     isPresent());
@@ -155,12 +145,16 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                     isAbsent());
               }
 
-              assertThat(
-                  inspector.clazz(
-                      !hasKotlinCGeneratedLambdaClasses
-                          ? "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2"
-                          : "class_inliner_lambda_j_style.MainKt$testStateful$1"),
-                  onlyIf(hasKotlinCGeneratedLambdaClasses, isPresent()));
+              if (hasKotlinCGeneratedLambdaClasses) {
+                assertThat(
+                    inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateful$2"),
+                    isPresent());
+              } else {
+                assertThat(
+                    inspector.clazz(
+                        "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2"),
+                    isAbsent());
+              }
             });
   }
 

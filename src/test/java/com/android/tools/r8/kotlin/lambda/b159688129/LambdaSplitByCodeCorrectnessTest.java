@@ -38,7 +38,7 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
   @Parameters(name = "{0}, {1}, splitGroup: {2}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDexRuntimes().withAllApiLevels().build(),
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(),
         getKotlinTestParameters().withAllCompilersAndTargetVersions().build(),
         BooleanUtils.values());
   }
@@ -77,7 +77,10 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
             inspector ->
                 inspector
                     .applyIf(
-                        !kotlinc.is(KotlinCompilerVersion.KOTLINC_1_7_0) || splitGroup,
+                        kotlinc.isOneOf(
+                                KotlinCompilerVersion.KOTLINC_1_8_0,
+                                KotlinCompilerVersion.KOTLINC_1_9_21)
+                            || splitGroup,
                         i ->
                             i.assertIsCompleteMergeGroup(
                                 "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$1",
@@ -97,18 +100,27 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
                       "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$1");
               assertThat(
                   mergeTarget,
-                  isPresentIf(!kotlinc.is(KotlinCompilerVersion.KOTLINC_1_7_0) || splitGroup));
+                  isPresentIf(
+                      kotlinc.isOneOf(
+                              KotlinCompilerVersion.KOTLINC_1_8_0,
+                              KotlinCompilerVersion.KOTLINC_1_9_21)
+                          || splitGroup));
 
               if (mergeTarget.isAbsent()) {
                 return;
               }
 
+              boolean isKotlinOld =
+                  kotlinc.isOneOf(
+                      KotlinCompilerVersion.KOTLINC_1_3_72, KotlinCompilerVersion.KOTLINC_1_4_20);
               MethodSubject virtualMethodSubject =
                   mergeTarget.uniqueMethodThatMatches(
                       method ->
                           method.isVirtual()
                               && !method.isSynthetic()
-                              && method.getOriginalName(false).equals("invoke"));
+                              && method
+                                  .getOriginalName(false)
+                                  .equals(isKotlinOld ? "invoke$1" : "invoke"));
               assertThat(virtualMethodSubject, isPresent());
 
               int found = 0;
