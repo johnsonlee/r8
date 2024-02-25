@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin.lambda;
 
-import static com.android.tools.r8.utils.PredicateUtils.not;
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assume.assumeFalse;
@@ -18,15 +17,14 @@ import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -72,40 +70,57 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .addProgramFiles(getProgramFiles())
-        .addKeepMainRule(getMainClassName())
-        .addHorizontallyMergedClassesInspector(this::inspect)
-        .allowAccessModification(allowAccessModification)
-        .allowDiagnosticWarningMessages()
-        .setMinApi(parameters)
-        .compile()
-        .assertAllWarningMessagesMatch(
-            containsString("Resource 'META-INF/MANIFEST.MF' already exists."))
-        .run(parameters.getRuntime(), getMainClassName())
-        .assertSuccessWithOutput(getExpectedOutput());
-  }
-
-  private void inspect(HorizontallyMergedClassesInspector inspector) throws IOException {
     // Get the Kotlin lambdas in the input.
     KotlinLambdasInInput lambdasInInput =
         KotlinLambdasInInput.create(getProgramFiles(), getTestName());
     assertEquals(0, lambdasInInput.getNumberOfJStyleLambdas());
     assertEquals(26, lambdasInInput.getNumberOfKStyleLambdas());
 
-    // Only a subset of all K-style Kotlin lambdas are merged.
-    Set<ClassReference> unmergedLambdas =
-        ImmutableSet.of(
-            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test1$15"),
-            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$9"),
-            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$10"),
-            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$11"));
+    testForR8(parameters.getBackend())
+        .addProgramFiles(getProgramFiles())
+        .addKeepMainRule(getMainClassName())
+        .addHorizontallyMergedClassesInspector(inspector -> inspect(inspector, lambdasInInput))
+        .allowAccessModification(allowAccessModification)
+        .allowDiagnosticWarningMessages()
+        .setMinApi(parameters)
+        .compile()
+        .assertAllWarningMessagesMatch(
+            containsString("Resource 'META-INF/MANIFEST.MF' already exists."))
+        .inspect(inspector -> inspect(inspector, lambdasInInput))
+        .run(parameters.getRuntime(), getMainClassName())
+        .assertSuccessWithOutput(getExpectedOutput());
+  }
+
+  private void inspect(
+      HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput)
+      throws IOException {
+    if (parameters.isCfRuntime()) {
+      inspector.assertNoClassesMerged();
+      return;
+    }
+
     inspector
         .assertIsCompleteMergeGroup(
-            lambdasInInput.getKStyleLambdas().stream()
-                .filter(not(unmergedLambdas::contains))
-                .collect(Collectors.toList()))
-        .assertClassReferencesNotMerged(unmergedLambdas);
+            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$1"),
+            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$2"),
+            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$3"),
+            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$4"))
+        .assertIsCompleteMergeGroup(
+            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$5"),
+            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$6"),
+            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$7"),
+            lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$8"))
+        .assertNoOtherClassesMerged();
+  }
+
+  private void inspect(CodeInspector inspector, KotlinLambdasInInput lambdasInInput) {
+    List<ClassReference> presentKStyleLambdas = new ArrayList<>();
+    for (ClassReference classReference : lambdasInInput.getKStyleLambdas()) {
+      if (inspector.clazz(classReference).isPresent()) {
+        presentKStyleLambdas.add(classReference);
+      }
+    }
+    assertEquals(parameters.isCfRuntime() ? 0 : 5, presentKStyleLambdas.size());
   }
 
   private String getExpectedOutput() {
