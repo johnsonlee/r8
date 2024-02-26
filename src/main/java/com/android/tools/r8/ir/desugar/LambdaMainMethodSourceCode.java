@@ -27,6 +27,8 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.NumericType;
+import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.LambdaClass.InvalidLambdaImplTarget;
 import com.android.tools.r8.ir.desugar.LambdaClass.NoAccessorMethodTarget;
@@ -260,8 +262,17 @@ final class LambdaMainMethodSourceCode {
     if (target instanceof NoAccessorMethodTarget) {
       IntBox locals = new IntBox();
       IntBox stack = new IntBox();
+      Position preamble =
+          !lambda.appView.options().hasMappingFileSupport()
+              ? null
+              : SyntheticPosition.builder()
+                  .setMethod(mainMethod)
+                  .setIsD8R8Synthesized(true)
+                  .setLine(0)
+                  .build();
       Collection<CfInstruction> is =
-          desugarInvoke.desugarInvoke(invoke, locals::getAndIncrement, stack::getAndIncrement);
+          desugarInvoke.desugarInvoke(
+              preamble, invoke, locals::getAndIncrement, stack::getAndIncrement);
       if (is != null) {
         instructions.addAll(is);
         maxLocals += locals.get();
