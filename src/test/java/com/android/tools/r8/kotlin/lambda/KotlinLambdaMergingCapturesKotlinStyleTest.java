@@ -20,7 +20,6 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -92,8 +91,7 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
   }
 
   private void inspect(
-      HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput)
-      throws IOException {
+      HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput) {
     if (parameters.isCfRuntime()) {
       inspector.assertNoClassesMerged();
       return;

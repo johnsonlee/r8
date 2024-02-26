@@ -17,12 +17,14 @@ import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -78,30 +80,136 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .addProgramFiles(getProgramFiles())
-        .addKeepMainRule(getMainClassName())
-        .applyIf(!attributes.isEmpty(), builder -> builder.addKeepAttributes(attributes))
-        .addHorizontallyMergedClassesInspector(this::inspect)
-        .allowAccessModification(allowAccessModification)
-        .allowDiagnosticWarningMessages()
-        .setMinApi(parameters)
-        .compile()
-        .assertAllWarningMessagesMatch(
-            containsString("Resource 'META-INF/MANIFEST.MF' already exists."))
-        .run(parameters.getRuntime(), getMainClassName())
-        .assertSuccessWithOutput(getExpectedOutput());
-  }
-
-  private void inspect(HorizontallyMergedClassesInspector inspector) throws IOException {
     // Get the Kotlin lambdas in the input.
     KotlinLambdasInInput lambdasInInput =
         KotlinLambdasInInput.create(getProgramFiles(), getTestName());
     assertEquals(0, lambdasInInput.getNumberOfJStyleLambdas());
     assertEquals(24, lambdasInInput.getNumberOfKStyleLambdas());
 
-    // All K-style Kotlin lambdas are merged if no attributes are kept.
-    inspector.assertIsCompleteMergeGroup(lambdasInInput.getKStyleLambdas());
+    testForR8(parameters.getBackend())
+        .addProgramFiles(getProgramFiles())
+        .addKeepMainRule(getMainClassName())
+        .applyIf(!attributes.isEmpty(), builder -> builder.addKeepAttributes(attributes))
+        .addHorizontallyMergedClassesInspector(inspector -> inspect(inspector, lambdasInInput))
+        .allowAccessModification(allowAccessModification)
+        .allowDiagnosticWarningMessages()
+        .noClassInlining()
+        .setMinApi(parameters)
+        .compile()
+        .assertAllWarningMessagesMatch(
+            containsString("Resource 'META-INF/MANIFEST.MF' already exists."))
+        .inspect(inspector -> inspect(inspector, lambdasInInput))
+        .run(parameters.getRuntime(), getMainClassName())
+        .assertSuccessWithOutput(getExpectedOutput());
+  }
+
+  private void inspect(
+      HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput) {
+    if (parameters.isCfRuntime()) {
+      inspector
+          .assertIsCompleteMergeGroup(
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$4"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$5"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$6"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$7"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$8"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$9"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$4"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$5"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$6"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$7"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$8"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$9"))
+          .assertIsCompleteMergeGroup(
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$1"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$2"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$3"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$1"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$2"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$3"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testThird$1"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testThird$2"))
+          .assertNoOtherClassesMerged();
+    } else {
+      inspector
+          .assertIsCompleteMergeGroup(
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$main$1"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$main$2"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$main$3"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$main$4"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$1"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$2"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$3"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$1"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$2"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$3"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testThird$1"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testThird$2"))
+          .assertIsCompleteMergeGroup(
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$4"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$5"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$6"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$7"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$8"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testFirst$9"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$4"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$5"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$6"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$7"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$8"),
+              lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                  getTestName(), "MainKt$testSecond$9"))
+          .assertNoOtherClassesMerged();
+    }
+  }
+
+  private void inspect(CodeInspector inspector, KotlinLambdasInInput lambdasInInput) {
+    List<ClassReference> lambdasInOutput = new ArrayList<>();
+    for (ClassReference classReference : lambdasInInput.getAllLambdas()) {
+      if (inspector.clazz(classReference).isPresent()) {
+        lambdasInOutput.add(classReference);
+      }
+    }
+    assertEquals(2, lambdasInOutput.size());
   }
 
   private String getExpectedOutput() {
