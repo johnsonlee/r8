@@ -66,11 +66,11 @@ public class ReverseBoxingOperationsTest extends TestBase {
         24,
         codeInspector
             .clazz(Main.class)
-            .allMethods(m -> !m.getOriginalName().equals("main"))
+            .allMethods(m -> !m.getOriginalMethodName().equals("main"))
             .size());
     codeInspector
         .clazz(Main.class)
-        .allMethods(m -> !m.getOriginalName().equals("main"))
+        .allMethods(m -> !m.getOriginalMethodName().equals("main"))
         .forEach(
             m ->
                 assertTrue(
@@ -80,9 +80,9 @@ public class ReverseBoxingOperationsTest extends TestBase {
         .clazz(Main.class)
         .allMethods(
             m ->
-                !m.getOriginalName().equals("main")
-                    && (m.getOriginalName().contains("Unbox")
-                        || m.getOriginalName().contains("NonNull")))
+                !m.getOriginalMethodName().equals("main")
+                    && (m.getOriginalMethodName().contains("Unbox")
+                        || m.getOriginalMethodName().contains("NonNull")))
         .forEach(
             m ->
                 assertTrue(

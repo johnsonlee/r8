@@ -1955,7 +1955,7 @@ public class TestBase {
         Sets.difference(classUnion, classes2Set));
     Map<DexEncodedMethod, DexEncodedMethod> diffs = new IdentityHashMap<>();
     for (FoundClassSubject clazz1 : inspector1.allClasses()) {
-      ClassSubject clazz = inspector2.clazz(clazz1.getOriginalName());
+      ClassSubject clazz = inspector2.clazz(clazz1.getOriginalTypeName());
       assertTrue(clazz.isPresent());
       FoundClassSubject clazz2 = clazz.asFoundClassSubject();
       Set<String> methods1 =

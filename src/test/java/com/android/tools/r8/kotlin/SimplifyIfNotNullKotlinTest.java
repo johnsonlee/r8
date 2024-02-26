@@ -62,7 +62,7 @@ public class SimplifyIfNotNullKotlinTest extends AbstractR8KotlinTestBase {
               ClassSubject clazz = checkClassIsKept(inspector, ex1.getClassName());
 
               // Verify forMakeAndModel(...) is present in the input.
-              checkMethodPresenceInInput(clazz.getOriginalName(), testMethodSignature, true);
+              checkMethodPresenceInInput(clazz.getOriginalTypeName(), testMethodSignature, true);
 
               // Find forMakeAndModel(...) after parameter removal.
               MethodSubject testMethod =

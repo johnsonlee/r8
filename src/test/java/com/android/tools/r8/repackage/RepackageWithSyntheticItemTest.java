@@ -66,7 +66,7 @@ public class RepackageWithSyntheticItemTest extends RepackageTestBase {
               assertEquals(1, classesStartingWithfoo.size());
               String expectedOriginalNamePrefix = typeName(A.class) + "$$ExternalSyntheticLambda0";
               assertThat(
-                  classesStartingWithfoo.get(0).getOriginalName(),
+                  classesStartingWithfoo.get(0).getOriginalTypeName(),
                   containsString(expectedOriginalNamePrefix));
             });
   }

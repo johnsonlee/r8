@@ -24,6 +24,10 @@ public abstract class FieldSubject extends MemberSubject {
   @Override
   public abstract boolean isRenamed();
 
+  public String getOriginalFieldName() {
+    return getOriginalName();
+  }
+
   public abstract String getOriginalSignatureAttribute();
 
   @Override

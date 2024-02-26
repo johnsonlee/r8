@@ -63,11 +63,11 @@ public class Matchers {
   private static String name(Subject subject) {
     String name = "<unknown>";
     if (subject instanceof ClassSubject) {
-      name = ((ClassSubject) subject).getOriginalName();
+      name = ((ClassSubject) subject).getOriginalTypeName();
     } else if (subject instanceof MethodSubject) {
-      name = ((MethodSubject) subject).getOriginalName();
+      name = ((MethodSubject) subject).getOriginalMethodName();
     } else if (subject instanceof FieldSubject) {
-      name = ((FieldSubject) subject).getOriginalName();
+      name = ((FieldSubject) subject).getOriginalFieldName();
     } else if (subject instanceof AnnotationSubject) {
       name = ((AnnotationSubject) subject).getAnnotation().type.toSourceString();
     } else if (subject instanceof KmClassSubject) {
@@ -317,7 +317,9 @@ public class Matchers {
       @Override
       public void describeMismatchSafely(final ClassSubject clazz, Description description) {
         description
-            .appendText("class ").appendValue(clazz.getOriginalName()).appendText(" did not");
+            .appendText("class ")
+            .appendValue(clazz.getOriginalTypeName())
+            .appendText(" did not");
       }
     };
   }
@@ -336,7 +338,10 @@ public class Matchers {
 
       @Override
       public void describeMismatchSafely(final ClassSubject clazz, Description description) {
-        description.appendText("class ").appendValue(clazz.getOriginalName()).appendText(" is not");
+        description
+            .appendText("class ")
+            .appendValue(clazz.getOriginalTypeName())
+            .appendText(" is not");
       }
     };
   }
@@ -361,7 +366,7 @@ public class Matchers {
 
       @Override
       public void describeMismatchSafely(ClassOrMemberSubject subject, Description description) {
-        description.appendValue(subject.getOriginalName()).appendText(" was not");
+        description.appendText(name(subject)).appendText(" was not");
       }
     };
   }
@@ -429,7 +434,7 @@ public class Matchers {
 
       @Override
       public void describeMismatchSafely(final T subject, Description description) {
-        description.appendText("item ").appendValue(subject.getOriginalName()).appendText(" was ");
+        description.appendText("item ").appendText(name(subject)).appendText(" was ");
         if (subject.isPresent()) {
           AccessFlags<?> accessFlags = subject.getAccessFlags();
           if (accessFlags.isPublic()) {
@@ -462,7 +467,7 @@ public class Matchers {
 
       @Override
       public void describeMismatchSafely(final T subject, Description description) {
-        description.appendText("item ").appendValue(subject.getOriginalName()).appendText(" was ");
+        description.appendText("item ").appendValue(name(subject)).appendText(" was ");
         if (subject.isPresent()) {
           description.appendText("not native");
         } else {
@@ -554,7 +559,7 @@ public class Matchers {
 
       @Override
       public void describeTo(Description description) {
-        description.appendText("extends ").appendText(superSubject.getOriginalName());
+        description.appendText("extends ").appendText(superSubject.getOriginalTypeName());
       }
     };
   }
@@ -616,7 +621,7 @@ public class Matchers {
 
       @Override
       public void describeTo(Description description) {
-        description.appendText("implements ").appendText(interfaceSubject.getOriginalName());
+        description.appendText("implements ").appendText(interfaceSubject.getOriginalTypeName());
       }
     };
   }

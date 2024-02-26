@@ -147,7 +147,7 @@ public class StringFormatTest extends TestBase {
             .or(InstructionSubject::isFilledNewArray);
 
     for (MethodSubject method : mainClass.allMethods()) {
-      String methodName = method.getOriginalName();
+      String methodName = method.getOriginalMethodName();
       if (!methodName.contains("Should")) {
         continue;
       }

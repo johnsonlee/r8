@@ -65,7 +65,7 @@ public abstract class KotlinMetadataTestBase extends KotlinTestBase {
         originalInspector.allClasses().stream()
             .sorted(Comparator.comparing(FoundClassSubject::getFinalName))
             .collect(Collectors.toList())) {
-      ClassSubject r8Clazz = rewrittenInspector.clazz(clazzSubject.getOriginalName());
+      ClassSubject r8Clazz = rewrittenInspector.clazz(clazzSubject.getOriginalTypeName());
       assertThat(r8Clazz, isPresent());
       KotlinClassMetadata originalMetadata = clazzSubject.getKotlinClassMetadata();
       KotlinClassMetadata rewrittenMetadata = r8Clazz.getKotlinClassMetadata();
@@ -123,7 +123,7 @@ public abstract class KotlinMetadataTestBase extends KotlinTestBase {
   public void assertEqualDeserializedMetadata(
       CodeInspector inspector, CodeInspector otherInspector) {
     for (FoundClassSubject clazzSubject : otherInspector.allClasses()) {
-      ClassSubject r8Clazz = inspector.clazz(clazzSubject.getOriginalName());
+      ClassSubject r8Clazz = inspector.clazz(clazzSubject.getOriginalTypeName());
       assertThat(r8Clazz, isPresent());
       KotlinClassMetadata originalMetadata = clazzSubject.getKotlinClassMetadata();
       KotlinClassMetadata rewrittenMetadata = r8Clazz.getKotlinClassMetadata();
@@ -148,7 +148,7 @@ public abstract class KotlinMetadataTestBase extends KotlinTestBase {
 
   public void assertEqualMetadata(CodeInspector inspector, CodeInspector otherInspector) {
     for (FoundClassSubject clazzSubject : otherInspector.allClasses()) {
-      ClassSubject r8Clazz = inspector.clazz(clazzSubject.getOriginalName());
+      ClassSubject r8Clazz = inspector.clazz(clazzSubject.getOriginalTypeName());
       assertThat(r8Clazz, isPresent());
       KotlinClassMetadata originalMetadata = clazzSubject.getKotlinClassMetadata();
       KotlinClassMetadata rewrittenMetadata = r8Clazz.getKotlinClassMetadata();

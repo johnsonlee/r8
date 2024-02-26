@@ -137,7 +137,7 @@ public abstract class ProtoShrinkingTestBase extends TestBase {
         RawMessageInfoDecoder.createInfoIterator(
                 getInfoValueFromMessageInfoConstructionInvoke(invoke, references))
             .forEachRemaining(info::add);
-        result.put(classSubject.getOriginalName(), info);
+        result.put(classSubject.getOriginalTypeName(), info);
       }
     }
     return result;

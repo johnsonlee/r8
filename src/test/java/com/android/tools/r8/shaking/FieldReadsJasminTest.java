@@ -243,7 +243,7 @@ public class FieldReadsJasminTest extends JasminTestBase {
           assertEquals(1, emptyClassSubject.allStaticFields().size());
 
           FieldSubject clinitFieldSubject = emptyClassSubject.allStaticFields().get(0);
-          assertEquals("$r8$clinit", clinitFieldSubject.getOriginalName());
+          assertEquals("$r8$clinit", clinitFieldSubject.getOriginalFieldName());
 
           ClassSubject mainClassSubject = inspector.clazz(main.name);
           assertThat(mainClassSubject, isPresent());

@@ -104,7 +104,7 @@ public class DesugaredLibraryContentTest extends DesugaredLibraryTestBase {
         .forEach(
             clazz ->
                 assertThat(
-                    clazz.getOriginalName(),
+                    clazz.getOriginalTypeName(),
                     CoreMatchers.anyOf(startsWith("j$."), startsWith("java."))));
     if (parameters.getApiLevel().getLevel() < AndroidApiLevel.O.getLevel()) {
       assertThat(inspector.clazz("j$.time.Clock"), isPresent());

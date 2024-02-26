@@ -52,10 +52,8 @@ public class SyntheticAndBridgeModifiersTest extends TestBase {
   }
 
   private long methodsWithNameStartingWith(ClassSubject clazz, String prefix) {
-    return clazz
-        .allMethods()
-        .stream()
-        .filter(method -> method.getOriginalName().startsWith(prefix))
+    return clazz.allMethods().stream()
+        .filter(method -> method.getOriginalMethodName().startsWith(prefix))
         .count();
   }
 

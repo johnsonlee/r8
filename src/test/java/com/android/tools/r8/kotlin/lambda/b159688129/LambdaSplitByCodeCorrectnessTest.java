@@ -119,7 +119,7 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
                           method.isVirtual()
                               && !method.isSynthetic()
                               && method
-                                  .getOriginalName(false)
+                                  .getOriginalMethodName()
                                   .equals(isKotlinOld ? "invoke$1" : "invoke"));
               assertThat(virtualMethodSubject, isPresent());
 

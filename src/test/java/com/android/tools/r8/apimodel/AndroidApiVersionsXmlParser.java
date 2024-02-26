@@ -72,8 +72,8 @@ public class AndroidApiVersionsXmlParser {
       String type = DescriptorUtils.getJavaTypeFromBinaryName(getName(node));
       ClassSubject clazz = inspector.clazz(type);
       if (!clazz.isPresent()) {
-        if (!clazz.getOriginalName().startsWith("android.test")
-            && !clazz.getOriginalName().startsWith("junit")) {
+        if (!clazz.getOriginalTypeName().startsWith("android.test")
+            && !clazz.getOriginalTypeName().startsWith("junit")) {
           assert exemptionList.contains(type) || hasRemoved(node);
           assert exemptionList.contains(type) || getRemoved(node).isLessThanOrEqualTo(maxApiLevel);
           if (!hasRemoved(node)) {

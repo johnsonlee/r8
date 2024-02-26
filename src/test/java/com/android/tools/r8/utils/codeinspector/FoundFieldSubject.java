@@ -147,7 +147,7 @@ public class FoundFieldSubject extends FieldSubject {
     DexField originalDexField = getOriginalDexField(codeInspector.getFactory());
     return Reference.field(
         Reference.classFromDescriptor(originalDexField.holder.toDescriptorString()),
-        getOriginalName(),
+        getOriginalFieldName(),
         Reference.typeFromDescriptor(originalDexField.type.toDescriptorString()));
   }
 

@@ -135,7 +135,7 @@ public class UninstantiatedAnnotatedArgumentsTest extends TestBase {
   }
 
   private static int getPositionOfUnusedArgument(MethodSubject methodSubject) {
-    switch (methodSubject.getOriginalName(false)) {
+    switch (methodSubject.getOriginalMethodName()) {
       case "testRemoveStaticFromStart":
       case "testRemoveVirtualFromStart":
         return 0;

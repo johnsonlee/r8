@@ -97,11 +97,11 @@ public class ConversionIntroduceInterfaceMethodTest extends DesugaredLibraryTest
         inspector.allClasses().stream()
             .filter(
                 c ->
-                    c.getOriginalName()
+                    c.getOriginalTypeName()
                             .startsWith(
                                 "com.android.tools.r8.desugar.desugaredlibrary.conversiontests")
-                        && !c.getOriginalName().contains("Executor")
-                        && !c.getOriginalName().contains("$-CC")
+                        && !c.getOriginalTypeName().contains("Executor")
+                        && !c.getOriginalTypeName().contains("$-CC")
                         && !c.getDexProgramClass().isInterface())
             .collect(toSingle());
     assertEquals(

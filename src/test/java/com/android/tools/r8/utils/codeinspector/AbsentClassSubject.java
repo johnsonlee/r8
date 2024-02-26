@@ -140,7 +140,7 @@ public class AbsentClassSubject extends ClassSubject {
   }
 
   @Override
-  public String getOriginalName() {
+  public String getOriginalTypeName() {
     return reference.getTypeName();
   }
 

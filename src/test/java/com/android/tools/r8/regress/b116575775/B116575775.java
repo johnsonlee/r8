@@ -22,9 +22,7 @@ public class B116575775 extends TestBase {
                 readClasses(clazz),
                 keepMainProguardConfiguration(clazz)));
     // Ensure toBeInlined is inlined, and only main remains.
-    inspector
-        .clazz(clazz)
-        .forAllMethods(m -> assertEquals(m.getOriginalName(), "main"));
+    inspector.clazz(clazz).forAllMethods(m -> assertEquals(m.getOriginalMethodName(), "main"));
   }
 
   @Test
@@ -53,7 +51,10 @@ public class B116575775 extends TestBase {
     JasminBuilder builder = new JasminBuilder();
     JasminBuilder.ClassBuilder clazz = builder.addClass("Test");
 
-    clazz.addStaticMethod("toBeInlined", ImmutableList.of(), "V",
+    clazz.addStaticMethod(
+        "toBeInlined",
+        ImmutableList.of(),
+        "V",
         ".limit stack 1",
         "LabelTryStart:",
         "  new java/lang/Object",
@@ -65,11 +66,12 @@ public class B116575775 extends TestBase {
         "  goto LabelRet",
         "LabelRet:",
         "  return",
-        ".catch java/lang/IllegalArgumentException from LabelTryStart to LabelTryEnd using LabelCatch",
+        ".catch java/lang/IllegalArgumentException from LabelTryStart to LabelTryEnd using"
+            + " LabelCatch",
         ".catch java/lang/ArithmeticException from LabelTryStart to LabelTryEnd using LabelCatch",
         ".catch java/lang/ArithmeticException from LabelTryStart to LabelTryEnd using LabelCatch",
-        ".catch java/lang/IllegalArgumentException from LabelTryStart to LabelTryEnd using LabelCatch"
-    );
+        ".catch java/lang/IllegalArgumentException from LabelTryStart to LabelTryEnd using"
+            + " LabelCatch");
 
     clazz.addMainMethod(
         ".limit stack 1",
@@ -83,9 +85,11 @@ public class B116575775 extends TestBase {
         "LabelRet:",
         "  return",
         ".catch java/lang/ArithmeticException from LabelTryStart to LabelTryEnd using LabelCatch",
-        ".catch java/lang/IllegalArgumentException from LabelTryStart to LabelTryEnd using LabelCatch",
+        ".catch java/lang/IllegalArgumentException from LabelTryStart to LabelTryEnd using"
+            + " LabelCatch",
         ".catch java/lang/ArithmeticException from LabelTryStart to LabelTryEnd using LabelCatch",
-        ".catch java/lang/IllegalArgumentException from LabelTryStart to LabelTryEnd using LabelCatch");
+        ".catch java/lang/IllegalArgumentException from LabelTryStart to LabelTryEnd using"
+            + " LabelCatch");
 
     assertEquals(0, runOnJavaRaw("Test", builder.buildClasses(), ImmutableList.of()).exitCode);
 
@@ -95,9 +99,7 @@ public class B116575775 extends TestBase {
                 buildAndroidApp(builder.buildClasses()),
                 keepMainProguardConfiguration("Test")));
     // Ensure toBeInlined is inlined, and only main remains.
-    inspector
-        .clazz("Test")
-        .forAllMethods(m -> assertEquals(m.getOriginalName(), "main"));
+    inspector.clazz("Test").forAllMethods(m -> assertEquals(m.getOriginalMethodName(), "main"));
   }
 }
 

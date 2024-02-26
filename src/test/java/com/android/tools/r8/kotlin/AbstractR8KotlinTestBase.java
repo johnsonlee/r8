@@ -142,9 +142,10 @@ public abstract class AbstractR8KotlinTestBase extends KotlinTestBase {
   protected FieldSubject checkFieldIsKept(
       ClassSubject classSubject, String fieldType, String fieldName) {
     // Field must exist in the input.
-    checkFieldPresenceInInput(classSubject.getOriginalName(), fieldType, fieldName, true);
+    checkFieldPresenceInInput(classSubject.getOriginalTypeName(), fieldType, fieldName, true);
     FieldSubject fieldSubject = classSubject.field(fieldType, fieldName);
-    assertTrue("No field " + fieldName + " in " + classSubject.getOriginalName(),
+    assertTrue(
+        "No field " + fieldName + " in " + classSubject.getOriginalTypeName(),
         fieldSubject.isPresent());
     return fieldSubject;
   }
@@ -157,20 +158,20 @@ public abstract class AbstractR8KotlinTestBase extends KotlinTestBase {
 
   protected void checkFieldIsAbsent(ClassSubject classSubject, String fieldType, String fieldName) {
     // Field must NOT exist in the input.
-    checkFieldPresenceInInput(classSubject.getOriginalName(), fieldType, fieldName, false);
+    checkFieldPresenceInInput(classSubject.getOriginalTypeName(), fieldType, fieldName, false);
     FieldSubject fieldSubject = classSubject.field(fieldType, fieldName);
     assertNotNull(fieldSubject);
     assertFalse(fieldSubject.isPresent());
   }
 
   protected void checkMethodIsAbsent(ClassSubject classSubject, MethodSignature methodSignature) {
-    checkMethodPresenceInInput(classSubject.getOriginalName(), methodSignature, false);
+    checkMethodPresenceInInput(classSubject.getOriginalTypeName(), methodSignature, false);
     checkMethodPresenceInOutput(classSubject, methodSignature, false);
   }
 
   protected MethodSubject checkMethodIsKept(
       ClassSubject classSubject, MethodSignature methodSignature) {
-    checkMethodPresenceInInput(classSubject.getOriginalName(), methodSignature, true);
+    checkMethodPresenceInInput(classSubject.getOriginalTypeName(), methodSignature, true);
     return checkMethodIsKeptOrRemoved(classSubject, methodSignature, true);
   }
 
@@ -181,13 +182,13 @@ public abstract class AbstractR8KotlinTestBase extends KotlinTestBase {
   }
 
   protected void checkMethodIsRemoved(ClassSubject classSubject, MethodSignature methodSignature) {
-    checkMethodPresenceInInput(classSubject.getOriginalName(), methodSignature, true);
+    checkMethodPresenceInInput(classSubject.getOriginalTypeName(), methodSignature, true);
     checkMethodIsKeptOrRemoved(classSubject, methodSignature, false);
   }
 
   protected MethodSubject checkMethodIsKeptOrRemoved(
       ClassSubject classSubject, MethodSignature methodSignature, boolean isPresent) {
-    checkMethodPresenceInInput(classSubject.getOriginalName(), methodSignature, true);
+    checkMethodPresenceInInput(classSubject.getOriginalTypeName(), methodSignature, true);
     return checkMethodPresenceInOutput(classSubject, methodSignature, isPresent);
   }
 

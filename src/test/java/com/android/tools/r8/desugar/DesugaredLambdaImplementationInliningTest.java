@@ -53,7 +53,7 @@ public class DesugaredLambdaImplementationInliningTest extends TestBase {
         .clazz(TestClass.class)
         .forAllMethods(
             fms -> {
-              if (fms.isStatic() && !fms.getOriginalName().equals("main")) {
+              if (fms.isStatic() && !fms.getOriginalMethodName().equals("main")) {
                 ++counter.i;
               }
             });

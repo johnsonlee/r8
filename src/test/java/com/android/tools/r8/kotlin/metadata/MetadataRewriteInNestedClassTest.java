@@ -130,7 +130,7 @@ public class MetadataRewriteInNestedClassTest extends KotlinMetadataTestBase {
             nestedClassDescriptor -> {
               ClassSubject nestedClass =
                   inspector.clazz(descriptorToJavaType(nestedClassDescriptor));
-              if (nestedClass.getOriginalName().contains("Inner")) {
+              if (nestedClass.getOriginalTypeName().contains("Inner")) {
                 assertThat(nestedClass, isPresentAndNotRenamed());
               } else {
                 assertThat(nestedClass, isPresentAndRenamed());

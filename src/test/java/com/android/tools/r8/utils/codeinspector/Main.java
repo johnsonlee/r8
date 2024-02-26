@@ -56,11 +56,10 @@ public class Main {
       return;
     }
 
-    List<FoundMethodSubject> found = clazzSubject
-        .allMethods()
-        .stream()
-        .filter(m -> m.getOriginalName().equals(methodName))
-        .collect(Collectors.toList());
+    List<FoundMethodSubject> found =
+        clazzSubject.allMethods().stream()
+            .filter(m -> m.getOriginalMethodName().equals(methodName))
+            .collect(Collectors.toList());
 
     System.out.println("Methods found: " + found.size());
     for (FoundMethodSubject methodSubject : found) {

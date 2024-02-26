@@ -213,12 +213,11 @@ public abstract class ClassSubject extends ClassOrMemberSubject {
 
   public abstract DexProgramClass getDexProgramClass();
 
-  @Override
-  public abstract String getOriginalName();
-
   public abstract String getOriginalDescriptor();
 
   public abstract String getOriginalBinaryName();
+
+  public abstract String getOriginalTypeName();
 
   public abstract ClassReference getOriginalReference();
 

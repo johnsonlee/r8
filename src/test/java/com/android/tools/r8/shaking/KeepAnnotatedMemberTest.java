@@ -153,11 +153,12 @@ public class KeepAnnotatedMemberTest extends TestBase {
               List<FoundMethodSubject> methods =
                   inspector.clazz(CLASS_WITH_ANNOTATED_METHOD).allMethods();
               assertEquals(
-                  1, methods.stream().filter(m -> m.getOriginalName().equals("<init>")).count());
+                  1,
+                  methods.stream().filter(m -> m.getOriginalMethodName().equals("<init>")).count());
               assertEquals(
                   1,
                   methods.stream()
-                      .filter(m -> m.getOriginalName().equals(ANNOTATED_METHOD))
+                      .filter(m -> m.getOriginalMethodName().equals(ANNOTATED_METHOD))
                       .count());
               assertEquals(2, methods.size());
             });
@@ -190,11 +191,12 @@ public class KeepAnnotatedMemberTest extends TestBase {
               List<FoundMethodSubject> methods =
                   inspector.clazz(CLASS_WITH_ANNOTATED_METHOD).allMethods();
               assertEquals(
-                  1, methods.stream().filter(m -> m.getOriginalName().equals("<init>")).count());
+                  1,
+                  methods.stream().filter(m -> m.getOriginalMethodName().equals("<init>")).count());
               assertEquals(
                   1,
                   methods.stream()
-                      .filter(m -> m.getOriginalName().equals(ANNOTATED_METHOD))
+                      .filter(m -> m.getOriginalMethodName().equals(ANNOTATED_METHOD))
                       .count());
               assertEquals(2, methods.size());
             });
@@ -312,11 +314,11 @@ public class KeepAnnotatedMemberTest extends TestBase {
     Set<String> referenceClasses =
         new TreeSet<>(
             referenceResult.codeInspector().allClasses().stream()
-                .map(FoundClassSubject::getOriginalName)
+                .map(FoundClassSubject::getOriginalTypeName)
                 .collect(Collectors.toSet()));
     Set<String> conditionalClasses =
         conditionalResult.codeInspector().allClasses().stream()
-            .map(FoundClassSubject::getOriginalName)
+            .map(FoundClassSubject::getOriginalTypeName)
             .collect(Collectors.toSet());
     Set<String> notInReference =
         new TreeSet<>(Sets.difference(conditionalClasses, referenceClasses));

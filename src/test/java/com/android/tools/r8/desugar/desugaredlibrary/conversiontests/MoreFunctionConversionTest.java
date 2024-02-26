@@ -78,10 +78,10 @@ public class MoreFunctionConversionTest extends DesugaredLibraryTestBase {
     int customLibSize = customLibInspector.allClasses().size();
     Set<String> foundClassSubjects = Sets.newHashSet();
     for (FoundClassSubject aClass : programInspector.allClasses()) {
-      foundClassSubjects.add(aClass.getOriginalName());
+      foundClassSubjects.add(aClass.getOriginalTypeName());
     }
     for (FoundClassSubject aClass : customLibInspector.allClasses()) {
-      foundClassSubjects.add(aClass.getOriginalName());
+      foundClassSubjects.add(aClass.getOriginalTypeName());
     }
     assertEquals(foundClassSubjects.size(), programSize + customLibSize);
   }

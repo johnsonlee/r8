@@ -92,7 +92,7 @@ public class InvokeMethodWithReceiverOptimizationTest extends TestBase {
     // methods.
     int found = 0;
     for (FoundMethodSubject methodSubject : testClassSubject.allMethods()) {
-      if (methodSubject.getOriginalName().startsWith("testRewriteToThrowNull")) {
+      if (methodSubject.getOriginalMethodName().startsWith("testRewriteToThrowNull")) {
         assertTrue(
             Streams.stream(methodSubject.iterateInstructions())
                 .anyMatch(InstructionSubject::isThrow));

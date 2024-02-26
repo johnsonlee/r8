@@ -20,8 +20,6 @@ public abstract class ClassOrMemberSubject extends Subject {
 
   public abstract AccessFlags<?> getAccessFlags();
 
-  public abstract String getOriginalName();
-
   public final boolean isFinal() {
     return getAccessFlags().isFinal();
   }

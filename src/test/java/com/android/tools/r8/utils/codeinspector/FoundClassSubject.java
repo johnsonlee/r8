@@ -153,7 +153,7 @@ public class FoundClassSubject extends ClassSubject {
   public MethodSubject uniqueMethodWithOriginalName(String name) {
     MethodSubject methodSubject = null;
     for (FoundMethodSubject candidate : allMethods()) {
-      if (candidate.getOriginalName(false).equals(name)) {
+      if (candidate.getOriginalMethodName().equals(name)) {
         assert methodSubject == null;
         methodSubject = candidate;
       }
@@ -393,7 +393,7 @@ public class FoundClassSubject extends ClassSubject {
   }
 
   @Override
-  public String getOriginalName() {
+  public String getOriginalTypeName() {
     if (getNaming() != null) {
       return getNaming().originalName;
     } else {

@@ -1203,7 +1203,7 @@ public class VerticalClassMergerTest extends TestBase {
 
     // Check that all classes in [preservedClassNames] are in fact preserved.
     for (FoundClassSubject classSubject : inputInspector.allClasses()) {
-      String className = classSubject.getOriginalName();
+      String className = classSubject.getOriginalTypeName();
       boolean shouldBePresent = preservedClassNames.test(className);
       assertEquals(
           "Class " + className + " should be " + (shouldBePresent ? "present" : "absent"),

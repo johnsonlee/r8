@@ -119,7 +119,8 @@ public class ApplyMappingAfterVerticalMergingMethodTest extends TestBase {
               assertEquals(
                   1, methods.stream().filter(m -> m.getFinalName().contains("main")).count());
               assertEquals(
-                  1, methods.stream().filter(m -> m.getOriginalName().contains("foo")).count());
+                  1,
+                  methods.stream().filter(m -> m.getOriginalMethodName().contains("foo")).count());
             });
   }
 

@@ -118,10 +118,10 @@ public class DexPcWithDebugInfoForOverloadedMethodsTestRunner extends TestBase {
     assertThat(clazz, isPresent());
     assertEquals(3, clazz.allMethods().size());
     for (FoundMethodSubject method : clazz.allMethods()) {
-      if (method.getOriginalName().equals("main")) {
+      if (method.getOriginalMethodName().equals("main")) {
         assertNull(method.getMethod().getCode().asDexCode().getDebugInfo());
       } else {
-        assertEquals("overloaded", method.getOriginalName());
+        assertEquals("overloaded", method.getOriginalMethodName());
         assertNotNull(method.getMethod().getCode().asDexCode().getDebugInfo());
       }
     }

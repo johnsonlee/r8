@@ -115,7 +115,7 @@ public class InvokeSpecialToVirtualMethodProfileRewritingTest extends TestBase {
     List<FoundMethodSubject> methods =
         mainClassSubject.allMethods(
             m -> {
-              String originalName = m.getOriginalName();
+              String originalName = m.getOriginalMethodName();
               return originalName.equals("m")
                   || originalName.equals(syntheticInvokeSpecialMethod(mMethod).getMethodName());
             });

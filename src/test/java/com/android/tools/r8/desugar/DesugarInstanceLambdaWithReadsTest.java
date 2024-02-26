@@ -65,7 +65,8 @@ public class DesugarInstanceLambdaWithReadsTest extends TestBase {
     List<FoundMethodSubject> lambdaAccessorMethods =
         inspector
             .clazz(Main.class)
-            .allMethods(m -> m.getOriginalName().startsWith(R8_LAMBDA_ACCESSOR_METHOD_PREFIX));
+            .allMethods(
+                m -> m.getOriginalMethodName().startsWith(R8_LAMBDA_ACCESSOR_METHOD_PREFIX));
     assertEquals(0, lambdaAccessorMethods.size());
 
     // When generating DEX, R8 will inline the javac-generated lambda$ method into the synthesized
@@ -73,7 +74,8 @@ public class DesugarInstanceLambdaWithReadsTest extends TestBase {
     List<FoundMethodSubject> lambdaImplementationMethods =
         inspector
             .clazz(Main.class)
-            .allMethods(m -> m.getOriginalName().startsWith(JAVAC_EXPECTED_LAMBDA_METHOD_PREFIX));
+            .allMethods(
+                m -> m.getOriginalMethodName().startsWith(JAVAC_EXPECTED_LAMBDA_METHOD_PREFIX));
     assertEquals(
         1 - BooleanUtils.intValue(parameters.isDexRuntime() && isR8),
         lambdaImplementationMethods.size());

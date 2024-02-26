@@ -357,7 +357,7 @@ public abstract class ApiModelingTestHelper {
               .filter(
                   clazz ->
                       clazz
-                          .getOriginalName()
+                          .getOriginalTypeName()
                           .startsWith(
                               SyntheticItemsTestUtils.syntheticApiOutlineClassPrefix(
                                   method.getDeclaringClass())))

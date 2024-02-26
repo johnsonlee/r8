@@ -38,11 +38,11 @@ public class DesugarToClassFile extends TestBase {
     if (canUseDefaultAndStaticInterfaceMethods) {
       assertTrue(
           inspector.allClasses().stream()
-              .noneMatch(subject -> subject.getOriginalName().endsWith("$-CC")));
+              .noneMatch(subject -> subject.getOriginalTypeName().endsWith("$-CC")));
     } else {
       assertTrue(
           inspector.allClasses().stream()
-              .anyMatch(subject -> subject.getOriginalName().endsWith("$-CC")));
+              .anyMatch(subject -> subject.getOriginalTypeName().endsWith("$-CC")));
     }
   }
 

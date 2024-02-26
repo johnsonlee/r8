@@ -269,9 +269,8 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
   private void checkLambdaCount(CodeInspector inspector, int maxExpectedCount, String prefix) {
     List<String> found = new ArrayList<>();
     for (FoundClassSubject clazz : inspector.allClasses()) {
-      if (clazz.isSynthesizedJavaLambdaClass() &&
-          clazz.getOriginalName().startsWith(prefix)) {
-        found.add(clazz.getOriginalName());
+      if (clazz.isSynthesizedJavaLambdaClass() && clazz.getOriginalTypeName().startsWith(prefix)) {
+        found.add(clazz.getOriginalTypeName());
       }
     }
     assertEquals(StringUtils.lines(found), maxExpectedCount, found.size());

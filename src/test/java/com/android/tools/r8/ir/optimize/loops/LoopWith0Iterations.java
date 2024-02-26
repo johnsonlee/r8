@@ -51,7 +51,7 @@ public class LoopWith0Iterations extends TestBase {
   private void assertLoopRemoved(CodeInspector inspector) {
     inspector
         .clazz(Main.class)
-        .allMethods(m -> !m.getOriginalName().contains("Argument"))
+        .allMethods(m -> !m.getOriginalMethodName().contains("Argument"))
         .forEach(
             m ->
                 assertTrue(

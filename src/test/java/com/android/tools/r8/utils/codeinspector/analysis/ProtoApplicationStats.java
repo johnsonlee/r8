@@ -157,7 +157,7 @@ public class ProtoApplicationStats {
       }
 
       ProtoMessageStats messageStats = null;
-      switch (superClassSubject.getOriginalName()) {
+      switch (superClassSubject.getOriginalTypeName()) {
         case GENERATED_MESSAGE_LITE_TYPE:
           messageStats = protoMessageStats;
           break;
@@ -174,7 +174,7 @@ public class ProtoApplicationStats {
 
         case EXTENSION_REGISTRY_LITE_TYPE:
           for (FoundMethodSubject methodSubject : classSubject.allMethods()) {
-            String originalMethodName = methodSubject.getOriginalName(false);
+            String originalMethodName = methodSubject.getOriginalMethodName();
             if (originalMethodName.startsWith("findLiteExtensionByNumber")) {
               generatedExtensionRegistryStats.findLiteExtensionByNumberMethods.add(
                   methodSubject.getOriginalDexMethod(dexItemFactory));
@@ -184,7 +184,7 @@ public class ProtoApplicationStats {
                 DexField field = instruction.getField();
                 FoundClassSubject typeClassSubject =
                     inspector.clazz(field.type.toSourceString()).asFoundClassSubject();
-                if (!typeClassSubject.getOriginalName().equals(GENERATED_EXTENSION_TYPE)) {
+                if (!typeClassSubject.getOriginalTypeName().equals(GENERATED_EXTENSION_TYPE)) {
                   continue;
                 }
                 FoundClassSubject extensionClassSubject =
@@ -204,7 +204,7 @@ public class ProtoApplicationStats {
       if (messageStats != null) {
         messageStats.messages.add(originalType);
         for (FoundFieldSubject fieldSubject : classSubject.allInstanceFields()) {
-          String originalFieldName = fieldSubject.getOriginalName(false);
+          String originalFieldName = fieldSubject.getOriginalFieldName();
           if (originalFieldName.startsWith("bitField")) {
             messageStats.bitFields.add(fieldSubject.getOriginalDexField(dexItemFactory));
           } else {

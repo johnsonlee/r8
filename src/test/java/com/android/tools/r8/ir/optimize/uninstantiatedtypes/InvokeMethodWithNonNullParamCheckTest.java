@@ -105,8 +105,9 @@ public class InvokeMethodWithNonNullParamCheckTest extends TestBase {
     // Check that a throw instruction has been inserted into each of the testRewriteInvoke* methods.
     int found = 0;
     for (FoundMethodSubject methodSubject : testClassSubject.allMethods()) {
-      if (methodSubject.getOriginalName().startsWith("testRewriteInvoke")) {
-        boolean shouldHaveThrow = !methodSubject.getOriginalName().contains("NonNullArgument");
+      if (methodSubject.getOriginalMethodName().startsWith("testRewriteInvoke")) {
+        boolean shouldHaveThrow =
+            !methodSubject.getOriginalMethodName().contains("NonNullArgument");
         assertEquals(
             shouldHaveThrow,
             Streams.stream(methodSubject.iterateInstructions())

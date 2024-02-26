@@ -44,6 +44,10 @@ public abstract class MethodSubject extends MemberSubject {
   @Override
   public abstract MethodAccessFlags getAccessFlags();
 
+  public String getOriginalMethodName() {
+    return getOriginalName();
+  }
+
   @Override
   public abstract MethodSignature getOriginalSignature();
 

@@ -89,7 +89,7 @@ public class StaticClassMergerTest extends TestBase {
               // Check that one of the two static merge candidates has been removed
               List<FoundClassSubject> classes =
                   inspector.allClasses().stream()
-                      .filter(clazz -> clazz.getOriginalName().contains("StaticMergeCandidate"))
+                      .filter(clazz -> clazz.getOriginalTypeName().contains("StaticMergeCandidate"))
                       .collect(Collectors.toList());
               assertEquals(1, classes.size());
 

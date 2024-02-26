@@ -39,7 +39,7 @@ public abstract class HorizontalClassMergingTestBase extends TestBase {
     assertTrue(classSubject.isPresent());
     FieldSubject[] classIds =
         classSubject.allFields().stream()
-            .filter(f -> f.getOriginalName(false).startsWith(ClassMerger.CLASS_ID_FIELD_PREFIX))
+            .filter(f -> f.getOriginalFieldName().startsWith(ClassMerger.CLASS_ID_FIELD_PREFIX))
             .toArray(FieldSubject[]::new);
     if (classIds.length == 1) {
       return classIds[0];

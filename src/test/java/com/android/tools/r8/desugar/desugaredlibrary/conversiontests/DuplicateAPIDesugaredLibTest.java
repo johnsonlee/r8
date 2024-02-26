@@ -86,7 +86,9 @@ public class DuplicateAPIDesugaredLibTest extends DesugaredLibraryTestBase {
         libraryDesugaringSpecification == JDK8 ? duplicate ? 2 : 1 : duplicate ? 4 : 3;
     assertEquals(
         numForEachMethods,
-        clazz.virtualMethods().stream().filter(m -> m.getOriginalName().equals("forEach")).count());
+        clazz.virtualMethods().stream()
+            .filter(m -> m.getOriginalMethodName().equals("forEach"))
+            .count());
   }
 
   static class Executor {

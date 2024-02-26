@@ -132,9 +132,8 @@ public class ImplicitlyKeptDefaultConstructorTest extends ProguardCompatibilityT
     assert programClasses.contains(mainClass);
     assertEquals(programClasses.size(), inspector.allClasses().size());
     checkPresentWithDefaultConstructor(inspector.clazz(mainClass));
-    inspector.allClasses()
-        .stream()
-        .filter(subject -> !subject.getOriginalName().equals(mainClass.getCanonicalName()))
+    inspector.allClasses().stream()
+        .filter(subject -> !subject.getOriginalTypeName().equals(mainClass.getCanonicalName()))
         .forEach(this::checkPresentWithoutDefaultConstructor);
   }
 

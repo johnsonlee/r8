@@ -77,7 +77,7 @@ public class InitializedClassesInInstanceMethodsTest extends TestBase {
     assertEquals(
         numberOfExpectedAccessibilityBridges,
         outerClassSubject
-            .allMethods(method -> method.getOriginalName().contains("access$"))
+            .allMethods(method -> method.getOriginalMethodName().contains("access$"))
             .size());
     assertEquals(
         !enableInitializedClassesInInstanceMethodsAnalysis,

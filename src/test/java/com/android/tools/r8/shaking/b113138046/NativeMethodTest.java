@@ -54,7 +54,7 @@ public class NativeMethodTest extends TestBase {
     CodeInspector inspector = compileResult.inspector();
     boolean innerFound = false;
     for (ClassSubject clazz : inspector.allClasses()) {
-      innerFound = clazz.getOriginalName().endsWith("Inner");
+      innerFound = clazz.getOriginalTypeName().endsWith("Inner");
       if (!innerFound) {
         continue;
       }

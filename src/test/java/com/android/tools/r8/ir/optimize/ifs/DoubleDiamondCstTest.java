@@ -50,9 +50,9 @@ public class DoubleDiamondCstTest extends TestBase {
 
   private void inspect(CodeInspector inspector) {
     for (FoundMethodSubject method : inspector.clazz(Main.class).allMethods()) {
-      if (!method.getOriginalName().equals("main")) {
+      if (!method.getOriginalMethodName().equals("main")) {
         long count = method.streamInstructions().filter(InstructionSubject::isIf).count();
-        assertEquals(method.getOriginalName().contains("Double") ? 2 : 1, count);
+        assertEquals(method.getOriginalMethodName().contains("Double") ? 2 : 1, count);
       }
     }
   }

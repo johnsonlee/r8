@@ -82,7 +82,7 @@ public class UnusedArgumentsIntTest extends UnusedArgumentsTestBase {
     clazz.forAllMethods(
         method -> {
           Assert.assertTrue(
-              methodsThatWontBeOptimized.contains(method.getOriginalName())
+              methodsThatWontBeOptimized.contains(method.getOriginalMethodName())
                   || (method.getFinalSignature().parameters.length == 1
                       && method.getFinalSignature().parameters[0].equals("int")));
         });

@@ -83,7 +83,7 @@ public class DaggerBasicSingletonUsingBindsTest extends DaggerBasicTestBase {
     assertEquals(
         expectedClasses.build(),
         inspector.allClasses().stream()
-            .map(FoundClassSubject::getOriginalName)
+            .map(FoundClassSubject::getOriginalTypeName)
             .filter(name -> !name.contains("_Factory"))
             .collect(Collectors.toSet()));
   }

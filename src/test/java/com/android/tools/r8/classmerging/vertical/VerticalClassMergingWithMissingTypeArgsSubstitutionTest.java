@@ -80,7 +80,7 @@ public class VerticalClassMergingWithMissingTypeArgsSubstitutionTest extends Tes
                           method.isFinal()
                               && method.isVirtual()
                               && !method.isSynthetic()
-                              && method.getOriginalName(false).equals("foo"));
+                              && method.getOriginalMethodName().equals("foo"));
               assertThat(fooMovedFromB, isPresentAndRenamed());
               assertEquals(
                   "(Ljava/lang/Object;)Ljava/lang/Object;",
@@ -92,7 +92,7 @@ public class VerticalClassMergingWithMissingTypeArgsSubstitutionTest extends Tes
                           method.isFinal()
                               && method.isVirtual()
                               && method.isSynthetic()
-                              && method.getOriginalName(false).equals("foo"));
+                              && method.getOriginalMethodName().equals("foo"));
               if (enableBridgeAnalysis) {
                 assertThat(fooBridge, isAbsent());
               } else {

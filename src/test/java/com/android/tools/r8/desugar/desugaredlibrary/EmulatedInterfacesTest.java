@@ -91,7 +91,7 @@ public class EmulatedInterfacesTest extends DesugaredLibraryTestBase {
 
   private List<FoundClassSubject> getEmulatedInterfaces(CodeInspector inspector) {
     return inspector.allClasses().stream()
-        .filter(clazz -> clazz.getOriginalName().contains(getEmulateLibraryClassNameSuffix()))
+        .filter(clazz -> clazz.getOriginalTypeName().contains(getEmulateLibraryClassNameSuffix()))
         .collect(Collectors.toList());
   }
 

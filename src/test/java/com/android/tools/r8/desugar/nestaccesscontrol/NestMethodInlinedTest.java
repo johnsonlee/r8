@@ -78,7 +78,7 @@ public class NestMethodInlinedTest extends TestBase {
     int nbNotInlinedPvtCall = 0;
     for (FoundClassSubject subj : inspector.allClasses()) {
       assertTrue(
-          "nestPvtCallToInline should be inlined (from " + subj.getOriginalName() + ")",
+          "nestPvtCallToInline should be inlined (from " + subj.getOriginalTypeName() + ")",
           subj.allMethods().stream()
               .noneMatch(
                   method ->

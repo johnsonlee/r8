@@ -168,7 +168,7 @@ public class AssertionConfigurationKotlinTestBase extends KotlinTestBase {
 
   protected void checkAssertionCodeRemoved(ClassSubject subject, boolean isR8) {
     assertThat(subject, isPresent());
-    if (subject.getOriginalName().equals("kotlin._Assertions")) {
+    if (subject.getOriginalTypeName().equals("kotlin._Assertions")) {
       assert !kotlinStdlibAsLibrary;
       // With R8 the static-put of the kotlin._Assertions.INSTANCE field is removed as well,
       // as is not used.
@@ -201,7 +201,7 @@ public class AssertionConfigurationKotlinTestBase extends KotlinTestBase {
 
   protected void checkAssertionCodeEnabled(ClassSubject subject, boolean isR8) {
     assertThat(subject, isPresent());
-    if (subject.getOriginalName().equals("kotlin._Assertions")) {
+    if (subject.getOriginalTypeName().equals("kotlin._Assertions")) {
       assert !kotlinStdlibAsLibrary;
       // With R8 the static-put of the kotlin._Assertions.INSTANCE field is removed as is not used.
       assertEquals(

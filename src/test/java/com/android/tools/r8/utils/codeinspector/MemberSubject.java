@@ -12,24 +12,17 @@ public abstract class MemberSubject extends ClassOrMemberSubject {
 
   public abstract Signature getFinalSignature();
 
-  @Override
-  public String getOriginalName() {
-    return getOriginalName(true);
-  }
-
-  public String getOriginalName(boolean qualified) {
+  String getOriginalName() {
     Signature originalSignature = getOriginalSignature();
-    if (originalSignature != null) {
-      String name = originalSignature.name;
-      if (!qualified) {
-        int index = name.lastIndexOf(".");
-        if (index >= 0) {
-          return name.substring(index + 1);
-        }
-      }
-      return name;
+    if (originalSignature == null) {
+      return null;
     }
-    return null;
+    String name = originalSignature.getName();
+    int index = name.lastIndexOf(".");
+    if (index >= 0) {
+      return name.substring(index + 1);
+    }
+    return name;
   }
 
   public String getFinalName() {

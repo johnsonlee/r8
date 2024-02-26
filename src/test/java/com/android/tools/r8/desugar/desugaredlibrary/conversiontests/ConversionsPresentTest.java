@@ -51,11 +51,11 @@ public class ConversionsPresentTest extends DesugaredLibraryTestBase {
   private void checkConversionGeneratedDex(CodeInspector inspector) {
     List<FoundClassSubject> conversionsClasses =
         inspector.allClasses().stream()
-            .filter(c -> c.getOriginalName().contains("Conversions"))
+            .filter(c -> c.getOriginalTypeName().contains("Conversions"))
             .filter(
                 c ->
-                    c.getOriginalName().contains(".util.")
-                        || c.getOriginalName().contains(".time."))
+                    c.getOriginalTypeName().contains(".util.")
+                        || c.getOriginalTypeName().contains(".time."))
             .collect(Collectors.toList());
     if (libraryDesugaringSpecification.hasEmulatedInterfaceDesugaring(parameters)) {
       assertEquals(5, conversionsClasses.size());

@@ -262,7 +262,7 @@ public class StartupSyntheticPlacementTest extends TestBase {
             bClassSubject.uniqueMethodThatMatches(
                 method ->
                     method
-                        .getOriginalName()
+                        .getOriginalMethodName()
                         .startsWith(LambdaClass.R8_LAMBDA_ACCESSOR_METHOD_PREFIX));
         assertThat(syntheticLambdaAccessorMethod, isPresent());
 

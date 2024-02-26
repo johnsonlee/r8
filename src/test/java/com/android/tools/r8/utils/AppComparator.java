@@ -66,39 +66,43 @@ public class AppComparator extends TestBase {
               && encodedMethod.getReference().getArity() == 0;
         };
 
-    inspect1.forAllClasses(clazz1 -> {
-      clazz1.forAllMethods(method1 -> {
-        if (methodTester.test(method1.getMethod())) {
-          ClassSubject clazz2 = inspect2.clazz(clazz1.getOriginalName());
-          if (!clazz2.isPresent()) {
-            String classNotFound =
-                String.format("Class %s not found in app2", clazz1.getOriginalName());
-            if (allowMissingClassInApp2) {
-              System.out.println(classNotFound);
-              return;
-            }
-            assertThat(classNotFound, clazz2, isPresent());
-          }
-          MethodSubject method2 = clazz2.method(method1.getOriginalSignature());
-          if (!method2.isPresent()) {
-            method2 = clazz2.method(method1.getFinalSignature());
-          }
-          if (!method2.isPresent()) {
-            assertThat(String.format("Method %s not found in app2", method1.getFinalSignature()),
-                method2, isPresent());
-          }
-          if (method1.getMethod().shouldNotHaveCode()) {
-            assertTrue(method2.getMethod().shouldNotHaveCode());
-            return;
-          }
-          if (!identicalCode(method1, method2)) {
-            System.out.println("Found different method body: ");
-            System.out.println(method1.getMethod().codeToString());
-            System.out.println(method2.getMethod().codeToString());
-          }
-        }
-      });
-    });
+    inspect1.forAllClasses(
+        clazz1 -> {
+          clazz1.forAllMethods(
+              method1 -> {
+                if (methodTester.test(method1.getMethod())) {
+                  ClassSubject clazz2 = inspect2.clazz(clazz1.getOriginalTypeName());
+                  if (!clazz2.isPresent()) {
+                    String classNotFound =
+                        String.format("Class %s not found in app2", clazz1.getOriginalTypeName());
+                    if (allowMissingClassInApp2) {
+                      System.out.println(classNotFound);
+                      return;
+                    }
+                    assertThat(classNotFound, clazz2, isPresent());
+                  }
+                  MethodSubject method2 = clazz2.method(method1.getOriginalSignature());
+                  if (!method2.isPresent()) {
+                    method2 = clazz2.method(method1.getFinalSignature());
+                  }
+                  if (!method2.isPresent()) {
+                    assertThat(
+                        String.format("Method %s not found in app2", method1.getFinalSignature()),
+                        method2,
+                        isPresent());
+                  }
+                  if (method1.getMethod().shouldNotHaveCode()) {
+                    assertTrue(method2.getMethod().shouldNotHaveCode());
+                    return;
+                  }
+                  if (!identicalCode(method1, method2)) {
+                    System.out.println("Found different method body: ");
+                    System.out.println(method1.getMethod().codeToString());
+                    System.out.println(method2.getMethod().codeToString());
+                  }
+                }
+              });
+        });
   }
 
   @Ignore("Comment out this to run locally.")

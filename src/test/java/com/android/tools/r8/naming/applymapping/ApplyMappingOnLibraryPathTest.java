@@ -46,7 +46,7 @@ public class ApplyMappingOnLibraryPathTest extends TestBase {
               FoundClassSubject foundClassSubject = clazz.asFoundClassSubject();
               assertEquals(
                   typeName(LibraryClass.class),
-                  foundClassSubject.getSuperClass().getOriginalName());
+                  foundClassSubject.getSuperClass().getOriginalTypeName());
             })
         .addRunClasspathClasses(LibraryClass.class)
         .run(parameters.getRuntime(), Main.class)

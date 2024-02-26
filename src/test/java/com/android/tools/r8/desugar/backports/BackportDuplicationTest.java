@@ -309,7 +309,7 @@ public class BackportDuplicationTest extends TestBase {
     inspector.forAllClasses(
         clazz -> {
           SyntheticNaming.verifyNotInternalSynthetic(clazz.getFinalReference());
-          if (!clazz.getOriginalName().equals(MiniAssert.class.getTypeName())) {
+          if (!clazz.getOriginalTypeName().equals(MiniAssert.class.getTypeName())) {
             clazz.forAllMethods(
                 method ->
                     assertTrue(

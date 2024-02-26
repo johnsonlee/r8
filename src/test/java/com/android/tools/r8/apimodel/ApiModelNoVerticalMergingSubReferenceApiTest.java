@@ -77,7 +77,7 @@ public class ApiModelNoVerticalMergingSubReferenceApiTest extends TestBase {
                 assertThat(sub.uniqueInstanceInitializer(), isAbsent());
                 assertEquals(1, sub.virtualMethods().size());
                 FoundMethodSubject callCallApi = sub.virtualMethods().get(0);
-                assertEquals("callCallApi", callCallApi.getOriginalName());
+                assertEquals("callCallApi", callCallApi.getOriginalMethodName());
                 assertThat(callCallApi, CodeMatchers.invokesMethodWithName("apiLevel22"));
               } else {
                 assertThat(base, isPresent());

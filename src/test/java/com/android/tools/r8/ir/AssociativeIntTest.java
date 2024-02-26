@@ -180,9 +180,10 @@ public class AssociativeIntTest extends TestBase {
     ClassSubject clazz = inspector.clazz(Main.class);
     for (FoundMethodSubject method :
         clazz.allMethods(m -> m.getParameters().size() > 0 && m.getParameter(0).is("int"))) {
-      int numberOfExpectedIntBinops = method.getOriginalName().contains("NotSimplified") ? 2 : 1;
+      int numberOfExpectedIntBinops =
+          method.getOriginalMethodName().contains("NotSimplified") ? 2 : 1;
       if (!enableConstantArgumentAnnotations) {
-        switch (method.getOriginalName()) {
+        switch (method.getOriginalMethodName()) {
           case "andDouble":
           case "orDoubleToConst":
           case "shlDoubleToConst":
@@ -195,7 +196,7 @@ public class AssociativeIntTest extends TestBase {
         }
       }
       assertEquals(
-          method.getOriginalName(),
+          method.getOriginalMethodName(),
           numberOfExpectedIntBinops,
           method
               .streamInstructions()

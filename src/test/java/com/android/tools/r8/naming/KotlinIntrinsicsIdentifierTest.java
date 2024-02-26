@@ -133,9 +133,10 @@ public class KotlinIntrinsicsIdentifierTest extends AbstractR8KotlinNamingTestBa
               .collect(Collectors.toList()));
       assertThat(invokedMethodSubject, isPresent());
       assertEquals(minification, invokedMethodSubject.isRenamed());
-      if (invokedMethodSubject.getOriginalName().startsWith("check")
-          && invokedMethodSubject.getOriginalName().endsWith("Null")
-          && invokedMethodHolderSubject.getOriginalDescriptor()
+      if (invokedMethodSubject.getOriginalMethodName().startsWith("check")
+          && invokedMethodSubject.getOriginalMethodName().endsWith("Null")
+          && invokedMethodHolderSubject
+              .getOriginalDescriptor()
               .contains("kotlin/jvm/internal/Intrinsics")) {
         metKotlinIntrinsicsNullChecks = true;
       }

@@ -46,7 +46,9 @@ public class BoxedPrimitiveNonNullTest extends TestBase {
 
   private void verifyNoBranch(CodeInspector codeInspector) {
     for (FoundMethodSubject nonMain :
-        codeInspector.clazz(TestClass.class).allMethods(m -> !m.getOriginalName().equals("main"))) {
+        codeInspector
+            .clazz(TestClass.class)
+            .allMethods(m -> !m.getOriginalMethodName().equals("main"))) {
       assertTrue(nonMain.streamInstructions().noneMatch(InstructionSubject::isIf));
     }
   }

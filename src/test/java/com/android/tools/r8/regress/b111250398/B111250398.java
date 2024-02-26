@@ -259,11 +259,13 @@ public class B111250398 extends TestBase {
     assertThat(svOnA, isPresent());
     ClassSubject classB = inspector.clazz(B.class);
     assertThat(classB, isPresent());
-    MethodSubject mfOnB = classB.method("void", "mf", ImmutableList.of(classA.getOriginalName()));
+    MethodSubject mfOnB =
+        classB.method("void", "mf", ImmutableList.of(classA.getOriginalTypeName()));
     assertThat(mfOnB, isPresent());
     MethodSubject msfOnB = classB.method("void", "msf", ImmutableList.of());
     assertThat(msfOnB, isPresent());
-    MethodSubject mvOnB = classB.method("void", "mv", ImmutableList.of(classA.getOriginalName()));
+    MethodSubject mvOnB =
+        classB.method("void", "mv", ImmutableList.of(classA.getOriginalTypeName()));
     assertThat(mvOnB, isPresent());
     MethodSubject msvOnB = classB.method("void", "msv", ImmutableList.of());
     assertThat(msvOnB, isPresent());

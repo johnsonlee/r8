@@ -65,7 +65,7 @@ public class VerticalClassMergingWithNonVisibleAnnotationTest extends TestBase {
               MethodSubject foo =
                   sub.uniqueMethodThatMatches(
                       method ->
-                          method.getOriginalName(false).equals("foo") && !method.isSynthetic());
+                          method.getOriginalMethodName().equals("foo") && !method.isSynthetic());
               assertThat(foo, isPresent());
               AnnotationSubject privateMethodAnnotation =
                   foo.annotation(
