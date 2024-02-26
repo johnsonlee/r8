@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.optimize.enums;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
+import static com.android.tools.r8.ir.optimize.enums.EnumUnboxerUtils.isArrayUsedOnlyForHashCode;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -40,6 +41,7 @@ import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.NewArrayFilled;
 import com.android.tools.r8.ir.code.NewUnboxedEnumInstance;
 import com.android.tools.r8.ir.code.Phi;
+import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
@@ -56,6 +58,7 @@ import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -232,9 +235,59 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
         }
       }
     }
+    if (code.metadata().mayHaveNewArrayFilled()) {
+      fixupPrimitiveElementsOfNonPrimitiveNewArrayFilled(code, convertedEnums, eventConsumer);
+    }
     code.removeRedundantBlocks();
     assert code.isConsistentSSABeforeTypesAreCorrect(appView);
     return affectedPhis;
+  }
+
+  private void fixupPrimitiveElementsOfNonPrimitiveNewArrayFilled(
+      IRCode code,
+      Map<Instruction, DexType> convertedEnums,
+      EnumUnboxerMethodProcessorEventConsumer eventConsumer) {
+    BasicBlockIterator blocks = code.listIterator();
+    while (blocks.hasNext()) {
+      BasicBlock block = blocks.next();
+      InstructionListIterator instructionIterator = block.listIterator(code);
+      NewArrayFilled newArrayFilled;
+      while ((newArrayFilled = instructionIterator.nextUntil(Instruction::isNewArrayFilled))
+          != null) {
+        if (isArrayUsedOnlyForHashCode(newArrayFilled, factory)) {
+          // Insert a box operation.
+          Map<Value, InvokeStatic> argumentsToBox = new LinkedHashMap<>();
+          for (int argumentIndex = 0;
+              argumentIndex < newArrayFilled.arguments().size();
+              argumentIndex++) {
+            Value argument = newArrayFilled.getArgument(argumentIndex);
+            Position position = newArrayFilled.getPosition();
+            if (getEnumClassTypeOrNull(argument, convertedEnums) != null) {
+              InvokeStatic boxInstruction =
+                  argumentsToBox.computeIfAbsent(
+                      argument,
+                      a ->
+                          InvokeStatic.builder()
+                              .setFreshOutValue(code, factory.boxedIntType.toTypeElement(appView))
+                              .setSingleArgument(a)
+                              .setMethod(
+                                  getSharedUtilityClass()
+                                      .ensureBoxedOrdinalOrNullMethod(
+                                          appView, code.context(), eventConsumer))
+                              .setPosition(position)
+                              .build());
+              newArrayFilled.replaceValue(argumentIndex, boxInstruction.outValue());
+            }
+          }
+          if (!argumentsToBox.isEmpty()) {
+            instructionIterator.previous();
+            instructionIterator =
+                instructionIterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
+                    code, blocks, argumentsToBox.values(), options);
+          }
+        }
+      }
+    }
   }
 
   private void rewriteArrayAccess(
@@ -498,6 +551,19 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
       Map<Instruction, DexType> convertedEnums,
       InstructionListIterator instructionIterator) {
     DexType arrayBaseType = newArrayFilled.getArrayType().toBaseType(factory);
+    if (isArrayUsedOnlyForHashCode(newArrayFilled, factory)) {
+      DexType rewrittenArrayType =
+          newArrayFilled.getArrayType().replaceBaseType(factory.objectType, factory);
+      NewArrayFilled rewrittenNewArrayFilled =
+          NewArrayFilled.builder()
+              .setElements(newArrayFilled.arguments())
+              .setFreshOutValue(
+                  code, rewrittenArrayType.toTypeElement(appView, definitelyNotNull()))
+              .setType(rewrittenArrayType)
+              .build();
+      instructionIterator.replaceCurrentInstruction(rewrittenNewArrayFilled);
+      return;
+    }
     if (!unboxedEnumsData.isUnboxedEnum(arrayBaseType)) {
       return;
     }

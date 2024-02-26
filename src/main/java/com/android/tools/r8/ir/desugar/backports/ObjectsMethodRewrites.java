@@ -9,7 +9,6 @@ import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter.FullMethodInvokeRewriter;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter.MethodInvokeRewriter;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
@@ -20,13 +19,8 @@ import org.objectweb.asm.Opcodes;
 public final class ObjectsMethodRewrites {
 
   public static MethodInvokeRewriter rewriteToArraysHashCode() {
-    return (invoke, factory) -> {
-      DexType arraysType = factory.createType(factory.arraysDescriptor);
-      return new CfInvoke(
-          Opcodes.INVOKESTATIC,
-          factory.createMethod(arraysType, invoke.getMethod().proto, "hashCode"),
-          false);
-    };
+    return (invoke, factory) ->
+        new CfInvoke(Opcodes.INVOKESTATIC, factory.javaUtilArraysMethods.hashCode, false);
   }
 
   public static MethodInvokeRewriter rewriteRequireNonNull() {

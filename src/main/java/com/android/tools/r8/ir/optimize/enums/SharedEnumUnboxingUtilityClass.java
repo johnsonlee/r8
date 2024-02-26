@@ -74,6 +74,7 @@ public class SharedEnumUnboxingUtilityClass extends EnumUnboxingUtilityClass {
     ensureEqualsMethod(appView);
     ensureObjectsEqualsMethod(appView);
     ensureOrdinalMethod(appView);
+    ensureBoxedOrdinalOrNullMethod(appView);
   }
 
   public ProgramMethod ensureCheckNotZeroMethod(
@@ -187,6 +188,25 @@ public class SharedEnumUnboxingUtilityClass extends EnumUnboxingUtilityClass {
         dexItemFactory.enumMembers.ordinalMethod.getName(),
         dexItemFactory.createProto(dexItemFactory.intType, dexItemFactory.intType),
         method -> EnumUnboxingCfMethods.EnumUnboxingMethods_ordinal(dexItemFactory, method));
+  }
+
+  public ProgramMethod ensureBoxedOrdinalOrNullMethod(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramMethod context,
+      EnumUnboxerMethodProcessorEventConsumer eventConsumer) {
+    ProgramMethod method = ensureBoxedOrdinalOrNullMethod(appView);
+    eventConsumer.acceptEnumUnboxerSharedUtilityClassMethodContext(method, context);
+    return method;
+  }
+
+  private ProgramMethod ensureBoxedOrdinalOrNullMethod(AppView<AppInfoWithLiveness> appView) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    return internalEnsureMethod(
+        appView,
+        dexItemFactory.createString("boxedOrdinalOrNull"),
+        dexItemFactory.createProto(dexItemFactory.boxedIntType, dexItemFactory.intType),
+        method ->
+            EnumUnboxingCfMethods.EnumUnboxingMethods_boxedOrdinalOrNull(dexItemFactory, method));
   }
 
   private ProgramMethod internalEnsureMethod(

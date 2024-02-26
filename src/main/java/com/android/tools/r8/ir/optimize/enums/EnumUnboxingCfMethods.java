@@ -11,6 +11,7 @@ package com.android.tools.r8.ir.optimize.enums;
 import com.android.tools.r8.cf.code.CfArithmeticBinop;
 import com.android.tools.r8.cf.code.CfArrayLength;
 import com.android.tools.r8.cf.code.CfArrayStore;
+import com.android.tools.r8.cf.code.CfConstNull;
 import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfFrame;
 import com.android.tools.r8.cf.code.CfGoto;
@@ -43,7 +44,50 @@ import java.util.Arrays;
 public final class EnumUnboxingCfMethods {
 
   public static void registerSynthesizedCodeReferences(DexItemFactory factory) {
+    factory.createSynthesizedType("Ljava/lang/Integer;");
     factory.createSynthesizedType("Ljava/lang/NullPointerException;");
+  }
+
+  public static CfCode EnumUnboxingMethods_boxedOrdinalOrNull(
+      DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        2,
+        1,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.INT, 0),
+            new CfIf(IfType.NE, ValueType.INT, label1),
+            new CfConstNull(),
+            new CfGoto(label2),
+            label1,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(new int[] {0}, new FrameType[] {FrameType.intType()})),
+            new CfLoad(ValueType.INT, 0),
+            new CfConstNumber(1, ValueType.INT),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Sub, NumericType.INT),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Integer;"),
+                    factory.createProto(factory.createType("Ljava/lang/Integer;"), factory.intType),
+                    factory.createString("valueOf")),
+                false),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(new int[] {0}, new FrameType[] {FrameType.intType()}),
+                new ArrayDeque<>(
+                    Arrays.asList(
+                        FrameType.initializedNonNullReference(
+                            factory.createType("Ljava/lang/Integer;"))))),
+            new CfReturn(ValueType.OBJECT),
+            label3),
+        ImmutableList.of(),
+        ImmutableList.of());
   }
 
   public static CfCode EnumUnboxingMethods_compareTo(DexItemFactory factory, DexMethod method) {

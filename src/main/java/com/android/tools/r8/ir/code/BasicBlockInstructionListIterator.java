@@ -179,7 +179,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
   public InstructionListIterator addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
       IRCode code,
       BasicBlockIterator blockIterator,
-      Collection<Instruction> instructionsToAdd,
+      Collection<? extends Instruction> instructionsToAdd,
       InternalOptions options) {
     // Assert that we are not inserting after the final jump, and also store peekNext() for later.
     Instruction origNext = null;
@@ -196,14 +196,14 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       BasicBlockInstructionListIterator dstIterator,
       IRCode code,
       BasicBlockIterator blockIterator,
-      Collection<Instruction> instructionsToAdd,
+      Collection<? extends Instruction> instructionsToAdd,
       InternalOptions options) {
     if (!dstIterator.block.hasCatchHandlers() || instructionsToAdd.isEmpty()) {
       dstIterator.addAll(instructionsToAdd);
       return dstIterator;
     }
 
-    Iterator<Instruction> srcIterator = instructionsToAdd.iterator();
+    Iterator<? extends Instruction> srcIterator = instructionsToAdd.iterator();
 
     // If the throwing instruction is before the cursor, then we must split the block first.
     // If there is one afterwards, we can add instructions and when we split, the throwing one

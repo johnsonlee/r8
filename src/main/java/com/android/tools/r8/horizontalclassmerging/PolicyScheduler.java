@@ -66,8 +66,7 @@ import java.util.List;
 public class PolicyScheduler {
 
   public static List<Policy> getPolicies(
-      AppView<?> appView,
-      RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
+      AppView<?> appView, RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     if (appView.hasClassHierarchy()) {
       return getPoliciesForR8(appView.withClassHierarchy(), runtimeTypeCheckInfo);
     } else {

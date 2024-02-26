@@ -199,7 +199,7 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
   public InstructionListIterator addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
       IRCode code,
       BasicBlockIterator blockIterator,
-      Collection<Instruction> instructionsToAdd,
+      Collection<? extends Instruction> instructionsToAdd,
       InternalOptions options) {
     return currentBlockIterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
         code, blockIterator, instructionsToAdd, options);

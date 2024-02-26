@@ -1268,16 +1268,17 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       assert false;
       return Reason.INVALID_INVOKE_NEW_ARRAY;
     }
-    if (enumClass.type.isNotIdenticalTo(arrayBaseType.getClassType())) {
+    if (enumClass.getType().isIdenticalTo(arrayBaseType.getClassType())) {
+      if (Iterables.all(
+          newArrayFilled.arguments(), argument -> isAssignableToArray(argument, arrayBaseType))) {
+        return Reason.ELIGIBLE;
+      }
       return Reason.INVALID_INVOKE_NEW_ARRAY;
     }
-
-    for (Value value : newArrayFilled.inValues()) {
-      if (!isAssignableToArray(value, arrayBaseType)) {
-        return Reason.INVALID_INVOKE_NEW_ARRAY;
-      }
+    if (EnumUnboxerUtils.isArrayUsedOnlyForHashCode(newArrayFilled, factory)) {
+      return Reason.ELIGIBLE;
     }
-    return Reason.ELIGIBLE;
+    return Reason.INVALID_INVOKE_NEW_ARRAY;
   }
 
   private Reason analyzeCheckCastUser(CheckCast checkCast) {

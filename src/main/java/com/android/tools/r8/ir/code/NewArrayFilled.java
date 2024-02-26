@@ -38,6 +38,10 @@ public class NewArrayFilled extends Invoke {
     this.type = type;
   }
 
+  public static Builder builder() {
+    return new Builder();
+  }
+
   @Override
   public int opcode() {
     return Opcodes.NEW_ARRAY_FILLED;
@@ -240,5 +244,31 @@ public class NewArrayFilled extends Invoke {
   @Override
   public void buildLir(LirBuilder<Value, ?> builder) {
     builder.addNewArrayFilled(getArrayType(), arguments());
+  }
+
+  public static class Builder extends BuilderBase<Builder, NewArrayFilled> {
+
+    private List<Value> elements;
+    private DexType type;
+
+    public Builder setElements(List<Value> elements) {
+      this.elements = elements;
+      return this;
+    }
+
+    public Builder setType(DexType type) {
+      this.type = type;
+      return this;
+    }
+
+    @Override
+    public NewArrayFilled build() {
+      return amend(new NewArrayFilled(type, outValue, elements));
+    }
+
+    @Override
+    public Builder self() {
+      return this;
+    }
   }
 }

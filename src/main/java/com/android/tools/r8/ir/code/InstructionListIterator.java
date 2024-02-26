@@ -36,13 +36,13 @@ public interface InstructionListIterator
     }
   }
 
-  default void addAll(Collection<Instruction> instructions) {
+  default void addAll(Collection<? extends Instruction> instructions) {
     for (Instruction instruction : instructions) {
       add(instruction);
     }
   }
 
-  default boolean addUntilThrowing(Iterator<Instruction> srcIterator) {
+  default boolean addUntilThrowing(Iterator<? extends Instruction> srcIterator) {
     while (srcIterator.hasNext()) {
       // Add all non-throwing instructions up until the first throwing instruction.
       Instruction instruction = srcIterator.next();
@@ -57,7 +57,7 @@ public interface InstructionListIterator
   InstructionListIterator addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
       IRCode code,
       BasicBlockIterator blockIterator,
-      Collection<Instruction> instructionsToAdd,
+      Collection<? extends Instruction> instructionsToAdd,
       InternalOptions options);
 
   default InstructionListIterator addPossiblyThrowingInstructionsToPossiblyThrowingBlock(

@@ -9,6 +9,10 @@ package com.android.tools.r8.enumunboxing;
 // are different on each Enum implementation.
 public class EnumUnboxingMethods {
 
+  public static Integer boxedOrdinalOrNull(int unboxedEnum) {
+    return unboxedEnum == 0 ? null : unboxedEnum - 1;
+  }
+
   // An enum is unboxed to ordinal + 1.
   // For example, enum E {A,B}, is unboxed to null -> 0, A -> 1, B-> 2.
   // Computing the ordinal of an unboxed enum throws a null pointer exception on 0,

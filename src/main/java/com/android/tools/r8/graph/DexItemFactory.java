@@ -438,6 +438,7 @@ public class DexItemFactory {
   public final DexType classArrayType = createStaticallyKnownType(classArrayDescriptor);
   public final DexType enumType = createStaticallyKnownType(enumDescriptor);
   public final DexType annotationType = createStaticallyKnownType(annotationDescriptor);
+  public final DexType arraysType = createStaticallyKnownType(arraysDescriptor);
   public final DexType objectsType = createStaticallyKnownType(objectsDescriptor);
   public final DexType collectionsType = createStaticallyKnownType(collectionsDescriptor);
   public final DexType iterableType = createStaticallyKnownType(iterableDescriptor);
@@ -1407,6 +1408,8 @@ public class DexItemFactory {
   public class JavaUtilArraysMethods {
 
     public final DexMethod asList;
+    public final DexMethod hashCode =
+        createMethod(arraysType, createProto(intType, objectArrayType), "hashCode");
     public final DexMethod equalsObjectArray;
 
     private JavaUtilArraysMethods() {
@@ -1794,6 +1797,8 @@ public class DexItemFactory {
 
     public final DexMethod equals =
         createMethod(objectsType, createProto(booleanType, objectType, objectType), "equals");
+    public final DexMethod hash =
+        createMethod(objectsType, createProto(intType, objectArrayType), "hash");
     public final DexMethod hashCode =
         createMethod(objectsType, createProto(intType, objectType), "hashCode");
     public final DexMethod isNull =
