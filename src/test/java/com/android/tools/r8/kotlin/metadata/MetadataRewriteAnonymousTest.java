@@ -48,10 +48,10 @@ public class MetadataRewriteAnonymousTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/anonymous_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -68,7 +68,7 @@ public class MetadataRewriteAnonymousTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addKeepAllClassesRuleWithAllowObfuscation()
             .addKeepRules("-keep class " + PKG + ".anonymous_lib.Test$A { *; }")
             .addKeepRules("-keep class " + PKG + ".anonymous_lib.Test { *; }")
@@ -81,7 +81,7 @@ public class MetadataRewriteAnonymousTest extends KotlinMetadataTestBase {
             .inspect(this::inspect)
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/anonymous_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

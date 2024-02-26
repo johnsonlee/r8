@@ -59,15 +59,15 @@ public class MetadataRewriteValueClassTest extends KotlinMetadataTestBase {
   @Test
   public void smokeTest() throws Exception {
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
-            .addClasspathFiles(kotlincLibJar.getForConfiguration(kotlinc, targetVersion))
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
+            .addClasspathFiles(kotlincLibJar.getForConfiguration(kotlinParameters))
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
             .setOutputPath(temp.newFolder().toPath())
             .compile();
     testForJvm(parameters)
         .addRunClasspathFiles(
-            kotlinc.getKotlinStdlibJar(), kotlincLibJar.getForConfiguration(kotlinc, targetVersion))
+            kotlinc.getKotlinStdlibJar(), kotlincLibJar.getForConfiguration(kotlinParameters))
         .addClasspath(output)
         .run(parameters.getRuntime(), PKG_APP + ".MainKt")
         .assertSuccessWithOutput(EXPECTED);
@@ -78,7 +78,7 @@ public class MetadataRewriteValueClassTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(kotlincLibJar.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(kotlincLibJar.getForConfiguration(kotlinParameters))
             .addKeepAllClassesRule()
             .addKeepAttributes(
                 ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS,
@@ -93,7 +93,7 @@ public class MetadataRewriteValueClassTest extends KotlinMetadataTestBase {
             .inspect(this::inspect)
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
@@ -108,7 +108,7 @@ public class MetadataRewriteValueClassTest extends KotlinMetadataTestBase {
 
   private void inspect(CodeInspector inspector) throws IOException {
     assertEqualDeserializedMetadata(
-        inspector, new CodeInspector(kotlincLibJar.getForConfiguration(kotlinc, targetVersion)));
+        inspector, new CodeInspector(kotlincLibJar.getForConfiguration(kotlinParameters)));
     ClassSubject r8Clazz = inspector.clazz(PKG_LIB + ".Name");
     assertThat(r8Clazz, isPresent());
     String actual =

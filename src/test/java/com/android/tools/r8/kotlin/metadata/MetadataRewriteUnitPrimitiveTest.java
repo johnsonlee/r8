@@ -64,8 +64,8 @@ public class MetadataRewriteUnitPrimitiveTest extends KotlinMetadataTestBase {
   @Test
   public void smokeTest() throws Exception {
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
-            .addClasspathFiles(kotlincLibJar.getForConfiguration(kotlinc, targetVersion))
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
+            .addClasspathFiles(kotlincLibJar.getForConfiguration(kotlinParameters))
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -74,7 +74,7 @@ public class MetadataRewriteUnitPrimitiveTest extends KotlinMetadataTestBase {
         .addRunClasspathFiles(
             kotlinc.getKotlinStdlibJar(),
             kotlinc.getKotlinReflectJar(),
-            kotlincLibJar.getForConfiguration(kotlinc, targetVersion))
+            kotlincLibJar.getForConfiguration(kotlinParameters))
         .addClasspath(output)
         .run(parameters.getRuntime(), PKG_APP + ".MainKt")
         .assertSuccessWithOutput(EXPECTED);
@@ -86,8 +86,7 @@ public class MetadataRewriteUnitPrimitiveTest extends KotlinMetadataTestBase {
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(
-                kotlincLibJar.getForConfiguration(kotlinc, targetVersion),
-                kotlinc.getKotlinStdlibJar())
+                kotlincLibJar.getForConfiguration(kotlinParameters), kotlinc.getKotlinStdlibJar())
             .addKeepClassAndMembersRules(PKG_LIB + ".*")
             .addKeepAttributes(
                 ProguardKeepAttributes.SIGNATURE,
@@ -102,11 +101,10 @@ public class MetadataRewriteUnitPrimitiveTest extends KotlinMetadataTestBase {
                 inspector ->
                     assertEqualMetadata(
                         inspector,
-                        new CodeInspector(
-                            kotlincLibJar.getForConfiguration(kotlinc, targetVersion))))
+                        new CodeInspector(kotlincLibJar.getForConfiguration(kotlinParameters))))
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))

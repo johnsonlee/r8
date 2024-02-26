@@ -16,6 +16,7 @@ import static org.junit.Assert.fail;
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.DataResourceProvider.Visitor;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
+import com.android.tools.r8.KotlinCompilerTool.KotlinLambdaGeneration;
 import com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.TestRuntime.CfVm;
@@ -355,26 +356,52 @@ public class TestBase {
       CfRuntime jdk,
       TemporaryFolder temp,
       KotlinCompiler kotlinCompiler,
-      KotlinTargetVersion kotlinTargetVersion) {
+      KotlinTargetVersion kotlinTargetVersion,
+      KotlinLambdaGeneration lambdaGeneration) {
     // TODO(b/227161720): Kotlinc fails to run on JDK17.
     if (jdk.isNewerThanOrEqual(CfVm.JDK17)) {
       jdk = TestRuntime.getCheckedInJdk9();
     }
-    return KotlinCompilerTool.create(jdk, temp, kotlinCompiler, kotlinTargetVersion);
+    return KotlinCompilerTool.create(
+        jdk, temp, kotlinCompiler, kotlinTargetVersion, lambdaGeneration);
   }
 
   public static KotlinCompilerTool kotlinc(
-      KotlinCompiler kotlinCompiler, KotlinTargetVersion kotlinTargetVersion) {
-    return kotlinc(TestRuntime.getCheckedInJdk9(), staticTemp, kotlinCompiler, kotlinTargetVersion);
-  }
-
-  public KotlinCompilerTool kotlinc(
-      CfRuntime jdk, KotlinCompiler kotlinCompiler, KotlinTargetVersion kotlinTargetVersion) {
+      CfRuntime jdk,
+      KotlinCompiler kotlinCompiler,
+      KotlinTargetVersion kotlinTargetVersion,
+      KotlinLambdaGeneration lambdaGeneration) {
     // TODO(b/227161720): Kotlinc fails to run on JDK17.
     if (jdk.isNewerThanOrEqual(CfVm.JDK17)) {
       jdk = TestRuntime.getCheckedInJdk9();
     }
-    return KotlinCompilerTool.create(jdk, temp, kotlinCompiler, kotlinTargetVersion);
+    return KotlinCompilerTool.create(
+        jdk, staticTemp, kotlinCompiler, kotlinTargetVersion, lambdaGeneration);
+  }
+
+  public static KotlinCompilerTool kotlinc(
+      KotlinCompiler kotlinCompiler,
+      KotlinTargetVersion kotlinTargetVersion,
+      KotlinLambdaGeneration kotlinLambdaGeneration) {
+    return kotlinc(
+        TestRuntime.getCheckedInJdk9(),
+        staticTemp,
+        kotlinCompiler,
+        kotlinTargetVersion,
+        kotlinLambdaGeneration);
+  }
+
+  public KotlinCompilerTool kotlinc(CfRuntime jdk, KotlinTestParameters testParameters) {
+    // TODO(b/227161720): Kotlinc fails to run on JDK17.
+    if (jdk.isNewerThanOrEqual(CfVm.JDK17)) {
+      jdk = TestRuntime.getCheckedInJdk9();
+    }
+    return kotlinc(
+        jdk,
+        temp,
+        testParameters.getCompiler(),
+        testParameters.getTargetVersion(),
+        testParameters.getLambdaGeneration());
   }
 
   public static ClassFileTransformer transformer(Class<?> clazz) throws IOException {

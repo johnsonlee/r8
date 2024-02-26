@@ -42,7 +42,7 @@ public class AssertionConfigurationKotlinWithModifiedKotlinAssertionsTest
   public void testPassthroughAllAssertions() throws Exception {
     testForD8()
         .addProgramClassFileData(dumpModifiedKotlinAssertions())
-        .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinParameters))
         .setMinApi(parameters)
         .addAssertionsConfiguration(AssertionsConfiguration.Builder::passthroughAllAssertions)
         .run(
@@ -55,7 +55,7 @@ public class AssertionConfigurationKotlinWithModifiedKotlinAssertionsTest
   public void testCompileTimeEnableAllAssertions() throws Exception {
     testForD8()
         .addProgramClassFileData(dumpModifiedKotlinAssertions())
-        .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinParameters))
         .setMinApi(parameters)
         .addAssertionsConfiguration(AssertionsConfiguration.Builder::compileTimeEnableAllAssertions)
         .run(
@@ -68,7 +68,7 @@ public class AssertionConfigurationKotlinWithModifiedKotlinAssertionsTest
   public void testCompileTimeDisableAllAssertions() throws Exception {
     testForD8()
         .addProgramClassFileData(dumpModifiedKotlinAssertions())
-        .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinParameters))
         .setMinApi(parameters)
         .addAssertionsConfiguration(
             AssertionsConfiguration.Builder::compileTimeDisableAllAssertions)

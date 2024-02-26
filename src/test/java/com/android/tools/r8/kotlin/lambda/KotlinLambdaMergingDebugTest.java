@@ -44,8 +44,7 @@ public class KotlinLambdaMergingDebugTest extends KotlinTestBase {
     testForR8(parameters.getBackend())
         .setMode(CompilationMode.DEBUG)
         .addProgramFiles(
-            compiledJars.getForConfiguration(kotlinc, kotlinParameters.getTargetVersion()),
-            kotlinc.getKotlinAnnotationJar())
+            compiledJars.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
         .addProgramFiles(getJavaJarFile(FOLDER))
         .setMinApi(parameters)
         .addKeepMainRule(MAIN_CLASS)

@@ -88,7 +88,7 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
   @Test
   public void testRuntime() throws Exception {
     testForRuntime(parameters)
-        .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addRunClasspathFiles(buildOnDexRuntime(parameters, kotlinc.getKotlinStdlibJar()))
         .run(parameters.getRuntime(), "retrace.MainKt")
         .assertFailureWithErrorThatMatches(containsString("inlineExceptionStatic"))
@@ -99,7 +99,7 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
   public void testRetraceKotlinInlineStaticFunction() throws Exception {
     String main = "retrace.MainKt";
     String mainFileName = "Main.kt";
-    Path kotlinSources = compilationResults.getForConfiguration(kotlinc, targetVersion);
+    Path kotlinSources = compilationResults.getForConfiguration(kotlinParameters);
     CodeInspector kotlinInspector = new CodeInspector(kotlinSources);
     testForR8(parameters.getBackend())
         .addProgramFiles(
@@ -130,7 +130,7 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
   public void testRetraceKotlinInlineInstanceFunction() throws Exception {
     String main = "retrace.MainInstanceKt";
     String mainFileName = "MainInstance.kt";
-    Path kotlinSources = compilationResults.getForConfiguration(kotlinc, targetVersion);
+    Path kotlinSources = compilationResults.getForConfiguration(kotlinParameters);
     CodeInspector kotlinInspector = new CodeInspector(kotlinSources);
     testForR8(parameters.getBackend())
         .addProgramFiles(
@@ -164,7 +164,7 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
   public void testRetraceKotlinNestedInlineFunction() throws Exception {
     String main = "retrace.MainNestedKt";
     String mainFileName = "MainNested.kt";
-    Path kotlinSources = compilationResults.getForConfiguration(kotlinc, targetVersion);
+    Path kotlinSources = compilationResults.getForConfiguration(kotlinParameters);
     CodeInspector kotlinInspector = new CodeInspector(kotlinSources);
     testForR8(parameters.getBackend())
         .addProgramFiles(
@@ -197,7 +197,7 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
   public void testRetraceKotlinNestedInlineFunctionOnFirstLine() throws Exception {
     String main = "retrace.MainNestedFirstLineKt";
     String mainFileName = "MainNestedFirstLine.kt";
-    Path kotlinSources = compilationResults.getForConfiguration(kotlinc, targetVersion);
+    Path kotlinSources = compilationResults.getForConfiguration(kotlinParameters);
     CodeInspector kotlinInspector = new CodeInspector(kotlinSources);
     testForR8(parameters.getBackend())
         .addProgramFiles(

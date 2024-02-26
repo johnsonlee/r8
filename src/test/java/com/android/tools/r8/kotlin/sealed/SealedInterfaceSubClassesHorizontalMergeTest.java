@@ -77,7 +77,7 @@ public class SealedInterfaceSubClassesHorizontalMergeTest extends KotlinTestBase
   public void testRuntime() throws ExecutionException, CompilationFailedException, IOException {
     assumeTrue(clinitNoSideEffects);
     testForRuntime(parameters)
-        .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addRunClasspathFiles(buildOnDexRuntime(parameters, kotlinc.getKotlinStdlibJar()))
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines(EXPECTED);
@@ -86,7 +86,7 @@ public class SealedInterfaceSubClassesHorizontalMergeTest extends KotlinTestBase
   @Test
   public void testR8() throws ExecutionException, CompilationFailedException, IOException {
     testForR8(parameters.getBackend())
-        .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .setMinApi(parameters)

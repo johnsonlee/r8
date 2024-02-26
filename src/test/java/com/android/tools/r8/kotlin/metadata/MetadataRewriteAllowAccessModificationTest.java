@@ -72,9 +72,9 @@ public class MetadataRewriteAllowAccessModificationTest extends KotlinMetadataTe
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libReferenceJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libReferenceJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
@@ -94,7 +94,7 @@ public class MetadataRewriteAllowAccessModificationTest extends KotlinMetadataTe
     // running with R8, the output should be binary compatible with libReference.
     Path libJar =
         testForR8(parameters.getBackend())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addKeepRules("-keepclassmembers,allowaccessmodification class **.Lib { *; }")
             .addKeepRules("-keep,allowaccessmodification,allowobfuscation class **.Lib { *; }")
@@ -116,7 +116,7 @@ public class MetadataRewriteAllowAccessModificationTest extends KotlinMetadataTe
             .inspect(this::inspect)
             .writeToZip();
     ProcessResult mainResult =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))

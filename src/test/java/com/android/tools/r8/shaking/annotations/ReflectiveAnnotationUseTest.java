@@ -83,7 +83,7 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
     parameters.assumeJvmTestParameters();
     AndroidApp app =
         AndroidApp.builder()
-            .addProgramFile(compiledJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFile(compiledJars.getForConfiguration(kotlinParameters))
             .addProgramFile(getJavaJarFile(FOLDER))
             .build();
     String result = runOnJava(app, MAIN_CLASS_NAME);
@@ -95,7 +95,7 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
     CodeInspector inspector =
         testForR8Compat(parameters.getBackend())
             .addProgramFiles(
-                compiledJars.getForConfiguration(kotlinc, targetVersion),
+                compiledJars.getForConfiguration(kotlinParameters),
                 kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addKeepMainRule(MAIN_CLASS_NAME)
@@ -133,7 +133,7 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
     CodeInspector inspector =
         testForR8Compat(parameters.getBackend())
             .addProgramFiles(
-                compiledJars.getForConfiguration(kotlinc, targetVersion),
+                compiledJars.getForConfiguration(kotlinParameters),
                 kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addKeepMainRule(MAIN_CLASS_NAME)
@@ -175,7 +175,7 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
     CodeInspector inspector =
         testForR8Compat(parameters.getBackend())
             .addProgramFiles(
-                compiledJars.getForConfiguration(kotlinc, targetVersion),
+                compiledJars.getForConfiguration(kotlinParameters),
                 kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addKeepMainRule(MAIN_CLASS_NAME)
@@ -213,7 +213,7 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
     CodeInspector inspector =
         testForR8(parameters.getBackend())
             .addProgramFiles(
-                compiledJars.getForConfiguration(kotlinc, targetVersion),
+                compiledJars.getForConfiguration(kotlinParameters),
                 kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addKeepMainRule(MAIN_CLASS_NAME)

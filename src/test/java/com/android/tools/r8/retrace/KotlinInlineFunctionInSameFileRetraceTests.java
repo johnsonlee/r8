@@ -78,7 +78,7 @@ public class KotlinInlineFunctionInSameFileRetraceTests extends KotlinTestBase {
   @Test
   public void testRuntime() throws Exception {
     testForRuntime(parameters)
-        .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addRunClasspathFiles(buildOnDexRuntime(parameters, kotlinc.getKotlinStdlibJar()))
         .run(parameters.getRuntime(), MAIN)
         .assertFailureWithErrorThatMatches(containsString("foo"))
@@ -90,10 +90,10 @@ public class KotlinInlineFunctionInSameFileRetraceTests extends KotlinTestBase {
 
   @Test
   public void testRetraceKotlinInlineStaticFunction() throws Exception {
-    Path kotlinSources = compilationResults.getForConfiguration(kotlinc, targetVersion);
+    Path kotlinSources = compilationResults.getForConfiguration(kotlinParameters);
     CodeInspector kotlinInspector = new CodeInspector(kotlinSources);
     testForR8(parameters.getBackend())
-        .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
         .addKeepAttributes("SourceFile", "LineNumberTable")
         .setMode(CompilationMode.RELEASE)

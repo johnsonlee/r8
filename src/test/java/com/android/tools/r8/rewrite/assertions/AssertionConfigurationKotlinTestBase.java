@@ -92,7 +92,7 @@ public class AssertionConfigurationKotlinTestBase extends KotlinTestBase {
     if (kotlinStdlibAsLibrary) {
       testForD8()
           .addClasspathFiles(kotlinc.getKotlinStdlibJar())
-          .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinc, targetVersion))
+          .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinParameters))
           .setMinApi(parameters)
           .apply(builderConsumer)
           .addRunClasspathFiles(kotlinStdlibLibraryForRuntime())
@@ -104,7 +104,7 @@ public class AssertionConfigurationKotlinTestBase extends KotlinTestBase {
     } else {
       testForD8()
           .addProgramFiles(kotlinc.getKotlinStdlibJar())
-          .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinc, targetVersion))
+          .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinParameters))
           .setMinApi(parameters)
           .apply(builderConsumer)
           .run(
@@ -139,7 +139,7 @@ public class AssertionConfigurationKotlinTestBase extends KotlinTestBase {
             },
             b -> b.addProgramFiles(kotlinc.getKotlinStdlibJar()))
         .addClasspathFiles(kotlinc.getKotlinAnnotationJar())
-        .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledForAssertions.getForConfiguration(kotlinParameters))
         .addKeepMainRule(testClassKt)
         .addKeepClassAndMembersRules(class1, class2)
         .setMinApi(parameters)

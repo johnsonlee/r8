@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_9_21;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.MAX_SUPPORTED_VERSION;
 import static com.android.tools.r8.ToolHelper.isWindows;
 import static com.google.common.io.Files.getNameWithoutExtension;
@@ -68,22 +69,24 @@ public class KotlinCompilerTool {
   }
 
   public enum KotlinCompilerVersion implements Ordered<KotlinCompilerVersion> {
-    KOTLINC_1_3_72("kotlin-compiler-1.3.72"),
-    KOTLINC_1_4_20("kotlin-compiler-1.4.20"),
-    KOTLINC_1_5_0("kotlin-compiler-1.5.0"),
-    KOTLINC_1_6_0("kotlin-compiler-1.6.0"),
-    KOTLINC_1_7_0("kotlin-compiler-1.7.0"),
-    KOTLINC_1_8_0("kotlin-compiler-1.8.0"),
-    KOTLINC_1_9_21("kotlin-compiler-1.9.21"),
-    KOTLIN_DEV("kotlin-compiler-dev");
+    KOTLINC_1_3_72("kotlin-compiler-1.3.72", KotlinLambdaGeneration.CLASS),
+    KOTLINC_1_4_20("kotlin-compiler-1.4.20", KotlinLambdaGeneration.CLASS),
+    KOTLINC_1_5_0("kotlin-compiler-1.5.0", KotlinLambdaGeneration.CLASS),
+    KOTLINC_1_6_0("kotlin-compiler-1.6.0", KotlinLambdaGeneration.CLASS),
+    KOTLINC_1_7_0("kotlin-compiler-1.7.0", KotlinLambdaGeneration.CLASS),
+    KOTLINC_1_8_0("kotlin-compiler-1.8.0", KotlinLambdaGeneration.CLASS),
+    KOTLINC_1_9_21("kotlin-compiler-1.9.21", KotlinLambdaGeneration.CLASS),
+    KOTLIN_DEV("kotlin-compiler-dev", KotlinLambdaGeneration.INVOKE_DYNAMIC);
 
     public static final KotlinCompilerVersion MIN_SUPPORTED_VERSION = KOTLINC_1_7_0;
     public static final KotlinCompilerVersion MAX_SUPPORTED_VERSION = KOTLINC_1_9_21;
 
     private final String folder;
+    private final KotlinLambdaGeneration defaultLambdaGeneration;
 
-    KotlinCompilerVersion(String folder) {
+    KotlinCompilerVersion(String folder, KotlinLambdaGeneration defaultLambdaGeneration) {
       this.folder = folder;
+      this.defaultLambdaGeneration = defaultLambdaGeneration;
     }
 
     public static KotlinCompilerVersion latest() {
@@ -101,6 +104,41 @@ public class KotlinCompilerTool {
                   compiler.isGreaterThanOrEqualTo(MIN_SUPPORTED_VERSION)
                       && compiler.isLessThanOrEqualTo(MAX_SUPPORTED_VERSION))
           .collect(Collectors.toList());
+    }
+  }
+
+  public enum KotlinLambdaGeneration {
+    CLASS,
+    INVOKE_DYNAMIC;
+
+    public String getKotlincFlag() {
+      if (this == CLASS) {
+        return "-Xlambdas=class";
+      } else {
+        assert this == INVOKE_DYNAMIC;
+        return "-Xlambdas=indy";
+      }
+    }
+
+    public void apply(KotlinCompilerTool compiler) {
+      if (this == CLASS) {
+        compiler.generateLambdaClasses();
+      } else {
+        assert this == INVOKE_DYNAMIC;
+        compiler.generateInvokeDynamic();
+      }
+    }
+
+    public boolean isClass() {
+      return this == CLASS;
+    }
+
+    public boolean isInvokeDynamic() {
+      return this == INVOKE_DYNAMIC;
+    }
+
+    public boolean isDefaultForVersion(KotlinCompilerVersion version) {
+      return this == version.defaultLambdaGeneration;
     }
   }
 
@@ -188,6 +226,7 @@ public class KotlinCompilerTool {
   private final TestState state;
   private final KotlinCompiler compiler;
   private final KotlinTargetVersion targetVersion;
+  private final KotlinLambdaGeneration lambdaGeneration;
   private final List<Path> sources = new ArrayList<>();
   private final List<Path> classpath = new ArrayList<>();
   private final List<String> additionalArguments = new ArrayList<>();
@@ -197,11 +236,16 @@ public class KotlinCompilerTool {
   private Path output = null;
 
   private KotlinCompilerTool(
-      CfRuntime jdk, TestState state, KotlinCompiler compiler, KotlinTargetVersion targetVersion) {
+      CfRuntime jdk,
+      TestState state,
+      KotlinCompiler kotlinCompiler,
+      KotlinTargetVersion kotlinTargetVersion,
+      KotlinLambdaGeneration lambdaGeneration) {
     this.jdk = jdk;
     this.state = state;
-    this.compiler = compiler;
-    this.targetVersion = targetVersion;
+    this.compiler = kotlinCompiler;
+    this.targetVersion = kotlinTargetVersion;
+    this.lambdaGeneration = lambdaGeneration;
   }
 
   public KotlinCompiler getCompiler() {
@@ -212,20 +256,18 @@ public class KotlinCompilerTool {
     return targetVersion;
   }
 
-  public static KotlinCompilerTool create(
-      CfRuntime jdk,
-      TemporaryFolder temp,
-      KotlinCompiler kotlinCompiler,
-      KotlinTargetVersion kotlinTargetVersion) {
-    return create(jdk, new TestState(temp), kotlinCompiler, kotlinTargetVersion);
+  public KotlinLambdaGeneration getLambdaGeneration() {
+    return lambdaGeneration;
   }
 
   public static KotlinCompilerTool create(
       CfRuntime jdk,
-      TestState state,
+      TemporaryFolder temp,
       KotlinCompiler kotlinCompiler,
-      KotlinTargetVersion kotlinTargetVersion) {
-    return new KotlinCompilerTool(jdk, state, kotlinCompiler, kotlinTargetVersion);
+      KotlinTargetVersion kotlinTargetVersion,
+      KotlinLambdaGeneration lambdaGeneration) {
+    return new KotlinCompilerTool(
+        jdk, new TestState(temp), kotlinCompiler, kotlinTargetVersion, lambdaGeneration);
   }
 
   public KotlinCompilerTool addArguments(String... arguments) {
@@ -265,6 +307,22 @@ public class KotlinCompilerTool {
   public KotlinCompilerTool noStdLib() {
     assert !additionalArguments.contains("-no-stdlib");
     addArguments("-no-stdlib");
+    return this;
+  }
+
+  // This forces using invokedynamic for Kotlin lambdas.
+  public KotlinCompilerTool generateLambdaClasses() {
+    assert !additionalArguments.contains(KotlinLambdaGeneration.CLASS.getKotlincFlag())
+        && !additionalArguments.contains(KotlinLambdaGeneration.INVOKE_DYNAMIC.getKotlincFlag());
+    addArguments(KotlinLambdaGeneration.CLASS.getKotlincFlag());
+    return this;
+  }
+
+  // This forces generation kotlinc of lambda classes for Kotlin lambdas
+  public KotlinCompilerTool generateInvokeDynamic() {
+    assert !additionalArguments.contains(KotlinLambdaGeneration.CLASS.getKotlincFlag())
+        && !additionalArguments.contains(KotlinLambdaGeneration.INVOKE_DYNAMIC.getKotlincFlag());
+    addArguments(KotlinLambdaGeneration.INVOKE_DYNAMIC.getKotlincFlag());
     return this;
   }
 
@@ -398,6 +456,7 @@ public class KotlinCompilerTool {
     cmdline.add(jdk.getJavaHome().toString());
     cmdline.add("-jvm-target");
     cmdline.add(targetVersion.getJvmTargetString());
+    cmdline.add(lambdaGeneration.getKotlincFlag());
     // Until now this is just command line files, no inputs, hash existing command
     String noneFileCommandLineArguments = StringUtils.join("", cmdline);
     commandLineAndHasherConsumers.hasherConsumers.add(
@@ -429,6 +488,4 @@ public class KotlinCompilerTool {
         hasher -> additionalArguments.forEach(s -> hasher.putString(s, StandardCharsets.UTF_8)));
     return commandLineAndHasherConsumers;
   }
-
-
 }

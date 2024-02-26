@@ -84,10 +84,10 @@ public class MetadataRewriteInTypeAliasTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = typeAliasLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = typeAliasLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/typealias_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -107,7 +107,7 @@ public class MetadataRewriteInTypeAliasTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(typeAliasLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(typeAliasLibJarMap.getForConfiguration(kotlinParameters))
             // Keep non-private members of Impl
             .addKeepRules("-keep class **.Impl { !private *; }")
             // Keep but allow obfuscation of types.
@@ -134,7 +134,7 @@ public class MetadataRewriteInTypeAliasTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path appJar =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/typealias_app", "main"))
             .compile(kotlinParameters.isOlderThan(KOTLINC_1_4_20));

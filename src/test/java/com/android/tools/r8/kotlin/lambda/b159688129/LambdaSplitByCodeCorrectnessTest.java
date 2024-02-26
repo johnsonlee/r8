@@ -57,7 +57,7 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
     CfRuntime cfRuntime =
         parameters.isCfRuntime() ? parameters.getRuntime().asCf() : TestRuntime.getCheckedInJdk9();
     Path ktClasses =
-        kotlinc(cfRuntime, kotlinc, targetVersion)
+        kotlinc(cfRuntime, kotlinParameters)
             .addSourceFiles(getKotlinFileInTest(folder, "Simple"))
             .compile();
     testForR8(parameters.getBackend())

@@ -58,9 +58,9 @@ public class MetadataRewriteFlexibleUpperBoundTest extends KotlinMetadataTestBas
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/flexible_upper_bound_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -77,7 +77,7 @@ public class MetadataRewriteFlexibleUpperBoundTest extends KotlinMetadataTestBas
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             // Allow renaming A to ensure that we rename in the flexible upper bound type.
             .addKeepRules("-keep,allowobfuscation class " + PKG_LIB + ".A { *; }")
             .addKeepRules("-keep class " + PKG_LIB + ".B { *; }")
@@ -91,7 +91,7 @@ public class MetadataRewriteFlexibleUpperBoundTest extends KotlinMetadataTestBas
             .inspect(this::inspect)
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/flexible_upper_bound_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

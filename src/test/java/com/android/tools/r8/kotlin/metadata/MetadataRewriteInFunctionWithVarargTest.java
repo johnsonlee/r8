@@ -60,10 +60,10 @@ public class MetadataRewriteInFunctionWithVarargTest extends KotlinMetadataTestB
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = varargLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = varargLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/vararg_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -81,7 +81,7 @@ public class MetadataRewriteInFunctionWithVarargTest extends KotlinMetadataTestB
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(varargLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(varargLibJarMap.getForConfiguration(kotlinParameters))
             // keep SomeClass#foo, since there is a method reference in the app.
             .addKeepRules("-keep class **.SomeClass { *** foo(...); }")
             // Keep LibKt, along with bar function.
@@ -95,7 +95,7 @@ public class MetadataRewriteInFunctionWithVarargTest extends KotlinMetadataTestB
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/vararg_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

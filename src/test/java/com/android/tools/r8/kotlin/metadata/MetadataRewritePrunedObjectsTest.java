@@ -54,9 +54,9 @@ public class MetadataRewritePrunedObjectsTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
@@ -73,7 +73,7 @@ public class MetadataRewritePrunedObjectsTest extends KotlinMetadataTestBase {
   public void testMetadataForLib() throws Exception {
     Path libJar =
         testForR8(parameters.getBackend())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addKeepRules(
                 "-keep class " + PKG_LIB + ".Sub { <init>(); *** kept(); *** keptProperty; }")
@@ -86,7 +86,7 @@ public class MetadataRewritePrunedObjectsTest extends KotlinMetadataTestBase {
             .inspect(this::checkPruned)
             .writeToZip();
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))

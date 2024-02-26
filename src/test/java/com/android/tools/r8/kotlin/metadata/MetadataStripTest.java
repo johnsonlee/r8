@@ -47,7 +47,7 @@ public class MetadataStripTest extends KotlinMetadataTestBase {
     final String mainClassName = "lambdas_jstyle_runnable.MainKt";
     R8TestRunResult result =
         testForR8(parameters.getBackend())
-            .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addProgramFiles(kotlinc.getKotlinReflectJar(), kotlinc.getKotlinAnnotationJar())
             .addOptionsModification(

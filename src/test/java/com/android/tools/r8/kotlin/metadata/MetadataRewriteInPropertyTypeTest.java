@@ -52,10 +52,10 @@ public class MetadataRewriteInPropertyTypeTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = propertyTypeLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = propertyTypeLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/propertytype_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -73,7 +73,7 @@ public class MetadataRewriteInPropertyTypeTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(propertyTypeLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(propertyTypeLibJarMap.getForConfiguration(kotlinParameters))
             // Keep non-private members of Impl
             .addKeepRules("-keep public class **.Impl { !private *; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
@@ -82,7 +82,7 @@ public class MetadataRewriteInPropertyTypeTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/propertytype_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

@@ -69,7 +69,7 @@ public class KotlinDefaultArgumentsTest extends KotlinTestBase {
   public void testJvm() throws ExecutionException, CompilationFailedException, IOException {
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addRunClasspathFiles(buildOnDexRuntime(parameters, kotlinc.getKotlinStdlibJar()))
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
@@ -79,7 +79,7 @@ public class KotlinDefaultArgumentsTest extends KotlinTestBase {
   public void testD8() throws ExecutionException, CompilationFailedException, IOException {
     parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
-        .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addRunClasspathFiles(buildOnDexRuntime(parameters, kotlinc.getKotlinStdlibJar()))
         .setMinApi(parameters)
         .compile()
@@ -91,7 +91,7 @@ public class KotlinDefaultArgumentsTest extends KotlinTestBase {
   @Test
   public void testR8() throws ExecutionException, CompilationFailedException, IOException {
     testForR8(parameters.getBackend())
-        .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .addKeepMainRule(MAIN)

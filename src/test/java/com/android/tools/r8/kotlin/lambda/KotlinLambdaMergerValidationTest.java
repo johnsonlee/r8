@@ -42,7 +42,11 @@ public class KotlinLambdaMergerValidationTest extends KotlinTestBase {
     String pkg = getClass().getPackage().getName();
     String folder = DescriptorUtils.getBinaryNameFromJavaType(pkg);
     Path ktClasses =
-        kotlinc(getKotlincHostRuntime(parameters.getRuntime()), kotlinc, targetVersion)
+        kotlinc(
+                getKotlincHostRuntime(parameters.getRuntime()),
+                kotlinc,
+                targetVersion,
+                lambdaGeneration)
             .addSourceFiles(getKotlinFileInTest(folder, "b143165163"))
             .compile();
     testForR8(parameters.getBackend())
@@ -66,7 +70,11 @@ public class KotlinLambdaMergerValidationTest extends KotlinTestBase {
     String pkg = getClass().getPackage().getName();
     String folder = DescriptorUtils.getBinaryNameFromJavaType(pkg);
     Path ktClasses =
-        kotlinc(getKotlincHostRuntime(parameters.getRuntime()), kotlinc, targetVersion)
+        kotlinc(
+                getKotlincHostRuntime(parameters.getRuntime()),
+                kotlinc,
+                targetVersion,
+                lambdaGeneration)
             .addSourceFiles(getKotlinFileInTest(folder, "b143165163"))
             .compile();
     testForR8(parameters.getBackend())

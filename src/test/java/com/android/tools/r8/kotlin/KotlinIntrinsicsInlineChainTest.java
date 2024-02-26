@@ -56,8 +56,7 @@ public class KotlinIntrinsicsInlineChainTest extends KotlinTestBase {
   public void test() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramFiles(
-            compiledJars.getForConfiguration(kotlinc, targetVersion),
-            kotlinc.getKotlinAnnotationJar())
+            compiledJars.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
         .addKeepMainRule(MAIN)
         .allowAccessModification(allowAccessModification)
         .allowDiagnosticWarningMessages()

@@ -239,7 +239,7 @@ public abstract class AbstractR8KotlinTestBase extends KotlinTestBase {
     Path kotlinJarFile =
         getCompileMemoizer(getKotlinFilesInResource(folder), folder)
             .configure(kotlinCompilerTool -> kotlinCompilerTool.includeRuntime().noReflect())
-            .getForConfiguration(kotlinc, targetVersion);
+            .getForConfiguration(kotlinParameters);
 
     // Build classpath for compilation (and java execution)
     classpath.clear();

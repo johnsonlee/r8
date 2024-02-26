@@ -55,10 +55,10 @@ public class MetadataRewriteInSuperTypeTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = superTypeLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = superTypeLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/supertype_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -76,7 +76,7 @@ public class MetadataRewriteInSuperTypeTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar())
-            .addProgramFiles(superTypeLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(superTypeLibJarMap.getForConfiguration(kotlinParameters))
             // Keep non-private members except for ones in `internal` definitions.
             .addKeepRules("-keep public class !**.internal.**, * { !private *; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
@@ -85,7 +85,7 @@ public class MetadataRewriteInSuperTypeTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/supertype_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -124,7 +124,7 @@ public class MetadataRewriteInSuperTypeTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar())
-            .addProgramFiles(superTypeLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(superTypeLibJarMap.getForConfiguration(kotlinParameters))
             // Keep non-private members except for ones in `internal` definitions.
             .addKeepRules("-keep public class !**.internal.**, * { !private *; }")
             // Keep `internal` definitions, but allow minification.
@@ -135,7 +135,7 @@ public class MetadataRewriteInSuperTypeTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/supertype_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

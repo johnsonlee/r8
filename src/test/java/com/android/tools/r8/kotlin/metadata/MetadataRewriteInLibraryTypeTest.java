@@ -50,7 +50,9 @@ public class MetadataRewriteInLibraryTypeTest extends KotlinMetadataTestBase {
               kotlinCompilerTool -> {
                 kotlinCompilerTool.addClasspathFiles(
                     baseLibJarMap.getForConfiguration(
-                        kotlinCompilerTool.getCompiler(), kotlinCompilerTool.getTargetVersion()));
+                        kotlinCompilerTool.getCompiler(),
+                        kotlinCompilerTool.getTargetVersion(),
+                        kotlinCompilerTool.getLambdaGeneration()));
               });
   private static final KotlinCompileMemoizer appJarMap =
       getCompileMemoizer(getKotlinFileInTest(PKG_PREFIX + "/libtype_app", "main"))
@@ -58,20 +60,24 @@ public class MetadataRewriteInLibraryTypeTest extends KotlinMetadataTestBase {
               kotlinCompilerTool -> {
                 kotlinCompilerTool.addClasspathFiles(
                     baseLibJarMap.getForConfiguration(
-                        kotlinCompilerTool.getCompiler(), kotlinCompilerTool.getTargetVersion()));
+                        kotlinCompilerTool.getCompiler(),
+                        kotlinCompilerTool.getTargetVersion(),
+                        kotlinCompilerTool.getLambdaGeneration()));
                 kotlinCompilerTool.addClasspathFiles(
                     extLibJarMap.getForConfiguration(
-                        kotlinCompilerTool.getCompiler(), kotlinCompilerTool.getTargetVersion()));
+                        kotlinCompilerTool.getCompiler(),
+                        kotlinCompilerTool.getTargetVersion(),
+                        kotlinCompilerTool.getLambdaGeneration()));
               });
 
   @Test
   public void smokeTest() throws Exception {
     testForJvm(parameters)
         .addRunClasspathFiles(
-            kotlinc.getKotlinStdlibJar(), baseLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            kotlinc.getKotlinStdlibJar(), baseLibJarMap.getForConfiguration(kotlinParameters))
         .addClasspath(
-            extLibJarMap.getForConfiguration(kotlinc, targetVersion),
-            appJarMap.getForConfiguration(kotlinc, targetVersion))
+            extLibJarMap.getForConfiguration(kotlinParameters),
+            appJarMap.getForConfiguration(kotlinParameters))
         .run(parameters.getRuntime(), PKG + ".libtype_app.MainKt")
         .assertSuccessWithOutput(EXPECTED);
   }
@@ -83,8 +89,8 @@ public class MetadataRewriteInLibraryTypeTest extends KotlinMetadataTestBase {
         testForR8(parameters.getBackend())
             // Intentionally not providing baseLibJar as lib file nor classpath file.
             .addProgramFiles(
-                extLibJarMap.getForConfiguration(kotlinc, targetVersion),
-                appJarMap.getForConfiguration(kotlinc, targetVersion),
+                extLibJarMap.getForConfiguration(kotlinParameters),
+                appJarMap.getForConfiguration(kotlinParameters),
                 kotlinc.getKotlinAnnotationJar())
             // Keep Ext extension method which requires metadata to be called with Kotlin syntax
             // from other kotlin code.
@@ -106,7 +112,7 @@ public class MetadataRewriteInLibraryTypeTest extends KotlinMetadataTestBase {
 
     testForJvm(parameters)
         .addRunClasspathFiles(
-            kotlinc.getKotlinStdlibJar(), baseLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            kotlinc.getKotlinStdlibJar(), baseLibJarMap.getForConfiguration(kotlinParameters))
         .addClasspath(out)
         .run(parameters.getRuntime(), main)
         .assertSuccessWithOutput(EXPECTED);

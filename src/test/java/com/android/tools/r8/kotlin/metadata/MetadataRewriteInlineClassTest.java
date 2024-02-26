@@ -48,9 +48,9 @@ public class MetadataRewriteInlineClassTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/inline_class_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -67,7 +67,7 @@ public class MetadataRewriteInlineClassTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addKeepClassAndMembersRules(passwordTypeName)
             // kotlinc will generate a method for the unboxed type on the form login-XXXXX(String).
             // Ideally, this should be targeted by annotation instead.
@@ -79,10 +79,10 @@ public class MetadataRewriteInlineClassTest extends KotlinMetadataTestBase {
                 inspector ->
                     assertEqualMetadata(
                         inspector,
-                        new CodeInspector(libJars.getForConfiguration(kotlinc, targetVersion))))
+                        new CodeInspector(libJars.getForConfiguration(kotlinParameters))))
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/inline_class_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

@@ -60,7 +60,7 @@ public class AssertionConfigurationAssertionHandlerKotlinDoubleCheckTest
   protected byte[] transformedKotlinClasses(Path kotlinClasses) throws IOException {
     Path compiledKotlinClasses = temp.newFolder().toPath();
     ZipUtils.unzip(
-        compiledForAssertions.getForConfiguration(kotlinc, targetVersion), compiledKotlinClasses);
+        compiledForAssertions.getForConfiguration(kotlinParameters), compiledKotlinClasses);
     String testClassPath =
         DescriptorUtils.getPackageBinaryNameFromJavaType(getTestClassName())
             + FileUtils.CLASS_EXTENSION;

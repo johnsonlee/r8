@@ -124,8 +124,8 @@ public abstract class AssertionConfigurationAssertionHandlerKotlinTestBase exten
         b ->
             b.addProgramClassFileData(
                 transformedKotlinClasses(
-                    compiledForAssertions.getForConfiguration(kotlinc, targetVersion))),
-        b -> b.addProgramFiles(compiledForAssertions.getForConfiguration(kotlinc, targetVersion)));
+                    compiledForAssertions.getForConfiguration(kotlinParameters))),
+        b -> b.addProgramFiles(compiledForAssertions.getForConfiguration(kotlinParameters)));
   }
 
   @Test

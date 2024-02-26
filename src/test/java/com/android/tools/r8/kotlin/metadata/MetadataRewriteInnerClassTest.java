@@ -75,7 +75,7 @@ public class MetadataRewriteInnerClassTest extends KotlinMetadataTestBase {
   @Test
   public void smokeTest() throws Exception {
     assumeTrue(parameters.isCfRuntime());
-    Path libJar = jarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = jarMap.getForConfiguration(kotlinParameters);
     testForRuntime(parameters)
         .addProgramFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinReflectJar(), libJar)
         .run(parameters.getRuntime(), PKG_NESTED_REFLECT + ".MainKt")
@@ -90,7 +90,7 @@ public class MetadataRewriteInnerClassTest extends KotlinMetadataTestBase {
             .addClasspathFiles(kotlinc.getKotlinStdlibJar())
             .addClasspathFiles(kotlinc.getKotlinReflectJar())
             .addClasspathFiles(kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(jarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(jarMap.getForConfiguration(kotlinParameters))
             .addKeepRules("-keep public class " + PKG_NESTED_REFLECT + ".Outer$Nested { *; }")
             .addKeepRules("-keep public class " + PKG_NESTED_REFLECT + ".Outer$Inner { *; }")
             .addKeepMainRule(PKG_NESTED_REFLECT + ".MainKt")
@@ -110,7 +110,7 @@ public class MetadataRewriteInnerClassTest extends KotlinMetadataTestBase {
             .addClasspathFiles(kotlinc.getKotlinStdlibJar())
             .addClasspathFiles(kotlinc.getKotlinReflectJar())
             .addClasspathFiles(kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(jarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(jarMap.getForConfiguration(kotlinParameters))
             .addKeepAttributeInnerClassesAndEnclosingMethod()
             .addKeepRules("-keep public class " + PKG_NESTED_REFLECT + ".Outer { *; }")
             .addKeepRules("-keep public class " + PKG_NESTED_REFLECT + ".Outer$Nested { *; }")

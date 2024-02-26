@@ -53,7 +53,7 @@ public class EnumMinificationKotlinTest extends KotlinTestBase {
     CodeInspector inspector =
         testForR8(parameters.getBackend())
             .addProgramFiles(
-                compiledJars.getForConfiguration(kotlinc, targetVersion),
+                compiledJars.getForConfiguration(kotlinParameters),
                 kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addKeepMainRule(MAIN_CLASS_NAME)

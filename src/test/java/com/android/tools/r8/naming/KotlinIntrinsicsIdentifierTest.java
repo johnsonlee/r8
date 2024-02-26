@@ -92,7 +92,7 @@ public class KotlinIntrinsicsIdentifierTest extends AbstractR8KotlinNamingTestBa
     TestCompileResult<?, ?> result =
         testForR8(Backend.DEX)
             .addProgramFiles(
-                compiledJars.getForConfiguration(kotlinc, targetVersion),
+                compiledJars.getForConfiguration(kotlinParameters),
                 kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addKeepMainRule(mainClassName)
@@ -153,7 +153,7 @@ public class KotlinIntrinsicsIdentifierTest extends AbstractR8KotlinNamingTestBa
     SingleTestRunResult<?> result =
         testForR8(Backend.DEX)
             .addProgramFiles(
-                compiledJars.getForConfiguration(kotlinc, targetVersion),
+                compiledJars.getForConfiguration(kotlinParameters),
                 kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(getJavaJarFile(FOLDER))
             .enableProguardTestOptions()

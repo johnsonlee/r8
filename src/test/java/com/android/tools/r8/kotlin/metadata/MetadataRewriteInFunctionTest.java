@@ -59,10 +59,10 @@ public class MetadataRewriteInFunctionTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = funLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = funLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/function_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -89,7 +89,7 @@ public class MetadataRewriteInFunctionTest extends KotlinMetadataTestBase {
     Path libJar =
         (full ? testForR8(parameters.getBackend()) : testForR8Compat(parameters.getBackend()))
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(funLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(funLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
             .addKeepRules("-keep class **.B")
             .addKeepRules("-keep class **.I { <methods>; }")
@@ -101,7 +101,7 @@ public class MetadataRewriteInFunctionTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/function_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -151,7 +151,7 @@ public class MetadataRewriteInFunctionTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(funLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(funLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
             .addKeepRules("-keep class **.B")
             .addKeepRules("-keep class **.I { <methods>; }")
@@ -165,7 +165,7 @@ public class MetadataRewriteInFunctionTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/function_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

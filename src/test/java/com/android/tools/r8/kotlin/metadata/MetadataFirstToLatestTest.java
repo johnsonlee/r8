@@ -61,7 +61,7 @@ public class MetadataFirstToLatestTest extends KotlinMetadataTestBase {
   public void smokeTest() throws Exception {
     runTest(
         KotlinCompilerVersion.MAX_SUPPORTED_VERSION,
-        libJars.getForConfiguration(kotlinc, targetVersion),
+        libJars.getForConfiguration(kotlinParameters),
         kotlinc.getKotlinStdlibJar());
   }
 
@@ -69,7 +69,7 @@ public class MetadataFirstToLatestTest extends KotlinMetadataTestBase {
   public void testOnFirst() throws Exception {
     Path libJar =
         testForR8(parameters.getBackend())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addKeepAllClassesRule()
             .addKeepAllAttributes()
@@ -122,7 +122,7 @@ public class MetadataFirstToLatestTest extends KotlinMetadataTestBase {
   public void testOnLatest() throws Exception {
     Path libJar =
         testForR8(parameters.getBackend())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addKeepAllClassesRule()
             .addKeepAllAttributes()
@@ -147,7 +147,8 @@ public class MetadataFirstToLatestTest extends KotlinMetadataTestBase {
         kotlinc(
                 parameters.getRuntime().asCf(),
                 new KotlinCompiler(kotlinCompilerVersion),
-                targetVersion)
+                targetVersion,
+                lambdaGeneration)
             .addClasspathFiles(libJar, stdLibJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))

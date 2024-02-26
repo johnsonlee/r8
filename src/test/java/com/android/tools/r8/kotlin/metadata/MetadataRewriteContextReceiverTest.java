@@ -76,8 +76,8 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
   @Test
   public void smokeTest() throws Exception {
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
-            .addClasspathFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
+            .addClasspathFiles(libJars.getForConfiguration(kotlinParameters))
             .addSourceFilesWithNonKtExtension(temp, MAIN_FILE)
             .setOutputPath(temp.newFolder().toPath())
             .enableExperimentalContextReceivers()
@@ -86,7 +86,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
         .addRunClasspathFiles(
             kotlinc.getKotlinStdlibJar(),
             kotlinc.getKotlinReflectJar(),
-            libJars.getForConfiguration(kotlinc, targetVersion))
+            libJars.getForConfiguration(kotlinParameters))
         .addClasspath(output)
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutput(EXPECTED);
@@ -98,7 +98,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(
-                libJars.getForConfiguration(kotlinc, targetVersion), kotlinc.getKotlinStdlibJar())
+                libJars.getForConfiguration(kotlinParameters), kotlinc.getKotlinStdlibJar())
             .addKeepClassAndMembersRules(PKG_LIB + ".*")
             .addKeepAttributes(
                 ProguardKeepAttributes.SIGNATURE,
@@ -115,10 +115,10 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
                 inspector ->
                     assertEqualDeserializedMetadata(
                         inspector,
-                        new CodeInspector(libJars.getForConfiguration(kotlinc, targetVersion))))
+                        new CodeInspector(libJars.getForConfiguration(kotlinParameters))))
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFilesWithNonKtExtension(temp, MAIN_FILE)
             .setOutputPath(temp.newFolder().toPath())
@@ -136,7 +136,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
     R8TestCompileResult r8LibraryResult =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             // Ensure that we do not rename members
             .addKeepRules("-keepclassmembers class * { *; }")
             // Keep the Foo class but rename it.
@@ -177,7 +177,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
 
     Path libJar = r8LibraryResult.writeToZip();
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(newSource)
             .setOutputPath(temp.newFolder().toPath())

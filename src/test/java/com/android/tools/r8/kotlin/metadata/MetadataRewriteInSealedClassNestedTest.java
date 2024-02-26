@@ -46,9 +46,9 @@ public class MetadataRewriteInSealedClassNestedTest extends KotlinMetadataTestBa
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = sealedLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = sealedLibJarMap.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
@@ -66,7 +66,7 @@ public class MetadataRewriteInSealedClassNestedTest extends KotlinMetadataTestBa
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(sealedLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(sealedLibJarMap.getForConfiguration(kotlinParameters))
             .addKeepAllClassesRule()
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
             .addKeepAttributes(
@@ -74,7 +74,7 @@ public class MetadataRewriteInSealedClassNestedTest extends KotlinMetadataTestBa
             .compile()
             .writeToZip();
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))

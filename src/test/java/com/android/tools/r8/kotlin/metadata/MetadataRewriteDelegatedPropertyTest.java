@@ -66,9 +66,9 @@ public class MetadataRewriteDelegatedPropertyTest extends KotlinMetadataTestBase
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
@@ -90,13 +90,13 @@ public class MetadataRewriteDelegatedPropertyTest extends KotlinMetadataTestBase
                 kotlinc.getKotlinReflectJar(),
                 kotlinc.getKotlinAnnotationJar())
             .addKeepClassAndMembersRules(PKG_LIB + ".MyDelegatedProperty")
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
             .compile()
             .inspect(this::inspectMetadata)
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
             .addClasspathFiles(outputJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
@@ -119,11 +119,11 @@ public class MetadataRewriteDelegatedPropertyTest extends KotlinMetadataTestBase
                 kotlinc.getKotlinReflectJar(),
                 kotlinc.getKotlinAnnotationJar())
             .addKeepClassAndMembersRules(PKG_LIB + ".MyDelegatedProperty")
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .compile()
             .writeToZip();
     ProcessResult compileResult =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
             .addClasspathFiles(outputJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))

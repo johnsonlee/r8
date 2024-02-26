@@ -7,7 +7,6 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
-import com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
@@ -61,7 +60,8 @@ public class KotlinCompilerTreeShakingTest extends CompilationTestBase {
         kotlinc(
                 KotlinTestBase.getKotlincHostRuntime(parameters.getRuntime()),
                 kotlinTestParameters.getCompiler(),
-                kotlinTestParameters.getTargetVersion())
+                kotlinTestParameters.getTargetVersion(),
+                kotlinTestParameters.getLambdaGeneration())
             .addSourceFiles(HELLO_KT)
             .setOutputPath(temp.newFolder().toPath())
             .compile();
@@ -129,7 +129,8 @@ public class KotlinCompilerTreeShakingTest extends CompilationTestBase {
                 parameters.getRuntime().asCf(),
                 new KotlinCompiler(
                     "r8ProcessedKotlinc", r8ProcessedKotlinc, kotlinc.getCompilerVersion()),
-                KotlinTargetVersion.JAVA_8)
+                kotlinTestParameters.getTargetVersion(),
+                kotlinTestParameters.getLambdaGeneration())
             .addSourceFiles(HELLO_KT)
             .setOutputPath(temp.newFolder().toPath())
             .compile();

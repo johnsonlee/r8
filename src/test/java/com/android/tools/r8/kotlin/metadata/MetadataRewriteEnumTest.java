@@ -51,9 +51,9 @@ public class MetadataRewriteEnumTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = jarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = jarMap.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/enum_app", "main"))
             .compile();
@@ -69,8 +69,7 @@ public class MetadataRewriteEnumTest extends KotlinMetadataTestBase {
     R8TestCompileResult r8libResult =
         testForR8(parameters.getBackend())
             .addProgramFiles(
-                jarMap.getForConfiguration(kotlinc, targetVersion),
-                kotlinc.getKotlinAnnotationJar())
+                jarMap.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar())
             .addKeepKotlinMetadata()
             .addKeepEnumsRule()
@@ -86,7 +85,7 @@ public class MetadataRewriteEnumTest extends KotlinMetadataTestBase {
                   direction.allFields().forEach(field -> assertTrue(field.isRenamed()));
                 });
     ProcessResult kotlinCompileResult =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(r8libResult.writeToZip())
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/enum_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -101,8 +100,7 @@ public class MetadataRewriteEnumTest extends KotlinMetadataTestBase {
     R8TestCompileResult r8libResult =
         testForR8(parameters.getBackend())
             .addProgramFiles(
-                jarMap.getForConfiguration(kotlinc, targetVersion),
-                kotlinc.getKotlinAnnotationJar())
+                jarMap.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar())
             .addKeepKotlinMetadata()
             .addKeepEnumsRule()
@@ -121,8 +119,8 @@ public class MetadataRewriteEnumTest extends KotlinMetadataTestBase {
                   Assert.assertEquals(expectedEnumNames, kmClass.getEnumEntries());
                 });
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
-            .addClasspathFiles(jarMap.getForConfiguration(kotlinc, targetVersion))
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
+            .addClasspathFiles(jarMap.getForConfiguration(kotlinParameters))
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/enum_app", "main"))
             .compile();
     Path path =
@@ -130,7 +128,7 @@ public class MetadataRewriteEnumTest extends KotlinMetadataTestBase {
             .addClasspathFiles(
                 kotlinc.getKotlinStdlibJar(),
                 kotlinc.getKotlinReflectJar(),
-                jarMap.getForConfiguration(kotlinc, targetVersion))
+                jarMap.getForConfiguration(kotlinParameters))
             .addProgramFiles(output)
             .addKeepAllClassesRule()
             .addApplyMapping(r8libResult.getProguardMap())

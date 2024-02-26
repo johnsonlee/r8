@@ -39,9 +39,9 @@ public class MetadataRewriteInlinePropertyTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(getKotlincHostRuntime(parameters.getRuntime()), kotlinc, targetVersion)
+        kotlinc(getKotlincHostRuntime(parameters.getRuntime()), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/inline_property_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -58,7 +58,7 @@ public class MetadataRewriteInlinePropertyTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             // Allow renaming A to ensure that we rename in the flexible upper bound type.
             .addKeepAllClassesRule()
             .addKeepAttributes(
@@ -71,10 +71,10 @@ public class MetadataRewriteInlinePropertyTest extends KotlinMetadataTestBase {
                 inspector ->
                     assertEqualDeserializedMetadata(
                         inspector,
-                        new CodeInspector(libJars.getForConfiguration(kotlinc, targetVersion))))
+                        new CodeInspector(libJars.getForConfiguration(kotlinParameters))))
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/inline_property_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

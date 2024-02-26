@@ -48,7 +48,7 @@ public class MetadataRewriteKeepPathTest extends KotlinMetadataTestBase {
   @Test
   public void testProgramPath() throws Exception {
     testForR8(parameters.getBackend())
-        .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
         .addKeepRules("-keep class " + LIB_CLASS_NAME)
         .applyIf(keepMetadata, TestShrinkerBuilder::addKeepKotlinMetadata)
@@ -62,7 +62,7 @@ public class MetadataRewriteKeepPathTest extends KotlinMetadataTestBase {
   @Test
   public void testClassPathPath() throws Exception {
     testForR8(parameters.getBackend())
-        .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
         .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
         .addKeepRules("-keep class " + LIB_CLASS_NAME)
         .addKeepRuntimeVisibleAnnotations()
@@ -73,7 +73,7 @@ public class MetadataRewriteKeepPathTest extends KotlinMetadataTestBase {
   @Test
   public void testLibraryPath() throws Exception {
     testForR8(parameters.getBackend())
-        .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
         .addLibraryFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
         .addLibraryFiles(ToolHelper.getJava8RuntimeJar())
         .addKeepRules("-keep class " + LIB_CLASS_NAME)
@@ -85,7 +85,7 @@ public class MetadataRewriteKeepPathTest extends KotlinMetadataTestBase {
   @Test
   public void testMissing() throws Exception {
     testForR8(parameters.getBackend())
-        .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
         .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
         .addKeepRules("-keep class " + LIB_CLASS_NAME)
         .addKeepRuntimeVisibleAnnotations()

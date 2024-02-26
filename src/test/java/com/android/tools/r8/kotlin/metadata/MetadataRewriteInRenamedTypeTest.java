@@ -52,17 +52,19 @@ public class MetadataRewriteInRenamedTypeTest extends KotlinMetadataTestBase {
               kotlinCompilerTool -> {
                 kotlinCompilerTool.addClasspathFiles(
                     annoJarMap.getForConfiguration(
-                        kotlinCompilerTool.getCompiler(), kotlinCompilerTool.getTargetVersion()));
+                        kotlinCompilerTool.getCompiler(),
+                        kotlinCompilerTool.getTargetVersion(),
+                        kotlinCompilerTool.getLambdaGeneration()));
               });
 
   @Test
   public void testR8_kotlinStdlibAsLib() throws Exception {
     testForR8(parameters.getBackend())
         .addLibraryFiles(
-            annoJarMap.getForConfiguration(kotlinc, targetVersion),
+            annoJarMap.getForConfiguration(kotlinParameters),
             ToolHelper.getJava8RuntimeJar(),
             kotlinc.getKotlinStdlibJar())
-        .addProgramFiles(inputJarMap.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(inputJarMap.getForConfiguration(kotlinParameters))
         .addKeepRules(OBFUSCATE_RENAMED, KEEP_KEPT)
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .compile()
@@ -73,8 +75,8 @@ public class MetadataRewriteInRenamedTypeTest extends KotlinMetadataTestBase {
   public void testR8_kotlinStdlibAsClassPath() throws Exception {
     testForR8(parameters.getBackend())
         .addClasspathFiles(
-            annoJarMap.getForConfiguration(kotlinc, targetVersion), kotlinc.getKotlinStdlibJar())
-        .addProgramFiles(inputJarMap.getForConfiguration(kotlinc, targetVersion))
+            annoJarMap.getForConfiguration(kotlinParameters), kotlinc.getKotlinStdlibJar())
+        .addProgramFiles(inputJarMap.getForConfiguration(kotlinParameters))
         .addKeepRules(OBFUSCATE_RENAMED, KEEP_KEPT)
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .compile()
@@ -85,8 +87,8 @@ public class MetadataRewriteInRenamedTypeTest extends KotlinMetadataTestBase {
   public void testR8_kotlinStdlibAsProgramFile() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramFiles(
-            annoJarMap.getForConfiguration(kotlinc, targetVersion), kotlinc.getKotlinStdlibJar())
-        .addProgramFiles(inputJarMap.getForConfiguration(kotlinc, targetVersion))
+            annoJarMap.getForConfiguration(kotlinParameters), kotlinc.getKotlinStdlibJar())
+        .addProgramFiles(inputJarMap.getForConfiguration(kotlinParameters))
         .addKeepRules(OBFUSCATE_RENAMED, KEEP_KEPT)
         .addKeepRules("-keep class **.Anno")
         .addKeepKotlinMetadata()

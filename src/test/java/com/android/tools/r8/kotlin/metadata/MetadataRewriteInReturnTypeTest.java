@@ -52,10 +52,10 @@ public class MetadataRewriteInReturnTypeTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = returnTypeLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = returnTypeLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/returntype_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -73,7 +73,7 @@ public class MetadataRewriteInReturnTypeTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(returnTypeLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(returnTypeLibJarMap.getForConfiguration(kotlinParameters))
             // Keep non-private members of Impl
             .addKeepRules("-keep public class **.Impl { !private *; }")
             // Keep Itf, but allow minification.
@@ -84,7 +84,7 @@ public class MetadataRewriteInReturnTypeTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/returntype_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

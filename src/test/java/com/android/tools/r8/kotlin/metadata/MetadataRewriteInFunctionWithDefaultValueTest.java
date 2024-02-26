@@ -55,10 +55,10 @@ public class MetadataRewriteInFunctionWithDefaultValueTest extends KotlinMetadat
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = defaultValueLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = defaultValueLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/default_value_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -79,7 +79,7 @@ public class MetadataRewriteInFunctionWithDefaultValueTest extends KotlinMetadat
                 getJava8RuntimeJar(),
                 kotlinc.getKotlinStdlibJar(),
                 kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(defaultValueLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(defaultValueLibJarMap.getForConfiguration(kotlinParameters))
             // Keep LibKt and applyMap function, along with applyMap$default
             .addKeepRules("-keep class **.LibKt { *** applyMap*(...); }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
@@ -91,7 +91,7 @@ public class MetadataRewriteInFunctionWithDefaultValueTest extends KotlinMetadat
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/default_value_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

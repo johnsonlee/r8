@@ -81,9 +81,9 @@ public class MetadataRewriteAnnotationTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
@@ -101,8 +101,7 @@ public class MetadataRewriteAnnotationTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addProgramFiles(
-                libJars.getForConfiguration(kotlinc, targetVersion),
-                kotlinc.getKotlinAnnotationJar())
+                libJars.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar())
             /// Keep the annotations
             .addKeepClassAndMembersRules(PKG_LIB + ".AnnoWithClassAndEnum")
@@ -132,7 +131,7 @@ public class MetadataRewriteAnnotationTest extends KotlinMetadataTestBase {
             .inspect(this::inspect)
             .writeToZip();
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))

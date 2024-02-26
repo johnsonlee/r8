@@ -40,9 +40,9 @@ public class MetadataRewriteBoxedTypesTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/box_primitives_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -56,9 +56,9 @@ public class MetadataRewriteBoxedTypesTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTestReflection() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/box_primitives_app", "main_reflect"))
             .setOutputPath(temp.newFolder().toPath())
@@ -76,7 +76,7 @@ public class MetadataRewriteBoxedTypesTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addKeepAllClassesRule()
             .addKeepAttributes(
                 ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS,
@@ -90,10 +90,10 @@ public class MetadataRewriteBoxedTypesTest extends KotlinMetadataTestBase {
                 inspector ->
                     assertEqualDeserializedMetadata(
                         inspector,
-                        new CodeInspector(libJars.getForConfiguration(kotlinc, targetVersion))))
+                        new CodeInspector(libJars.getForConfiguration(kotlinParameters))))
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/box_primitives_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -110,7 +110,7 @@ public class MetadataRewriteBoxedTypesTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addKeepAllClassesRule()
             .addKeepAttributes(
                 ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS,
@@ -120,7 +120,7 @@ public class MetadataRewriteBoxedTypesTest extends KotlinMetadataTestBase {
             .compile()
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/box_primitives_app", "main_reflect"))
             .setOutputPath(temp.newFolder().toPath())

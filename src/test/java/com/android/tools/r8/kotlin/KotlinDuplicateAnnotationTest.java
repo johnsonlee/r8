@@ -77,7 +77,7 @@ public class KotlinDuplicateAnnotationTest extends AbstractR8KotlinTestBase {
     assumeTrue("test DEX", parameters.isDexRuntime());
     try {
       testForR8(parameters.getBackend())
-          .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
+          .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
           .addKeepMainRule(MAIN)
           .addKeepRules(KEEP_RULES)
           .addDontObfuscate()
@@ -94,7 +94,7 @@ public class KotlinDuplicateAnnotationTest extends AbstractR8KotlinTestBase {
   public void test_cf() throws Exception {
     assumeTrue("test CF", parameters.isCfRuntime());
     testForR8(parameters.getBackend())
-        .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
         .addKeepMainRule(MAIN)
         .addKeepRules(KEEP_RULES)
         .addDontObfuscate()

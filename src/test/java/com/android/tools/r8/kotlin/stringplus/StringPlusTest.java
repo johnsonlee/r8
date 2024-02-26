@@ -70,7 +70,7 @@ public class StringPlusTest extends KotlinTestBase {
   @Test
   public void testRuntime() throws ExecutionException, CompilationFailedException, IOException {
     testForRuntime(parameters)
-        .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines(EXPECTED);
   }
@@ -78,7 +78,7 @@ public class StringPlusTest extends KotlinTestBase {
   @Test
   public void testR8() throws ExecutionException, CompilationFailedException, IOException {
     testForR8(parameters.getBackend())
-        .addProgramFiles(compilationResults.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .setMinApi(parameters)
         .allowAccessModification()

@@ -43,10 +43,10 @@ public class MetadataRewriteRemovedCompanionTest extends KotlinMetadataTestBase 
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = companionRemoveJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = companionRemoveJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/companion_remove_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -64,7 +64,7 @@ public class MetadataRewriteRemovedCompanionTest extends KotlinMetadataTestBase 
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(companionRemoveJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(companionRemoveJarMap.getForConfiguration(kotlinParameters))
             // Keep everything
             .addKeepRules("-keep class **.companion_remove_lib.** { *; }")
             .addKeepKotlinMetadata()
@@ -74,7 +74,7 @@ public class MetadataRewriteRemovedCompanionTest extends KotlinMetadataTestBase 
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/companion_remove_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -92,7 +92,7 @@ public class MetadataRewriteRemovedCompanionTest extends KotlinMetadataTestBase 
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(companionRemoveJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(companionRemoveJarMap.getForConfiguration(kotlinParameters))
             // Keep the ClasWithCompanion class.
             .addKeepKotlinMetadata()
             .addKeepRules("-keep class **.ClassWithCompanion { void <init>(); void doStuff(); }")
@@ -101,7 +101,7 @@ public class MetadataRewriteRemovedCompanionTest extends KotlinMetadataTestBase 
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/companion_remove_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

@@ -40,7 +40,9 @@ public class B148525512 extends KotlinTestBase {
                 // Compile the feature Kotlin code with the base classes on classpath.
                 kotlinCompilerTool.addClasspathFiles(
                     kotlinBaseClasses.getForConfiguration(
-                        kotlinCompilerTool.getCompiler(), kotlinCompilerTool.getTargetVersion()));
+                        kotlinCompilerTool.getCompiler(),
+                        kotlinCompilerTool.getTargetVersion(),
+                        kotlinCompilerTool.getLambdaGeneration()));
               });
   private final TestParameters parameters;
 
@@ -75,7 +77,7 @@ public class B148525512 extends KotlinTestBase {
     R8TestCompileResult compileResult =
         testForR8(parameters.getBackend())
             .addProgramFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(kotlinBaseClasses.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(kotlinBaseClasses.getForConfiguration(kotlinParameters))
             .addProgramClasses(FeatureAPI.class)
             .addKeepMainRule(baseKtClassName)
             .addKeepClassAndMembersRules(baseClassName)
@@ -96,8 +98,7 @@ public class B148525512 extends KotlinTestBase {
                     builder
                         .addProgramResourceProvider(
                             ArchiveResourceProvider.fromArchive(
-                                kotlinFeatureClasses.getForConfiguration(kotlinc, targetVersion),
-                                true))
+                                kotlinFeatureClasses.getForConfiguration(kotlinParameters), true))
                         .setProgramConsumer(new ArchiveConsumer(featureCode, false))
                         .build())
             .allowDiagnosticWarningMessages()

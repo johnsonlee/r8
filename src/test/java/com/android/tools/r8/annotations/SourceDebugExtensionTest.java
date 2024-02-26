@@ -11,7 +11,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
-import com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestBase;
@@ -56,7 +55,8 @@ public class SourceDebugExtensionTest extends TestBase {
                 KotlinTestBase.getKotlincHostRuntime(parameters.getRuntime()),
                 getStaticTemp(),
                 kotlinc,
-                KotlinTargetVersion.JAVA_8)
+                kotlinTestParameters.getTargetVersion(),
+                kotlinTestParameters.getLambdaGeneration())
             .addSourceFiles(
                 getFilesInTestFolderRelativeToClass(
                     KotlinInlineFunctionRetraceTest.class, "kt", ".kt"))

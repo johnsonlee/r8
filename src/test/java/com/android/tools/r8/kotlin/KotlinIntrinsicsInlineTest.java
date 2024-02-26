@@ -56,8 +56,7 @@ public class KotlinIntrinsicsInlineTest extends KotlinTestBase {
   public void b139432507() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramFiles(
-            compiledJars.getForConfiguration(kotlinc, targetVersion),
-            kotlinc.getKotlinAnnotationJar())
+            compiledJars.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
         .addKeepRules(
             StringUtils.lines(
                 "-keepclasseswithmembers class " + MAIN + "{", "  public static *** *(...);", "}"))
@@ -109,8 +108,7 @@ public class KotlinIntrinsicsInlineTest extends KotlinTestBase {
       throws Exception {
     testForR8(parameters.getBackend())
         .addProgramFiles(
-            compiledJars.getForConfiguration(kotlinc, targetVersion),
-            kotlinc.getKotlinAnnotationJar())
+            compiledJars.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
         .addKeepRules(
             StringUtils.lines(
                 "-keepclasseswithmembers class " + MAIN + "{",

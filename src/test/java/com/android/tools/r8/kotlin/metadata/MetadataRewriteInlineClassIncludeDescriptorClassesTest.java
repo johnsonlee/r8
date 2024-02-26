@@ -55,9 +55,9 @@ public class MetadataRewriteInlineClassIncludeDescriptorClassesTest extends Kotl
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(
@@ -76,7 +76,7 @@ public class MetadataRewriteInlineClassIncludeDescriptorClassesTest extends Kotl
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
             // kotlinc will generate a method for the unboxed type on the form login-XXXXX(String).
             // We define an annotation that specify we keep the method and descriptor classes.
@@ -99,7 +99,7 @@ public class MetadataRewriteInlineClassIncludeDescriptorClassesTest extends Kotl
                 })
             .writeToZip();
     ProcessResult kotlinCompileAppResult =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(

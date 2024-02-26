@@ -66,9 +66,9 @@ public class MetadataRewriteRawTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar, javaLibZip)
             .addSourceFiles(getKotlinFileInTest(getBinaryNameFromJavaType(PKG_APP), "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -86,7 +86,7 @@ public class MetadataRewriteRawTest extends KotlinMetadataTestBase {
         testForR8(parameters.getBackend())
             .addClasspathFiles(
                 kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar(), javaLibZip)
-            .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .addKeepRules("-keep class " + PKG_LIB + ".ClassWithRawType { *; }")
             .addKeepAttributes(
                 ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS,
@@ -97,12 +97,12 @@ public class MetadataRewriteRawTest extends KotlinMetadataTestBase {
             .inspect(
                 inspector ->
                     assertEqualMetadataWithStringPoolValidation(
-                        new CodeInspector(libJars.getForConfiguration(kotlinc, targetVersion)),
+                        new CodeInspector(libJars.getForConfiguration(kotlinParameters)),
                         inspector,
                         (addedStrings, addedNonInitStrings) -> {}))
             .writeToZip();
     Path main =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar, javaLibZip)
             .addSourceFiles(getKotlinFileInTest(getBinaryNameFromJavaType(PKG_APP), "main"))
             .setOutputPath(temp.newFolder().toPath())

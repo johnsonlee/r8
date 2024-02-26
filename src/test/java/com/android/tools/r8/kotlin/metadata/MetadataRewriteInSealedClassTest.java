@@ -55,10 +55,10 @@ public class MetadataRewriteInSealedClassTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = sealedLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = sealedLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/sealed_app", "valid"))
             .setOutputPath(temp.newFolder().toPath())
@@ -76,7 +76,7 @@ public class MetadataRewriteInSealedClassTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(sealedLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(sealedLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the Expr class
             .addKeepRules("-keep class **.Expr")
             // Keep the extension function
@@ -89,7 +89,7 @@ public class MetadataRewriteInSealedClassTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/sealed_app", "valid"))
             .setOutputPath(temp.newFolder().toPath())
@@ -143,7 +143,7 @@ public class MetadataRewriteInSealedClassTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(sealedLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(sealedLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the Expr class
             .addKeepRules("-keep class **.Expr")
             // Keep the extension function
@@ -154,7 +154,7 @@ public class MetadataRewriteInSealedClassTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     ProcessResult kotlinTestCompileResult =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFilesWithNonKtExtension(
                 temp, getFileInTest(PKG_PREFIX + "/sealed_app", "invalid.kt_txt"))

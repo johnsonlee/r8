@@ -64,7 +64,7 @@ public class ReflectiveConstructionWithInlineClassTest extends KotlinTestBase {
   public void testCf() throws Exception {
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinReflectJar())
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
@@ -76,7 +76,7 @@ public class ReflectiveConstructionWithInlineClassTest extends KotlinTestBase {
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
     testForD8()
-        .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinReflectJar())
         .setMinApi(parameters)
@@ -91,7 +91,7 @@ public class ReflectiveConstructionWithInlineClassTest extends KotlinTestBase {
 
   private R8FullTestBuilder configureR8(R8FullTestBuilder builder) {
     return builder
-        .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinReflectJar())
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())

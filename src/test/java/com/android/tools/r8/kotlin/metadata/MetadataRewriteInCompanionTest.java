@@ -64,10 +64,10 @@ public class MetadataRewriteInCompanionTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = companionLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = companionLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/companion_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -85,7 +85,7 @@ public class MetadataRewriteInCompanionTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(companionLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(companionLibJarMap.getForConfiguration(kotlinParameters))
             // Keep everything
             .addKeepRules("-keep class **.companion_lib.** { *; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
@@ -99,7 +99,7 @@ public class MetadataRewriteInCompanionTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/companion_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -117,7 +117,7 @@ public class MetadataRewriteInCompanionTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(companionLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(companionLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
             .addKeepRules("-keep class **.B")
             // Property in companion with @JvmField is defined in the host class, without accessors.
@@ -144,7 +144,7 @@ public class MetadataRewriteInCompanionTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/companion_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

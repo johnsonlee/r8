@@ -60,15 +60,15 @@ public class MetadataRewriteJvmStaticTest extends KotlinMetadataTestBase {
   @Test
   public void smokeTest() throws Exception {
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
-            .addClasspathFiles(kotlincLibJar.getForConfiguration(kotlinc, targetVersion))
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
+            .addClasspathFiles(kotlincLibJar.getForConfiguration(kotlinParameters))
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
             .setOutputPath(temp.newFolder().toPath())
             .compile();
     testForJvm(parameters)
         .addRunClasspathFiles(
-            kotlinc.getKotlinStdlibJar(), kotlincLibJar.getForConfiguration(kotlinc, targetVersion))
+            kotlinc.getKotlinStdlibJar(), kotlincLibJar.getForConfiguration(kotlinParameters))
         .addClasspath(output)
         .run(parameters.getRuntime(), PKG_APP + ".MainKt")
         .assertSuccessWithOutput(EXPECTED);
@@ -78,7 +78,7 @@ public class MetadataRewriteJvmStaticTest extends KotlinMetadataTestBase {
   public void smokeTestJava() throws Exception {
     testForJvm(parameters)
         .addRunClasspathFiles(
-            kotlinc.getKotlinStdlibJar(), kotlincLibJar.getForConfiguration(kotlinc, targetVersion))
+            kotlinc.getKotlinStdlibJar(), kotlincLibJar.getForConfiguration(kotlinParameters))
         .addProgramClassFileData(MainJava.dump())
         .run(parameters.getRuntime(), MainJava.class)
         .assertSuccessWithOutput(EXPECTED);
@@ -88,7 +88,7 @@ public class MetadataRewriteJvmStaticTest extends KotlinMetadataTestBase {
   public void testMetadata() throws Exception {
     Path libJar =
         testForR8(parameters.getBackend())
-            .addProgramFiles(kotlincLibJar.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(kotlincLibJar.getForConfiguration(kotlinParameters))
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addKeepAllClassesRule()
             .addKeepAttributes(
@@ -104,7 +104,7 @@ public class MetadataRewriteJvmStaticTest extends KotlinMetadataTestBase {
 
   private void testKotlin(Path libJar) throws Exception {
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))

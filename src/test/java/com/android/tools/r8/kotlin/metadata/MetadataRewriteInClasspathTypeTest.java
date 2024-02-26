@@ -58,16 +58,18 @@ public class MetadataRewriteInClasspathTypeTest extends KotlinMetadataTestBase {
               kotlinCompilerTool -> {
                 kotlinCompilerTool.addClasspathFiles(
                     baseLibJarMap.getForConfiguration(
-                        kotlinCompilerTool.getCompiler(), kotlinCompilerTool.getTargetVersion()));
+                        kotlinCompilerTool.getCompiler(),
+                        kotlinCompilerTool.getTargetVersion(),
+                        kotlinCompilerTool.getLambdaGeneration()));
               });
 
   @Test
   public void smokeTest() throws Exception {
-    Path baseLibJar = baseLibJarMap.getForConfiguration(kotlinc, targetVersion);
-    Path extLibJar = extLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path baseLibJar = baseLibJarMap.getForConfiguration(kotlinParameters);
+    Path extLibJar = extLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
             .addClasspathFiles(baseLibJar, extLibJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/classpath_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -82,12 +84,12 @@ public class MetadataRewriteInClasspathTypeTest extends KotlinMetadataTestBase {
 
   @Test
   public void testMetadataInClasspathType_renamed() throws Exception {
-    Path baseLibJar = baseLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path baseLibJar = baseLibJarMap.getForConfiguration(kotlinParameters);
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(
                 baseLibJar, kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(extLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(extLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the Extra class and its interface (which has the method).
             .addKeepRules("-keep class **.Extra")
             // Keep Super, but allow minification.
@@ -101,7 +103,7 @@ public class MetadataRewriteInClasspathTypeTest extends KotlinMetadataTestBase {
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(baseLibJar, libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/classpath_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

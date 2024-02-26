@@ -7,6 +7,7 @@ import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
+import com.android.tools.r8.KotlinCompilerTool.KotlinLambdaGeneration;
 import com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -20,12 +21,17 @@ public class KotlinTestParameters {
   private final int index;
   private final KotlinCompiler kotlinc;
   private final KotlinTargetVersion targetVersion;
+  private final KotlinLambdaGeneration lambdaGeneration;
 
   private KotlinTestParameters(
-      KotlinCompiler kotlinc, KotlinTargetVersion targetVersion, int index) {
+      KotlinCompiler kotlinc,
+      KotlinTargetVersion targetVersion,
+      KotlinLambdaGeneration lambdaGeneration,
+      int index) {
     this.index = index;
     this.kotlinc = kotlinc;
     this.targetVersion = targetVersion;
+    this.lambdaGeneration = lambdaGeneration;
   }
 
   public KotlinCompiler getCompiler() {
@@ -38,6 +44,10 @@ public class KotlinTestParameters {
 
   public KotlinTargetVersion getTargetVersion() {
     return targetVersion;
+  }
+
+  public KotlinLambdaGeneration getLambdaGeneration() {
+    return lambdaGeneration;
   }
 
   public boolean is(KotlinCompilerVersion compilerVersion) {
@@ -74,7 +84,7 @@ public class KotlinTestParameters {
 
   @Override
   public String toString() {
-    return kotlinc + "[target=" + targetVersion + "]";
+    return kotlinc + "[target=" + targetVersion + ",lambda=" + lambdaGeneration + "]";
   }
 
   public static class Builder {
@@ -82,6 +92,7 @@ public class KotlinTestParameters {
     private Predicate<KotlinCompilerVersion> compilerFilter = c -> false;
     private Predicate<KotlinCompilerVersion> oldCompilerFilter = c -> true;
     private Predicate<KotlinTargetVersion> targetVersionFilter = t -> false;
+    private Predicate<KotlinLambdaGeneration> lambdaGenerationFilter = t -> false;
     private boolean withDevCompiler =
         System.getProperty("com.android.tools.r8.kotlincompilerdev") != null;
     private boolean withOldCompilers =
@@ -99,17 +110,30 @@ public class KotlinTestParameters {
       return this;
     }
 
+    private Builder withLambdaGenerationFilter(Predicate<KotlinLambdaGeneration> predicate) {
+      lambdaGenerationFilter = lambdaGenerationFilter.or(predicate);
+      return this;
+    }
+
     public Builder withAllCompilers() {
-      withCompilerFilter(compiler -> true);
+      withCompilerFilter(compiler -> true)
+          .withLambdaGenerationFilter(KotlinLambdaGeneration::isClass);
+      return this;
+    }
+
+    public Builder withAllLambdaGeneration() {
+      withLambdaGenerationFilter(lambdaGeneration -> true);
       return this;
     }
 
     public Builder withAllCompilersAndTargetVersions() {
+      // Default to what used to be the default until Kotlin 2.0.
       return withAllCompilers().withAllTargetVersions();
     }
 
     public Builder withCompiler(KotlinCompilerVersion compilerVersion) {
-      withCompilerFilter(c -> c.isEqualTo(compilerVersion));
+      withCompilerFilter(c -> c.isEqualTo(compilerVersion))
+          .withLambdaGenerationFilter(KotlinLambdaGeneration::isClass);
       return this;
     }
 
@@ -153,7 +177,8 @@ public class KotlinTestParameters {
     }
 
     public Builder withCompilersStartingFromIncluding(KotlinCompilerVersion version) {
-      withCompilerFilter(c -> c.isGreaterThanOrEqualTo(version));
+      withCompilerFilter(c -> c.isGreaterThanOrEqualTo(version))
+          .withLambdaGenerationFilter(KotlinLambdaGeneration::isClass);
       return this;
     }
 
@@ -177,16 +202,31 @@ public class KotlinTestParameters {
       }
       for (KotlinCompilerVersion kotlinVersion : compilerVersions) {
         for (KotlinTargetVersion targetVersion : KotlinTargetVersion.values()) {
-          // KotlinTargetVersion java 6 is deprecated from kotlinc 1.5 and forward, no need to run
-          // tests on that target.
-          if (targetVersion == KotlinTargetVersion.JAVA_6
-              && kotlinVersion.isGreaterThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_5_0)) {
-            continue;
-          }
-          if (targetVersionFilter.test(targetVersion)) {
-            testParameters.add(
-                new KotlinTestParameters(
-                    new KotlinCompiler(kotlinVersion), targetVersion, index++));
+          for (KotlinLambdaGeneration lambdaGeneration : KotlinLambdaGeneration.values()) {
+            // KotlinTargetVersion java 6 is deprecated from kotlinc 1.5 and forward, no need to run
+            // tests on that target.
+            if (targetVersion == KotlinTargetVersion.JAVA_6
+                && kotlinVersion.isGreaterThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_5_0)) {
+              continue;
+            }
+            // Only test lambda both types of lambda generation with the latest version and the dev
+            // version.
+            assert KotlinCompilerVersion.KOTLIN_DEV.isGreaterThan(
+                KotlinCompilerVersion.MAX_SUPPORTED_VERSION);
+            if (!lambdaGeneration.isDefaultForVersion(kotlinVersion)
+                && kotlinVersion.isLessThan(KotlinCompilerVersion.MAX_SUPPORTED_VERSION)) {
+              continue;
+            }
+            if (targetVersionFilter.test(targetVersion)) {
+              if (lambdaGenerationFilter.test(lambdaGeneration)) {
+                testParameters.add(
+                    new KotlinTestParameters(
+                        new KotlinCompiler(kotlinVersion),
+                        targetVersion,
+                        lambdaGeneration,
+                        index++));
+              }
+            }
           }
         }
       }

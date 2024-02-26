@@ -104,7 +104,7 @@ public class KotlinxCoroutinesTestRunner extends KotlinMetadataTestBase {
   }
 
   private Path compileTestSources(Path baseJar) throws Exception {
-    return kotlinc(kotlinc, targetVersion)
+    return kotlinc(kotlinc, targetVersion, lambdaGeneration)
         .addArguments(
             "-Xuse-experimental=kotlinx.coroutines.InternalCoroutinesApi",
             "-Xuse-experimental=kotlinx.coroutines.ObsoleteCoroutinesApi",

@@ -7,6 +7,7 @@ import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static org.hamcrest.CoreMatchers.containsString;
 
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
+import com.android.tools.r8.KotlinCompilerTool.KotlinLambdaGeneration;
 import com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -22,6 +23,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.rules.TemporaryFolder;
@@ -43,11 +45,13 @@ public abstract class KotlinTestBase extends TestBase {
 
   protected final KotlinCompiler kotlinc;
   protected final KotlinTargetVersion targetVersion;
+  protected final KotlinLambdaGeneration lambdaGeneration;
   protected final KotlinTestParameters kotlinParameters;
 
   protected KotlinTestBase(KotlinTestParameters kotlinParameters) {
     this.targetVersion = kotlinParameters.getTargetVersion();
     this.kotlinc = kotlinParameters.getCompiler();
+    this.lambdaGeneration = kotlinParameters.getLambdaGeneration();
     this.kotlinParameters = kotlinParameters;
   }
 
@@ -94,7 +98,8 @@ public abstract class KotlinTestBase extends TestBase {
   }
 
   protected KotlinCompilerTool kotlinCompilerTool() {
-    return KotlinCompilerTool.create(CfRuntime.getCheckedInJdk9(), temp, kotlinc, targetVersion);
+    return KotlinCompilerTool.create(
+        CfRuntime.getCheckedInJdk9(), temp, kotlinc, targetVersion, lambdaGeneration);
   }
 
   public static KotlinCompileMemoizer getCompileMemoizer(Path... source) {
@@ -144,12 +149,40 @@ public abstract class KotlinTestBase extends TestBase {
 
   public static class KotlinCompileMemoizer {
 
+    static class CompilerConfigurationKey {
+      private final KotlinTargetVersion targetVersion;
+      private final KotlinLambdaGeneration lambdaGeneration;
+
+      private CompilerConfigurationKey(
+          KotlinTargetVersion targetVersion, KotlinLambdaGeneration lambdaGeneration) {
+        this.targetVersion = targetVersion;
+        this.lambdaGeneration = lambdaGeneration;
+      }
+
+      @Override
+      public boolean equals(Object o) {
+        if (this == o) {
+          return true;
+        }
+        if (!(o instanceof CompilerConfigurationKey)) {
+          return false;
+        }
+        CompilerConfigurationKey other = (CompilerConfigurationKey) o;
+        return targetVersion == other.targetVersion && lambdaGeneration == other.lambdaGeneration;
+      }
+
+      @Override
+      public int hashCode() {
+        return Objects.hash(targetVersion, lambdaGeneration);
+      }
+    }
+
     private final Collection<Path> sources;
     private final CfRuntime runtime;
     private final TemporaryFolder temporaryFolder;
 
     private Consumer<KotlinCompilerTool> kotlinCompilerToolConsumer = x -> {};
-    private final Map<KotlinCompiler, Map<KotlinTargetVersion, Path>> compiledPaths =
+    private final Map<KotlinCompiler, Map<CompilerConfigurationKey, Path>> compiledPaths =
         new IdentityHashMap<>();
 
     public KotlinCompileMemoizer(Collection<Path> sources) {
@@ -170,23 +203,30 @@ public abstract class KotlinTestBase extends TestBase {
 
     public Path getForConfiguration(KotlinTestParameters kotlinParameters) {
       return getForConfiguration(
-          kotlinParameters.getCompiler(), kotlinParameters.getTargetVersion());
+          kotlinParameters.getCompiler(),
+          kotlinParameters.getTargetVersion(),
+          kotlinParameters.getLambdaGeneration());
     }
 
-    public Path getForConfiguration(KotlinCompiler compiler, KotlinTargetVersion targetVersion) {
-      Map<KotlinTargetVersion, Path> kotlinTargetVersionPathMap = compiledPaths.get(compiler);
+    public Path getForConfiguration(
+        KotlinCompiler compiler,
+        KotlinTargetVersion targetVersion,
+        KotlinLambdaGeneration lambdaGeneration) {
+      assert lambdaGeneration == KotlinLambdaGeneration.CLASS;
+      Map<CompilerConfigurationKey, Path> kotlinTargetVersionPathMap = compiledPaths.get(compiler);
       if (kotlinTargetVersionPathMap == null) {
         kotlinTargetVersionPathMap = new IdentityHashMap<>();
         compiledPaths.put(compiler, kotlinTargetVersionPathMap);
       }
       return kotlinTargetVersionPathMap.computeIfAbsent(
-          targetVersion,
+          new CompilerConfigurationKey(targetVersion, lambdaGeneration),
           ignored -> {
             try {
               KotlinCompilerTool kotlinc =
                   temporaryFolder == null
-                      ? kotlinc(compiler, targetVersion)
-                      : kotlinc(runtime, temporaryFolder, compiler, targetVersion);
+                      ? kotlinc(runtime, compiler, targetVersion, lambdaGeneration)
+                      : kotlinc(
+                          runtime, temporaryFolder, compiler, targetVersion, lambdaGeneration);
               return kotlinc.addSourceFiles(sources).apply(kotlinCompilerToolConsumer).compile();
             } catch (IOException e) {
               throw new RuntimeException(e);

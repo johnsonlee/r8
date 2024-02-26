@@ -59,7 +59,7 @@ public class KotlinReflectTest extends KotlinTestBase {
   public void testCf() throws Exception {
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinReflectJar())
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
@@ -72,7 +72,7 @@ public class KotlinReflectTest extends KotlinTestBase {
     parameters.assumeDexRuntime();
     final File output = temp.newFile("output.zip");
     testForD8(parameters.getBackend())
-        .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinReflectJar())
         .setProgramConsumer(new ArchiveConsumer(output.toPath(), true))
@@ -90,7 +90,7 @@ public class KotlinReflectTest extends KotlinTestBase {
   public void testR8() throws Exception {
     final File foo = temp.newFile("foo");
     testForR8(parameters.getBackend())
-        .addProgramFiles(compiledJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinReflectJar())
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())

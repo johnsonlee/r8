@@ -60,10 +60,10 @@ public class MetadataRewriteInExtensionPropertyTest extends KotlinMetadataTestBa
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = extLibJarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = extLibJarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/extension_property_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -90,7 +90,7 @@ public class MetadataRewriteInExtensionPropertyTest extends KotlinMetadataTestBa
     Path libJar =
         (full ? testForR8(parameters.getBackend()) : testForR8Compat(parameters.getBackend()))
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(extLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(extLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
             .addKeepRules("-keep class **.B")
             .addKeepRules("-keep class **.I { <methods>; }")
@@ -103,7 +103,7 @@ public class MetadataRewriteInExtensionPropertyTest extends KotlinMetadataTestBa
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/extension_property_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -154,7 +154,7 @@ public class MetadataRewriteInExtensionPropertyTest extends KotlinMetadataTestBa
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(extLibJarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(extLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
             .addKeepRules("-keep class **.B")
             .addKeepRules("-keep class **.I { <methods>; }")
@@ -169,7 +169,7 @@ public class MetadataRewriteInExtensionPropertyTest extends KotlinMetadataTestBa
             .writeToZip();
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/extension_property_app", "main"))
             .setOutputPath(temp.newFolder().toPath())

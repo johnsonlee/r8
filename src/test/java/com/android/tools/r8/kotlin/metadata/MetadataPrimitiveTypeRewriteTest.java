@@ -54,9 +54,9 @@ public class MetadataPrimitiveTypeRewriteTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = libJars.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
@@ -85,7 +85,7 @@ public class MetadataPrimitiveTypeRewriteTest extends KotlinMetadataTestBase {
             .addProgramFiles(
                 kotlinc.getKotlinStdlibJar(),
                 kotlinc.getKotlinAnnotationJar(),
-                libJars.getForConfiguration(kotlinc, targetVersion))
+                libJars.getForConfiguration(kotlinParameters))
             .addKeepAllClassesRuleWithAllowObfuscation()
             .addKeepRules("-keep class " + PKG_LIB + ".LibKt { *; }")
             .addKeepRules("-keep class kotlin.Metadata { *; }")
@@ -103,7 +103,7 @@ public class MetadataPrimitiveTypeRewriteTest extends KotlinMetadataTestBase {
             .writeToZip();
     boolean expectingCompilationError = kotlinParameters.isOlderThan(KOTLINC_1_4_20) && !keepUnit;
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(
                 getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))

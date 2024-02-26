@@ -45,7 +45,7 @@ public class MetadataPrunedFieldsTest extends KotlinMetadataTestBase {
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
-        .addProgramFiles(libJars.getForConfiguration(kotlinc, targetVersion))
+        .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
         .addProgramClassFileData(Main.dump())
         .addKeepRules("-keep class " + PKG + ".metadata_pruned_fields.MethodsKt { *; }")
         .addKeepRules("-keep class kotlin.Metadata { *** pn(); }")

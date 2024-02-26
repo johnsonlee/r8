@@ -48,7 +48,7 @@ public class Regress191296688 extends KotlinTestBase {
     String folder = DescriptorUtils.getBinaryNameFromJavaType(PKG);
     CfRuntime cfRuntime = TestRuntime.getCheckedInJdk9();
     Path ktClasses =
-        kotlinc(cfRuntime, kotlinc, targetVersion)
+        kotlinc(cfRuntime, kotlinParameters)
             .addSourceFiles(getKotlinFileInTest(folder, "B"))
             .addClasspathFiles(aLib)
             .compile();

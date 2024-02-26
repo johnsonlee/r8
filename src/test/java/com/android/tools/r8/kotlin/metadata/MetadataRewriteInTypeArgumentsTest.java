@@ -97,10 +97,10 @@ public class MetadataRewriteInTypeArgumentsTest extends KotlinMetadataTestBase {
 
   @Test
   public void smokeTest() throws Exception {
-    Path libJar = jarMap.getForConfiguration(kotlinc, targetVersion);
+    Path libJar = jarMap.getForConfiguration(kotlinParameters);
 
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/typeargument_app", "main"))
             .setOutputPath(temp.newFolder().toPath())
@@ -118,7 +118,7 @@ public class MetadataRewriteInTypeArgumentsTest extends KotlinMetadataTestBase {
     Path libJar =
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
-            .addProgramFiles(jarMap.getForConfiguration(kotlinc, targetVersion))
+            .addProgramFiles(jarMap.getForConfiguration(kotlinParameters))
             // Keep ClassThatWillBeObfuscated, but allow minification.
             .addKeepRules("-keep,allowobfuscation class **ClassThatWillBeObfuscated")
             .addKeepRules("-keepclassmembers class **ClassThatWillBeObfuscated { *; }")
@@ -138,7 +138,7 @@ public class MetadataRewriteInTypeArgumentsTest extends KotlinMetadataTestBase {
             .inspect(this::inspect)
             .writeToZip();
     Path mainJar =
-        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion)
+        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
             .addClasspathFiles(libJar)
             .addSourceFiles(getKotlinFileInTest(PKG_PREFIX + "/typeargument_app", "main"))
             .compile(kotlinParameters.isOlderThan(KOTLINC_1_4_20));

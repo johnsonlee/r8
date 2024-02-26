@@ -154,7 +154,7 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
     Path kotlinJarFile =
         getCompileMemoizer(getKotlinFilesInResource(getTestName()), getTestName())
             .configure(kotlinCompilerTool -> kotlinCompilerTool.includeRuntime().noReflect())
-            .getForConfiguration(kotlinc, targetVersion);
+            .getForConfiguration(kotlinParameters);
     return ImmutableList.of(kotlinJarFile, getJavaJarFile(), kotlinc.getKotlinAnnotationJar());
   }
 
