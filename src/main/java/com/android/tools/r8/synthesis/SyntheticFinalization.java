@@ -636,11 +636,13 @@ public class SyntheticFinalization {
                         externalSyntheticTypePrefix,
                         generators,
                         appView,
-                        candidateType ->
-                            equivalences.containsKey(candidateType)
-                                || appView
-                                    .horizontallyMergedClasses()
-                                    .isMergeSource(candidateType));
+                        candidateType -> {
+                          if (appView.hasLiveness()
+                              && appView.appInfoWithLiveness().wasPruned(candidateType)) {
+                            return true;
+                          }
+                          return equivalences.containsKey(candidateType);
+                        });
             equivalences.put(representativeType, group);
           }
         });

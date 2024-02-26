@@ -121,8 +121,6 @@ public class MappedPositionToClassNameMapperBuilder {
     prunedEntries.forEach(
         entry -> {
           DexType holder = entry.getKey();
-          assert appView.appInfo().definitionForWithoutExistenceAssert(holder) == null
-              || !appView.appInfo().definitionForWithoutExistenceAssert(holder).isProgramClass();
           String typeName = holder.toSourceString();
           String sourceFile = entry.getValue();
           // We have to pick a right-hand side destination that does not overlap with an existing
@@ -413,14 +411,12 @@ public class MappedPositionToClassNameMapperBuilder {
 
         MappedRange lastMappedRange =
             getMappedRangesForPosition(
-                appView,
                 getOriginalMethodSignature,
                 getBuilder(),
                 firstPosition,
                 residualSignature,
                 obfuscatedRange,
                 originalRange,
-                prunedInlinedClasses,
                 cardinalRangeCache,
                 canStripOuterFrame);
         // firstPosition will contain a potential outline caller.
@@ -450,7 +446,6 @@ public class MappedPositionToClassNameMapperBuilder {
                   positionMap.put((int) line, placeHolderLineToBeFixed);
                   MappedRange lastRange =
                       getMappedRangesForPosition(
-                          appView,
                           getOriginalMethodSignature,
                           getBuilder(),
                           position,
@@ -458,7 +453,6 @@ public class MappedPositionToClassNameMapperBuilder {
                           nonCardinalRangeCache.get(
                               placeHolderLineToBeFixed, placeHolderLineToBeFixed),
                           nonCardinalRangeCache.get(position.getLine(), position.getLine()),
-                          prunedInlinedClasses,
                           cardinalRangeCache,
                           canStripOuterFrame);
                   maxPc.set(lastRange.minifiedRange.to);
@@ -533,14 +527,12 @@ public class MappedPositionToClassNameMapperBuilder {
     }
 
     private MappedRange getMappedRangesForPosition(
-        AppView<?> appView,
         Function<DexMethod, MethodSignature> getOriginalMethodSignature,
         ClassNaming.Builder classNamingBuilder,
         Position position,
         MethodSignature residualSignature,
         Range obfuscatedRange,
         Range originalLine,
-        Map<DexType, String> prunedInlineHolder,
         CardinalPositionRangeAllocator cardinalRangeCache,
         boolean canStripOuterFrame) {
       MappedRange lastMappedRange = null;
@@ -555,7 +547,12 @@ public class MappedPositionToClassNameMapperBuilder {
         DexType holderType = position.getMethod().getHolderType();
         String prunedClassSourceFileInfo = appView.getPrunedClassSourceFileInfo(holderType);
         if (prunedClassSourceFileInfo != null) {
-          String originalValue = prunedInlineHolder.put(holderType, prunedClassSourceFileInfo);
+          assert appView.appInfo().definitionForWithoutExistenceAssert(holderType) == null
+              || !appView
+                  .appInfo()
+                  .definitionForWithoutExistenceAssert(holderType)
+                  .isProgramClass();
+          String originalValue = prunedInlinedClasses.put(holderType, prunedClassSourceFileInfo);
           assert originalValue == null || originalValue.equals(prunedClassSourceFileInfo);
         }
         lastMappedRange =
