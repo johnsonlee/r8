@@ -26,7 +26,7 @@ JDWP_TESTS_HOSTDEX = os.path.join(utils.REPO_ROOT, 'third_party', 'jdwp-tests',
 IMAGE = '/system/non/existent/jdwp/image.art'
 
 # Timeout in ms
-TIMEOUT = 10000
+TIMEOUT = 20000
 
 DEBUGGER_EXTRA_FLAGS = [
     '-Xjnigreflimit:2000', '-Duser.language=en', '-Duser.region=US',
