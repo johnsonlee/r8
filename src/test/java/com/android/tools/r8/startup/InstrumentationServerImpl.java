@@ -15,6 +15,7 @@ public class InstrumentationServerImpl extends InstrumentationServer {
 
   // May be set to true by the instrumentation.
   private static boolean writeToLogcat;
+  private static boolean writeToLogcatIncludeDuplicates;
   private static String logcatTag;
 
   private final LinkedHashSet<String> lines = new LinkedHashSet<>();
@@ -25,11 +26,19 @@ public class InstrumentationServerImpl extends InstrumentationServer {
     return InstrumentationServerImpl.INSTANCE;
   }
 
+  public static void addCall(String callerDescriptor, String calleeDescriptor) {
+    writeToLogcat(callerDescriptor + " -> " + calleeDescriptor);
+  }
+
   public static void addMethod(String descriptor) {
     getInstance().addLine(descriptor);
   }
 
   private void addLine(String line) {
+    if (writeToLogcat && writeToLogcatIncludeDuplicates) {
+      writeToLogcat(line);
+      return;
+    }
     synchronized (lines) {
       if (!lines.add(line)) {
         return;
@@ -54,7 +63,7 @@ public class InstrumentationServerImpl extends InstrumentationServer {
     }
   }
 
-  private void writeToLogcat(String line) {
+  private static void writeToLogcat(String line) {
     android.util.Log.i(logcatTag, line);
   }
 }

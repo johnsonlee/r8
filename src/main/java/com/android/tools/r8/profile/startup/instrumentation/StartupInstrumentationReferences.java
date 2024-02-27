@@ -12,6 +12,7 @@ class StartupInstrumentationReferences {
 
   final DexType instrumentationServerType;
   final DexType instrumentationServerImplType;
+  final DexMethod addCall;
   final DexMethod addMethod;
 
   StartupInstrumentationReferences(DexItemFactory dexItemFactory) {
@@ -19,6 +20,12 @@ class StartupInstrumentationReferences {
         dexItemFactory.createType("Lcom/android/tools/r8/startup/InstrumentationServer;");
     instrumentationServerImplType =
         dexItemFactory.createType("Lcom/android/tools/r8/startup/InstrumentationServerImpl;");
+    addCall =
+        dexItemFactory.createMethod(
+            instrumentationServerImplType,
+            dexItemFactory.createProto(
+                dexItemFactory.voidType, dexItemFactory.stringType, dexItemFactory.stringType),
+            "addCall");
     addMethod =
         dexItemFactory.createMethod(
             instrumentationServerImplType,

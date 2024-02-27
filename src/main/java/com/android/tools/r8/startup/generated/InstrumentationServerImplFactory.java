@@ -126,6 +126,16 @@ public final class InstrumentationServerImplFactory {
               dexItemFactory.createField(
                   dexItemFactory.createType(
                       "Lcom/android/tools/r8/startup/InstrumentationServerImpl;"),
+                  dexItemFactory.createType("Z"),
+                  dexItemFactory.createString("writeToLogcatIncludeDuplicates")))
+          .setAccessFlags(FieldAccessFlags.fromCfAccessFlags(10))
+          .setApiLevel(ComputedApiLevel.unknown())
+          .build(),
+      DexEncodedField.syntheticBuilder()
+          .setField(
+              dexItemFactory.createField(
+                  dexItemFactory.createType(
+                      "Lcom/android/tools/r8/startup/InstrumentationServerImpl;"),
                   dexItemFactory.createType("Ljava/lang/String;"),
                   dexItemFactory.createString("logcatTag")))
           .setAccessFlags(FieldAccessFlags.fromCfAccessFlags(10))
@@ -162,7 +172,23 @@ public final class InstrumentationServerImplFactory {
                       dexItemFactory.createType(
                           "Lcom/android/tools/r8/startup/InstrumentationServerImpl;")),
                   dexItemFactory.createString("getInstance")))
-          .setCode(method -> createCfCode4_getInstance(dexItemFactory, method))
+          .setCode(method -> createCfCode5_getInstance(dexItemFactory, method))
+          .build(),
+      DexEncodedMethod.syntheticBuilder()
+          .setAccessFlags(MethodAccessFlags.fromCfAccessFlags(9, false))
+          .setApiLevelForCode(ComputedApiLevel.unknown())
+          .setApiLevelForDefinition(ComputedApiLevel.unknown())
+          .setClassFileVersion(CfVersion.V1_8)
+          .setMethod(
+              dexItemFactory.createMethod(
+                  dexItemFactory.createType(
+                      "Lcom/android/tools/r8/startup/InstrumentationServerImpl;"),
+                  dexItemFactory.createProto(
+                      dexItemFactory.createType("V"),
+                      dexItemFactory.createType("Ljava/lang/String;"),
+                      dexItemFactory.createType("Ljava/lang/String;")),
+                  dexItemFactory.createString("addCall")))
+          .setCode(method -> createCfCode2_addCall(dexItemFactory, method))
           .build(),
       DexEncodedMethod.syntheticBuilder()
           .setAccessFlags(MethodAccessFlags.fromCfAccessFlags(9, false))
@@ -177,7 +203,7 @@ public final class InstrumentationServerImplFactory {
                       dexItemFactory.createType("V"),
                       dexItemFactory.createType("Ljava/lang/String;")),
                   dexItemFactory.createString("addMethod")))
-          .setCode(method -> createCfCode3_addMethod(dexItemFactory, method))
+          .setCode(method -> createCfCode4_addMethod(dexItemFactory, method))
           .build(),
       DexEncodedMethod.syntheticBuilder()
           .setAccessFlags(MethodAccessFlags.fromCfAccessFlags(2, false))
@@ -192,10 +218,10 @@ public final class InstrumentationServerImplFactory {
                       dexItemFactory.createType("V"),
                       dexItemFactory.createType("Ljava/lang/String;")),
                   dexItemFactory.createString("addLine")))
-          .setCode(method -> createCfCode2_addLine(dexItemFactory, method))
+          .setCode(method -> createCfCode3_addLine(dexItemFactory, method))
           .build(),
       DexEncodedMethod.syntheticBuilder()
-          .setAccessFlags(MethodAccessFlags.fromCfAccessFlags(2, false))
+          .setAccessFlags(MethodAccessFlags.fromCfAccessFlags(10, false))
           .setApiLevelForCode(ComputedApiLevel.unknown())
           .setApiLevelForDefinition(ComputedApiLevel.unknown())
           .setClassFileVersion(CfVersion.V1_8)
@@ -207,7 +233,7 @@ public final class InstrumentationServerImplFactory {
                       dexItemFactory.createType("V"),
                       dexItemFactory.createType("Ljava/lang/String;")),
                   dexItemFactory.createString("writeToLogcat")))
-          .setCode(method -> createCfCode6_writeToLogcat(dexItemFactory, method))
+          .setCode(method -> createCfCode7_writeToLogcat(dexItemFactory, method))
           .build(),
       DexEncodedMethod.syntheticBuilder()
           .setAccessFlags(MethodAccessFlags.fromCfAccessFlags(8, true))
@@ -239,7 +265,7 @@ public final class InstrumentationServerImplFactory {
                   dexItemFactory.createProto(
                       dexItemFactory.createType("V"), dexItemFactory.createType("Ljava/io/File;")),
                   dexItemFactory.createString("writeToFile")))
-          .setCode(method -> createCfCode5_writeToFile(dexItemFactory, method))
+          .setCode(method -> createCfCode6_writeToFile(dexItemFactory, method))
           .build()
     };
   }
@@ -314,7 +340,71 @@ public final class InstrumentationServerImplFactory {
         ImmutableList.of());
   }
 
-  public static CfCode createCfCode2_addLine(DexItemFactory factory, DexMethod method) {
+  public static CfCode createCfCode2_addCall(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        2,
+        2,
+        ImmutableList.of(
+            label0,
+            new CfNew(factory.stringBuilderType),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.voidType),
+                    factory.createString("<init>")),
+                false),
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfConstString(factory.createString(" -> ")),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringType),
+                    factory.createString("toString")),
+                false),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Lcom/android/tools/r8/startup/InstrumentationServerImpl;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("writeToLogcat")),
+                false),
+            label1,
+            new CfReturnVoid(),
+            label2),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode createCfCode3_addLine(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -327,12 +417,48 @@ public final class InstrumentationServerImplFactory {
     CfLabel label9 = new CfLabel();
     CfLabel label10 = new CfLabel();
     CfLabel label11 = new CfLabel();
+    CfLabel label12 = new CfLabel();
+    CfLabel label13 = new CfLabel();
+    CfLabel label14 = new CfLabel();
     return new CfCode(
         method.holder,
         2,
         4,
         ImmutableList.of(
             label0,
+            new CfStaticFieldRead(
+                factory.createField(
+                    factory.createType("Lcom/android/tools/r8/startup/InstrumentationServerImpl;"),
+                    factory.booleanType,
+                    factory.createString("writeToLogcat"))),
+            new CfIf(IfType.EQ, ValueType.INT, label3),
+            new CfStaticFieldRead(
+                factory.createField(
+                    factory.createType("Lcom/android/tools/r8/startup/InstrumentationServerImpl;"),
+                    factory.booleanType,
+                    factory.createString("writeToLogcatIncludeDuplicates"))),
+            new CfIf(IfType.EQ, ValueType.INT, label3),
+            label1,
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Lcom/android/tools/r8/startup/InstrumentationServerImpl;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("writeToLogcat")),
+                false),
+            label2,
+            new CfReturnVoid(),
+            label3,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType(
+                              "Lcom/android/tools/r8/startup/InstrumentationServerImpl;")),
+                      FrameType.initializedNonNullReference(factory.stringType)
+                    })),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -342,7 +468,7 @@ public final class InstrumentationServerImplFactory {
             new CfStackInstruction(CfStackInstruction.Opcode.Dup),
             new CfStore(ValueType.OBJECT, 2),
             new CfMonitor(MonitorType.ENTER),
-            label1,
+            label4,
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -357,13 +483,13 @@ public final class InstrumentationServerImplFactory {
                     factory.createProto(factory.booleanType, factory.objectType),
                     factory.createString("add")),
                 false),
-            new CfIf(IfType.NE, ValueType.INT, label4),
-            label2,
+            new CfIf(IfType.NE, ValueType.INT, label7),
+            label5,
             new CfLoad(ValueType.OBJECT, 2),
             new CfMonitor(MonitorType.EXIT),
-            label3,
+            label6,
             new CfReturnVoid(),
-            label4,
+            label7,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
                     new int[] {0, 1, 2},
@@ -376,9 +502,9 @@ public final class InstrumentationServerImplFactory {
                     })),
             new CfLoad(ValueType.OBJECT, 2),
             new CfMonitor(MonitorType.EXIT),
-            label5,
-            new CfGoto(label8),
-            label6,
+            label8,
+            new CfGoto(label11),
+            label9,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
                     new int[] {0, 1, 2},
@@ -394,10 +520,10 @@ public final class InstrumentationServerImplFactory {
             new CfStore(ValueType.OBJECT, 3),
             new CfLoad(ValueType.OBJECT, 2),
             new CfMonitor(MonitorType.EXIT),
-            label7,
+            label10,
             new CfLoad(ValueType.OBJECT, 3),
             new CfThrow(),
-            label8,
+            label11,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
                     new int[] {0, 1},
@@ -412,18 +538,17 @@ public final class InstrumentationServerImplFactory {
                     factory.createType("Lcom/android/tools/r8/startup/InstrumentationServerImpl;"),
                     factory.booleanType,
                     factory.createString("writeToLogcat"))),
-            new CfIf(IfType.EQ, ValueType.INT, label10),
-            label9,
-            new CfLoad(ValueType.OBJECT, 0),
+            new CfIf(IfType.EQ, ValueType.INT, label13),
+            label12,
             new CfLoad(ValueType.OBJECT, 1),
             new CfInvoke(
-                183,
+                184,
                 factory.createMethod(
                     factory.createType("Lcom/android/tools/r8/startup/InstrumentationServerImpl;"),
                     factory.createProto(factory.voidType, factory.stringType),
                     factory.createString("writeToLogcat")),
                 false),
-            label10,
+            label13,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
                     new int[] {0, 1},
@@ -434,18 +559,21 @@ public final class InstrumentationServerImplFactory {
                       FrameType.initializedNonNullReference(factory.stringType)
                     })),
             new CfReturnVoid(),
-            label11),
+            label14),
         ImmutableList.of(
             new CfTryCatch(
-                label1, label3, ImmutableList.of(factory.throwableType), ImmutableList.of(label6)),
+                label4, label6, ImmutableList.of(factory.throwableType), ImmutableList.of(label9)),
             new CfTryCatch(
-                label4, label5, ImmutableList.of(factory.throwableType), ImmutableList.of(label6)),
+                label7, label8, ImmutableList.of(factory.throwableType), ImmutableList.of(label9)),
             new CfTryCatch(
-                label6, label7, ImmutableList.of(factory.throwableType), ImmutableList.of(label6))),
+                label9,
+                label10,
+                ImmutableList.of(factory.throwableType),
+                ImmutableList.of(label9))),
         ImmutableList.of());
   }
 
-  public static CfCode createCfCode3_addMethod(DexItemFactory factory, DexMethod method) {
+  public static CfCode createCfCode4_addMethod(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -479,7 +607,7 @@ public final class InstrumentationServerImplFactory {
         ImmutableList.of());
   }
 
-  public static CfCode createCfCode4_getInstance(DexItemFactory factory, DexMethod method) {
+  public static CfCode createCfCode5_getInstance(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     return new CfCode(
         method.holder,
@@ -497,7 +625,7 @@ public final class InstrumentationServerImplFactory {
         ImmutableList.of());
   }
 
-  public static CfCode createCfCode5_writeToFile(DexItemFactory factory, DexMethod method) {
+  public static CfCode createCfCode6_writeToFile(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
@@ -724,14 +852,14 @@ public final class InstrumentationServerImplFactory {
         ImmutableList.of());
   }
 
-  public static CfCode createCfCode6_writeToLogcat(DexItemFactory factory, DexMethod method) {
+  public static CfCode createCfCode7_writeToLogcat(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
     CfLabel label2 = new CfLabel();
     return new CfCode(
         method.holder,
         2,
-        2,
+        1,
         ImmutableList.of(
             label0,
             new CfStaticFieldRead(
@@ -739,7 +867,7 @@ public final class InstrumentationServerImplFactory {
                     factory.createType("Lcom/android/tools/r8/startup/InstrumentationServerImpl;"),
                     factory.stringType,
                     factory.createString("logcatTag"))),
-            new CfLoad(ValueType.OBJECT, 1),
+            new CfLoad(ValueType.OBJECT, 0),
             new CfInvoke(
                 184,
                 factory.createMethod(

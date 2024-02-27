@@ -7,7 +7,14 @@ package com.android.tools.r8.profile.startup.instrumentation;
 import static com.android.tools.r8.utils.SystemPropertyUtils.getSystemPropertyForDevelopment;
 import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyForDevelopmentOrDefault;
 
+import com.android.tools.r8.graph.DexMethod;
+import java.util.Collections;
+import java.util.Set;
+
 public class StartupInstrumentationOptions {
+
+  /** Set of method references where all calls to the exact method reference should print. */
+  private Set<DexMethod> callSitesToInstrument = Collections.emptySet();
 
   /**
    * When enabled, each method will be instrumented to notify the startup InstrumentationServer that
@@ -44,6 +51,14 @@ public class StartupInstrumentationOptions {
   private String startupInstrumentationTag =
       getSystemPropertyForDevelopment(
           "com.android.tools.r8.startup.instrumentation.instrumentationtag");
+
+  public Set<DexMethod> getCallSitesToInstrument() {
+    return callSitesToInstrument;
+  }
+
+  public void setCallSitesToInstrument(Set<DexMethod> callSitesToInstrument) {
+    this.callSitesToInstrument = callSitesToInstrument;
+  }
 
   public boolean hasStartupInstrumentationServerSyntheticContext() {
     return startupInstrumentationServerSyntheticContext != null;

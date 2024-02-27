@@ -5,6 +5,7 @@
 package com.android.tools.r8.profile.startup.instrumentation;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.utils.PredicateUtils.not;
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
@@ -17,14 +18,16 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue.DexValueBoolean;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
+import com.android.tools.r8.ir.code.BasicBlockIterator;
+import com.android.tools.r8.ir.code.ConstString;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
@@ -44,6 +47,7 @@ import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -67,7 +71,8 @@ public class StartupInstrumentation {
 
   public static void run(AppView<AppInfo> appView, ExecutorService executorService)
       throws ExecutionException {
-    if (appView.options().getStartupInstrumentationOptions().isStartupInstrumentationEnabled()) {
+    if (appView.options().getStartupInstrumentationOptions().isStartupInstrumentationEnabled()
+        && appView.options().isGeneratingDex()) {
       StartupInstrumentation startupInstrumentation = new StartupInstrumentation(appView);
       startupInstrumentation.instrumentAllClasses(executorService);
       startupInstrumentation.injectStartupRuntimeLibrary(executorService);
@@ -126,6 +131,10 @@ public class StartupInstrumentation {
           .lookupUniqueStaticFieldWithName(dexItemFactory.createString("writeToLogcat"))
           .setStaticValue(DexValueBoolean.create(true));
       instrumentationServerImplClass
+          .lookupUniqueStaticFieldWithName(
+              dexItemFactory.createString("writeToLogcatIncludeDuplicates"))
+          .setStaticValue(DexValueBoolean.create(true));
+      instrumentationServerImplClass
           .lookupUniqueStaticFieldWithName(dexItemFactory.createString("logcatTag"))
           .setStaticValue(
               new DexValueString(
@@ -137,11 +146,10 @@ public class StartupInstrumentation {
         InstrumentationServerFactory.createClass(dexItemFactory), instrumentationServerImplClass);
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private void instrumentClass(DexProgramClass clazz) {
     // Do not instrument the instrumentation server if it is already in the app.
-    if (clazz.getType() == references.instrumentationServerType
-        || clazz.getType() == references.instrumentationServerImplType) {
+    if (clazz.getType().isIdenticalTo(references.instrumentationServerType)
+        || clazz.getType().isIdenticalTo(references.instrumentationServerImplType)) {
       return;
     }
 
@@ -178,7 +186,8 @@ public class StartupInstrumentation {
     // finalizing the code.
     MutableMethodConversionOptions conversionOptions = MethodConversionOptions.forD8(appView);
     IRCode code = method.buildIR(appView, conversionOptions);
-    InstructionListIterator instructionIterator = code.entryBlock().listIterator(code);
+    BasicBlockIterator blocks = code.listIterator();
+    InstructionListIterator instructionIterator = blocks.next().listIterator(code);
     instructionIterator.positionBeforeNextInstructionThatMatches(not(Instruction::isArgument));
 
     // Insert invoke to record that the enclosing class is a startup class.
@@ -197,18 +206,59 @@ public class StartupInstrumentation {
 
     // Insert invoke to record the execution of the current method.
     if (!skipMethodLogging) {
-      DexReference referenceToPrint = method.getReference();
       Value descriptorValue =
           instructionIterator.insertConstStringInstruction(
-              appView, code, dexItemFactory.createString(referenceToPrint.toSmaliString()));
+              appView, code, dexItemFactory.createString(method.getReference().toSmaliString()));
       instructionIterator.add(
           InvokeStatic.builder()
               .setMethod(references.addMethod)
               .setSingleArgument(descriptorValue)
               .setPosition(Position.syntheticNone())
               .build());
+
+      Set<DexMethod> callSitesToInstrument =
+          startupInstrumentationOptions.getCallSitesToInstrument();
+      if (!callSitesToInstrument.isEmpty()) {
+        do {
+          while (instructionIterator.hasNext()) {
+            Instruction instruction = instructionIterator.next();
+            if (instruction.isInvokeMethod()) {
+              DexMethod invokedMethod = instruction.asInvokeMethod().getInvokedMethod();
+              if (callSitesToInstrument.contains(invokedMethod)) {
+                instructionIterator.previous();
+                ConstString calleeString =
+                    ConstString.builder()
+                        .setFreshOutValue(
+                            code,
+                            dexItemFactory.stringType.toTypeElement(appView, definitelyNotNull()))
+                        .setPosition(instruction.getPosition())
+                        .setValue(dexItemFactory.createString(invokedMethod.toSmaliString()))
+                        .build();
+                instructionIterator =
+                    instructionIterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
+                        code,
+                        blocks,
+                        ImmutableList.of(
+                            calleeString,
+                            InvokeStatic.builder()
+                                .setMethod(references.addCall)
+                                .setArguments(descriptorValue, calleeString.outValue())
+                                .setPosition(instruction.getPosition())
+                                .build()),
+                        options);
+                Instruction next = instructionIterator.next();
+                assert next == instruction;
+              }
+            }
+          }
+          if (blocks.hasNext()) {
+            instructionIterator = blocks.next().listIterator(code);
+          }
+        } while (instructionIterator.hasNext());
+      }
     }
 
+    code.removeRedundantBlocks();
     converter.deadCodeRemover.run(code, Timing.empty());
 
     DexCode instrumentedCode =
