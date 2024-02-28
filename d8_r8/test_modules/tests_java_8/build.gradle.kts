@@ -84,8 +84,15 @@ fun testDependencies() : FileCollection {
 }
 
 tasks {
+
+  getByName<Delete>("clean") {
+    // TODO(b/327315907): Don't generating into the root build dir.
+    delete.add(getRoot().resolveAll("build", "generated", "test", "java", "com", "android", "tools", "r8", "art"))
+  }
+
   val createArtTests by registering(Exec::class) {
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
+    // TODO(b/327315907): Don't generating into the root build dir.
     val outputDir = getRoot().resolveAll("build", "generated", "test", "java", "com", "android", "tools", "r8", "art")
     val createArtTestsScript = getRoot().resolveAll("tools", "create_art_tests.py")
     inputs.file(createArtTestsScript)

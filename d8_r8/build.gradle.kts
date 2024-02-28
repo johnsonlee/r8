@@ -9,6 +9,7 @@ plugins {
 
 tasks {
   "clean" {
+    dependsOn(gradle.includedBuild("commonBuildSrc").task(":clean"))
     dependsOn(gradle.includedBuild("keepanno").task(":clean"))
     dependsOn(gradle.includedBuild("resourceshrinker").task(":clean"))
     dependsOn(gradle.includedBuild("main").task(":clean"))
