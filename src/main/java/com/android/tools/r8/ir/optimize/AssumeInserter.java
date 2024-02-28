@@ -25,6 +25,7 @@ import com.android.tools.r8.ir.code.DominatorTree;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
+import com.android.tools.r8.ir.code.InstanceOf;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
@@ -40,6 +41,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.TriFunction;
 import com.android.tools.r8.utils.TriPredicate;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -192,24 +194,38 @@ public class AssumeInserter {
     }
 
     If ifInstruction = block.exit().asIf();
-    if (ifInstruction != null && ifInstruction.isNonTrivialNullTest()) {
+    if (ifInstruction != null) {
       Value lhs = ifInstruction.lhs();
-      if (assumedValuesBuilder.isMaybeNullAndNotNullType(lhs)
-          && isNullableReferenceTypeWithOtherNonDebugUsers(lhs, ifInstruction)
-          && ifInstruction.targetFromNonNullObject().getPredecessors().size() == 1) {
-        assumedValuesBuilder.addNonNullValueWithUnknownDominance(ifInstruction, lhs);
+      if (ifInstruction.isInstanceOfTest()) {
+        InstanceOf instanceOf = lhs.getAliasedValue().getDefinition().asInstanceOf();
+        Value value = instanceOf.value();
+        DynamicTypeWithUpperBound dynamicType =
+            DynamicType.create(
+                appView, instanceOf.type().toTypeElement(appView, value.getType().nullability()));
+        DynamicTypeWithUpperBound staticType = DynamicType.create(appView, value.getType());
+        if (dynamicType.strictlyLessThan(staticType, appView)
+            && hasOtherNonDebugUsers(value, instanceOf)) {
+          assumedValuesBuilder.addAssumedValueWithUnknownDominance(
+              ifInstruction, value, dynamicType);
+        }
+      } else if (ifInstruction.isNonTrivialNullTest()) {
+        if (assumedValuesBuilder.isMaybeNullAndNotNullType(lhs)
+            && isNullableReferenceTypeWithOtherNonDebugUsers(lhs, ifInstruction)
+            && ifInstruction.targetFromNonNullObject().getPredecessors().size() == 1) {
+          assumedValuesBuilder.addNonNullValueWithUnknownDominance(ifInstruction, lhs);
+        }
       }
     }
   }
 
   private boolean computeAssumedValuesForInvokeMethod(
       IRCode code, InvokeMethod invoke, AssumedValues.Builder assumedValuesBuilder) {
-    if (!invoke.hasOutValue() && invoke.getInvokedMethod().proto.parameters.isEmpty()) {
+    if (invoke.hasUnusedOutValue() && invoke.arguments().isEmpty()) {
       return false;
     }
 
     DexMethod invokedMethod = invoke.getInvokedMethod();
-    if (invokedMethod.holder.isArrayType()
+    if (invokedMethod.getHolderType().isArrayType()
         && invokedMethod.match(appView.dexItemFactory().objectMembers.clone)) {
       return computeAssumedValuesFromArrayClone(invoke, assumedValuesBuilder);
     }
@@ -241,7 +257,10 @@ public class AssumeInserter {
       return false;
     }
 
-    DexClassAndMethod singleTarget = invoke.lookupSingleTarget(appView, code.context());
+    DexClassAndMethod singleTarget =
+        resolutionResult
+            .lookupDispatchTarget(appView, invoke, code.context())
+            .getSingleDispatchTarget();
     if (invoke.hasUsedOutValue() && invoke.getOutType().isReferenceType()) {
       AssumeInfo assumeInfo =
           AssumeInfoLookup.lookupAssumeInfo(appView, resolutionResult, singleTarget);
@@ -265,18 +284,51 @@ public class AssumeInserter {
               invoke, optimizationInfo.getDynamicType(), assumedValuesBuilder);
     }
 
-    // Case (3), parameters that are not null after the invocation.
+    // Case (3), parameters that are not null or have a more specific type after the invocation.
     BitSet nonNullParamOnNormalExits = optimizationInfo.getNonNullParamOnNormalExits();
-    if (nonNullParamOnNormalExits != null) {
-      for (int argumentIndex = 0; argumentIndex < invoke.arguments().size(); argumentIndex++) {
-        boolean isArgumentNonNullOnNormalExits =
-            (invoke.isInvokeMethodWithReceiver() && argumentIndex == 0)
-                || nonNullParamOnNormalExits.get(argumentIndex);
-        if (isArgumentNonNullOnNormalExits) {
-          Value argument = invoke.getArgument(argumentIndex);
-          if (assumedValuesBuilder.isMaybeNullAndNotNullType(argument)
-              && isNullableReferenceTypeWithOtherNonDebugUsers(argument, invoke)) {
-            assumedValuesBuilder.addNonNullValueWithUnknownDominance(invoke, argument);
+    for (int argumentIndex = 0; argumentIndex < invoke.arguments().size(); argumentIndex++) {
+      Value argument = invoke.getArgument(argumentIndex);
+
+      // Nullability.
+      boolean isArgumentNonNullOnNormalExits =
+          (invoke.isInvokeMethodWithReceiver() && argumentIndex == 0)
+              || (nonNullParamOnNormalExits != null
+                  && nonNullParamOnNormalExits.get(argumentIndex));
+      if (isArgumentNonNullOnNormalExits) {
+        if (assumedValuesBuilder.isMaybeNullAndNotNullType(argument)
+            && isNullableReferenceTypeWithOtherNonDebugUsers(argument, invoke)) {
+          assumedValuesBuilder.addNonNullValueWithUnknownDominance(invoke, argument);
+          needsAssumeInstruction = true;
+        }
+      }
+
+      // Type information.
+      if (argumentIndex == optimizationInfo.getReturnedArgument()
+          && hasOtherNonDebugUsers(argument, invoke)) {
+        DynamicTypeWithUpperBound dynamicType =
+            optimizationInfo.getDynamicType().isDynamicTypeWithUpperBound()
+                ? optimizationInfo.getDynamicType().asDynamicTypeWithUpperBound()
+                : DynamicType.unknown();
+        if (singleTarget != null
+            && singleTarget.getDefinition().isInstance()
+            && optimizationInfo.getReturnedArgument() == 0) {
+          DynamicTypeWithUpperBound receiverType =
+              DynamicTypeWithUpperBound.create(
+                  appView,
+                  singleTarget.getHolderType().toTypeElement(appView, definitelyNotNull()));
+          if (receiverType.strictlyLessThan(dynamicType, appView)) {
+            dynamicType = receiverType;
+          }
+        }
+        if (!dynamicType.isUnknown()) {
+          DynamicTypeWithUpperBound staticType = DynamicType.create(appView, argument.getType());
+          if (dynamicType
+              .withNullability(staticType.getNullability())
+              .strictlyLessThan(staticType, appView)) {
+            Nullability meetNullability =
+                dynamicType.getNullability().meet(staticType.getNullability());
+            assumedValuesBuilder.addAssumedValueWithUnknownDominance(
+                invoke, argument, dynamicType.withNullability(meetNullability));
             needsAssumeInstruction = true;
           }
         }
@@ -632,7 +684,12 @@ public class AssumeInserter {
 
   private BasicBlock getInsertionBlock(Instruction instruction) {
     if (instruction.isIf()) {
-      return instruction.asIf().targetFromNonNullObject();
+      If theIf = instruction.asIf();
+      if (theIf.isInstanceOfTest()) {
+        return theIf.targetFromTrue();
+      } else {
+        return theIf.targetFromNonNullObject();
+      }
     }
     BasicBlock block = instruction.getBlock();
     if (block.hasCatchHandlers()) {
@@ -675,17 +732,11 @@ public class AssumeInserter {
 
   private static boolean isNullableReferenceTypeWithOtherNonDebugUsers(
       Value value, Instruction ignore) {
-    if (isNullableReferenceType(value)) {
-      if (value.hasPhiUsers()) {
-        return true;
-      }
-      for (Instruction user : value.uniqueUsers()) {
-        if (user != ignore) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return isNullableReferenceType(value) && hasOtherNonDebugUsers(value, ignore);
+  }
+
+  private static boolean hasOtherNonDebugUsers(Value value, Instruction ignore) {
+    return value.hasPhiUsers() || Iterables.any(value.uniqueUsers(), user -> user != ignore);
   }
 
   static class AssumedValueInfo {
@@ -881,6 +932,15 @@ public class AssumeInserter {
             instruction,
             assumedValue,
             AssumedDominance.everything(),
+            assumedValueInfo -> assumedValueInfo.setDynamicType(dynamicType));
+      }
+
+      void addAssumedValueWithUnknownDominance(
+          Instruction instruction, Value assumedValue, DynamicTypeWithUpperBound dynamicType) {
+        updateAssumedValueInfo(
+            instruction,
+            assumedValue,
+            AssumedDominance.unknown(),
             assumedValueInfo -> assumedValueInfo.setDynamicType(dynamicType));
       }
 

@@ -444,7 +444,6 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
 
   @Override
   public int getReturnedArgument() {
-    assert returnsArgument();
     return returnedArgument;
   }
 
@@ -714,8 +713,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     // Nullability could be less precise, though. For example, suppose a value is known to be
     // non-null after a safe invocation, hence recorded with the non-null variant. If that call is
     // inlined and the method is reprocessed, such non-null assumption cannot be made again.
-    // TODO(b/327130357): Reenable assert.
-    // assert verifyDynamicType(appView, newDynamicType, staticReturnType);
+    assert verifyDynamicType(appView, newDynamicType, staticReturnType);
     setDynamicType(newDynamicType);
   }
 
@@ -726,7 +724,6 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     return this;
   }
 
-  @SuppressWarnings("UnusedMethod")
   private boolean verifyDynamicType(
       AppView<?> appView, DynamicType newDynamicType, TypeElement staticReturnType) {
     if (appView.enableWholeProgramOptimizations()) {

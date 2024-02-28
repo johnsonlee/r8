@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.ir.optimize;
 
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -14,6 +16,7 @@ import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public class AffectedValues implements Set<Value> {
@@ -35,8 +38,15 @@ public class AffectedValues implements Set<Value> {
   }
 
   public void narrowingWithAssumeRemoval(AppView<?> appView, IRCode code) {
+    narrowingWithAssumeRemoval(appView, code, emptyConsumer());
+  }
+
+  public void narrowingWithAssumeRemoval(
+      AppView<?> appView, IRCode code, Consumer<TypeAnalysis> typeAnalysisConsumer) {
     if (hasNext()) {
-      new TypeAnalysis(appView, code).narrowingWithAssumeRemoval(this);
+      TypeAnalysis typeAnalysis = new TypeAnalysis(appView, code);
+      typeAnalysisConsumer.accept(typeAnalysis);
+      typeAnalysis.narrowingWithAssumeRemoval(this);
     }
   }
 

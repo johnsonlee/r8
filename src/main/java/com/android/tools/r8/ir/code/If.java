@@ -48,6 +48,11 @@ public class If extends JumpInstruction {
     return visitor.visit(this);
   }
 
+  public boolean isInstanceOfTest() {
+    return isZeroTest()
+        && lhs().getAliasedValue().isDefinedByInstructionSatisfying(Instruction::isInstanceOf);
+  }
+
   public boolean isNullTest() {
     return isZeroTest() && lhs().getType().isReferenceType();
   }

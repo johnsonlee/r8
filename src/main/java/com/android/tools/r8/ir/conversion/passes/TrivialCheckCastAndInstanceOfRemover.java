@@ -14,10 +14,10 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
-import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeUtils;
 import com.android.tools.r8.ir.code.Assume;
+import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InstanceOf;
@@ -78,38 +78,45 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     // CheckCast at line 4 unless we update v7 with the most precise information by narrowing the
     // affected values of v5. We therefore have to run the type analysis after each CheckCast
     // removal.
-    TypeAnalysis typeAnalysis =
-        new TypeAnalysis(appView, code).setKeepRedundantBlocksAfterAssumeRemoval(true);
-    AffectedValues affectedValues = new AffectedValues();
-    InstructionListIterator it = code.instructionListIterator();
     boolean needToRemoveTrivialPhis = false;
-    while (it.hasNext()) {
-      Instruction current = it.next();
-      if (current.isCheckCast()) {
-        boolean hasPhiUsers = current.outValue().hasPhiUsers();
-        RemoveCheckCastInstructionIfTrivialResult removeResult =
-            removeCheckCastInstructionIfTrivial(
-                appViewWithLiveness,
-                current.asCheckCast(),
-                it,
+    for (BasicBlock block : code.getBlocks()) {
+      InstructionListIterator it = block.listIterator(code);
+      while (it.hasNext()) {
+        Instruction current = it.next();
+        if (current.isCheckCast()) {
+          boolean hasPhiUsers = current.outValue().hasPhiUsers();
+          AffectedValues affectedValues = new AffectedValues();
+          RemoveCheckCastInstructionIfTrivialResult removeResult =
+              removeCheckCastInstructionIfTrivial(
+                  appViewWithLiveness,
+                  current.asCheckCast(),
+                  it,
+                  code,
+                  code.context(),
+                  affectedValues,
+                  methodProcessor,
+                  methodProcessingContext);
+          if (removeResult != RemoveCheckCastInstructionIfTrivialResult.NO_REMOVALS) {
+            assert removeResult == RemoveCheckCastInstructionIfTrivialResult.REMOVED_CAST_DO_NARROW;
+            hasChanged = true;
+            needToRemoveTrivialPhis |= hasPhiUsers;
+            int blockSizeBeforeAssumeRemoval = block.size();
+            Instruction previous = it.peekPrevious();
+            affectedValues.narrowingWithAssumeRemoval(
+                appView,
                 code,
-                code.context(),
-                affectedValues,
-                methodProcessor,
-                methodProcessingContext);
-        if (removeResult != RemoveCheckCastInstructionIfTrivialResult.NO_REMOVALS) {
-          assert removeResult == RemoveCheckCastInstructionIfTrivialResult.REMOVED_CAST_DO_NARROW;
-          hasChanged = true;
-          needToRemoveTrivialPhis |= hasPhiUsers;
-          typeAnalysis.narrowing(affectedValues);
-          affectedValues.clear();
-        }
-      } else if (current.isInstanceOf()) {
-        boolean hasPhiUsers = current.outValue().hasPhiUsers();
-        if (removeInstanceOfInstructionIfTrivial(
-            appViewWithLiveness, current.asInstanceOf(), it, code)) {
-          hasChanged = true;
-          needToRemoveTrivialPhis |= hasPhiUsers;
+                typeAnalysis -> typeAnalysis.setKeepRedundantBlocksAfterAssumeRemoval(true));
+            if (block.size() != blockSizeBeforeAssumeRemoval) {
+              it = previous != null ? block.listIterator(code, previous) : block.listIterator(code);
+            }
+          }
+        } else if (current.isInstanceOf()) {
+          boolean hasPhiUsers = current.outValue().hasPhiUsers();
+          if (removeInstanceOfInstructionIfTrivial(
+              appViewWithLiveness, current.asInstanceOf(), it, code)) {
+            hasChanged = true;
+            needToRemoveTrivialPhis |= hasPhiUsers;
+          }
         }
       }
     }
@@ -120,9 +127,13 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     // Removing check-cast may result in a trivial phi:
     // v3 <- phi(v1, v1)
     if (needToRemoveTrivialPhis) {
+      AffectedValues affectedValues = new AffectedValues();
       code.removeAllDeadAndTrivialPhis(affectedValues);
+      affectedValues.narrowingWithAssumeRemoval(
+          appView,
+          code,
+          typeAnalysis -> typeAnalysis.setKeepRedundantBlocksAfterAssumeRemoval(true));
     }
-    typeAnalysis.narrowingWithAssumeRemoval(affectedValues);
     if (hasChanged) {
       code.removeRedundantBlocks();
     }
