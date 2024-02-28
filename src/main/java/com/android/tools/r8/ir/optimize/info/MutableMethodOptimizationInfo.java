@@ -726,6 +726,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     return this;
   }
 
+  @SuppressWarnings("UnusedMethod")
   private boolean verifyDynamicType(
       AppView<?> appView, DynamicType newDynamicType, TypeElement staticReturnType) {
     if (appView.enableWholeProgramOptimizations()) {
