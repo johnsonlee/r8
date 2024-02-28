@@ -127,6 +127,11 @@ public class SingleCallerInliner {
                 new IRToLirFinalizer(appView)
                     .finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
             method.setCode(lirCode, appView);
+            // Recompute inlining constraints if this method is also a single caller callee.
+            if (singleCallerMethods.containsKey(method)) {
+              getSimpleFeedback()
+                  .markProcessed(method.getDefinition(), inliner.computeInliningConstraint(code));
+            }
           },
           appView.options().getThreadingModule(),
           executorService);
