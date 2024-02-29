@@ -703,7 +703,11 @@ public class Enqueuer {
               .disallowMinification()
               .disallowRepackaging()
               .disallowOptimization());
-      markClassAsInstantiatedWithReason(clazz, reason);
+      if (clazz.isAnnotation() || clazz.isInterface()) {
+        markTypeAsLive(clazz, reason);
+      } else {
+        markClassAsInstantiatedWithReason(clazz, reason);
+      }
       for (ProgramMethod programInstanceInitializer : clazz.programInstanceInitializers()) {
         // TODO(b/325884671): Only keep the actually framework targeted constructors.
         applyMinimumKeepInfoWhenLiveOrTargeted(
