@@ -9,6 +9,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.Timing;
@@ -53,6 +54,7 @@ public abstract class NamingTestBase extends TestBase {
     dexItemFactory = appView.dexItemFactory();
     ExecutorService executor = Executors.newSingleThreadExecutor();
     try {
+      LirConverter.enterLirSupportedPhase(appView, executor);
       new Minifier(appView).run(executor, Timing.empty());
     } finally {
       executor.shutdown();

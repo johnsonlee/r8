@@ -3,5 +3,6 @@
 # BSD-style license that can be found in the LICENSE file.
 
 -allowaccessmodification
+-dontshrink
 
 -keep class naming001.A

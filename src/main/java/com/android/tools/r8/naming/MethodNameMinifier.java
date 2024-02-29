@@ -10,26 +10,20 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexClassAndMethod;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.MethodAccessInfoCollection;
-import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
-import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -38,9 +32,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 /**
@@ -191,11 +182,7 @@ class MethodNameMinifier {
   }
 
   MethodRenaming computeRenaming(
-      Iterable<DexClass> interfaces,
-      SubtypingInfo subtypingInfo,
-      ExecutorService executorService,
-      Timing timing)
-      throws ExecutionException {
+      Iterable<DexClass> interfaces, SubtypingInfo subtypingInfo, Timing timing) {
     // Phase 1: Reserve all the names that need to be kept and allocate linked state in the
     //          library part.
     timing.begin("Phase 1");
@@ -215,9 +202,6 @@ class MethodNameMinifier {
     timing.begin("Phase 4");
     assignNamesToClassesMethods();
     renameMethodsInUnrelatedClasspathClasses();
-    timing.end();
-    timing.begin("Phase 5: non-rebound references");
-    renameNonReboundReferences(executorService);
     timing.end();
 
     return new MethodRenaming(renaming);
@@ -434,65 +418,6 @@ class MethodNameMinifier {
     assert reservationState != null
         : "Could not find reservation state for frontier type " + frontierType.toString();
     return reservationState;
-  }
-
-  private void renameNonReboundReferences(ExecutorService executorService)
-      throws ExecutionException {
-    Map<DexMethod, DexString> nonReboundRenamings = new ConcurrentHashMap<>();
-    MethodAccessInfoCollection methodAccessInfoCollection =
-        appView.appInfo().getMethodAccessInfoCollection();
-    ThreadUtils.processItems(
-        methodAccessInfoCollection::forEachMethodReference,
-        method -> renameNonReboundMethodReference(method, nonReboundRenamings),
-        appView.options().getThreadingModule(),
-        executorService);
-    renaming.putAll(nonReboundRenamings);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private void renameNonReboundMethodReference(
-      DexMethod method, Map<DexMethod, DexString> nonReboundRenamings) {
-    if (method.getHolderType().isArrayType()) {
-      return;
-    }
-
-    DexClass holder = appView.contextIndependentDefinitionFor(method.getHolderType());
-    if (holder == null) {
-      return;
-    }
-
-    MethodResolutionResult resolutionResult =
-        appView.appInfo().resolveMethodOnLegacy(holder, method);
-    if (resolutionResult.isSingleResolution()) {
-      DexEncodedMethod resolvedMethod = resolutionResult.getSingleTarget();
-      if (resolvedMethod.getReference() == method) {
-        return;
-      }
-
-      DexString newName = renaming.get(resolvedMethod.getReference());
-      if (newName != null) {
-        assert newName != resolvedMethod.getName();
-        nonReboundRenamings.put(method, newName);
-      }
-      return;
-    }
-
-    // If resolution fails, the method must be renamed consistently with the targets that give rise
-    // to the failure.
-    assert resolutionResult.isFailedResolution();
-
-    List<DexEncodedMethod> targets = new ArrayList<>();
-    resolutionResult
-        .asFailedResolution()
-        .forEachFailureDependency(ConsumerUtils.emptyConsumer(), targets::add);
-    if (!targets.isEmpty()) {
-      DexString newName = renaming.get(targets.get(0).getReference());
-      assert targets.stream().allMatch(target -> renaming.get(target.getReference()) == newName);
-      if (newName != null) {
-        assert newName != targets.get(0).getName();
-        nonReboundRenamings.put(method, newName);
-      }
-    }
   }
 
   // Shuffles the given methods if assertions are enabled and deterministic debugging is disabled.

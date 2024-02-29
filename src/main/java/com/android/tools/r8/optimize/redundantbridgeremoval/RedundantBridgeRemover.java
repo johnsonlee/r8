@@ -3,7 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.redundantbridgeremoval;
 
+import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
+
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DefaultUseRegistry;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -27,6 +30,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.Collection;
 import java.util.List;
@@ -36,8 +40,14 @@ import java.util.concurrent.ExecutorService;
 
 public class RedundantBridgeRemover {
 
+  public enum RedundantBridgeRemoverMode {
+    INITIAL,
+    FINAL
+  }
+
   private final AppView<AppInfoWithLiveness> appView;
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
+  private final RedundantBridgeRemoverMode mode;
   private final RedundantBridgeRemovalOptions redundantBridgeRemovalOptions;
 
   private final RedundantBridgeRemovalLens.Builder lensBuilder =
@@ -45,9 +55,11 @@ public class RedundantBridgeRemover {
 
   private boolean mustRetargetInvokesToTargetMethod = false;
 
-  public RedundantBridgeRemover(AppView<AppInfoWithLiveness> appView) {
+  public RedundantBridgeRemover(
+      AppView<AppInfoWithLiveness> appView, RedundantBridgeRemoverMode mode) {
     this.appView = appView;
     this.immediateSubtypingInfo = ImmediateProgramSubtypingInfo.create(appView);
+    this.mode = mode;
     this.redundantBridgeRemovalOptions = appView.options().getRedundantBridgeRemovalOptions();
   }
 
@@ -264,6 +276,7 @@ public class RedundantBridgeRemover {
       extends DepthFirstTopDownClassHierarchyTraversal {
 
     private final ProgramMethodSet removedBridges = ProgramMethodSet.create();
+    private ProgramMethodSet superTargets = null;
 
     RedundantBridgeRemoverClassHierarchyTraversal() {
       super(
@@ -316,11 +329,7 @@ public class RedundantBridgeRemover {
         return false;
       }
       // Check if the current method is an interface method targeted by invoke-super.
-      if (method.getHolder().isInterface()
-          && appView
-              .appInfo()
-              .getMethodAccessInfoCollection()
-              .hasSuperInvoke(method.getReference())) {
+      if (method.getHolder().isInterface() && hasSuperInvoke(method)) {
         return false;
       }
       // Check if all possible contexts that have access to the holder of the redundant bridge
@@ -352,6 +361,49 @@ public class RedundantBridgeRemover {
     @Override
     public void prune(DexProgramClass clazz) {
       // Empty.
+    }
+
+    private boolean hasSuperInvoke(ProgramMethod method) {
+      if (mode == RedundantBridgeRemoverMode.INITIAL) {
+        return appView
+            .appInfo()
+            .getMethodAccessInfoCollection()
+            .hasSuperInvoke(method.getReference());
+      }
+      return getOrCreateSuperTargets(method.getHolder()).contains(method);
+    }
+
+    private ProgramMethodSet getOrCreateSuperTargets(DexProgramClass root) {
+      if (superTargets != null) {
+        return superTargets;
+      }
+      AppView<AppInfoWithLiveness> appViewWithLiveness = appView;
+      superTargets = ProgramMethodSet.create();
+      WorkList<DexProgramClass> worklist =
+          WorkList.newIdentityWorkList(immediateSubtypingInfo.getSubclasses(root));
+      while (worklist.hasNext()) {
+        DexProgramClass clazz = worklist.next();
+        clazz.forEachProgramMethodMatching(
+            DexEncodedMethod::hasCode,
+            method ->
+                method.registerCodeReferences(
+                    new DefaultUseRegistry<>(appView, method) {
+
+                      @Override
+                      public void registerInvokeSuper(DexMethod method) {
+                        ProgramMethod superTarget =
+                            asProgramMethodOrNull(
+                                appViewWithLiveness
+                                    .appInfo()
+                                    .lookupSuperTarget(method, getContext(), appViewWithLiveness));
+                        if (superTarget != null) {
+                          superTargets.add(superTarget);
+                        }
+                      }
+                    }));
+        worklist.addIfNotSeen(immediateSubtypingInfo.getSubclasses(clazz));
+      }
+      return superTargets;
     }
   }
 }

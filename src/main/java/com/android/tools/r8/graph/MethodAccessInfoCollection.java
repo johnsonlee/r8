@@ -37,6 +37,15 @@ public class MethodAccessInfoCollection {
 
   private boolean fullyDestroyed = false;
 
+  private MethodAccessInfoCollection() {
+    this.directInvokes = ThrowingMap.get();
+    this.interfaceInvokes = ThrowingMap.get();
+    this.staticInvokes = ThrowingMap.get();
+    this.superInvokes = ThrowingMap.get();
+    this.virtualInvokes = ThrowingMap.get();
+    this.fullyDestroyed = true;
+  }
+
   private MethodAccessInfoCollection(
       Map<DexMethod, ProgramMethodSet> directInvokes,
       Map<DexMethod, ProgramMethodSet> interfaceInvokes,
@@ -451,6 +460,13 @@ public class MethodAccessInfoCollection {
     public MethodAccessInfoCollection build() {
       return new MethodAccessInfoCollection(
           directInvokes, interfaceInvokes, staticInvokes, superInvokes, virtualInvokes);
+    }
+
+    public MethodAccessInfoCollection build(Enqueuer.Mode mode) {
+      if (mode.isInitialTreeShaking()) {
+        return build();
+      }
+      return new MethodAccessInfoCollection();
     }
   }
 

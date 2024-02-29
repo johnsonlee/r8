@@ -10,6 +10,7 @@ import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHe
 import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.getInterfaceClassType;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.isCompanionClassType;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.staticAsMethodOfCompanionClass;
+import static com.android.tools.r8.naming.Minifier.renameNonReboundReferences;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -138,7 +139,7 @@ public class ProguardMapMinifier {
     timing.begin("MinifyMethods");
     MethodRenaming methodRenaming =
         new MethodNameMinifier(appView, nameStrategy)
-            .computeRenaming(interfaces, subtypingInfo, executorService, timing);
+            .computeRenaming(interfaces, subtypingInfo, timing);
     // Amend the method renamings with the default interface methods.
     methodRenaming.renaming.putAll(companionClassInterfaceMethodImplementationNames);
     methodRenaming.renaming.putAll(additionalMethodNamings);
@@ -149,6 +150,11 @@ public class ProguardMapMinifier {
         new FieldNameMinifier(appView, subtypingInfo, nameStrategy)
             .computeRenaming(interfaces, timing);
     fieldRenaming.renaming.putAll(additionalFieldNamings);
+    timing.end();
+
+    // Rename the references that are not rebound to definitions.
+    timing.begin("non-rebound-references");
+    renameNonReboundReferences(appView, fieldRenaming, methodRenaming, executorService);
     timing.end();
 
     appView.options().reporter.failIfPendingErrors();

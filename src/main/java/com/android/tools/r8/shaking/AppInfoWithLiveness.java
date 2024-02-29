@@ -467,7 +467,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   @Override
   public void notifyMinifierFinished() {
     liveMethods = ThrowingSet.get();
-    getMethodAccessInfoCollection().destroy();
   }
 
   public void notifyTreePrunerFinished(Enqueuer.Mode mode) {

@@ -37,7 +37,7 @@ import java.util.concurrent.ExecutorService;
 public class LirConverter {
 
   public static void enterLirSupportedPhase(
-      AppView<AppInfoWithClassHierarchy> appView, ExecutorService executorService)
+      AppView<? extends AppInfoWithClassHierarchy> appView, ExecutorService executorService)
       throws ExecutionException {
     assert appView.testing().canUseLir(appView);
     assert appView.testing().isPreLirPhase();
@@ -161,7 +161,8 @@ public class LirConverter {
     // Clear the reference type cache after conversion to reduce memory pressure.
     appView.dexItemFactory().clearTypeElementsCache();
     // At this point all code has been mapped according to the graph lens.
-    appView.clearCodeRewritings(executorService, timing);
+    assert appView.graphLens().isMemberRebindingIdentityLens()
+        && appView.graphLens().asMemberRebindingIdentityLens().getPrevious() == appView.codeLens();
   }
 
   private static void finalizeLirMethodToOutputFormat(

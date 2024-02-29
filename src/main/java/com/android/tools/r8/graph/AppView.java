@@ -448,7 +448,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     setGraphLens(new ClearCodeRewritingGraphLens(withClassHierarchy()));
 
     MemberRebindingIdentityLens memberRebindingIdentityLens =
-        MemberRebindingIdentityLensFactory.rebuild(withClassHierarchy(), executorService);
+        MemberRebindingIdentityLensFactory.createFromLir(withClassHierarchy(), executorService);
     setGraphLens(memberRebindingIdentityLens);
     timing.end();
   }

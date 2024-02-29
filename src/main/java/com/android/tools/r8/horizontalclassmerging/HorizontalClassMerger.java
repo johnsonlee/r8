@@ -16,10 +16,8 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
-import com.android.tools.r8.graph.MethodAccessInfoCollection;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
-import com.android.tools.r8.horizontalclassmerging.VirtualMethodMerger.SuperMethodReference;
 import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
 import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
@@ -36,7 +34,6 @@ import com.android.tools.r8.utils.InternalOptions.HorizontalClassMergerOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.TraversalContinuation;
-import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -192,8 +189,6 @@ public class HorizontalClassMerger {
     // sites, fields accesses, etc. are correctly transferred to the target classes.
     DexApplication newApplication = getNewApplication(mergedClasses);
     if (appView.enableWholeProgramOptimizations()) {
-      ProgramMethodMap<DexMethod> newNonReboundMethodReferences =
-          extractNonReboundMethodReferences(groups, horizontalClassMergerGraphLens);
       // Finalize synthetic code.
       transformIncompleteCode(groups, horizontalClassMergerGraphLens, executorService);
       // Prune keep info.
@@ -212,8 +207,6 @@ public class HorizontalClassMerger {
         appViewWithClassHierarchy.setAppInfo(
             appViewWithClassHierarchy.appInfo().rebuildWithClassHierarchy(newApplication));
       }
-      amendMethodAccessInfoCollection(
-          horizontalClassMergerGraphLens, newNonReboundMethodReferences);
       appView.clearCodeRewritings(executorService, timing);
     } else {
       SyntheticItems syntheticItems = appView.appInfo().getSyntheticItems();
@@ -275,40 +268,6 @@ public class HorizontalClassMerger {
                 assert false;
               }
             });
-  }
-
-  private ProgramMethodMap<DexMethod> extractNonReboundMethodReferences(
-      Collection<HorizontalMergeGroup> groups, HorizontalClassMergerGraphLens lens) {
-    ProgramMethodMap<DexMethod> newNonReboundMethodReferences = ProgramMethodMap.create();
-    for (HorizontalMergeGroup group : groups) {
-      group
-          .getTarget()
-          .forEachProgramVirtualMethodMatching(
-              method ->
-                  method.hasCode()
-                      && method.getCode() instanceof IncompleteVirtuallyMergedMethodCode
-                      && ((IncompleteVirtuallyMergedMethodCode) method.getCode()).hasSuperMethod(),
-              method -> {
-                SuperMethodReference superMethodReference =
-                    ((IncompleteVirtuallyMergedMethodCode) method.getDefinition().getCode())
-                        .getSuperMethod();
-                newNonReboundMethodReferences.put(
-                    method, superMethodReference.getRewrittenReference(lens, method));
-              });
-    }
-    return newNonReboundMethodReferences;
-  }
-
-  private void amendMethodAccessInfoCollection(
-      HorizontalClassMergerGraphLens lens,
-      ProgramMethodMap<DexMethod> newNonReboundMethodReferences) {
-    MethodAccessInfoCollection.Modifier methodAccessInfoCollectionModifier =
-        appView.appInfoWithLiveness().getMethodAccessInfoCollection().modifier();
-    newNonReboundMethodReferences.forEach(
-        (context, reference) ->
-            // Reference is already lens rewritten.
-            methodAccessInfoCollectionModifier.registerInvokeSuperInContext(
-                reference, context.rewrittenWithLens(lens, lens.getPrevious(), appView)));
   }
 
   private FieldAccessInfoCollectionModifier createFieldAccessInfoCollectionModifier(

@@ -24,7 +24,6 @@ import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
-import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.desugar.ServiceLoaderSourceCode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanBox;
@@ -70,12 +69,9 @@ public class ServiceLoaderRewriter {
   private final Reporter reporter;
   private final ServiceLoaderMethods serviceLoaderMethods;
 
-  private final List<ProgramMethod> synthesizedServiceLoadMethods = new ArrayList<>();
-
-  public ServiceLoaderRewriter(
-      AppView<AppInfoWithLiveness> appView, AndroidApiLevelCompute apiLevelCompute) {
+  public ServiceLoaderRewriter(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
-    this.apiLevelCompute = apiLevelCompute;
+    this.apiLevelCompute = appView.apiLevelCompute();
     serviceLoaderMethods = appView.dexItemFactory().serviceLoaderMethods;
     reporter = shouldReportWhyAreYouNotInliningServiceLoaderLoad() ? appView.reporter() : null;
   }
@@ -91,7 +87,6 @@ public class ServiceLoaderRewriter {
       IRCode code,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext) {
-    assert !methodProcessor.isPostMethodProcessor();
     InstructionListIterator instructionIterator = code.instructionListIterator();
     // Create a map from service type to loader methods local to this context since two
     // service loader calls to the same type in different methods and in the same wave can race.
@@ -243,10 +238,6 @@ public class ServiceLoaderRewriter {
     assert code.isConsistentSSA(appView);
   }
 
-  public void onLastWaveDone(PostMethodProcessor.Builder postMethodProcessorBuilder) {
-    postMethodProcessorBuilder.addAll(synthesizedServiceLoadMethods, appView.graphLens());
-  }
-
   private void report(ProgramMethod method, DexType serviceLoaderType, String message) {
     if (reporter != null) {
       reporter.info(
@@ -286,9 +277,7 @@ public class ServiceLoaderRewriter {
                             m ->
                                 ServiceLoaderSourceCode.generate(
                                     serviceType, classes, appView.dexItemFactory())));
-    synchronized (synthesizedServiceLoadMethods) {
-      synthesizedServiceLoadMethods.add(method);
-    }
+    methodProcessor.scheduleDesugaredMethodForProcessing(method);
     methodProcessor
         .getEventConsumer()
         .acceptServiceLoaderLoadUtilityMethod(method, methodProcessingContext.getMethodContext());

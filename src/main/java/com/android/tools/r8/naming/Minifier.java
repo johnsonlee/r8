@@ -8,29 +8,40 @@ import static com.android.tools.r8.utils.StringUtils.EMPTY_CHAR_ARRAY;
 import static com.android.tools.r8.utils.SymbolGenerationUtils.RESERVED_NAMES;
 
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.ReferencedMembersCollector;
+import com.android.tools.r8.graph.ReferencedMembersCollector.ReferencedMembersConsumer;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.naming.ClassNameMinifier.ClassNamingStrategy;
 import com.android.tools.r8.naming.ClassNameMinifier.ClassRenaming;
 import com.android.tools.r8.naming.FieldNameMinifier.FieldRenaming;
 import com.android.tools.r8.naming.MethodNameMinifier.MethodRenaming;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.SymbolGenerationUtils;
 import com.android.tools.r8.utils.SymbolGenerationUtils.MixedCasing;
 import com.android.tools.r8.utils.Timing;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
@@ -70,7 +81,7 @@ public class Minifier {
     timing.begin("MinifyMethods");
     MethodRenaming methodRenaming =
         new MethodNameMinifier(appView, minifyMembers)
-            .computeRenaming(interfaces, subtypingInfo, executorService, timing);
+            .computeRenaming(interfaces, subtypingInfo, timing);
     timing.end();
 
     assert new MinifiedRenaming(appView, classRenaming, methodRenaming, FieldRenaming.empty())
@@ -82,12 +93,86 @@ public class Minifier {
             .computeRenaming(interfaces, timing);
     timing.end();
 
+    // Rename the references that are not rebound to definitions.
+    timing.begin("non-rebound-references");
+    renameNonReboundReferences(appView, fieldRenaming, methodRenaming, executorService);
+    timing.end();
+
     NamingLens lens = new MinifiedRenaming(appView, classRenaming, methodRenaming, fieldRenaming);
     assert lens.verifyNoCollisions(appView.appInfo().classes(), appView.dexItemFactory());
 
     appView.testing().namingLensConsumer.accept(appView.dexItemFactory(), lens);
     appView.notifyOptimizationFinishedForTesting();
     appView.setNamingLens(lens);
+  }
+
+  public static void renameNonReboundReferences(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      FieldRenaming fieldRenaming,
+      MethodRenaming methodRenaming,
+      ExecutorService executorService)
+      throws ExecutionException {
+    Map<DexField, DexString> fieldNames = new ConcurrentHashMap<>(fieldRenaming.renaming);
+    fieldRenaming.renaming.clear();
+    Map<DexMethod, DexString> methodNames = new ConcurrentHashMap<>(methodRenaming.renaming);
+    methodRenaming.renaming.clear();
+    ReferencedMembersConsumer consumer =
+        new ReferencedMembersConsumer() {
+
+          @Override
+          public void onFieldReference(DexField field, ProgramMethod context) {
+            // If the given field reference is a non-rebound reference to a program field, then
+            // assign the same name as the resolved field.
+            if (fieldNames.containsKey(field)) {
+              return;
+            }
+            DexEncodedField resolvedField =
+                appView.appInfo().resolveField(field).getResolvedField();
+            if (resolvedField != null
+                && resolvedField.getReference().isNotIdenticalTo(field)
+                && fieldNames.containsKey(resolvedField.getReference())) {
+              fieldNames.put(field, fieldNames.get(resolvedField.getReference()));
+            }
+          }
+
+          @Override
+          public void onMethodReference(DexMethod method, ProgramMethod context) {
+            // If the given method reference is a non-rebound reference to a program method, then
+            // assign the same name as the resolved method.
+            if (method.getHolderType().isArrayType() || methodNames.containsKey(method)) {
+              return;
+            }
+            MethodResolutionResult resolutionResult =
+                appView.appInfo().unsafeResolveMethodDueToDexFormat(method);
+            DexEncodedMethod resolvedMethod = resolutionResult.getResolvedMethod();
+            if (resolvedMethod != null
+                && resolvedMethod.getReference().isNotIdenticalTo(method)
+                && methodNames.containsKey(resolvedMethod.getReference())) {
+              methodNames.put(method, methodNames.get(resolvedMethod.getReference()));
+            }
+            // If resolution fails, the method must be renamed consistently with the targets that
+            // give rise to the failure.
+            if (resolutionResult.isFailedResolution()) {
+              List<DexEncodedMethod> targets = new ArrayList<>();
+              resolutionResult
+                  .asFailedResolution()
+                  .forEachFailureDependency(ConsumerUtils.emptyConsumer(), targets::add);
+              if (!targets.isEmpty()) {
+                DexString newName = methodNames.get(targets.get(0).getReference());
+                assert targets.stream()
+                    .allMatch(
+                        target -> newName.isIdenticalTo(methodNames.get(target.getReference())));
+                if (newName != null) {
+                  assert newName.isNotIdenticalTo(targets.get(0).getName());
+                  methodNames.put(method, newName);
+                }
+              }
+            }
+          }
+        };
+    new ReferencedMembersCollector(appView, consumer).run(executorService);
+    fieldRenaming.renaming.putAll(fieldNames);
+    methodRenaming.renaming.putAll(methodNames);
   }
 
   abstract static class BaseMinificationNamingStrategy {

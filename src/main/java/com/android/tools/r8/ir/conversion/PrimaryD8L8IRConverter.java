@@ -71,11 +71,6 @@ public class PrimaryD8L8IRConverter extends IRConverter {
     reportNestDesugarDependencies();
     clearNestAttributes();
 
-    if (assertionErrorTwoArgsConstructorRewriter != null) {
-      processSimpleSynthesizeMethods(
-          assertionErrorTwoArgsConstructorRewriter.getSynthesizedMethods(), executorService);
-    }
-
     application = commitPendingSyntheticItems(appView, application);
 
     postProcessingDesugaringForD8(methodProcessor, interfaceProcessor, executorService);

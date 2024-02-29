@@ -3,18 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming;
 
-import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
-
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.FieldAccessInfo;
-import com.android.tools.r8.graph.FieldAccessInfoCollection;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
@@ -69,10 +64,6 @@ class FieldNameMinifier {
     renameFieldsInInterfaces(interfaces);
     renameFieldsInClasses();
     renameFieldsInUnrelatedClasspathClasses();
-    timing.end();
-    // Rename the references that are not rebound to definitions for some reasons.
-    timing.begin("rename-references");
-    renameNonReboundReferences();
     timing.end();
     return new FieldRenaming(renaming);
   }
@@ -279,35 +270,6 @@ class FieldNameMinifier {
       renaming.put(field.getReference(), newName);
     }
     return newName;
-  }
-
-  private void renameNonReboundReferences() {
-    FieldAccessInfoCollection<?> fieldAccessInfoCollection =
-        appView.appInfo().getFieldAccessInfoCollection();
-    fieldAccessInfoCollection.forEach(this::renameNonReboundAccessesToField);
-  }
-
-  private void renameNonReboundAccessesToField(FieldAccessInfo fieldAccessInfo) {
-    fieldAccessInfo.forEachIndirectAccess(this::renameNonReboundAccessToField);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private void renameNonReboundAccessToField(DexField field) {
-    // If the given field reference is a non-rebound reference to a program field, then assign the
-    // same name as the resolved field.
-    if (renaming.containsKey(field)) {
-      return;
-    }
-    DexProgramClass holder = asProgramClassOrNull(appView.definitionForHolder(field));
-    if (holder == null) {
-      return;
-    }
-    DexEncodedField definition = appView.appInfo().resolveFieldOn(holder, field).getResolvedField();
-    if (definition != null
-        && definition.getReference() != field
-        && renaming.containsKey(definition.getReference())) {
-      renaming.put(field, renaming.get(definition.getReference()));
-    }
   }
 
   static class InterfacePartitioning {

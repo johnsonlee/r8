@@ -110,6 +110,10 @@ public final class DexCallSite extends IndexedDexItem
     return bootstrapArgs;
   }
 
+  public DexMethodHandle getBootstrapMethod() {
+    return bootstrapMethod;
+  }
+
   public DexProto getMethodProto() {
     return methodProto;
   }

@@ -176,7 +176,6 @@ public class SingleCallerInliner {
         });
     PrunedItems prunedItems = prunedItemsBuilder.build();
     appView.pruneItems(prunedItems, executorService, Timing.empty());
-    appView.appInfo().getMethodAccessInfoCollection().withoutPrunedItems(prunedItems);
   }
 
   private static class SingleCallerInlinerImpl extends Inliner {

@@ -4481,7 +4481,7 @@ public class Enqueuer {
             toDescriptorSet(liveMethods.getItems()),
             // Filter out library fields and pinned fields, because these are read by default.
             fieldAccessInfoCollection,
-            methodAccessInfoCollection.build(),
+            methodAccessInfoCollection.build(mode),
             objectAllocationInfoCollection.build(appInfo),
             callSites,
             keepInfo,

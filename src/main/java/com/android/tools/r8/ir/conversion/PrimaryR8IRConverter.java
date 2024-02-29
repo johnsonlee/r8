@@ -273,16 +273,8 @@ public class PrimaryR8IRConverter extends IRConverter {
       PostMethodProcessor.Builder postMethodProcessorBuilder, ExecutorService executorService)
       throws ExecutionException {
     pruneItems(executorService);
-    if (assertionErrorTwoArgsConstructorRewriter != null) {
-      assertionErrorTwoArgsConstructorRewriter.onLastWaveDone(postMethodProcessorBuilder);
-      assertionErrorTwoArgsConstructorRewriter = null;
-    }
     if (inliner != null) {
       inliner.onLastWaveDone(postMethodProcessorBuilder, executorService, timing);
-    }
-    if (serviceLoaderRewriter != null) {
-      serviceLoaderRewriter.onLastWaveDone(postMethodProcessorBuilder);
-      serviceLoaderRewriter = null;
     }
 
     // Ensure determinism of method-to-reprocess set.

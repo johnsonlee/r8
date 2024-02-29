@@ -7,6 +7,7 @@ package com.android.tools.r8.optimize;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
@@ -21,6 +22,7 @@ import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This lens is used to populate the rebound field and method reference during lookup, such that
@@ -48,7 +50,16 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
 
   public static Builder builder(
       AppView<? extends AppInfoWithClassHierarchy> appView, GraphLens previousLens) {
-    return new Builder(appView, previousLens);
+    return new Builder(appView, previousLens, new IdentityHashMap<>(), new IdentityHashMap<>());
+  }
+
+  public static Builder concurrentBuilder(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    return concurrentBuilder(appView, appView.graphLens());
+  }
+
+  public static Builder concurrentBuilder(
+      AppView<? extends AppInfoWithClassHierarchy> appView, GraphLens previousLens) {
+    return new Builder(appView, previousLens, new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
   }
 
   public void addNonReboundMethodReference(
@@ -174,14 +185,18 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
     private final AppView<? extends AppInfoWithClassHierarchy> appView;
     private final GraphLens previousLens;
 
-    private final Map<DexField, DexField> nonReboundFieldReferenceToDefinitionMap =
-        new IdentityHashMap<>();
-    private final Map<DexMethod, DexMethod> nonReboundMethodReferenceToDefinitionMap =
-        new IdentityHashMap<>();
+    private final Map<DexField, DexField> nonReboundFieldReferenceToDefinitionMap;
+    private final Map<DexMethod, DexMethod> nonReboundMethodReferenceToDefinitionMap;
 
-    private Builder(AppView<? extends AppInfoWithClassHierarchy> appView, GraphLens previousLens) {
+    private Builder(
+        AppView<? extends AppInfoWithClassHierarchy> appView,
+        GraphLens previousLens,
+        Map<DexField, DexField> nonReboundFieldReferenceToDefinitionMap,
+        Map<DexMethod, DexMethod> nonReboundMethodReferenceToDefinitionMap) {
       this.appView = appView;
       this.previousLens = previousLens;
+      this.nonReboundFieldReferenceToDefinitionMap = nonReboundFieldReferenceToDefinitionMap;
+      this.nonReboundMethodReferenceToDefinitionMap = nonReboundMethodReferenceToDefinitionMap;
     }
 
     void recordNonReboundFieldAccesses(FieldAccessInfo fieldAccessInfo) {
@@ -203,11 +218,21 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
           nonReboundMethodReference, reboundMethodReference);
     }
 
+    void recordFieldAccess(DexField reference) {
+      DexEncodedField resolvedField = appView.appInfo().resolveField(reference).getResolvedField();
+      if (resolvedField != null && resolvedField.getReference().isNotIdenticalTo(reference)) {
+        recordNonReboundFieldAccess(reference, resolvedField.getReference());
+      }
+    }
+
     void recordMethodAccess(DexMethod reference) {
       if (reference.getHolderType().isArrayType()) {
         return;
       }
-      DexClass holder = appView.contextIndependentDefinitionFor(reference.getHolderType());
+      // TODO(b/324526473): Use normal definitionFor() when LIR constant pool does not have any
+      //  outdated, unused constants.
+      DexClass holder =
+          appView.appInfo().definitionForWithoutExistenceAssert(reference.getHolderType());
       if (holder != null) {
         SingleResolutionResult<?> resolutionResult =
             appView.appInfo().resolveMethodOnLegacy(holder, reference).asSingleResolution();

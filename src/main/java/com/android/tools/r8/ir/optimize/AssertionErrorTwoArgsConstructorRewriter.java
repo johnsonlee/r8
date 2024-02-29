@@ -22,7 +22,6 @@ import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
-import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.desugar.backports.BackportedMethods;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.utils.InternalOptions;
@@ -42,7 +41,6 @@ public class AssertionErrorTwoArgsConstructorRewriter {
     this.dexItemFactory = appView.dexItemFactory();
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public void rewrite(
       IRCode code,
       MethodProcessor methodProcessor,
@@ -61,7 +59,8 @@ public class AssertionErrorTwoArgsConstructorRewriter {
         InvokeDirect invoke = insnIterator.next().asInvokeDirect();
         if (invoke != null) {
           DexMethod invokedMethod = invoke.getInvokedMethod();
-          if (invokedMethod == dexItemFactory.assertionErrorMethods.initMessageAndCause) {
+          if (invokedMethod.isIdenticalTo(
+              dexItemFactory.assertionErrorMethods.initMessageAndCause)) {
             assert invoke.arguments().size() == 3; // receiver, message, cause
             Value newInstanceValue = invoke.getReceiver();
             Instruction definition = newInstanceValue.getDefinition();
@@ -90,12 +89,6 @@ public class AssertionErrorTwoArgsConstructorRewriter {
     assert code.isConsistentSSA(appView);
   }
 
-  private final List<ProgramMethod> synthesizedMethods = new ArrayList<>();
-
-  public List<ProgramMethod> getSynthesizedMethods() {
-    return synthesizedMethods;
-  }
-
   private ProgramMethod createSynthetic(
       MethodProcessor methodProcessor, MethodProcessingContext methodProcessingContext) {
     DexItemFactory factory = appView.dexItemFactory();
@@ -117,25 +110,19 @@ public class AssertionErrorTwoArgsConstructorRewriter {
                             methodSig ->
                                 BackportedMethods.AssertionErrorMethods_createAssertionError(
                                     factory, methodSig)));
-    synchronized (synthesizedMethods) {
-      synthesizedMethods.add(method);
-      OptimizationFeedback.getSimpleFeedback()
-          .setDynamicReturnType(
-              method,
-              appView,
-              DynamicType.createExact(
-                  dexItemFactory
-                      .assertionErrorType
-                      .toTypeElement(appView, Nullability.definitelyNotNull())
-                      .asClassType()));
-    }
+    OptimizationFeedback.getSimpleFeedback()
+        .setDynamicReturnType(
+            method,
+            appView,
+            DynamicType.createExact(
+                dexItemFactory
+                    .assertionErrorType
+                    .toTypeElement(appView, Nullability.definitelyNotNull())
+                    .asClassType()));
+    methodProcessor.scheduleDesugaredMethodForProcessing(method);
     methodProcessor
         .getEventConsumer()
         .acceptAssertionErrorCreateMethod(method, methodProcessingContext.getMethodContext());
     return method;
-  }
-
-  public void onLastWaveDone(PostMethodProcessor.Builder postMethodProcessorBuilder) {
-    postMethodProcessorBuilder.addAll(synthesizedMethods, appView.graphLens());
   }
 }

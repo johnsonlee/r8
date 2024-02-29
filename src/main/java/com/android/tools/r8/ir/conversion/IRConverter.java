@@ -115,7 +115,6 @@ public class IRConverter {
   private final ClassInliner classInliner;
   protected final InternalOptions options;
   public final CodeRewriter codeRewriter;
-  public AssertionErrorTwoArgsConstructorRewriter assertionErrorTwoArgsConstructorRewriter;
   public final MemberValuePropagation<?> memberValuePropagation;
   private final LensCodeRewriter lensCodeRewriter;
   protected final Inliner inliner;
@@ -124,7 +123,6 @@ public class IRConverter {
   protected final CovariantReturnTypeAnnotationTransformer covariantReturnTypeAnnotationTransformer;
   private final StringSwitchRemover stringSwitchRemover;
   private final TypeChecker typeChecker;
-  protected ServiceLoaderRewriter serviceLoaderRewriter;
   protected EnumUnboxer enumUnboxer;
   protected final NumberUnboxer numberUnboxer;
   protected final RemoveVerificationErrorForUnknownReturnedValues
@@ -164,10 +162,6 @@ public class IRConverter {
     this.options = appView.options();
     this.codeRewriter = new CodeRewriter(appView);
     this.rewriterPassCollection = CodeRewriterPassCollection.create(appView);
-    this.assertionErrorTwoArgsConstructorRewriter =
-        appView.options().desugarState.isOn()
-            ? new AssertionErrorTwoArgsConstructorRewriter(appView)
-            : null;
     this.classInitializerDefaultsOptimization =
         new ClassInitializerDefaultsOptimization(appView, this);
     this.deadCodeRemover = new DeadCodeRemover(appView);
@@ -210,7 +204,6 @@ public class IRConverter {
       this.devirtualizer = null;
       this.typeChecker = null;
       this.stringSwitchRemover = null;
-      this.serviceLoaderRewriter = null;
       this.methodOptimizationInfoCollector = null;
       this.enumUnboxer = EnumUnboxer.empty();
       this.numberUnboxer = NumberUnboxer.empty();
@@ -262,10 +255,6 @@ public class IRConverter {
       this.devirtualizer =
           options.enableDevirtualization ? new Devirtualizer(appViewWithLiveness) : null;
       this.typeChecker = new TypeChecker(appViewWithLiveness, VerifyTypesHelper.create(appView));
-      this.serviceLoaderRewriter =
-          options.enableServiceLoaderRewriting
-              ? new ServiceLoaderRewriter(appViewWithLiveness, appView.apiLevelCompute())
-              : null;
     } else {
       AppView<AppInfo> appViewWithoutClassHierarchy = appView.withoutClassHierarchy();
       this.assumeInserter = null;
@@ -283,7 +272,6 @@ public class IRConverter {
       this.identifierNameStringMarker = null;
       this.devirtualizer = null;
       this.typeChecker = null;
-      this.serviceLoaderRewriter = null;
       this.methodOptimizationInfoCollector = null;
       this.enumUnboxer = EnumUnboxer.empty();
       this.numberUnboxer = NumberUnboxer.empty();
@@ -296,14 +284,6 @@ public class IRConverter {
 
   public IRConverter(AppInfo appInfo) {
     this(AppView.createForD8(appInfo));
-  }
-
-  public void clearEnumUnboxer() {
-    enumUnboxer = EnumUnboxer.empty();
-  }
-
-  public void clearServiceLoaderRewriter() {
-    serviceLoaderRewriter = null;
   }
 
   public Inliner getInliner() {
@@ -631,10 +611,12 @@ public class IRConverter {
     CheckNotNullConverter.runIfNecessary(appView, code);
     previous = printMethod(code, "IR after disable assertions (SSA)", previous);
 
-    if (serviceLoaderRewriter != null) {
-      assert appView.appInfo().hasLiveness();
+    if (appView.hasLiveness()
+        && methodProcessor.isPrimaryMethodProcessor()
+        && options.enableServiceLoaderRewriting) {
       timing.begin("Rewrite service loaders");
-      serviceLoaderRewriter.rewrite(code, methodProcessor, methodProcessingContext);
+      new ServiceLoaderRewriter(appView.withLiveness())
+          .rewrite(code, methodProcessor, methodProcessingContext);
       timing.end();
       previous = printMethod(code, "IR after service rewriting (SSA)", previous);
     }
@@ -732,10 +714,11 @@ public class IRConverter {
 
     assert code.verifyTypes(appView);
 
-    if (assertionErrorTwoArgsConstructorRewriter != null) {
+    if (appView.options().desugarState.isOn()
+        && (methodProcessor.isPrimaryMethodProcessor() || methodProcessor.isD8MethodProcessor())) {
       timing.begin("Rewrite AssertionError");
-      assertionErrorTwoArgsConstructorRewriter.rewrite(
-          code, methodProcessor, methodProcessingContext);
+      new AssertionErrorTwoArgsConstructorRewriter(appView)
+          .rewrite(code, methodProcessor, methodProcessingContext);
       timing.end();
     }
 
