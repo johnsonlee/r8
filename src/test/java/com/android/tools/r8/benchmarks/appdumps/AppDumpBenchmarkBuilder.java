@@ -36,7 +36,7 @@ public class AppDumpBenchmarkBuilder {
   private String name;
   private BenchmarkDependency dumpDependency;
   private int fromRevision = -1;
-  private List<String> programPackages = new ArrayList<>();
+  private final List<String> programPackages = new ArrayList<>();
 
   public void verify() {
     if (name == null) {
@@ -97,6 +97,22 @@ public class AppDumpBenchmarkBuilder {
         .build();
   }
 
+  public BenchmarkConfig buildR8WithResourceShrinking() {
+    verify();
+    return BenchmarkConfig.builder()
+        .setName(name)
+        .setTarget(BenchmarkTarget.R8_NON_COMPAT)
+        .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
+        .setMethod(runR8WithResourceShrinking(this))
+        .setFromRevision(fromRevision)
+        .addDependency(dumpDependency)
+        .addSubBenchmark(nameForCodePart(), BenchmarkMetric.CodeSize)
+        .addSubBenchmark(nameForRuntimePart(), BenchmarkMetric.RunTimeRaw)
+        .addSubBenchmark(nameForResourcePart(), BenchmarkMetric.CodeSize)
+        .setTimeout(10, TimeUnit.MINUTES)
+        .build();
+  }
+
   public BenchmarkConfig buildIncrementalD8() {
     verify();
     if (programPackages.isEmpty()) {
@@ -132,6 +148,10 @@ public class AppDumpBenchmarkBuilder {
         .build();
   }
 
+  private String nameForCodePart() {
+    return name + "Code";
+  }
+
   private String nameForLibraryPart() {
     return name + "Library";
   }
@@ -140,12 +160,26 @@ public class AppDumpBenchmarkBuilder {
     return name + "Program";
   }
 
+  private String nameForResourcePart() {
+    return name + "Resource";
+  }
+
+  private String nameForRuntimePart() {
+    return name + "Runtime";
+  }
+
   private String nameForMergePart() {
     return name + "Merge";
   }
 
   private CompilerDump getExtractedDump(BenchmarkEnvironment environment) throws IOException {
-    Path dump = dumpDependency.getRoot(environment).resolve("dump_app.zip");
+    return getExtractedDump(environment, false);
+  }
+
+  private CompilerDump getExtractedDump(
+      BenchmarkEnvironment environment, boolean enableResourceShrinking) throws IOException {
+    String dumpName = enableResourceShrinking ? "dump_app_res.zip" : "dump_app.zip";
+    Path dump = dumpDependency.getRoot(environment).resolve(dumpName);
     return CompilerDump.fromArchive(dump, environment.getTemp().newFolder().toPath());
   }
 
@@ -159,12 +193,22 @@ public class AppDumpBenchmarkBuilder {
   }
 
   private static BenchmarkMethod runR8(AppDumpBenchmarkBuilder builder) {
+    return internalRunR8(builder, false);
+  }
+
+  private static BenchmarkMethod runR8WithResourceShrinking(AppDumpBenchmarkBuilder builder) {
+    return internalRunR8(builder, true);
+  }
+
+  private static BenchmarkMethod internalRunR8(
+      AppDumpBenchmarkBuilder builder, boolean enableResourceShrinking) {
     return environment ->
         BenchmarkBase.runner(environment.getConfig())
             .setWarmupIterations(1)
             .run(
                 results -> {
-                  CompilerDump dump = builder.getExtractedDump(environment);
+                  CompilerDump dump =
+                      builder.getExtractedDump(environment, enableResourceShrinking);
                   DumpOptions dumpProperties = dump.getBuildProperties();
                   TestBase.testForR8(environment.getTemp(), Backend.DEX)
                       .addProgramFiles(dump.getProgramArchive())
@@ -180,8 +224,21 @@ public class AppDumpBenchmarkBuilder {
                       .addOptionsModification(
                           options ->
                               options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces())
-                      .benchmarkCompile(results)
-                      .benchmarkCodeSize(results);
+                      .applyIf(
+                          enableResourceShrinking,
+                          b ->
+                              b.enableOptimizedShrinking()
+                                  .setAndroidResourcesFromPath(dump.getAndroidResources()))
+                      .applyIf(
+                          enableResourceShrinking,
+                          r ->
+                              r.benchmarkCompile(
+                                      results.getSubResults(builder.nameForRuntimePart()))
+                                  .benchmarkCodeSize(
+                                      results.getSubResults(builder.nameForCodePart()))
+                                  .benchmarkResourceSize(
+                                      results.getSubResults(builder.nameForResourcePart())),
+                          r -> r.benchmarkCompile(results).benchmarkCodeSize(results));
                 });
   }
 

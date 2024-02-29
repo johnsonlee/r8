@@ -953,6 +953,11 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     return addProgramClassFileData(testResource.getRClass().getClassFileData());
   }
 
+  public T setAndroidResourcesFromPath(Path input) throws IOException {
+    return setAndroidResourcesFromPath(
+        input, getState().getNewTempFile("resourceshrinkeroutput.zip"));
+  }
+
   public T setAndroidResourcesFromPath(Path input, Path output) {
     resourceShrinkerOutput = output;
     getBuilder()

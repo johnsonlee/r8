@@ -20,12 +20,14 @@ public class BenchmarkResultsCollection implements BenchmarkResults {
         (name, metrics) -> results.put(name, new BenchmarkResultsSingle(name, metrics)));
   }
 
+  @Override
   public void addRuntimeResult(long result) {
     throw new BenchmarkConfigError(
         "Unexpected attempt to add a runtime result to a the root of a benchmark with"
             + " sub-benchmarks");
   }
 
+  @Override
   public void addCodeSizeResult(long result) {
     throw new BenchmarkConfigError(
         "Unexpected attempt to add a runtime result to a the root of a benchmark with"

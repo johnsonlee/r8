@@ -6,10 +6,12 @@ package com.android.tools.r8.benchmarks;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.utils.CollectionUtils;
+import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.StringUtils.BraceType;
 import com.google.common.base.Strings;
+import com.google.common.collect.Sets;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import java.io.IOException;
@@ -25,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 public class BenchmarkCollectionPrinter {
 
@@ -143,16 +146,18 @@ public class BenchmarkCollectionPrinter {
   private void printGroupBenchmarkBlock(
       String benchmarkName, List<BenchmarkConfig> benchmarkVariants) throws IOException {
     String suite = BenchmarkConfig.getCommonSuite(benchmarkVariants).getDartName();
+    Map<String, Set<BenchmarkMetric>> subBenchmarks =
+        BenchmarkConfig.getCommonSubBenchmarks(benchmarkVariants);
+    Set<BenchmarkMetric> metrics =
+        Sets.newLinkedHashSet(IterableUtils.flatMap(subBenchmarks.values(), Function.identity()));
     printSemi("final name = " + quote(benchmarkName));
-    printSemi("final benchmark = GroupBenchmark(name, [])");
+    printSemi("final benchmark = GroupBenchmark(name, " + prettyMetrics(metrics) + ")");
     BenchmarkTimeout timeout = BenchmarkConfig.getCommonTimeout(benchmarkVariants);
     if (timeout != null) {
       printSemi("final timeout = const Duration(seconds: " + timeout.asSeconds() + ")");
       printSemi("ExecutionManagement.addTimeoutConstraint(timeout, benchmark: benchmark)");
     }
     printBenchmarkVariantOptionBlock(benchmarkVariants);
-    Map<String, Set<BenchmarkMetric>> subBenchmarks =
-        BenchmarkConfig.getCommonSubBenchmarks(benchmarkVariants);
     Collection<String> subNames = CollectionUtils.sort(subBenchmarks.keySet(), String::compareTo);
     for (String subName : subNames) {
       scopeBraces(
@@ -229,7 +234,8 @@ public class BenchmarkCollectionPrinter {
   }
 
   private static Path getJdkHome() throws IOException {
-    ProcessBuilder builder = new ProcessBuilder("python3", "tools/jdk.py");
+    ProcessBuilder builder =
+        new ProcessBuilder("python3", ToolHelper.getProjectRoot() + "tools/jdk.py");
     ProcessResult result = ToolHelper.runProcess(builder, QUIET);
     if (result.exitCode != 0) {
       throw new BenchmarkConfigError("Unexpected failure to determine jdk home: " + result);

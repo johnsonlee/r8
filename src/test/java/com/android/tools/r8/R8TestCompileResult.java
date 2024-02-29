@@ -11,6 +11,7 @@ import static org.junit.Assert.assertNotNull;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.ResourceTableInspector;
+import com.android.tools.r8.benchmarks.BenchmarkResults;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.SplitRunner;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
@@ -27,6 +28,7 @@ import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.graphinspector.GraphInspector;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
@@ -68,6 +70,11 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
     this.residualArtProfiles = residualArtProfiles;
     this.resourceShrinkerOutput = resourceShrinkerOutput;
     this.resourceShrinkerOutputForFeatures = resourceShrinkerOutputForFeatures;
+  }
+
+  public R8TestCompileResult benchmarkResourceSize(BenchmarkResults results) throws IOException {
+    results.addCodeSizeResult(Files.size(resourceShrinkerOutput));
+    return self();
   }
 
   @Override

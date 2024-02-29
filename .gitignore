@@ -270,6 +270,8 @@ third_party/opensource-apps/tusky.tar.gz
 third_party/opensource-apps/wikipedia
 third_party/opensource-apps/wikipedia.tar.gz
 third_party/opensource-apps/android/compose-samples/*
+third_party/opensource-apps/android/nowinandroid
+third_party/opensource-apps/android/nowinandroid.tar.gz
 third_party/proguard/*
 third_party/proguardsettings.tar.gz
 third_party/proguardsettings/
