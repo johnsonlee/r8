@@ -444,9 +444,7 @@ public class R8 {
               .notifyTreePrunerFinished(Enqueuer.Mode.INITIAL_TREE_SHAKING);
 
           // Recompute the subtyping information.
-          new AbstractMethodRemover(
-                  appViewWithLiveness, appViewWithLiveness.appInfo().computeSubtypingInfo())
-              .run();
+          new AbstractMethodRemover(appViewWithLiveness).run();
 
           AnnotationRemover annotationRemover =
               annotationRemoverBuilder.build(appViewWithLiveness, prunedItems.getRemovedClasses());

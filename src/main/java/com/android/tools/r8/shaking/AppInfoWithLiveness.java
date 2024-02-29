@@ -48,7 +48,6 @@ import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.SingleDispatchTargetLookupResult;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.UnknownDispatchTargetLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
@@ -1446,10 +1445,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     assert definition.isDexClass();
     DexClass clazz = definition.asDexClass();
     return clazz.isNotProgramClass() || isInstantiatedInterface(clazz.asProgramClass());
-  }
-
-  public SubtypingInfo computeSubtypingInfo() {
-    return SubtypingInfo.create(this);
   }
 
   public boolean verifyNoIteratingOverPrunedClasses() {

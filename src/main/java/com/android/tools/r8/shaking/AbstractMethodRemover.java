@@ -3,13 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.shaking.ScopedDexMethodSet.AddMethodIfMoreVisibleResult;
 import java.util.HashSet;
 import java.util.Set;
@@ -26,28 +26,39 @@ import java.util.Set;
 public class AbstractMethodRemover {
 
   private final AppView<AppInfoWithLiveness> appView;
-  private final SubtypingInfo subtypingInfo;
+  private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
+
   private ScopedDexMethodSet scope = new ScopedDexMethodSet();
 
-  public AbstractMethodRemover(AppView<AppInfoWithLiveness> appView, SubtypingInfo subtypingInfo) {
+  public AbstractMethodRemover(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
-    this.subtypingInfo = subtypingInfo;
+    this.immediateSubtypingInfo = ImmediateProgramSubtypingInfo.create(appView);
   }
 
   public void run() {
-    assert scope.getParent() == null;
-    processClass(appView.dexItemFactory().objectType);
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      assert scope.getParent() == null;
+      if (isRoot(clazz)) {
+        processClass(clazz);
+      }
+    }
     appView.notifyOptimizationFinishedForTesting();
   }
 
-  private void processClass(DexType type) {
-    DexClass holder = appView.definitionFor(type);
-    scope = scope.newNestedScope();
-    if (holder != null && holder.isProgramClass()) {
-      processMethods(holder.asProgramClass());
+  private boolean isRoot(DexProgramClass clazz) {
+    if (clazz.isInterface()) {
+      return false;
     }
-    // TODO(b/154881041): Does this need the full subtype hierarchy of referenced types!?
-    subtypingInfo.forAllImmediateExtendsSubtypes(type, this::processClass);
+    if (!clazz.hasSuperType()) {
+      return true;
+    }
+    return asProgramClassOrNull(appView.definitionFor(clazz.getSuperType(), clazz)) == null;
+  }
+
+  private void processClass(DexProgramClass clazz) {
+    scope = scope.newNestedScope();
+    processMethods(clazz);
+    immediateSubtypingInfo.getSubclasses(clazz).forEach(this::processClass);
     scope = scope.getParent();
   }
 
