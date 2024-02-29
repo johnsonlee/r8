@@ -27,6 +27,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeDirect;
+import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.LinearFlowInstructionListIterator;
 import com.android.tools.r8.ir.code.NewInstance;
@@ -277,7 +278,23 @@ public class GeneratedMessageLiteBuilderShrinker {
     InvokeDirect constructorInvoke =
         instructionIterator.nextUntil(
             instruction -> {
-              // After constructor inlining we may see a load of the DEFAULT_INSTANCE field.
+              // After constructor inlining we may see a load of the DEFAULT_INSTANCE field. This
+              // can either be read directly using a StaticGet or accessed indirectly via a
+              // synthetic accessor bridge (e.g., due to a -keep,allowshrinking rule).
+              if (instruction.isInvokeStatic()) {
+                InvokeStatic invoke = instruction.asInvokeStatic();
+                if (invoke
+                        .getInvokedMethod()
+                        .getHolderType()
+                        .isIdenticalTo(defaultInstanceField.getHolderType())
+                    && invoke
+                        .getInvokedMethod()
+                        .getReturnType()
+                        .isIdenticalTo(defaultInstanceField.getType())) {
+                  existingDefaultInstanceValue.set(invoke.outValue());
+                  return false;
+                }
+              }
               if (instruction.isStaticGet()) {
                 StaticGet staticGet = instruction.asStaticGet();
                 if (staticGet.getField() == defaultInstanceField) {
