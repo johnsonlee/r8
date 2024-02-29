@@ -33,6 +33,11 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
   }
 
   @Override
+  public void addResourceSizeResult(long result) {
+    addCodeSizeResult(result);
+  }
+
+  @Override
   public BenchmarkResults getSubResults(String name) {
     throw new BenchmarkConfigError(
         "Unexpected attempt to get sub-results for benchmark without sub-benchmarks");

@@ -12,6 +12,7 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
   private final String name;
   private final LongList runtimeResults = new LongArrayList();
   private long codeSizeResult = -1;
+  private long resourceSizeResult = -1;
 
   public BenchmarkResultsWarmup(String name) {
     this.name = name;
@@ -30,6 +31,17 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
     if (codeSizeResult != result) {
       throw new RuntimeException(
           "Unexpected code size difference: " + result + " and " + codeSizeResult);
+    }
+  }
+
+  @Override
+  public void addResourceSizeResult(long result) {
+    if (resourceSizeResult == -1) {
+      resourceSizeResult = result;
+    }
+    if (resourceSizeResult != result) {
+      throw new RuntimeException(
+          "Unexpected resource size difference: " + result + " and " + resourceSizeResult);
     }
   }
 

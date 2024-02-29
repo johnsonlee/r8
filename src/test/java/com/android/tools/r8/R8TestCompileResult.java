@@ -73,7 +73,7 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
   }
 
   public R8TestCompileResult benchmarkResourceSize(BenchmarkResults results) throws IOException {
-    results.addCodeSizeResult(Files.size(resourceShrinkerOutput));
+    results.addResourceSizeResult(Files.size(resourceShrinkerOutput));
     return self();
   }
 

@@ -12,6 +12,9 @@ public interface BenchmarkResults {
   // Append a code size result. This is always assumed to be identical if called multiple times.
   void addCodeSizeResult(long result);
 
+  // Append a resource size result. This is always assumed to be identical if called multiple times.
+  void addResourceSizeResult(long result);
+
   // Get the results collection for a "sub-benchmark" when defining a group of benchmarks.
   // This will throw if called on a benchmark without sub-benchmarks.
   BenchmarkResults getSubResults(String name);

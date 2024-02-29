@@ -35,6 +35,13 @@ public class BenchmarkResultsCollection implements BenchmarkResults {
   }
 
   @Override
+  public void addResourceSizeResult(long result) {
+    throw new BenchmarkConfigError(
+        "Unexpected attempt to add a runtime result to a the root of a benchmark with"
+            + " sub-benchmarks");
+  }
+
+  @Override
   public BenchmarkResults getSubResults(String name) {
     return results.get(name);
   }

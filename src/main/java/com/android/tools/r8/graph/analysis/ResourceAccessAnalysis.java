@@ -163,7 +163,6 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
         field.getHolder().staticFields(DexEncodedField::hasExplicitStaticValue)) {
       DexValue staticValue = staticField.getStaticValue();
       if (staticValue.isDexValueInt()) {
-        assert !enqueuer.getMode().isInitialTreeShaking();
         IntList values = new IntArrayList(1);
         values.add(staticValue.asDexValueInt().getValue());
         rClassValueBuilder.addMapping(staticField.getReference(), values);
