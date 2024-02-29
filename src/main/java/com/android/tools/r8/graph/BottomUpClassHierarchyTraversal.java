@@ -4,16 +4,18 @@
 
 package com.android.tools.r8.graph;
 
+import com.google.common.collect.Iterables;
+import java.util.Objects;
 import java.util.function.Function;
 
 public class BottomUpClassHierarchyTraversal<T extends DexClass>
     extends ClassHierarchyTraversal<T, BottomUpClassHierarchyTraversal<T>> {
 
-  private final Function<DexType, Iterable<DexType>> immediateSubtypesProvider;
+  private final Function<T, Iterable<T>> immediateSubtypesProvider;
 
   private BottomUpClassHierarchyTraversal(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      Function<DexType, Iterable<DexType>> immediateSubtypesProvider,
+      Function<T, Iterable<T>> immediateSubtypesProvider,
       Scope scope) {
     super(appView, scope);
     this.immediateSubtypesProvider = immediateSubtypesProvider;
@@ -26,16 +28,14 @@ public class BottomUpClassHierarchyTraversal<T extends DexClass>
   public static BottomUpClassHierarchyTraversal<DexClass> forAllClasses(
       AppView<? extends AppInfoWithClassHierarchy> appView, SubtypingInfo subtypingInfo) {
     return new BottomUpClassHierarchyTraversal<>(
-        appView, subtypingInfo::allImmediateSubtypes, Scope.ALL_CLASSES);
-  }
-
-  /**
-   * Returns a visitor that can be used to visit all the program classes that are reachable from a
-   * given set of sources.
-   */
-  public static BottomUpClassHierarchyTraversal<DexProgramClass> forProgramClasses(
-      AppView<? extends AppInfoWithClassHierarchy> appView, SubtypingInfo subtypingInfo) {
-    return forProgramClasses(appView, subtypingInfo::allImmediateSubtypes);
+        appView,
+        clazz ->
+            Iterables.filter(
+                Iterables.transform(
+                    subtypingInfo.allImmediateSubtypes(clazz.getType()),
+                    appView::contextIndependentDefinitionFor),
+                Objects::nonNull),
+        Scope.ALL_CLASSES);
   }
 
   /**
@@ -44,7 +44,17 @@ public class BottomUpClassHierarchyTraversal<T extends DexClass>
    */
   public static BottomUpClassHierarchyTraversal<DexProgramClass> forProgramClasses(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      Function<DexType, Iterable<DexType>> immediateSubtypesProvider) {
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
+    return forProgramClasses(appView, immediateSubtypingInfo::getSubclasses);
+  }
+
+  /**
+   * Returns a visitor that can be used to visit all the program classes that are reachable from a
+   * given set of sources.
+   */
+  public static BottomUpClassHierarchyTraversal<DexProgramClass> forProgramClasses(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      Function<DexProgramClass, Iterable<DexProgramClass>> immediateSubtypesProvider) {
     return new BottomUpClassHierarchyTraversal<>(
         appView, immediateSubtypesProvider, Scope.ONLY_PROGRAM_CLASSES);
   }
@@ -70,12 +80,9 @@ public class BottomUpClassHierarchyTraversal<T extends DexClass>
     worklist.addFirst(clazzWithTypeT);
 
     // Add subtypes to worklist.
-    for (DexType subtype : immediateSubtypesProvider.apply(clazz.getType())) {
-      DexClass definition = definitionSupplier.contextIndependentDefinitionFor(subtype);
-      if (definition != null) {
-        if (scope != Scope.ONLY_PROGRAM_CLASSES || definition.isProgramClass()) {
-          addDependentsToWorklist(definition);
-        }
+    for (DexClass subclass : immediateSubtypesProvider.apply(clazzWithTypeT)) {
+      if (scope != Scope.ONLY_PROGRAM_CLASSES || subclass.isProgramClass()) {
+        addDependentsToWorklist(subclass);
       }
     }
   }

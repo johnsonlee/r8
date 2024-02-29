@@ -16,7 +16,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.SubtypingInfo;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
 import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
@@ -72,9 +72,13 @@ public class NoDefaultInterfaceMethodCollisions
     extends MultiClassPolicyWithPreprocessing<Map<DexType, InterfaceInfo>> {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
+  private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
 
-  public NoDefaultInterfaceMethodCollisions(AppView<? extends AppInfoWithClassHierarchy> appView) {
+  public NoDefaultInterfaceMethodCollisions(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
     this.appView = appView;
+    this.immediateSubtypingInfo = immediateSubtypingInfo;
   }
 
   @Override
@@ -144,8 +148,7 @@ public class NoDefaultInterfaceMethodCollisions
   @Override
   public Map<DexType, InterfaceInfo> preprocess(
       Collection<HorizontalMergeGroup> groups, ExecutorService executorService) {
-    SubtypingInfo subtypingInfo = SubtypingInfo.create(appView);
-    Collection<DexProgramClass> classesOfInterest = computeClassesOfInterest(subtypingInfo);
+    Collection<DexProgramClass> classesOfInterest = computeClassesOfInterest();
     Map<DexType, DexMethodSignatureSet> inheritedClassMethodsPerClass =
         computeInheritedClassMethodsPerProgramClass(classesOfInterest);
     Map<DexType, Map<DexMethodSignature, Set<DexMethod>>> inheritedDefaultMethodsPerClass =
@@ -156,7 +159,7 @@ public class NoDefaultInterfaceMethodCollisions
     Map<DexType, Map<DexMethodSignature, Set<DexMethod>>>
         defaultMethodsInheritedBySubclassesPerClass =
             computeDefaultMethodsInheritedBySubclassesPerProgramClass(
-                classesOfInterest, inheritedDefaultMethodsPerClass, groups, subtypingInfo);
+                classesOfInterest, inheritedDefaultMethodsPerClass, groups, immediateSubtypingInfo);
 
     // Store the computed information for each interface that is subject to merging.
     Map<DexType, InterfaceInfo> infos = new IdentityHashMap<>();
@@ -176,8 +179,7 @@ public class NoDefaultInterfaceMethodCollisions
   }
 
   /** Returns the set of program classes that must be considered during preprocessing. */
-  @SuppressWarnings("UnusedVariable")
-  private Collection<DexProgramClass> computeClassesOfInterest(SubtypingInfo subtypingInfo) {
+  private Collection<DexProgramClass> computeClassesOfInterest() {
     // TODO(b/173990042): Limit result to the set of classes that are in the same as one of
     //  the interfaces that is subject to merging.
     return appView.appInfo().classes();
@@ -275,13 +277,13 @@ public class NoDefaultInterfaceMethodCollisions
           Collection<DexProgramClass> classesOfInterest,
           Map<DexType, Map<DexMethodSignature, Set<DexMethod>>> inheritedDefaultMethodsPerClass,
           Collection<HorizontalMergeGroup> groups,
-          SubtypingInfo subtypingInfo) {
+          ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
     // Build a mapping from class types to their merge group.
-    Map<DexType, Iterable<DexProgramClass>> classGroupsByType =
+    Map<DexProgramClass, Iterable<DexProgramClass>> classGroupsByClass =
         MapUtils.newIdentityHashMap(
             builder ->
                 Iterables.filter(groups, HorizontalMergeGroup::isClassGroup)
-                    .forEach(group -> group.forEach(clazz -> builder.put(clazz.getType(), group))));
+                    .forEach(group -> group.forEach(clazz -> builder.put(clazz, group))));
 
     // Copy the map from classes to their inherited default methods.
     Map<DexType, Map<DexMethodSignature, Set<DexMethod>>>
@@ -298,15 +300,15 @@ public class NoDefaultInterfaceMethodCollisions
     // Therefore, it is important that we don't process any of A's supertypes until B has been
     // processed, since that would lead to inadequate upwards propagation. To achieve this, we
     // simulate that both A and B are subtypes of A's and B's supertypes.
-    Function<DexType, Iterable<DexType>> immediateSubtypesProvider =
-        type -> {
-          Set<DexType> immediateSubtypesAfterClassMerging = Sets.newIdentityHashSet();
-          for (DexType immediateSubtype : subtypingInfo.allImmediateSubtypes(type)) {
-            Iterable<DexProgramClass> group = classGroupsByType.get(immediateSubtype);
+    Function<DexProgramClass, Iterable<DexProgramClass>> immediateSubtypesProvider =
+        clazz -> {
+          Set<DexProgramClass> immediateSubtypesAfterClassMerging = Sets.newIdentityHashSet();
+          for (DexProgramClass immediateSubclass : immediateSubtypingInfo.getSubclasses(clazz)) {
+            Iterable<DexProgramClass> group = classGroupsByClass.get(immediateSubclass);
             if (group != null) {
-              group.forEach(member -> immediateSubtypesAfterClassMerging.add(member.getType()));
+              group.forEach(immediateSubtypesAfterClassMerging::add);
             } else {
-              immediateSubtypesAfterClassMerging.add(immediateSubtype);
+              immediateSubtypesAfterClassMerging.add(immediateSubclass);
             }
           }
           return immediateSubtypesAfterClassMerging;
@@ -321,7 +323,7 @@ public class NoDefaultInterfaceMethodCollisions
                   defaultMethodsInheritedBySubclassesPerClass.getOrDefault(
                       clazz.getType(), emptyMap());
               Iterable<DexProgramClass> group =
-                  classGroupsByType.getOrDefault(clazz.getType(), IterableUtils.singleton(clazz));
+                  classGroupsByClass.getOrDefault(clazz, IterableUtils.singleton(clazz));
               for (DexProgramClass member : group) {
                 for (DexType supertype : member.allImmediateSupertypes()) {
                   Map<DexMethodSignature, Set<DexMethod>>

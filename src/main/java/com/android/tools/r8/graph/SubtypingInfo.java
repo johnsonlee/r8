@@ -6,7 +6,6 @@ package com.android.tools.r8.graph;
 import static com.android.tools.r8.graph.DexApplication.classesWithDeterministicOrder;
 
 import com.android.tools.r8.utils.structural.StructuralItem;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -189,16 +188,6 @@ public class SubtypingInfo {
     return subtypes == null ? ImmutableSet.of() : subtypes;
   }
 
-  public DexType getSingleDirectSubtype(DexType type) {
-    TypeInfo info = getTypeInfo(type);
-    assert info.hierarchyLevel != SubtypingInfo.UNKNOWN_LEVEL;
-    if (info.directSubtypes.size() == 1) {
-      return Iterables.getFirst(info.directSubtypes, null);
-    } else {
-      return null;
-    }
-  }
-
   /**
    * Apply the given function to all classes that directly extend this class.
    *
@@ -221,25 +210,6 @@ public class SubtypingInfo {
     } else {
       return info.directSubtypes;
     }
-  }
-
-  /**
-   * Apply the given function to all classes that directly implement this interface.
-   *
-   * <p>The implementation does not consider how the hierarchy is encoded in the dex file, where
-   * interfaces "implement" their super interfaces. Instead it takes the view of the source
-   * language, where interfaces "extend" their superinterface.
-   */
-  public void forAllImmediateImplementsSubtypes(DexType type, Consumer<DexType> f) {
-    allImmediateImplementsSubtypes(type).forEach(f);
-  }
-
-  public Iterable<DexType> allImmediateImplementsSubtypes(DexType type) {
-    TypeInfo info = getTypeInfo(type);
-    if (info.hierarchyLevel == SubtypingInfo.INTERFACE_LEVEL) {
-      return Iterables.filter(info.directSubtypes, subtype -> !getTypeInfo(subtype).isInterface());
-    }
-    return ImmutableList.of();
   }
 
   public Set<DexType> allImmediateSubtypes(DexType type) {

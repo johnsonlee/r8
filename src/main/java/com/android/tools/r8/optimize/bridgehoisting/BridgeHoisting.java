@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.bridgehoisting;
 
-import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.BottomUpClassHierarchyTraversal;
@@ -12,16 +11,16 @@ import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.MethodAccessInfoCollection;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.info.bridge.BridgeInfo;
 import com.android.tools.r8.ir.optimize.info.bridge.VirtualBridgeInfo;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.base.Equivalence;
@@ -35,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -80,10 +78,11 @@ public class BridgeHoisting {
 
   public void run(ExecutorService executorService, Timing timing) throws ExecutionException {
     timing.begin("Bridge hoisting");
-    SubtypingInfo subtypingInfo = appView.appInfo().computeSubtypingInfo();
-    BottomUpClassHierarchyTraversal.forProgramClasses(appView, subtypingInfo)
+    ImmediateProgramSubtypingInfo immediateSubtypingInfo =
+        ImmediateProgramSubtypingInfo.create(appView);
+    BottomUpClassHierarchyTraversal.forProgramClasses(appView, immediateSubtypingInfo)
         .excludeInterfaces()
-        .visit(appView.appInfo().classes(), clazz -> processClass(clazz, subtypingInfo));
+        .visit(appView.appInfo().classes(), clazz -> processClass(clazz, immediateSubtypingInfo));
     if (!result.isEmpty()) {
       BridgeHoistingLens lens = result.buildLens();
       appView.rewriteWithLens(lens, executorService, timing);
@@ -113,22 +112,23 @@ public class BridgeHoisting {
     timing.end();
   }
 
-  private void processClass(DexProgramClass clazz, SubtypingInfo subtypingInfo) {
-    Set<DexType> subtypes = subtypingInfo.allImmediateSubtypes(clazz.type);
-    Set<DexProgramClass> subclasses = new TreeSet<>(Comparator.comparing(DexClass::getType));
-    for (DexType subtype : subtypes) {
-      DexProgramClass subclass = asProgramClassOrNull(appView.definitionFor(subtype));
-      if (subclass == null || !appView.testing().isEligibleForBridgeHoisting.test(subclass)) {
-        continue;
+  private void processClass(
+      DexProgramClass clazz, ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
+    List<DexProgramClass> subclasses =
+        ListUtils.sort(
+            immediateSubtypingInfo.getSubclasses(clazz), Comparator.comparing(DexClass::getType));
+    List<DexProgramClass> eligibleSubclasses = new ArrayList<>(subclasses.size());
+    for (DexProgramClass subclass : subclasses) {
+      if (appView.testing().isEligibleForBridgeHoisting.test(subclass)) {
+        eligibleSubclasses.add(subclass);
       }
-      subclasses.add(subclass);
     }
-    for (Wrapper<DexMethod> candidate : getCandidatesForHoisting(subclasses)) {
-      hoistBridgeIfPossible(candidate.get(), clazz, subclasses);
+    for (Wrapper<DexMethod> candidate : getCandidatesForHoisting(eligibleSubclasses)) {
+      hoistBridgeIfPossible(candidate.get(), clazz, eligibleSubclasses);
     }
   }
 
-  private Set<Wrapper<DexMethod>> getCandidatesForHoisting(Set<DexProgramClass> subclasses) {
+  private Set<Wrapper<DexMethod>> getCandidatesForHoisting(List<DexProgramClass> subclasses) {
     Equivalence<DexMethod> equivalence = MethodSignatureEquivalence.get();
     Set<Wrapper<DexMethod>> candidates = new HashSet<>();
     for (DexProgramClass subclass : subclasses) {
@@ -143,7 +143,7 @@ public class BridgeHoisting {
   }
 
   private void hoistBridgeIfPossible(
-      DexMethod method, DexProgramClass clazz, Set<DexProgramClass> subclasses) {
+      DexMethod method, DexProgramClass clazz, List<DexProgramClass> subclasses) {
     // If the method is defined on the parent class, we cannot hoist the bridge.
     // TODO(b/153147967): If the declared method is abstract, we could replace it by the bridge.
     //  Add a test.

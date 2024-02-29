@@ -106,7 +106,13 @@ public class HorizontalClassMerger {
       Timing timing)
       throws ExecutionException {
     // Run the policies on all program classes to produce a final grouping.
-    List<Policy> policies = PolicyScheduler.getPolicies(appView, runtimeTypeCheckInfo);
+    ImmediateProgramSubtypingInfo immediateSubtypingInfo =
+        appView.enableWholeProgramOptimizations()
+            ? ImmediateProgramSubtypingInfo.createWithDeterministicOrder(
+                appView.withClassHierarchy())
+            : null;
+    List<Policy> policies =
+        PolicyScheduler.getPolicies(appView, immediateSubtypingInfo, runtimeTypeCheckInfo);
     Collection<HorizontalMergeGroup> groups =
         new HorizontalClassMergerPolicyExecutor()
             .run(getInitialGroups(), policies, executorService, timing);
@@ -127,11 +133,6 @@ public class HorizontalClassMerger {
 
     // Ensure that all allocations of classes that end up needing a class id use a constructor on
     // the class itself.
-    ImmediateProgramSubtypingInfo immediateSubtypingInfo =
-        appView.enableWholeProgramOptimizations()
-            ? ImmediateProgramSubtypingInfo.createWithDeterministicOrder(
-                appView.withClassHierarchy())
-            : null;
     new UndoConstructorInlining(appView, classMergerSharedData, immediateSubtypingInfo)
         .runIfNecessary(groups, executorService, timing);
 

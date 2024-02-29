@@ -66,9 +66,12 @@ import java.util.List;
 public class PolicyScheduler {
 
   public static List<Policy> getPolicies(
-      AppView<?> appView, RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
+      AppView<?> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
+      RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     if (appView.hasClassHierarchy()) {
-      return getPoliciesForR8(appView.withClassHierarchy(), runtimeTypeCheckInfo);
+      return getPoliciesForR8(
+          appView.withClassHierarchy(), immediateSubtypingInfo, runtimeTypeCheckInfo);
     } else {
       return getPoliciesForD8(appView.withoutClassHierarchy());
     }
@@ -87,11 +90,12 @@ public class PolicyScheduler {
 
   private static List<Policy> getPoliciesForR8(
       AppView<? extends AppInfoWithClassHierarchy> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     List<Policy> policies =
         ImmutableList.<Policy>builder()
             .addAll(getSingleClassPolicies(appView, runtimeTypeCheckInfo))
-            .addAll(getMultiClassPolicies(appView, runtimeTypeCheckInfo))
+            .addAll(getMultiClassPolicies(appView, immediateSubtypingInfo, runtimeTypeCheckInfo))
             .build();
     policies = appView.options().testing.horizontalClassMergingPolicyRewriter.apply(policies);
     assert verifyPolicyOrderingConstraints(policies);
@@ -195,6 +199,7 @@ public class PolicyScheduler {
 
   private static List<Policy> getMultiClassPolicies(
       AppView<? extends AppInfoWithClassHierarchy> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
     ImmutableList.Builder<Policy> builder = ImmutableList.builder();
     addRequiredMultiClassPolicies(appView, runtimeTypeCheckInfo, builder);
@@ -206,7 +211,7 @@ public class PolicyScheduler {
       builder.add(new PreserveMethodCharacteristics(appView.withLiveness()));
     }
     builder.add(new MinimizeInstanceFieldCasts());
-    addMultiClassPoliciesForInterfaceMerging(appView, builder);
+    addMultiClassPoliciesForInterfaceMerging(appView, immediateSubtypingInfo, builder);
     return builder.add(new LimitClassGroups(appView), new FinalizeMergeGroup(appView)).build();
   }
 
@@ -260,10 +265,11 @@ public class PolicyScheduler {
 
   private static void addMultiClassPoliciesForInterfaceMerging(
       AppView<? extends AppInfoWithClassHierarchy> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       ImmutableList.Builder<Policy> builder) {
     builder.add(
         new NoDefaultInterfaceMethodMerging(appView),
-        new NoDefaultInterfaceMethodCollisions(appView),
+        new NoDefaultInterfaceMethodCollisions(appView, immediateSubtypingInfo),
         new LimitInterfaceGroups(appView),
         new OnlyDirectlyConnectedOrUnrelatedInterfaces(appView));
   }
