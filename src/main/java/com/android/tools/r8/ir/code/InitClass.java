@@ -5,9 +5,8 @@
 package com.android.tools.r8.ir.code;
 
 import com.android.tools.r8.cf.LoadStoreHelper;
-import com.android.tools.r8.cf.code.CfInitClass;
 import com.android.tools.r8.dex.Constants;
-import com.android.tools.r8.dex.code.DexInitClass;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -73,13 +72,12 @@ public class InitClass extends Instruction {
 
   @Override
   public void buildDex(DexBuilder builder) {
-    int dest = builder.allocatedRegister(outValue(), getNumber());
-    builder.add(this, new DexInitClass(dest, clazz));
+    throw new Unreachable();
   }
 
   @Override
   public void buildCf(CfBuilder builder) {
-    builder.add(new CfInitClass(clazz), this);
+    throw new Unreachable();
   }
 
   @Override

@@ -4,9 +4,6 @@
 
 package com.android.tools.r8.debug.classinit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 import com.android.tools.r8.AlwaysInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
@@ -17,10 +14,6 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.Position;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import com.android.tools.r8.utils.codeinspector.InstructionSubject;
-import com.android.tools.r8.utils.codeinspector.MethodSubject;
-import java.util.Iterator;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -52,7 +45,8 @@ public class InitClassPopCfTest extends TestBase {
         .addKeepRules("-keep class * { static java.lang.Object f; }")
         .addKeepMainRule(Main.class)
         .compile()
-        .inspect(InitClassPopCfTest::verifyInitClassFollowedByPopInCf);
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("0", "clinit A", "5504", "5");
   }
 
   private void modifyIR(IRCode irCode, AppView<?> appView) {
@@ -71,22 +65,6 @@ public class InitClassPopCfTest extends TestBase {
         next.forceOverwritePosition(pos);
       }
     }
-  }
-
-  private static void verifyInitClassFollowedByPopInCf(CodeInspector i) {
-    MethodSubject main = i.clazz(Main.class).mainMethod();
-    Iterator<InstructionSubject> iterator = main.iterateInstructions();
-    int index = 0;
-    while (iterator.hasNext()) {
-      InstructionSubject next = iterator.next();
-      // All static gets on non System are init class.
-      if (next.isStaticGet()
-          && !next.getField().getHolderType().toString().equals("java.lang.System")) {
-        assertTrue(iterator.next().isPop());
-        index++;
-      }
-    }
-    assertEquals(4, index);
   }
 
   public static class A {
