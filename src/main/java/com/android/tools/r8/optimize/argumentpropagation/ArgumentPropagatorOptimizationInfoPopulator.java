@@ -164,7 +164,7 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
     assert monomorphicMethodState.getParameterStates().stream()
         .filter(ParameterState::isConcrete)
         .map(ParameterState::asConcrete)
-        .noneMatch(ConcreteParameterState::hasInParameters);
+        .noneMatch(ConcreteParameterState::hasInFlow);
 
     if (monomorphicMethodState.size() > 0) {
       getSimpleFeedback()

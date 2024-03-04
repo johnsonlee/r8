@@ -27,21 +27,20 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
     this(nullability, Collections.emptySet());
   }
 
-  public ConcreteArrayTypeParameterState(
-      Nullability nullability, Set<MethodParameter> inParameters) {
-    super(inParameters);
+  public ConcreteArrayTypeParameterState(Nullability nullability, Set<MethodParameter> inFlow) {
+    super(inFlow);
     this.nullability = nullability;
     assert !isEffectivelyBottom() : "Must use BottomArrayTypeParameterState instead";
     assert !isEffectivelyUnknown() : "Must use UnknownParameterState instead";
   }
 
   @Override
-  public ParameterState clearInParameters() {
-    if (hasInParameters()) {
+  public ParameterState clearInFlow() {
+    if (hasInFlow()) {
       if (nullability.isBottom()) {
         return bottomArrayTypeParameter();
       }
-      internalClearInParameters();
+      internalClearInFlow();
     }
     assert !isEffectivelyBottom();
     return this;
@@ -81,7 +80,7 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
   }
 
   public boolean isEffectivelyBottom() {
-    return nullability.isBottom() && !hasInParameters();
+    return nullability.isBottom() && !hasInFlow();
   }
 
   public boolean isEffectivelyUnknown() {
@@ -90,7 +89,7 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
 
   @Override
   public ParameterState mutableCopy() {
-    return new ConcreteArrayTypeParameterState(nullability, copyInParameters());
+    return new ConcreteArrayTypeParameterState(nullability, copyInFlow());
   }
 
   @Override
@@ -105,11 +104,11 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
     if (nullability.isUnknown()) {
       return unknown();
     }
-    boolean inParametersChanged = mutableJoinInParameters(parameterState);
-    if (widenInParameters(appView)) {
+    boolean inFlowChanged = mutableJoinInFlow(parameterState);
+    if (widenInFlow(appView)) {
       return unknown();
     }
-    if (inParametersChanged) {
+    if (inFlowChanged) {
       onChangedAction.execute();
     }
     return this;

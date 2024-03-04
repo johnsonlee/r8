@@ -30,8 +30,8 @@ public class ConcreteClassTypeParameterState extends ConcreteReferenceTypeParame
   }
 
   public ConcreteClassTypeParameterState(
-      AbstractValue abstractValue, DynamicType dynamicType, Set<MethodParameter> inParameters) {
-    super(inParameters);
+      AbstractValue abstractValue, DynamicType dynamicType, Set<MethodParameter> inFlow) {
+    super(inFlow);
     this.abstractValue = abstractValue;
     this.dynamicType = dynamicType;
     assert !isEffectivelyBottom() : "Must use BottomClassTypeParameterState instead";
@@ -39,13 +39,13 @@ public class ConcreteClassTypeParameterState extends ConcreteReferenceTypeParame
   }
 
   @Override
-  public ParameterState clearInParameters() {
-    if (hasInParameters()) {
+  public ParameterState clearInFlow() {
+    if (hasInFlow()) {
       if (abstractValue.isBottom()) {
         assert dynamicType.isBottom();
         return bottomClassTypeParameter();
       }
-      internalClearInParameters();
+      internalClearInFlow();
     }
     assert !isEffectivelyBottom();
     return this;
@@ -86,7 +86,7 @@ public class ConcreteClassTypeParameterState extends ConcreteReferenceTypeParame
   }
 
   public boolean isEffectivelyBottom() {
-    return abstractValue.isBottom() && dynamicType.isBottom() && !hasInParameters();
+    return abstractValue.isBottom() && dynamicType.isBottom() && !hasInFlow();
   }
 
   public boolean isEffectivelyUnknown() {
@@ -95,7 +95,7 @@ public class ConcreteClassTypeParameterState extends ConcreteReferenceTypeParame
 
   @Override
   public ParameterState mutableCopy() {
-    return new ConcreteClassTypeParameterState(abstractValue, dynamicType, copyInParameters());
+    return new ConcreteClassTypeParameterState(abstractValue, dynamicType, copyInFlow());
   }
 
   @Override
@@ -119,13 +119,11 @@ public class ConcreteClassTypeParameterState extends ConcreteReferenceTypeParame
     if (abstractValue.isUnknown() && dynamicType.isUnknown()) {
       return unknown();
     }
-    boolean inParametersChanged = mutableJoinInParameters(parameterState);
-    if (widenInParameters(appView)) {
+    boolean inFlowChanged = mutableJoinInFlow(parameterState);
+    if (widenInFlow(appView)) {
       return unknown();
     }
-    if (abstractValue != oldAbstractValue
-        || !dynamicType.equals(oldDynamicType)
-        || inParametersChanged) {
+    if (abstractValue != oldAbstractValue || !dynamicType.equals(oldDynamicType) || inFlowChanged) {
       onChangedAction.execute();
     }
     return this;

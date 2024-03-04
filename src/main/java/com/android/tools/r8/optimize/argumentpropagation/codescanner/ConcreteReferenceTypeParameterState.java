@@ -14,8 +14,8 @@ import java.util.Set;
 
 public abstract class ConcreteReferenceTypeParameterState extends ConcreteParameterState {
 
-  ConcreteReferenceTypeParameterState(Set<MethodParameter> inParameters) {
-    super(inParameters);
+  ConcreteReferenceTypeParameterState(Set<MethodParameter> inFlow) {
+    super(inFlow);
   }
 
   public abstract DynamicType getDynamicType();

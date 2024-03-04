@@ -203,12 +203,12 @@ public class InParameterFlowPropagator {
 
       // No need to create a node for a parameter that doesn't depend on any other parameters
       // (unless some other parameter depends on this parameter).
-      if (!concreteParameterState.hasInParameters()) {
+      if (!concreteParameterState.hasInFlow()) {
         return;
       }
 
       ParameterNode node = getOrCreateParameterNode(method, parameterIndex, methodState);
-      for (MethodParameter inParameter : concreteParameterState.getInParameters()) {
+      for (MethodParameter inParameter : concreteParameterState.getInFlow()) {
         ProgramMethod enclosingMethod = getEnclosingMethod(inParameter);
         if (enclosingMethod == null) {
           // This is a parameter of a single caller inlined method. Since this method has been
@@ -247,7 +247,7 @@ public class InParameterFlowPropagator {
 
       if (!node.getState().isUnknown()) {
         assert node.getState() == concreteParameterState;
-        node.setState(concreteParameterState.clearInParameters());
+        node.setState(concreteParameterState.clearInFlow());
       }
     }
 

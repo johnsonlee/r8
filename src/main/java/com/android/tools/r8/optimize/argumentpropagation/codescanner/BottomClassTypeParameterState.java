@@ -49,6 +49,6 @@ public class BottomClassTypeParameterState extends BottomParameterState {
     return abstractValue.isUnknown() && widenedDynamicType.isUnknown()
         ? unknown()
         : new ConcreteClassTypeParameterState(
-            abstractValue, widenedDynamicType, concreteParameterState.copyInParameters());
+            abstractValue, widenedDynamicType, concreteParameterState.copyInFlow());
   }
 }

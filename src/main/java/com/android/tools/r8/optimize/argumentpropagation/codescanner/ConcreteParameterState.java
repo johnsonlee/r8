@@ -21,33 +21,33 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
     RECEIVER
   }
 
-  private Set<MethodParameter> inParameters;
+  private Set<MethodParameter> inFlow;
 
-  ConcreteParameterState(Set<MethodParameter> inParameters) {
-    this.inParameters = inParameters;
+  ConcreteParameterState(Set<MethodParameter> inFlow) {
+    this.inFlow = inFlow;
   }
 
-  public abstract ParameterState clearInParameters();
+  public abstract ParameterState clearInFlow();
 
-  void internalClearInParameters() {
-    inParameters = Collections.emptySet();
+  void internalClearInFlow() {
+    inFlow = Collections.emptySet();
   }
 
-  public Set<MethodParameter> copyInParameters() {
-    if (inParameters.isEmpty()) {
-      assert inParameters == Collections.<MethodParameter>emptySet();
-      return inParameters;
+  public Set<MethodParameter> copyInFlow() {
+    if (inFlow.isEmpty()) {
+      assert inFlow == Collections.<MethodParameter>emptySet();
+      return inFlow;
     }
-    return new HashSet<>(inParameters);
+    return new HashSet<>(inFlow);
   }
 
-  public boolean hasInParameters() {
-    return !inParameters.isEmpty();
+  public boolean hasInFlow() {
+    return !inFlow.isEmpty();
   }
 
-  public Set<MethodParameter> getInParameters() {
-    assert inParameters.isEmpty() || inParameters instanceof HashSet<?>;
-    return inParameters;
+  public Set<MethodParameter> getInFlow() {
+    assert inFlow.isEmpty() || inFlow instanceof HashSet<?>;
+    return inFlow;
   }
 
   public abstract ConcreteParameterStateKind getKind();
@@ -130,24 +130,23 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
             appView, concreteParameterState.asPrimitiveParameter(), parameterType, onChangedAction);
   }
 
-  boolean mutableJoinInParameters(ConcreteParameterState parameterState) {
-    if (parameterState.inParameters.isEmpty()) {
+  boolean mutableJoinInFlow(ConcreteParameterState parameterState) {
+    if (parameterState.inFlow.isEmpty()) {
       return false;
     }
-    if (inParameters.isEmpty()) {
-      assert inParameters == Collections.<MethodParameter>emptySet();
-      inParameters = new HashSet<>();
+    if (inFlow.isEmpty()) {
+      assert inFlow == Collections.<MethodParameter>emptySet();
+      inFlow = new HashSet<>();
     }
-    return inParameters.addAll(parameterState.inParameters);
+    return inFlow.addAll(parameterState.inFlow);
   }
 
   /**
    * Returns true if the in-parameters set should be widened to unknown, in which case the entire
    * parameter state must be widened to unknown.
    */
-  boolean widenInParameters(AppView<AppInfoWithLiveness> appView) {
-    return inParameters != null
-        && inParameters.size()
-            > appView.options().callSiteOptimizationOptions().getMaxNumberOfInParameters();
+  boolean widenInFlow(AppView<AppInfoWithLiveness> appView) {
+    return inFlow != null
+        && inFlow.size() > appView.options().callSiteOptimizationOptions().getMaxInFlowSize();
   }
 }

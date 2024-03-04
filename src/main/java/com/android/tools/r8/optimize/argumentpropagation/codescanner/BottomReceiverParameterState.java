@@ -44,7 +44,6 @@ public class BottomReceiverParameterState extends BottomParameterState {
     if (dynamicType.isUnknown()) {
       return unknown();
     }
-    return new ConcreteReceiverParameterState(
-        dynamicType, concreteParameterState.copyInParameters());
+    return new ConcreteReceiverParameterState(dynamicType, concreteParameterState.copyInFlow());
   }
 }

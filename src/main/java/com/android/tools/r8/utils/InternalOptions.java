@@ -1647,7 +1647,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       enabled = false;
     }
 
-    public int getMaxNumberOfInParameters() {
+    public int getMaxInFlowSize() {
       return 10;
     }
 

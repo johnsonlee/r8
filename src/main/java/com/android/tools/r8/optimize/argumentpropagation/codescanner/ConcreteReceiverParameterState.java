@@ -22,21 +22,20 @@ public class ConcreteReceiverParameterState extends ConcreteReferenceTypeParamet
     this(dynamicType, Collections.emptySet());
   }
 
-  public ConcreteReceiverParameterState(
-      DynamicType dynamicType, Set<MethodParameter> inParameters) {
-    super(inParameters);
+  public ConcreteReceiverParameterState(DynamicType dynamicType, Set<MethodParameter> inFlow) {
+    super(inFlow);
     this.dynamicType = dynamicType;
     assert !isEffectivelyBottom() : "Must use BottomReceiverParameterState instead";
     assert !isEffectivelyUnknown() : "Must use UnknownParameterState instead";
   }
 
   @Override
-  public ParameterState clearInParameters() {
-    if (hasInParameters()) {
+  public ParameterState clearInFlow() {
+    if (hasInFlow()) {
       if (dynamicType.isBottom()) {
         return bottomReceiverParameter();
       }
-      internalClearInParameters();
+      internalClearInFlow();
     }
     assert !isEffectivelyBottom();
     return this;
@@ -63,7 +62,7 @@ public class ConcreteReceiverParameterState extends ConcreteReferenceTypeParamet
   }
 
   public boolean isEffectivelyBottom() {
-    return dynamicType.isBottom() && !hasInParameters();
+    return dynamicType.isBottom() && !hasInFlow();
   }
 
   public boolean isEffectivelyUnknown() {
@@ -82,7 +81,7 @@ public class ConcreteReceiverParameterState extends ConcreteReferenceTypeParamet
 
   @Override
   public ParameterState mutableCopy() {
-    return new ConcreteReceiverParameterState(dynamicType, copyInParameters());
+    return new ConcreteReceiverParameterState(dynamicType, copyInFlow());
   }
 
   @Override
@@ -99,11 +98,11 @@ public class ConcreteReceiverParameterState extends ConcreteReferenceTypeParamet
     if (dynamicType.isUnknown()) {
       return unknown();
     }
-    boolean inParametersChanged = mutableJoinInParameters(parameterState);
-    if (widenInParameters(appView)) {
+    boolean inFlowChanged = mutableJoinInFlow(parameterState);
+    if (widenInFlow(appView)) {
       return unknown();
     }
-    if (!dynamicType.equals(oldDynamicType) || inParametersChanged) {
+    if (!dynamicType.equals(oldDynamicType) || inFlowChanged) {
       onChangedAction.execute();
     }
     return this;

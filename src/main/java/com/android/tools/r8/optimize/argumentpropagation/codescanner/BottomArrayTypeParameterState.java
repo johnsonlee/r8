@@ -44,7 +44,6 @@ public class BottomArrayTypeParameterState extends BottomParameterState {
     if (nullability.isMaybeNull()) {
       return unknown();
     }
-    return new ConcreteArrayTypeParameterState(
-        nullability, concreteParameterState.copyInParameters());
+    return new ConcreteArrayTypeParameterState(nullability, concreteParameterState.copyInFlow());
   }
 }

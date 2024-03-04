@@ -107,7 +107,7 @@ public class ComposeMethodProcessor extends MethodProcessor {
         if (monomorphicMethodState.getParameterState(i).isConcrete()) {
           ConcreteParameterState concreteParameterState =
               monomorphicMethodState.getParameterState(i).asConcrete();
-          if (concreteParameterState.hasInParameters()) {
+          if (concreteParameterState.hasInFlow()) {
             monomorphicMethodState.setParameterState(i, ParameterState.unknown());
           }
         }
