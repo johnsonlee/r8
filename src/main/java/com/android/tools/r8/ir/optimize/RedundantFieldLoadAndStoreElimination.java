@@ -510,14 +510,6 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
           });
     }
 
-    private boolean verifyWasInstanceInitializer() {
-      assert appView
-          .dexItemFactory()
-          .isConstructor(appView.graphLens().getOriginalMethodSignature(method.getReference()));
-      assert method.getDefinition().getOptimizationInfo().forceInline();
-      return true;
-    }
-
     private void handleInvokeDirect(InvokeDirect invoke) {
       if (!appView.hasLiveness()) {
         killAllNonFinalActiveFields();
@@ -746,9 +738,7 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       FieldAndObject fieldAndObject = new FieldAndObject(field.getReference(), object);
       ExistingValue value = new ExistingValue(instancePut.value());
       if (field.isFinalOrEffectivelyFinal(appView)) {
-        assert !field.getDefinition().isFinal()
-            || method.getDefinition().isInstanceInitializer()
-            || verifyWasInstanceInitializer();
+        assert !field.getDefinition().isFinal() || method.getDefinition().isInstanceInitializer();
         activeState.putFinalOrEffectivelyFinalInstanceField(fieldAndObject, value);
       } else {
         activeState.putNonFinalInstanceField(fieldAndObject, value);
