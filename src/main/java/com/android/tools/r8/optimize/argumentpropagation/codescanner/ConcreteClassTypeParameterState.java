@@ -21,8 +21,8 @@ public class ConcreteClassTypeParameterState extends ConcreteReferenceTypeParame
   private AbstractValue abstractValue;
   private DynamicType dynamicType;
 
-  public ConcreteClassTypeParameterState(MethodParameter inParameter) {
-    this(AbstractValue.bottom(), DynamicType.bottom(), SetUtils.newHashSet(inParameter));
+  public ConcreteClassTypeParameterState(InFlow inFlow) {
+    this(AbstractValue.bottom(), DynamicType.bottom(), SetUtils.newHashSet(inFlow));
   }
 
   public ConcreteClassTypeParameterState(AbstractValue abstractValue, DynamicType dynamicType) {
@@ -30,7 +30,7 @@ public class ConcreteClassTypeParameterState extends ConcreteReferenceTypeParame
   }
 
   public ConcreteClassTypeParameterState(
-      AbstractValue abstractValue, DynamicType dynamicType, Set<MethodParameter> inFlow) {
+      AbstractValue abstractValue, DynamicType dynamicType, Set<InFlow> inFlow) {
     super(inFlow);
     this.abstractValue = abstractValue;
     this.dynamicType = dynamicType;

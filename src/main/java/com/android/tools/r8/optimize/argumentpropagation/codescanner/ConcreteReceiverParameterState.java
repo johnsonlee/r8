@@ -22,7 +22,7 @@ public class ConcreteReceiverParameterState extends ConcreteReferenceTypeParamet
     this(dynamicType, Collections.emptySet());
   }
 
-  public ConcreteReceiverParameterState(DynamicType dynamicType, Set<MethodParameter> inFlow) {
+  public ConcreteReceiverParameterState(DynamicType dynamicType, Set<InFlow> inFlow) {
     super(inFlow);
     this.dynamicType = dynamicType;
     assert !isEffectivelyBottom() : "Must use BottomReceiverParameterState instead";

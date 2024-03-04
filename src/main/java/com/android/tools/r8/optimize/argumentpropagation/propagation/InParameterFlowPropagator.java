@@ -7,6 +7,7 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -16,6 +17,7 @@ import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
@@ -26,6 +28,7 @@ import com.android.tools.r8.optimize.argumentpropagation.utils.BidirectedGraph;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.TraversalContinuation;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
@@ -208,47 +211,56 @@ public class InParameterFlowPropagator {
       }
 
       ParameterNode node = getOrCreateParameterNode(method, parameterIndex, methodState);
-      for (MethodParameter inParameter : concreteParameterState.getInFlow()) {
-        ProgramMethod enclosingMethod = getEnclosingMethod(inParameter);
-        if (enclosingMethod == null) {
-          // This is a parameter of a single caller inlined method. Since this method has been
-          // pruned, the call from inside the method no longer exists, and we can therefore safely
-          // skip it.
-          assert converter
-              .getInliner()
-              .verifyIsPrunedDueToSingleCallerInlining(inParameter.getMethod());
-          continue;
+      for (InFlow inFlow : concreteParameterState.getInFlow()) {
+        if (inFlow.isMethodParameter()) {
+          if (addInFlow(inFlow.asMethodParameter(), node).shouldBreak()) {
+            break;
+          }
+        } else {
+          throw new Unreachable();
         }
-
-        MethodState enclosingMethodState = getMethodState(enclosingMethod);
-        if (enclosingMethodState.isBottom()) {
-          // The current method is called from a dead method; no need to propagate any information
-          // from the dead call site.
-          continue;
-        }
-
-        if (enclosingMethodState.isUnknown()) {
-          // The parameter depends on another parameter for which we don't know anything.
-          node.clearPredecessors();
-          node.setState(ParameterState.unknown());
-          break;
-        }
-
-        assert enclosingMethodState.isConcrete();
-        assert enclosingMethodState.asConcrete().isMonomorphic();
-
-        ParameterNode predecessor =
-            getOrCreateParameterNode(
-                enclosingMethod,
-                inParameter.getIndex(),
-                enclosingMethodState.asConcrete().asMonomorphic());
-        node.addPredecessor(predecessor);
       }
 
       if (!node.getState().isUnknown()) {
         assert node.getState() == concreteParameterState;
         node.setState(concreteParameterState.clearInFlow());
       }
+    }
+
+    private TraversalContinuation<?, ?> addInFlow(MethodParameter inFlow, ParameterNode node) {
+      ProgramMethod enclosingMethod = getEnclosingMethod(inFlow);
+      if (enclosingMethod == null) {
+        // This is a parameter of a single caller inlined method. Since this method has been
+        // pruned, the call from inside the method no longer exists, and we can therefore safely
+        // skip it.
+        assert converter.getInliner().verifyIsPrunedDueToSingleCallerInlining(inFlow.getMethod());
+        return TraversalContinuation.doContinue();
+      }
+
+      MethodState enclosingMethodState = getMethodState(enclosingMethod);
+      if (enclosingMethodState.isBottom()) {
+        // The current method is called from a dead method; no need to propagate any information
+        // from the dead call site.
+        return TraversalContinuation.doContinue();
+      }
+
+      if (enclosingMethodState.isUnknown()) {
+        // The parameter depends on another parameter for which we don't know anything.
+        node.clearPredecessors();
+        node.setState(ParameterState.unknown());
+        return TraversalContinuation.doBreak();
+      }
+
+      assert enclosingMethodState.isConcrete();
+      assert enclosingMethodState.asConcrete().isMonomorphic();
+
+      ParameterNode predecessor =
+          getOrCreateParameterNode(
+              enclosingMethod,
+              inFlow.getIndex(),
+              enclosingMethodState.asConcrete().asMonomorphic());
+      node.addPredecessor(predecessor);
+      return TraversalContinuation.doContinue();
     }
 
     private ParameterNode getOrCreateParameterNode(

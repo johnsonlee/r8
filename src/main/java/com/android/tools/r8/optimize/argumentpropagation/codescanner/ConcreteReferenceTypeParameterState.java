@@ -14,7 +14,7 @@ import java.util.Set;
 
 public abstract class ConcreteReferenceTypeParameterState extends ConcreteParameterState {
 
-  ConcreteReferenceTypeParameterState(Set<MethodParameter> inFlow) {
+  ConcreteReferenceTypeParameterState(Set<InFlow> inFlow) {
     super(inFlow);
   }
 

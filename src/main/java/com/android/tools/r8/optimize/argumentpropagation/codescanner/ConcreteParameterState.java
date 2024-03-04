@@ -21,9 +21,9 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
     RECEIVER
   }
 
-  private Set<MethodParameter> inFlow;
+  private Set<InFlow> inFlow;
 
-  ConcreteParameterState(Set<MethodParameter> inFlow) {
+  ConcreteParameterState(Set<InFlow> inFlow) {
     this.inFlow = inFlow;
   }
 
@@ -33,9 +33,9 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
     inFlow = Collections.emptySet();
   }
 
-  public Set<MethodParameter> copyInFlow() {
+  public Set<InFlow> copyInFlow() {
     if (inFlow.isEmpty()) {
-      assert inFlow == Collections.<MethodParameter>emptySet();
+      assert inFlow == Collections.<InFlow>emptySet();
       return inFlow;
     }
     return new HashSet<>(inFlow);
@@ -45,7 +45,7 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
     return !inFlow.isEmpty();
   }
 
-  public Set<MethodParameter> getInFlow() {
+  public Set<InFlow> getInFlow() {
     assert inFlow.isEmpty() || inFlow instanceof HashSet<?>;
     return inFlow;
   }
@@ -135,7 +135,7 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
       return false;
     }
     if (inFlow.isEmpty()) {
-      assert inFlow == Collections.<MethodParameter>emptySet();
+      assert inFlow == Collections.<InFlow>emptySet();
       inFlow = new HashSet<>();
     }
     return inFlow.addAll(parameterState.inFlow);

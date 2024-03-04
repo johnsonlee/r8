@@ -19,15 +19,15 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
 
   private Nullability nullability;
 
-  public ConcreteArrayTypeParameterState(MethodParameter inParameter) {
-    this(Nullability.bottom(), SetUtils.newHashSet(inParameter));
+  public ConcreteArrayTypeParameterState(InFlow inFlow) {
+    this(Nullability.bottom(), SetUtils.newHashSet(inFlow));
   }
 
   public ConcreteArrayTypeParameterState(Nullability nullability) {
     this(nullability, Collections.emptySet());
   }
 
-  public ConcreteArrayTypeParameterState(Nullability nullability, Set<MethodParameter> inFlow) {
+  public ConcreteArrayTypeParameterState(Nullability nullability, Set<InFlow> inFlow) {
     super(inFlow);
     this.nullability = nullability;
     assert !isEffectivelyBottom() : "Must use BottomArrayTypeParameterState instead";

@@ -7,7 +7,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 import com.android.tools.r8.graph.DexMethod;
 import java.util.Objects;
 
-public class MethodParameter {
+public class MethodParameter implements InFlow {
 
   private final DexMethod method;
   private final int index;
@@ -23,6 +23,16 @@ public class MethodParameter {
 
   public int getIndex() {
     return index;
+  }
+
+  @Override
+  public boolean isMethodParameter() {
+    return true;
+  }
+
+  @Override
+  public MethodParameter asMethodParameter() {
+    return this;
   }
 
   @Override

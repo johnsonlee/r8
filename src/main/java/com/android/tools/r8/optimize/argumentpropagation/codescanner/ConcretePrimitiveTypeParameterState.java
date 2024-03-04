@@ -21,16 +21,15 @@ public class ConcretePrimitiveTypeParameterState extends ConcreteParameterState 
     this(abstractValue, Collections.emptySet());
   }
 
-  public ConcretePrimitiveTypeParameterState(
-      AbstractValue abstractValue, Set<MethodParameter> inFlow) {
+  public ConcretePrimitiveTypeParameterState(AbstractValue abstractValue, Set<InFlow> inFlow) {
     super(inFlow);
     this.abstractValue = abstractValue;
     assert !isEffectivelyBottom() : "Must use BottomPrimitiveTypeParameterState instead";
     assert !isEffectivelyUnknown() : "Must use UnknownParameterState instead";
   }
 
-  public ConcretePrimitiveTypeParameterState(MethodParameter inParameter) {
-    this(AbstractValue.bottom(), SetUtils.newHashSet(inParameter));
+  public ConcretePrimitiveTypeParameterState(InFlow inFlow) {
+    this(AbstractValue.bottom(), SetUtils.newHashSet(inFlow));
   }
 
   @Override
