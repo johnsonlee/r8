@@ -25,6 +25,9 @@ java {
   targetCompatibility = JavaVersion.VERSION_1_8
 }
 
+val testbaseJavaCompileTask = projectTask("testbase", "compileJava")
+val testbaseDepsJarTask = projectTask("testbase", "depsJar")
+
 val testsJava8Jar = projectTask("tests_java_8", "testJar")
 val keepAnnoJarTask = projectTask("keepanno", "jar")
 val keepAnnoCompileTask = projectTask("keepanno", "compileJava")
@@ -40,14 +43,8 @@ dependencies {
   implementation(resourceShrinkerJavaCompileTask.outputs.files)
   implementation(resourceShrinkerKotlinCompileTask.outputs.files)
   implementation(resourceShrinkerDepsJarTask.outputs.files)
-  implementation(Deps.asm)
-  implementation(Deps.asmCommons)
-  implementation(Deps.asmUtil)
-  implementation(Deps.gson)
-  implementation(Deps.guava)
-  implementation(Deps.junit)
-  implementation(Deps.kotlinMetadata)
-  implementation(Deps.fastUtil)
+  implementation(testbaseDepsJarTask.outputs.files)
+  implementation(testbaseJavaCompileTask.outputs.files)
 }
 
 fun testDependencies() : FileCollection {
