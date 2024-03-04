@@ -218,8 +218,7 @@ public class CfBuilder {
     CfCode code = buildCfCode();
     timing.end();
     assert verifyInvokeInterface(code, appView);
-    assert code.getOrComputeStackMapStatus(method, appView, appView.graphLens())
-        .isValidOrNotPresent();
+    assert code.getOrComputeStackMapStatus(method, appView).isValidOrNotPresent();
     return code;
   }
 

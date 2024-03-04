@@ -18,7 +18,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.optimize.interfaces.analysis.ConcreteCfFrameState;
@@ -30,7 +29,6 @@ import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 public class CfFrameVerifier {
@@ -41,8 +39,6 @@ public class CfFrameVerifier {
   private final CfFrameVerifierEventConsumer eventConsumer;
   private final DexItemFactory factory;
   private final ProgramMethod method;
-  private final Optional<DexMethod> previousMethod;
-  private final boolean previousMethodIsInstance;
 
   private final Deque<CfTryCatch> activeCatchHandlers = new ArrayDeque<>();
   private final Set<CfLabel> tryCatchRangeLabels;
@@ -52,17 +48,13 @@ public class CfFrameVerifier {
       CfCode code,
       CfAnalysisConfig config,
       CfFrameVerifierEventConsumer eventConsumer,
-      ProgramMethod method,
-      Optional<DexMethod> previousMethod,
-      boolean previousMethodIsInstance) {
+      ProgramMethod method) {
     this.appView = appView;
     this.code = code;
     this.config = config;
     this.eventConsumer = eventConsumer;
     this.factory = appView.dexItemFactory();
     this.method = method;
-    this.previousMethod = previousMethod;
-    this.previousMethodIsInstance = previousMethodIsInstance;
     this.tryCatchRangeLabels = code.getTryCatchRangeLabels();
   }
 
@@ -309,8 +301,8 @@ public class CfFrameVerifier {
   private TraversalContinuation<CfCodeDiagnostics, CfFrameState> computeInitialState() {
     CfFrameState state = new ConcreteCfFrameState();
     int localIndex = 0;
-    DexMethod context = previousMethod.orElse(method.getReference());
-    if (method.getDefinition().isInstance() || previousMethodIsInstance) {
+    DexMethod context = method.getReference();
+    if (method.getDefinition().isInstance()) {
       state =
           state.storeLocal(
               localIndex,
@@ -428,29 +420,11 @@ public class CfFrameVerifier {
 
     private CfAnalysisConfig config;
     private CfFrameVerifierEventConsumer eventConsumer;
-    private Optional<DexMethod> previousMethod = Optional.empty();
-    private boolean previousMethodIsInstance;
 
     Builder(AppView<?> appView, CfCode code, ProgramMethod method) {
       this.appView = appView;
       this.code = code;
       this.method = method;
-    }
-
-    public Builder setCodeLens(GraphLens codeLens) {
-      if (codeLens != appView.graphLens()) {
-        this.previousMethod =
-            Optional.of(
-                appView.graphLens().getOriginalMethodSignature(method.getReference(), codeLens));
-        this.previousMethodIsInstance =
-            method.getDefinition().isInstance()
-                || appView
-                    .graphLens()
-                    .lookupPrototypeChangesForMethodDefinition(method.getReference(), codeLens)
-                    .getArgumentInfoCollection()
-                    .isConvertedToStaticMethod();
-      }
-      return this;
     }
 
     public Builder setConfig(CfAnalysisConfig config) {
@@ -465,20 +439,13 @@ public class CfFrameVerifier {
 
     public CfFrameVerifier build() {
       assert eventConsumer != null;
-      return new CfFrameVerifier(
-          appView,
-          code,
-          buildConfig(),
-          eventConsumer,
-          method,
-          previousMethod,
-          previousMethodIsInstance);
+      return new CfFrameVerifier(appView, code, buildConfig(), eventConsumer, method);
     }
 
     private CfAnalysisConfig buildConfig() {
       return config != null
           ? config
-          : new CfFrameVerifierDefaultAnalysisConfig(appView, code, method, previousMethod);
+          : new CfFrameVerifierDefaultAnalysisConfig(appView, code, method);
     }
   }
 }

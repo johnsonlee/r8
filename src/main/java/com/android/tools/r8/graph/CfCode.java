@@ -584,7 +584,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       ProgramMethod method,
       AppView<?> appView,
       MutableMethodConversionOptions conversionOptions) {
-    verifyFramesOrRemove(method, appView, getCodeLens(appView));
+    verifyFramesOrRemove(method, appView);
     return internalBuildPossiblyWithLocals(
         method, method, appView, appView.codeLens(), null, null, null, conversionOptions);
   }
@@ -601,7 +601,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
     assert valueNumberGenerator != null;
     assert callerPosition != null;
     assert protoChanges != null;
-    verifyFramesOrRemove(method, appView, codeLens);
+    verifyFramesOrRemove(method, appView);
     return internalBuildPossiblyWithLocals(
         context,
         method,
@@ -613,8 +613,8 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
         MethodConversionOptions.nonConverting());
   }
 
-  private void verifyFramesOrRemove(ProgramMethod method, AppView<?> appView, GraphLens codeLens) {
-    stackMapStatus = getOrComputeStackMapStatus(method, appView, codeLens);
+  private void verifyFramesOrRemove(ProgramMethod method, AppView<?> appView) {
+    stackMapStatus = getOrComputeStackMapStatus(method, appView);
     if (!stackMapStatus.isValidOrNotPresent()) {
       ArrayList<CfInstruction> copy = new ArrayList<>(instructions);
       copy.removeIf(CfInstruction::isFrame);
@@ -926,19 +926,13 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
   }
 
   public StackMapStatus getOrComputeStackMapStatus(ProgramMethod method, AppView<?> appView) {
-    return getOrComputeStackMapStatus(method, appView, getCodeLens(appView));
-  }
-
-  public StackMapStatus getOrComputeStackMapStatus(
-      ProgramMethod method, AppView<?> appView, GraphLens codeLens) {
     if (stackMapStatus.isNotVerified()) {
-      setStackMapStatus(computeStackMapStatus(method, appView, codeLens));
+      setStackMapStatus(computeStackMapStatus(method, appView));
     }
     return stackMapStatus;
   }
 
-  private StackMapStatus computeStackMapStatus(
-      ProgramMethod method, AppView<?> appView, GraphLens codeLens) {
+  private StackMapStatus computeStackMapStatus(ProgramMethod method, AppView<?> appView) {
     CfFrameVerifierEventConsumer eventConsumer =
         new CfFrameVerifierEventConsumer() {
 
@@ -953,7 +947,6 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
         };
     CfFrameVerifier helper =
         CfFrameVerifier.builder(appView, this, method)
-            .setCodeLens(codeLens)
             .setEventConsumer(eventConsumer)
             .build();
     return helper.run();
