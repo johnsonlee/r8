@@ -561,6 +561,10 @@ object ThirdPartyDeps {
     Paths.get("third_party", "nest", "nest_20180926_7c6cfb").toFile(),
     Paths.get("third_party", "nest", "nest_20180926_7c6cfb.tar.gz.sha1").toFile(),
     DependencyType.X20)
+  val nowinandroid = ThirdPartyDependency(
+    "nowinandroid",
+    Paths.get("third_party", "opensource-apps", "android", "nowinandroid").toFile(),
+    Paths.get("third_party", "opensource-apps", "android", "nowinandroid.tar.gz.sha1").toFile())
   val proguards = getThirdPartyProguards()
   val proguardsettings = ThirdPartyDependency(
     "proguardsettings",
