@@ -460,23 +460,6 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return accessFlags.isConstructor() && !accessFlags.isStatic();
   }
 
-  /**
-   * Returns true for (private instance) methods that have been created as a result of class merging
-   * and will be force-inlined into an instance initializer on the enclosing class.
-   */
-  public boolean willBeInlinedIntoInstanceInitializer(DexItemFactory dexItemFactory) {
-    checkIfObsolete();
-    if (getName().startsWith(dexItemFactory.temporaryConstructorMethodPrefix)) {
-      assert !isStatic();
-      return true;
-    }
-    return false;
-  }
-
-  public boolean isOrWillBeInlinedIntoInstanceInitializer(DexItemFactory dexItemFactory) {
-    return isInstanceInitializer() || willBeInlinedIntoInstanceInitializer(dexItemFactory);
-  }
-
   public boolean isDefaultInstanceInitializer() {
     checkIfObsolete();
     return isInstanceInitializer() && getParameters().isEmpty();

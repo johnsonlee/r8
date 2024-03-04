@@ -419,8 +419,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     if (toBeReplaced.isInvokeDirect()) {
       DexItemFactory dexItemFactory = appView.dexItemFactory();
       DexMethod invokedMethod = toBeReplaced.asInvokeDirect().getInvokedMethod();
-      if (invokedMethod.isInstanceInitializer(dexItemFactory)
-          || invokedMethod.mustBeInlinedIntoInstanceInitializer(appView)) {
+      if (invokedMethod.isInstanceInitializer(dexItemFactory)) {
         return false;
       }
     }

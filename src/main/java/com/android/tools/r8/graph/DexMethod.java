@@ -335,29 +335,6 @@ public class DexMethod extends DexMember<DexEncodedMethod, DexMethod> {
     return factory.isConstructor(this);
   }
 
-  public boolean mustBeInlinedIntoInstanceInitializer(AppView<?> appView) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    if (getName().startsWith(dexItemFactory.temporaryConstructorMethodPrefix)) {
-      DexClassAndMethod method = appView.definitionFor(this);
-      return method != null
-          && appView
-              .graphLens()
-              .getOriginalMethodSignature(this)
-              .isInstanceInitializer(dexItemFactory);
-    }
-    return false;
-  }
-
-  public boolean isHorizontallyMergedInstanceInitializer(DexItemFactory dexItemFactory) {
-    return getName().startsWith(dexItemFactory.syntheticConstructorMethodPrefix);
-  }
-
-  public boolean isInstanceInitializerInlineIntoOrMerged(AppView<?> appView) {
-    return isInstanceInitializer(appView.dexItemFactory())
-        || mustBeInlinedIntoInstanceInitializer(appView)
-        || isHorizontallyMergedInstanceInitializer(appView.dexItemFactory());
-  }
-
   public DexMethod withExtraArgumentPrepended(DexType type, DexItemFactory dexItemFactory) {
     return dexItemFactory.createMethod(
         holder, getProto().prependParameter(type, dexItemFactory), name);

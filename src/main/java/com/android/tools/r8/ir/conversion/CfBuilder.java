@@ -224,7 +224,7 @@ public class CfBuilder {
   }
 
   private Set<UninitializedThisLocalRead> insertUninitializedThisLocalReads() {
-    if (!method.getReference().isInstanceInitializerInlineIntoOrMerged(appView)) {
+    if (!method.getReference().isInstanceInitializer(appView.dexItemFactory())) {
       return Collections.emptySet();
     }
     // Find all non-normal exit blocks.
@@ -272,7 +272,7 @@ public class CfBuilder {
     assert thisInitializers == null;
     initializers = new HashMap<>();
     boolean isInstanceInitializer =
-        method.getReference().isInstanceInitializerInlineIntoOrMerged(appView);
+        method.getReference().isInstanceInitializer(appView.dexItemFactory());
     for (BasicBlock block : code.blocks) {
       for (Instruction insn : block.getInstructions()) {
         if (insn.isNewInstance()) {

@@ -132,9 +132,6 @@ public class EffectivelyUnusedArgumentsAnalysis {
     if (method.getDefinition().isInstanceInitializer() && argumentValue.isThis()) {
       return null;
     }
-    if (method.getDefinition().willBeInlinedIntoInstanceInitializer(appView.dexItemFactory())) {
-      return null;
-    }
     if (!ParameterRemovalUtils.canRemoveUnusedParameter(appView, method, argument.getIndex())) {
       return null;
     }

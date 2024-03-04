@@ -242,7 +242,7 @@ public class TypeVerificationHelper {
         TypeInfo argumentType;
         if (argumentIndex < 0) {
           argumentType =
-              reference.isInstanceInitializerInlineIntoOrMerged(appView)
+              reference.isInstanceInitializer(appView.dexItemFactory())
                   ? new ThisInstanceInfo(instruction.asArgument(), reference.getHolderType())
                   : createInitializedType(reference.getHolderType());
         } else {

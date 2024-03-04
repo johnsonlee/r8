@@ -354,10 +354,6 @@ public class DexItemFactory {
   public final DexString constructorMethodName = createString(Constants.INSTANCE_INITIALIZER_NAME);
   public final DexString classConstructorMethodName =
       createString(Constants.CLASS_INITIALIZER_NAME);
-  public final DexString temporaryConstructorMethodPrefix =
-      createString(Constants.TEMPORARY_INSTANCE_INITIALIZER_PREFIX);
-  public final DexString syntheticConstructorMethodPrefix =
-      createString(Constants.SYNTHETIC_INSTANCE_INITIALIZER_PREFIX);
 
   public final DexString thisName = createString("this");
   public final DexString lambdaInstanceFieldName = createString(LAMBDA_INSTANCE_FIELD_NAME);
