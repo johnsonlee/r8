@@ -142,7 +142,7 @@ public class Jdk8272564Test extends TestBase {
         .addProgramFiles(Jdk8272564.jar())
         .run(parameters.getRuntime(), Jdk8272564.Main.typeName())
         .applyIf(
-            parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.S),
+            parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.U),
             b -> b.inspect(this::assertJdk8272564NotFixedCode),
             b -> b.inspect(this::assertJdk8272564FixedCode))
         .assertSuccess();

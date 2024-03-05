@@ -3133,8 +3133,13 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // JDK 18.
   //
   // See b/218298666.
+  //
+  // Art also had a bug in Android T, where this could lead to undefined behaviour (interpreter
+  // only).
+  //
+  // See b/326661821 (details in b/326661821#comment33).
   public boolean canHaveInvokeInterfaceToObjectMethodBug() {
-    return canHaveBugPresentUntil(AndroidApiLevel.S);
+    return canHaveBugPresentUntil(AndroidApiLevel.U);
   }
 
   // Until we fully drop support for API levels < 16, we have to emit an empty annotation set to
