@@ -8,12 +8,14 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static com.google.common.base.Predicates.alwaysTrue;
 
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -125,6 +127,19 @@ public class ImmediateProgramSubtypingInfo {
 
   public List<DexProgramClass> getSubclasses(DexProgramClass clazz) {
     return immediateSubtypes.getOrDefault(clazz, Collections.emptyList());
+  }
+
+  public Iterable<DexProgramClass> getSubinterfaces(DexProgramClass clazz) {
+    assert clazz.isInterface();
+    return Iterables.filter(getSubclasses(clazz), DexClass::isInterface);
+  }
+
+  public Iterable<DexProgramClass> getSuperinterfaces(
+      DexProgramClass clazz, DexDefinitionSupplier definitions) {
+    return Iterables.filter(
+        Iterables.transform(
+            clazz.getInterfaces(), i -> asProgramClassOrNull(definitions.definitionFor(i, clazz))),
+        Objects::nonNull);
   }
 
   public boolean hasSubclasses(DexProgramClass clazz) {

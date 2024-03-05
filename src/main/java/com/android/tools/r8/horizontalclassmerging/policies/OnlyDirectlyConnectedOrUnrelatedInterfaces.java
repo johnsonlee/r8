@@ -4,16 +4,12 @@
 
 package com.android.tools.r8.horizontalclassmerging.policies;
 
-import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
-
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.SubtypingInfo;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
-import com.android.tools.r8.horizontalclassmerging.MultiClassPolicyWithPreprocessing;
+import com.android.tools.r8.horizontalclassmerging.MultiClassPolicy;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +22,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 /**
@@ -54,24 +49,25 @@ import java.util.function.Function;
  *   interface J extends IK, ... {}
  * </pre>
  */
-public class OnlyDirectlyConnectedOrUnrelatedInterfaces
-    extends MultiClassPolicyWithPreprocessing<SubtypingInfo> {
+public class OnlyDirectlyConnectedOrUnrelatedInterfaces extends MultiClassPolicy {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
+  private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
 
   // The interface merge groups that this policy has committed to so far.
   private final Map<DexProgramClass, HorizontalMergeGroup> committed = new IdentityHashMap<>();
 
   public OnlyDirectlyConnectedOrUnrelatedInterfaces(
-      AppView<? extends AppInfoWithClassHierarchy> appView) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
     this.appView = appView;
+    this.immediateSubtypingInfo = immediateSubtypingInfo;
   }
 
   // TODO(b/270398965): Replace LinkedList.
   @Override
   @SuppressWarnings({"JdkObsolete", "MixedMutabilityReturnType"})
-  public Collection<HorizontalMergeGroup> apply(
-      HorizontalMergeGroup group, SubtypingInfo subtypingInfo) {
+  public Collection<HorizontalMergeGroup> apply(HorizontalMergeGroup group) {
     if (!group.isInterfaceGroup()) {
       return ImmutableList.of(group);
     }
@@ -79,7 +75,7 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
     List<MergeGroupWithInfo> newGroupsWithInfo = new ArrayList<>();
     for (DexProgramClass clazz : group) {
       Set<DexProgramClass> superInterfaces = computeSuperInterfaces(clazz);
-      Set<DexProgramClass> subInterfaces = computeSubInterfaces(clazz, subtypingInfo);
+      Set<DexProgramClass> subInterfaces = computeSubInterfaces(clazz);
 
       MergeGroupWithInfo newGroup = null;
       for (MergeGroupWithInfo candidateGroup : newGroupsWithInfo) {
@@ -116,18 +112,17 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
   }
 
   private Set<DexProgramClass> computeSuperInterfaces(DexProgramClass clazz) {
-    return computeTransitiveSubOrSuperInterfaces(clazz, DexClass::getInterfaces);
+    return computeStrictTransitiveInterfaces(
+        clazz, i -> immediateSubtypingInfo.getSuperinterfaces(i, appView));
   }
 
-  private Set<DexProgramClass> computeSubInterfaces(
-      DexProgramClass clazz, SubtypingInfo subtypingInfo) {
-    return computeTransitiveSubOrSuperInterfaces(
-        clazz, definition -> subtypingInfo.allImmediateExtendsSubtypes(definition.getType()));
+  private Set<DexProgramClass> computeSubInterfaces(DexProgramClass clazz) {
+    return computeStrictTransitiveInterfaces(clazz, immediateSubtypingInfo::getSubinterfaces);
   }
 
-  private Set<DexProgramClass> computeTransitiveSubOrSuperInterfaces(
+  private Set<DexProgramClass> computeStrictTransitiveInterfaces(
       DexProgramClass clazz,
-      Function<DexProgramClass, Iterable<DexType>> immediateSubOrSuperInterfacesProvider) {
+      Function<DexProgramClass, Iterable<DexProgramClass>> immediateSubOrSuperInterfacesProvider) {
     WorkList<DexProgramClass> workList = WorkList.newWorkList(new LinkedHashSet<>());
     // Intentionally not marking `clazz` as seen, since we only want the strict sub/super types.
     workList.addIgnoringSeenSet(clazz);
@@ -137,14 +132,7 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
           if (group != null) {
             workList.addIfNotSeen(group);
           }
-          for (DexType immediateSubOrSuperInterfaceType :
-              immediateSubOrSuperInterfacesProvider.apply(interfaceDefinition)) {
-            DexProgramClass immediateSubOrSuperInterface =
-                asProgramClassOrNull(appView.definitionFor(immediateSubOrSuperInterfaceType));
-            if (immediateSubOrSuperInterface != null) {
-              workList.addIfNotSeen(immediateSubOrSuperInterface);
-            }
-          }
+          workList.addIfNotSeen(immediateSubOrSuperInterfacesProvider.apply(interfaceDefinition));
         });
     assert !workList.isSeen(clazz);
     return workList.getMutableSeenSet();
@@ -158,12 +146,6 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces
   @Override
   public String getName() {
     return "OnlyDirectlyConnectedOrUnrelatedInterfaces";
-  }
-
-  @Override
-  public SubtypingInfo preprocess(
-      Collection<HorizontalMergeGroup> groups, ExecutorService executorService) {
-    return SubtypingInfo.create(appView);
   }
 
   @Override

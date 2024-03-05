@@ -271,7 +271,7 @@ public class PolicyScheduler {
         new NoDefaultInterfaceMethodMerging(appView),
         new NoDefaultInterfaceMethodCollisions(appView, immediateSubtypingInfo),
         new LimitInterfaceGroups(appView),
-        new OnlyDirectlyConnectedOrUnrelatedInterfaces(appView));
+        new OnlyDirectlyConnectedOrUnrelatedInterfaces(appView, immediateSubtypingInfo));
   }
 
   private static boolean verifyMultiClassPoliciesIrrelevantForMergingSyntheticsInD8(
