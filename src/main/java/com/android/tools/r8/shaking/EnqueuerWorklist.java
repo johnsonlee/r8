@@ -263,15 +263,18 @@ public abstract class EnqueuerWorklist {
     private final DexMethod invokedMethod;
     // TODO(b/175854431): Avoid pushing context on worklist.
     private final ProgramMethod context;
+    private final DefaultEnqueuerUseRegistry registry;
 
-    TraceInvokeDirectAction(DexMethod invokedMethod, ProgramMethod context) {
+    TraceInvokeDirectAction(
+        DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
       this.invokedMethod = invokedMethod;
       this.context = context;
+      this.registry = registry;
     }
 
     @Override
     public void run(Enqueuer enqueuer) {
-      enqueuer.traceInvokeDirect(invokedMethod, context);
+      enqueuer.traceInvokeDirect(invokedMethod, context, registry);
     }
   }
 
@@ -279,15 +282,18 @@ public abstract class EnqueuerWorklist {
     private final DexMethod invokedMethod;
     // TODO(b/175854431): Avoid pushing context on worklist.
     private final ProgramMethod context;
+    private final DefaultEnqueuerUseRegistry registry;
 
-    TraceInvokeStaticAction(DexMethod invokedMethod, ProgramMethod context) {
+    TraceInvokeStaticAction(
+        DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
       this.invokedMethod = invokedMethod;
       this.context = context;
+      this.registry = registry;
     }
 
     @Override
     public void run(Enqueuer enqueuer) {
-      enqueuer.traceInvokeStatic(invokedMethod, context);
+      enqueuer.traceInvokeStatic(invokedMethod, context, registry);
     }
   }
 
@@ -590,10 +596,10 @@ public abstract class EnqueuerWorklist {
   public abstract void enqueueTraceDirectAndIndirectClassInitializers(DexProgramClass clazz);
 
   public abstract void enqueueTraceInvokeDirectAction(
-      DexMethod invokedMethod, ProgramMethod context);
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry);
 
   public abstract void enqueueTraceInvokeStaticAction(
-      DexMethod invokedMethod, ProgramMethod context);
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry);
 
   public abstract void enqueueTraceNewInstanceAction(DexType type, ProgramMethod context);
 
@@ -725,13 +731,15 @@ public abstract class EnqueuerWorklist {
     }
 
     @Override
-    public void enqueueTraceInvokeDirectAction(DexMethod invokedMethod, ProgramMethod context) {
-      queue.add(new TraceInvokeDirectAction(invokedMethod, context));
+    public void enqueueTraceInvokeDirectAction(
+        DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
+      queue.add(new TraceInvokeDirectAction(invokedMethod, context, registry));
     }
 
     @Override
-    public void enqueueTraceInvokeStaticAction(DexMethod invokedMethod, ProgramMethod context) {
-      queue.add(new TraceInvokeStaticAction(invokedMethod, context));
+    public void enqueueTraceInvokeStaticAction(
+        DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
+      queue.add(new TraceInvokeStaticAction(invokedMethod, context, registry));
     }
 
     @Override
@@ -891,12 +899,14 @@ public abstract class EnqueuerWorklist {
     }
 
     @Override
-    public void enqueueTraceInvokeDirectAction(DexMethod invokedMethod, ProgramMethod context) {
+    public void enqueueTraceInvokeDirectAction(
+        DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
       throw attemptToEnqueue("TraceInvokeDirectAction " + invokedMethod + " from " + context);
     }
 
     @Override
-    public void enqueueTraceInvokeStaticAction(DexMethod invokedMethod, ProgramMethod context) {
+    public void enqueueTraceInvokeStaticAction(
+        DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
       throw attemptToEnqueue("TraceInvokeStaticAction " + invokedMethod + " from " + context);
     }
 

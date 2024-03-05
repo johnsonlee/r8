@@ -40,14 +40,8 @@ import java.util.concurrent.ExecutorService;
 
 public class RedundantBridgeRemover {
 
-  public enum RedundantBridgeRemoverMode {
-    INITIAL,
-    FINAL
-  }
-
   private final AppView<AppInfoWithLiveness> appView;
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
-  private final RedundantBridgeRemoverMode mode;
   private final RedundantBridgeRemovalOptions redundantBridgeRemovalOptions;
 
   private final RedundantBridgeRemovalLens.Builder lensBuilder =
@@ -55,11 +49,9 @@ public class RedundantBridgeRemover {
 
   private boolean mustRetargetInvokesToTargetMethod = false;
 
-  public RedundantBridgeRemover(
-      AppView<AppInfoWithLiveness> appView, RedundantBridgeRemoverMode mode) {
+  public RedundantBridgeRemover(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
     this.immediateSubtypingInfo = ImmediateProgramSubtypingInfo.create(appView);
-    this.mode = mode;
     this.redundantBridgeRemovalOptions = appView.options().getRedundantBridgeRemovalOptions();
   }
 
@@ -167,7 +159,6 @@ public class RedundantBridgeRemover {
       }
     }
     appView.notifyOptimizationFinishedForTesting();
-    appView.appInfo().notifyRedundantBridgeRemoverFinished(memberRebindingIdentityLens == null);
     timing.end();
   }
 
@@ -364,12 +355,6 @@ public class RedundantBridgeRemover {
     }
 
     private boolean hasSuperInvoke(ProgramMethod method) {
-      if (mode == RedundantBridgeRemoverMode.INITIAL) {
-        return appView
-            .appInfo()
-            .getMethodAccessInfoCollection()
-            .hasSuperInvoke(method.getReference());
-      }
       return getOrCreateSuperTargets(method.getHolder()).contains(method);
     }
 
@@ -379,8 +364,7 @@ public class RedundantBridgeRemover {
       }
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView;
       superTargets = ProgramMethodSet.create();
-      WorkList<DexProgramClass> worklist =
-          WorkList.newIdentityWorkList(immediateSubtypingInfo.getSubclasses(root));
+      WorkList<DexProgramClass> worklist = WorkList.newIdentityWorkList(root);
       while (worklist.hasNext()) {
         DexProgramClass clazz = worklist.next();
         clazz.forEachProgramMethodMatching(

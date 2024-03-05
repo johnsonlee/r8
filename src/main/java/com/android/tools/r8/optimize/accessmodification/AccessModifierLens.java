@@ -46,6 +46,11 @@ public class AccessModifierLens extends DefaultNonIdentityGraphLens {
   }
 
   @Override
+  public boolean isAccessModifierLens() {
+    return true;
+  }
+
+  @Override
   public DexMethod getNextMethodSignature(DexMethod method) {
     return methodMap.getOrDefault(method, method);
   }

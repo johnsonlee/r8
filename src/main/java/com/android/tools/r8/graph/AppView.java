@@ -448,7 +448,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     setGraphLens(new ClearCodeRewritingGraphLens(withClassHierarchy()));
 
     MemberRebindingIdentityLens memberRebindingIdentityLens =
-        MemberRebindingIdentityLensFactory.createFromLir(withClassHierarchy(), executorService);
+        MemberRebindingIdentityLensFactory.create(withClassHierarchy(), executorService);
     setGraphLens(memberRebindingIdentityLens);
     timing.end();
   }
@@ -1113,17 +1113,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
                 @Override
                 public void onJoin() {
                   appView.withClassHierarchy().setAppInfo(result);
-                  assert verifyLensRewriting();
-                }
-
-                private boolean verifyLensRewriting() {
-                  if (appView.hasLiveness()) {
-                    AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
-                    MethodAccessInfoCollection methodAccessInfoCollection =
-                        appViewWithLiveness.appInfo().getMethodAccessInfoCollection();
-                    assert methodAccessInfoCollection.verify(appViewWithLiveness);
-                  }
-                  return true;
                 }
               },
               new ThreadTask() {

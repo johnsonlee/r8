@@ -86,7 +86,6 @@ public class VerticalClassMerger {
     }
     assert appView.hasVerticallyMergedClasses();
     assert ArtProfileCompletenessChecker.verify(appView);
-    appView.appInfo().notifyVerticalClassMergerFinished(mode);
     timing.end();
   }
 

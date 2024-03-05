@@ -8,7 +8,6 @@ import static com.android.tools.r8.graph.MethodResolutionResult.SingleResolution
 import static com.android.tools.r8.utils.collections.ThrowingSet.isThrowingSet;
 
 import com.android.tools.r8.cf.CfVersion;
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -40,7 +39,6 @@ import com.android.tools.r8.graph.InstantiatedSubTypeInfo;
 import com.android.tools.r8.graph.LookupMethodTarget;
 import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
 import com.android.tools.r8.graph.LookupTarget;
-import com.android.tools.r8.graph.MethodAccessInfoCollection;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollectionImpl;
@@ -137,8 +135,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
    */
   private final FieldAccessInfoCollectionImpl fieldAccessInfoCollection;
 
-  /** Set of all methods referenced in invokes along with their calling contexts. */
-  private final MethodAccessInfoCollection methodAccessInfoCollection;
   /** Information about instantiated classes and their allocation sites. */
   private final ObjectAllocationInfoCollectionImpl objectAllocationInfoCollection;
   /**
@@ -213,7 +209,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Set<DexMethod> virtualMethodsTargetedByInvokeDirect,
       Set<DexMethod> liveMethods,
       FieldAccessInfoCollectionImpl fieldAccessInfoCollection,
-      MethodAccessInfoCollection methodAccessInfoCollection,
       ObjectAllocationInfoCollectionImpl objectAllocationInfoCollection,
       Map<DexCallSite, ProgramMethodSet> callSites,
       KeepInfoCollection keepInfo,
@@ -242,7 +237,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.virtualMethodsTargetedByInvokeDirect = virtualMethodsTargetedByInvokeDirect;
     this.liveMethods = liveMethods;
     this.fieldAccessInfoCollection = fieldAccessInfoCollection;
-    this.methodAccessInfoCollection = methodAccessInfoCollection;
     this.objectAllocationInfoCollection = objectAllocationInfoCollection;
     this.keepInfo = keepInfo;
     this.mayHaveSideEffects = mayHaveSideEffects;
@@ -279,7 +273,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.virtualMethodsTargetedByInvokeDirect,
         previous.liveMethods,
         previous.fieldAccessInfoCollection,
-        previous.methodAccessInfoCollection,
         previous.objectAllocationInfoCollection,
         previous.callSites,
         previous.keepInfo,
@@ -317,7 +310,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         pruneMethods(previous.virtualMethodsTargetedByInvokeDirect, prunedItems, tasks),
         pruneMethods(previous.liveMethods, prunedItems, tasks),
         previous.fieldAccessInfoCollection.withoutPrunedItems(prunedItems),
-        previous.methodAccessInfoCollection.withoutPrunedContexts(prunedItems),
         previous.objectAllocationInfoCollection.withoutPrunedItems(prunedItems),
         pruneCallSites(previous.callSites, prunedItems),
         extendPinnedItems(previous, prunedItems.getAdditionalPinnedItems()),
@@ -446,21 +438,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return map;
   }
 
-  @Override
-  public void notifyVerticalClassMergerFinished(ClassMergerMode mode) {
-    if (mode.isInitial()) {
-      getMethodAccessInfoCollection().destroy();
-    }
-  }
-
   public void notifyMemberRebindingFinished(AppView<AppInfoWithLiveness> appView) {
     getFieldAccessInfoCollection().restrictToProgram(appView);
-  }
-
-  public void notifyRedundantBridgeRemoverFinished(boolean initial) {
-    if (initial) {
-      getMethodAccessInfoCollection().destroySuperInvokes();
-    }
   }
 
   @Override
@@ -499,7 +478,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         virtualMethodsTargetedByInvokeDirect,
         liveMethods,
         fieldAccessInfoCollection,
-        methodAccessInfoCollection,
         objectAllocationInfoCollection,
         callSites,
         keepInfo,
@@ -573,7 +551,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.virtualMethodsTargetedByInvokeDirect = previous.virtualMethodsTargetedByInvokeDirect;
     this.liveMethods = previous.liveMethods;
     this.fieldAccessInfoCollection = previous.fieldAccessInfoCollection;
-    this.methodAccessInfoCollection = previous.methodAccessInfoCollection;
     this.objectAllocationInfoCollection = previous.objectAllocationInfoCollection;
     this.keepInfo = previous.keepInfo;
     this.mayHaveSideEffects = previous.mayHaveSideEffects;
@@ -829,11 +806,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
 
   FieldAccessInfoCollectionImpl getMutableFieldAccessInfoCollection() {
     return fieldAccessInfoCollection;
-  }
-
-  /** This method provides immutable access to `methodAccessInfoCollection`. */
-  public MethodAccessInfoCollection getMethodAccessInfoCollection() {
-    return methodAccessInfoCollection;
   }
 
   /** This method provides immutable access to `objectAllocationInfoCollection`. */
@@ -1128,7 +1100,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         lens.rewriteReferences(virtualMethodsTargetedByInvokeDirect),
         lens.rewriteReferences(liveMethods),
         fieldAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens, timing),
-        methodAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens, timing),
         objectAllocationInfoCollection.rewrittenWithLens(
             definitionSupplier, lens, appliedLens, timing),
         lens.rewriteCallSites(callSites, definitionSupplier, timing),

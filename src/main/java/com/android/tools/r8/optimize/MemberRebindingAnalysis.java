@@ -4,10 +4,12 @@
 package com.android.tools.r8.optimize;
 
 import static com.android.tools.r8.utils.AndroidApiLevelUtils.isApiSafeForMemberRebinding;
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DefaultUseRegistry;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -18,16 +20,14 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.LibraryMethod;
-import com.android.tools.r8.graph.MethodAccessInfoCollection;
-import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.BiForEachable;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Pair;
+import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.TriConsumer;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Iterables;
@@ -36,9 +36,10 @@ import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 public class MemberRebindingAnalysis {
 
@@ -243,42 +244,116 @@ public class MemberRebindingAnalysis {
     return searchClass != null ? searchClass.getType() : null;
   }
 
-  private MethodResolutionResult resolveMethodOnClass(DexMethod method) {
-    return appView.appInfo().resolveMethodOnClassLegacy(method.holder, method);
+  private Map<InvokeType, NonReboundMethodAccessCollection>
+      computeNonReboundMethodAccessCollections(ExecutorService executorService)
+          throws ExecutionException {
+    Map<InvokeType, NonReboundMethodAccessCollection> nonReboundMethodAccessCollections =
+        new ConcurrentHashMap<>();
+    ThreadUtils.processItems(
+        appView.appInfo().classes(),
+        clazz -> {
+          Map<InvokeType, NonReboundMethodAccessCollection> classResult =
+              computeNonReboundMethodAccessCollections(clazz);
+          classResult.forEach(
+              (invokeType, nonReboundMethodAccessCollection) ->
+                  nonReboundMethodAccessCollections
+                      .computeIfAbsent(
+                          invokeType, ignoreKey(NonReboundMethodAccessCollection::createConcurrent))
+                      .mergeThreadLocalIntoShared(nonReboundMethodAccessCollection));
+        },
+        options.getThreadingModule(),
+        executorService);
+    return nonReboundMethodAccessCollections;
   }
 
-  private MethodResolutionResult resolveMethodOnInterface(DexMethod method) {
-    return appView.appInfo().resolveMethodOnInterfaceLegacy(method.holder, method);
+  private Map<InvokeType, NonReboundMethodAccessCollection>
+      computeNonReboundMethodAccessCollections(DexProgramClass clazz) {
+    Map<InvokeType, NonReboundMethodAccessCollection> nonReboundMethodAccessCollections =
+        new IdentityHashMap<>();
+    clazz.forEachProgramMethodMatching(
+        DexEncodedMethod::hasCode,
+        method ->
+            method.registerCodeReferences(
+                new DefaultUseRegistry<>(appView, method) {
+
+                  private final AppView<AppInfoWithLiveness> appViewWithLiveness =
+                      MemberRebindingAnalysis.this.appView;
+
+                  @Override
+                  public void registerInvokeDirect(DexMethod method) {
+                    // Intentionally empty.
+                  }
+
+                  @Override
+                  public void registerInvokeInterface(DexMethod method) {
+                    registerInvoke(
+                        InvokeType.INTERFACE,
+                        method,
+                        appViewWithLiveness
+                            .appInfo()
+                            .resolveMethodOnInterface(method.getHolderType(), method)
+                            .asSingleResolution());
+                  }
+
+                  @Override
+                  public void registerInvokeStatic(DexMethod method) {
+                    registerInvoke(
+                        InvokeType.STATIC,
+                        method,
+                        appViewWithLiveness
+                            .appInfo()
+                            .unsafeResolveMethodDueToDexFormat(method)
+                            .asSingleResolution());
+                  }
+
+                  @Override
+                  public void registerInvokeSuper(DexMethod method) {
+                    registerInvoke(
+                        InvokeType.SUPER,
+                        method,
+                        appViewWithLiveness
+                            .appInfo()
+                            .unsafeResolveMethodDueToDexFormat(method)
+                            .asSingleResolution());
+                  }
+
+                  @Override
+                  public void registerInvokeVirtual(DexMethod method) {
+                    registerInvoke(
+                        InvokeType.VIRTUAL,
+                        method,
+                        appViewWithLiveness
+                            .appInfo()
+                            .resolveMethodOnClassHolder(method)
+                            .asSingleResolution());
+                  }
+
+                  private void registerInvoke(
+                      InvokeType invokeType,
+                      DexMethod method,
+                      SingleResolutionResult<?> resolutionResult) {
+                    if (resolutionResult != null
+                        && resolutionResult
+                            .getResolvedMethod()
+                            .getReference()
+                            .isNotIdenticalTo(method)) {
+                      nonReboundMethodAccessCollections
+                          .computeIfAbsent(
+                              invokeType, ignoreKey(NonReboundMethodAccessCollection::create))
+                          .add(method, resolutionResult, getContext());
+                    }
+                  }
+                }));
+    return nonReboundMethodAccessCollections;
   }
 
-  private MethodResolutionResult resolveMethod(DexMethod method) {
-    return appView.appInfo().unsafeResolveMethodDueToDexFormatLegacy(method);
-  }
-
-  private void computeMethodRebinding(MethodAccessInfoCollection methodAccessInfoCollection) {
-    // Virtual invokes are on classes, so use class resolution.
-    computeMethodRebinding(
-        methodAccessInfoCollection::forEachVirtualInvoke,
-        this::resolveMethodOnClass,
-        InvokeType.VIRTUAL);
-    // Interface invokes are always on interfaces, so use interface resolution.
-    computeMethodRebinding(
-        methodAccessInfoCollection::forEachInterfaceInvoke,
-        this::resolveMethodOnInterface,
-        InvokeType.INTERFACE);
-    // Super invokes can be on both kinds, decide using the holder class.
-    computeMethodRebinding(
-        methodAccessInfoCollection::forEachSuperInvoke, this::resolveMethod, InvokeType.SUPER);
-    // Likewise static invokes.
-    computeMethodRebinding(
-        methodAccessInfoCollection::forEachStaticInvoke, this::resolveMethod, InvokeType.STATIC);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
   private void computeMethodRebinding(
-      BiForEachable<DexMethod, ProgramMethodSet> methodsWithContexts,
-      Function<DexMethod, MethodResolutionResult> resolver,
-      InvokeType invokeType) {
+      Map<InvokeType, NonReboundMethodAccessCollection> nonReboundMethodAccessCollections) {
+    nonReboundMethodAccessCollections.forEach(this::computeMethodRebinding);
+  }
+
+  private void computeMethodRebinding(
+      InvokeType invokeType, NonReboundMethodAccessCollection nonReboundMethodAccessCollection) {
     Map<DexProgramClass, List<Pair<DexMethod, DexClassAndMethod>>> bridges =
         new IdentityHashMap<>();
     TriConsumer<DexProgramClass, DexMethod, DexClassAndMethod> addBridge =
@@ -287,28 +362,11 @@ public class MemberRebindingAnalysis {
                 .computeIfAbsent(bridgeHolder, k -> new ArrayList<>())
                 .add(new Pair<>(method, target));
 
-    methodsWithContexts.forEach(
-        (method, contexts) -> {
-          SingleResolutionResult<?> resolutionResult = resolver.apply(method).asSingleResolution();
-          if (resolutionResult == null) {
-            return;
-          }
-
-          if (method.getHolderType().isArrayType()) {
-            assert resolutionResult.getResolvedHolder().getType()
-                == appView.dexItemFactory().objectType;
-            lensBuilder.map(
-                method, resolutionResult.getResolvedMethod().getReference(), invokeType);
-            return;
-          }
-
+    nonReboundMethodAccessCollection.forEach(
+        (method, resolutionResult, contexts) -> {
           // TODO(b/128404854) Rebind to the lowest library class or program class. For now we allow
           //  searching in library for methods, but this should be done on classpath instead.
           DexClassAndMethod resolvedMethod = resolutionResult.getResolutionPair();
-          if (resolvedMethod.getReference() == method) {
-            return;
-          }
-
           DexClass initialResolutionHolder = resolutionResult.getInitialResolutionHolder();
           DexMethod bridgeMethod = null;
           if (initialResolutionHolder.isProgramClass()) {
@@ -390,7 +448,12 @@ public class MemberRebindingAnalysis {
               eventConsumer.acceptMemberRebindingBridgeMethod(
                   bridgeMethodDefinition.asProgramMethod(bridgeHolder), target);
             }
-            assert resolver.apply(method).getResolvedMethod().getReference() == bridgeMethod;
+            assert appView
+                .appInfo()
+                .unsafeResolveMethodDueToDexFormat(method)
+                .getResolvedMethod()
+                .getReference()
+                .isIdenticalTo(bridgeMethod);
           }
         });
   }
@@ -494,14 +557,89 @@ public class MemberRebindingAnalysis {
     return null;
   }
 
-  public void run() throws ExecutionException {
+  public void run(ExecutorService executorService) throws ExecutionException {
     AppInfoWithLiveness appInfo = appView.appInfo();
-    computeMethodRebinding(appInfo.getMethodAccessInfoCollection());
+    Map<InvokeType, NonReboundMethodAccessCollection> nonReboundMethodAccessCollections =
+        computeNonReboundMethodAccessCollections(executorService);
+    computeMethodRebinding(nonReboundMethodAccessCollections);
     appInfo.getFieldAccessInfoCollection().flattenAccessContexts();
     MemberRebindingLens memberRebindingLens = lensBuilder.build();
     appView.setGraphLens(memberRebindingLens);
     eventConsumer.finished(appView, memberRebindingLens);
     appView.dexItemFactory().clearTypeElementsCache();
     appView.notifyOptimizationFinishedForTesting();
+  }
+
+  static class NonReboundMethodAccessCollection {
+
+    private final Map<DexMethod, NonReboundMethodAccessInfo> nonReboundMethodReferences;
+
+    private NonReboundMethodAccessCollection(
+        Map<DexMethod, NonReboundMethodAccessInfo> nonReboundMethodReferences) {
+      this.nonReboundMethodReferences = nonReboundMethodReferences;
+    }
+
+    public static NonReboundMethodAccessCollection create() {
+      return new NonReboundMethodAccessCollection(new IdentityHashMap<>());
+    }
+
+    public static NonReboundMethodAccessCollection createConcurrent() {
+      return new NonReboundMethodAccessCollection(new ConcurrentHashMap<>());
+    }
+
+    public void add(
+        DexMethod method, SingleResolutionResult<?> resolutionResult, ProgramMethod context) {
+      nonReboundMethodReferences
+          .computeIfAbsent(
+              method, ignoreKey(() -> NonReboundMethodAccessInfo.create(resolutionResult)))
+          .addContext(context);
+    }
+
+    public void forEach(
+        TriConsumer<DexMethod, SingleResolutionResult<?>, ProgramMethodSet> consumer) {
+      nonReboundMethodReferences.forEach(
+          (reference, info) -> consumer.accept(reference, info.resolutionResult, info.contexts));
+    }
+
+    public void mergeThreadLocalIntoShared(
+        NonReboundMethodAccessCollection nonReboundMethodAccessCollection) {
+      nonReboundMethodAccessCollection.forEach(
+          (method, resolutionResult, contexts) ->
+              nonReboundMethodReferences
+                  .computeIfAbsent(
+                      method,
+                      ignoreKey(
+                          () -> NonReboundMethodAccessInfo.createConcurrent(resolutionResult)))
+                  .addContexts(contexts));
+    }
+  }
+
+  static class NonReboundMethodAccessInfo {
+
+    private final SingleResolutionResult<?> resolutionResult;
+    private final ProgramMethodSet contexts;
+
+    NonReboundMethodAccessInfo(
+        SingleResolutionResult<?> resolutionResult, ProgramMethodSet contexts) {
+      this.resolutionResult = resolutionResult;
+      this.contexts = contexts;
+    }
+
+    public static NonReboundMethodAccessInfo create(SingleResolutionResult<?> resolutionResult) {
+      return new NonReboundMethodAccessInfo(resolutionResult, ProgramMethodSet.create());
+    }
+
+    public static NonReboundMethodAccessInfo createConcurrent(
+        SingleResolutionResult<?> resolutionResult) {
+      return new NonReboundMethodAccessInfo(resolutionResult, ProgramMethodSet.createConcurrent());
+    }
+
+    public void addContext(ProgramMethod context) {
+      this.contexts.add(context);
+    }
+
+    public void addContexts(ProgramMethodSet contexts) {
+      this.contexts.addAll(contexts);
+    }
   }
 }

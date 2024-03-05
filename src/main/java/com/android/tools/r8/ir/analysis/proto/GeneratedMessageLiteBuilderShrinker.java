@@ -173,7 +173,8 @@ public class GeneratedMessageLiteBuilderShrinker {
                       references.generatedMessageLiteBuilderType, dynamicMethod);
                   worklist.enqueueTraceInvokeDirectAction(
                       references.generatedMessageLiteBuilderMethods.constructorMethod,
-                      dynamicMethod);
+                      dynamicMethod,
+                      null);
                 } else {
                   assert superClass.type == references.generatedMessageLiteExtendableBuilderType;
                   // Manually trace `new GeneratedMessageLite.ExtendableBuilder(DEFAULT_INSTANCE)`
@@ -182,7 +183,8 @@ public class GeneratedMessageLiteBuilderShrinker {
                       references.generatedMessageLiteExtendableBuilderType, dynamicMethod);
                   worklist.enqueueTraceInvokeDirectAction(
                       references.generatedMessageLiteExtendableBuilderMethods.constructorMethod,
-                      dynamicMethod);
+                      dynamicMethod,
+                      null);
                 }
                 worklist.enqueueTraceStaticFieldRead(
                     references.getDefaultInstanceField(dynamicMethod.getHolder()), dynamicMethod);

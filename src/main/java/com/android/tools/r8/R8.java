@@ -78,7 +78,6 @@ import com.android.tools.r8.optimize.fields.FieldFinalizer;
 import com.android.tools.r8.optimize.interfaces.analysis.CfOpenClosedInterfacesAnalysis;
 import com.android.tools.r8.optimize.proto.ProtoNormalizer;
 import com.android.tools.r8.optimize.redundantbridgeremoval.RedundantBridgeRemover;
-import com.android.tools.r8.optimize.redundantbridgeremoval.RedundantBridgeRemover.RedundantBridgeRemoverMode;
 import com.android.tools.r8.optimize.singlecaller.SingleCallerInliner;
 import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.origin.Origin;
@@ -487,16 +486,16 @@ public class R8 {
       new NestReducer(appViewWithLiveness).run(executorService, timing);
 
       appView.setGraphLens(
-          MemberRebindingIdentityLensFactory.createFromAppInfo(appViewWithLiveness));
+          MemberRebindingIdentityLensFactory.create(appViewWithLiveness, executorService));
 
-      new MemberRebindingAnalysis(appViewWithLiveness).run();
+      new MemberRebindingAnalysis(appViewWithLiveness).run(executorService);
       appViewWithLiveness.appInfo().notifyMemberRebindingFinished(appViewWithLiveness);
 
       assert ArtProfileCompletenessChecker.verify(appView);
 
       AccessModifier.run(appViewWithLiveness, executorService, timing);
 
-      new RedundantBridgeRemover(appViewWithLiveness, RedundantBridgeRemoverMode.INITIAL)
+      new RedundantBridgeRemover(appViewWithLiveness)
           .setMustRetargetInvokesToTargetMethod()
           .run(executorService, timing);
 
@@ -683,14 +682,14 @@ public class R8 {
       // Insert a member rebinding oracle in the graph to ensure that all subsequent rewritings of
       // the application has an applied oracle for looking up non-rebound references.
       MemberRebindingIdentityLens memberRebindingIdentityLens =
-          MemberRebindingIdentityLensFactory.createFromLir(appView, executorService);
+          MemberRebindingIdentityLensFactory.create(appView, executorService);
       appView.setGraphLens(memberRebindingIdentityLens);
 
       // Remove redundant bridges that have been inserted for member rebinding.
       // This can only be done if we have AppInfoWithLiveness.
       if (appView.appInfo().hasLiveness()) {
         timing.begin("Bridge remover");
-        new RedundantBridgeRemover(appView.withLiveness(), RedundantBridgeRemoverMode.FINAL)
+        new RedundantBridgeRemover(appView.withLiveness())
             .run(executorService, timing, memberRebindingIdentityLens);
         timing.end();
       } else {

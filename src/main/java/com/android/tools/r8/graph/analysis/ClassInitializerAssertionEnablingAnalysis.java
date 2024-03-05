@@ -74,7 +74,8 @@ public class ClassInitializerAssertionEnablingAnalysis extends EnqueuerAnalysis
       EnqueuerWorklist worklist) {
     if (isUsingJavaAssertionsDisabledField(field) || isUsingKotlinAssertionsEnabledField(field)) {
       assertionHandlers.forEach(
-          assertionHandler -> worklist.enqueueTraceInvokeStaticAction(assertionHandler, context));
+          assertionHandler ->
+              worklist.enqueueTraceInvokeStaticAction(assertionHandler, context, null));
     }
   }
 

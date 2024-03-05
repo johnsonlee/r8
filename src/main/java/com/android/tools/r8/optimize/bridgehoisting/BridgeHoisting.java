@@ -12,7 +12,6 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
-import com.android.tools.r8.graph.MethodAccessInfoCollection;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
@@ -86,26 +85,6 @@ public class BridgeHoisting {
     if (!result.isEmpty()) {
       BridgeHoistingLens lens = result.buildLens();
       appView.rewriteWithLens(lens, executorService, timing);
-
-      // Record the invokes from the newly synthesized bridge methods in the method access info
-      // collection.
-      MethodAccessInfoCollection methodAccessInfoCollection =
-          appView.appInfo().getMethodAccessInfoCollection();
-      if (!methodAccessInfoCollection.isVirtualInvokesDestroyed()) {
-        MethodAccessInfoCollection.Modifier methodAccessInfoCollectionModifier =
-            methodAccessInfoCollection.modifier();
-        result.forEachHoistedBridge(
-            (bridge, bridgeInfo) -> {
-              if (bridgeInfo.isVirtualBridgeInfo()) {
-                DexMethod reference = bridgeInfo.asVirtualBridgeInfo().getInvokedMethod();
-                methodAccessInfoCollectionModifier.registerInvokeVirtualInContext(
-                    reference, bridge);
-              } else {
-                assert false;
-              }
-            });
-        methodAccessInfoCollection.verify(appView);
-      }
     }
 
     appView.notifyOptimizationFinishedForTesting();

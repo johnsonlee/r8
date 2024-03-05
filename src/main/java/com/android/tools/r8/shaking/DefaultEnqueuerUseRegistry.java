@@ -5,6 +5,7 @@
 package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.ir.desugar.records.RecordRewriterHelper.isInvokeDynamicOnRecord;
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
@@ -19,13 +20,25 @@ import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Position;
+import com.google.common.collect.Sets;
+import java.util.IdentityHashMap;
 import java.util.ListIterator;
+import java.util.Map;
+import java.util.Set;
 
 public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
 
   protected final AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy;
   protected final Enqueuer enqueuer;
+
+  private final Map<InvokeType, Set<DexMethod>> seenInvokes = new IdentityHashMap<>();
+  private Set<DexMethod> seenInvokeDirects = null;
+  private Set<DexMethod> seenInvokeInterfaces = null;
+  private Set<DexMethod> seenInvokeStatics = null;
+  private Set<DexMethod> seenInvokeSupers = null;
+  private Set<DexMethod> seenInvokeVirtuals = null;
 
   public DefaultEnqueuerUseRegistry(
       AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy,
@@ -43,6 +56,46 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
 
   public DexEncodedMethod getContextMethod() {
     return getContext().getDefinition();
+  }
+
+  boolean markInvokeDirectAsSeen(DexMethod invokedMethod) {
+    if (seenInvokeDirects == null) {
+      seenInvokeDirects =
+          seenInvokes.computeIfAbsent(InvokeType.DIRECT, ignoreKey(Sets::newIdentityHashSet));
+    }
+    return seenInvokeDirects.add(invokedMethod);
+  }
+
+  boolean markInvokeInterfaceAsSeen(DexMethod invokedMethod) {
+    if (seenInvokeInterfaces == null) {
+      seenInvokeInterfaces =
+          seenInvokes.computeIfAbsent(InvokeType.INTERFACE, ignoreKey(Sets::newIdentityHashSet));
+    }
+    return seenInvokeInterfaces.add(invokedMethod);
+  }
+
+  boolean markInvokeStaticAsSeen(DexMethod invokedMethod) {
+    if (seenInvokeStatics == null) {
+      seenInvokeStatics =
+          seenInvokes.computeIfAbsent(InvokeType.STATIC, ignoreKey(Sets::newIdentityHashSet));
+    }
+    return seenInvokeStatics.add(invokedMethod);
+  }
+
+  boolean markInvokeSuperAsSeen(DexMethod invokedMethod) {
+    if (seenInvokeSupers == null) {
+      seenInvokeSupers =
+          seenInvokes.computeIfAbsent(InvokeType.SUPER, ignoreKey(Sets::newIdentityHashSet));
+    }
+    return seenInvokeSupers.add(invokedMethod);
+  }
+
+  boolean markInvokeVirtualAsSeen(DexMethod invokedMethod) {
+    if (seenInvokeVirtuals == null) {
+      seenInvokeVirtuals =
+          seenInvokes.computeIfAbsent(InvokeType.VIRTUAL, ignoreKey(Sets::newIdentityHashSet));
+    }
+    return seenInvokeVirtuals.add(invokedMethod);
   }
 
   @Override
@@ -72,31 +125,31 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
   @Override
   public void registerInvokeVirtual(DexMethod invokedMethod) {
     super.registerInvokeVirtual(invokedMethod);
-    enqueuer.traceInvokeVirtual(invokedMethod, getContext());
+    enqueuer.traceInvokeVirtual(invokedMethod, getContext(), this);
   }
 
   @Override
   public void registerInvokeDirect(DexMethod invokedMethod) {
     super.registerInvokeDirect(invokedMethod);
-    enqueuer.traceInvokeDirect(invokedMethod, getContext());
+    enqueuer.traceInvokeDirect(invokedMethod, getContext(), this);
   }
 
   @Override
   public void registerInvokeStatic(DexMethod invokedMethod) {
     super.registerInvokeStatic(invokedMethod);
-    enqueuer.traceInvokeStatic(invokedMethod, getContext());
+    enqueuer.traceInvokeStatic(invokedMethod, getContext(), this);
   }
 
   @Override
   public void registerInvokeInterface(DexMethod invokedMethod) {
     super.registerInvokeInterface(invokedMethod);
-    enqueuer.traceInvokeInterface(invokedMethod, getContext());
+    enqueuer.traceInvokeInterface(invokedMethod, getContext(), this);
   }
 
   @Override
   public void registerInvokeSuper(DexMethod invokedMethod) {
     super.registerInvokeSuper(invokedMethod);
-    enqueuer.traceInvokeSuper(invokedMethod, getContext());
+    enqueuer.traceInvokeSuper(invokedMethod, getContext(), this);
   }
 
   @Override
@@ -211,7 +264,7 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
     } else {
       super.registerCallSiteBootstrapArgs(callSite, 0, callSite.bootstrapArgs.size());
     }
-    enqueuer.traceCallSite(callSite, getContext());
+    enqueuer.traceCallSite(callSite, getContext(), this);
   }
 
   @SuppressWarnings("HidingField")

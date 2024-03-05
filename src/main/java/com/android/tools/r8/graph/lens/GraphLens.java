@@ -394,6 +394,10 @@ public abstract class GraphLens {
     return null;
   }
 
+  public boolean isAccessModifierLens() {
+    return false;
+  }
+
   public boolean isAppliedLens() {
     return false;
   }

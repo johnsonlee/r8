@@ -75,7 +75,6 @@ import com.android.tools.r8.graph.LookupLambdaTarget;
 import com.android.tools.r8.graph.LookupMethodTarget;
 import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.LookupTarget;
-import com.android.tools.r8.graph.MethodAccessInfoCollection;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.FailedResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
@@ -197,7 +196,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
-import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -283,8 +281,6 @@ public class Enqueuer {
 
   private final FieldAccessInfoCollectionImpl fieldAccessInfoCollection =
       new FieldAccessInfoCollectionImpl();
-  private final MethodAccessInfoCollection.IdentityBuilder methodAccessInfoCollection =
-      MethodAccessInfoCollection.identityBuilder();
   private final ObjectAllocationInfoCollectionImpl.Builder objectAllocationInfoCollection;
   private final Map<DexCallSite, ProgramMethodSet> callSites = new IdentityHashMap<>();
 
@@ -1118,16 +1114,6 @@ public class Enqueuer {
   // traversals.
   //
 
-  private boolean registerMethodWithTargetAndContext(
-      BiPredicate<DexMethod, ProgramMethod> registration, DexMethod method, ProgramMethod context) {
-    DexType baseHolder = method.holder.toBaseType(appView.dexItemFactory());
-    if (baseHolder.isClassType()) {
-      markTypeAsLive(baseHolder, context);
-      return registration.test(method, context);
-    }
-    return false;
-  }
-
   public boolean registerFieldRead(DexField field, ProgramMethod context) {
     return registerFieldAccess(field, context, true, false);
   }
@@ -1234,7 +1220,8 @@ public class Enqueuer {
     return isRead ? info.recordRead(field, context) : info.recordWrite(field, context);
   }
 
-  void traceCallSite(DexCallSite callSite, ProgramMethod context) {
+  void traceCallSite(
+      DexCallSite callSite, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
     // Do not lookup java.lang.invoke.LambdaMetafactory when compiling for DEX to avoid reporting
     // the class as missing.
     if (options.isGeneratingClassFiles() || !isLambdaMetafactoryMethod(callSite, appInfo())) {
@@ -1274,16 +1261,16 @@ public class Enqueuer {
     DexMethod method = implHandle.asMethod();
     switch (implHandle.type) {
       case INVOKE_STATIC:
-        traceInvokeStaticFromLambda(method, context);
+        traceInvokeStaticFromLambda(method, context, registry);
         break;
       case INVOKE_INTERFACE:
-        traceInvokeInterfaceFromLambda(method, context);
+        traceInvokeInterfaceFromLambda(method, context, registry);
         break;
       case INVOKE_INSTANCE:
-        traceInvokeVirtualFromLambda(method, context);
+        traceInvokeVirtualFromLambda(method, context, registry);
         break;
       case INVOKE_DIRECT:
-        traceInvokeDirectFromLambda(method, context);
+        traceInvokeDirectFromLambda(method, context, registry);
         break;
       case INVOKE_CONSTRUCTOR:
         traceNewInstanceFromLambda(method.holder, context);
@@ -1498,18 +1485,19 @@ public class Enqueuer {
         analysis -> analysis.traceExceptionGuard(type, clazz, currentMethod));
   }
 
-  void traceInvokeDirect(DexMethod invokedMethod, ProgramMethod context) {
+  void traceInvokeDirect(
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
     boolean skipTracing =
         registerDeferredActionForDeadProtoBuilder(
             invokedMethod.holder,
             context,
-            () -> worklist.enqueueTraceInvokeDirectAction(invokedMethod, context));
+            () -> worklist.enqueueTraceInvokeDirectAction(invokedMethod, context, registry));
     if (skipTracing) {
       addDeadProtoTypeCandidate(invokedMethod.holder);
       return;
     }
 
-    traceInvokeDirect(invokedMethod, context, KeepReason.invokedFrom(context));
+    traceInvokeDirect(invokedMethod, context, registry, KeepReason.invokedFrom(context));
   }
 
   /** Returns true if a deferred action was registered. */
@@ -1526,51 +1514,73 @@ public class Enqueuer {
     return false;
   }
 
-  void traceInvokeDirectFromLambda(DexMethod invokedMethod, ProgramMethod context) {
-    traceInvokeDirect(invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context));
+  void traceInvokeDirectFromLambda(
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
+    traceInvokeDirect(
+        invokedMethod, context, registry, KeepReason.invokedFromLambdaCreatedIn(context));
   }
 
   private void traceInvokeDirect(
-      DexMethod invokedMethod, ProgramMethod context, KeepReason reason) {
-    if (!registerMethodWithTargetAndContext(
-        methodAccessInfoCollection::registerInvokeDirectInContext, invokedMethod, context)) {
+      DexMethod invokedMethod,
+      ProgramMethod context,
+      DefaultEnqueuerUseRegistry registry,
+      KeepReason reason) {
+    if (registry != null && !registry.markInvokeDirectAsSeen(invokedMethod)) {
       return;
     }
+    markTypeAsLive(invokedMethod.getHolderType(), context);
     MethodResolutionResult resolutionResult =
         handleInvokeOfDirectTarget(invokedMethod, context, reason);
     invokeAnalyses.forEach(
         analysis -> analysis.traceInvokeDirect(invokedMethod, resolutionResult, context));
   }
 
-  void traceInvokeInterface(DexMethod invokedMethod, ProgramMethod context) {
-    traceInvokeInterface(invokedMethod, context, KeepReason.invokedFrom(context));
+  void traceInvokeInterface(
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
+    traceInvokeInterface(invokedMethod, context, registry, KeepReason.invokedFrom(context));
   }
 
-  void traceInvokeInterfaceFromLambda(DexMethod invokedMethod, ProgramMethod context) {
-    traceInvokeInterface(invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context));
+  void traceInvokeInterfaceFromLambda(
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
+    traceInvokeInterface(
+        invokedMethod, context, registry, KeepReason.invokedFromLambdaCreatedIn(context));
   }
 
   private void traceInvokeInterface(
-      DexMethod method, ProgramMethod context, KeepReason keepReason) {
-    if (!registerMethodWithTargetAndContext(
-        methodAccessInfoCollection::registerInvokeInterfaceInContext, method, context)) {
+      DexMethod invokedMethod,
+      ProgramMethod context,
+      DefaultEnqueuerUseRegistry registry,
+      KeepReason keepReason) {
+    if (registry != null && !registry.markInvokeInterfaceAsSeen(invokedMethod)) {
       return;
     }
-    MethodResolutionResult result = markVirtualMethodAsReachable(method, true, context, keepReason);
-    invokeAnalyses.forEach(analysis -> analysis.traceInvokeInterface(method, result, context));
+    markTypeAsLive(invokedMethod.getHolderType(), context);
+    MethodResolutionResult result =
+        markVirtualMethodAsReachable(invokedMethod, true, context, keepReason);
+    invokeAnalyses.forEach(
+        analysis -> analysis.traceInvokeInterface(invokedMethod, result, context));
   }
 
-  void traceInvokeStatic(DexMethod invokedMethod, ProgramMethod context) {
-    traceInvokeStatic(invokedMethod, context, KeepReason.invokedFrom(context));
+  void traceInvokeStatic(
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
+    traceInvokeStatic(invokedMethod, context, registry, KeepReason.invokedFrom(context));
   }
 
-  void traceInvokeStaticFromLambda(DexMethod invokedMethod, ProgramMethod context) {
-    traceInvokeStatic(invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context));
+  void traceInvokeStaticFromLambda(
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
+    traceInvokeStatic(
+        invokedMethod, context, registry, KeepReason.invokedFromLambdaCreatedIn(context));
   }
 
   @SuppressWarnings("ReferenceEquality")
   private void traceInvokeStatic(
-      DexMethod invokedMethod, ProgramMethod context, KeepReason reason) {
+      DexMethod invokedMethod,
+      ProgramMethod context,
+      DefaultEnqueuerUseRegistry registry,
+      KeepReason reason) {
+    if (registry != null && !registry.markInvokeStaticAsSeen(invokedMethod)) {
+      return;
+    }
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     if (dexItemFactory.classMethods.isReflectiveClassLookup(invokedMethod)
         || dexItemFactory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod)) {
@@ -1590,37 +1600,44 @@ public class Enqueuer {
     if (invokedMethod == dexItemFactory.proxyMethods.newProxyInstance) {
       pendingReflectiveUses.add(context);
     }
-    if (!registerMethodWithTargetAndContext(
-        methodAccessInfoCollection::registerInvokeStaticInContext, invokedMethod, context)) {
-      return;
-    }
+    markTypeAsLive(invokedMethod.getHolderType(), context);
     MethodResolutionResult resolutionResult =
         handleInvokeOfStaticTarget(invokedMethod, context, reason);
     invokeAnalyses.forEach(
         analysis -> analysis.traceInvokeStatic(invokedMethod, resolutionResult, context));
   }
 
-  void traceInvokeSuper(DexMethod invokedMethod, ProgramMethod context) {
+  void traceInvokeSuper(
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
     // We have to revisit super invokes based on the context they are found in. The same
     // method descriptor will hit different targets, depending on the context it is used in.
-    if (!registerMethodWithTargetAndContext(
-        methodAccessInfoCollection::registerInvokeSuperInContext, invokedMethod, context)) {
+    if (registry != null && !registry.markInvokeSuperAsSeen(invokedMethod)) {
       return;
     }
+    markTypeAsLive(invokedMethod.getHolderType(), context);
     worklist.enqueueMarkReachableSuperAction(invokedMethod, context);
   }
 
-  void traceInvokeVirtual(DexMethod invokedMethod, ProgramMethod context) {
-    traceInvokeVirtual(invokedMethod, context, KeepReason.invokedFrom(context));
+  void traceInvokeVirtual(
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
+    traceInvokeVirtual(invokedMethod, context, registry, KeepReason.invokedFrom(context));
   }
 
-  void traceInvokeVirtualFromLambda(DexMethod invokedMethod, ProgramMethod context) {
-    traceInvokeVirtual(invokedMethod, context, KeepReason.invokedFromLambdaCreatedIn(context));
+  void traceInvokeVirtualFromLambda(
+      DexMethod invokedMethod, ProgramMethod context, DefaultEnqueuerUseRegistry registry) {
+    traceInvokeVirtual(
+        invokedMethod, context, registry, KeepReason.invokedFromLambdaCreatedIn(context));
   }
 
   @SuppressWarnings("ReferenceEquality")
   private void traceInvokeVirtual(
-      DexMethod invokedMethod, ProgramMethod context, KeepReason reason) {
+      DexMethod invokedMethod,
+      ProgramMethod context,
+      DefaultEnqueuerUseRegistry registry,
+      KeepReason reason) {
+    if (registry != null && !registry.markInvokeVirtualAsSeen(invokedMethod)) {
+      return;
+    }
     if (invokedMethod == appView.dexItemFactory().classMethods.newInstance
         || invokedMethod == appView.dexItemFactory().constructorMethods.newInstance) {
       pendingReflectiveUses.add(context);
@@ -1630,10 +1647,7 @@ public class Enqueuer {
       // Revisit the current method to implicitly add -keep rule for items with reflective access.
       pendingReflectiveUses.add(context);
     }
-    if (!registerMethodWithTargetAndContext(
-        methodAccessInfoCollection::registerInvokeVirtualInContext, invokedMethod, context)) {
-      return;
-    }
+    markTypeAsLive(invokedMethod.getHolderType(), context);
     MethodResolutionResult resolutionResult =
         markVirtualMethodAsReachable(invokedMethod, false, context, reason);
     invokeAnalyses.forEach(
@@ -4396,9 +4410,6 @@ public class Enqueuer {
     assert fieldAccessInfoCollection.verifyMappingIsOneToOne();
     timing.end();
 
-    // Remove mappings for methods that don't resolve in the method access info collection.
-    methodAccessInfoCollection.removeNonResolving(appView, this);
-
     // Verify all references on the input app before synthesizing definitions.
     assert verifyReferences(appInfo.app());
 
@@ -4485,7 +4496,6 @@ public class Enqueuer {
             toDescriptorSet(liveMethods.getItems()),
             // Filter out library fields and pinned fields, because these are read by default.
             fieldAccessInfoCollection,
-            methodAccessInfoCollection.build(mode),
             objectAllocationInfoCollection.build(appInfo),
             callSites,
             keepInfo,

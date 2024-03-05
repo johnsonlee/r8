@@ -4,7 +4,6 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.DesugarGraphConsumer;
-import com.android.tools.r8.classmerging.ClassMergerMode;
 import com.android.tools.r8.origin.GlobalSyntheticOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -293,9 +292,5 @@ public class AppInfo implements DexDefinitionSupplier {
     return definition != null
         ? FieldResolutionResult.createSingleFieldResolutionResult(clazz, clazz, definition)
         : FieldResolutionResult.unknown();
-  }
-
-  public void notifyVerticalClassMergerFinished(ClassMergerMode mode) {
-    // Intentionally empty.
   }
 }
