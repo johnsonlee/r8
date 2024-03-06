@@ -49,16 +49,15 @@ public class IRToDexFinalizer extends IRFinalizer<DexCode> {
 
   private void workaroundBugs(IRCode code, Timing timing) {
     RuntimeWorkaroundCodeRewriter.workaroundNumberConversionRegisterAllocationBug(code, options);
-    // Workaround massive dex2oat memory use for self-recursive methods.
     RuntimeWorkaroundCodeRewriter.workaroundDex2OatInliningIssue(appView, code);
     if (RuntimeWorkaroundCodeRewriter.workaroundInstanceOfTypeWeakeningInVerifier(appView, code)) {
       deadCodeRemover.run(code, timing);
     }
-    // Workaround MAX_INT switch issue.
     RuntimeWorkaroundCodeRewriter.workaroundSwitchMaxIntBug(code, appView);
     RuntimeWorkaroundCodeRewriter.workaroundDex2OatLinkedListBug(code, options);
     RuntimeWorkaroundCodeRewriter.workaroundForwardingInitializerBug(code, options);
     RuntimeWorkaroundCodeRewriter.workaroundExceptionTargetingLoopHeaderBug(code, options);
+    RuntimeWorkaroundCodeRewriter.rewriteJdk8272564Fix(code, options, appView);
     assert code.isConsistentSSA(appView);
   }
 

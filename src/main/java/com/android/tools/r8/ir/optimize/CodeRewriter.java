@@ -454,30 +454,4 @@ public class CodeRewriter {
     iterator.add(new InvokeVirtual(printLn, null, ImmutableList.of(out, empty)));
     assert code.isConsistentSSA(appView);
   }
-
-  // The javac fix for JDK-8272564 has to be rewritten back to invoke-virtual on Object if the
-  // method with an Object signature is not defined on the interface. See
-  // https://bugs.openjdk.java.net/browse/JDK-8272564
-  public static void rewriteJdk8272564Fix(IRCode code, ProgramMethod context, AppView<?> appView) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    InstructionListIterator it = code.instructionListIterator();
-    while (it.hasNext()) {
-      Instruction instruction = it.next();
-      if (instruction.isInvokeInterface()) {
-        InvokeInterface invoke = instruction.asInvokeInterface();
-        DexMethod method = invoke.getInvokedMethod();
-        DexClass clazz = appView.definitionFor(method.getHolderType(), context);
-        if (clazz == null || clazz.isInterface()) {
-          DexMethod objectMember = dexItemFactory.objectMembers.matchingPublicObjectMember(method);
-          // javac before JDK-8272564 would still use invoke interface if the method is defined
-          // directly on the interface reference, so mimic that by not rewriting.
-          if (objectMember != null && appView.definitionFor(method) == null) {
-            it.replaceCurrentInstruction(
-                new InvokeVirtual(objectMember, invoke.outValue(), invoke.arguments()));
-          }
-        }
-      }
-    }
-    assert code.isConsistentSSA(appView);
-  }
 }

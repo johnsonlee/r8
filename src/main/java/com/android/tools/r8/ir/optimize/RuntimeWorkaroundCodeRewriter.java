@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.optimize;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
@@ -20,7 +21,9 @@ import com.android.tools.r8.ir.code.InstanceOf;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.IntSwitch;
+import com.android.tools.r8.ir.code.InvokeInterface;
 import com.android.tools.r8.ir.code.InvokeStatic;
+import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.passes.BranchSimplifier;
@@ -393,5 +396,35 @@ public class RuntimeWorkaroundCodeRewriter {
       }
     }
     return false;
+  }
+
+  // The javac fix for JDK-8272564 has to be rewritten back to invoke-virtual on Object if the
+  // method with an Object signature is not defined on the interface. See
+  // https://bugs.openjdk.java.net/browse/JDK-8272564
+  public static void rewriteJdk8272564Fix(
+      IRCode code, InternalOptions options, AppView<?> appView) {
+    if (!options.canHaveInvokeInterfaceToObjectMethodBug()) {
+      return;
+    }
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    InstructionListIterator it = code.instructionListIterator();
+    while (it.hasNext()) {
+      Instruction instruction = it.next();
+      if (instruction.isInvokeInterface()) {
+        InvokeInterface invoke = instruction.asInvokeInterface();
+        DexMethod method = invoke.getInvokedMethod();
+        DexClass clazz = appView.definitionFor(method.getHolderType(), code.context());
+        if (clazz == null || clazz.isInterface()) {
+          DexMethod objectMember = dexItemFactory.objectMembers.matchingPublicObjectMember(method);
+          // javac before JDK-8272564 would still use invoke interface if the method is defined
+          // directly on the interface reference, so mimic that by not rewriting.
+          if (objectMember != null && appView.definitionFor(method) == null) {
+            it.replaceCurrentInstruction(
+                new InvokeVirtual(objectMember, invoke.outValue(), invoke.arguments()));
+          }
+        }
+      }
+    }
+    assert code.isConsistentSSA(appView);
   }
 }
