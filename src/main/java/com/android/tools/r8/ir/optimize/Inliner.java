@@ -1169,9 +1169,9 @@ public class Inliner {
     }
     assert inlineeStack.isEmpty();
     code.removeBlocks(blocksToRemove);
-    affectedValues.narrowingWithAssumeRemoval(appView, code);
     classInitializationAnalysis.finish();
-    code.removeAllDeadAndTrivialPhis();
+    code.removeAllDeadAndTrivialPhis(affectedValues);
+    affectedValues.narrowingWithAssumeRemoval(appView, code);
     code.removeRedundantBlocks();
     assert code.isConsistentSSA(appView);
   }

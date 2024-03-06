@@ -47,6 +47,7 @@ public class AffectedValues implements Set<Value> {
       TypeAnalysis typeAnalysis = new TypeAnalysis(appView, code);
       typeAnalysisConsumer.accept(typeAnalysis);
       typeAnalysis.narrowingWithAssumeRemoval(this);
+      clear();
     }
   }
 
