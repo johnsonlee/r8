@@ -73,7 +73,9 @@ public class KotlinLambdaMergingSingletonTest extends KotlinTestBase {
     KotlinLambdasInInput lambdasInInput =
         KotlinLambdasInInput.create(getProgramFiles(), getTestName());
     assertEquals(2, lambdasInInput.getNumberOfJStyleLambdas());
-    assertEquals(7, lambdasInInput.getNumberOfKStyleLambdas());
+    assertEquals(
+        kotlinParameters.getLambdaGeneration().isInvokeDynamic() ? 6 : 7,
+        lambdasInInput.getNumberOfKStyleLambdas());
 
     testForR8(parameters.getBackend())
         .addProgramFiles(getProgramFiles())

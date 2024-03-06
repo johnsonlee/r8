@@ -15,6 +15,8 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -73,7 +75,9 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
     KotlinLambdasInInput lambdasInInput =
         KotlinLambdasInInput.create(getProgramFiles(), getTestName());
     assertEquals(0, lambdasInInput.getNumberOfJStyleLambdas());
-    assertEquals(28, lambdasInInput.getNumberOfKStyleLambdas());
+    assertEquals(
+        kotlinParameters.getLambdaGeneration().isInvokeDynamic() ? 0 : 28,
+        lambdasInInput.getNumberOfKStyleLambdas());
 
     testForR8(parameters.getBackend())
         .addProgramFiles(getProgramFiles())
@@ -92,16 +96,33 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
 
   private void inspect(
       HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput) {
-    inspector
-        .applyIf(
-            parameters.isDexRuntime(),
-            i ->
-                i.assertIsCompleteMergeGroup(
-                    lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                        getTestName(), "MainKt$testStateless$11"),
-                    lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                        getTestName(), "MainKt$testStateless$12")))
-        .assertNoOtherClassesMerged();
+    if (parameters.isCfRuntime()) {
+      inspector.applyIf(
+          kotlinParameters.getLambdaGeneration().isInvokeDynamic(),
+          i ->
+              i.assertIsCompleteMergeGroup(
+                      Reference.classFromTypeName("kotlin.jvm.functions.Function0"),
+                      Reference.classFromTypeName("kotlin.jvm.functions.Function1"),
+                      Reference.classFromTypeName("kotlin.jvm.functions.Function2"),
+                      Reference.classFromTypeName("kotlin.jvm.functions.Function3"),
+                      Reference.classFromTypeName("kotlin.jvm.functions.Function22"))
+                  .assertNoOtherClassesMerged());
+    } else {
+      ClassReference mainKt = Reference.classFromTypeName(getMainClassName());
+      inspector.applyIf(
+          kotlinParameters.getLambdaGeneration().isClass(),
+          i ->
+              i.assertIsCompleteMergeGroup(
+                  lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                      getTestName(), "MainKt$testStateless$11"),
+                  lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                      getTestName(), "MainKt$testStateless$12")),
+          i ->
+              i.assertIsCompleteMergeGroup(
+                      SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 0),
+                      SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 1))
+                  .assertNoOtherClassesMerged());
+    }
   }
 
   private void inspect(CodeInspector inspector, KotlinLambdasInInput lambdasInInput) {
@@ -111,7 +132,8 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
         lambdasInOutput.add(classReference);
       }
     }
-    assertEquals(1, lambdasInOutput.size());
+    assertEquals(
+        kotlinParameters.getLambdaGeneration().isInvokeDynamic() ? 0 : 1, lambdasInOutput.size());
   }
 
   private String getExpectedOutput() {
