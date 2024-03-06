@@ -453,6 +453,14 @@ public abstract class TestCompileResult<
     return self();
   }
 
+  public <E extends Throwable> CR inspectIf(
+      boolean condition, ThrowingConsumer<CodeInspector, E> consumer) throws IOException, E {
+    if (condition) {
+      consumer.accept(inspector());
+    }
+    return self();
+  }
+
   @SuppressWarnings("unchecked")
   public <E extends Throwable> CR inspectMultiDex(ThrowingConsumer<CodeInspector, E>... consumers)
       throws E {

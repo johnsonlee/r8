@@ -36,6 +36,7 @@ public class MetadataRewriteInlineClassIncludeDescriptorClassesTest extends Kotl
         getKotlinTestParameters()
             .withOldCompilersStartingFrom(MIN_SUPPORTED_KOTLIN_VERSION)
             .withCompilersStartingFromIncluding(MIN_SUPPORTED_KOTLIN_VERSION)
+            .withAllLambdaGenerations()
             .withAllTargetVersions()
             .build());
   }

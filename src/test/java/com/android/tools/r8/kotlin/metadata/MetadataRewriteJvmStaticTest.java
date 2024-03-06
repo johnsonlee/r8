@@ -43,6 +43,7 @@ public class MetadataRewriteJvmStaticTest extends KotlinMetadataTestBase {
         getTestParameters().withCfRuntimes().build(),
         getKotlinTestParameters()
             .withAllCompilers()
+            .withAllLambdaGenerations()
             .withTargetVersion(KotlinTargetVersion.JAVA_8)
             .build());
   }

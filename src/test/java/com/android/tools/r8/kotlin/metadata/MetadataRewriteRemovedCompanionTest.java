@@ -28,6 +28,7 @@ public class MetadataRewriteRemovedCompanionTest extends KotlinMetadataTestBase 
         getKotlinTestParameters()
             .withOldCompilersStartingFrom(KOTLINC_1_4_20)
             .withCompilersStartingFromIncluding(MIN_SUPPORTED_VERSION)
+            .withAllLambdaGenerations()
             .withAllTargetVersions()
             .build());
   }

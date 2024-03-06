@@ -29,6 +29,7 @@ public class MetadataRewritePassThroughTest extends KotlinMetadataTestBase {
         getTestParameters().withCfRuntimes().withNoneRuntime().build(),
         getKotlinTestParameters()
             .withAllCompilers()
+            .withAllLambdaGenerations()
             .withTargetVersion(KotlinTargetVersion.JAVA_8)
             .build());
   }

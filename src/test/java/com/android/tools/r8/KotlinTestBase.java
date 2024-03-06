@@ -212,7 +212,6 @@ public abstract class KotlinTestBase extends TestBase {
         KotlinCompiler compiler,
         KotlinTargetVersion targetVersion,
         KotlinLambdaGeneration lambdaGeneration) {
-      assert lambdaGeneration == KotlinLambdaGeneration.CLASS;
       Map<CompilerConfigurationKey, Path> kotlinTargetVersionPathMap = compiledPaths.get(compiler);
       if (kotlinTargetVersionPathMap == null) {
         kotlinTargetVersionPathMap = new IdentityHashMap<>();

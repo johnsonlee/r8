@@ -1540,14 +1540,18 @@ public class TestBase {
   }
 
   protected long countCall(MethodSubject method, String className, String methodName) {
-    return method.streamInstructions().filter(instructionSubject -> {
-      if (instructionSubject.isInvoke()) {
-        DexMethod invokedMethod = instructionSubject.getMethod();
-        return invokedMethod.holder.toString().contains(className)
-            && invokedMethod.name.toString().contains(methodName);
-      }
-      return false;
-    }).count();
+    return method
+        .streamInstructions()
+        .filter(
+            instructionSubject -> {
+              if (instructionSubject.isInvoke() && !instructionSubject.isInvokeDynamic()) {
+                DexMethod invokedMethod = instructionSubject.getMethod();
+                return invokedMethod.holder.toString().contains(className)
+                    && invokedMethod.name.toString().contains(methodName);
+              }
+              return false;
+            })
+        .count();
   }
 
   protected long countCall(MethodSubject method, String methodName) {

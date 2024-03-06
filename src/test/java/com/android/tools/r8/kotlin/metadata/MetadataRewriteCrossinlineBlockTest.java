@@ -29,7 +29,7 @@ public class MetadataRewriteCrossinlineBlockTest extends KotlinMetadataTestBase 
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public MetadataRewriteCrossinlineBlockTest(

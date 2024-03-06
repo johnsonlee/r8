@@ -55,6 +55,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
         getKotlinTestParameters()
             .withCompilersStartingFromIncluding(KOTLINC_1_8_0)
             .withOldCompilersStartingFrom(KOTLINC_1_8_0)
+            .withAllLambdaGenerations()
             .withTargetVersion(JAVA_8)
             .build());
   }

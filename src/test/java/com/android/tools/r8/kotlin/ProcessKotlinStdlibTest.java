@@ -27,7 +27,7 @@ public class ProcessKotlinStdlibTest extends KotlinTestBase {
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimes().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public ProcessKotlinStdlibTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {

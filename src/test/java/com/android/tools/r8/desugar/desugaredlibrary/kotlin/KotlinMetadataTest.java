@@ -53,7 +53,7 @@ public class KotlinMetadataTest extends DesugaredLibraryTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
         ImmutableList.of(LibraryDesugaringSpecification.JDK11),
         DEFAULT_SPECIFICATIONS);
   }

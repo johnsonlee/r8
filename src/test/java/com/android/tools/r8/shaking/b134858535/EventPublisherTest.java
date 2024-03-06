@@ -26,6 +26,7 @@ public class EventPublisherTest extends TestBase {
     return buildParameters(
         getKotlinTestParameters()
             .withAllCompilers()
+            .withAllLambdaGenerations()
             .withTargetVersion(KotlinTargetVersion.JAVA_8)
             .build(),
         TestBase.getTestParameters().withDexRuntimes().withAllApiLevels().build());

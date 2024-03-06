@@ -11,6 +11,9 @@ import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.ArchiveResourceProvider;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -50,7 +53,7 @@ public class B148525512 extends KotlinTestBase {
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withDexRuntimes().withAllApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public B148525512(TestParameters parameters, KotlinTestParameters kotlinParameters) {
@@ -84,14 +87,33 @@ public class B148525512 extends KotlinTestBase {
             .addKeepClassAndMembersRules(featureKtClassNamet)
             .addKeepClassAndMembersRules(FeatureAPI.class)
             .addHorizontallyMergedClassesInspector(
-                inspector ->
+                inspector -> {
+                  if (kotlinParameters.getLambdaGeneration().isClass()) {
                     inspector
                         .assertIsCompleteMergeGroup(
                             "com.android.tools.r8.kotlin.lambda.b148525512.BaseKt$main$1",
                             "com.android.tools.r8.kotlin.lambda.b148525512.BaseKt$main$2")
                         .assertIsCompleteMergeGroup(
                             "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt$feature$1",
-                            "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt$feature$2"))
+                            "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt$feature$2")
+                        .assertNoOtherClassesMerged();
+                  } else {
+                    ClassReference baseKt =
+                        Reference.classFromTypeName(
+                            "com.android.tools.r8.kotlin.lambda.b148525512.BaseKt");
+                    ClassReference featureKt =
+                        Reference.classFromTypeName(
+                            "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt");
+                    inspector
+                        .assertIsCompleteMergeGroup(
+                            SyntheticItemsTestUtils.syntheticLambdaClass(baseKt, 0),
+                            SyntheticItemsTestUtils.syntheticLambdaClass(baseKt, 1))
+                        .assertIsCompleteMergeGroup(
+                            SyntheticItemsTestUtils.syntheticLambdaClass(featureKt, 0),
+                            SyntheticItemsTestUtils.syntheticLambdaClass(featureKt, 1))
+                        .assertNoOtherClassesMerged();
+                  }
+                })
             .setMinApi(parameters)
             .addFeatureSplit(
                 builder ->

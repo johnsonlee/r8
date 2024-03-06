@@ -30,7 +30,7 @@ public class MetadataStripTest extends KotlinMetadataTestBase {
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public MetadataStripTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {

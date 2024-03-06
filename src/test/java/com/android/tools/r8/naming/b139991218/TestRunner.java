@@ -45,6 +45,7 @@ public class TestRunner extends KotlinTestBase {
         getTestParameters().withDexRuntimes().withAllApiLevels().build(),
         getKotlinTestParameters()
             .withAllCompilers()
+            .withAllLambdaGenerations()
             .withTargetVersion(KotlinTargetVersion.JAVA_8)
             .build());
   }

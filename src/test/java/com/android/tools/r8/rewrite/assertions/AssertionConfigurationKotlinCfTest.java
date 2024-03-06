@@ -25,7 +25,7 @@ public class AssertionConfigurationKotlinCfTest extends AssertionConfigurationKo
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
         BooleanUtils.values(),
         BooleanUtils.values(),
         BooleanUtils.values());

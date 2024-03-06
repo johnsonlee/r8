@@ -48,7 +48,7 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
             .withDexRuntime(Version.last())
             .withAllApiLevels()
             .build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
         BooleanUtils.values(),
         ImmutableList.of(
             Collections.emptyList(),

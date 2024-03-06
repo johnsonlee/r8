@@ -48,7 +48,7 @@ public class StringPlusTest extends KotlinTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public StringPlusTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {

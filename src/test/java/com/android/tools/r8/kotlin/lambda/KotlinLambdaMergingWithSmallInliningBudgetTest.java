@@ -19,7 +19,7 @@ public class KotlinLambdaMergingWithSmallInliningBudgetTest extends AbstractR8Ko
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
         BooleanUtils.values());
   }
 

@@ -27,7 +27,7 @@ public class MetadataRewriteKeepTest extends KotlinMetadataTestBase {
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   private final TestParameters parameters;

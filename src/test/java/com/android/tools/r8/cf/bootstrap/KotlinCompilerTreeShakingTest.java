@@ -44,7 +44,7 @@ public class KotlinCompilerTreeShakingTest extends CompilationTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public KotlinCompilerTreeShakingTest(

@@ -44,7 +44,7 @@ public class SimpleKotlinEnumUnboxingTest extends EnumUnboxingTestBase {
   public static List<Object[]> enumUnboxingTestParameters() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
         BooleanUtils.values(),
         getAllEnumKeepRules());
   }

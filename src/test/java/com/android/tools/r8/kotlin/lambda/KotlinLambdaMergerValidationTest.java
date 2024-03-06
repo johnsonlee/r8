@@ -26,7 +26,7 @@ public class KotlinLambdaMergerValidationTest extends KotlinTestBase {
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public KotlinLambdaMergerValidationTest(

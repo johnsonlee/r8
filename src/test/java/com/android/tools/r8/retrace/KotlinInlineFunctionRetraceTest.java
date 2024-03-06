@@ -50,7 +50,7 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
             // TODO(b/186018416): Update to support tests retracing with PC mappings.
             .withApiLevelsEndingAtExcluding(apiLevelWithPcAsLineNumberSupport())
             .build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public KotlinInlineFunctionRetraceTest(

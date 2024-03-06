@@ -21,7 +21,7 @@ public class KotlinLoopTest extends KotlinDebugTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withDexRuntimes().withAllApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public KotlinLoopTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {

@@ -28,7 +28,11 @@ public class KStyleKotlinLambdaMergingWithEnumUnboxingTest extends TestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withDexRuntimes().withAllApiLevels().build(),
-        getKotlinTestParameters().withAllCompilers().withNoTargetVersion().build());
+        getKotlinTestParameters()
+            .withAllCompilers()
+            .withAllLambdaGenerations()
+            .withNoTargetVersion()
+            .build());
   }
 
   public KStyleKotlinLambdaMergingWithEnumUnboxingTest(

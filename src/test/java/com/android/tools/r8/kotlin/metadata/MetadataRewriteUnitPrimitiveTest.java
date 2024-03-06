@@ -47,6 +47,7 @@ public class MetadataRewriteUnitPrimitiveTest extends KotlinMetadataTestBase {
         getTestParameters().withCfRuntimes().build(),
         getKotlinTestParameters()
             .withCompilersStartingFromIncluding(MIN_SUPPORTED_VERSION)
+            .withAllLambdaGenerations()
             .withTargetVersion(JAVA_8)
             .build());
   }

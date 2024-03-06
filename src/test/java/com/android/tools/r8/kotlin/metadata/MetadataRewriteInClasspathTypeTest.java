@@ -40,6 +40,7 @@ public class MetadataRewriteInClasspathTypeTest extends KotlinMetadataTestBase {
         getTestParameters().withCfRuntimes().build(),
         getKotlinTestParameters()
             .withCompilersStartingFromIncluding(MIN_SUPPORTED_VERSION)
+            .withAllLambdaGenerations()
             .withAllTargetVersions()
             .build());
   }

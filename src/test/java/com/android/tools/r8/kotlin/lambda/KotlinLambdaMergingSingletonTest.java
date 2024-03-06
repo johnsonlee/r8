@@ -43,7 +43,7 @@ public class KotlinLambdaMergingSingletonTest extends KotlinTestBase {
             .withDexRuntime(Version.last())
             .withAllApiLevels()
             .build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
         BooleanUtils.values());
   }
 

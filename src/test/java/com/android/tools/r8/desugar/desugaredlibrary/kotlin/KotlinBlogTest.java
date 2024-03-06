@@ -55,7 +55,7 @@ public class KotlinBlogTest extends DesugaredLibraryTestBase {
             .withDexRuntimesStartingFromIncluding(Version.V5_1_1)
             .withAllApiLevels()
             .build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
         ImmutableList.of(LibraryDesugaringSpecification.JDK11_PATH),
         DEFAULT_SPECIFICATIONS);
   }

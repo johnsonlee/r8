@@ -45,7 +45,7 @@ public class KotlinDefaultArgumentsTest extends KotlinTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public KotlinDefaultArgumentsTest(

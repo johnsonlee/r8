@@ -34,7 +34,7 @@ public class KotlinEnumSwitchTest extends KotlinTestBase {
     return buildParameters(
         BooleanUtils.values(),
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   private static final KotlinCompileMemoizer kotlinJars =

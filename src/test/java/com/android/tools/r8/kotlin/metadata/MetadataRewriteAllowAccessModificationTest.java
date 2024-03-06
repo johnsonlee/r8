@@ -53,7 +53,7 @@ public class MetadataRewriteAllowAccessModificationTest extends KotlinMetadataTe
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public MetadataRewriteAllowAccessModificationTest(

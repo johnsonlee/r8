@@ -41,7 +41,7 @@ public class MetadataRewriteInFunctionWithDefaultValueTest extends KotlinMetadat
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public MetadataRewriteInFunctionWithDefaultValueTest(

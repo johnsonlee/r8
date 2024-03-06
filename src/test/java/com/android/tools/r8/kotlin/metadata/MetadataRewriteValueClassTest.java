@@ -42,6 +42,7 @@ public class MetadataRewriteValueClassTest extends KotlinMetadataTestBase {
         getKotlinTestParameters()
             .withOldCompilersStartingFrom(MIN_SUPPORTED_KOTLIN_VERSION)
             .withCompilersStartingFromIncluding(MIN_SUPPORTED_KOTLIN_VERSION)
+            .withAllLambdaGenerations()
             .withTargetVersion(JAVA_8)
             .build());
   }

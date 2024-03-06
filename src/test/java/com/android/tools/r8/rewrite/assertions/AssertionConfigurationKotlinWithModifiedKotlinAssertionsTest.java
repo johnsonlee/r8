@@ -25,7 +25,7 @@ public class AssertionConfigurationKotlinWithModifiedKotlinAssertionsTest
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withDexRuntimesAndAllApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
         BooleanUtils.values(),
         BooleanUtils.values());
   }

@@ -47,7 +47,7 @@ public class KotlinReflectTest extends KotlinTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public KotlinReflectTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {

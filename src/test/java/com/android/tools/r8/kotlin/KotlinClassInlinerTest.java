@@ -23,6 +23,9 @@ import com.android.tools.r8.dex.code.DexNewInstance;
 import com.android.tools.r8.dex.code.DexSgetObject;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.naming.MemberNaming.MethodSignature;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -45,7 +48,7 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public KotlinClassInlinerTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {
@@ -172,7 +175,8 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                         "-neverinline class * { void testBigExtraMethod(...); }",
                         "-neverinline class * { void testBigExtraMethodReturningLambda(...); }")
                     .addHorizontallyMergedClassesInspector(
-                        inspector ->
+                        inspector -> {
+                          if (kotlinParameters.getLambdaGeneration().isClass()) {
                             inspector.assertIsCompleteMergeGroup(
                                 "class_inliner_lambda_k_style.MainKt$testBigExtraMethod$1",
                                 "class_inliner_lambda_k_style.MainKt$testBigExtraMethod2$1",
@@ -180,17 +184,55 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                                 "class_inliner_lambda_k_style.MainKt$testBigExtraMethodReturningLambda$1",
                                 "class_inliner_lambda_k_style.MainKt$testBigExtraMethodReturningLambda2$1",
                                 "class_inliner_lambda_k_style.MainKt$testBigExtraMethodReturningLambda3$1",
-                                "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateless$1"))
+                                "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateless$1");
+                          } else if (testParameters.isDexRuntime()) {
+                            ClassReference mainKt =
+                                Reference.classFromTypeName("class_inliner_lambda_k_style.MainKt");
+                            inspector
+                                .assertIsCompleteMergeGroup(
+                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 2),
+                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 3),
+                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 4),
+                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 5),
+                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 6),
+                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 7),
+                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 8))
+                                .assertIsCompleteMergeGroup(
+                                    Reference.classFromTypeName("kotlin.jvm.functions.Function0"),
+                                    Reference.classFromTypeName("kotlin.jvm.functions.Function1"))
+                                .assertIsCompleteMergeGroup(
+                                    Reference.classFromTypeName(
+                                        "kotlin.sequences.TransformingSequence"),
+                                    Reference.classFromTypeName(
+                                        "kotlin.sequences.GeneratorSequence"))
+                                .assertNoOtherClassesMerged();
+                          } else {
+                            assert kotlinParameters.getLambdaGeneration().isInvokeDynamic()
+                                && testParameters.isCfRuntime();
+                            inspector
+                                .assertIsCompleteMergeGroup(
+                                    Reference.classFromTypeName("kotlin.jvm.functions.Function0"),
+                                    Reference.classFromTypeName("kotlin.jvm.functions.Function1"))
+                                .assertIsCompleteMergeGroup(
+                                    Reference.classFromTypeName(
+                                        "kotlin.sequences.TransformingSequence"),
+                                    Reference.classFromTypeName(
+                                        "kotlin.sequences.GeneratorSequence"))
+                                .assertNoOtherClassesMerged();
+                          }
+                        })
                     .noClassInlining())
         .inspect(
             inspector -> {
-              assertThat(
-                  inspector.clazz(
-                      "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateful$1"),
-                  isPresent());
-              assertThat(
-                  inspector.clazz("class_inliner_lambda_k_style.MainKt$testBigExtraMethod$1"),
-                  isPresent());
+              if (kotlinParameters.getLambdaGeneration().isClass()) {
+                assertThat(
+                    inspector.clazz(
+                        "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateful$1"),
+                    isPresent());
+                assertThat(
+                    inspector.clazz("class_inliner_lambda_k_style.MainKt$testBigExtraMethod$1"),
+                    isPresent());
+              }
             });
 
     runTest(
@@ -205,17 +247,19 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                     "-neverinline class * { void testBigExtraMethodReturningLambda(...); }"))
         .inspect(
             inspector -> {
-              assertThat(
-                  inspector.clazz(
-                      "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateless$1"),
-                  isAbsent());
-              assertThat(
-                  inspector.clazz(
-                      "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateful$1"),
-                  isAbsent());
-              assertThat(
-                  inspector.clazz("class_inliner_lambda_k_style.MainKt$testBigExtraMethod$1"),
-                  isAbsentIf(testParameters.isDexRuntime()));
+              if (kotlinParameters.getLambdaGeneration().isClass()) {
+                assertThat(
+                    inspector.clazz(
+                        "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateless$1"),
+                    isAbsent());
+                assertThat(
+                    inspector.clazz(
+                        "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateful$1"),
+                    isAbsent());
+                assertThat(
+                    inspector.clazz("class_inliner_lambda_k_style.MainKt$testBigExtraMethod$1"),
+                    isAbsentIf(testParameters.isDexRuntime()));
+              }
             });
   }
 

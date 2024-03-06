@@ -48,6 +48,7 @@ public class MetadataRewriteInMultifileClassTest extends KotlinMetadataTestBase 
         getKotlinTestParameters()
             .withAllCompilers()
             .withOldCompilersStartingFrom(KotlinCompilerVersion.KOTLINC_1_4_20)
+            .withAllLambdaGenerations()
             .withAllTargetVersions()
             .build());
   }

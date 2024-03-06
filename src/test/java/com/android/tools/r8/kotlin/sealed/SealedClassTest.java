@@ -33,7 +33,7 @@ public class SealedClassTest extends KotlinTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
   }
 
   public SealedClassTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {
