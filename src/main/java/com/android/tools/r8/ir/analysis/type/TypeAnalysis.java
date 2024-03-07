@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.analysis.type;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
@@ -30,6 +31,7 @@ public class TypeAnalysis {
     WIDENING,  // initial analysis, including fixed-point iteration for phis and updating with less
                // specific info, e.g., removing assume nodes.
     NARROWING, // updating with more specific info, e.g., passing the return value of the inlinee.
+    PROPAGATE, // effectively NARROWING_OR_WIDENING
     NO_CHANGE  // utility to ensure types are up to date
   }
 
@@ -97,6 +99,20 @@ public class TypeAnalysis {
   public void narrowingWithAssumeRemoval(
       Iterable<? extends Value> values, Consumer<Assume> redundantAssumeConsumer) {
     narrowing(values);
+    removeRedundantAssumeInstructions(redundantAssumeConsumer);
+  }
+
+  public void propagate(Iterable<? extends Value> values) {
+    analyzeValues(values, Mode.PROPAGATE);
+  }
+
+  public void propagateWithAssumeRemoval(Iterable<? extends Value> values) {
+    propagateWithAssumeRemoval(values, ConsumerUtils.emptyConsumer());
+  }
+
+  public void propagateWithAssumeRemoval(
+      Iterable<? extends Value> values, Consumer<Assume> redundantAssumeConsumer) {
+    propagate(values);
     removeRedundantAssumeInstructions(redundantAssumeConsumer);
   }
 
@@ -204,11 +220,18 @@ public class TypeAnalysis {
       return;
     }
 
-    if (mode == Mode.WIDENING) {
-      value.widening(appView, type);
-    } else {
-      assert mode == Mode.NARROWING;
-      value.narrowing(appView, code.context(), type);
+    switch (mode) {
+      case NARROWING:
+        value.narrowing(appView, code.context(), type);
+        break;
+      case PROPAGATE:
+        value.setType(type);
+        break;
+      case WIDENING:
+        value.widening(appView, type);
+        break;
+      default:
+        throw new Unreachable();
     }
 
     // propagate the type change to (instruction) users if any.

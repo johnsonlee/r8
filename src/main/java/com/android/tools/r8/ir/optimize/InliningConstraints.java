@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.optimize.Inliner.Constraint;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
@@ -244,7 +245,15 @@ public class InliningConstraints {
     return ConstraintWithTarget.ALWAYS;
   }
 
-  public ConstraintWithTarget forReturn() {
+  public ConstraintWithTarget forReturn(TypeElement returnType, ProgramMethod context) {
+    // If the return value is not an instance of the static return type, then do not inline.
+    if (returnType.lessThanOrEqual(context.getReturnType().toTypeElement(appView), appView)) {
+      return ConstraintWithTarget.ALWAYS;
+    }
+    return ConstraintWithTarget.NEVER;
+  }
+
+  public ConstraintWithTarget forReturnVoid() {
     return ConstraintWithTarget.ALWAYS;
   }
 

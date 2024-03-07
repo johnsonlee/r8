@@ -97,15 +97,23 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
                   methodProcessor,
                   methodProcessingContext);
           if (removeResult != RemoveCheckCastInstructionIfTrivialResult.NO_REMOVALS) {
-            assert removeResult == RemoveCheckCastInstructionIfTrivialResult.REMOVED_CAST_DO_NARROW;
             hasChanged = true;
             needToRemoveTrivialPhis |= hasPhiUsers;
             int blockSizeBeforeAssumeRemoval = block.size();
             Instruction previous = it.peekPrevious();
-            affectedValues.narrowingWithAssumeRemoval(
-                appView,
-                code,
-                typeAnalysis -> typeAnalysis.setKeepRedundantBlocksAfterAssumeRemoval(true));
+            if (removeResult == RemoveCheckCastInstructionIfTrivialResult.REMOVED_CAST_DO_NARROW) {
+              affectedValues.narrowingWithAssumeRemoval(
+                  appView,
+                  code,
+                  typeAnalysis -> typeAnalysis.setKeepRedundantBlocksAfterAssumeRemoval(true));
+            } else {
+              assert removeResult
+                  == RemoveCheckCastInstructionIfTrivialResult.REMOVED_CAST_DO_PROPAGATE;
+              affectedValues.propagateWithAssumeRemoval(
+                  appView,
+                  code,
+                  typeAnalysis -> typeAnalysis.setKeepRedundantBlocksAfterAssumeRemoval(true));
+            }
             if (block.size() != blockSizeBeforeAssumeRemoval) {
               it = previous != null ? block.listIterator(code, previous) : block.listIterator(code);
             }
@@ -142,7 +150,8 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
 
   enum RemoveCheckCastInstructionIfTrivialResult {
     NO_REMOVALS,
-    REMOVED_CAST_DO_NARROW
+    REMOVED_CAST_DO_NARROW,
+    REMOVED_CAST_DO_PROPAGATE
   }
 
   private enum InstanceOfResult {
@@ -264,7 +273,10 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
               .build();
       it.replaceCurrentInstruction(replacement);
       assert replacement.lookupSingleTarget(appView, context) != null;
-      return RemoveCheckCastInstructionIfTrivialResult.REMOVED_CAST_DO_NARROW;
+      if (checkCast.object().getType().isNullable()) {
+        return RemoveCheckCastInstructionIfTrivialResult.REMOVED_CAST_DO_NARROW;
+      }
+      return RemoveCheckCastInstructionIfTrivialResult.REMOVED_CAST_DO_PROPAGATE;
     }
 
     // If the cast is guaranteed to succeed and only there to ensure the program type checks, then

@@ -122,7 +122,10 @@ public class Return extends JumpInstruction {
   @Override
   public ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, ProgramMethod context) {
-    return inliningConstraints.forReturn();
+    if (hasReturnValue()) {
+      return inliningConstraints.forReturn(returnValue().getType(), context);
+    }
+    return inliningConstraints.forReturnVoid();
   }
 
   @Override

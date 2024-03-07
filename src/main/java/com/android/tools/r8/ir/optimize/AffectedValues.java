@@ -51,6 +51,16 @@ public class AffectedValues implements Set<Value> {
     }
   }
 
+  public void propagateWithAssumeRemoval(
+      AppView<?> appView, IRCode code, Consumer<TypeAnalysis> typeAnalysisConsumer) {
+    if (hasNext()) {
+      TypeAnalysis typeAnalysis = new TypeAnalysis(appView, code);
+      typeAnalysisConsumer.accept(typeAnalysis);
+      typeAnalysis.propagateWithAssumeRemoval(this);
+      clear();
+    }
+  }
+
   public void widening(AppView<?> appView, IRCode code) {
     if (hasNext()) {
       new TypeAnalysis(appView, code).widening(this);
