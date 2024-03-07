@@ -211,7 +211,7 @@ class MethodNameMinifier {
     TopDownClassHierarchyTraversal.forAllClasses(appView)
         .excludeInterfaces()
         .visit(
-            appView.appInfo().classes(),
+            appView.appInfo().classesWithDeterministicOrder(),
             clazz -> {
               DexType type = clazz.type;
               MethodReservationState<?> reservationState =
@@ -280,7 +280,7 @@ class MethodNameMinifier {
         rootReservationState);
     TopDownClassHierarchyTraversal.forAllClasses(appView)
         .visit(
-            appView.appInfo().classes(),
+            appView.appInfo().classesWithDeterministicOrder(),
             clazz -> {
               DexType type = clazz.type;
               DexType frontier = frontiers.getOrDefault(clazz.superType, type);

@@ -104,7 +104,7 @@ class FieldNameMinifier {
     // For an in depth description see MethodNameMinifier.
     TopDownClassHierarchyTraversal.forAllClasses(appView)
         .visit(
-            appView.appInfo().classes(),
+            appView.appInfo().classesWithDeterministicOrder(),
             clazz -> {
               DexType frontier =
                   clazz.superType == null
@@ -181,7 +181,7 @@ class FieldNameMinifier {
     TopDownClassHierarchyTraversal.forAllClasses(appView)
         .excludeInterfaces()
         .visit(
-            appView.appInfo().classes(),
+            appView.appInfo().classesWithDeterministicOrder(),
             clazz -> {
               assert !clazz.isInterface();
 
