@@ -15,8 +15,6 @@ import static org.junit.Assume.assumeTrue;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
@@ -45,11 +43,7 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
   @Parameters(name = "{0}, {1}, allow access modification: {2}, attributes: {3}")
   public static Collection<Object[]> data() {
     return buildParameters(
-        getTestParameters()
-            .withCfRuntime(CfVm.last())
-            .withDexRuntime(Version.last())
-            .withAllApiLevels()
-            .build(),
+        getTestParameters().withAllRuntimesAndApiLevels().build(),
         getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
         BooleanUtils.values(),
         ImmutableList.of(
