@@ -81,9 +81,7 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
             inspector ->
                 inspector
                     .applyIf(
-                        kotlinc.isOneOf(
-                                KotlinCompilerVersion.KOTLINC_1_8_0,
-                                KotlinCompilerVersion.KOTLINC_1_9_21)
+                        kotlinParameters.isNewerThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_8_0)
                             || splitGroup,
                         i -> {
                           if (kotlinParameters.getLambdaGeneration().isClass()) {
@@ -128,9 +126,7 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
               assertThat(
                   mergeTarget,
                   isPresentIf(
-                      kotlinc.isOneOf(
-                              KotlinCompilerVersion.KOTLINC_1_8_0,
-                              KotlinCompilerVersion.KOTLINC_1_9_21)
+                      kotlinParameters.isNewerThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_8_0)
                           || splitGroup));
 
               if (mergeTarget.isAbsent()) {

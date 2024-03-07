@@ -58,7 +58,8 @@ public class KotlinStdLibCompilationTest extends TestBase {
               if (kotlinTestParameters.isNewerThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_8_0)
                   && parameters.isDexRuntime()
                   && parameters.getApiLevel().isLessThan(AndroidApiLevel.N)) {
-                diagnostics.assertWarningsCount(2);
+                // Kotlin stdlib has references to classes introduced at API level 24.
+                diagnostics.assertWarningsCount(3);
                 diagnostics.assertAllWarningsMatch(
                     DiagnosticsMatcher.diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class));
               } else {
