@@ -63,11 +63,15 @@ public class KotlinTestParameters {
   }
 
   public boolean isNewerThanOrEqualTo(KotlinCompilerVersion otherVersion) {
-    return kotlinc.getCompilerVersion().isGreaterThanOrEqualTo(otherVersion);
+    return getCompilerVersion().isGreaterThanOrEqualTo(otherVersion);
   }
 
   public boolean isNewerThan(KotlinCompilerVersion otherVersion) {
-    return kotlinc.getCompilerVersion().isGreaterThan(otherVersion);
+    return getCompilerVersion().isGreaterThan(otherVersion);
+  }
+
+  public boolean isOlderThanOrEqualTo(KotlinCompilerVersion otherVersion) {
+    return getCompilerVersion().isLessThanOrEqualTo(otherVersion);
   }
 
   public boolean isOlderThan(KotlinCompilerVersion otherVersion) {
