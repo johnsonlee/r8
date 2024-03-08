@@ -20,9 +20,11 @@ import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.ZipUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.Matchers;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import org.hamcrest.MatcherAssert;
 
 public class SoftVerificationErrorJarRunner extends TestBase {
 
@@ -108,11 +110,11 @@ public class SoftVerificationErrorJarRunner extends TestBase {
             + (isOutlined ? "ApiCallerOutlined" : "ApiCallerInlined")
             + (numberOfClasses - 1);
     ClassSubject clazz = inspector.clazz(name);
-    assertThat(clazz, isPresent());
+    MatcherAssert.assertThat(clazz, Matchers.isPresent());
     if (isOutlined) {
       ClassSubject apiCallerInlined =
           inspector.clazz("com.example.softverificationsample.ApiCallerInlined");
-      assertThat(apiCallerInlined, isPresent());
+      MatcherAssert.assertThat(apiCallerInlined, Matchers.isPresent());
     }
   }
 }

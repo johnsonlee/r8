@@ -31,6 +31,7 @@ import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.TriFunction;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.Matchers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
@@ -51,6 +52,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.hamcrest.Matcher;
+import org.hamcrest.MatcherAssert;
 
 public abstract class TestCompileResult<
         CR extends TestCompileResult<CR, RR>, RR extends TestRunResult<RR>>
@@ -177,7 +179,7 @@ public abstract class TestCompileResult<
   public RR run(String mainClass) throws IOException {
     assert !libraryDesugaringTestConfiguration.isEnabled();
     ClassSubject mainClassSubject = inspector().clazz(mainClass);
-    assertThat(mainClassSubject, isPresent());
+    MatcherAssert.assertThat(mainClassSubject, Matchers.isPresent());
     switch (getBackend()) {
       case DEX:
         return runArt(
@@ -216,7 +218,7 @@ public abstract class TestCompileResult<
         }
       }
     }
-    assertThat("Did you forget a keep rule for the main method?", mainClassSubject, isPresent());
+    assertThat("Did you forget a keep rule for the main method?", mainClassSubject, Matchers.isPresent());
     if (runtime.isDex()) {
       return runArt(runtime, mainClassSubject.getFinalName(), args);
     }

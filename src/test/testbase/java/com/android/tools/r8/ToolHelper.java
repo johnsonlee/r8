@@ -165,6 +165,14 @@ public class ToolHelper {
       }
     }
 
+    public Path getTestBaseClassLocation() {
+      String testbaseDataLocation = System.getProperty("TESTBASE_DATA_LOCATION");
+      if (testbaseDataLocation != null) {
+        return Paths.get(testbaseDataLocation);
+      }
+      throw new Unreachable("TESTBASE_DATA_LOCATION not set from gradle");
+    }
+
     public static TestDataSourceSet computeLegacyOrGradleSpecifiedLocation() {
       return TestDataSourceSet.SPECIFIED_BY_GRADLE_PROPERTY;
     }
@@ -1512,6 +1520,10 @@ public class ToolHelper {
     return getClassPathForTestDataSourceSet(computeLegacyOrGradleSpecifiedLocation());
   }
 
+  public static Path getTestBaseclassPath() {
+    return computeLegacyOrGradleSpecifiedLocation().getTestBaseClassLocation();
+  }
+
   public static Path getClassPathForTestDataSourceSet(TestDataSourceSet sourceSet) {
     return sourceSet.getBuildDir();
   }
@@ -1563,11 +1575,15 @@ public class ToolHelper {
 
   public static Path getClassFileForTestClass(Class<?> clazz, TestDataSourceSet sourceSet) {
     List<String> parts = getNamePartsForTestClass(clazz);
+    Path filePath = Paths.get("", parts.toArray(StringUtils.EMPTY_ARRAY));
     Path resolve =
         getClassPathForTestDataSourceSet(sourceSet)
-            .resolve(Paths.get("", parts.toArray(StringUtils.EMPTY_ARRAY)));
+            .resolve(filePath);
     if (!Files.exists(resolve)) {
-      throw new RuntimeException("Could not find: " + resolve.toString());
+      resolve = sourceSet.getTestBaseClassLocation().resolve(filePath);
+      if (!Files.exists(resolve)) {
+        throw new RuntimeException("Could not find: " + resolve.toString());
+      }
     }
     return resolve;
   }

@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
-import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.benchmarks.BenchmarkResults.ResultMode;
 
 public class BenchmarkRunner {
 
@@ -11,20 +11,10 @@ public class BenchmarkRunner {
     void run(BenchmarkResults results) throws Exception;
   }
 
-  public enum ResultMode {
-    AVERAGE,
-    SUM;
-
-    @Override
-    public String toString() {
-      return StringUtils.toLowerCase(name());
-    }
-  }
-
   private final BenchmarkConfig config;
   private int warmups = 0;
   private int iterations = 1;
-  private ResultMode resultMode = ResultMode.AVERAGE;
+  private ResultMode resultMode = BenchmarkResults.ResultMode.AVERAGE;
 
   private BenchmarkRunner(BenchmarkConfig config) {
     this.config = config;
@@ -45,12 +35,12 @@ public class BenchmarkRunner {
   }
 
   public BenchmarkRunner reportResultAverage() {
-    resultMode = ResultMode.AVERAGE;
+    resultMode = BenchmarkResults.ResultMode.AVERAGE;
     return this;
   }
 
   public BenchmarkRunner reportResultSum() {
-    resultMode = ResultMode.SUM;
+    resultMode = BenchmarkResults.ResultMode.SUM;
     return this;
   }
 

@@ -6,13 +6,14 @@ package com.android.tools.r8;
 
 import static com.android.tools.r8.desugar.LibraryFilesHelper.getJdk9LibraryFiles;
 
+import com.android.tools.r8.desugar.LibraryFilesHelper;
 import org.junit.rules.TemporaryFolder;
 
 public class Jdk9TestUtils {
 
   public static ThrowableConsumer<R8FullTestBuilder> addJdk9LibraryFiles(
       TemporaryFolder temporaryFolder) {
-    return builder -> builder.addLibraryFiles(getJdk9LibraryFiles(temporaryFolder));
+    return builder -> builder.addLibraryFiles(LibraryFilesHelper.getJdk9LibraryFiles(temporaryFolder));
   }
 
 }

@@ -11,6 +11,7 @@ import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
+import com.android.tools.r8.dexsplitter.SplitterTestBase;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.RunInterface;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.SplitRunner;
 import com.android.tools.r8.errors.Unreachable;
@@ -44,6 +45,7 @@ import com.android.tools.r8.utils.MapIdTemplateProvider;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.SemanticVersion;
 import com.android.tools.r8.utils.SourceFileTemplateProvider;
+import com.android.tools.r8.utils.codeinspector.Matchers;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.nio.file.Path;
@@ -172,7 +174,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
       case NONE:
         if (allowUnusedProguardConfigurationRules) {
           compileResult
-              .assertAllInfosMatch(proguardConfigurationRuleDoesNotMatch())
+              .assertAllInfosMatch(Matchers.proguardConfigurationRuleDoesNotMatch())
               .assertNoErrorMessages()
               .assertNoWarningMessages();
         } else {
@@ -186,9 +188,9 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
         throw new Unreachable();
     }
     if (allowUnusedProguardConfigurationRules) {
-      compileResult.assertInfoThatMatches(proguardConfigurationRuleDoesNotMatch());
+      compileResult.assertInfoThatMatches(Matchers.proguardConfigurationRuleDoesNotMatch());
     } else {
-      compileResult.assertNoInfoThatMatches(proguardConfigurationRuleDoesNotMatch());
+      compileResult.assertNoInfoThatMatches(Matchers.proguardConfigurationRuleDoesNotMatch());
     }
     return compileResult;
   }
@@ -855,7 +857,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   public T addFeatureSplit(Class<?>... classes) throws IOException {
     Path path = getState().getNewTempFile("feature.zip");
     builder.addFeatureSplit(
-        builder -> simpleSplitProvider(builder, path, getState().getTempFolder(), classes));
+        builder -> SplitterTestBase.simpleSplitProvider(builder, path, getState().getTempFolder(), classes));
     features.add(path);
     return self();
   }
@@ -865,7 +867,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     Path path = getState().getNewTempFolder().resolve("feature.zip");
     builder.addFeatureSplit(
         builder ->
-            splitWithNonJavaFile(builder, path, getState().getTempFolder(), nonJavaFiles, classes));
+            SplitterTestBase.splitWithNonJavaFile(builder, path, getState().getTempFolder(), nonJavaFiles, classes));
     features.add(path);
     return self();
   }

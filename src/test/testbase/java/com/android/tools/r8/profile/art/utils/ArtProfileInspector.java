@@ -18,6 +18,7 @@ import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
+import org.hamcrest.MatcherAssert;
 
 public class ArtProfileInspector {
 
@@ -61,7 +62,7 @@ public class ArtProfileInspector {
   }
 
   public ArtProfileInspector assertContainsClassRule(ClassReference classReference) {
-    assertThat(artProfile, ArtProfileMatchers.containsClassRule(classReference));
+    MatcherAssert.assertThat(artProfile, ArtProfileMatchers.containsClassRule(classReference));
     checkedClassReferences.add(classReference);
     return this;
   }
@@ -85,7 +86,7 @@ public class ArtProfileInspector {
   }
 
   public ArtProfileInspector assertContainsMethodRule(MethodReference methodReference) {
-    assertThat(artProfile, ArtProfileMatchers.containsMethodRule(methodReference));
+    MatcherAssert.assertThat(artProfile, ArtProfileMatchers.containsMethodRule(methodReference));
     checkedMethodReferences.add(methodReference);
     return this;
   }

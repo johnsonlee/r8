@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
-import com.android.tools.r8.benchmarks.BenchmarkRunner.ResultMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

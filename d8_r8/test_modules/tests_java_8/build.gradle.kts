@@ -131,6 +131,9 @@ tasks {
     dependsOn(sourceSetDependencyTask)
     systemProperty("TEST_DATA_LOCATION",
                    layout.buildDirectory.dir("classes/java/test").get().toString())
+    systemProperty("TESTBASE_DATA_LOCATION",
+                   testbaseJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
+
     systemProperty(
       "BUILD_PROP_KEEPANNO_RUNTIME_PATH",
       keepAnnoCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])

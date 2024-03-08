@@ -5,6 +5,7 @@ package com.android.tools.r8;
 
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.debug.CfDebugTestConfig;
+import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.testing.AndroidBuildVersion;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -152,7 +153,8 @@ public class JvmTestBuilder extends TestBuilder<JvmTestRunResult, JvmTestBuilder
   }
 
   public JvmTestBuilder addTestClasspath() {
-    return addClasspath(ToolHelper.getClassPathForTests());
+    return addClasspath(ToolHelper.getClassPathForTests())
+        .addClasspath(ToolHelper.getTestBaseclassPath());
   }
 
   public JvmTestBuilder enablePreview() {

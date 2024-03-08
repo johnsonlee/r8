@@ -16,10 +16,12 @@ import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import com.android.tools.r8.utils.codeinspector.FoundFieldSubject;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
+import com.android.tools.r8.utils.codeinspector.Matchers;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutionException;
 import org.hamcrest.Matcher;
+import org.hamcrest.MatcherAssert;
 
 public class RelocatorTestCompileResult extends TestRunResult<RelocatorTestCompileResult> {
 
@@ -86,7 +88,7 @@ public class RelocatorTestCompileResult extends TestRunResult<RelocatorTestCompi
               String relocatedName =
                   newPrefix + clazz.getFinalName().substring(originalPrefix.length());
               ClassSubject relocatedClass = relocatedInspector.clazz(relocatedName);
-              assertThat(relocatedClass, isPresent());
+              MatcherAssert.assertThat(relocatedClass, Matchers.isPresent());
             }
           }
         });
@@ -97,13 +99,13 @@ public class RelocatorTestCompileResult extends TestRunResult<RelocatorTestCompi
     inspect(
         inspector -> {
           for (FoundClassSubject clazz : inspector.allClasses()) {
-            assertThat(clazz.getFinalSignatureAttribute(), not(containsString(originalPrefix)));
+            MatcherAssert.assertThat(clazz.getFinalSignatureAttribute(), not(containsString(originalPrefix)));
             for (FoundMethodSubject method : clazz.allMethods()) {
-              assertThat(
+              MatcherAssert.assertThat(
                   method.getJvmMethodSignatureAsString(), not(containsString(originalPrefix)));
             }
             for (FoundFieldSubject field : clazz.allFields()) {
-              assertThat(field.getJvmFieldSignatureAsString(), not(containsString(originalPrefix)));
+              MatcherAssert.assertThat(field.getJvmFieldSignatureAsString(), not(containsString(originalPrefix)));
             }
           }
         });

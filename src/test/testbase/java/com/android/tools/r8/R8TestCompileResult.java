@@ -25,6 +25,7 @@ import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.ZipUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.Matchers;
 import com.android.tools.r8.utils.graphinspector.GraphInspector;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -238,18 +239,18 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
       throws IOException {
     assert getBackend() == runtime.getBackend();
     ClassSubject mainClassSubject = inspector().clazz(SplitRunner.class);
-    assertThat("Did you forget a keep rule for the main method?", mainClassSubject, isPresent());
+    assertThat("Did you forget a keep rule for the main method?", mainClassSubject, Matchers.isPresent());
     assertThat(
         "Did you forget a keep rule for the main method?",
         mainClassSubject.mainMethod(),
-        isPresent());
+        Matchers.isPresent());
     ClassSubject mainFeatureClassSubject = featureInspector(feature).clazz(mainFeatureClass);
     assertThat(
-        "Did you forget a keep rule for the run method?", mainFeatureClassSubject, isPresent());
+        "Did you forget a keep rule for the run method?", mainFeatureClassSubject, Matchers.isPresent());
     assertThat(
         "Did you forget a keep rule for the run method?",
         mainFeatureClassSubject.uniqueMethodWithOriginalName("run"),
-        isPresent());
+        Matchers.isPresent());
     String[] args = new String[2 + featureDependencies.length];
     args[0] = mainFeatureClassSubject.getFinalName();
     args[1] = feature.toString();

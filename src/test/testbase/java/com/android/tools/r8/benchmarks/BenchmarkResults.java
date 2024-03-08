@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
-import com.android.tools.r8.benchmarks.BenchmarkRunner.ResultMode;
+import com.android.tools.r8.utils.StringUtils;
 
 public interface BenchmarkResults {
   // Append a runtime result. This may be summed or averaged depending on the benchmark set up.
@@ -27,5 +27,15 @@ public interface BenchmarkResults {
 
   static String prettyMetric(String name, BenchmarkMetric metric, String value) {
     return name + "(" + metric.name() + "): " + value;
+  }
+
+  enum ResultMode {
+    AVERAGE,
+    SUM;
+
+    @Override
+    public String toString() {
+      return StringUtils.toLowerCase(name());
+    }
   }
 }
