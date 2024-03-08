@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
+import java.util.function.IntUnaryOperator;
 import java.util.function.Predicate;
 
 public class ArrayUtils {
@@ -67,6 +68,13 @@ public class ArrayUtils {
 
   public static <T> T[] filled(T[] array, T element) {
     Arrays.fill(array, element);
+    return array;
+  }
+
+  public static int[] initialize(int[] array, IntUnaryOperator fn) {
+    for (int i = 0; i < array.length; i++) {
+      array[i] = fn.applyAsInt(i);
+    }
     return array;
   }
 

@@ -6,6 +6,7 @@ package com.android.tools.r8.horizontalclassmerging;
 
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Position;
@@ -36,21 +37,23 @@ import java.util.List;
  * </code>
  */
 public class ConstructorEntryPoint extends SyntheticSourceCode {
+
   private final DexField classIdField;
   private final int extraNulls;
+  private final ProgramMethod method;
   private final Int2ReferenceSortedMap<DexMethod> typeConstructors;
 
   public ConstructorEntryPoint(
       Int2ReferenceSortedMap<DexMethod> typeConstructors,
-      DexMethod newConstructor,
+      ProgramMethod method,
       DexField classIdField,
       int extraNulls,
       Position position) {
-    super(newConstructor.holder, newConstructor, position);
-
-    this.typeConstructors = typeConstructors;
+    super(method, position);
     this.classIdField = classIdField;
     this.extraNulls = extraNulls;
+    this.method = method;
+    this.typeConstructors = typeConstructors;
   }
 
   private boolean hasClassIdField() {
@@ -95,25 +98,17 @@ public class ConstructorEntryPoint extends SyntheticSourceCode {
   }
 
   /** Assign the given register to the class id field. */
-  void addRegisterClassIdAssignment(int idRegister) {
+  void addRegisterClassIdAssignment(int classIdRegister) {
     assert hasClassIdField();
-    add(builder -> builder.addInstancePut(idRegister, getReceiverRegister(), classIdField));
-  }
-
-  /** Assign the given constant integer value to the class id field. */
-  void addConstantRegisterClassIdAssignment(int classId) {
-    assert hasClassIdField();
-    int idRegister = nextRegister(ValueType.INT);
-    add(builder -> builder.addIntConst(idRegister, classId));
-    addRegisterClassIdAssignment(idRegister);
+    add(builder -> builder.addInstancePut(classIdRegister, getReceiverRegister(), classIdField));
   }
 
   protected void prepareMultiConstructorInstructions() {
     int typeConstructorCount = typeConstructors.size();
     // The class id register is always the first synthetic argument.
-    int idRegister = getParamRegister(method.getArity() - 1 - extraNulls);
+    int classIdRegister = getParamRegister(method.getArity() - 1 - extraNulls);
     if (hasClassIdField()) {
-      addRegisterClassIdAssignment(idRegister);
+      addRegisterClassIdAssignment(classIdRegister);
     }
 
     int[] keys = new int[typeConstructorCount - 1];
@@ -121,7 +116,7 @@ public class ConstructorEntryPoint extends SyntheticSourceCode {
     IntBox fallthrough = new IntBox();
     int switchIndex = lastInstructionIndex();
     add(
-        builder -> builder.addSwitch(idRegister, keys, fallthrough.get(), offsets),
+        builder -> builder.addSwitch(classIdRegister, keys, fallthrough.get(), offsets),
         builder -> endsSwitch(builder, switchIndex, fallthrough.get(), offsets));
 
     int index = 0;
@@ -148,7 +143,10 @@ public class ConstructorEntryPoint extends SyntheticSourceCode {
   protected void prepareSingleConstructorInstructions() {
     Entry<DexMethod> entry = typeConstructors.int2ReferenceEntrySet().first();
     if (hasClassIdField()) {
-      addConstantRegisterClassIdAssignment(entry.getIntKey());
+      int classIdRegister = nextRegister(ValueType.INT);
+      int classIdValue = entry.getIntKey();
+      add(builder -> builder.addIntConst(classIdRegister, classIdValue));
+      addRegisterClassIdAssignment(classIdRegister);
     }
     addConstructorInvoke(entry.getValue());
     add(IRBuilder::addReturn, endsBlock);

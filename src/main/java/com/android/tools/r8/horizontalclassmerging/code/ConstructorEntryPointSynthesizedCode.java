@@ -36,18 +36,15 @@ import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
 
 public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalClassMergerCode {
 
-  private final DexMethod newConstructor;
   private final DexField classIdField;
   private int extraNulls;
   private final Int2ReferenceSortedMap<DexMethod> typeConstructors;
 
   public ConstructorEntryPointSynthesizedCode(
       Int2ReferenceSortedMap<DexMethod> typeConstructors,
-      DexMethod newConstructor,
       DexField classIdField,
       int extraNulls) {
     this.typeConstructors = typeConstructors;
-    this.newConstructor = newConstructor;
     this.classIdField = classIdField;
     this.extraNulls = extraNulls;
   }
@@ -78,11 +75,6 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
         .graphLens()
         .asNonIdentityLens()
         .find(GraphLens::isHorizontalClassMergerGraphLens);
-  }
-
-  @Override
-  public boolean isHorizontalClassMergerCode() {
-    return true;
   }
 
   @Override
@@ -128,8 +120,7 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
             .setIsD8R8Synthesized(true)
             .build();
     SourceCode sourceCode =
-        new ConstructorEntryPoint(
-            typeConstructors, newConstructor, classIdField, extraNulls, position);
+        new ConstructorEntryPoint(typeConstructors, method, classIdField, extraNulls, position);
     return IRBuilder.create(method, appView, sourceCode).build(method, conversionOptions);
   }
 
@@ -144,7 +135,7 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
       RewrittenPrototypeDescription protoChanges) {
     SourceCode sourceCode =
         new ConstructorEntryPoint(
-            typeConstructors, newConstructor, classIdField, extraNulls, callerPosition);
+            typeConstructors, method, classIdField, extraNulls, callerPosition);
     return IRBuilder.createForInlining(
             method, appView, codeLens, sourceCode, valueNumberGenerator, protoChanges)
         .build(context, MethodConversionOptions.nonConverting());

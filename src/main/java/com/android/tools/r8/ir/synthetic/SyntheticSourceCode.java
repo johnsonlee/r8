@@ -6,28 +6,24 @@ package com.android.tools.r8.ir.synthetic;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DebugLocalInfo;
-import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.DexProto;
-import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.conversion.DexSourceCode;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.SourceCode;
+import com.android.tools.r8.utils.ArrayUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+@Deprecated
 public abstract class SyntheticSourceCode implements SourceCode {
+
   protected final static Predicate<IRBuilder> doesNotEndBlock = x -> false;
   protected final static Predicate<IRBuilder> endsBlock = x -> true;
-
-  // TODO(b/146124603): Remove these fields as optimizations (e.g., merging) could invalidate them.
-  protected final DexType receiver;
-  protected final DexMethod method;
-  protected final DexProto proto;
 
   // The next free register, note that we always
   // assign each value a new (next available) register.
@@ -43,22 +39,15 @@ public abstract class SyntheticSourceCode implements SourceCode {
 
   private final Position position;
 
-  protected SyntheticSourceCode(DexType receiver, DexMethod method, Position position) {
-    assert method != null;
-    this.receiver = receiver;
-    this.method = method;
-    this.proto = method.proto;
+  protected SyntheticSourceCode(ProgramMethod method, Position position) {
     this.position = position;
 
     // Initialize register values for receiver and arguments
-    this.receiverRegister = receiver != null ? nextRegister(ValueType.OBJECT) : -1;
-
-    DexType[] params = proto.parameters.values;
-    int paramCount = params.length;
-    this.paramRegisters = new int[paramCount];
-    for (int i = 0; i < paramCount; i++) {
-      this.paramRegisters[i] = nextRegister(ValueType.fromDexType(params[i]));
-    }
+    this.receiverRegister = nextRegister(ValueType.OBJECT);
+    this.paramRegisters =
+        ArrayUtils.initialize(
+            new int[method.getParameters().size()],
+            i -> nextRegister(ValueType.fromDexType(method.getParameter(i))));
   }
 
   protected final void add(Consumer<IRBuilder> constructor) {
@@ -77,7 +66,6 @@ public abstract class SyntheticSourceCode implements SourceCode {
   }
 
   protected final int getReceiverRegister() {
-    assert receiver != null;
     assert receiverRegister >= 0;
     return receiverRegister;
   }

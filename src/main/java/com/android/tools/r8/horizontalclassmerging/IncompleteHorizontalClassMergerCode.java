@@ -24,7 +24,7 @@ public abstract class IncompleteHorizontalClassMergerCode extends Code {
   public abstract void addExtraUnusedArguments(int numberOfUnusedArguments);
 
   @Override
-  public boolean isHorizontalClassMergerCode() {
+  public final boolean isHorizontalClassMergerCode() {
     return true;
   }
 

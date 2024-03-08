@@ -252,7 +252,6 @@ public class InstanceInitializerMerger {
   }
 
   private Code getNewCode(
-      DexMethod newMethodReference,
       boolean needsClassId,
       int extraNulls) {
     if (hasInstanceInitializerDescription()) {
@@ -261,7 +260,6 @@ public class InstanceInitializerMerger {
     assert useSyntheticMethod();
     return new ConstructorEntryPointSynthesizedCode(
         createClassIdToInstanceInitializerMap(),
-        newMethodReference,
         group.hasClassIdField() ? group.getClassIdField() : null,
         extraNulls);
   }
@@ -349,7 +347,7 @@ public class InstanceInitializerMerger {
           DexEncodedMethod.syntheticBuilder()
               .setMethod(newMethodReference)
               .setAccessFlags(getNewAccessFlags())
-              .setCode(getNewCode(newMethodReference, needsClassId, extraUnusedParameters.size()))
+              .setCode(getNewCode(needsClassId, extraUnusedParameters.size()))
               .setClassFileVersion(getNewClassFileVersion())
               .setApiLevelForDefinition(representativeMethod.getApiLevelForDefinition())
               .setApiLevelForCode(representativeMethod.getApiLevelForCode())
