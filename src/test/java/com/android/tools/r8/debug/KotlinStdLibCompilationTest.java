@@ -58,11 +58,12 @@ public class KotlinStdLibCompilationTest extends TestBase {
               if (kotlinTestParameters.isNewerThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_8_0)
                   && parameters.isDexRuntime()
                   && parameters.getApiLevel().isLessThan(AndroidApiLevel.N)) {
-                // Kotlin stdlib has references to classes introduced at API level 24.
+                // Kotlin stdlib has references to classes introduced in API level 24 and
+                // java.lang.AutoCloseable introduced in API level 19.
                 diagnostics.assertWarningsCount(
                     kotlinTestParameters.isOlderThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_9_21)
                         ? 2
-                        : 3);
+                        : (parameters.getApiLevel().isLessThan(AndroidApiLevel.K)) ? 4 : 3);
                 diagnostics.assertAllWarningsMatch(
                     DiagnosticsMatcher.diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class));
               } else {

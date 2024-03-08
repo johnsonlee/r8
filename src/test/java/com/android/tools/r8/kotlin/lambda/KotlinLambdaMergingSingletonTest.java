@@ -9,6 +9,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
@@ -66,9 +67,16 @@ public class KotlinLambdaMergingSingletonTest extends KotlinTestBase {
     // Get the Kotlin lambdas in the input.
     KotlinLambdasInInput lambdasInInput =
         KotlinLambdasInInput.create(getProgramFiles(), getTestName());
-    assertEquals(2, lambdasInInput.getNumberOfJStyleLambdas());
     assertEquals(
-        kotlinParameters.getLambdaGeneration().isInvokeDynamic() ? 6 : 7,
+        kotlinParameters.getLambdaGeneration().isInvokeDynamic()
+                && kotlinParameters.getCompilerVersion() == KotlinCompilerVersion.KOTLIN_DEV
+            ? 8
+            : 2,
+        lambdasInInput.getNumberOfJStyleLambdas());
+    assertEquals(
+        kotlinParameters.getLambdaGeneration().isInvokeDynamic()
+            ? (kotlinParameters.getCompilerVersion() == KotlinCompilerVersion.KOTLIN_DEV ? 0 : 6)
+            : 7,
         lambdasInInput.getNumberOfKStyleLambdas());
 
     testForR8(parameters.getBackend())
@@ -90,7 +98,13 @@ public class KotlinLambdaMergingSingletonTest extends KotlinTestBase {
   private void inspect(
       HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput) {
     // All J-style Kotlin lambdas should be merged into one class.
-    inspector.assertIsCompleteMergeGroup(lambdasInInput.getJStyleLambdas());
+    if (kotlinParameters
+        .getCompilerVersion()
+        .isLessThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_9_21)) {
+      inspector.assertIsCompleteMergeGroup(lambdasInInput.getJStyleLambdas());
+    } else {
+      assertEquals(4, inspector.getMergeGroups().size());
+    }
 
     // The remaining lambdas are not merged.
     inspector.assertClassReferencesNotMerged(lambdasInInput.getKStyleLambdas());
