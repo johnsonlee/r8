@@ -146,7 +146,7 @@ public class DexString extends IndexedDexItem
           if ((b & 0xC0) == 0x80) {
             return (char) (((a & 0x1F) << 6) | (b & 0x3F));
           }
-          throw new UTFDataFormatException("bad second byte");
+          throw badSecondByteException(a, b);
         }
         if ((a & 0xf0) == 0xe0) {
           int b = content[i++] & 0xff;
@@ -154,9 +154,9 @@ public class DexString extends IndexedDexItem
           if ((b & 0xC0) == 0x80 && (c & 0xC0) == 0x80) {
             return (char) (((a & 0x0F) << 12) | ((b & 0x3F) << 6) | (c & 0x3F));
           }
-          throw new UTFDataFormatException("bad second or third byte");
+          throw badSecondOrThirdByteException(a, b, c);
         }
-        throw new UTFDataFormatException("bad byte");
+        throw badByteException(a);
       }
 
       @Override
@@ -221,7 +221,7 @@ public class DexString extends IndexedDexItem
       } else if ((a & 0xe0) == 0xc0) {
         int b = content[p++] & 0xff;
         if ((b & 0xC0) != 0x80) {
-          throw new UTFDataFormatException("bad second byte");
+          throw badSecondByteException(a, b);
         }
         out[s] = (char) (((a & 0x1F) << 6) | (b & 0x3F));
         if (++s == prefixLength) {
@@ -231,14 +231,14 @@ public class DexString extends IndexedDexItem
         int b = content[p++] & 0xff;
         int c = content[p++] & 0xff;
         if (((b & 0xC0) != 0x80) || ((c & 0xC0) != 0x80)) {
-          throw new UTFDataFormatException("bad second or third byte");
+          throw badSecondOrThirdByteException(a, b, c);
         }
         out[s] = (char) (((a & 0x0F) << 12) | ((b & 0x3F) << 6) | (c & 0x3F));
         if (++s == prefixLength) {
           return s;
         }
       } else {
-        throw new UTFDataFormatException("bad byte");
+        throw badByteException(a);
       }
     }
   }
@@ -260,23 +260,47 @@ public class DexString extends IndexedDexItem
       } else if ((a & 0xe0) == 0xc0) {
         int b = content[p++] & 0xff;
         if ((b & 0xC0) != 0x80) {
-          throw new UTFDataFormatException("bad second byte");
+          throw badSecondByteException(a, b);
         }
         h = 31 * h + (char) (((a & 0x1F) << 6) | (b & 0x3F));
       } else if ((a & 0xf0) == 0xe0) {
         int b = content[p++] & 0xff;
         int c = content[p++] & 0xff;
         if (((b & 0xC0) != 0x80) || ((c & 0xC0) != 0x80)) {
-          throw new UTFDataFormatException("bad second or third byte");
+          throw badSecondOrThirdByteException(a, b, c);
         }
         h = 31 * h + (char) (((a & 0x0F) << 12) | ((b & 0x3F) << 6) | (c & 0x3F));
       } else {
-        throw new UTFDataFormatException("bad byte");
+        throw badByteException(a);
       }
     }
 
     assert h == decode().hashCode();
     return h;
+  }
+
+  private UTFDataFormatException badByteException(int a) {
+    return new UTFDataFormatException("bad byte: " + Integer.toHexString((char) (a & 0xff)) + ")");
+  }
+
+  private UTFDataFormatException badSecondByteException(int a, int b) {
+    return new UTFDataFormatException(
+        "bad second byte (first: "
+            + Integer.toHexString((char) (a & 0xff))
+            + ", second: "
+            + Integer.toHexString((char) (b & 0xff))
+            + ")");
+  }
+
+  private UTFDataFormatException badSecondOrThirdByteException(int a, int b, int c) {
+    return new UTFDataFormatException(
+        "bad second or third byte (first: "
+            + Integer.toHexString((char) (a & 0xff))
+            + ", second: "
+            + Integer.toHexString((char) (b & 0xff))
+            + ", third: "
+            + Integer.toHexString((char) (c & 0xff))
+            + ")");
   }
 
   // Inspired from /dex/src/main/java/com/android/dex/Mutf8.java
