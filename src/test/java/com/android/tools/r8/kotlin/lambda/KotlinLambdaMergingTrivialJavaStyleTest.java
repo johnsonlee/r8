@@ -94,6 +94,15 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
 
   private void inspect(
       HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput) {
+    if (hasKotlinCGeneratedLambdaClasses()
+        && kotlinParameters.getCompilerVersion().isLessThan(KOTLINC_1_5_0)) {
+      // Don't check exactly how J-style Kotlin lambdas are merged for kotlinc before 1.5.0.
+      assertEquals(
+          parameters.isDexRuntime() && parameters.canUseDefaultAndStaticInterfaceMethods() ? 2 : 10,
+          inspector.getMergeGroups().size());
+      return;
+    }
+
     if (!allowAccessModification && hasKotlinCGeneratedLambdaClasses()) {
       // Only a subset of all J-style Kotlin lambdas are merged without -allowaccessmodification.
       Set<ClassReference> unmergedLambdas =
@@ -214,7 +223,13 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
         lambdasInOutput.add(classReference);
       }
     }
-    assertEquals(0, lambdasInOutput.size());
+    assertEquals(
+        kotlinParameters.getCompilerVersion().isGreaterThanOrEqualTo(KOTLINC_1_5_0)
+            ? 0
+            : (parameters.isDexRuntime() && parameters.canUseDefaultAndStaticInterfaceMethods()
+                ? 2
+                : 8),
+        lambdasInOutput.size());
   }
 
   private boolean hasKotlinCGeneratedLambdaClasses() {
