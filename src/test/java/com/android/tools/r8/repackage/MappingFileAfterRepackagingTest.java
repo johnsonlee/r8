@@ -8,6 +8,7 @@ import static org.junit.Assert.assertEquals;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import java.util.List;
@@ -38,8 +39,11 @@ public class MappingFileAfterRepackagingTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addKeepAttributeLineNumberTable()
+        .addKeepAttributeSourceFile()
         .addHorizontallyMergedClassesInspector(
-            inspector -> inspector.assertIsCompleteMergeGroup(A.class, B.class))
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .applyIf(repackage, testBuilder -> testBuilder.addKeepRules("-repackageclasses"))
         .enableInliningAnnotations()
         .setMinApi(parameters)
@@ -61,8 +65,14 @@ public class MappingFileAfterRepackagingTest extends TestBase {
                   StringUtils.splitLines(runResult.proguardMap()).stream()
                       .filter(line -> line.contains("java.lang.String toString()"))
                       .count();
-              assertEquals(repackage ? 1 : 3, unqualifiedMatches);
+              assertEquals(
+                  (repackage ? 1 : 3) + BooleanUtils.intValue(isPc2pc()), unqualifiedMatches);
             });
+  }
+
+  private boolean isPc2pc() {
+    return parameters.isDexRuntime()
+        && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O);
   }
 
   static class Main {
