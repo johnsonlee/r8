@@ -251,17 +251,16 @@ public class InstanceInitializerMerger {
         Constants.ACC_PUBLIC | Constants.ACC_SYNTHETIC, true);
   }
 
-  private Code getNewCode(
-      boolean needsClassId,
-      int extraNulls) {
+  private Code getNewCode(boolean needsClassId, int numberOfUnusedArguments) {
     if (hasInstanceInitializerDescription()) {
-      return instanceInitializerDescription.createCode(group, needsClassId, extraNulls);
+      return instanceInitializerDescription.createCode(
+          group, needsClassId, numberOfUnusedArguments);
     }
     assert useSyntheticMethod();
     return new ConstructorEntryPointSynthesizedCode(
         createClassIdToInstanceInitializerMap(),
         group.hasClassIdField() ? group.getClassIdField() : null,
-        extraNulls);
+        numberOfUnusedArguments);
   }
 
   private boolean isSingleton() {

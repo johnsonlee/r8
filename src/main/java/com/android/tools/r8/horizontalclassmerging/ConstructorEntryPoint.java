@@ -39,7 +39,7 @@ import java.util.List;
 public class ConstructorEntryPoint extends SyntheticSourceCode {
 
   private final DexField classIdField;
-  private final int extraNulls;
+  private final int numberOfUnusedArguments;
   private final ProgramMethod method;
   private final Int2ReferenceSortedMap<DexMethod> typeConstructors;
 
@@ -47,11 +47,11 @@ public class ConstructorEntryPoint extends SyntheticSourceCode {
       Int2ReferenceSortedMap<DexMethod> typeConstructors,
       ProgramMethod method,
       DexField classIdField,
-      int extraNulls,
+      int numberOfUnusedArguments,
       Position position) {
     super(method, position);
     this.classIdField = classIdField;
-    this.extraNulls = extraNulls;
+    this.numberOfUnusedArguments = numberOfUnusedArguments;
     this.method = method;
     this.typeConstructors = typeConstructors;
   }
@@ -67,7 +67,7 @@ public class ConstructorEntryPoint extends SyntheticSourceCode {
               builder.hasArgumentValues()
                   ? (builder.getArgumentValues().size()
                       - BooleanUtils.intValue(typeConstructors.size() > 1)
-                      - extraNulls)
+                      - numberOfUnusedArguments)
                   : 0;
           int newNumberOfNonReceiverArguments = typeConstructor.getArity();
           List<Value> arguments = new ArrayList<>(newNumberOfNonReceiverArguments + 1);
@@ -106,7 +106,7 @@ public class ConstructorEntryPoint extends SyntheticSourceCode {
   protected void prepareMultiConstructorInstructions() {
     int typeConstructorCount = typeConstructors.size();
     // The class id register is always the first synthetic argument.
-    int classIdRegister = getParamRegister(method.getArity() - 1 - extraNulls);
+    int classIdRegister = getParamRegister(method.getArity() - 1 - numberOfUnusedArguments);
     if (hasClassIdField()) {
       addRegisterClassIdAssignment(classIdRegister);
     }

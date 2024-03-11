@@ -101,20 +101,19 @@ public class HorizontalClassMergerTreeFixer
       DexProgramClass clazz,
       Set<DexProgramClass> seen,
       DexMethodSignatureBiMap<DexMethodSignature> state) {
+    assert seen.add(clazz);
     if (mergedClasses.isMergeSource(clazz.getType())) {
+      assert !clazz.hasMethodsOrFields();
       return;
     }
-    assert seen.add(clazz);
     DexMethodSignatureBiMap<DexMethodSignature> newState = fixupProgramClass(clazz, state);
     for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(clazz)) {
       traverseProgramClassesDepthFirst(subclass, seen, newState);
     }
-    if (mergedClasses.isMergeTarget(clazz.getType())) {
-      for (DexType sourceType : mergedClasses.getSourcesFor(clazz.getType())) {
-        DexProgramClass sourceClass = appView.definitionFor(sourceType).asProgramClass();
-        for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(sourceClass)) {
-          traverseProgramClassesDepthFirst(subclass, seen, newState);
-        }
+    for (DexType sourceType : mergedClasses.getSourcesFor(clazz.getType())) {
+      DexProgramClass sourceClass = appView.definitionFor(sourceType).asProgramClass();
+      for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(sourceClass)) {
+        traverseProgramClassesDepthFirst(subclass, seen, newState);
       }
     }
   }

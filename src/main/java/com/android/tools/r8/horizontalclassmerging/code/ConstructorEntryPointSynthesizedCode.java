@@ -37,21 +37,21 @@ import it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMap;
 public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalClassMergerCode {
 
   private final DexField classIdField;
-  private int extraNulls;
+  private int numberOfUnusedArguments;
   private final Int2ReferenceSortedMap<DexMethod> typeConstructors;
 
   public ConstructorEntryPointSynthesizedCode(
       Int2ReferenceSortedMap<DexMethod> typeConstructors,
       DexField classIdField,
-      int extraNulls) {
+      int numberOfUnusedArguments) {
     this.typeConstructors = typeConstructors;
     this.classIdField = classIdField;
-    this.extraNulls = extraNulls;
+    this.numberOfUnusedArguments = numberOfUnusedArguments;
   }
 
   @Override
   public void addExtraUnusedArguments(int numberOfUnusedArguments) {
-    this.extraNulls += numberOfUnusedArguments;
+    this.numberOfUnusedArguments += numberOfUnusedArguments;
   }
 
   private void registerReachableDefinitions(UseRegistry<?> registry) {
@@ -120,7 +120,8 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
             .setIsD8R8Synthesized(true)
             .build();
     SourceCode sourceCode =
-        new ConstructorEntryPoint(typeConstructors, method, classIdField, extraNulls, position);
+        new ConstructorEntryPoint(
+            typeConstructors, method, classIdField, numberOfUnusedArguments, position);
     return IRBuilder.create(method, appView, sourceCode).build(method, conversionOptions);
   }
 
@@ -135,7 +136,7 @@ public class ConstructorEntryPointSynthesizedCode extends IncompleteHorizontalCl
       RewrittenPrototypeDescription protoChanges) {
     SourceCode sourceCode =
         new ConstructorEntryPoint(
-            typeConstructors, method, classIdField, extraNulls, callerPosition);
+            typeConstructors, method, classIdField, numberOfUnusedArguments, callerPosition);
     return IRBuilder.createForInlining(
             method, appView, codeLens, sourceCode, valueNumberGenerator, protoChanges)
         .build(context, MethodConversionOptions.nonConverting());

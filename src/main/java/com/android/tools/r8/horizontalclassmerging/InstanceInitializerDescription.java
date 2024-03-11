@@ -67,12 +67,10 @@ public class InstanceInitializerDescription {
   }
 
   public IncompleteMergedInstanceInitializerCode createCode(
-      HorizontalMergeGroup group,
-      boolean hasClassId,
-      int extraNulls) {
+      HorizontalMergeGroup group, boolean hasClassId, int numberOfUnusedArguments) {
     return new IncompleteMergedInstanceInitializerCode(
         hasClassId ? group.getClassIdField() : null,
-        extraNulls,
+        numberOfUnusedArguments,
         instanceFieldAssignmentsPre,
         instanceFieldAssignmentsPost,
         parentConstructor,

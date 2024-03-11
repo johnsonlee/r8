@@ -41,7 +41,7 @@ import java.util.function.Consumer;
 public class IncompleteMergedInstanceInitializerCode extends IncompleteHorizontalClassMergerCode {
 
   private final DexField classIdField;
-  private int extraNulls;
+  private int numberOfUnusedArguments;
 
   private final Map<DexField, InstanceFieldInitializationInfo> instanceFieldAssignmentsPre;
   private final Map<DexField, InstanceFieldInitializationInfo> instanceFieldAssignmentsPost;
@@ -51,13 +51,13 @@ public class IncompleteMergedInstanceInitializerCode extends IncompleteHorizonta
 
   IncompleteMergedInstanceInitializerCode(
       DexField classIdField,
-      int extraNulls,
+      int numberOfUnusedArguments,
       Map<DexField, InstanceFieldInitializationInfo> instanceFieldAssignmentsPre,
       Map<DexField, InstanceFieldInitializationInfo> instanceFieldAssignmentsPost,
       DexMethod parentConstructor,
       List<InstanceFieldInitializationInfo> parentConstructorArguments) {
     this.classIdField = classIdField;
-    this.extraNulls = extraNulls;
+    this.numberOfUnusedArguments = numberOfUnusedArguments;
     this.instanceFieldAssignmentsPre = instanceFieldAssignmentsPre;
     this.instanceFieldAssignmentsPost = instanceFieldAssignmentsPost;
     this.parentConstructor = parentConstructor;
@@ -66,7 +66,7 @@ public class IncompleteMergedInstanceInitializerCode extends IncompleteHorizonta
 
   @Override
   public void addExtraUnusedArguments(int numberOfUnusedArguments) {
-    this.extraNulls += numberOfUnusedArguments;
+    this.numberOfUnusedArguments += numberOfUnusedArguments;
   }
 
   @Override
@@ -107,7 +107,7 @@ public class IncompleteMergedInstanceInitializerCode extends IncompleteHorizonta
 
     // Assign class id.
     if (classIdField != null) {
-      Value classIdValue = argumentValues.get(argumentValues.size() - 1 - extraNulls);
+      Value classIdValue = argumentValues.get(argumentValues.size() - 1 - numberOfUnusedArguments);
       lirBuilder.addInstancePut(
           lens.getNextFieldSignature(classIdField), receiverValue, classIdValue);
       instructionIndex++;

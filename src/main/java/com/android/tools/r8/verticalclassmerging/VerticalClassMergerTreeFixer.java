@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.verticalclassmerging;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.ClassMergerTreeFixer;
 import com.android.tools.r8.graph.AppView;
@@ -69,21 +71,29 @@ class VerticalClassMergerTreeFixer
   }
 
   @Override
+  protected boolean isRoot(DexProgramClass clazz) {
+    if (!super.isRoot(clazz)) {
+      return false;
+    }
+    return !Iterables.any(
+        mergedClasses.getSourcesFor(clazz.getType()),
+        source -> isRoot(asProgramClassOrNull(appView.definitionFor(source))));
+  }
+
+  @Override
   protected void traverseProgramClassesDepthFirst(
       DexProgramClass clazz,
       Set<DexProgramClass> seen,
       DexMethodSignatureBiMap<DexMethodSignature> state) {
-    if (mergedClasses.isMergeSource(clazz.getType())) {
-      return;
-    }
     assert seen.add(clazz) : clazz.getTypeName();
-    DexMethodSignatureBiMap<DexMethodSignature> newState = fixupProgramClass(clazz, state);
-    for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(clazz)) {
-      if (mergedClasses.isMergeSource(subclass.getType())) {
-        DexProgramClass target =
-            Iterables.getOnlyElement(immediateSubtypingInfo.getSubclasses(subclass));
-        traverseProgramClassesDepthFirst(target, seen, newState);
-      } else {
+    if (mergedClasses.isMergeSource(clazz.getType())) {
+      assert !clazz.hasMethodsOrFields();
+      DexProgramClass target =
+          Iterables.getOnlyElement(immediateSubtypingInfo.getSubclasses(clazz));
+      traverseProgramClassesDepthFirst(target, seen, state);
+    } else {
+      DexMethodSignatureBiMap<DexMethodSignature> newState = fixupProgramClass(clazz, state);
+      for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(clazz)) {
         traverseProgramClassesDepthFirst(subclass, seen, newState);
       }
     }
