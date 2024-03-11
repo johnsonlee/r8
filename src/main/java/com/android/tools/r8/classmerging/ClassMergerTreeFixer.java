@@ -50,7 +50,7 @@ public abstract class ClassMergerTreeFixer<
     extends TreeFixerBase {
 
   private final ClassMergerSharedData classMergerSharedData;
-  private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
+  protected final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
   protected final LB lensBuilder;
   protected final MC mergedClasses;
 
@@ -86,9 +86,14 @@ public abstract class ClassMergerTreeFixer<
     classes.forEach(this::fixupProgramClassSuperTypes);
 
     // TODO(b/170078037): parallelize this code segment.
+    Set<DexProgramClass> seen = Sets.newIdentityHashSet();
     for (DexProgramClass root : getRoots()) {
-      traverseProgramClassesDepthFirst(root, new DexMethodSignatureBiMap<>());
+      traverseProgramClassesDepthFirst(root, seen, new DexMethodSignatureBiMap<>());
     }
+    assert seen.size()
+        == appView.appInfo().classes().stream()
+            .filter(clazz -> !clazz.isInterface() && !mergedClasses.isMergeSource(clazz.getType()))
+            .count();
     postprocess();
     GL lens = lensBuilder.build(appViewWithLiveness, mergedClasses);
     new AnnotationFixer(appView, lens).run(appView.appInfo().classes(), executorService);
@@ -99,7 +104,7 @@ public abstract class ClassMergerTreeFixer<
   private List<DexProgramClass> getRoots() {
     List<DexProgramClass> roots = new ArrayList<>();
     for (DexProgramClass clazz : appView.appInfo().classes()) {
-      if (!clazz.isInterface() && !mergedClasses.isMergeSource(clazz.getType())) {
+      if (!clazz.isInterface()) {
         DexProgramClass superClass =
             asProgramClassOrNull(appView.definitionFor(clazz.getSuperType(), clazz));
         if (superClass == null) {
@@ -110,23 +115,10 @@ public abstract class ClassMergerTreeFixer<
     return roots;
   }
 
-  private void traverseProgramClassesDepthFirst(
-      DexProgramClass clazz, DexMethodSignatureBiMap<DexMethodSignature> state) {
-    DexMethodSignatureBiMap<DexMethodSignature> newState = fixupProgramClass(clazz, state);
-    for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(clazz)) {
-      traverseProgramClassesDepthFirst(subclass, newState);
-    }
-    if (mergedClasses.isMergeTarget(clazz.getType())) {
-      for (DexType sourceType : mergedClasses.getSourcesFor(clazz.getType())) {
-        DexProgramClass sourceClass = appView.definitionFor(sourceType).asProgramClass();
-        for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(sourceClass)) {
-          if (subclass != clazz) {
-            traverseProgramClassesDepthFirst(subclass, newState);
-          }
-        }
-      }
-    }
-  }
+  protected abstract void traverseProgramClassesDepthFirst(
+      DexProgramClass clazz,
+      Set<DexProgramClass> seen,
+      DexMethodSignatureBiMap<DexMethodSignature> state);
 
   public void preprocess() {
     // Intentionally empty.
@@ -161,7 +153,7 @@ public abstract class ClassMergerTreeFixer<
     clazz.setInterfaces(fixupInterfaces(clazz, clazz.getInterfaces()));
   }
 
-  private DexMethodSignatureBiMap<DexMethodSignature> fixupProgramClass(
+  protected DexMethodSignatureBiMap<DexMethodSignature> fixupProgramClass(
       DexProgramClass clazz, DexMethodSignatureBiMap<DexMethodSignature> remappedVirtualMethods) {
     assert !clazz.isInterface();
 

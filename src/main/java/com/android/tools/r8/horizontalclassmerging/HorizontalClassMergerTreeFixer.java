@@ -7,8 +7,13 @@ package com.android.tools.r8.horizontalclassmerging;
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.ClassMergerTreeFixer;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexMethodSignature;
+import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.collections.DexMethodSignatureBiMap;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -17,7 +22,7 @@ import java.util.concurrent.ExecutorService;
  * have been remapped to new classes by the class merger. While doing so, all updated changes are
  * tracked in {@link HorizontalClassMergerTreeFixer#lensBuilder}.
  */
-class HorizontalClassMergerTreeFixer
+public class HorizontalClassMergerTreeFixer
     extends ClassMergerTreeFixer<
         HorizontalClassMergerGraphLens.Builder,
         HorizontalClassMergerGraphLens,
@@ -89,5 +94,28 @@ class HorizontalClassMergerTreeFixer
   public HorizontalClassMergerGraphLens run(ExecutorService executorService, Timing timing)
       throws ExecutionException {
     return super.run(executorService, timing);
+  }
+
+  @Override
+  protected void traverseProgramClassesDepthFirst(
+      DexProgramClass clazz,
+      Set<DexProgramClass> seen,
+      DexMethodSignatureBiMap<DexMethodSignature> state) {
+    if (mergedClasses.isMergeSource(clazz.getType())) {
+      return;
+    }
+    assert seen.add(clazz);
+    DexMethodSignatureBiMap<DexMethodSignature> newState = fixupProgramClass(clazz, state);
+    for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(clazz)) {
+      traverseProgramClassesDepthFirst(subclass, seen, newState);
+    }
+    if (mergedClasses.isMergeTarget(clazz.getType())) {
+      for (DexType sourceType : mergedClasses.getSourcesFor(clazz.getType())) {
+        DexProgramClass sourceClass = appView.definitionFor(sourceType).asProgramClass();
+        for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(sourceClass)) {
+          traverseProgramClassesDepthFirst(subclass, seen, newState);
+        }
+      }
+    }
   }
 }

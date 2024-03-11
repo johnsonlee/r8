@@ -48,7 +48,7 @@ public class ReserveInterfaceMethodSignaturesInFixupTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .assertFailureWithErrorThatThrows(AbstractMethodError.class);
+        .assertSuccessWithOutputLines("BSub", "CSub");
   }
 
   static class Main {

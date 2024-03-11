@@ -6,10 +6,15 @@ package com.android.tools.r8.verticalclassmerging;
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.ClassMergerTreeFixer;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexMethodSignature;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.collections.DexMethodSignatureBiMap;
+import com.google.common.collect.Iterables;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -61,5 +66,26 @@ class VerticalClassMergerTreeFixer
   @Override
   public void postprocess() {
     lensBuilder.fixupContextualVirtualToDirectMethodMaps();
+  }
+
+  @Override
+  protected void traverseProgramClassesDepthFirst(
+      DexProgramClass clazz,
+      Set<DexProgramClass> seen,
+      DexMethodSignatureBiMap<DexMethodSignature> state) {
+    if (mergedClasses.isMergeSource(clazz.getType())) {
+      return;
+    }
+    assert seen.add(clazz) : clazz.getTypeName();
+    DexMethodSignatureBiMap<DexMethodSignature> newState = fixupProgramClass(clazz, state);
+    for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(clazz)) {
+      if (mergedClasses.isMergeSource(subclass.getType())) {
+        DexProgramClass target =
+            Iterables.getOnlyElement(immediateSubtypingInfo.getSubclasses(subclass));
+        traverseProgramClassesDepthFirst(target, seen, newState);
+      } else {
+        traverseProgramClassesDepthFirst(subclass, seen, newState);
+      }
+    }
   }
 }
