@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcretePrimitiveTypeFieldState;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
@@ -49,29 +50,62 @@ public class ConcretePrimitiveTypeParameterState extends ConcreteParameterState 
     return new ConcretePrimitiveTypeParameterState(abstractValue, copyInFlow());
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public ParameterState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcretePrimitiveTypeParameterState parameterState,
       DexType parameterType,
       Action onChangedAction) {
     assert parameterType.isPrimitiveType();
-    AbstractValue oldAbstractValue = abstractValue;
-    abstractValue =
-        appView
-            .getAbstractValueParameterJoiner()
-            .join(abstractValue, parameterState.abstractValue, parameterType);
-    if (abstractValue.isUnknown()) {
+    boolean abstractValueChanged =
+        mutableJoinAbstractValue(appView, parameterState.getAbstractValue(), parameterType);
+    if (isEffectivelyUnknown()) {
       return unknown();
     }
     boolean inFlowChanged = mutableJoinInFlow(parameterState);
     if (widenInFlow(appView)) {
       return unknown();
     }
-    if (abstractValue != oldAbstractValue || inFlowChanged) {
+    if (abstractValueChanged || inFlowChanged) {
       onChangedAction.execute();
     }
     return this;
+  }
+
+  public ParameterState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ConcretePrimitiveTypeFieldState fieldState,
+      DexType parameterType,
+      Action onChangedAction) {
+    assert parameterType.isPrimitiveType();
+    boolean abstractValueChanged =
+        mutableJoinAbstractValue(appView, fieldState.getAbstractValue(), parameterType);
+    if (isEffectivelyUnknown()) {
+      return unknown();
+    }
+    boolean inFlowChanged = mutableJoinInFlow(fieldState.getInFlow());
+    if (widenInFlow(appView)) {
+      return unknown();
+    }
+    if (abstractValueChanged || inFlowChanged) {
+      onChangedAction.execute();
+    }
+    return this;
+  }
+
+  private boolean mutableJoinAbstractValue(
+      AppView<AppInfoWithLiveness> appView,
+      AbstractValue otherAbstractValue,
+      DexType parameterType) {
+    AbstractValue oldAbstractValue = abstractValue;
+    abstractValue =
+        appView
+            .getAbstractValueParameterJoiner()
+            .join(abstractValue, otherAbstractValue, parameterType);
+    return !abstractValue.equals(oldAbstractValue);
+  }
+
+  public AbstractValue getAbstractValue() {
+    return abstractValue;
   }
 
   @Override
@@ -84,10 +118,12 @@ public class ConcretePrimitiveTypeParameterState extends ConcreteParameterState 
     return ConcreteParameterStateKind.PRIMITIVE;
   }
 
+  @Override
   public boolean isEffectivelyBottom() {
     return abstractValue.isBottom() && !hasInFlow();
   }
 
+  @Override
   public boolean isEffectivelyUnknown() {
     return abstractValue.isUnknown();
   }

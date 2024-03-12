@@ -6,6 +6,8 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteClassTypeFieldState;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
@@ -45,5 +47,23 @@ public class BottomArrayTypeParameterState extends BottomParameterState {
       return unknown();
     }
     return new ConcreteArrayTypeParameterState(nullability, concreteParameterState.copyInFlow());
+  }
+
+  @Override
+  public ParameterState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ConcreteFieldState fieldState,
+      DexType parameterType,
+      Action onChangedAction) {
+    // We only track nullability for class type fields.
+    if (fieldState.isClass()) {
+      ConcreteClassTypeFieldState classFieldState = fieldState.asClass();
+      Nullability nullability = classFieldState.getDynamicType().getNullability();
+      if (nullability.isUnknown()) {
+        return unknown();
+      }
+      return new ConcreteArrayTypeParameterState(nullability, classFieldState.copyInFlow());
+    }
+    return unknown();
   }
 }

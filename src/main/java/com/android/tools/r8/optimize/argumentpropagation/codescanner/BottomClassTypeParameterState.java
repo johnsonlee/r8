@@ -6,6 +6,8 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteReferenceTypeFieldState;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
@@ -50,5 +52,18 @@ public class BottomClassTypeParameterState extends BottomParameterState {
         ? unknown()
         : new ConcreteClassTypeParameterState(
             abstractValue, widenedDynamicType, concreteParameterState.copyInFlow());
+  }
+
+  @Override
+  public ParameterState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ConcreteFieldState fieldState,
+      DexType parameterType,
+      Action onChangedAction) {
+    ConcreteReferenceTypeFieldState referenceFieldState = fieldState.asReference();
+    AbstractValue abstractValue = referenceFieldState.getAbstractValue();
+    DynamicType dynamicType = referenceFieldState.getDynamicType();
+    return new ConcreteClassTypeParameterState(
+        abstractValue, dynamicType, referenceFieldState.copyInFlow());
   }
 }

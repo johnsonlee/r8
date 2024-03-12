@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
@@ -37,5 +38,15 @@ public class BottomPrimitiveTypeParameterState extends BottomParameterState {
     assert parameterState.isConcrete();
     assert parameterState.asConcrete().isPrimitiveParameter();
     return cloner.mutableCopy(parameterState);
+  }
+
+  @Override
+  public ParameterState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ConcreteFieldState fieldState,
+      DexType parameterType,
+      Action onChangedAction) {
+    return new ConcretePrimitiveTypeParameterState(
+        fieldState.getAbstractValue(), fieldState.copyInFlow());
   }
 }

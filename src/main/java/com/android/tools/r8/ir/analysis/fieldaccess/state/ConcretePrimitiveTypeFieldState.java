@@ -7,28 +7,38 @@ package com.android.tools.r8.ir.analysis.fieldaccess.state;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.Action;
+import com.android.tools.r8.utils.SetUtils;
+import java.util.Collections;
+import java.util.Set;
 
 /** The information that we track for fields whose type is a primitive type. */
 public class ConcretePrimitiveTypeFieldState extends ConcreteFieldState {
 
-  private AbstractValue abstractValue;
-
-  ConcretePrimitiveTypeFieldState(AbstractValue abstractValue) {
-    this.abstractValue = abstractValue;
+  public ConcretePrimitiveTypeFieldState(InFlow inFlow) {
+    this(SetUtils.newHashSet(inFlow));
   }
 
-  public static FieldState create(AbstractValue abstractValue) {
+  private ConcretePrimitiveTypeFieldState(Set<InFlow> inFlow) {
+    this(AbstractValue.bottom(), inFlow);
+  }
+
+  @SuppressWarnings("InconsistentOverloads")
+  private ConcretePrimitiveTypeFieldState(AbstractValue abstractValue, Set<InFlow> inFlow) {
+    super(abstractValue, inFlow);
+  }
+
+  public static NonEmptyFieldState create(AbstractValue abstractValue) {
+    return create(abstractValue, Collections.emptySet());
+  }
+
+  public static NonEmptyFieldState create(AbstractValue abstractValue, Set<InFlow> inFlow) {
     return abstractValue.isUnknown()
         ? FieldState.unknown()
-        : new ConcretePrimitiveTypeFieldState(abstractValue);
-  }
-
-  @Override
-  public AbstractValue getAbstractValue(
-      AbstractValueFactory abstractValueFactory, ProgramField field) {
-    return abstractValue;
+        : new ConcretePrimitiveTypeFieldState(abstractValue, inFlow);
   }
 
   @Override
@@ -41,17 +51,58 @@ public class ConcretePrimitiveTypeFieldState extends ConcreteFieldState {
     return this;
   }
 
-  public FieldState mutableJoin(
-      AppView<AppInfoWithLiveness> appView, ProgramField field, AbstractValue abstractValue) {
-    if (abstractValue.isUnknown()) {
-      return FieldState.unknown();
-    }
-    this.abstractValue =
-        appView.getAbstractValueFieldJoiner().join(this.abstractValue, abstractValue, field);
-    return isEffectivelyUnknown() ? unknown() : this;
+  @Override
+  public FieldState mutableCopy() {
+    return new ConcretePrimitiveTypeFieldState(getAbstractValue(), copyInFlow());
   }
 
-  private boolean isEffectivelyUnknown() {
-    return abstractValue.isUnknown();
+  public FieldState mutableJoin(
+      AppView<AppInfoWithLiveness> appView, ProgramField field, AbstractValue abstractValue) {
+    mutableJoinAbstractValue(appView, field, abstractValue);
+    if (isEffectivelyUnknown()) {
+      return FieldState.unknown();
+    }
+    return this;
+  }
+
+  public FieldState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramField field,
+      ConcretePrimitiveTypeFieldState fieldState,
+      Action onChangedAction) {
+    assert field.getType().isPrimitiveType();
+    boolean abstractValueChanged = mutableJoinAbstractValue(appView, field, fieldState);
+    if (isEffectivelyUnknown()) {
+      return unknown();
+    }
+    boolean inFlowChanged = mutableJoinInFlow(fieldState);
+    if (widenInFlow(appView)) {
+      return unknown();
+    }
+    if (abstractValueChanged || inFlowChanged) {
+      onChangedAction.execute();
+    }
+    return this;
+  }
+
+  public FieldState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramField field,
+      ConcretePrimitiveTypeParameterState parameterState,
+      Action onChangedAction) {
+    assert field.getType().isPrimitiveType();
+    boolean abstractValueChanged =
+        mutableJoinAbstractValue(appView, field, parameterState.getAbstractValue());
+    if (isEffectivelyUnknown()) {
+      return unknown();
+    }
+    boolean inFlowChanged = mutableJoinInFlow(parameterState.getInFlow());
+    if (widenInFlow(appView)) {
+      return unknown();
+    }
+    if (abstractValueChanged || inFlowChanged) {
+      onChangedAction.execute();
+    }
+    return this;
   }
 }

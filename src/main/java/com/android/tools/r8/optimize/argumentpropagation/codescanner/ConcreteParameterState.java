@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import java.util.Collections;
@@ -67,6 +68,10 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
   public ConcreteClassTypeParameterState asClassParameter() {
     return null;
   }
+
+  public abstract boolean isEffectivelyBottom();
+
+  public abstract boolean isEffectivelyUnknown();
 
   public boolean isPrimitiveParameter() {
     return false;
@@ -130,15 +135,34 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
             appView, concreteParameterState.asPrimitiveParameter(), parameterType, onChangedAction);
   }
 
+  @Override
+  public final ParameterState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ConcreteFieldState fieldState,
+      DexType parameterType,
+      Action onChangedAction) {
+    if (isReferenceParameter()) {
+      assert fieldState.isReference();
+      return asReferenceParameter()
+          .mutableJoin(appView, fieldState.asReference(), parameterType, onChangedAction);
+    }
+    return asPrimitiveParameter()
+        .mutableJoin(appView, fieldState.asPrimitive(), parameterType, onChangedAction);
+  }
+
   boolean mutableJoinInFlow(ConcreteParameterState parameterState) {
-    if (parameterState.inFlow.isEmpty()) {
+    return mutableJoinInFlow(parameterState.getInFlow());
+  }
+
+  boolean mutableJoinInFlow(Set<InFlow> otherInFlow) {
+    if (otherInFlow.isEmpty()) {
       return false;
     }
     if (inFlow.isEmpty()) {
       assert inFlow == Collections.<InFlow>emptySet();
       inFlow = new HashSet<>();
     }
-    return inFlow.addAll(parameterState.inFlow);
+    return inFlow.addAll(otherInFlow);
   }
 
   /**

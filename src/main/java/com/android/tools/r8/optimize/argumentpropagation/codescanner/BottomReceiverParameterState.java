@@ -6,7 +6,10 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteClassTypeFieldState;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
@@ -45,5 +48,24 @@ public class BottomReceiverParameterState extends BottomParameterState {
       return unknown();
     }
     return new ConcreteReceiverParameterState(dynamicType, concreteParameterState.copyInFlow());
+  }
+
+  @Override
+  public ParameterState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ConcreteFieldState fieldState,
+      DexType parameterType,
+      Action onChangedAction) {
+    // We only track the dynamic type for class type fields.
+    if (fieldState.isClass()) {
+      ConcreteClassTypeFieldState classFieldState = fieldState.asClass();
+      DynamicType dynamicType = classFieldState.getDynamicType();
+      if (dynamicType.isNotNullType() || dynamicType.isUnknown()) {
+        return unknown();
+      }
+      DynamicType nonNullDynamicType = dynamicType.withNullability(Nullability.definitelyNotNull());
+      return new ConcreteReceiverParameterState(nonNullDynamicType, classFieldState.copyInFlow());
+    }
+    return unknown();
   }
 }

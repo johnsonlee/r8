@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteReferenceTypeFieldState;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -35,6 +36,12 @@ public abstract class ConcreteReferenceTypeParameterState extends ConcreteParame
   public abstract ParameterState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcreteReferenceTypeParameterState parameterState,
+      DexType parameterType,
+      Action onChangedAction);
+
+  public abstract ParameterState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ConcreteReferenceTypeFieldState fieldState,
       DexType parameterType,
       Action onChangedAction);
 }

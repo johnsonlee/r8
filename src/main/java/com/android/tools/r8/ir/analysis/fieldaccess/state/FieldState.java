@@ -4,9 +4,13 @@
 
 package com.android.tools.r8.ir.analysis.fieldaccess.state;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyParameterState;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.Action;
 
 /** An abstraction of the runtime values that may flow into each field. */
 public abstract class FieldState {
@@ -50,6 +54,10 @@ public abstract class FieldState {
     return null;
   }
 
+  public NonEmptyFieldState asNonEmpty() {
+    return null;
+  }
+
   public boolean isPrimitive() {
     return false;
   }
@@ -69,4 +77,23 @@ public abstract class FieldState {
   public boolean isUnknown() {
     return false;
   }
+
+  public abstract FieldState mutableCopy();
+
+  public final FieldState mutableJoin(
+      AppView<AppInfoWithLiveness> appView, ProgramField field, NonEmptyFieldState fieldState) {
+    return mutableJoin(appView, field, fieldState, Action.empty());
+  }
+
+  public abstract FieldState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramField field,
+      NonEmptyFieldState fieldState,
+      Action onChangedAction);
+
+  public abstract FieldState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramField field,
+      NonEmptyParameterState parameterState,
+      Action onChangedAction);
 }

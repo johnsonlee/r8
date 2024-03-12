@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteReferenceTypeFieldState;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -79,12 +80,14 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
     return this;
   }
 
+  @Override
   public boolean isEffectivelyBottom() {
     return nullability.isBottom() && !hasInFlow();
   }
 
+  @Override
   public boolean isEffectivelyUnknown() {
-    return nullability.isMaybeNull();
+    return nullability.isUnknown();
   }
 
   @Override
@@ -100,17 +103,34 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
       Action onChangedAction) {
     assert parameterType.isArrayType();
     assert !nullability.isUnknown();
-    nullability = nullability.join(parameterState.getNullability());
-    if (nullability.isUnknown()) {
+    boolean nullabilityChanged = mutableJoinNullability(parameterState.getNullability());
+    if (isEffectivelyUnknown()) {
       return unknown();
     }
     boolean inFlowChanged = mutableJoinInFlow(parameterState);
     if (widenInFlow(appView)) {
       return unknown();
     }
-    if (inFlowChanged) {
+    if (nullabilityChanged || inFlowChanged) {
       onChangedAction.execute();
     }
     return this;
+  }
+
+  @Override
+  public ParameterState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ConcreteReferenceTypeFieldState fieldState,
+      DexType parameterType,
+      Action onChangedAction) {
+    assert fieldState.isArray();
+    // We do not track the nullability of array fields.
+    return unknown();
+  }
+
+  private boolean mutableJoinNullability(Nullability otherNullability) {
+    Nullability oldNullability = nullability;
+    nullability = nullability.join(otherNullability);
+    return nullability != oldNullability;
   }
 }
