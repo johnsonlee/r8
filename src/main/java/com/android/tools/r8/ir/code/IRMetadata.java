@@ -99,6 +99,10 @@ public class IRMetadata implements StructuralItem<IRMetadata> {
     return get(Opcodes.CHECK_CAST);
   }
 
+  public boolean mayHaveConstClass() {
+    return get(Opcodes.CONST_CLASS);
+  }
+
   public boolean mayHaveConstNumber() {
     return get(Opcodes.CONST_NUMBER);
   }

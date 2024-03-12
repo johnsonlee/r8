@@ -24,11 +24,12 @@ import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.conversion.passes.CodeRewriterPass;
+import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.desugar.ServiceLoaderSourceCode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.ListUtils;
-import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -58,32 +59,44 @@ import java.util.Map;
  * We therefore only conservatively rewrite if the invoke is on is on the form
  * ServiceLoader.load(X.class, X.class.getClassLoader()) or ServiceLoader.load(X.class, null).
  *
- * Android Nougat do not use ClassLoader.getSystemClassLoader() when passing null and will
- * almost certainly fail when trying to find the service. It seems unlikely that programs rely on
- * this behaviour.
+ * <p>Android Nougat do not use ClassLoader.getSystemClassLoader() when passing null and will almost
+ * certainly fail when trying to find the service. It seems unlikely that programs rely on this
+ * behaviour.
  */
-public class ServiceLoaderRewriter {
+public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness> {
 
-  private final AppView<AppInfoWithLiveness> appView;
   private final AndroidApiLevelCompute apiLevelCompute;
-  private final Reporter reporter;
   private final ServiceLoaderMethods serviceLoaderMethods;
 
-  public ServiceLoaderRewriter(AppView<AppInfoWithLiveness> appView) {
-    this.appView = appView;
+  public ServiceLoaderRewriter(AppView<?> appView) {
+    super(appView);
     this.apiLevelCompute = appView.apiLevelCompute();
-    serviceLoaderMethods = appView.dexItemFactory().serviceLoaderMethods;
-    reporter = shouldReportWhyAreYouNotInliningServiceLoaderLoad() ? appView.reporter() : null;
+    this.serviceLoaderMethods = appView.dexItemFactory().serviceLoaderMethods;
+  }
+
+  @Override
+  protected String getRewriterId() {
+    return "ServiceLoaderRewriter";
+  }
+
+  @Override
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
+    return appView.hasLiveness()
+        && methodProcessor.isPrimaryMethodProcessor()
+        && options.enableServiceLoaderRewriting
+        && code.metadata().mayHaveConstClass()
+        && code.metadata().mayHaveInvokeStatic()
+        && code.metadata().mayHaveInvokeVirtual();
   }
 
   private boolean shouldReportWhyAreYouNotInliningServiceLoaderLoad() {
-    AppInfoWithLiveness appInfo = appView.appInfo();
+    AppInfoWithLiveness appInfo = appView().appInfo();
     return appInfo.isWhyAreYouNotInliningMethod(serviceLoaderMethods.load)
         || appInfo.isWhyAreYouNotInliningMethod(serviceLoaderMethods.loadWithClassLoader);
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  public void rewrite(
+  @Override
+  protected CodeRewriterResult rewriteCode(
       IRCode code,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext) {
@@ -106,15 +119,14 @@ public class ServiceLoaderRewriter {
       }
 
       // Check that the first argument is a const class.
-      Value argument = serviceLoaderLoad.inValues().get(0).getAliasedValue();
-      if (argument.isPhi() || !argument.definition.isConstClass()) {
+      Value argument = serviceLoaderLoad.getFirstArgument().getAliasedValue();
+      if (!argument.isDefinedByInstructionSatisfying(Instruction::isConstClass)) {
         report(code.context(), null, "The service loader type could not be determined");
         continue;
       }
 
-      ConstClass constClass = argument.getConstInstruction().asConstClass();
-
-      if (invokedMethod != serviceLoaderMethods.loadWithClassLoader) {
+      ConstClass constClass = argument.getDefinition().asConstClass();
+      if (invokedMethod.isNotIdenticalTo(serviceLoaderMethods.loadWithClassLoader)) {
         report(
             code.context(),
             constClass.getType(),
@@ -127,22 +139,22 @@ public class ServiceLoaderRewriter {
           "The returned ServiceLoader instance must only be used in a call to `java.util.Iterator"
               + " java.lang.ServiceLoader.iterator()`";
       Value serviceLoaderLoadOut = serviceLoaderLoad.outValue();
-      if (serviceLoaderLoadOut.numberOfAllUsers() != 1 || serviceLoaderLoadOut.hasPhiUsers()) {
+      if (!serviceLoaderLoadOut.hasSingleUniqueUser() || serviceLoaderLoadOut.hasPhiUsers()) {
         report(code.context(), constClass.getType(), invalidUserMessage);
         continue;
       }
 
       // Check that the only user is a call to iterator().
-      if (!serviceLoaderLoadOut.singleUniqueUser().isInvokeVirtual()
-          || serviceLoaderLoadOut.singleUniqueUser().asInvokeVirtual().getInvokedMethod()
-              != serviceLoaderMethods.iterator) {
+      InvokeVirtual singleUniqueUser = serviceLoaderLoadOut.singleUniqueUser().asInvokeVirtual();
+      if (singleUniqueUser == null
+          || singleUniqueUser.getInvokedMethod().isNotIdenticalTo(serviceLoaderMethods.iterator)) {
         report(
             code.context(), constClass.getType(), invalidUserMessage + ", but found other usages");
         continue;
       }
 
       // Check that the service is not kept.
-      if (appView.appInfo().isPinnedWithDefinitionLookup(constClass.getValue())) {
+      if (appView().appInfo().isPinnedWithDefinitionLookup(constClass.getValue())) {
         report(code.context(), constClass.getType(), "The service loader type is kept");
         continue;
       }
@@ -155,7 +167,7 @@ public class ServiceLoaderRewriter {
       }
 
       // Check that we are not service loading anything from a feature into base.
-      if (appServices.hasServiceImplementationsInFeature(appView, constClass.getValue())) {
+      if (appServices.hasServiceImplementationsInFeature(appView(), constClass.getValue())) {
         report(
             code.context(),
             constClass.getType(),
@@ -165,7 +177,7 @@ public class ServiceLoaderRewriter {
 
       // Check that ClassLoader used is the ClassLoader defined for the service configuration
       // that we are instantiating or NULL.
-      if (serviceLoaderLoad.inValues().get(1).isPhi()) {
+      if (serviceLoaderLoad.getLastArgument().isPhi()) {
         report(
             code.context(),
             constClass.getType(),
@@ -175,19 +187,19 @@ public class ServiceLoaderRewriter {
         continue;
       }
       InvokeVirtual classLoaderInvoke =
-          serviceLoaderLoad.inValues().get(1).definition.asInvokeVirtual();
+          serviceLoaderLoad.getLastArgument().getDefinition().asInvokeVirtual();
       boolean isGetClassLoaderOnConstClassOrNull =
-          serviceLoaderLoad.inValues().get(1).getType().isNullType()
+          serviceLoaderLoad.getLastArgument().getType().isNullType()
               || (classLoaderInvoke != null
-                  && classLoaderInvoke.inValues().size() == 1
+                  && classLoaderInvoke.arguments().size() == 1
                   && classLoaderInvoke.getReceiver().getAliasedValue().isConstClass()
                   && classLoaderInvoke
-                          .getReceiver()
-                          .getAliasedValue()
-                          .getConstInstruction()
-                          .asConstClass()
-                          .getValue()
-                      == constClass.getValue());
+                      .getReceiver()
+                      .getAliasedValue()
+                      .getDefinition()
+                      .asConstClass()
+                      .getValue()
+                      .isIdenticalTo(constClass.getValue()));
       if (!isGetClassLoaderOnConstClassOrNull) {
         report(
             code.context(),
@@ -212,7 +224,6 @@ public class ServiceLoaderRewriter {
         }
         classes.add(serviceImplementation);
       }
-
       if (seenNull) {
         continue;
       }
@@ -236,19 +247,24 @@ public class ServiceLoaderRewriter {
           .perform(classLoaderInvoke, synthesizedMethod.getReference());
     }
     assert code.isConsistentSSA(appView);
+    return synthesizedServiceLoaders.isEmpty()
+        ? CodeRewriterResult.NO_CHANGE
+        : CodeRewriterResult.HAS_CHANGED;
   }
 
   private void report(ProgramMethod method, DexType serviceLoaderType, String message) {
-    if (reporter != null) {
-      reporter.info(
-          new ServiceLoaderRewriterDiagnostic(
-              method.getOrigin(),
-              "Could not inline ServiceLoader.load"
-                  + (serviceLoaderType == null
-                      ? ""
-                      : (" of type " + serviceLoaderType.getTypeName()))
-                  + ": "
-                  + message));
+    if (shouldReportWhyAreYouNotInliningServiceLoaderLoad()) {
+      appView
+          .reporter()
+          .info(
+              new ServiceLoaderRewriterDiagnostic(
+                  method.getOrigin(),
+                  "Could not inline ServiceLoader.load"
+                      + (serviceLoaderType == null
+                          ? ""
+                          : (" of type " + serviceLoaderType.getTypeName()))
+                      + ": "
+                      + message));
     }
   }
 

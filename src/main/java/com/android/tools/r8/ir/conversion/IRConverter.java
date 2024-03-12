@@ -605,15 +605,8 @@ public class IRConverter {
     CheckNotNullConverter.runIfNecessary(appView, code);
     previous = printMethod(code, "IR after disable assertions (SSA)", previous);
 
-    if (appView.hasLiveness()
-        && methodProcessor.isPrimaryMethodProcessor()
-        && options.enableServiceLoaderRewriting) {
-      timing.begin("Rewrite service loaders");
-      new ServiceLoaderRewriter(appView.withLiveness())
-          .rewrite(code, methodProcessor, methodProcessingContext);
-      timing.end();
-      previous = printMethod(code, "IR after service rewriting (SSA)", previous);
-    }
+    new ServiceLoaderRewriter(appView).run(code, methodProcessor, methodProcessingContext, timing);
+    previous = printMethod(code, "IR after service rewriting (SSA)", previous);
 
     if (identifierNameStringMarker != null) {
       timing.begin("Decouple identifier-name strings");

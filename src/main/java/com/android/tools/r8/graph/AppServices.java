@@ -92,7 +92,7 @@ public class AppServices {
   }
 
   public boolean hasServiceImplementationsInFeature(
-      AppView<AppInfoWithLiveness> appView, DexType serviceType) {
+      AppView<? extends AppInfoWithLiveness> appView, DexType serviceType) {
     ClassToFeatureSplitMap classToFeatureSplitMap = appView.appInfo().getClassToFeatureSplitMap();
     if (classToFeatureSplitMap.isEmpty()) {
       return false;
