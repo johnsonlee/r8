@@ -6,8 +6,6 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteReferenceTypeFieldState;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
@@ -27,43 +25,29 @@ public class BottomClassTypeValueState extends BottomValueState {
   @Override
   public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState parameterState,
-      DexType parameterType,
+      ValueState state,
+      DexType staticType,
       StateCloner cloner,
       Action onChangedAction) {
-    if (parameterState.isBottom()) {
+    if (state.isBottom()) {
       return this;
     }
-    if (parameterState.isUnknown()) {
-      return parameterState;
+    if (state.isUnknown()) {
+      return state;
     }
-    assert parameterState.isConcrete();
-    assert parameterState.asConcrete().isReferenceParameter();
-    ConcreteReferenceTypeValueState concreteParameterState =
-        parameterState.asConcrete().asReferenceParameter();
-    AbstractValue abstractValue = concreteParameterState.getAbstractValue(appView);
-    DynamicType dynamicType = concreteParameterState.getDynamicType();
+    assert state.isConcrete();
+    assert state.asConcrete().isReferenceState();
+    ConcreteReferenceTypeValueState concreteState = state.asConcrete().asReferenceState();
+    AbstractValue abstractValue = concreteState.getAbstractValue(appView);
+    DynamicType dynamicType = concreteState.getDynamicType();
     DynamicType widenedDynamicType =
-        WideningUtils.widenDynamicNonReceiverType(appView, dynamicType, parameterType);
-    if (concreteParameterState.isClassParameter() && !widenedDynamicType.isUnknown()) {
-      return cloner.mutableCopy(concreteParameterState);
+        WideningUtils.widenDynamicNonReceiverType(appView, dynamicType, staticType);
+    if (concreteState.isClassState() && !widenedDynamicType.isUnknown()) {
+      return cloner.mutableCopy(concreteState);
     }
     return abstractValue.isUnknown() && widenedDynamicType.isUnknown()
         ? unknown()
         : new ConcreteClassTypeValueState(
-            abstractValue, widenedDynamicType, concreteParameterState.copyInFlow());
-  }
-
-  @Override
-  public ValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      ConcreteFieldState fieldState,
-      DexType parameterType,
-      Action onChangedAction) {
-    ConcreteReferenceTypeFieldState referenceFieldState = fieldState.asReference();
-    AbstractValue abstractValue = referenceFieldState.getAbstractValue();
-    DynamicType dynamicType = referenceFieldState.getDynamicType();
-    return new ConcreteClassTypeValueState(
-        abstractValue, dynamicType, referenceFieldState.copyInFlow());
+            abstractValue, widenedDynamicType, concreteState.copyInFlow());
   }
 }

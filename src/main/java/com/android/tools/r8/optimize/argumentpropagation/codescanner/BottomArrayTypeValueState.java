@@ -6,8 +6,6 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteClassTypeFieldState;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
@@ -25,45 +23,26 @@ public class BottomArrayTypeValueState extends BottomValueState {
   @Override
   public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState parameterState,
-      DexType parameterType,
+      ValueState state,
+      DexType staticType,
       StateCloner cloner,
       Action onChangedAction) {
-    if (parameterState.isBottom()) {
+    if (state.isBottom()) {
       return this;
     }
-    if (parameterState.isUnknown()) {
-      return parameterState;
+    if (state.isUnknown()) {
+      return state;
     }
-    assert parameterState.isConcrete();
-    assert parameterState.asConcrete().isReferenceParameter();
-    ConcreteReferenceTypeValueState concreteParameterState =
-        parameterState.asConcrete().asReferenceParameter();
-    if (concreteParameterState.isArrayParameter()) {
-      return cloner.mutableCopy(concreteParameterState);
+    assert state.isConcrete();
+    assert state.asConcrete().isReferenceState();
+    ConcreteReferenceTypeValueState concreteState = state.asConcrete().asReferenceState();
+    if (concreteState.isArrayState()) {
+      return cloner.mutableCopy(concreteState);
     }
-    Nullability nullability = concreteParameterState.getNullability();
+    Nullability nullability = concreteState.getNullability();
     if (nullability.isMaybeNull()) {
       return unknown();
     }
-    return new ConcreteArrayTypeValueState(nullability, concreteParameterState.copyInFlow());
-  }
-
-  @Override
-  public ValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      ConcreteFieldState fieldState,
-      DexType parameterType,
-      Action onChangedAction) {
-    // We only track nullability for class type fields.
-    if (fieldState.isClass()) {
-      ConcreteClassTypeFieldState classFieldState = fieldState.asClass();
-      Nullability nullability = classFieldState.getDynamicType().getNullability();
-      if (nullability.isUnknown()) {
-        return unknown();
-      }
-      return new ConcreteArrayTypeValueState(nullability, classFieldState.copyInFlow());
-    }
-    return unknown();
+    return new ConcreteArrayTypeValueState(nullability, concreteState.copyInFlow());
   }
 }

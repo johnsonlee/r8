@@ -6,7 +6,6 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteReferenceTypeFieldState;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -74,12 +73,12 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
   }
 
   @Override
-  public boolean isReceiverParameter() {
+  public boolean isReceiverState() {
     return true;
   }
 
   @Override
-  public ConcreteReceiverValueState asReceiverParameter() {
+  public ConcreteReceiverValueState asReceiverState() {
     return this;
   }
 
@@ -89,41 +88,20 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
   }
 
   @Override
-  public ValueState mutableJoin(
+  public NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeValueState parameterState,
-      DexType parameterType,
+      ConcreteReferenceTypeValueState state,
+      DexType staticType,
       Action onChangedAction) {
     // TODO(b/190154391): Always take in the static type as an argument, and unset the dynamic type
     //  if it equals the static type.
-    assert parameterType == null || parameterType.isClassType();
+    assert staticType == null || staticType.isClassType();
     boolean dynamicTypeChanged =
-        mutableJoinDynamicType(appView, parameterState.getDynamicType(), parameterType);
+        mutableJoinDynamicType(appView, state.getDynamicType(), staticType);
     if (isEffectivelyUnknown()) {
       return unknown();
     }
-    boolean inFlowChanged = mutableJoinInFlow(parameterState);
-    if (widenInFlow(appView)) {
-      return unknown();
-    }
-    if (dynamicTypeChanged || inFlowChanged) {
-      onChangedAction.execute();
-    }
-    return this;
-  }
-
-  @Override
-  public ValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeFieldState fieldState,
-      DexType parameterType,
-      Action onChangedAction) {
-    boolean dynamicTypeChanged =
-        mutableJoinDynamicType(appView, fieldState.getDynamicType(), parameterType);
-    if (isEffectivelyUnknown()) {
-      return unknown();
-    }
-    boolean inFlowChanged = mutableJoinInFlow(fieldState.getInFlow());
+    boolean inFlowChanged = mutableJoinInFlow(state);
     if (widenInFlow(appView)) {
       return unknown();
     }
@@ -134,12 +112,12 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
   }
 
   private boolean mutableJoinDynamicType(
-      AppView<AppInfoWithLiveness> appView, DynamicType otherDynamicType, DexType parameterType) {
+      AppView<AppInfoWithLiveness> appView, DynamicType otherDynamicType, DexType staticType) {
     DynamicType oldDynamicType = dynamicType;
     DynamicType joinedDynamicType = dynamicType.join(appView, otherDynamicType);
-    if (parameterType != null) {
+    if (staticType != null) {
       DynamicType widenedDynamicType =
-          WideningUtils.widenDynamicNonReceiverType(appView, joinedDynamicType, parameterType);
+          WideningUtils.widenDynamicNonReceiverType(appView, joinedDynamicType, staticType);
       dynamicType = widenedDynamicType;
     } else {
       dynamicType = joinedDynamicType;

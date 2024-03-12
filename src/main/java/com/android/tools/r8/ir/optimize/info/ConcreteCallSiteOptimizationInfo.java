@@ -160,7 +160,7 @@ public class ConcreteCallSiteOptimizationInfo extends CallSiteOptimizationInfo {
       if (staticType.isReferenceType()) {
         DynamicTypeWithUpperBound staticTypeElement = staticType.toDynamicType(appView);
         if (staticType.isArrayType()) {
-          Nullability nullability = concreteParameterState.asArrayParameter().getNullability();
+          Nullability nullability = concreteParameterState.asArrayState().getNullability();
           if (nullability.isDefinitelyNull()) {
             newCallSiteInfo.constants.put(
                 argumentIndex, appView.abstractValueFactory().createNullValue(staticType));
@@ -176,7 +176,7 @@ public class ConcreteCallSiteOptimizationInfo extends CallSiteOptimizationInfo {
             assert false;
           }
         } else if (staticType.isClassType()) {
-          DynamicType dynamicType = concreteParameterState.asReferenceParameter().getDynamicType();
+          DynamicType dynamicType = concreteParameterState.asReferenceState().getDynamicType();
           if (!dynamicType.isUnknown()) {
             newCallSiteInfo.dynamicTypes.put(argumentIndex, dynamicType);
             isTop = false;

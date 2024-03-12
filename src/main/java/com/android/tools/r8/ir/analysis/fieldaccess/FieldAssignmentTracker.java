@@ -18,10 +18,6 @@ import com.android.tools.r8.graph.FieldAccessInfoCollection;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteArrayTypeFieldState;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteClassTypeFieldState;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcretePrimitiveTypeFieldState;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.FieldState;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
@@ -40,6 +36,10 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldArgumentInitializationInfo;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfo;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepFieldInfo;
@@ -74,7 +74,7 @@ public class FieldAssignmentTracker {
 
   // Information about the fields in the program. If a field is not a key in the map then no writes
   // has been seen to the field.
-  private final Map<DexEncodedField, FieldState> fieldStates = new ConcurrentHashMap<>();
+  private final Map<DexEncodedField, ValueState> fieldStates = new ConcurrentHashMap<>();
 
   private final Map<DexProgramClass, ProgramFieldMap<AbstractValue>>
       abstractFinalInstanceFieldValues = new ConcurrentHashMap<>();
@@ -141,7 +141,7 @@ public class FieldAssignmentTracker {
             KeepFieldInfo keepInfo = appView.getKeepInfo(field);
             if (keepInfo.isPinned(appView.options())
                 || (accessInfo != null && accessInfo.isWrittenFromMethodHandle())) {
-              fieldStates.put(field.getDefinition(), FieldState.unknown());
+              fieldStates.put(field.getDefinition(), ValueState.unknown());
             }
           });
     }
@@ -166,7 +166,7 @@ public class FieldAssignmentTracker {
                     assert abstractValue.isSingleStringValue()
                         || abstractValue.isSingleDexItemBasedStringValue();
                     if (fieldType == dexItemFactory.stringType) {
-                      return ConcreteClassTypeFieldState.create(
+                      return ConcreteClassTypeValueState.create(
                           abstractValue, DynamicType.definitelyNotNull());
                     } else {
                       ClassTypeElement nonNullableStringType =
@@ -174,16 +174,16 @@ public class FieldAssignmentTracker {
                               .stringType
                               .toTypeElement(appView, definitelyNotNull())
                               .asClassType();
-                      return ConcreteClassTypeFieldState.create(
+                      return ConcreteClassTypeValueState.create(
                           abstractValue, DynamicType.createExact(nonNullableStringType));
                     }
                   } else {
                     assert fieldType.isPrimitiveType();
-                    return ConcretePrimitiveTypeFieldState.create(abstractValue);
+                    return ConcretePrimitiveTypeValueState.create(abstractValue);
                   }
                 }
                 // If the field is already assigned outside the class initializer then just give up.
-                return FieldState.unknown();
+                return ValueState.unknown();
               });
         });
   }
@@ -202,16 +202,17 @@ public class FieldAssignmentTracker {
         value.isZero()
             ? abstractValueFactory.createDefaultValue(field.getType())
             : AbstractValue.unknown();
+    Nullability nullability = value.getType().nullability();
     fieldStates.compute(
         field.getDefinition(),
         (f, fieldState) -> {
           if (fieldState == null || fieldState.isBottom()) {
             DexType fieldType = field.getType();
             if (fieldType.isArrayType()) {
-              return ConcreteArrayTypeFieldState.create(abstractValue);
+              return ConcreteArrayTypeValueState.create(nullability);
             }
             if (fieldType.isPrimitiveType()) {
-              return ConcretePrimitiveTypeFieldState.create(abstractValue);
+              return ConcretePrimitiveTypeValueState.create(abstractValue);
             }
             assert fieldType.isClassType();
             DynamicType dynamicType =
@@ -219,7 +220,7 @@ public class FieldAssignmentTracker {
                     appView,
                     value.getDynamicType(appView).withNullability(Nullability.maybeNull()),
                     field.getType());
-            return ConcreteClassTypeFieldState.create(abstractValue, dynamicType);
+            return ConcreteClassTypeValueState.create(abstractValue, dynamicType);
           }
 
           if (fieldState.isUnknown()) {
@@ -228,19 +229,19 @@ public class FieldAssignmentTracker {
 
           assert fieldState.isConcrete();
 
-          if (fieldState.isArray()) {
-            ConcreteArrayTypeFieldState arrayFieldState = fieldState.asArray();
-            return arrayFieldState.mutableJoin(appView, field, abstractValue);
+          if (fieldState.isArrayState()) {
+            ConcreteArrayTypeValueState arrayFieldState = fieldState.asArrayState();
+            return arrayFieldState.mutableJoin(appView, field, nullability);
           }
 
-          if (fieldState.isPrimitive()) {
-            ConcretePrimitiveTypeFieldState primitiveFieldState = fieldState.asPrimitive();
+          if (fieldState.isPrimitiveState()) {
+            ConcretePrimitiveTypeValueState primitiveFieldState = fieldState.asPrimitiveState();
             return primitiveFieldState.mutableJoin(appView, field, abstractValue);
           }
 
-          assert fieldState.isClass();
+          assert fieldState.isClassState();
 
-          ConcreteClassTypeFieldState classFieldState = fieldState.asClass();
+          ConcreteClassTypeValueState classFieldState = fieldState.asClassState();
           return classFieldState.mutableJoin(
               appView, abstractValue, value.getDynamicType(appView), field);
         });
@@ -316,15 +317,18 @@ public class FieldAssignmentTracker {
   @SuppressWarnings("ReferenceEquality")
   private void recordAllFieldPutsProcessed(
       ProgramField field, OptimizationFeedbackDelayed feedback) {
-    FieldState fieldState = fieldStates.getOrDefault(field.getDefinition(), FieldState.bottom());
+    ValueState fieldState =
+        fieldStates.getOrDefault(field.getDefinition(), ValueState.bottom(field));
     AbstractValue abstractValue =
-        fieldState.getAbstractValue(appView.abstractValueFactory(), field);
+        fieldState.isBottom()
+            ? appView.abstractValueFactory().createDefaultValue(field.getType())
+            : fieldState.getAbstractValue(appView);
     if (abstractValue.isNonTrivial()) {
       feedback.recordFieldHasAbstractValue(field.getDefinition(), appView, abstractValue);
     }
 
-    if (fieldState.isClass() && field.getOptimizationInfo().getDynamicType().isUnknown()) {
-      ConcreteClassTypeFieldState classFieldState = fieldState.asClass();
+    if (fieldState.isClassState() && field.getOptimizationInfo().getDynamicType().isUnknown()) {
+      ConcreteClassTypeValueState classFieldState = fieldState.asClassState();
       DynamicType dynamicType = classFieldState.getDynamicType();
       if (!dynamicType.isUnknown()) {
         assert WideningUtils.widenDynamicNonReceiverType(appView, dynamicType, field.getType())

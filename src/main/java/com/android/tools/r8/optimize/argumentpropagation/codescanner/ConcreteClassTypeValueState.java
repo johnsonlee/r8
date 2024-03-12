@@ -6,7 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteReferenceTypeFieldState;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -37,6 +37,12 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
     this.dynamicType = dynamicType;
     assert !isEffectivelyBottom() : "Must use BottomClassTypeParameterState instead";
     assert !isEffectivelyUnknown() : "Must use UnknownParameterState instead";
+  }
+
+  public static NonEmptyValueState create(AbstractValue abstractValue, DynamicType dynamicType) {
+    return abstractValue.isUnknown() && dynamicType.isUnknown()
+        ? ValueState.unknown()
+        : new ConcreteClassTypeValueState(abstractValue, dynamicType);
   }
 
   @Override
@@ -77,12 +83,12 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   @Override
-  public boolean isClassParameter() {
+  public boolean isClassState() {
     return true;
   }
 
   @Override
-  public ConcreteClassTypeValueState asClassParameter() {
+  public ConcreteClassTypeValueState asClassState() {
     return this;
   }
 
@@ -101,45 +107,35 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
     return new ConcreteClassTypeValueState(abstractValue, dynamicType, copyInFlow());
   }
 
-  @Override
-  public ValueState mutableJoin(
+  public NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeValueState parameterState,
-      DexType parameterType,
-      Action onChangedAction) {
-    assert parameterType.isClassType();
-    boolean abstractValueChanged =
-        mutableJoinAbstractValue(appView, parameterState.getAbstractValue(appView), parameterType);
-    boolean dynamicTypeChanged =
-        mutableJoinDynamicType(appView, parameterState.getDynamicType(), parameterType);
+      AbstractValue abstractValue,
+      DynamicType dynamicType,
+      ProgramField field) {
+    assert field.getType().isClassType();
+    mutableJoinAbstractValue(appView, abstractValue, field.getType());
+    mutableJoinDynamicType(appView, dynamicType, field.getType());
     if (isEffectivelyUnknown()) {
       return unknown();
-    }
-    boolean inFlowChanged = mutableJoinInFlow(parameterState);
-    if (widenInFlow(appView)) {
-      return unknown();
-    }
-    if (abstractValueChanged || dynamicTypeChanged || inFlowChanged) {
-      onChangedAction.execute();
     }
     return this;
   }
 
   @Override
-  public ValueState mutableJoin(
+  public NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeFieldState fieldState,
-      DexType parameterType,
+      ConcreteReferenceTypeValueState state,
+      DexType staticType,
       Action onChangedAction) {
-    assert parameterType.isClassType();
+    assert staticType.isClassType();
     boolean abstractValueChanged =
-        mutableJoinAbstractValue(appView, fieldState.getAbstractValue(), parameterType);
+        mutableJoinAbstractValue(appView, state.getAbstractValue(appView), staticType);
     boolean dynamicTypeChanged =
-        mutableJoinDynamicType(appView, fieldState.getDynamicType(), parameterType);
+        mutableJoinDynamicType(appView, state.getDynamicType(), staticType);
     if (isEffectivelyUnknown()) {
       return unknown();
     }
-    boolean inFlowChanged = mutableJoinInFlow(fieldState.getInFlow());
+    boolean inFlowChanged = mutableJoinInFlow(state);
     if (widenInFlow(appView)) {
       return unknown();
     }
@@ -150,23 +146,21 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   private boolean mutableJoinAbstractValue(
-      AppView<AppInfoWithLiveness> appView,
-      AbstractValue otherAbstractValue,
-      DexType parameterType) {
+      AppView<AppInfoWithLiveness> appView, AbstractValue otherAbstractValue, DexType staticType) {
     AbstractValue oldAbstractValue = abstractValue;
     abstractValue =
         appView
             .getAbstractValueParameterJoiner()
-            .join(abstractValue, otherAbstractValue, parameterType);
+            .join(abstractValue, otherAbstractValue, staticType);
     return !abstractValue.equals(oldAbstractValue);
   }
 
   private boolean mutableJoinDynamicType(
-      AppView<AppInfoWithLiveness> appView, DynamicType otherDynamicType, DexType parameterType) {
+      AppView<AppInfoWithLiveness> appView, DynamicType otherDynamicType, DexType staticType) {
     DynamicType oldDynamicType = dynamicType;
     DynamicType joinedDynamicType = dynamicType.join(appView, otherDynamicType);
     DynamicType widenedDynamicType =
-        WideningUtils.widenDynamicNonReceiverType(appView, joinedDynamicType, parameterType);
+        WideningUtils.widenDynamicNonReceiverType(appView, joinedDynamicType, staticType);
     dynamicType = widenedDynamicType;
     return !dynamicType.equals(oldDynamicType);
   }

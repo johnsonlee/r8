@@ -6,12 +6,24 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
 public abstract class ValueState {
+
+  public static BottomValueState bottom(ProgramField field) {
+    DexType fieldType = field.getType();
+    if (fieldType.isArrayType()) {
+      return bottomArrayTypeParameter();
+    } else if (fieldType.isClassType()) {
+      return bottomClassTypeParameter();
+    } else {
+      assert fieldType.isPrimitiveType();
+      return bottomPrimitiveTypeParameter();
+    }
+  }
 
   public static BottomValueState bottomArrayTypeParameter() {
     return BottomArrayTypeValueState.get();
@@ -35,8 +47,24 @@ public abstract class ValueState {
 
   public abstract AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView);
 
+  public boolean isArrayState() {
+    return false;
+  }
+
+  public ConcreteArrayTypeValueState asArrayState() {
+    return null;
+  }
+
   public boolean isBottom() {
     return false;
+  }
+
+  public boolean isClassState() {
+    return false;
+  }
+
+  public ConcreteClassTypeValueState asClassState() {
+    return null;
   }
 
   public boolean isConcrete() {
@@ -47,7 +75,35 @@ public abstract class ValueState {
     return null;
   }
 
+  public boolean isNonEmpty() {
+    return false;
+  }
+
   public NonEmptyValueState asNonEmpty() {
+    return null;
+  }
+
+  public boolean isPrimitiveState() {
+    return false;
+  }
+
+  public ConcretePrimitiveTypeValueState asPrimitiveState() {
+    return null;
+  }
+
+  public boolean isReceiverState() {
+    return false;
+  }
+
+  public ConcreteReceiverValueState asReceiverState() {
+    return null;
+  }
+
+  public boolean isReferenceState() {
+    return false;
+  }
+
+  public ConcreteReferenceTypeValueState asReferenceState() {
     return null;
   }
 
@@ -59,22 +115,16 @@ public abstract class ValueState {
 
   public final ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState parameterState,
+      ValueState state,
       DexType parameterType,
       StateCloner cloner) {
-    return mutableJoin(appView, parameterState, parameterType, cloner, Action.empty());
+    return mutableJoin(appView, state, parameterType, cloner, Action.empty());
   }
 
   public abstract ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState parameterState,
-      DexType parameterType,
+      ValueState state,
+      DexType staticType,
       StateCloner cloner,
-      Action onChangedAction);
-
-  public abstract ValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      ConcreteFieldState fieldState,
-      DexType parameterType,
       Action onChangedAction);
 }

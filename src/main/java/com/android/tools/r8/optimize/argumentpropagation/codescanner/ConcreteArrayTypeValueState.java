@@ -6,7 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteReferenceTypeFieldState;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -33,6 +33,10 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
     this.nullability = nullability;
     assert !isEffectivelyBottom() : "Must use BottomArrayTypeParameterState instead";
     assert !isEffectivelyUnknown() : "Must use UnknownParameterState instead";
+  }
+
+  public static NonEmptyValueState create(Nullability nullability) {
+    return nullability.isUnknown() ? unknown() : new ConcreteArrayTypeValueState(nullability);
   }
 
   @Override
@@ -71,12 +75,12 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   @Override
-  public boolean isArrayParameter() {
+  public boolean isArrayState() {
     return true;
   }
 
   @Override
-  public ConcreteArrayTypeValueState asArrayParameter() {
+  public ConcreteArrayTypeValueState asArrayState() {
     return this;
   }
 
@@ -95,19 +99,27 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
     return new ConcreteArrayTypeValueState(nullability, copyInFlow());
   }
 
-  @Override
-  public ValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeValueState parameterState,
-      DexType parameterType,
-      Action onChangedAction) {
-    assert parameterType.isArrayType();
-    assert !nullability.isUnknown();
-    boolean nullabilityChanged = mutableJoinNullability(parameterState.getNullability());
+  public NonEmptyValueState mutableJoin(
+      AppView<AppInfoWithLiveness> appView, ProgramField field, Nullability nullability) {
+    mutableJoinNullability(nullability);
     if (isEffectivelyUnknown()) {
       return unknown();
     }
-    boolean inFlowChanged = mutableJoinInFlow(parameterState);
+    return this;
+  }
+
+  @Override
+  public NonEmptyValueState mutableJoin(
+      AppView<AppInfoWithLiveness> appView,
+      ConcreteReferenceTypeValueState state,
+      DexType staticType,
+      Action onChangedAction) {
+    assert staticType.isArrayType();
+    boolean nullabilityChanged = mutableJoinNullability(state.getNullability());
+    if (isEffectivelyUnknown()) {
+      return unknown();
+    }
+    boolean inFlowChanged = mutableJoinInFlow(state);
     if (widenInFlow(appView)) {
       return unknown();
     }
@@ -115,17 +127,6 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
       onChangedAction.execute();
     }
     return this;
-  }
-
-  @Override
-  public ValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeFieldState fieldState,
-      DexType parameterType,
-      Action onChangedAction) {
-    assert fieldState.isArray();
-    // We do not track the nullability of array fields.
-    return unknown();
   }
 
   private boolean mutableJoinNullability(Nullability otherNullability) {

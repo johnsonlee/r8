@@ -6,7 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcretePrimitiveTypeFieldState;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
@@ -27,6 +27,12 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
     this.abstractValue = abstractValue;
     assert !isEffectivelyBottom() : "Must use BottomPrimitiveTypeParameterState instead";
     assert !isEffectivelyUnknown() : "Must use UnknownParameterState instead";
+  }
+
+  public static NonEmptyValueState create(AbstractValue abstractValue) {
+    return abstractValue.isUnknown()
+        ? ValueState.unknown()
+        : new ConcretePrimitiveTypeValueState(abstractValue);
   }
 
   public ConcretePrimitiveTypeValueState(InFlow inFlow) {
@@ -50,39 +56,27 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
     return new ConcretePrimitiveTypeValueState(abstractValue, copyInFlow());
   }
 
-  public ValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      ConcretePrimitiveTypeValueState parameterState,
-      DexType parameterType,
-      Action onChangedAction) {
-    assert parameterType.isPrimitiveType();
-    boolean abstractValueChanged =
-        mutableJoinAbstractValue(appView, parameterState.getAbstractValue(), parameterType);
+  public NonEmptyValueState mutableJoin(
+      AppView<AppInfoWithLiveness> appView, ProgramField field, AbstractValue abstractValue) {
+    mutableJoinAbstractValue(appView, abstractValue, field.getType());
     if (isEffectivelyUnknown()) {
       return unknown();
-    }
-    boolean inFlowChanged = mutableJoinInFlow(parameterState);
-    if (widenInFlow(appView)) {
-      return unknown();
-    }
-    if (abstractValueChanged || inFlowChanged) {
-      onChangedAction.execute();
     }
     return this;
   }
 
-  public ValueState mutableJoin(
+  public NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcretePrimitiveTypeFieldState fieldState,
-      DexType parameterType,
+      ConcretePrimitiveTypeValueState state,
+      DexType staticType,
       Action onChangedAction) {
-    assert parameterType.isPrimitiveType();
+    assert staticType.isPrimitiveType();
     boolean abstractValueChanged =
-        mutableJoinAbstractValue(appView, fieldState.getAbstractValue(), parameterType);
+        mutableJoinAbstractValue(appView, state.getAbstractValue(), staticType);
     if (isEffectivelyUnknown()) {
       return unknown();
     }
-    boolean inFlowChanged = mutableJoinInFlow(fieldState.getInFlow());
+    boolean inFlowChanged = mutableJoinInFlow(state);
     if (widenInFlow(appView)) {
       return unknown();
     }
@@ -93,14 +87,12 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
   }
 
   private boolean mutableJoinAbstractValue(
-      AppView<AppInfoWithLiveness> appView,
-      AbstractValue otherAbstractValue,
-      DexType parameterType) {
+      AppView<AppInfoWithLiveness> appView, AbstractValue otherAbstractValue, DexType staticType) {
     AbstractValue oldAbstractValue = abstractValue;
     abstractValue =
         appView
             .getAbstractValueParameterJoiner()
-            .join(abstractValue, otherAbstractValue, parameterType);
+            .join(abstractValue, otherAbstractValue, staticType);
     return !abstractValue.equals(oldAbstractValue);
   }
 
@@ -129,12 +121,12 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
   }
 
   @Override
-  public boolean isPrimitiveParameter() {
+  public boolean isPrimitiveState() {
     return true;
   }
 
   @Override
-  public ConcretePrimitiveTypeValueState asPrimitiveParameter() {
+  public ConcretePrimitiveTypeValueState asPrimitiveState() {
     return this;
   }
 }

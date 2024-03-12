@@ -6,10 +6,10 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
+import java.util.function.Function;
 
 public class UnknownValueState extends NonEmptyValueState {
 
@@ -47,10 +47,11 @@ public class UnknownValueState extends NonEmptyValueState {
   }
 
   @Override
-  public ValueState mutableJoin(
+  public NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcreteFieldState fieldState,
-      DexType parameterType,
+      Function<ValueState, NonEmptyValueState> stateSupplier,
+      DexType staticType,
+      StateCloner cloner,
       Action onChangedAction) {
     return this;
   }

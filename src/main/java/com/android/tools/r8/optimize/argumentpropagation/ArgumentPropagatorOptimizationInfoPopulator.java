@@ -236,10 +236,10 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
         argumentIndex < methodState.getParameterStates().size();
         argumentIndex++) {
       ConcreteValueState parameterState = methodState.getParameterState(argumentIndex).asConcrete();
-      if (parameterState == null || !parameterState.isClassParameter()) {
+      if (parameterState == null || !parameterState.isClassState()) {
         continue;
       }
-      DynamicType dynamicType = parameterState.asClassParameter().getDynamicType();
+      DynamicType dynamicType = parameterState.asClassState().getDynamicType();
       DexType staticType = method.getArgumentType(argumentIndex);
       if (shouldWidenDynamicTypeToUnknown(dynamicType, staticType)) {
         methodState.setParameterState(

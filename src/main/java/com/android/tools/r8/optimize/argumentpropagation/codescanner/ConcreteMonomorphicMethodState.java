@@ -22,7 +22,7 @@ public class ConcreteMonomorphicMethodState extends ConcreteMethodState
   public ConcreteMonomorphicMethodState(
       boolean isReturnValueUsed, List<ValueState> parameterStates) {
     assert Streams.stream(Iterables.skip(parameterStates, 1))
-        .noneMatch(x -> x.isConcrete() && x.asConcrete().isReceiverParameter());
+        .noneMatch(x -> x.isConcrete() && x.asConcrete().isReceiverState());
     this.isReturnValueUsed = isReturnValueUsed;
     this.parameterStates = parameterStates;
     assert !isEffectivelyUnknown() : "Must use UnknownMethodState instead";
@@ -102,7 +102,7 @@ public class ConcreteMonomorphicMethodState extends ConcreteMethodState
           argumentIndex,
           parameterState.mutableJoin(appView, otherParameterState, parameterType, cloner));
       assert !parameterStates.get(argumentIndex).isConcrete()
-          || !parameterStates.get(argumentIndex).asConcrete().isReceiverParameter();
+          || !parameterStates.get(argumentIndex).asConcrete().isReceiverState();
     }
 
     return isEffectivelyUnknown() ? unknown() : this;
@@ -126,7 +126,7 @@ public class ConcreteMonomorphicMethodState extends ConcreteMethodState
   public void setParameterState(int index, ValueState parameterState) {
     assert index == 0
         || !parameterState.isConcrete()
-        || !parameterState.asConcrete().isReceiverParameter();
+        || !parameterState.asConcrete().isReceiverState();
     parameterStates.set(index, parameterState);
   }
 

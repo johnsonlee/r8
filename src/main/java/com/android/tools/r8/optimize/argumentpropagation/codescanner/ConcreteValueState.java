@@ -6,12 +6,12 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Function;
 
 public abstract class ConcreteValueState extends NonEmptyValueState {
 
@@ -53,49 +53,9 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
 
   public abstract ConcreteParameterStateKind getKind();
 
-  public boolean isArrayParameter() {
-    return false;
-  }
-
-  public ConcreteArrayTypeValueState asArrayParameter() {
-    return null;
-  }
-
-  public boolean isClassParameter() {
-    return false;
-  }
-
-  public ConcreteClassTypeValueState asClassParameter() {
-    return null;
-  }
-
   public abstract boolean isEffectivelyBottom();
 
   public abstract boolean isEffectivelyUnknown();
-
-  public boolean isPrimitiveParameter() {
-    return false;
-  }
-
-  public ConcretePrimitiveTypeValueState asPrimitiveParameter() {
-    return null;
-  }
-
-  public boolean isReceiverParameter() {
-    return false;
-  }
-
-  public ConcreteReceiverValueState asReceiverParameter() {
-    return null;
-  }
-
-  public boolean isReferenceParameter() {
-    return false;
-  }
-
-  public ConcreteReferenceTypeValueState asReferenceParameter() {
-    return null;
-  }
 
   @Override
   public boolean isConcrete() {
@@ -108,50 +68,40 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
   }
 
   @Override
-  public final ValueState mutableJoin(
+  public NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState parameterState,
-      DexType parameterType,
+      Function<ValueState, NonEmptyValueState> stateSupplier,
+      DexType staticType,
       StateCloner cloner,
       Action onChangedAction) {
-    if (parameterState.isBottom()) {
-      return this;
-    }
-    if (parameterState.isUnknown()) {
-      return parameterState;
-    }
-    ConcreteValueState concreteParameterState = parameterState.asConcrete();
-    if (isReferenceParameter()) {
-      assert concreteParameterState.isReferenceParameter();
-      return asReferenceParameter()
-          .mutableJoin(
-              appView,
-              concreteParameterState.asReferenceParameter(),
-              parameterType,
-              onChangedAction);
-    }
-    return asPrimitiveParameter()
-        .mutableJoin(
-            appView, concreteParameterState.asPrimitiveParameter(), parameterType, onChangedAction);
+    return mutableJoin(appView, stateSupplier.apply(this), staticType, cloner, onChangedAction);
   }
 
   @Override
-  public final ValueState mutableJoin(
+  public final NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcreteFieldState fieldState,
-      DexType parameterType,
+      ValueState state,
+      DexType staticType,
+      StateCloner cloner,
       Action onChangedAction) {
-    if (isReferenceParameter()) {
-      assert fieldState.isReference();
-      return asReferenceParameter()
-          .mutableJoin(appView, fieldState.asReference(), parameterType, onChangedAction);
+    if (state.isBottom()) {
+      return this;
     }
-    return asPrimitiveParameter()
-        .mutableJoin(appView, fieldState.asPrimitive(), parameterType, onChangedAction);
+    if (state.isUnknown()) {
+      return unknown();
+    }
+    ConcreteValueState concreteState = state.asConcrete();
+    if (isReferenceState()) {
+      assert concreteState.isReferenceState();
+      return asReferenceState()
+          .mutableJoin(appView, concreteState.asReferenceState(), staticType, onChangedAction);
+    }
+    return asPrimitiveState()
+        .mutableJoin(appView, concreteState.asPrimitiveState(), staticType, onChangedAction);
   }
 
-  boolean mutableJoinInFlow(ConcreteValueState parameterState) {
-    return mutableJoinInFlow(parameterState.getInFlow());
+  boolean mutableJoinInFlow(ConcreteValueState state) {
+    return mutableJoinInFlow(state.getInFlow());
   }
 
   boolean mutableJoinInFlow(Set<InFlow> otherInFlow) {

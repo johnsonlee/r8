@@ -6,7 +6,6 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteReferenceTypeFieldState;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -24,24 +23,18 @@ public abstract class ConcreteReferenceTypeValueState extends ConcreteValueState
   public abstract Nullability getNullability();
 
   @Override
-  public boolean isReferenceParameter() {
+  public boolean isReferenceState() {
     return true;
   }
 
   @Override
-  public ConcreteReferenceTypeValueState asReferenceParameter() {
+  public ConcreteReferenceTypeValueState asReferenceState() {
     return this;
   }
 
-  public abstract ValueState mutableJoin(
+  public abstract NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeValueState parameterState,
-      DexType parameterType,
-      Action onChangedAction);
-
-  public abstract ValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeFieldState fieldState,
-      DexType parameterType,
+      ConcreteReferenceTypeValueState state,
+      DexType staticType,
       Action onChangedAction);
 }

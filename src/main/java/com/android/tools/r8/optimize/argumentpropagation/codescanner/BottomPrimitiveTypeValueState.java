@@ -6,7 +6,6 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
@@ -23,29 +22,18 @@ public class BottomPrimitiveTypeValueState extends BottomValueState {
   @Override
   public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState parameterState,
-      DexType parameterType,
+      ValueState state,
+      DexType staticType,
       StateCloner cloner,
       Action onChangedAction) {
-    if (parameterState.isBottom()) {
-      assert parameterState == bottomPrimitiveTypeParameter();
+    if (state.isBottom()) {
+      assert state == bottomPrimitiveTypeParameter();
       return this;
     }
-    if (parameterState.isUnknown()) {
-      return parameterState;
+    if (state.isUnknown()) {
+      return state;
     }
-    assert parameterState.isConcrete();
-    assert parameterState.asConcrete().isPrimitiveParameter();
-    return cloner.mutableCopy(parameterState);
-  }
-
-  @Override
-  public ValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      ConcreteFieldState fieldState,
-      DexType parameterType,
-      Action onChangedAction) {
-    return new ConcretePrimitiveTypeValueState(
-        fieldState.getAbstractValue(), fieldState.copyInFlow());
+    assert state.isPrimitiveState();
+    return cloner.mutableCopy(state);
   }
 }
