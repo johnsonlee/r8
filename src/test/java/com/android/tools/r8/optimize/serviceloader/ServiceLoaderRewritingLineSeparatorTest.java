@@ -1,8 +1,8 @@
-// Copyright (c) 2020, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.rewrite;
+package com.android.tools.r8.optimize.serviceloader;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNull;
@@ -13,10 +13,6 @@ import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.rewrite.ServiceLoaderRewritingTest.MainRunner;
-import com.android.tools.r8.rewrite.ServiceLoaderRewritingTest.Service;
-import com.android.tools.r8.rewrite.ServiceLoaderRewritingTest.ServiceImpl;
-import com.android.tools.r8.rewrite.ServiceLoaderRewritingTest.ServiceImpl2;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -74,20 +70,20 @@ public class ServiceLoaderRewritingLineSeparatorTest extends TestBase {
     Path path = temp.newFile("out.zip").toPath();
     testForR8(parameters.getBackend())
         .addInnerClasses(ServiceLoaderRewritingTest.class)
-        .addKeepMainRule(MainRunner.class)
+        .addKeepMainRule(ServiceLoaderRewritingTest.MainRunner.class)
         .setMinApi(parameters)
         .addDataEntryResources(
             DataEntryResource.fromBytes(
                 StringUtils.join(
                         lineSeparator.getSeparator(),
-                        ServiceImpl.class.getTypeName(),
-                        ServiceImpl2.class.getTypeName())
+                        ServiceLoaderRewritingTest.ServiceImpl.class.getTypeName(),
+                        ServiceLoaderRewritingTest.ServiceImpl2.class.getTypeName())
                     .getBytes(),
-                "META-INF/services/" + Service.class.getTypeName(),
+                "META-INF/services/" + ServiceLoaderRewritingTest.Service.class.getTypeName(),
                 Origin.unknown()))
         .compile()
         .writeToZip(path)
-        .run(parameters.getRuntime(), MainRunner.class)
+        .run(parameters.getRuntime(), ServiceLoaderRewritingTest.MainRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT + StringUtils.lines("Hello World 2!"))
         .inspect(
             inspector -> {
@@ -101,7 +97,7 @@ public class ServiceLoaderRewritingLineSeparatorTest extends TestBase {
   }
 
   private static long getServiceLoaderLoads(CodeInspector inspector) {
-    ClassSubject classSubject = inspector.clazz(MainRunner.class);
+    ClassSubject classSubject = inspector.clazz(ServiceLoaderRewritingTest.MainRunner.class);
     assertTrue(classSubject.isPresent());
     return classSubject.allMethods().stream()
         .mapToLong(

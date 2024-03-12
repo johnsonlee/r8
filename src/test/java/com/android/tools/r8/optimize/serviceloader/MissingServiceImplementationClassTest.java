@@ -1,23 +1,31 @@
-// Copyright (c) 2020, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.rewrite.serviceloaders;
+package com.android.tools.r8.optimize.serviceloader;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
-import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.graph.AppServices;
+import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.Box;
+import com.android.tools.r8.utils.DataResourceConsumerForTesting;
+import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.io.ByteStreams;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -27,12 +35,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-// Test where the resource META-INF/services/Service for a service class Service is missing.
-//
-// The program succeeds with the expected output when META-INF/services/Service is bundled with the
-// application after the compilation.
+// Test where a service implementation class is missing.
 @RunWith(Parameterized.class)
-public class ServiceWithoutResourceFileAtCompileTimeTest extends TestBase {
+public class MissingServiceImplementationClassTest extends TestBase {
 
   private final TestParameters parameters;
 
@@ -41,17 +46,30 @@ public class ServiceWithoutResourceFileAtCompileTimeTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public ServiceWithoutResourceFileAtCompileTimeTest(TestParameters parameters) {
+  public MissingServiceImplementationClassTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
   @Test
   public void testR8() throws Exception {
+    Box<DataResourceConsumerForTesting> dataResourceConsumer = new Box<>();
     R8TestCompileResult compileResult =
         testForR8(parameters.getBackend())
             .addProgramClasses(TestClass.class, Service.class)
+            .addDontWarn(ServiceImpl.class)
             .addKeepMainRule(TestClass.class)
             .addKeepClassAndMembersRulesWithAllowObfuscation(Service.class)
+            .addDataEntryResources(
+                DataEntryResource.fromBytes(
+                    StringUtils.lines(ServiceImpl.class.getTypeName()).getBytes(),
+                    AppServices.SERVICE_DIRECTORY_NAME + Service.class.getTypeName(),
+                    Origin.unknown()))
+            .addOptionsModification(
+                options -> {
+                  dataResourceConsumer.set(
+                      new DataResourceConsumerForTesting(options.dataResourceConsumer));
+                  options.dataResourceConsumer = dataResourceConsumer.get();
+                })
             .setMinApi(parameters)
             .compile();
 
@@ -59,8 +77,14 @@ public class ServiceWithoutResourceFileAtCompileTimeTest extends TestBase {
     ClassSubject serviceClassSubject = inspector.clazz(Service.class);
     assertThat(serviceClassSubject, isPresent());
 
-    // Execution succeeds with the empty output since META-INF/services/[...]Service is missing.
-    compileResult.run(parameters.getRuntime(), TestClass.class).assertSuccessWithEmptyOutput();
+    // Verify that ServiceImpl was not removed from META-INF/services/[...]Service.
+    inspectResource(
+        dataResourceConsumer.get().get("META-INF/services/" + serviceClassSubject.getFinalName()));
+
+    // Execution fails since META-INF/services/[...]Service is referring to a missing class.
+    compileResult
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertFailureWithErrorThatThrows(ServiceConfigurationError.class);
 
     // Verify that it is still possible to inject a new implementation of Service after the
     // compilation.
@@ -69,11 +93,10 @@ public class ServiceWithoutResourceFileAtCompileTimeTest extends TestBase {
         .addClasspathClasses(Service.class)
         .addKeepAllClassesRule()
         .addApplyMapping(compileResult.getProguardMap())
-        .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()
         .addRunClasspathFiles(
-            injectServiceDeclarationInProgram(
+            transformServiceDeclarationInProgram(
                 compileResult.writeToZip(),
                 AppServices.SERVICE_DIRECTORY_NAME + serviceClassSubject.getFinalName(),
                 ServiceImpl.class.getTypeName()))
@@ -81,7 +104,13 @@ public class ServiceWithoutResourceFileAtCompileTimeTest extends TestBase {
         .assertSuccessWithOutputLines("Hello world!");
   }
 
-  private Path injectServiceDeclarationInProgram(Path program, String fileName, String contents)
+  private void inspectResource(List<String> contents) {
+    assertNotNull(contents);
+    assertEquals(1, contents.size());
+    assertEquals(ServiceImpl.class.getTypeName(), contents.get(0));
+  }
+
+  private Path transformServiceDeclarationInProgram(Path program, String fileName, String contents)
       throws Exception {
     Path newProgram = temp.newFolder().toPath().resolve("program.jar");
     try (ZipOutputStream outputStream = new ZipOutputStream(Files.newOutputStream(newProgram))) {
@@ -89,14 +118,15 @@ public class ServiceWithoutResourceFileAtCompileTimeTest extends TestBase {
         ZipEntry next = inputStream.getNextEntry();
         while (next != null) {
           outputStream.putNextEntry(new ZipEntry(next.getName()));
-          outputStream.write(ByteStreams.toByteArray(inputStream));
+          if (next.getName().equals(fileName)) {
+            outputStream.write(contents.getBytes());
+          } else {
+            outputStream.write(ByteStreams.toByteArray(inputStream));
+          }
           outputStream.closeEntry();
           next = inputStream.getNextEntry();
         }
       }
-      outputStream.putNextEntry(new ZipEntry(fileName));
-      outputStream.write(contents.getBytes());
-      outputStream.closeEntry();
     }
     return newProgram;
   }
@@ -124,7 +154,7 @@ public class ServiceWithoutResourceFileAtCompileTimeTest extends TestBase {
 
   public static class ServiceImpl implements Service {
 
-    @NeverInline
+    @Override
     public void greet() {
       System.out.println("Hello world!");
     }

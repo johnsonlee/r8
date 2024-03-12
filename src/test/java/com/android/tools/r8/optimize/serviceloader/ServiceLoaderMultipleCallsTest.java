@@ -1,14 +1,12 @@
-// Copyright (c) 2020, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.rewrite;
+package com.android.tools.r8.optimize.serviceloader;
 
-import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithName;
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNull;
 import static junit.framework.TestCase.assertTrue;
-import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.CompilationFailedException;
@@ -22,19 +20,18 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
+import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ServiceLoader;
 import java.util.concurrent.ExecutionException;
 import java.util.zip.ZipFile;
-import org.hamcrest.MatcherAssert;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class ServiceLoaderMultipleCallsSameMethodTest extends TestBase {
+public class ServiceLoaderMultipleCallsTest extends TestBase {
 
   private final TestParameters parameters;
   private final String EXPECTED_OUTPUT = StringUtils.lines("Hello World!", "Hello World!");
@@ -64,15 +61,19 @@ public class ServiceLoaderMultipleCallsSameMethodTest extends TestBase {
 
     public static void main(String[] args) {
       run1();
+      run2();
     }
 
     @NeverInline
     public static void run1() {
-      ClassLoader classLoader = Service.class.getClassLoader();
-      for (Service x : ServiceLoader.load(Service.class, classLoader)) {
+      for (Service x : ServiceLoader.load(Service.class, Service.class.getClassLoader())) {
         x.print();
       }
-      for (Service x : ServiceLoader.load(Service.class, classLoader)) {
+    }
+
+    @NeverInline
+    public static void run2() {
+      for (Service x : ServiceLoader.load(Service.class, Service.class.getClassLoader())) {
         x.print();
       }
     }
@@ -83,7 +84,7 @@ public class ServiceLoaderMultipleCallsSameMethodTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public ServiceLoaderMultipleCallsSameMethodTest(TestParameters parameters) {
+  public ServiceLoaderMultipleCallsTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
@@ -91,7 +92,7 @@ public class ServiceLoaderMultipleCallsSameMethodTest extends TestBase {
   public void testRewritings() throws IOException, CompilationFailedException, ExecutionException {
     Path path = temp.newFile("out.zip").toPath();
     testForR8(parameters.getBackend())
-        .addInnerClasses(ServiceLoaderMultipleCallsSameMethodTest.class)
+        .addInnerClasses(ServiceLoaderMultipleCallsTest.class)
         .addKeepMainRule(MainRunner.class)
         .setMinApi(parameters)
         .enableInliningAnnotations()
@@ -104,11 +105,10 @@ public class ServiceLoaderMultipleCallsSameMethodTest extends TestBase {
         .writeToZip(path)
         .run(parameters.getRuntime(), MainRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT)
-        // Check that we have actually rewritten the calls to ServiceLoader.load.
-        .inspect(this::verifyNoServiceLoaderLoads)
-        .inspect(this::verifyNoClassLoaders)
         .inspect(
             inspector -> {
+              // Check that we have actually rewritten the calls to ServiceLoader.load.
+              assertEquals(0, getServiceLoaderLoads(inspector, MainRunner.class));
               // Check the synthesize service loader method is a single shared method.
               // Due to minification we just check there is only a single synthetic class with a
               // single static method.
@@ -128,17 +128,21 @@ public class ServiceLoaderMultipleCallsSameMethodTest extends TestBase {
     assertNull(zip.getEntry("META-INF/services/" + Service.class.getTypeName()));
   }
 
-  private void verifyNoServiceLoaderLoads(CodeInspector inspector) {
-    ClassSubject classSubject = inspector.clazz(MainRunner.class);
-    Assert.assertTrue(classSubject.isPresent());
-    classSubject.forAllMethods(
-        method -> MatcherAssert.assertThat(method, not(invokesMethodWithName("load"))));
+  private static long getServiceLoaderLoads(CodeInspector inspector, Class<?> clazz) {
+    ClassSubject classSubject = inspector.clazz(clazz);
+    assertTrue(classSubject.isPresent());
+    return classSubject.allMethods().stream()
+        .mapToLong(
+            method ->
+                method
+                    .streamInstructions()
+                    .filter(ServiceLoaderMultipleCallsTest::isServiceLoaderLoad)
+                    .count())
+        .sum();
   }
 
-  private void verifyNoClassLoaders(CodeInspector inspector) {
-    ClassSubject classSubject = inspector.clazz(MainRunner.class);
-    Assert.assertTrue(classSubject.isPresent());
-    classSubject.forAllMethods(
-        method -> MatcherAssert.assertThat(method, not(invokesMethodWithName("getClassLoader"))));
+  private static boolean isServiceLoaderLoad(InstructionSubject instruction) {
+    return instruction.isInvokeStatic()
+        && instruction.getMethod().qualifiedName().contains("ServiceLoader.load");
   }
 }

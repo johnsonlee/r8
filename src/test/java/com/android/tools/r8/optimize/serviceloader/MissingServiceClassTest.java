@@ -1,8 +1,8 @@
-// Copyright (c) 2020, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.rewrite.serviceloaders;
+package com.android.tools.r8.optimize.serviceloader;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -131,11 +131,11 @@ public class MissingServiceClassTest extends TestBase {
 
     static Class<?> getServiceClass() throws ClassNotFoundException {
       // Get the Service class without accessing it directly. Accessing it directly would cause a
-      // compilation error due the the class being absent. This can be avoided by adding -dontwarn,
+      // compilation error due to the class being absent. This can be avoided by adding -dontwarn,
       // but then R8 don't report a warning for the incorrect resource in META-INF/services, which
       // this is trying to test.
       return Class.forName(
-          "com.android.tools.r8.rewrite.serviceloaders.MissingServiceClassTest$Service");
+          "com.android.tools.r8.optimize.serviceloader.MissingServiceClassTest$Service");
     }
   }
 
