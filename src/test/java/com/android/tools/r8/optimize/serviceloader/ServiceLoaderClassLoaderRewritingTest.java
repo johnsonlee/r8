@@ -4,30 +4,23 @@
 
 package com.android.tools.r8.optimize.serviceloader;
 
-import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithName;
 import static junit.framework.TestCase.assertNull;
-import static org.hamcrest.CoreMatchers.not;
-import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.NeverInline;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.nio.file.Path;
 import java.util.ServiceLoader;
 import java.util.zip.ZipFile;
-import org.hamcrest.MatcherAssert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class ServiceLoaderClassLoaderRewritingTest extends TestBase {
+public class ServiceLoaderClassLoaderRewritingTest extends ServiceLoaderTestBase {
 
   private final TestParameters parameters;
   private final String EXPECTED_OUTPUT = StringUtils.lines("Hello World!");
@@ -92,19 +85,12 @@ public class ServiceLoaderClassLoaderRewritingTest extends TestBase {
                 Origin.unknown()))
         .compile()
         .writeToZip(path)
-        .inspect(this::verifyNoServiceLoaderLoads)
+        .inspect(inspector -> verifyNoServiceLoaderLoads(inspector.clazz(MainRunner.class)))
         .run(parameters.getRuntime(), MainRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
 
     // Check that we have removed the service configuration from META-INF/services.
     ZipFile zip = new ZipFile(path.toFile());
     assertNull(zip.getEntry("META-INF/services/" + Service.class.getTypeName()));
-  }
-
-  private void verifyNoServiceLoaderLoads(CodeInspector inspector) {
-    ClassSubject classSubject = inspector.clazz(MainRunner.class);
-    assertTrue(classSubject.isPresent());
-    classSubject.forAllMethods(
-        method -> MatcherAssert.assertThat(method, not(invokesMethodWithName("load"))));
   }
 }

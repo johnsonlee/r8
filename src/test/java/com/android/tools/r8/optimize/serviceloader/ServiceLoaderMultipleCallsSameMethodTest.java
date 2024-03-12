@@ -4,37 +4,30 @@
 
 package com.android.tools.r8.optimize.serviceloader;
 
-import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithName;
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNull;
 import static junit.framework.TestCase.assertTrue;
-import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.NeverInline;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ServiceLoader;
 import java.util.concurrent.ExecutionException;
 import java.util.zip.ZipFile;
-import org.hamcrest.MatcherAssert;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class ServiceLoaderMultipleCallsSameMethodTest extends TestBase {
+public class ServiceLoaderMultipleCallsSameMethodTest extends ServiceLoaderTestBase {
 
   private final TestParameters parameters;
   private final String EXPECTED_OUTPUT = StringUtils.lines("Hello World!", "Hello World!");
@@ -126,19 +119,5 @@ public class ServiceLoaderMultipleCallsSameMethodTest extends TestBase {
     // Check that we have removed the service configuration from META-INF/services.
     ZipFile zip = new ZipFile(path.toFile());
     assertNull(zip.getEntry("META-INF/services/" + Service.class.getTypeName()));
-  }
-
-  private void verifyNoServiceLoaderLoads(CodeInspector inspector) {
-    ClassSubject classSubject = inspector.clazz(MainRunner.class);
-    Assert.assertTrue(classSubject.isPresent());
-    classSubject.forAllMethods(
-        method -> MatcherAssert.assertThat(method, not(invokesMethodWithName("load"))));
-  }
-
-  private void verifyNoClassLoaders(CodeInspector inspector) {
-    ClassSubject classSubject = inspector.clazz(MainRunner.class);
-    Assert.assertTrue(classSubject.isPresent());
-    classSubject.forAllMethods(
-        method -> MatcherAssert.assertThat(method, not(invokesMethodWithName("getClassLoader"))));
   }
 }

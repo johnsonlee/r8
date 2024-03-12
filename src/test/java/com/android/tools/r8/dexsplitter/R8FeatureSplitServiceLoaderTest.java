@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.dexsplitter;
 
-import static com.android.tools.r8.optimize.serviceloader.ServiceLoaderRewritingTest.getServiceLoaderLoads;
+import static com.android.tools.r8.optimize.serviceloader.ServiceLoaderTestBase.getServiceLoaderLoads;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
@@ -58,10 +58,7 @@ public class R8FeatureSplitServiceLoaderTest extends SplitterTestBase {
                 "META-INF/services/" + I.class.getTypeName(),
                 Origin.unknown()))
         .compile()
-        .inspect(
-            inspector -> {
-              assertEquals(0, getServiceLoaderLoads(inspector, Base.class));
-            })
+        .inspect(inspector -> assertEquals(0, getServiceLoaderLoads(inspector)))
         .writeToZip(base)
         .run(parameters.getRuntime(), Base.class)
         .assertSuccessWithOutputLines("Feature1I.foo()", "Feature2I.foo()");
@@ -88,10 +85,7 @@ public class R8FeatureSplitServiceLoaderTest extends SplitterTestBase {
                     "META-INF/services/" + I.class.getTypeName(),
                     Origin.unknown()))
             .compile()
-            .inspect(
-                inspector -> {
-                  assertEquals(1, getServiceLoaderLoads(inspector, Base.class));
-                })
+            .inspect(inspector -> assertEquals(1, getServiceLoaderLoads(inspector)))
             .writeToZip(base)
             .addRunClasspathFiles(feature1Path, feature2Path)
             .run(parameters.getRuntime(), Base.class);
@@ -125,7 +119,7 @@ public class R8FeatureSplitServiceLoaderTest extends SplitterTestBase {
                 Feature2I.class)
             .compile()
             .inspect(
-                baseInspector -> assertEquals(1, getServiceLoaderLoads(baseInspector, Base.class)),
+                baseInspector -> assertEquals(1, getServiceLoaderLoads(baseInspector)),
                 feature1Inspector ->
                     assertThat(feature1Inspector.clazz(Feature1I.class), isPresent()),
                 feature2Inspector ->
@@ -159,7 +153,7 @@ public class R8FeatureSplitServiceLoaderTest extends SplitterTestBase {
                 Feature3Dummy.class)
             .compile()
             .inspect(
-                baseInspector -> assertEquals(1, getServiceLoaderLoads(baseInspector, Base.class)),
+                baseInspector -> assertEquals(1, getServiceLoaderLoads(baseInspector)),
                 feature1Inspector ->
                     assertThat(feature1Inspector.clazz(Feature1I.class), isPresent()),
                 feature2Inspector ->
@@ -196,7 +190,7 @@ public class R8FeatureSplitServiceLoaderTest extends SplitterTestBase {
             Feature2I.class)
         .compile()
         .inspect(
-            baseInspector -> assertEquals(1, getServiceLoaderLoads(baseInspector, Base.class)),
+            baseInspector -> assertEquals(1, getServiceLoaderLoads(baseInspector)),
             feature1Inspector -> assertThat(feature1Inspector.clazz(Feature1I.class), isPresent()),
             feature2Inspector -> assertThat(feature2Inspector.clazz(Feature2I.class), isPresent()))
         .apply(compileResult -> compileResult.addRunClasspathFiles(compileResult.getFeature(1)))

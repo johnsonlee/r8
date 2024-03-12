@@ -3,11 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.serviceloader;
 
-import static com.android.tools.r8.optimize.serviceloader.ServiceLoaderRewritingTest.getServiceLoaderLoads;
 import static junit.framework.TestCase.assertEquals;
 
 import com.android.tools.r8.DataEntryResource;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.origin.Origin;
@@ -20,7 +18,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class ServiceLoaderConstClassFromCalleeTest extends TestBase {
+public class ServiceLoaderConstClassFromCalleeTest extends ServiceLoaderTestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -45,7 +43,7 @@ public class ServiceLoaderConstClassFromCalleeTest extends TestBase {
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!")
         // Check that the call to ServiceLoader.load is removed.
-        .inspect(inspector -> assertEquals(0, getServiceLoaderLoads(inspector, Main.class)));
+        .inspect(inspector -> assertEquals(0, getServiceLoaderLoads(inspector)));
   }
 
   public static class Main {

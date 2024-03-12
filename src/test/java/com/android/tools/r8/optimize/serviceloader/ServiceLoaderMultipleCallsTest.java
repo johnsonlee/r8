@@ -12,15 +12,11 @@ import static org.junit.Assert.assertFalse;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.NeverInline;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
-import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ServiceLoader;
@@ -31,7 +27,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class ServiceLoaderMultipleCallsTest extends TestBase {
+public class ServiceLoaderMultipleCallsTest extends ServiceLoaderTestBase {
 
   private final TestParameters parameters;
   private final String EXPECTED_OUTPUT = StringUtils.lines("Hello World!", "Hello World!");
@@ -108,7 +104,7 @@ public class ServiceLoaderMultipleCallsTest extends TestBase {
         .inspect(
             inspector -> {
               // Check that we have actually rewritten the calls to ServiceLoader.load.
-              assertEquals(0, getServiceLoaderLoads(inspector, MainRunner.class));
+              assertEquals(0, getServiceLoaderLoads(inspector));
               // Check the synthesize service loader method is a single shared method.
               // Due to minification we just check there is only a single synthetic class with a
               // single static method.
@@ -126,23 +122,5 @@ public class ServiceLoaderMultipleCallsTest extends TestBase {
     // Check that we have removed the service configuration from META-INF/services.
     ZipFile zip = new ZipFile(path.toFile());
     assertNull(zip.getEntry("META-INF/services/" + Service.class.getTypeName()));
-  }
-
-  private static long getServiceLoaderLoads(CodeInspector inspector, Class<?> clazz) {
-    ClassSubject classSubject = inspector.clazz(clazz);
-    assertTrue(classSubject.isPresent());
-    return classSubject.allMethods().stream()
-        .mapToLong(
-            method ->
-                method
-                    .streamInstructions()
-                    .filter(ServiceLoaderMultipleCallsTest::isServiceLoaderLoad)
-                    .count())
-        .sum();
-  }
-
-  private static boolean isServiceLoaderLoad(InstructionSubject instruction) {
-    return instruction.isInvokeStatic()
-        && instruction.getMethod().qualifiedName().contains("ServiceLoader.load");
   }
 }

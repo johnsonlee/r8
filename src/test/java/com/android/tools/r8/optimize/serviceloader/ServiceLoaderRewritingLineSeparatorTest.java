@@ -6,17 +6,12 @@ package com.android.tools.r8.optimize.serviceloader;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNull;
-import static junit.framework.TestCase.assertTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DataEntryResource;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -28,7 +23,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class ServiceLoaderRewritingLineSeparatorTest extends TestBase {
+public class ServiceLoaderRewritingLineSeparatorTest extends ServiceLoaderTestBase {
 
   private final TestParameters parameters;
   private final Separator lineSeparator;
@@ -85,32 +80,11 @@ public class ServiceLoaderRewritingLineSeparatorTest extends TestBase {
         .writeToZip(path)
         .run(parameters.getRuntime(), ServiceLoaderRewritingTest.MainRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT + StringUtils.lines("Hello World 2!"))
-        .inspect(
-            inspector -> {
-              // Check that we have actually rewritten the calls to ServiceLoader.load.
-              assertEquals(0, getServiceLoaderLoads(inspector));
-            });
+        // Check that we have actually rewritten the calls to ServiceLoader.load.
+        .inspect(inspector -> assertEquals(0, getServiceLoaderLoads(inspector)));
 
     // Check that we have removed the service configuration from META-INF/services.
     ZipFile zip = new ZipFile(path.toFile());
     assertNull(zip.getEntry("META-INF/services"));
-  }
-
-  private static long getServiceLoaderLoads(CodeInspector inspector) {
-    ClassSubject classSubject = inspector.clazz(ServiceLoaderRewritingTest.MainRunner.class);
-    assertTrue(classSubject.isPresent());
-    return classSubject.allMethods().stream()
-        .mapToLong(
-            method ->
-                method
-                    .streamInstructions()
-                    .filter(ServiceLoaderRewritingLineSeparatorTest::isServiceLoaderLoad)
-                    .count())
-        .sum();
-  }
-
-  private static boolean isServiceLoaderLoad(InstructionSubject instruction) {
-    return instruction.isInvokeStatic()
-        && instruction.getMethod().qualifiedName().contains("ServiceLoader.load");
   }
 }
