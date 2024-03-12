@@ -3,9 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
-import static com.android.tools.r8.dexsplitter.SplitterTestBase.simpleSplitProvider;
-import static com.android.tools.r8.dexsplitter.SplitterTestBase.splitWithNonJavaFile;
-import static com.android.tools.r8.utils.codeinspector.Matchers.proguardConfigurationRuleDoesNotMatch;
 
 import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.TestBase.Backend;
@@ -945,6 +942,12 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   }
 
   public T addAndroidResources(AndroidTestResource testResource, Path output) throws IOException {
+    List<byte[]> classFileData = testResource.getRClass().getClassFileData();
+    return addAndroidResources(testResource, output, classFileData);
+  }
+
+  public T addAndroidResources(
+      AndroidTestResource testResource, Path output, List<byte[]> classFileData) {
     Path resources = testResource.getResourceZip();
     resourceShrinkerOutput = output;
     getBuilder()
@@ -952,7 +955,8 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
             new ArchiveProtoAndroidResourceProvider(resources, new PathOrigin(resources)));
     getBuilder()
         .setAndroidResourceConsumer(new ArchiveProtoAndroidResourceConsumer(output, resources));
-    return addProgramClassFileData(testResource.getRClass().getClassFileData());
+
+    return addProgramClassFileData(classFileData);
   }
 
   public T setAndroidResourcesFromPath(Path input) throws IOException {

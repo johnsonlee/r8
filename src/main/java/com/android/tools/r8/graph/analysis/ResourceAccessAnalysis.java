@@ -80,8 +80,12 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
       assert fieldToValueMapping.containsKey(holderType);
       RClassFieldToValueStore rClassFieldToValueStore = fieldToValueMapping.get(holderType);
       IntList integers = rClassFieldToValueStore.valueMapping.get(field);
-      for (Integer integer : integers) {
-        resourceShrinkerState.trace(integer);
+      // The R class can have fields injected, e.g., by jacoco, we don't have resource values for
+      // these.
+      if (integers != null) {
+        for (Integer integer : integers) {
+          resourceShrinkerState.trace(integer);
+        }
       }
     }
   }
