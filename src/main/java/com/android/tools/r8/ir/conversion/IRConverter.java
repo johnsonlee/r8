@@ -56,7 +56,6 @@ import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.ReflectionOptimizer;
 import com.android.tools.r8.ir.optimize.RemoveVerificationErrorForUnknownReturnedValues;
-import com.android.tools.r8.ir.optimize.ServiceLoaderRewriter;
 import com.android.tools.r8.ir.optimize.api.InstanceInitializerOutliner;
 import com.android.tools.r8.ir.optimize.classinliner.ClassInliner;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxer;
@@ -604,9 +603,6 @@ public class IRConverter {
     assertionsRewriter.run(method, code, deadCodeRemover, timing);
     CheckNotNullConverter.runIfNecessary(appView, code);
     previous = printMethod(code, "IR after disable assertions (SSA)", previous);
-
-    new ServiceLoaderRewriter(appView).run(code, methodProcessor, methodProcessingContext, timing);
-    previous = printMethod(code, "IR after service rewriting (SSA)", previous);
 
     if (identifierNameStringMarker != null) {
       timing.begin("Decouple identifier-name strings");

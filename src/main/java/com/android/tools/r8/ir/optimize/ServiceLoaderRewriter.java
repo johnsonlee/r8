@@ -130,7 +130,7 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
         report(
             code.context(),
             constClass.getType(),
-            "Inlining is only support for `java.util.ServiceLoader.load(java.lang.Class,"
+            "Inlining is only supported for `java.util.ServiceLoader.load(java.lang.Class,"
                 + " java.lang.ClassLoader)`");
         continue;
       }
@@ -177,7 +177,8 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
 
       // Check that ClassLoader used is the ClassLoader defined for the service configuration
       // that we are instantiating or NULL.
-      if (serviceLoaderLoad.getLastArgument().isPhi()) {
+      Value classLoaderValue = serviceLoaderLoad.getLastArgument().getAliasedValue();
+      if (classLoaderValue.isPhi()) {
         report(
             code.context(),
             constClass.getType(),
@@ -186,10 +187,9 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
                 + ".class.getClassLoader()");
         continue;
       }
-      InvokeVirtual classLoaderInvoke =
-          serviceLoaderLoad.getLastArgument().getDefinition().asInvokeVirtual();
+      InvokeVirtual classLoaderInvoke = classLoaderValue.getDefinition().asInvokeVirtual();
       boolean isGetClassLoaderOnConstClassOrNull =
-          serviceLoaderLoad.getLastArgument().getType().isNullType()
+          classLoaderValue.getType().isNullType()
               || (classLoaderInvoke != null
                   && classLoaderInvoke.arguments().size() == 1
                   && classLoaderInvoke.getReceiver().getAliasedValue().isConstClass()
@@ -343,12 +343,8 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
             new BooleanBox(!classLoaderInvoke.outValue().hasPhiUsers());
         classLoaderInvoke
             .outValue()
-            .uniqueUsers()
-            .forEach(
-                user -> {
-                  assert !user.isAssume();
-                  allClassLoaderUsersAreServiceLoaders.and(user == serviceLoaderLoad);
-                });
+            .aliasedUsers()
+            .forEach(user -> allClassLoaderUsersAreServiceLoaders.and(user == serviceLoaderLoad));
         if (allClassLoaderUsersAreServiceLoaders.get()) {
           clearGetClassLoader(classLoaderInvoke);
           iterator.nextUntil(i -> i == serviceLoaderLoad);

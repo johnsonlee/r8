@@ -11,6 +11,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.optimize.RedundantFieldLoadAndStoreElimination;
+import com.android.tools.r8.ir.optimize.ServiceLoaderRewriter;
 import com.android.tools.r8.ir.optimize.enums.EnumValueOptimizer;
 import com.android.tools.r8.ir.optimize.string.StringBuilderAppendOptimizer;
 import com.android.tools.r8.utils.Timing;
@@ -49,6 +50,7 @@ public class CodeRewriterPassCollection {
       passes.add(new RedundantFieldLoadAndStoreElimination(appView));
     }
     passes.add(new BinopRewriter(appView));
+    passes.add(new ServiceLoaderRewriter(appView));
     return new CodeRewriterPassCollection(passes);
   }
 
