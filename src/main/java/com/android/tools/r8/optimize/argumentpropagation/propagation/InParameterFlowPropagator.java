@@ -16,14 +16,14 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyParameterState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.StateCloner;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.optimize.argumentpropagation.utils.BidirectedGraph;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
@@ -105,13 +105,13 @@ public class InParameterFlowPropagator {
 
   private void propagate(
       ParameterNode parameterNode, Consumer<ParameterNode> affectedNodeConsumer) {
-    ParameterState parameterState = parameterNode.getState();
+    ValueState parameterState = parameterNode.getState();
     if (parameterState.isBottom()) {
       return;
     }
     List<ParameterNode> newlyUnknownParameterNodes = new ArrayList<>();
     for (ParameterNode successorNode : parameterNode.getSuccessors()) {
-      ParameterState newParameterState =
+      ValueState newParameterState =
           successorNode.addState(
               appView,
               parameterState.asNonEmpty(),
@@ -184,9 +184,9 @@ public class InParameterFlowPropagator {
 
       // Add nodes for the parameters for which we have non-trivial information.
       ConcreteMonomorphicMethodState monomorphicMethodState = methodState.asMonomorphic();
-      List<ParameterState> parameterStates = monomorphicMethodState.getParameterStates();
+      List<ValueState> parameterStates = monomorphicMethodState.getParameterStates();
       for (int parameterIndex = 0; parameterIndex < parameterStates.size(); parameterIndex++) {
-        ParameterState parameterState = parameterStates.get(parameterIndex);
+        ValueState parameterState = parameterStates.get(parameterIndex);
         add(method, parameterIndex, monomorphicMethodState, parameterState);
       }
     }
@@ -195,14 +195,14 @@ public class InParameterFlowPropagator {
         ProgramMethod method,
         int parameterIndex,
         ConcreteMonomorphicMethodState methodState,
-        ParameterState parameterState) {
+        ValueState parameterState) {
       // No need to create nodes for parameters with no in-parameters and parameters we don't know
       // anything about.
       if (parameterState.isBottom() || parameterState.isUnknown()) {
         return;
       }
 
-      ConcreteParameterState concreteParameterState = parameterState.asConcrete();
+      ConcreteValueState concreteParameterState = parameterState.asConcrete();
 
       // No need to create a node for a parameter that doesn't depend on any other parameters
       // (unless some other parameter depends on this parameter).
@@ -247,7 +247,7 @@ public class InParameterFlowPropagator {
       if (enclosingMethodState.isUnknown()) {
         // The parameter depends on another parameter for which we don't know anything.
         node.clearPredecessors();
-        node.setState(ParameterState.unknown());
+        node.setState(ValueState.unknown());
         return TraversalContinuation.doBreak();
       }
 
@@ -326,7 +326,7 @@ public class InParameterFlowPropagator {
       return predecessors;
     }
 
-    ParameterState getState() {
+    ValueState getState() {
       return methodState.getParameterState(parameterIndex);
     }
 
@@ -342,12 +342,12 @@ public class InParameterFlowPropagator {
       return pending;
     }
 
-    ParameterState addState(
+    ValueState addState(
         AppView<AppInfoWithLiveness> appView,
-        NonEmptyParameterState parameterStateToAdd,
+        NonEmptyValueState parameterStateToAdd,
         Action onChangedAction) {
-      ParameterState oldParameterState = getState();
-      ParameterState newParameterState =
+      ValueState oldParameterState = getState();
+      ValueState newParameterState =
           oldParameterState.mutableJoin(
               appView,
               parameterStateToAdd,
@@ -366,7 +366,7 @@ public class InParameterFlowPropagator {
       pending = true;
     }
 
-    void setState(ParameterState parameterState) {
+    void setState(ValueState parameterState) {
       methodState.setParameterState(parameterIndex, parameterState);
     }
 

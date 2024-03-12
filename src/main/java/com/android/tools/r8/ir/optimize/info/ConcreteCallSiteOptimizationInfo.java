@@ -18,8 +18,8 @@ import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteParameterState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
@@ -141,12 +141,12 @@ public class ConcreteCallSiteOptimizationInfo extends CallSiteOptimizationInfo {
         new ConcreteCallSiteOptimizationInfo(methodState.size());
     boolean isTop = true;
     for (int argumentIndex = 0; argumentIndex < methodState.size(); argumentIndex++) {
-      ParameterState parameterState = methodState.getParameterState(argumentIndex);
+      ValueState parameterState = methodState.getParameterState(argumentIndex);
       if (parameterState.isUnknown()) {
         continue;
       }
 
-      ConcreteParameterState concreteParameterState = parameterState.asConcrete();
+      ConcreteValueState concreteParameterState = parameterState.asConcrete();
 
       // Constant propagation.
         AbstractValue abstractValue = concreteParameterState.getAbstractValue(appView);

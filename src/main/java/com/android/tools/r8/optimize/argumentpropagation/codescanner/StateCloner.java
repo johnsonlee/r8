@@ -28,7 +28,7 @@ public abstract class StateCloner {
         }
 
         @Override
-        public ParameterState mutableCopy(ParameterState parameterState) {
+        public ValueState mutableCopy(ValueState parameterState) {
           return parameterState.mutableCopy();
         }
       };
@@ -41,7 +41,7 @@ public abstract class StateCloner {
         }
 
         @Override
-        public ParameterState mutableCopy(ParameterState parameterState) {
+        public ValueState mutableCopy(ValueState parameterState) {
           return parameterState;
         }
       };
@@ -56,5 +56,5 @@ public abstract class StateCloner {
 
   public abstract MethodState mutableCopy(MethodState methodState);
 
-  public abstract ParameterState mutableCopy(ParameterState parameterState);
+  public abstract ValueState mutableCopy(ValueState parameterState);
 }

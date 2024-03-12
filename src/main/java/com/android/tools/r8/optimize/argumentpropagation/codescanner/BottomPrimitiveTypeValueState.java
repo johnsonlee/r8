@@ -10,21 +10,20 @@ import com.android.tools.r8.ir.analysis.fieldaccess.state.ConcreteFieldState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
-public class BottomPrimitiveTypeParameterState extends BottomParameterState {
+public class BottomPrimitiveTypeValueState extends BottomValueState {
 
-  private static final BottomPrimitiveTypeParameterState INSTANCE =
-      new BottomPrimitiveTypeParameterState();
+  private static final BottomPrimitiveTypeValueState INSTANCE = new BottomPrimitiveTypeValueState();
 
-  private BottomPrimitiveTypeParameterState() {}
+  private BottomPrimitiveTypeValueState() {}
 
-  public static BottomPrimitiveTypeParameterState get() {
+  public static BottomPrimitiveTypeValueState get() {
     return INSTANCE;
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ParameterState parameterState,
+      ValueState parameterState,
       DexType parameterType,
       StateCloner cloner,
       Action onChangedAction) {
@@ -41,12 +40,12 @@ public class BottomPrimitiveTypeParameterState extends BottomParameterState {
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcreteFieldState fieldState,
       DexType parameterType,
       Action onChangedAction) {
-    return new ConcretePrimitiveTypeParameterState(
+    return new ConcretePrimitiveTypeValueState(
         fieldState.getAbstractValue(), fieldState.copyInFlow());
   }
 }

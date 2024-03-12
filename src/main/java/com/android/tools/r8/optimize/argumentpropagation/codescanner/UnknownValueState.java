@@ -11,13 +11,13 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
-public class UnknownParameterState extends NonEmptyParameterState {
+public class UnknownValueState extends NonEmptyValueState {
 
-  private static final UnknownParameterState INSTANCE = new UnknownParameterState();
+  private static final UnknownValueState INSTANCE = new UnknownValueState();
 
-  private UnknownParameterState() {}
+  private UnknownValueState() {}
 
-  public static UnknownParameterState get() {
+  public static UnknownValueState get() {
     return INSTANCE;
   }
 
@@ -32,14 +32,14 @@ public class UnknownParameterState extends NonEmptyParameterState {
   }
 
   @Override
-  public ParameterState mutableCopy() {
+  public ValueState mutableCopy() {
     return this;
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ParameterState parameterState,
+      ValueState parameterState,
       DexType parameterType,
       StateCloner cloner,
       Action onChangedAction) {
@@ -47,7 +47,7 @@ public class UnknownParameterState extends NonEmptyParameterState {
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcreteFieldState fieldState,
       DexType parameterType,

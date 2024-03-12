@@ -14,27 +14,27 @@ import com.android.tools.r8.utils.SetUtils;
 import java.util.Collections;
 import java.util.Set;
 
-public class ConcretePrimitiveTypeParameterState extends ConcreteParameterState {
+public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
 
   private AbstractValue abstractValue;
 
-  public ConcretePrimitiveTypeParameterState(AbstractValue abstractValue) {
+  public ConcretePrimitiveTypeValueState(AbstractValue abstractValue) {
     this(abstractValue, Collections.emptySet());
   }
 
-  public ConcretePrimitiveTypeParameterState(AbstractValue abstractValue, Set<InFlow> inFlow) {
+  public ConcretePrimitiveTypeValueState(AbstractValue abstractValue, Set<InFlow> inFlow) {
     super(inFlow);
     this.abstractValue = abstractValue;
     assert !isEffectivelyBottom() : "Must use BottomPrimitiveTypeParameterState instead";
     assert !isEffectivelyUnknown() : "Must use UnknownParameterState instead";
   }
 
-  public ConcretePrimitiveTypeParameterState(InFlow inFlow) {
+  public ConcretePrimitiveTypeValueState(InFlow inFlow) {
     this(AbstractValue.bottom(), SetUtils.newHashSet(inFlow));
   }
 
   @Override
-  public ParameterState clearInFlow() {
+  public ValueState clearInFlow() {
     if (hasInFlow()) {
       if (abstractValue.isBottom()) {
         return bottomPrimitiveTypeParameter();
@@ -46,13 +46,13 @@ public class ConcretePrimitiveTypeParameterState extends ConcreteParameterState 
   }
 
   @Override
-  public ParameterState mutableCopy() {
-    return new ConcretePrimitiveTypeParameterState(abstractValue, copyInFlow());
+  public ValueState mutableCopy() {
+    return new ConcretePrimitiveTypeValueState(abstractValue, copyInFlow());
   }
 
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcretePrimitiveTypeParameterState parameterState,
+      ConcretePrimitiveTypeValueState parameterState,
       DexType parameterType,
       Action onChangedAction) {
     assert parameterType.isPrimitiveType();
@@ -71,7 +71,7 @@ public class ConcretePrimitiveTypeParameterState extends ConcreteParameterState 
     return this;
   }
 
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcretePrimitiveTypeFieldState fieldState,
       DexType parameterType,
@@ -134,7 +134,7 @@ public class ConcretePrimitiveTypeParameterState extends ConcreteParameterState 
   }
 
   @Override
-  public ConcretePrimitiveTypeParameterState asPrimitiveParameter() {
+  public ConcretePrimitiveTypeValueState asPrimitiveParameter() {
     return this;
   }
 }

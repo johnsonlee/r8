@@ -12,20 +12,20 @@ import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
-public class BottomArrayTypeParameterState extends BottomParameterState {
+public class BottomArrayTypeValueState extends BottomValueState {
 
-  private static final BottomArrayTypeParameterState INSTANCE = new BottomArrayTypeParameterState();
+  private static final BottomArrayTypeValueState INSTANCE = new BottomArrayTypeValueState();
 
-  private BottomArrayTypeParameterState() {}
+  private BottomArrayTypeValueState() {}
 
-  public static BottomArrayTypeParameterState get() {
+  public static BottomArrayTypeValueState get() {
     return INSTANCE;
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ParameterState parameterState,
+      ValueState parameterState,
       DexType parameterType,
       StateCloner cloner,
       Action onChangedAction) {
@@ -37,7 +37,7 @@ public class BottomArrayTypeParameterState extends BottomParameterState {
     }
     assert parameterState.isConcrete();
     assert parameterState.asConcrete().isReferenceParameter();
-    ConcreteReferenceTypeParameterState concreteParameterState =
+    ConcreteReferenceTypeValueState concreteParameterState =
         parameterState.asConcrete().asReferenceParameter();
     if (concreteParameterState.isArrayParameter()) {
       return cloner.mutableCopy(concreteParameterState);
@@ -46,11 +46,11 @@ public class BottomArrayTypeParameterState extends BottomParameterState {
     if (nullability.isMaybeNull()) {
       return unknown();
     }
-    return new ConcreteArrayTypeParameterState(nullability, concreteParameterState.copyInFlow());
+    return new ConcreteArrayTypeValueState(nullability, concreteParameterState.copyInFlow());
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcreteFieldState fieldState,
       DexType parameterType,
@@ -62,7 +62,7 @@ public class BottomArrayTypeParameterState extends BottomParameterState {
       if (nullability.isUnknown()) {
         return unknown();
       }
-      return new ConcreteArrayTypeParameterState(nullability, classFieldState.copyInFlow());
+      return new ConcreteArrayTypeValueState(nullability, classFieldState.copyInFlow());
     }
     return unknown();
   }

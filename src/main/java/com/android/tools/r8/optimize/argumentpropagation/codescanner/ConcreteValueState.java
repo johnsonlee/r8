@@ -13,7 +13,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-public abstract class ConcreteParameterState extends NonEmptyParameterState {
+public abstract class ConcreteValueState extends NonEmptyValueState {
 
   public enum ConcreteParameterStateKind {
     ARRAY,
@@ -24,11 +24,11 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
 
   private Set<InFlow> inFlow;
 
-  ConcreteParameterState(Set<InFlow> inFlow) {
+  ConcreteValueState(Set<InFlow> inFlow) {
     this.inFlow = inFlow;
   }
 
-  public abstract ParameterState clearInFlow();
+  public abstract ValueState clearInFlow();
 
   void internalClearInFlow() {
     inFlow = Collections.emptySet();
@@ -57,7 +57,7 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
     return false;
   }
 
-  public ConcreteArrayTypeParameterState asArrayParameter() {
+  public ConcreteArrayTypeValueState asArrayParameter() {
     return null;
   }
 
@@ -65,7 +65,7 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
     return false;
   }
 
-  public ConcreteClassTypeParameterState asClassParameter() {
+  public ConcreteClassTypeValueState asClassParameter() {
     return null;
   }
 
@@ -77,7 +77,7 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
     return false;
   }
 
-  public ConcretePrimitiveTypeParameterState asPrimitiveParameter() {
+  public ConcretePrimitiveTypeValueState asPrimitiveParameter() {
     return null;
   }
 
@@ -85,7 +85,7 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
     return false;
   }
 
-  public ConcreteReceiverParameterState asReceiverParameter() {
+  public ConcreteReceiverValueState asReceiverParameter() {
     return null;
   }
 
@@ -93,7 +93,7 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
     return false;
   }
 
-  public ConcreteReferenceTypeParameterState asReferenceParameter() {
+  public ConcreteReferenceTypeValueState asReferenceParameter() {
     return null;
   }
 
@@ -103,14 +103,14 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
   }
 
   @Override
-  public ConcreteParameterState asConcrete() {
+  public ConcreteValueState asConcrete() {
     return this;
   }
 
   @Override
-  public final ParameterState mutableJoin(
+  public final ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ParameterState parameterState,
+      ValueState parameterState,
       DexType parameterType,
       StateCloner cloner,
       Action onChangedAction) {
@@ -120,7 +120,7 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
     if (parameterState.isUnknown()) {
       return parameterState;
     }
-    ConcreteParameterState concreteParameterState = parameterState.asConcrete();
+    ConcreteValueState concreteParameterState = parameterState.asConcrete();
     if (isReferenceParameter()) {
       assert concreteParameterState.isReferenceParameter();
       return asReferenceParameter()
@@ -136,7 +136,7 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
   }
 
   @Override
-  public final ParameterState mutableJoin(
+  public final ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcreteFieldState fieldState,
       DexType parameterType,
@@ -150,7 +150,7 @@ public abstract class ConcreteParameterState extends NonEmptyParameterState {
         .mutableJoin(appView, fieldState.asPrimitive(), parameterType, onChangedAction);
   }
 
-  boolean mutableJoinInFlow(ConcreteParameterState parameterState) {
+  boolean mutableJoinInFlow(ConcreteValueState parameterState) {
     return mutableJoinInFlow(parameterState.getInFlow());
   }
 

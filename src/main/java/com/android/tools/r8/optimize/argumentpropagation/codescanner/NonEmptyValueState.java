@@ -4,10 +4,10 @@
 
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
-public abstract class NonEmptyParameterState extends ParameterState {
+public abstract class NonEmptyValueState extends ValueState {
 
   @Override
-  public NonEmptyParameterState asNonEmpty() {
+  public NonEmptyValueState asNonEmpty() {
     return this;
   }
 }

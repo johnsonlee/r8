@@ -8,8 +8,8 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteParameterState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
@@ -53,12 +53,12 @@ public class BottomFieldState extends FieldState {
   public FieldState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ProgramField field,
-      NonEmptyParameterState parameterState,
+      NonEmptyValueState parameterState,
       Action onChangedAction) {
     if (parameterState.isUnknown()) {
       return unknown();
     }
-    ConcreteParameterState concreteParameterState = parameterState.asConcrete();
+    ConcreteValueState concreteParameterState = parameterState.asConcrete();
     if (field.getType().isArrayType()) {
       return ConcreteArrayTypeFieldState.create(
           concreteParameterState.getAbstractValue(appView), concreteParameterState.copyInFlow());

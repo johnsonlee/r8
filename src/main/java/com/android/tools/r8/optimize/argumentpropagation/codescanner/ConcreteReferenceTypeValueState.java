@@ -13,9 +13,9 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import java.util.Set;
 
-public abstract class ConcreteReferenceTypeParameterState extends ConcreteParameterState {
+public abstract class ConcreteReferenceTypeValueState extends ConcreteValueState {
 
-  ConcreteReferenceTypeParameterState(Set<InFlow> inFlow) {
+  ConcreteReferenceTypeValueState(Set<InFlow> inFlow) {
     super(inFlow);
   }
 
@@ -29,17 +29,17 @@ public abstract class ConcreteReferenceTypeParameterState extends ConcreteParame
   }
 
   @Override
-  public ConcreteReferenceTypeParameterState asReferenceParameter() {
+  public ConcreteReferenceTypeValueState asReferenceParameter() {
     return this;
   }
 
-  public abstract ParameterState mutableJoin(
+  public abstract ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeParameterState parameterState,
+      ConcreteReferenceTypeValueState parameterState,
       DexType parameterType,
       Action onChangedAction);
 
-  public abstract ParameterState mutableJoin(
+  public abstract ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcreteReferenceTypeFieldState fieldState,
       DexType parameterType,

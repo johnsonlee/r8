@@ -21,9 +21,9 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorCodeScanner;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorOptimizationInfoPopulator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.utils.Timing;
@@ -105,10 +105,10 @@ public class ComposeMethodProcessor extends MethodProcessor {
       ConcreteMonomorphicMethodState monomorphicMethodState = methodState.asMonomorphic();
       for (int i = 0; i < monomorphicMethodState.size(); i++) {
         if (monomorphicMethodState.getParameterState(i).isConcrete()) {
-          ConcreteParameterState concreteParameterState =
+          ConcreteValueState concreteParameterState =
               monomorphicMethodState.getParameterState(i).asConcrete();
           if (concreteParameterState.hasInFlow()) {
-            monomorphicMethodState.setParameterState(i, ParameterState.unknown());
+            monomorphicMethodState.setParameterState(i, ValueState.unknown());
           }
         }
       }

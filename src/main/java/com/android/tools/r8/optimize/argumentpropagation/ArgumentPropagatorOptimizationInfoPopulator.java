@@ -18,14 +18,14 @@ import com.android.tools.r8.ir.conversion.PrimaryR8IRConverter;
 import com.android.tools.r8.ir.optimize.info.ConcreteCallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ParameterState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.StateCloner;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
@@ -158,13 +158,13 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
     }
 
     // Verify that there is no parameter with bottom info.
-    assert monomorphicMethodState.getParameterStates().stream().noneMatch(ParameterState::isBottom);
+    assert monomorphicMethodState.getParameterStates().stream().noneMatch(ValueState::isBottom);
 
     // Verify that all in-parameter information has been pruned by the InParameterFlowPropagator.
     assert monomorphicMethodState.getParameterStates().stream()
-        .filter(ParameterState::isConcrete)
-        .map(ParameterState::asConcrete)
-        .noneMatch(ConcreteParameterState::hasInFlow);
+        .filter(ValueState::isConcrete)
+        .map(ValueState::asConcrete)
+        .noneMatch(ConcreteValueState::hasInFlow);
 
     if (monomorphicMethodState.size() > 0) {
       getSimpleFeedback()
@@ -182,7 +182,7 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
     // arguments.
     MethodOptimizationInfo optimizationInfo = method.getOptimizationInfo();
     if (optimizationInfo.returnsArgument()) {
-      ParameterState returnedArgumentState =
+      ValueState returnedArgumentState =
           monomorphicMethodState.getParameterState(optimizationInfo.getReturnedArgument());
       OptimizationFeedback.getSimple()
           .methodReturnsAbstractValue(
@@ -199,7 +199,7 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
 
     int numberOfArguments = method.getDefinition().getNumberOfArguments();
     boolean isReturnValueUsed;
-    List<ParameterState> parameterStates;
+    List<ValueState> parameterStates;
     if (methodState.isMonomorphic()) {
       ConcreteMonomorphicMethodState monomorphicMethodState = methodState.asMonomorphic();
       isReturnValueUsed = monomorphicMethodState.isReturnValueUsed();
@@ -207,10 +207,9 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
     } else {
       assert methodState.isUnknown();
       isReturnValueUsed = true;
-      parameterStates =
-          ListUtils.newInitializedArrayList(numberOfArguments, ParameterState.unknown());
+      parameterStates = ListUtils.newInitializedArrayList(numberOfArguments, ValueState.unknown());
     }
-    List<ParameterState> narrowedParameterStates =
+    List<ValueState> narrowedParameterStates =
         ListUtils.mapOrElse(
             parameterStates,
             (argumentIndex, parameterState) -> {
@@ -221,7 +220,7 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
               if (!argumentType.isAlwaysNull(appView)) {
                 return parameterState;
               }
-              return new ConcreteClassTypeParameterState(
+              return new ConcreteClassTypeValueState(
                   appView.abstractValueFactory().createNullValue(argumentType),
                   DynamicType.definitelyNull());
             },
@@ -236,8 +235,7 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
     for (int argumentIndex = 0;
         argumentIndex < methodState.getParameterStates().size();
         argumentIndex++) {
-      ConcreteParameterState parameterState =
-          methodState.getParameterState(argumentIndex).asConcrete();
+      ConcreteValueState parameterState = methodState.getParameterState(argumentIndex).asConcrete();
       if (parameterState == null || !parameterState.isClassParameter()) {
         continue;
       }
@@ -248,7 +246,7 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
             argumentIndex,
             parameterState.mutableJoin(
                 appView,
-                new ConcreteClassTypeParameterState(AbstractValue.bottom(), DynamicType.unknown()),
+                new ConcreteClassTypeValueState(AbstractValue.bottom(), DynamicType.unknown()),
                 staticType,
                 StateCloner.getIdentity()));
       }

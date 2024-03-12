@@ -16,19 +16,19 @@ import com.android.tools.r8.utils.SetUtils;
 import java.util.Collections;
 import java.util.Set;
 
-public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParameterState {
+public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState {
 
   private Nullability nullability;
 
-  public ConcreteArrayTypeParameterState(InFlow inFlow) {
+  public ConcreteArrayTypeValueState(InFlow inFlow) {
     this(Nullability.bottom(), SetUtils.newHashSet(inFlow));
   }
 
-  public ConcreteArrayTypeParameterState(Nullability nullability) {
+  public ConcreteArrayTypeValueState(Nullability nullability) {
     this(nullability, Collections.emptySet());
   }
 
-  public ConcreteArrayTypeParameterState(Nullability nullability, Set<InFlow> inFlow) {
+  public ConcreteArrayTypeValueState(Nullability nullability, Set<InFlow> inFlow) {
     super(inFlow);
     this.nullability = nullability;
     assert !isEffectivelyBottom() : "Must use BottomArrayTypeParameterState instead";
@@ -36,7 +36,7 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
   }
 
   @Override
-  public ParameterState clearInFlow() {
+  public ValueState clearInFlow() {
     if (hasInFlow()) {
       if (nullability.isBottom()) {
         return bottomArrayTypeParameter();
@@ -76,7 +76,7 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
   }
 
   @Override
-  public ConcreteArrayTypeParameterState asArrayParameter() {
+  public ConcreteArrayTypeValueState asArrayParameter() {
     return this;
   }
 
@@ -91,14 +91,14 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
   }
 
   @Override
-  public ParameterState mutableCopy() {
-    return new ConcreteArrayTypeParameterState(nullability, copyInFlow());
+  public ValueState mutableCopy() {
+    return new ConcreteArrayTypeValueState(nullability, copyInFlow());
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeParameterState parameterState,
+      ConcreteReferenceTypeValueState parameterState,
       DexType parameterType,
       Action onChangedAction) {
     assert parameterType.isArrayType();
@@ -118,7 +118,7 @@ public class ConcreteArrayTypeParameterState extends ConcreteReferenceTypeParame
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcreteReferenceTypeFieldState fieldState,
       DexType parameterType,

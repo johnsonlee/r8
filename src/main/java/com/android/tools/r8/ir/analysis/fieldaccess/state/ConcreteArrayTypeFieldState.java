@@ -7,7 +7,7 @@ package com.android.tools.r8.ir.analysis.fieldaccess.state;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteReferenceTypeParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteReferenceTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
@@ -94,7 +94,7 @@ public class ConcreteArrayTypeFieldState extends ConcreteReferenceTypeFieldState
   public FieldState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ProgramField field,
-      ConcreteReferenceTypeParameterState parameterState,
+      ConcreteReferenceTypeValueState parameterState,
       Action onChangedAction) {
     boolean abstractValueChanged =
         mutableJoinAbstractValue(appView, field, parameterState.getAbstractValue(appView));

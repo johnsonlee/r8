@@ -16,8 +16,8 @@ import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.Or;
 import com.android.tools.r8.ir.code.Value;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeParameterState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BitUtils;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -84,7 +84,7 @@ public class ArgumentPropagatorComposeModeling {
    *   }
    * </pre>
    */
-  public ParameterState modelParameterStateForChangedOrDefaultArgumentToComposableFunction(
+  public ValueState modelParameterStateForChangedOrDefaultArgumentToComposableFunction(
       InvokeMethod invoke,
       ProgramMethod singleTarget,
       int argumentIndex,
@@ -148,7 +148,7 @@ public class ArgumentPropagatorComposeModeling {
     assert argument.getType().isInt();
 
     DexString expectedFieldName;
-    ParameterState state = ParameterState.bottomPrimitiveTypeParameter();
+    ValueState state = ValueState.bottomPrimitiveTypeParameter();
     if (!hasDefaultParameter || argumentIndex == invokedMethod.getArity() - 2) {
       // We are looking at an argument to the $$changed parameter of the @Composable function.
       // We generally expect this argument to be defined by a call to updateChangedFlags().
@@ -176,7 +176,7 @@ public class ArgumentPropagatorComposeModeling {
         // Update the model from bottom to a special value that effectively throws away any known
         // information about the lowermost bit of $$changed.
         state =
-            new ConcretePrimitiveTypeParameterState(
+            new ConcretePrimitiveTypeValueState(
                 appView
                     .abstractValueFactory()
                     .createDefiniteBitsNumberValue(

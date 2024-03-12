@@ -8,7 +8,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteReferenceTypeParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteReferenceTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -117,7 +117,7 @@ public class ConcreteClassTypeFieldState extends ConcreteReferenceTypeFieldState
   public FieldState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ProgramField field,
-      ConcreteReferenceTypeParameterState parameterState,
+      ConcreteReferenceTypeValueState parameterState,
       Action onChangedAction) {
     boolean abstractValueChanged =
         mutableJoinAbstractValue(appView, field, parameterState.getAbstractValue(appView));

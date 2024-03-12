@@ -7,7 +7,7 @@ package com.android.tools.r8.ir.analysis.fieldaccess.state;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeParameterState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
@@ -88,7 +88,7 @@ public class ConcretePrimitiveTypeFieldState extends ConcreteFieldState {
   public FieldState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ProgramField field,
-      ConcretePrimitiveTypeParameterState parameterState,
+      ConcretePrimitiveTypeValueState parameterState,
       Action onChangedAction) {
     assert field.getType().isPrimitiveType();
     boolean abstractValueChanged =

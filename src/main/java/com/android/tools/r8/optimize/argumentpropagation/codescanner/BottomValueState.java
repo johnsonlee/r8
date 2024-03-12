@@ -8,9 +8,9 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
-public abstract class BottomParameterState extends ParameterState {
+public abstract class BottomValueState extends ValueState {
 
-  BottomParameterState() {}
+  BottomValueState() {}
 
   @Override
   public final AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
@@ -23,7 +23,7 @@ public abstract class BottomParameterState extends ParameterState {
   }
 
   @Override
-  public final ParameterState mutableCopy() {
+  public final ValueState mutableCopy() {
     return this;
   }
 }

@@ -14,20 +14,20 @@ import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
-public class BottomClassTypeParameterState extends BottomParameterState {
+public class BottomClassTypeValueState extends BottomValueState {
 
-  private static final BottomClassTypeParameterState INSTANCE = new BottomClassTypeParameterState();
+  private static final BottomClassTypeValueState INSTANCE = new BottomClassTypeValueState();
 
-  private BottomClassTypeParameterState() {}
+  private BottomClassTypeValueState() {}
 
-  public static BottomClassTypeParameterState get() {
+  public static BottomClassTypeValueState get() {
     return INSTANCE;
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ParameterState parameterState,
+      ValueState parameterState,
       DexType parameterType,
       StateCloner cloner,
       Action onChangedAction) {
@@ -39,7 +39,7 @@ public class BottomClassTypeParameterState extends BottomParameterState {
     }
     assert parameterState.isConcrete();
     assert parameterState.asConcrete().isReferenceParameter();
-    ConcreteReferenceTypeParameterState concreteParameterState =
+    ConcreteReferenceTypeValueState concreteParameterState =
         parameterState.asConcrete().asReferenceParameter();
     AbstractValue abstractValue = concreteParameterState.getAbstractValue(appView);
     DynamicType dynamicType = concreteParameterState.getDynamicType();
@@ -50,12 +50,12 @@ public class BottomClassTypeParameterState extends BottomParameterState {
     }
     return abstractValue.isUnknown() && widenedDynamicType.isUnknown()
         ? unknown()
-        : new ConcreteClassTypeParameterState(
+        : new ConcreteClassTypeValueState(
             abstractValue, widenedDynamicType, concreteParameterState.copyInFlow());
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcreteFieldState fieldState,
       DexType parameterType,
@@ -63,7 +63,7 @@ public class BottomClassTypeParameterState extends BottomParameterState {
     ConcreteReferenceTypeFieldState referenceFieldState = fieldState.asReference();
     AbstractValue abstractValue = referenceFieldState.getAbstractValue();
     DynamicType dynamicType = referenceFieldState.getDynamicType();
-    return new ConcreteClassTypeParameterState(
+    return new ConcreteClassTypeValueState(
         abstractValue, dynamicType, referenceFieldState.copyInFlow());
   }
 }

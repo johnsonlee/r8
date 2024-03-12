@@ -11,26 +11,26 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
-public abstract class ParameterState {
+public abstract class ValueState {
 
-  public static BottomParameterState bottomArrayTypeParameter() {
-    return BottomArrayTypeParameterState.get();
+  public static BottomValueState bottomArrayTypeParameter() {
+    return BottomArrayTypeValueState.get();
   }
 
-  public static BottomParameterState bottomClassTypeParameter() {
-    return BottomClassTypeParameterState.get();
+  public static BottomValueState bottomClassTypeParameter() {
+    return BottomClassTypeValueState.get();
   }
 
-  public static BottomParameterState bottomPrimitiveTypeParameter() {
-    return BottomPrimitiveTypeParameterState.get();
+  public static BottomValueState bottomPrimitiveTypeParameter() {
+    return BottomPrimitiveTypeValueState.get();
   }
 
-  public static BottomParameterState bottomReceiverParameter() {
-    return BottomReceiverParameterState.get();
+  public static BottomValueState bottomReceiverParameter() {
+    return BottomReceiverValueState.get();
   }
 
-  public static UnknownParameterState unknown() {
-    return UnknownParameterState.get();
+  public static UnknownValueState unknown() {
+    return UnknownValueState.get();
   }
 
   public abstract AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView);
@@ -43,11 +43,11 @@ public abstract class ParameterState {
     return false;
   }
 
-  public ConcreteParameterState asConcrete() {
+  public ConcreteValueState asConcrete() {
     return null;
   }
 
-  public NonEmptyParameterState asNonEmpty() {
+  public NonEmptyValueState asNonEmpty() {
     return null;
   }
 
@@ -55,24 +55,24 @@ public abstract class ParameterState {
     return false;
   }
 
-  public abstract ParameterState mutableCopy();
+  public abstract ValueState mutableCopy();
 
-  public final ParameterState mutableJoin(
+  public final ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ParameterState parameterState,
+      ValueState parameterState,
       DexType parameterType,
       StateCloner cloner) {
     return mutableJoin(appView, parameterState, parameterType, cloner, Action.empty());
   }
 
-  public abstract ParameterState mutableJoin(
+  public abstract ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ParameterState parameterState,
+      ValueState parameterState,
       DexType parameterType,
       StateCloner cloner,
       Action onChangedAction);
 
-  public abstract ParameterState mutableJoin(
+  public abstract ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcreteFieldState fieldState,
       DexType parameterType,

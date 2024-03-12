@@ -13,20 +13,20 @@ import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 
-public class BottomReceiverParameterState extends BottomParameterState {
+public class BottomReceiverValueState extends BottomValueState {
 
-  private static final BottomReceiverParameterState INSTANCE = new BottomReceiverParameterState();
+  private static final BottomReceiverValueState INSTANCE = new BottomReceiverValueState();
 
-  private BottomReceiverParameterState() {}
+  private BottomReceiverValueState() {}
 
-  public static BottomReceiverParameterState get() {
+  public static BottomReceiverValueState get() {
     return INSTANCE;
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ParameterState parameterState,
+      ValueState parameterState,
       DexType parameterType,
       StateCloner cloner,
       Action onChangedAction) {
@@ -38,7 +38,7 @@ public class BottomReceiverParameterState extends BottomParameterState {
     }
     assert parameterState.isConcrete();
     assert parameterState.asConcrete().isReferenceParameter();
-    ConcreteReferenceTypeParameterState concreteParameterState =
+    ConcreteReferenceTypeValueState concreteParameterState =
         parameterState.asConcrete().asReferenceParameter();
     if (concreteParameterState.isReceiverParameter()) {
       return cloner.mutableCopy(concreteParameterState);
@@ -47,11 +47,11 @@ public class BottomReceiverParameterState extends BottomParameterState {
     if (dynamicType.isUnknown()) {
       return unknown();
     }
-    return new ConcreteReceiverParameterState(dynamicType, concreteParameterState.copyInFlow());
+    return new ConcreteReceiverValueState(dynamicType, concreteParameterState.copyInFlow());
   }
 
   @Override
-  public ParameterState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ConcreteFieldState fieldState,
       DexType parameterType,
@@ -64,7 +64,7 @@ public class BottomReceiverParameterState extends BottomParameterState {
         return unknown();
       }
       DynamicType nonNullDynamicType = dynamicType.withNullability(Nullability.definitelyNotNull());
-      return new ConcreteReceiverParameterState(nonNullDynamicType, classFieldState.copyInFlow());
+      return new ConcreteReceiverValueState(nonNullDynamicType, classFieldState.copyInFlow());
     }
     return unknown();
   }
