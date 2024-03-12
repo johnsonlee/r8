@@ -115,11 +115,9 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testStateless$12"));
             if (kotlinParameters
-                    .getCompilerVersion()
-                    .isLessThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_6_0)
-                && kotlinParameters
-                    .getCompilerVersion()
-                    .isGreaterThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_5_0)) {
+                .getCompilerVersion()
+                .isBetweenBothIncluded(
+                    KotlinCompilerVersion.KOTLINC_1_5_0, KotlinCompilerVersion.KOTLINC_1_6_0)) {
               group.add(
                   lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                       getTestName(), "MainKt$testStateless$6"));

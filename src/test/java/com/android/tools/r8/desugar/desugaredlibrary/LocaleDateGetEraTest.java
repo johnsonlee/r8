@@ -86,7 +86,7 @@ public class LocaleDateGetEraTest extends DesugaredLibraryTestBase {
                   + " java.time.LocalDate.getEra()Ljava/time/chrono/IsoEra;"));
     } else if (parameters.getRuntime().isDex()
         && eraClass == IsoEra.class
-        && parameters.getApiLevel().betweenBothIncluded(AndroidApiLevel.O, AndroidApiLevel.S)
+        && parameters.getApiLevel().isBetweenBothIncluded(AndroidApiLevel.O, AndroidApiLevel.S)
         && libraryDesugaringSpecification == JDK8) {
       // No support for this desugaring in JDK8 desugared library.
       run.assertFailureWithErrorThatMatches(containsString("java.lang.NoSuchMethodError"));

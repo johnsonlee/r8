@@ -241,7 +241,9 @@ public abstract class Jdk11TimeAbstractTests extends DesugaredLibraryTestBase {
     // The bridge is always present with JDK11 due to partial desugaring between 26 and 33.
     // On JDK8 the bridge is absent in between 26 and 33.
     if (libraryDesugaringSpecification != JDK8
-        || !parameters.getApiLevel().betweenBothIncluded(AndroidApiLevel.O, AndroidApiLevel.Sv2)) {
+        || !parameters
+            .getApiLevel()
+            .isBetweenBothIncluded(AndroidApiLevel.O, AndroidApiLevel.Sv2)) {
       Collections.addAll(allTests, RAW_TEMPORAL_SUCCESSES_IF_BRIDGE);
     }
     return allTests.toArray(new String[0]);
