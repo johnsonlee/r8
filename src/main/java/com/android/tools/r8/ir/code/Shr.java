@@ -47,6 +47,11 @@ public class Shr extends LogicalBinop {
   }
 
   @Override
+  public Shr asShr(Value leftValue, Value rightValue) {
+    return leftValue == leftValue() && rightValue == rightValue() ? this : null;
+  }
+
+  @Override
   public boolean isCommutative() {
     return false;
   }

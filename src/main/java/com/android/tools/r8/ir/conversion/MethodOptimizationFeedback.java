@@ -16,6 +16,7 @@ import com.android.tools.r8.ir.optimize.classinliner.constraint.ClassInlinerMeth
 import com.android.tools.r8.ir.optimize.enums.classification.EnumUnboxerMethodClassification;
 import com.android.tools.r8.ir.optimize.info.bridge.BridgeInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfoCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BitSetUtils;
 import java.util.BitSet;
@@ -34,6 +35,8 @@ public interface MethodOptimizationFeedback {
 
   void methodReturnsAbstractValue(
       DexEncodedMethod method, AppView<AppInfoWithLiveness> appView, AbstractValue abstractValue);
+
+  void setAbstractFunction(DexEncodedMethod method, AbstractFunction abstractFunction);
 
   default void setDynamicReturnType(
       ProgramMethod method, AppView<?> appView, DynamicType dynamicType) {

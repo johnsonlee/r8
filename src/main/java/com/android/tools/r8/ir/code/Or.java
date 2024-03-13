@@ -52,6 +52,11 @@ public class Or extends LogicalBinop {
   }
 
   @Override
+  public Or asOr(Value leftValue, Value rightValue) {
+    return leftValue == leftValue() && rightValue == rightValue() ? this : null;
+  }
+
+  @Override
   public boolean isCommutative() {
     return true;
   }

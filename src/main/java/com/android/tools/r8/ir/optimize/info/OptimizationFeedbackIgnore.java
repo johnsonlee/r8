@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.optimize.classinliner.constraint.ClassInlinerMeth
 import com.android.tools.r8.ir.optimize.enums.classification.EnumUnboxerMethodClassification;
 import com.android.tools.r8.ir.optimize.info.bridge.BridgeInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfoCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.BitSet;
 import java.util.Set;
@@ -70,6 +71,11 @@ public abstract class OptimizationFeedbackIgnore extends OptimizationFeedback {
   @Override
   public void methodReturnsAbstractValue(
       DexEncodedMethod method, AppView<AppInfoWithLiveness> appView, AbstractValue value) {}
+
+  @Override
+  public void setAbstractFunction(DexEncodedMethod method, AbstractFunction abstractFunction) {
+    assert false;
+  }
 
   @Override
   public void setDynamicReturnType(

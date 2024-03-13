@@ -868,6 +868,10 @@ public abstract class Instruction
     return null;
   }
 
+  public ConstNumber asConstNumber(long value) {
+    return null;
+  }
+
   public boolean isResourceConstNumber() {
     return false;
   }
@@ -1240,11 +1244,19 @@ public abstract class Instruction
     return null;
   }
 
+  public Shl asShl(Value leftValue, Value rightValue) {
+    return null;
+  }
+
   public boolean isShr() {
     return false;
   }
 
   public Shr asShr() {
+    return null;
+  }
+
+  public Shr asShr(Value leftValue, Value rightValue) {
     return null;
   }
 
@@ -1264,11 +1276,19 @@ public abstract class Instruction
     return null;
   }
 
+  public And asAnd(Value leftValue, Value rightValue) {
+    return null;
+  }
+
   public boolean isOr() {
     return false;
   }
 
   public Or asOr() {
+    return null;
+  }
+
+  public Or asOr(Value leftValue, Value rightValue) {
     return null;
   }
 

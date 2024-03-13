@@ -53,6 +53,11 @@ public class And extends LogicalBinop {
   }
 
   @Override
+  public And asAnd(Value leftValue, Value rightValue) {
+    return leftValue == leftValue() && rightValue == rightValue() ? this : null;
+  }
+
+  @Override
   public boolean isCommutative() {
     return true;
   }

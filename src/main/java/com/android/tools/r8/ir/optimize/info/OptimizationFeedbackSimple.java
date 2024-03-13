@@ -18,6 +18,7 @@ import com.android.tools.r8.ir.optimize.classinliner.constraint.ClassInlinerMeth
 import com.android.tools.r8.ir.optimize.enums.classification.EnumUnboxerMethodClassification;
 import com.android.tools.r8.ir.optimize.info.bridge.BridgeInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfoCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.OptionalBool;
 import java.util.BitSet;
@@ -107,6 +108,11 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
   public void methodReturnsAbstractValue(
       DexEncodedMethod method, AppView<AppInfoWithLiveness> appView, AbstractValue value) {
     method.getMutableOptimizationInfo().setAbstractReturnValue(value, method);
+  }
+
+  @Override
+  public void setAbstractFunction(DexEncodedMethod method, AbstractFunction abstractFunction) {
+    assert false;
   }
 
   @Override

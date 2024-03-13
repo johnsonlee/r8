@@ -308,6 +308,11 @@ public class ConstNumber extends ConstInstruction {
   }
 
   @Override
+  public ConstNumber asConstNumber(long value) {
+    return this.value == value ? this : null;
+  }
+
+  @Override
   public DexType computeVerificationType(AppView<?> appView, TypeVerificationHelper helper) {
     assert outType().isObject();
     return appView.dexItemFactory().nullValueType;

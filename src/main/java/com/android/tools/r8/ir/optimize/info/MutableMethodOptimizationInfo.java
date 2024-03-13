@@ -26,6 +26,7 @@ import com.android.tools.r8.ir.optimize.enums.classification.EnumUnboxerMethodCl
 import com.android.tools.r8.ir.optimize.info.bridge.BridgeInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfoCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.MaximumRemovedAndroidLogLevelRule;
 import com.android.tools.r8.utils.BitSetUtils;
@@ -42,6 +43,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   private Set<DexType> initializedClassesOnNormalExit =
       DefaultMethodOptimizationInfo.UNKNOWN_INITIALIZED_CLASSES_ON_NORMAL_EXIT;
   private int returnedArgument = DefaultMethodOptimizationInfo.UNKNOWN_RETURNED_ARGUMENT;
+  private AbstractFunction abstractFunction = AbstractFunction.unknown();
   private AbstractValue abstractReturnValue =
       DefaultMethodOptimizationInfo.UNKNOWN_ABSTRACT_RETURN_VALUE;
   private ClassInlinerMethodConstraint classInlinerConstraint =
@@ -134,6 +136,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   // Copy constructor used to create a mutable copy. Do not forget to copy from template when a new
   // field is added.
   private MutableMethodOptimizationInfo(MutableMethodOptimizationInfo template) {
+    abstractFunction = template.abstractFunction;
     argumentInfos = template.argumentInfos;
     flags = template.flags;
     initializedClassesOnNormalExit = template.initializedClassesOnNormalExit;
@@ -473,6 +476,11 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   }
 
   @Override
+  public AbstractFunction getAbstractFunction() {
+    return abstractFunction;
+  }
+
+  @Override
   public AbstractValue getAbstractReturnValue() {
     return abstractReturnValue;
   }
@@ -699,6 +707,10 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     abstractReturnValue = UnknownValue.getInstance();
   }
 
+  void setAbstractFunction(AbstractFunction abstractFunction) {
+    this.abstractFunction = abstractFunction;
+  }
+
   void setDynamicType(AppView<?> appView, DynamicType newDynamicType, DexEncodedMethod method) {
     setDynamicType(appView, newDynamicType, method.getReturnType().toTypeElement(appView));
   }
@@ -780,6 +792,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     return argumentInfos == top.getArgumentInfos()
         && initializedClassesOnNormalExit == top.getInitializedClassesOnNormalExit()
         && returnedArgument == top.getReturnedArgument()
+        && abstractFunction == top.getAbstractFunction()
         && abstractReturnValue == top.getAbstractReturnValue()
         && classInlinerConstraint == top.getClassInlinerMethodConstraint()
         && convertCheckNotNull == top.isConvertCheckNotNull()

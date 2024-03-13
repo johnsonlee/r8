@@ -29,6 +29,10 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
   private InstructionListIterator currentBlockIterator;
   private Set<BasicBlock> seenBlocks = Sets.newIdentityHashSet();
 
+  public LinearFlowInstructionListIterator(IRCode code) {
+    this(code, code.entryBlock(), 0);
+  }
+
   public LinearFlowInstructionListIterator(IRCode code, BasicBlock block) {
     this(code, block, 0);
   }

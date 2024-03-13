@@ -41,6 +41,11 @@ public abstract class FieldInstruction extends Instruction {
     this.field = field;
   }
 
+  public FieldResolutionResult resolveField(
+      AppView<? extends AppInfoWithClassHierarchy> appView, ProgramMethod context) {
+    return appView.appInfo().resolveField(field, context);
+  }
+
   public abstract Value value();
 
   public FieldMemberType getType() {

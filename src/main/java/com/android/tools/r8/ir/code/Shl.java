@@ -52,6 +52,11 @@ public class Shl extends LogicalBinop {
   }
 
   @Override
+  public Shl asShl(Value leftValue, Value rightValue) {
+    return leftValue == leftValue() && rightValue == rightValue() ? this : null;
+  }
+
+  @Override
   public DexInstruction CreateInt(int dest, int left, int right) {
     return new DexShlInt(dest, left, right);
   }

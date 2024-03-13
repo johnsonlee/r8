@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.optimize.classinliner.constraint.ClassInlinerMeth
 import com.android.tools.r8.ir.optimize.enums.classification.EnumUnboxerMethodClassification;
 import com.android.tools.r8.ir.optimize.info.bridge.BridgeInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfoCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.AppInfoWithLivenessModifier;
 import com.android.tools.r8.threading.ThreadingModule;
@@ -189,6 +190,11 @@ public class OptimizationFeedbackDelayed extends OptimizationFeedback {
     if (appView.appInfo().mayPropagateValueFor(appView, method.getReference())) {
       getMethodOptimizationInfoForUpdating(method).setAbstractReturnValue(value, method);
     }
+  }
+
+  @Override
+  public void setAbstractFunction(DexEncodedMethod method, AbstractFunction abstractFunction) {
+    getMethodOptimizationInfoForUpdating(method).setAbstractFunction(abstractFunction);
   }
 
   @Override
