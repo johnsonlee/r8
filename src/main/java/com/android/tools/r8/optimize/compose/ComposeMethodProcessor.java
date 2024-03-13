@@ -32,6 +32,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 public class ComposeMethodProcessor extends MethodProcessor {
 
@@ -51,7 +53,9 @@ public class ComposeMethodProcessor extends MethodProcessor {
   }
 
   // TODO(b/302483644): Process wave concurrently.
-  public Set<ComposableCallGraphNode> processWave(Set<ComposableCallGraphNode> wave) {
+  public Set<ComposableCallGraphNode> processWave(
+      Set<ComposableCallGraphNode> wave, ExecutorService executorService)
+      throws ExecutionException {
     ProcessorContext processorContext = appView.createProcessorContext();
     wave.forEach(
         node -> {
@@ -64,11 +68,13 @@ public class ComposeMethodProcessor extends MethodProcessor {
               MethodConversionOptions.forLirPhase(appView));
         });
     processed.addAll(wave);
-    return optimizeComposableFunctionsCalledFromWave(wave);
+    return optimizeComposableFunctionsCalledFromWave(wave, executorService);
   }
 
+  @SuppressWarnings("UnusedVariable")
   private Set<ComposableCallGraphNode> optimizeComposableFunctionsCalledFromWave(
-      Set<ComposableCallGraphNode> wave) {
+      Set<ComposableCallGraphNode> wave, ExecutorService executorService)
+      throws ExecutionException {
     ArgumentPropagatorOptimizationInfoPopulator optimizationInfoPopulator =
         new ArgumentPropagatorOptimizationInfoPopulator(appView, null, null, null);
     Set<ComposableCallGraphNode> optimizedComposableFunctions = Sets.newIdentityHashSet();

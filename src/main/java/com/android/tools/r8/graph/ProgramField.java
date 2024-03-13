@@ -17,6 +17,10 @@ public class ProgramField extends DexClassAndField
     super(holder, field);
   }
 
+  public static ProgramField asProgramFieldOrNull(DexClassAndField field) {
+    return field != null ? field.asProgramField() : null;
+  }
+
   public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
     getReference().collectIndexedItems(appView, indexedItems);
     DexEncodedField definition = getDefinition();

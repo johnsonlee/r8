@@ -224,7 +224,7 @@ public class PrimaryR8IRConverter extends IRConverter {
       identifierNameStringMarker.decoupleIdentifierNameStringsInFields(executorService);
     }
 
-    ComposableOptimizationPass.run(appView, this, timing);
+    ComposableOptimizationPass.run(appView, this, executorService, timing);
 
     // Assure that no more optimization feedback left after post processing.
     assert feedback.noUpdatesLeft();

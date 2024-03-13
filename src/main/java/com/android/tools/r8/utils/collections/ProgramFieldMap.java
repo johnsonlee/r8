@@ -9,6 +9,7 @@ import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 public class ProgramFieldMap<V> extends DexClassAndFieldMapBase<ProgramField, V> {
@@ -21,6 +22,10 @@ public class ProgramFieldMap<V> extends DexClassAndFieldMapBase<ProgramField, V>
 
   public static <V> ProgramFieldMap<V> create() {
     return new ProgramFieldMap<>(HashMap::new);
+  }
+
+  public static <V> ProgramFieldMap<V> createConcurrent() {
+    return new ProgramFieldMap<>(ConcurrentHashMap::new);
   }
 
   @SuppressWarnings("unchecked")

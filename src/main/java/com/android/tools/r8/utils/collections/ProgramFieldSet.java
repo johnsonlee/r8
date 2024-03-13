@@ -14,6 +14,8 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public class ProgramFieldSet implements Iterable<ProgramField> {
@@ -28,6 +30,10 @@ public class ProgramFieldSet implements Iterable<ProgramField> {
 
   public static ProgramFieldSet create() {
     return new ProgramFieldSet(new IdentityHashMap<>());
+  }
+
+  public static ProgramFieldSet createConcurrent() {
+    return new ProgramFieldSet(new ConcurrentHashMap<>());
   }
 
   public static ProgramFieldSet empty() {
@@ -80,6 +86,10 @@ public class ProgramFieldSet implements Iterable<ProgramField> {
 
   public boolean remove(DexEncodedField field) {
     return remove(field.getReference());
+  }
+
+  public boolean removeIf(Predicate<? super ProgramField> predicate) {
+    return backing.values().removeIf(predicate);
   }
 
   public int size() {

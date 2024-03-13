@@ -196,7 +196,7 @@ public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V>
 
   @Override
   public Collection<V> values() {
-    throw new Unimplemented();
+    return backing.values();
   }
 
   protected abstract Wrapper<K> wrap(K member);

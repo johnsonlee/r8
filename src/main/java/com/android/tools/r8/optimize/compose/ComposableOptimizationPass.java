@@ -15,6 +15,8 @@ import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 public class ComposableOptimizationPass {
 
@@ -28,7 +30,11 @@ public class ComposableOptimizationPass {
   }
 
   public static void run(
-      AppView<AppInfoWithLiveness> appView, PrimaryR8IRConverter converter, Timing timing) {
+      AppView<AppInfoWithLiveness> appView,
+      PrimaryR8IRConverter converter,
+      ExecutorService executorService,
+      Timing timing)
+      throws ExecutionException {
     InternalOptions options = appView.options();
     if (!options.isOptimizing() || !options.isShrinking()) {
       return;
@@ -40,16 +46,17 @@ public class ComposableOptimizationPass {
     }
     timing.time(
         "ComposableOptimizationPass",
-        () -> new ComposableOptimizationPass(appView, converter).processWaves());
+        () -> new ComposableOptimizationPass(appView, converter).processWaves(executorService));
   }
 
-  void processWaves() {
+  void processWaves(ExecutorService executorService) throws ExecutionException {
     ComposableCallGraph callGraph = ComposableCallGraph.builder(appView).build();
     ComposeMethodProcessor methodProcessor =
         new ComposeMethodProcessor(appView, callGraph, converter);
     Set<ComposableCallGraphNode> wave = createInitialWave(callGraph);
     while (!wave.isEmpty()) {
-      Set<ComposableCallGraphNode> optimizedComposableFunctions = methodProcessor.processWave(wave);
+      Set<ComposableCallGraphNode> optimizedComposableFunctions =
+          methodProcessor.processWave(wave, executorService);
       wave = createNextWave(methodProcessor, optimizedComposableFunctions);
     }
   }
