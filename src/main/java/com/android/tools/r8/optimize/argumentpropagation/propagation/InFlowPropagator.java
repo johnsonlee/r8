@@ -43,13 +43,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
-public class InParameterFlowPropagator {
+public class InFlowPropagator {
 
   final AppView<AppInfoWithLiveness> appView;
   final IRConverter converter;
   final MethodStateCollectionByReference methodStates;
 
-  public InParameterFlowPropagator(
+  public InFlowPropagator(
       AppView<AppInfoWithLiveness> appView,
       IRConverter converter,
       MethodStateCollectionByReference methodStates) {

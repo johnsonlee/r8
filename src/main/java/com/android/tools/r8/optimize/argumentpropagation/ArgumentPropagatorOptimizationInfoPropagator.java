@@ -10,7 +10,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.ir.conversion.PrimaryR8IRConverter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
-import com.android.tools.r8.optimize.argumentpropagation.propagation.InParameterFlowPropagator;
+import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InterfaceMethodArgumentPropagator;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.VirtualDispatchMethodArgumentPropagator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -67,7 +67,7 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
 
     // Solve the parameter flow constraints.
     timing.begin("Solve flow constraints");
-    new InParameterFlowPropagator(appView, converter, methodStates).run(executorService);
+    new InFlowPropagator(appView, converter, methodStates).run(executorService);
     timing.end();
   }
 
