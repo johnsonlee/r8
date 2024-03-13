@@ -121,7 +121,11 @@ public abstract class DexApplication implements DexDefinitionSupplier {
   }
 
   public Collection<DexProgramClass> classesWithDeterministicOrder() {
-    return classesWithDeterministicOrder(new ArrayList<>(programClasses()));
+    Comparator<ClassDefinition> comparator = Comparator.comparing(ClassDefinition::getType);
+    if (options.testing.reverseClassSortingForDeterminism) {
+      comparator = comparator.reversed();
+    }
+    return classesWithDeterministicOrder(new ArrayList<>(programClasses()), comparator);
   }
 
   public static <T extends ClassDefinition> List<T> classesWithDeterministicOrder(
@@ -132,6 +136,12 @@ public abstract class DexApplication implements DexDefinitionSupplier {
   public static <T extends ClassDefinition> List<T> classesWithDeterministicOrder(List<T> classes) {
     // To keep the order deterministic, we sort the classes by their type, which is a unique key.
     classes.sort(Comparator.comparing(ClassDefinition::getType));
+    return classes;
+  }
+
+  private static Collection<DexProgramClass> classesWithDeterministicOrder(
+      List<DexProgramClass> classes, Comparator<ClassDefinition> comparator) {
+    classes.sort(comparator);
     return classes;
   }
 

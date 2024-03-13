@@ -2145,6 +2145,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public boolean enableExtractedKeepAnnotations = false;
     public boolean enableEmbeddedKeepAnnotations = false;
+    public boolean reverseClassSortingForDeterminism = false;
 
     public boolean isKeepAnnotationsEnabled() {
       return enableExtractedKeepAnnotations || enableEmbeddedKeepAnnotations;
