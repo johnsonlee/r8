@@ -211,7 +211,7 @@ class MethodNameMinifier {
     TopDownClassHierarchyTraversal.forAllClasses(appView)
         .excludeInterfaces()
         .visit(
-            appView.appInfo().classesWithDeterministicOrder(),
+            appView.appInfo().classes(),
             clazz -> {
               DexType type = clazz.type;
               MethodReservationState<?> reservationState =
