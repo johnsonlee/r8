@@ -127,6 +127,12 @@ public class AndroidResourceTestingUtils {
           + "    <item android:id=\"@+id/%s\"/>\n"
           + "</menu>";
 
+  public static String KEEP_XML =
+      "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+          + "<resources xmlns:tools=\"http://schemas.android.com/tools\"\n"
+          + "    tools:keep=\"%s\"\n"
+          + "/>";
+
   public static class AndroidTestRClass {
     // The original aapt2 generated R.java class
     private final Path javaFilePath;
@@ -270,6 +276,7 @@ public class AndroidResourceTestingUtils {
     private final Map<String, Integer> styleables = new TreeMap<>();
     private final Map<String, byte[]> drawables = new TreeMap<>();
     private final Map<String, String> xmlFiles = new TreeMap<>();
+    private final Map<String, String> rawXmlFiles = new TreeMap<>();
     private final List<Class<?>> classesToRemap = new ArrayList<>();
     private int packageId = 0x7f;
     private String packageName;
@@ -340,6 +347,17 @@ public class AndroidResourceTestingUtils {
       return this;
     }
 
+    public AndroidTestResourceBuilder addKeepXmlFor(String... resourceReferences) {
+      addRawXml("keep.xml", String.format(KEEP_XML, String.join(",", resourceReferences)));
+      return this;
+    }
+
+    public AndroidTestResourceBuilder addRawXml(String name, String content) {
+      assert !rawXmlFiles.containsKey(name);
+      rawXmlFiles.put(name, content);
+      return this;
+    }
+
     AndroidTestResourceBuilder addExtraLanguageString(String name) {
       stringValuesWithExtraLanguage.add(name);
       return this;
@@ -397,6 +415,13 @@ public class AndroidResourceTestingUtils {
         File xmlFolder = temp.newFolder("res", "xml");
         for (Entry<String, String> entry : xmlFiles.entrySet()) {
           FileUtils.writeTextFile(xmlFolder.toPath().resolve(entry.getKey()), entry.getValue());
+        }
+      }
+
+      if (rawXmlFiles.size() > 0) {
+        File rawXmlFolder = temp.newFolder("res", "raw");
+        for (Entry<String, String> entry : rawXmlFiles.entrySet()) {
+          FileUtils.writeTextFile(rawXmlFolder.toPath().resolve(entry.getKey()), entry.getValue());
         }
       }
 
