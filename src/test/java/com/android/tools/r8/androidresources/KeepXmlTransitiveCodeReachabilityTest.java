@@ -6,11 +6,16 @@ package com.android.tools.r8.androidresources;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -34,28 +39,51 @@ public class KeepXmlTransitiveCodeReachabilityTest extends TestBase {
           + Bar.class.getTypeName()
           + "\"/>\n";
 
-  public static AndroidTestResource getTestResources(TemporaryFolder temp) throws Exception {
+  public static AndroidTestResource getTestResources(TemporaryFolder temp, String keepReference)
+      throws Exception {
     return new AndroidTestResourceBuilder()
         .withSimpleManifestAndAppNameString()
-        .addRClassInitializeWithDefaultValues(R.xml.class)
-        .addKeepXmlFor("@xml/xml_with_bar_reference")
+        .addRClassInitializeWithDefaultValues(R.xml.class, R.string.class)
+        .addKeepXmlFor(keepReference)
         .addXml("xml_with_bar_reference.xml", XML_WITH_CODE_REFERENCE)
         .build(temp);
   }
 
   @Test
   public void testXmlReferenceWithBarClassInserted() throws Exception {
+    AndroidTestResource testResources = getTestResources(temp, "@xml/xml_with_bar_reference");
+    testR8With(
+        testResources,
+        ImmutableMultimap.of("xml", "xml_with_bar_reference"),
+        ImmutableMultimap.of("xml", "xml_with_foo_reference"));
+  }
+
+  @Test
+  public void testMultipleAndWildCard() throws Exception {
+    AndroidTestResource testResources =
+        getTestResources(temp, "@xml/xml_with_bar_reference,@string/foo*");
+    testR8With(
+        testResources,
+        ImmutableMultimap.of("xml", "xml_with_bar_reference", "string", "foo", "string", "foobar"),
+        ImmutableMultimap.of("xml", "xml_with_foo_reference", "string", "bar", "string", "barfoo"));
+  }
+
+  private void testR8With(
+      AndroidTestResource testResources,
+      Multimap<String, String> present,
+      Multimap<String, String> absent)
+      throws ExecutionException, IOException, CompilationFailedException {
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
         .addProgramClasses(TestClass.class, Bar.class)
-        .addAndroidResources(getTestResources(temp))
+        .addAndroidResources(testResources)
         .addKeepMainRule(TestClass.class)
         .enableOptimizedShrinking()
         .compile()
         .inspectShrunkenResources(
             resourceTableInspector -> {
-              resourceTableInspector.assertContainsResourceWithName(
-                  "xml", "xml_with_bar_reference");
+              present.forEach(resourceTableInspector::assertContainsResourceWithName);
+              absent.forEach(resourceTableInspector::assertDoesNotContainResourceWithName);
             })
         .inspect(
             codeInspector -> {
@@ -100,6 +128,13 @@ public class KeepXmlTransitiveCodeReachabilityTest extends TestBase {
     public static class xml {
       public static int xml_with_bar_reference;
       public static int xml_with_foo_reference;
+    }
+
+    public static class string {
+      public static int foo;
+      public static int foobar;
+      public static int bar;
+      public static int barfoo;
     }
   }
 }
