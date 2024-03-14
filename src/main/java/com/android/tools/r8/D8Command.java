@@ -460,7 +460,9 @@ public final class D8Command extends BaseCompilerCommand {
           reporter.error(
               "D8 does not support main-dex inputs and outputs when compiling to API level "
                   + AndroidApiLevel.L_MR1.getLevel()
-                  + " and above");
+                  + " and above (min API level "
+                  + getMinApiLevel()
+                  + " was provided)");
         }
       }
       if (hasDesugaredLibraryConfiguration() && getDisableDesugaring()) {
@@ -479,7 +481,9 @@ public final class D8Command extends BaseCompilerCommand {
           reporter.error(
               "D8 startup layout requires native multi dex support (API level "
                   + AndroidApiLevel.L.getLevel()
-                  + " and above)");
+                  + " and above, min API level "
+                  + getMinApiLevel()
+                  + " was provided)");
         }
       }
       super.validate();
