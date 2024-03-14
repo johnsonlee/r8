@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.androidresources;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
@@ -59,10 +59,10 @@ public class KeepXmlTransitiveCodeReachabilityTest extends TestBase {
             })
         .inspect(
             codeInspector -> {
-              // TODO(b/326564914): Ensure that we handle code references from resources that are
-              //  kept with xml keep rules (i.e., Bar is present).
-              assertThat(codeInspector.clazz(Bar.class), isAbsent());
-            });
+              assertThat(codeInspector.clazz(Bar.class), isPresentAndNotRenamed());
+            })
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines("init");
   }
 
   public static class TestClass {

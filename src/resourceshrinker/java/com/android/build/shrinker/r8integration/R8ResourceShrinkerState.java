@@ -93,10 +93,30 @@ public class R8ResourceShrinkerState {
     }
   }
 
-  public void traceManifests() {
+  public void traceKeepXmlAndManifest() {
+    // We start by building the root set of all keep/discard rules to find those pinned resources
+    // before marking additional resources in the trace.
+    // We then explicitly trace those resources to transitively get the full set of reachable
+    // resources and code.
+    try {
+      updateModelWithKeepXmlReferences();
+    } catch (IOException e) {
+      throw errorHandler.apply(e);
+    }
+    // TODO(b/329584653): Update processToolsAttributes in AGP to return the kept resources and
+    //  trace directly using this instead of iterating the full resource store below.
+    r8ResourceShrinkerModel.getResourceStore().processToolsAttributes();
+    traceLiveResources();
     for (Supplier<InputStream> manifestProvider : manifestProviders) {
       traceXml("AndroidManifest.xml", manifestProvider.get());
     }
+  }
+
+  private void traceLiveResources() {
+    r8ResourceShrinkerModel.getResourceStore().getResources().stream()
+        .filter(Resource::isReachable)
+        .map(r -> r.value)
+        .forEach(this::trace);
   }
 
   public void setEnqueuerCallback(ClassReferenceCallback enqueuerCallback) {

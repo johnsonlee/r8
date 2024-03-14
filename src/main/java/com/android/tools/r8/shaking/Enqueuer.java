@@ -3884,7 +3884,7 @@ public class Enqueuer {
   private void traceManifests(Timing timing) {
     if (options.isOptimizedResourceShrinking()) {
       timing.begin("Trace AndroidManifest.xml files");
-      appView.getResourceShrinkerState().traceManifests();
+      appView.getResourceShrinkerState().traceKeepXmlAndManifest();
       timing.end();
     }
   }
