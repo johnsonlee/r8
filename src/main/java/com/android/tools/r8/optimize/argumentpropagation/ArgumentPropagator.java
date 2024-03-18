@@ -88,7 +88,7 @@ public class ArgumentPropagator {
         classes -> {
           // Disable argument propagation for methods that should not be optimized by setting their
           // method state to unknown.
-          new ArgumentPropagatorUnoptimizableMethods(
+          new ArgumentPropagatorUnoptimizableFieldsAndMethods(
                   appView, immediateSubtypingInfo, codeScanner.getMethodStates())
               .initializeUnoptimizableMethodStates(classes);
 

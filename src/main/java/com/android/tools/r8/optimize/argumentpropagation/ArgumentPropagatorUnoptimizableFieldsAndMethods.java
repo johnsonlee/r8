@@ -1,4 +1,4 @@
-// Copyright (c) 2021, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -16,13 +16,13 @@ import com.android.tools.r8.utils.classhierarchy.MethodOverridesCollector;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.Collection;
 
-public class ArgumentPropagatorUnoptimizableMethods {
+public class ArgumentPropagatorUnoptimizableFieldsAndMethods {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
   private final MethodStateCollectionByReference methodStates;
 
-  public ArgumentPropagatorUnoptimizableMethods(
+  public ArgumentPropagatorUnoptimizableFieldsAndMethods(
       AppView<AppInfoWithLiveness> appView,
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       MethodStateCollectionByReference methodStates) {
