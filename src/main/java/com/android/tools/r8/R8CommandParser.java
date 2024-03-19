@@ -9,6 +9,7 @@ import static com.android.tools.r8.ParseFlagInfoImpl.flag2;
 
 import com.android.tools.r8.StringConsumer.FileConsumer;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.profile.art.ArtProfileConsumerUtils;
 import com.android.tools.r8.profile.art.ArtProfileProviderUtils;
 import com.android.tools.r8.profile.startup.StartupProfileProviderUtils;
@@ -19,12 +20,15 @@ import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Command.Builder> {
@@ -41,6 +45,7 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
           "--main-dex-rules",
           "--main-dex-list",
           "--feature",
+          "--android-resources",
           "--main-dex-list-output",
           "--pg-conf",
           "--pg-conf-output",
@@ -57,7 +62,7 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
 
   // Note: this must be a subset of OPTIONS_WITH_ONE_PARAMETER.
   private static final Set<String> OPTIONS_WITH_TWO_PARAMETERS =
-      ImmutableSet.of(ART_PROFILE_FLAG, "--feature");
+      ImmutableSet.of(ART_PROFILE_FLAG, "--feature", "--android-resources");
 
   // Due to the family of flags (for assertions and diagnostics) we can't base the one/two args
   // on this setup of flags. Thus, the flag collection just encodes the descriptive content.
@@ -96,11 +101,21 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
         .add(ParseFlagInfoImpl.getMainDexList())
         .add(
             flag2(
-                "--feature",
+                "--android-resources",
                 "<input>",
                 "<output>",
+                "Add android resource input and output to be used in resource shrinking. Both ",
+                "input and output must be specified."))
+        .add(
+            flag2(
+                "--feature",
+                "<input>[:|;<res-input>]",
+                "<output>[:|;<res-output>]",
                 "Add feature <input> file to <output> file. Several ",
-                "occurrences can map to the same output."))
+                "occurrences can map to the same output. If <res-input> and <res-output> are ",
+                "specified use these as resource shrinker input and output. Separator is : on ",
+                "linux/mac, ; on windows. It is possible to supply resource only features by ",
+                " using an empty string for <input> and <output>, e.g. --feature :in.ap_ :out.ap_"))
         .add(ParseFlagInfoImpl.getIsolatedSplits())
         .add(flag1("--main-dex-list-output", "<file>", "Output the full main-dex list in <file>."))
         .addAll(ParseFlagInfoImpl.getAssertionsFlags())
@@ -193,7 +208,7 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
   private void parse(
       String[] args, Origin argsOrigin, R8Command.Builder builder, ParseState state) {
     String[] expandedArgs = FlagFile.expandFlagFiles(args, builder::error);
-    Map<Path, List<Path>> featureSplitJars = new HashMap<>();
+    FeatureSplitConfigCollector featureSplitConfigCollector = new FeatureSplitConfigCollector();
     for (int i = 0; i < expandedArgs.length; i++) {
       String arg = expandedArgs[i].trim();
       String nextArg = null;
@@ -290,10 +305,15 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
         builder.setDisableDesugaring(true);
       } else if (arg.equals("--main-dex-rules")) {
         builder.addMainDexRulesFiles(Paths.get(nextArg));
+      } else if (arg.equals("--android-resources")) {
+        Path inputPath = Paths.get(nextArg);
+        Path outputPath = Paths.get(nextNextArg);
+        builder.setAndroidResourceProvider(
+            new ArchiveProtoAndroidResourceProvider(inputPath, new PathOrigin(inputPath)));
+        builder.setAndroidResourceConsumer(
+            new ArchiveProtoAndroidResourceConsumer(outputPath, inputPath));
       } else if (arg.equals("--feature")) {
-        featureSplitJars
-            .computeIfAbsent(Paths.get(nextNextArg), k -> new ArrayList<>())
-            .add(Paths.get(nextArg));
+        featureSplitConfigCollector.addInputOutput(nextArg, nextNextArg);
       } else if (arg.equals(ISOLATED_SPLITS_FLAG)) {
         builder.setEnableIsolatedSplits(true);
       } else if (arg.equals("--main-dex-list")) {
@@ -358,20 +378,117 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
         builder.addProgramFiles(Paths.get(arg));
       }
     }
-    featureSplitJars.forEach(
-        (outputPath, inputJars) -> addFeatureJar(builder, outputPath, inputJars));
+    addFeatureSplitConfigs(builder, featureSplitConfigCollector.getConfigs());
   }
 
-  public void addFeatureJar(R8Command.Builder builder, Path outputPath, List<Path> inputJarPaths) {
-    builder.addFeatureSplit(
-        featureSplitGenerator -> {
-          featureSplitGenerator.setProgramConsumer(
-              builder.createProgramOutputConsumer(outputPath, OutputMode.DexIndexed, true));
-          for (Path inputPath : inputJarPaths) {
-            featureSplitGenerator.addProgramResourceProvider(
-                ArchiveProgramResourceProvider.fromArchive(inputPath));
-          }
-          return featureSplitGenerator.build();
-        });
+  private void addFeatureSplitConfigs(
+      R8Command.Builder builder, Collection<FeatureSplitConfig> featureSplitConfigs) {
+    for (FeatureSplitConfig featureSplitConfig : featureSplitConfigs) {
+      builder.addFeatureSplit(
+          featureSplitGenerator -> {
+            if (featureSplitConfig.outputJar != null) {
+              featureSplitGenerator.setProgramConsumer(
+                  builder.createProgramOutputConsumer(
+                      featureSplitConfig.outputJar, OutputMode.DexIndexed, true));
+            }
+            for (Path inputPath : featureSplitConfig.inputJars) {
+              featureSplitGenerator.addProgramResourceProvider(
+                  ArchiveProgramResourceProvider.fromArchive(inputPath));
+            }
+            if (featureSplitConfig.inputResources != null) {
+              featureSplitGenerator.setAndroidResourceProvider(
+                  new ArchiveProtoAndroidResourceProvider(
+                      featureSplitConfig.inputResources,
+                      new PathOrigin(featureSplitConfig.inputResources)));
+            }
+            if (featureSplitConfig.outputResources != null) {
+              featureSplitGenerator.setAndroidResourceConsumer(
+                  new ArchiveProtoAndroidResourceConsumer(
+                      featureSplitConfig.outputResources, featureSplitConfig.inputResources));
+            }
+            return featureSplitGenerator.build();
+          });
+    }
+  }
+
+  // Represents a set of paths parsed from a string that may contain a ":" (";" on windows).
+  // Supported examples are:
+  //   pathA -> first = pathA, second = null
+  //   pathA:pathB -> first = pathA, second = pathB
+  //   :pathB -> first = null, second = pathB
+  //   pathA: -> first = pathA, second = null
+  private static class PossibleDoublePath {
+
+    public final Path first;
+    public final Path second;
+
+    private PossibleDoublePath(Path first, Path second) {
+      this.first = first;
+      this.second = second;
+    }
+
+    public static PossibleDoublePath parse(String input) {
+      Path first = null, second = null;
+      List<String> inputSplit = StringUtils.split(input, File.pathSeparatorChar);
+      if (inputSplit.size() == 0 || inputSplit.size() > 2) {
+        throw new IllegalArgumentException("Feature input/output takes one or two paths.");
+      }
+      String firstString = inputSplit.get(0);
+      if (!firstString.isEmpty()) {
+        first = Paths.get(firstString);
+      }
+      if (inputSplit.size() == 2) {
+        // "a:".split() gives just ["a"], so we should never get here if we don't have
+        // a second string. ":b".split gives ["", "b"] which is handled for first above.
+        assert inputSplit.get(1).length() > 0;
+        second = Paths.get(inputSplit.get(1));
+      }
+      return new PossibleDoublePath(first, second);
+    }
+  }
+
+  private static class FeatureSplitConfig {
+    private List<Path> inputJars = new ArrayList<>();
+    private Path inputResources;
+    private Path outputResources;
+    private Path outputJar;
+  }
+
+  private static class FeatureSplitConfigCollector {
+
+    private List<FeatureSplitConfig> resourceOnlySplits = new ArrayList<>();
+    private Map<Path, FeatureSplitConfig> withCodeSplits = new HashMap<>();
+
+    public void addInputOutput(String input, String output) {
+      PossibleDoublePath inputPaths = PossibleDoublePath.parse(input);
+      PossibleDoublePath outputPaths = PossibleDoublePath.parse(output);
+      FeatureSplitConfig featureSplitConfig;
+      if (outputPaths.first != null) {
+        featureSplitConfig =
+            withCodeSplits.computeIfAbsent(outputPaths.first, k -> new FeatureSplitConfig());
+        featureSplitConfig.outputJar = outputPaths.first;
+        // We support adding resources independently of the input jars, which later --feature
+        // can add, so we might have no input jars here, example:
+        //  ... --feature :input_feature.ap_ out.jar:out_feature.ap_ --feature in.jar out.jar
+        if (inputPaths.first != null) {
+          featureSplitConfig.inputJars.add(inputPaths.first);
+        }
+      } else {
+        featureSplitConfig = new FeatureSplitConfig();
+        resourceOnlySplits.add(featureSplitConfig);
+      }
+      if (Objects.isNull(inputPaths.second) != Objects.isNull(outputPaths.second)) {
+        throw new IllegalArgumentException(
+            "Both input and output for feature resources must be provided");
+      }
+      featureSplitConfig.inputResources = inputPaths.second;
+      featureSplitConfig.outputResources = outputPaths.second;
+    }
+
+    public Collection<FeatureSplitConfig> getConfigs() {
+      ArrayList<FeatureSplitConfig> featureSplitConfigs = new ArrayList<>(resourceOnlySplits);
+      featureSplitConfigs.addAll(withCodeSplits.values());
+      return featureSplitConfigs;
+    }
   }
 }
