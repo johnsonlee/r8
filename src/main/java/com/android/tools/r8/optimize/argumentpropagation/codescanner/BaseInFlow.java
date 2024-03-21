@@ -5,6 +5,10 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 public interface BaseInFlow extends InFlow {
 
+  static BaseInFlow asBaseInFlowOrNull(InFlow inFlow) {
+    return inFlow != null ? inFlow.asBaseInFlow() : null;
+  }
+
   @Override
   default boolean isBaseInFlow() {
     return true;

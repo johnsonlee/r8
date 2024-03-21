@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.optimize.argumentpropagation;
 
+import static com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow.asBaseInFlowOrNull;
+
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -19,6 +21,7 @@ import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
+import com.android.tools.r8.ir.analysis.value.objectstate.ObjectStateAnalysis;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.AliasedValueConfiguration;
 import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
@@ -45,6 +48,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteVal
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValueFactory;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InstanceFieldReadAbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
@@ -66,6 +70,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Analyzes each {@link IRCode} during the primary optimization to collect information about the
@@ -268,8 +273,10 @@ public class ArgumentPropagatorCodeScanner {
 
     AbstractValue abstractValue = abstractValueSupplier.getAbstractValue(fieldPut.value());
     if (abstractValue.isUnknown()) {
-      // TODO(b/296030319): Add the current object state to the computed fallback abstract value.
-      abstractValue = getFallbackAbstractValueForField(field);
+      abstractValue =
+          getFallbackAbstractValueForField(
+              field,
+              () -> ObjectStateAnalysis.computeObjectState(fieldPut.value(), appView, context));
     }
     if (field.getType().isClassType()) {
       DynamicType dynamicType =
@@ -296,6 +303,14 @@ public class ArgumentPropagatorCodeScanner {
       ProgramField field = fieldGet.resolveField(appView, context).getProgramField();
       if (field == null) {
         return null;
+      }
+      if (fieldGet.isInstanceGet()) {
+        Value receiverValue = fieldGet.asInstanceGet().object();
+        BaseInFlow receiverInFlow = asBaseInFlowOrNull(computeInFlow(receiverValue, context));
+        if (receiverInFlow != null
+            && receiverInFlow.equals(widenBaseInFlow(receiverInFlow, context))) {
+          return new InstanceFieldReadAbstractFunction(receiverInFlow, field.getReference());
+        }
       }
       return widenBaseInFlow(fieldValueFactory.create(field), context);
     }
@@ -325,7 +340,7 @@ public class ArgumentPropagatorCodeScanner {
     if (inFlow.isUnknownAbstractFunction()) {
       return ValueState.unknown();
     }
-    assert inFlow.isBaseInFlow();
+    assert inFlow.isBaseInFlow() || inFlow.isInstanceFieldReadAbstractFunction();
     return ConcreteValueState.create(staticType, inFlow);
   }
 
@@ -334,7 +349,8 @@ public class ArgumentPropagatorCodeScanner {
   // will never have their value changed after the <clinit> finishes, so value in a static final
   // field can always be rematerialized by reading the field.
   private NonEmptyValueState narrowFieldState(ProgramField field, NonEmptyValueState fieldState) {
-    AbstractValue fallbackAbstractValue = getFallbackAbstractValueForField(field);
+    AbstractValue fallbackAbstractValue =
+        getFallbackAbstractValueForField(field, ObjectState::empty);
     if (!fallbackAbstractValue.isUnknown()) {
       AbstractValue abstractValue = fieldState.getAbstractValue(appView);
       if (!abstractValue.isUnknown()) {
@@ -359,11 +375,12 @@ public class ArgumentPropagatorCodeScanner {
   }
 
   // TODO(b/296030319): Also handle effectively final fields.
-  private AbstractValue getFallbackAbstractValueForField(ProgramField field) {
+  private AbstractValue getFallbackAbstractValueForField(
+      ProgramField field, Supplier<ObjectState> objectStateSupplier) {
     if (field.getAccessFlags().isFinal() && field.getAccessFlags().isStatic()) {
       return appView
           .abstractValueFactory()
-          .createSingleFieldValue(field.getReference(), ObjectState.empty());
+          .createSingleFieldValue(field.getReference(), objectStateSupplier.get());
     }
     return AbstractValue.unknown();
   }

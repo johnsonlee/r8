@@ -19,6 +19,8 @@ public interface FieldGet {
 
   boolean isInstanceGet();
 
+  InstanceGet asInstanceGet();
+
   boolean isStaticGet();
 
   boolean hasUsedOutValue();

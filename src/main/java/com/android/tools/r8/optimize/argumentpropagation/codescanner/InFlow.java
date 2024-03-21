@@ -31,6 +31,14 @@ public interface InFlow {
     return null;
   }
 
+  default boolean isInstanceFieldReadAbstractFunction() {
+    return false;
+  }
+
+  default InstanceFieldReadAbstractFunction asInstanceFieldReadAbstractFunction() {
+    return null;
+  }
+
   default boolean isMethodParameter() {
     return false;
   }

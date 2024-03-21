@@ -60,7 +60,7 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
 
   @Override
   public AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
-    if (getDynamicType().getNullability().isDefinitelyNull()) {
+    if (getNullability().isDefinitelyNull()) {
       assert abstractValue.isNull() || abstractValue.isUnknown();
       return appView.abstractValueFactory().createUncheckedNullValue();
     }

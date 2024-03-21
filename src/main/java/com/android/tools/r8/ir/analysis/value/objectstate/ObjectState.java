@@ -47,7 +47,11 @@ public abstract class ObjectState {
     return predicate.test(singleValue);
   }
 
-  public abstract AbstractValue getAbstractFieldValue(DexEncodedField field);
+  public final AbstractValue getAbstractFieldValue(DexEncodedField field) {
+    return getAbstractFieldValue(field.getReference());
+  }
+
+  public abstract AbstractValue getAbstractFieldValue(DexField field);
 
   public abstract boolean isEmpty();
 

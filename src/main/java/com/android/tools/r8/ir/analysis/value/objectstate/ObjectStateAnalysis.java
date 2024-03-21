@@ -20,13 +20,13 @@ public class ObjectStateAnalysis {
 
   public static ObjectState computeObjectState(
       Value value, AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
-    assert !value.hasAliasedValue();
-    if (value.isDefinedByInstructionSatisfying(
+    Value valueRoot = value.getAliasedValue();
+    if (valueRoot.isDefinedByInstructionSatisfying(
         i -> i.isNewArrayEmpty() || i.isNewArrayFilledData() || i.isNewArrayFilled())) {
-      return computeNewArrayObjectState(value, appView, context);
+      return computeNewArrayObjectState(valueRoot, appView, context);
     }
-    if (value.isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
-      return computeNewInstanceObjectState(value, appView, context);
+    if (valueRoot.isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
+      return computeNewInstanceObjectState(valueRoot, appView, context);
     }
     return ObjectState.empty();
   }

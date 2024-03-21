@@ -51,14 +51,12 @@ public class FieldStateArgumentPropagationTest extends TestBase {
               MethodSubject printMethodSubject =
                   mainClassSubject.uniqueMethodWithOriginalName("print");
               assertThat(printMethodSubject, isPresent());
-              // TODO(b/296030319): Should be 0.
-              assertEquals(1, printMethodSubject.getProgramMethod().getArity());
+              assertEquals(0, printMethodSubject.getProgramMethod().getArity());
 
               MethodSubject printlnMethodSubject =
                   mainClassSubject.uniqueMethodWithOriginalName("println");
               assertThat(printlnMethodSubject, isPresent());
-              // TODO(b/296030319): Should be 0.
-              assertEquals(1, printlnMethodSubject.getProgramMethod().getArity());
+              assertEquals(0, printlnMethodSubject.getProgramMethod().getArity());
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");

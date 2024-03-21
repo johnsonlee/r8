@@ -5,7 +5,6 @@
 package com.android.tools.r8.ir.analysis.value.objectstate;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -27,7 +26,7 @@ public class KnownLengthArrayState extends ObjectState {
   }
 
   @Override
-  public AbstractValue getAbstractFieldValue(DexEncodedField field) {
+  public AbstractValue getAbstractFieldValue(DexField field) {
     return UnknownValue.getInstance();
   }
 

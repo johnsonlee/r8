@@ -5,7 +5,6 @@
 package com.android.tools.r8.ir.analysis.value.objectstate;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -40,7 +39,7 @@ public class EnumValuesObjectState extends ObjectState {
   public void forEachAbstractFieldValue(BiConsumer<DexField, AbstractValue> consumer) {}
 
   @Override
-  public AbstractValue getAbstractFieldValue(DexEncodedField field) {
+  public AbstractValue getAbstractFieldValue(DexField field) {
     return UnknownValue.getInstance();
   }
 
