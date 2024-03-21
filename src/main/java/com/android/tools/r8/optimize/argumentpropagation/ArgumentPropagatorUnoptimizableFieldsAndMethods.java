@@ -7,10 +7,14 @@ package com.android.tools.r8.optimize.argumentpropagation;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.UnknownMethodState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.classhierarchy.MethodOverridesCollector;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -20,20 +24,40 @@ public class ArgumentPropagatorUnoptimizableFieldsAndMethods {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
+  private final FieldStateCollection fieldStates;
   private final MethodStateCollectionByReference methodStates;
 
   public ArgumentPropagatorUnoptimizableFieldsAndMethods(
       AppView<AppInfoWithLiveness> appView,
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
+      FieldStateCollection fieldStates,
       MethodStateCollectionByReference methodStates) {
     this.appView = appView;
     this.immediateSubtypingInfo = immediateSubtypingInfo;
+    this.fieldStates = fieldStates;
     this.methodStates = methodStates;
+  }
+
+  public void run(Collection<DexProgramClass> stronglyConnectedComponent) {
+    initializeUnoptimizableFieldStates(stronglyConnectedComponent);
+    initializeUnoptimizableMethodStates(stronglyConnectedComponent);
+  }
+
+  private void initializeUnoptimizableFieldStates(
+      Collection<DexProgramClass> stronglyConnectedComponent) {
+    for (DexProgramClass clazz : stronglyConnectedComponent) {
+      clazz.forEachProgramField(
+          field -> {
+            if (isUnoptimizableField(field)) {
+              disableValuePropagationForField(field);
+            }
+          });
+    }
   }
 
   // TODO(b/190154391): Consider if we should bail out for classes that inherit from a missing
   //  class.
-  public void initializeUnoptimizableMethodStates(
+  private void initializeUnoptimizableMethodStates(
       Collection<DexProgramClass> stronglyConnectedComponent) {
     ProgramMethodSet unoptimizableVirtualMethods =
         MethodOverridesCollector.findAllMethodsAndOverridesThatMatches(
@@ -47,16 +71,26 @@ public class ArgumentPropagatorUnoptimizableFieldsAndMethods {
                     && !method.getAccessFlags().isFinal()) {
                   return true;
                 } else {
-                  disableArgumentPropagationForMethod(method);
+                  disableValuePropagationForMethodParameters(method);
                 }
               }
               return false;
             });
-    unoptimizableVirtualMethods.forEach(this::disableArgumentPropagationForMethod);
+    unoptimizableVirtualMethods.forEach(this::disableValuePropagationForMethodParameters);
   }
 
-  private void disableArgumentPropagationForMethod(ProgramMethod method) {
+  private void disableValuePropagationForField(ProgramField field) {
+    fieldStates.set(field, ValueState.unknown());
+  }
+
+  private void disableValuePropagationForMethodParameters(ProgramMethod method) {
     methodStates.set(method, UnknownMethodState.get());
+  }
+
+  private boolean isUnoptimizableField(ProgramField field) {
+    KeepFieldInfo keepInfo = appView.getKeepInfo(field);
+    InternalOptions options = appView.options();
+    return !keepInfo.isFieldPropagationAllowed(options);
   }
 
   private boolean isUnoptimizableMethod(ProgramMethod method) {
@@ -64,9 +98,8 @@ public class ArgumentPropagatorUnoptimizableFieldsAndMethods {
             || !method.getDefinition().isLibraryMethodOverride().isUnknown()
         : "Unexpected virtual method without library method override information: "
             + method.toSourceString();
-    AppInfoWithLiveness appInfo = appView.appInfo();
     InternalOptions options = appView.options();
     return method.getDefinition().isLibraryMethodOverride().isPossiblyTrue()
-        || !appInfo.getKeepInfo().getMethodInfo(method).isArgumentPropagationAllowed(options);
+        || !appView.getKeepInfo(method).isArgumentPropagationAllowed(options);
   }
 }

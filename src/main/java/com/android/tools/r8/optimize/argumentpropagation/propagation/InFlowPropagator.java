@@ -1,10 +1,10 @@
-// Copyright (c) 2021, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+import static com.android.tools.r8.graph.ProgramField.asProgramFieldOrNull;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.errors.Unreachable;
@@ -12,11 +12,23 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.Nullability;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValue;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
@@ -27,49 +39,63 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.optimize.argumentpropagation.utils.BidirectedGraph;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
+import com.android.tools.r8.utils.collections.ProgramFieldMap;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 
 public class InFlowPropagator {
 
   final AppView<AppInfoWithLiveness> appView;
   final IRConverter converter;
+  final FieldStateCollection fieldStates;
   final MethodStateCollectionByReference methodStates;
 
   public InFlowPropagator(
       AppView<AppInfoWithLiveness> appView,
       IRConverter converter,
+      FieldStateCollection fieldStates,
       MethodStateCollectionByReference methodStates) {
     this.appView = appView;
     this.converter = converter;
+    this.fieldStates = fieldStates;
     this.methodStates = methodStates;
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {
-    // Build a graph with an edge from parameter p -> parameter p' if all argument information for p
-    // must be included in the argument information for p'.
-    FlowGraph flowGraph = new FlowGraph(appView.appInfo().classes());
+    // Compute strongly connected components so that we can compute the fixpoint of multiple flow
+    // graphs in parallel.
+    List<FlowGraph> flowGraphs = computeStronglyConnectedFlowGraphs();
+    processFlowGraphs(flowGraphs, executorService);
 
-    List<Set<ParameterNode>> stronglyConnectedComponents =
-        flowGraph.computeStronglyConnectedComponents();
-    ThreadUtils.processItems(
-        stronglyConnectedComponents,
-        this::process,
-        appView.options().getThreadingModule(),
-        executorService);
+    // Account for the fact that fields that are read before they are written also needs to include
+    // the default value in the field state. We only need to analyze if a given field is read before
+    // it is written if the field has a non-trivial state in the flow graph. Therefore, we only
+    // perform this analysis after having computed the initial fixpoint(s). The hypothesis is that
+    // many fields will have reached the unknown state after the initial fixpoint, meaning there is
+    // fewer fields to analyze.
+    Collection<Deque<Node>> worklists =
+        includeDefaultValuesInFieldStates(flowGraphs, executorService);
+
+    // Since the inclusion of default values changes the flow graphs, we need to repeat the
+    // fixpoint.
+    processWorklists(worklists, executorService);
 
     // The algorithm only changes the parameter states of each monomorphic method state. In case any
     // of these method states have effectively become unknown, we replace them by the canonicalized
@@ -77,10 +103,40 @@ public class InFlowPropagator {
     postProcessMethodStates(executorService);
   }
 
-  private void process(Set<ParameterNode> stronglyConnectedComponent) {
-    // Build a worklist containing all the parameter nodes.
-    Deque<ParameterNode> worklist = new ArrayDeque<>(stronglyConnectedComponent);
+  private List<FlowGraph> computeStronglyConnectedFlowGraphs() {
+    // Build a graph with an edge from parameter p -> parameter p' if all argument information for p
+    // must be included in the argument information for p'.
+    FlowGraph flowGraph = new FlowGraph(appView.appInfo().classes());
+    List<Set<Node>> stronglyConnectedComponents = flowGraph.computeStronglyConnectedComponents();
+    return ListUtils.map(stronglyConnectedComponents, FlowGraph::new);
+  }
 
+  private Collection<Deque<Node>> includeDefaultValuesInFieldStates(
+      List<FlowGraph> flowGraphs, ExecutorService executorService) throws ExecutionException {
+    DefaultFieldValueJoiner joiner = new DefaultFieldValueJoiner(appView, flowGraphs);
+    return joiner.joinDefaultFieldValuesForFieldsWithReadBeforeWrite(executorService);
+  }
+
+  private void processFlowGraphs(List<FlowGraph> flowGraphs, ExecutorService executorService)
+      throws ExecutionException {
+    ThreadUtils.processItems(
+        flowGraphs, this::process, appView.options().getThreadingModule(), executorService);
+  }
+
+  private void processWorklists(Collection<Deque<Node>> worklists, ExecutorService executorService)
+      throws ExecutionException {
+    ThreadUtils.processItems(
+        worklists, this::process, appView.options().getThreadingModule(), executorService);
+  }
+
+  private void process(FlowGraph flowGraph) {
+    // Build a worklist containing all the nodes.
+    Deque<Node> worklist = new ArrayDeque<>();
+    flowGraph.forEachNode(worklist::add);
+    process(worklist);
+  }
+
+  private void process(Deque<Node> worklist) {
     // Repeatedly propagate argument information through edges in the flow graph until there are no
     // more changes.
     // TODO(b/190154391): Consider a path p1 -> p2 -> p3 in the graph. If we process p2 first, then
@@ -88,41 +144,56 @@ public class InFlowPropagator {
     //  need to reprocess p2 and then p3. If we always process leaves in the graph first, we would
     //  process p1, then p2, then p3, and then be done.
     while (!worklist.isEmpty()) {
-      ParameterNode parameterNode = worklist.removeLast();
-      parameterNode.unsetPending();
-      propagate(
-          parameterNode,
-          affectedNode -> {
-            // No need to enqueue the affected node if it is already in the worklist or if it does
-            // not have any successors (i.e., the successor is a leaf).
-            if (!affectedNode.isPending() && affectedNode.hasSuccessors()) {
-              worklist.add(affectedNode);
-              affectedNode.setPending();
-            }
-          });
+      Node node = worklist.removeLast();
+      node.unsetInWorklist();
+      propagate(node, worklist);
     }
   }
 
-  private void propagate(
-      ParameterNode parameterNode, Consumer<ParameterNode> affectedNodeConsumer) {
-    ValueState parameterState = parameterNode.getState();
-    if (parameterState.isBottom()) {
+  private void propagate(Node node, Deque<Node> worklist) {
+    if (node.isBottom()) {
       return;
     }
-    List<ParameterNode> newlyUnknownParameterNodes = new ArrayList<>();
-    for (ParameterNode successorNode : parameterNode.getSuccessors()) {
-      ValueState newParameterState =
-          successorNode.addState(
-              appView,
-              parameterState.asNonEmpty(),
-              () -> affectedNodeConsumer.accept(successorNode));
-      if (newParameterState.isUnknown()) {
-        newlyUnknownParameterNodes.add(successorNode);
+    if (node.isUnknown()) {
+      assert !node.hasPredecessors();
+      for (Node successorNode : node.getSuccessors()) {
+        assert !successorNode.isUnknown();
+        successorNode.clearPredecessors(node);
+        successorNode.setStateToUnknown();
+        successorNode.addToWorkList(worklist);
       }
+      node.clearDanglingSuccessors();
+    } else {
+      propagateNode(node, worklist);
     }
-    for (ParameterNode newlyUnknownParameterNode : newlyUnknownParameterNodes) {
-      newlyUnknownParameterNode.clearPredecessors();
-    }
+  }
+
+  private void propagateNode(Node node, Deque<Node> worklist) {
+    ConcreteValueState state = node.getState().asConcrete();
+    node.removeSuccessorIf(
+        (successorNode, transferFunctions) -> {
+          assert !successorNode.isUnknown();
+          for (AbstractFunction transferFunction : transferFunctions) {
+            NonEmptyValueState transferState = transferFunction.apply(state);
+            if (transferState.isUnknown()) {
+              successorNode.setStateToUnknown();
+              successorNode.addToWorkList(worklist);
+            } else {
+              ConcreteValueState concreteTransferState = transferState.asConcrete();
+              successorNode.addState(
+                  appView, concreteTransferState, () -> successorNode.addToWorkList(worklist));
+            }
+            // If this successor has become unknown, there is no point in continuing to propagate
+            // flow to it from any of its predecessors. We therefore clear the predecessors to
+            // improve performance of the fixpoint computation.
+            if (successorNode.isUnknown()) {
+              successorNode.clearPredecessors(node);
+              return true;
+            }
+            assert !successorNode.isEffectivelyUnknown();
+          }
+          return false;
+        });
   }
 
   private void postProcessMethodStates(ExecutorService executorService) throws ExecutionException {
@@ -151,30 +222,85 @@ public class InFlowPropagator {
     }
   }
 
-  public class FlowGraph extends BidirectedGraph<ParameterNode> {
+  public class FlowGraph extends BidirectedGraph<Node> {
 
-    private final Map<DexMethod, Int2ReferenceMap<ParameterNode>> nodes = new IdentityHashMap<>();
+    private final ProgramFieldMap<FieldNode> fieldNodes = ProgramFieldMap.create();
+    private final Map<DexMethod, Int2ReferenceMap<ParameterNode>> parameterNodes =
+        new IdentityHashMap<>();
 
     public FlowGraph(Iterable<DexProgramClass> classes) {
       classes.forEach(this::add);
     }
 
+    public FlowGraph(Collection<Node> nodes) {
+      for (Node node : nodes) {
+        if (node.isFieldNode()) {
+          FieldNode fieldNode = node.asFieldNode();
+          fieldNodes.put(fieldNode.getField(), fieldNode);
+        } else {
+          ParameterNode parameterNode = node.asParameterNode();
+          parameterNodes
+              .computeIfAbsent(
+                  parameterNode.getMethod().getReference(),
+                  ignoreKey(Int2ReferenceOpenHashMap::new))
+              .put(parameterNode.getParameterIndex(), parameterNode);
+        }
+      }
+    }
+
+    public void forEachFieldNode(Consumer<? super FieldNode> consumer) {
+      fieldNodes.values().forEach(consumer);
+    }
+
     @Override
-    public void forEachNeighbor(ParameterNode node, Consumer<? super ParameterNode> consumer) {
+    public void forEachNeighbor(Node node, Consumer<? super Node> consumer) {
       node.getPredecessors().forEach(consumer);
       node.getSuccessors().forEach(consumer);
     }
 
     @Override
-    public void forEachNode(Consumer<? super ParameterNode> consumer) {
-      nodes.values().forEach(nodesForMethod -> nodesForMethod.values().forEach(consumer));
+    public void forEachNode(Consumer<? super Node> consumer) {
+      forEachFieldNode(consumer);
+      parameterNodes.values().forEach(nodesForMethod -> nodesForMethod.values().forEach(consumer));
     }
 
     private void add(DexProgramClass clazz) {
-      clazz.forEachProgramMethod(this::add);
+      clazz.forEachProgramField(this::addField);
+      clazz.forEachProgramMethod(this::addMethodParameters);
     }
 
-    private void add(ProgramMethod method) {
+    private void addField(ProgramField field) {
+      ValueState fieldState = fieldStates.get(field);
+
+      // No need to create nodes for fields with no in-flow or no useful information.
+      if (fieldState.isBottom() || fieldState.isUnknown()) {
+        return;
+      }
+
+      ConcreteValueState concreteFieldState = fieldState.asConcrete();
+
+      // No need to create a node for a field that doesn't depend on any other nodes, unless some
+      // other node depends on this field, in which case that other node will lead to creation of a
+      // node for the current field.
+      if (!concreteFieldState.hasInFlow()) {
+        return;
+      }
+
+      FieldNode node = getOrCreateFieldNode(field, concreteFieldState);
+      for (InFlow inFlow : concreteFieldState.getInFlow()) {
+        if (addInFlow(inFlow, node).shouldBreak()) {
+          assert node.isUnknown();
+          break;
+        }
+      }
+
+      if (!node.getState().isUnknown()) {
+        assert node.getState() == concreteFieldState;
+        node.setState(concreteFieldState.clearInFlow());
+      }
+    }
+
+    private void addMethodParameters(ProgramMethod method) {
       MethodState methodState = methodStates.get(method);
 
       // No need to create nodes for parameters with no in-flow or no useful information.
@@ -187,11 +313,11 @@ public class InFlowPropagator {
       List<ValueState> parameterStates = monomorphicMethodState.getParameterStates();
       for (int parameterIndex = 0; parameterIndex < parameterStates.size(); parameterIndex++) {
         ValueState parameterState = parameterStates.get(parameterIndex);
-        add(method, parameterIndex, monomorphicMethodState, parameterState);
+        addMethodParameter(method, parameterIndex, monomorphicMethodState, parameterState);
       }
     }
 
-    private void add(
+    private void addMethodParameter(
         ProgramMethod method,
         int parameterIndex,
         ConcreteMonomorphicMethodState methodState,
@@ -204,20 +330,18 @@ public class InFlowPropagator {
 
       ConcreteValueState concreteParameterState = parameterState.asConcrete();
 
-      // No need to create a node for a parameter that doesn't depend on any other parameters
-      // (unless some other parameter depends on this parameter).
+      // No need to create a node for a parameter that doesn't depend on any other parameters,
+      // unless some other node depends on this parameter, in which case that other node will lead
+      // to the creation of a node for the current parameter.
       if (!concreteParameterState.hasInFlow()) {
         return;
       }
 
       ParameterNode node = getOrCreateParameterNode(method, parameterIndex, methodState);
       for (InFlow inFlow : concreteParameterState.getInFlow()) {
-        if (inFlow.isMethodParameter()) {
-          if (addInFlow(inFlow.asMethodParameter(), node).shouldBreak()) {
-            break;
-          }
-        } else {
-          throw new Unreachable();
+        if (addInFlow(inFlow, node).shouldBreak()) {
+          assert node.isUnknown();
+          break;
         }
       }
 
@@ -227,7 +351,60 @@ public class InFlowPropagator {
       }
     }
 
-    private TraversalContinuation<?, ?> addInFlow(MethodParameter inFlow, ParameterNode node) {
+    // Returns BREAK if the current node has been set to unknown.
+    private TraversalContinuation<?, ?> addInFlow(InFlow inFlow, Node node) {
+      if (inFlow.isAbstractFunction()) {
+        return addInFlow(inFlow.asAbstractFunction(), node);
+      } else if (inFlow.isFieldValue()) {
+        return addInFlow(inFlow.asFieldValue(), node);
+      } else if (inFlow.isMethodParameter()) {
+        return addInFlow(inFlow.asMethodParameter(), node);
+      } else {
+        throw new Unreachable(inFlow.getClass().getTypeName());
+      }
+    }
+
+    private TraversalContinuation<?, ?> addInFlow(AbstractFunction inFlow, Node node) {
+      InFlow baseInFlow = inFlow.getBaseInFlow();
+      if (baseInFlow.isFieldValue()) {
+        return addInFlow(baseInFlow.asFieldValue(), node, inFlow);
+      } else {
+        assert baseInFlow.isMethodParameter();
+        return addInFlow(baseInFlow.asMethodParameter(), node, inFlow);
+      }
+    }
+
+    private TraversalContinuation<?, ?> addInFlow(FieldValue inFlow, Node node) {
+      return addInFlow(inFlow, node, AbstractFunction.identity());
+    }
+
+    private TraversalContinuation<?, ?> addInFlow(
+        FieldValue inFlow, Node node, AbstractFunction transferFunction) {
+      ProgramField field = asProgramFieldOrNull(appView.definitionFor(inFlow.getField()));
+      if (field == null) {
+        assert false;
+        return TraversalContinuation.doContinue();
+      }
+
+      ValueState fieldState = getFieldState(field);
+      if (fieldState.isUnknown()) {
+        // The current node depends on a field for which we don't know anything.
+        node.clearPredecessors();
+        node.setStateToUnknown();
+        return TraversalContinuation.doBreak();
+      }
+
+      FieldNode fieldNode = getOrCreateFieldNode(field, fieldState);
+      node.addPredecessor(fieldNode, transferFunction);
+      return TraversalContinuation.doContinue();
+    }
+
+    private TraversalContinuation<?, ?> addInFlow(MethodParameter inFlow, Node node) {
+      return addInFlow(inFlow, node, AbstractFunction.identity());
+    }
+
+    private TraversalContinuation<?, ?> addInFlow(
+        MethodParameter inFlow, Node node, AbstractFunction transferFunction) {
       ProgramMethod enclosingMethod = getEnclosingMethod(inFlow);
       if (enclosingMethod == null) {
         // This is a parameter of a single caller inlined method. Since this method has been
@@ -239,15 +416,15 @@ public class InFlowPropagator {
 
       MethodState enclosingMethodState = getMethodState(enclosingMethod);
       if (enclosingMethodState.isBottom()) {
-        // The current method is called from a dead method; no need to propagate any information
-        // from the dead call site.
+        // The current node takes a value from a dead method; no need to propagate any information
+        // from the dead assignment.
         return TraversalContinuation.doContinue();
       }
 
       if (enclosingMethodState.isUnknown()) {
-        // The parameter depends on another parameter for which we don't know anything.
+        // The current node depends on a parameter for which we don't know anything.
         node.clearPredecessors();
-        node.setState(ValueState.unknown());
+        node.setStateToUnknown();
         return TraversalContinuation.doBreak();
       }
 
@@ -259,27 +436,41 @@ public class InFlowPropagator {
               enclosingMethod,
               inFlow.getIndex(),
               enclosingMethodState.asConcrete().asMonomorphic());
-      node.addPredecessor(predecessor);
+      node.addPredecessor(predecessor, transferFunction);
       return TraversalContinuation.doContinue();
+    }
+
+    private FieldNode getOrCreateFieldNode(ProgramField field, ValueState fieldState) {
+      return fieldNodes.computeIfAbsent(field, f -> new FieldNode(f, fieldState));
     }
 
     private ParameterNode getOrCreateParameterNode(
         ProgramMethod method, int parameterIndex, ConcreteMonomorphicMethodState methodState) {
       Int2ReferenceMap<ParameterNode> parameterNodesForMethod =
-          nodes.computeIfAbsent(method.getReference(), ignoreKey(Int2ReferenceOpenHashMap::new));
+          parameterNodes.computeIfAbsent(
+              method.getReference(), ignoreKey(Int2ReferenceOpenHashMap::new));
       return parameterNodesForMethod.compute(
           parameterIndex,
           (ignore, parameterNode) ->
               parameterNode != null
                   ? parameterNode
                   : new ParameterNode(
-                      methodState, parameterIndex, method.getArgumentType(parameterIndex)));
+                      method, methodState, parameterIndex, method.getArgumentType(parameterIndex)));
     }
 
     private ProgramMethod getEnclosingMethod(MethodParameter methodParameter) {
       DexMethod methodReference = methodParameter.getMethod();
       return methodReference.lookupOnProgramClass(
           asProgramClassOrNull(appView.definitionFor(methodParameter.getMethod().getHolderType())));
+    }
+
+    private ValueState getFieldState(ProgramField field) {
+      if (field == null) {
+        // Conservatively return unknown if for some reason we can't find the field.
+        assert false;
+        return ValueState.unknown();
+      }
+      return fieldStates.get(field);
     }
 
     private MethodState getMethodState(ProgramMethod method) {
@@ -292,87 +483,254 @@ public class InFlowPropagator {
     }
   }
 
-  static class ParameterNode {
+  public abstract static class Node {
 
-    private final ConcreteMonomorphicMethodState methodState;
-    private final int parameterIndex;
-    private final DexType parameterType;
+    private final Set<Node> predecessors = Sets.newIdentityHashSet();
+    private final Map<Node, Set<AbstractFunction>> successors = new IdentityHashMap<>();
 
-    private final Set<ParameterNode> predecessors = Sets.newIdentityHashSet();
-    private final Set<ParameterNode> successors = Sets.newIdentityHashSet();
+    private boolean inWorklist = true;
 
-    private boolean pending = true;
-
-    ParameterNode(
-        ConcreteMonomorphicMethodState methodState, int parameterIndex, DexType parameterType) {
-      this.methodState = methodState;
-      this.parameterIndex = parameterIndex;
-      this.parameterType = parameterType;
+    void addState(
+        AppView<AppInfoWithLiveness> appView,
+        ConcreteValueState stateToAdd,
+        Action onChangedAction) {
+      ValueState oldState = getState();
+      ValueState newState =
+          oldState.mutableJoin(
+              appView, stateToAdd, getStaticType(), StateCloner.getCloner(), onChangedAction);
+      if (newState != oldState) {
+        setState(newState);
+        onChangedAction.execute();
+      }
     }
 
-    void addPredecessor(ParameterNode predecessor) {
-      predecessor.successors.add(this);
+    abstract ValueState getState();
+
+    abstract DexType getStaticType();
+
+    abstract void setState(ValueState valueState);
+
+    void setStateToUnknown() {
+      setState(ValueState.unknown());
+    }
+
+    void addPredecessor(Node predecessor, AbstractFunction abstractFunction) {
+      predecessor.successors.computeIfAbsent(this, ignoreKey(HashSet::new)).add(abstractFunction);
       predecessors.add(predecessor);
     }
 
     void clearPredecessors() {
-      for (ParameterNode predecessor : predecessors) {
+      for (Node predecessor : predecessors) {
         predecessor.successors.remove(this);
       }
       predecessors.clear();
     }
 
-    Set<ParameterNode> getPredecessors() {
+    void clearPredecessors(Node cause) {
+      for (Node predecessor : predecessors) {
+        if (predecessor != cause) {
+          predecessor.successors.remove(this);
+        }
+      }
+      predecessors.clear();
+    }
+
+    Set<Node> getPredecessors() {
       return predecessors;
     }
 
-    ValueState getState() {
-      return methodState.getParameterState(parameterIndex);
+    boolean hasPredecessors() {
+      return !predecessors.isEmpty();
     }
 
-    Set<ParameterNode> getSuccessors() {
-      return successors;
+    void clearDanglingSuccessors() {
+      successors.clear();
+    }
+
+    Set<Node> getSuccessors() {
+      return successors.keySet();
+    }
+
+    public void forEachSuccessor(BiConsumer<Node, Set<AbstractFunction>> consumer) {
+      successors.forEach(consumer);
+    }
+
+    public void removeSuccessorIf(BiPredicate<Node, Set<AbstractFunction>> predicate) {
+      successors.entrySet().removeIf(entry -> predicate.test(entry.getKey(), entry.getValue()));
     }
 
     boolean hasSuccessors() {
       return !successors.isEmpty();
     }
 
-    boolean isPending() {
-      return pending;
+    boolean isBottom() {
+      return getState().isBottom();
     }
 
-    ValueState addState(
-        AppView<AppInfoWithLiveness> appView,
-        NonEmptyValueState parameterStateToAdd,
-        Action onChangedAction) {
-      ValueState oldParameterState = getState();
-      ValueState newParameterState =
-          oldParameterState.mutableJoin(
-              appView,
-              parameterStateToAdd,
-              parameterType,
-              StateCloner.getCloner(),
-              onChangedAction);
-      if (newParameterState != oldParameterState) {
-        setState(newParameterState);
+    boolean isFieldNode() {
+      return false;
+    }
+
+    FieldNode asFieldNode() {
+      return null;
+    }
+
+    boolean isParameterNode() {
+      return false;
+    }
+
+    ParameterNode asParameterNode() {
+      return null;
+    }
+
+    boolean isEffectivelyUnknown() {
+      return getState().isConcrete() && getState().asConcrete().isEffectivelyUnknown();
+    }
+
+    boolean isUnknown() {
+      return getState().isUnknown();
+    }
+
+    // No need to enqueue the affected node if it is already in the worklist or if it does not have
+    // any successors (i.e., the successor is a leaf).
+    void addToWorkList(Deque<Node> worklist) {
+      if (!inWorklist && hasSuccessors()) {
+        worklist.add(this);
+        inWorklist = true;
+      }
+    }
+
+    void unsetInWorklist() {
+      assert inWorklist;
+      inWorklist = false;
+    }
+  }
+
+  public static class FieldNode extends Node {
+
+    private final ProgramField field;
+    private ValueState fieldState;
+
+    FieldNode(ProgramField field, ValueState fieldState) {
+      this.field = field;
+      this.fieldState = fieldState;
+    }
+
+    public ProgramField getField() {
+      return field;
+    }
+
+    @Override
+    DexType getStaticType() {
+      return field.getType();
+    }
+
+    void addDefaultValue(AppView<AppInfoWithLiveness> appView, Action onChangedAction) {
+      AbstractValueFactory abstractValueFactory = appView.abstractValueFactory();
+      AbstractValue defaultValue;
+      if (field.getAccessFlags().isStatic() && field.getDefinition().hasExplicitStaticValue()) {
+        defaultValue = field.getDefinition().getStaticValue().toAbstractValue(abstractValueFactory);
+      } else if (field.getType().isPrimitiveType()) {
+        defaultValue = abstractValueFactory.createZeroValue();
+      } else {
+        defaultValue = abstractValueFactory.createUncheckedNullValue();
+      }
+      NonEmptyValueState fieldStateToAdd;
+      if (field.getType().isArrayType()) {
+        Nullability defaultNullability = Nullability.definitelyNull();
+        fieldStateToAdd = ConcreteArrayTypeValueState.create(defaultNullability);
+      } else if (field.getType().isClassType()) {
+        assert defaultValue.isNull() || defaultValue.isSingleStringValue();
+        DynamicType dynamicType =
+            defaultValue.isNull()
+                ? DynamicType.definitelyNull()
+                : DynamicType.createExact(
+                    TypeElement.stringClassType(appView, Nullability.definitelyNotNull()));
+        fieldStateToAdd = ConcreteClassTypeValueState.create(defaultValue, dynamicType);
+      } else {
+        assert field.getType().isPrimitiveType();
+        fieldStateToAdd = ConcretePrimitiveTypeValueState.create(defaultValue);
+      }
+      if (fieldStateToAdd.isConcrete()) {
+        addState(appView, fieldStateToAdd.asConcrete(), onChangedAction);
+      } else {
+        // We should always be able to map static field values to an unknown abstract value.
+        assert false;
+        setStateToUnknown();
         onChangedAction.execute();
       }
-      return newParameterState;
     }
 
-    void setPending() {
-      assert !isPending();
-      pending = true;
+    @Override
+    ValueState getState() {
+      return fieldState;
     }
 
+    @Override
+    void setState(ValueState fieldState) {
+      this.fieldState = fieldState;
+    }
+
+    @Override
+    boolean isFieldNode() {
+      return true;
+    }
+
+    @Override
+    FieldNode asFieldNode() {
+      return this;
+    }
+  }
+
+  static class ParameterNode extends Node {
+
+    private final ProgramMethod method;
+    private final ConcreteMonomorphicMethodState methodState;
+    private final int parameterIndex;
+    private final DexType parameterType;
+
+    ParameterNode(
+        ProgramMethod method,
+        ConcreteMonomorphicMethodState methodState,
+        int parameterIndex,
+        DexType parameterType) {
+      this.method = method;
+      this.methodState = methodState;
+      this.parameterIndex = parameterIndex;
+      this.parameterType = parameterType;
+    }
+
+    ProgramMethod getMethod() {
+      return method;
+    }
+
+    int getParameterIndex() {
+      return parameterIndex;
+    }
+
+    @Override
+    DexType getStaticType() {
+      return parameterType;
+    }
+
+    @Override
+    ValueState getState() {
+      return methodState.getParameterState(parameterIndex);
+    }
+
+    @Override
     void setState(ValueState parameterState) {
       methodState.setParameterState(parameterIndex, parameterState);
     }
 
-    void unsetPending() {
-      assert pending;
-      pending = false;
+    @Override
+    boolean isParameterNode() {
+      return true;
+    }
+
+    @Override
+    ParameterNode asParameterNode() {
+      return this;
     }
   }
 }

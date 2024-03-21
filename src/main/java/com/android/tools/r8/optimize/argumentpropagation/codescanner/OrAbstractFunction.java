@@ -1,20 +1,23 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.optimize.compose;
+package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
 import java.util.Objects;
 
-public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
+/**
+ * Encodes the `x | const` abstract function. This is currently used as part of the modeling of
+ * updateChangedFlags, since the updateChangedFlags function is invoked with `changedFlags | 1` as
+ * an argument.
+ */
+public class OrAbstractFunction implements AbstractFunction {
 
-  private final InFlow inFlow;
+  public final InFlow inFlow;
+  public final long constant;
 
-  public UpdateChangedFlagsAbstractFunction(InFlow inFlow) {
+  public OrAbstractFunction(InFlow inFlow, long constant) {
     this.inFlow = inFlow;
+    this.constant = constant;
   }
 
   @Override
@@ -34,16 +37,6 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public boolean isUpdateChangedFlagsAbstractFunction() {
-    return true;
-  }
-
-  @Override
-  public UpdateChangedFlagsAbstractFunction asUpdateChangedFlagsAbstractFunction() {
-    return this;
-  }
-
-  @Override
   @SuppressWarnings("EqualsGetClass")
   public boolean equals(Object obj) {
     if (this == obj) {
@@ -52,12 +45,12 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
     if (obj == null || getClass() != obj.getClass()) {
       return false;
     }
-    UpdateChangedFlagsAbstractFunction fn = (UpdateChangedFlagsAbstractFunction) obj;
-    return inFlow.equals(fn.inFlow);
+    OrAbstractFunction fn = (OrAbstractFunction) obj;
+    return inFlow.equals(fn.inFlow) && constant == fn.constant;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(getClass(), inFlow);
+    return Objects.hash(getClass(), inFlow, constant);
   }
 }

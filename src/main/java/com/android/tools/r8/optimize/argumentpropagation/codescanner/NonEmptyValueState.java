@@ -4,12 +4,6 @@
 
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
-import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.Action;
-import java.util.function.Function;
-
 public abstract class NonEmptyValueState extends ValueState {
 
   @Override
@@ -21,19 +15,4 @@ public abstract class NonEmptyValueState extends ValueState {
   public NonEmptyValueState asNonEmpty() {
     return this;
   }
-
-  public final NonEmptyValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      Function<ValueState, NonEmptyValueState> stateSupplier,
-      DexType staticType,
-      StateCloner cloner) {
-    return mutableJoin(appView, stateSupplier, staticType, cloner, Action.empty());
-  }
-
-  public abstract NonEmptyValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      Function<ValueState, NonEmptyValueState> stateSupplier,
-      DexType staticType,
-      StateCloner cloner,
-      Action onChangedAction);
 }

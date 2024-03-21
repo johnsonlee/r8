@@ -40,6 +40,11 @@ public class SingleStatefulFieldValue extends SingleFieldValue {
   }
 
   @Override
+  public boolean isSingleStatefulFieldValue() {
+    return true;
+  }
+
+  @Override
   public String toString() {
     return "SingleStatefulFieldValue(" + field.toSourceString() + ")";
   }

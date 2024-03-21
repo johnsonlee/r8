@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.ir.conversion.PrimaryR8IRConverter;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InterfaceMethodArgumentPropagator;
@@ -31,6 +32,7 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final PrimaryR8IRConverter converter;
+  private final FieldStateCollection fieldStates;
   private final MethodStateCollectionByReference methodStates;
 
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
@@ -43,12 +45,14 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
       AppView<AppInfoWithLiveness> appView,
       PrimaryR8IRConverter converter,
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
+      FieldStateCollection fieldStates,
       MethodStateCollectionByReference methodStates,
       List<Set<DexProgramClass>> stronglyConnectedProgramComponents,
       BiConsumer<Set<DexProgramClass>, DexMethodSignature> interfaceDispatchOutsideProgram) {
     this.appView = appView;
     this.converter = converter;
     this.immediateSubtypingInfo = immediateSubtypingInfo;
+    this.fieldStates = fieldStates;
     this.methodStates = methodStates;
     this.stronglyConnectedProgramComponents = stronglyConnectedProgramComponents;
     this.interfaceDispatchOutsideProgram = interfaceDispatchOutsideProgram;
@@ -67,7 +71,7 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
 
     // Solve the parameter flow constraints.
     timing.begin("Solve flow constraints");
-    new InFlowPropagator(appView, converter, methodStates).run(executorService);
+    new InFlowPropagator(appView, converter, fieldStates, methodStates).run(executorService);
     timing.end();
   }
 

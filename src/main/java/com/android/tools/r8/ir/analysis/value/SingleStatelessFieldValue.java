@@ -25,6 +25,11 @@ public class SingleStatelessFieldValue extends SingleFieldValue {
   }
 
   @Override
+  public boolean isSingleStatelessFieldValue() {
+    return true;
+  }
+
+  @Override
   public String toString() {
     return "SingleStatelessFieldValue(" + field.toSourceString() + ")";
   }

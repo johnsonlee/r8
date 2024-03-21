@@ -698,7 +698,14 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   }
 
   private void setAbstractReturnValue(AbstractValue value) {
-    assert !abstractReturnValue.isSingleValue() || abstractReturnValue.equals(value)
+    assert !abstractReturnValue.isSingleValue()
+            || abstractReturnValue.equals(value)
+            || (abstractReturnValue.isSingleStatelessFieldValue()
+                && value.isSingleStatefulFieldValue()
+                && abstractReturnValue
+                    .asSingleFieldValue()
+                    .getField()
+                    .isIdenticalTo(value.asSingleFieldValue().getField()))
         : "return single value changed from " + abstractReturnValue + " to " + value;
     abstractReturnValue = value;
   }

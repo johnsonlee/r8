@@ -5,23 +5,28 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.errors.Unreachable;
 
-public class UnknownAbstractFunction implements AbstractFunction {
+public class IdentityAbstractFunction implements AbstractFunction {
 
-  private static final UnknownAbstractFunction INSTANCE = new UnknownAbstractFunction();
+  private static final IdentityAbstractFunction INSTANCE = new IdentityAbstractFunction();
 
-  private UnknownAbstractFunction() {}
+  private IdentityAbstractFunction() {}
 
-  static UnknownAbstractFunction get() {
+  static IdentityAbstractFunction get() {
     return INSTANCE;
   }
 
   @Override
   public NonEmptyValueState apply(ConcreteValueState state) {
-    return ValueState.unknown();
+    return state;
   }
 
   @Override
   public InFlow getBaseInFlow() {
     throw new Unreachable();
+  }
+
+  @Override
+  public boolean isIdentity() {
+    return true;
   }
 }

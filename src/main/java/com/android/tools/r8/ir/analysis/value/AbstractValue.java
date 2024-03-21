@@ -193,6 +193,14 @@ public abstract class AbstractValue {
     return null;
   }
 
+  public boolean isSingleStatefulFieldValue() {
+    return false;
+  }
+
+  public boolean isSingleStatelessFieldValue() {
+    return false;
+  }
+
   public SingleNullValue asSingleNullValue() {
     return null;
   }

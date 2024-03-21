@@ -4,10 +4,13 @@
 package com.android.tools.r8.optimize.compose;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.InstanceGet;
@@ -17,9 +20,10 @@ import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.Or;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValue;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.OrAbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.BitUtils;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.google.common.collect.Iterables;
 
@@ -147,19 +151,43 @@ public class ArgumentPropagatorComposeModeling {
 
     assert argument.getType().isInt();
 
-    DexString expectedFieldName;
-    ValueState state = ValueState.bottomPrimitiveTypeParameter();
-    if (!hasDefaultParameter || argumentIndex == invokedMethod.getArity() - 2) {
+    DexString expectedFieldName =
+        !hasDefaultParameter || argumentIndex == invokedMethod.getArity() - 2
+            ? rewrittenComposeReferences.changedFieldName
+            : rewrittenComposeReferences.defaultFieldName;
+    DexField expectedField =
+        appView
+            .dexItemFactory()
+            .createField(
+                context.getHolderType(), appView.dexItemFactory().intType, expectedFieldName);
+
+    UpdateChangedFlagsAbstractFunction inFlow = null;
+    if (expectedFieldName.isIdenticalTo(rewrittenComposeReferences.changedFieldName)) {
       // We are looking at an argument to the $$changed parameter of the @Composable function.
       // We generally expect this argument to be defined by a call to updateChangedFlags().
       if (argument.isDefinedByInstructionSatisfying(Instruction::isInvokeStatic)) {
         InvokeStatic invokeStatic = argument.getDefinition().asInvokeStatic();
-        DexMethod maybeUpdateChangedFlagsMethod = invokeStatic.getInvokedMethod();
-        if (!maybeUpdateChangedFlagsMethod.isIdenticalTo(
-            rewrittenComposeReferences.updatedChangedFlagsMethod)) {
+        SingleResolutionResult<?> resolutionResult =
+            invokeStatic.resolveMethod(appView, context).asSingleResolution();
+        if (resolutionResult == null) {
           return null;
         }
-        // Assume the call does not impact the $$changed capture and strip the call.
+        DexClassAndMethod invokeSingleTarget =
+            resolutionResult
+                .lookupDispatchTarget(appView, invokeStatic, context)
+                .getSingleDispatchTarget();
+        if (invokeSingleTarget == null) {
+          return null;
+        }
+        inFlow =
+            invokeSingleTarget
+                .getOptimizationInfo()
+                .getAbstractFunction()
+                .asUpdateChangedFlagsAbstractFunction();
+        if (inFlow == null) {
+          return null;
+        }
+        // By accounting for the abstract function we can safely strip the call.
         argument = invokeStatic.getFirstArgument();
       }
       // Allow the argument to be defined by `this.$$changed | 1`.
@@ -175,17 +203,12 @@ public class ArgumentPropagatorComposeModeling {
         argument = otherOperand;
         // Update the model from bottom to a special value that effectively throws away any known
         // information about the lowermost bit of $$changed.
-        state =
-            new ConcretePrimitiveTypeValueState(
-                appView
-                    .abstractValueFactory()
-                    .createDefiniteBitsNumberValue(
-                        BitUtils.ALL_BITS_SET_MASK, BitUtils.ALL_BITS_SET_MASK << 1));
+        inFlow =
+            new UpdateChangedFlagsAbstractFunction(
+                new OrAbstractFunction(new FieldValue(expectedField), 1));
+      } else {
+        inFlow = new UpdateChangedFlagsAbstractFunction(new FieldValue(expectedField));
       }
-      expectedFieldName = rewrittenComposeReferences.changedFieldName;
-    } else {
-      // We are looking at an argument to the $$default parameter of the @Composable function.
-      expectedFieldName = rewrittenComposeReferences.defaultFieldName;
     }
 
     // At this point we expect that the restart lambda is reading either this.$$changed or
@@ -196,12 +219,14 @@ public class ArgumentPropagatorComposeModeling {
 
     // Check that the instance-get is reading the capture field that we expect it to.
     InstanceGet instanceGet = argument.getDefinition().asInstanceGet();
-    if (!instanceGet.getField().getName().isIdenticalTo(expectedFieldName)) {
+    if (!instanceGet.getField().isIdenticalTo(expectedField)) {
       return null;
     }
 
     // Return the argument model. Note that, for the $$default field, this is always bottom, which
     // is equivalent to modeling that this call does not contribute any new argument information.
-    return state;
+    return inFlow != null
+        ? new ConcretePrimitiveTypeValueState(inFlow)
+        : ValueState.bottomPrimitiveTypeParameter();
   }
 }

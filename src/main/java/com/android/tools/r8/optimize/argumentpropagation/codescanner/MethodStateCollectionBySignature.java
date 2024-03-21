@@ -8,7 +8,6 @@ import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.ProgramMethod;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class MethodStateCollectionBySignature extends MethodStateCollection<DexMethodSignature> {
 
@@ -18,10 +17,6 @@ public class MethodStateCollectionBySignature extends MethodStateCollection<DexM
 
   public static MethodStateCollectionBySignature create() {
     return new MethodStateCollectionBySignature(new HashMap<>());
-  }
-
-  public static MethodStateCollectionBySignature createConcurrent() {
-    return new MethodStateCollectionBySignature(new ConcurrentHashMap<>());
   }
 
   @Override

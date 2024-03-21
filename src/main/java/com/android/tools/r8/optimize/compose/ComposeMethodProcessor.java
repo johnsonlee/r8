@@ -3,9 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.compose;
 
+import static com.android.tools.r8.graph.ProgramField.asProgramFieldOrNull;
+
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.constant.SparseConditionalConstantPropagation;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -21,9 +25,15 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorCodeScanner;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorOptimizationInfoPopulator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
+import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.utils.Timing;
@@ -71,10 +81,16 @@ public class ComposeMethodProcessor extends MethodProcessor {
     return optimizeComposableFunctionsCalledFromWave(wave, executorService);
   }
 
-  @SuppressWarnings("UnusedVariable")
   private Set<ComposableCallGraphNode> optimizeComposableFunctionsCalledFromWave(
       Set<ComposableCallGraphNode> wave, ExecutorService executorService)
       throws ExecutionException {
+    prepareForInFlowPropagator();
+
+    InFlowPropagator inFlowPropagator =
+        new InFlowPropagator(
+            appView, converter, codeScanner.getFieldStates(), codeScanner.getMethodStates());
+    inFlowPropagator.run(executorService);
+
     ArgumentPropagatorOptimizationInfoPopulator optimizationInfoPopulator =
         new ArgumentPropagatorOptimizationInfoPopulator(appView, null, null, null);
     Set<ComposableCallGraphNode> optimizedComposableFunctions = Sets.newIdentityHashSet();
@@ -92,36 +108,79 @@ public class ComposeMethodProcessor extends MethodProcessor {
     return optimizedComposableFunctions;
   }
 
-  private MethodState getMethodState(ComposableCallGraphNode node) {
-    assert processed.containsAll(node.getCallers());
-    MethodState methodState = codeScanner.getMethodStates().get(node.getMethod());
-    return widenMethodState(methodState);
+  private void prepareForInFlowPropagator() {
+    FieldStateCollection fieldStates = codeScanner.getFieldStates();
+
+    // Set all field states to unknown since we are not guaranteed to have processes all field
+    // writes.
+    fieldStates.forEach(
+        (field, fieldState) ->
+            fieldStates.addTemporaryFieldState(
+                appView, field, ValueState::unknown, Timing.empty()));
+
+    // Widen all parameter states that have in-flow to unknown, except when the in-flow is an
+    // update-changed-flags abstract function.
+    MethodStateCollectionByReference methodStates = codeScanner.getMethodStates();
+    methodStates.forEach(
+        (method, methodState) -> {
+          if (!methodState.isMonomorphic()) {
+            assert methodState.isUnknown();
+            return;
+          }
+          ConcreteMonomorphicMethodState monomorphicMethodState = methodState.asMonomorphic();
+          for (int parameterIndex = 0;
+              parameterIndex < monomorphicMethodState.size();
+              parameterIndex++) {
+            ValueState parameterState = monomorphicMethodState.getParameterState(parameterIndex);
+            if (parameterState.isConcrete()) {
+              ConcreteValueState concreteParameterState = parameterState.asConcrete();
+              prepareParameterStateForInFlowPropagator(
+                  method, monomorphicMethodState, parameterIndex, concreteParameterState);
+            }
+          }
+        });
   }
 
-  /**
-   * If a parameter state of the current method state encodes that it is greater than (lattice wise)
-   * than another parameter in the program, then widen the parameter state to unknown. This is
-   * needed since we are not guaranteed to have seen all possible call sites of the callers of this
-   * method.
-   */
-  private MethodState widenMethodState(MethodState methodState) {
-    assert !methodState.isBottom();
-    assert !methodState.isPolymorphic();
-    if (methodState.isMonomorphic()) {
-      ConcreteMonomorphicMethodState monomorphicMethodState = methodState.asMonomorphic();
-      for (int i = 0; i < monomorphicMethodState.size(); i++) {
-        if (monomorphicMethodState.getParameterState(i).isConcrete()) {
-          ConcreteValueState concreteParameterState =
-              monomorphicMethodState.getParameterState(i).asConcrete();
-          if (concreteParameterState.hasInFlow()) {
-            monomorphicMethodState.setParameterState(i, ValueState.unknown());
-          }
-        }
-      }
-    } else {
-      assert methodState.isUnknown();
+  private void prepareParameterStateForInFlowPropagator(
+      DexMethod method,
+      ConcreteMonomorphicMethodState methodState,
+      int parameterIndex,
+      ConcreteValueState parameterState) {
+    if (!parameterState.hasInFlow()) {
+      return;
     }
-    return methodState;
+
+    UpdateChangedFlagsAbstractFunction transferFunction = null;
+    if (parameterState.getInFlow().size() == 1) {
+      transferFunction =
+          Iterables.getOnlyElement(parameterState.getInFlow())
+              .asUpdateChangedFlagsAbstractFunction();
+    }
+    if (transferFunction == null) {
+      methodState.setParameterState(parameterIndex, ValueState.unknown());
+      return;
+    }
+
+    // This is a call to a composable function from a restart function.
+    InFlow baseInFlow = transferFunction.getBaseInFlow();
+    assert baseInFlow.isFieldValue();
+
+    ProgramField field =
+        asProgramFieldOrNull(appView.definitionFor(baseInFlow.asFieldValue().getField()));
+    assert field != null;
+
+    codeScanner
+        .getFieldStates()
+        .addTemporaryFieldState(
+            appView,
+            field,
+            () -> new ConcretePrimitiveTypeValueState(new MethodParameter(method, parameterIndex)),
+            Timing.empty());
+  }
+
+  private MethodState getMethodState(ComposableCallGraphNode node) {
+    assert processed.containsAll(node.getCallers());
+    return codeScanner.getMethodStates().get(node.getMethod());
   }
 
   public void scan(ProgramMethod method, IRCode code, Timing timing) {

@@ -11,7 +11,6 @@ import com.android.tools.r8.utils.Action;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.function.Function;
 
 public abstract class ConcreteValueState extends NonEmptyValueState {
 
@@ -26,6 +25,17 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
 
   ConcreteValueState(Set<InFlow> inFlow) {
     this.inFlow = inFlow;
+  }
+
+  public static ConcreteValueState create(DexType staticType, InFlow inFlow) {
+    if (staticType.isArrayType()) {
+      return new ConcreteArrayTypeValueState(inFlow);
+    } else if (staticType.isClassType()) {
+      return new ConcreteClassTypeValueState(inFlow);
+    } else {
+      assert staticType.isPrimitiveType();
+      return new ConcretePrimitiveTypeValueState(inFlow);
+    }
   }
 
   public abstract ValueState clearInFlow();
@@ -65,16 +75,6 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
   @Override
   public ConcreteValueState asConcrete() {
     return this;
-  }
-
-  @Override
-  public NonEmptyValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      Function<ValueState, NonEmptyValueState> stateSupplier,
-      DexType staticType,
-      StateCloner cloner,
-      Action onChangedAction) {
-    return mutableJoin(appView, stateSupplier.apply(this), staticType, cloner, onChangedAction);
   }
 
   @Override

@@ -7,9 +7,9 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
-import java.util.function.Function;
 
 public class UnknownValueState extends NonEmptyValueState {
 
@@ -22,7 +22,7 @@ public class UnknownValueState extends NonEmptyValueState {
   }
 
   @Override
-  public AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
+  public UnknownValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
     return AbstractValue.unknown();
   }
 
@@ -32,24 +32,14 @@ public class UnknownValueState extends NonEmptyValueState {
   }
 
   @Override
-  public ValueState mutableCopy() {
+  public UnknownValueState mutableCopy() {
     return this;
   }
 
   @Override
-  public ValueState mutableJoin(
+  public UnknownValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState parameterState,
-      DexType parameterType,
-      StateCloner cloner,
-      Action onChangedAction) {
-    return this;
-  }
-
-  @Override
-  public NonEmptyValueState mutableJoin(
-      AppView<AppInfoWithLiveness> appView,
-      Function<ValueState, NonEmptyValueState> stateSupplier,
+      ValueState state,
       DexType staticType,
       StateCloner cloner,
       Action onChangedAction) {

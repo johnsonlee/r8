@@ -15,6 +15,7 @@ import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.conversion.PrimaryR8IRConverter;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.VirtualRootMethodsAnalysis;
@@ -89,8 +90,11 @@ public class ArgumentPropagator {
           // Disable argument propagation for methods that should not be optimized by setting their
           // method state to unknown.
           new ArgumentPropagatorUnoptimizableFieldsAndMethods(
-                  appView, immediateSubtypingInfo, codeScanner.getMethodStates())
-              .initializeUnoptimizableMethodStates(classes);
+                  appView,
+                  immediateSubtypingInfo,
+                  codeScanner.getFieldStates(),
+                  codeScanner.getMethodStates())
+              .run(classes);
 
           // Compute the mapping from virtual methods to their root virtual method and the set of
           // monomorphic virtual methods.
@@ -222,8 +226,9 @@ public class ArgumentPropagator {
       throws ExecutionException {
     // Unset the scanner since all code objects have been scanned at this point.
     assert appView.isAllCodeProcessed();
-    MethodStateCollectionByReference codeScannerResult = codeScanner.getMethodStates();
-    appView.testing().argumentPropagatorEventConsumer.acceptCodeScannerResult(codeScannerResult);
+    FieldStateCollection fieldStates = codeScanner.getFieldStates();
+    MethodStateCollectionByReference methodStates = codeScanner.getMethodStates();
+    appView.testing().argumentPropagatorEventConsumer.acceptCodeScannerResult(methodStates);
     codeScanner = null;
 
     postMethodProcessorBuilder.rewrittenWithLens(appView);
@@ -233,12 +238,14 @@ public class ArgumentPropagator {
             appView,
             converter,
             immediateSubtypingInfo,
-            codeScannerResult,
+            fieldStates,
+            methodStates,
             stronglyConnectedProgramComponents,
             interfaceDispatchOutsideProgram)
         .propagateOptimizationInfo(executorService, timing);
+    // TODO(b/296030319): Also publish the computed optimization information for fields.
     new ArgumentPropagatorOptimizationInfoPopulator(
-            appView, converter, codeScannerResult, postMethodProcessorBuilder)
+            appView, converter, methodStates, postMethodProcessorBuilder)
         .populateOptimizationInfo(executorService, timing);
     timing.end();
 
