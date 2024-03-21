@@ -15,6 +15,14 @@ public interface InFlow {
     return null;
   }
 
+  default boolean isBaseInFlow() {
+    return false;
+  }
+
+  default BaseInFlow asBaseInFlow() {
+    return null;
+  }
+
   default boolean isFieldValue() {
     return false;
   }
@@ -29,6 +37,10 @@ public interface InFlow {
 
   default MethodParameter asMethodParameter() {
     return null;
+  }
+
+  default boolean isUnknownAbstractFunction() {
+    return false;
   }
 
   default boolean isUpdateChangedFlagsAbstractFunction() {

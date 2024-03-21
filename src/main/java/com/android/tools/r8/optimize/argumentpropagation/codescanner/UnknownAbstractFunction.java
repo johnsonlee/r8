@@ -24,4 +24,9 @@ public class UnknownAbstractFunction implements AbstractFunction {
   public InFlow getBaseInFlow() {
     throw new Unreachable();
   }
+
+  @Override
+  public boolean isUnknownAbstractFunction() {
+    return true;
+  }
 }

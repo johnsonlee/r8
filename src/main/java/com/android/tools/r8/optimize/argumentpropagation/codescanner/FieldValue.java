@@ -7,7 +7,7 @@ import com.android.tools.r8.graph.DexField;
 
 // TODO(b/296030319): Change DexField to implement InFlow and use DexField in all places instead of
 //  FieldValue to avoid wrappers? This would also remove the need for the FieldValueFactory.
-public class FieldValue implements InFlow {
+public class FieldValue implements BaseInFlow {
 
   private final DexField field;
 

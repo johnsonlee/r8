@@ -7,6 +7,7 @@ package com.android.tools.r8.optimize.argumentpropagation;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexType;
@@ -16,7 +17,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
-import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
@@ -30,6 +30,8 @@ import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
@@ -41,7 +43,6 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePri
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteReceiverValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValue;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValueFactory;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
@@ -142,12 +143,19 @@ public class ArgumentPropagatorCodeScanner {
     return virtualRootMethods.get(method.getReference());
   }
 
+  // TODO(b/296030319): Allow lookups in the FieldStateCollection using DexField keys to avoid the
+  //  need for definitionFor here.
+  private boolean isFieldValueAlreadyUnknown(DexField field) {
+    return isFieldValueAlreadyUnknown(appView.definitionFor(field).asProgramField());
+  }
+
   private boolean isFieldValueAlreadyUnknown(ProgramField field) {
     return fieldStates.get(field).isUnknown();
   }
 
   protected boolean isMethodParameterAlreadyUnknown(
       MethodParameter methodParameter, ProgramMethod method) {
+    assert methodParameter.getMethod().isIdenticalTo(method.getReference());
     MethodState methodState =
         methodStates.get(
             method.getDefinition().belongsToDirectPool() || isMonomorphicVirtualMethod(method)
@@ -248,33 +256,9 @@ public class ArgumentPropagatorCodeScanner {
       ProgramField field,
       AbstractValueSupplier abstractValueSupplier,
       ProgramMethod context) {
-    Value valueRoot = fieldPut.value().getAliasedValue(aliasedValueConfiguration);
-    InFlow inFlow = null;
-    if (valueRoot.isArgument()) {
-      // If the value is an argument of the enclosing method, then clearly we have no information
-      // about its abstract value. Instead of treating this as having an unknown runtime value, we
-      // instead record a flow constraint that specifies that all values that flow into the
-      // parameter of this enclosing method also flows into the current field.
-      MethodParameter inParameter =
-          methodParameterFactory.create(context, valueRoot.getDefinition().asArgument().getIndex());
-      if (isMethodParameterAlreadyUnknown(inParameter, context)) {
-        return ValueState.unknown();
-      }
-      inFlow = inParameter;
-    } else if (valueRoot.isDefinedByInstructionSatisfying(Instruction::isFieldGet)) {
-      FieldGet fieldGet = valueRoot.getDefinition().asFieldGet();
-      ProgramField otherField = fieldGet.resolveField(appView, context).getProgramField();
-      if (otherField != null) {
-        FieldValue fieldValue = fieldValueFactory.create(otherField);
-        if (isFieldValueAlreadyUnknown(otherField)) {
-          return ValueState.unknown();
-        }
-        inFlow = fieldValue;
-      }
-    }
-
-    if (inFlow != null) {
-      return ConcreteValueState.create(field.getType(), inFlow);
+    NonEmptyValueState inFlowState = computeInFlowState(field.getType(), fieldPut.value(), context);
+    if (inFlowState != null) {
+      return inFlowState;
     }
 
     if (field.getType().isArrayType()) {
@@ -296,6 +280,53 @@ public class ArgumentPropagatorCodeScanner {
       assert field.getType().isPrimitiveType();
       return ConcretePrimitiveTypeValueState.create(abstractValue);
     }
+  }
+
+  // If the value is an argument of the enclosing method or defined by a field-get, then clearly we
+  // have no information about its abstract value (yet). Instead of treating this as having an
+  // unknown runtime value, we instead record a flow constraint.
+  private InFlow computeInFlow(Value value, ProgramMethod context) {
+    Value valueRoot = value.getAliasedValue(aliasedValueConfiguration);
+    if (valueRoot.isArgument()) {
+      MethodParameter inParameter =
+          methodParameterFactory.create(context, valueRoot.getDefinition().asArgument().getIndex());
+      return widenBaseInFlow(inParameter, context);
+    } else if (valueRoot.isDefinedByInstructionSatisfying(Instruction::isFieldGet)) {
+      FieldGet fieldGet = valueRoot.getDefinition().asFieldGet();
+      ProgramField field = fieldGet.resolveField(appView, context).getProgramField();
+      if (field == null) {
+        return null;
+      }
+      return widenBaseInFlow(fieldValueFactory.create(field), context);
+    }
+    return null;
+  }
+
+  private InFlow widenBaseInFlow(BaseInFlow inFlow, ProgramMethod context) {
+    if (inFlow.isFieldValue()) {
+      if (isFieldValueAlreadyUnknown(inFlow.asFieldValue().getField())) {
+        return AbstractFunction.unknown();
+      }
+    } else {
+      assert inFlow.isMethodParameter();
+      if (isMethodParameterAlreadyUnknown(inFlow.asMethodParameter(), context)) {
+        return AbstractFunction.unknown();
+      }
+    }
+    return inFlow;
+  }
+
+  private NonEmptyValueState computeInFlowState(
+      DexType staticType, Value value, ProgramMethod context) {
+    InFlow inFlow = computeInFlow(value, context);
+    if (inFlow == null) {
+      return null;
+    }
+    if (inFlow.isUnknownAbstractFunction()) {
+      return ValueState.unknown();
+    }
+    assert inFlow.isBaseInFlow();
+    return ConcreteValueState.create(staticType, inFlow);
   }
 
   // Strengthens the abstract value of static final fields to a (self-)SingleFieldValue when the
@@ -677,41 +708,17 @@ public class ArgumentPropagatorCodeScanner {
       return ValueState.unknown();
     }
 
-    Value argumentRoot = argument.getAliasedValue(aliasedValueConfiguration);
     DexType parameterType =
         invoke.getInvokedMethod().getArgumentType(argumentIndex, invoke.isInvokeStatic());
-    TypeElement parameterTypeElement = parameterType.toTypeElement(appView);
 
     // If the value is an argument of the enclosing method, then clearly we have no information
     // about its abstract value. Instead of treating this as having an unknown runtime value, we
     // instead record a flow constraint that specifies that all values that flow into the parameter
     // of this enclosing method also flows into the corresponding parameter of the methods
     // potentially called from this invoke instruction.
-    InFlow inFlow = null;
-    if (argumentRoot.isArgument()) {
-      MethodParameter forwardedParameter =
-          methodParameterFactory.create(
-              context, argumentRoot.getDefinition().asArgument().getIndex());
-      if (isMethodParameterAlreadyUnknown(forwardedParameter, context)) {
-        return ValueState.unknown();
-      }
-      inFlow = forwardedParameter;
-    } else if (argumentRoot.isDefinedByInstructionSatisfying(Instruction::isFieldGet)) {
-      // If the value is defined by a program field read, then record a flow constraint that
-      // specifies that all values that flow into the field also flows into the current parameter of
-      // this invoke instruction.
-      FieldGet fieldGet = argumentRoot.getDefinition().asFieldGet();
-      ProgramField field = fieldGet.resolveField(appView, context).getProgramField();
-      if (field != null) {
-        if (isFieldValueAlreadyUnknown(field)) {
-          return ValueState.unknown();
-        }
-        inFlow = fieldValueFactory.create(field);
-      }
-    }
-
-    if (inFlow != null) {
-      return ConcreteValueState.create(parameterType, inFlow);
+    NonEmptyValueState inFlowState = computeInFlowState(parameterType, argument, context);
+    if (inFlowState != null) {
+      return inFlowState;
     }
 
     // Only track the nullability for array types.

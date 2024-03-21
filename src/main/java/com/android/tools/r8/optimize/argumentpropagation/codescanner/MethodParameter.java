@@ -7,7 +7,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 import com.android.tools.r8.graph.DexMethod;
 import java.util.Objects;
 
-public class MethodParameter implements InFlow {
+public class MethodParameter implements BaseInFlow {
 
   private final DexMethod method;
   private final int index;
