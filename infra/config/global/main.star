@@ -155,6 +155,7 @@ luci.recipe(
 
 common_test_options = [
     "--tool=r8",
+    "--print-times",
     "--no_internal",
     "--one_line_per_test",
     "--archive_failures"
