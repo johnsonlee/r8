@@ -83,6 +83,11 @@ public class InvokeStaticOnInterfaceTest extends TestBase {
             .addOptionsModification(o -> o.testing.allowInvokeErrors = true)
             .addDontObfuscate()
             .addKeepMainRule(Main.class)
+            // Without a keep rule, we conclude that I.m() is not called and remove it. That is not
+            // true, however, since there is an invalid invoke to I.m(). To preserve the error we
+            // could consider rewriting invoke to `throw new ICCE()`, as this would also ensure that
+            // the compiled program runs on all runtimes with the same behavior.
+            .addKeepClassAndMembersRules(I.class)
             .run(parameters.getRuntime(), Main.class);
     if (parameters.getRuntime().asCf().isNewerThan(CfVm.JDK8)) {
       runResult.assertFailureWithErrorThatMatches(
