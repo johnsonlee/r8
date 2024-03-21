@@ -11,8 +11,6 @@ import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
-import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator.FlowGraph;
-import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator.Node;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
@@ -43,7 +41,7 @@ public class DefaultFieldValueJoiner {
     this.flowGraphs = flowGraphs;
   }
 
-  public Map<FlowGraph, Deque<Node>> joinDefaultFieldValuesForFieldsWithReadBeforeWrite(
+  public Map<FlowGraph, Deque<FlowGraphNode>> joinDefaultFieldValuesForFieldsWithReadBeforeWrite(
       ExecutorService executorService) throws ExecutionException {
     // Find all the fields where we need to determine if each field read is guaranteed to be
     // dominated by a write.
@@ -192,14 +190,14 @@ public class DefaultFieldValueJoiner {
     }
   }
 
-  private Map<FlowGraph, Deque<Node>> updateFlowGraphs(
+  private Map<FlowGraph, Deque<FlowGraphNode>> updateFlowGraphs(
       ProgramFieldSet fieldsWithLiveDefaultValue, ExecutorService executorService)
       throws ExecutionException {
-    Collection<Pair<FlowGraph, Deque<Node>>> worklists =
+    Collection<Pair<FlowGraph, Deque<FlowGraphNode>>> worklists =
         ThreadUtils.processItemsWithResultsThatMatches(
             flowGraphs,
             flowGraph -> {
-              Deque<Node> worklist = new ArrayDeque<>();
+              Deque<FlowGraphNode> worklist = new ArrayDeque<>();
               flowGraph.forEachFieldNode(
                   node -> {
                     ProgramField field = node.getField();

@@ -5,7 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator.FlowGraph;
+import com.android.tools.r8.optimize.argumentpropagation.propagation.FlowGraph;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.function.Supplier;
 

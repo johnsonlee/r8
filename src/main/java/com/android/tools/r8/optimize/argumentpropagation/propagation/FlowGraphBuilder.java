@@ -1,0 +1,296 @@
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+package com.android.tools.r8.optimize.argumentpropagation.propagation;
+
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+import static com.android.tools.r8.graph.ProgramField.asProgramFieldOrNull;
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+
+import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ProgramField;
+import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValue;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.TraversalContinuation;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
+import java.util.Collection;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+
+public class FlowGraphBuilder {
+
+  private final AppView<AppInfoWithLiveness> appView;
+  private final IRConverter converter;
+  private final FieldStateCollection fieldStates;
+  private final MethodStateCollectionByReference methodStates;
+
+  private final Map<DexField, FlowGraphFieldNode> fieldNodes = new IdentityHashMap<>();
+  private final Map<DexMethod, Int2ReferenceMap<FlowGraphParameterNode>> parameterNodes =
+      new IdentityHashMap<>();
+
+  public FlowGraphBuilder(
+      AppView<AppInfoWithLiveness> appView,
+      IRConverter converter,
+      FieldStateCollection fieldStates,
+      MethodStateCollectionByReference methodStates) {
+    this.appView = appView;
+    this.converter = converter;
+    this.fieldStates = fieldStates;
+    this.methodStates = methodStates;
+  }
+
+  public FlowGraphBuilder addClasses(Collection<DexProgramClass> classes) {
+    for (DexProgramClass clazz : classes) {
+      add(clazz);
+    }
+    return this;
+  }
+
+  public FlowGraph build() {
+    return new FlowGraph(fieldNodes, parameterNodes);
+  }
+
+  private void add(DexProgramClass clazz) {
+    clazz.forEachProgramField(this::addField);
+    clazz.forEachProgramMethod(this::addMethodParameters);
+  }
+
+  private void addField(ProgramField field) {
+    ValueState fieldState = fieldStates.get(field);
+
+    // No need to create nodes for fields with no in-flow or no useful information.
+    if (fieldState.isBottom() || fieldState.isUnknown()) {
+      return;
+    }
+
+    ConcreteValueState concreteFieldState = fieldState.asConcrete();
+
+    // No need to create a node for a field that doesn't depend on any other nodes, unless some
+    // other node depends on this field, in which case that other node will lead to creation of a
+    // node for the current field.
+    if (!concreteFieldState.hasInFlow()) {
+      return;
+    }
+
+    FlowGraphFieldNode node = getOrCreateFieldNode(field, concreteFieldState);
+    for (InFlow inFlow : concreteFieldState.getInFlow()) {
+      if (addInFlow(inFlow, node).shouldBreak()) {
+        assert node.isUnknown();
+        break;
+      }
+    }
+
+    if (!node.getState().isUnknown()) {
+      assert node.getState() == concreteFieldState;
+      node.setState(concreteFieldState.clearInFlow());
+    }
+  }
+
+  private void addMethodParameters(ProgramMethod method) {
+    MethodState methodState = methodStates.get(method);
+
+    // No need to create nodes for parameters with no in-flow or no useful information.
+    if (methodState.isBottom() || methodState.isUnknown()) {
+      return;
+    }
+
+    // Add nodes for the parameters for which we have non-trivial information.
+    ConcreteMonomorphicMethodState monomorphicMethodState = methodState.asMonomorphic();
+    List<ValueState> parameterStates = monomorphicMethodState.getParameterStates();
+    for (int parameterIndex = 0; parameterIndex < parameterStates.size(); parameterIndex++) {
+      ValueState parameterState = parameterStates.get(parameterIndex);
+      addMethodParameter(method, parameterIndex, monomorphicMethodState, parameterState);
+    }
+  }
+
+  private void addMethodParameter(
+      ProgramMethod method,
+      int parameterIndex,
+      ConcreteMonomorphicMethodState methodState,
+      ValueState parameterState) {
+    // No need to create nodes for parameters with no in-parameters and parameters we don't know
+    // anything about.
+    if (parameterState.isBottom() || parameterState.isUnknown()) {
+      return;
+    }
+
+    ConcreteValueState concreteParameterState = parameterState.asConcrete();
+
+    // No need to create a node for a parameter that doesn't depend on any other parameters,
+    // unless some other node depends on this parameter, in which case that other node will lead
+    // to the creation of a node for the current parameter.
+    if (!concreteParameterState.hasInFlow()) {
+      return;
+    }
+
+    FlowGraphParameterNode node = getOrCreateParameterNode(method, parameterIndex, methodState);
+    for (InFlow inFlow : concreteParameterState.getInFlow()) {
+      if (addInFlow(inFlow, node).shouldBreak()) {
+        assert node.isUnknown();
+        break;
+      }
+    }
+
+    if (!node.getState().isUnknown()) {
+      assert node.getState() == concreteParameterState;
+      node.setState(concreteParameterState.clearInFlow());
+    }
+  }
+
+  // Returns BREAK if the current node has been set to unknown.
+  private TraversalContinuation<?, ?> addInFlow(InFlow inFlow, FlowGraphNode node) {
+    if (inFlow.isAbstractFunction()) {
+      return addInFlow(inFlow.asAbstractFunction(), node);
+    } else if (inFlow.isFieldValue()) {
+      return addInFlow(inFlow.asFieldValue(), node);
+    } else if (inFlow.isMethodParameter()) {
+      return addInFlow(inFlow.asMethodParameter(), node);
+    } else {
+      throw new Unreachable(inFlow.getClass().getTypeName());
+    }
+  }
+
+  private TraversalContinuation<?, ?> addInFlow(AbstractFunction inFlow, FlowGraphNode node) {
+    for (BaseInFlow baseInFlow : inFlow.getBaseInFlow()) {
+      TraversalContinuation<?, ?> traversalContinuation;
+      if (baseInFlow.isFieldValue()) {
+        traversalContinuation = addInFlow(baseInFlow.asFieldValue(), node, inFlow);
+      } else {
+        assert baseInFlow.isMethodParameter();
+        traversalContinuation = addInFlow(baseInFlow.asMethodParameter(), node, inFlow);
+      }
+      if (traversalContinuation.shouldBreak()) {
+        return traversalContinuation;
+      }
+    }
+    return TraversalContinuation.doContinue();
+  }
+
+  private TraversalContinuation<?, ?> addInFlow(FieldValue inFlow, FlowGraphNode node) {
+    return addInFlow(inFlow, node, AbstractFunction.identity());
+  }
+
+  private TraversalContinuation<?, ?> addInFlow(
+      FieldValue inFlow, FlowGraphNode node, AbstractFunction transferFunction) {
+    assert !node.isUnknown();
+
+    ProgramField field = asProgramFieldOrNull(appView.definitionFor(inFlow.getField()));
+    if (field == null) {
+      assert false;
+      return TraversalContinuation.doContinue();
+    }
+
+    ValueState fieldState = getFieldState(field, fieldStates);
+    if (fieldState.isUnknown()) {
+      // The current node depends on a field for which we don't know anything.
+      node.clearPredecessors();
+      node.setStateToUnknown();
+      return TraversalContinuation.doBreak();
+    }
+
+    FlowGraphFieldNode fieldNode = getOrCreateFieldNode(field, fieldState);
+    node.addPredecessor(fieldNode, transferFunction);
+    return TraversalContinuation.doContinue();
+  }
+
+  private TraversalContinuation<?, ?> addInFlow(MethodParameter inFlow, FlowGraphNode node) {
+    return addInFlow(inFlow, node, AbstractFunction.identity());
+  }
+
+  private TraversalContinuation<?, ?> addInFlow(
+      MethodParameter inFlow, FlowGraphNode node, AbstractFunction transferFunction) {
+    ProgramMethod enclosingMethod = getEnclosingMethod(inFlow);
+    if (enclosingMethod == null) {
+      // This is a parameter of a single caller inlined method. Since this method has been
+      // pruned, the call from inside the method no longer exists, and we can therefore safely
+      // skip it.
+      assert converter.getInliner().verifyIsPrunedDueToSingleCallerInlining(inFlow.getMethod());
+      return TraversalContinuation.doContinue();
+    }
+
+    MethodState enclosingMethodState = getMethodState(enclosingMethod, methodStates);
+    if (enclosingMethodState.isBottom()) {
+      // The current node takes a value from a dead method; no need to propagate any information
+      // from the dead assignment.
+      return TraversalContinuation.doContinue();
+    }
+
+    if (enclosingMethodState.isUnknown()) {
+      // The current node depends on a parameter for which we don't know anything.
+      node.clearPredecessors();
+      node.setStateToUnknown();
+      return TraversalContinuation.doBreak();
+    }
+
+    assert enclosingMethodState.isConcrete();
+    assert enclosingMethodState.asConcrete().isMonomorphic();
+
+    FlowGraphParameterNode predecessor =
+        getOrCreateParameterNode(
+            enclosingMethod, inFlow.getIndex(), enclosingMethodState.asConcrete().asMonomorphic());
+    node.addPredecessor(predecessor, transferFunction);
+    return TraversalContinuation.doContinue();
+  }
+
+  private FlowGraphFieldNode getOrCreateFieldNode(ProgramField field, ValueState fieldState) {
+    return fieldNodes.computeIfAbsent(
+        field.getReference(), ignoreKey(() -> new FlowGraphFieldNode(field, fieldState)));
+  }
+
+  private FlowGraphParameterNode getOrCreateParameterNode(
+      ProgramMethod method, int parameterIndex, ConcreteMonomorphicMethodState methodState) {
+    Int2ReferenceMap<FlowGraphParameterNode> parameterNodesForMethod =
+        parameterNodes.computeIfAbsent(
+            method.getReference(), ignoreKey(Int2ReferenceOpenHashMap::new));
+    return parameterNodesForMethod.compute(
+        parameterIndex,
+        (ignore, parameterNode) ->
+            parameterNode != null
+                ? parameterNode
+                : new FlowGraphParameterNode(
+                    method, methodState, parameterIndex, method.getArgumentType(parameterIndex)));
+  }
+
+  private ProgramMethod getEnclosingMethod(MethodParameter methodParameter) {
+    DexMethod methodReference = methodParameter.getMethod();
+    return methodReference.lookupOnProgramClass(
+        asProgramClassOrNull(appView.definitionFor(methodParameter.getMethod().getHolderType())));
+  }
+
+  private ValueState getFieldState(ProgramField field, FieldStateCollection fieldStates) {
+    if (field == null) {
+      // Conservatively return unknown if for some reason we can't find the field.
+      assert false;
+      return ValueState.unknown();
+    }
+    return fieldStates.get(field);
+  }
+
+  private MethodState getMethodState(
+      ProgramMethod method, MethodStateCollectionByReference methodStates) {
+    if (method == null) {
+      // Conservatively return unknown if for some reason we can't find the method.
+      assert false;
+      return MethodState.unknown();
+    }
+    return methodStates.get(method);
+  }
+}

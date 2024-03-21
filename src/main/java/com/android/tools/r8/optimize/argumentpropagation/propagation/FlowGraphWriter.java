@@ -5,10 +5,6 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator.FieldNode;
-import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator.FlowGraph;
-import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator.Node;
-import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator.ParameterNode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.PrintStream;
 
@@ -33,7 +29,7 @@ public class FlowGraphWriter {
     out.println(" -> ");
   }
 
-  private void writeNode(PrintStream out, Node node) {
+  private void writeNode(PrintStream out, FlowGraphNode node) {
     if (!node.hasSuccessors()) {
       writeNodeLabel(out, node);
       return;
@@ -46,7 +42,7 @@ public class FlowGraphWriter {
         });
   }
 
-  private void writeNodeLabel(PrintStream out, Node node) {
+  private void writeNodeLabel(PrintStream out, FlowGraphNode node) {
     if (node.isFieldNode()) {
       writeFieldNodeLabel(out, node.asFieldNode());
     } else {
@@ -55,7 +51,7 @@ public class FlowGraphWriter {
     }
   }
 
-  private void writeFieldNodeLabel(PrintStream out, FieldNode node) {
+  private void writeFieldNodeLabel(PrintStream out, FlowGraphFieldNode node) {
     out.print("\"");
     ProgramField field = node.getField();
     out.print(field.getHolderType().getSimpleName());
@@ -64,7 +60,7 @@ public class FlowGraphWriter {
     out.print("\"");
   }
 
-  private void writeParameterNodeLabel(PrintStream out, ParameterNode node) {
+  private void writeParameterNodeLabel(PrintStream out, FlowGraphParameterNode node) {
     out.print("\"");
     ProgramMethod method = node.getMethod();
     out.print(method.getHolderType().getSimpleName());
