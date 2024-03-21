@@ -120,17 +120,37 @@ class TestConfigurationHelper {
         || project.hasProperty("one_line_per_test")
         || project.hasProperty("update_test_timestamp")) {
         test.addTestListener(object : TestListener {
+          val testTimes = mutableMapOf<TestDescriptor?,Long>()
+          val maxPrintTimesCount = 1000
           override fun beforeSuite(desc: TestDescriptor?) {}
-          override fun afterSuite(desc: TestDescriptor?, result: TestResult?) {}
+          override fun afterSuite(desc: TestDescriptor?, result: TestResult?) {
+            if (project.hasProperty("print_times")) {
+              // desc.parent == null when we are all done
+              if (desc?.parent == null) {
+                testTimes.toList()
+                  .sortedByDescending { it.second }
+                  .take(maxPrintTimesCount)
+                  .forEach {
+                    println("${it.first} took: ${it.second}")
+                }
+              }
+            }
+          }
           override fun beforeTest(desc: TestDescriptor?) {
             if (project.hasProperty("one_line_per_test")) {
               println("Start executing ${desc}")
+            }
+            if (project.hasProperty("print_times")) {
+              testTimes[desc] = Date().getTime()
             }
           }
 
           override fun afterTest(desc: TestDescriptor?, result: TestResult?) {
             if (project.hasProperty("one_line_per_test")) {
               println("Done executing ${desc} with result: ${result?.resultType}")
+            }
+            if (project.hasProperty("print_times")) {
+              testTimes[desc] = Date().getTime() - testTimes[desc]!!
             }
             if (project.hasProperty("update_test_timestamp")) {
               File(project.property("update_test_timestamp")!!.toString())
