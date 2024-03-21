@@ -73,7 +73,7 @@ public class PrimaryR8IRConverter extends IRConverter {
     numberUnboxer.prepareForPrimaryOptimizationPass(timing, executorService);
     outliner.prepareForPrimaryOptimizationPass(graphLensForPrimaryOptimizationPass);
 
-    if (fieldAccessAnalysis != null) {
+    if (fieldAccessAnalysis != null && fieldAccessAnalysis.fieldAssignmentTracker() != null) {
       fieldAccessAnalysis.fieldAssignmentTracker().initialize();
     }
 
@@ -252,11 +252,12 @@ public class PrimaryR8IRConverter extends IRConverter {
     onWaveDoneActions = Collections.synchronizedList(new ArrayList<>());
   }
 
-  public void waveDone(ProgramMethodSet wave, ExecutorService executorService)
-      throws ExecutionException {
+  public void waveDone(ProgramMethodSet wave, ExecutorService executorService) {
     delayedOptimizationFeedback.refineAppInfoWithLiveness(appView.appInfo().withLiveness());
     delayedOptimizationFeedback.updateVisibleOptimizationInfo();
-    fieldAccessAnalysis.fieldAssignmentTracker().waveDone(wave, delayedOptimizationFeedback);
+    if (fieldAccessAnalysis.fieldAssignmentTracker() != null) {
+      fieldAccessAnalysis.fieldAssignmentTracker().waveDone(wave, delayedOptimizationFeedback);
+    }
     appView.withArgumentPropagator(ArgumentPropagator::publishDelayedReprocessingCriteria);
     if (appView.options().protoShrinking().enableRemoveProtoEnumSwitchMap()) {
       appView.protoShrinker().protoEnumSwitchMapRemover.updateVisibleStaticFieldValues();

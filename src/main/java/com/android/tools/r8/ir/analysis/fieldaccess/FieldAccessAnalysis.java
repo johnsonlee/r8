@@ -35,7 +35,8 @@ public class FieldAccessAnalysis {
     this.appView = appView;
     this.fieldBitAccessAnalysis =
         options.enableFieldBitAccessAnalysis ? new FieldBitAccessAnalysis() : null;
-    this.fieldAssignmentTracker = new FieldAssignmentTracker(appView);
+    this.fieldAssignmentTracker =
+        options.enableFieldAssignmentTracker ? new FieldAssignmentTracker(appView) : null;
     this.fieldReadForInvokeReceiverAnalysis = new FieldReadForInvokeReceiverAnalysis(appView);
     this.fieldReadForWriteAnalysis = new FieldReadForWriteAnalysis(appView);
   }

@@ -16,6 +16,7 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.DexValue.DexValueNull;
+import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues.EmptyStaticValues;
 import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -64,6 +65,9 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
     assert appView.appInfo().hasLiveness();
     assert appView.enableWholeProgramOptimizations();
     assert code.context().getDefinition().isClassInitializer();
+    if (!appView.options().enableFieldValueAnalysis) {
+      return EmptyStaticValues.getInstance();
+    }
     timing.begin("Analyze class initializer");
     StaticFieldValues result =
         new StaticFieldValueAnalysis(appView.withLiveness(), code, feedback)
