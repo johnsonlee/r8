@@ -5,6 +5,7 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -14,6 +15,10 @@ import com.android.tools.r8.utils.Action;
 public abstract class ValueState {
 
   public static BottomValueState bottom(ProgramField field) {
+    return bottom(field.getReference());
+  }
+
+  public static BottomValueState bottom(DexField field) {
     DexType fieldType = field.getType();
     if (fieldType.isArrayType()) {
       return bottomArrayTypeParameter();

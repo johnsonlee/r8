@@ -25,6 +25,11 @@ public class FieldValue implements BaseInFlow {
   }
 
   @Override
+  public boolean isFieldValue(DexField field) {
+    return this.field.isIdenticalTo(field);
+  }
+
+  @Override
   public FieldValue asFieldValue() {
     return this;
   }

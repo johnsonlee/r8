@@ -4,9 +4,12 @@
 package com.android.tools.r8.optimize.compose;
 
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
+import com.android.tools.r8.utils.IterableUtils;
 import java.util.Objects;
 
 public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
@@ -18,19 +21,28 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public NonEmptyValueState apply(ConcreteValueState state) {
+  public ValueState apply(FlowGraphStateProvider flowGraphStateProvider, ConcreteValueState state) {
     // TODO(b/302483644): Implement this abstract function to allow correct value propagation of
     //  updateChangedFlags(x | 1).
     return state;
   }
 
   @Override
-  public InFlow getBaseInFlow() {
+  public boolean containsBaseInFlow(BaseInFlow otherInFlow) {
+    if (inFlow.isAbstractFunction()) {
+      return inFlow.asAbstractFunction().containsBaseInFlow(otherInFlow);
+    }
+    assert inFlow.isBaseInFlow();
+    return inFlow.equals(otherInFlow);
+  }
+
+  @Override
+  public Iterable<BaseInFlow> getBaseInFlow() {
     if (inFlow.isAbstractFunction()) {
       return inFlow.asAbstractFunction().getBaseInFlow();
     }
-    assert inFlow.isFieldValue() || inFlow.isMethodParameter();
-    return inFlow;
+    assert inFlow.isBaseInFlow();
+    return IterableUtils.singleton(inFlow.asBaseInFlow());
   }
 
   @Override

@@ -9,6 +9,7 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
@@ -21,6 +22,7 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMethodState;
@@ -29,6 +31,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePri
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValue;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
@@ -42,9 +45,9 @@ import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
-import com.android.tools.r8.utils.collections.ProgramFieldMap;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMaps;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -59,6 +62,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class InFlowPropagator {
 
@@ -90,7 +94,7 @@ public class InFlowPropagator {
     // perform this analysis after having computed the initial fixpoint(s). The hypothesis is that
     // many fields will have reached the unknown state after the initial fixpoint, meaning there is
     // fewer fields to analyze.
-    Collection<Deque<Node>> worklists =
+    Map<FlowGraph, Deque<Node>> worklists =
         includeDefaultValuesInFieldStates(flowGraphs, executorService);
 
     // Since the inclusion of default values changes the flow graphs, we need to repeat the
@@ -111,7 +115,7 @@ public class InFlowPropagator {
     return ListUtils.map(stronglyConnectedComponents, FlowGraph::new);
   }
 
-  private Collection<Deque<Node>> includeDefaultValuesInFieldStates(
+  private Map<FlowGraph, Deque<Node>> includeDefaultValuesInFieldStates(
       List<FlowGraph> flowGraphs, ExecutorService executorService) throws ExecutionException {
     DefaultFieldValueJoiner joiner = new DefaultFieldValueJoiner(appView, flowGraphs);
     return joiner.joinDefaultFieldValuesForFieldsWithReadBeforeWrite(executorService);
@@ -123,9 +127,10 @@ public class InFlowPropagator {
         flowGraphs, this::process, appView.options().getThreadingModule(), executorService);
   }
 
-  private void processWorklists(Collection<Deque<Node>> worklists, ExecutorService executorService)
+  private void processWorklists(
+      Map<FlowGraph, Deque<Node>> worklists, ExecutorService executorService)
       throws ExecutionException {
-    ThreadUtils.processItems(
+    ThreadUtils.processMap(
         worklists, this::process, appView.options().getThreadingModule(), executorService);
   }
 
@@ -133,10 +138,10 @@ public class InFlowPropagator {
     // Build a worklist containing all the nodes.
     Deque<Node> worklist = new ArrayDeque<>();
     flowGraph.forEachNode(worklist::add);
-    process(worklist);
+    process(flowGraph, worklist);
   }
 
-  private void process(Deque<Node> worklist) {
+  private void process(FlowGraph flowGraph, Deque<Node> worklist) {
     // Repeatedly propagate argument information through edges in the flow graph until there are no
     // more changes.
     // TODO(b/190154391): Consider a path p1 -> p2 -> p3 in the graph. If we process p2 first, then
@@ -146,11 +151,11 @@ public class InFlowPropagator {
     while (!worklist.isEmpty()) {
       Node node = worklist.removeLast();
       node.unsetInWorklist();
-      propagate(node, worklist);
+      propagate(flowGraph, node, worklist);
     }
   }
 
-  private void propagate(Node node, Deque<Node> worklist) {
+  private void propagate(FlowGraph flowGraph, Node node, Deque<Node> worklist) {
     if (node.isBottom()) {
       return;
     }
@@ -164,18 +169,22 @@ public class InFlowPropagator {
       }
       node.clearDanglingSuccessors();
     } else {
-      propagateNode(node, worklist);
+      propagateNode(flowGraph, node, worklist);
     }
   }
 
-  private void propagateNode(Node node, Deque<Node> worklist) {
+  private void propagateNode(FlowGraph flowGraph, Node node, Deque<Node> worklist) {
     ConcreteValueState state = node.getState().asConcrete();
     node.removeSuccessorIf(
         (successorNode, transferFunctions) -> {
           assert !successorNode.isUnknown();
           for (AbstractFunction transferFunction : transferFunctions) {
-            NonEmptyValueState transferState = transferFunction.apply(state);
-            if (transferState.isUnknown()) {
+            FlowGraphStateProvider flowGraphStateProvider =
+                FlowGraphStateProvider.create(flowGraph, transferFunction);
+            ValueState transferState = transferFunction.apply(flowGraphStateProvider, state);
+            if (transferState.isBottom()) {
+              // Nothing to propagate.
+            } else if (transferState.isUnknown()) {
               successorNode.setStateToUnknown();
               successorNode.addToWorkList(worklist);
             } else {
@@ -222,9 +231,9 @@ public class InFlowPropagator {
     }
   }
 
-  public class FlowGraph extends BidirectedGraph<Node> {
+  public class FlowGraph extends BidirectedGraph<Node> implements FlowGraphStateProvider {
 
-    private final ProgramFieldMap<FieldNode> fieldNodes = ProgramFieldMap.create();
+    private final Map<DexField, FieldNode> fieldNodes = new IdentityHashMap<>();
     private final Map<DexMethod, Int2ReferenceMap<ParameterNode>> parameterNodes =
         new IdentityHashMap<>();
 
@@ -236,7 +245,7 @@ public class InFlowPropagator {
       for (Node node : nodes) {
         if (node.isFieldNode()) {
           FieldNode fieldNode = node.asFieldNode();
-          fieldNodes.put(fieldNode.getField(), fieldNode);
+          fieldNodes.put(fieldNode.getField().getReference(), fieldNode);
         } else {
           ParameterNode parameterNode = node.asParameterNode();
           parameterNodes
@@ -365,13 +374,19 @@ public class InFlowPropagator {
     }
 
     private TraversalContinuation<?, ?> addInFlow(AbstractFunction inFlow, Node node) {
-      InFlow baseInFlow = inFlow.getBaseInFlow();
-      if (baseInFlow.isFieldValue()) {
-        return addInFlow(baseInFlow.asFieldValue(), node, inFlow);
-      } else {
-        assert baseInFlow.isMethodParameter();
-        return addInFlow(baseInFlow.asMethodParameter(), node, inFlow);
+      for (BaseInFlow baseInFlow : inFlow.getBaseInFlow()) {
+        TraversalContinuation<?, ?> traversalContinuation;
+        if (baseInFlow.isFieldValue()) {
+          traversalContinuation = addInFlow(baseInFlow.asFieldValue(), node, inFlow);
+        } else {
+          assert baseInFlow.isMethodParameter();
+          traversalContinuation = addInFlow(baseInFlow.asMethodParameter(), node, inFlow);
+        }
+        if (traversalContinuation.shouldBreak()) {
+          return traversalContinuation;
+        }
       }
+      return TraversalContinuation.doContinue();
     }
 
     private TraversalContinuation<?, ?> addInFlow(FieldValue inFlow, Node node) {
@@ -380,6 +395,8 @@ public class InFlowPropagator {
 
     private TraversalContinuation<?, ?> addInFlow(
         FieldValue inFlow, Node node, AbstractFunction transferFunction) {
+      assert !node.isUnknown();
+
       ProgramField field = asProgramFieldOrNull(appView.definitionFor(inFlow.getField()));
       if (field == null) {
         assert false;
@@ -441,7 +458,8 @@ public class InFlowPropagator {
     }
 
     private FieldNode getOrCreateFieldNode(ProgramField field, ValueState fieldState) {
-      return fieldNodes.computeIfAbsent(field, f -> new FieldNode(f, fieldState));
+      return fieldNodes.computeIfAbsent(
+          field.getReference(), ignoreKey(() -> new FieldNode(field, fieldState)));
     }
 
     private ParameterNode getOrCreateParameterNode(
@@ -480,6 +498,43 @@ public class InFlowPropagator {
         return MethodState.unknown();
       }
       return methodStates.get(method);
+    }
+
+    @Override
+    public ValueState getState(DexField field) {
+      return fieldNodes.get(field).getState();
+    }
+
+    @Override
+    public ValueState getState(BaseInFlow inFlow, Supplier<ValueState> defaultStateProvider) {
+      if (inFlow.isFieldValue()) {
+        FieldValue fieldValue = inFlow.asFieldValue();
+        return getState(fieldValue.getField());
+      } else {
+        assert inFlow.isMethodParameter();
+        MethodParameter methodParameter = inFlow.asMethodParameter();
+        ParameterNode parameterNode =
+            parameterNodes
+                .getOrDefault(methodParameter.getMethod(), Int2ReferenceMaps.emptyMap())
+                .get(methodParameter.getIndex());
+        if (parameterNode != null) {
+          return parameterNode.getState();
+        }
+        assert verifyMissingParameterStateIsBottom(methodParameter);
+        return defaultStateProvider.get();
+      }
+    }
+
+    private boolean verifyMissingParameterStateIsBottom(MethodParameter methodParameter) {
+      ProgramMethod enclosingMethod = getEnclosingMethod(methodParameter);
+      if (enclosingMethod == null) {
+        assert converter
+            .getInliner()
+            .verifyIsPrunedDueToSingleCallerInlining(methodParameter.getMethod());
+        return true;
+      }
+      MethodState enclosingMethodState = getMethodState(enclosingMethod);
+      return enclosingMethodState.isBottom();
     }
   }
 

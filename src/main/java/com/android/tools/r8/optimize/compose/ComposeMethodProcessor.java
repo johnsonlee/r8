@@ -24,17 +24,18 @@ import com.android.tools.r8.ir.conversion.callgraph.CallSiteInformation;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorCodeScanner;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorOptimizationInfoPopulator;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -162,11 +163,13 @@ public class ComposeMethodProcessor extends MethodProcessor {
     }
 
     // This is a call to a composable function from a restart function.
-    InFlow baseInFlow = transferFunction.getBaseInFlow();
-    assert baseInFlow.isFieldValue();
+    Iterable<BaseInFlow> baseInFlow = transferFunction.getBaseInFlow();
+    assert Iterables.size(baseInFlow) == 1;
+    BaseInFlow singleBaseInFlow = IterableUtils.first(baseInFlow);
+    assert singleBaseInFlow.isFieldValue();
 
     ProgramField field =
-        asProgramFieldOrNull(appView.definitionFor(baseInFlow.asFieldValue().getField()));
+        asProgramFieldOrNull(appView.definitionFor(singleBaseInFlow.asFieldValue().getField()));
     assert field != null;
 
     codeScanner

@@ -16,12 +16,17 @@ public class UnknownAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public NonEmptyValueState apply(ConcreteValueState state) {
+  public ValueState apply(FlowGraphStateProvider flowGraphStateProvider, ConcreteValueState state) {
     return ValueState.unknown();
   }
 
   @Override
-  public InFlow getBaseInFlow() {
+  public boolean containsBaseInFlow(BaseInFlow inFlow) {
+    throw new Unreachable();
+  }
+
+  @Override
+  public Iterable<BaseInFlow> getBaseInFlow() {
     throw new Unreachable();
   }
 

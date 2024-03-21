@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.google.common.collect.Lists;
 
 public class InstanceFieldReadAbstractFunction implements AbstractFunction {
 
@@ -16,35 +17,45 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
     this.field = field;
   }
 
-  // TODO(b/296030319): Instead of returning unknown from here, we should fallback to the state of
-  //  the instance field node in the graph. A prerequisite for this is the ability to express
-  //  multiple inputs to abstract functions.
   @Override
-  public NonEmptyValueState apply(ConcreteValueState state) {
+  public ValueState apply(
+      FlowGraphStateProvider flowGraphStateProvider, ConcreteValueState predecessorState) {
+    ValueState state = flowGraphStateProvider.getState(receiver, () -> ValueState.bottom(field));
+    if (state.isBottom()) {
+      return ValueState.bottom(field);
+    }
     if (!state.isClassState()) {
-      return ValueState.unknown();
+      return getFallbackState(flowGraphStateProvider);
     }
     ConcreteClassTypeValueState classState = state.asClassState();
     if (classState.getNullability().isDefinitelyNull()) {
-      // TODO(b/296030319): This should be rare, but we should really return bottom here, since
-      //  reading a field from the the null value throws an exception, meaning no flow should be
-      //  propagated.
-      return ValueState.unknown();
+      return ValueState.bottom(field);
     }
     AbstractValue abstractValue = state.getAbstractValue(null);
     if (!abstractValue.hasObjectState()) {
-      return ValueState.unknown();
+      return getFallbackState(flowGraphStateProvider);
     }
     AbstractValue fieldValue = abstractValue.getObjectState().getAbstractFieldValue(field);
     if (fieldValue.isUnknown()) {
-      return ValueState.unknown();
+      return getFallbackState(flowGraphStateProvider);
     }
     return ConcreteValueState.create(field.getType(), fieldValue);
   }
 
   @Override
-  public InFlow getBaseInFlow() {
-    return receiver;
+  public boolean containsBaseInFlow(BaseInFlow inFlow) {
+    return inFlow.equals(receiver) || inFlow.isFieldValue(field);
+  }
+
+  @Override
+  public Iterable<BaseInFlow> getBaseInFlow() {
+    return Lists.newArrayList(receiver, new FieldValue(field));
+  }
+
+  private ValueState getFallbackState(FlowGraphStateProvider flowGraphStateProvider) {
+    ValueState valueState = flowGraphStateProvider.getState(new FieldValue(field), null);
+    assert !valueState.isConcrete() || !valueState.asConcrete().hasInFlow();
+    return valueState;
   }
 
   @Override

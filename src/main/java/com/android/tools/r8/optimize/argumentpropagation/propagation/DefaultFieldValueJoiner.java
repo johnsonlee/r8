@@ -17,6 +17,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MapUtils;
+import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ProgramFieldSet;
 import com.google.common.collect.Lists;
@@ -42,7 +43,7 @@ public class DefaultFieldValueJoiner {
     this.flowGraphs = flowGraphs;
   }
 
-  public Collection<Deque<Node>> joinDefaultFieldValuesForFieldsWithReadBeforeWrite(
+  public Map<FlowGraph, Deque<Node>> joinDefaultFieldValuesForFieldsWithReadBeforeWrite(
       ExecutorService executorService) throws ExecutionException {
     // Find all the fields where we need to determine if each field read is guaranteed to be
     // dominated by a write.
@@ -191,31 +192,34 @@ public class DefaultFieldValueJoiner {
     }
   }
 
-  private Collection<Deque<Node>> updateFlowGraphs(
+  private Map<FlowGraph, Deque<Node>> updateFlowGraphs(
       ProgramFieldSet fieldsWithLiveDefaultValue, ExecutorService executorService)
       throws ExecutionException {
-    return ThreadUtils.processItemsWithResultsThatMatches(
-        flowGraphs,
-        flowGraph -> {
-          Deque<Node> worklist = new ArrayDeque<>();
-          flowGraph.forEachFieldNode(
-              node -> {
-                ProgramField field = node.getField();
-                if (fieldsWithLiveDefaultValue.contains(field)) {
-                  node.addDefaultValue(
-                      appView,
-                      () -> {
-                        if (node.isUnknown()) {
-                          node.clearPredecessors();
-                        }
-                        node.addToWorkList(worklist);
-                      });
-                }
-              });
-          return worklist;
-        },
-        worklist -> !worklist.isEmpty(),
-        appView.options().getThreadingModule(),
-        executorService);
+    Collection<Pair<FlowGraph, Deque<Node>>> worklists =
+        ThreadUtils.processItemsWithResultsThatMatches(
+            flowGraphs,
+            flowGraph -> {
+              Deque<Node> worklist = new ArrayDeque<>();
+              flowGraph.forEachFieldNode(
+                  node -> {
+                    ProgramField field = node.getField();
+                    if (fieldsWithLiveDefaultValue.contains(field)) {
+                      node.addDefaultValue(
+                          appView,
+                          () -> {
+                            if (node.isUnknown()) {
+                              node.clearPredecessors();
+                            }
+                            node.addToWorkList(worklist);
+                          });
+                    }
+                  });
+              return new Pair<>(flowGraph, worklist);
+            },
+            pair -> !pair.getSecond().isEmpty(),
+            appView.options().getThreadingModule(),
+            executorService);
+    return MapUtils.newIdentityHashMap(
+        builder -> worklists.forEach(pair -> builder.put(pair.getFirst(), pair.getSecond())));
   }
 }

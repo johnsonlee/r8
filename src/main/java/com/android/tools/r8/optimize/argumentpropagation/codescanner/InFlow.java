@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.optimize.compose.UpdateChangedFlagsAbstractFunction;
 
 public interface InFlow {
@@ -24,6 +25,10 @@ public interface InFlow {
   }
 
   default boolean isFieldValue() {
+    return false;
+  }
+
+  default boolean isFieldValue(DexField field) {
     return false;
   }
 
