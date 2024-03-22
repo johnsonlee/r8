@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
+import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
+
 public interface AbstractFunction extends InFlow {
 
   static IdentityAbstractFunction identity() {
@@ -25,7 +28,10 @@ public interface AbstractFunction extends InFlow {
    * {@param flowGraphStateProvider}. Attempting to lookup the state of a non-declared input is an
    * error.
    */
-  ValueState apply(FlowGraphStateProvider flowGraphStateProvider, ConcreteValueState state);
+  ValueState apply(
+      AppView<AppInfoWithLiveness> appView,
+      FlowGraphStateProvider flowGraphStateProvider,
+      ConcreteValueState inState);
 
   /** Returns true if the given {@param inFlow} is a declared input of this abstract function. */
   boolean containsBaseInFlow(BaseInFlow inFlow);

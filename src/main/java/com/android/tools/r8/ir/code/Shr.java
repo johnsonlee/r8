@@ -13,6 +13,7 @@ import com.android.tools.r8.dex.code.DexShrLong2Addr;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.arithmetic.AbstractCalculator;
 
 public class Shr extends LogicalBinop {
 
@@ -98,25 +99,7 @@ public class Shr extends LogicalBinop {
 
   @Override
   AbstractValue foldIntegers(AbstractValue left, AbstractValue right, AppView<?> appView) {
-    if (!right.isSingleNumberValue()) {
-      return AbstractValue.unknown();
-    }
-    int rightConst = right.asSingleNumberValue().getIntValue();
-    if (rightConst == 0) {
-      return left;
-    }
-    if (left.isSingleNumberValue()) {
-      int result = foldIntegers(left.asSingleNumberValue().getIntValue(), rightConst);
-      return appView.abstractValueFactory().createSingleNumberValue(result, getOutType());
-    }
-    if (left.hasDefinitelySetAndUnsetBitsInformation()) {
-      return appView
-          .abstractValueFactory()
-          .createDefiniteBitsNumberValue(
-              foldIntegers(left.getDefinitelySetIntBits(), rightConst),
-              foldIntegers(left.getDefinitelyUnsetIntBits(), rightConst));
-    }
-    return AbstractValue.unknown();
+    return AbstractCalculator.shrIntegers(left, right, appView);
   }
 
   @Override

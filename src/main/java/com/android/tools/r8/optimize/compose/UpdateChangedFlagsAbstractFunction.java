@@ -3,12 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.compose;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.OrAbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.IterableUtils;
 import java.util.Objects;
 
@@ -21,10 +24,21 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public ValueState apply(FlowGraphStateProvider flowGraphStateProvider, ConcreteValueState state) {
+  public ValueState apply(
+      AppView<AppInfoWithLiveness> appView,
+      FlowGraphStateProvider flowGraphStateProvider,
+      ConcreteValueState baseInState) {
+    ValueState inState;
+    if (inFlow.isAbstractFunction()) {
+      AbstractFunction orFunction = inFlow.asAbstractFunction();
+      assert orFunction instanceof OrAbstractFunction;
+      inState = orFunction.apply(appView, flowGraphStateProvider, baseInState);
+    } else {
+      inState = baseInState;
+    }
     // TODO(b/302483644): Implement this abstract function to allow correct value propagation of
     //  updateChangedFlags(x | 1).
-    return state;
+    return inState;
   }
 
   @Override

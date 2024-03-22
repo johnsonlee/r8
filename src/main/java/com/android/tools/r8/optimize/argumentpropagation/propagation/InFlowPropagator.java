@@ -149,7 +149,8 @@ public class InFlowPropagator {
           for (AbstractFunction transferFunction : transferFunctions) {
             FlowGraphStateProvider flowGraphStateProvider =
                 FlowGraphStateProvider.create(flowGraph, transferFunction);
-            ValueState transferState = transferFunction.apply(flowGraphStateProvider, state);
+            ValueState transferState =
+                transferFunction.apply(appView, flowGraphStateProvider, state);
             if (transferState.isBottom()) {
               // Nothing to propagate.
             } else if (transferState.isUnknown()) {

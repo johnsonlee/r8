@@ -3,8 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.google.common.collect.Lists;
 
 public class InstanceFieldReadAbstractFunction implements AbstractFunction {
@@ -19,7 +21,9 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
 
   @Override
   public ValueState apply(
-      FlowGraphStateProvider flowGraphStateProvider, ConcreteValueState predecessorState) {
+      AppView<AppInfoWithLiveness> appView,
+      FlowGraphStateProvider flowGraphStateProvider,
+      ConcreteValueState predecessorState) {
     ValueState state = flowGraphStateProvider.getState(receiver, () -> ValueState.bottom(field));
     if (state.isBottom()) {
       return ValueState.bottom(field);

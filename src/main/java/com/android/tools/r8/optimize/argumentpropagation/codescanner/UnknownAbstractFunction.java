@@ -4,6 +4,8 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
 public class UnknownAbstractFunction implements AbstractFunction {
 
@@ -16,7 +18,10 @@ public class UnknownAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public ValueState apply(FlowGraphStateProvider flowGraphStateProvider, ConcreteValueState state) {
+  public ValueState apply(
+      AppView<AppInfoWithLiveness> appView,
+      FlowGraphStateProvider flowGraphStateProvider,
+      ConcreteValueState inState) {
     return ValueState.unknown();
   }
 

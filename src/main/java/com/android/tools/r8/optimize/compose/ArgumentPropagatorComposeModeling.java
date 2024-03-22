@@ -13,6 +13,8 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 import com.android.tools.r8.ir.code.InstanceGet;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeMethod;
@@ -203,9 +205,11 @@ public class ArgumentPropagatorComposeModeling {
         argument = otherOperand;
         // Update the model from bottom to a special value that effectively throws away any known
         // information about the lowermost bit of $$changed.
+        SingleNumberValue one =
+            appView.abstractValueFactory().createSingleNumberValue(1, TypeElement.getInt());
         inFlow =
             new UpdateChangedFlagsAbstractFunction(
-                new OrAbstractFunction(new FieldValue(expectedField), 1));
+                new OrAbstractFunction(new FieldValue(expectedField), one));
       } else {
         inFlow = new UpdateChangedFlagsAbstractFunction(new FieldValue(expectedField));
       }

@@ -13,6 +13,7 @@ import com.android.tools.r8.dex.code.DexShlLong2Addr;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.arithmetic.AbstractCalculator;
 
 public class Shl extends LogicalBinop {
 
@@ -98,28 +99,7 @@ public class Shl extends LogicalBinop {
 
   @Override
   AbstractValue foldIntegers(AbstractValue left, AbstractValue right, AppView<?> appView) {
-    if (!right.isSingleNumberValue()) {
-      return AbstractValue.unknown();
-    }
-    int rightConst = right.asSingleNumberValue().getIntValue();
-    if (rightConst == 0) {
-      return left;
-    }
-    if (left.isSingleNumberValue()) {
-      int result = foldIntegers(left.asSingleNumberValue().getIntValue(), rightConst);
-      return appView.abstractValueFactory().createSingleNumberValue(result, getOutType());
-    }
-    if (left.hasDefinitelySetAndUnsetBitsInformation() && rightConst > 0) {
-      // Shift the known bits and add that we now know that the lowermost n bits are definitely
-      // unset. Note that when rightConst is 31, 1 << rightConst is Integer.MIN_VALUE. When
-      // subtracting 1 we overflow and get 0111...111, as desired.
-      return appView
-          .abstractValueFactory()
-          .createDefiniteBitsNumberValue(
-              foldIntegers(left.getDefinitelySetIntBits(), rightConst),
-              foldIntegers(left.getDefinitelyUnsetIntBits(), rightConst) | ((1 << rightConst) - 1));
-    }
-    return AbstractValue.unknown();
+    return AbstractCalculator.shlIntegers(left, right, appView);
   }
 
   @Override

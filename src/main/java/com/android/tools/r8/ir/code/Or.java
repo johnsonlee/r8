@@ -13,6 +13,7 @@ import com.android.tools.r8.dex.code.DexOrLong;
 import com.android.tools.r8.dex.code.DexOrLong2Addr;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.arithmetic.AbstractCalculator;
 import java.util.Set;
 
 public class Or extends LogicalBinop {
@@ -103,37 +104,7 @@ public class Or extends LogicalBinop {
 
   @Override
   AbstractValue foldIntegers(AbstractValue left, AbstractValue right, AppView<?> appView) {
-    if (left.isZero()) {
-      return right;
-    }
-    if (right.isZero()) {
-      return left;
-    }
-    if (left.isSingleNumberValue() && right.isSingleNumberValue()) {
-      int result =
-          foldIntegers(
-              left.asSingleNumberValue().getIntValue(), right.asSingleNumberValue().getIntValue());
-      return appView.abstractValueFactory().createSingleNumberValue(result, getOutType());
-    }
-    if (left.hasDefinitelySetAndUnsetBitsInformation()
-        && right.hasDefinitelySetAndUnsetBitsInformation()) {
-      return appView
-          .abstractValueFactory()
-          .createDefiniteBitsNumberValue(
-              foldIntegers(left.getDefinitelySetIntBits(), right.getDefinitelySetIntBits()),
-              left.getDefinitelyUnsetIntBits() & right.getDefinitelyUnsetIntBits());
-    }
-    if (left.hasDefinitelySetAndUnsetBitsInformation()) {
-      return appView
-          .abstractValueFactory()
-          .createDefiniteBitsNumberValue(left.getDefinitelySetIntBits(), 0);
-    }
-    if (right.hasDefinitelySetAndUnsetBitsInformation()) {
-      return appView
-          .abstractValueFactory()
-          .createDefiniteBitsNumberValue(right.getDefinitelySetIntBits(), 0);
-    }
-    return AbstractValue.unknown();
+    return AbstractCalculator.orIntegers(left, right, appView);
   }
 
   @Override
