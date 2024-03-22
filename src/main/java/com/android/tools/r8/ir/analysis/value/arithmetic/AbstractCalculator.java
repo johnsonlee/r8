@@ -10,7 +10,7 @@ import com.android.tools.r8.utils.BitUtils;
 public class AbstractCalculator {
 
   public static AbstractValue andIntegers(
-      AbstractValue left, AbstractValue right, AppView<?> appView) {
+      AppView<?> appView, AbstractValue left, AbstractValue right) {
     if (left.isZero()) {
       return left;
     }
@@ -44,7 +44,7 @@ public class AbstractCalculator {
   }
 
   public static AbstractValue orIntegers(
-      AbstractValue left, AbstractValue right, AppView<?> appView) {
+      AppView<?> appView, AbstractValue left, AbstractValue right) {
     if (left.isZero()) {
       return right;
     }
@@ -77,12 +77,26 @@ public class AbstractCalculator {
     return AbstractValue.unknown();
   }
 
+  public static AbstractValue orIntegers(
+      AppView<?> appView,
+      AbstractValue first,
+      AbstractValue second,
+      AbstractValue third,
+      AbstractValue fourth) {
+    return orIntegers(
+        appView, first, orIntegers(appView, second, orIntegers(appView, third, fourth)));
+  }
+
   public static AbstractValue shlIntegers(
-      AbstractValue left, AbstractValue right, AppView<?> appView) {
+      AppView<?> appView, AbstractValue left, AbstractValue right) {
     if (!right.isSingleNumberValue()) {
       return AbstractValue.unknown();
     }
     int rightConst = right.asSingleNumberValue().getIntValue();
+    return shlIntegers(appView, left, rightConst);
+  }
+
+  public static AbstractValue shlIntegers(AppView<?> appView, AbstractValue left, int rightConst) {
     if (rightConst == 0) {
       return left;
     }
@@ -104,11 +118,15 @@ public class AbstractCalculator {
   }
 
   public static AbstractValue shrIntegers(
-      AbstractValue left, AbstractValue right, AppView<?> appView) {
+      AppView<?> appView, AbstractValue left, AbstractValue right) {
     if (!right.isSingleNumberValue()) {
       return AbstractValue.unknown();
     }
     int rightConst = right.asSingleNumberValue().getIntValue();
+    return shrIntegers(appView, left, rightConst);
+  }
+
+  public static AbstractValue shrIntegers(AppView<?> appView, AbstractValue left, int rightConst) {
     if (rightConst == 0) {
       return left;
     }
@@ -127,7 +145,7 @@ public class AbstractCalculator {
   }
 
   public static AbstractValue ushrIntegers(
-      AbstractValue left, AbstractValue right, AppView<?> appView) {
+      AppView<?> appView, AbstractValue left, AbstractValue right) {
     if (!right.isSingleNumberValue()) {
       return AbstractValue.unknown();
     }
@@ -153,7 +171,7 @@ public class AbstractCalculator {
   }
 
   public static AbstractValue xorIntegers(
-      AbstractValue left, AbstractValue right, AppView<?> appView) {
+      AppView<?> appView, AbstractValue left, AbstractValue right) {
     if (left.isSingleNumberValue() && right.isSingleNumberValue()) {
       int result =
           left.asSingleNumberValue().getIntValue() ^ right.asSingleNumberValue().getIntValue();

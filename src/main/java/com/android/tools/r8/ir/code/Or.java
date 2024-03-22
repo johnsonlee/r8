@@ -104,7 +104,7 @@ public class Or extends LogicalBinop {
 
   @Override
   AbstractValue foldIntegers(AbstractValue left, AbstractValue right, AppView<?> appView) {
-    return AbstractCalculator.orIntegers(left, right, appView);
+    return AbstractCalculator.orIntegers(appView, left, right);
   }
 
   @Override

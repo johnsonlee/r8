@@ -99,7 +99,7 @@ public class Shr extends LogicalBinop {
 
   @Override
   AbstractValue foldIntegers(AbstractValue left, AbstractValue right, AppView<?> appView) {
-    return AbstractCalculator.shrIntegers(left, right, appView);
+    return AbstractCalculator.shrIntegers(appView, left, right);
   }
 
   @Override

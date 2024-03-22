@@ -105,7 +105,7 @@ public class And extends LogicalBinop {
 
   @Override
   AbstractValue foldIntegers(AbstractValue left, AbstractValue right, AppView<?> appView) {
-    return AbstractCalculator.andIntegers(left, right, appView);
+    return AbstractCalculator.andIntegers(appView, left, right);
   }
 
   @Override

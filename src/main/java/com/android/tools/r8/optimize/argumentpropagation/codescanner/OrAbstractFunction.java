@@ -33,7 +33,7 @@ public class OrAbstractFunction implements AbstractFunction {
       ConcreteValueState inState) {
     ConcretePrimitiveTypeValueState inPrimitiveState = inState.asPrimitiveState();
     AbstractValue result =
-        AbstractCalculator.orIntegers(inPrimitiveState.getAbstractValue(), constant, appView);
+        AbstractCalculator.orIntegers(appView, inPrimitiveState.getAbstractValue(), constant);
     return ConcretePrimitiveTypeValueState.create(result, inPrimitiveState.copyInFlow());
   }
 

@@ -99,7 +99,7 @@ public class Shl extends LogicalBinop {
 
   @Override
   AbstractValue foldIntegers(AbstractValue left, AbstractValue right, AppView<?> appView) {
-    return AbstractCalculator.shlIntegers(left, right, appView);
+    return AbstractCalculator.shlIntegers(appView, left, right);
   }
 
   @Override

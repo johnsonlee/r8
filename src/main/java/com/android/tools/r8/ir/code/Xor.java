@@ -99,7 +99,7 @@ public class Xor extends LogicalBinop {
 
   @Override
   AbstractValue foldIntegers(AbstractValue left, AbstractValue right, AppView<?> appView) {
-    return AbstractCalculator.xorIntegers(left, right, appView);
+    return AbstractCalculator.xorIntegers(appView, left, right);
   }
 
   @Override

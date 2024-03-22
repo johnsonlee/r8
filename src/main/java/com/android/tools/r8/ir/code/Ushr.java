@@ -99,7 +99,7 @@ public class Ushr extends LogicalBinop {
 
   @Override
   AbstractValue foldIntegers(AbstractValue left, AbstractValue right, AppView<?> appView) {
-    return AbstractCalculator.ushrIntegers(left, right, appView);
+    return AbstractCalculator.ushrIntegers(appView, left, right);
   }
 
   @Override
