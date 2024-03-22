@@ -17,7 +17,6 @@ import static org.junit.Assert.fail;
 import com.android.tools.r8.AssertionsConfiguration.AssertionTransformationScope;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.ToolHelper.ProcessResult;
-import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Tool;
@@ -32,7 +31,6 @@ import com.android.tools.r8.utils.InternalOptions.ApiModelTestingOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.ZipUtils;
 import com.google.common.collect.ImmutableList;
-import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -48,7 +46,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -79,21 +76,6 @@ public class R8CommandTest extends CommandTestBase<R8Command> {
     Path jar = temp.newFolder().toPath().resolve("out.jar");
     writeClassesToJar(jar, B.class);
     return jar;
-  }
-
-  private Path getTestResources() throws Exception {
-    return new AndroidTestResourceBuilder()
-        .withSimpleManifestAndAppNameString()
-        .build(temp)
-        .getResourceZip();
-  }
-
-  private Path getFeatureTestResources(TemporaryFolder temp) throws Exception {
-    return new AndroidTestResourceBuilder()
-        .withSimpleManifestAndAppNameString()
-        .setPackageId(0x7E)
-        .build(temp)
-        .getResourceZip();
   }
 
   @Test(expected = CompilationFailedException.class)
@@ -193,68 +175,6 @@ public class R8CommandTest extends CommandTestBase<R8Command> {
     assertEquals("R8 run failed: " + result.stderr, 0, result.exitCode);
     assertTrue(Files.exists(output));
     assertTrue(Files.exists(featureOutput));
-  }
-
-  @Test
-  public void passAndroidResources() throws Throwable {
-    Path working = temp.getRoot().toPath();
-    Path input = getJarWithA();
-    Path library = ToolHelper.getDefaultAndroidJar();
-    Path output = working.resolve("classes.dex");
-    Path resourceInput = getTestResources();
-    Path resourceOutput = working.resolve("resources_out.ap_");
-    assertFalse(Files.exists(output));
-    assertFalse(Files.exists(resourceOutput));
-    ProcessResult result =
-        ToolHelper.forkR8(
-            working,
-            input.toAbsolutePath().toString(),
-            "--lib",
-            library.toAbsolutePath().toString(),
-            "--android-resources",
-            resourceInput.toAbsolutePath().toString(),
-            resourceOutput.toAbsolutePath().toString(),
-            "--no-tree-shaking");
-    assertEquals("R8 run failed: " + result.stderr, 0, result.exitCode);
-    assertTrue(Files.exists(output));
-    System.out.println(result.stdout);
-    assertTrue(Files.exists(resourceOutput));
-  }
-
-  @Test
-  public void passFeatureResources() throws Throwable {
-    Path working = temp.getRoot().toPath();
-    Path input = getJarWithA();
-    Path inputFeature = getJarWithB();
-    Path library = ToolHelper.getDefaultAndroidJar();
-    Path output = working.resolve("classes.dex");
-    Path featureOutput = working.resolve("feature.zip");
-    Path resourceInput = getTestResources();
-    Path resourceOutput = working.resolve("resources_out.ap_");
-    TemporaryFolder featureSplitTemp = ToolHelper.getTemporaryFolderForTest();
-    featureSplitTemp.create();
-    Path featureReasourceInput = getFeatureTestResources(featureSplitTemp);
-    Path featureResourceOutput = working.resolve("feature_resources_out.ap_");
-    assertFalse(Files.exists(output));
-    assertFalse(Files.exists(featureOutput));
-    String pathSeparator = File.pathSeparator;
-    ProcessResult result =
-        ToolHelper.forkR8(
-            working,
-            input.toAbsolutePath().toString(),
-            "--lib",
-            library.toAbsolutePath().toString(),
-            "--android-resources",
-            resourceInput.toAbsolutePath().toString(),
-            resourceOutput.toAbsolutePath().toString(),
-            "--feature",
-            inputFeature.toAbsolutePath() + pathSeparator + featureReasourceInput.toAbsolutePath(),
-            featureOutput.toAbsolutePath() + pathSeparator + featureResourceOutput.toAbsolutePath(),
-            "--no-tree-shaking");
-    assertEquals("R8 run failed: " + result.stderr, 0, result.exitCode);
-    assertTrue(Files.exists(output));
-    assertTrue(Files.exists(featureOutput));
-    assertTrue(Files.exists(resourceOutput));
   }
 
   @Test
