@@ -542,7 +542,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   public ComposeReferences getComposeReferences() {
-    assert testing().modelUnknownChangedAndDefaultArgumentsToComposableFunctions;
+    assert testing().modelChangedArgumentsToComposableFunctions;
     if (composeReferences == null) {
       composeReferences = new ComposeReferences(dexItemFactory());
     }

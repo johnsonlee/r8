@@ -41,7 +41,7 @@ public class ComposableOptimizationPass {
     }
     TestingOptions testingOptions = options.getTestingOptions();
     if (!testingOptions.enableComposableOptimizationPass
-        || !testingOptions.modelUnknownChangedAndDefaultArgumentsToComposableFunctions) {
+        || !testingOptions.modelChangedArgumentsToComposableFunctions) {
       return;
     }
     timing.time(

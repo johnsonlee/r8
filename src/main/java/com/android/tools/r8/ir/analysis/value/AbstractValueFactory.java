@@ -86,7 +86,7 @@ public class AbstractValueFactory {
       // Account for the temporary hack in the Compose modeling where we create a
       // DefiniteBitsNumberValue with set bits=0b1^32 and unset bits = 0b1^(31)0. This value is used
       // to simulate the effect of `x | 1` in joins.
-      if (testingOptions.modelUnknownChangedAndDefaultArgumentsToComposableFunctions) {
+      if (testingOptions.modelChangedArgumentsToComposableFunctions) {
         boolean overlappingSetAndUnsetBits = (definitelySetBits & definitelyUnsetBits) != 0;
         if (overlappingSetAndUnsetBits) {
           allBitsSet = false;
@@ -95,7 +95,7 @@ public class AbstractValueFactory {
       if (allBitsSet) {
         return createUncheckedSingleNumberValue(definitelySetBits);
       }
-      return new DefiniteBitsNumberValue(definitelySetBits, definitelyUnsetBits, testingOptions);
+      return new DefiniteBitsNumberValue(definitelySetBits, definitelyUnsetBits);
     }
     return AbstractValue.unknown();
   }

@@ -38,7 +38,7 @@ public class ArgumentPropagatorComposeModeling {
   private final DexString invokeName;
 
   public ArgumentPropagatorComposeModeling(AppView<AppInfoWithLiveness> appView) {
-    assert appView.testing().modelUnknownChangedAndDefaultArgumentsToComposableFunctions;
+    assert appView.testing().modelChangedArgumentsToComposableFunctions;
     this.appView = appView;
     this.rewrittenComposeReferences =
         appView
@@ -145,92 +145,83 @@ public class ArgumentPropagatorComposeModeling {
       return null;
     }
 
-    // We only model the two last arguments ($$changed and $$default) to the @Composable function.
-    // If this argument is not on of these two int arguments, then don't apply any modeling.
-    if (argumentIndex <= composerParameterIndex) {
+    // We only model the $$changed argument to the @Composable function.
+    if (argumentIndex != composerParameterIndex + 1) {
       return null;
     }
 
     assert argument.getType().isInt();
 
-    DexString expectedFieldName =
-        !hasDefaultParameter || argumentIndex == invokedMethod.getArity() - 2
-            ? rewrittenComposeReferences.changedFieldName
-            : rewrittenComposeReferences.defaultFieldName;
-    DexField expectedField =
+    DexField changedField =
         appView
             .dexItemFactory()
             .createField(
-                context.getHolderType(), appView.dexItemFactory().intType, expectedFieldName);
+                context.getHolderType(),
+                appView.dexItemFactory().intType,
+                rewrittenComposeReferences.changedFieldName);
 
     UpdateChangedFlagsAbstractFunction inFlow = null;
-    if (expectedFieldName.isIdenticalTo(rewrittenComposeReferences.changedFieldName)) {
-      // We are looking at an argument to the $$changed parameter of the @Composable function.
-      // We generally expect this argument to be defined by a call to updateChangedFlags().
-      if (argument.isDefinedByInstructionSatisfying(Instruction::isInvokeStatic)) {
-        InvokeStatic invokeStatic = argument.getDefinition().asInvokeStatic();
-        SingleResolutionResult<?> resolutionResult =
-            invokeStatic.resolveMethod(appView, context).asSingleResolution();
-        if (resolutionResult == null) {
-          return null;
-        }
-        DexClassAndMethod invokeSingleTarget =
-            resolutionResult
-                .lookupDispatchTarget(appView, invokeStatic, context)
-                .getSingleDispatchTarget();
-        if (invokeSingleTarget == null) {
-          return null;
-        }
-        inFlow =
-            invokeSingleTarget
-                .getOptimizationInfo()
-                .getAbstractFunction()
-                .asUpdateChangedFlagsAbstractFunction();
-        if (inFlow == null) {
-          return null;
-        }
-        // By accounting for the abstract function we can safely strip the call.
-        argument = invokeStatic.getFirstArgument();
+    // We are looking at an argument to the $$changed parameter of the @Composable function.
+    // We generally expect this argument to be defined by a call to updateChangedFlags().
+    if (argument.isDefinedByInstructionSatisfying(Instruction::isInvokeStatic)) {
+      InvokeStatic invokeStatic = argument.getDefinition().asInvokeStatic();
+      SingleResolutionResult<?> resolutionResult =
+          invokeStatic.resolveMethod(appView, context).asSingleResolution();
+      if (resolutionResult == null) {
+        return null;
       }
-      // Allow the argument to be defined by `this.$$changed | 1`.
-      if (argument.isDefinedByInstructionSatisfying(Instruction::isOr)) {
-        Or or = argument.getDefinition().asOr();
-        Value maybeNumberOperand =
-            or.leftValue().isConstNumber() ? or.leftValue() : or.rightValue();
-        Value otherOperand = or.getOperand(1 - or.inValues().indexOf(maybeNumberOperand));
-        if (!maybeNumberOperand.isConstNumber(1)) {
-          return null;
-        }
-        // Strip the OR instruction.
-        argument = otherOperand;
-        // Update the model from bottom to a special value that effectively throws away any known
-        // information about the lowermost bit of $$changed.
-        SingleNumberValue one =
-            appView.abstractValueFactory().createSingleNumberValue(1, TypeElement.getInt());
-        inFlow =
-            new UpdateChangedFlagsAbstractFunction(
-                new OrAbstractFunction(new FieldValue(expectedField), one));
-      } else {
-        inFlow = new UpdateChangedFlagsAbstractFunction(new FieldValue(expectedField));
+      DexClassAndMethod invokeSingleTarget =
+          resolutionResult
+              .lookupDispatchTarget(appView, invokeStatic, context)
+              .getSingleDispatchTarget();
+      if (invokeSingleTarget == null) {
+        return null;
       }
+      inFlow =
+          invokeSingleTarget
+              .getOptimizationInfo()
+              .getAbstractFunction()
+              .asUpdateChangedFlagsAbstractFunction();
+      if (inFlow == null) {
+        return null;
+      }
+      // By accounting for the abstract function we can safely strip the call.
+      argument = invokeStatic.getFirstArgument();
+    }
+    // Allow the argument to be defined by `this.$$changed | 1`.
+    if (argument.isDefinedByInstructionSatisfying(Instruction::isOr)) {
+      Or or = argument.getDefinition().asOr();
+      Value maybeNumberOperand = or.leftValue().isConstNumber() ? or.leftValue() : or.rightValue();
+      Value otherOperand = or.getOperand(1 - or.inValues().indexOf(maybeNumberOperand));
+      if (!maybeNumberOperand.isConstNumber(1)) {
+        return null;
+      }
+      // Strip the OR instruction.
+      argument = otherOperand;
+      // Update the model from bottom to a special value that effectively throws away any known
+      // information about the lowermost bit of $$changed.
+      SingleNumberValue one =
+          appView.abstractValueFactory().createSingleNumberValue(1, TypeElement.getInt());
+      inFlow =
+          new UpdateChangedFlagsAbstractFunction(
+              new OrAbstractFunction(new FieldValue(changedField), one));
+    } else {
+      inFlow = new UpdateChangedFlagsAbstractFunction(new FieldValue(changedField));
     }
 
-    // At this point we expect that the restart lambda is reading either this.$$changed or
-    // this.$$default using an instance-get.
+    // At this point we expect that the restart lambda is reading this.$$changed using an
+    // instance-get.
     if (!argument.isDefinedByInstructionSatisfying(Instruction::isInstanceGet)) {
       return null;
     }
 
     // Check that the instance-get is reading the capture field that we expect it to.
     InstanceGet instanceGet = argument.getDefinition().asInstanceGet();
-    if (!instanceGet.getField().isIdenticalTo(expectedField)) {
+    if (!instanceGet.getField().isIdenticalTo(changedField)) {
       return null;
     }
 
-    // Return the argument model. Note that, for the $$default field, this is always bottom, which
-    // is equivalent to modeling that this call does not contribute any new argument information.
-    return inFlow != null
-        ? new ConcretePrimitiveTypeValueState(inFlow)
-        : ValueState.bottomPrimitiveTypeParameter();
+    // Return the argument model.
+    return new ConcretePrimitiveTypeValueState(inFlow);
   }
 }

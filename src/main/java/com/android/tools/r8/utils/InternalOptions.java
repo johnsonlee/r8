@@ -2392,10 +2392,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableComposableOptimizationPass =
         SystemPropertyUtils.parseSystemPropertyForDevelopmentOrDefault(
             "com.android.tools.r8.enableComposableOptimizationPass", false);
-    public boolean modelUnknownChangedAndDefaultArgumentsToComposableFunctions =
+    public boolean modelChangedArgumentsToComposableFunctions =
         SystemPropertyUtils.parseSystemPropertyForDevelopmentOrDefault(
-            "com.android.tools.r8.modelUnknownChangedAndDefaultArgumentsToComposableFunctions",
-            false);
+            "com.android.tools.r8.modelChangedArgumentsToComposableFunctions", false);
 
     // Flag to allow processing of resources in D8. A data resource consumer still needs to be
     // specified.

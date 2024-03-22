@@ -12,7 +12,6 @@ import com.android.tools.r8.graph.lens.GraphLens;
 public class ComposeReferences {
 
   public final DexString changedFieldName;
-  public final DexString defaultFieldName;
 
   public final DexType composableType;
   public final DexType composerType;
@@ -21,7 +20,6 @@ public class ComposeReferences {
 
   public ComposeReferences(DexItemFactory factory) {
     changedFieldName = factory.createString("$$changed");
-    defaultFieldName = factory.createString("$$default");
 
     composableType = factory.createType("Landroidx/compose/runtime/Composable;");
     composerType = factory.createType("Landroidx/compose/runtime/Composer;");
@@ -35,12 +33,10 @@ public class ComposeReferences {
 
   public ComposeReferences(
       DexString changedFieldName,
-      DexString defaultFieldName,
       DexType composableType,
       DexType composerType,
       DexMethod updatedChangedFlagsMethod) {
     this.changedFieldName = changedFieldName;
-    this.defaultFieldName = defaultFieldName;
     this.composableType = composableType;
     this.composerType = composerType;
     this.updatedChangedFlagsMethod = updatedChangedFlagsMethod;
@@ -49,7 +45,6 @@ public class ComposeReferences {
   public ComposeReferences rewrittenWithLens(GraphLens graphLens, GraphLens codeLens) {
     return new ComposeReferences(
         changedFieldName,
-        defaultFieldName,
         graphLens.lookupClassType(composableType, codeLens),
         graphLens.lookupClassType(composerType, codeLens),
         graphLens.getRenamedMethodSignature(updatedChangedFlagsMethod, codeLens));

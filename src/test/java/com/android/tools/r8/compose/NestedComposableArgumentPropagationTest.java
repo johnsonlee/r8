@@ -117,7 +117,7 @@ public class NestedComposableArgumentPropagationTest extends TestBase {
                 options -> {
                   options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces();
                   options.testing.enableComposableOptimizationPass = enableComposeOptimizations;
-                  options.testing.modelUnknownChangedAndDefaultArgumentsToComposableFunctions =
+                  options.testing.modelChangedArgumentsToComposableFunctions =
                       enableComposeOptimizations;
                 })
             .setMinApi(AndroidApiLevel.N)

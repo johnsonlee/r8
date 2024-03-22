@@ -334,7 +334,7 @@ public class AnnotationRemover {
       AnnotatedKind kind,
       Mode mode,
       InternalOptions options) {
-    return options.testing.modelUnknownChangedAndDefaultArgumentsToComposableFunctions
+    return options.testing.modelChangedArgumentsToComposableFunctions
         && mode.isInitialTreeShaking()
         && kind.isMethod()
         && annotation
