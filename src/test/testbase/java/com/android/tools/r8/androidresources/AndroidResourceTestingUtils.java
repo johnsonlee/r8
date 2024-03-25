@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -41,6 +42,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import org.junit.Assert;
 import org.junit.rules.TemporaryFolder;
 
@@ -101,6 +104,20 @@ public class AndroidResourceTestingUtils {
   private static boolean isInnerRClass(String name) {
     int dollarIndex = name.lastIndexOf("$");
     return dollarIndex > 0 && name.charAt(dollarIndex - 1) == 'R';
+  }
+
+  public static void writePrecompiledManifestAndResourcePB(Path resourceOutput) {
+    try (ZipOutputStream out =
+        new ZipOutputStream(
+            Files.newOutputStream(
+                resourceOutput, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
+      ZipUtils.writeToZipStream(
+          out, "AndroidManifest.xml", CompiledProto.SIMPLE_MANIFEST, ZipEntry.STORED);
+      ZipUtils.writeToZipStream(
+          out, "resources.pb", CompiledProto.SIMPLE_RESOURCE_TABLE, ZipEntry.STORED);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public static String SIMPLE_MANIFEST_WITH_APP_NAME =
