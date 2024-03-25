@@ -385,7 +385,7 @@ public class AndroidResourceTestingUtils {
       return this;
     }
 
-    AndroidTestResourceBuilder setPackageId(int packageId) {
+    public AndroidTestResourceBuilder setPackageId(int packageId) {
       this.packageId = packageId;
       return this;
     }
