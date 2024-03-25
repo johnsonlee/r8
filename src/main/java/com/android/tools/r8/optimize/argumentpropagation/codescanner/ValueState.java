@@ -21,28 +21,28 @@ public abstract class ValueState {
   public static BottomValueState bottom(DexField field) {
     DexType fieldType = field.getType();
     if (fieldType.isArrayType()) {
-      return bottomArrayTypeParameter();
+      return bottomArrayTypeState();
     } else if (fieldType.isClassType()) {
-      return bottomClassTypeParameter();
+      return bottomClassTypeState();
     } else {
       assert fieldType.isPrimitiveType();
-      return bottomPrimitiveTypeParameter();
+      return bottomPrimitiveTypeState();
     }
   }
 
-  public static BottomValueState bottomArrayTypeParameter() {
+  public static BottomArrayTypeValueState bottomArrayTypeState() {
     return BottomArrayTypeValueState.get();
   }
 
-  public static BottomValueState bottomClassTypeParameter() {
+  public static BottomClassTypeValueState bottomClassTypeState() {
     return BottomClassTypeValueState.get();
   }
 
-  public static BottomValueState bottomPrimitiveTypeParameter() {
+  public static BottomPrimitiveTypeValueState bottomPrimitiveTypeState() {
     return BottomPrimitiveTypeValueState.get();
   }
 
-  public static BottomValueState bottomReceiverParameter() {
+  public static BottomReceiverValueState bottomReceiverParameter() {
     return BottomReceiverValueState.get();
   }
 

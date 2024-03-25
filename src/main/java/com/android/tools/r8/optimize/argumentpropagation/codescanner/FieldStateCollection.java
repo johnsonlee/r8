@@ -88,7 +88,20 @@ public class FieldStateCollection {
     return fieldState != null ? fieldState : ValueState.bottom(field);
   }
 
-  public void set(ProgramField field, NonEmptyValueState state) {
-    fieldStates.put(field, state);
+  public ValueState remove(ProgramField field) {
+    ValueState removed = fieldStates.remove(field);
+    return removed != null ? removed : ValueState.bottom(field);
+  }
+
+  public ValueState set(ProgramField field, ValueState state) {
+    if (state.isNonEmpty()) {
+      return set(field, state.asNonEmpty());
+    }
+    return remove(field);
+  }
+
+  public ValueState set(ProgramField field, NonEmptyValueState state) {
+    NonEmptyValueState previous = fieldStates.put(field, state);
+    return previous != null ? previous : ValueState.bottom(field);
   }
 }

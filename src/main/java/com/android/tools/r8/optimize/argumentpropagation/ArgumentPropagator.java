@@ -194,7 +194,7 @@ public class ArgumentPropagator {
 
     // Find all the code objects that need reprocessing.
     new ArgumentPropagatorMethodReprocessingEnqueuer(appView, reprocessingCriteriaCollection)
-        .enqueueMethodForReprocessing(
+        .enqueueAndPrepareMethodsForReprocessing(
             graphLens, postMethodProcessorBuilder, executorService, timing);
     reprocessingCriteriaCollection = null;
 
@@ -245,7 +245,7 @@ public class ArgumentPropagator {
         .propagateOptimizationInfo(executorService, timing);
     // TODO(b/296030319): Also publish the computed optimization information for fields.
     new ArgumentPropagatorOptimizationInfoPopulator(
-            appView, converter, methodStates, postMethodProcessorBuilder)
+            appView, converter, fieldStates, methodStates, postMethodProcessorBuilder)
         .populateOptimizationInfo(executorService, timing);
     timing.end();
 

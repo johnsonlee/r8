@@ -51,7 +51,16 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
     }
   }
 
-  public abstract ValueState clearInFlow();
+  public ValueState clearInFlow() {
+    if (hasInFlow()) {
+      internalClearInFlow();
+      if (isEffectivelyBottom()) {
+        return getCorrespondingBottom();
+      }
+    }
+    assert !isEffectivelyBottom();
+    return this;
+  }
 
   void internalClearInFlow() {
     inFlow = Collections.emptySet();
@@ -73,6 +82,8 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
     assert inFlow.isEmpty() || inFlow instanceof HashSet<?>;
     return inFlow;
   }
+
+  public abstract BottomValueState getCorrespondingBottom();
 
   public abstract ConcreteParameterStateKind getKind();
 

@@ -5,18 +5,32 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.Nullability;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramFieldSet;
 import com.google.common.collect.Lists;
 import java.util.ArrayDeque;
@@ -34,10 +48,15 @@ import java.util.function.Consumer;
 public class DefaultFieldValueJoiner {
 
   private final AppView<AppInfoWithLiveness> appView;
+  private final FieldStateCollection fieldStates;
   private final List<FlowGraph> flowGraphs;
 
-  public DefaultFieldValueJoiner(AppView<AppInfoWithLiveness> appView, List<FlowGraph> flowGraphs) {
+  public DefaultFieldValueJoiner(
+      AppView<AppInfoWithLiveness> appView,
+      FieldStateCollection fieldStates,
+      List<FlowGraph> flowGraphs) {
     this.appView = appView;
+    this.fieldStates = fieldStates;
     this.flowGraphs = flowGraphs;
   }
 
@@ -53,7 +72,7 @@ public class DefaultFieldValueJoiner {
     Map<DexProgramClass, List<ProgramField>> nonFinalInstanceFields =
         removeFieldsNotSubjectToInitializerAnalysis(fieldsOfInterest);
     ProgramFieldSet fieldsWithLiveDefaultValue = ProgramFieldSet.createConcurrent();
-    analyzeInstanceInitializers(fieldsOfInterest, fieldsWithLiveDefaultValue::add, executorService);
+    analyzeInitializers(fieldsOfInterest, fieldsWithLiveDefaultValue::add, executorService);
 
     // For non-final fields where writes in instance initializers may have been subject to
     // constructor inlining, we find all new-instance instructions (including subtype allocations)
@@ -65,13 +84,22 @@ public class DefaultFieldValueJoiner {
 
   private Map<DexProgramClass, List<ProgramField>> getFieldsOfInterest() {
     Map<DexProgramClass, List<ProgramField>> fieldsOfInterest = new IdentityHashMap<>();
-    for (FlowGraph flowGraph : flowGraphs) {
-      // TODO(b/296030319): We only need to include the fields where including the default value
-      //  would make a difference. Then we can assert below in updateFlowGraphs() that adding the
-      //  default value changes the field state.
-      flowGraph.forEachFieldNode(
-          node -> {
-            ProgramField field = node.getField();
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      clazz.forEachProgramField(
+          field -> {
+            // We only need to include the fields where including the default value would make a
+            // difference. Then we can assert below in updateFlowGraphs() that adding the default
+            // value
+            // changes the field state.
+            // TODO(b/296030319): Implement this for primitive fields.
+            ValueState state = fieldStates.get(field);
+            if (state.isUnknown()) {
+              return;
+            }
+            if (state.isReferenceState()
+                && state.asReferenceState().getNullability().isNullable()) {
+              return;
+            }
             fieldsOfInterest
                 .computeIfAbsent(field.getHolder(), ignoreKey(ArrayList::new))
                 .add(field);
@@ -108,7 +136,7 @@ public class DefaultFieldValueJoiner {
     return nonFinalInstanceFields;
   }
 
-  private void analyzeInstanceInitializers(
+  private void analyzeInitializers(
       Map<DexProgramClass, List<ProgramField>> fieldsOfInterest,
       Consumer<ProgramField> concurrentLiveDefaultValueConsumer,
       ExecutorService executorService)
@@ -201,9 +229,10 @@ public class DefaultFieldValueJoiner {
               flowGraph.forEachFieldNode(
                   node -> {
                     ProgramField field = node.getField();
-                    if (fieldsWithLiveDefaultValue.contains(field)) {
-                      node.addDefaultValue(
+                    if (fieldsWithLiveDefaultValue.remove(field)) {
+                      node.addState(
                           appView,
+                          getDefaultValueState(field),
                           () -> {
                             if (node.isUnknown()) {
                               node.clearPredecessors();
@@ -217,7 +246,48 @@ public class DefaultFieldValueJoiner {
             pair -> !pair.getSecond().isEmpty(),
             appView.options().getThreadingModule(),
             executorService);
+    // Unseen fields are not added to any flow graphs, since they are not needed for flow
+    // propagation. Update these fields directly in the field state collection.
+    for (ProgramField field : fieldsWithLiveDefaultValue) {
+      fieldStates.addTemporaryFieldState(
+          appView, field, () -> getDefaultValueState(field), Timing.empty());
+    }
     return MapUtils.newIdentityHashMap(
         builder -> worklists.forEach(pair -> builder.put(pair.getFirst(), pair.getSecond())));
+  }
+
+  private ConcreteValueState getDefaultValueState(ProgramField field) {
+    AbstractValueFactory abstractValueFactory = appView.abstractValueFactory();
+    AbstractValue defaultValue;
+    if (field.getAccessFlags().isStatic() && field.getDefinition().hasExplicitStaticValue()) {
+      defaultValue = field.getDefinition().getStaticValue().toAbstractValue(abstractValueFactory);
+    } else if (field.getType().isPrimitiveType()) {
+      defaultValue = abstractValueFactory.createZeroValue();
+    } else {
+      defaultValue = abstractValueFactory.createUncheckedNullValue();
+    }
+    NonEmptyValueState fieldStateToAdd;
+    if (field.getType().isArrayType()) {
+      Nullability defaultNullability = Nullability.definitelyNull();
+      fieldStateToAdd = ConcreteArrayTypeValueState.create(defaultNullability);
+    } else if (field.getType().isClassType()) {
+      assert defaultValue.isNull()
+          || defaultValue.isSingleStringValue()
+          || defaultValue.isSingleDexItemBasedStringValue();
+      DynamicType dynamicType =
+          defaultValue.isNull()
+              ? DynamicType.definitelyNull()
+              : DynamicType.createExact(
+                  TypeElement.stringClassType(appView, Nullability.definitelyNotNull()));
+      fieldStateToAdd = ConcreteClassTypeValueState.create(defaultValue, dynamicType);
+    } else {
+      assert field.getType().isPrimitiveType();
+      fieldStateToAdd = ConcretePrimitiveTypeValueState.create(defaultValue);
+    }
+    // We should always be able to map static field values to an unknown abstract value.
+    if (fieldStateToAdd.isUnknown()) {
+      throw new Unreachable();
+    }
+    return fieldStateToAdd.asConcrete();
   }
 }

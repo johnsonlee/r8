@@ -31,20 +31,13 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
   }
 
   @Override
-  public ValueState clearInFlow() {
-    if (hasInFlow()) {
-      if (dynamicType.isBottom()) {
-        return bottomReceiverParameter();
-      }
-      internalClearInFlow();
-    }
-    assert !isEffectivelyBottom();
-    return this;
+  public AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
+    return AbstractValue.unknown();
   }
 
   @Override
-  public AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
-    return AbstractValue.unknown();
+  public BottomValueState getCorrespondingBottom() {
+    return bottomReceiverParameter();
   }
 
   @Override

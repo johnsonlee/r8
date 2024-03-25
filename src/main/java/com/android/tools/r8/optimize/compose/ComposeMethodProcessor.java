@@ -93,7 +93,7 @@ public class ComposeMethodProcessor extends MethodProcessor {
     inFlowPropagator.run(executorService);
 
     ArgumentPropagatorOptimizationInfoPopulator optimizationInfoPopulator =
-        new ArgumentPropagatorOptimizationInfoPopulator(appView, null, null, null);
+        new ArgumentPropagatorOptimizationInfoPopulator(appView, null, null, null, null);
     Set<ComposableCallGraphNode> optimizedComposableFunctions = Sets.newIdentityHashSet();
     wave.forEach(
         node ->

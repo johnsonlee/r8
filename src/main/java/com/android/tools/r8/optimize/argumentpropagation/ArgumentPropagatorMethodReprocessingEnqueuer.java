@@ -5,6 +5,7 @@
 package com.android.tools.r8.optimize.argumentpropagation;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DefaultUseRegistryWithResult;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -14,17 +15,31 @@ import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.BasicBlockIterator;
+import com.android.tools.r8.ir.code.FieldInstruction;
+import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
+import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
+import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.optimize.argumentpropagation.reprocessingcriteria.ArgumentPropagatorReprocessingCriteriaCollection;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
+import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -45,7 +60,7 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
    * Called indirectly from {@link IRConverter} to add all methods that require reprocessing to
    * {@param postMethodProcessorBuilder}.
    */
-  public void enqueueMethodForReprocessing(
+  public void enqueueAndPrepareMethodsForReprocessing(
       ArgumentPropagatorGraphLens graphLens,
       PostMethodProcessor.Builder postMethodProcessorBuilder,
       ExecutorService executorService,
@@ -67,6 +82,10 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
     if (graphLens != null) {
       enqueueAffectedCallers(graphLens, postMethodProcessorBuilder, executorService);
     }
+    timing.end();
+
+    timing.begin("Eliminate dead field accesses");
+    eliminateDeadFieldAccesses(executorService);
     timing.end();
 
     timing.end();
@@ -142,6 +161,77 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
     methodsToReprocess.forEach(
         methodsToReprocessInClass ->
             postMethodProcessorBuilder.addAll(methodsToReprocessInClass, currentGraphLens));
+  }
+
+  private void eliminateDeadFieldAccesses(ExecutorService executorService)
+      throws ExecutionException {
+    ThreadUtils.processItems(
+        appView.appInfo().classes(),
+        clazz -> {
+          clazz.forEachProgramMethodMatching(
+              m -> m.hasCode() && !m.getCode().isSharedCodeObject(),
+              this::eliminateDeadFieldAccesses);
+        },
+        appView.options().getThreadingModule(),
+        executorService);
+  }
+
+  private void eliminateDeadFieldAccesses(ProgramMethod method) {
+    Code code = method.getDefinition().getCode();
+    if (!code.isLirCode()) {
+      assert appView.isCfByteCodePassThrough(method.getDefinition());
+      return;
+    }
+    LirCode<Integer> lirCode = code.asLirCode();
+    LirCode<Integer> rewrittenLirCode = eliminateDeadFieldAccesses(method, lirCode);
+    if (ObjectUtils.notIdentical(lirCode, rewrittenLirCode)) {
+      method.setCode(rewrittenLirCode, appView);
+    }
+  }
+
+  private LirCode<Integer> eliminateDeadFieldAccesses(
+      ProgramMethod method, LirCode<Integer> lirCode) {
+    if (ArrayUtils.none(
+        lirCode.getConstantPool(), constant -> isDeadFieldAccess(constant, method))) {
+      return lirCode;
+    }
+    IRCode irCode = lirCode.buildIR(method, appView);
+    AffectedValues affectedValues = new AffectedValues();
+    BasicBlockIterator blocks = irCode.listIterator();
+    Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
+    while (blocks.hasNext()) {
+      BasicBlock block = blocks.next();
+      if (blocksToRemove.contains(block)) {
+        continue;
+      }
+      InstructionListIterator instructionIterator = block.listIterator(irCode);
+      while (instructionIterator.hasNext()) {
+        FieldInstruction fieldInstruction = instructionIterator.next().asFieldInstruction();
+        if (fieldInstruction == null || !isDeadFieldAccess(fieldInstruction.getField(), method)) {
+          continue;
+        }
+        instructionIterator.replaceCurrentInstructionWithThrowNull(
+            appView, irCode, blocks, blocksToRemove, affectedValues);
+      }
+    }
+    irCode.removeBlocks(blocksToRemove);
+    affectedValues.narrowingWithAssumeRemoval(appView, irCode);
+    irCode.removeRedundantBlocks();
+    return new IRToLirFinalizer(appView)
+        .finalizeCode(irCode, BytecodeMetadataProvider.empty(), Timing.empty());
+  }
+
+  private boolean isDeadFieldAccess(LirConstant constant, ProgramMethod context) {
+    if (!(constant instanceof DexField)) {
+      return false;
+    }
+    DexField fieldReference = (DexField) constant;
+    return isDeadFieldAccess(fieldReference, context);
+  }
+
+  private boolean isDeadFieldAccess(DexField fieldReference, ProgramMethod context) {
+    ProgramField field = appView.appInfo().resolveField(fieldReference, context).getProgramField();
+    return field != null && field.getOptimizationInfo().isDead();
   }
 
   static class AffectedMethodUseRegistry

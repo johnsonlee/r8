@@ -98,9 +98,13 @@ public class FlowGraphBuilder {
       }
     }
 
-    if (!node.getState().isUnknown()) {
-      assert node.getState() == concreteFieldState;
-      node.setState(concreteFieldState.clearInFlow());
+    ValueState concreteFieldStateOrBottom = concreteFieldState.clearInFlow();
+    if (concreteFieldStateOrBottom.isBottom()) {
+      fieldStates.remove(field);
+      if (!node.getState().isUnknown()) {
+        assert node.getState() == concreteFieldState;
+        node.setState(concreteFieldStateOrBottom);
+      }
     }
   }
 

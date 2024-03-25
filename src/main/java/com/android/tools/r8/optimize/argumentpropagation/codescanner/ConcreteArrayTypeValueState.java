@@ -40,18 +40,6 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   @Override
-  public ValueState clearInFlow() {
-    if (hasInFlow()) {
-      if (nullability.isBottom()) {
-        return bottomArrayTypeParameter();
-      }
-      internalClearInFlow();
-    }
-    assert !isEffectivelyBottom();
-    return this;
-  }
-
-  @Override
   public AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
     if (getNullability().isDefinitelyNull()) {
       return appView.abstractValueFactory().createUncheckedNullValue();
@@ -62,6 +50,11 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
   @Override
   public DynamicType getDynamicType() {
     return DynamicType.unknown();
+  }
+
+  @Override
+  public BottomValueState getCorrespondingBottom() {
+    return bottomArrayTypeState();
   }
 
   @Override

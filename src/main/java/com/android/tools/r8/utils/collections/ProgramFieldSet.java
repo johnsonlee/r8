@@ -88,6 +88,10 @@ public class ProgramFieldSet implements Iterable<ProgramField> {
     return remove(field.getReference());
   }
 
+  public boolean remove(ProgramField field) {
+    return remove(field.getReference());
+  }
+
   public boolean removeIf(Predicate<? super ProgramField> predicate) {
     return backing.values().removeIf(predicate);
   }

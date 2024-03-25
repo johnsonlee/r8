@@ -46,25 +46,17 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   @Override
-  public ValueState clearInFlow() {
-    if (hasInFlow()) {
-      if (abstractValue.isBottom()) {
-        assert dynamicType.isBottom();
-        return bottomClassTypeParameter();
-      }
-      internalClearInFlow();
-    }
-    assert !isEffectivelyBottom();
-    return this;
-  }
-
-  @Override
   public AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
     if (getNullability().isDefinitelyNull()) {
       assert abstractValue.isNull() || abstractValue.isUnknown();
       return appView.abstractValueFactory().createUncheckedNullValue();
     }
     return abstractValue;
+  }
+
+  @Override
+  public BottomValueState getCorrespondingBottom() {
+    return bottomClassTypeState();
   }
 
   @Override

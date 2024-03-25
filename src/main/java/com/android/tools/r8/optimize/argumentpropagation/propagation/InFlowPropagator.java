@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
@@ -20,6 +21,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
@@ -57,8 +59,9 @@ public class InFlowPropagator {
     // perform this analysis after having computed the initial fixpoint(s). The hypothesis is that
     // many fields will have reached the unknown state after the initial fixpoint, meaning there is
     // fewer fields to analyze.
+    updateFieldStates(fieldStates, flowGraphs);
     Map<FlowGraph, Deque<FlowGraphNode>> worklists =
-        includeDefaultValuesInFieldStates(flowGraphs, executorService);
+        includeDefaultValuesInFieldStates(fieldStates, flowGraphs, executorService);
 
     // Since the inclusion of default values changes the flow graphs, we need to repeat the
     // fixpoint.
@@ -68,6 +71,9 @@ public class InFlowPropagator {
     // of these method states have effectively become unknown, we replace them by the canonicalized
     // unknown method state.
     postProcessMethodStates(executorService);
+
+    // Copy the result of the flow graph propagation back to the field state collection.
+    updateFieldStates(fieldStates, flowGraphs);
   }
 
   private List<FlowGraph> computeStronglyConnectedFlowGraphs() {
@@ -83,8 +89,9 @@ public class InFlowPropagator {
   }
 
   private Map<FlowGraph, Deque<FlowGraphNode>> includeDefaultValuesInFieldStates(
-      List<FlowGraph> flowGraphs, ExecutorService executorService) throws ExecutionException {
-    DefaultFieldValueJoiner joiner = new DefaultFieldValueJoiner(appView, flowGraphs);
+      FieldStateCollection fieldStates, List<FlowGraph> flowGraphs, ExecutorService executorService)
+      throws ExecutionException {
+    DefaultFieldValueJoiner joiner = new DefaultFieldValueJoiner(appView, fieldStates, flowGraphs);
     return joiner.joinDefaultFieldValuesForFieldsWithReadBeforeWrite(executorService);
   }
 
@@ -197,6 +204,22 @@ public class InFlowPropagator {
       methodStates.set(method, MethodState.bottom());
     } else if (monomorphicMethodState.isEffectivelyUnknown()) {
       methodStates.set(method, MethodState.unknown());
+    }
+  }
+
+  private void updateFieldStates(
+      FieldStateCollection fieldStates, Collection<FlowGraph> flowGraphs) {
+    for (FlowGraph flowGraph : flowGraphs) {
+      flowGraph.forEachFieldNode(
+          node -> {
+            ProgramField field = node.getField();
+            ValueState state = node.getState();
+            ValueState previousState = fieldStates.set(field, state);
+            assert state.isUnknown()
+                    || state == previousState
+                    || (state.isConcrete() && previousState.isBottom())
+                : "Expected current state to be >= previous state";
+          });
     }
   }
 }

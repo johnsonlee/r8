@@ -9,6 +9,7 @@ import static com.android.tools.r8.ir.optimize.info.OptimizationFeedback.getSimp
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
@@ -17,11 +18,11 @@ import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.conversion.PrimaryR8IRConverter;
 import com.android.tools.r8.ir.optimize.info.ConcreteCallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
-import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.StateCloner;
@@ -47,6 +48,7 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final PrimaryR8IRConverter converter;
+  private final FieldStateCollection fieldStates;
   private final MethodStateCollectionByReference methodStates;
   private final InternalOptions options;
   private final PostMethodProcessor.Builder postMethodProcessorBuilder;
@@ -54,10 +56,12 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
   public ArgumentPropagatorOptimizationInfoPopulator(
       AppView<AppInfoWithLiveness> appView,
       PrimaryR8IRConverter converter,
+      FieldStateCollection fieldStates,
       MethodStateCollectionByReference methodStates,
       PostMethodProcessor.Builder postMethodProcessorBuilder) {
     this.appView = appView;
     this.converter = converter;
+    this.fieldStates = fieldStates;
     this.methodStates = methodStates;
     this.options = appView.options();
     this.postMethodProcessorBuilder = postMethodProcessorBuilder;
@@ -94,9 +98,19 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
 
   private ProgramMethodSet setOptimizationInfo(DexProgramClass clazz) {
     ProgramMethodSet prunedMethods = ProgramMethodSet.create();
+    clazz.forEachProgramField(this::setOptimizationInfo);
     clazz.forEachProgramMethod(method -> setOptimizationInfo(method, prunedMethods));
     clazz.getMethodCollection().removeMethods(prunedMethods.toDefinitionSet());
     return prunedMethods;
+  }
+
+  public void setOptimizationInfo(ProgramField field) {
+    ValueState state = fieldStates.remove(field);
+    // TODO(b/296030319): Also publish non-bottom field states.
+    if (state.isBottom()) {
+      getSimpleFeedback()
+          .recordFieldHasAbstractValue(field.getDefinition(), appView, AbstractValue.bottom());
+    }
   }
 
   public void setOptimizationInfo(ProgramMethod method, ProgramMethodSet prunedMethods) {
@@ -184,7 +198,7 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
     if (optimizationInfo.returnsArgument()) {
       ValueState returnedArgumentState =
           monomorphicMethodState.getParameterState(optimizationInfo.getReturnedArgument());
-      OptimizationFeedback.getSimple()
+      getSimpleFeedback()
           .methodReturnsAbstractValue(
               method.getDefinition(), appView, returnedArgumentState.getAbstractValue(appView));
     }

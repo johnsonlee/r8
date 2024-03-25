@@ -44,18 +44,6 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
   }
 
   @Override
-  public ValueState clearInFlow() {
-    if (hasInFlow()) {
-      if (abstractValue.isBottom()) {
-        return bottomPrimitiveTypeParameter();
-      }
-      internalClearInFlow();
-    }
-    assert !isEffectivelyBottom();
-    return this;
-  }
-
-  @Override
   public ConcretePrimitiveTypeValueState mutableCopy() {
     return new ConcretePrimitiveTypeValueState(abstractValue, copyInFlow());
   }
@@ -107,6 +95,11 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
   @Override
   public AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
     return abstractValue;
+  }
+
+  @Override
+  public BottomValueState getCorrespondingBottom() {
+    return bottomPrimitiveTypeState();
   }
 
   @Override

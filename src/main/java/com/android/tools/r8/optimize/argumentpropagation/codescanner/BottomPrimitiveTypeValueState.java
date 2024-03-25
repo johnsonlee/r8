@@ -27,7 +27,7 @@ public class BottomPrimitiveTypeValueState extends BottomValueState {
       StateCloner cloner,
       Action onChangedAction) {
     if (state.isBottom()) {
-      assert state == bottomPrimitiveTypeParameter();
+      assert state == bottomPrimitiveTypeState();
       return this;
     }
     if (state.isUnknown()) {
