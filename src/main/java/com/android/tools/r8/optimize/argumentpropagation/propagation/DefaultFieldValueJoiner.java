@@ -89,8 +89,7 @@ public class DefaultFieldValueJoiner {
           field -> {
             // We only need to include the fields where including the default value would make a
             // difference. Then we can assert below in updateFlowGraphs() that adding the default
-            // value
-            // changes the field state.
+            // value changes the field state.
             // TODO(b/296030319): Implement this for primitive fields.
             ValueState state = fieldStates.get(field);
             if (state.isUnknown()) {
