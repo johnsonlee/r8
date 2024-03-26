@@ -175,6 +175,12 @@ public class ComposeMethodProcessor extends MethodProcessor {
         asProgramFieldOrNull(appView.definitionFor(singleBaseInFlow.asFieldValue().getField()));
     assert field != null;
 
+    // If the only input to the $$changed parameter of the Composable function is in-flow then skip.
+    if (methodState.getParameterState(parameterIndex).getAbstractValue(appView).isBottom()) {
+      methodState.setParameterState(parameterIndex, ValueState.unknown());
+      return;
+    }
+
     codeScanner
         .getFieldStates()
         .addTemporaryFieldState(
