@@ -14,7 +14,7 @@ public class EnumUnboxerUtils {
   public static boolean isArrayUsedOnlyForHashCode(
       NewArrayFilled newArrayFilled, DexItemFactory factory) {
     Value array = newArrayFilled.outValue();
-    if (!array.hasSingleUniqueUser() || array.hasPhiUsers()) {
+    if (array == null || !array.hasSingleUniqueUser() || array.hasPhiUsers()) {
       return false;
     }
     InvokeStatic invoke = array.singleUniqueUser().asInvokeStatic();
